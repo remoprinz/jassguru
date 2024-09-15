@@ -1,0 +1,20 @@
+# Python cache
+__pycache__/
+
+# Virtual environment
+myenv/
+
+# Instance folder (mit DB)
+instance/
+
+# Unbenutzte Migrations
+migrations/
+
+# Lokale Skripte (falls nur lokal genutzt)
+scripts/
+
+# Tests (falls nur lokal genutzt)
+tests/
+
+# Package-lock.json, da nicht relevant im Backend
+package-lock.json

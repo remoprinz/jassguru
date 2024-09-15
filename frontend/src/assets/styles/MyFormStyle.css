@@ -1,0 +1,54 @@
+.dialog-container {
+  width: 80vw; /* width set to 80% of viewport width */
+  height: 0;
+  padding-bottom: 154.83871%; /* 48/31 = 1.5483871, to maintain the 31:48 ratio */
+  position: relative;
+  overflow: hidden;
+  background-image: url("@/assets/images/Schiefertafel.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.dialog-background {
+  background-image: url("@/assets/images/Schiefertafel.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: -1;
+}
+
+
+
+.dialog-content {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+
+
+@media (orientation: landscape) {
+  .woodenframe-container {
+    background-image: url("@/assets/images/Schiefertafel_gedreht.png");
+  }
+}
+
+.chalkboard-container {
+  background-color: #1a1917;
+  color: white;
+  border-radius: 15px;
+  padding: 5%;
+}
+
+.registration-title {
+  text-align: center;
+  margin-bottom: 2em;
+  color: white;
+}

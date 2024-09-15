@@ -1,0 +1,84 @@
+# Node modules and cache directories
+node_modules/
+frontend/node_modules/.cache/
+
+# MacOS system files
+.DS_Store
+
+# Python compiled files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.whl
+
+# SQLite database (exclude sensitive data)
+backend/instance/jassapp.db
+
+# Environment variables (contains sensitive data)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Frontend build output
+/frontend/dist/
+/frontend/build/
+
+# Cache files
+/.cache/
+*.log
+
+# Eslint and Babel cache
+frontend/node_modules/.cache/eslint/
+frontend/node_modules/.cache/babel-loader/
+
+# Unit test and coverage
+tests/coverage/
+*.cover
+*.coverage
+.cache
+.pytest_cache/
+nosetests.xml
+coverage.xml
+
+# Jupyter Notebook checkpoints (remove if not used)
+.ipynb_checkpoints/
+
+# IDE specific files (e.g., JetBrains, Sublime)
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# VS Code workspace and settings
+.vscode/
+*.code-workspace
+
+# Lock files (optional, remove if unnecessary)
+package-lock.json
+yarn.lock
+
+# Backup files
+*.bak
+*.swp
+*.tmp
+
+# Ignore documentation and dev-specific scripts
+backend verzeichnis_NEU.md
+Code Simulation LCM.md
+README.txt
+
+# Ignore your personal documentation folder
+documentation/
+
+# Ignore database backups or large files
+*.db_backup
+*.sql
+
+# Specific files for local testing
+frontend/test_output/
+backend/test_output/
+
+
+
