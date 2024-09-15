@@ -36,6 +36,7 @@ Flask-SQLAlchemy==3.0.3
 fonttools==4.42.1
 fqdn==1.5.1
 gcloud==0.17.0
+git-filter-repo==2.45.0
 google-api-core==2.11.1
 google-api-python-client==2.97.0
 google-auth==2.22.0

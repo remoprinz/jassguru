@@ -15,8 +15,8 @@
             <div v-for="player in 2" :key="`team${team}player${player}`" class="player-select">
               <v-select
                 v-model="selectedPlayers[`team${team}player${player}`]"
-                :items="availablePlayersForSlot(`team${team}player${player}`)"
-                item-text="nickname"
+                :items="availablePlayers"
+                item-title="nickname"
                 item-value="id"
                 :label="`Spieler ${teamIndex * 2 + player}`"
                 return-object
@@ -24,13 +24,8 @@
                 outlined
                 @change="handlePlayerSelection(`team${team}player${player}`, $event)"
               >
-                <template v-slot:append-item>
-                  <v-list-item @click="goToAddPlayer">
-                    <v-list-item-title>Neuer Spieler hinzufügen</v-list-item-title>
-                  </v-list-item>
-                  <v-list-item @click="searchExistingPlayer">
-                    <v-list-item-title>Existierenden Spieler suchen</v-list-item-title>
-                  </v-list-item>
+                <template v-slot:item="{ item, props }">
+                  <v-list-item v-bind="props" :title="item.raw.nickname"></v-list-item>
                 </template>
               </v-select>
             </div>
@@ -70,7 +65,7 @@ import { searchPlayers } from '@/api/playerServices';
 import SearchDialog from '@/components/player/SearchDialog.vue';
 import PlayerSelectDialog from '@/components/player/PlayerSelectDialog.vue';
 import notificationMixin from '@/mixins/notificationMixin';
-import { logError, logInfo, logDebug, logWarning } from '@/utils/logger';
+import { logError, logInfo, logDebug } from '@/utils/logger';
 import { JASS_ERFASSEN_MESSAGES } from '@/constants/jassErfassenMessages';
 
 export default {
@@ -86,63 +81,38 @@ export default {
     };
   },
   computed: {
-    ...mapState('jassErfassen', ['selectedGroup', 'groupPlayers']),
+    ...mapState('jassErfassen', ['selectedGroup', 'groupPlayers', 'selectedPlayers']),
     ...mapGetters('jassErfassen', ['allPlayersSelected']),
-    selectedPlayers: {
-      get() {
-        return this.$store.state.jassErfassen.selectedPlayers;
-      },
-      set(newValue) {
-        this.$store.commit('jassErfassen/SET_SELECTED_PLAYERS', newValue);
-      }
-    },
     
-    availablePlayersForSlot() {
-      return (slot) => {
-        const currentSelectedPlayers = Object.entries(this.selectedPlayers)
-          .filter(([currentSlot, player]) => currentSlot !== slot && player !== null)
-          .map(([, player]) => player);
-        
-        return this.groupPlayers.filter(player => 
-          !currentSelectedPlayers.some(selectedPlayer => selectedPlayer.id === player.id)
-        );
-      };
-    }
+    availablePlayers() {
+      return this.groupPlayers.filter(player => 
+        !Object.values(this.selectedPlayers).some(selected => selected && selected.id === player.id)
+      );
+    },
   },
   methods: {
     ...mapActions('jassErfassen', ['setSelectedPlayer', 'removeSelectedPlayer', 'validateSelectedPlayers']),
     
     handlePlayerSelection(slot, player) {
-      if (player) {
-        this.setSelectedPlayer({ slot, player: { id: player.id, nickname: player.nickname } });
-        logInfo(`Spieler ${player.nickname} für Slot ${slot} ausgewählt`);
-      } else {
-        this.removeSelectedPlayer(slot);
-        logInfo(`Spieler aus Slot ${slot} entfernt`);
-      }
-      logDebug('Updated selectedPlayers:', this.selectedPlayers);
+      this.$store.dispatch('jassErfassen/setSelectedPlayer', { slot, player });
     },
     
     async confirmPlayerSelection() {
-      logDebug('Bestätigung der Spielerauswahl:', this.selectedPlayers);
       if (this.allPlayersSelected) {
         try {
-          await this.validateSelectedPlayers();
-          logInfo('SpielerErfassen', 'Spielerauswahl erfolgreich abgeschlossen', this.selectedPlayers);
-          this.$emit('next-step');
-        } catch (error) {
-          logError('SpielerErfassen', 'Fehler bei der Spielerauswahl', error);
+          await this.$store.dispatch('jassErfassen/validateSelectedPlayers');
+          this.$store.commit('jassErfassen/SET_SELECTED_PLAYERS', this.selectedPlayers);
           this.showSnackbar({
-            message: error.message,
+            message: JASS_ERFASSEN_MESSAGES.PLAYER_SELECT.CONFIRMED,
+            color: 'success'
+          });
+          this.$store.dispatch('jassErfassen/nextStep');
+        } catch (error) {
+          this.showSnackbar({
+            message: error.message || JASS_ERFASSEN_MESSAGES.PLAYER_SELECT.ERROR,
             color: 'error'
           });
         }
-      } else {
-        logWarning('SpielerErfassen', 'Nicht alle Spieler ausgewählt');
-        this.showSnackbar({
-          message: 'Bitte wählen Sie alle Spieler aus.',
-          color: 'warning'
-        });
       }
     },
     
@@ -155,19 +125,11 @@ export default {
     },
     
     async fetchPlayersIfNeeded() {
-      if (!this.selectedGroup || !this.selectedGroup.id) {
-        logError('fetchPlayersIfNeeded', new Error('No valid group selected'));
-        return;
-      }
-
-      if (this.groupPlayers.length === 0) {
-        logInfo('fetchPlayersIfNeeded', 'Fetching players for group:', this.selectedGroup.id);
+      if (this.selectedGroup && this.groupPlayers.length === 0) {
         this.isLoading = true;
         try {
           await this.$store.dispatch('jassErfassen/fetchGroupPlayers', this.selectedGroup.id);
-          logInfo('fetchPlayersIfNeeded', 'Players fetched successfully');
         } catch (error) {
-          logError('fetchPlayersIfNeeded', error);
           this.showSnackbar({
             message: JASS_ERFASSEN_MESSAGES.PLAYER_SELECT.LOAD_ERROR,
             color: 'error',
@@ -280,6 +242,10 @@ export default {
     selectedPlayers: {
       handler(newPlayers) {
         logDebug('SpielerErfassen: selectedPlayers updated', newPlayers);
+        logInfo('SpielerErfassen', 'Ausgewählte Spieler aktualisiert:', newPlayers);
+        if (Object.values(newPlayers).filter(Boolean).length === 4) {
+          logInfo('SpielerErfassen', 'Alle vier Spieler ausgewählt, bereit für nächsten Schritt');
+        }
       },
       deep: true
     }
@@ -365,7 +331,7 @@ export default {
   padding-right: 8px !important;
 }
 
-/* Optional: Verkleinern Sie die Schriftgröße innerhalb der Eingabefelder */
+/* Optional: Verkleinern Sie die Schriftgröe innerhalb der Eingabefelder */
 :deep(.v-select .v-select__selection) {
   font-size: 0.9em;
 }

@@ -22,14 +22,30 @@ const firebaseConfig = {
   measurementId: process.env.VUE_APP_FIREBASE_MEASUREMENT_ID
 };
 
+// Überprüfen, ob die Firebase-Konfiguration vollständig ist
+if (Object.values(firebaseConfig).some(value => value === undefined)) {
+  console.error('Firebase configuration is incomplete. Please check your .env file.');
+  throw new Error('Firebase configuration is incomplete');
+}
+
+// Sensible Informationen nicht mehr im Log ausgeben
+console.log("Firebase initialized successfully.");
+
 // Initialisiere Firebase
 const app = initializeApp(firebaseConfig);
 
-// Analytics und Auth
+// Analytics und Auth initialisieren
 const analytics = getAnalytics(app);
 const auth = getAuth(app);
 
 // Funktionen zum Registrieren, Anmelden und Zurücksetzen des Passworts
+
+/**
+ * Registriert einen neuen Benutzer mit E-Mail und Passwort und sendet eine Bestätigungs-E-Mail.
+ * @param {string} email - Die E-Mail-Adresse des Benutzers.
+ * @param {string} password - Das Passwort des Benutzers.
+ * @returns {object} - Das Benutzerobjekt nach erfolgreicher Registrierung.
+ */
 const registerWithEmailAndPassword = async (email, password) => {
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -41,6 +57,10 @@ const registerWithEmailAndPassword = async (email, password) => {
   }
 };
 
+/**
+ * Sendet eine E-Mail zum Zurücksetzen des Passworts an den angegebenen Benutzer.
+ * @param {string} email - Die E-Mail-Adresse des Benutzers.
+ */
 const resetPassword = async (email) => {
   try {
     await sendPasswordResetEmail(auth, email);
@@ -50,6 +70,10 @@ const resetPassword = async (email) => {
   }
 };
 
+/**
+ * Meldet den Benutzer mit Google an.
+ * @returns {object} - Das Benutzerobjekt nach erfolgreichem Google-Login.
+ */
 const signInWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
   try {
@@ -61,7 +85,7 @@ const signInWithGoogle = async () => {
   }
 };
 
-// Exporte
+// Exporte der wichtigsten Funktionen und Objekte für die Verwendung in der App
 export { 
   auth, 
   analytics, 

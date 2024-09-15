@@ -1,127 +1,73 @@
 <template>
   <div class="rosen10-player">
-    <v-progress-circular v-if="isLoading" indeterminate color="primary" class="loader"></v-progress-circular>
-    <template v-else>
-      <v-select
-        v-model="selectedRosen10Player"
-        :items="playerOptions"
-        item-title="nickname"
-        item-value="id"
-        label="Wer darf zuerst ansagen?"
-        @change="handlePlayerSelection"
-        class="player-select"
-      ></v-select>
-      <OkButton
-        :disabled="!selectedRosen10Player"
-        @click="confirmRosen10Player"
-        class="ok-button"
-      >
-        Bestätigen
-      </OkButton>
-      <v-btn @click="confirmRosen10Player" :disabled="!selectedRosen10Player">
-        Bestätigen und fortfahren
-      </v-btn>
-    </template>
+    <v-select
+      v-model="localSelectedRosen10Player"
+      :items="selectedPlayersArray"
+      item-title="nickname"
+      item-value="id"
+      label="Wähle den Rosen 10 Spieler"
+      return-object
+      outlined
+      @update:model-value="handleRosen10Selection"
+    >
+      <template v-slot:item="{ item, props }">
+        <v-list-item v-bind="props" :title="item.raw.nickname"></v-list-item>
+      </template>
+    </v-select>
+    <OkButton 
+      :disabled="!localSelectedRosen10Player" 
+      @click="confirmRosen10Player"
+      class="ok-button"
+    >
+      Bestätigen
+    </OkButton>
   </div>
 </template>
 
 <script>
-import { mapState, mapGetters } from 'vuex';
-import { logInfo, logDebug, logError, logWarning } from '@/utils/logger';
-import { JASS_ERFASSEN_MESSAGES } from '@/constants/jassErfassenMessages';
+import { mapState, mapActions, mapGetters } from 'vuex';
 import OkButton from '@/components/common/OkButton.vue';
-import { mapActions } from 'vuex';
+import { JASS_ERFASSEN_MESSAGES } from '@/constants/jassErfassenMessages';
+import { logInfo } from '@/utils/logger';
 
 export default {
   name: 'Rosen10Player',
-  components: {
-    OkButton
-  },
+  components: { OkButton },
   data() {
     return {
-      selectedRosen10Player: null,
-      isLoading: true,
+      localSelectedRosen10Player: null,
     };
   },
   computed: {
-    ...mapGetters('jassErfassen', ['getSelectedPlayers']),
     ...mapState('jassErfassen', ['selectedPlayers']),
-    playerOptions() {
-      logDebug('Rosen10Player: Computing playerOptions');
-      return this.selectedPlayers.map(player => ({
-        title: player.nickname,
-        value: player.id,
-        ...player
-      }));
-    },
+    ...mapGetters('jassErfassen', ['getSelectedPlayersArray']),
+    selectedPlayersArray() {
+      return this.getSelectedPlayersArray;
+    }
   },
   methods: {
     ...mapActions('jassErfassen', ['setRosen10Player', 'nextStep']),
     ...mapActions('snackbar', ['showSnackbar']),
-
-    handlePlayerSelection(playerId) {
-      logDebug('handlePlayerSelection called with playerId:', playerId);
-      const player = this.getSelectedPlayers.find(p => p.id === playerId);
-      if (player) {
-        logDebug('Selected Rosen10 player:', player);
-        this.selectedRosen10Player = player;
-      } else {
-        logError('handlePlayerSelection', 'Player not found for id:', playerId);
-      }
+    
+    handleRosen10Selection(player) {
+      logInfo('Rosen10Player', `Rosen 10 player selected: ${player.nickname}`);
+      this.localSelectedRosen10Player = player;
     },
-
-    async confirmRosen10Player() {
-      logDebug('Confirming Rosen10 player selection:', this.selectedRosen10Player);
-      if (this.selectedRosen10Player) {
-        try {
-          await this.setRosen10Player(this.selectedRosen10Player);
-          logInfo('Rosen10Player', 'Rosen10 player successfully set', this.selectedRosen10Player);
-          this.showSnackbar({
-            message: JASS_ERFASSEN_MESSAGES.ROSEN10_SELECT.SELECTED.replace('{playerName}', this.selectedRosen10Player.nickname),
-            color: 'success'
-          });
-          this.nextStep();
-        } catch (error) {
-          logError('Rosen10Player', 'Error confirming Rosen10 player', error);
-          this.showSnackbar({
-            message: JASS_ERFASSEN_MESSAGES.ROSEN10_SELECT.ERROR,
-            color: 'error'
-          });
-        }
-      } else {
-        logError('Rosen10Player', 'No Rosen10 player selected');
+    
+    confirmRosen10Player() {
+      if (this.localSelectedRosen10Player) {
+        logInfo('Rosen10Player', `Confirming Rosen 10 player: ${this.localSelectedRosen10Player.nickname}`);
+        this.setRosen10Player(this.localSelectedRosen10Player);
         this.showSnackbar({
-          message: JASS_ERFASSEN_MESSAGES.ROSEN10_SELECT.INVALID,
-          color: 'warning'
+          message: JASS_ERFASSEN_MESSAGES.ROSEN10_PLAYER.SELECTED.replace('{playerName}', this.localSelectedRosen10Player.nickname),
+          color: 'success'
         });
+        logInfo('Rosen10Player', 'Calling nextStep');
+        this.nextStep();
+        logInfo('Rosen10Player', 'nextStep called');
       }
     },
-
-    checkPlayersLoaded() {
-      logDebug('Rosen10Player: Checking players loaded');
-      logDebug('selectedPlayers:', this.selectedPlayers);
-      logDebug('getSelectedPlayers:', this.getSelectedPlayers);
-      if (this.getSelectedPlayers.length > 0) {
-        this.isLoading = false;
-        logInfo('Rosen10Player', 'Players loaded', this.getSelectedPlayers);
-      } else {
-        this.isLoading = true;
-        logWarning('Rosen10Player: Keine Spieler geladen. Dies könnte ein Problem sein.');
-      }
-    }
   },
-  created() {
-    logInfo('Rosen10Player', 'Component created, selectedPlayers:', this.selectedPlayers);
-    this.checkPlayersLoaded();
-  },
-  watch: {
-    getSelectedPlayers: {
-      immediate: true,
-      handler() {
-        this.checkPlayersLoaded();
-      }
-    }
-  }
 };
 </script>
 
@@ -135,13 +81,8 @@ export default {
   margin: 0 auto;
 }
 
-.player-select,
-.ok-button {
+.v-select, .ok-button {
   width: 100%;
   margin-bottom: 16px;
-}
-
-.loader {
-  margin-top: 50px;
 }
 </style>

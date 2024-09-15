@@ -43,10 +43,8 @@ export const JASS_ERFASSEN_MESSAGES = {
   },
 
   // Rosen 10 Spieler (Schritt 4)
-  ROSEN10_SELECT: {
-    SELECT_PROMPT: 'Wählen Sie den Rosen 10 Spieler aus.',
-    SELECTED: 'Rosen 10 Spieler "{playerName}" ausgewählt.',
-    ERROR: 'Fehler bei der Auswahl des Rosen 10 Spielers. Bitte versuchen Sie es erneut.',
+  ROSEN10_PLAYER: {
+    SELECTED: '"{playerName}" darf heute das Spiel beginnen.',
   },
 
   // Jass Erfassen Übersicht (Schritt 5)

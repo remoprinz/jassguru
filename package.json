@@ -1,0 +1,26 @@
+{
+  "name": "jassguru",
+  "version": "1.0.0",
+  "description": "the jass experience",
+  "main": "frontend/main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/promzo/jassguru.git"
+  },
+  "keywords": [
+    "Jass"
+  ],
+  "author": "promzo",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/promzo/jassguru/issues"
+  },
+  "homepage": "https://github.com/promzo/jassguru#readme",
+  "dependencies": {
+    "mitt": "^3.0.1",
+    "vuex-persist": "^3.1.3"
+  }
+}

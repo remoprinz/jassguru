@@ -28,7 +28,7 @@ import SpielerErfassen from '@/components/JassErfassenComponents/SpielerErfassen
 import Rosen10Player from '@/components/JassErfassenComponents/Rosen10Player.vue';
 import JassErfassenUebersicht from '@/components/JassErfassenComponents/JassErfassenUebersicht.vue';
 import CloseButton from '@/components/common/CloseButton.vue';
-import { logError, logInfo, logDebug } from '@/utils/logger';
+import { logError, logInfo} from '@/utils/logger';
 
 export default {
   name: 'JassErfassen',
@@ -66,7 +66,12 @@ export default {
         4: Rosen10Player,
         5: JassErfassenUebersicht,
       };
-      return components[this.currentStep];
+      const component = components[this.currentStep];
+      if (!component) {
+        logError('JassErfassen', `Ungültiger Schritt: ${this.currentStep}`);
+        return null;
+      }
+      return component;
     },
   },
   methods: {
@@ -76,6 +81,7 @@ export default {
       'resetJassErfassen',
       'fetchGroupPlayers',
       'resetJassErfassenState',
+      'initializeJassErfassenState',
     ]),
     ...mapActions('snackbar', ['showSnackbar', 'clearSnackbars']),
 
@@ -86,78 +92,84 @@ export default {
         : require('@/assets/images/Jasstafel.png');
     },
 
-    async initializeState() {
+    async initializeJassErfassenState() {
       try {
-        const savedState = localStorage.getItem('jassErfassenState');
-        if (savedState) {
-          const parsedState = JSON.parse(savedState);
-          await this.$store.dispatch('jassErfassen/restoreState', parsedState);
-        } else {
-          this.resetJassErfassenState();
-        }
+        await this.$store.dispatch('jassErfassen/initializeJassErfassenState');
         this.setBgImage();
-        window.addEventListener('resize', this.setBgImage);
-        window.addEventListener('orientationchange', this.setBgImage);
-
-        await this.saveState();
+        logInfo('JassErfassen', 'Jass-Erfassen-Zustand erfolgreich initialisiert');
       } catch (error) {
-        logError('JassErfassen', 'Error in initializeState:', error);
+        logError('JassErfassen', 'Fehler beim Initialisieren des Jass-Erfassen-Zustands', error);
         this.showSnackbar({
-          message: 'Fehler beim Initialisieren der Komponente',
-          color: 'error',
-        });
-      }
-    },
-
-    async resetState() {
-      logDebug('JassErfassen', 'Setze Zustand zurück');
-      try {
-        await this.$store.commit('jassErfassen/setCurrentStep', 1);
-        await this.$store.commit('jassErfassen/setSelectedGroup', null);
-        await this.clearSnackbars();
-        logInfo('JassErfassen', 'Zustand erfolgreich zurückgesetzt');
-      } catch (error) {
-        logError('JassErfassen', 'Fehler beim Zurücksetzen des Zustands:', error);
-        this.showSnackbar({
-          message: 'Fehler beim Zurücksetzen des Zustands',
+          message: 'Fehler beim Initialisieren des Jass-Erfassen-Zustands',
           color: 'error',
         });
       }
     },
 
     async handleNextStep() {
-      logInfo('JassErfassen', 'Übergang zum nächsten Schritt wird eingeleitet', { currentStep: this.currentStep });
+      logInfo('JassErfassen', 'handleNextStep aufgerufen', { currentStep: this.currentStep });
+      if (this.currentStep === 3) {
+        await this.$store.dispatch('jassErfassen/loadSelectedPlayers');
+      }
       try {
         await this.clearSnackbars();
         await this.nextStep();
         logInfo('JassErfassen', `Übergang zum Schritt ${this.currentStep} erfolgreich abgeschlossen`);
-        if (this.currentStep === 4) {
-          logInfo('JassErfassen', 'Übergang zur Rosen10Player-Komponente');
-          console.log('Current state of selectedPlayers:', this.selectedPlayers);
+        if (this.currentStep === 5) {
+          logInfo('JassErfassen', 'Übergang zur JassErfassenUebersicht-Komponente');
+          await this.loadOverviewData();
         }
       } catch (error) {
         logError('JassErfassen', 'Fehler beim Übergang zum nächsten Schritt', error);
+        this.showSnackbar({
+          message: 'Fehler beim Laden der nächsten Ansicht. Bitte versuchen Sie es erneut.',
+          color: 'error'
+        });
+      }
+    },
+
+    async loadOverviewData() {
+      logInfo('JassErfassen', 'Lade Übersichtsdaten');
+      try {
+        const overviewData = await this.$store.dispatch('jassErfassen/getOverviewData');
+        logInfo('JassErfassen', 'Übersichtsdaten geladen', overviewData);
+      } catch (error) {
+        logError('JassErfassen', 'Fehler beim Laden der Übersichtsdaten', error);
       }
     },
 
     resetJassErfassenProcess() {
-      this.resetJassErfassenState();
-      this.showSnackbar({
-        message: 'Jass Erfassen Prozess wurde zurückgesetzt',
-        color: 'info',
-      });
+      this.$store.dispatch('jassErfassen/resetJassErfassen');
     },
 
-    resetToFirstStep() {
-      this.resetJassErfassenProcess();
-      this.setCurrentStep(1);
+    async saveCurrentState() {
+      try {
+        await this.saveState();
+        logInfo('JassErfassen', 'Aktueller Zustand erfolgreich gespeichert');
+      } catch (error) {
+        logError('JassErfassen', 'Fehler beim Speichern des aktuellen Zustands', error);
+        this.showSnackbar({
+          message: 'Fehler beim Speichern des Zustands',
+          color: 'warning',
+        });
+      }
     },
   },
   created() {
-    this.resetToFirstStep();
-    this.setBgImage();
-    window.addEventListener('resize', this.setBgImage);
-    window.addEventListener('orientationchange', this.setBgImage);
+    this.$nextTick(async () => {
+      try {
+        await this.initializeJassErfassenState();
+        window.addEventListener('resize', this.setBgImage);
+        window.addEventListener('orientationchange', this.setBgImage);
+        logInfo('JassErfassen', 'Komponente erfolgreich initialisiert');
+      } catch (error) {
+        logError('JassErfassen', 'Fehler beim Initialisieren der Komponente', error);
+        this.showSnackbar({
+          message: 'Fehler beim Initialisieren der Komponente',
+          color: 'error',
+        });
+      }
+    });
   },
   async mounted() {
     this.setBgImage();
@@ -178,15 +190,13 @@ export default {
     window.removeEventListener('orientationchange', this.setBgImage);
   },
   watch: {
-    currentStep: {
-      handler(newStep, oldStep) {
-        logInfo('JassErfassen', `Current step changed from ${oldStep} to ${newStep}`);
-        if (newStep !== oldStep) {
-          this.saveState();
-        }
-      },
-      immediate: true,
-    },
+    currentStep(newStep, oldStep) {
+      logInfo('JassErfassen', `Schritt geändert von ${oldStep} zu ${newStep}`);
+      if (newStep === 5) {
+        logInfo('JassErfassen', 'Übergang zur JassErfassenUebersicht');
+        this.$store.dispatch('jassErfassen/loadOverviewData');
+      }
+    }
   },
 };
 </script>
