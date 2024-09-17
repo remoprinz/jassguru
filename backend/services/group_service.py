@@ -73,13 +73,13 @@ def add_player_to_group(player_id, group_id):
             raise ResourceNotFoundError("Group not found.")
         
         if player in group.players:
-            return group, False  # Player already in group, no action taken
+            return group, False 
         
         group.players.append(player)
         db.session.commit()
         
         logger.info(f"Player {player.nickname} (ID: {player.id}) added to group {group.name} (ID: {group.id})")
-        return group, True  # Player successfully added
+        return group, True
     except ResourceNotFoundError as e:
         logger.error(f"Resource not found: {e}")
         raise
@@ -164,11 +164,19 @@ def get_user_groups(firebase_uid):
         player_profile = PlayerProfile.query.filter_by(firebase_uid=firebase_uid).first()
         if not player_profile:
             logger.warning(f"No PlayerProfile found for firebase_uid: {firebase_uid}")
-            return []  # Return an empty list instead of raising an exception
+            return []
         
-        groups = player_profile.player.jass_groups if player_profile.player else []
+        if not player_profile.player:
+            logger.warning(f"PlayerProfile found, but no associated Player for firebase_uid: {firebase_uid}")
+            return []
+        
+        # Explizit nur die benötigten Felder laden
+        groups = db.session.query(JassGroup.id, JassGroup.name).join(player_jass_group).filter(player_jass_group.c.player_id == player_profile.player.id).all()
+        
         logger.info(f"Found {len(groups)} groups for user with firebase_uid: {firebase_uid}")
-        return groups
+        result = [{"id": group[0], "name": group[1]} for group in groups]
+        logger.debug(f"Returning groups: {result}")
+        return result
     except Exception as e:
-        logger.error(f"Error fetching user groups: {e}")
+        logger.error(f"Error fetching user groups: {e}", exc_info=True)
         raise GroupError("Failed to fetch user groups.")

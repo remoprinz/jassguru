@@ -40,6 +40,15 @@ def verify_firebase_token():
         logger.error(f"Error verifying Firebase token: {str(e)}")
         raise AuthenticationError("Invalid token")
 
+def get_groups():
+    try:
+        verify_firebase_token()
+        groups = get_all_groups()
+        return jsonify(group_schema.dump(groups, many=True)), 200
+    except Exception as e:
+        logger.error(f"Fehler beim Abrufen der Gruppen: {str(e)}")
+        return handle_api_error(e)
+
 @groups_routes.route('/', methods=['GET', 'POST'])
 def groups():
     if request.method == 'GET':
@@ -159,23 +168,38 @@ def delete_single_group(group_id):
 def get_user_groups_route():
     try:
         firebase_uid = verify_firebase_token()
+        logger.info(f"Gruppen für Benutzer mit firebase_uid werden abgerufen: {firebase_uid}")
         groups = get_user_groups(firebase_uid)
-        return jsonify([{"id": group.id, "name": group.name} for group in groups]), 200
+        logger.info(f"{len(groups)} Gruppen für Benutzer gefunden")
+        logger.info(f"Gruppen: {groups}")
+        return jsonify(groups), 200
     except Exception as e:
-        logger.error(f"Error in /groups/user_groups GET: {str(e)}")
-        return jsonify({"error": "Failed to fetch user groups"}), 500
+        logger.error(f"Fehler in /groups/user_groups GET: {str(e)}", exc_info=True)
+        return jsonify({"error": "Benutzergruppen konnten nicht abgerufen werden", "details": str(e)}), 500
 
 @groups_routes.route('/<int:group_id>/players', methods=['GET'])
 def get_players_for_group(group_id):
     try:
-        logger.info(f"Fetching players for group ID: {group_id}")
+        verify_firebase_token()
+        logger.info(f"Spieler für Gruppe mit ID {group_id} werden abgerufen")
         players = player_service.get_players_for_group(group_id)
+        logger.debug(f"Abgerufene Spieler: {players}")
         if not players:
-            return jsonify({"message": "No players found for this group"}), 404
-        return jsonify(players_schema.dump(players)), 200
+            logger.info(f"Keine Spieler für Gruppe {group_id} gefunden")
+            return jsonify({"message": "Keine Spieler für diese Gruppe gefunden"}), 404
+        logger.info(f"{len(players)} Spieler für Gruppe {group_id} erfolgreich abgerufen")
+        serialized_players = players_schema.dump(players)
+        logger.debug(f"Serialisierte Spieler: {serialized_players}")
+        return jsonify(serialized_players), 200
+    except AuthenticationError as e:
+        logger.warning(f"Authentifizierungsfehler beim Abrufen der Spieler für Gruppe {group_id}: {str(e)}")
+        return jsonify({"error": "Authentifizierung fehlgeschlagen"}), 401
     except ResourceNotFoundError as e:
-        logger.warning(f"Gruppe nicht gefunden: {group_id}")
+        logger.warning(f"Gruppe {group_id} nicht gefunden beim Versuch, Spieler abzurufen: {str(e)}")
         return jsonify({"error": str(e)}), 404
+    except GroupError as e:
+        logger.error(f"Gruppenfehler beim Abrufen der Spieler für Gruppe {group_id}: {str(e)}")
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
-        logger.error(f"Fehler beim Abrufen der Spieler für Gruppe {group_id}: {str(e)}")
-        return jsonify({"error": "Ein unerwarteter Fehler ist aufgetreten"}), 500
+        logger.error(f"Unerwarteter Fehler beim Abrufen der Spieler für Gruppe {group_id}: {str(e)}", exc_info=True)
+        return jsonify({"error": "Ein unerwarteter Fehler ist aufgetreten", "details": str(e)}), 500

@@ -6,7 +6,6 @@ import navigation from './navigation';
 import apiStatus from './modules/apiStatus';
 import snackbar from './snackbar';
 import group from './modules/group';
-import gameMode from './modules/gameMode';
 import jassErfassen from './modules/jassErfassen';
 
 // VuexPersistence Setup
@@ -23,7 +22,6 @@ const store = createStore({
     apiStatus,
     snackbar,
     group,
-    gameMode,
     jassErfassen
   },
   plugins: [vuexLocal.plugin]

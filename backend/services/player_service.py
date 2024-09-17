@@ -1,4 +1,4 @@
-from models.player import Player
+from models.player import Player, player_jass_group  # Importieren Sie player_jass_group hier
 from models.jass_group import JassGroup
 from services.crud_service import save_to_db, get_all, get_by_id, delete_from_db
 import logging
@@ -110,19 +110,22 @@ def get_groups_for_player(identifier):
         raise
 
 def get_players_for_group(group_id):
-    """Ruft alle Spieler einer bestimmten Gruppe ab."""
     try:
         group = JassGroup.query.get(group_id)
         if not group:
             logger.warning(f"Gruppe mit ID {group_id} nicht gefunden")
             raise ResourceNotFoundError(f"Gruppe mit ID {group_id} nicht gefunden")
-        logger.info(f"Spieler für Gruppe {group_id} abgerufen. Anzahl: {len(group.players)}")
-        return group.players
+        
+        players = db.session.query(Player.id, Player.nickname).join(player_jass_group).filter(player_jass_group.c.jass_group_id == group_id).all()
+        
+        result = [{"id": player[0], "nickname": player[1]} for player in players]
+        logger.info(f"Spieler für Gruppe {group_id} abgerufen. Anzahl: {len(result)}")
+        return result
     except ResourceNotFoundError:
         raise
     except Exception as e:
         logger.error(f"Fehler beim Abrufen der Spieler für Gruppe {group_id}: {str(e)}")
-        raise
+        raise GroupError(f"Failed to fetch players for group {group_id}")
 
 def add_player_to_group(player_id, group_id):
     try:

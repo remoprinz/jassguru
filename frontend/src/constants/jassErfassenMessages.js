@@ -51,6 +51,7 @@ export const JASS_ERFASSEN_MESSAGES = {
   OVERVIEW: {
     READY: 'Bitte überprüfen Sie Ihre Angaben.',
     CONFIRMED: 'Alles klar? Sie können das Spiel jetzt starten.',
+    ERROR: 'Fehler beim Laden der Übersicht. Bitte versuchen Sie es erneut.',
   },
 
   // Spiel Starten/Speichern

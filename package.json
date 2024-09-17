@@ -21,6 +21,7 @@
   "homepage": "https://github.com/promzo/jassguru#readme",
   "dependencies": {
     "mitt": "^3.0.1",
+    "qrcode.vue": "^3.4.1",
     "vuex-persist": "^3.1.3"
   }
 }

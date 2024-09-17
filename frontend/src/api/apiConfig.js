@@ -51,13 +51,16 @@ apiService.interceptors.request.use(async (config) => {
   return Promise.reject(error);
 });
 
-apiService.interceptors.response.use(
-  response => response,
-  async error => {
-    if (error.response && error.response.status === 401) {
-      await store.dispatch('auth/logout');
+export const setupInterceptors = (router) => {
+  apiService.interceptors.response.use(
+    response => response,
+    async error => {
+      if (error.response && error.response.status === 401) {
+        await store.dispatch('auth/handleLogout');
+        router.push('/login');
+      }
+      console.error('API Error:', error);
+      return Promise.reject(error);
     }
-    console.error('API Error:', error);
-    return Promise.reject(error);
-  }
-);
+  );
+};

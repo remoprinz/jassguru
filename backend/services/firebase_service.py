@@ -69,3 +69,13 @@ def send_email_verification(email):
     except Exception as e:
         logger.error(f"An unexpected error occurred while sending email verification: {str(e)}")
         return {'success': False, 'message': 'An unexpected error occurred'}
+
+def get_rounds(jass_id):
+    logger.warning(f"Firebase-Funktion 'get_rounds' noch nicht implementiert. Simuliere Daten für Jass ID: {jass_id}")
+    # Simulierte Daten zurückgeben
+    return [
+        {"runde": 1, "team1_score": 157, "team2_score": 0},
+        {"runde": 2, "team1_score": 0, "team2_score": 157},
+        {"runde": 3, "team1_score": 200, "team2_score": 0},
+        {"runde": 4, "team1_score": 0, "team2_score": 180}
+    ]

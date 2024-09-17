@@ -91,16 +91,16 @@ export default {
     },
   },
   methods: {
-    ...mapActions('jassErfassen', ['setSelectedPlayer', 'removeSelectedPlayer', 'validateSelectedPlayers']),
+    ...mapActions('jassErfassen', ['setSelectedPlayer', 'removeSelectedPlayer', 'validateSelectedPlayers', 'fetchGroupPlayers', 'resetSelectedPlayers', 'addNewPlayerAndSelect']),
     
     handlePlayerSelection(slot, player) {
-      this.$store.dispatch('jassErfassen/setSelectedPlayer', { slot, player });
+      this.setSelectedPlayer({ slot, player });
     },
     
     async confirmPlayerSelection() {
       if (this.allPlayersSelected) {
         try {
-          await this.$store.dispatch('jassErfassen/validateSelectedPlayers');
+          await this.validateSelectedPlayers();
           this.$store.commit('jassErfassen/SET_SELECTED_PLAYERS', this.selectedPlayers);
           this.showSnackbar({
             message: JASS_ERFASSEN_MESSAGES.PLAYER_SELECT.CONFIRMED,
@@ -117,7 +117,7 @@ export default {
     },
     
     resetPlayerSelection() {
-      this.$store.dispatch('jassErfassen/resetSelectedPlayers');
+      this.resetSelectedPlayers();
       this.showSnackbar({
         message: JASS_ERFASSEN_MESSAGES.PLAYER_SELECT.RESET,
         color: 'info'
@@ -128,7 +128,7 @@ export default {
       if (this.selectedGroup && this.groupPlayers.length === 0) {
         this.isLoading = true;
         try {
-          await this.$store.dispatch('jassErfassen/fetchGroupPlayers', this.selectedGroup.id);
+          await this.fetchGroupPlayers(this.selectedGroup.id);
         } catch (error) {
           this.showSnackbar({
             message: JASS_ERFASSEN_MESSAGES.PLAYER_SELECT.LOAD_ERROR,
@@ -147,7 +147,7 @@ export default {
       }
 
       try {
-        await this.$store.dispatch('jassErfassen/addNewPlayerAndSelect', newPlayer);
+        await this.addNewPlayerAndSelect(newPlayer);
         this.showSnackbar({
           message: JASS_ERFASSEN_MESSAGES.PLAYER_SELECT.PLAYER_ADDED.replace('{playerName}', newPlayer.nickname).replace('{position}', 'zur Gruppe'),
           color: 'success',
@@ -268,23 +268,18 @@ export default {
 .team-title {
   text-align: center;
   margin-bottom: 15px;
-  font-size: 1.1em; /* Leicht verkleinerte Schriftgröße */
+  font-size: 1.1em;
 }
 
 .players-container {
   display: flex;
   justify-content: space-between;
-  gap: 10px; /* Reduzierter Abstand zwischen den Auswahlfeldern */
+  gap: 10px;
   margin-bottom: 20px;
 }
 
 .player-select {
-  width: 100%; /* Leicht erhöhte Breite */
-}
-
-.player-label {
-  font-size: 0.9em;
-  margin-bottom: 5px;
+  width: 100%;
 }
 
 .button-container {
@@ -292,7 +287,7 @@ export default {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 30px; /* Erhöhter Abstand zum letzten Auswahlfeld */
+  margin-top: 30px;
 }
 
 .confirm-button {
@@ -307,7 +302,6 @@ export default {
   cursor: pointer;
 }
 
-/* Zusätzliche Stile für breitere Eingabefelder */
 :deep(.v-select) {
   width: 100%;
 }
@@ -325,18 +319,15 @@ export default {
   text-overflow: ellipsis;
 }
 
-/* Optional: Reduzieren Sie den Innenabstand der Eingabefelder */
 :deep(.v-select .v-input__slot) {
   padding-left: 8px !important;
   padding-right: 8px !important;
 }
 
-/* Optional: Verkleinern Sie die Schriftgröe innerhalb der Eingabefelder */
 :deep(.v-select .v-select__selection) {
   font-size: 0.9em;
 }
 
-/* Neuer Stil für den zentrierten Titel */
 .centered-title {
   text-align: center;
   width: 100%;

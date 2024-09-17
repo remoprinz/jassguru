@@ -48,6 +48,7 @@ export default {
   },
   computed: {
     ...mapState('jassErfassen', ['currentStep', 'isProcessing', 'selectedGroup', 'selectedPlayers']),
+    ...mapState('auth', ['isAuthenticated']),
     pageTitle() {
       const titles = {
         1: 'Modus auswählen',
@@ -155,6 +156,20 @@ export default {
       }
     },
   },
+  watch: {
+    isAuthenticated(newValue) {
+      if (!newValue) {
+        this.$store.dispatch('auth/handleLogout');
+      }
+    },
+    currentStep(newStep, oldStep) {
+      logInfo('JassErfassen', `Schritt geändert von ${oldStep} zu ${newStep}`);
+      if (newStep === 5) {
+        logInfo('JassErfassen', 'Übergang zur JassErfassenUebersicht');
+        this.$store.dispatch('jassErfassen/loadOverviewData');
+      }
+    }
+  },
   created() {
     this.$nextTick(async () => {
       try {
@@ -188,15 +203,6 @@ export default {
   beforeUnmount() {
     window.removeEventListener('resize', this.setBgImage);
     window.removeEventListener('orientationchange', this.setBgImage);
-  },
-  watch: {
-    currentStep(newStep, oldStep) {
-      logInfo('JassErfassen', `Schritt geändert von ${oldStep} zu ${newStep}`);
-      if (newStep === 5) {
-        logInfo('JassErfassen', 'Übergang zur JassErfassenUebersicht');
-        this.$store.dispatch('jassErfassen/loadOverviewData');
-      }
-    }
   },
 };
 </script>

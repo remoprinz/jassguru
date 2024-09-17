@@ -20,7 +20,7 @@ import JasstafelContainer from '@/components/common/JasstafelContainer.vue';
 import GroupRegisterForm from '@/components/group/GroupRegisterForm.vue';
 import CloseButton from "@/components/common/CloseButton.vue";
 import MyGroupRegisterPopup from '@/components/popups/MyGroupRegisterPopup.vue';
-import { mapActions } from 'vuex';
+import { mapActions, mapState } from 'vuex';
 import confetti from 'canvas-confetti';
 
 export default {
@@ -37,6 +37,16 @@ export default {
       isLoading: false,
       showInstructionPopup: true
     };
+  },
+  computed: {
+    ...mapState('auth', ['isAuthenticated']),
+  },
+  watch: {
+    isAuthenticated(newValue) {
+      if (!newValue) {
+        this.$router.push('/login');
+      }
+    }
   },
   created() {
     this.setBgImage();

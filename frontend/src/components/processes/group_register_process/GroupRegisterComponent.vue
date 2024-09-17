@@ -8,6 +8,7 @@
 <script>
 import GroupRegisterForm from './GroupRegisterForm.vue';
 import { mapActions } from 'vuex';
+import { mapState } from 'vuex';
 import confetti from 'canvas-confetti';
 import { createGroup } from '@/api/groupServices.js';
 
@@ -19,6 +20,16 @@ export default {
     return {
       isLoading: false,
     };
+  },
+  computed: {
+    ...mapState('auth', ['isAuthenticated']),
+  },
+  watch: {
+    isAuthenticated(newValue) {
+      if (!newValue) {
+        this.$router.push('/login');
+      }
+    }
   },
   methods: {
     // Snackbar-Aktionen aus dem Vuex-Store

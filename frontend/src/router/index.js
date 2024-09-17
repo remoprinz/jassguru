@@ -12,6 +12,7 @@ import JassErfassen from '@/components/pages/JassErfassen.vue';
 import JassnameRegistrationForm from '@/components/auth/JassnameRegistrationForm.vue';
 import ConfirmAddPlayerForm from '@/components/auth/ConfirmAddPlayerForm.vue';
 import { useStore } from 'vuex';
+import JassQRCode from '@/components/JassTransition/JassQRCode.vue';
 
 const routes = [
   {
@@ -68,6 +69,11 @@ const routes = [
       store.dispatch('jassErfassen/resetStateOnLogin');
       next();
     }
+  },
+  {
+    path: '/jass-qr-code',
+    name: 'JassQRCode',
+    component: JassQRCode,
   },
 ];
 

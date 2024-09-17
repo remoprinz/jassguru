@@ -1,30 +1,30 @@
 # models/player_profile.py
 
-from extensions import db  # Make sure "extensions" is correctly imported
-from models.relationship_tables import jass_group_admins  # Import for jass_group_admins
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
+from sqlalchemy.orm import relationship
+from extensions import db
+from models import jass_group_admins
 
 class PlayerProfile(db.Model):
     __tablename__ = 'player_profiles'
-    __table_args__ = {'extend_existing': True}
     
-    id = db.Column(db.Integer, primary_key=True)
-    firebase_uid = db.Column(db.String(255), unique=True, nullable=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    profile_id = db.Column(db.Integer, db.ForeignKey('players.id'))
-    player = db.relationship("Player", back_populates="profile")
-    
-    # Use of the jass_group_admins linking table for the many-to-many relationship
-    administered_groups = db.relationship('JassGroup', secondary=jass_group_admins, back_populates='admins')
-    
-    email_confirmed = db.Column(db.Boolean, default=False)
+    id = Column(Integer, primary_key=True)
+    firebase_uid = Column(String(255), unique=True, nullable=True)
+    email = Column(String(120), unique=True, nullable=False)
+    profile_id = Column(Integer, ForeignKey('players.id'), unique=True)
+    email_confirmed = Column(Boolean, default=False)
+
+    player = relationship("Player", back_populates="profile")
+    administered_groups = relationship('JassGroup', secondary=jass_group_admins, back_populates='admins', lazy='dynamic')
 
     def serialize(self):
         return {
             "id": self.id,
             "firebase_uid": self.firebase_uid,
-            "profile_id": self.profile_id,
             "email": self.email,
+            "profile_id": self.profile_id,
             "email_confirmed": self.email_confirmed,
+            "administered_group_ids": [group.id for group in self.administered_groups]
         }
 
     def is_email_confirmed(self):
@@ -32,4 +32,12 @@ class PlayerProfile(db.Model):
 
     def confirm_email(self):
         self.email_confirmed = True
-        db.session.commit()  # Make sure db.session is correctly imported
+
+    @property
+    def get_player(self):
+        return self.player
+
+    @property
+    def get_administered_groups(self):
+        return self.administered_groups.all()
+    

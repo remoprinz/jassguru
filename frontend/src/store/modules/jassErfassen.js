@@ -13,9 +13,13 @@ const vuexLocal = new VuexPersistence({
   reducer: (state) => ({
     currentStep: state.currentStep,
     selectedMode: state.selectedMode,
-    selectedGroup: state.selectedGroup,
+    selectedGroup: state.selectedGroup ? {
+      id: state.selectedGroup.id,
+      name: state.selectedGroup.name
+    } : null,
     selectedPlayers: state.selectedPlayers,
     rosen10Player: state.rosen10Player,
+    location: state.location, // Standortinformation hinzugefügt
   }),
 });
 
@@ -37,6 +41,7 @@ const initialState = {
   apiError: null,
   players: [],
   selectedPlayer: null,
+  location: null, // Standortinformation hinzugefügt
 };
 
 // State
@@ -168,6 +173,10 @@ const mutations = {
   setOverviewData(state, data) {
     state.overviewData = data;
     logInfo('jassErfassen', 'Übersichtsdaten im State aktualisiert');
+  },
+
+  setLocation(state, location) {
+    state.location = location;
   },
 };
 
@@ -337,7 +346,8 @@ const actions = {
       selectedMode: state.selectedMode,
       selectedGroup: state.selectedGroup,
       selectedPlayers: state.selectedPlayers,
-      rosen10Player: state.rosen10Player
+      rosen10Player: state.rosen10Player,
+      location: state.location, // Standortinformation hinzugefügt
     };
     logDebug('jassErfassen', 'Übersichtsdaten:', overviewData);
     commit('setOverviewData', overviewData);
@@ -417,6 +427,10 @@ const actions = {
   initializeState({ dispatch, state, commit }) {
     logDebug('Initializing state from localStorage');
     dispatch('loadState');
+
+    if (state.selectedGroup) {
+      dispatch('restoreSelectedGroup', state.selectedGroup);
+    }
 
     if (state.currentStep > 1 && state.selectedGroup && typeof state.selectedGroup === 'object' && 'id' in state.selectedGroup) {
       dispatch('fetchGroupPlayers', state.selectedGroup.id);
@@ -500,22 +514,36 @@ const actions = {
         ],
         rosen10_player_id: state.rosen10Player.id,
         date: new Date().toISOString(),
+        location: state.location, // Standortinformation hinzugefügt
       };
       logInfo('jassErfassen', 'Jass Daten erstellt', jassData);
-      return jassData;
+      
+      try {
+        const response = await apiService.post('/jass/initialize', jassData);
+        console.log('API Response:', response);
+        const { jass_code } = response.data;
+        
+        return { jassData, jassCode: jass_code };
+      } catch (error) {
+        console.error('API Error:', error.response);
+        throw error;
+      }
     } catch (error) {
       logError('jassErfassen', 'Fehler beim Finalisieren des Jass Erfassens', error);
       throw new Error(JASS_ERFASSEN_MESSAGES.FINALIZE.ERROR);
     }
-  },
+  },   
 
-  async saveJassData({ commit }, jassData) {
+  async saveJassData({ commit, dispatch }, { jassCode }) {
     try {
-      const response = await apiService.post('/api/jass', jassData);
       commit('resetState');
-      return response.data;
+      
+      // Navigiere zur QR-Code-Seite
+      dispatch('router/push', { name: 'JassQRCode', params: { jassCode } }, { root: true });
+      
+      return { message: 'Jass erfolgreich erstellt', jassCode };
     } catch (error) {
-      console.error('Fehler beim Speichern der Jass-Daten:', error);
+      logError('jassErfassen', 'Fehler beim Speichern der Jass-Daten:', error);
       throw new Error(JASS_ERFASSEN_MESSAGES.SAVE.ERROR);
     }
   },
@@ -526,10 +554,43 @@ const actions = {
       selectedMode: state.selectedMode,
       selectedGroup: state.selectedGroup,
       selectedPlayers: state.selectedPlayers,
-      rosen10Player: state.rosen10Player
+      rosen10Player: state.rosen10Player,
+      location: state.location, // Standortinformation hinzugefügt
     };
     logDebug('jassErfassen', 'Übersichtsdaten:', overviewData);
     return overviewData;
+  },
+
+  async getJassData({ state }) {
+    return {
+      mode: state.selectedMode,
+      group_id: state.selectedGroup.id,
+      players: [
+        { id: state.selectedPlayers.team1player1.id, team: 1 },
+        { id: state.selectedPlayers.team1player2.id, team: 1 },
+        { id: state.selectedPlayers.team2player1.id, team: 2 },
+        { id: state.selectedPlayers.team2player2.id, team: 2 },
+      ],
+      rosen10_player_id: state.rosen10Player.id,
+      date: new Date().toISOString(),
+    };
+  },
+
+  async restoreSelectedGroup({ commit, dispatch }, savedGroup) {
+    if (savedGroup && savedGroup.id) {
+      try {
+        const fullGroupData = await apiService.get(`/groups/${savedGroup.id}`);
+        commit('setSelectedGroup', fullGroupData.data);
+        await dispatch('fetchGroupPlayers', savedGroup.id);
+      } catch (error) {
+        logError('restoreSelectedGroup', error);
+        commit('setSelectedGroup', null);
+      }
+    }
+  },
+
+  setLocation({ commit }, location) {
+    commit('setLocation', location);
   },
 };
 
@@ -606,6 +667,7 @@ const getters = {
       selectedGroup: state.selectedGroup,
       selectedPlayers: state.selectedPlayers,
       rosen10Player: state.rosen10Player,
+      location: state.location, // Standortinformation hinzugefügt
     };
   },
 
@@ -626,7 +688,8 @@ const getters = {
       selectedMode: state.selectedMode,
       selectedGroup: state.selectedGroup,
       selectedPlayers: state.selectedPlayers,
-      rosen10Player: state.rosen10Player
+      rosen10Player: state.rosen10Player,
+      location: state.location, // Standortinformation hinzugefügt
     };
   },
 };

@@ -11,6 +11,7 @@ import { auth } from './firebaseInit';
 import { onAuthStateChanged } from 'firebase/auth';
 
 let appInstance = null;
+let authInitialized = false;
 
 function initializeApp() {
   // App wird nur einmal initialisiert und gemountet
@@ -42,9 +43,29 @@ onAuthStateChanged(auth, (user) => {
     store.commit('auth/setUser', null);
   }
 
-  // Nur einmal initialisieren und mounten
-  initializeApp();
+  if (!authInitialized) {
+    authInitialized = true;
+    initializeApp();
+  }
 });
 
 // Axios Standardkonfiguration
 axios.defaults.baseURL = 'http://127.0.0.1:5000';
+
+// Neue Funktion für die Interceptors
+export const setupInterceptors = (router) => {
+  axios.interceptors.response.use(
+    response => response,
+    async error => {
+      if (error.response && error.response.status === 401) {
+        await store.dispatch('auth/handleLogout');
+        router.push('/login');
+      }
+      console.error('API Error:', error);
+      return Promise.reject(error);
+    }
+  );
+};
+
+// Aufruf der setupInterceptors Funktion
+setupInterceptors(router);

@@ -2,22 +2,44 @@ from typing import Tuple
 from flask import Flask, jsonify
 from flask_cors import CORS
 from werkzeug.exceptions import HTTPException
-from utils.errors import ValidationError, AuthenticationError, ResourceNotFoundError, ConflictError
+from utils.errors import ValidationError, AuthenticationError, ResourceNotFoundError, ConflictError, GroupError
 
-def handle_error(error: HTTPException, status_code: int) -> Tuple[dict, int]:
+def handle_error(error: Exception) -> Tuple[dict, int]:
     """
-    Grundlegender Fehlerhandler, der für unterschiedliche Arten von Fehlern verwendet werden kann.
+    Zentraler Fehlerhandler für verschiedene Arten von Fehlern.
     
     Args:
-        error (HTTPException): Das Fehlerobjekt.
-        status_code (int): Der HTTP-Statuscode für den Fehler.
+        error (Exception): Das Fehlerobjekt.
         
     Returns:
         Tuple[dict, int]: Ein Tupel, das aus der JSON-Antwort und dem HTTP-Statuscode besteht.
     """
+    if isinstance(error, AuthenticationError):
+        status_code = 401
+        message = "Authentifizierung fehlgeschlagen"
+    elif isinstance(error, ResourceNotFoundError):
+        status_code = 404
+        message = "Ressource nicht gefunden"
+    elif isinstance(error, GroupError):
+        status_code = 400
+        message = "Gruppenfehler"
+    elif isinstance(error, ValidationError):
+        status_code = 400
+        message = "Validierungsfehler"
+    elif isinstance(error, ConflictError):
+        status_code = 409
+        message = "Konflikt"
+    elif isinstance(error, HTTPException):
+        status_code = error.code
+        message = error.description
+    else:
+        status_code = 500
+        message = "Ein unerwarteter Fehler ist aufgetreten"
+
     response = {
         'success': False,
-        'message': str(error),
+        'message': message,
+        'details': str(error),
         'status_code': status_code
     }
     return jsonify(response), status_code
@@ -29,26 +51,14 @@ def register_error_handlers(app: Flask):
     Args:
         app (Flask): Die Flask-App-Instanz.
     """
-    app.register_error_handler(Exception, lambda e: handle_error(e, 500))
-    app.register_error_handler(ValidationError, lambda e: handle_error(e, 400))
-    app.register_error_handler(AuthenticationError, lambda e: handle_error(e, 401))
-    app.register_error_handler(ResourceNotFoundError, lambda e: handle_error(e, 404))
-    app.register_error_handler(ConflictError, lambda e: handle_error(e, 409))
+    app.register_error_handler(Exception, handle_error)
 
 def handle_api_error(error, status_code=500):
-    """
-    Zentrale Fehlerbehandlung für API-Fehler.
-    
-    Args:
-        error (Exception): Das Fehlerobjekt.
-        status_code (int): Der HTTP-Statuscode für den Fehler.
-        
-    Returns:
-        Tuple[dict, int]: Ein Tupel, das aus der JSON-Antwort und dem HTTP-Statuscode besteht.
-    """
+    error_message = str(error)
     response = {
         'success': False,
-        'message': str(error),
+        'message': 'Ein unerwarteter Fehler ist aufgetreten',
+        'details': error_message,
         'status_code': status_code
     }
     return jsonify(response), status_code

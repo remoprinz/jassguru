@@ -293,6 +293,16 @@ export default {
         throw error;
       }
     },
+
+    async handleLogout({ dispatch }) {
+      await dispatch('logout');
+      dispatch('jassErfassen/resetJassErfassenState', null, { root: true });
+      dispatch('snackbar/showSnackbar', {
+        message: 'Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.',
+        color: 'warning'
+      }, { root: true });
+      dispatch('router/push', '/login', { root: true });
+    },
   },
 
   getters: {

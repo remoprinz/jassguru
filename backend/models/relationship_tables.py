@@ -12,3 +12,8 @@ player_jass_group = db.Table('player_jass_group',
     db.Column('player_id', db.Integer, db.ForeignKey('players.id'), primary_key=True),
     db.Column('jass_group_id', db.Integer, db.ForeignKey('jass_groups.id'), primary_key=True)
 )
+
+jass_capture_players = db.Table('jass_capture_players',
+    db.Column('jass_capture_id', db.Integer, db.ForeignKey('jass_captures.id'), primary_key=True),
+    db.Column('player_id', db.Integer, db.ForeignKey('players.id'), primary_key=True)
+)

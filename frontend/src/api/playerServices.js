@@ -100,3 +100,13 @@ export const addPlayerToGroup = async (groupId, playerId) => {
         throw error;
     }
 };
+
+export const fetchPlayersForGroup = async (groupId) => {
+  try {
+    const response = await apiService.get(`/groups/${groupId}/players`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching players for group:", error);
+    throw error;
+  }
+};

@@ -2,7 +2,7 @@
   <div v-if="istDatenGeladen" class="jass-erfassen-uebersicht">
     <h2>Übersicht</h2>
     <p><strong>Datum:</strong> {{ overviewData.currentDate }}</p>
-    <p><strong>Modus:</strong> {{ overviewData.selectedMode }}</p>
+    <p v-if="overviewData.location"><strong>Ort:</strong> {{ overviewData.location }}</p> <!-- Standortinformation hinzugefügt -->
     <p><strong>Gruppe:</strong> {{ overviewData.selectedGroup.name }}</p>
     <h3>Team 1</h3>
     <ul>
@@ -62,16 +62,10 @@ export default {
 
     const bestätigenUndFortfahren = async () => {
       try {
-        logInfo('JassErfassenUebersicht', 'Bestätigung und Fortfahren gestartet');
-        const jassData = await store.dispatch('jassErfassen/finalizeJassErfassen');
-        await speichereJassDaten(jassData);
-        store.dispatch('snackbar/showSnackbar', {
-          message: JASS_ERFASSEN_MESSAGES.OVERVIEW.CONFIRMED,
-          color: 'success'
-        });
-        store.dispatch('router/push', '/spielbrett');
+        await store.dispatch('jassErfassen/finalizeJassErfassen');
+        // Erfolgreiche Navigation zum nächsten Schritt
       } catch (error) {
-        logError('JassErfassenUebersicht', 'Fehler beim Bestätigen und Fortfahren', error);
+        logError('JassErfassenUebersicht', 'Fehler beim Finalisieren des Jass', error);
         store.dispatch('snackbar/showSnackbar', {
           message: error.message || JASS_ERFASSEN_MESSAGES.OVERVIEW.ERROR,
           color: 'error'
@@ -79,12 +73,18 @@ export default {
       }
     };
 
-    const speichereJassDaten = async (jassData) => {
-      try {
-        await store.dispatch('jassErfassen/saveJassData', jassData);
-      } catch (error) {
-        logError('JassErfassenUebersicht', 'Fehler beim Speichern der Jass-Daten', error);
-        throw new Error(JASS_ERFASSEN_MESSAGES.OVERVIEW.SAVE_ERROR);
+    const erfasseStandort = async () => {
+      if ("geolocation" in navigator) {
+        try {
+          const position = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject);
+          });
+          const { latitude, longitude } = position.coords;
+          const location = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+          store.dispatch('jassErfassen/setLocation', location);
+        } catch (error) {
+          logError('JassErfassenUebersicht', 'Fehler bei der Standorterfassung', error);
+        }
       }
     };
 
@@ -100,6 +100,7 @@ export default {
         istDatenGeladen.value = true;
         logInfo('JassErfassenUebersicht', 'Daten erfolgreich geladen', overviewData.value);
       }
+      erfasseStandort();
     });
 
     return {
