@@ -85,6 +85,8 @@ export default {
     ...mapGetters('jassErfassen', ['allPlayersSelected']),
     
     availablePlayers() {
+      console.log('Verfügbare Spieler:', this.groupPlayers);
+      console.log('Ausgewählte Spieler:', this.selectedPlayers);
       return this.groupPlayers.filter(player => 
         !Object.values(this.selectedPlayers).some(selected => selected && selected.id === player.id)
       );
@@ -94,6 +96,7 @@ export default {
     ...mapActions('jassErfassen', ['setSelectedPlayer', 'removeSelectedPlayer', 'validateSelectedPlayers', 'fetchGroupPlayers', 'resetSelectedPlayers', 'addNewPlayerAndSelect']),
     
     handlePlayerSelection(slot, player) {
+      console.log('Spieler ausgewählt:', slot, player);
       this.setSelectedPlayer({ slot, player });
     },
     
@@ -106,13 +109,20 @@ export default {
             message: JASS_ERFASSEN_MESSAGES.PLAYER_SELECT.CONFIRMED,
             color: 'success'
           });
-          this.$store.dispatch('jassErfassen/nextStep');
+          logInfo('SpielerErfassen', 'Vor nextStep Aufruf', this.$store.state.jassErfassen.currentStep);
+          await this.$store.dispatch('jassErfassen/nextStep');
+          logInfo('SpielerErfassen', 'Nach nextStep Aufruf', this.$store.state.jassErfassen.currentStep);
         } catch (error) {
           this.showSnackbar({
             message: error.message || JASS_ERFASSEN_MESSAGES.PLAYER_SELECT.ERROR,
             color: 'error'
           });
         }
+      } else {
+        this.showSnackbar({
+          message: JASS_ERFASSEN_MESSAGES.PLAYER_SELECT.INCOMPLETE,
+          color: 'warning'
+        });
       }
     },
     
@@ -215,13 +225,27 @@ export default {
     },
   },
   created() {
-    this.fetchPlayersIfNeeded();
+    this.$nextTick(async () => {
+      if (this.selectedMode === 'Jassgruppe') {
+        if (!this.selectedGroup || this.groupPlayers.length === 0) {
+          logInfo('SpielerErfassen', 'Keine Gruppe ausgewählt oder keine Spieler geladen, gehe zurück zu Schritt 2');
+          await this.$store.dispatch('jassErfassen/setCurrentStep', 2);
+        } else {
+          await this.fetchPlayersIfNeeded();
+        }
+      } else {
+        await this.fetchPlayersIfNeeded();
+      }
+    });
+    
     const newPlayerNickname = this.$route.query.newPlayer;
     if (newPlayerNickname) {
-      const newPlayer = this.groupPlayers.find(p => p.nickname === newPlayerNickname);
-      if (newPlayer) {
-        this.handleNewPlayer(newPlayer);
-      }
+      this.$nextTick(() => {
+        const newPlayer = this.groupPlayers.find(p => p.nickname === newPlayerNickname);
+        if (newPlayer) {
+          this.handleNewPlayer(newPlayer);
+        }
+      });
     }
   },
   watch: {

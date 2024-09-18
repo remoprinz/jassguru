@@ -1,6 +1,6 @@
 import { apiService } from '@/api/apiConfig';
 import { logError, logInfo } from '@/utils/logger';
-import { validateJassData, validateScores } from '@/utils/validators';
+import { validateJassData, validateScores, validateRoundData } from '@/utils/validators';
 
 const state = {
   currentJass: {
@@ -97,6 +97,9 @@ const actions = {
 
   async addRound({ state }, roundData) {
     try {
+      if (!validateRoundData(roundData)) {
+        throw new Error('Ungültige Rundendaten');
+      }
       await apiService.post(`/api/jass/${state.currentJass.id}/add_round`, roundData);
       logInfo('jassCapture', 'Runde hinzugefügt', roundData);
     } catch (error) {

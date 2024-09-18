@@ -7,6 +7,7 @@ import apiStatus from './modules/apiStatus';
 import snackbar from './snackbar';
 import group from './modules/group';
 import jassErfassen from './modules/jassErfassen';
+import jassCapture from './modules/jassCapture';
 
 // VuexPersistence Setup
 const vuexLocal = new VuexPersistence({
@@ -22,9 +23,11 @@ const store = createStore({
     apiStatus,
     snackbar,
     group,
-    jassErfassen
+    jassErfassen,
+    jassCapture
   },
   plugins: [vuexLocal.plugin]
 });
 
 export default store;
+

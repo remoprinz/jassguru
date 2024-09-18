@@ -1,12 +1,13 @@
 <template>
   <div class="jass-qr-code">
     <h2>Jass erfolgreich erstellt</h2>
-    <p>Scannen Sie den QR-Code, um das Spiel zu starten:</p>
+    <p>Mitspieler scannen den QR-Code, um dem Jass beizutreten:</p>
     <div class="qr-code-container">
-      <qrcode-vue :value="gameCodeUrl" :size="200" level="H"></qrcode-vue>
+      <qrcode-vue :value="jassCodeUrl" :size="200" level="H" render-as="svg"></qrcode-vue>
     </div>
     <p>Oder geben Sie folgenden Code ein:</p>
-    <div class="game-code">{{ gameCode }}</div>
+    <div class="jass-code">{{ jassCode }}</div>
+    <OkButton @click="startJass" class="mt-4">JASS STARTEN</OkButton>
   </div>
 </template>
 
@@ -16,39 +17,40 @@ import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
 import { logInfo, logError } from '@/utils/logger';
 import QrcodeVue from 'qrcode.vue';
+import OkButton from '@/components/common/OkButton.vue';
 
 const store = useStore();
 const route = useRoute();
 const router = useRouter();
-const gameCode = ref('');
-// eslint-disable-next-line no-unused-vars
-const gameCodeUrl = computed(() => `${window.location.origin}/game/${gameCode.value}`);
+const jassCode = ref('');
+const jassCodeUrl = computed(() => `${window.location.origin}/jass/${jassCode.value}`);
+
+const handleError = (error) => {
+  logError('JassQRCode', 'Fehler in der JassQRCode-Komponente', error);
+  store.dispatch('snackbar/showSnackbar', {
+    message: 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.',
+    color: 'error'
+  });
+  router.push({ name: 'jasserfassen' });
+};
+
+const startJass = () => {
+  logInfo('JassQRCode', 'Jass starten wurde geklickt');
+  // Implementieren Sie hier die Logik zum Starten des Jass
+  // router.push({ name: 'JassSpiel', params: { jassCode: jassCode.value } });
+};
 
 onMounted(async () => {
   try {
-    gameCode.value = route.params.gameCode;
+    jassCode.value = route.params.jassCode;
     
-    if (!gameCode.value) {
-      throw new Error('Kein Game-Code verfügbar');
+    if (!jassCode.value) {
+      throw new Error('Kein Jass-Code verfügbar');
     }
     
-    // Überprüfe, ob das Spiel bereits initialisiert wurde
-    const isInitialized = await store.dispatch('gameCapture/checkGameInitialized', gameCode.value);
-    
-    if (!isInitialized) {
-      // Wenn nicht initialisiert, hole die Jass-Daten und initialisiere das Spiel
-      const jassData = await store.dispatch('jassErfassen/getJassData');
-      await store.dispatch('gameCapture/initializeGame', { ...jassData, gameCode: gameCode.value });
-    }
-    
-    logInfo('JassQRCode', 'QR-Code-Seite geladen', { gameCode: gameCode.value });
+    logInfo('JassQRCode', 'QR-Code-Seite geladen', { jassCode: jassCode.value });
   } catch (error) {
-    logError('JassQRCode', 'Fehler beim Laden der QR-Code-Seite', error);
-    store.dispatch('snackbar/showSnackbar', {
-      message: 'Fehler beim Erstellen des Spiels. Bitte versuchen Sie es erneut.',
-      color: 'error'
-    });
-    router.push({ name: 'JassErfassen' });
+    handleError(error);
   }
 });
 </script>
@@ -57,15 +59,26 @@ onMounted(async () => {
 .jass-qr-code {
   text-align: center;
   padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 80vh;
 }
 
 .qr-code-container {
   margin: 20px 0;
 }
 
-.game-code {
+.jass-code {
   font-size: 24px;
   font-weight: bold;
   margin-top: 10px;
+}
+
+.mt-4 {
+  margin-top: auto;
+  padding: 12px 24px;
+  font-size: 18px;
 }
 </style>

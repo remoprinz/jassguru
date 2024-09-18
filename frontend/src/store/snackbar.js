@@ -1,5 +1,5 @@
 // Maximale Anzahl der gleichzeitig sichtbaren Snackbars
-const MAX_SNACKBARS = 3;
+const MAX_SNACKBARS = 1;
 
 const state = {
   // Array, das die aktiven Snackbars speichert
@@ -9,14 +9,9 @@ const state = {
 const mutations = {
   // Mutation zum Hinzufügen einer Snackbar
   ADD_SNACKBAR(state, snackbar) {
-    console.log('Mutation: ADD_SNACKBAR', snackbar); // Logge das hinzugefügte Snackbar-Objekt
-    if (state.snackbars.length >= MAX_SNACKBARS) {
-      console.log('Maximale Anzahl der Snackbars erreicht, entferne die älteste Snackbar');
-      // Entferne die älteste Snackbar, wenn das Limit erreicht wurde
-      state.snackbars.shift();
+    if (!state.snackbars.some(s => s.message === snackbar.message)) {
+      state.snackbars.push({ ...snackbar, id: Date.now() });
     }
-    state.snackbars.push(snackbar); // Füge die neue Snackbar dem Zustand hinzu
-    console.log('Current snackbars state:', state.snackbars); // Logge den aktuellen Zustand des Snackbar-Arrays
   },
   
   // Mutation zum Entfernen einer Snackbar basierend auf der ID
@@ -34,7 +29,7 @@ const mutations = {
 
 const actions = {
   // Zeige eine neue Snackbar an
-  showSnackbar({ commit }, payload) {
+  showSnackbar({ commit, state }, payload) {
     console.log('Action: showSnackbar, Payload:', payload); // Logge die erhaltene Payload
 
     // Wenn keine Nachricht übergeben wird, wird die Snackbar nicht angezeigt
@@ -54,6 +49,12 @@ const actions = {
       timeout: payload.timeout || 5000, // Standard-Timeout ist 5000ms
       isActive: true // Snackbar aktiv setzen
     };
+
+    // Begrenze die Anzahl der Snackbars
+    if (state.snackbars.length >= MAX_SNACKBARS) {
+      const oldestSnackbarId = state.snackbars[0].id;
+      commit('REMOVE_SNACKBAR', oldestSnackbarId);
+    }
 
     // Füge die Snackbar dem Zustand hinzu
     commit('ADD_SNACKBAR', snackbar);

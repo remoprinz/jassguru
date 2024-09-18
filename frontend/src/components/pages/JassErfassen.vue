@@ -28,7 +28,9 @@ import SpielerErfassen from '@/components/JassErfassenComponents/SpielerErfassen
 import Rosen10Player from '@/components/JassErfassenComponents/Rosen10Player.vue';
 import JassErfassenUebersicht from '@/components/JassErfassenComponents/JassErfassenUebersicht.vue';
 import CloseButton from '@/components/common/CloseButton.vue';
-import { logError, logInfo} from '@/utils/logger';
+import { logInfo, logError } from '@/utils/logger';
+import { useRouter } from 'vue-router';
+import { JASS_ERFASSEN_MESSAGES } from '@/constants/jassErfassenMessages';
 
 export default {
   name: 'JassErfassen',
@@ -41,13 +43,18 @@ export default {
     JassErfassenUebersicht,
     CloseButton,
   },
+  setup() {
+    const router = useRouter();
+    return { router };
+  },
   data() {
     return {
       bgImage: null,
+      isSubmitting: false,
     };
   },
   computed: {
-    ...mapState('jassErfassen', ['currentStep', 'isProcessing', 'selectedGroup', 'selectedPlayers']),
+    ...mapState('jassErfassen', ['currentStep', 'isProcessing', 'selectedGroup', 'selectedPlayers', 'mode', 'rosen10Player']),
     ...mapState('auth', ['isAuthenticated']),
     pageTitle() {
       const titles = {
@@ -83,6 +90,7 @@ export default {
       'fetchGroupPlayers',
       'resetJassErfassenState',
       'initializeJassErfassenState',
+      'initializeJass',
     ]),
     ...mapActions('snackbar', ['showSnackbar', 'clearSnackbars']),
 
@@ -109,17 +117,13 @@ export default {
 
     async handleNextStep() {
       logInfo('JassErfassen', 'handleNextStep aufgerufen', { currentStep: this.currentStep });
-      if (this.currentStep === 3) {
-        await this.$store.dispatch('jassErfassen/loadSelectedPlayers');
-      }
       try {
         await this.clearSnackbars();
+        if (this.currentStep === 4) { // Vor dem Übergang zur Übersicht
+          await this.$store.dispatch('jassErfassen/prepareOverviewData');
+        }
         await this.nextStep();
         logInfo('JassErfassen', `Übergang zum Schritt ${this.currentStep} erfolgreich abgeschlossen`);
-        if (this.currentStep === 5) {
-          logInfo('JassErfassen', 'Übergang zur JassErfassenUebersicht-Komponente');
-          await this.loadOverviewData();
-        }
       } catch (error) {
         logError('JassErfassen', 'Fehler beim Übergang zum nächsten Schritt', error);
         this.showSnackbar({
@@ -129,13 +133,44 @@ export default {
       }
     },
 
-    async loadOverviewData() {
-      logInfo('JassErfassen', 'Lade Übersichtsdaten');
+    async finishJassErfassen() {
+      this.isSubmitting = true;
       try {
-        const overviewData = await this.$store.dispatch('jassErfassen/getOverviewData');
-        logInfo('JassErfassen', 'Übersichtsdaten geladen', overviewData);
+        const jassData = {
+          mode: this.mode,
+          group_id: this.selectedGroup.id,
+          players: this.selectedPlayers.map((player, index) => ({
+            id: player.id,
+            team: index < 2 ? 1 : 2
+          })),
+          rosen10_player_id: this.rosen10Player.id,
+          date: new Date().toISOString(),
+          location: this.location // Falls Sie die Standortdaten beibehalten möchten
+        };
+
+        logInfo('JassErfassen', 'Finalisiere Jass Erfassen', jassData);
+
+        const result = await this.$store.dispatch('jassErfassen/initializeJass', jassData);
+        
+        logInfo('JassErfassen', 'Ergebnis der Jass-Initialisierung', result);
+
+        if (result && result.jass_code) {
+          this.showSnackbar({
+            message: JASS_ERFASSEN_MESSAGES.GAME.STARTED,
+            color: 'success'
+          });
+          this.router.push({ name: 'JassQRCode', params: { jassCode: result.jass_code } });
+        } else {
+          throw new Error('Kein Jass-Code erhalten');
+        }
       } catch (error) {
-        logError('JassErfassen', 'Fehler beim Laden der Übersichtsdaten', error);
+        logError('JassErfassen', 'Fehler beim Finalisieren des Jass', error);
+        this.showSnackbar({
+          message: error.message || JASS_ERFASSEN_MESSAGES.GAME.ERROR,
+          color: 'error'
+        });
+      } finally {
+        this.isSubmitting = false;
       }
     },
 
@@ -164,10 +199,6 @@ export default {
     },
     currentStep(newStep, oldStep) {
       logInfo('JassErfassen', `Schritt geändert von ${oldStep} zu ${newStep}`);
-      if (newStep === 5) {
-        logInfo('JassErfassen', 'Übergang zur JassErfassenUebersicht');
-        this.$store.dispatch('jassErfassen/loadOverviewData');
-      }
     }
   },
   created() {

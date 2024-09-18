@@ -1,183 +1,95 @@
 # backend/routes/jass_capture_routes.py
 
-from flask import Blueprint, request, jsonify
+import random
+import string
+from flask import jsonify, request, Blueprint
+from models.jass_capture import JassCapture
+from models.player import Player
 from extensions import db
-from models import Jass, Spiel, Runde, Player
-from sqlalchemy import and_
+from services.firebase_service import verify_firebase_token
 from utils.errorHandlers import handle_api_error
 from utils.utils import validate_input, ValidationException
-from utils.validators import validate_jass_data, validate_round_data
-from services.jass_capture_services import calculate_jass_stats
+from schemas.jass_capture_schemas import JassCaptureSchema
 import logging
+from werkzeug.exceptions import BadRequest, InternalServerError
 from datetime import datetime
-from services.firebase_service import get_rounds  # Importieren Sie diese Funktion
 
-jass_capture_routes = Blueprint('jass_capture_routes', __name__)
-
+jass_capture_routes = Blueprint('jass_capture', __name__)
 logger = logging.getLogger(__name__)
 
-def get_multiplier_for_farbe(jass_id, farbe):
-    # TODO: Implementieren Sie dies später mit den tatsächlichen Gruppeneinstellungen
-    default_multipliers = {
-        'Schälle': 2, 'Schilte': 3, 'Rose': 4, 'Eichle': 7,
-        'Obenabe': 5, 'Undenufe': 6, 'Quär': 7, 'Slalom': 7,
-        'Guschti': 4, 'Misère': 1, 'Misère-Misère': 1
-    }
-    return default_multipliers.get(farbe, 1)
+def generiere_einzigartigen_jass_code(laenge=6):
+    while True:
+        code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=laenge))
+        if not JassCapture.query.filter_by(jass_code=code).first():
+            return code
 
 @jass_capture_routes.route('/initialize', methods=['POST'])
 def initialize_jass():
     try:
         data = request.json
-        logger.info(f"Received data for jass initialization: {data}")
-        validate_input(data, ['mode', 'group_id', 'date', 'players'])
+        logger.info(f"Empfangene Jass-Daten: {data}")
+
+        # Überprüfen Sie, ob Standortdaten vorhanden sind
+        if 'latitude' in data and 'longitude' in data:
+            logger.info(f"Standortdaten empfangen: Lat {data['latitude']}, Lon {data['longitude']}")
+        else:
+            logger.warning("Keine Standortdaten in der Anfrage gefunden")
+
+        # Token-Verifizierung
+        token = request.headers.get('Authorization').split('Bearer ')[1]
+        firebase_user = verify_firebase_token(token)
         
+        if not firebase_user['success']:
+            return jsonify({'error': 'Nicht autorisiert'}), 401
+
+        # Datenvalidierung mit dem Schema
+        schema = JassCaptureSchema()
+        errors = schema.validate(data)
+        if errors:
+            logger.error(f"Validierungsfehler: {errors}")
+            return jsonify({"errors": errors}), 400
+
+        logger.info(f"Validierung erfolgreich, erstelle neuen Jass")
+
+        # Parsen des Datums
         start_time = datetime.fromisoformat(data['date'].replace('Z', '+00:00'))
-        
-        new_jass = Jass(
-            mode=data['mode'],
+
+        neuer_jass = JassCapture(
             jass_group_id=data['group_id'],
-            start_time=start_time,
-            status='ACTIVE'  # Ändern Sie 'active' zu 'ACTIVE'
+            mode=data['mode'],
+            latitude=data.get('latitude'),
+            longitude=data.get('longitude'),
+            location_name=data.get('location_name'),
+            rosen10_player_id=data['rosen10_player_id'],
+            start_time=start_time  # Verwenden Sie das geparste Datum hier
         )
-        db.session.add(new_jass)
-        db.session.flush()
+
+        logger.info(f"Neuer Jass erstellt: {neuer_jass.serialize()}")
 
         for player_data in data['players']:
-            player = Player.query.get(player_data['id'])
-            if not player:
-                raise ValidationException(f'Spieler mit ID {player_data["id"]} nicht gefunden')
-            new_jass.players.append(player)
+            spieler = Player.query.get(player_data['id'])
+            if spieler:
+                neuer_jass.players.append(spieler)
 
+        jass_code = generiere_einzigartigen_jass_code()
+        neuer_jass.jass_code = jass_code
+
+        db.session.add(neuer_jass)
+        db.session.flush()
+        logger.info(f"Neue Jass ID nach Flush: {neuer_jass.id}")
         db.session.commit()
-        logger.info(f"Jass initialized successfully: {new_jass.id}")
-        logger.info(f"Neuer Jass erstellt: {new_jass.__dict__}")
-        return jsonify({'message': 'Jass erfolgreich initialisiert', 'jass_id': new_jass.id}), 201
-    except ValidationException as ve:
-        logger.error(f"Validation error: {str(ve)}")
-        return handle_api_error(ve, 400)
-    except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}", exc_info=True)
-        db.session.rollback()
-        return handle_api_error(e, 500)
+        logger.info(f"Neuer Jass erstellt mit ID: {neuer_jass.id}")
 
-@jass_capture_routes.route('/<string:jass_code>/check', methods=['GET'])
-def check_jass_initialized(jass_code):
-    jass = Jass.query.filter_by(jass_code=jass_code).first()
-    if jass:
-        return jsonify({'isInitialized': True, 'jass': jass.serialize()}), 200
-    return jsonify({'isInitialized': False}), 404
-
-@jass_capture_routes.route('/<int:jass_id>/update_score', methods=['POST'])
-def update_score(jass_id):
-    try:
-        data = request.json
-        validate_input(data, ['team_id', 'spiel_id', 'score'])
-        
-        team_id = data['team_id']
-        spiel_id = data['spiel_id']
-        score = data['score']
-        
-        spiel = Spiel.query.filter(and_(
-            Spiel.jass_id == jass_id,
-            Spiel.id == spiel_id
-        )).first()
-
-        if spiel:
-            if team_id == 1:
-                spiel.team1_score = score
-            elif team_id == 2:
-                spiel.team2_score = score
-            else:
-                raise ValidationException('Ungültige Team-ID')
-        else:
-            new_spiel = Spiel(
-                jass_id=jass_id,
-                team1_score=score if team_id == 1 else 0,
-                team2_score=score if team_id == 2 else 0
-            )
-            db.session.add(new_spiel)
-
-        db.session.commit()
-        logger.info(f'Punktzahl aktualisiert: Jass {jass_id}, Team {team_id}, Spiel {spiel_id}')
-        return jsonify({'message': 'Punktzahl erfolgreich aktualisiert'}), 200
-    except ValidationException as ve:
-        logger.error(f'Validierungsfehler beim Aktualisieren der Punktzahl: {str(ve)}')
-        db.session.rollback()
-        return handle_api_error(ve, 400)
-    except Exception as e:
-        logger.error(f'Fehler beim Aktualisieren der Punktzahl: {str(e)}')
-        db.session.rollback()
-        return handle_api_error(e, 500)
-
-@jass_capture_routes.route('/<int:jass_id>/finish', methods=['PUT'])
-def finish_jass(jass_id):
-    try:
-        jass = Jass.query.get(jass_id)
-        if not jass:
-            raise ValidationException('Jass nicht gefunden')
-
-        rounds_data = get_rounds(jass_id)
-
-        if len(rounds_data) < 4:
-            return jsonify({'message': 'Es müssen mindestens vier Runden gespielt werden, um den Jass zu erfassen.'}), 400
-
-        # Hier können Sie die Logik zum Speichern der Runden implementieren
-        for round_data in rounds_data:
-            # Beispiel: Runde in der Datenbank speichern
-            new_round = Runde(
-                jass_id=jass_id,
-                runde=round_data['runde'],
-                team1_score=round_data['team1_score'],
-                team2_score=round_data['team2_score']
-            )
-            db.session.add(new_round)
-
-        jass.status = 'finished'
-        db.session.commit()
-        logger.info(f'Jass beendet und in Datenbank gespeichert: {jass_id}')
-        return jsonify({'message': 'Jass erfolgreich beendet und gespeichert'}), 200
+        logger.info(f'Neuer Jass erstellt: {neuer_jass.serialize()}')
+        return jsonify({
+            'nachricht': 'Jass erfolgreich initialisiert',
+            'jass_id': neuer_jass.id,
+            'jass_code': jass_code
+        }), 201
 
     except Exception as e:
-        logger.error(f'Fehler beim Beenden des Jass: {str(e)}')
-        db.session.rollback()
-        return handle_api_error(e, 500)
-
-@jass_capture_routes.route('/<int:jass_id>/add_round', methods=['POST'])
-def add_round(jass_id):
-    try:
-        data = request.json
-        validate_input(data, ['spiel_id', 'team1_score', 'team2_score', 'farbe'])
-        
-        # Hier würden wir die Daten in Firebase speichern
-        # firebase_service.save_round(jass_id, data)
-        
-        logger.info(f'Neue Runde temporär gespeichert: Jass {jass_id}')
-        return jsonify({'message': 'Runde erfolgreich temporär gespeichert'}), 201
-    except ValidationException as ve:
-        logger.error(f'Validierungsfehler beim Hinzufügen der Runde: {str(ve)}')
-        return handle_api_error(ve, 400)
-    except Exception as e:
-        logger.error(f'Fehler beim Hinzufügen der Runde: {str(e)}')
-        return handle_api_error(e, 500)
-
-@jass_capture_routes.route('/<int:jass_id>/stats', methods=['GET'])
-def get_jass_stats(jass_id):
-    try:
-        jass = Jass.query.get(jass_id)
-        if not jass:
-            raise ValidationException('Jass nicht gefunden')
-
-        stats = calculate_jass_stats(jass)
-        logger.info(f'Statistiken abgerufen für Jass: {jass_id}')
-        return jsonify(stats), 200
-    except ValidationException as ve:
-        logger.error(f'Validierungsfehler beim Abrufen der Jass-Statistiken: {str(ve)}')
-        return handle_api_error(ve, 404)
-    except ValueError as ve:
-        logger.error(f'Wertfehler beim Berechnen der Jass-Statistiken: {str(ve)}')
-        return handle_api_error(ve, 400)
-    except Exception as e:
-        logger.error(f'Fehler beim Abrufen der Jass-Statistiken: {str(e)}')
-        return handle_api_error(e, 500)
+        logger.error(f"Unerwarteter Fehler: {str(e)}")
+        logger.error(f"Fehler-Typ: {type(e).__name__}")
+        logger.error(f"Fehler-Details: {e.args}")
+        return jsonify({"error": "Ein unerwarteter Fehler ist aufgetreten", "details": str(e)}), 500
 

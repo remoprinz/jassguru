@@ -11,7 +11,6 @@ import GroupRegisterPage from '@/components/pages/GroupRegisterPage.vue';
 import JassErfassen from '@/components/pages/JassErfassen.vue';
 import JassnameRegistrationForm from '@/components/auth/JassnameRegistrationForm.vue';
 import ConfirmAddPlayerForm from '@/components/auth/ConfirmAddPlayerForm.vue';
-import { useStore } from 'vuex';
 import JassQRCode from '@/components/JassTransition/JassQRCode.vue';
 
 const routes = [
@@ -65,15 +64,16 @@ const routes = [
     component: JassErfassen,
     meta: { requiresAuth: true },
     beforeEnter: (to, from, next) => {
-      const store = useStore();
       store.dispatch('jassErfassen/resetStateOnLogin');
       next();
     }
   },
   {
-    path: '/jass-qr-code',
+    path: '/jass-qr-code/:jassCode',
     name: 'JassQRCode',
     component: JassQRCode,
+    props: true,
+    meta: { requiresAuth: true },
   },
 ];
 

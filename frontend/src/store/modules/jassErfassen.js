@@ -1,10 +1,11 @@
-// src/store/modules/jassErfassen.js
+// src/store/modules/jassErfassen.js (neues file)
 
 import { apiService } from '@/api/apiConfig';
 import { logError, logInfo, logDebug } from '@/utils/logger';
 import { JASS_ERFASSEN_MESSAGES } from '@/constants/jassErfassenMessages';
 import VuexPersistence from 'vuex-persist';
 import router from '@/router';
+import { validateJassData } from '@/utils/validators';
 
 // Vuex-Persistenz-Konfiguration
 const vuexLocal = new VuexPersistence({
@@ -178,6 +179,15 @@ const mutations = {
   setLocation(state, location) {
     state.location = location;
   },
+
+  SET_LOCATION(state, { latitude, longitude }) {
+    state.latitude = latitude;
+    state.longitude = longitude;
+  },
+
+  setOrtsnameAusKoordinaten(state, ortsname) {
+    state.ortsnameAusKoordinaten = ortsname;
+  },
 };
 
 // Actions
@@ -339,18 +349,40 @@ const actions = {
     }
   },
 
-  loadOverviewData({ state, commit }) {
-    logInfo('jassErfassen', 'Lade Übersichtsdaten');
-    const overviewData = {
-      currentDate: new Date().toLocaleDateString('de-CH'),
-      selectedMode: state.selectedMode,
-      selectedGroup: state.selectedGroup,
-      selectedPlayers: state.selectedPlayers,
-      rosen10Player: state.rosen10Player,
-      location: state.location, // Standortinformation hinzugefügt
-    };
-    logDebug('jassErfassen', 'Übersichtsdaten:', overviewData);
-    commit('setOverviewData', overviewData);
+  async loadOverviewData({ state, commit, dispatch }) {
+    try {
+      const overviewData = {
+        currentDate: new Date().toLocaleDateString('de-CH'),
+        selectedMode: state.selectedMode,
+        selectedGroup: state.selectedGroup,
+        team1Players: [state.selectedPlayers.team1player1, state.selectedPlayers.team1player2],
+        team2Players: [state.selectedPlayers.team2player1, state.selectedPlayers.team2player2],
+        rosen10Player: state.rosen10Player,
+        location: state.location,
+      };
+      commit('setOverviewData', overviewData);
+      
+      if (!state.groupPlayers.length) {
+        await dispatch('fetchGroupPlayers', state.selectedGroup.id);
+      }
+      
+      return overviewData;
+    } catch (error) {
+      logError('loadOverviewData', error);
+      throw error;
+    }
+  },
+
+  async ensureDataLoaded({ dispatch, state }) {
+    if (!state.overviewData) {
+      await dispatch('loadOverviewData');
+    }
+    if (!state.groupPlayers.length) {
+      await dispatch('fetchGroupPlayers', state.selectedGroup.id);
+    }
+    if (!state.location) {
+      await dispatch('ermittleStandort');
+    }
   },
 
   previousStep({ commit, state, dispatch }) {
@@ -491,6 +523,7 @@ const actions = {
     commit('resetState');
     dispatch('loadState');
     dispatch('fetchInitialData');
+    dispatch('fetchPlayers');
   },
 
   // Fügen Sie auch diese Hilfsaktion hinzu
@@ -500,7 +533,7 @@ const actions = {
     }
   },
 
-  async finalizeJassErfassen({ state }) {
+  async finalizeJassErfassen({ state, dispatch }) {
     try {
       logInfo('jassErfassen', 'Finalisiere Jass Erfassen', state);
       const jassData = {
@@ -514,32 +547,53 @@ const actions = {
         ],
         rosen10_player_id: state.rosen10Player.id,
         date: new Date().toISOString(),
-        location: state.location, // Standortinformation hinzugefügt
+        latitude: state.latitude,
+        longitude: state.longitude,
+        location_name: state.ortsnameAusKoordinaten,
       };
+
+      if (!validateJassData(jassData)) {
+        throw new Error(JASS_ERFASSEN_MESSAGES.FINALIZE.INVALID_DATA);
+      }
+
       logInfo('jassErfassen', 'Jass Daten erstellt', jassData);
       
-      try {
-        const response = await apiService.post('/jass/initialize', jassData);
-        console.log('API Response:', response);
-        const { jass_code } = response.data;
-        
-        return { jassData, jassCode: jass_code };
-      } catch (error) {
-        console.error('API Error:', error.response);
-        throw error;
-      }
+      const response = await dispatch('initializeJass', jassData);
+      logInfo('jassErfassen', 'Antwort vom Server erhalten', response);
+      return response;
     } catch (error) {
       logError('jassErfassen', 'Fehler beim Finalisieren des Jass Erfassens', error);
+      logError('jassErfassen', 'Fehler Details', error.response ? error.response.data : 'Keine Antwortdaten');
       throw new Error(JASS_ERFASSEN_MESSAGES.FINALIZE.ERROR);
     }
-  },   
+  },
+
+  async initializeJass({ dispatch }, jassData) {
+    try {
+      const response = await apiService.post('jass/initialize', jassData);
+      if (response.data && response.data.jass_code) {
+        await dispatch('saveJassData', { jassCode: response.data.jass_code });
+        return response.data;
+      } else {
+        throw new Error('Keine gültige Antwort vom Server erhalten');
+      }
+    } catch (error) {
+      logError('jassErfassen', 'Fehler beim Initialisieren des Jass', error);
+      throw error;
+    }
+  },
 
   async saveJassData({ commit, dispatch }, { jassCode }) {
     try {
       commit('resetState');
       
       // Navigiere zur QR-Code-Seite
-      dispatch('router/push', { name: 'JassQRCode', params: { jassCode } }, { root: true });
+      await router.push({ name: 'JassQRCode', params: { jassCode } });
+      
+      dispatch('snackbar/showSnackbar', {
+        message: 'Jass erfolgreich erstellt',
+        color: 'success'
+      }, { root: true });
       
       return { message: 'Jass erfolgreich erstellt', jassCode };
     } catch (error) {
@@ -548,17 +602,13 @@ const actions = {
     }
   },
 
-  getOverviewData({ state }) {
-    logInfo('jassErfassen', 'Übersichtsdaten werden abgerufen');
-    const overviewData = {
-      selectedMode: state.selectedMode,
-      selectedGroup: state.selectedGroup,
-      selectedPlayers: state.selectedPlayers,
-      rosen10Player: state.rosen10Player,
-      location: state.location, // Standortinformation hinzugefügt
+  getOverviewData: (state) => {
+    if (!state.overviewData) return null;
+    return {
+      ...state.overviewData,
+      team1Players: state.overviewData.team1Players.map(p => state.groupPlayers.find(gp => gp.id === p.id)),
+      team2Players: state.overviewData.team2Players.map(p => state.groupPlayers.find(gp => gp.id === p.id)),
     };
-    logDebug('jassErfassen', 'Übersichtsdaten:', overviewData);
-    return overviewData;
   },
 
   async getJassData({ state }) {
@@ -589,8 +639,8 @@ const actions = {
     }
   },
 
-  setLocation({ commit }, location) {
-    commit('setLocation', location);
+  setLocation({ commit }, { latitude, longitude }) {
+    commit('SET_LOCATION', { latitude, longitude });
   },
 };
 
@@ -683,13 +733,11 @@ const getters = {
   // getSelectedPlayer: (state) => state.selectedPlayer, // Doppelter Getter entfernt
 
   getOverviewData: (state) => {
+    if (!state.overviewData) return null;
     return {
-      currentDate: new Date().toLocaleDateString(),
-      selectedMode: state.selectedMode,
-      selectedGroup: state.selectedGroup,
-      selectedPlayers: state.selectedPlayers,
-      rosen10Player: state.rosen10Player,
-      location: state.location, // Standortinformation hinzugefügt
+      ...state.overviewData,
+      team1Players: state.overviewData.team1Players.map(p => state.groupPlayers.find(gp => gp.id === p.id)),
+      team2Players: state.overviewData.team2Players.map(p => state.groupPlayers.find(gp => gp.id === p.id)),
     };
   },
 };

@@ -10,9 +10,9 @@ from .relationship_tables import jass_capture_players
 class JassCapture(db.Model):
     __tablename__ = 'jass_captures'
     
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     jass_group_id = Column(Integer, ForeignKey('jass_groups.id'), nullable=False)
-    start_time = Column(DateTime, default=lambda: datetime.now(ZoneInfo("Europe/Zurich")))
+    start_time = Column(DateTime, nullable=False)  # Entfernen Sie den default-Wert
     end_time = Column(DateTime)
     mode = Column(String(50), nullable=False)
     status = Column(String(20), default='active')

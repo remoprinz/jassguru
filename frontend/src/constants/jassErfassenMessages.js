@@ -56,7 +56,13 @@ export const JASS_ERFASSEN_MESSAGES = {
 
   // Spiel Starten/Speichern
   GAME: {
-    STARTED: 'Das Spiel wurde erfolgreich gestartet. Viel Spass beim Jassen!',
+    STARTED: 'Jass erfolgreich gestartet',
     SAVED: 'Das Spiel wurde erfolgreich gespeichert.',
+    ERROR: 'Ein Fehler ist beim Starten des Jass aufgetreten.'
+  },
+  
+  FINALIZE: {
+    INVALID_DATA: 'Ungültige Jass-Daten',
+    ERROR: 'Ein Fehler ist beim Finalisieren des Jass aufgetreten.'
   },
 };

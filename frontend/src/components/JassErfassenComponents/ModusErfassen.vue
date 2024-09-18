@@ -34,7 +34,7 @@
 import { mapActions } from 'vuex';
 import OkButton from '@/components/common/OkButton.vue';
 import MyModusInfoPopup from '@/components/popups/MyModusInfoPopup.vue';
-import { logInfo } from '@/utils/logger';
+import { logInfo, logError } from '@/utils/logger';
 import { JASS_ERFASSEN_MESSAGES } from '@/constants/jassErfassenMessages';
 
 export default {
@@ -51,7 +51,7 @@ export default {
     };
   },
   methods: {
-    ...mapActions('jassErfassen', ['setMode', 'nextStep']),
+    ...mapActions('jassErfassen', ['setMode', 'nextStep', 'resetJassErfassenState']),
     ...mapActions('snackbar', ['clearSnackbars', 'showSnackbar']),
 
     handleModusSelection(modus) {
@@ -61,16 +61,19 @@ export default {
 
     async confirmModus() {
       if (this.selectedModus) {
-        logInfo('ModusErfassen', `Confirming modus: ${this.selectedModus}`);
+        logInfo('ModusErfassen', `Bestätige Modus: ${this.selectedModus}`);
         try {
+          if (this.selectedModus !== this.$store.state.jassErfassen.selectedMode) {
+            await this.resetJassErfassenState();
+          }
           await this.setMode(this.selectedModus);
-          await this.clearSnackbars();
           this.showSnackbar({
             message: JASS_ERFASSEN_MESSAGES.MODUS_ERFASSEN.SELECTED.replace('{mode}', this.selectedModus),
             color: 'success'
           });
           this.nextStep();
         } catch (error) {
+          logError('ModusErfassen', 'Fehler bei der Modusbestätigung', error);
           this.showSnackbar({
             message: JASS_ERFASSEN_MESSAGES.MODUS_ERFASSEN.ERROR,
             color: 'error'
@@ -82,7 +85,7 @@ export default {
     showInfoPopup() {
       this.showPopup = true;
     }
-  }
+  },
 };
 </script>
 
