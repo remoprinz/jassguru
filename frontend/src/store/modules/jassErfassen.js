@@ -1,5 +1,3 @@
-// src/store/modules/jassErfassen.js (neues file)
-
 import { apiService } from '@/api/apiConfig';
 import { logError, logInfo, logDebug } from '@/utils/logger';
 import { JASS_ERFASSEN_MESSAGES } from '@/constants/jassErfassenMessages';
@@ -7,7 +5,7 @@ import VuexPersistence from 'vuex-persist';
 import router from '@/router';
 import { validateJassData } from '@/utils/validators';
 
-// Vuex-Persistenz-Konfiguration
+// Vuex-Persistence Configuration
 const vuexLocal = new VuexPersistence({
   storage: window.localStorage,
   key: 'jassErfassenState',
@@ -20,7 +18,7 @@ const vuexLocal = new VuexPersistence({
     } : null,
     selectedPlayers: state.selectedPlayers,
     rosen10Player: state.rosen10Player,
-    location: state.location, // Standortinformation hinzugefügt
+    location: state.location,
   }),
 });
 
@@ -42,7 +40,11 @@ const initialState = {
   apiError: null,
   players: [],
   selectedPlayer: null,
-  location: null, // Standortinformation hinzugefügt
+  location: null,
+  overviewData: null,
+  latitude: null,
+  longitude: null,
+  locationNameFromCoordinates: null,
 };
 
 // State
@@ -51,19 +53,17 @@ const state = { ...initialState };
 // Mutations
 const mutations = {
   setCurrentStep(state, step) {
-    logInfo('jassErfassen Store', `Aktueller Schritt wird auf ${step} gesetzt`);
+    logInfo('jassErfassen Store', `Current step set to ${step}`);
     state.currentStep = step;
   },
-
   setSelectedMode(state, mode) {
-    const validModes = ['Jassgruppe', 'Turnier', 'Einzelspiel', 'Liga'];
+    const validModes = ['Jassgruppe', 'Tournament', 'SingleGame', 'League'];
     if (typeof mode !== 'string' || !validModes.includes(mode)) {
       throw new Error('Invalid mode value');
     }
     logDebug('Mutation: Setting selected mode', mode);
     state.selectedMode = mode;
   },
-
   setSelectedGroup(state, group) {
     if (!group || typeof group !== 'object' || !('id' in group) || !('name' in group)) {
       logError('Invalid group object in mutation', group);
@@ -73,15 +73,13 @@ const mutations = {
     logDebug('Mutation: Setting selected group', group);
     state.selectedGroup = { ...group };
   },
-
   SET_SELECTED_PLAYER(state, { slot, player }) {
     state.selectedPlayers = {
       ...state.selectedPlayers,
       [slot]: player
     };
-    logDebug('Updated state of selectedPlayers:', state.selectedPlayers);
+    logDebug('Updated state of selected players:', state.selectedPlayers);
   },
-
   RESET_SELECTED_PLAYERS(state) {
     state.selectedPlayers = {
       team1player1: null,
@@ -89,13 +87,11 @@ const mutations = {
       team2player1: null,
       team2player2: null
     };
-    logDebug('Reset selectedPlayers:', state.selectedPlayers);
+    logDebug('Reset selected players:', state.selectedPlayers);
   },
-
   setGroupPlayers(state, players) {
     state.groupPlayers = players;
   },
-
   addPlayerToGroup(state, player) {
     if (!player || typeof player !== 'object' || !('id' in player) || !('nickname' in player)) {
       throw new Error('Invalid player object');
@@ -108,7 +104,6 @@ const mutations = {
       state.selectedGroup.players.push({ ...player });
     }
   },
-
   addPlayerToGroupPlayers(state, player) {
     if (!player || typeof player !== 'object' || !('id' in player) || !('nickname' in player)) {
       throw new Error('Invalid player object');
@@ -118,17 +113,14 @@ const mutations = {
       state.groupPlayers.push({ ...player });
     }
   },
-
   setRosen10Player(state, player) {
     state.rosen10Player = player;
-    logInfo('jassErfassen Store', `Rosen 10 Spieler gesetzt: ${player.nickname}`);
+    logInfo('jassErfassen Store', `Rosen 10 player set: ${player.nickname}`);
   },
-
   resetState(state) {
     Object.assign(state, JSON.parse(JSON.stringify(initialState)));
     logDebug('Jass Erfassen state reset to initial state');
   },
-
   setIsProcessing(state, isProcessing) {
     if (typeof isProcessing !== 'boolean') {
       throw new Error('isProcessing must be a boolean');
@@ -136,7 +128,6 @@ const mutations = {
     logDebug('Mutation: Setting isProcessing', isProcessing);
     state.isProcessing = isProcessing;
   },
-
   setCurrentProcessState(state, processState) {
     if (typeof processState !== 'string') {
       throw new Error('processState must be a string');
@@ -144,49 +135,40 @@ const mutations = {
     logDebug('Mutation: Setting current process state', processState);
     state.currentProcessState = processState;
   },
-
   setApiError(state, error) {
     logError('Mutation: Setting API error', error);
     state.apiError = error ? { ...error } : null;
   },
-
   SET_SELECTED_PLAYERS(state, players) {
     if (players && typeof players === 'object') {
       state.selectedPlayers = { ...players };
-      logDebug('Store updated with new selectedPlayers:', state.selectedPlayers);
+      logDebug('Store updated with new selected players:', state.selectedPlayers);
     } else {
-      logError('SET_SELECTED_PLAYERS', 'Ungültiges Spielerobjekt erkannt:', players);
+      logError('SET_SELECTED_PLAYERS', 'Invalid player object detected:', players);
     }
   },
-
   setPlayers(state, players) {
     state.players = players;
   },
-
   setSelectedPlayer(state, player) {
     state.selectedPlayer = player;
   },
-
   UPDATE_SELECTED_PLAYERS(state, players) {
     state.selectedPlayers = { ...players };
   },
-
   setOverviewData(state, data) {
     state.overviewData = data;
-    logInfo('jassErfassen', 'Übersichtsdaten im State aktualisiert');
+    logInfo('jassErfassen', 'Overview data updated in state');
   },
-
   setLocation(state, location) {
     state.location = location;
   },
-
   SET_LOCATION(state, { latitude, longitude }) {
     state.latitude = latitude;
     state.longitude = longitude;
   },
-
-  setOrtsnameAusKoordinaten(state, ortsname) {
-    state.ortsnameAusKoordinaten = ortsname;
+  setLocationNameFromCoordinates(state, locationName) {
+    state.locationNameFromCoordinates = locationName;
   },
 };
 
@@ -197,11 +179,10 @@ const actions = {
     localStorage.removeItem('jassErfassenState');
     router.push({ name: 'jasserfassen' });
     dispatch('snackbar/showSnackbar', {
-      message: 'Jass Erfassen Prozess wurde zurückgesetzt',
+      message: 'Jass Erfassen process has been reset',
       color: 'info',
     }, { root: true });
   },
-
   async fetchGroupPlayers({ commit }, groupId) {
     try {
       const response = await apiService.get(`/groups/${groupId}/players`);
@@ -211,7 +192,6 @@ const actions = {
       throw error;
     }
   },
-
   async setGroup({ commit, dispatch }, group) {
     logInfo('Setting group in store', group, {}, false);
     if (group && typeof group === 'object' && 'id' in group) {
@@ -221,7 +201,6 @@ const actions = {
       try {
         await dispatch('fetchGroupPlayers', groupId);
         logDebug('Players fetched successfully');
-
         dispatch('snackbar/showSnackbar', {
           message: JASS_ERFASSEN_MESSAGES.GROUP_SELECT.CONFIRMED.replace('{groupName}', group.name),
           color: 'success',
@@ -229,7 +208,6 @@ const actions = {
       } catch (error) {
         logError('setGroup', error);
         commit('setApiError', error.message);
-
         dispatch('snackbar/showSnackbar', {
           message: JASS_ERFASSEN_MESSAGES.GROUP_SELECT.ERROR,
           color: 'error',
@@ -239,7 +217,6 @@ const actions = {
       const error = new Error('Invalid group object');
       logError('setGroup', error);
       commit('setApiError', error.message);
-
       dispatch('snackbar/showSnackbar', {
         message: JASS_ERFASSEN_MESSAGES.GROUP_SELECT.ERROR,
         color: 'error',
@@ -247,39 +224,32 @@ const actions = {
     }
     dispatch('saveState');
   },
-
   setSelectedPlayer({ commit, dispatch }, { slot, player }) {
     commit('SET_SELECTED_PLAYER', { slot, player });
-    logInfo(`Spieler für Slot ${slot} erfolgreich zum Store hinzugefügt:`, player);
+    logInfo(`Player for slot ${slot} added to store:`, player);
     dispatch('saveState');
   },
-
   removeSelectedPlayer({ commit, dispatch }, slot) {
     commit('SET_SELECTED_PLAYER', { slot, player: null });
     logDebug(`Player removed from slot ${slot}`);
     dispatch('saveState');
   },
-
   resetSelectedPlayers({ commit, dispatch }) {
     commit('RESET_SELECTED_PLAYERS');
     dispatch('saveState');
   },
-
   async validateSelectedPlayers({ state }) {
     const selectedPlayers = Object.values(state.selectedPlayers).filter(Boolean);
     if (selectedPlayers.length !== 4) {
-      throw new Error('Es müssen genau 4 Spieler ausgewählt werden.');
+      throw new Error('Exactly 4 players must be selected.');
     }
-    // Hier können weitere Validierungen hinzugefügt werden
   },
-
   addPlayerToGroupPlayers({ commit }, player) {
     commit('addPlayerToGroupPlayers', player);
   },
-
   async addPlayerToGroup({ commit, dispatch, state }, player) {
     if (!state.selectedGroup || !state.selectedGroup.id) {
-      const error = new Error('Cannot add player: No valid group selected.');
+      const error = new Error('Player cannot be added: No valid group selected.');
       logError('addPlayerToGroup', error);
       commit('setApiError', error.message);
       return { success: false, message: error.message };
@@ -290,13 +260,11 @@ const actions = {
       if (response.data && response.data.name) {
         commit('addPlayerToGroup', player);
         commit('addPlayerToGroupPlayers', player);
-
         dispatch('snackbar/showSnackbar', {
-          message: JASS_ERFASSEN_MESSAGES.PLAYER_SELECT.PLAYER_ADDED.replace('{playerName}', player.nickname).replace('{position}', 'zur Gruppe'),
+          message: JASS_ERFASSEN_MESSAGES.PLAYER_SELECT.PLAYER_ADDED.replace('{playerName}', player.nickname).replace('{position}', 'to the group'),
           color: 'success',
         }, { root: true });
-
-        return { success: true, message: JASS_ERFASSEN_MESSAGES.PLAYER_SELECT.PLAYER_ADDED.replace('{playerName}', player.nickname).replace('{position}', 'zur Gruppe') };
+        return { success: true, message: JASS_ERFASSEN_MESSAGES.PLAYER_SELECT.PLAYER_ADDED.replace('{playerName}', player.nickname).replace('{position}', 'to the group') };
       }
       throw new Error('Unexpected response from server');
     } catch (error) {
@@ -305,18 +273,15 @@ const actions = {
         ? error.response.data.message
         : JASS_ERFASSEN_MESSAGES.PLAYER_SELECT.ERROR;
       commit('setApiError', errorMessage);
-
       dispatch('snackbar/showSnackbar', {
         message: errorMessage,
         color: 'error',
       }, { root: true });
-
       return { success: false, message: errorMessage };
     } finally {
       commit('setIsProcessing', false);
     }
   },
-
   async addNewPlayerAndSelect({ dispatch, state }, newPlayer) {
     try {
       await dispatch('addPlayerToGroup', newPlayer);
@@ -327,7 +292,6 @@ const actions = {
       throw error;
     }
   },
-
   selectPlayerAutomatically({ commit, state }, player) {
     const slots = ['team1player1', 'team1player2', 'team2player1', 'team2player2'];
     const emptySlot = slots.find((slot) => !state.selectedPlayers[slot]);
@@ -335,20 +299,17 @@ const actions = {
       commit('SET_SELECTED_PLAYER', { slot: emptySlot, player });
     }
   },
-
   nextStep({ commit, state, dispatch }) {
-    logInfo('jassErfassen', 'Übergang zum nächsten Schritt wird eingeleitet', { currentStep: state.currentStep });
+    logInfo('jassErfassen', 'Moving to the next step', { currentStep: state.currentStep });
     const newStep = state.currentStep + 1;
     commit('setCurrentStep', newStep);
     dispatch('saveState');
-    logInfo('jassErfassen', `Übergang zu Schritt ${newStep} abgeschlossen`);
-    
+    logInfo('jassErfassen', `Moved to step ${newStep}`);
     if (newStep === 5) {
-      logInfo('jassErfassen', 'Lade Übersichtsdaten für JassErfassenUebersicht');
+      logInfo('jassErfassen', 'Loading overview data for JassErfassenOverview');
       dispatch('loadOverviewData');
     }
   },
-
   async loadOverviewData({ state, commit, dispatch }) {
     try {
       const overviewData = {
@@ -361,18 +322,15 @@ const actions = {
         location: state.location,
       };
       commit('setOverviewData', overviewData);
-      
       if (!state.groupPlayers.length) {
         await dispatch('fetchGroupPlayers', state.selectedGroup.id);
       }
-      
       return overviewData;
     } catch (error) {
       logError('loadOverviewData', error);
       throw error;
     }
   },
-
   async ensureDataLoaded({ dispatch, state }) {
     if (!state.overviewData) {
       await dispatch('loadOverviewData');
@@ -381,10 +339,9 @@ const actions = {
       await dispatch('fetchGroupPlayers', state.selectedGroup.id);
     }
     if (!state.location) {
-      await dispatch('ermittleStandort');
+      await dispatch('determineLocation');
     }
   },
-
   previousStep({ commit, state, dispatch }) {
     if (state.currentStep > 1) {
       const prevStep = state.currentStep - 1;
@@ -393,35 +350,29 @@ const actions = {
       dispatch('saveState');
     }
   },
-
   setMode({ commit, dispatch }, mode) {
     commit('setSelectedMode', mode);
     dispatch('saveState');
-
     dispatch('snackbar/clearSnackbars', null, { root: true });
     dispatch('snackbar/showSnackbar', {
       message: JASS_ERFASSEN_MESSAGES.MODUS_ERFASSEN.SELECTED.replace('{mode}', mode),
       color: 'success',
     }, { root: true });
   },
-
   setRosen10Player({ commit, dispatch }, player) {
     commit('setRosen10Player', player);
     dispatch('saveState');
-
     dispatch('snackbar/showSnackbar', {
       message: JASS_ERFASSEN_MESSAGES.ROSEN10_PLAYER.SELECTED.replace('{playerName}', player.nickname),
       color: 'success',
     }, { root: true });
   },
-
   saveState({ getters }) {
     logDebug('Saving state to localStorage');
     const currentState = getters.getCurrentState;
     localStorage.setItem('jassErfassenState', JSON.stringify(currentState));
     logDebug('Saved state:', currentState);
   },
-
   loadState({ commit }) {
     const savedState = localStorage.getItem('jassErfassenState');
     if (savedState) {
@@ -443,7 +394,6 @@ const actions = {
       logDebug('No saved state found in localStorage');
     }
   },
-
   resetJassErfassen({ commit, dispatch }) {
     logDebug('Resetting JassErfassen state');
     commit('resetState');
@@ -451,19 +401,16 @@ const actions = {
     commit('setCurrentStep', 1);
     dispatch('snackbar/clearSnackbars', null, { root: true });
     dispatch('snackbar/showSnackbar', {
-      message: 'Jass Erfassen Prozess wurde zurückgesetzt',
+      message: 'Jass Erfassen process has been reset',
       color: 'info',
     }, { root: true });
   },
-
   initializeState({ dispatch, state, commit }) {
     logDebug('Initializing state from localStorage');
     dispatch('loadState');
-
     if (state.selectedGroup) {
       dispatch('restoreSelectedGroup', state.selectedGroup);
     }
-
     if (state.currentStep > 1 && state.selectedGroup && typeof state.selectedGroup === 'object' && 'id' in state.selectedGroup) {
       dispatch('fetchGroupPlayers', state.selectedGroup.id);
     } else {
@@ -471,7 +418,6 @@ const actions = {
       commit('resetState');
     }
   },
-
   async loadPlayerData({ commit, dispatch }) {
     try {
       const savedState = localStorage.getItem('vuex');
@@ -479,63 +425,55 @@ const actions = {
         const { jassErfassen } = JSON.parse(savedState);
         if (jassErfassen && jassErfassen.selectedPlayers) {
           commit('SET_SELECTED_PLAYERS', jassErfassen.selectedPlayers);
-          logInfo('Spielerdaten erfolgreich aus dem lokalen Speicher geladen');
+          logInfo('Player data successfully loaded from localStorage');
         }
       }
     } catch (error) {
-      logError('loadPlayerData', 'Fehler beim Laden der Spielerdaten', error);
+      logError('loadPlayerData', 'Error loading player data', error);
       dispatch('snackbar/showSnackbar', {
-        message: 'Fehler beim Laden der Spielerdaten. Bitte versuchen Sie es erneut.',
-        color: 'error'
+        message: 'Error loading player data. Please try again.',
+        color: 'error',
       }, { root: true });
     }
   },
-
   restoreState({ commit }, savedState) {
     commit('setCurrentStep', savedState.currentStep);
     commit('setSelectedMode', savedState.selectedMode);
     commit('setSelectedGroup', savedState.selectedGroup);
     commit('SET_SELECTED_PLAYERS', savedState.selectedPlayers);
-    commit('SET_ROSEN10_PLAYER', savedState.rosen10Player);
+    commit('setRosen10Player', savedState.rosen10Player);
   },
-
   resetStateOnLogin({ commit, dispatch }) {
-    logDebug('Setze JassErfassen-Zustand beim Einloggen zurück');
+    logDebug('Resetting JassErfassen state on login');
     commit('resetState');
     commit('setCurrentStep', 1);
     localStorage.removeItem('jassErfassenState');
     dispatch('snackbar/clearSnackbars', null, { root: true });
   },
-
   async fetchPlayers({ commit }) {
     try {
-      const response = await apiService.get('/api/players');
+      const response = await apiService.get('players');
       commit('setPlayers', response.data);
     } catch (error) {
-      console.error('Fehler beim Abrufen der Spieler:', error);
+      console.error('Error fetching players:', error);
       throw error;
     }
   },
-
-  // Fügen Sie diese Aktion zu Ihren bestehenden Aktionen hinzu
   initializeJassErfassenState({ dispatch, commit }) {
-    logInfo('Initialisiere Jass-Erfassen-Zustand');
+    logInfo('Initializing Jass Erfassen state');
     commit('resetState');
     dispatch('loadState');
     dispatch('fetchInitialData');
     dispatch('fetchPlayers');
   },
-
-  // Fügen Sie auch diese Hilfsaktion hinzu
   async fetchInitialData({ dispatch, state }) {
     if (state.selectedGroup && state.selectedGroup.id) {
       await dispatch('fetchGroupPlayers', state.selectedGroup.id);
     }
   },
-
   async finalizeJassErfassen({ state, dispatch }) {
     try {
-      logInfo('jassErfassen', 'Finalisiere Jass Erfassen', state);
+      logInfo('jassErfassen', 'Finalizing Jass Erfassen', state);
       const jassData = {
         mode: state.selectedMode,
         group_id: state.selectedGroup.id,
@@ -549,25 +487,21 @@ const actions = {
         date: new Date().toISOString(),
         latitude: state.latitude,
         longitude: state.longitude,
-        location_name: state.ortsnameAusKoordinaten,
+        location_name: state.locationNameFromCoordinates,
       };
-
       if (!validateJassData(jassData)) {
         throw new Error(JASS_ERFASSEN_MESSAGES.FINALIZE.INVALID_DATA);
       }
-
-      logInfo('jassErfassen', 'Jass Daten erstellt', jassData);
-      
+      logInfo('jassErfassen', 'Jass data created', jassData);
       const response = await dispatch('initializeJass', jassData);
-      logInfo('jassErfassen', 'Antwort vom Server erhalten', response);
+      logInfo('jassErfassen', 'Response from server', response);
       return response;
     } catch (error) {
-      logError('jassErfassen', 'Fehler beim Finalisieren des Jass Erfassens', error);
-      logError('jassErfassen', 'Fehler Details', error.response ? error.response.data : 'Keine Antwortdaten');
+      logError('jassErfassen', 'Error finalizing Jass Erfassen', error);
+      logError('jassErfassen', 'Error details', error.response ? error.response.data : 'No response data');
       throw new Error(JASS_ERFASSEN_MESSAGES.FINALIZE.ERROR);
     }
   },
-
   async initializeJass({ dispatch }, jassData) {
     try {
       const response = await apiService.post('jass/initialize', jassData);
@@ -575,57 +509,27 @@ const actions = {
         await dispatch('saveJassData', { jassCode: response.data.jass_code });
         return response.data;
       } else {
-        throw new Error('Keine gültige Antwort vom Server erhalten');
+        throw new Error('Invalid response from server');
       }
     } catch (error) {
-      logError('jassErfassen', 'Fehler beim Initialisieren des Jass', error);
+      logError('jassErfassen', 'Error initializing Jass', error);
       throw error;
     }
   },
-
   async saveJassData({ commit, dispatch }, { jassCode }) {
     try {
       commit('resetState');
-      
-      // Navigiere zur QR-Code-Seite
       await router.push({ name: 'JassQRCode', params: { jassCode } });
-      
       dispatch('snackbar/showSnackbar', {
-        message: 'Jass erfolgreich erstellt',
-        color: 'success'
+        message: 'Jass successfully created',
+        color: 'success',
       }, { root: true });
-      
-      return { message: 'Jass erfolgreich erstellt', jassCode };
+      return { message: 'Jass successfully created', jassCode };
     } catch (error) {
-      logError('jassErfassen', 'Fehler beim Speichern der Jass-Daten:', error);
+      logError('jassErfassen', 'Error saving Jass data:', error);
       throw new Error(JASS_ERFASSEN_MESSAGES.SAVE.ERROR);
     }
   },
-
-  getOverviewData: (state) => {
-    if (!state.overviewData) return null;
-    return {
-      ...state.overviewData,
-      team1Players: state.overviewData.team1Players.map(p => state.groupPlayers.find(gp => gp.id === p.id)),
-      team2Players: state.overviewData.team2Players.map(p => state.groupPlayers.find(gp => gp.id === p.id)),
-    };
-  },
-
-  async getJassData({ state }) {
-    return {
-      mode: state.selectedMode,
-      group_id: state.selectedGroup.id,
-      players: [
-        { id: state.selectedPlayers.team1player1.id, team: 1 },
-        { id: state.selectedPlayers.team1player2.id, team: 1 },
-        { id: state.selectedPlayers.team2player1.id, team: 2 },
-        { id: state.selectedPlayers.team2player2.id, team: 2 },
-      ],
-      rosen10_player_id: state.rosen10Player.id,
-      date: new Date().toISOString(),
-    };
-  },
-
   async restoreSelectedGroup({ commit, dispatch }, savedGroup) {
     if (savedGroup && savedGroup.id) {
       try {
@@ -638,9 +542,22 @@ const actions = {
       }
     }
   },
-
   setLocation({ commit }, { latitude, longitude }) {
     commit('SET_LOCATION', { latitude, longitude });
+  },
+  async determineLocation({ commit }) {
+    try {
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject);
+      });
+      commit('SET_LOCATION', {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      });
+    } catch (error) {
+      logError('determineLocation', 'Error determining location:', error);
+      throw error;
+    }
   },
 };
 
@@ -656,7 +573,7 @@ const getters = {
         const selectedPlayersCount = Object.values(state.selectedPlayers).filter(Boolean).length;
         const result = selectedPlayersCount === 4;
         logDebug(`isStepComplete for step 3: ${result}`);
-        logDebug('Current state of selectedPlayers:', state.selectedPlayers);
+        logDebug('Current state of selected players:', state.selectedPlayers);
         return result;
       }
       case 4:
@@ -665,31 +582,28 @@ const getters = {
         return false;
     }
   },
-
   canProceed: (state, getters) => {
     const canProceed = getters.isStepComplete(state.currentStep);
     logDebug(`canProceed for step ${state.currentStep}: ${canProceed}`);
-    logDebug('Current state of selectedPlayers:', state.selectedPlayers);
+    logDebug('Current state of selected players:', state.selectedPlayers);
     return canProceed;
   },
-
   currentStepComponent: (state) => {
     switch (state.currentStep) {
       case 1:
-        return 'ModusErfassen';
+        return 'ModeSelect';
       case 2:
         return 'GroupSelect';
       case 3:
-        return 'SpielerErfassen';
+        return 'PlayerSelect';
       case 4:
         return 'Rosen10Player';
       case 5:
-        return 'JassErfassenUebersicht';
+        return 'JassErfassenOverview';
       default:
         return null;
     }
   },
-
   availablePlayers: (state) => {
     if (!state.selectedGroup || !state.groupPlayers) return [];
     const selectedPlayerIds = Object.values(state.selectedPlayers)
@@ -697,49 +611,33 @@ const getters = {
       .map((player) => player.id);
     return state.groupPlayers.filter((player) => !selectedPlayerIds.includes(player.id));
   },
-
   getSelectedPlayer: (state) => (slot) => state.selectedPlayers[slot],
-
   getSelectedPlayersCount: (state) => Object.keys(state.selectedPlayers).length,
-
   getSelectedPlayers: (state) => Object.values(state.selectedPlayers).filter(Boolean),
-
   allPlayersSelected: (state) => {
     const allSelected = Object.values(state.selectedPlayers).every(Boolean);
     logDebug('All players selected:', allSelected);
     return allSelected;
   },
-
-  getCurrentState: (state) => {
-    return {
-      currentStep: state.currentStep,
-      selectedMode: state.selectedMode,
-      selectedGroup: state.selectedGroup,
-      selectedPlayers: state.selectedPlayers,
-      rosen10Player: state.rosen10Player,
-      location: state.location, // Standortinformation hinzugefügt
-    };
-  },
-
-  isValidPlayer: () => (player) => {
-    return player && typeof player === 'object' && 'id' in player && 'nickname' in player;
-  },
-
-  getSelectedPlayersArray: (state) => {
-    return Object.values(state.selectedPlayers).filter(Boolean);
-  },
-
+  getCurrentState: (state) => ({
+    currentStep: state.currentStep,
+    selectedMode: state.selectedMode,
+    selectedGroup: state.selectedGroup,
+    selectedPlayers: state.selectedPlayers,
+    rosen10Player: state.rosen10Player,
+    location: state.location,
+  }),
+  isValidPlayer: () => (player) => player && typeof player === 'object' && 'id' in player && 'nickname' in player,
+  getSelectedPlayersArray: (state) => Object.values(state.selectedPlayers).filter(Boolean),
   getPlayers: (state) => state.players,
-  // getSelectedPlayer: (state) => state.selectedPlayer, // Doppelter Getter entfernt
-
-  getOverviewData: (state) => {
-    if (!state.overviewData) return null;
-    return {
-      ...state.overviewData,
-      team1Players: state.overviewData.team1Players.map(p => state.groupPlayers.find(gp => gp.id === p.id)),
-      team2Players: state.overviewData.team2Players.map(p => state.groupPlayers.find(gp => gp.id === p.id)),
-    };
-  },
+  getOverviewData: (state) => ({
+    currentDate: new Date().toLocaleDateString(),
+    selectedMode: state.selectedMode,
+    selectedGroup: state.selectedGroup,
+    selectedPlayers: state.selectedPlayers,
+    rosen10Player: state.rosen10Player,
+    location: state.location,
+  }),
 };
 
 export default {

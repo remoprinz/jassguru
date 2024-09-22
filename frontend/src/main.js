@@ -1,58 +1,73 @@
-// src/main.js
 import { createApp } from 'vue';
+import { createI18n } from 'vue-i18n';
 import App from './App.vue';
 import vuetify from './plugins/vuetify';
 import router from './router';
 import store from './store';
-import '@mdi/font/css/materialdesignicons.css';
-import './assets/styles/global.css';
 import axios from 'axios';
 import { auth } from './firebaseInit';
 import { onAuthStateChanged } from 'firebase/auth';
+import { errorHandler } from './utils/errorHandler';
+import { logInfo, logError } from './utils/logger';
+import deMessages from './locales/de.json';
 
-let appInstance = null;
-let authInitialized = false;
+import '@mdi/font/css/materialdesignicons.css';
+import './assets/styles/global.css';
 
-function initializeApp() {
-  // App wird nur einmal initialisiert und gemountet
-  if (!appInstance) {
-    console.log("Creating and mounting the app.");
-    appInstance = createApp(App);
-    
-    // Plugins registrieren
-    appInstance.use(router);
-    appInstance.use(store);
-    appInstance.use(vuetify);
-    
-    appInstance.mount('#app');
-    console.log("App has been mounted.");
-  } else {
-    console.log("App is already mounted. Skipping re-mount.");
-  }
+let appInitialized = false;
+
+let i18n;
+try {
+  i18n = createI18n({
+    locale: 'de',
+    fallbackLocale: 'de',
+    messages: { de: deMessages }
+  });
+} catch (error) {
+  logError('Fehler bei der Initialisierung von i18n:', error);
+  // Fallback-Optionen hier implementieren
 }
 
-// Warten auf den ersten Auth-Status bevor die App gemountet wird
-onAuthStateChanged(auth, (user) => {
-  console.log("onAuthStateChanged fired");
+function initializeApp() {
+  if (appInitialized) {
+    logInfo("App ist bereits initialisiert.");
+    return;
+  }
+  
+  logInfo("App wird initialisiert.");
+  const app = createApp(App);
+  
+  app.use(router);
+  app.use(store);
+  app.use(vuetify);
+  app.use(i18n);
+  
+  app.config.errorHandler = errorHandler;
+  
+  app.mount('#app');
+  appInitialized = true;
+  logInfo("App wurde erfolgreich initialisiert und gemountet.");
+  
+  setupInterceptors(router);
+}
 
+onAuthStateChanged(auth, (user) => {
+  logInfo("onAuthStateChanged ausgelöst");
   if (user) {
-    console.log("User is logged in:", user);
+    logInfo("Benutzer ist eingeloggt:", user);
     store.commit('auth/setUser', user);
   } else {
-    console.log("No user is logged in.");
+    logInfo("Kein Benutzer eingeloggt.");
     store.commit('auth/setUser', null);
   }
-
-  if (!authInitialized) {
-    authInitialized = true;
+  
+  if (!appInitialized) {
     initializeApp();
   }
 });
 
-// Axios Standardkonfiguration
-axios.defaults.baseURL = 'http://127.0.0.1:5000';
+axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
 
-// Neue Funktion für die Interceptors
 export const setupInterceptors = (router) => {
   axios.interceptors.response.use(
     response => response,
@@ -61,11 +76,17 @@ export const setupInterceptors = (router) => {
         await store.dispatch('auth/handleLogout');
         router.push('/login');
       }
-      console.error('API Error:', error);
+      logError('API-Fehler:', error);
       return Promise.reject(error);
     }
   );
 };
 
-// Aufruf der setupInterceptors Funktion
-setupInterceptors(router);
+// Entfernen oder auskommentieren Sie diesen Block
+/*
+if (import.meta.env.PROD) {
+  import('virtual:pwa-register').then(({ registerSW }) => {
+    registerSW({ immediate: true });
+  });
+}
+*/

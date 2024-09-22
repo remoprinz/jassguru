@@ -68,7 +68,7 @@ const formatiereDatum = computed(() => {
     if (isNaN(datumObjekt.getTime())) {
       throw new Error('Ungültiges Datum');
     }
-    return datumObjekt.toLocaleDateString('de-CH', {
+    return datumObjekt.toLocaleString('de-CH', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',

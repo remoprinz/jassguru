@@ -1,10 +1,8 @@
 # models/jass_capture.py
 
-from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey
+from sqlalchemy import Column, Integer, String, Date, Float, ForeignKey
 from sqlalchemy.orm import relationship
 from extensions import db
-from datetime import datetime
-from zoneinfo import ZoneInfo
 from .relationship_tables import jass_capture_players
 
 class JassCapture(db.Model):
@@ -12,8 +10,8 @@ class JassCapture(db.Model):
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     jass_group_id = Column(Integer, ForeignKey('jass_groups.id'), nullable=False)
-    start_time = Column(DateTime, nullable=False)  # Entfernen Sie den default-Wert
-    end_time = Column(DateTime)
+    start_date = Column(Date, nullable=False)  # Änderung von DateTime zu Date
+    end_date = Column(Date)  # Änderung von DateTime zu Date
     mode = Column(String(50), nullable=False)
     status = Column(String(20), default='active')
     jass_code = Column(String(10), unique=True)
@@ -30,8 +28,8 @@ class JassCapture(db.Model):
         return {
             "id": self.id,
             "jass_group_id": self.jass_group_id,
-            "start_time": self.start_time.isoformat(),
-            "end_time": self.end_time.isoformat() if self.end_time else None,
+            "start_date": self.start_date.isoformat(),
+            "end_date": self.end_date.isoformat() if self.end_date else None,
             "mode": self.mode,
             "status": self.status,
             "jass_code": self.jass_code,

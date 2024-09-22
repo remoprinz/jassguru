@@ -5,47 +5,49 @@ const getStore = () => require('@/store').default;
 
 // Fehler-Logging mit Benachrichtigung an den Benutzer
 export const logError = (context, error, additionalInfo = {}) => {
-  console.error(`[${context}] Error:`, {
-    message: error?.message || 'Unbekannter Fehler',
+  console.error(`[${context}] Fehler:`, {
+    nachricht: error?.message || 'Unbekannter Fehler',
     stack: error?.stack || 'Keine Stack-Informationen verfügbar',
     ...additionalInfo
   });
 
-  let message = 'Ein unerwarteter Fehler ist aufgetreten.';
-  let color = 'error';  // Standardfarbe für Fehler
+  let nachricht = 'Ein unerwarteter Fehler ist aufgetreten.';
+  let farbe = 'error';  // Standardfarbe für Fehler
 
   if (error?.response?.data?.message) {
-    message = error.response.data.message;
+    nachricht = error.response.data.message;
   } else if (error?.message) {
-    message = error.message;
+    nachricht = error.message;
   }
 
   // Dynamischer Store-Zugriff
   getStore().dispatch('snackbar/showSnackbar', {
-    message,
-    color,
+    nachricht,
+    farbe,
     timeout: 5000
   });
 };
 
 // Debugging-Logs, die **nur** in der Konsole erscheinen
-export const logDebug = (context, message, additionalInfo = {}) => {
-  console.debug(`[${context}] Debug:`, message, additionalInfo);
+export const logDebug = (context, nachricht, additionalInfo = {}) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.debug(`[${context}] Debug:`, nachricht, additionalInfo);
+  }
 };
 
 // Info-Logging, das **nur für Benutzerrelevante Informationen** die Snackbar anzeigt
-export const logInfo = (context, message, additionalInfo = {}, showInSnackbar = false) => {
-  console.log(`[${context}] Info:`, message, additionalInfo);
+export const logInfo = (context, nachricht, additionalInfo = {}, zeigeInSnackbar = false) => {
+  console.log(`[${context}] Info:`, nachricht, additionalInfo);
 
-  if (showInSnackbar) {
+  if (zeigeInSnackbar) {
     getStore().dispatch('snackbar/showSnackbar', {
-      message,
-      color: 'info',
+      nachricht,
+      farbe: 'info',
       timeout: 3000
     });
   }
 };
 
-export const logWarning = (context, message, additionalInfo = {}) => {
-  console.warn(`[${context}] Warning:`, message, additionalInfo);
+export const logWarnung = (context, nachricht, additionalInfo = {}) => {
+  console.warn(`[${context}] Warnung:`, nachricht, additionalInfo);
 };

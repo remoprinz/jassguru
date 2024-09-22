@@ -226,15 +226,17 @@ export default {
   },
   created() {
     this.$nextTick(async () => {
-      if (this.selectedMode === 'Jassgruppe') {
-        if (!this.selectedGroup || this.groupPlayers.length === 0) {
-          logInfo('SpielerErfassen', 'Keine Gruppe ausgewählt oder keine Spieler geladen, gehe zurück zu Schritt 2');
-          await this.$store.dispatch('jassErfassen/setCurrentStep', 2);
+      if (this.$store.state.jassErfassen.currentStep === 3) { // Angenommen, Schritt 3 ist Spielerauswahl
+        if (this.selectedMode === 'Jassgruppe') {
+          if (!this.selectedGroup || this.groupPlayers.length === 0) {
+            logInfo('SpielerErfassen', 'Keine Gruppe ausgewählt oder keine Spieler geladen, gehe zurück zu Schritt 2');
+            await this.$store.dispatch('jassErfassen/setCurrentStep', 2);
+          } else {
+            await this.fetchPlayersIfNeeded();
+          }
         } else {
           await this.fetchPlayersIfNeeded();
         }
-      } else {
-        await this.fetchPlayersIfNeeded();
       }
     });
     
