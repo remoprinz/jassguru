@@ -1,5 +1,5 @@
 <template>
-  <div class="Jasstafel-container" :style="containerStyle">
+  <div class="jasstafel-container" :style="containerStyle">
     <svg :viewBox="viewBox" class="svg"></svg>
     <div class="content">
       <slot></slot>
@@ -64,16 +64,17 @@ export default {
 </script>
 
 <style scoped>
-.Jasstafel-container {
+.jasstafel-container {
   position: relative;
-  width: 80vw;
-  max-width: 100vh;
+  width: 80vw;  
+  max-width: 500px;
+  aspect-ratio: 3 / 4;
   margin: 0 auto;
 }
 
 .svg {
   width: 100%;
-  height: auto;
+  height: 100%;
   visibility: hidden;
 }
 
@@ -87,7 +88,21 @@ export default {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 10px;
+  padding: 10% 5%;  /* Erhöht den seitlichen Abstand */
   box-sizing: border-box;
+  width: 100%;  /* Volle Breite des Containers */
+  max-width: none;  /* Entfernt die Breitenbegrenzung */
+  margin: 0 auto;  /* Zentriert den Inhalt */
+}
+
+@media screen and (orientation: landscape) {
+  .jasstafel-container {
+    width: 70vh;
+    max-width: 90vw;
+  }
+
+  .content {
+    padding: 2% 10%; /* Stark reduziertes vertikales Padding im Landscape-Modus */
+  }
 }
 </style>

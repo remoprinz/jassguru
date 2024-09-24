@@ -1,22 +1,44 @@
 <template>
   <div v-if="isDataReady" class="jass-erfassen-uebersicht">
-    <h2>Übersicht</h2>
-    <p><strong>Datum:</strong> {{ formatiereDatum }}</p>
-    <p><strong>Ort:</strong> {{ standortInfo.ortsname || 'Wird ermittelt...' }}</p>
-    <p><strong>Gruppe:</strong> {{ groupName }}</p>
-    <h3>Team 1</h3>
-    <ul>
-      <li v-for="player in team1Players" :key="player.id">
-        {{ player.nickname }} {{ istRosen10Spieler(player) ? '(Rosen 10)' : '' }}
-      </li>
-    </ul>
-    <h3>Team 2</h3>
-    <ul>
-      <li v-for="player in team2Players" :key="player.id">
-        {{ player.nickname }} {{ istRosen10Spieler(player) ? '(Rosen 10)' : '' }}
-      </li>
-    </ul>
-    <OkButton @click="bestätigenUndFortfahren" :disabled="!isDataComplete">Bestätigen</OkButton>
+    <div class="input-container">
+      <div class="content">
+        <div class="info-row">
+          <span class="label">Datum:</span>
+          <span class="value">{{ formatiereDatum }}</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Ort:</span>
+          <span class="value">{{ standortInfo.ortsname || 'Wird ermittelt...' }}</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Gruppe:</span>
+          <span class="value">{{ groupName }}</span>
+        </div>
+        <div class="team-section">
+          <h3 class="team-title">Team 1</h3>
+          <ul>
+            <li v-for="player in team1Players" :key="player.id" class="player-item">
+              <span class="value">{{ player.nickname }} {{ istRosen10Spieler(player) ? '(Rosen 10)' : '' }}</span>
+            </li>
+          </ul>
+        </div>
+        <div class="team-section">
+          <h3 class="team-title">Team 2</h3>
+          <ul>
+            <li v-for="player in team2Players" :key="player.id" class="player-item">
+              <span class="value">{{ player.nickname }} {{ istRosen10Spieler(player) ? '(Rosen 10)' : '' }}</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <OkButton 
+        @click="bestätigenUndFortfahren" 
+        :disabled="!isDataComplete"
+        class="confirm-button"
+      >
+        Bestätigen
+      </OkButton>
+    </div>
   </div>
   <div v-else-if="hatFehler" class="error-message">
     {{ fehlerMeldung }}
@@ -199,13 +221,88 @@ export default {
 
 <style scoped>
 .jass-erfassen-uebersicht {
-  max-width: 600px;
-  margin: 0 auto;
-  padding: 20px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
+
+.input-container {
+  width: 180%;
+  max-width: 290px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.content {
+  width: 100%;
+  margin-bottom: 20px;
+  padding-left: 20px; /* Rückt den gesamten Inhalt etwas nach rechts */
+}
+
+.info-row {
+  display: flex;
+  margin-bottom: 8px;
+}
+
+.label {
+  font-weight: bold;
+  width: 70px; /* Feste Breite für alle Labels */
+  flex-shrink: 0;
+}
+
+.value {
+  padding-left: 0px; /* Einrückung für alle Werte */
+}
+
+.team-section {
+  margin-top: 16px;
+}
+
+.team-title {
+  margin-bottom: 8px;
+  font-weight: bold;
+}
+
+ul {
+  list-style-type: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.player-item {
+  margin-bottom: 4px;
+  padding-left: 70px; /* Gleiche Einrückung wie bei anderen Werten */
+}
+
+.confirm-button {
+  width: 100%;
+  margin-top: 30px;
+}
+
 .error-message {
   color: red;
   text-align: center;
   margin-top: 20px;
+}
+
+.loading-message {
+  text-align: center;
+  margin-top: 20px;
+}
+
+@media screen and (orientation: landscape) {
+  .input-container {
+    padding-top: 8px;
+    transform: scale(0.9);
+    transform-origin: top center;
+  }
+
+  .confirm-button {
+    margin-top: 4px;
+  }
 }
 </style>

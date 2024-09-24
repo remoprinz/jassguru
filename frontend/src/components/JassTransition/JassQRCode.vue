@@ -1,13 +1,15 @@
 <template>
   <div class="jass-qr-code">
-    <h2>Jass erfolgreich erstellt</h2>
-    <p>Mitspieler scannen den QR-Code, um dem Jass beizutreten:</p>
+    <h2 class="main-title">Jass erfolgreich erstellt</h2>
+    <p class="subtitle">Mitspieler können den QR-Code scannen, um dem Jass beizutreten:</p>
     <div class="qr-code-container">
       <qrcode-vue :value="jassCodeUrl" :size="200" level="H" render-as="svg" />
     </div>
     <p>Oder geben Sie folgenden Code ein:</p>
     <div class="jass-code">{{ jassCode }}</div>
-    <OkButton @click="startJass" class="mt-4">JASS STARTEN</OkButton>
+    <div class="button-container">
+      <OkButton @click="startJass" class="start-button">JASS STARTEN</OkButton>
+    </div>
   </div>
 </template>
 
@@ -44,19 +46,44 @@ const startJass = async () => {
 .jass-qr-code {
   text-align: center;
   padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.main-title {
+  margin-bottom: 30px; /* Vergrößerter Abstand zum nächsten Titel */
+}
+
+.subtitle {
+  margin-bottom: 30px; /* Vergrößerter Abstand zum QR-Code */
 }
 
 .qr-code-container {
-  margin: 20px 0;
+  margin: 20px 0 30px; /* Vergrößerter Abstand nach unten */
 }
 
 .jass-code {
   font-size: 24px;
   font-weight: bold;
   margin-top: 10px;
+  margin-bottom: 40px; /* Vergrößerter Abstand zum OK-Button */
 }
 
-.mt-4 {
-  margin-top: 1rem;
+.button-container {
+  width: 180%;
+  max-width: 290px;
+  display: flex;
+  justify-content: center;
+}
+
+.start-button {
+  width: 100%;
+}
+
+@media screen and (orientation: landscape) {
+  .start-button {
+    margin-top: 4px;
+  }
 }
 </style>

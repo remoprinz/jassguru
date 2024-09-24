@@ -1,59 +1,64 @@
 <template>
   <div class="spieler-erfassen">
     <div v-if="selectedGroup" class="content-container">
-      <h3 class="centered-title">{{ selectedGroup.name }}</h3>
-      <v-progress-circular
-        v-if="istLadend"
-        indeterminate
-        color="primary"
-        class="loader"
-      ></v-progress-circular>
-      <div v-else class="teams-container">
-        <div v-for="(team, teamIndex) in [1, 2]" :key="teamIndex" class="team">
-          <h3 class="team-title">Team {{ team }}</h3>
-          <div class="players-container">
-            <div v-for="player in 2" :key="`team${team}player${player}`" class="player-select">
-              <v-select
-                v-model="selectedPlayers[`team${team}player${player}`]"
-                :items="availablePlayers"
-                item-title="nickname"
-                item-value="id"
-                :label="`Spieler ${teamIndex * 2 + player}`"
-                return-object
-                dense
-                outlined
-                @change="handlePlayerSelection(`team${team}player${player}`, $event)"
-              >
-                <template v-slot:item="{ item, props }">
-                  <v-list-item v-bind="props" :title="item.nickname"></v-list-item>
-                </template>
-              </v-select>
+      <div class="input-container">
+        <h3 class="group-name">{{ selectedGroup.name }}</h3>
+        <v-progress-circular
+          v-if="istLadend"
+          indeterminate
+          color="primary"
+          class="loader"
+        ></v-progress-circular>
+        <div v-else class="teams-container">
+          <div v-for="(team, teamIndex) in [1, 2]" :key="teamIndex" class="team">
+            <h3 class="team-title">Team {{ team }}</h3>
+            <div class="players-container">
+              <div v-for="player in 2" :key="`team${team}player${player}`" class="player-select">
+                <v-select
+                  v-model="selectedPlayers[`team${team}player${player}`]"
+                  :items="availablePlayers"
+                  item-title="nickname"
+                  item-value="id"
+                  :label="`Spieler ${teamIndex * 2 + player}`"
+                  return-object
+                  dense
+                  outlined
+                  @change="handlePlayerSelection(`team${team}player${player}`, $event)"
+                >
+                  <template v-slot:append-item>
+                    <v-list-item @click="goToAddPlayer">
+                      <v-list-item-title>Neuer Spieler hinzufügen</v-list-item-title>
+                    </v-list-item>
+                    <v-list-item @click="searchExistingPlayer">
+                      <v-list-item-title>Existierenden Spieler suchen</v-list-item-title>
+                    </v-list-item>
+                  </template>
+                </v-select>
+              </div>
             </div>
           </div>
         </div>
+        <v-btn 
+          @click="confirmPlayerSelection" 
+          color="success" 
+          class="confirm-button" 
+          :disabled="!allPlayersSelected"
+          rounded
+          block
+        >
+          Spielerauswahl bestätigen
+        </v-btn>
       </div>
     </div>
     <div v-else class="content-container">
       <p>Bitte wählen Sie zuerst eine Gruppe aus.</p>
     </div>
-    <div class="button-container">
-      <v-btn 
-        @click="confirmPlayerSelection" 
-        color="success" 
-        class="confirm-button" 
-        :disabled="!allPlayersSelected"
-        rounded
-        block
-      >
-        Spielerauswahl bestätigen
-      </v-btn>
-      <a 
-        @click="resetPlayerSelection" 
-        class="reset-link"
-      >
-        Spielerauswahl zurücksetzen
-      </a>
-    </div>
+    <a 
+      @click="resetPlayerSelection" 
+      class="reset-link"
+    >
+      Spielerauswahl zurücksetzen
+    </a>
     <SearchDialog ref="searchDialog" />
     <PlayerSelectDialog ref="playerSelectionDialog" />
   </div>
@@ -256,46 +261,66 @@ export default {
 <style scoped>
 .spieler-erfassen {
   width: 100%;
-  max-width: 300px;
-  margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0 16px;
+}
+
+.content-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.input-container {
+  width: 180%;
+  max-width: 290px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
   box-sizing: border-box;
+}
+
+.group-name {
+  text-align: center;
+  margin-bottom: 0px;
+  font-size: 1.2em;
+  margin-top: 50px; /* Verschiebt den Gruppennamen etwas nach unten */
+}
+
+.teams-container {
+  width: 100%;
+}
+
+.team {
+  margin-bottom: -20px;
 }
 
 .team-title {
   text-align: center;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
   font-size: 1.1em;
 }
 
 .players-container {
   display: flex;
   justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: 8px;
 }
 
 .player-select {
-  width: 100%;
-}
-
-.button-container {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-top: 30px;
+  width: calc(50% - 4px);
 }
 
 .confirm-button {
   width: 100%;
+  margin-top: 30px; /* Verringert den Abstand zum OK-Button */
 }
 
 .reset-link {
-  margin-top: 15px;
+  margin-top: 40px;
   font-size: 0.9em;
   text-decoration: underline;
   color: inherit;
@@ -313,25 +338,15 @@ export default {
   white-space: nowrap;
 }
 
-:deep(.v-select__selection) {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+@media screen and (orientation: landscape) {
+  .input-container {
+    padding-top: 8px;
+    transform: scale(0.9);
+    transform-origin: top center;
+  }
 
-:deep(.v-select .v-input__slot) {
-  padding-left: 8px !important;
-  padding-right: 8px !important;
-}
-
-:deep(.v-select .v-select__selection) {
-  font-size: 0.9em;
-}
-
-.centered-title {
-  text-align: center;
-  width: 100%;
-  margin-bottom: 20px;
-  font-size: 1.5em;
+  .confirm-button {
+    margin-top: 4px; /* Noch geringerer Abstand im Landscape-Modus */
+  }
 }
 </style>

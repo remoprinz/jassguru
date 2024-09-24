@@ -1,20 +1,22 @@
 <template>
   <div class="jass-erfassen-container">
-    <JasstafelContainer :bgImage="bgImage" :hideImageInLandscape="true">
-      <div class="content-wrapper">
-        <h1 class="title display-1--text">{{ pageTitle }}</h1>
-        <ErrorBoundary>
-          <component 
-            :is="currentStepComponent"
-            @next-step="handleNextStep"
-            :key="currentStep"
-            ref="currentComponent"
-            :selectedPlayers="selectedPlayers"
-          />
-        </ErrorBoundary>
-        <CloseButton @click="resetJassErfassenProcess" class="close-button" />
-      </div>
-    </JasstafelContainer>
+    <h1 class="title">{{ pageTitle }}</h1>
+    <div class="jasstafel-wrapper">
+      <JasstafelContainer :bgImage="bgImage" :hideImageInLandscape="true">
+        <div class="content-wrapper">
+          <ErrorBoundary>
+            <component 
+              :is="currentStepComponent"
+              @next-step="handleNextStep"
+              :key="currentStep"
+              ref="currentComponent"
+              :selectedPlayers="selectedPlayers"
+            />
+          </ErrorBoundary>
+        </div>
+      </JasstafelContainer>
+      <CloseButton @click="resetJassErfassenProcess" class="close-button" />
+    </div>
     <v-overlay :value="isProcessing" color="primary" opacity="0.8">
       <v-progress-circular indeterminate size="64"></v-progress-circular>
     </v-overlay>
@@ -81,7 +83,7 @@ export default {
         2: 'Gruppe auswählen',
         3: 'Spieler auswählen',
         4: 'Rosen 10 Spieler',
-        5: 'Jass Erfassen Übersicht',
+        5: 'Übersicht',
       };
       return titles[this.currentStep] || 'Jass erfassen';
     },
@@ -214,55 +216,61 @@ export default {
 <style scoped>
 .jass-erfassen-container {
   background-color: #388E3C;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-}
-
-.content-wrapper {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
   align-items: center;
-  flex-grow: 1;
-  width: 100%;
-  max-width: 450px;
-  padding: 0 20px;
-  margin: 0 auto;
+  padding: 20px 0; /* Unverändert */
   position: relative;
 }
 
-.title {
+.jasstafel-wrapper {
   position: relative;
-  font-size: 5vw;
-  margin-bottom: 20px;
-  text-align: center;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 60px;
 }
 
 .close-button {
   position: absolute;
-  bottom: 20px;
-  right: 20px;
+  bottom: -70px; /* Unverändert */
+  right: 70px; /* Unverändert */
+  z-index: 10;
 }
 
-@media screen and (orientation: portrait) {
-  .jass-erfassen-container {
-    min-height: 100vh;
-    padding-top: 20%;
-  }
-  .title {
-    top: -10%;
-    font-size: 8vw;
-  }
+.title {
+  font-size: 32px;
+  margin-bottom: 40px; /* Angepasst, um den Abstand zu verringern */
+  text-align: center;
+  color: white;
+  margin-top: 40px; /* Hinzugefügt, um den Titel nach unten zu verschieben */
+}
+
+.content-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 @media screen and (orientation: landscape) {
   .jass-erfassen-container {
-    min-height: 130vh;
-    padding-top: 10%;
+    padding-top: 20px; /* Entfernt das obere Padding im Landscape-Modus */
   }
+
   .title {
-    top: -5%;
-    font-size: 3vw;
+    margin-bottom: -40px; /* Sehr geringer Abstand unter dem Titel */
+  }
+
+  .jasstafel-wrapper {
+    margin-top: -10px; /* Negativer Margin, um den Abstand zu verringern */
+  }
+
+  .close-button {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
   }
 }
 </style>

@@ -1,26 +1,36 @@
 <template>
   <div class="rosen10-player">
-    <v-select
-      v-model="localSelectedRosen10Player"
-      :items="selectedPlayersArray"
-      item-title="nickname"
-      item-value="id"
-      label="Wähle den Rosen 10 Spieler"
-      return-object
-      outlined
-      @update:model-value="handleRosen10Selection"
+    <div class="input-container">
+      <v-select
+        v-model="localSelectedRosen10Player"
+        :items="selectedPlayersArray"
+        item-title="nickname"
+        item-value="id"
+        label="Wähle den Rosen 10 Spieler"
+        return-object
+        outlined
+        @update:model-value="handleRosen10Selection"
+        class="rosen10-select"
+      >
+        <template v-slot:item="{ item, props }">
+          <v-list-item v-bind="props" :title="item.raw.nickname"></v-list-item>
+        </template>
+      </v-select>
+      <OkButton 
+        :disabled="!localSelectedRosen10Player" 
+        @click="confirmRosen10Player"
+        class="ok-button"
+      >
+        Bestätigen
+      </OkButton>
+    </div>
+    <v-btn
+      icon
+      @click="showInfoPopup"
+      class="info-button"
     >
-      <template v-slot:item="{ item, props }">
-        <v-list-item v-bind="props" :title="item.raw.nickname"></v-list-item>
-      </template>
-    </v-select>
-    <OkButton 
-      :disabled="!localSelectedRosen10Player" 
-      @click="confirmRosen10Player"
-      class="ok-button"
-    >
-      Bestätigen
-    </OkButton>
+      <v-icon>mdi-information</v-icon>
+    </v-btn>
   </div>
 </template>
 
@@ -72,23 +82,74 @@ export default {
           });
         }
       }
-    },
-  },
+    }
+  }
 };
 </script>
 
 <style scoped>
 .rosen10-player {
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 100%;
-  max-width: 300px;
-  margin: 0 auto;
 }
 
-.v-select, .ok-button {
+.input-container {
+  width: 180%;
+  max-width: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.rosen10-select {
   width: 100%;
   margin-bottom: 16px;
+}
+
+.ok-button {
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.info-button {
+  margin-top: 16px;
+}
+
+:deep(.v-input__control),
+:deep(.v-input__slot),
+:deep(.v-text-field__slot) {
+  width: 100%;
+}
+
+:deep(.v-select__selections) {
+  max-width: 100%;
+}
+
+@media screen and (orientation: landscape) {
+  .rosen10-player {
+    padding-top: 0;
+  }
+
+  .input-container {
+    margin-top: 0;
+    transform: scale(0.9);
+    transform-origin: top center;
+  }
+
+  .rosen10-select {
+    margin-bottom: 30px;
+  }
+
+  .ok-button {
+    margin-top: -20px;
+  }
+
+  .info-button {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+  }
 }
 </style>

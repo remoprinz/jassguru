@@ -5,6 +5,7 @@
     :loading="loading"
     class="my-ok-button"
     v-bind="$attrs"
+    block
   >
     <slot></slot>
   </v-btn>
@@ -32,5 +33,6 @@ export default {
   background-color: var(--v-theme-success);
   border: none;
   border-radius: 50px; 
+  width: 100% !important;
 }
 </style>

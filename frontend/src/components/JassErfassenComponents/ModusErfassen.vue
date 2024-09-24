@@ -1,20 +1,22 @@
 <template>
   <div class="modus-erfassen">
-    <v-select
-      v-model="selectedModus"
-      :items="modusOptions"
-      label="Spielmodus auswählen"
-      outlined
-      @change="handleModusSelection"
-      class="modus-select"
-    ></v-select>
-    <OkButton 
-      :disabled="!selectedModus" 
-      @click="confirmModus"
-      class="ok-button"
-    >
-      Bestätigen
-    </OkButton>
+    <div class="input-container">
+      <v-select
+        v-model="selectedModus"
+        :items="modusOptions"
+        label="Spielmodus auswählen"
+        outlined
+        @change="handleModusSelection"
+        class="modus-select"
+      ></v-select>
+      <OkButton 
+        :disabled="!selectedModus" 
+        @click="confirmModus"
+        class="ok-button"
+      >
+        Bestätigen
+      </OkButton>
+    </div>
     <v-btn
       icon
       @click="showInfoPopup"
@@ -91,20 +93,63 @@ export default {
 
 <style scoped>
 .modus-erfassen {
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 100%;
-  max-width: 300px; /* Verringerte Breite */
-  margin: 0 auto;
 }
 
-.modus-select, .ok-button {
+.input-container {
+  width: 180%;
+  max-width: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.modus-select,
+.ok-button {
   width: 100%;
+  max-width: 100%; /* Verhindert Überschreitung der Container-Breite */
   margin-bottom: 16px;
 }
 
 .info-button {
-  margin-top: 10px;
+  margin-top: 16px;
+}
+
+:deep(.v-input__control),
+:deep(.v-input__slot),
+:deep(.v-text-field__slot) {
+  width: 100%;
+}
+
+:deep(.v-select__selections) {
+  max-width: 100%;
+}
+
+@media screen and (orientation: landscape) {
+  .modus-erfassen {
+    padding-top: 0;
+  }
+
+  .input-container {
+    margin-top: 0; /* Entfernt den negativen Margin */
+    transform: scale(0.9); /* Verkleinert die Komponente leicht */
+    transform-origin: top center;
+  }
+
+  .modus-select {
+    margin-bottom: 30px; /* Noch geringerer Abstand zwischen Select und Button */
+  }
+
+  .ok-button {
+    margin-top: -20px; /* Geringer Abstand über dem Button */
+  }
+
+  .info-button {
+    bottom: 20px; /* Platzieren Sie den Info-Button weiter oben im Landscape-Modus */
+  }
 }
 </style>
+

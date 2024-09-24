@@ -1,35 +1,35 @@
 <template>
   <div class="group-select-container">
-    <v-select
-      v-model="localSelectedGroup"
-      :items="userGroups"
-      item-title="name"
-      item-value="id"
-      label="Wähle eine Gruppe"
-      outlined
-      @change="handleGroupSelection"
-      :loading="isLoading"
-      :disabled="isLoading || hasError"
-      :error-messages="errorMessage"
-      return-object
-      class="group-select"
-    ></v-select>
+    <div class="input-container">
+      <v-select
+        v-model="localSelectedGroup"
+        :items="userGroups"
+        item-title="name"
+        item-value="id"
+        label="Wähle eine Gruppe"
+        outlined
+        @change="handleGroupSelection"
+        :loading="isLoading"
+        :disabled="isLoading || hasError"
+        :error-messages="errorMessage"
+        return-object
+        class="group-select"
+      ></v-select>
+      <OkButton 
+        :disabled="!isValidSelection || isLoading || hasError" 
+        @click="confirmGroup"
+        class="ok-button"
+      >
+        Bestätigen
+      </OkButton>
+    </div>
     <v-btn
-      v-if="hasError"
-      color="primary"
+      icon
       @click="loadUserGroups"
-      :loading="isLoading"
-      class="retry-button"
+      class="info-button"
     >
-      Erneut versuchen
+      <v-icon>mdi-information</v-icon>
     </v-btn>
-    <OkButton 
-      :disabled="!isValidSelection || isLoading || hasError" 
-      @click="confirmGroup"
-      class="ok-button"
-    >
-      Bestätigen
-    </OkButton>
   </div>
 </template>
 
@@ -150,28 +150,67 @@ export default {
 
 <style scoped>
 .group-select-container {
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 100%;
-  max-width: 300px; /* Verringerte Breite */
-  margin: 0 auto;
 }
 
-.group-select, .retry-button, .ok-button {
+.input-container {
+  width: 180%;
+  max-width: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.group-select {
   width: 100%;
   margin-bottom: 16px;
 }
 
-@media screen and (orientation: portrait) {
-  h2 {
-    font-size: 8vw;
-  }
+.ok-button {
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.info-button {
+  margin-top: 16px;
+}
+
+:deep(.v-input__control),
+:deep(.v-input__slot),
+:deep(.v-text-field__slot) {
+  width: 100%;
+}
+
+:deep(.v-select__selections) {
+  max-width: 100%;
 }
 
 @media screen and (orientation: landscape) {
-  h2 {
-    font-size: 3vw;
+  .group-select-container {
+    padding-top: 0;
+  }
+
+  .input-container {
+    margin-top: 0;
+    transform: scale(0.9);
+    transform-origin: top center;
+  }
+
+  .group-select {
+    margin-bottom: 30px;
+  }
+
+  .ok-button {
+    margin-top: -20px;
+  }
+
+  .info-button {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
   }
 }
 </style>
