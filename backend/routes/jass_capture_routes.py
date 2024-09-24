@@ -27,18 +27,12 @@ def generiere_einzigartigen_jass_code(laenge=6):
 def initialize_jass():
     try:
         data = request.json
-        logger.info(f"Empfangene Jass-Daten: {data}")
-
-        # Überprüfen Sie, ob Standortdaten vorhanden sind
-        if 'latitude' in data and 'longitude' in data:
-            logger.info(f"Standortdaten empfangen: Lat {data['latitude']}, Lon {data['longitude']}")
-        else:
-            logger.warning("Keine Standortdaten in der Anfrage gefunden")
+        logger.info(f"Empfangene Daten für Jass-Initialisierung: {data}")
 
         # Token-Verifizierung
         token = request.headers.get('Authorization').split('Bearer ')[1]
         firebase_user = verify_firebase_token(token)
-        
+
         if not firebase_user['success']:
             return jsonify({'error': 'Nicht autorisiert'}), 401
 
@@ -49,10 +43,10 @@ def initialize_jass():
             logger.error(f"Validierungsfehler: {errors}")
             return jsonify({"errors": errors}), 400
 
-        logger.info(f"Validierung erfolgreich, erstelle neuen Jass")
+        logger.info("Validierung erfolgreich, erstelle neuen Jass")
 
         # Parsen des Datums
-        start_time = datetime.fromisoformat(data['date'].replace('Z', '+00:00'))
+        start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
 
         neuer_jass = JassCapture(
             jass_group_id=data['group_id'],
@@ -61,35 +55,33 @@ def initialize_jass():
             longitude=data.get('longitude'),
             location_name=data.get('location_name'),
             rosen10_player_id=data['rosen10_player_id'],
-            start_time=start_time  # Verwenden Sie das geparste Datum hier
+            start_date=start_date,
+            jass_code=generiere_einzigartigen_jass_code()
         )
 
-        logger.info(f"Neuer Jass erstellt: {neuer_jass.serialize()}")
+        db.session.add(neuer_jass)
+        db.session.flush()  # Flush, um die ID zu generieren
 
         for player_data in data['players']:
             spieler = Player.query.get(player_data['id'])
             if spieler:
                 neuer_jass.players.append(spieler)
+            else:
+                logger.warning(f"Spieler mit ID {player_data['id']} nicht gefunden")
 
-        jass_code = generiere_einzigartigen_jass_code()
-        neuer_jass.jass_code = jass_code
-
-        db.session.add(neuer_jass)
-        db.session.flush()
-        logger.info(f"Neue Jass ID nach Flush: {neuer_jass.id}")
         db.session.commit()
         logger.info(f"Neuer Jass erstellt mit ID: {neuer_jass.id}")
 
-        logger.info(f'Neuer Jass erstellt: {neuer_jass.serialize()}')
         return jsonify({
-            'nachricht': 'Jass erfolgreich initialisiert',
+            'message': 'Jass erfolgreich initialisiert',
             'jass_id': neuer_jass.id,
-            'jass_code': jass_code
+            'jass_code': neuer_jass.jass_code
         }), 201
 
+    except ValidationException as ve:
+        logger.error(f"Validierungsfehler: {str(ve)}")
+        return jsonify({"error": str(ve)}), 400
     except Exception as e:
-        logger.error(f"Unerwarteter Fehler: {str(e)}")
-        logger.error(f"Fehler-Typ: {type(e).__name__}")
-        logger.error(f"Fehler-Details: {e.args}")
+        logger.error(f"Unerwarteter Fehler: {str(e)}", exc_info=True)
         return jsonify({"error": "Ein unerwarteter Fehler ist aufgetreten", "details": str(e)}), 500
 

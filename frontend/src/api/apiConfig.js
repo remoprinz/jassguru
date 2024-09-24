@@ -1,5 +1,5 @@
 import axios from 'axios';
-import store from '../store';
+import { store } from '../store';  // Änderung hier
 
 const baseURL = process.env.VUE_APP_API_BASE_URL || "http://127.0.0.1:5000/api";
 
@@ -42,12 +42,12 @@ apiService.interceptors.request.use(async (config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   } else {
-    console.log("No current token available. Skipping token setting.");
+    console.log("Kein aktuelles Token verfügbar. Token-Setzung wird übersprungen.");
   }
   
   return config;
 }, error => {
-  console.error('Request Error:', error);
+  console.error('Anfragefehler:', error);
   return Promise.reject(error);
 });
 

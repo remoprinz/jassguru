@@ -1,94 +1,61 @@
-// Maximale Anzahl der gleichzeitig sichtbaren Snackbars
+import { ref } from 'vue';
+import { defineStore } from 'pinia';
+
 const MAX_SNACKBARS = 1;
 
-const state = {
-  // Array, das die aktiven Snackbars speichert
-  snackbars: []
-};
+export const useSnackbarStore = defineStore('snackbar', () => {
+  const snackbars = ref([]);
 
-const mutations = {
-  // Mutation zum Hinzufügen einer Snackbar
-  ADD_SNACKBAR(state, snackbar) {
-    if (!state.snackbars.some(s => s.message === snackbar.message)) {
-      state.snackbars.push({ ...snackbar, id: Date.now() });
+  function addSnackbar(snackbar) {
+    if (snackbars.value.length < MAX_SNACKBARS) {
+      snackbars.value.push({ ...snackbar, id: Date.now() });
     }
-  },
-  
-  // Mutation zum Entfernen einer Snackbar basierend auf der ID
-  REMOVE_SNACKBAR(state, id) {
-    console.log('Mutation: REMOVE_SNACKBAR, ID:', id);
-    state.snackbars = state.snackbars.filter(s => s.id !== id); // Entferne die Snackbar mit der entsprechenden ID
-  },
-  
-  // Mutation zum Löschen aller Snackbars
-  CLEAR_SNACKBARS(state) {
-    console.log('Mutation: CLEAR_SNACKBARS');
-    state.snackbars = []; // Lösche alle Snackbars
   }
-};
 
-const actions = {
-  // Zeige eine neue Snackbar an
-  showSnackbar({ commit, state }, payload) {
-    console.log('Action: showSnackbar, Payload:', payload); // Logge die erhaltene Payload
+  function removeSnackbar(id) {
+    snackbars.value = snackbars.value.filter(s => s.id !== id);
+  }
 
-    // Wenn keine Nachricht übergeben wird, wird die Snackbar nicht angezeigt
+  function clearSnackbars() {
+    snackbars.value = [];
+  }
+
+  function showSnackbar(payload) {
+    console.log('Action: showSnackbar, Payload:', payload);
+
     if (!payload.message) {
-      console.warn('Snackbar message is missing, skipping snackbar display.');
-      return; // Verhindere das Hinzufügen einer Snackbar ohne Nachricht
+      console.warn('Snackbar-Nachricht fehlt, Anzeige wird übersprungen.');
+      return;
     }
 
-    // Generiere eine eindeutige ID für jede Snackbar
-    const id = Date.now() + Math.random();
+    const existierendeSnackbar = snackbars.value.find(
+      (snackbar) => snackbar.message === payload.message
+    );
+    if (existierendeSnackbar) {
+      console.log('Snackbar mit gleicher Nachricht existiert bereits, wird übersprungen.');
+      return;
+    }
 
-    // Erstelle das Snackbar-Objekt mit isActive-Flag
     const snackbar = {
-      id,
-      message: payload.message,  // Verwende die übergebene Nachricht
-      color: payload.color || 'info', // Standardfarbe ist 'info'
-      timeout: payload.timeout || 5000, // Standard-Timeout ist 5000ms
-      isActive: true // Snackbar aktiv setzen
+      id: Date.now() + Math.random(),
+      message: payload.message,
+      color: payload.color || 'info',
+      timeout: payload.timeout || 5000,
+      istAktiv: true
     };
 
-    // Begrenze die Anzahl der Snackbars
-    if (state.snackbars.length >= MAX_SNACKBARS) {
-      const oldestSnackbarId = state.snackbars[0].id;
-      commit('REMOVE_SNACKBAR', oldestSnackbarId);
+    if (snackbars.value.length >= MAX_SNACKBARS) {
+      removeSnackbar(snackbars.value[0].id);
     }
 
-    // Füge die Snackbar dem Zustand hinzu
-    commit('ADD_SNACKBAR', snackbar);
-
-    // Entferne die Snackbar automatisch nach dem festgelegten Timeout
-    setTimeout(() => {
-      console.log('Snackbar Timeout abgelaufen, ID:', id);
-      commit('REMOVE_SNACKBAR', id);
-    }, snackbar.timeout);
-  },
-
-  // Manuelles Entfernen einer Snackbar
-  hideSnackbar({ commit }, id) {
-    console.log('Action: hideSnackbar, ID:', id); // Logge die ID der zu entfernenden Snackbar
-    // Entferne die Snackbar sofort, ohne auf den Timeout zu warten
-    commit('REMOVE_SNACKBAR', id);
-  },
-
-  // Entferne alle Snackbars aus dem Zustand
-  clearSnackbars({ commit }) {
-    console.log('Action: clearSnackbars'); // Logge die Aktion des Löschens aller Snackbars
-    commit('CLEAR_SNACKBARS');
+    addSnackbar(snackbar);
+    setTimeout(() => removeSnackbar(snackbar.id), snackbar.timeout);
   }
-};
 
-const getters = {
-  // Gibt alle aktiven Snackbars zurück
-  activeSnackbars: state => state.snackbars // Rückgabe der aktiven Snackbars aus dem Zustand
-};
-
-export default {
-  namespaced: true,  // Namespacing des Moduls
-  state,
-  mutations,
-  actions,
-  getters
-};
+  return {
+    snackbars,
+    showSnackbar,
+    removeSnackbar,
+    clearSnackbars
+  };
+});

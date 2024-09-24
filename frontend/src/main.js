@@ -1,92 +1,84 @@
 import { createApp } from 'vue';
-import { createI18n } from 'vue-i18n';
 import App from './App.vue';
-import vuetify from './plugins/vuetify';
+import { store } from './store';
 import router from './router';
-import store from './store';
-import axios from 'axios';
-import { auth } from './firebaseInit';
-import { onAuthStateChanged } from 'firebase/auth';
-import { errorHandler } from './utils/errorHandler';
-import { logInfo, logError } from './utils/logger';
-import deMessages from './locales/de.json';
-
+import vuetify from './plugins/vuetify';
 import '@mdi/font/css/materialdesignicons.css';
 import './assets/styles/global.css';
+import { auth } from './firebaseInit';
+import { onAuthStateChanged } from 'firebase/auth';
+import { setupInterceptors } from './api/apiConfig';
+import axios from 'axios';
+// import i18n from './i18n'; // Uncomment when implementing internationalization
 
-let appInitialized = false;
-
-let i18n;
-try {
-  i18n = createI18n({
-    locale: 'de',
-    fallbackLocale: 'de',
-    messages: { de: deMessages }
-  });
-} catch (error) {
-  logError('Fehler bei der Initialisierung von i18n:', error);
-  // Fallback-Optionen hier implementieren
-}
+let app = null;
+let appMounted = false;
 
 function initializeApp() {
-  if (appInitialized) {
-    logInfo("App ist bereits initialisiert.");
-    return;
+  if (!app) {
+    console.log("App-Instanz wird erstellt.");
+    app = createApp(App);
+    
+    app.use(router);
+    app.use(store);
+    app.use(vuetify);
+    // app.use(i18n); // Uncomment when implementing internationalization
+    
+    // Globaler Fehlerhandler
+    app.config.errorHandler = (err, vm, info) => {
+      console.error('Globaler Vue Fehler:', err, vm, info);
+      // Implementieren Sie hier zusätzliche Fehlerbehandlung oder Logging
+    };
+    
+    console.log("App-Instanz erstellt und Plugins initialisiert.");
   }
-  
-  logInfo("App wird initialisiert.");
-  const app = createApp(App);
-  
-  app.use(router);
-  app.use(store);
-  app.use(vuetify);
-  app.use(i18n);
-  
-  app.config.errorHandler = errorHandler;
-  
-  app.mount('#app');
-  appInitialized = true;
-  logInfo("App wurde erfolgreich initialisiert und gemountet.");
-  
-  setupInterceptors(router);
 }
 
-onAuthStateChanged(auth, (user) => {
-  logInfo("onAuthStateChanged ausgelöst");
-  if (user) {
-    logInfo("Benutzer ist eingeloggt:", user);
-    store.commit('auth/setUser', user);
+function mountApp() {
+  if (!appMounted) {
+    console.log("App wird gemountet.");
+    app.mount('#app');
+    appMounted = true;
+    console.log("App wurde gemountet.");
   } else {
-    logInfo("Kein Benutzer eingeloggt.");
+    console.log("App ist bereits gemountet. Erneutes Mounten wird übersprungen.");
+  }
+}
+
+// App sofort initialisieren
+initializeApp();
+
+// Auth-Statusänderungen behandeln
+onAuthStateChanged(auth, (user) => {
+  console.log("onAuthStateChanged wurde ausgelöst");
+
+  if (user) {
+    console.log("Benutzer ist eingeloggt:", user.uid);
+    store.commit('auth/setUser', user);
+    // Hier können Sie zusätzliche Aktionen für eingeloggte Benutzer durchführen
+  } else {
+    console.log("Kein Benutzer ist eingeloggt.");
     store.commit('auth/setUser', null);
+    // Hier können Sie zusätzliche Aktionen für ausgeloggte Benutzer durchführen
   }
-  
-  if (!appInitialized) {
-    initializeApp();
-  }
+
+  mountApp();
 });
 
-axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
+// Axios Interceptors Setup
+setupInterceptors(router);
 
-export const setupInterceptors = (router) => {
-  axios.interceptors.response.use(
-    response => response,
-    async error => {
-      if (error.response && error.response.status === 401) {
-        await store.dispatch('auth/handleLogout');
-        router.push('/login');
-      }
-      logError('API-Fehler:', error);
-      return Promise.reject(error);
-    }
-  );
+// Globaler Fehlerhandler für nicht abgefangene Fehler
+window.onerror = function(message, source, lineno, colno, error) {
+  console.error('Globaler Fehler:', { message, source, lineno, colno, error });
+  // Implementieren Sie hier zusätzliche Fehlerbehandlung oder Logging
 };
 
-// Entfernen oder auskommentieren Sie diesen Block
-/*
-if (import.meta.env.PROD) {
-  import('virtual:pwa-register').then(({ registerSW }) => {
-    registerSW({ immediate: true });
-  });
+// Globale Konfiguration für axios
+axios.defaults.baseURL = process.env.VUE_APP_API_BASE_URL || 'https://api.jassguru.ch';
+
+// Performance-Monitoring (Beispiel)
+if (process.env.NODE_ENV === 'production') {
+  // Implementieren Sie hier Ihr Performance-Monitoring
+  console.log('Performance-Monitoring aktiviert');
 }
-*/

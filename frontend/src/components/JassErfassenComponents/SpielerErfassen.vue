@@ -3,7 +3,7 @@
     <div v-if="selectedGroup" class="content-container">
       <h3 class="centered-title">{{ selectedGroup.name }}</h3>
       <v-progress-circular
-        v-if="isLoading"
+        v-if="istLadend"
         indeterminate
         color="primary"
         class="loader"
@@ -25,7 +25,7 @@
                 @change="handlePlayerSelection(`team${team}player${player}`, $event)"
               >
                 <template v-slot:item="{ item, props }">
-                  <v-list-item v-bind="props" :title="item.raw.nickname"></v-list-item>
+                  <v-list-item v-bind="props" :title="item.nickname"></v-list-item>
                 </template>
               </v-select>
             </div>
@@ -77,7 +77,7 @@ export default {
   mixins: [notificationMixin],
   data() {
     return {
-      isLoading: false,
+      istLadend: false,
     };
   },
   computed: {
@@ -85,8 +85,6 @@ export default {
     ...mapGetters('jassErfassen', ['allPlayersSelected']),
     
     availablePlayers() {
-      console.log('Verfügbare Spieler:', this.groupPlayers);
-      console.log('Ausgewählte Spieler:', this.selectedPlayers);
       return this.groupPlayers.filter(player => 
         !Object.values(this.selectedPlayers).some(selected => selected && selected.id === player.id)
       );
@@ -96,7 +94,6 @@ export default {
     ...mapActions('jassErfassen', ['setSelectedPlayer', 'removeSelectedPlayer', 'validateSelectedPlayers', 'fetchGroupPlayers', 'resetSelectedPlayers', 'addNewPlayerAndSelect']),
     
     handlePlayerSelection(slot, player) {
-      console.log('Spieler ausgewählt:', slot, player);
       this.setSelectedPlayer({ slot, player });
     },
     
@@ -104,25 +101,18 @@ export default {
       if (this.allPlayersSelected) {
         try {
           await this.validateSelectedPlayers();
-          this.$store.commit('jassErfassen/SET_SELECTED_PLAYERS', this.selectedPlayers);
+          await this.$store.dispatch('jassErfassen/setFinalPlayers', this.selectedPlayers);
           this.showSnackbar({
             message: JASS_ERFASSEN_MESSAGES.PLAYER_SELECT.CONFIRMED,
             color: 'success'
           });
-          logInfo('SpielerErfassen', 'Vor nextStep Aufruf', this.$store.state.jassErfassen.currentStep);
           await this.$store.dispatch('jassErfassen/nextStep');
-          logInfo('SpielerErfassen', 'Nach nextStep Aufruf', this.$store.state.jassErfassen.currentStep);
         } catch (error) {
           this.showSnackbar({
             message: error.message || JASS_ERFASSEN_MESSAGES.PLAYER_SELECT.ERROR,
             color: 'error'
           });
         }
-      } else {
-        this.showSnackbar({
-          message: JASS_ERFASSEN_MESSAGES.PLAYER_SELECT.INCOMPLETE,
-          color: 'warning'
-        });
       }
     },
     
@@ -136,7 +126,7 @@ export default {
     
     async fetchPlayersIfNeeded() {
       if (this.selectedGroup && this.groupPlayers.length === 0) {
-        this.isLoading = true;
+        this.istLadend = true;
         try {
           await this.fetchGroupPlayers(this.selectedGroup.id);
         } catch (error) {
@@ -145,7 +135,7 @@ export default {
             color: 'error',
           });
         } finally {
-          this.isLoading = false;
+          this.istLadend = false;
         }
       }
     },
@@ -225,29 +215,13 @@ export default {
     },
   },
   created() {
-    this.$nextTick(async () => {
-      if (this.$store.state.jassErfassen.currentStep === 3) { // Angenommen, Schritt 3 ist Spielerauswahl
-        if (this.selectedMode === 'Jassgruppe') {
-          if (!this.selectedGroup || this.groupPlayers.length === 0) {
-            logInfo('SpielerErfassen', 'Keine Gruppe ausgewählt oder keine Spieler geladen, gehe zurück zu Schritt 2');
-            await this.$store.dispatch('jassErfassen/setCurrentStep', 2);
-          } else {
-            await this.fetchPlayersIfNeeded();
-          }
-        } else {
-          await this.fetchPlayersIfNeeded();
-        }
-      }
-    });
-    
+    this.fetchPlayersIfNeeded();
     const newPlayerNickname = this.$route.query.newPlayer;
     if (newPlayerNickname) {
-      this.$nextTick(() => {
-        const newPlayer = this.groupPlayers.find(p => p.nickname === newPlayerNickname);
-        if (newPlayer) {
-          this.handleNewPlayer(newPlayer);
-        }
-      });
+      const newPlayer = this.groupPlayers.find(p => p.nickname === newPlayerNickname);
+      if (newPlayer) {
+        this.handleNewPlayer(newPlayer);
+      }
     }
   },
   watch: {

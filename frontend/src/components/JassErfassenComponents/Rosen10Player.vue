@@ -28,7 +28,7 @@
 import { mapState, mapActions, mapGetters } from 'vuex';
 import OkButton from '@/components/common/OkButton.vue';
 import { JASS_ERFASSEN_MESSAGES } from '@/constants/jassErfassenMessages';
-import { logInfo } from '@/utils/logger';
+import { logInfo, logError } from '@/utils/logger';
 
 export default {
   name: 'Rosen10Player',
@@ -54,17 +54,23 @@ export default {
       this.localSelectedRosen10Player = player;
     },
     
-    confirmRosen10Player() {
+    async confirmRosen10Player() {
       if (this.localSelectedRosen10Player) {
-        logInfo('Rosen10Player', `Confirming Rosen 10 player: ${this.localSelectedRosen10Player.nickname}`);
-        this.setRosen10Player(this.localSelectedRosen10Player);
-        this.showSnackbar({
-          message: JASS_ERFASSEN_MESSAGES.ROSEN10_PLAYER.SELECTED.replace('{playerName}', this.localSelectedRosen10Player.nickname),
-          color: 'success'
-        });
-        logInfo('Rosen10Player', 'Calling nextStep');
-        this.nextStep();
-        logInfo('Rosen10Player', 'nextStep called');
+        try {
+          await this.setRosen10Player(this.localSelectedRosen10Player);
+          this.showSnackbar({
+            message: JASS_ERFASSEN_MESSAGES.ROSEN10_PLAYER.SELECTED.replace('{playerName}', this.localSelectedRosen10Player.nickname),
+            color: 'success'
+          });
+          await this.nextStep();
+          logInfo('Rosen10Player', 'Rosen 10 Spieler bestätigt und nächster Schritt aufgerufen');
+        } catch (error) {
+          logError('Rosen10Player', 'Fehler beim Bestätigen des Rosen 10 Spielers', error);
+          this.showSnackbar({
+            message: 'Fehler beim Bestätigen des Rosen 10 Spielers',
+            color: 'error'
+          });
+        }
       }
     },
   },

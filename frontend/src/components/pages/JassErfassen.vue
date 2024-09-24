@@ -3,13 +3,15 @@
     <JasstafelContainer :bgImage="bgImage" :hideImageInLandscape="true">
       <div class="content-wrapper">
         <h1 class="title display-1--text">{{ pageTitle }}</h1>
-        <component 
-          :is="currentStepComponent"
-          @next-step="handleNextStep"
-          :key="currentStep"
-          ref="currentComponent"
-          :selectedPlayers="selectedPlayers"
-        />
+        <ErrorBoundary>
+          <component 
+            :is="currentStepComponent"
+            @next-step="handleNextStep"
+            :key="currentStep"
+            ref="currentComponent"
+            :selectedPlayers="selectedPlayers"
+          />
+        </ErrorBoundary>
         <CloseButton @click="resetJassErfassenProcess" class="close-button" />
       </div>
     </JasstafelContainer>
@@ -31,6 +33,8 @@ import CloseButton from '@/components/common/CloseButton.vue';
 import { logInfo, logError } from '@/utils/logger';
 import { useRouter } from 'vue-router';
 import { JASS_ERFASSEN_MESSAGES } from '@/constants/jassErfassenMessages';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
+import ErrorBoundary from '@/components/common/ErrorBoundary.vue';
 
 export default {
   name: 'JassErfassen',
@@ -42,16 +46,31 @@ export default {
     Rosen10Player,
     JassErfassenUebersicht,
     CloseButton,
+    ErrorBoundary, // Hinzugefügt
   },
   setup() {
     const router = useRouter();
-    return { router };
-  },
-  data() {
-    return {
-      bgImage: null,
-      isSubmitting: false,
+    const bgImage = ref('');
+
+    const setBgImage = () => {
+      const isLandscape = window.innerWidth > window.innerHeight;
+      bgImage.value = isLandscape
+        ? require('@/assets/images/Jasstafel_gedreht.png')
+        : require('@/assets/images/Jasstafel.png');
     };
+
+    onMounted(() => {
+      setBgImage();
+      window.addEventListener('resize', setBgImage);
+      window.addEventListener('orientationchange', setBgImage);
+    });
+
+    onBeforeUnmount(() => {
+      window.removeEventListener('resize', setBgImage);
+      window.removeEventListener('orientationchange', setBgImage);
+    });
+
+    return { router, bgImage };
   },
   computed: {
     ...mapState('jassErfassen', ['currentStep', 'isProcessing', 'selectedGroup', 'selectedPlayers', 'mode', 'rosen10Player']),
@@ -93,14 +112,6 @@ export default {
       'initializeJass',
     ]),
     ...mapActions('snackbar', ['showSnackbar', 'clearSnackbars']),
-
-    setBgImage() {
-      const isLandscape = window.innerWidth > window.innerHeight;
-      this.bgImage = isLandscape
-        ? require('@/assets/images/Jasstafel_gedreht.png')
-        : require('@/assets/images/Jasstafel.png');
-    },
-
     async initializeJassErfassenState() {
       try {
         await this.$store.dispatch('jassErfassen/initializeJassErfassenState');
@@ -114,7 +125,6 @@ export default {
         });
       }
     },
-
     async handleNextStep() {
       logInfo('JassErfassen', 'handleNextStep aufgerufen', { currentStep: this.currentStep });
       try {
@@ -132,7 +142,6 @@ export default {
         });
       }
     },
-
     async finishJassErfassen() {
       this.isSubmitting = true;
       try {
@@ -173,11 +182,9 @@ export default {
         this.isSubmitting = false;
       }
     },
-
     resetJassErfassenProcess() {
       this.$store.dispatch('jassErfassen/resetJassErfassen');
     },
-
     async saveCurrentState() {
       try {
         await this.saveState();
@@ -200,40 +207,6 @@ export default {
     currentStep(newStep, oldStep) {
       logInfo('JassErfassen', `Schritt geändert von ${oldStep} zu ${newStep}`);
     }
-  },
-  created() {
-    this.$nextTick(async () => {
-      try {
-        await this.initializeJassErfassenState();
-        window.addEventListener('resize', this.setBgImage);
-        window.addEventListener('orientationchange', this.setBgImage);
-        logInfo('JassErfassen', 'Komponente erfolgreich initialisiert');
-      } catch (error) {
-        logError('JassErfassen', 'Fehler beim Initialisieren der Komponente', error);
-        this.showSnackbar({
-          message: 'Fehler beim Initialisieren der Komponente',
-          color: 'error',
-        });
-      }
-    });
-  },
-  async mounted() {
-    this.setBgImage();
-    if (this.currentStep > 1 && this.selectedGroup) {
-      try {
-        await this.fetchGroupPlayers(this.selectedGroup.id);
-      } catch (error) {
-        logError('JassErfassen', 'Error fetching group players', error);
-        this.showSnackbar({
-          message: 'Fehler beim Laden der Gruppenspieler',
-          color: 'error',
-        });
-      }
-    }
-  },
-  beforeUnmount() {
-    window.removeEventListener('resize', this.setBgImage);
-    window.removeEventListener('orientationchange', this.setBgImage);
   },
 };
 </script>

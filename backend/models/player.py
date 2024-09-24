@@ -40,7 +40,9 @@ class Player(db.Model):
             "is_guest": self.is_guest,
             "invited_by": self.invited_by,
             "jass_group_ids": [group.id for group in self.jass_groups],
-            "team_ids": [team.id for team in self.teams]
+            "team_ids": [team.id for team in self.teams],
+            "team_ids_as_player1": [team.id for team in self.teams_as_player1],
+            "team_ids_as_player2": [team.id for team in self.teams_as_player2]
         }
 
     @property
@@ -65,4 +67,8 @@ class Player(db.Model):
 
     @property
     def teams(self):
+        return self.teams_as_player1 + self.teams_as_player2
+
+    @property
+    def all_teams(self):
         return self.teams_as_player1 + self.teams_as_player2

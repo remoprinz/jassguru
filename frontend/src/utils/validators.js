@@ -1,8 +1,12 @@
-import { logError } from './logger';
+import { logError, logInfo } from './logger';
 
 export const validateJassData = (data) => {
-  const requiredFields = ['mode', 'group_id', 'date', 'players'];
-  const isValid = requiredFields.every(field => field in data) && Array.isArray(data.players);
+  logInfo('validators', 'Validating jass data', JSON.stringify(data));
+  const requiredFields = ['mode', 'group_id', 'players', 'rosen10_player_id', 'start_date', 'latitude', 'longitude', 'location_name'];
+  const isValid = requiredFields.every(field => field in data) && 
+                  Array.isArray(data.players) && 
+                  data.players.length === 4 &&
+                  data.players.every(player => 'id' in player && 'team' in player);
   
   if (!isValid) {
     logError('JassValidation', 'Ungültige Jass-Daten', { data });

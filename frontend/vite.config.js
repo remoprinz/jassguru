@@ -1,13 +1,22 @@
-import { defineConfig } from 'vite'
-import vue from '@vitejs/plugin-vue'
-// import { VitePWA } from 'vite-plugin-pwa'  // Auskommentieren oder entfernen
+import { defineConfig } from 'vite';
+import vue from '@vitejs/plugin-vue';
+import { loadEnv } from 'vite';
+import path from 'path';
 
-export default defineConfig({
-  plugins: [
-    vue(),
-    // VitePWA({ ... })  // Auskommentieren oder entfernen
-  ],
-  define: {
-    __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: 'false'
-  }
-})
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  return {
+    plugins: [vue()],
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, './src'),
+      },
+    },
+    define: {
+      'process.env': env,
+    },
+    server: {
+      port: 8080,
+    },
+  };
+});

@@ -1,7 +1,7 @@
 // src/router/index.js
 
 import { createRouter, createWebHistory } from 'vue-router';
-import store from '../store';
+import { store } from '../store';  // Änderung hier
 import HomePage from '@/components/pages/HomePage.vue';
 import RegisterPage from '@/components/pages/RegisterPage.vue';
 import LoginPage from '@/components/pages/LoginPage.vue';

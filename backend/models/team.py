@@ -47,3 +47,6 @@ class Team(db.Model):
 
     def add_spiel(self, spiel):
         self.spiele.append(spiel)
+
+    def has_player(self, player):
+        return player in [self.player1, self.player2]

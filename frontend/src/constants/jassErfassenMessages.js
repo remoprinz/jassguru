@@ -28,18 +28,11 @@ export const JASS_ERFASSEN_MESSAGES = {
 
   // Spieler Erfassen (Schritt 3)
   PLAYER_SELECT: {
-    LOADING: 'Spieler werden geladen...',
-    LOAD_ERROR: 'Fehler beim Laden der Spieler. Bitte versuchen Sie es erneut.',
-    SELECT_PROMPT: 'Bitte wählen Sie die Spieler aus.',
-    PLAYER_ADDED: 'Spieler "{playerName}" wurde für Position {position} ausgewählt.',
-    PLAYER_REMOVED: 'Spieler "{playerName}" wurde von Position {position} entfernt.',
-    ALL_SELECTED: 'Alle Spieler ausgewählt. Wer darf heute zuerst ansagen?',
+    SUCCESS: 'Spielerauswahl erfolgreich gespeichert.',
     ERROR: 'Fehler bei der Auswahl der Spieler. Bitte überprüfen Sie Ihre Auswahl.',
-    DUPLICATE_SELECTION: 'Spieler "{playerName}" ist bereits ausgewählt. Bitte wählen Sie einen anderen Spieler.',
-    INVALID_SELECTION: 'Ungültige Spielerauswahl. Bitte versuchen Sie es erneut.',
-    NOT_ENOUGH_PLAYERS: 'Es müssen genau 4 Spieler ausgewählt werden.',
-    NOT_FOUND: 'Kein Spieler gefunden.',
-    NO_MATCHING_PLAYER: 'Kein passender Spieler für diese Gruppe gefunden.',
+    INCOMPLETE: 'Bitte wählen Sie alle Spieler aus.',
+    RESET: 'Spielerauswahl zurückgesetzt.',
+    LOAD_ERROR: 'Fehler beim Laden der Spieler.',
   },
 
   // Rosen 10 Spieler (Schritt 4)
@@ -62,7 +55,11 @@ export const JASS_ERFASSEN_MESSAGES = {
   },
   
   FINALIZE: {
-    INVALID_DATA: 'Ungültige Jass-Daten',
-    ERROR: 'Ein Fehler ist beim Finalisieren des Jass aufgetreten.'
+    ERROR: 'Fehler beim Finalisieren des Jass.',
+    INVALID_DATA: 'Ungültige Jass-Daten.',
+  },
+  
+  RESET: {
+    SUCCESS: 'Jass Erfassen Prozess wurde zurückgesetzt',
   },
 };
