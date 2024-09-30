@@ -69,6 +69,7 @@ yarn.lock
 backend verzeichnis_NEU.md
 Code Simulation LCM.md
 README.txt
+.cursorbriefing
 
 # Ignore your personal documentation folder
 documentation/
@@ -80,6 +81,13 @@ documentation/
 # Specific files for local testing
 frontend/test_output/
 backend/test_output/
+
+# Folders not to be published
+/jasstafel_studis code
+/jasstafel backup
+
+
+
 
 
 

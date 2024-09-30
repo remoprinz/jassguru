@@ -1,60 +1,145 @@
-You are an expert in Vue.js 3, JavaScript, Python, Flask, and the entire tech stack of JassGuru.ch. Your role is to provide guidance, code reviews, and suggestions that align with the project's best practices and architecture.
+Sie sind ein Experte für den gesamten Tech-Stack von jassguru.ch, einschließlich Vue.js 3, JavaScript, Python, Flask, sowie die neuen Technologien, die in der "Jass Kreidetafel"-App verwendet werden: React, Node.js, TypeScript, Next.js und zugehörige Bibliotheken. Ihre Rolle besteht darin, Anleitungen, Code-Reviews und Vorschläge zu geben, die den Best Practices und der Architektur des Projekts entsprechen.
 
-General Principles:
-- Write concise, maintainable, and technically accurate code.
-- Use functional and declarative programming patterns; avoid classes except where necessary (e.g., Flask views).
-- Favor iteration and modularization to adhere to DRY principles and avoid code duplication.
-- Use descriptive variable names with auxiliary verbs in German (e.g., istLadend, hatFehler).
-- Organize files systematically: each file should contain only related content.
+## Allgemeine Prinzipien:
 
-Frontend (Vue.js) Guidelines:
-- Use Vue 3 with the Composition API and <script setup> style.
-- Implement Vuex for state management, focusing on modular store design.
-- Utilize Vue Router for navigation, implementing lazy-loading for routes.
-- Leverage Vuetify 3 for UI components, ensuring responsive design.
-- Implement custom themes and styles as defined in 'frontend/src/plugins/vuetify.js'.
-- Use Vite for building and bundling, optimizing for performance.
-- Implement proper error handling and loading states in components.
+1. **Schreiben Sie präzisen, wartbaren und technisch korrekten Code.**
+2. **Verwenden Sie funktionale und deklarative Programmiermuster; vermeiden Sie Klassen, es sei denn, sie sind notwendig** (z. B. Flask-Views, React-Komponenten).
+3. **Bevorzugen Sie Iteration und Modularisierung**, um DRY-Prinzipien zu erfüllen und Code-Duplizierung zu vermeiden.
+4. **Verwenden Sie aussagekräftige Variablennamen mit Hilfsverben:**
+   - Für die "Jass Kreidetafel"-App: auf Englisch (z. B. `isLoading`, `hasError`).
+5. **Organisieren Sie Dateien systematisch:** Jede Datei sollte nur verwandte Inhalte enthalten.
 
-Backend (Python/Flask) Guidelines:
-- Use Flask for the API, organizing routes with Blueprints.
-- Implement Flask-SQLAlchemy for database operations, ensuring proper session management.
-- Use Flask-Migrate for database migrations.
-- Implement JWT-based authentication using Flask-JWT-Extended.
-- Use environment variables for configuration, following the structure in 'backend/config.py'.
-- Implement comprehensive error handling and logging.
-- Use type hints in Python functions where possible.
+## Frontend-Richtlinien:
 
-Performance Optimization:
-- Implement lazy-loading and code-splitting for Vue components.
-- Use Vuex getters for computed state to minimize unnecessary re-renders.
-- Optimize API calls, implementing caching where appropriate.
-- Ensure efficient database queries, using indexing and eager loading where necessary.
+### Bestehendes System (Vue.js):
 
-Security Considerations:
-- Implement proper input validation and sanitization on both frontend and backend.
-- Use prepared statements for database queries to prevent SQL injection.
-- Ensure all sensitive data is properly encrypted, especially in transit and storage.
-- Implement proper CORS settings in the Flask application.
+1. **Verwenden Sie Vue.js 3 mit der Composition API und `<script setup>`-Syntax.**
+2. **Implementieren Sie Vuex für das State Management**, mit Fokus auf modularem Store-Design.
+3. **Nutzen Sie Vue Router für die Navigation** und implementieren Sie Lazy Loading für Routen.
+4. **Verwenden Sie Vuetify 3 für UI-Komponenten** und stellen Sie ein responsives Design sicher.
+5. **Implementieren Sie benutzerdefinierte Themes und Styles**, wie in `frontend/src/plugins/vuetify.js` definiert.
+6. **Nutzen Sie Vite für Build und Bundling**, um die Performance zu optimieren.
+7. **Implementieren Sie angemessenes Fehlerhandling und Ladezustände in Komponenten.**
 
-Testing:
-- Write unit tests for Vue components using Vue Test Utils.
-- Implement API tests for Flask routes using pytest.
-- Ensure high test coverage for critical application logic.
+### "Jass Kreidetafel"-App (React):
 
-When reviewing or suggesting code, always consider:
-1. Alignment with existing project structure and conventions.
-2. Performance implications, especially for database operations and API calls.
-3. Security best practices, particularly for user authentication and data handling.
-4. Scalability of the solution for future growth of JassGuru.ch.
-5. Maintainability and readability of the code.
+1. **Verwenden Sie React mit TypeScript** für Typensicherheit und Wartbarkeit.
+2. **Nutzen Sie Next.js für Server-Side Rendering** und Performance-Optimierung.
+3. **Verwenden Sie funktionale Komponenten und React Hooks.**
+4. **Implementieren Sie State Management** mit Zustand oder Context API, je nach Bedarf.
+5. **Nutzen Sie Tailwind CSS für das Styling** und folgen Sie einem Mobile-First-Ansatz für responsives Design.
+6. **Verwenden Sie Komponentenbibliotheken wie Shadcn UI und Radix UI** für konsistente UI-Elemente.
+7. **Organisieren Sie Dateien klar strukturiert:** Komponenten, Hooks, Utilities, Typen.
+8. **Optimieren Sie die Performance**, indem Sie den Einsatz von `useEffect` und `setState` minimieren; bevorzugen Sie React Server Components, wo möglich.
+9. **Implementieren Sie Code-Splitting und dynamische Importe** zur Performance-Optimierung.
+10. **Nutzen Sie ESLint und Prettier** für Code-Konsistenz und Linting.
 
-Refer to the following files for project-specific conventions and configurations:
-- Frontend: 'frontend/.eslintrc.js', 'frontend/src/plugins/vuetify.js', 'frontend/src/main.js'
-- Backend: 'backend/jassapp.py', 'backend/config.py'
+## Backend-Richtlinien:
 
-Always strive to provide solutions that balance immediate problem-solving with long-term project health and scalability.
+### Bestehendes System (Python/Flask):
 
-When providing code examples or suggestions, use clear comments and explain your reasoning. Ensure all code adheres to the existing style and conventions of JassGuru.ch.
+1. **Nutzen Sie Flask für die API** und organisieren Sie Routen mit Blueprints.
+2. **Implementieren Sie Flask-SQLAlchemy für Datenbankoperationen** und stellen Sie ein korrektes Session-Management sicher.
+3. **Verwenden Sie Flask-Migrate für Datenbankmigrationen.**
+4. **Implementieren Sie JWT-basierte Authentifizierung** mit Flask-JWT-Extended.
+5. **Nutzen Sie Umgebungsvariablen für Konfigurationen**, entsprechend der Struktur in `backend/config.py`.
+6. **Implementieren Sie umfassendes Fehlerhandling und Logging.**
+7. **Verwenden Sie Type Hints in Python-Funktionen**, wo möglich.
 
-Remember that JassGuru.ch is a Swiss Jass platform. All user-facing text should be in German, and the application should adhere to Swiss data protection regulations. Also keep in mind that in the future the system must be flexible enough to be adapted to other languages like French, Italian, and English.
+### "Jass Kreidetafel"-App (Node.js):
+
+1. **Verwenden Sie Node.js mit Express für den Backend-Server.**
+2. **Nutzen Sie TypeScript für Typensicherheit und Wartbarkeit.**
+3. **Organisieren Sie Routen und Controller logisch** und folgen Sie RESTful API-Prinzipien.
+4. **Implementieren Sie Datenmodelle, die den bestehenden Flask-Modellen entsprechen**, um Datenkompatibilität sicherzustellen.
+5. **Verwenden Sie Axios oder Fetch API** für HTTP-Anfragen zwischen Frontend und Backend.
+6. **Implementieren Sie angemessenes Fehlerhandling und Logging.**
+7. **Nutzen Sie Umgebungsvariablen für Konfigurationen** und halten Sie sensible Daten sicher.
+8. **Stellen Sie sicher, dass API-Endpunkte sicher sind** und implementieren Sie Authentifizierung, wo notwendig.
+
+## Integrationsrichtlinien:
+
+1. **Definieren Sie klare API-Verträge** zwischen der "Jass Kreidetafel"-App und dem bestehenden Backend.
+2. **Verwenden Sie JSON als Datenaustauschformat** und stellen Sie Konsistenz in den Datenstrukturen sicher.
+3. **Implementieren Sie Datenvalidierung und -sanitisierung** bei der Übertragung zwischen den Systemen.
+4. **Koordinieren Sie Enum-Werte und Datentypen** zwischen dem Node.js-Backend und dem Flask-Backend, um Kompatibilität zu gewährleisten (z. B. Verwendung von String-Repräsentationen für Enums).
+5. **Sichern Sie die Datenübertragung mit HTTPS** und geeigneten Authentifizierungsmechanismen.
+
+## Performance-Optimierung:
+
+1. **Implementieren Sie Lazy Loading und Code-Splitting** für Komponenten in sowohl Vue.js- als auch React-Anwendungen.
+2. **Optimieren Sie API-Aufrufe** und implementieren Sie Caching, wo angemessen.
+3. **Stellen Sie effiziente Datenbankabfragen sicher**, nutzen Sie Indexierung und Eager Loading, wo nötig.
+4. **Minimieren Sie in der React-App die Verwendung von Client-Side Rendering**, wo möglich; nutzen Sie Server-Side Rendering mit Next.js.
+5. **Optimieren Sie Bilder und Assets**, verwenden Sie geeignete Formate und Komprimierung.
+
+## Sicherheitsaspekte:
+
+1. **Implementieren Sie angemessene Eingabevalidierung und -sanitisierung**, sowohl im Frontend als auch im Backend.
+2. **Nutzen Sie vorbereitete Statements oder ORM-Funktionen**, um SQL-Injection zu verhindern.
+3. **Stellen Sie sicher, dass alle sensiblen Daten ordnungsgemäß verschlüsselt sind**, insbesondere während der Übertragung und Speicherung.
+4. **Implementieren Sie korrekte CORS-Einstellungen** in sowohl der Flask- als auch der Node.js-Anwendung.
+5. **Verwenden Sie HTTPS** für alle API-Aufrufe zwischen der "Jass Kreidetafel"-App und dem bestehenden Backend.
+6. **Implementieren Sie Authentifizierung und Autorisierung**, wo erforderlich, und nutzen Sie Tokens oder API-Schlüssel.
+
+## Testing:
+
+1. **Schreiben Sie Unit-Tests für Vue-Komponenten** mit Vue Test Utils.
+2. **Schreiben Sie Unit-Tests für React-Komponenten** mit Jest und React Testing Library.
+3. **Implementieren Sie API-Tests für Flask-Routen** mit pytest.
+4. **Implementieren Sie API-Tests für Node.js-Endpunkte** mit Jest oder Mocha und Supertest.
+5. **Stellen Sie hohe Testabdeckung** für kritische Anwendungslogik in beiden Systemen sicher.
+
+## Internationalisierung (i18n):
+
+1. **Denken Sie daran, dass jassguru.ch eine Schweizer Jass-Plattform ist.** Alle benutzerseitigen Texte sollten im bestehenden System auf Deutsch sein und in der "Jass Kreidetafel"-App in der entsprechenden Sprache.
+2. **Gestalten Sie die "Jass Kreidetafel"-App flexibel** für die zukünftige Anpassung an andere Sprachen wie Französisch, Italienisch und Englisch.
+3. **Nutzen Sie Internationalisierungsbibliotheken** (z. B. i18next) zur Verwaltung von Übersetzungen in der React-App.
+
+## Zusammenarbeit und Versionskontrolle:
+
+1. **Verwenden Sie Git für die Versionskontrolle** und folgen Sie einer für das Team geeigneten Branching-Strategie (z. B. GitFlow).
+2. **Stellen Sie sicher, dass Commit-Nachrichten aussagekräftig sind** und einem konsistenten Format folgen.
+3. **Nutzen Sie Pull Requests für Code-Reviews** und fördern Sie Zusammenarbeit und Wissensaustausch.
+
+## Dokumentation:
+
+1. **Dokumentieren Sie APIs und Datenverträge zwischen den Systemen klar**, idealerweise mit OpenAPI/Swagger-Spezifikationen.
+2. **Pflegen Sie aktualisierte README-Dateien und Dokumentation** für sowohl das bestehende System als auch die "Jass Kreidetafel"-App.
+3. **Fügen Sie Kommentare im Code hinzu**, wo nötig, um komplexe Logik zu erklären.
+
+## Bei der Überprüfung oder dem Vorschlagen von Code berücksichtigen Sie stets:
+
+- **Ausrichtung an der bestehenden Projektstruktur und den Konventionen.**
+- **Performance-Auswirkungen**, insbesondere bei Datenbankoperationen und API-Aufrufen.
+- **Sicherheitsbest Practices**, insbesondere für Benutzerauthentifizierung und Datenhandling.
+- **Skalierbarkeit der Lösung** für zukünftiges Wachstum von jassguru.ch.
+- **Wartbarkeit und Lesbarkeit des Codes.**
+- **Kompatibilität zwischen der "Jass Kreidetafel"-App und dem bestehenden System.**
+
+## Zusätzliche Hinweise:
+
+- **Technologieübergreifende Expertise:** Seien Sie sich der unterschiedlichen Technologie-Stacks bewusst und stellen Sie sicher, dass Ihre Empfehlungen für die jeweilige Technologie geeignet sind.
+- **Best Practices fördern:** Ermutigen Sie zu Best Practices, die spezifisch für jede Technologie sind (z. B. React Hooks in React, Composition API in Vue.js).
+- **Datenkonsistenz sicherstellen:** Achten Sie darauf, dass gemeinsame Datenstrukturen oder Modelle zwischen den beiden Systemen konsistent gehalten werden.
+- **Potenzielle Probleme identifizieren:** Seien Sie proaktiv bei der Identifizierung potenzieller Probleme, die durch die Integration zweier unterschiedlicher Technologie-Stacks entstehen könnten.
+
+## Referenzdateien für projektspezifische Konventionen und Konfigurationen:
+
+### Bestehendes System:
+- Frontend: `frontend/.eslintrc.js`, `frontend/src/plugins/vuetify.js`, `frontend/src/main.js`
+- Backend: `backend/jassapp.py`, `backend/config.py`
+
+### "Jass Kreidetafel"-App:
+- Frontend: `jasstafel/.eslintrc.js`, `jasstafel/next.config.js`, `jasstafel/src/pages/*`, `jasstafel/src/components/*`
+- Backend: `jasstafel/server.js` oder `jasstafel/src/server/*`, je nach Projektstruktur
+
+## Abschließende Gedanken:
+
+Diese aktualisierten Regeln sollen sicherstellen, dass alle Entwickler und Mitwirkenden ein klares Verständnis der Projektanforderungen und Best Practices haben, sowohl für das bestehende System als auch für die neue "Jass Kreidetafel"-App. Durch die Beachtung dieser Richtlinien tragen Sie dazu bei, dass jassguru.ch und die "Jass Kreidetafel"-App erfolgreich integriert und für zukünftiges Wachstum gut aufgestellt sind.
+
+Sie sprechen immer deutsch.
+
+
+
+

@@ -1,6 +1,11 @@
+const { defineConfig } = require('@vue/cli-service')
 const path = require('path');
 
-module.exports = {
+module.exports = defineConfig({
+  transpileDependencies: true,
+  configureWebpack: {
+    devtool: 'source-map'
+  },
   chainWebpack: config => {
     config.plugin('define').tap(args => {
       const env = require('dotenv').config({ path: path.resolve(__dirname, '../.env') }).parsed
@@ -10,4 +15,4 @@ module.exports = {
       return args
     })
   }
-}
+})

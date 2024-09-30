@@ -33,10 +33,10 @@
 </template>
 
 <script>
-import { mapActions } from 'vuex';
+import { mapActions, mapState } from 'vuex';
 import OkButton from '@/components/common/OkButton.vue';
 import MyModusInfoPopup from '@/components/popups/MyModusInfoPopup.vue';
-import { logInfo, logError } from '@/utils/logger';
+import { logError, logInfo } from '@/utils/logger';
 import { JASS_ERFASSEN_MESSAGES } from '@/constants/jassErfassenMessages';
 
 export default {
@@ -50,25 +50,34 @@ export default {
       selectedModus: null,
       modusOptions: ['Jassgruppe', 'Turnier', 'Einzelspiel', 'Liga'],
       showPopup: false,
+      istStandortErmittelt: false,
     };
   },
+  computed: {
+    ...mapState('jassErfassen', ['standortInfo']),
+  },
   methods: {
-    ...mapActions('jassErfassen', ['setMode', 'nextStep', 'resetJassErfassenState']),
-    ...mapActions('snackbar', ['clearSnackbars', 'showSnackbar']),
-
+    ...mapActions('jassErfassen', ['setMode', 'nextStep', 'resetJassErfassenState', 'ermittleUndSetzeStandort']),
+    ...mapActions('snackbar', ['showSnackbar']),
+    
     handleModusSelection(modus) {
-      logInfo('ModusErfassen', `Modus selected: ${modus}`);
       this.selectedModus = modus;
+      if (!this.istStandortErmittelt) {
+        this.ermittleStandortImHintergrund();
+      }
     },
 
     async confirmModus() {
       if (this.selectedModus) {
-        logInfo('ModusErfassen', `Bestätige Modus: ${this.selectedModus}`);
         try {
           if (this.selectedModus !== this.$store.state.jassErfassen.selectedMode) {
             await this.resetJassErfassenState();
           }
           await this.setMode(this.selectedModus);
+          
+          // Standortermittlung im Hintergrund starten
+          this.ermittleStandortImHintergrund();
+          
           this.showSnackbar({
             message: JASS_ERFASSEN_MESSAGES.MODUS_ERFASSEN.SELECTED.replace('{mode}', this.selectedModus),
             color: 'success'
@@ -86,8 +95,25 @@ export default {
 
     showInfoPopup() {
       this.showPopup = true;
+    },
+
+    async ermittleStandortImHintergrund() {
+      try {
+        await this.ermittleUndSetzeStandort();
+        this.istStandortErmittelt = true;
+        logInfo('ModusErfassen', 'Standort erfolgreich im Hintergrund ermittelt');
+      } catch (error) {
+        logError('ModusErfassen', 'Fehler bei der Standortermittlung im Hintergrund', error);
+      }
     }
   },
+  mounted() {
+    if (!this.standortInfo.ortsname) {
+      this.ermittleStandortImHintergrund();
+    } else {
+      this.istStandortErmittelt = true;
+    }
+  }
 };
 </script>
 

@@ -4,6 +4,7 @@ import { JASS_ERFASSEN_MESSAGES } from '@/constants/jassErfassenMessages';
 import VuexPersistence from 'vuex-persist';
 import router from '@/router';
 import { validateJassData } from '@/utils/validators';
+import { ermittleStandort } from '@/utils/locationUtils';
 
 // Vuex-Persistence Configuration
 const vuexLocal = new VuexPersistence({
@@ -45,6 +46,7 @@ const initialState = {
   latitude: null,
   longitude: null,
   locationNameFromCoordinates: null,
+  standortInfo: { ortsname: null, latitude: null, longitude: null },
 };
 
 // State
@@ -172,6 +174,9 @@ const mutations = {
   },
   setSelectedPlayers(state, selectedPlayers) {
     state.selectedPlayers = selectedPlayers;
+  },
+  SET_STANDORT_INFO(state, standortInfo) {
+    state.standortInfo = standortInfo;
   },
 };
 
@@ -486,7 +491,7 @@ const actions = {
     }
   },
   async prepareJassData({ state }) {
-    const jassData = {
+    return {
       mode: state.selectedMode,
       group_id: state.selectedGroup.id,
       players: [
@@ -497,11 +502,10 @@ const actions = {
       ],
       rosen10_player_id: state.rosen10Player.id,
       start_date: new Date().toISOString().split('T')[0],
-      latitude: state.latitude,
-      longitude: state.longitude,
-      location_name: state.locationNameFromCoordinates,
+      latitude: state.standortInfo.latitude,
+      longitude: state.standortInfo.longitude,
+      location_name: state.standortInfo.ortsname,
     };
-    return jassData;
   },
   async finalizeJassErfassen({ state, dispatch }) {
     try {
@@ -609,6 +613,19 @@ const actions = {
       throw new Error('Es müssen genau 4 Spieler ausgewählt werden.');
     }
     commit('SET_SELECTED_PLAYERS', players);
+  },
+  async ermittleUndSetzeStandort({ commit }) {
+    try {
+      const standortInfo = await ermittleStandort();
+      commit('SET_STANDORT_INFO', standortInfo);
+      logInfo('JassErfassen', 'Standort erfolgreich ermittelt', standortInfo);
+      return standortInfo;
+    } catch (error) {
+      logError('JassErfassen', 'Fehler bei der Standortermittlung', error);
+      const standortInfo = { ortsname: 'Standort nicht verfügbar', latitude: null, longitude: null };
+      commit('SET_STANDORT_INFO', standortInfo);
+      return standortInfo;
+    }
   },
 };
 

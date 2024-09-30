@@ -72,7 +72,9 @@ export default {
     const hatFehler = ref(false);
     const fehlerMeldung = ref('');
     const istDatenGeladen = ref(false);
-    const standortInfo = ref({ ortsname: null, latitude: null, longitude: null });
+
+    // Ändern Sie dies zu einer computed property
+    const standortInfo = computed(() => store.state.jassErfassen.standortInfo);
 
     const overviewData = computed(() => {
       const data = store.getters['jassErfassen/getOverviewData'];
@@ -103,42 +105,6 @@ export default {
       return overviewData.value?.rosen10Player?.id === player.id;
     };
 
-    const holeStandort = async () => {
-      try {
-        const position = await new Promise((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0
-          });
-        });
-
-        const { latitude, longitude } = position.coords;
-        const ortsname = await holeOrtsname(latitude, longitude);
-        standortInfo.value = { ortsname, latitude, longitude };
-        await store.dispatch('jassErfassen/setLocation', { latitude, longitude, location_name: ortsname });
-      } catch (error) {
-        logError('JassErfassenUebersicht', 'Fehler bei der Standortermittlung', error);
-        standortInfo.value = { ortsname: 'Standort nicht verfügbar', latitude: null, longitude: null };
-        store.dispatch('snackbar/showSnackbar', {
-          message: `Standortermittlung fehlgeschlagen: ${error.message}`,
-          color: 'warning'
-        });
-      }
-    };
-
-    const holeOrtsname = async (lat, lon) => {
-      try {
-        logInfo('JassErfassenUebersicht', `Versuche Ortsnamen für Lat ${lat}, Lon ${lon} zu holen`);
-        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
-        const data = await response.json();
-        return data.address.city || data.address.town || data.address.village || 'Unbekannt';
-      } catch (error) {
-        logError('JassErfassenUebersicht', 'Fehler beim Abrufen des Ortsnamens', error);
-        return 'Nicht verfügbar';
-      }
-    };
-
     const bestätigenUndFortfahren = async () => {
       try {
         const result = await store.dispatch('jassErfassen/finalizeJassErfassen');
@@ -161,10 +127,14 @@ export default {
       try {
         istDatenGeladen.value = false;
         await store.dispatch('jassErfassen/ensureDataLoaded');
-        await holeStandort();
+        // Prüfen, ob der Standort bereits vorhanden ist, falls nicht, erneut versuchen
+        if (!store.state.jassErfassen.standortInfo.ortsname) {
+          await store.dispatch('jassErfassen/ermittleUndSetzeStandort');
+        }
         istDatenGeladen.value = true;
+        console.log('Daten geladen:', store.state.jassErfassen); // Debugging
       } catch (error) {
-        logError('JassErfassenUebersicht', 'Fehler beim Laden der Daten', error);
+        console.error('Fehler beim Laden der Daten:', error);
         hatFehler.value = true;
         fehlerMeldung.value = `Fehler beim Laden der Daten: ${error.message}`;
       }
