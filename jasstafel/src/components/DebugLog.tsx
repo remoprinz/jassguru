@@ -1,36 +1,54 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 
-const DebugLog: React.FC = () => {
+interface DebugLogProps {
+  initiallyVisible?: boolean;
+}
+
+const DebugLog: React.FC<DebugLogProps> = ({ initiallyVisible = false }) => {
   const [logs, setLogs] = useState<string[]>([]);
+  const [isVisible, setIsVisible] = useState(initiallyVisible);
 
   useEffect(() => {
     const originalLog = console.log;
-    const originalWarn = console.warn;
-    const originalError = console.error;
-
     console.log = (...args) => {
-      setLogs(prev => [...prev, `LOG: ${args.join(' ')}`]);
-      originalLog.apply(console, args);
+      setLogs(prevLogs => [...prevLogs, args.join(' ')]);
+      originalLog(...args);
     };
-    console.warn = (...args) => {
-      setLogs(prev => [...prev, `WARN: ${args.join(' ')}`]);
-      originalWarn.apply(console, args);
+
+    const toggleVisibility = (event: KeyboardEvent) => {
+      if (event.ctrlKey && event.key === 'd') {
+        setIsVisible(prev => !prev);
+      }
     };
-    console.error = (...args) => {
-      setLogs(prev => [...prev, `ERROR: ${args.join(' ')}`]);
-      originalError.apply(console, args);
-    };
+
+    window.addEventListener('keydown', toggleVisibility);
 
     return () => {
       console.log = originalLog;
-      console.warn = originalWarn;
-      console.error = originalError;
+      window.removeEventListener('keydown', toggleVisibility);
     };
   }, []);
 
+  if (!isVisible) return null;
+
   return (
-    <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.8)', color: 'white', padding: '10px', maxHeight: '50vh', overflowY: 'auto' }}>
-      {logs.map((log, index) => <div key={index}>{log}</div>)}
+    <div className="debug-log" style={{
+      position: 'fixed',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      maxHeight: '30vh',
+      overflowY: 'auto',
+      backgroundColor: 'rgba(0,0,0,0.8)',
+      color: 'white',
+      fontSize: '12px',
+      padding: '10px',
+      zIndex: 9999,
+    }}>
+      <div>Debug-Logs (Ctrl+D zum Ein-/Ausblenden)</div>
+      {logs.map((log, index) => (
+        <div key={index}>{log}</div>
+      ))}
     </div>
   );
 };

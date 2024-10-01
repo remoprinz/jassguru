@@ -1,13 +1,15 @@
-import React from 'react';
 import JassKreidetafel from '../components/JassKreidetafel';
-import DebugLog from '../components/DebugLog';
 
 const Home: React.FC = () => {
   return (
-    <>
-      <JassKreidetafel />
-      <DebugLog />
-    </>
+    <div className="w-screen h-screen">
+      <JassKreidetafel 
+        middleLineThickness={3}
+        verticalSpacing={15}
+        horizontalSpacing={5}
+        topBottomSpacing={8}
+      />
+    </div>
   );
 };
 

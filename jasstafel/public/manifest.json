@@ -1,6 +1,6 @@
 {
   "name": "Jass Kreidetafel",
-  "short_name": "Jass Tafel",
+  "short_name": "Jasstafel",
   "description": "Digitale Kreidetafel für Jass-Spiele",
   "start_url": "/?source=pwa",
   "display": "standalone",

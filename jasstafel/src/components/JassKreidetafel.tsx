@@ -1,20 +1,66 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import ZShape from './ZShape';
 
 interface JassKreidetafelProps {
-  topBottomPadding?: string;
-  middleLineWidth?: string;
+  middleLineThickness?: number; // Dicke der Mittellinie in Pixeln
+  verticalSpacing?: number; // Abstand zur Mittellinie (0-100%)
+  horizontalSpacing?: number; // Seitlicher Abstand (0-100%)
+  topBottomSpacing?: number; // Abstand zum oberen/unteren Rand (0-100%)
 }
 
 const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
-  topBottomPadding = 'py-20',
-  middleLineWidth = 'w-[90%]'
+  middleLineThickness = 3,
+  verticalSpacing = 5,
+  horizontalSpacing = 2,
+  topBottomSpacing = 10
 }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        const { width, height } = containerRef.current.getBoundingClientRect();
+        setDimensions({ width, height });
+      }
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
+
+  const halfHeight = dimensions.height / 2;
+  const zShapeHeight = halfHeight - middleLineThickness / 2 - (dimensions.height * verticalSpacing / 100);
+
+  const zShapeStyle: React.CSSProperties = {
+    height: `${zShapeHeight}px`,
+    width: `calc(100% - ${horizontalSpacing * 2}%)`,
+    marginLeft: `${horizontalSpacing}%`,
+    marginRight: `${horizontalSpacing}%`,
+  };
+
+  const topZShapeStyle: React.CSSProperties = {
+    ...zShapeStyle,
+    marginTop: `${topBottomSpacing}%`,
+    marginBottom: `${verticalSpacing}%`,
+  };
+
+  const bottomZShapeStyle: React.CSSProperties = {
+    ...zShapeStyle,
+    marginTop: `${verticalSpacing}%`,
+    marginBottom: `${topBottomSpacing}%`,
+  };
+
   return (
-    <div className={`w-full h-screen bg-black flex flex-col justify-between items-center ${topBottomPadding}`}>
-      <ZShape className="w-[80%] h-[40%] text-chalk-red" diagonalStrokeWidth={0.6} />
-      <div className={`${middleLineWidth} h-[3px] bg-chalk-red`} />
-      <ZShape className="w-[80%] h-[40%] text-chalk-red" diagonalStrokeWidth={0.6} />
+    <div ref={containerRef} className="w-full h-full bg-black flex flex-col justify-center items-center">
+      <div style={topZShapeStyle}>
+        <ZShape className="w-full h-full text-chalk-red" diagonalStrokeWidth={0.6} />
+      </div>
+      <div style={{ height: `${middleLineThickness}px`, width: '96%' }} className="bg-chalk-red" />
+      <div style={bottomZShapeStyle}>
+        <ZShape className="w-full h-full text-chalk-red" diagonalStrokeWidth={0.6} />
+      </div>
     </div>
   );
 };
