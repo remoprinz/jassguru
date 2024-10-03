@@ -1,6 +1,6 @@
 {
-  "name": "Jass Kreidetafel",
-  "short_name": "Jasstafel",
+  "name": "Jassguru Kreidetafel",
+  "short_name": "Jassguru",
   "description": "Digitale Kreidetafel für Jass-Spiele",
   "start_url": "/?source=pwa",
   "display": "standalone",

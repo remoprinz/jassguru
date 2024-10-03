@@ -8,26 +8,23 @@ class MyDocument extends Document {
       <Html lang="de">
         <Head>
           {/* Bestehende Meta-Tags */}
-          <meta name="application-name" content="Jass Tafel" />
+          <meta name="application-name" content="Jassguru" />
           <meta name="apple-mobile-web-app-capable" content="yes" />
           <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
           <meta name="apple-mobile-web-app-title" content="Jass Tafel" />
           <meta name="format-detection" content="telephone=no" />
           <meta name="mobile-web-app-capable" content="yes" />
           <meta name="theme-color" content="#000000" />
-
-          {/* Optimierter Viewport für iOS */}
-          <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+          <meta name="format-detection" content="telephone=no" />
 
           {/* iOS-spezifische Icons */}
+          <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+          <link rel="icon" type="image/png" sizes="192x192" href="/icon-192x192.png" />
+          <link rel="icon" type="image/png" sizes="512x512" href="/icon-512x512.png" />
           <link rel="apple-touch-icon" href="/icon-180x180.png" />
-          <link rel="apple-touch-icon" sizes="152x152" href="/icon-152x152.png" />
-          <link rel="apple-touch-icon" sizes="180x180" href="/icon-180x180.png" />
-          <link rel="apple-touch-icon" sizes="167x167" href="/icon-167x167.png" />
-
           {/* Favicon für Browser */}
           <link rel="icon" href="/favicon.ico" />
-
+          <link rel="apple-touch-icon" sizes="167x167" href="/icon-167x167.png" />
           {/* Web App Manifest */}
           <link rel="manifest" href="/manifest.json" />
 
@@ -45,9 +42,9 @@ class MyDocument extends Document {
           <meta name="apple-mobile-web-app-capable" content="yes" />
           <meta name="apple-touch-fullscreen" content="yes" />
           <link rel="apple-touch-startup-image" href="/splash.png" />
-          <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-          <meta http-equiv="Pragma" content="no-cache" />
-          <meta http-equiv="Expires" content="0" />
+          <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+          <meta httpEquiv="Pragma" content="no-cache" />
+          <meta httpEquiv="Expires" content="0" />
         </Head>
         <body>
           <Main />
