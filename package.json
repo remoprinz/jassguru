@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "mitt": "^3.0.1",
+    "qrcode.vue": "^3.5.0",
+    "vuex-persist": "^3.1.3"
+  }
+}

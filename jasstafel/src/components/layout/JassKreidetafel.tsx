@@ -1,6 +1,8 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import ZShape from './ZShape';
 import useViewportHeight from '../../hooks/useViewportHeight';
+import SplitContainer from './SplitContainer';
+import useSwipeAnimation from '../animations/useSwipeAnimation';
 
 interface JassKreidetafelProps {
   middleLineThickness?: number;
@@ -23,6 +25,20 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
 }) => {
   const viewportHeight = useViewportHeight();
   const [mounted, setMounted] = useState(false);
+  const [isTopOpen, setIsTopOpen] = useState(false);
+  const [isBottomOpen, setIsBottomOpen] = useState(false);
+
+  const { y: topY, animateSwipe: animateTopSwipe } = useSwipeAnimation({
+    initialPosition: 0,
+    maxOffset: viewportHeight * 0.07,
+    position: 'top'
+  });
+
+  const { y: bottomY, animateSwipe: animateBottomSwipe } = useSwipeAnimation({
+    initialPosition: 0,
+    maxOffset: viewportHeight * 0.07,
+    position: 'bottom'
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -48,35 +64,17 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     };
   }, [viewportHeight, middleLineThickness, mounted]);
 
+  const handleSwipe = (direction: 'up' | 'down', position: 'top' | 'bottom') => {
+    const shouldOpen = (position === 'top' && direction === 'up') || (position === 'bottom' && direction === 'down');
+    setIsTopOpen(shouldOpen);
+    setIsBottomOpen(shouldOpen);
+    animateTopSwipe(shouldOpen);
+    animateBottomSwipe(shouldOpen);
+  };
+
   if (!mounted) {
-    return null; // oder ein Lade-Indikator
+    return null;
   }
-
-  const containerStyle: React.CSSProperties = {
-    width: '100%',
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    overflow: 'visible'
-  };
-
-  const zShapeStyle: React.CSSProperties = {
-    position: 'absolute',
-    width: '110%', // Erhöhen Sie diesen Wert, um die Z-Formen breiter zu machen
-    left: '-1.5%', // Passen Sie diesen Wert an, um die breiteren Z-Formen zu zentrieren
-  };
-
-  const topZShapeStyle: React.CSSProperties = {
-    ...zShapeStyle,
-    bottom: `${zShapeConfig.innerSpacing}px`,
-    height: `calc(100% - ${zShapeConfig.edgeSpacing + zShapeConfig.innerSpacing}px)`,
-  };
-
-  const bottomZShapeStyle: React.CSSProperties = {
-    ...zShapeStyle,
-    top: `${zShapeConfig.innerSpacing}px`,
-    height: `calc(100% - ${zShapeConfig.edgeSpacing + zShapeConfig.innerSpacing}px)`,
-  };
 
   const middleLineStyle: React.CSSProperties = {
     position: 'absolute',
@@ -88,18 +86,26 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
   };
 
   return (
-    <div className="w-full h-full bg-black relative" style={{ height: `${viewportHeight}px` }}>
-      <div style={{ ...containerStyle, top: 0, height: `${topContainerHeight}px`, paddingTop: 'env(safe-area-inset-top)' }}>
-        <div style={topZShapeStyle}>
-          <ZShape className="w-full h-full text-chalk-red" diagonalStrokeWidth={0.6} />
-        </div>
-      </div>
+    <div className="relative w-full h-full bg-black overflow-hidden">
+      <SplitContainer
+        position="top"
+        height={topContainerHeight}
+        zShapeConfig={zShapeConfig}
+        padding="paddingTop"
+        onSwipe={handleSwipe}
+        isOpen={isTopOpen}
+        y={topY}
+      />
+      <SplitContainer
+        position="bottom"
+        height={bottomContainerHeight}
+        zShapeConfig={zShapeConfig}
+        padding="paddingBottom"
+        onSwipe={handleSwipe}
+        isOpen={isBottomOpen}
+        y={bottomY}
+      />
       <div style={middleLineStyle} className="bg-chalk-red" />
-      <div style={{ ...containerStyle, bottom: 0, height: `${bottomContainerHeight}px`, paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div style={bottomZShapeStyle}>
-          <ZShape className="w-full h-full text-chalk-red" diagonalStrokeWidth={0.6} />
-        </div>
-      </div>
     </div>
   );
 };
