@@ -86,8 +86,11 @@ backend/test_output/
 /jasstafel_studis code
 /jasstafel backup
 
-
-
+# Neue Einträge basierend auf den Anforderungen
+# Ignoriere Ordner, die nicht benötigt werden
+documentation/
+jasstafel_backup/
+jasstafel_studis_code/
 
 
 
