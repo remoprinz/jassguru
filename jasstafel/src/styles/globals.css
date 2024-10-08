@@ -2,6 +2,15 @@
 @import 'tailwindcss/components';
 @import 'tailwindcss/utilities';
 
+@layer utilities {
+  .scale-95 {
+    transform: scale(0.95);
+  }
+  .scale-100 {
+    transform: scale(1);
+  }
+}
+
 html,
 body,
 #__next {
@@ -39,4 +48,12 @@ body {
 
 .bg-chalk-red {
   background-color: #FF0000;
+}
+
+.touch-action-none {
+  touch-action: none;
+}
+
+.touch-callout-none {
+  -webkit-touch-callout: none;
 }

@@ -1,8 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect, forwardRef } from 'react';
 import { animated, SpringValue } from 'react-spring';
 import ZShape from './ZShape';
 import useSwipeGesture from '../../hooks/useSwipeGesture';
-import useSwipeAnimation from '../animations/useSwipeAnimation';
 
 interface SplitContainerProps {
   position: 'top' | 'bottom';
@@ -13,33 +12,72 @@ interface SplitContainerProps {
     edgeSpacing: number;
   };
   padding: string;
-  onSwipe: (direction: 'up' | 'down', position: 'top' | 'bottom') => void;
+  onSwipe: (direction: 'up' | 'down' | 'left' | 'right', position: 'top' | 'bottom') => void;
   isOpen: boolean;
-  y: SpringValue<number>; // Hier fügen wir die y-Prop hinzu
+  y: SpringValue<number>;
+  mainOpacity: SpringValue<number>;
+  oppositeOpacity: SpringValue<number>;
+  getBrightness: (y: number) => number;
+  onLongPress: () => void;
+  score: number;
 }
 
-const SplitContainer: React.FC<SplitContainerProps> = ({
+const SplitContainer = forwardRef<HTMLDivElement, SplitContainerProps>(({
   position,
   height,
   zShapeConfig,
   padding,
   onSwipe,
   isOpen,
-  y
-}) => {
-  const { animateSwipe } = useSwipeAnimation({
-    initialPosition: 0,
-    maxOffset: height / 2,
-    position
-  });
+  y,
+  mainOpacity,
+  oppositeOpacity,
+  getBrightness,
+  onLongPress,
+  score,
+}, ref) => {
+  const [pressTimer, setPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [horizontalSwipe, setHorizontalSwipe] = useState(0);
+
+  const handleMouseDown = () => {
+    const timer = setTimeout(() => {
+      onLongPress();
+    }, 500);
+    setPressTimer(timer);
+  };
+
+  const handleMouseUp = () => {
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+    }
+  };
 
   useEffect(() => {
-    animateSwipe(isOpen);
-  }, [isOpen, animateSwipe]);
+    return () => {
+      if (pressTimer) {
+        clearTimeout(pressTimer);
+      }
+    };
+  }, [pressTimer]);
 
   useSwipeGesture({
-    onSwipeUp: () => onSwipe('up', position),
-    onSwipeDown: () => onSwipe('down', position)
+    onSwipeLeft: () => {
+      console.log('Swipe Left detected');
+      onSwipe('left', position);
+    },
+    onSwipeRight: () => {
+      console.log('Swipe Right detected');
+      onSwipe('right', position);
+    },
+    onSwipeUp: () => {
+      console.log('Swipe Up detected');
+      onSwipe('up', position);
+    },
+    onSwipeDown: () => {
+      console.log('Swipe Down detected');
+      onSwipe('down', position);
+    },
+    element: position
   });
 
   const containerStyle: React.CSSProperties = {
@@ -50,7 +88,11 @@ const SplitContainer: React.FC<SplitContainerProps> = ({
     overflow: 'visible',
     height: `${height}px`,
     [position]: 0,
-    [padding]: 'env(safe-area-inset-top)'
+    [padding]: 'env(safe-area-inset-top)',
+    userSelect: 'none',
+    WebkitUserSelect: 'none',
+    WebkitTouchCallout: 'none',
+    touchAction: 'none'
   };
 
   const zShapeStyle: React.CSSProperties = {
@@ -61,18 +103,61 @@ const SplitContainer: React.FC<SplitContainerProps> = ({
     height: `calc(100% - ${zShapeConfig.edgeSpacing + zShapeConfig.innerSpacing}px)`,
   };
 
+  const overlayStyle: React.CSSProperties = {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'white',
+    pointerEvents: 'none', // Erlaubt Interaktionen mit darunter liegenden Elementen
+  };
+
+  const obereLinie = Math.floor(score / 100) * 100;
+  const diagonaleLinie = Math.floor((score % 100) / 50) * 50;
+  const untereLinie = Math.floor((score % 50) / 20) * 20;
+  const restBetrag = score % 10;
+
   return (
     <animated.div 
       style={{ 
         ...containerStyle, 
-        transform: y.to(value => `translateY(${position === 'top' ? -value : value}px)`)
+        transform: y.to(value => `translateY(${position === 'top' ? -value : value}px)`),
       }}
+      data-swipe-area={position} // Hier fügen wir ein data-Attribut hinzu
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      onTouchStart={handleMouseDown}
+      onTouchEnd={handleMouseUp}
+      onContextMenu={(e) => e.preventDefault()}
     >
       <div style={zShapeStyle}>
-        <ZShape className="w-full h-full text-chalk-red" diagonalStrokeWidth={0.6} />
+        <ZShape 
+          className="w-full h-full text-chalk-red" 
+          diagonalStrokeWidth={0.6} 
+          score={score}
+          isReversed={position === 'top'}
+        />
       </div>
+      <animated.div 
+        style={{
+          ...overlayStyle,
+          opacity: y.to(getBrightness)
+        }}
+      />
+      <animated.div 
+        className="absolute inset-0 flex items-center justify-center"
+        style={{ opacity: mainOpacity }}
+      >
+        <span 
+          className="text-gray-300 text-[9rem] opacity-50 select-none"
+          style={{ transform: position === 'top' ? 'rotate(180deg)' : 'none' }}
+        >
+          {score}
+        </span>
+      </animated.div>
     </animated.div>
   );
-};
+});
 
 export default SplitContainer;

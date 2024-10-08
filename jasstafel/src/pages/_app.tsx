@@ -5,85 +5,17 @@ import { register } from '../pwa/serviceWorkerRegistration';
 import DebugLog from '../components/ui/DebugLog';
 import { AppProvider } from '../contexts/AppContext';
 import Head from 'next/head';
+import { useWakeLock } from '../hooks/useWakeLock';
+import { useOrientation } from '../hooks/useOrientation';
+import { useBrowserDetection } from '../hooks/useBrowserDetection';
 
-const lockOrientation = () => {
-  if (typeof window !== 'undefined') {
-    const lockOrientation = () => {
-      if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
-        window.screen.orientation.lock('portrait').catch(() => {
-          console.warn('Orientierungssperre nicht unterstützt');
-        });
-      }
-    };
-
-    const handleOrientationChange = () => {
-      if (window.orientation !== undefined && window.orientation !== 0 && window.orientation !== 180) {
-        alert('Bitte drehen Sie Ihr Gerät in die Portraitansicht für die beste Erfahrung.');
-      }
-    };
-
-    window.addEventListener('orientationchange', handleOrientationChange);
-    lockOrientation();
-    handleOrientationChange();
-
-    return () => {
-      window.removeEventListener('orientationchange', handleOrientationChange);
-    };
-  }
-};
-
-const setVH = () => {
-  if (typeof window !== 'undefined') {
-    const vh = window.innerHeight * 0.01;
-    document.documentElement.style.setProperty('--vh', `${vh}px`);
-    const safeAreaBottom = getComputedStyle(document.documentElement).getPropertyValue('--sab') || '0px';
-    if (window.getComputedStyle) {
-      const safeAreaTop = parseInt(window.getComputedStyle(document.documentElement).getPropertyValue('--sat') || '0');
-      const safeAreaBottom = parseInt(window.getComputedStyle(document.documentElement).getPropertyValue('--sab') || '0');
-      
-      document.documentElement.style.setProperty('--safe-area-top', `${safeAreaTop}px`);
-      document.documentElement.style.setProperty('--safe-area-bottom', `${safeAreaBottom}px`);
-    }
-  }
-};
-
-const handleOrientation = () => {
-  if (typeof window !== 'undefined') {
-    const orientationHandler = () => {
-      const isPortrait = window.innerHeight > window.innerWidth;
-      if (!isPortrait) {
-        alert('Bitte drehen Sie Ihr Gerät in die Portraitansicht für die beste Erfahrung.');
-      }
-    };
-
-    window.addEventListener('resize', orientationHandler);
-    orientationHandler(); // Initial check
-
-    return () => {
-      window.removeEventListener('resize', orientationHandler);
-    };
-  }
-};
-
-function MyApp({ Component, pageProps }: AppProps) {
-  const isDebugMode = process.env.NODE_ENV === 'development';
+const MyApp = ({ Component, pageProps }: AppProps) => {
+  useWakeLock();
+  useOrientation();
+  const { browserMessage, dismissMessage } = useBrowserDetection();
 
   useEffect(() => {
-    console.log('MyApp Komponente initialisiert');
     register();
-    const orientationCleanup = handleOrientation();
-    const handleResize = () => {
-      setVH();
-    };
-
-    window.addEventListener('resize', handleResize);
-    
-    setTimeout(setVH, 100);
-
-    return () => {
-      orientationCleanup && orientationCleanup();
-      window.removeEventListener('resize', handleResize);
-    };
   }, []);
 
   return (
@@ -91,12 +23,23 @@ function MyApp({ Component, pageProps }: AppProps) {
       <Head>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
       </Head>
-      <div style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
-        <Component {...pageProps} />
-        {isDebugMode && <DebugLog initiallyVisible={false} />}
-      </div>
+      <Component {...pageProps} />
+      <DebugLog />
+      {browserMessage.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full relative">
+            <p className="text-lg mb-8">{browserMessage.message}</p>
+            <button
+              onClick={dismissMessage}
+              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors absolute bottom-4 right-4"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </AppProvider>
   );
-}
+};
 
 export default MyApp;

@@ -10,10 +10,23 @@ const DebugLog: React.FC<DebugLogProps> = ({ initiallyVisible = false }) => {
 
   useEffect(() => {
     const originalLog = console.log;
+    const logQueue: string[] = [];
+
     console.log = (...args) => {
-      setLogs(prevLogs => [...prevLogs, args.join(' ')]);
+      const logMessage = args.join(' ');
+      logQueue.push(logMessage);
       originalLog(...args);
     };
+
+    const processLogQueue = () => {
+      if (logQueue.length > 0) {
+        setLogs(prevLogs => [...prevLogs, ...logQueue]);
+        logQueue.length = 0;
+      }
+      requestAnimationFrame(processLogQueue);
+    };
+
+    requestAnimationFrame(processLogQueue);
 
     const toggleVisibility = (event: KeyboardEvent) => {
       if (event.ctrlKey && event.key === 'd') {
@@ -28,6 +41,22 @@ const DebugLog: React.FC<DebugLogProps> = ({ initiallyVisible = false }) => {
       window.removeEventListener('keydown', toggleVisibility);
     };
   }, []);
+
+  const addLog = React.useCallback((log: string) => {
+    setLogs(prevLogs => [...prevLogs, log]);
+  }, []);
+
+  React.useEffect(() => {
+    const originalLog = console.log;
+    console.log = (...args) => {
+      addLog(args.join(' '));
+      originalLog(...args);
+    };
+
+    return () => {
+      console.log = originalLog;
+    };
+  }, [addLog]);
 
   if (!isVisible) return null;
 

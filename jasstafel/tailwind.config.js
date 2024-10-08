@@ -14,5 +14,16 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    function ({ addUtilities }) {
+      addUtilities({
+        '.touch-action-none': {
+          'touch-action': 'none',
+        },
+        '.touch-callout-none': {
+          '-webkit-touch-callout': 'none',
+        },
+      });
+    },
+  ],
 };
