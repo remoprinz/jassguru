@@ -23,13 +23,13 @@ const RoundInfo: React.FC<RoundInfoProps> = ({ currentPlayer, currentRound, opac
       style={{ 
         ...fadeProps,
         top: 'calc(50% - 4rem)',
-        height: '5.5rem'
+        height: '3.5rem'
       }}
     >
-      <div className="text-gray-200 text-xs transform scale-y-[-1] scale-x-[-1] absolute right-[8%] top-[2.5rem]">
+      <div className="text-gray-500 text-xs transform scale-y-[-1] scale-x-[-1] absolute right-[8%] top-[4.5rem]">
         Runde: {currentRound}
       </div>
-      <div className="text-gray-200 text-xs absolute left-[8%] bottom-0">
+      <div className="text-gray-500 text-xs absolute left-[8%] bottom-0">
         Spieler: {currentPlayer}
       </div>
     </animated.div>

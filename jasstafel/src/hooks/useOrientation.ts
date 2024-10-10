@@ -17,8 +17,7 @@ export const useOrientation = () => {
       if (!isPortrait) {
         setOrientationMessage({
           show: true,
-          message: 'Die Orientierungssperre ist zurzeit nicht möglich auf diesem Gerät. Drehen Sie die Jasstafel um 90 Grad.'
-
+          message: 'Die Orientierungssperre ist zurzeit nicht möglich auf diesem Gerät. Drehe die Jasstafel um 90 Grad.'
         });
       } else {
         setOrientationMessage({ show: false, message: '' });
@@ -28,17 +27,21 @@ export const useOrientation = () => {
       document.documentElement.style.setProperty('--app-width', `${window.innerWidth}px`);
     };
 
-    window.addEventListener('resize', handleOrientationChange);
-    handleOrientationChange(); // Initial call
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', handleOrientationChange);
+      handleOrientationChange(); // Initial call
+    }
 
     return () => {
-      window.removeEventListener('resize', handleOrientationChange);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('resize', handleOrientationChange);
+      }
     };
   }, []);
 
-  const dismissMessage = () => {
+  const dismissOrientationMessage = () => {
     setOrientationMessage({ show: false, message: '' });
   };
 
-  return { orientationMessage, dismissMessage };
+  return { orientationMessage, dismissOrientationMessage };
 };

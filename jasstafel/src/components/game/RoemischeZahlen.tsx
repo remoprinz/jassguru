@@ -8,6 +8,7 @@ interface StrichProps {
   thickness: number;
   color: string;
   margin: number;
+  onClick: () => void;
 }
 
 const Strich = styled('div')<StrichProps>(({ isVertical, isDiagonal, length, thickness, color, margin }) => ({
@@ -16,6 +17,7 @@ const Strich = styled('div')<StrichProps>(({ isVertical, isDiagonal, length, thi
   backgroundColor: color,
   margin: `0 ${margin}px`,
   transform: isDiagonal ? 'rotate(45deg)' : (isVertical ? 'none' : 'rotate(90deg)'),
+  cursor: 'pointer',
 }));
 
 interface RoemischeZahlenProps {
@@ -26,7 +28,8 @@ interface RoemischeZahlenProps {
   strichThickness: number;
   strichColor: string;
   strichMargin: number;
-  isReversed?: boolean;
+  position: 'top' | 'bottom';
+  onClick: (value: number) => void;
 }
 
 const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
@@ -37,7 +40,8 @@ const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
   strichThickness,
   strichColor,
   strichMargin,
-  isReversed = false,
+  position,
+  onClick,
 }) => {
   const anzahlStriche = Math.floor(wert / einheitWert);
   
@@ -45,91 +49,57 @@ const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
     const striche = [];
     let remainingStriche = anzahlStriche;
 
-    if (einheitWert === 100 || einheitWert === 20) {
+    const renderStrich = (key: string, isVertical: boolean, isDiagonal: boolean, length: number) => (
+      <Strich
+        key={key}
+        isVertical={isVertical}
+        isDiagonal={isDiagonal}
+        length={length}
+        thickness={strichThickness}
+        color={strichColor}
+        margin={strichMargin}
+        onClick={() => onClick(einheitWert)}
+      />
+    );
+
+    const renderGroup = (groupKey: string, count: number, isVertical: boolean) => (
+      <React.Fragment key={groupKey}>
+        {[...Array(count)].map((_, index) => renderStrich(`${groupKey}-${index}`, isVertical, false, strichLength))}
+        {renderStrich(`${groupKey}-diagonal`, false, true, strichLength * 1.4)}
+      </React.Fragment>
+    );
+
+    if (einheitWert === 100) {
       while (remainingStriche > 0) {
-        if (remainingStriche >= 5) {
-          striche.push(
-            <React.Fragment key={`group-${remainingStriche}`}>
-              {[...Array(4)].map((_, index) => (
-                <Strich
-                  key={`vertical-${index}`}
-                  isVertical={true}
-                  isDiagonal={false}
-                  length={strichLength}
-                  thickness={strichThickness}
-                  color={strichColor}
-                  margin={strichMargin}
-                />
-              ))}
-              <Strich
-                isVertical={false}
-                isDiagonal={true}
-                length={strichLength * 1.4}
-                thickness={strichThickness}
-                color={strichColor}
-                margin={strichMargin}
-              />
-            </React.Fragment>
-          );
+        if (remainingStriche >= 10) {
+          striche.push(renderStrich(`x-${remainingStriche}`, false, true, strichLength * 1.4));
+          remainingStriche -= 10;
+        } else if (remainingStriche >= 5) {
+          striche.push(renderGroup(`group-${remainingStriche}`, 4, false));
           remainingStriche -= 5;
         } else {
-          striche.push(
-            <Strich
-              key={`single-${remainingStriche}`}
-              isVertical={true}
-              isDiagonal={false}
-              length={strichLength}
-              thickness={strichThickness}
-              color={strichColor}
-              margin={strichMargin}
-            />
-          );
+          striche.push(renderStrich(`single-${remainingStriche}`, false, false, strichLength));
           remainingStriche--;
         }
       }
     } else if (einheitWert === 50) {
       while (remainingStriche > 0) {
-        if (remainingStriche >= 2) {
-          striche.push(
-            <React.Fragment key={`x-${remainingStriche}`}>
-              <Strich
-                isVertical={false}
-                isDiagonal={true}
-                length={strichLength * 1.4}
-                thickness={strichThickness}
-                color={strichColor}
-                margin={strichMargin}
-              />
-              <Strich
-                isVertical={false}
-                isDiagonal={true}
-                length={strichLength * 1.4}
-                thickness={strichThickness}
-                color={strichColor}
-                margin={strichMargin}
-                style={{ transform: 'rotate(-45deg)' }}
-              />
-            </React.Fragment>
-          );
-          remainingStriche -= 2;
+        striche.push(renderStrich(`diagonal-${remainingStriche}`, false, true, strichLength * 1.4));
+        remainingStriche--;
+      }
+    } else if (einheitWert === 20) {
+      while (remainingStriche > 0) {
+        if (remainingStriche >= 5) {
+          striche.push(renderGroup(`group-${remainingStriche}`, 4, true));
+          remainingStriche -= 5;
         } else {
-          striche.push(
-            <Strich
-              key={`single-${remainingStriche}`}
-              isVertical={false}
-              isDiagonal={true}
-              length={strichLength * 1.4}
-              thickness={strichThickness}
-              color={strichColor}
-              margin={strichMargin}
-            />
-          );
+          striche.push(renderStrich(`single-${remainingStriche}`, true, false, strichLength));
           remainingStriche--;
         }
       }
     }
 
-    return isReversed ? striche.reverse() : striche;
+    return striche;
   };
 
   return (
@@ -137,7 +107,8 @@ const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
       display: 'flex', 
       flexDirection: isVertical ? 'column' : 'row', 
       alignItems: 'center',
-      transform: isReversed ? 'scaleX(-1)' : 'none'
+      justifyContent: position === 'top' ? 'flex-start' : 'flex-end',
+      transform: position === 'top' ? 'rotate(180deg)' : 'none'
     }}>
       {renderStriche()}
     </div>

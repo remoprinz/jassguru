@@ -65,6 +65,8 @@ const Calculator: React.FC<CalculatorProps> = ({
   }, [value, multiplier]);
 
   const handleNumberClick = (num: number) => {
+    if (isMatschActive) return;
+
     const now = Date.now();
     if (now - lastClickTime < 100) {
       return;
@@ -174,10 +176,7 @@ const Calculator: React.FC<CalculatorProps> = ({
     setOpponentValue('0');
     setTotalValue((257 * multiplier).toString());
     setIsMatschActive(true);
-    setTimeout(() => {
-      triggerConfetti(confettiCharge);
-      setIsMatschActive(false);
-    }, 300);
+    triggerConfetti(confettiCharge);
   };
 
   const numberOrder = isFlipped ? [1, 2, 3, 4, 5, 6, 7, 8, 9] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -229,6 +228,7 @@ const Calculator: React.FC<CalculatorProps> = ({
                 <div className="text-xl pr-1">{opponentValue}</div>
               </div>
               <button
+                onClick={handleMatsch}
                 onMouseDown={() => {
                   setPressedMatsch(true);
                   setConfettiCharge(0);
@@ -266,6 +266,7 @@ const Calculator: React.FC<CalculatorProps> = ({
                       ? 'bg-gray-600 text-white scale-95 opacity-80'
                       : 'bg-gray-700 text-white hover:bg-orange-500 scale-100 opacity-100'
                 }`}
+                disabled={isMatschActive}
               >
                 Matsch
               </button>

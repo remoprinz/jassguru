@@ -12,6 +12,15 @@ module.exports = {
         'chalk-white': '#ffffff',
         'chalk-gray': 'rgba(128, 128, 128, 0.3)',
       },
+      keyframes: {
+        'fade-in': {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        }
+      },
+      animation: {
+        'fade-in': 'fade-in 0.3s ease-out',
+      }
     },
   },
   plugins: [

@@ -67,9 +67,10 @@ export const useGameStore = create<GameStore>((set) => ({
     bottomScore: 0,
     topRounds: 0,
     bottomRounds: 0,
-    settings: defaultGameSettings,
+    currentHistoryIndex: -1,
     scoreHistory: [],
-    currentHistoryIndex: -1
+    currentPlayer: 1,
+    currentRound: 1,
   }),
 
   updateScore: (position: 'top' | 'bottom', score: number, opponentScore: number) => set((state) => {

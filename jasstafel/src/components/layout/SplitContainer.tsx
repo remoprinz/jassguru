@@ -2,6 +2,7 @@ import React, { useState, useEffect, forwardRef } from 'react';
 import { animated, SpringValue } from 'react-spring';
 import ZShape from './ZShape';
 import useSwipeGesture from '../../hooks/useSwipeGesture';
+import StrichContainer from './StrichContainer';
 
 interface SplitContainerProps {
   position: 'top' | 'bottom';
@@ -20,6 +21,7 @@ interface SplitContainerProps {
   getBrightness: (y: number) => number;
   onLongPress: () => void;
   score: number;
+  isMenuOpen: boolean;
 }
 
 const SplitContainer = forwardRef<HTMLDivElement, SplitContainerProps>(({
@@ -35,6 +37,7 @@ const SplitContainer = forwardRef<HTMLDivElement, SplitContainerProps>(({
   getBrightness,
   onLongPress,
   score,
+  isMenuOpen,
 }, ref) => {
   const [pressTimer, setPressTimer] = useState<NodeJS.Timeout | null>(null);
   const [horizontalSwipe, setHorizontalSwipe] = useState(0);
@@ -113,10 +116,11 @@ const SplitContainer = forwardRef<HTMLDivElement, SplitContainerProps>(({
     pointerEvents: 'none', // Erlaubt Interaktionen mit darunter liegenden Elementen
   };
 
-  const obereLinie = Math.floor(score / 100) * 100;
-  const diagonaleLinie = Math.floor((score % 100) / 50) * 50;
-  const untereLinie = Math.floor((score % 50) / 20) * 20;
-  const restBetrag = score % 10;
+  const handleLongPress = () => {
+    if (!isMenuOpen) {
+      onLongPress();
+    }
+  };
 
   return (
     <animated.div 
@@ -135,7 +139,7 @@ const SplitContainer = forwardRef<HTMLDivElement, SplitContainerProps>(({
         <ZShape 
           className="w-full h-full text-chalk-red" 
           diagonalStrokeWidth={0.6} 
-          score={score}
+          position={position}
           isReversed={position === 'top'}
         />
       </div>
@@ -156,6 +160,14 @@ const SplitContainer = forwardRef<HTMLDivElement, SplitContainerProps>(({
           {score}
         </span>
       </animated.div>
+      {position === 'bottom' && (
+        <StrichContainer
+          position={position}
+          score={score}
+          onStrichClick={(value: number) => console.log(`Strich geklickt: ${value}`)}
+          middleLinePosition={height / 2}
+        />
+      )}
     </animated.div>
   );
 });
