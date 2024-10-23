@@ -22,6 +22,9 @@ interface SplitContainerProps {
   onLongPress: () => void;
   score: number;
   isMenuOpen: boolean;
+  onStrichClick: (value: number, position: 'top' | 'bottom') => void;
+  triggerBlendEffect: (position: 'top' | 'bottom') => void;
+  restZahl: number;
 }
 
 const SplitContainer = forwardRef<HTMLDivElement, SplitContainerProps>(({
@@ -30,14 +33,15 @@ const SplitContainer = forwardRef<HTMLDivElement, SplitContainerProps>(({
   zShapeConfig,
   padding,
   onSwipe,
-  isOpen,
   y,
   mainOpacity,
-  oppositeOpacity,
   getBrightness,
   onLongPress,
   score,
   isMenuOpen,
+  onStrichClick,
+  triggerBlendEffect,
+  restZahl,
 }, ref) => {
   const [pressTimer, setPressTimer] = useState<NodeJS.Timeout | null>(null);
   const [horizontalSwipe, setHorizontalSwipe] = useState(0);
@@ -45,7 +49,7 @@ const SplitContainer = forwardRef<HTMLDivElement, SplitContainerProps>(({
   const handleMouseDown = () => {
     const timer = setTimeout(() => {
       onLongPress();
-    }, 500);
+    }, 400);
     setPressTimer(timer);
   };
 
@@ -100,10 +104,10 @@ const SplitContainer = forwardRef<HTMLDivElement, SplitContainerProps>(({
 
   const zShapeStyle: React.CSSProperties = {
     position: 'absolute',
-    width: '110%',
-    left: '-1.5%',
-    [position === 'top' ? 'bottom' : 'top']: `${zShapeConfig.innerSpacing}px`,
-    height: `calc(100% - ${zShapeConfig.edgeSpacing + zShapeConfig.innerSpacing}px)`,
+    width: '110%', // Reduziert von 110% auf 100%
+    left: '-1%', // Geändert von -1.5% auf 0%
+    [position === 'top' ? 'bottom' : 'top']: `${zShapeConfig.innerSpacing * 1.5}px`, // Erhöht den Abstand zur Mittellinie
+    height: `calc(100% - ${zShapeConfig.edgeSpacing * 1.5 + zShapeConfig.innerSpacing * 0.8}px)`, // Angepasst für die neue Position
   };
 
   const overlayStyle: React.CSSProperties = {
@@ -119,6 +123,13 @@ const SplitContainer = forwardRef<HTMLDivElement, SplitContainerProps>(({
   const handleLongPress = () => {
     if (!isMenuOpen) {
       onLongPress();
+    }
+  };
+
+  const handleStrichClick = (value: number, clickPosition: 'top' | 'bottom') => {
+    if (clickPosition === position) {
+      onStrichClick(value, position);
+      triggerBlendEffect(position);
     }
   };
 
@@ -138,7 +149,6 @@ const SplitContainer = forwardRef<HTMLDivElement, SplitContainerProps>(({
       <div style={zShapeStyle}>
         <ZShape 
           className="w-full h-full text-chalk-red" 
-          diagonalStrokeWidth={0.6} 
           position={position}
           isReversed={position === 'top'}
         />
@@ -160,14 +170,14 @@ const SplitContainer = forwardRef<HTMLDivElement, SplitContainerProps>(({
           {score}
         </span>
       </animated.div>
-      {position === 'bottom' && (
-        <StrichContainer
-          position={position}
-          score={score}
-          onStrichClick={(value: number) => console.log(`Strich geklickt: ${value}`)}
-          middleLinePosition={height / 2}
-        />
-      )}
+      <StrichContainer
+        position={position}
+        score={score}
+        onStrichClick={handleStrichClick}
+        middleLinePosition={height / 2}
+        onBlendEffect={triggerBlendEffect}
+        restZahl={restZahl}
+      />
     </animated.div>
   );
 });

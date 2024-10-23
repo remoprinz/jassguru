@@ -42,12 +42,12 @@ export const useBrowserDetection = (hasShownIntro: boolean) => {
     if (!isStandalone) {
       setBrowserMessage({
         show: true,
-        message: 'Nutze die Jasstafel als Vollbild-App. Klicke dazu unten auf das «Teilen-Symbol» (Böxchen mit Pfeil nach oben) und wähle «Zum Home-Bilschirm». Android: Oben rechts «Menü», dann «Zum Startbildschirm beifügen».'
+        message: 'Nutze die Jasstafel als Vollbild-App. Klicke dazu unten auf das "Teilen-Symbol" (Böxchen mit Pfeil nach oben) und wähle "Zum Home-Bilschirm". Android: Oben rechts "Menü", dann "Zum Startbildschirm beifügen".'
       });
     } else if (isIOS() && !hasShownIOSMessage && appOpenCount > 1) {
       setBrowserMessage({
         show: true,
-        message: 'Zurzeit ist es auf einem iOS-Gerät nicht möglich, den Bildschirm wach zu halten. Stelle zum Jassen unter "Anzeige & Helligkeit" die "Automatische Sperre" auf fünf Minuten.'
+        message: 'Zurzeit ist es auf einem iOS-Gerät nicht möglich, den Bildschirm wach zu halten. Stelle zum Jassen die "Automatische Sperre" auf fünf Minuten unter "Einstellungen > Bildschirm & Helligkeit".'
       });
       localStorage.setItem('hasShownIOSMessage', 'true');
     }

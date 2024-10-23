@@ -9,7 +9,7 @@ interface MenuOverlayProps {
 }
 
 const MenuOverlay: React.FC<MenuOverlayProps> = ({ isOpen }) => {
-  const { resetGame } = useGameStore();
+  const { resetGame, resetRestZahl } = useGameStore();
   const [pressedButton, setPressedButton] = useState<string | null>(null);
   const [showIntroduction, setShowIntroduction] = useState(false);
 
@@ -47,6 +47,7 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({ isOpen }) => {
         <motion.button 
           onClick={() => {
             resetGame();
+            resetRestZahl();
             handleButtonPress('trash');
           }}
           className={`${iconStyle} bg-red-500 text-white`}

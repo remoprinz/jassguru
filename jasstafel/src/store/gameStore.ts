@@ -7,6 +7,14 @@ interface ScoreHistory {
   bottomScore: number;
   topRounds: number;
   bottomRounds: number;
+  totalPoints: {
+    top: number;
+    bottom: number;
+  };
+  weisPoints: {
+    top: number;
+    bottom: number;
+  };
 }
 
 interface GameState {
@@ -19,6 +27,9 @@ interface GameState {
   settings: GameSettings;
   currentPlayer: number;
   currentRound: number;
+  isCalculatorFlipped: boolean;
+  stricheCounts: { top: Record<number, number>, bottom: Record<number, number> };
+  restZahlen: { top: number; bottom: number };
 }
 
 type GameStore = GameState & {
@@ -33,6 +44,13 @@ type GameStore = GameState & {
   navigateHistory: (direction: 'forward' | 'backward') => void;
   incrementCurrentPlayer: () => void;
   incrementCurrentRound: () => void;
+  setCalculatorFlipped: (flipped: boolean) => void;
+  updateScoreByStrich: (position: 'top' | 'bottom', value: number) => void;
+  updateStricheCounts: (position: 'top' | 'bottom', value: number, count: number) => void;
+  resetStricheCounts: (position: 'top' | 'bottom') => void;
+  resetRestZahl: () => void;
+  updateRestZahl: (position: 'top' | 'bottom', restZahl: number) => void;
+  updateWeisStricheCounts: (position: 'top' | 'bottom', value: number) => void;
 };
 
 export const useGameStore = create<GameStore>((set) => ({
@@ -45,6 +63,9 @@ export const useGameStore = create<GameStore>((set) => ({
   currentHistoryIndex: -1,
   currentPlayer: 1,
   currentRound: 1,
+  isCalculatorFlipped: false,
+  stricheCounts: { top: {}, bottom: {} },
+  restZahlen: { top: 0, bottom: 0 },
 
   setTopScore: (score: number) => set({ topScore: score }),
 
@@ -62,7 +83,8 @@ export const useGameStore = create<GameStore>((set) => ({
     return state;
   }),
 
-  resetGame: () => set({
+  resetGame: () => set((state) => ({
+    ...state,
     topScore: 0,
     bottomScore: 0,
     topRounds: 0,
@@ -71,7 +93,10 @@ export const useGameStore = create<GameStore>((set) => ({
     scoreHistory: [],
     currentPlayer: 1,
     currentRound: 1,
-  }),
+    // Neue Zeile: Zurücksetzen der Striche
+    stricheCounts: { top: {}, bottom: {} },
+    restZahlen: { top: 0, bottom: 0 }
+  })),
 
   updateScore: (position: 'top' | 'bottom', score: number, opponentScore: number) => set((state) => {
     const newScore = validateAndClampScore(state[`${position}Score`] + score, state.settings.maxScore);
@@ -87,15 +112,22 @@ export const useGameStore = create<GameStore>((set) => ({
       bottomRounds: position === 'bottom' ? state.bottomRounds + 1 : state.bottomRounds,
     };
 
-    // Schneide die Historie ab dem aktuellen Index ab und füge den neuen Eintrag hinzu
+    const newHistoryEntry = {
+      ...state.scoreHistory[state.currentHistoryIndex],
+      topScore: newState.topScore,
+      bottomScore: newState.bottomScore,
+      topRounds: newState.topRounds,
+      bottomRounds: newState.bottomRounds,
+      totalPoints: {
+        top: position === 'top' ? score : 0,
+        bottom: position === 'bottom' ? score : 0
+      },
+      weisPoints: { top: 0, bottom: 0 }
+    };
+
     const newHistory = [
       ...state.scoreHistory.slice(0, state.currentHistoryIndex + 1),
-      {
-        topScore: newState.topScore,
-        bottomScore: newState.bottomScore,
-        topRounds: newState.topRounds,
-        bottomRounds: newState.bottomRounds
-      }
+      newHistoryEntry
     ];
 
     if (newScore >= state.settings.bergScore || newOpponentScore >= state.settings.bergScore) {
@@ -118,7 +150,12 @@ export const useGameStore = create<GameStore>((set) => ({
       topScore: state.topScore,
       bottomScore: state.bottomScore,
       topRounds: state.topRounds,
-      bottomRounds: state.bottomRounds
+      bottomRounds: state.bottomRounds,
+      totalPoints: {
+        top: 0,
+        bottom: 0
+      },
+      weisPoints: { top: 0, bottom: 0 }
     }];
     console.log('Neue Historie hinzugefügt:', newHistory);
     return {
@@ -154,4 +191,86 @@ export const useGameStore = create<GameStore>((set) => ({
 
   incrementCurrentPlayer: () => set((state) => ({ currentPlayer: (state.currentPlayer % 4) + 1 })),
   incrementCurrentRound: () => set((state) => ({ currentRound: state.currentRound + 1 })),
+  setCalculatorFlipped: (flipped: boolean) => set({ isCalculatorFlipped: flipped }),
+
+  updateScoreByStrich: (position: 'top' | 'bottom', value: number) => set((state) => {
+    const currentEntry = state.scoreHistory[state.currentHistoryIndex] || {
+      topScore: state.topScore,
+      bottomScore: state.bottomScore,
+      topRounds: state.topRounds,
+      bottomRounds: state.bottomRounds,
+      totalPoints: { top: 0, bottom: 0 },
+      weisPoints: { top: 0, bottom: 0 }
+    };
+
+    const newWeisPoints = {
+      ...currentEntry.weisPoints,
+      [position]: (currentEntry.weisPoints[position] || 0) + value
+    };
+
+    const updatedHistory = [...state.scoreHistory];
+    updatedHistory[state.currentHistoryIndex] = {
+      ...currentEntry,
+      weisPoints: newWeisPoints
+    };
+
+    return {
+      scoreHistory: updatedHistory,
+      [`${position}Score`]: state[`${position}Score`] + value
+    };
+  }),
+
+  updateStricheCounts: (position: 'top' | 'bottom', value: number, count: number) => set((state) => ({
+    stricheCounts: {
+      ...state.stricheCounts,
+      [position]: {
+        ...state.stricheCounts[position],
+        [value]: count
+      }
+    }
+  })),
+
+  resetStricheCounts: (position: 'top' | 'bottom') => set((state) => ({
+    stricheCounts: {
+      ...state.stricheCounts,
+      [position]: {}
+    }
+  })),
+
+  resetRestZahl: () => set(state => ({
+    topScore: Math.floor(state.topScore / 20) * 20,
+    bottomScore: Math.floor(state.bottomScore / 20) * 20,
+    stricheCounts: { top: {}, bottom: {} },
+    restZahlen: { top: 0, bottom: 0 }
+  })),
+
+  updateRestZahl: (position: 'top' | 'bottom', restZahl: number) => set(state => ({
+    restZahlen: {
+      ...state.restZahlen,
+      [position]: restZahl
+    }
+  })),
+
+  updateWeisStricheCounts: (position: 'top' | 'bottom', value: number) => set((state) => {
+    const currentCounts = state.stricheCounts[position][value] || 0;
+    const maxStriche = value === 50 ? 10 : 5; // 10 X für 50er Box, 5 Striche für andere
+
+    if (currentCounts >= maxStriche) {
+      return state; // Keine Änderung, wenn das Maximum erreicht ist
+    }
+
+    const newCount = currentCounts + 1;
+    const newScore = state[`${position}Score`] + value;
+
+    return {
+      stricheCounts: {
+        ...state.stricheCounts,
+        [position]: {
+          ...state.stricheCounts[position],
+          [value]: newCount
+        }
+      },
+      [`${position}Score`]: newScore
+    };
+  }),
 }));

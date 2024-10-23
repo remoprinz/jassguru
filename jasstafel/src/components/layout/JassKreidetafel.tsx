@@ -35,7 +35,7 @@ const isIOS = () => {
 };
 
 const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
-  middleLineThickness = 6,
+  middleLineThickness = 60, // Erhöht von 6 auf 12 oder einen anderen gewünschten Wert
   zShapeConfig
 }) => {
   const viewportHeight = useViewportHeight();
@@ -54,7 +54,12 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     updateScore,
     scoreHistory,
     currentPlayer,
-    currentRound
+    currentRound,
+    updateScoreByStrich,
+    updateStricheCounts,
+    resetStricheCounts,
+    restZahlen,
+    updateRestZahl
   } = useGameStore();
 
   useEffect(() => {
@@ -74,6 +79,10 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
       currentRound
     });
   }, [topScore, bottomScore, currentHistoryIndex, currentPlayer, currentRound]);
+
+  useEffect(() => {
+    setIsCalculatorOpen(false);
+  }, []);
 
   const { topContainerHeight, bottomContainerHeight, middleLinePosition } = useMemo(() => {
     if (typeof window === 'undefined' || !mounted) {
@@ -156,13 +165,68 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     setActiveContainer(null);
   }, []);
 
-  const handleCalculatorSubmit = useCallback((value: number, opponentValue: number) => {
-    if (activeContainer) {
-      updateScore(activeContainer, value, opponentValue);
-      setIsCalculatorOpen(false);
-      setActiveContainer(null);
+  const handleCalculatorSubmit = (value: number, opponentValue: number) => {
+    const position = activeContainer as 'top' | 'bottom';
+    const oppositePosition = position === 'top' ? 'bottom' : 'top';
+
+    // Aktualisiere den Gesamtscore
+    updateScore(position, value, opponentValue);
+
+    // Zeichne die Striche für beide Positionen
+    drawStricheForValue(position, value, false);
+    drawStricheForValue(oppositePosition, opponentValue, false);
+
+    setIsCalculatorOpen(false);
+    setActiveContainer(null);
+  };
+
+  const drawStricheForValue = (position: 'top' | 'bottom', value: number, isNewRound: boolean) => {
+    const currentScore = position === 'top' ? topScore : bottomScore;
+    const newTotalScore = isNewRound ? currentScore + value : value;
+
+    const striche = {
+      hundert: Math.floor(newTotalScore / 100),
+      fuenfzig: 0,
+      zwanzig: 0
+    };
+
+    let restZahl = newTotalScore % 100;
+
+    if (restZahl >= 90) {
+      striche.fuenfzig = 1;
+      striche.zwanzig = 2;
+      restZahl -= 90;
+    } else if (restZahl >= 80) {
+      striche.zwanzig = 4;
+      restZahl -= 80;
+    } else if (restZahl >= 70) {
+      striche.fuenfzig = 1;
+      striche.zwanzig = 1;
+      restZahl -= 70;
+    } else if (restZahl >= 60) {
+      striche.zwanzig = 3;
+      restZahl -= 60;
+    } else if (restZahl >= 50) {
+      striche.fuenfzig = 1;
+      restZahl -= 50;
+    } else if (restZahl >= 20) {
+      striche.zwanzig = Math.floor(restZahl / 20);
+      restZahl %= 20;
     }
-  }, [activeContainer, updateScore]);
+
+    // Aktualisiere die Striche
+    updateStricheCounts(position, 100, striche.hundert);
+    updateStricheCounts(position, 50, striche.fuenfzig);
+    updateStricheCounts(position, 20, striche.zwanzig);
+
+    // Aktualisiere die Restzahl
+    updateRestZahl(position, restZahl);
+
+    // Aktualisiere den Gesamtscore
+    if (isNewRound) {
+      updateScore(position, value, 0);
+    }
+  };
 
   const handleHorizontalSwipe = useCallback((direction: 'left' | 'right', position: 'top' | 'bottom') => {
     const historyDirection = position === 'top' 
@@ -178,6 +242,28 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
 
   const { showMessage, message, dismissMessage, hasShownIntro } = useIntroductionMessage();
   const { browserMessage, dismissMessage: dismissBrowserMessage } = useBrowserDetection(hasShownIntro);
+
+  const handleStrichClick = useCallback((value: number, position: 'top' | 'bottom') => {
+    updateScore(position, value, 0);
+  }, [updateScore]);
+
+  const triggerBlendEffect = useCallback((position: 'top' | 'bottom') => {
+    if (position === 'top') {
+      animateTopSwipe('left');
+    } else {
+      animateBottomSwipe('left');
+    }
+  }, [animateTopSwipe, animateBottomSwipe]);
+
+  const topRestZahl = topScore % 20;
+  const bottomRestZahl = bottomScore % 20;
+
+  console.log('Top RestZahl:', topRestZahl);
+  console.log('Bottom RestZahl:', bottomRestZahl);
+
+  const handleUpdateRestZahl = (position: 'top' | 'bottom', restZahl: number) => {
+    updateRestZahl(position, restZahl);
+  };
 
   return (
     <div className="w-full h-full bg-black relative select-none touch-action-none" style={{ height: `${viewportHeight}px` }}>
@@ -219,6 +305,9 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
             score={topScore}
             key={`top-${currentHistoryIndex}`}
             isMenuOpen={isMenuOpen}
+            onStrichClick={handleStrichClick}
+            triggerBlendEffect={triggerBlendEffect}
+            restZahl={restZahlen.top}
           />
           <animated.div 
             style={{
@@ -226,6 +315,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
               left: topY.to(y => `${5 - (y / maxOffset) * 5}%`),
               width: topY.to(y => `${90 + (y / maxOffset) * 10}%`),
               top: middleLinePosition - middleLineThickness / 2,
+              height: `${middleLineThickness}px`, // Hier fügen wir die Höhe hinzu
               transform: topY.to(y => `translateY(${-y}px)`)
             }} 
             className="bg-chalk-red" 
@@ -236,6 +326,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
               left: bottomY.to(y => `${5 - (y / maxOffset) * 5}%`),
               width: bottomY.to(y => `${90 + (y / maxOffset) * 10}%`),
               top: middleLinePosition,
+              height: `${middleLineThickness}px`, // Hier fügen wir die Höhe hinzu
               transform: bottomY.to(y => `translateY(${y}px)`)
             }} 
             className="bg-chalk-red" 
@@ -256,6 +347,9 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
             score={bottomScore}
             key={`bottom-${currentHistoryIndex}`}
             isMenuOpen={isMenuOpen}
+            onStrichClick={handleStrichClick}
+            triggerBlendEffect={triggerBlendEffect}
+            restZahl={restZahlen.bottom}
           />
           {isCalculatorOpen && (
             <Calculator

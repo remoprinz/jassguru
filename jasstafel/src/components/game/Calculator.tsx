@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { FiRotateCcw } from 'react-icons/fi';
 import confetti from 'canvas-confetti';
+import { useSpring, animated } from 'react-spring';
 
 interface CalculatorProps {
   isOpen: boolean;
@@ -18,11 +19,11 @@ const Calculator: React.FC<CalculatorProps> = ({
   initialValue = 0,
   onCancel,
 }) => {
+  const { isCalculatorFlipped, setCalculatorFlipped } = useGameStore();
   const [value, setValue] = useState('0');
   const [opponentValue, setOpponentValue] = useState('0');
   const [multiplier, setMultiplier] = useState(1);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
-  const [isFlipped, setIsFlipped] = useState(false);
   const settings = useGameStore(state => state.settings);
   const [pressedButtons, setPressedButtons] = useState<Set<number | string>>(new Set());
   const [isClosing, setIsClosing] = useState(false);
@@ -35,6 +36,12 @@ const Calculator: React.FC<CalculatorProps> = ({
   const valueRef = useRef('0');
   const [lastClickTime, setLastClickTime] = useState(0);
 
+  const [springProps, setSpringProps] = useSpring(() => ({
+    opacity: 0.5,
+    scale: 0.95,
+    config: { mass: 1, tension: 300, friction: 20 }
+  }));
+
   useEffect(() => {
     if (isOpen) {
       setValue(initialValue.toString());
@@ -43,10 +50,20 @@ const Calculator: React.FC<CalculatorProps> = ({
       setSelectedColor(null);
       setMultiplier(1);
       setIsMatschActive(false);
+      setSpringProps({
+        opacity: 1,
+        scale: 1,
+        config: { mass: 1, tension: 300, friction: 20 }
+      });
     } else {
       setIsClosing(false);
+      setSpringProps({
+        opacity: 0.5,
+        scale: 0.9,
+        config: { mass: 1, tension: 300, friction: 20 }
+      });
     }
-  }, [isOpen, initialValue]);
+  }, [isOpen, initialValue, setSpringProps]);
 
   useEffect(() => {
     if (value === '0') {
@@ -128,7 +145,7 @@ const Calculator: React.FC<CalculatorProps> = ({
   };
 
   const handleFlip = () => {
-    setIsFlipped(!isFlipped);
+    setCalculatorFlipped(!isCalculatorFlipped);
   };
 
   const validateInput = (input: string): string => {
@@ -151,14 +168,15 @@ const Calculator: React.FC<CalculatorProps> = ({
       const particleCount = baseParticleCount + ((charge - minChargeForConfetti) * 30);
 
       const shootConfetti = (angle: number, spread: number, particleCount: number, scalar: number) => {
+        const adjustedAngle = isCalculatorFlipped ? (angle + 180) % 360 : angle;
         confetti({
           particleCount: particleCount,
-          angle: angle,
+          angle: adjustedAngle,
           spread: spread,
           origin: { x, y },
           colors: ['#FF0000', '#FFA500', '#FFFF00', '#00FF00', '#0000FF', '#800080'],
           scalar: scalar,
-          gravity: 1,
+          gravity: isCalculatorFlipped ? -1 : 1,
           ticks: 300,
         });
       };
@@ -179,7 +197,7 @@ const Calculator: React.FC<CalculatorProps> = ({
     triggerConfetti(confettiCharge);
   };
 
-  const numberOrder = isFlipped ? [1, 2, 3, 4, 5, 6, 7, 8, 9] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  const numberOrder = isCalculatorFlipped ? [1, 2, 3, 4, 5, 6, 7, 8, 9] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
   return (
     <div
@@ -188,26 +206,32 @@ const Calculator: React.FC<CalculatorProps> = ({
       }`}
       onClick={onClose}
     >
-      <div className="relative w-11/12 max-w-md">
+      <animated.div
+        style={{
+          opacity: springProps.opacity,
+          transform: springProps.scale.to(s => `scale(${s})`)
+        }}
+        className="relative w-11/12 max-w-md"
+      >
         <button
           onClick={(e) => {
             e.stopPropagation();
             handleFlip();
           }}
           className={`absolute ${
-            isFlipped ? 'top-full mt-6' : 'bottom-full mb-6'
+            isCalculatorFlipped ? 'top-full mt-6' : 'bottom-full mb-6'
           } left-1/2 transform -translate-x-1/2 text-white hover:text-gray-300 transition-all duration-1000`}
           aria-label="Umdrehen"
         >
-          <FiRotateCcw className={`w-8 h-8 ${isFlipped ? 'rotate-180 opacity-0' : 'opacity-100'} transition-all duration-1000`} />
-          <FiRotateCcw className={`w-8 h-8 absolute top-0 left-0 ${isFlipped ? 'rotate-0 opacity-100' : 'rotate-180 opacity-0'} transition-all duration-1000`} />
+          <FiRotateCcw className={`w-8 h-8 ${isCalculatorFlipped ? 'rotate-180 opacity-0' : 'opacity-100'} transition-all duration-1000`} />
+          <FiRotateCcw className={`w-8 h-8 absolute top-0 left-0 ${isCalculatorFlipped ? 'rotate-0 opacity-100' : 'rotate-180 opacity-0'} transition-all duration-1000`} />
         </button>
         <div 
           className={`bg-gray-800 p-6 rounded-lg transition-all duration-700 flex flex-col items-center ${
             isClosing ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
           }`}
           style={{ 
-            transform: `${isFlipped ? 'rotate(180deg)' : 'rotate(0deg)'}`,
+            transform: `${isCalculatorFlipped ? 'rotate(180deg)' : 'rotate(0deg)'}`,
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -365,11 +389,14 @@ const Calculator: React.FC<CalculatorProps> = ({
             <button 
               onClick={handleSubmit}
               onMouseDown={() => setPressedButtons(prev => new Set(prev).add('OK'))}
-              onMouseUp={() => setPressedButtons(prev => {
-                const newSet = new Set(prev);
-                newSet.delete('OK');
-                return newSet;
-              })}
+              onMouseUp={() => {
+                setPressedButtons(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete('OK');
+                  return newSet;
+                });
+                onSubmit(parseInt(totalValue), parseInt(opponentValue));
+              }}
               onMouseLeave={() => setPressedButtons(prev => {
                 const newSet = new Set(prev);
                 newSet.delete('OK');
@@ -383,7 +410,7 @@ const Calculator: React.FC<CalculatorProps> = ({
             </button>
           </div>
         </div>
-      </div>
+      </animated.div>
     </div>
   );
 };
