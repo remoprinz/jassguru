@@ -25,6 +25,10 @@ interface SplitContainerProps {
   onStrichClick: (value: number, position: 'top' | 'bottom') => void;
   triggerBlendEffect: (position: 'top' | 'bottom') => void;
   restZahl: number;
+  top100erOffset?: string;
+  bottom100erOffset?: string;
+  top20erOffset?: string;
+  bottom20erOffset?: string;
 }
 
 const SplitContainer = forwardRef<HTMLDivElement, SplitContainerProps>(({
@@ -42,6 +46,10 @@ const SplitContainer = forwardRef<HTMLDivElement, SplitContainerProps>(({
   onStrichClick,
   triggerBlendEffect,
   restZahl,
+  top100erOffset,
+  bottom100erOffset,
+  top20erOffset,
+  bottom20erOffset,
 }, ref) => {
   const [pressTimer, setPressTimer] = useState<NodeJS.Timeout | null>(null);
   const [horizontalSwipe, setHorizontalSwipe] = useState(0);
@@ -172,11 +180,13 @@ const SplitContainer = forwardRef<HTMLDivElement, SplitContainerProps>(({
       </animated.div>
       <StrichContainer
         position={position}
-        score={score}
         onStrichClick={handleStrichClick}
-        middleLinePosition={height / 2}
         onBlendEffect={triggerBlendEffect}
         restZahl={restZahl}
+        top100erOffset={top100erOffset}
+        bottom100erOffset={bottom100erOffset}
+        top20erOffset={top20erOffset}
+        bottom20erOffset={bottom20erOffset}
       />
     </animated.div>
   );

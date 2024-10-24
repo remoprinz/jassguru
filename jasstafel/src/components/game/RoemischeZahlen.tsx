@@ -85,6 +85,8 @@ interface RoemischeZahlenProps {
   diagonalStrichAngle100er?: number;
   diagonalStrichAngle20er?: number;
   strichOffset?: number;
+  xOffset100erTop?: number,
+  xOffset100erBottom?: number,
 }
 
 const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
@@ -104,13 +106,7 @@ const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
   einheitSpacing = 10,
   isXMode = false,
   xAngle = 15,
-  xRotation = 0,
   xSpacing = 10,
-  xHeight = '100%',
-  xWidth = '2px',
-  xAlignment,
-  isDiagonal = false,
-  diagonalAngle = 0,
   xSize = 20,
   position,
   isRotated = false,
@@ -122,7 +118,8 @@ const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
   diagonalStrichOffset20er,
   diagonalStrichAngle100er,
   diagonalStrichAngle20er,
-  strichOffset,
+  xOffset100erTop,
+  xOffset100erBottom,
 }) => {
   console.log('RoemischeZahlen Props:', { stricheCount, einheitWert, strichColor, isActive });
   const einheitenCount = Math.floor(stricheCount / 5);
@@ -243,7 +240,7 @@ const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
 
   const calculateXPositions = useCallback(() => {
     const xCount = Math.ceil(stricheCount / 2);
-    const xSizePx =30; // Passen Sie die Größe nach Bedarf an
+    const xSizePx =35; // Passen Sie die Größe nach Bedarf an
     const xSpacingPx = 0; // Passen Sie den Abstand nach Bedarf an
 
     return Array.from({ length: xCount }).map((_, index) => {
@@ -299,7 +296,7 @@ const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
 
   const renderHundredXs = useCallback(() => {
     const xCount = Math.floor(stricheCount / 10);
-    const spacing = 10; // Abstand zwischen den X-Symbolen in Pixeln
+    const spacing = 15; // Abstand zwischen den X-Symbolen in Pixeln
     const totalWidth = xCount * xSize + (xCount - 1) * spacing;
     
     return xCount > 0 ? (
@@ -310,12 +307,12 @@ const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
             style={{
               position: 'absolute',
               ...(position === 'top' 
-                ? { right: `${10 + index * (xSize + spacing)}px` }
-                : { left: `${10 + index * (xSize + spacing)}px` }),
+                ? { right: `${23 + index * (xSize + spacing)}px` }
+                : { left: `${23 + index * (xSize + spacing)}px` }),
               top: '50%',
               transform: 'translateY(-50%)',
               width: `${xSize}px`,
-              height: '110%',
+              height: '107%',
             }}
           >
             <div style={{
@@ -348,7 +345,9 @@ const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
       const remainingStriche = stricheCount % 10;
       const totalStriche = stricheCount - xCount * 10;
       const xWidth = xCount * (xSize + xSpacing);
-      const constantOffset = 65; // Positiver Wert verschiebt die Striche nach rechts
+      const initialOffset = 25; // Initiale Position der Striche
+      const xOffsetTop = xOffset100erTop ?? 63; // Abstand zum letzten X für die obere Box
+      const xOffsetBottom = xOffset100erBottom ?? 40; // Abstand zum letzten X für die untere Box
 
       return (
         <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -357,8 +356,12 @@ const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
             <div style={{
               position: 'absolute',
               ...(position === 'top'
-                ? { right: `calc(${xWidth - 25}px + ${constantOffset}px)` }
-                : { left: `calc(${xWidth - 50}px + ${constantOffset}px)` }),
+                ? { right: xCount > 0 
+                    ? `calc(${xWidth}px + ${xOffsetTop}px)` 
+                    : `calc(${initialOffset}px + 16px)` }
+                : { left: xCount > 0
+                    ? `calc(${xWidth}px + ${xOffsetBottom}px)`
+                    : `calc(${initialOffset}px - 8px)` }),
               top: 0,
               bottom: 0,
               width: `${totalStriche * strichSpacing}px`,

@@ -1,18 +1,13 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useRef, useCallback } from 'react';
 import { styled } from '@mui/material/styles';
-import { animated } from 'react-spring';
 import RoemischeZahlen from '../game/RoemischeZahlen';
 import { useGameStore } from '../../store/gameStore';
 
 interface StrichContainerProps {
   position: 'top' | 'bottom';
-  score: number;
   onStrichClick: (value: number, position: 'top' | 'bottom') => void;
-  middleLinePosition: number;
   onBlendEffect: (position: 'top' | 'bottom') => void;
   restZahl: number;
-  topEdgeOffset?: number;
-  bottomEdgeOffset?: number;
   top100erOffset?: string;
   bottom100erOffset?: string;
   top20erOffset?: string;
@@ -39,13 +34,11 @@ const Container = styled('div')({
   left: '50%',
   transform: 'translateX(-50%)',
   pointerEvents: 'none',
-  outline: '1px solid rgba(255, 255, 255, 0.3)',
 });
 
 const StrichBox = styled('div')<{ customStyle: React.CSSProperties }>(({ customStyle }) => ({
   position: 'absolute',
   width: '100%',
-  border: '2px solid rgba(255, 255, 255, 0.8)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'flex-start',
@@ -79,7 +72,7 @@ const calculateBoxConfigs = (
       '100er': {
         height: '20%',
         top: `calc(-3.5% + ${bottom100erOffset})`,
-        left: '-2%',
+        left: '-4%',
         width: '105%',
       },
       '50er': {
@@ -116,7 +109,7 @@ const calculateBoxConfigs = (
       '100er': {
         height: '20%',
         bottom: `calc(-3.5% + ${top20erOffset})`,
-        right: '-2%',
+        right: '-4%',
         width: '105%',
       },
     };
@@ -125,8 +118,8 @@ const calculateBoxConfigs = (
 
 const RestZahl = styled('span')<{ position: 'top' | 'bottom' }>(({ position }) => ({
   position: 'absolute',
-  [position === 'top' ? 'left' : 'right']: '0',
-  [position === 'top' ? 'bottom' : 'top']: '76%',
+  [position === 'top' ? 'left' : 'right']: '-4%',
+  [position === 'top' ? 'bottom' : 'top']: '86%',
   color: 'rgba(255, 255, 255, 0.8)',
   fontSize: '18px',
   fontWeight: 'bold',
@@ -135,7 +128,6 @@ const RestZahl = styled('span')<{ position: 'top' | 'bottom' }>(({ position }) =
     : 'translate(0, -50%)',
   transformOrigin: position === 'top' ? 'bottom left' : 'top right',
   padding: '2px',
-  backgroundColor: 'rgba(0, 0, 0, 0.5)',
   zIndex: 20,
 }));
 
@@ -151,9 +143,7 @@ const StrichContainerStyled = styled('div')<{ position: 'top' | 'bottom' }>(({ p
 
 const StrichContainer: React.FC<StrichContainerProps> = ({
   position,
-  score,
   onStrichClick,
-  middleLinePosition,
   onBlendEffect,
   restZahl,
   top100erOffset = '2%',
@@ -161,9 +151,9 @@ const StrichContainer: React.FC<StrichContainerProps> = ({
   top20erOffset = '2%',
   bottom20erOffset = '2%'
 }) => {
+  const { updateScoreByStrich } = useGameStore();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [containerHeight, setContainerHeight] = useState(0);
-  const { stricheCounts, updateStricheCounts } = useGameStore();
+  const { stricheCounts } = useGameStore();
   const boxConfigs = calculateBoxConfigs(
     position, 
     -43, 
@@ -173,30 +163,10 @@ const StrichContainer: React.FC<StrichContainerProps> = ({
     bottom20erOffset
   );
 
-  useEffect(() => {
-    if (containerRef.current) {
-      const height = containerRef.current.clientHeight;
-      console.log('Container height:', height);
-      setContainerHeight(height);
-    }
-  }, []);
-
-  // Entfernt: useEffect, der stricheCounts basierend auf score neu berechnet
-
   const handleBoxClick = useCallback((value: number) => {
-    console.log(`Box clicked: ${value}, Position: ${position}`);
-
-    // Erhöhe die Anzahl der Striche für den geklickten Wert um 1
-    const currentStricheCount = stricheCounts[position][value] || 0;
-    const newStricheCount = currentStricheCount + 1;
-    updateStricheCounts(position, value, newStricheCount);
-
-    // Trigger die visuellen Effekte
-    onStrichClick(value, position);
+    updateScoreByStrich(position, value);
     onBlendEffect(position);
-  }, [onStrichClick, onBlendEffect, position, updateStricheCounts, stricheCounts]);
-
-  console.log('Position:', position, 'RestZahl:', restZahl);
+  }, [updateScoreByStrich, onBlendEffect, position]);
 
   return (
     <Container ref={containerRef}>
@@ -249,12 +219,11 @@ const StrichContainer: React.FC<StrichContainerProps> = ({
                 }}
                 diagonalStrichOffset20er={{
                   vertical: position === 'top' ? "-20%" : "3.5%",
-                  horizontal: position === 'top' ? "2.5%" : "-1%"
+                  horizontal: position === 'top' ? "5.5%" : "-1.5%"
                 }}
                 diagonalStrichAngle100er={position === 'top' ? 35 : 35}
                 diagonalStrichAngle20er={position === 'top' ? 35  : 35}
               />
-              <BoxLabel position={position}>{boxType}</BoxLabel>
             </StrichBox>
           );
         })}

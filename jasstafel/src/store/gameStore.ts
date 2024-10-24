@@ -50,7 +50,6 @@ type GameStore = GameState & {
   resetStricheCounts: (position: 'top' | 'bottom') => void;
   resetRestZahl: () => void;
   updateRestZahl: (position: 'top' | 'bottom', restZahl: number) => void;
-  updateWeisStricheCounts: (position: 'top' | 'bottom', value: number) => void;
 };
 
 export const useGameStore = create<GameStore>((set) => ({
@@ -194,29 +193,39 @@ export const useGameStore = create<GameStore>((set) => ({
   setCalculatorFlipped: (flipped: boolean) => set({ isCalculatorFlipped: flipped }),
 
   updateScoreByStrich: (position: 'top' | 'bottom', value: number) => set((state) => {
-    const currentEntry = state.scoreHistory[state.currentHistoryIndex] || {
-      topScore: state.topScore,
-      bottomScore: state.bottomScore,
-      topRounds: state.topRounds,
-      bottomRounds: state.bottomRounds,
-      totalPoints: { top: 0, bottom: 0 },
-      weisPoints: { top: 0, bottom: 0 }
-    };
+    const currentScore = state[`${position}Score`];
+    const currentStricheCounts = state.stricheCounts[position];
+    
+    const isBoxFull = (boxValue: number) => (currentStricheCounts[boxValue] || 0) * boxValue > 500;
 
-    const newWeisPoints = {
-      ...currentEntry.weisPoints,
-      [position]: (currentEntry.weisPoints[position] || 0) + value
-    };
+    let newScore = currentScore + value;
+    let newStricheCounts = { ...currentStricheCounts };
 
-    const updatedHistory = [...state.scoreHistory];
-    updatedHistory[state.currentHistoryIndex] = {
-      ...currentEntry,
-      weisPoints: newWeisPoints
-    };
+    if (value === 50 || value === 20) {
+      if (isBoxFull(value)) {
+        // Wenn die Box voll ist, verteilen wir die Striche neu
+        const { striche, restZahl } = calculateStricheCounts(newScore);
+        newStricheCounts = striche;
+      } else {
+        // Sonst fügen wir einfach einen Strich hinzu
+        newStricheCounts[value] = (newStricheCounts[value] || 0) + 1;
+      }
+    } else {
+      // Für 100er-Box immer neu verteilen
+      const { striche, restZahl } = calculateStricheCounts(newScore);
+      newStricheCounts = striche;
+    }
 
     return {
-      scoreHistory: updatedHistory,
-      [`${position}Score`]: state[`${position}Score`] + value
+      [`${position}Score`]: newScore,
+      stricheCounts: {
+        ...state.stricheCounts,
+        [position]: newStricheCounts
+      },
+      restZahlen: {
+        ...state.restZahlen,
+        [position]: newScore % 20
+      }
     };
   }),
 
@@ -250,27 +259,38 @@ export const useGameStore = create<GameStore>((set) => ({
       [position]: restZahl
     }
   })),
-
-  updateWeisStricheCounts: (position: 'top' | 'bottom', value: number) => set((state) => {
-    const currentCounts = state.stricheCounts[position][value] || 0;
-    const maxStriche = value === 50 ? 10 : 5; // 10 X für 50er Box, 5 Striche für andere
-
-    if (currentCounts >= maxStriche) {
-      return state; // Keine Änderung, wenn das Maximum erreicht ist
-    }
-
-    const newCount = currentCounts + 1;
-    const newScore = state[`${position}Score`] + value;
-
-    return {
-      stricheCounts: {
-        ...state.stricheCounts,
-        [position]: {
-          ...state.stricheCounts[position],
-          [value]: newCount
-        }
-      },
-      [`${position}Score`]: newScore
-    };
-  }),
 }));
+
+const calculateStricheCounts = (score: number) => {
+  const striche = {
+    100: Math.floor(score / 100),
+    50: 0,
+    20: 0
+  };
+
+  let restZahl = score % 100;
+
+  if (restZahl >= 90) {
+    striche[50] = 1;
+    striche[20] = 2;
+    restZahl -= 90;
+  } else if (restZahl >= 80) {
+    striche[20] = 4;
+    restZahl -= 80;
+  } else if (restZahl >= 70) {
+    striche[50] = 1;
+    striche[20] = 1;
+    restZahl -= 70;
+  } else if (restZahl >= 60) {
+    striche[20] = 3;
+    restZahl -= 60;
+  } else if (restZahl >= 50) {
+    striche[50] = 1;
+    restZahl -= 50;
+  } else if (restZahl >= 20) {
+    striche[20] = Math.floor(restZahl / 20);
+    restZahl %= 20;
+  }
+
+  return { striche, restZahl };
+};

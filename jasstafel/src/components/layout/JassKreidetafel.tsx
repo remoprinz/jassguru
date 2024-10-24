@@ -169,63 +169,11 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     const position = activeContainer as 'top' | 'bottom';
     const oppositePosition = position === 'top' ? 'bottom' : 'top';
 
-    // Aktualisiere den Gesamtscore
-    updateScore(position, value, opponentValue);
-
-    // Zeichne die Striche für beide Positionen
-    drawStricheForValue(position, value, false);
-    drawStricheForValue(oppositePosition, opponentValue, false);
+    updateScoreByStrich(position, value);
+    updateScoreByStrich(oppositePosition, opponentValue);
 
     setIsCalculatorOpen(false);
     setActiveContainer(null);
-  };
-
-  const drawStricheForValue = (position: 'top' | 'bottom', value: number, isNewRound: boolean) => {
-    const currentScore = position === 'top' ? topScore : bottomScore;
-    const newTotalScore = isNewRound ? currentScore + value : value;
-
-    const striche = {
-      hundert: Math.floor(newTotalScore / 100),
-      fuenfzig: 0,
-      zwanzig: 0
-    };
-
-    let restZahl = newTotalScore % 100;
-
-    if (restZahl >= 90) {
-      striche.fuenfzig = 1;
-      striche.zwanzig = 2;
-      restZahl -= 90;
-    } else if (restZahl >= 80) {
-      striche.zwanzig = 4;
-      restZahl -= 80;
-    } else if (restZahl >= 70) {
-      striche.fuenfzig = 1;
-      striche.zwanzig = 1;
-      restZahl -= 70;
-    } else if (restZahl >= 60) {
-      striche.zwanzig = 3;
-      restZahl -= 60;
-    } else if (restZahl >= 50) {
-      striche.fuenfzig = 1;
-      restZahl -= 50;
-    } else if (restZahl >= 20) {
-      striche.zwanzig = Math.floor(restZahl / 20);
-      restZahl %= 20;
-    }
-
-    // Aktualisiere die Striche
-    updateStricheCounts(position, 100, striche.hundert);
-    updateStricheCounts(position, 50, striche.fuenfzig);
-    updateStricheCounts(position, 20, striche.zwanzig);
-
-    // Aktualisiere die Restzahl
-    updateRestZahl(position, restZahl);
-
-    // Aktualisiere den Gesamtscore
-    if (isNewRound) {
-      updateScore(position, value, 0);
-    }
   };
 
   const handleHorizontalSwipe = useCallback((direction: 'left' | 'right', position: 'top' | 'bottom') => {
@@ -257,9 +205,6 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
 
   const topRestZahl = topScore % 20;
   const bottomRestZahl = bottomScore % 20;
-
-  console.log('Top RestZahl:', topRestZahl);
-  console.log('Bottom RestZahl:', bottomRestZahl);
 
   const handleUpdateRestZahl = (position: 'top' | 'bottom', restZahl: number) => {
     updateRestZahl(position, restZahl);
