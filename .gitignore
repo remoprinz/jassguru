@@ -85,6 +85,7 @@ backend/test_output/
 # Folders not to be published
 /jasstafel_studis code
 /jasstafel backup
+/jasstafel/.next/
 
 # Neue Einträge basierend auf den Anforderungen
 # Ignoriere Ordner, die nicht benötigt werden
