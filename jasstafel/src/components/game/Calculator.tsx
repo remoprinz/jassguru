@@ -35,6 +35,8 @@ const Calculator: React.FC<CalculatorProps> = ({
   const [chargeInterval, setChargeInterval] = useState<NodeJS.Timeout | null>(null);
   const valueRef = useRef('0');
   const [lastClickTime, setLastClickTime] = useState(0);
+  const { updateScore } = useGameStore();
+  const activePosition = 'top'; // oder 'bottom', je nachdem, welche Position aktiv ist
 
   const [springProps, setSpringProps] = useSpring(() => ({
     opacity: 0.5,
@@ -127,13 +129,11 @@ const Calculator: React.FC<CalculatorProps> = ({
   };
 
   const handleSubmit = () => {
-    const numericValue = parseInt(totalValue, 10);
-    const numericOpponentValue = parseInt(opponentValue, 10);
-    setIsClosing(true);
-    setTimeout(() => {
-      onSubmit(numericValue, numericOpponentValue);
-      setIsClosing(false);
-    }, 300);
+    const calculatedValue = parseInt(totalValue);
+    const calculatedOpponentValue = parseInt(opponentValue);
+    onSubmit(calculatedValue, calculatedOpponentValue);
+    updateScore(activePosition, calculatedValue, calculatedOpponentValue);
+    onClose();
   };
 
   const handleClear = () => {

@@ -16,7 +16,7 @@ export const defaultGameSettings: GameSettings = {
   bergScore: DEFAULT_BERG_SCORE,
   maxRoundScore: MAX_SCORE,
   maxScore: MAX_SCORE,
-  colors: ['Misère', 'Schälle', 'Schilte', 'Rose', '3x3', 'Obenabe', 'Unenufe', 'Eichle', 'Quer', 'Slalom'],
+  colors: ['Misère', 'Schälle', 'Schilte', 'Rose', '3x3', 'Obe', 'Une', 'Eichle', 'Quer', 'Slalom'],
   colorMultipliers: [1, 2, 3, 4, 4, 5, 6, 7, 7, 7],
 };
 

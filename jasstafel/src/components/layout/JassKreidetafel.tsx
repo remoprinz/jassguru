@@ -1,3 +1,4 @@
+// JassKreidetafel.tsx
 import React, { useMemo, useEffect, useState, useCallback, useRef } from 'react';
 import { animated } from 'react-spring';
 import useViewportHeight from '../../hooks/useViewportHeight';
@@ -35,7 +36,7 @@ const isIOS = () => {
 };
 
 const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
-  middleLineThickness = 60, // Erhöht von 6 auf 12 oder einen anderen gewünschten Wert
+  middleLineThickness = 60, // Erhöht von 6 auf 60 oder einen anderen gewünschten Wert
   zShapeConfig
 }) => {
   const viewportHeight = useViewportHeight();
@@ -44,6 +45,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [activeContainer, setActiveContainer] = useState<'top' | 'bottom' | null>(null);
   const [isIntroductionMessageVisible, setIsIntroductionMessageVisible] = useState(false);
+  
   const { 
     topScore, 
     bottomScore, 
@@ -59,12 +61,14 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     updateStricheCounts,
     resetStricheCounts,
     restZahlen,
-    updateRestZahl
+    updateRestZahl,
+    resetGame // Hinzugefügt, um resetGame aufzurufen
   } = useGameStore();
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    resetGame(); // Initialisiere das Spiel beim Mounten
+  }, [resetGame]);
 
   useEffect(() => {
     console.log('Aktuelle Werte:', { topScore, bottomScore, currentHistoryIndex, currentPlayer, currentRound });
@@ -121,9 +125,13 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
 
   const handleSwipe = useCallback((direction: 'up' | 'down' | 'left' | 'right', position: 'top' | 'bottom') => {
     if (direction === 'left' || direction === 'right') {
-      const historyDirection = position === 'top' 
-        ? (direction === 'left' ? 'forward' : 'backward')
-        : (direction === 'left' ? 'backward' : 'forward');
+      // Korrigierte Zuordnung basierend auf der Position
+      let historyDirection: 'forward' | 'backward';
+      if (position === 'top') {
+        historyDirection = direction === 'left' ? 'forward' : 'backward';
+      } else { // position === 'bottom'
+        historyDirection = direction === 'left' ? 'backward' : 'forward';
+      }
       console.log(`Navigiere in der Historie: ${historyDirection}`);
       navigateHistory(historyDirection);
       // Animiere beide Container
@@ -135,12 +143,12 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
       
       if (shouldOpen) {
         setIsMenuOpen(true);
-        animateTopSwipe(true);
-        animateBottomSwipe(true);
+        animateTopSwipe(true); // Korrigierte Argumente
+        animateBottomSwipe(true); // Korrigierte Argumente
       } else if (shouldClose) {
         setIsMenuOpen(false);
-        animateTopSwipe(false);
-        animateBottomSwipe(false);
+        animateTopSwipe(false); // Korrigierte Argumente
+        animateBottomSwipe(false); // Korrigierte Argumente
       }
     }
   }, [navigateHistory, animateTopSwipe, animateBottomSwipe]);
@@ -149,7 +157,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
 
   const middleLineStyle = {
     position: 'absolute' as const,
-    height: `${middleLineThickness / 1.5}px`,
+    height: `${middleLineThickness}px`,
     backgroundColor: '#FF0000',
   };
 
@@ -167,19 +175,15 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
 
   const handleCalculatorSubmit = (value: number, opponentValue: number) => {
     const position = activeContainer as 'top' | 'bottom';
-    const oppositePosition = position === 'top' ? 'bottom' : 'top';
 
-    updateScoreByStrich(position, value);
-    updateScoreByStrich(oppositePosition, opponentValue);
+    updateScore(position, value, opponentValue);
 
     setIsCalculatorOpen(false);
     setActiveContainer(null);
   };
 
   const handleHorizontalSwipe = useCallback((direction: 'left' | 'right', position: 'top' | 'bottom') => {
-    const historyDirection = position === 'top' 
-      ? (direction === 'left' ? 'forward' : 'backward')
-      : (direction === 'left' ? 'backward' : 'forward');
+    const historyDirection = direction === 'left' ? 'forward' : 'backward';
     navigateHistory(historyDirection);
     if (position === 'top') {
       animateTopSwipe(direction);
@@ -260,7 +264,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
               left: topY.to(y => `${5 - (y / maxOffset) * 5}%`),
               width: topY.to(y => `${90 + (y / maxOffset) * 10}%`),
               top: middleLinePosition - middleLineThickness / 2,
-              height: `${middleLineThickness}px`, // Hier fügen wir die Höhe hinzu
+              height: `${middleLineThickness}px`,
               transform: topY.to(y => `translateY(${-y}px)`)
             }} 
             className="bg-chalk-red" 
@@ -271,7 +275,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
               left: bottomY.to(y => `${5 - (y / maxOffset) * 5}%`),
               width: bottomY.to(y => `${90 + (y / maxOffset) * 10}%`),
               top: middleLinePosition,
-              height: `${middleLineThickness}px`, // Hier fügen wir die Höhe hinzu
+              height: `${middleLineThickness}px`,
               transform: bottomY.to(y => `translateY(${y}px)`)
             }} 
             className="bg-chalk-red" 
