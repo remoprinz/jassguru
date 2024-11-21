@@ -145,7 +145,9 @@ const SplitContainer = forwardRef<HTMLDivElement, SplitContainerProps>(({
     <animated.div 
       style={{ 
         ...containerStyle, 
-        transform: y.to(value => `translateY(${position === 'top' ? -value : value}px)`),
+        transform: y.to(value => 
+          value === 0 ? 'none' : `translateY(${position === 'top' ? -value : value}px)`
+        ),
       }}
       data-swipe-area={position} // Hier fügen wir ein data-Attribut hinzu
       onMouseDown={handleMouseDown}

@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useEffect } from 'react';
+import React, { useMemo, useCallback, useEffect, useState } from 'react';
 import { styled } from '@mui/material/styles';
 import { useSpring, animated, config } from 'react-spring';
 
@@ -30,7 +30,7 @@ const StrichContainerStyled = styled('div')<{ isRotated?: boolean }>(({ isRotate
   flexDirection: 'row',
   alignItems: 'flex-end',
   justifyContent: 'flex-start',
-  transform: isRotated ? 'rotate(180deg)' : 'none',
+  transform: isRotated ? 'rotate(180deg)' : 'rotate(0)',
   transformOrigin: 'center center',
 }));
 
@@ -121,7 +121,6 @@ const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
   xOffset100erTop,
   xOffset100erBottom,
 }) => {
-  console.log('RoemischeZahlen Props:', { stricheCount, einheitWert, strichColor, isActive });
   const einheitenCount = Math.floor(stricheCount / 5);
   const restStriche = stricheCount % 5;
   const shouldDrawNewStrich = stricheCount > 0;
@@ -408,6 +407,12 @@ const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
       );
     }
   }, [stricheCount, einheitWert, isXMode, renderX, renderHundredXs, xSize, xSpacing, position, strichSpacing, renderStrich, einheitenElements, restStricheElements, newStrichElement, einheitSpacing, renderEinheit]);
+
+  useEffect(() => {
+    if (stricheCount > 0) {
+      // Logik hier statt im Render
+    }
+  }, [stricheCount]);
 
   return (
     <StrichContainerStyled isRotated={isRotated}>

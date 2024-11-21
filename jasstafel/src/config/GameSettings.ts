@@ -1,10 +1,12 @@
-export const MAX_SCORE = 157;
-export const DEFAULT_SIEG_SCORE = 5000;
-export const DEFAULT_BERG_SCORE = 2500;
+export const BERG_SCORE = 2500;
+export const SIEG_SCORE = 5000;
+export const SCHNEIDER_SCORE = 2500;
 
 export interface GameSettings {
   siegScore: number;
   bergScore: number;
+  schneiderScore: number;
+  schneiderStrafScore: number;
   maxRoundScore: number;
   maxScore: number;
   colors: string[];
@@ -12,10 +14,12 @@ export interface GameSettings {
 }
 
 export const defaultGameSettings: GameSettings = {
-  siegScore: DEFAULT_SIEG_SCORE,
-  bergScore: DEFAULT_BERG_SCORE,
-  maxRoundScore: MAX_SCORE,
-  maxScore: MAX_SCORE,
+  bergScore: BERG_SCORE,
+  siegScore: SIEG_SCORE,
+  schneiderScore: SCHNEIDER_SCORE,
+  schneiderStrafScore: 1000,
+  maxRoundScore: 1000,
+  maxScore: 10000,
   colors: ['Misère', 'Schälle', 'Schilte', 'Rose', '3x3', 'Obe', 'Une', 'Eichle', 'Quer', 'Slalom'],
   colorMultipliers: [1, 2, 3, 4, 4, 5, 6, 7, 7, 7],
 };
@@ -45,3 +49,5 @@ export function validateGameSettings(settings: Partial<GameSettings>): boolean {
   }
   return true;
 }
+
+export const MAX_SCORE = 10000;

@@ -6,9 +6,18 @@ interface RoundInfoProps {
   currentRound: number;
   opacity: number;
   isOpen: boolean;
+  isGameStarted: boolean;
+  gameStartTime: number | null;
+  roundStartTime: number | null;
 }
 
-const RoundInfo: React.FC<RoundInfoProps> = ({ currentPlayer, currentRound, opacity, isOpen }) => {
+const RoundInfo: React.FC<RoundInfoProps> = ({ 
+  currentPlayer, 
+  currentRound, 
+  opacity, 
+  isOpen, 
+  isGameStarted 
+}) => {
   const fadeProps = useSpring({
     opacity: isOpen ? 0 : opacity,
     config: {
@@ -16,6 +25,19 @@ const RoundInfo: React.FC<RoundInfoProps> = ({ currentPlayer, currentRound, opac
       delay: isOpen ? 0 : 300
     }
   });
+
+  const formatInfoText = (round: number, player: number) => {
+    return (
+      <>
+        <span className="text-gray-500 text-xs">Spiel: </span>
+        <span className="text-gray-300 text-sm font-semibold">{round}</span>
+        <span className="text-gray-500 text-xs ml-2"> Runde: </span>
+        <span className="text-gray-300 text-sm font-semibold">{round}</span>
+        <span className="text-gray-500 text-xs ml-2"> Spieler: </span>
+        <span className="text-gray-300 text-sm font-semibold">{player}</span>
+      </>
+    );
+  };
 
   return (
     <animated.div 
@@ -26,11 +48,14 @@ const RoundInfo: React.FC<RoundInfoProps> = ({ currentPlayer, currentRound, opac
         height: '3.5rem'
       }}
     >
-      <div className="text-gray-500 text-xs transform scale-y-[-1] scale-x-[-1] absolute right-[8%] top-[4.5rem]">
-        Runde: {typeof currentRound === 'string' && currentRound === 'START' ? 'START' : currentRound}
+      {/* Oberer Text - gespiegelt */}
+      <div className="transform scale-y-[-1] scale-x-[-1] absolute right-[8%] top-[4.5rem]">
+        {isGameStarted ? formatInfoText(currentRound, currentPlayer) : 'START'}
       </div>
-      <div className="text-gray-500 text-xs absolute left-[8%] bottom-0">
-        Spieler: {currentPlayer}
+
+      {/* Unterer Text - normal */}
+      <div className="absolute left-[8%] bottom-0">
+        {isGameStarted ? formatInfoText(currentRound, currentPlayer) : 'START'}
       </div>
     </animated.div>
   );

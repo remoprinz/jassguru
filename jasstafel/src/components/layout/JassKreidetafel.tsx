@@ -6,11 +6,16 @@ import SplitContainer from './SplitContainer';
 import useSwipeAnimation from '../animations/useSwipeAnimation';
 import Calculator from '../game/Calculator';
 import { useGameStore } from '../../store/gameStore';
-import RoundInfo from '../game/RoundInfo';
 import MenuOverlay from '../../components/layout/MenuOverlay';
 import { useIntroductionMessage } from '../../hooks/useIntroductionMessage';
 import IntroductionMessage from '../ui/IntroductionMessage';
 import { useBrowserDetection } from '../../hooks/useBrowserDetection';
+import StartScreen from './StartScreen';
+import RoundInfo from '../game/RoundInfo';
+import GameInfoOverlay from '../game/GameInfoOverlay';
+import { useDoubleClick } from '../../hooks/useDoubleClick';
+import HistoryWarning from '../notifications/HistoryWarnings';
+import ResultatKreidetafel from './ResultatKreidetafel';
 
 interface JassKreidetafelProps {
   middleLineThickness?: number;
@@ -44,45 +49,32 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [activeContainer, setActiveContainer] = useState<'top' | 'bottom' | null>(null);
-  const [isIntroductionMessageVisible, setIsIntroductionMessageVisible] = useState(false);
+  const [isGameInfoOpen, setIsGameInfoOpen] = useState(false);
+  const [isResultatOpen, setIsResultatOpen] = useState(false);
   
   const { 
     topScore, 
     bottomScore, 
-    topRounds,
-    bottomRounds, 
     navigateHistory, 
     currentHistoryIndex, 
     updateScore,
-    scoreHistory,
     currentPlayer,
     currentRound,
-    updateScoreByStrich,
-    updateStricheCounts,
-    resetStricheCounts,
     restZahlen,
     updateRestZahl,
-    resetGame // Hinzugefügt, um resetGame aufzurufen
+    resetGame,
+    isGameStarted,
+    gameStartTime,
+    roundStartTime,
+    historyWarning,
+    hideHistoryWarning,
+    executePendingAction
   } = useGameStore();
 
   useEffect(() => {
     setMounted(true);
     resetGame(); // Initialisiere das Spiel beim Mounten
   }, [resetGame]);
-
-  useEffect(() => {
-    console.log('Aktuelle Werte:', { topScore, bottomScore, currentHistoryIndex, currentPlayer, currentRound });
-  }, [topScore, bottomScore, currentHistoryIndex, currentPlayer, currentRound]);
-
-  useEffect(() => {
-    console.log('Aktualisierte Werte nach Zustandsänderung:', {
-      topScore,
-      bottomScore,
-      currentHistoryIndex,
-      currentPlayer,
-      currentRound
-    });
-  }, [topScore, bottomScore, currentHistoryIndex, currentPlayer, currentRound]);
 
   useEffect(() => {
     setIsCalculatorOpen(false);
@@ -214,8 +206,44 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     updateRestZahl(position, restZahl);
   };
 
+  const handleDoubleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const position: 'top' | 'bottom' = e.clientY < window.innerHeight / 2 ? 'top' : 'bottom';
+    setIsGameInfoOpen(true);
+    useGameStore.setState({ lastDoubleClickPosition: position });
+  }, []);
+
+  const handleTafelClick = useDoubleClick(handleDoubleClick);
+
+  useEffect(() => {
+    if (mounted) {
+      // Initial Berechnung
+      const initialCalc = setTimeout(() => {
+        const vh = window.innerHeight;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+      }, 0);
+
+      // Zweite Berechnung nach 100ms
+      const secondCalc = setTimeout(() => {
+        const vh = window.innerHeight;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+      }, 100);
+
+      return () => {
+        clearTimeout(initialCalc);
+        clearTimeout(secondCalc);
+      };
+    }
+  }, [mounted]);
+
   return (
-    <div className="w-full h-full bg-black relative select-none touch-action-none" style={{ height: `${viewportHeight}px` }}>
+    <div 
+      className="relative w-full h-full overflow-hidden bg-chalk-black prevent-interactions"
+      onClick={handleTafelClick}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      {!isGameStarted && !isMenuOpen && !browserMessage.show && !showMessage && (
+        <StartScreen />
+      )}
       {showMessage && (
         <IntroductionMessage
           show={showMessage}
@@ -260,25 +288,34 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
           />
           <animated.div 
             style={{
-              ...middleLineStyle,
-              left: topY.to(y => `${5 - (y / maxOffset) * 5}%`),
-              width: topY.to(y => `${90 + (y / maxOffset) * 10}%`),
+              position: 'absolute',
+              left: '5%',
+              width: '90%',
               top: middleLinePosition - middleLineThickness / 2,
-              height: `${middleLineThickness}px`,
+              height: `${middleLineThickness / 2}px`,
               transform: topY.to(y => `translateY(${-y}px)`)
             }} 
             className="bg-chalk-red" 
           />
           <animated.div 
             style={{
-              ...middleLineStyle,
-              left: bottomY.to(y => `${5 - (y / maxOffset) * 5}%`),
-              width: bottomY.to(y => `${90 + (y / maxOffset) * 10}%`),
+              position: 'absolute',
+              left: '5%',
+              width: '90%',
               top: middleLinePosition,
-              height: `${middleLineThickness}px`,
+              height: `${middleLineThickness / 2}px`,
               transform: bottomY.to(y => `translateY(${y}px)`)
             }} 
             className="bg-chalk-red" 
+          />
+          <RoundInfo
+            currentPlayer={currentPlayer}
+            currentRound={currentRound}
+            opacity={topMainOpacity.get()}
+            isOpen={isMenuOpen}
+            isGameStarted={isGameStarted}
+            gameStartTime={gameStartTime}
+            roundStartTime={roundStartTime}
           />
           <SplitContainer
             ref={bottomContainerRef}
@@ -307,17 +344,30 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
               onSubmit={handleCalculatorSubmit}
               onCancel={handleCalculatorClose}
               initialValue={0}
+              clickedPosition={activeContainer!}
             />
           )}
-          {!isCalculatorOpen && (
-            <RoundInfo 
-              currentPlayer={currentPlayer}
-              currentRound={currentRound}
-              opacity={1}
-              isOpen={isMenuOpen}
+          <GameInfoOverlay 
+            isOpen={isGameInfoOpen}
+            onClose={() => setIsGameInfoOpen(false)}
+          />
+          <MenuOverlay 
+            isOpen={isMenuOpen} 
+            onClose={() => setIsMenuOpen(false)} 
+            setIsResultatOpen={setIsResultatOpen}
+          />
+          <HistoryWarning
+            show={historyWarning.isVisible}
+            message={historyWarning.message}
+            onConfirm={executePendingAction}
+            onDismiss={hideHistoryWarning}
+          />
+          {isResultatOpen && (
+            <ResultatKreidetafel 
+              isOpen={isResultatOpen}
+              onClose={() => setIsResultatOpen(false)}
             />
           )}
-          <MenuOverlay isOpen={isMenuOpen} />
         </>
       )}
     </div>

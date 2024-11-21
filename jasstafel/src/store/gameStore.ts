@@ -1,9 +1,16 @@
 // gameStore.tsx
 import { create } from 'zustand';
-import { GameSettings, defaultGameSettings, validateGameSettings } from '../config/GameSettings';
+import { GameSettings, defaultGameSettings, validateGameSettings, BERG_SCORE, SIEG_SCORE, SCHNEIDER_SCORE } from '../config/GameSettings';
 import { validateAndClampScore } from '../game/GameLogic';
+import { useJassStore } from './jassStore';
+import { calculateStricheCounts } from '../game/scoreCalculations';
 
-interface ScoreHistoryEntry {
+interface WeisAction {
+  points: number;
+  position: 'top' | 'bottom';
+}
+
+export interface ScoreHistoryEntry {
   topScore: number;
   bottomScore: number;
   topRounds: number;
@@ -21,30 +28,41 @@ interface ScoreHistoryEntry {
   farbe?: string;
   stricheCounts: { top: Record<number, number>, bottom: Record<number, number> };
   restZahlen: { top: number; bottom: number };
+  weisActions: WeisAction[];
+  isRoundCompleted: boolean;
 }
 
-interface GameState {
-  topScore: number;
-  bottomScore: number;
-  topRounds: number;
-  bottomRounds: number;
+interface TeamTiming {
+  totalTime: number;
+  lastStartTime: number | null;
+}
+
+interface GameState extends Omit<ScoreHistoryEntry, 'weisActions' | 'isRoundCompleted'> {
   currentHistoryIndex: number;
   scoreHistory: ScoreHistoryEntry[];
   settings: GameSettings;
-  currentPlayer: number;
-  currentRound: number;
   isCalculatorFlipped: boolean;
-  stricheCounts: { top: Record<number, number>, bottom: Record<number, number> };
-  restZahlen: { top: number; bottom: number };
-  totalPoints: {
-    top: number;
-    bottom: number;
+  currentRoundWeis: WeisAction[];
+  isRoundCompleted: boolean;
+  isGameStarted: boolean;
+  isGameCompleted: boolean;
+  isJassCompleted: boolean;
+  gameStartTime: number | null;
+  roundStartTime: number | null;
+  teamTimings: {
+    top: TeamTiming;
+    bottom: TeamTiming;
   };
-  weisPoints: {
-    top: number;
-    bottom: number;
+  isPaused: boolean;
+  pauseStartTime: number | null;
+  currentMultiplier: Multiplier;
+  historyWarning: {
+    isVisible: boolean;
+    message: string;
+    pendingAction: (() => void) | null;
   };
-  farbe?: string;
+  lastDoubleClickPosition: 'top' | 'bottom' | null;
+  isGameInfoOpen: boolean;
 }
 
 type GameStore = GameState & {
@@ -66,9 +84,58 @@ type GameStore = GameState & {
   resetRestZahl: () => void;
   updateRestZahl: (position: 'top' | 'bottom', restZahl: number) => void;
   addWeisPoints: (position: 'top' | 'bottom', points: number) => void;
+  undoLastWeis: () => void;
+  finalizeRound: (farbe: string) => void;
+  startGame: () => void;
+  finalizeGame: () => void;
+  finalizeJass: () => void;
+  startTeamTurn: (player: number) => void;
+  pauseGame: () => void;
+  resumeGame: () => void;
+  getRemainingPoints: (position: 'top' | 'bottom') => { title: string; remaining: number };
+  setMultiplier: (multiplier: Multiplier) => void;
+  getDividedPoints: (points: number) => number;
+  showHistoryWarning: (message: string, action: () => void) => void;
+  hideHistoryWarning: () => void;
+  executePendingAction: () => void;
+  jumpToLatest: () => void;
+  setIsGameInfoOpen: (isOpen: boolean) => void;
 };
 
-export const useGameStore = create<GameStore>((set) => ({
+// Neue Typen
+type Multiplier = 2 | 3 | 4 | 5 | 6 | 7;
+
+// Hilfsfunktionen
+const createStateSnapshot = (state: Partial<GameState>): ScoreHistoryEntry => ({
+  topScore: state.topScore ?? 0,
+  bottomScore: state.bottomScore ?? 0,
+  topRounds: state.topRounds ?? 0,
+  bottomRounds: state.bottomRounds ?? 0,
+  totalPoints: state.totalPoints ?? { top: 0, bottom: 0 },
+  weisPoints: state.weisPoints ?? { top: 0, bottom: 0 },
+  currentPlayer: state.currentPlayer ?? 1,
+  currentRound: state.currentRound ?? 1,
+  stricheCounts: state.stricheCounts ?? { top: {}, bottom: {} },
+  restZahlen: state.restZahlen ?? { top: 0, bottom: 0 },
+  farbe: state.farbe,
+  weisActions: state.currentRoundWeis ?? [],
+  isRoundCompleted: state.isRoundCompleted ?? false
+});
+
+const createScoreUpdate = (state: GameState, position: 'top' | 'bottom', points: number) => {
+  const newTotalPoints: { top: number; bottom: number } = {
+    ...state.totalPoints,
+    [position]: state.totalPoints[position] + points
+  };
+
+  return {
+    [`${position}Score`]: state[`${position}Score`] + points,
+    totalPoints: newTotalPoints
+  };
+};
+
+export const useGameStore = create<GameStore>((set, get) => ({
+  // Initial state
   topScore: 0,
   bottomScore: 0,
   topRounds: 0,
@@ -84,37 +151,57 @@ export const useGameStore = create<GameStore>((set) => ({
   totalPoints: { top: 0, bottom: 0 },
   weisPoints: { top: 0, bottom: 0 },
   farbe: undefined,
+  currentRoundWeis: [],
+  isRoundCompleted: false,
+  isGameStarted: false,
+  isGameCompleted: false,
+  isJassCompleted: false,
+  gameStartTime: null,
+  roundStartTime: null,
+  teamTimings: {
+    top: { totalTime: 0, lastStartTime: null },
+    bottom: { totalTime: 0, lastStartTime: null }
+  },
+  isPaused: false,
+  pauseStartTime: null,
+  currentMultiplier: 7,
+  historyWarning: {
+    isVisible: false,
+    message: '',
+    pendingAction: null
+  },
+  lastDoubleClickPosition: null,
+  isGameInfoOpen: false,
 
+  // Actions
   setTopScore: (score: number) => set({ topScore: score }),
-
   setBottomScore: (score: number) => set({ bottomScore: score }),
-
   incrementTopRound: () => set((state) => ({ topRounds: state.topRounds + 1 })),
-
   incrementBottomRound: () => set((state) => ({ bottomRounds: state.bottomRounds + 1 })),
-
+  
   updateSettings: (newSettings: Partial<GameSettings>) => set((state) => {
-    if (validateGameSettings(newSettings)) {
-      return { settings: { ...state.settings, ...newSettings } };
+    const mergedSettings = { ...state.settings, ...newSettings };
+    if (validateGameSettings(mergedSettings)) {
+      return { settings: mergedSettings };
     }
     console.error('Ungültige Spieleinstellungen');
     return state;
   }),
 
   resetGame: () => set((state) => {
-    const initialHistoryEntry: ScoreHistoryEntry = {
+    const initialHistoryEntry = createStateSnapshot({
       topScore: 0,
       bottomScore: 0,
       topRounds: 0,
       bottomRounds: 0,
-      totalPoints: { top: 0, bottom: 0 },
-      weisPoints: { top: 0, bottom: 0 },
       currentPlayer: 1,
       currentRound: 1,
+      totalPoints: { top: 0, bottom: 0 },
+      weisPoints: { top: 0, bottom: 0 },
       stricheCounts: { top: {}, bottom: {} },
-      restZahlen: { top: 0, bottom: 0 },
-      farbe: undefined
-    };
+      restZahlen: { top: 0, bottom: 0 }
+    });
+
     return {
       ...state,
       topScore: 0,
@@ -128,164 +215,132 @@ export const useGameStore = create<GameStore>((set) => ({
       stricheCounts: { top: {}, bottom: {} },
       restZahlen: { top: 0, bottom: 0 },
       totalPoints: { top: 0, bottom: 0 },
-      weisPoints: { top: 0, bottom: 0 }
+      weisPoints: { top: 0, bottom: 0 },
+      isGameStarted: false,
+      isGameCompleted: false,
+      isJassCompleted: false,
+      gameStartTime: null,
+      roundStartTime: null,
+      teamTimings: {
+        top: { totalTime: 0, lastStartTime: null },
+        bottom: { totalTime: 0, lastStartTime: null }
+      }
     };
   }),
 
   updateScore: (position: 'top' | 'bottom', score: number, opponentScore: number) => 
     set((state) => {
       const oppositePosition = position === 'top' ? 'bottom' : 'top';
-      const newScore = validateAndClampScore(state[`${position}Score`] + score, state.settings.maxScore);
-      const newOpponentScore = validateAndClampScore(state[`${oppositePosition}Score`] + opponentScore, state.settings.maxScore);
-      const newRound = state.currentRound + 1;
-
-      // Berechnung der neuen stricheCounts und restZahlen für beide Positionen
-      const { striche: strichePosition, restZahl: restZahlPosition } = calculateStricheCounts(newScore);
-      const { striche: stricheOpponent, restZahl: restZahlOpponent } = calculateStricheCounts(newOpponentScore);
-
-      const newStricheCounts = {
-        ...state.stricheCounts,
-        [position]: strichePosition,
-        [oppositePosition]: stricheOpponent
+      const scores = {
+        [position]: validateAndClampScore(state[`${position}Score`] + score),
+        [oppositePosition]: validateAndClampScore(state[`${oppositePosition}Score`] + opponentScore)
+      };
+      
+      const stricheCounts = {
+        top: calculateStricheCounts(scores.top).striche,
+        bottom: calculateStricheCounts(scores.bottom).striche
       };
 
-      const newRestZahlen = {
-        ...state.restZahlen,
-        [position]: restZahlPosition,
-        [oppositePosition]: restZahlOpponent
+      const newTotalPoints = {
+        top: position === 'top' ? state.totalPoints.top + score : state.totalPoints.top,
+        bottom: position === 'bottom' ? state.totalPoints.bottom + score : state.totalPoints.bottom
       };
 
       const newState = {
-        topScore: position === 'top' ? newScore : newOpponentScore,
-        bottomScore: position === 'bottom' ? newScore : newOpponentScore,
-        topRounds: position === 'top' ? state.topRounds + 1 : state.topRounds,
-        bottomRounds: position === 'bottom' ? state.bottomRounds + 1 : state.bottomRounds,
+        topScore: scores.top,
+        bottomScore: scores.bottom,
+        currentRound: state.currentRound + 1,
         currentPlayer: (state.currentPlayer % 4) + 1,
-        currentRound: newRound,
-        totalPoints: {
-          ...state.totalPoints,
-          [position]: state.totalPoints[position] + score,
-          [oppositePosition]: state.totalPoints[oppositePosition] + opponentScore
+        stricheCounts,
+        totalPoints: newTotalPoints,
+        restZahlen: {
+          top: scores.top % 10,
+          bottom: scores.bottom % 10
         },
-        weisPoints: { ...state.weisPoints },
-        stricheCounts: newStricheCounts,
-        restZahlen: newRestZahlen
-      };
-
-      const newHistoryEntry: ScoreHistoryEntry = {
-        ...newState,
-        farbe: state.farbe
+        roundStartTime: Date.now(),
+        teamTimings: {
+          top: { totalTime: 0, lastStartTime: null },
+          bottom: { totalTime: 0, lastStartTime: null }
+        }
       };
 
       return {
         ...newState,
-        scoreHistory: [...state.scoreHistory.slice(0, state.currentHistoryIndex + 1), newHistoryEntry],
+        scoreHistory: [
+          ...state.scoreHistory.slice(0, state.currentHistoryIndex + 1),
+          createStateSnapshot({ ...state, ...newState })
+        ],
         currentHistoryIndex: state.currentHistoryIndex + 1
       };
     }),
 
-  addToHistory: () => set((state) => {
-    const newHistoryEntry: ScoreHistoryEntry = {
-      ...state,
-      currentRound: state.currentRound,
-      farbe: state.farbe
-    };
-    return {
-      scoreHistory: [...state.scoreHistory.slice(0, state.currentHistoryIndex + 1), newHistoryEntry],
-      currentHistoryIndex: state.currentHistoryIndex + 1
-    };
+  addToHistory: () => set((state) => ({
+    scoreHistory: [
+      ...state.scoreHistory.slice(0, state.currentHistoryIndex + 1),
+      createStateSnapshot(state)
+    ],
+    currentHistoryIndex: state.currentHistoryIndex + 1
+  })),
+
+  navigateHistory: (direction: 'forward' | 'backward') => set((state) => {
+    const newIndex = direction === 'forward'
+      ? Math.min(state.currentHistoryIndex + 1, state.scoreHistory.length - 1)
+      : Math.max(state.currentHistoryIndex - 1, 0);
+
+    if (newIndex === state.currentHistoryIndex) return state;
+
+    const entry = state.scoreHistory[newIndex];
+    return { ...entry, currentHistoryIndex: newIndex };
   }),
 
-  navigateHistory: (direction: 'forward' | 'backward') => 
-    set((state) => {
-      let newIndex = state.currentHistoryIndex;
-      
-      if (direction === 'backward' && newIndex > 0) {
-        newIndex -= 1;
-      } else if (direction === 'forward' && newIndex < state.scoreHistory.length - 1) {
-        newIndex += 1;
-      }
-      
-      if (newIndex !== state.currentHistoryIndex && state.scoreHistory.length > 0) {
-        const historyEntry = state.scoreHistory[newIndex];
-        return {
-          ...state, // Behalten Sie den restlichen Zustand bei
-          topScore: historyEntry.topScore,
-          bottomScore: historyEntry.bottomScore,
-          topRounds: historyEntry.topRounds,
-          bottomRounds: historyEntry.bottomRounds,
-          totalPoints: historyEntry.totalPoints,
-          weisPoints: historyEntry.weisPoints,
-          currentPlayer: historyEntry.currentPlayer,
-          currentRound: historyEntry.currentRound,
-          stricheCounts: historyEntry.stricheCounts,
-          restZahlen: historyEntry.restZahlen,
-          farbe: historyEntry.farbe,
-          currentHistoryIndex: newIndex,
-          // scoreHistory bleibt unverändert
-        };
-      }
-      
-      return state;
-    }),
-
-  incrementCurrentPlayer: () => set((state) => ({ currentPlayer: (state.currentPlayer % 4) + 1 })),
+  incrementCurrentPlayer: () => set((state) => ({ 
+    currentPlayer: (state.currentPlayer % 4) + 1 
+  })),
 
   incrementCurrentRound: () => set((state) => ({
     currentRound: state.currentRound + 1
   })),
   
-  setCalculatorFlipped: (flipped: boolean) => set({ isCalculatorFlipped: flipped }),
+  setCalculatorFlipped: (flipped: boolean) => set({ 
+    isCalculatorFlipped: flipped 
+  }),
 
   updateScoreByStrich: (position: 'top' | 'bottom', value: number) => set((state) => {
-    const currentScore = state[`${position}Score`];
-    const currentStricheCounts = state.stricheCounts[position];
-    
-    const isBoxFull = (boxValue: number) => (currentStricheCounts[boxValue] || 0) * boxValue > 500;
+    const newScore = state[`${position}Score`] + value;
+    const { striche, restZahl } = calculateStricheCounts(newScore);
 
-    let newScore = currentScore + value;
-    let newStricheCounts = { ...currentStricheCounts };
-
-    if (value === 50 || value === 20) {
-      if (isBoxFull(value)) {
-        const { striche, restZahl } = calculateStricheCounts(newScore);
-        newStricheCounts = striche;
-      } else {
-        newStricheCounts[value] = (newStricheCounts[value] || 0) + 1;
-      }
-    } else {
-      const { striche, restZahl } = calculateStricheCounts(newScore);
-      newStricheCounts = striche;
-    }
-
-    // Berechnung der Restzahl anpassen
-    let restZahl = newScore % 10;
-    if (newScore < 20) {
-      restZahl = newScore;
-    }
-
-    return {
+    const newState = {
       [`${position}Score`]: newScore,
       stricheCounts: {
         ...state.stricheCounts,
-        [position]: newStricheCounts
+        [position]: striche
       },
       restZahlen: {
         ...state.restZahlen,
         [position]: restZahl
       }
     };
+
+    return {
+      ...newState,
+      scoreHistory: [
+        ...state.scoreHistory.slice(0, state.currentHistoryIndex + 1),
+        createStateSnapshot({ ...state, ...newState })
+      ],
+      currentHistoryIndex: state.currentHistoryIndex + 1
+    };
   }),
 
-  updateStricheCounts: (position: 'top' | 'bottom', value: number, count: number) => set((state) => ({
-    stricheCounts: {
-      ...state.stricheCounts,
-      [position]: {
-        ...state.stricheCounts[position],
-        [value]: count
+  updateStricheCounts: (position: 'top' | 'bottom', value: number, count: number) => 
+    set((state) => ({
+      stricheCounts: {
+        ...state.stricheCounts,
+        [position]: {
+          ...state.stricheCounts[position],
+          [value]: count
+        }
       }
-    }
-  })),
+    })),
 
   resetStricheCounts: (position: 'top' | 'bottom') => set((state) => ({
     stricheCounts: {
@@ -295,8 +350,8 @@ export const useGameStore = create<GameStore>((set) => ({
   })),
 
   resetRestZahl: () => set(state => ({
-    topScore: Math.floor(state.topScore / 20) * 20,
-    bottomScore: Math.floor(state.bottomScore / 20) * 20,
+    topScore: Math.floor(state.topScore / 10) * 20,
+    bottomScore: Math.floor(state.bottomScore / 10) * 20,
     stricheCounts: { top: {}, bottom: {} },
     restZahlen: { top: 0, bottom: 0 }
   })),
@@ -308,65 +363,226 @@ export const useGameStore = create<GameStore>((set) => ({
     }
   })),
 
-  addWeisPoints: (position: 'top' | 'bottom', points: number) => set((state) => {
-    const newWeisPoints = {
-      ...state.weisPoints,
-      [position]: state.weisPoints[position] + points
-    };
-    const newScore = state[`${position}Score`] + points;
-    const newHistoryEntry: ScoreHistoryEntry = {
-      ...state.scoreHistory[state.currentHistoryIndex],
-      [`${position}Score`]: newScore,
-      weisPoints: newWeisPoints,
-      totalPoints: {
-        ...state.totalPoints,
-        [position]: state.totalPoints[position] + points
+  addWeisPoints: (position: 'top' | 'bottom', points: number) => set((state) => ({
+    currentRoundWeis: [...state.currentRoundWeis, { points, position }]
+  })),
+
+  undoLastWeis: () => set((state) => ({
+    currentRoundWeis: state.currentRoundWeis.slice(0, -1)
+  })),
+
+  finalizeRound: (farbe: string) => set((state) => {
+    const weisTotal = state.currentRoundWeis.reduce((totals, action) => ({
+      ...totals,
+      [action.position]: totals[action.position] + action.points
+    }), { top: 0, bottom: 0 });
+
+    const newState = {
+      topScore: state.topScore + weisTotal.top,
+      bottomScore: state.bottomScore + weisTotal.bottom,
+      weisPoints: {
+        top: state.weisPoints.top + weisTotal.top,
+        bottom: state.weisPoints.bottom + weisTotal.bottom
+      },
+      farbe,
+      isRoundCompleted: true,
+      currentRoundWeis: [],
+      roundStartTime: Date.now(),
+      currentRound: state.currentRound + 1,
+      currentPlayer: (state.currentPlayer % 4) + 1,
+      teamTimings: {
+        top: { totalTime: 0, lastStartTime: null },
+        bottom: { totalTime: 0, lastStartTime: null }
       }
     };
-    const newHistory = [...state.scoreHistory.slice(0, state.currentHistoryIndex + 1), newHistoryEntry];
+
     return {
-      [`${position}Score`]: newScore,
-      weisPoints: newWeisPoints,
-      totalPoints: {
-        ...state.totalPoints,
-        [position]: state.totalPoints[position] + points
-      },
-      scoreHistory: newHistory,
-      currentHistoryIndex: newHistory.length - 1
+      ...newState,
+      scoreHistory: [
+        ...state.scoreHistory.slice(0, state.currentHistoryIndex + 1),
+        createStateSnapshot({ ...state, ...newState })
+      ],
+      currentHistoryIndex: state.currentHistoryIndex + 1
     };
   }),
+
+  startGame: () => set((state) => ({
+    ...state,
+    isGameStarted: true,
+    gameStartTime: Date.now(),
+    roundStartTime: Date.now(),
+    currentRound: 1,
+    currentPlayer: 1,
+    teamTimings: {
+      top: { totalTime: 0, lastStartTime: Date.now() },  // Spieler 1 startet (top)
+      bottom: { totalTime: 0, lastStartTime: null }
+    },
+    scoreHistory: [createStateSnapshot(state)],
+    currentHistoryIndex: 0
+  })),
+
+  finalizeGame: () => set((state) => {
+    // Letzte Team-Zeit berechnen
+    const activeTeam = state.currentPlayer <= 2 ? 'top' : 'bottom';
+    const lastTeamTime = state.teamTimings[activeTeam].lastStartTime
+      ? Date.now() - state.teamTimings[activeTeam].lastStartTime
+      : 0;
+
+    const finalTeamTimings = {
+      ...state.teamTimings,
+      [activeTeam]: {
+        totalTime: state.teamTimings[activeTeam].totalTime + lastTeamTime,
+        lastStartTime: null
+      }
+    };
+
+    return {
+      ...state,
+      isGameCompleted: true,
+      isRoundCompleted: true,
+      teamTimings: finalTeamTimings,
+      scoreHistory: [
+        ...state.scoreHistory,
+        createStateSnapshot({
+          ...state,
+          isGameCompleted: true,
+          isRoundCompleted: true,
+          teamTimings: finalTeamTimings
+        })
+      ],
+      currentHistoryIndex: state.currentHistoryIndex + 1
+    };
+  }),
+
+  finalizeJass: () => set((state) => ({
+    ...state,
+    isJassCompleted: true,
+    scoreHistory: [
+      ...state.scoreHistory,
+      createStateSnapshot({
+        ...state,
+        isJassCompleted: true
+      })
+    ],
+    currentHistoryIndex: state.currentHistoryIndex + 1
+  })),
+
+  startTeamTurn: (player: number) => set((state) => {
+    const team = player === 1 || player === 3 ? 'bottom' : 'top';
+    const oppositeTeam = team === 'top' ? 'bottom' : 'top';
+    
+    console.log('Team Turn Debug:', {
+      player,
+      activeTeam: team,
+      oppositeTeam
+    });
+    
+    // Stoppe Zeit des anderen Teams
+    const oppositeTime = state.teamTimings[oppositeTeam].lastStartTime
+      ? Date.now() - state.teamTimings[oppositeTeam].lastStartTime
+      : 0;
+
+    return {
+      teamTimings: {
+        ...state.teamTimings,
+        [team]: {
+          ...state.teamTimings[team],
+          lastStartTime: Date.now()
+        },
+        [oppositeTeam]: {
+          totalTime: state.teamTimings[oppositeTeam].totalTime + oppositeTime,
+          lastStartTime: null
+        }
+      }
+    };
+  }),
+
+  pauseGame: () => set((state) => ({
+    ...state,
+    isPaused: true,
+    pauseStartTime: Date.now()
+  })),
+
+  resumeGame: () => set((state) => {
+    if (!state.pauseStartTime) return state;
+    
+    const pauseDuration = Date.now() - state.pauseStartTime;
+    
+    return {
+      ...state,
+      isPaused: false,
+      pauseStartTime: null,
+      gameStartTime: state.gameStartTime ? state.gameStartTime + pauseDuration : null,
+      roundStartTime: state.roundStartTime ? state.roundStartTime + pauseDuration : null
+    };
+  }),
+
+  getRemainingPoints: (position: 'top' | 'bottom') => {
+    const state = get();
+    const jassState = useJassStore.getState();
+    const score = position === 'top' ? state.topScore : state.bottomScore;
+    const oppositeTeam = position === 'top' ? 'bottom' : 'top';
+    
+    // Wenn das andere Team Berg hat und man unter Schneider ist
+    if (jassState.teams[oppositeTeam].bergActive && score < SCHNEIDER_SCORE) {
+      return {
+        title: "Punkte bis Schneider",
+        remaining: SCHNEIDER_SCORE - score
+      };
+    }
+    
+    // Standardfall: Punkte bis Berg
+    if (score < BERG_SCORE) {
+      return {
+        title: "Punkte bis Berg",
+        remaining: BERG_SCORE - score
+      };
+    }
+    
+    return {
+      title: "Punkte bis Sieg",
+      remaining: SIEG_SCORE - score
+    };
+  },
+
+  setMultiplier: (multiplier: Multiplier) => {
+    set({ currentMultiplier: multiplier });
+  },
+
+  getDividedPoints: (points: number) => {
+    const { currentMultiplier } = get();
+    return Math.ceil(points / currentMultiplier);
+  },
+
+  showHistoryWarning: (message: string, action: () => void) => set({
+    historyWarning: {
+      isVisible: true,
+      message,
+      pendingAction: action
+    }
+  }),
+
+  hideHistoryWarning: () => set({
+    historyWarning: {
+      isVisible: false,
+      message: '',
+      pendingAction: null
+    }
+  }),
+
+  executePendingAction: () => {
+    const state = get();
+    if (state.historyWarning.pendingAction) {
+      state.historyWarning.pendingAction();
+    }
+    get().hideHistoryWarning();
+  },
+
+  jumpToLatest: () => set((state) => {
+    const latestIndex = state.scoreHistory.length - 1;
+    const latestEntry = state.scoreHistory[latestIndex];
+    return { ...latestEntry, currentHistoryIndex: latestIndex };
+  }),
+
+  setIsGameInfoOpen: (isOpen: boolean) => set({ isGameInfoOpen: isOpen }),
 }));
-
-const calculateStricheCounts = (score: number) => {
-  const striche = {
-    100: Math.floor(score / 100),
-    50: 0,
-    20: 0
-  };
-
-  let restZahl = score % 100;
-
-  if (restZahl >= 90) {
-    striche[50] = 1;
-    striche[20] = 2;
-    restZahl -= 90;
-  } else if (restZahl >= 80) {
-    striche[20] = 4;
-    restZahl -= 80;
-  } else if (restZahl >= 70) {
-    striche[50] = 1;
-    striche[20] = 1;
-    restZahl -= 70;
-  } else if (restZahl >= 60) {
-    striche[20] = 3;
-    restZahl -= 60;
-  } else if (restZahl >= 50) {
-    striche[50] = 1;
-    restZahl -= 50;
-  } else if (restZahl >= 20) {
-    striche[20] = Math.floor(restZahl / 20);
-    restZahl %= 20;
-  }
-
-  return { striche, restZahl };
-};

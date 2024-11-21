@@ -1,7 +1,12 @@
 {
   "dependencies": {
+    "@types/date-fns": "^2.5.3",
+    "date-fns": "^4.1.0",
     "mitt": "^3.0.1",
     "qrcode.vue": "^3.5.0",
     "vuex-persist": "^3.1.3"
+  },
+  "devDependencies": {
+    "@types/lodash": "^4.17.12"
   }
 }
