@@ -100,6 +100,8 @@ type GameStore = GameState & {
   executePendingAction: () => void;
   jumpToLatest: () => void;
   setIsGameInfoOpen: (isOpen: boolean) => void;
+  determineNextStartingPlayer: () => number;
+  startNewGame: () => void;
 };
 
 // Neue Typen
@@ -585,4 +587,38 @@ export const useGameStore = create<GameStore>((set, get) => ({
   }),
 
   setIsGameInfoOpen: (isOpen: boolean) => set({ isGameInfoOpen: isOpen }),
+
+  determineNextStartingPlayer: () => {
+    const state = get();
+    const { teams } = useJassStore.getState();
+    const currentPlayer = state.currentPlayer;
+    
+    // Berechne die Gesamtpunkte beider Teams
+    const topTotal = teams.top.total;
+    const bottomTotal = teams.bottom.total;
+    
+    // Bestimme das Gewinnerteam
+    const topTeamWon = topTotal > bottomTotal;
+    
+    // Verliererteam beginnt immer
+    if (topTeamWon) {
+      // Team 1 (bottom) hat verloren
+      return currentPlayer === 1 ? 2 : 4;
+    } else {
+      // Team 2 (top) hat verloren
+      return currentPlayer === 2 ? 3 : 1;
+    }
+  },
+
+  startNewGame: () => set((state) => {
+    const nextPlayer = state.determineNextStartingPlayer();
+    return {
+      ...state,
+      currentRound: state.currentRound + 1,
+      currentPlayer: nextPlayer,
+      isGameStarted: true,
+      gameStartTime: Date.now(),
+      roundStartTime: Date.now()
+    };
+  }),
 }));

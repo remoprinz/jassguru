@@ -24,10 +24,8 @@ const ResultatZeile: React.FC<ResultatZeileProps> = ({
       <div className="text-center relative">
         {spielNummer}
         {rosenSpieler && (
-          <div 
-            className="absolute top-0 left-0 transform -translate-x-1/2 -translate-y-1/2"
-            title="Rosen 10 Spieler"
-          >
+          <div className="absolute top-0 left-0 transform -translate-x-1/2 -translate-y-1/2"
+               title="Rosen 10 Spieler">
             ⚘
           </div>
         )}
@@ -37,12 +35,12 @@ const ResultatZeile: React.FC<ResultatZeileProps> = ({
         <StrichDisplay
           type="horizontal"
           count={topTeam.striche.horizontal}
-          size={{ width: 16, height: 2 }}
+          position="top"
         />
         <StrichDisplay
           type="vertikal"
           count={topTeam.striche.vertikal}
-          size={{ width: 2, height: 16 }}
+          position="top"
         />
       </div>
       
@@ -50,12 +48,12 @@ const ResultatZeile: React.FC<ResultatZeileProps> = ({
         <StrichDisplay
           type="horizontal"
           count={bottomTeam.striche.horizontal}
-          size={{ width: 16, height: 2 }}
+          position="bottom"
         />
         <StrichDisplay
           type="vertikal"
           count={bottomTeam.striche.vertikal}
-          size={{ width: 2, height: 16 }}
+          position="bottom"
         />
       </div>
     </div>

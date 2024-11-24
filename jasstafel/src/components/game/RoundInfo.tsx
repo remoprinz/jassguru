@@ -19,12 +19,14 @@ const RoundInfo: React.FC<RoundInfoProps> = ({
   isGameStarted 
 }) => {
   const fadeProps = useSpring({
-    opacity: isOpen ? 0 : opacity,
-    config: {
-      duration: isOpen ? 150 : 500,
-      delay: isOpen ? 0 : 300
-    }
+    from: { opacity: 0 },
+    to: { opacity: isOpen ? 0 : opacity },
+    config: { duration: 150 },
+    delay: isOpen ? 0 : 500,
+    immediate: isOpen
   });
+
+  if (isOpen) return null;
 
   const formatInfoText = (round: number, player: number) => {
     return (

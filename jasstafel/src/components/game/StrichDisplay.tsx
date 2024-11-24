@@ -1,87 +1,118 @@
 import React from 'react';
+import { animated, useSpring } from 'react-spring';
+import styled from 'styled-components';
 
-interface StrichDisplayProps {
-  type: 'vertikal' | 'horizontal';
-  count: number;
-  size?: {
+export interface StrichStyle {
+  baseStrich: {
+    length: number;
     width: number;
-    height: number;
+    color: string;
+    opacity: number;
   };
-  color?: string;
-  className?: string;
-  spacing?: number;
-  diagonalWidth?: number;
+  diagonalStrich: {
+    length: number;
+    width: number;
+    angle: number;
+    offset: { x: number; y: number };
+  };
+  container: {
+    spacing: number;
+    groupSpacing: number;
+    scale: number;
+  };
 }
 
+interface StrichDisplayProps {
+  count: number;
+  style?: StrichStyle;
+  position?: 'top' | 'bottom';
+  type: 'horizontal' | 'vertikal';
+}
+
+const defaultStyle: StrichStyle = {
+  baseStrich: {
+    length: 35,
+    width: 3,
+    color: '#FFFFFF',
+    opacity: 1
+  },
+  diagonalStrich: {
+    length: 52,
+    width: 45,
+    angle: 50,
+    offset: { x: -2, y: 0 }
+  },
+  container: {
+    spacing: 9,
+    groupSpacing: 2,
+    scale: 2
+  }
+};
+
+const StrichContainerStyled = styled('div')<{ type: 'horizontal' | 'vertikal' }>(({ type }) => ({
+  position: 'relative',
+  width: '30%',
+  minHeight: type === 'horizontal' ? '20px' : '35px',
+  display: 'flex',
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: type === 'horizontal' ? 'center' : 'flex-start',
+  transform: type === 'horizontal' ? 'rotate(90deg) rotate(180deg)' : 'none',
+  transformOrigin: 'center left',
+  marginBottom: '8px',
+  ...(type === 'horizontal' && {
+    marginTop: '15px',
+    marginLeft: '20px',
+  })
+}));
+
 const StrichDisplay: React.FC<StrichDisplayProps> = ({
-  type,
   count,
-  size = { width: 0, height: 0 },
-  color = 'white',
-  className = '',
-  spacing = 3,
-  diagonalWidth = 5
+  style = defaultStyle,
+  position = 'bottom',
+  type
 }) => {
+  const finalStyle = { ...defaultStyle, ...style };
+
   const renderStriche = () => {
-    const fullGroups = Math.floor(count / 5);
-    const remainder = count % 5;
+    return Array.from({ length: count }).map((_, index) => {
+      const isDiagonal = (index + 1) % 5 === 0;
+      const groupIndex = Math.floor(index / 5);
+      const basePosition = index * finalStyle.container.spacing + 
+        (groupIndex * (finalStyle.container.groupSpacing || 0));
 
-    const striche = [];
+      const springProps = useSpring({
+        from: { scale: 0, opacity: 0 },
+        to: { scale: 1, opacity: finalStyle.baseStrich.opacity },
+        delay: index * 50
+      });
 
-    for (let i = 0; i < fullGroups; i++) {
-      striche.push(
-        <div key={`group-${i}`} className="relative" style={{ height: `${size.height * 5}px` }}>
-          {[0, 1, 2, 3].map((_, index) => (
-            <div
-              key={`strich-${i}-${index}`}
-              style={{
-                width: `${size.width}px`,
-                height: `${size.height}px`,
-                backgroundColor: color,
-                margin: `${spacing}px`,
-                position: 'absolute',
-                top: `${index * (size.height + spacing)}px`
-              }}
-            />
-          ))}
-          <div
-            style={{
-              width: `${diagonalWidth}px`,
-              height: `${size.height * 4}px`,
-              backgroundColor: color,
-              margin: `${spacing}px`,
-              position: 'absolute',
-              transform: 'rotate(45deg)',
-              transformOrigin: 'left bottom',
-              top: '0px'
-            }}
-          />
-        </div>
-      );
-    }
-
-    for (let i = 0; i < remainder; i++) {
-      striche.push(
-        <div
-          key={`remainder-${i}`}
+      return (
+        <animated.div
+          key={`strich-${index}`}
           style={{
-            width: `${size.width}px`,
-            height: `${size.height}px`,
-            backgroundColor: color,
-            margin: `${spacing}px`,
-            display: 'block'
+            position: 'absolute',
+            left: `${basePosition + (isDiagonal ? finalStyle.diagonalStrich.offset.x : 0)}px`,
+            top: isDiagonal ? `${finalStyle.diagonalStrich.offset.y}px` : 0,
+            width: finalStyle.baseStrich.width,
+            height: isDiagonal ? finalStyle.diagonalStrich.length : finalStyle.baseStrich.length,
+            backgroundColor: finalStyle.baseStrich.color,
+            opacity: springProps.opacity,
+            transform: isDiagonal 
+              ? `rotate(${finalStyle.diagonalStrich.angle}deg)`
+              : 'none',
+            transformOrigin: isDiagonal ? 'top left' : 'center',
+            transition: 'height 0.2s ease-in-out, transform 0.2s ease-in-out'
           }}
         />
       );
-    }
-
-    return striche;
+    });
   };
 
   return (
-    <div className={`flex ${type === 'horizontal' ? 'flex-col' : 'flex-row'} ${className}`}>
+    <StrichContainerStyled type={type}>
       {renderStriche()}
-    </div>
+    </StrichContainerStyled>
   );
 };
 

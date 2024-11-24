@@ -44,34 +44,17 @@ const Calculator: React.FC<CalculatorProps> = ({
   const [lastClickTime, setLastClickTime] = useState(0);
   const { updateScore } = useGameStore();
 
-  const [springProps, setSpringProps] = useSpring(() => ({
-    opacity: 0.5,
-    scale: 0.95,
+  const springProps = useSpring({
+    opacity: isOpen ? 1 : 0,
+    transform: `scale(${isOpen ? 1 : 0.95}) rotate(${isCalculatorFlipped ? '180deg' : '0deg'})`,
     config: { mass: 1, tension: 300, friction: 20 }
-  }));
+  });
 
   useEffect(() => {
     if (isOpen) {
-      setValue(initialValue.toString());
-      setOpponentValue('0');
-      setTotalValue(initialValue.toString());
-      setSelectedColor(null);
-      setMultiplier(1);
-      setIsMatschActive(false);
-      setSpringProps({
-        opacity: 1,
-        scale: 1,
-        config: { mass: 1, tension: 300, friction: 20 }
-      });
-    } else {
-      setIsClosing(false);
-      setSpringProps({
-        opacity: 0.5,
-        scale: 0.9,
-        config: { mass: 1, tension: 300, friction: 20 }
-      });
+      setCalculatorFlipped(false);
     }
-  }, [isOpen, initialValue, setSpringProps]);
+  }, [isOpen]);
 
   useEffect(() => {
     if (value === '0') {
@@ -210,25 +193,24 @@ const Calculator: React.FC<CalculatorProps> = ({
       onContextMenu={(e) => e.preventDefault()}
     >
       <animated.div
-        style={{
-          opacity: springProps.opacity,
-          transform: springProps.scale.to(s => `scale(${s})`)
-        }}
+        style={springProps}
         className="relative w-11/12 max-w-md"
       >
         <button
           onClick={(e) => {
             e.stopPropagation();
-            handleFlip();
+            setCalculatorFlipped(!isCalculatorFlipped);
           }}
-          className={`absolute ${
-            isCalculatorFlipped ? 'top-full mt-6' : 'bottom-full mb-6'
-          } left-1/2 transform -translate-x-1/2 text-white hover:text-gray-300 transition-all duration-1000`}
+          className={`absolute bottom-full mb-[-10px] left-1/2 transform -translate-x-1/2 
+            text-white hover:text-gray-300 transition-all duration-1000
+            w-24 h-24 flex items-center justify-center
+            rounded-full
+            ${isCalculatorFlipped ? 'rotate-180' : 'rotate-0'}`}
           aria-label="Umdrehen"
         >
-          <FiRotateCcw className={`w-8 h-8 ${isCalculatorFlipped ? 'rotate-180 opacity-0' : 'opacity-100'} transition-all duration-1000`} />
-          <FiRotateCcw className={`w-8 h-8 absolute top-0 left-0 ${isCalculatorFlipped ? 'rotate-0 opacity-100' : 'rotate-180 opacity-0'} transition-all duration-1000`} />
+          <FiRotateCcw className="w-8 h-8" />
         </button>
+
         <button 
           onClick={(e) => {
             e.stopPropagation();
@@ -242,9 +224,6 @@ const Calculator: React.FC<CalculatorProps> = ({
           className={`bg-gray-800 p-6 rounded-lg transition-all duration-700 flex flex-col items-center ${
             isClosing ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
           }`}
-          style={{ 
-            transform: `${isCalculatorFlipped ? 'rotate(180deg)' : 'rotate(0deg)'}`,
-          }}
           onClick={(e) => e.stopPropagation()}
         >
           <h2 className="text-white text-xl mb-4 text-center select-none" aria-label="Runde schreiben">

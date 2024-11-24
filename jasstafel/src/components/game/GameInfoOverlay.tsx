@@ -132,9 +132,11 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
             e.stopPropagation();
             setCalculatorFlipped(!isCalculatorFlipped);
           }}
-          className={`absolute bottom-full mb-6 left-1/2 transform -translate-x-1/2 text-white hover:text-gray-300 transition-all duration-1000 ${
-            isCalculatorFlipped ? 'rotate-180' : 'rotate-0'
-          }`}
+          className={`absolute bottom-full mb-[-10px] left-1/2 transform -translate-x-1/2 
+            text-white hover:text-gray-300 transition-all duration-1000
+            w-24 h-24 flex items-center justify-center
+            rounded-full
+            ${isCalculatorFlipped ? 'rotate-180' : 'rotate-0'}`}
           aria-label="Umdrehen"
         >
           <FiRotateCcw className="w-8 h-8" />

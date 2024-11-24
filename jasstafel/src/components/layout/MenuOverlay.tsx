@@ -61,9 +61,14 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({ isOpen, onClose, setIsResulta
   const handleResetConfirm = () => {
     setShowResetWarning(false);
     onClose();
-    resetGame();
+    
+    // Reset beide Stores
+    resetGame();  // gameStore reset
     const jassStore = useJassStore.getState();
-    jassStore.resetJass();
+    jassStore.resetJass();  // jassStore reset
+    
+    // Starte neues Spiel
+    jassStore.startNewGame();
   };
 
   return (

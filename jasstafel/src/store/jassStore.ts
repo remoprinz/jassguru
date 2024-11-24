@@ -12,7 +12,8 @@ import {
   JassStore,
   StrichTyp,
   JassState,
-  MatschResult
+  MatschResult,
+  GameEntry
 } from '../types/jass';
 
 const createInitialTeamStand = (): TeamStand => ({
@@ -26,7 +27,13 @@ const createInitialTeamStand = (): TeamStand => ({
     schneider: 0,
     kontermatsch: 0
   },
-  total: 0
+  total: 0,
+  playerStats: {
+    1: { striche: 0, points: 0 },
+    2: { striche: 0, points: 0 },
+    3: { striche: 0, points: 0 },
+    4: { striche: 0, points: 0 }
+  }
 });
 
 const getTargetTeam = (clickedPosition: TeamPosition): TeamPosition => {
@@ -83,6 +90,17 @@ export const useJassStore = create<JassStore>()((set, get) => ({
     top: createInitialTeamStand(),
     bottom: createInitialTeamStand()
   },
+  // Neue Basis-Zustände
+  games: [{
+    id: 1,
+    timestamp: Date.now(),
+    teams: {
+      top: createInitialTeamStand(),
+      bottom: createInitialTeamStand()
+    },
+    milestones: {}
+  }],
+  currentGameId: 1,
 
   // Aktionen
   startBergCharge: (team: TeamPosition) => {
@@ -175,14 +193,22 @@ export const useJassStore = create<JassStore>()((set, get) => ({
           });
           
           const oppositeTeam = team === 'top' ? 'bottom' : 'top';
-          const oppositeScore = oppositeTeam === 'top' 
-            ? useGameStore.getState().topScore 
-            : useGameStore.getState().bottomScore;
-          const isSchneider = oppositeTeam === 'top' 
-            ? oppositeScore < SCHNEIDER_SCORE 
-            : useGameStore.getState().bottomScore < SCHNEIDER_SCORE;
+          const oppositeScore = state.teams[oppositeTeam].total;
+          const isSchneider = oppositeScore < SCHNEIDER_SCORE;
 
           if (isSchneider) {
+            set((state) => ({
+              teams: {
+                ...state.teams,
+                [team]: {
+                  ...state.teams[team],
+                  striche: {
+                    ...state.teams[team].striche,
+                    schneider: (state.teams[team].striche.schneider || 0) + 1
+                  }
+                }
+              }
+            }));
             triggerSchneiderEffect();
           } else {
             triggerBedankenFireworks(state.bedankenChargeAmount);
@@ -259,46 +285,111 @@ export const useJassStore = create<JassStore>()((set, get) => ({
   },
 
   resetJass: () => {
-    set({
+    set(() => ({
+      games: [],
+      currentGameId: 1,
+      teams: {
+        top: createInitialTeamStand(),
+        bottom: createInitialTeamStand()
+      },
+      isJassCompleted: false
+    }));
+  },
+
+  startNewGame: () => {
+    const state = get();
+    const newGame: GameEntry = {
+      id: state.currentGameId,
+      timestamp: Date.now(),
       teams: {
         top: {
-          striche: { 
-            matsch: 0, 
-            berg: 0, 
-            sieg: 0,
-            schneider: 0,
-            kontermatsch: 0 
-          },
-          bergActive: false,
-          bedankenActive: false,
-          isSigned: false,
-          total: 0
+          striche: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
+          total: 0,
+          playerStats: { 2: { striche: 0, points: 0 }, 4: { striche: 0, points: 0 } }
         },
         bottom: {
-          striche: { 
-            matsch: 0, 
-            berg: 0, 
-            sieg: 0,
-            schneider: 0,
-            kontermatsch: 0 
-          },
-          bergActive: false,
-          bedankenActive: false,
-          isSigned: false,
-          total: 0
+          striche: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
+          total: 0,
+          playerStats: { 1: { striche: 0, points: 0 }, 3: { striche: 0, points: 0 } }
         }
       },
-      currentRound: 1,
-      isJassCompleted: false,
-      bergChargeAmount: 0,
-      bedankenChargeAmount: 0,
-      matschChargeAmount: 0,
-      bergPressStartTime: null,
-      bedankenPressStartTime: null,
-      matschPressStartTime: null,
-      bergChargeInterval: null,
-      bedankenChargeInterval: null,
-      matschChargeInterval: null
-    });
+      milestones: {}
+    };
+
+    set((state) => ({
+      ...state,
+      games: [...state.games, newGame],
+      teams: {
+        top: createInitialTeamStand(),
+        bottom: createInitialTeamStand()
+      }
+    }));
+  },
+
+  getGameHistory: () => get().games,
+  
+  getCurrentGame: () => {
+    const state = get();
+    return state.games.find(game => game.id === state.currentGameId);
+  },
+
+  calculateTotalPoints: () => {
+    const state = get();
+    
+    // Summiere die Punkte aller abgeschlossenen Spiele
+    const gameTotals = state.games.reduce((acc, game) => ({
+      top: acc.top + (game.teams.top.total || 0),
+      bottom: acc.bottom + (game.teams.bottom.total || 0)
+    }), { top: 0, bottom: 0 });
+
+    // Füge die Punkte des aktuellen Spiels hinzu
+    return {
+      top: gameTotals.top + state.teams.top.total,
+      bottom: gameTotals.bottom + state.teams.bottom.total
+    };
+  },
+
+  finalizeGame: () => {
+    const state = get();
+    const currentGame = state.games.find(game => game.id === state.currentGameId);
+    
+    if (currentGame) {
+      // Aktuelles Spiel mit finalen Werten aktualisieren
+      const updatedGame = {
+        ...currentGame,
+        teams: {
+          top: {
+            ...currentGame.teams.top,
+            striche: state.teams.top.striche,
+            total: state.teams.top.total
+          },
+          bottom: {
+            ...currentGame.teams.bottom,
+            striche: state.teams.bottom.striche,
+            total: state.teams.bottom.total
+          }
+        }
+      };
+
+      // Behalte die Gesamtpunkte beim Spielwechsel
+      const totalPoints = state.calculateTotalPoints();
+
+      set((state) => ({
+        games: state.games.map(game => 
+          game.id === state.currentGameId ? updatedGame : game
+        ),
+        currentGameId: state.currentGameId + 1,
+        teams: {
+          top: {
+            ...createInitialTeamStand(),
+            total: totalPoints.top
+          },
+          bottom: {
+            ...createInitialTeamStand(),
+            total: totalPoints.bottom
+          }
+        }
+      }));
+    }
   }
 }));

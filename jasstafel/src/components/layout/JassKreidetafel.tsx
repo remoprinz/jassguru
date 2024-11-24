@@ -126,9 +126,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
       }
       console.log(`Navigiere in der Historie: ${historyDirection}`);
       navigateHistory(historyDirection);
-      // Animiere beide Container
-      animateTopSwipe(direction);
-      animateBottomSwipe(direction);
+
     } else {
       const shouldOpen = (position === 'top' && direction === 'up') || (position === 'bottom' && direction === 'down');
       const shouldClose = (position === 'top' && direction === 'down') || (position === 'bottom' && direction === 'up');

@@ -73,6 +73,12 @@ export interface TeamStand extends TeamState {
   striche: StrichTyp;
   total: number;
   isSigned: boolean;
+  playerStats: {
+    [playerId: number]: {
+      striche: number;
+      points: number;
+    };
+  };
 }
 
 // Neuer Typ für Matsch-Ergebnis
@@ -92,6 +98,11 @@ export interface JassActions {
   addStrich: (team: TeamPosition, type: keyof StrichTyp) => void;
   startMatschCharge: (team: TeamPosition) => void;
   stopMatschCharge: (team: TeamPosition) => void;
+  startNewGame: () => void;
+  finalizeGame: () => void;
+  calculateTotalPoints: () => { top: number; bottom: number };
+  getGameHistory: () => GameEntry[];
+  getCurrentGame: () => GameEntry | undefined;
 }
 
 // Gesamter Jass-Zustand
@@ -109,6 +120,8 @@ export interface JassState {
   matschChargeAmount: number;
   matschChargeInterval: NodeJS.Timeout | null;
   matschPressStartTime: number | null;
+  games: GameEntry[];
+  currentGameId: number;
 }
 
 // Store-Typ
@@ -134,3 +147,26 @@ export const convertToDisplayStriche = (striche: StrichTyp): StricheDisplay => {
 export const adaptGameHistoryToJassFormat = (
   gameHistoryEntry: ScoreHistoryEntry
 ): ScoreHistoryEntry => gameHistoryEntry;
+
+// Neues Interface für ein einzelnes Spiel
+export interface GameEntry {
+  id: number;
+  timestamp: number;
+  teams: {
+    [key in TeamPosition]: {
+      striche: StrichTyp;
+      total: number;
+      playerStats: {
+        [playerId: number]: {
+          striche: number;
+          points: number;
+        };
+      };
+    };
+  };
+  milestones: {
+    bergTimestamp?: number;
+    matchTimestamp?: number;
+    schneiderTimestamp?: number;
+  };
+}
