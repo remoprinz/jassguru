@@ -26,7 +26,7 @@ const Calculator: React.FC<CalculatorProps> = ({
   clickedPosition,
 }) => {
   const { isCalculatorFlipped, setCalculatorFlipped } = useGameStore();
-  const [value, setValue] = useState('');
+  const [value, setValue] = useState(initialValue?.toString() || '0');
   const [opponentValue, setOpponentValue] = useState('0');
   const [totalValue, setTotalValue] = useState('0');
   const [totalOpponentValue, setTotalOpponentValue] = useState('0');
@@ -56,20 +56,27 @@ const Calculator: React.FC<CalculatorProps> = ({
     }
   }, [isOpen]);
 
-  useEffect(() => {
-    if (value === '0') {
+  const calculateValues = (inputValue: string, currentMultiplier: number) => {
+    if (inputValue === '0') {
       setOpponentValue('0');
       setTotalValue('0');
-    } else if (value === '257') {
+    } else if (inputValue === '257') {
       setOpponentValue('0');
-      const total = 257 * multiplier;
+      const total = 257 * currentMultiplier;
       setTotalValue(total.toString());
     } else {
-      const diff = 157 - parseInt(value, 10);
-      setOpponentValue(diff > 0 ? diff.toString() : '0');
-      const total = parseInt(value, 10) * multiplier;
-      setTotalValue(total.toString());
+      const numericValue = parseInt(inputValue, 10);
+      const baseOpponentValue = Math.max(157 - numericValue, 0);
+      const multipliedValue = numericValue * currentMultiplier;
+      const multipliedOpponentValue = baseOpponentValue * currentMultiplier;
+      
+      setOpponentValue(multipliedOpponentValue.toString());
+      setTotalValue(multipliedValue.toString());
     }
+  };
+
+  useEffect(() => {
+    calculateValues(value, multiplier);
   }, [value, multiplier]);
 
   const handleNumberClick = (num: number) => {
@@ -81,19 +88,7 @@ const Calculator: React.FC<CalculatorProps> = ({
 
     setValue((prevValue) => {
       const newValue = prevValue === '0' ? num.toString() : prevValue + num.toString();
-      const validatedValue = validateInput(newValue);
-      const numericValue = parseInt(validatedValue, 10);
-      
-      const baseOpponentValue = Math.max(157 - numericValue, 0);
-      setOpponentValue((baseOpponentValue * multiplier).toString());
-      
-      const multipliedValue = numericValue * multiplier;
-      const multipliedOpponentValue = baseOpponentValue * multiplier;
-      
-      setTotalValue(multipliedValue.toString());
-      setOpponentValue(multipliedOpponentValue.toString());
-      
-      return validatedValue;
+      return validateInput(newValue);
     });
 
     setPressedButtons((prev) => new Set(prev).add(num));
@@ -111,11 +106,7 @@ const Calculator: React.FC<CalculatorProps> = ({
     setSelectedColor(color);
     setMultiplier(mult);
     setPressedMultiplier(null);
-    
-    const currentValue = parseInt(value, 10);
-    const baseOpponentValue = Math.max(157 - currentValue, 0);
-    
-    setOpponentValue((baseOpponentValue * mult).toString());
+    calculateValues(value, mult);
   };
 
   const handleSubmit = () => {

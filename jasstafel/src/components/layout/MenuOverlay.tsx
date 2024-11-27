@@ -15,10 +15,6 @@ interface MenuOverlayProps {
 const MenuOverlay: React.FC<MenuOverlayProps> = ({ isOpen, onClose, setIsResultatOpen }) => {
   const { 
     resetGame, 
-    isGameCompleted,
-    isJassCompleted,
-    finalizeGame,
-    finalizeJass,
     topScore,
     bottomScore,
     settings

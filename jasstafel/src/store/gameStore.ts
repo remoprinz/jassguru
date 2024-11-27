@@ -4,6 +4,12 @@ import { GameSettings, defaultGameSettings, validateGameSettings, BERG_SCORE, SI
 import { validateAndClampScore } from '../game/GameLogic';
 import { useJassStore } from './jassStore';
 import { calculateStricheCounts } from '../game/scoreCalculations';
+import { 
+  Teams, 
+  TeamPosition, 
+  StrichTyp, 
+  STRICH_WERTE 
+} from '../types/jass';
 
 interface WeisAction {
   points: number;
@@ -80,6 +86,7 @@ type GameStore = GameState & {
   setCalculatorFlipped: (flipped: boolean) => void;
   updateScoreByStrich: (position: 'top' | 'bottom', value: number) => void;
   updateStricheCounts: (position: 'top' | 'bottom', value: number, count: number) => void;
+  synchronizeStricheCounts: (teams: Teams) => void;
   resetStricheCounts: (position: 'top' | 'bottom') => void;
   resetRestZahl: () => void;
   updateRestZahl: (position: 'top' | 'bottom', restZahl: number) => void;
@@ -102,10 +109,18 @@ type GameStore = GameState & {
   setIsGameInfoOpen: (isOpen: boolean) => void;
   determineNextStartingPlayer: () => number;
   startNewGame: () => void;
+  resetGamePoints: () => void;
+  undoNewGame: () => void;
+  getState: () => GameState;
 };
 
 // Neue Typen
 type Multiplier = 2 | 3 | 4 | 5 | 6 | 7;
+
+type TeamPositions = {
+  top: number;
+  bottom: number;
+};
 
 // Hilfsfunktionen
 const createStateSnapshot = (state: Partial<GameState>): ScoreHistoryEntry => ({
@@ -124,15 +139,11 @@ const createStateSnapshot = (state: Partial<GameState>): ScoreHistoryEntry => ({
   isRoundCompleted: state.isRoundCompleted ?? false
 });
 
-const createScoreUpdate = (state: GameState, position: 'top' | 'bottom', points: number) => {
-  const newTotalPoints: { top: number; bottom: number } = {
-    ...state.totalPoints,
-    [position]: state.totalPoints[position] + points
-  };
-
+const createScoreUpdate = (state: GameState, position: 'top' | 'bottom', points: number): TeamPositions => {
+  const newScore = Math.max(0, state[`${position}Score`] + points);
   return {
-    [`${position}Score`]: state[`${position}Score`] + points,
-    totalPoints: newTotalPoints
+    top: position === 'top' ? newScore : state.topScore,
+    bottom: position === 'bottom' ? newScore : state.bottomScore
   };
 };
 
@@ -244,8 +255,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       };
 
       const newTotalPoints = {
-        top: position === 'top' ? state.totalPoints.top + score : state.totalPoints.top,
-        bottom: position === 'bottom' ? state.totalPoints.bottom + score : state.totalPoints.bottom
+        top: position === 'top' ? state.totalPoints.top + score : state.totalPoints.top + opponentScore,
+        bottom: position === 'bottom' ? state.totalPoints.bottom + score : state.totalPoints.bottom + opponentScore
       };
 
       const newState = {
@@ -343,6 +354,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
       }
     })),
+
+  synchronizeStricheCounts: (teams: Teams) => {
+    const stricheCounts: GameStore['stricheCounts'] = { top: {}, bottom: {} };
+    
+    (['top', 'bottom'] as const).forEach((position) => {
+      const team = teams[position];
+      if (!team) return;
+      
+      Object.entries(team.striche).forEach(([type, count]) => {
+        if (count > 0) {
+          const strichWert = STRICH_WERTE[type as keyof typeof STRICH_WERTE];
+          stricheCounts[position][strichWert] = count;
+        }
+      });
+    });
+    
+    set({ stricheCounts });
+  },
 
   resetStricheCounts: (position: 'top' | 'bottom') => set((state) => ({
     stricheCounts: {
@@ -621,4 +650,39 @@ export const useGameStore = create<GameStore>((set, get) => ({
       roundStartTime: Date.now()
     };
   }),
+
+  resetGamePoints: () => set((state) => ({
+    topScore: 0,
+    bottomScore: 0,
+    topRounds: 0,
+    bottomRounds: 0,
+    weisPoints: { top: 0, bottom: 0 },
+    currentRound: 1,
+    stricheCounts: { top: {}, bottom: {} },
+    restZahlen: { top: 0, bottom: 0 },
+    currentRoundWeis: [],
+    scoreHistory: state.scoreHistory,
+    currentHistoryIndex: state.currentHistoryIndex,
+    teamTimings: {
+      top: { totalTime: 0, lastStartTime: null },
+      bottom: { totalTime: 0, lastStartTime: null }
+    }
+  })),
+
+  undoNewGame: () => set((state) => {
+    // Hole den letzten Eintrag aus der Historie
+    const lastHistoryEntry = state.scoreHistory[state.scoreHistory.length - 1];
+    
+    if (!lastHistoryEntry) return state;
+
+    return {
+      ...state,
+      topScore: lastHistoryEntry.topScore,
+      bottomScore: lastHistoryEntry.bottomScore,
+      currentRound: lastHistoryEntry.currentRound,
+      currentPlayer: lastHistoryEntry.currentPlayer
+    };
+  }),
+
+  getState: () => get(),
 }));

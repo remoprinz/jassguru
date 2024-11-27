@@ -7,7 +7,7 @@ export interface TeamScore {
   rounds: number;
   points: number;
   weisPoints: number;
-  stricheCounts: Record<number, number>;
+  stricheCounts: Record<string, number>;
   restZahl: number;
   striche: StrichTyp;
 }
@@ -36,8 +36,8 @@ export interface ScoreHistoryEntry {
   currentRound: number;
   farbe?: string;
   stricheCounts: { 
-    top: Record<number, number>; 
-    bottom: Record<number, number>; 
+    top: Record<string, number>; 
+    bottom: Record<string, number>; 
   };
   restZahlen: { 
     top: number; 
@@ -79,6 +79,7 @@ export interface TeamStand extends TeamState {
       points: number;
     };
   };
+  jassPoints: number;
 }
 
 // Neuer Typ für Matsch-Ergebnis
@@ -101,6 +102,7 @@ export interface JassActions {
   startNewGame: () => void;
   finalizeGame: () => void;
   calculateTotalPoints: () => { top: number; bottom: number };
+  calculateTotalJassPoints: () => { top: number; bottom: number };
   getGameHistory: () => GameEntry[];
   getCurrentGame: () => GameEntry | undefined;
 }
@@ -122,19 +124,48 @@ export interface JassState {
   matschPressStartTime: number | null;
   games: GameEntry[];
   currentGameId: number;
+  currentGameCache: {
+    stricheCounts: GameStore['stricheCounts'];
+    scores: {
+      top: number;
+      bottom: number;
+    };
+    teams: Teams;
+  } | null;
 }
 
 // Store-Typ
 export interface JassStore extends JassState, JassActions {
   resetJass: () => void;
+  undoNewGame: () => void;
+  canNavigateBack: () => boolean;
+  canNavigateForward: () => boolean;
+  navigateToGame: (gameId: number) => void;
+  navigateToPreviousGame: () => boolean;
+  navigateToNextGame: () => boolean;
+  getVisibleGames: () => GameEntry[];
+  saveCurrentGameToCache: () => void;
+  restoreCurrentGameFromCache: () => void;
+  getState: () => JassState;
+  setState: (partial: Partial<JassState>) => void;
+  subscribe: (listener: (state: JassState) => void) => () => void;
 }
+
+// Strich-Werte für die Berechnung
+export const STRICH_WERTE = {
+  berg: 1,          // 1 Punkt für Berg
+  sieg: 2,          // 2 Punkte für Sieg/Bedanken
+  matsch: 1,        // 1 Punkt für Matsch
+  schneider: 2,     // 2 Punkte für Schneider
+  kontermatsch: 2   // 2 Punkte für Kontermatsch (nicht 3!)
+} as const;
 
 // Hilfsfunktionen
 export const convertToDisplayStriche = (striche: StrichTyp): StricheDisplay => {
   // Vertikale Striche (berg, sieg, schneider)
   const vertikal = (striche.berg || 0) + 
                    ((striche.sieg || 0) * 2) + 
-                   ((striche.schneider || 0) * 2);
+                   (striche.schneider || 0);
   
   // Horizontale Striche (nur matsch und kontermatsch)
   const horizontal = (striche.matsch || 0) + 
@@ -152,17 +183,9 @@ export const adaptGameHistoryToJassFormat = (
 export interface GameEntry {
   id: number;
   timestamp: number;
+  isActive?: boolean;
   teams: {
-    [key in TeamPosition]: {
-      striche: StrichTyp;
-      total: number;
-      playerStats: {
-        [playerId: number]: {
-          striche: number;
-          points: number;
-        };
-      };
-    };
+    [key in TeamPosition]: TeamStand;
   };
   milestones: {
     bergTimestamp?: number;
@@ -170,3 +193,62 @@ export interface GameEntry {
     schneiderTimestamp?: number;
   };
 }
+
+// Teams-Type für Store-Zugriffe
+export interface Teams {
+  top: TeamStand;
+  bottom: TeamStand;
+}
+
+// Store-Selector Types
+export type JassSelector<T> = (state: JassStore) => T;
+export type TeamSelector = JassSelector<Teams>;
+
+// GameStore Interface aktualisieren
+export interface GameStore {
+  topScore: number;
+  bottomScore: number;
+  stricheCounts: {
+    top: Record<string, number>;
+    bottom: Record<string, number>;
+  };
+  restZahlen: {
+    top: number;
+    bottom: number;
+  };
+}
+
+// JassStore Interface erweitern
+export interface JassState {
+  games: GameEntry[];
+  currentGameId: number;
+  teams: Teams;
+  // ... andere State-Properties
+}
+
+export interface JassStore extends JassState {
+  // Actions
+  resetJass: () => void;
+  finalizeGame: () => void;
+  startNewGame: () => void;
+  navigateToNextGame: () => boolean;
+  navigateToPreviousGame: () => boolean;
+  calculateTotalPoints: () => { top: number; bottom: number };
+  calculateTotalJassPoints: () => { top: number; bottom: number };
+  // ... andere Actions
+}
+
+export interface StoreSelector<T> {
+  (state: T): Partial<T>;
+}
+
+export interface StrichCount {
+  type: keyof typeof STRICH_WERTE;
+  count: number;
+}
+
+export interface TeamStricheCounts {
+  top: StrichCount[];
+  bottom: StrichCount[];
+}
+

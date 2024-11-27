@@ -58,7 +58,10 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
   const bedankenButton = useChargeButton({
     type: 'bedanken',
     onStart: () => startBedankenCharge(lastDoubleClickPosition!),
-    onStop: () => stopBedankenCharge(lastDoubleClickPosition!),
+    onStop: () => {
+      stopBedankenCharge(lastDoubleClickPosition!);
+      pauseGame();
+    },
     chargeAmount: bedankenChargeAmount,
     condition: lastDoubleClickPosition ? hasBergForTeam(lastDoubleClickPosition) : false,
     team: lastDoubleClickPosition

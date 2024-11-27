@@ -1,7 +1,7 @@
 import { MAX_SCORE } from '../config/GameSettings';
 
 export function validateAndClampScore(score: number): number {
-  return Math.max(0, Math.min(score, 5000));
+  return Math.max(0, score); // Nur negative Zahlen verhindern
 }
 
 export function calculateOpponentScore(score: number): number {

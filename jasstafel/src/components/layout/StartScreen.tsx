@@ -5,13 +5,24 @@ import { motion } from 'framer-motion';
 const StartScreen: React.FC = () => {
   const { startGame } = useGameStore();
 
+  const handleStart = () => {
+    const closeEvent = new CustomEvent('closeMenu', {
+      detail: { direction: 'up', position: 'bottom', isClosing: true }
+    });
+    window.dispatchEvent(closeEvent);
+    
+    setTimeout(() => {
+      startGame();
+    }, 300);
+  };
+
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-90 z-50">
       <motion.button
         initial={{ scale: 0.9 }}
         animate={{ scale: 1 }}
         whileTap={{ scale: 0.95 }}
-        onClick={startGame}
+        onClick={handleStart}
         className="bg-green-600 text-white text-2xl font-bold py-6 px-12 rounded-xl shadow-lg hover:bg-green-500 transition-colors"
       >
         START

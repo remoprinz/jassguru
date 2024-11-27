@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaExclamationTriangle } from 'react-icons/fa';
+import { usePressableButton } from '../../hooks/usePressableButton';
 
 interface ResetWarningProps {
   show: boolean;
@@ -9,6 +10,9 @@ interface ResetWarningProps {
 }
 
 const ResetWarning: React.FC<ResetWarningProps> = ({ show, onConfirm, onDismiss }) => {
+  const backButton = usePressableButton(onDismiss);
+  const confirmButton = usePressableButton(onConfirm);
+
   return (
     <AnimatePresence>
       {show && (
@@ -28,14 +32,22 @@ const ResetWarning: React.FC<ResetWarningProps> = ({ show, onConfirm, onDismiss 
             </div>
             <div className="flex justify-between gap-4">
               <button
-                onClick={onDismiss}
-                className="flex-1 bg-gray-600 text-white px-6 py-2 rounded-full hover:bg-gray-700 transition-colors text-lg font-semibold"
+                {...backButton.handlers}
+                className={`
+                  flex-1 bg-gray-600 text-white px-6 py-2 rounded-xl font-semibold
+                  hover:bg-gray-700 border-gray-900
+                  ${backButton.buttonClasses}
+                `}
               >
                 Zurück
               </button>
               <button
-                onClick={onConfirm}
-                className="flex-1 bg-yellow-600 text-white px-6 py-2 rounded-full hover:bg-yellow-700 transition-colors text-lg font-semibold"
+                {...confirmButton.handlers}
+                className={`
+                  flex-1 bg-yellow-600 text-white px-6 py-2 rounded-xl font-semibold
+                  hover:bg-yellow-700 border-yellow-900
+                  ${confirmButton.buttonClasses}
+                `}
               >
                 Beenden
               </button>

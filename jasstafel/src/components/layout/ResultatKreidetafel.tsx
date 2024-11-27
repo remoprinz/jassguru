@@ -1,178 +1,301 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { animated, useSpring } from 'react-spring';
 import { FiRotateCcw, FiX } from 'react-icons/fi';
 import { useGameStore } from '../../store/gameStore';
 import { useJassStore } from '../../store/jassStore';
 import ResultatZeile from '../game/ResultatZeile';
 import format from 'date-fns/format';
-import { de } from 'date-fns/locale';
 import { 
-  StricheDisplay,
   convertToDisplayStriche
 } from '../../types/jass';
-import NewGameWarning from '../notifications/NewGameWarning';
-import { defaultGameSettings } from '../../config/GameSettings';
+import { StatisticId } from '../../types/statistikTypes';
+import useSwipeAnimation from '../../components/animations/useSwipeAnimation';
+import { usePressableButton } from '../../hooks/usePressableButton';
+import { STATISTIC_MODULES } from '../../statistics/registry';
+import { StricheStatistik } from '../../statistics/StricheStatistik';
+import { JasspunkteStatistik } from '../../statistics/JasspunkteStatistik';
+import { GameEntry, JassStore, GameStore, Teams, TeamStand } from '../../types/jass';
 
 interface ResultatKreidetafelProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-// Nur lokale Typdefinition für ResultatZeileData
-interface ResultatZeileData {
-  spielNummer: number;
-  topTeam: {
-    striche: StricheDisplay;
+// Game Interface
+interface Game {
+  id: number;
+  isFinalized: boolean;
+  scores: {
+    top: number;
+    bottom: number;
   };
-  bottomTeam: {
-    striche: StricheDisplay;
+  teams: {
+    top: TeamStand;
+    bottom: TeamStand;
   };
+  timestamp: number;
 }
 
-const calculateTotalStriche = () => {
-  const { teams } = useJassStore.getState();
-  const { bergScore } = defaultGameSettings;  // Dynamischer Berg-Score aus den Einstellungen
-  
-  // Basis-Punkte berechnen
-  const bottomTotal = (
-    (teams.bottom.striche.matsch || 0) +         // 1 Punkt pro Matsch
-    (teams.bottom.striche.kontermatsch || 0) +   // 1 Punkt pro Kontermatsch
-    (teams.bottom.striche.berg || 0) +           // 1 Punkt für Berg
-    ((teams.bottom.striche.sieg || 0) * 2) +     // 2 Punkte für Sieg/Bedanken
-    ((teams.bottom.striche.schneider || 0) * 2)  // 2 Punkte für Schneider
-  );
-  
-  const topTotal = (
-    (teams.top.striche.matsch || 0) +            // 1 Punkt pro Matsch
-    (teams.top.striche.kontermatsch || 0) +      // 1 Punkt pro Kontermatsch
-    (teams.top.striche.berg || 0) +              // 1 Punkt für Berg
-    ((teams.top.striche.sieg || 0) * 2) +        // 2 Punkte für Sieg/Bedanken
-    ((teams.top.striche.schneider || 0) * 2)     // 2 Punkte für Schneider
-  );
+// Bestehende Interfaces
+interface JassState extends JassStore {
+  games: GameEntry[];
+  currentGameId: number;
+  teams: Teams;
+  calculateTotalPoints: () => { top: number; bottom: number };
+  calculateTotalJassPoints: () => { top: number; bottom: number };
+}
 
-  // Schneider-Logik mit dynamischem Berg-Score
-  const bottomScore = teams.bottom.total || 0;
-  const topScore = teams.top.total || 0;
-  
-  let finalBottom = bottomTotal;
-  let finalTop = topTotal;
+interface GameState extends GameStore {
+  topScore: number;
+  bottomScore: number;
+}
 
-  // Wenn ein Team gewonnen hat und das andere Team den Berg nicht erreicht hat
-  if (bottomTotal > 0 && topScore < bergScore) {
-    finalBottom += 2; // 2 zusätzliche Punkte für Schneider
-  }
-  
-  if (topTotal > 0 && bottomScore < bergScore) {
-    finalTop += 2; // 2 zusätzliche Punkte für Schneider
-  }
+// Store-Selektoren mit korrekten Typen
+const jassSelector = (state: JassStore) => ({
+  games: state.games,
+  currentGameId: state.currentGameId,
+  teams: state.teams,
+  calculateTotalPoints: state.calculateTotalPoints,
+  calculateTotalJassPoints: state.calculateTotalJassPoints
+});
 
-  return {
-    top: finalTop,
-    bottom: finalBottom
-  };
+const gameSelector = (state: GameStore) => ({
+  topScore: state.topScore,
+  bottomScore: state.bottomScore
+});
+
+// Hook mit korrekter Typisierung
+const useGameData = () => {
+  const jassState = useJassStore(jassSelector);
+  const gameState = useGameStore(gameSelector);
+
+  return useMemo(() => ({
+    currentGame: jassState.games.find((game: GameEntry) => game.id === jassState.currentGameId),
+    scores: {
+      top: gameState.topScore,
+      bottom: gameState.bottomScore
+    }
+  }), [jassState.currentGameId, gameState.topScore, gameState.bottomScore]);
 };
 
 const ResultatKreidetafel: React.FC<ResultatKreidetafelProps> = ({ isOpen, onClose }) => {
+  // State Hooks
   const [isFlipped, setIsFlipped] = useState(false);
-  const [showNewGameWarning, setShowNewGameWarning] = useState(false);
+  const [currentStatistic, setCurrentStatistic] = useState<StatisticId>('striche');
   const [displayTotals, setDisplayTotals] = useState({ top: 0, bottom: 0 });
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
   
-  // Zustandsvariablen aus dem Store (nur einmal deklarieren)
-  const games = useJassStore((state) => state.games);
-  const teams = useJassStore((state) => state.teams);
-  const currentGameId = useJassStore((state) => state.currentGameId);
+  // Refs
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Stable Referenzen für Store-Zugriffe
+  const stableJassStore = useRef(useJassStore.getState());
+  const stableGameStore = useRef(useGameStore.getState());
+  
+  // Store-Zugriffe mit useCallback
+  const getJassState = useCallback(() => jassSelector(stableJassStore.current), []);
+  const getGameState = useCallback(() => gameSelector(stableGameStore.current), []);
 
-  // Initialisiere erstes Spiel beim Mounten
-  useEffect(() => {
-    if (games.length === 0) {
-      useJassStore.getState().startNewGame();
-    }
-  }, []);
+  // Memoized Werte für Performance
+  const visibleGames = useMemo(() => {
+    return getJassState().games.filter(game => game.id <= getJassState().currentGameId);
+  }, [getJassState().games, getJassState().currentGameId]);
 
-  // Aktualisiere Totals wenn sich Teams oder Spiele ändern
-  useEffect(() => {
-    const totals = calculateTotalStriche();
-    setDisplayTotals(totals);
-  }, [teams, games]);
+  const canNavigateBack = useMemo(() => {
+    return getJassState().currentGameId > 1;
+  }, [getJassState().currentGameId]);
 
-  const handleNewGame = () => {
-    setShowNewGameWarning(true);
-  };
+  const canNavigateForward = useMemo(() => {
+    return getJassState().currentGameId < getJassState().games.length;
+  }, [getJassState().currentGameId, getJassState().games.length]);
 
-  const handleNewGameConfirm = () => {
-    const gameStore = useGameStore.getState();
-    
-    // 1. Aktuelles Spiel finalisieren
-    useJassStore.getState().finalizeGame();
-    
-    // 2. Neues Spiel in beiden Stores starten
-    useJassStore.getState().startNewGame();
-    gameStore.startNewGame();
-    
-    // 3. Nur Warning schließen
-    setShowNewGameWarning(false);
-  };
-
-  const handleNewGameDismiss = () => {
-    setShowNewGameWarning(false);
-  };
-
+  // Computed Values
+  const showJassPoints = currentStatistic === 'jasspunkte';
+  
+  // Animations
   const springProps = useSpring({
     opacity: isOpen ? 1 : 0,
     transform: `scale(${isOpen ? 1 : 0.95}) rotate(${isFlipped ? '180deg' : '0deg'})`,
     config: { mass: 1, tension: 300, friction: 20 }
   });
+  
+  const tableAnimation = useSwipeAnimation({
+    initialPosition: 0,
+    maxOffset: 100,
+    position: 'bottom'
+  });
+
+  // Effects
+  useEffect(() => {
+    if (getJassState().games.length === 0) {
+      useJassStore.getState().startNewGame();
+    }
+  }, []);
+
+  const totals = useMemo(() => {
+    const jassState = getJassState();
+    return showJassPoints ? 
+      jassState.calculateTotalJassPoints() : 
+      jassState.calculateTotalPoints();
+  }, [showJassPoints, getJassState]);
+
+  useEffect(() => {
+    setDisplayTotals(totals);
+  }, [totals]);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    } else {
+      document.body.style.overflow = '';
+    }
+    
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (tableContainerRef.current) {
+      const container = tableContainerRef.current;
+      const height = container.scrollHeight;
+      container.style.height = height + 'px';
+      
+      setTimeout(() => {
+        container.style.height = 'auto';
+      }, 300);
+    }
+  }, [showJassPoints]);
+
+  // Effect für Store-Updates
+  useEffect(() => {
+    const unsubJass = useJassStore.subscribe(
+      (state) => void (stableJassStore.current = state)
+    );
+    const unsubGame = useGameStore.subscribe(
+      (state) => void (stableGameStore.current = state)
+    );
+    return () => {
+      unsubJass();
+      unsubGame();
+    };
+  }, []);
+
+  // Event Handlers
+  const handleBack = useCallback(() => {
+    if (canNavigateBack) {
+      useJassStore.getState().navigateToPreviousGame();
+    }
+  }, [canNavigateBack]);
+
+  const handleNewGame = useCallback(() => {
+    const jassStore = useJassStore.getState();
+    const gameStore = useGameStore.getState();
+    
+    // Validierung
+    const hasPoints = gameStore.topScore > 0 || gameStore.bottomScore > 0;
+    if (!hasPoints) {
+      console.warn('Keine Punkte vorhanden');
+      return;
+    }
+
+    if (jassStore.canNavigateForward()) {
+      // Navigation zu einem existierenden Spiel
+      jassStore.navigateToNextGame();
+    } else {
+      // Neues Spiel erstellen
+      jassStore.finalizeGame();
+      gameStore.resetGamePoints();
+      gameStore.startNewGame();
+      jassStore.startNewGame();
+    }
+
+    // Totals in beiden Fällen aktualisieren
+    const totals = showJassPoints ? 
+      jassStore.calculateTotalJassPoints() : 
+      jassStore.calculateTotalPoints();
+    setDisplayTotals(totals);
+  }, [showJassPoints]);
+
+  const backButton = usePressableButton(handleBack);
+  const newGameButton = usePressableButton(handleNewGame);
+
+  const handleSwipe = (direction: 'left' | 'right') => {
+    const currentModule = STATISTIC_MODULES.find(mod => mod.id === currentStatistic);
+    const currentIndex = STATISTIC_MODULES.findIndex(mod => mod.id === currentStatistic);
+    const nextIndex = direction === 'left' ? 
+      (currentIndex + 1) % STATISTIC_MODULES.length : 
+      (currentIndex - 1 + STATISTIC_MODULES.length) % STATISTIC_MODULES.length;
+    
+    const nextModule = STATISTIC_MODULES[nextIndex];
+    setCurrentStatistic(nextModule.id);
+    
+    tableAnimation.animateSwipe(direction);
+    
+    const totals = nextModule.calculateData(useJassStore.getState());
+    setDisplayTotals(totals);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+
+    if (isLeftSwipe || isRightSwipe) {
+      handleSwipe(isLeftSwipe ? 'left' : 'right');
+    }
+
+    setTouchStart(null);
+    setTouchEnd(null);
+  };
 
   if (!isOpen) return null;
 
   const currentDate = format(new Date(), 'd.M.yyyy');
-
-  // Berechnung der Zeilen-Daten mit aktuellem Spiel
-  const zeilenData = React.useMemo(() => {
-    // Abgeschlossene Spiele
-    const completedGames = games
-      .filter(game => game.id !== currentGameId)
-      .map(game => ({
-        spielNummer: game.id,
-        topTeam: {
-          striche: convertToDisplayStriche(game.teams.bottom.striche)  // Getauscht
-        },
-        bottomTeam: {
-          striche: convertToDisplayStriche(game.teams.top.striche)     // Getauscht
-        }
-      }));
-
-    // Aktuelles Spiel
-    const currentGameData = {
-      spielNummer: currentGameId,
-      topTeam: {
-        striche: convertToDisplayStriche(teams.bottom.striche)         // Getauscht
-      },
-      bottomTeam: {
-        striche: convertToDisplayStriche(teams.top.striche)           // Getauscht
-      }
-    };
-
-    return [...completedGames, currentGameData];
-  }, [games, teams, currentGameId]);
+  const newGameButtonText = canNavigateForward ? "Nächstes Spiel" : "Neues Spiel";
 
   return (
     <div 
       className="fixed inset-0 flex items-center justify-center z-50"
       onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
+        if (e.target === e.currentTarget) onClose();
       }}
     >
       <animated.div 
         style={springProps}
-        className="relative w-11/12 max-w-2xl bg-gray-800 rounded-xl p-6 shadow-lg"
+        className="relative w-11/12 max-w-md bg-gray-800 bg-opacity-95 rounded-xl p-6 shadow-lg select-none"
         onClick={(e) => e.stopPropagation()}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
-        {/* Header */}
+        {/* Header mit Animation */}
         <div className="text-center mb-4">
-          <h2 className="text-2xl font-bold text-white">Jassergebnis</h2>
+          <animated.div
+            style={{
+              opacity: tableAnimation.mainOpacity,
+              transform: tableAnimation.y.to(y => `translateX(${y}px)`)
+            }}
+          >
+            <h2 className="text-2xl font-bold text-white">
+              {STATISTIC_MODULES.find(mod => mod.id === currentStatistic)?.title || 'Jassergebnis'}
+            </h2>
+          </animated.div>
           <p className="text-gray-400">{currentDate}</p>
         </div>
 
@@ -197,81 +320,135 @@ const ResultatKreidetafel: React.FC<ResultatKreidetafelProps> = ({ isOpen, onClo
           <FiX size={24} />
         </button>
 
-        {/* Teams Header - korrigierte Reihenfolge */}
+        {/* Teams Header */}
         <div className="grid grid-cols-5 gap-4 mb-2">
           <div></div>
           <div className="text-center text-white col-span-2">Team 1 </div>
           <div className="text-center text-white col-span-2">Team 2 </div>
         </div>
 
-        {/* Spielernamen - korrigierte Reihenfolge */}
+        {/* Spielernamen */}
         <div className="grid grid-cols-5 gap-4 mb-4">
           <div></div>
-          <div className="text-center text-gray-400">Frank</div>
-          <div className="text-center text-gray-400">Remo</div>
-          <div className="text-center text-gray-400">Michi</div>
-          <div className="text-center text-gray-400">Tobi</div>
+          <div className="text-center text-gray-400">Spieler 1</div>
+          <div className="text-center text-gray-400">Spieler 2</div>
+          <div className="text-center text-gray-400">Spieler 3</div>
+          <div className="text-center text-gray-400">Spieler 4</div>
         </div>
 
-        {/* Striche - erste Spalte schmaler, Rest bleibt gleich */}
+        {/* Statistik-Komponenten */}
         <div className="max-h-96 overflow-y-auto mb-4 border-t border-b border-gray-700">
-          <div className="text-white">
-            {zeilenData.length > 0 ? (
-              zeilenData.map((zeile) => (
+          <div className="transition-[height] duration-300 ease-in-out">
+            <animated.div 
+              style={{
+                opacity: tableAnimation.mainOpacity,
+                transform: tableAnimation.y.to(y => `translateX(${y}px)`)
+              }}
+              className="text-white"
+            >
+              {getJassState().games.length > 0 ? (
+                <div key={`stats-container-${currentStatistic}`}>
+                  {currentStatistic === 'striche' ? (
+                    <StricheStatistik
+                      teams={getJassState().teams as Teams}
+                      games={visibleGames}
+                      currentGameId={getJassState().currentGameId}
+                      onSwipe={handleSwipe}
+                    />
+                  ) : (
+                    <JasspunkteStatistik
+                      teams={getJassState().teams}
+                      games={visibleGames}
+                      currentGameId={getJassState().currentGameId}
+                      onSwipe={handleSwipe}
+                    />
+                  )}
+                </div>
+              ) : (
                 <ResultatZeile
-                  key={zeile.spielNummer}
-                  spielNummer={zeile.spielNummer}
-                  topTeam={zeile.topTeam}
-                  bottomTeam={zeile.bottomTeam}
+                  key="initial-resultat"
+                  spielNummer={1}
+                  topTeam={{
+                    striche: convertToDisplayStriche(getJassState().teams.top.striche),
+                    jassPoints: 0
+                  }}
+                  bottomTeam={{
+                    striche: convertToDisplayStriche(getJassState().teams.bottom.striche),
+                    jassPoints: 0
+                  }}
+                  showJassPoints={currentStatistic === 'jasspunkte'}
                 />
-              ))
-            ) : (
-              <ResultatZeile
-                spielNummer={1}
-                topTeam={{
-                  striche: convertToDisplayStriche(teams.top.striche)
-                }}
-                bottomTeam={{
-                  striche: convertToDisplayStriche(teams.bottom.striche)
-                }}
-              />
-            )}
+              )}
+            </animated.div>
           </div>
         </div>
 
-        {/* Totals - Reihenfolge korrigiert */}
-        <div className="grid grid-cols-5 gap-4 mb-16">
+        {/* Totals */}
+        <div className="grid grid-cols-5 gap-4 mb-2">
           <div className="text-gray-400 text-center">Total:</div>
-          <div className="text-2xl font-bold text-white text-center col-span-2">
-            {displayTotals.bottom}  {/* Team 1 (unten) */}
-          </div>
-          <div className="text-2xl font-bold text-white text-center col-span-2">
-            {displayTotals.top}     {/* Team 2 (oben) */}
+          <animated.div className="col-span-4 grid grid-cols-2 gap-4"
+            style={{
+              opacity: tableAnimation.mainOpacity,
+              transform: tableAnimation.y.to(y => `translateX(${y}px)`)
+            }}
+          >
+            <div className="text-2xl font-bold text-white text-center">
+              {displayTotals.bottom}
+            </div>
+            <div className="text-2xl font-bold text-white text-center">
+              {displayTotals.top}
+            </div>
+          </animated.div>
+        </div>
+
+        {/* Statistik Dots */}
+        <div className="flex justify-center my-6">
+          <div className="flex justify-center items-center space-x-2 bg-gray-700/50 px-1.5 py-1 rounded-full">
+            <div 
+              className={
+                currentStatistic === 'striche' 
+                  ? "w-2 h-2 rounded-full bg-white/80 shadow-sm transition-all duration-200" 
+                  : "w-2 h-2 rounded-full bg-gray-500/50 transition-all duration-200"
+              }
+            />
+            <div 
+              className={
+                currentStatistic === 'jasspunkte' 
+                  ? "w-2 h-2 rounded-full bg-white/80 shadow-sm transition-all duration-200" 
+                  : "w-2 h-2 rounded-full bg-gray-500/50 transition-all duration-200"
+              }
+            />
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-3 gap-4">
-          <button className="bg-red-600 text-white py-2 px-4 rounded">
+        <div className="grid grid-cols-2 gap-4">
+          <button 
+            {...backButton.handlers}
+            disabled={!canNavigateBack}
+            className={`
+              py-2 px-4 text-white rounded-xl font-bold
+              transition-all duration-150
+              ${canNavigateBack ? 'bg-gray-600 hover:bg-gray-700 border-gray-900' : 'bg-gray-500 cursor-not-allowed opacity-50'}
+              border-b-4 border-t border-l border-r
+              ${backButton.buttonClasses}
+            `}
+          >
             Zurück
           </button>
-          <button className="bg-blue-600 text-white py-2 px-4 rounded">
-            Statistik
-          </button>
           <button 
-            onClick={handleNewGame}
-            className="bg-green-600 text-white py-2 px-4 rounded"
+            {...newGameButton.handlers}
+            className={`
+              py-2 px-4 text-white rounded-xl font-bold
+              transition-all duration-150
+              bg-green-600 hover:bg-green-700 border-green-900
+              border-b-4 border-t border-l border-r
+              ${newGameButton.buttonClasses}
+            `}
           >
-            Neues Spiel
+            {newGameButtonText}
           </button>
         </div>
-
-        {/* New Game Warning */}
-        <NewGameWarning
-          show={showNewGameWarning}
-          onConfirm={handleNewGameConfirm}
-          onDismiss={handleNewGameDismiss}
-        />
       </animated.div>
     </div>
   );

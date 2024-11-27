@@ -233,6 +233,20 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     }
   }, [mounted]);
 
+  useEffect(() => {
+    const handleScroll = () => {
+      if (isResultatOpen) {
+        window.scrollTo(0, 0);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: false });
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [isResultatOpen]);
+
   return (
     <div 
       className="relative w-full h-full overflow-hidden bg-chalk-black prevent-interactions"

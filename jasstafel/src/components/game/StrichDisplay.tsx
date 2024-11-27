@@ -52,7 +52,7 @@ const defaultStyle: StrichStyle = {
 const StrichContainerStyled = styled('div')<{ type: 'horizontal' | 'vertikal' }>(({ type }) => ({
   position: 'relative',
   width: '30%',
-  minHeight: type === 'horizontal' ? '20px' : '35px',
+  minHeight: type === 'horizontal' ? '20px' : '32px',
   display: 'flex',
   flexDirection: 'row',
   alignItems: 'center',
@@ -61,7 +61,7 @@ const StrichContainerStyled = styled('div')<{ type: 'horizontal' | 'vertikal' }>
   transformOrigin: 'center left',
   marginBottom: '8px',
   ...(type === 'horizontal' && {
-    marginTop: '15px',
+    marginTop: '12px',
     marginLeft: '20px',
   })
 }));

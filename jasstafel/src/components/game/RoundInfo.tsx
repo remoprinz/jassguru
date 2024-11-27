@@ -22,7 +22,7 @@ const RoundInfo: React.FC<RoundInfoProps> = ({
     from: { opacity: 0 },
     to: { opacity: isOpen ? 0 : opacity },
     config: { duration: 150 },
-    delay: isOpen ? 0 : 500,
+    delay: isOpen ? 0 : 750,
     immediate: isOpen
   });
 

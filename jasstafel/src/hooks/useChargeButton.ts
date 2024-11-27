@@ -1,6 +1,7 @@
 // src/hooks/useChargeButton.ts
 import { useState, useEffect } from 'react';
 import type { TouchEvent, MouseEvent } from 'react';
+import { useJassStore } from '../store/jassStore';
 
 interface ChargeButtonConfig {
   type: 'berg' | 'bedanken';
@@ -35,7 +36,17 @@ export const useChargeButton = ({
   team
 }: ChargeButtonConfig): ChargeButtonReturn => {
   const [isPressed, setIsPressed] = useState(false);
-  const [isButtonActive, setIsButtonActive] = useState(false);
+  
+  const isButtonActive = useJassStore(state => {
+    if (!team) return false;
+    
+    if (type === 'berg') {
+      return state.teams[team].bergActive;
+    } else {
+      const hasBerg = state.teams.top.bergActive || state.teams.bottom.bergActive;
+      return hasBerg && state.teams[team].bedankenActive;
+    }
+  });
 
   const handleStart = (e?: ChargeButtonEvent) => {
     e?.preventDefault();
@@ -47,10 +58,6 @@ export const useChargeButton = ({
     e?.preventDefault();
     setIsPressed(false);
     onStop();
-    
-    if (condition === undefined || condition) {
-      setIsButtonActive(!isButtonActive);
-    }
   };
 
   return {

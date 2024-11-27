@@ -141,6 +141,20 @@ const SplitContainer = forwardRef<HTMLDivElement, SplitContainerProps>(({
     }
   };
 
+  useEffect(() => {
+    const handleCloseMenu = (event: CustomEvent) => {
+      const { direction, position, isClosing } = event.detail;
+      if (isClosing) {
+        onSwipe('up', 'bottom');
+      }
+    };
+
+    window.addEventListener('closeMenu', handleCloseMenu as EventListener);
+    return () => {
+      window.removeEventListener('closeMenu', handleCloseMenu as EventListener);
+    };
+  }, [onSwipe]);
+
   return (
     <animated.div 
       style={{ 
