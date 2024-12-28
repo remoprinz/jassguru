@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@react-spring/web": "^9.7.5",
     "@types/date-fns": "^2.5.3",
     "date-fns": "^4.1.0",
     "mitt": "^3.0.1",
