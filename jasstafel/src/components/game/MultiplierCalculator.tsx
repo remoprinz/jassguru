@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { create } from 'zustand';
 import { useUIStore } from '../../store/uiStore';
 import { FARBE_MODES } from '../../config/FarbeSettings';
-import { BERG_SCORE, SIEG_SCORE, SCHNEIDER_SCORE } from '../../config/GameSettings';
 import type { TeamPosition, TeamScores } from '../../types/jass';
+import type { ScoreSettings } from '../../types/jass';
 
 // Multiplier-Liste für den Zyklus (1x wird nicht benötigt)
 const multipliers = Array.from(new Set(FARBE_MODES.map(mode => mode.multiplier)))
@@ -23,27 +23,45 @@ interface MultiplierState {
 }
 
 export const useMultiplierStore = create<MultiplierState>((set, get) => ({
-  currentMultiplier: Math.max(...multipliers.filter(m => m > 1)),  // Standardwert
+  currentMultiplier: Math.max(...multipliers.filter(m => m > 1)),
   setMultiplier: (value: Multiplier) => set({ currentMultiplier: value }),
   getDividedPoints: (points) => Math.floor(points / get().currentMultiplier),
-  getRemainingPoints: (team, scores) => {
-    const teamScore = scores[team];
+  getRemainingPoints: (team: TeamPosition, scores: TeamScores) => {
     const { scoreSettings } = useUIStore.getState();
     
-    // Hole die benutzerdefinierten Punktzahlen aus den Settings
-    const bergScore = scoreSettings?.bergScore ?? BERG_SCORE;
-    const siegScore = scoreSettings?.siegScore ?? SIEG_SCORE;
-    const schneiderScore = scoreSettings?.schneiderScore ?? SCHNEIDER_SCORE;
+    const teamScore = scores[team];
+    const oppositeTeam = team === 'top' ? 'bottom' : 'top';
+    const oppositeScore = scores[oppositeTeam];
+
+    const siegScore = scoreSettings.values.sieg;
+    const bergScore = scoreSettings.values.berg;
+    const schneiderScore = scoreSettings.values.schneider;
     
     // 1. Wenn Berg deaktiviert ist, direkt SIEG als Ziel
-    if (!scoreSettings?.isBergEnabled) {
+    if (!scoreSettings.enabled.berg) {
       return {
         title: 'SIEG',
         remaining: siegScore - teamScore
       };
     }
+
+    // 2. Wenn das Gegnerteam bereits BERG hat
+    if (oppositeScore >= bergScore) {
+      if (!scoreSettings.enabled.schneider || teamScore >= schneiderScore) {
+        return {
+          title: 'SIEG',
+          remaining: siegScore - teamScore
+        };
+      }
+      if (scoreSettings.enabled.schneider) {
+        return {
+          title: 'SCHNEIDER',
+          remaining: schneiderScore - teamScore
+        };
+      }
+    }
     
-    // 2. Wenn Team BERG hat, dann ist das Ziel SIEG
+    // 3. Wenn Team BERG hat, dann ist das Ziel SIEG
     if (teamScore >= bergScore) {
       return {
         title: 'SIEG',
@@ -51,29 +69,18 @@ export const useMultiplierStore = create<MultiplierState>((set, get) => ({
       };
     }
     
-    // 3. Wenn Team noch kein BERG hat, aber Gegner schon:
-    const oppositeTeam = team === 'top' ? 'bottom' : 'top';
-    const oppositeScore = scores[oppositeTeam];
-    
-    if (oppositeScore >= bergScore) {
-      // Wenn Schneider deaktiviert ist oder wir SCHNEIDER erreicht haben -> SIEG
-      if (!scoreSettings?.isSchneiderEnabled || teamScore >= schneiderScore) {
-        return {
-          title: 'SIEG',
-          remaining: siegScore - teamScore
-        };
-      }
-      // Sonst ist das Ziel SCHNEIDER
+    // 4. Standardfall: Beide Teams haben noch kein BERG
+    if (scoreSettings.enabled.berg) {
       return {
-        title: 'SCHNEIDER',
-        remaining: schneiderScore - teamScore
+        title: 'BERG',
+        remaining: bergScore - teamScore
       };
     }
     
-    // 4. Standardfall: Beide Teams haben noch kein BERG
+    // 5. Fallback: Wenn weder BERG noch SCHNEIDER aktiviert sind -> SIEG
     return {
-      title: 'BERG',
-      remaining: bergScore - teamScore
+      title: 'SIEG',
+      remaining: siegScore - teamScore
     };
   }
 }));
@@ -84,6 +91,8 @@ interface MultiplierCalculatorProps {
   points: number;
   className?: string;
   numberSize?: string;
+  scoreSettings?: ScoreSettings;
+  scores: TeamScores;
 }
 
 const MultiplierCalculator: React.FC<MultiplierCalculatorProps> = ({ 
@@ -91,15 +100,19 @@ const MultiplierCalculator: React.FC<MultiplierCalculatorProps> = ({
   subTitle,
   points, 
   className = "",
-  numberSize = "text-xl"
+  numberSize = "text-xl",
+  scoreSettings,
+  scores
 }) => {
-  const { currentMultiplier, setMultiplier, getDividedPoints } = useMultiplierStore();
+  const { currentMultiplier, setMultiplier, getDividedPoints, getRemainingPoints } = useMultiplierStore();
   const farbeSettings = useUIStore(state => state.farbeSettings);
   const [pressedButton, setPressedButton] = useState(false);
 
   // Aktualisiere den Multiplikator wenn sich die Farbe-Settings ändern
   useEffect(() => {
-    const highestMultiplier = Math.max(...farbeSettings.multipliers.filter(m => m > 1));
+    // Konvertiere das Record-Objekt in ein Array von Werten
+    const multiplierValues = Object.values(farbeSettings.multipliers);
+    const highestMultiplier = Math.max(...multiplierValues.filter(m => m > 1));
     setMultiplier(Math.min(highestMultiplier, 8));
   }, [farbeSettings.multipliers, setMultiplier]);
 
@@ -135,7 +148,7 @@ const MultiplierCalculator: React.FC<MultiplierCalculatorProps> = ({
         <div className="text-center">
           <span className="text-gray-400 text-xs">{currentMultiplier}-fach</span>
           <div className={`${numberSize} font-bold mt-0`}>
-            {getDividedPoints(points)}
+            {getDividedPoints(getRemainingPoints('bottom', scores).remaining)}
           </div>
         </div>
       </div>

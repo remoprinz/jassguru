@@ -11,6 +11,14 @@ import { JasspunkteStatistik } from '../../statistics/JasspunkteStatistik';
 import { useJassStore } from '../../store/jassStore';
 import { useSpring } from 'react-spring';
 import { animated } from 'react-spring';
+import html2canvas from 'html2canvas';
+import { FaShare } from 'react-icons/fa';
+import { useTimerStore } from '../../store/timerStore';
+import { usePressableButton } from '../../hooks/usePressableButton';
+import type { Html2CanvasOptions } from '../../types/jass';
+import JassFinishNotification from '../notifications/JassFinishNotification';
+
+type BlobCallback = (blob: Blob | null) => void;
 
 const PlayerName: React.FC<{ 
   name: string, 
@@ -72,7 +80,7 @@ const PlayerName: React.FC<{
     <div ref={containerRef} className="text-center text-gray-400 px-1">
       <span className="inline-block">
         {displayName}
-        {isStarter && <span className="ml-1">✿</span>}
+        {isStarter && <span>❀</span>}
       </span>
     </div>
   );
@@ -229,7 +237,7 @@ const ResultatKreidetafel = () => {
   }, [canStartNewGame]);
 
   // Button Text
-  const nextGameButtonText = canNavigateForward ? "Nächstes Spiel" : "Neues Spiel";
+  const nextGameButtonText = canNavigateForward ? "1 Spiel\nvorwärts" : "Neues\nSpiel";
 
   // Store-Zugriffe hinzufügen
   const teams = useJassStore(state => state.teams);
@@ -327,177 +335,332 @@ const ResultatKreidetafel = () => {
   const topTotalStriche = useGameStore(state => state.getTotalStriche('top'));
   const bottomTotalStriche = useGameStore(state => state.getTotalStriche('bottom'));
 
+  // Neue Share-Funktion
+  const statistikContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleShareAndComplete = useCallback(async () => {
+    try {
+      // 1. Referenz auf den gesamten Kreidetafel-Content und den scrollbaren Container
+      const kreidetafelContent = document.querySelector('.kreidetafel-content') as HTMLElement;
+      const statistikContainer = statistikContainerRef.current;
+      const buttonContainer = document.querySelector('.button-container') as HTMLElement;
+
+      if (!kreidetafelContent || !statistikContainer || !buttonContainer) return;
+
+      // 2. Originale Styles speichern
+      const originalMaxHeight = statistikContainer.style.maxHeight;
+      const originalOverflow = statistikContainer.style.overflowY;
+      const originalButtonDisplay = buttonContainer.style.display;
+
+      // 3. Container für Screenshot vorbereiten
+      statistikContainer.style.maxHeight = 'none';
+      statistikContainer.style.overflowY = 'visible';
+      buttonContainer.style.display = 'none'; // Buttons ausblenden
+
+      try {
+        // 4. Screenshot mit angepassten Optionen
+        const canvas = await html2canvas(kreidetafelContent, {
+          background: '#1F2937',
+          useCORS: true,
+          logging: false,
+          windowWidth: kreidetafelContent.scrollWidth,
+          windowHeight: kreidetafelContent.scrollHeight,
+          scale: 2
+        } as any);
+
+        // 5. Blob erstellen und teilen
+        const blob = await new Promise<Blob>((resolve) => {
+          canvas.toBlob((blob) => resolve(blob!), 'image/png', 1.0);
+        });
+
+        if (navigator.share) {
+          await navigator.share({
+            files: [new File([blob], 'jass-resultat.png', { type: 'image/png' })],
+            title: 'Jass Resultat',
+            text: 'Jassergebnis von https://jassguru.web.app'
+          });
+        }
+      } finally {
+        // 6. Ursprüngliche Styles wiederherstellen
+        statistikContainer.style.maxHeight = originalMaxHeight;
+        statistikContainer.style.overflowY = originalOverflow;
+        buttonContainer.style.display = originalButtonDisplay;
+      }
+    } catch (error) {
+      console.error('Screenshot Fehler:', error);
+    }
+  }, []);
+
+  const completeJass = useTimerStore(state => state.completeJass);
+
+  const backButton = usePressableButton(handleBack);
+  const shareButton = usePressableButton(handleShareAndComplete);
+  const nextButton = usePressableButton(handleNextGame);
+
+  // Notification State aus dem UIStore
+  const isJassFinishOpen = useUIStore((state) => state.jassFinishNotification.isOpen);
+  const showJassFinishNotification = useUIStore((state) => state.showJassFinishNotification);
+
+  // Beenden-Handler anpassen
+  const handleBeendenClick = () => {
+    showJassFinishNotification();
+  };
+
+  // Scroll-Effekt für alle relevanten Änderungen
+  useEffect(() => {
+    if (statistikContainerRef.current && isOpen) {
+      // Kleine Verzögerung für Animation
+      setTimeout(() => {
+        if (statistikContainerRef.current) {
+          statistikContainerRef.current.scrollTop = statistikContainerRef.current.scrollHeight;
+        }
+      }, 50);
+    }
+  }, [isOpen, games.length, currentGameId]); // Abhängigkeit von currentGameId hinzugefügt
+
+  // Swipe-Animation für den Statistik-Wechsel
+  const swipeAnimation = useSpring({
+    opacity: swipeDirection ? 0.7 : 1,
+    transform: swipeDirection === 'left' 
+      ? 'translateX(-10px)' 
+      : swipeDirection === 'right' 
+        ? 'translateX(10px)' 
+        : 'translateX(0px)',
+    config: { tension: 280, friction: 20 }
+  });
+
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 flex items-center justify-center z-50"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) closeResultatKreidetafel();
-      }}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      <animated.div 
-        style={springProps}
-        className={`relative w-11/12 max-w-md bg-gray-800 bg-opacity-95 rounded-xl p-6 shadow-lg select-none
-          ${swipeDirection === 'left' ? '-translate-x-4' : ''}
-          ${swipeDirection === 'right' ? 'translate-x-4' : ''}`}
-        onClick={(e) => e.stopPropagation()}
+    <>
+      {/* Overlay mit Touch-Handlers */}
+      <div 
+        className="fixed inset-0 flex items-center justify-center z-50 bg-black/50"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            closeResultatKreidetafel();
+          }
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
-        {/* Header */}
-        <div className="text-center mb-4">
-          <h2 className="text-2xl font-bold text-white">
-            {currentModule?.title || 'Jassergebnis'}
-          </h2>
-          <p className="text-gray-400">{currentDate}</p>
-        </div>
-
-        {/* Dreh-Button */}
-        <button
-          onClick={() => useUIStore.setState(state => ({
-            resultatKreidetafel: {
-              ...state.resultatKreidetafel,
-              swipePosition: isFlipped ? 'bottom' : 'top'
-            }
-          }))}
-          className={`absolute bottom-full mb-[-10px] left-1/2 transform -translate-x-1/2 
-            text-white hover:text-gray-300 transition-all duration-1000
-            w-24 h-24 flex items-center justify-center
-            rounded-full
-            ${isFlipped ? 'rotate-180' : 'rotate-0'}`}
-          aria-label="Umdrehen"
+        {/* Animierter Wrapper für die gesamte Tafel */}
+        <animated.div 
+          style={springProps}
+          className={`w-11/12 max-w-md ${
+            swipeDirection === 'left' ? '-translate-x-4' : 
+            swipeDirection === 'right' ? 'translate-x-4' : ''
+          }`}
         >
-          <FiRotateCcw className="w-8 h-8" />
-        </button>
-
-        {/* Close Button */}
-        <button 
-          onClick={closeResultatKreidetafel}
-          className="absolute right-2 top-2 p-2 text-gray-400 hover:text-white"
-        >
-          <FiX size={24} />
-        </button>
-
-        {/* Teams Header - neue Spaltenbreiten */}
-        <div className="grid grid-cols-[1fr_4fr_4fr] gap-4 mb-2">
-          <div></div>
-          <div className="text-center text-white">Team 1</div>
-          <div className="text-center text-white">Team 2</div>
-        </div>
-
-        {/* Spielernamen mit manueller Kürzung und Blumensymbol */}
-        <div className="grid grid-cols-[1fr_4fr_4fr] gap-4 mb-4">
-          <div></div>
-          <div className="grid grid-cols-2 gap-2">
-            <PlayerName 
-              name={playerNames[1]} 
-              isStarter={games[0]?.initialStartingPlayer === 1} 
-            />
-            <PlayerName 
-              name={playerNames[3]} 
-              isStarter={games[0]?.initialStartingPlayer === 3} 
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <PlayerName 
-              name={playerNames[2]} 
-              isStarter={games[0]?.initialStartingPlayer === 2} 
-            />
-            <PlayerName 
-              name={playerNames[4]} 
-              isStarter={games[0]?.initialStartingPlayer === 4} 
-            />
-          </div>
-        </div>
-
-        {/* Statistik-Container mit Scroll */}
-        <div className="border-t border-b border-gray-700">
-          <div className="max-h-[350px] overflow-y-auto">
-            <div className="py-2">
-              {currentStatistic === 'striche' ? (
-                <StricheStatistik
-                  teams={teams}
-                  games={games}
-                  currentGameId={currentGameId}
-                  onSwipe={handleStatisticChange}
-                />
-              ) : (
-                <JasspunkteStatistik
-                  teams={teams}
-                  games={games}
-                  currentGameId={currentGameId}
-                  onSwipe={handleStatisticChange}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Totals - vollständig unabhängige Positionierung */}
-        <div className="grid grid-cols-[0.5fr_5fr_5fr] gap-4 mt-4">
-          <div className="text-gray-400 text-center pr-4">Total:</div>
-          <div className="flex justify-center -ml-[36px]">
-            <div className="text-2xl font-bold text-white w-[100px] text-center">
-              {currentStatistic === 'striche' 
-                ? currentTotals.striche.bottom 
-                : currentTotals.punkte.bottom}
-            </div>
-          </div>
-          <div className="flex justify-center -ml-[12px]">
-            <div className="text-2xl font-bold text-white w-[100px] text-center">
-              {currentStatistic === 'striche' 
-                ? currentTotals.striche.top 
-                : currentTotals.punkte.top}
-            </div>
-          </div>
-        </div>
-
-        {/* Statistik Navigation Dots */}
-        <div className="flex justify-center my-6">
-          <div className="flex justify-center items-center space-x-2 bg-gray-700/50 px-1.5 py-1 rounded-full">
-            {STATISTIC_MODULES.map(mod => (
-              <div
-                key={mod.id}
-                className={`w-2 h-2 rounded-full transition-all duration-200 ${
-                  currentStatistic === mod.id 
-                    ? 'bg-white/80 shadow-sm' 
-                    : 'bg-gray-500/50'
-                }`}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Buttons */}
-        <div className="grid grid-cols-2 gap-4">
-          <button 
-            onClick={handleBack}
-            disabled={!canNavigateBack}
-            className={`
-              py-3 px-4 text-white rounded-lg font-medium text-lg
-              transition-all duration-150
-              ${canNavigateBack ? 'bg-gray-600/80' : 'bg-gray-500/50 cursor-not-allowed'}
-              hover:bg-gray-700/80
-            `}
+          {/* Screenshot-Bereich */}
+          <div 
+            className="kreidetafel-content relative bg-gray-800 bg-opacity-95 rounded-t-xl p-6 shadow-lg select-none"
           >
-            Zurück
-          </button>
-          <button 
-            onClick={handleNextGame}
-            className={`
-              py-3 px-4 text-white rounded-lg font-medium text-lg
-              transition-all duration-150
-              bg-green-600/80 hover:bg-green-700/80
-            `}
-          >
-            {nextGameButtonText}
-          </button>
-        </div>
+            {/* Header */}
+            <div className="text-center mb-4">
+              <h2 className="text-2xl font-bold text-white">
+                {currentModule?.title || 'Jassergebnis'}
+              </h2>
+              <p className="text-gray-400">{currentDate}</p>
+            </div>
 
-      </animated.div>
-    </div>
+            {/* Dreh-Button */}
+            <button
+              onClick={() => useUIStore.setState(state => ({
+                resultatKreidetafel: {
+                  ...state.resultatKreidetafel,
+                  swipePosition: isFlipped ? 'bottom' : 'top'
+                }
+              }))}
+              className={`absolute bottom-full mb-[-10px] left-1/2 transform -translate-x-1/2 
+                text-white hover:text-gray-300 transition-all duration-1000
+                w-24 h-24 flex items-center justify-center
+                rounded-full
+                ${isFlipped ? 'rotate-180' : 'rotate-0'}`}
+              aria-label="Umdrehen"
+            >
+              <FiRotateCcw className="w-8 h-8" />
+            </button>
+
+            {/* Close Button */}
+            <button 
+              onClick={closeResultatKreidetafel}
+              className="absolute right-2 top-2 p-2 text-gray-400 hover:text-white"
+            >
+              <FiX size={24} />
+            </button>
+
+            {/* Teams Header - neue Spaltenbreiten */}
+            <div className="grid grid-cols-[1fr_4fr_4fr] gap-4 mb-2">
+              <div></div>
+              <div className="text-center text-white">Team 1</div>
+              <div className="text-center text-white">Team 2</div>
+            </div>
+
+            {/* Spielernamen mit manueller Kürzung und Blumensymbol */}
+            <div className="grid grid-cols-[1fr_4fr_4fr] gap-4 mb-4">
+              <div></div>
+              <div className="grid grid-cols-2 gap-2">
+                <PlayerName 
+                  name={playerNames[1]} 
+                  isStarter={games[0]?.initialStartingPlayer === 1} 
+                />
+                <PlayerName 
+                  name={playerNames[3]} 
+                  isStarter={games[0]?.initialStartingPlayer === 3} 
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <PlayerName 
+                  name={playerNames[2]} 
+                  isStarter={games[0]?.initialStartingPlayer === 2} 
+                />
+                <PlayerName 
+                  name={playerNames[4]} 
+                  isStarter={games[0]?.initialStartingPlayer === 4} 
+                />
+              </div>
+            </div>
+
+            {/* Statistik-Container mit Scroll und Swipe-Animation */}
+            <div className="border-t border-b border-gray-700">
+              <div 
+                ref={statistikContainerRef}
+                className="max-h-[280px] overflow-y-auto"
+              >
+                <animated.div style={swipeAnimation} className="py-2">
+                  {currentStatistic === 'striche' ? (
+                    <StricheStatistik
+                      teams={teams}
+                      games={games}
+                      currentGameId={currentGameId}
+                      onSwipe={handleStatisticChange}
+                    />
+                  ) : (
+                    <JasspunkteStatistik
+                      teams={teams}
+                      games={games}
+                      currentGameId={currentGameId}
+                      onSwipe={handleStatisticChange}
+                    />
+                  )}
+                </animated.div>
+              </div>
+            </div>
+
+            {/* Totals - vollständig unabhängige Positionierung */}
+            <div className="grid grid-cols-[0.5fr_5fr_5fr] gap-4 mt-4">
+              <div className="text-gray-400 text-center pr-4">Total:</div>
+              <div className="flex justify-center -ml-[36px]">
+                <div className="text-2xl font-bold text-white w-[100px] text-center">
+                  {currentStatistic === 'striche' 
+                    ? currentTotals.striche.bottom 
+                    : currentTotals.punkte.bottom}
+                </div>
+              </div>
+              <div className="flex justify-center -ml-[12px]">
+                <div className="text-2xl font-bold text-white w-[100px] text-center">
+                  {currentStatistic === 'striche' 
+                    ? currentTotals.striche.top 
+                    : currentTotals.punkte.top}
+                </div>
+              </div>
+            </div>
+
+            {/* Statistik Navigation Dots */}
+            <div className="flex justify-center mt-4 mb-2">
+              <div className="flex justify-center items-center space-x-2 bg-gray-700/50 px-1.5 py-1 rounded-full">
+                {STATISTIC_MODULES.map(mod => (
+                  <div
+                    key={mod.id}
+                    className={`w-2 h-2 rounded-full transition-all duration-200 ${
+                      currentStatistic === mod.id 
+                        ? 'bg-white/80 shadow-sm' 
+                        : 'bg-gray-500/50'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Buttons im gleichen Rotationskontext */}
+          <div className={`grid gap-4 p-4 bg-gray-800 bg-opacity-95 rounded-b-xl shadow-lg button-container ${
+            canNavigateBack ? 'grid-cols-3' : 'grid-cols-2'
+          }`}>
+            {canNavigateBack && (
+              <button 
+                {...backButton.handlers}
+                disabled={!canNavigateBack}
+                className={`
+                  py-2 px-4 text-white rounded-lg font-medium text-base
+                  transition-all duration-150
+                  ${canNavigateBack ? 'bg-gray-600' : 'bg-gray-500/50 cursor-not-allowed'}
+                  hover:bg-gray-700
+                  leading-tight
+                  ${backButton.buttonClasses}
+                `}
+              >
+                {["1 Spiel", "zurück"].map((line, i) => (
+                  <React.Fragment key={i}>
+                    {line}
+                    {i === 0 && <br />}
+                  </React.Fragment>
+                ))}
+              </button>
+            )}
+
+            <button 
+              onClick={handleBeendenClick}
+              className={`
+                py-2 px-4 text-white rounded-lg font-medium text-base
+                transition-all duration-150
+                bg-yellow-600 hover:bg-yellow-700
+                flex items-center justify-center gap-2
+                leading-tight
+                ${shareButton.buttonClasses}
+              `}
+            >
+              {["Jass", "beenden"].map((line, i) => (
+                <React.Fragment key={i}>
+                  {line}
+                  {i === 0 && <br />}
+                </React.Fragment>
+              ))}
+            </button>
+
+            <button 
+              {...nextButton.handlers}
+              className={`
+                py-2 px-4 text-white rounded-lg font-medium text-base
+                transition-all duration-150
+                ${canNavigateForward 
+                  ? 'bg-gray-600 hover:bg-gray-700' 
+                  : 'bg-green-600 hover:bg-green-700'
+                }
+                leading-tight
+                ${nextButton.buttonClasses}
+              `}
+            >
+              {nextGameButtonText.split('\n').map((line, i) => (
+                <React.Fragment key={i}>
+                  {line}
+                  {i === 0 && nextGameButtonText.includes('\n') && <br />}
+                </React.Fragment>
+              ))}
+            </button>
+          </div>
+        </animated.div>
+      </div>
+
+      {/* JassFinishNotification einbinden */}
+      <JassFinishNotification
+        show={isJassFinishOpen}
+        onShare={handleShareAndComplete}
+        onBack={closeResultatKreidetafel}
+      />
+    </>
   );
 };
 

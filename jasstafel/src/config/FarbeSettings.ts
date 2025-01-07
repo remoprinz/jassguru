@@ -1,13 +1,21 @@
 import type { FarbeMode, FarbeSettingsConfig } from '../types/jass';
 
+const commonStandardStyle = {
+  backgroundColor: 'bg-gradient-to-b from-gray-600 to-gray-700 shadow-inner border border-gray-500/30 hover:from-gray-500 hover:to-gray-600 group-[.has-active]:bg-gray-600/75 group-[.active]:!from-gray-500 group-[.active]:!to-gray-600'
+};
+
 export const FARBE_MODES: FarbeSettingsConfig[] = [
   {
-    id: 'misere',
+    id: 'misère',
     name: 'Misère',
     multiplier: 1,
     order: 1,
     emojiStyle: {
       backgroundColor: 'bg-[#f87171] group-[.has-active]:bg-gray-600/75 group-[.active]:!bg-[#f87171]'
+    },
+    standardStyle: commonStandardStyle,
+    frStyle: {
+      backgroundColor: 'bg-gradient-to-b from-gray-600 to-gray-700 shadow-inner border border-gray-500/30 hover:from-gray-500 hover:to-gray-600 group-[.has-active]:bg-gray-600/75 group-[.active]:!from-gray-500 group-[.active]:!to-gray-600'
     }
   },
   {
@@ -17,6 +25,10 @@ export const FARBE_MODES: FarbeSettingsConfig[] = [
     order: 7,
     emojiStyle: {
       backgroundColor: 'bg-[#65a30d] group-[.has-active]:bg-gray-600/75 group-[.active]:!bg-[#65a30d]'
+    },
+    standardStyle: commonStandardStyle,
+    frStyle: {
+      backgroundColor: 'bg-gradient-to-b from-gray-600 to-gray-700 shadow-inner border border-gray-500/30 hover:from-gray-500 hover:to-gray-600 group-[.has-active]:bg-gray-600/75 group-[.active]:!from-gray-500 group-[.active]:!to-gray-600'
     }
   },
   {
@@ -26,6 +38,10 @@ export const FARBE_MODES: FarbeSettingsConfig[] = [
     order: 3,
     emojiStyle: {
       backgroundColor: 'bg-[#fde047] group-[.has-active]:bg-gray-600/75 group-[.active]:!bg-[#fde047]'
+    },
+    standardStyle: commonStandardStyle,
+    frStyle: {
+      backgroundColor: 'bg-gradient-to-b from-gray-600 to-gray-700 shadow-inner border border-gray-500/30 hover:from-gray-500 hover:to-gray-600 group-[.has-active]:bg-gray-600/75 group-[.active]:!from-gray-500 group-[.active]:!to-gray-600'
     }
   },
   {
@@ -35,6 +51,10 @@ export const FARBE_MODES: FarbeSettingsConfig[] = [
     order: 4,
     emojiStyle: {
       backgroundColor: 'bg-[#fbbf24] group-[.has-active]:bg-gray-600/75 group-[.active]:!bg-[#fbbf24]'
+    },
+    standardStyle: commonStandardStyle,
+    frStyle: {
+      backgroundColor: 'bg-gradient-to-b from-gray-600 to-gray-700 shadow-inner border border-gray-500/30 hover:from-gray-500 hover:to-gray-600 group-[.has-active]:bg-gray-600/75 group-[.active]:!from-gray-500 group-[.active]:!to-gray-600'
     }
   },
   {
@@ -44,6 +64,10 @@ export const FARBE_MODES: FarbeSettingsConfig[] = [
     order: 5,
     emojiStyle: {
       backgroundColor: 'bg-[#64748b] group-[.has-active]:bg-gray-600/75 group-[.active]:!bg-[#6b7280]'
+    },
+    standardStyle: commonStandardStyle,
+    frStyle: {
+      backgroundColor: 'bg-gradient-to-b from-gray-600 to-gray-700 shadow-inner border border-gray-500/30 hover:from-gray-500 hover:to-gray-600 group-[.has-active]:bg-gray-600/75 group-[.active]:!from-gray-500 group-[.active]:!to-gray-600'
     }
   },
   {
@@ -53,6 +77,10 @@ export const FARBE_MODES: FarbeSettingsConfig[] = [
     order: 6,
     emojiStyle: {
       backgroundColor: 'bg-[#0891b2] group-[.has-active]:bg-gray-600/75 group-[.active]:!bg-[#0284c7]'
+    },
+    standardStyle: commonStandardStyle,
+    frStyle: {
+      backgroundColor: 'bg-gradient-to-b from-gray-600 to-gray-700 shadow-inner border border-gray-500/30 hover:from-gray-500 hover:to-gray-600 group-[.has-active]:bg-gray-600/75 group-[.active]:!from-gray-500 group-[.active]:!to-gray-600'
     }
   },
   {
@@ -62,6 +90,10 @@ export const FARBE_MODES: FarbeSettingsConfig[] = [
     order: 7,
     emojiStyle: {
       backgroundColor: 'bg-[#0369a1] group-[.has-active]:bg-gray-600/75 group-[.active]:!bg-[#854d0e]'
+    },
+    standardStyle: commonStandardStyle,
+    frStyle: {
+      backgroundColor: 'bg-gradient-to-b from-gray-600 to-gray-700 shadow-inner border border-gray-500/30 hover:from-gray-500 hover:to-gray-600 group-[.has-active]:bg-gray-600/75 group-[.active]:!from-gray-500 group-[.active]:!to-gray-600'
     }
   },
   {
@@ -71,24 +103,36 @@ export const FARBE_MODES: FarbeSettingsConfig[] = [
     order: 8,
     emojiStyle: {
       backgroundColor: 'bg-[#f0abfc] group-[.has-active]:bg-gray-600/75 group-[.active]:!bg-[#f0abfc]'
+    },
+    standardStyle: commonStandardStyle,
+    frStyle: {
+      backgroundColor: 'bg-gradient-to-b from-gray-600 to-gray-700 shadow-inner border border-gray-500/30 hover:from-gray-500 hover:to-gray-600 group-[.has-active]:bg-gray-600/75 group-[.active]:!from-gray-500 group-[.active]:!to-gray-600'
     }
   },
   {
     id: 'quer',
     name: 'Quer',
     multiplier: 7,
-    order: 10,
+    order: 9,
     emojiStyle: {
       backgroundColor: 'bg-[#f87171] group-[.has-active]:bg-gray-600/75 group-[.active]:!bg-[#0891b2]'
+    },
+    standardStyle: commonStandardStyle,
+    frStyle: {
+      backgroundColor: 'bg-gradient-to-b from-gray-600 to-gray-700 shadow-inner border border-gray-500/30 hover:from-gray-500 hover:to-gray-600 group-[.has-active]:bg-gray-600/75 group-[.active]:!from-gray-500 group-[.active]:!to-gray-600'
     }
   },
   {
     id: 'slalom',
     name: 'Slalom',
     multiplier: 7,
-    order: 9,
+    order: 10,
     emojiStyle: {
       backgroundColor: 'bg-white group-[.has-active]:bg-gray-600/75 group-[.active]:!bg-white'
+    },
+    standardStyle: commonStandardStyle,
+    frStyle: {
+      backgroundColor: 'bg-gradient-to-b from-gray-600 to-gray-700 shadow-inner border border-gray-500/30 hover:from-gray-500 hover:to-gray-600 group-[.has-active]:bg-gray-600/75 group-[.active]:!from-gray-500 group-[.active]:!to-gray-600'
     }
   }
 ];

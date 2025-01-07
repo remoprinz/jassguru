@@ -3,7 +3,12 @@
 import { create } from 'zustand';
 import { useJassStore } from './jassStore';
 import { calculateStricheCounts } from '../game/scoreCalculations';
-import { RoundEntry, isJassRoundEntry, determineNextStartingPlayer } from '../types/jass';
+import { 
+  RoundEntry, 
+  isJassRoundEntry, 
+  determineNextStartingPlayer,
+  getNextPlayer
+} from '../types/jass';
 import type { 
   TeamPosition, 
   PlayerNumber,
@@ -17,18 +22,19 @@ import type {
   HistoryState,
   WeisRoundEntry,
   JassRoundEntry,
-  GameEntry,
-  TeamConfig
+  CardStyle
 } from '../types/jass';
 import { useUIStore } from './uiStore';
 import { HISTORY_WARNING_MESSAGE } from '../components/notifications/HistoryWarnings';
 import { jassAnalytics } from '../statistics/jassAnalytics';
-import { createInitialTeamStand } from './jassStore';  // Neu: Import der Hilfsfunktion
-import { defaultGameSettings, BERG_SCORE, SIEG_SCORE, SCHNEIDER_SCORE } from '../config/GameSettings';
 import { useTimerStore } from './timerStore';
-import { STRICH_WERTE } from '../types/jass';
-import { getNextPlayer } from '../types/jass';
-import type { GameSettings as GameSettingsType } from '../config/GameSettings';
+import { STRICH_WERTE } from '../config/GameSettings';
+import { CARD_SYMBOL_MAPPINGS } from '../config/CardStyles';
+
+// Hilfsfunktion für die Farbenübersetzung (vereinfacht)
+const getDBFarbe = (farbe: JassColor, cardStyle: CardStyle): string => {
+  return CARD_SYMBOL_MAPPINGS[farbe][cardStyle];
+};
 
 // Hilfsfunktion für Farbe (am Anfang der Datei, nach den Imports)
 const getFarbe = (entry: RoundEntry): JassColor | undefined => {
@@ -73,9 +79,10 @@ const calculateTotalScores = (weis: TeamScores, jass: TeamScores): TeamScores =>
   weisPoints: weis
 });
 
-const createInitialState = (startingPlayer: PlayerNumber): GameState => ({
-  currentPlayer: startingPlayer,
-  startingPlayer: startingPlayer,
+const createInitialState = (initialPlayer: PlayerNumber): GameState => ({
+  currentPlayer: initialPlayer,
+  startingPlayer: initialPlayer,
+  initialStartingPlayer: initialPlayer,
   isGameStarted: false,
   currentRound: 1,
   weisPoints: { top: 0, bottom: 0 },
@@ -89,10 +96,13 @@ const createInitialState = (startingPlayer: PlayerNumber): GameState => ({
   currentRoundWeis: [],
   isGameCompleted: false,
   isRoundCompleted: false,
-  settings: {
-    ...defaultGameSettings,
+  farbeSettings: {
     colors: [],
-    colorMultipliers: []
+    multipliers: []
+  },
+  scoreSettings: {
+    scores: [],
+    enabled: []
   },
   playerNames: initialPlayerNames,
   currentHistoryIndex: -1,
@@ -104,8 +114,15 @@ const createRoundEntry = (
   state: GameState,
   store: GameStore,
   type: 'weis' | 'jass',
-  options?: { farbe?: JassColor; strichType?: StrichTyp }
+  options?: { 
+    farbe?: JassColor; 
+    strichType?: StrichTyp; 
+    cardStyle?: CardStyle 
+  }
 ): RoundEntry => {
+  const { settings } = useUIStore.getState();
+  const cardStyle = options?.cardStyle || settings.cardStyle;
+  
   const baseEntry = {
     id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     timestamp: Date.now(),
@@ -142,12 +159,14 @@ const createRoundEntry = (
     } as WeisRoundEntry;
   }
 
+  // Bei Jass-Runden die übersetzte Farbe verwenden
   return {
     ...baseEntry,
     actionType: 'jass',
     isRoundFinalized: true,
     isCompleted: true,
-    farbe: options?.farbe!,
+    farbe: options?.farbe ? getDBFarbe(options.farbe, cardStyle) : options?.farbe!,
+    cardStyle: cardStyle,
     strichType: options?.strichType
   } as JassRoundEntry;
 };
@@ -315,8 +334,11 @@ const calculateTotalStriche = (striche: StricheRecord): number => {
 };
 
 export const useGameStore = create<GameStore>((set, get) => {
+  // Explizit undefined verhindern
+  const defaultPlayer: PlayerNumber = 1;
+  
   return {
-    ...createInitialState(undefined as unknown as PlayerNumber),
+    ...createInitialState(defaultPlayer),
 
     startGame: () => {
       const jassStore = useJassStore.getState();
@@ -373,8 +395,11 @@ export const useGameStore = create<GameStore>((set, get) => {
       }
     ) => {
       const timerStore = useTimerStore.getState();
-      
+      const { settings } = useUIStore.getState(); // UI Store für cardStyle
+
       set((state) => {
+        const { strokeSettings } = useUIStore.getState(); // Hole aktuelle Stroke-Settings
+
         const newJassPoints = {
           top: state.jassPoints.top + topScore,
           bottom: state.jassPoints.bottom + bottomScore
@@ -386,7 +411,11 @@ export const useGameStore = create<GameStore>((set, get) => {
         if (strichInfo) {
           const isTeamsTurn = state.currentPlayer % 2 === (strichInfo.team === 'top' ? 0 : 1);
           finalStrichType = isTeamsTurn ? 'matsch' : 'kontermatsch';
-          const increment = STRICH_WERTE[finalStrichType];
+          
+          // Verwende die korrekten Stroke-Settings
+          const increment = finalStrichType === 'kontermatsch' 
+            ? strokeSettings.kontermatsch 
+            : STRICH_WERTE[finalStrichType];
           
           newStriche[strichInfo.team] = {
             ...newStriche[strichInfo.team],
@@ -396,6 +425,8 @@ export const useGameStore = create<GameStore>((set, get) => {
           console.log('🎲 Aktualisierte Striche:', {
             team: strichInfo.team,
             type: finalStrichType,
+            settings: strokeSettings,
+            increment,
             vorher: state.striche[strichInfo.team][finalStrichType],
             nachher: newStriche[strichInfo.team][finalStrichType]
           });
@@ -417,10 +448,11 @@ export const useGameStore = create<GameStore>((set, get) => {
           farbe
         };
 
-        // Neuer History-Eintrag
+        // Neuer History-Eintrag mit cardStyle
         const newEntry = createRoundEntry(updatedState, get(), 'jass', { 
           farbe, 
-          strichType: finalStrichType 
+          strichType: finalStrichType,
+          cardStyle: settings.cardStyle  // Neu: Kartenstil mitspeichern
         });
 
         // Direkt in jassStore aktualisieren
@@ -488,33 +520,44 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     addStrich: (team: TeamPosition, type: StrichTyp) => {
       set(state => {
-          const newStriche = { ...state.striche };
-          newStriche[team][type] += STRICH_WERTE[type];
+        const { strokeSettings } = useUIStore.getState();  // UI-Store Einstellungen holen
+        const newStriche = { ...state.striche };
+        
+        // Dynamischer Strich-Wert basierend auf den Einstellungen
+        let increment = 1;  // Standard-Wert
+        
+        // Für Schneider und Kontermatsch die Einstellungen aus dem UI-Store verwenden
+        if (type === 'schneider') {
+          increment = strokeSettings.schneider;
+        } else if (type === 'kontermatsch') {
+          increment = strokeSettings.kontermatsch;
+        }
 
-          // Sofortiges Update des jassStore
-          const jassStore = useJassStore.getState();
-          const currentGame = jassStore.getCurrentGame();
-          
-          if (currentGame) {
-              jassStore.updateCurrentGame({
-                  teams: {
-                      ...currentGame.teams,
-                      [team]: {
-                          ...currentGame.teams[team],
-                          striche: newStriche[team]
-                      }
-                  },
-                  // Diese Felder waren in der vorherigen Version nicht enthalten
-                  roundHistory: currentGame.roundHistory,
-                  currentRound: state.currentRound,
-                  currentPlayer: state.currentPlayer
-              });
-          }
+        newStriche[team][type] += increment;
 
-          return {
-              ...state,
-              striche: newStriche
-          };
+        // Sofortiges Update des jassStore
+        const jassStore = useJassStore.getState();
+        const currentGame = jassStore.getCurrentGame();
+        
+        if (currentGame) {
+          jassStore.updateCurrentGame({
+            teams: {
+              ...currentGame.teams,
+              [team]: {
+                ...currentGame.teams[team],
+                striche: newStriche[team]
+              }
+            },
+            roundHistory: currentGame.roundHistory,
+            currentRound: state.currentRound,
+            currentPlayer: state.currentPlayer
+          });
+        }
+
+        return {
+          ...state,
+          striche: newStriche
+        };
       });
     },
 
@@ -585,7 +628,8 @@ export const useGameStore = create<GameStore>((set, get) => {
       set((state) => ({
         ...createInitialState(state.currentPlayer),  // Behalte aktuellen Spieler
         playerNames: jassStore.currentSession?.playerNames || state.playerNames,
-        settings: state.settings
+        scoreSettings: state.scoreSettings,    // Behalte Score-Settings
+        farbeSettings: state.farbeSettings     // Behalte Farben-Settings
       }));
     },
 
@@ -701,9 +745,10 @@ export const useGameStore = create<GameStore>((set, get) => {
         // 1. Initialzustand (-1)
         if (newIndex === -1) {
           return {
-            ...createInitialState(state.startingPlayer),  // Verwende existierenden startingPlayer
+            ...createInitialState(state.startingPlayer),
             playerNames: state.playerNames,
-            settings: state.settings,
+            scoreSettings: state.scoreSettings,    // Behalte Score-Settings
+            farbeSettings: state.farbeSettings,    // Behalte Farben-Settings
             roundHistory: state.roundHistory,
             currentHistoryIndex: -1,
             historyState: { isNavigating: true, lastNavigationTimestamp: now }
@@ -892,7 +937,7 @@ export const useGameStore = create<GameStore>((set, get) => {
         const { scoreSettings } = useUIStore.getState();
         
         // Wenn Berg deaktiviert ist, keine Änderung
-        if (!scoreSettings?.isBergEnabled) return state;
+        if (!scoreSettings?.enabled?.berg) return state;
 
         const activeTeam = getActiveStrichTeam(state, 'berg');
         const newStriche = { ...state.striche };
@@ -914,11 +959,11 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     addSieg: (team: TeamPosition) => {
       set(state => {
-        const { scoreSettings } = useUIStore.getState();
+        const { scoreSettings, strokeSettings } = useUIStore.getState();
         const activeTeam = getActiveStrichTeam(state, 'sieg');
         
         // Wenn Berg aktiviert ist, prüfen ob ein Berg existiert
-        const bergCheck = scoreSettings?.isBergEnabled 
+        const bergCheck = scoreSettings?.enabled?.berg 
           ? (state.striche.top.berg > 0 || state.striche.bottom.berg > 0)
           : true; // Wenn Berg deaktiviert ist, immer true
         
@@ -948,7 +993,7 @@ export const useGameStore = create<GameStore>((set, get) => {
               ...state.striche,
               [team]: {
                 ...state.striche[team],
-                sieg: 2
+                sieg: STRICH_WERTE.sieg
               },
               [otherTeam]: {
                 ...state.striche[otherTeam],
@@ -958,10 +1003,10 @@ export const useGameStore = create<GameStore>((set, get) => {
           };
 
           // Automatische Schneider-Prüfung nur wenn aktiviert
-          if (scoreSettings?.isSchneiderEnabled) {
+          if (scoreSettings?.enabled?.schneider) {
             const otherTeamPoints = state.scores[otherTeam];
-            if (otherTeamPoints < SCHNEIDER_SCORE) {
-              newState.striche[team].schneider = 2;
+            if (otherTeamPoints < scoreSettings.values.schneider) {
+              newState.striche[team].schneider = strokeSettings.schneider;
             }
           }
 
@@ -974,26 +1019,40 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     addSchneider: (team: TeamPosition) => {
       set(state => {
+        const { scoreSettings, strokeSettings } = useUIStore.getState();
+        
+        // Debug-Logging
+        console.log('🎲 Settings beim Schneider:', {
+          scoreSettings,
+          strokeSettings,
+          team,
+          currentStriche: state.striche[team]
+        });
+
         // 1. Prüfen ob das Team SIEG hat
         const hasSieg = state.striche[team].sieg > 0;
-        if (!hasSieg) return state;  // Wenn kein SIEG, keine Änderung
+        if (!hasSieg) return state;
 
         // 2. Gegnerteam bestimmen und Punkte prüfen
         const otherTeam = team === 'top' ? 'bottom' : 'top';
         const otherTeamPoints = state.scores[otherTeam];
-        const isSchneider = otherTeamPoints < SCHNEIDER_SCORE;
+        
+        // Verwende die Score-Settings für den Schwellenwert
+        const isSchneider = scoreSettings.enabled.schneider && 
+          otherTeamPoints < scoreSettings.values.schneider;
 
         // 3. SCHNEIDER-Striche setzen wenn Bedingungen erfüllt
         return {
+          ...state,
           striche: {
             ...state.striche,
             [team]: {
               ...state.striche[team],
-              schneider: isSchneider ? 2 : 0  // 2 Striche wenn Schneider, sonst 0
+              schneider: isSchneider ? strokeSettings.schneider : 0
             },
             [otherTeam]: {
               ...state.striche[otherTeam],
-              schneider: 0  // Gegnerteam auf 0 setzen
+              schneider: 0
             }
           }
         };
@@ -1002,31 +1061,25 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     addMatsch: (team: TeamPosition) => {
       set(state => {
-        const uiState = useUIStore.getState();
+        const { strokeSettings } = useUIStore.getState();
         
-        // KONTERMATSCH Logik
         const isBottomTeamsTurn = state.currentPlayer % 2 === 0;
-        const isCalculatorAtTop = uiState.calculator.isFlipped;
         const isKontermatsch = 
           (isBottomTeamsTurn && team === 'top') || 
           (!isBottomTeamsTurn && team === 'bottom');
 
-        // Bestimme den zu ändernden Strich-Typ
         const strichTyp = isKontermatsch ? 'kontermatsch' : 'matsch';
-        const increment = STRICH_WERTE[strichTyp];
+        const increment = strichTyp === 'kontermatsch' 
+          ? strokeSettings.kontermatsch 
+          : STRICH_WERTE.matsch;
 
-        // Debug für die Entscheidungsfindung
-        console.log('🎲 KONTERMATSCH Entscheidung:', {
-          currentPlayer: state.currentPlayer,
-          isBottomTeamsTurn,
-          calculatorPosition: isCalculatorAtTop ? 'top' : 'bottom',
-          clickedTeam: team,
-          isKontermatsch,
+        console.log('🎲 Matsch/Kontermatsch hinzufügen:', {
+          team,
           strichTyp,
-          currentValue: state.striche[team][strichTyp]
+          settings: strokeSettings,
+          increment
         });
 
-        // Nur den spezifischen Strich-Typ inkrementieren
         return {
           ...state,
           striche: {
@@ -1049,7 +1102,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       let total = 0;
       
       // Berg nur wenn aktiviert
-      if (scoreSettings?.isBergEnabled) {
+      if (scoreSettings?.enabled?.berg) {
         total += striche.berg;
       }
       
@@ -1057,7 +1110,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       total += striche.sieg;
       
       // Schneider nur wenn aktiviert
-      if (scoreSettings?.isSchneiderEnabled) {
+      if (scoreSettings?.enabled?.schneider) {
         total += striche.schneider;
       }
       

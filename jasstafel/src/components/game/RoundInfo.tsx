@@ -16,7 +16,6 @@ interface RoundInfoProps {
 
 const RoundInfo: React.FC<RoundInfoProps> = ({ 
   currentPlayer, 
-  currentRound, 
   opacity, 
   isOpen, 
   isGameStarted 
@@ -33,19 +32,26 @@ const RoundInfo: React.FC<RoundInfoProps> = ({
 
   if (isOpen) return null;
 
-  const formatInfoText = (round: number, player: PlayerNumber) => {
-    const { currentGameId } = useJassStore.getState();
-    const playerName = playerNames[player] || `Spieler ${player}`;
-    
+  const formatTeamNames = (isTopTeam: boolean) => {
+    const players: [PlayerNumber, PlayerNumber] = isTopTeam ? [1, 3] : [2, 4];
+    const [player1, player2] = players;
+    const name1 = playerNames[player1] || `Spieler ${player1}`;
+    const name2 = playerNames[player2] || `Spieler ${player2}`;
+
     return (
-      <>
-        <span className="text-gray-500 text-xs">Spiel: </span>
-        <span className="text-gray-300 text-sm font-semibold">{currentGameId}</span>
-        <span className="text-gray-500 text-xs ml-2"> Runde: </span>
-        <span className="text-gray-300 text-sm font-semibold">{round}</span>
-        <span className="text-gray-500 text-xs ml-2"> Spieler: </span>
-        <span className="text-gray-300 text-sm font-semibold">{playerName}</span>
-      </>
+      <div className="flex items-center gap-1.5">
+        <span className={currentPlayer === player1 
+          ? "text-white font-semibold text-xl"
+          : "text-gray-500"}>
+          {name1}
+        </span>
+        <span className="text-gray-500">+</span>
+        <span className={currentPlayer === player2 
+          ? "text-white font-semibold text-xl"
+          : "text-gray-500"}>
+          {name2}
+        </span>
+      </div>
     );
   };
 
@@ -58,14 +64,16 @@ const RoundInfo: React.FC<RoundInfoProps> = ({
         height: '3.5rem'
       }}
     >
-      {/* Oberer Text - gespiegelt */}
-      <div className="transform scale-y-[-1] scale-x-[-1] absolute right-[8%] top-[4.5rem]">
-        {isGameStarted ? formatInfoText(currentRound, currentPlayer) : 'START'}
+      {/* Oberes Team (Spieler 1 & 3) - normal */}
+      <div className="absolute w-full flex justify-center top-[4.5rem]">
+        {isGameStarted ? formatTeamNames(true) : 'START'}
       </div>
 
-      {/* Unterer Text - normal */}
-      <div className="absolute left-[8%] bottom-0">
-        {isGameStarted ? formatInfoText(currentRound, currentPlayer) : 'START'}
+      {/* Unteres Team (Spieler 2 & 4) - gedreht */}
+      <div className="absolute w-full flex justify-center bottom-0">
+        <div className="rotate-180">
+          {isGameStarted ? formatTeamNames(false) : 'START'}
+        </div>
       </div>
     </animated.div>
   );

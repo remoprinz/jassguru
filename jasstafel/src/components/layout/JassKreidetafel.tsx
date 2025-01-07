@@ -10,20 +10,18 @@ import { useGameStore } from '../../store/gameStore';
 import StartScreen from './StartScreen';
 import RoundInfo from '../game/RoundInfo';
 import { useDoubleClick } from '../../hooks/useDoubleClick';
-import { PlayerNumber } from '../../types/jass';
-import { useIntroductionMessage } from '../../hooks/useIntroductionMessage';
-import IntroductionMessage from '../ui/IntroductionMessage';
-import { useBrowserDetection } from '../../hooks/useBrowserDetection';
+import { PlayerNumber, TeamPosition, OnboardingContent, OnboardingState, OnboardingActions, BrowserOnboardingStep } from '../../types/jass';
 import { useUIStore } from '../../store/uiStore';
 import MenuOverlay from './MenuOverlay';
 import ResultatKreidetafel from './ResultatKreidetafel';
-import type { TeamPosition } from '../../types/jass';
 import { useNavigationHistory } from '../../hooks/useNavigationHistory';
-import { motion, AnimatePresence } from 'framer-motion';
 import HistoryWarning from '../notifications/HistoryWarnings';
 import GameInfoOverlay from '../game/GameInfoOverlay';
-import { useTimerStore } from '../../store/timerStore';
 import { useJassStore } from '../../store/jassStore';
+import { useOnboardingFlow } from '../../hooks/useOnboardingFlow';
+import OnboardingFlow from '../onboarding/OnboardingFlow';
+import { isPWA } from '../../utils/browserDetection';
+import { isDev, FORCE_PWA_INSTALL } from '../../utils/devUtils';
 
 interface JassKreidetafelProps {
   middleLineThickness?: number;
@@ -33,20 +31,6 @@ interface JassKreidetafelProps {
     edgeSpacing: number;
   };
 }
-
-const isPWA = () => {
-  return window.matchMedia('(display-mode: standalone)').matches ||
-    (window.navigator as any).standalone ||
-    document.referrer.includes('android-app://');
-};
-
-const isIOS = () => {
-  if (typeof window !== 'undefined') {
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    return /iphone|ipad|ipod/.test(userAgent);
-  }
-  return false;
-};
 
 const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
   middleLineThickness = 60,
@@ -62,7 +46,6 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     scores: { top: topScore, bottom: bottomScore },
     currentPlayer,
     currentRound,
-    resetGame,
     updateScoreByStrich
   } = useGameStore();
 
@@ -74,24 +57,42 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     historyWarning,
     isGameInfoOpen,
     setGameInfoOpen,
-    setLastDoubleClickPosition
+    setLastDoubleClickPosition,
+    setOverlayPosition
   } = useUIStore();
 
   const viewportHeight = useViewportHeight();
-  const { showMessage, message, dismissMessage, hasShownIntro } = useIntroductionMessage();
-  const { browserMessage, dismissMessage: dismissBrowserMessage } = useBrowserDetection(hasShownIntro);
 
-  const shouldShowStartScreen = useMemo(() => 
-    !isJassStarted && !isGameStarted && 
-    !isMenuOpen && 
-    !showMessage && 
-    !browserMessage.show
-  , [isJassStarted, isGameStarted, isMenuOpen, showMessage, browserMessage.show]);
+  // PWA Status und Browser Onboarding
+  const [isPWAInstalled] = useState(() => isPWA());
+  const [isBrowserOnboarding, setIsBrowserOnboarding] = useState(!isPWAInstalled);
+  const [forceOnboarding, setForceOnboarding] = useState(false);
+
+  const { 
+    currentStep, 
+    showOnboarding, 
+    content,
+    handleNext,
+    handlePrevious,
+    handleDismiss,
+    canBeDismissed 
+  } = useOnboardingFlow(isBrowserOnboarding);
+
+  // Beim ersten Laden das Onboarding anzeigen
+  useEffect(() => {
+    if (!isPWAInstalled) {
+      useUIStore.getState().showOnboarding(true, isPWAInstalled);
+      setForceOnboarding(true); // Immer true
+    }
+  }, []);
+
+  const isFirstTimeLoad = useMemo(() => 
+    !isJassStarted && !isGameStarted
+  , [isJassStarted, isGameStarted]);
 
   useEffect(() => {
     setMounted(true);
-    resetGame();
-  }, [resetGame]);
+  }, []);
 
   useEffect(() => {
     setIsCalculatorOpen(false);
@@ -162,27 +163,35 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
                          (pos === 'bottom' && direction === 'up');
 
       if (shouldOpen) {
-        setMenuOpen(true);
-        animateTopSwipe(true);
-        animateBottomSwipe(true);
+        setOverlayPosition(pos);
+        setActiveContainer(pos);
+        setTimeout(() => {
+          setMenuOpen(true);
+          animateTopSwipe(true);
+          animateBottomSwipe(true);
+        }, 0);
       } else if (shouldClose) {
         setMenuOpen(false);
+        setActiveContainer(null);
+        setOverlayPosition(null);
         animateTopSwipe(false);
         animateBottomSwipe(false);
       }
     }
-  }, [topHistoryNav, bottomHistoryNav, animateTopSwipe, animateBottomSwipe, setMenuOpen, triggerBlendEffect]);
+  }, [topHistoryNav, bottomHistoryNav, animateTopSwipe, animateBottomSwipe, setMenuOpen, triggerBlendEffect, setOverlayPosition]);
 
   const handleLongPress = useCallback((position: 'top' | 'bottom') => {
     if (!isMenuOpen) {
-      setIsCalculatorOpen(true);
+      setOverlayPosition(position);
       setActiveContainer(position);
+      setIsCalculatorOpen(true);
     }
   }, [isMenuOpen]);
 
   const handleCalculatorClose = useCallback(() => {
     setIsCalculatorOpen(false);
     setActiveContainer(null);
+    setOverlayPosition(null);
   }, []);
 
   const handleTafelClick = useDoubleClick((e: React.MouseEvent<HTMLDivElement>) => {
@@ -190,6 +199,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
       const clickY = e.clientY;
       const position: TeamPosition = clickY < middleLinePosition ? 'top' : 'bottom';
       
+      setOverlayPosition(position);
       setLastDoubleClickPosition(position);
       setGameInfoOpen(true);
     }
@@ -257,8 +267,20 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
 
   const handleBlendEffect = useCallback((position: TeamPosition) => {
     // TODO: Blend-Effekt Implementierung
-    console.log('Blend effect for position:', position);
   }, []);
+
+  // Debug-Log entfernen
+  useEffect(() => {
+    console.log('Onboarding Status:', {
+      showOnboarding,
+      forceOnboarding,
+      canBeDismissed,
+      isPWAInstalled
+    });
+  }, [showOnboarding, forceOnboarding, canBeDismissed, isPWAInstalled]);
+
+  // Render-Logik vereinfacht
+  if (!mounted) return null;
 
   return (
     <div 
@@ -266,30 +288,20 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
       onClick={handleTafelClick}
       onContextMenu={(e) => e.preventDefault()}
     >
-      {shouldShowStartScreen && (
+      <OnboardingFlow 
+        show={showOnboarding && forceOnboarding}
+        step={currentStep as BrowserOnboardingStep}
+        content={content}
+        onNext={handleNext}
+        onPrevious={handlePrevious}
+        onDismiss={() => {}} // Leere Funktion
+        canBeDismissed={false} // Immer false
+        isPWA={isPWAInstalled}
+        isBrowserOnboarding={isBrowserOnboarding}
+      />
+      {isFirstTimeLoad ? (
         <StartScreen />
-      )}
-      {showMessage && (
-        <IntroductionMessage
-          show={showMessage}
-          message={message}
-          onDismiss={dismissMessage}
-        />
-      )}
-      {!showMessage && browserMessage.show && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-gray-800 p-6 rounded-lg shadow-lg max-w-xs w-full relative text-white">
-            <p className="text-lg mb-8 text-center">{browserMessage.message}</p>
-            <button
-              onClick={dismissBrowserMessage}
-              className="bg-yellow-600 text-white px-6 py-2 rounded-full hover:bg-yellow-700 transition-colors w-full text-lg font-semibold"
-            >
-              Verstanden
-            </button>
-          </div>
-        </div>
-      )}
-      {!showMessage && !browserMessage.show && (
+      ) : (
         <>
           <SplitContainer
             position="top"

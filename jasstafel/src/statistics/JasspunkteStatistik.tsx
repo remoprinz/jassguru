@@ -2,6 +2,7 @@ import React from 'react';
 import { StatisticProps } from '../types/statistikTypes';
 import ResultatZeile from '../components/game/ResultatZeile';
 import { useGameStore } from '../store/gameStore';
+import { animated, useSpring } from 'react-spring';
 import type { StricheRecord } from '../types/jass';
 
 export const JasspunkteStatistik: React.FC<StatisticProps> = ({ 
@@ -13,8 +14,20 @@ export const JasspunkteStatistik: React.FC<StatisticProps> = ({
   const weisPoints = useGameStore(state => state.weisPoints);
   const jassPoints = useGameStore(state => state.jassPoints);
 
+  // Animation für neue Punkte
+  const fadeProps = useSpring({
+    from: { opacity: 0.3, transform: 'scale(0.97)' },
+    to: { opacity: 1, transform: 'scale(1)' },
+    reset: true,
+    key: `${jassPoints.top + jassPoints.bottom + weisPoints.top + weisPoints.bottom}`,
+    config: { tension: 280, friction: 20 }
+  });
+
   return (
-    <div className="flex flex-col w-full">
+    <animated.div 
+      style={fadeProps} 
+      className="flex flex-col w-full"
+    >
       {games.map((game, index) => (
         <ResultatZeile
           key={game.id}
@@ -39,6 +52,6 @@ export const JasspunkteStatistik: React.FC<StatisticProps> = ({
           showJassPoints={true}
         />
       ))}
-    </div>
+    </animated.div>
   );
 };

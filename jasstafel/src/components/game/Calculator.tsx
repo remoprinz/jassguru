@@ -1,7 +1,7 @@
 // src/components/game/Calculator.tsx
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { useUIStore } from '../../store/uiStore';
 import { TeamPosition, JassColor, StrichTyp } from '../../types/jass';
@@ -10,8 +10,9 @@ import { useSpring, animated } from 'react-spring';
 import { triggerMatschConfetti } from '../effects/MatschConfetti';
 import { HISTORY_WARNING_MESSAGE } from '../notifications/HistoryWarnings';
 import { FARBE_MODES } from '../../config/FarbeSettings';
-import { MAX_SCORE } from '../../config/GameSettings';
+import { MAX_SCORE, MATSCH_SCORE } from '../../config/ScoreSettings';
 import { getPictogram } from '../../utils/pictogramUtils';
+import { usePressableButton } from '../../hooks/usePressableButton';
 
 interface CalculatorProps {
   isOpen: boolean;
@@ -27,8 +28,8 @@ const Calculator: React.FC<CalculatorProps> = ({
   initialValue = 0,
   clickedPosition,
 }) => {
-  const { finalizeRound, settings, currentHistoryIndex, roundHistory, showHistoryWarning, jumpToLatest, validateHistoryAction } = useGameStore();
-  const { calculator, setCalculatorFlipped, farbeSettings, settings: { pictogramConfig } } = useUIStore();
+  const { finalizeRound, currentHistoryIndex, roundHistory, showHistoryWarning, jumpToLatest, validateHistoryAction } = useGameStore();
+  const { calculator, setCalculatorFlipped, farbeSettings, settings: { pictogramConfig, cardStyle } } = useUIStore();
 
   const [value, setValue] = useState(initialValue?.toString() || '0');
   const [opponentValue, setOpponentValue] = useState('0');
@@ -36,7 +37,6 @@ const Calculator: React.FC<CalculatorProps> = ({
   const [multiplier, setMultiplier] = useState(1);
   const [selectedColor, setSelectedColor] = useState<JassColor | null>(null);
   const [pressedButtons, setPressedButtons] = useState<Set<number | string>>(new Set());
-  const [pressedMultiplier, setPressedMultiplier] = useState<string | null>(null);
   const [isMatschActive, setIsMatschActive] = useState(false);
   const [pressedMatsch, setPressedMatsch] = useState(false);
   const [confettiCharge, setConfettiCharge] = useState(0);
@@ -70,13 +70,13 @@ const Calculator: React.FC<CalculatorProps> = ({
     if (inputValue === '0') {
       setOpponentValue('0');
       setTotalValue('0');
-    } else if (inputValue === '257') {
+    } else if (inputValue === MATSCH_SCORE.toString()) {
       setOpponentValue('0');
-      const total = 257 * currentMultiplier;
+      const total = MATSCH_SCORE * currentMultiplier;
       setTotalValue(total.toString());
     } else {
       const numericValue = parseInt(inputValue, 10);
-      const baseOpponentValue = Math.max(157 - numericValue, 0);
+      const baseOpponentValue = Math.max(MAX_SCORE - numericValue, 0);
       const multipliedValue = numericValue * currentMultiplier;
       const multipliedOpponentValue = baseOpponentValue * currentMultiplier;
 
@@ -132,7 +132,6 @@ const Calculator: React.FC<CalculatorProps> = ({
   const handleColorClick = (color: string, mult: number) => {
     setSelectedColor(color as JassColor);
     setMultiplier(mult);
-    setPressedMultiplier(null);
     calculateValues(value, mult);
   };
 
@@ -249,54 +248,109 @@ const Calculator: React.FC<CalculatorProps> = ({
     const farbeMode = FARBE_MODES.find(m => m.name === color);
     
     if (isSelected) {
-      return 'bg-orange-500'; // Selected-State bleibt gleich
+      return 'bg-orange-500';
     }
 
-    if (mode === 'emoji' && farbeMode?.emojiStyle) {
-      return farbeMode.emojiStyle.backgroundColor;
+    if (cardStyle === 'FR') {
+      return farbeMode?.frStyle?.backgroundColor || 'bg-gray-600';
+    }
+    
+    if (mode === 'emoji') {
+      return farbeMode?.emojiStyle?.backgroundColor || 'bg-gray-600';
+    }
+    
+    return farbeMode?.standardStyle?.backgroundColor || 'bg-gray-600';
+  };
+
+  // Neue Hilfsfunktion für die Namensanpassung
+  const getDisplayName = (color: string): string => {
+    // Wenn keine Piktogramme aktiviert sind, spezielle Behandlung für "Une"
+    if (!pictogramConfig.isEnabled && color.toLowerCase() === 'une') {
+      return 'Unde';
     }
 
-    return 'bg-gray-600'; // Default-Hintergrund
+    if (cardStyle === 'FR' && !pictogramConfig.isEnabled) {
+      // Mapping für französische Namen wenn keine Piktogramme
+      const frenchNames: Record<string, string> = {
+        'Eicheln': 'Schaufel',
+        'Rosen': 'Kreuz',
+        'Schellen': 'Herz',
+        'Schilten': 'Ecke'
+      };
+      return frenchNames[color] || color;
+    }
+    return color;
   };
 
   // Render-Logik für Farben-Buttons
-  const renderFarbeButton = (color: string, multiplier: number) => (
-    <button
-      key={color}
-      onMouseDown={() => setPressedMultiplier(color)}
-      onMouseUp={() => handleColorClick(color, multiplier)}
-      onMouseLeave={() => setPressedMultiplier(null)}
-      onTouchStart={() => setPressedMultiplier(color)}
-      onTouchEnd={() => handleColorClick(color, multiplier)}
-      className={`p-1 rounded transition-all duration-100 ${
-        selectedColor === color ? 'active' : ''
-      } text-white select-none text-xs h-12 flex items-center justify-center ${
-        getButtonStyle(color, selectedColor === color, pictogramConfig.mode)
-      }`}
-      aria-label={`${color}`}
-    >
-      {isClient && pictogramConfig.isEnabled ? (
-        pictogramConfig.mode === 'emoji' ? (
-          <span className="text-2xl">
-            {getPictogram(color as JassColor, 'emoji')}
-          </span>
-        ) : (
-          <img 
-            src={getPictogram(color as JassColor, 'svg')}
-            alt={color}
-            className="w-10 h-10 object-contain"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-              const parent = e.currentTarget.parentElement;
-              if (parent) {
-                parent.textContent = color;
-              }
-            }}
-          />
-        )
-      ) : color}
-    </button>
-  );
+  const renderFarbeButton = (color: string, multiplier: number) => {
+    const { handlers, buttonClasses } = usePressableButton(
+      () => handleColorClick(color, multiplier)
+    );
+
+    // Angepasster Vergleich für "Misère"
+    const isMisereSelected = color.toLowerCase() === 'misère' && selectedColor === color;
+
+    return (
+      <button
+        key={color}
+        {...handlers}
+        className={`p-1 rounded text-white select-none text-xs h-12 flex items-center justify-center ${
+          selectedColor === color ? 'active' : ''
+        } ${getButtonStyle(color, selectedColor === color, pictogramConfig.mode)} ${buttonClasses}`}
+        aria-label={`${color}`}
+      >
+        {isClient && pictogramConfig.isEnabled ? (
+          pictogramConfig.mode === 'emoji' ? (
+            <span className="text-2xl">
+              {getPictogram(color as JassColor, 'emoji', cardStyle)}
+            </span>
+          ) : (
+            <img 
+              src={getPictogram(color as JassColor, 'svg', cardStyle)}
+              alt={color}
+              className={`w-10 h-10 object-contain ${
+                isMisereSelected ? 'invert brightness-0' : ''
+              }`}
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                const parent = e.currentTarget.parentElement;
+                if (parent) {
+                  parent.textContent = getDisplayName(color);
+                }
+              }}
+            />
+          )
+        ) : getDisplayName(color)}
+      </button>
+    );
+  };
+
+  // Zahlentasten anpassen
+  const renderNumberButton = (num: number) => {
+    const { isPressedDown, handlers, buttonClasses } = usePressableButton(
+      () => handleNumberClick(num)
+    );
+
+    return (
+      <button
+        key={num}
+        {...handlers}
+        className={`bg-gray-600 text-white p-4 rounded select-none text-2xl ${buttonClasses}`}
+      >
+        {num}
+      </button>
+    );
+  };
+
+  // Matsch-Button anpassen
+  const { isPressedDown: isMatschPressed, handlers: matschHandlers, buttonClasses: matschClasses } = usePressableButton(handleMatsch);
+
+  // Clear-Button anpassen
+  const { handlers: clearHandlers, buttonClasses: clearClasses } = usePressableButton(handleClear);
+
+  // OK-Button anpassen
+  const { handlers: okHandlers, buttonClasses: okClasses } = usePressableButton(handleSubmit);
 
   return (
     <div
@@ -407,37 +461,18 @@ const Calculator: React.FC<CalculatorProps> = ({
             {sortedColors.map(({ color, multiplier }) => renderFarbeButton(color, multiplier))}
           </div>
           <div className="grid grid-cols-3 gap-3 w-full">
-            {numberOrder.map((num) => (
-              <button
-                key={num}
-                onClick={() => handleNumberClick(num)}
-                onTouchEnd={(e) => {
-                  e.preventDefault();
-                  handleNumberClick(num);
-                }}
-                className={`bg-gray-600 text-white p-4 rounded select-none text-2xl transition-all duration-100 ${
-                  pressedButtons.has(num) ? 'bg-gray-500 scale-95 opacity-80' : ''
-                }`}
-              >
-                {num}
-              </button>
-            ))}
+            {numberOrder.map((num) => renderNumberButton(num))}
             <button 
-              onClick={handleClear}
-              className="bg-red-600 text-white p-4 rounded select-none text-2xl transition-all duration-100"
+              {...clearHandlers}
+              className={`bg-red-600 text-white p-4 rounded select-none text-2xl ${clearClasses}`}
             >
               C
             </button>
+            {renderNumberButton(0)}
             <button 
-              onClick={() => handleNumberClick(0)}
-              className="bg-gray-600 text-white p-4 rounded select-none text-2xl transition-all duration-100"
-            >
-              0
-            </button>
-            <button 
-              onClick={handleSubmit}
+              {...okHandlers}
               disabled={!hasValidScore() || !selectedColor}
-              className={`bg-green-600 text-white p-4 rounded select-none text-2xl transition-all duration-100
+              className={`bg-green-600 text-white p-4 rounded select-none text-2xl ${okClasses}
                 ${(!hasValidScore() || !selectedColor) ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               OK

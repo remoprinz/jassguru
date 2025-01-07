@@ -1,11 +1,76 @@
 // src/types/uiStore.ts (oder src/store/uiStore.ts)
 
 import { create, StateCreator } from 'zustand';
-import type { TeamPosition, PlayerNames, SettingsTab, ScoreSettings, PictogramConfig } from '../types/jass';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import type { 
+  TeamPosition, 
+  PlayerNames, 
+  SettingsTab, 
+  PictogramConfig, 
+  ScoreMode, 
+  FarbeSettings, 
+  CardStyle 
+} from '../types/jass';
 import { StatisticId } from '../types/statistikTypes';
 import { FARBE_MODES } from '../config/FarbeSettings';
-import { defaultGameSettings } from '../config/GameSettings';
-import { BERG_SCORE, SIEG_SCORE, SCHNEIDER_SCORE } from '../config/GameSettings';
+import { 
+  SCORE_MODES, 
+  DEFAULT_SCORE_SETTINGS, 
+  validateScoreValue,
+  type ScoreSettings 
+} from '../config/ScoreSettings';
+import { 
+  DEFAULT_STROKE_SETTINGS, 
+  validateStrokeSettings, 
+  type StrokeSettings 
+} from '../config/GameSettings';
+
+export enum OnboardingStep {
+  INSTALL = 'INSTALL',
+  INTRODUCTION = 'INTRODUCTION',
+  SCREEN_TIME = 'SCREEN_TIME'
+}
+
+const validateMultipliers = (multipliers: number[]): boolean => {
+  return multipliers.every(m => m >= 0 && m <= 8);
+};
+
+// Storage Keys
+const STORAGE_KEYS = {
+  farbe: 'jass-farbe-settings',
+  score: 'jass-score-settings',
+  pictogram: 'jass-pictogram-settings',
+  strokes: 'jass-stroke-settings',
+  scores: 'jass-score-settings'
+} as const;
+
+// Generische Save-Funktion
+const saveToStorage = <T>(key: keyof typeof STORAGE_KEYS, data: T): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEYS[key], JSON.stringify(data));
+  } catch (error) {
+    console.error(`Fehler beim Speichern von ${key}:`, error);
+  }
+};
+
+// Spezifische Save-Funktionen
+const saveFarbeSettings = (settings: FarbeSettings) => 
+  saveToStorage('farbe', settings);
+
+const saveScoreSettings = (settings: ScoreSettings) => 
+  saveToStorage('score', settings);
+
+const savePictogramSettings = (settings: PictogramConfig) => 
+  saveToStorage('pictogram', settings);
+
+const saveStrokeSettings = (settings: StrokeSettings) => 
+  saveToStorage('strokes', settings);
+
+const initialPictogramSettings: PictogramConfig = {
+  isEnabled: true,
+  mode: 'svg'
+};
 
 interface ChargeState {
   isActive: boolean;
@@ -64,6 +129,13 @@ export const defaultStrichStyle: StrichStyle = {
   }
 };
 
+interface UISettingsState {
+  isOpen: boolean;
+  activeTab: SettingsTab['id'];
+  cardStyle: CardStyle;
+  pictogramConfig: PictogramConfig;
+}
+
 export interface UIState {
   calculator: {
     isOpen: boolean;
@@ -96,13 +168,10 @@ export interface UIState {
     swipePosition: TeamPosition | null;
     currentStatistic: 'striche' | 'jasspunkte';
   };
-  settings: {
-    isOpen: boolean;
-    activeTab: SettingsTab['id'];
-    pictogramConfig: PictogramConfig;
-  };
+  settings: UISettingsState;
   farbeSettings: FarbeSettings;
   scoreSettings: ScoreSettings;
+  strokeSettings: StrokeSettings;
   isGameInfoOpen: boolean;
   isHistoryWarningOpen: boolean;
   historyWarningCallback: (() => void) | null;
@@ -115,6 +184,17 @@ export interface UIState {
   };
   isPaused: boolean;
   strichStyle: StrichStyle;
+  overlayPosition: TeamPosition | null;
+  jassFinishNotification: {
+    isOpen: boolean;
+  };
+  onboarding: {
+    currentStep: OnboardingStep;
+    hasCompletedOnboarding: boolean;
+    show: boolean;
+    canBeDismissed: boolean;
+    isPWA: boolean;
+  };
 }
 
 interface UIActions {
@@ -157,158 +237,78 @@ interface UIActions {
   openScoreSettings: () => void;
   closeScoreSettings: () => void;
   updateScoreSettings: (settings: Partial<ScoreSettings>) => void;
+  setScoreValue: (mode: ScoreMode, value: number) => void;
+  toggleScoreEnabled: (mode: ScoreMode) => void;
   setSettingsTab: (tab: SettingsTab['id']) => void;
   openSettings: () => void;
   closeSettings: () => void;
   cyclePictogramMode: () => void;
+  setOverlayPosition: (position: TeamPosition | null) => void;
+  showJassFinishNotification: () => void;
+  closeJassFinishNotification: () => void;
+  setOnboardingStep: (step: OnboardingStep) => void;
+  completeOnboarding: () => void;
+  showOnboarding: (canBeDismissed: boolean, isPWA: boolean) => void;
+  hideOnboarding: () => void;
+  setCardStyle: (style: CardStyle) => void;
+  resetStartScreen: () => void;
+  updateStrokeSettings: (settings: Partial<StrokeSettings>) => void;
+  setStrokeValue: (type: keyof StrokeSettings, value: 1 | 2) => void;
 }
 
 export type UIStore = UIState & UIActions;
 
 type UIStoreCreator = StateCreator<UIStore>;
 
-// Keys für localStorage
-const FARBE_SETTINGS_KEY = 'jassguru_farbe_settings';
-const SCORE_SETTINGS_KEY = 'jassguru_score_settings';
-const PICTOGRAM_SETTINGS_KEY = 'jassguru_pictogram_settings';
+// Neue gemeinsame Interfaces
+interface GameSettingsValues {
+  farbe: number[];
+  score: Record<ScoreMode, number>;
+}
 
-// Interfaces
-interface FarbeSettings {
-  multipliers: number[];
+interface GameSettings<T> {
+  values: T;
   isFlipped: boolean;
+  isEnabled?: Record<string, boolean>; // Optional für Score-Settings
 }
 
-interface SettingsState {
-  activeTab: SettingsTab['id'];
-  isOpen: boolean;
-}
-
-// Hilfsfunktionen für Farbe-Settings
-const loadStoredFarbeSettings = (): Partial<FarbeSettings> => {
+// Spezifische Load-Funktionen für jeden Settings-Typ
+const loadStrokeSettings = (): StrokeSettings => {
+  if (typeof window === 'undefined') return DEFAULT_STROKE_SETTINGS;
+  
   try {
-    const stored = localStorage.getItem(FARBE_SETTINGS_KEY);
-    if (!stored) return {};
-    return JSON.parse(stored);
-  } catch (error) {
-    console.error('Fehler beim Laden der Farben-Settings:', error);
-    return {};
-  }
-};
-
-const saveFarbeSettings = (settings: FarbeSettings) => {
-  try {
-    localStorage.setItem(FARBE_SETTINGS_KEY, JSON.stringify(settings));
-  } catch (error) {
-    console.error('Fehler beim Speichern der Farben-Settings:', error);
-  }
-};
-
-// Hilfsfunktionen für Score-Settings
-const loadStoredScoreSettings = (): Partial<ScoreSettings> => {
-  try {
-    const stored = localStorage.getItem(SCORE_SETTINGS_KEY);
-    if (!stored) return {};
-    return JSON.parse(stored);
-  } catch (error) {
-    console.error('Fehler beim Laden der Score-Settings:', error);
-    return {};
-  }
-};
-
-const saveScoreSettings = (settings: ScoreSettings) => {
-  try {
-    localStorage.setItem(SCORE_SETTINGS_KEY, JSON.stringify(settings));
-  } catch (error) {
-    console.error('Fehler beim Speichern der Score-Settings:', error);
-  }
-};
-
-// Neue Hilfsfunktionen für Pictogram-Settings
-const loadStoredPictogramSettings = () => {
-  if (typeof window === 'undefined') {
-    return { isEnabled: true }; // Default-Wert für SSR
-  }
-  try {
-    const stored = localStorage.getItem('pictogramSettings');
-    return stored ? JSON.parse(stored) : { isEnabled: true };
-  } catch (error) {
-    console.error('Fehler beim Laden der Piktogramm-Settings:', error);
-    return { isEnabled: true };
-  }
-};
-
-const savePictogramSettings = (settings: PictogramConfig) => {
-  try {
-    localStorage.setItem(PICTOGRAM_SETTINGS_KEY, JSON.stringify(settings));
-  } catch (error) {
-    console.error('Fehler beim Speichern der Piktogramm-Settings:', error);
-  }
-};
-
-// Validierung der Multiplier
-const validateMultipliers = (multipliers: number[]): boolean => {
-  if (!multipliers || multipliers.length !== FARBE_MODES.length) return false;
-  return multipliers.every(m => m >= 0 && m <= 12);
-};
-
-// Initialisierung mit gespeicherten oder Standard-Werten
-const initialFarbeSettings = {
-  multipliers: FARBE_MODES.map(mode => mode.multiplier),
-  isFlipped: false,
-  ...loadStoredFarbeSettings()
-};
-
-// Zuerst eine Hilfsfunktion für die initialen Score-Settings
-const getInitialScoreSettings = (): ScoreSettings => {
-  // Wenn wir auf dem Server sind
-  if (typeof window === 'undefined') {
+    const stored = localStorage.getItem(STORAGE_KEYS.strokes);
+    if (!stored) return DEFAULT_STROKE_SETTINGS;
+    
+    const parsed = JSON.parse(stored);
     return {
-      siegScore: SIEG_SCORE,
-      bergScore: BERG_SCORE,
-      schneiderScore: SCHNEIDER_SCORE,
-      isBergEnabled: true,
-      isSchneiderEnabled: true
+      schneider: parsed.schneider ?? DEFAULT_STROKE_SETTINGS.schneider,
+      kontermatsch: parsed.kontermatsch ?? DEFAULT_STROKE_SETTINGS.kontermatsch
     };
+  } catch (error) {
+    console.error('Fehler beim Laden der Striche-Settings:', error);
+    return DEFAULT_STROKE_SETTINGS;
   }
-
-  // Wenn wir auf dem Client sind, laden wir aus dem localStorage
-  const stored = localStorage.getItem('scoreSettings');
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch (e) {
-      console.error('Fehler beim Laden der Score-Settings:', e);
-    }
-  }
-
-  // Fallback zu Default-Werten
-  return {
-    siegScore: SIEG_SCORE,
-    bergScore: BERG_SCORE,
-    schneiderScore: SCHNEIDER_SCORE,
-    isBergEnabled: true,
-    isSchneiderEnabled: true
-  };
 };
 
-const initialScoreSettings = {
-  siegScore: defaultGameSettings.siegScore,
-  bergScore: defaultGameSettings.bergScore,
-  schneiderScore: defaultGameSettings.schneiderScore,
-  isBergEnabled: true,
-  isSchneiderEnabled: true,
-  ...loadStoredScoreSettings()
+// Initiale Werte
+const initialFarbeSettings: FarbeSettings = {
+  values: FARBE_MODES.map(mode => mode.multiplier),
+  multipliers: FARBE_MODES.map(mode => mode.multiplier),
+  isFlipped: false
 };
 
-const initialPictogramSettings: PictogramConfig = {
-  ...{
-    isEnabled: false,
-    mode: 'svg'
-  },
-  ...loadStoredPictogramSettings()
+const initialScoreSettings: ScoreSettings = {
+  values: Object.fromEntries(
+    SCORE_MODES.map(mode => [mode.id, mode.defaultValue])
+  ) as Record<ScoreMode, number>,
+  isFlipped: false,
+  enabled: Object.fromEntries(
+    SCORE_MODES.map(mode => [mode.id, true])
+  ) as Record<ScoreMode, boolean>
 };
 
-export const useUIStore = create<UIStore>((set, get) => ({
+const initialState: UIState = {
   calculator: {
     isOpen: false,
     value: 0,
@@ -352,10 +352,15 @@ export const useUIStore = create<UIStore>((set, get) => ({
   settings: {
     isOpen: false,
     activeTab: 'farben',
-    pictogramConfig: initialPictogramSettings
+    cardStyle: 'DE',
+    pictogramConfig: {
+      isEnabled: true,
+      mode: 'svg'
+    }
   },
   farbeSettings: initialFarbeSettings,
-  scoreSettings: getInitialScoreSettings(),
+  scoreSettings: initialScoreSettings,
+  strokeSettings: DEFAULT_STROKE_SETTINGS,
   isGameInfoOpen: false,
   isHistoryWarningOpen: false,
   historyWarningCallback: null,
@@ -368,289 +373,467 @@ export const useUIStore = create<UIStore>((set, get) => ({
   },
   isPaused: false,
   strichStyle: defaultStrichStyle,
+  overlayPosition: null,
+  jassFinishNotification: {
+    isOpen: false
+  },
+  onboarding: {
+    currentStep: OnboardingStep.INSTALL,
+    hasCompletedOnboarding: true,
+    show: false,
+    canBeDismissed: true,
+    isPWA: false
+  }
+};
 
-  startCharge: (team, type) => set((state) => ({
-    chargeEffects: {
-      ...state.chargeEffects,
-      [type]: {
-        ...state.chargeEffects[type],
-        [team]: {
-          isActive: true,
-          pressStartTime: Date.now(),
-          chargeAmount: 0
+export const useUIStore = create<UIStore>()(
+  persist(
+    (set, get) => ({
+      ...initialState,
+
+      // Neue Methode speziell für StartScreen Reset
+      resetStartScreen: () => set((state) => ({
+        ...state,  // Alle anderen Settings (Farbe etc.) bleiben erhalten
+        startScreen: {
+          transitionState: 'initial',
+          names: { 1: '', 2: '', 3: '', 4: '' }
         }
-      }
-    }
-  })),
+      })),
 
-  updateCharge: (team, type) => {
-    const state = get();
-    const effect = state.chargeEffects[type][team];
-    if (effect.isActive && effect.pressStartTime) {
-      const elapsed = Date.now() - effect.pressStartTime;
-      set((state) => ({
+      startCharge: (team, type) => set((state) => ({
         chargeEffects: {
           ...state.chargeEffects,
           [type]: {
             ...state.chargeEffects[type],
             [team]: {
-              ...effect,
-              chargeAmount: Math.min(elapsed / 1000, 1)
+              isActive: true,
+              pressStartTime: Date.now(),
+              chargeAmount: 0
             }
           }
         }
-      }));
-    }
-  },
+      })),
 
-  endCharge: (team, type) => set((state) => ({
-    chargeEffects: {
-      ...state.chargeEffects,
-      [type]: {
-        ...state.chargeEffects[type],
-        [team]: createInitialChargeState()
-      }
-    }
-  })),
-
-  resetChargeEffects: () => set(() => ({
-    chargeEffects: {
-      berg: {
-        top: createInitialChargeState(),
-        bottom: createInitialChargeState()
+      updateCharge: (team, type) => {
+        const state = get();
+        const effect = state.chargeEffects[type][team];
+        if (effect.isActive && effect.pressStartTime) {
+          const elapsed = Date.now() - effect.pressStartTime;
+          set((state) => ({
+            chargeEffects: {
+              ...state.chargeEffects,
+              [type]: {
+                ...state.chargeEffects[type],
+                [team]: {
+                  ...effect,
+                  chargeAmount: Math.min(elapsed / 1000, 1)
+                }
+              }
+            }
+          }));
+        }
       },
-      bedanken: {
-        top: createInitialChargeState(),
-        bottom: createInitialChargeState()
-      },
-      matsch: {
-        top: createInitialChargeState(),
-        bottom: createInitialChargeState()
-      }
-    }
-  })),
 
-  openCalculator: () => set((state) => ({ 
-    calculator: { ...state.calculator, isOpen: true } 
-  })),
-  
-  closeCalculator: () => set((state) => ({ 
-    calculator: { ...state.calculator, isOpen: false } 
-  })),
-  
-  setCalculatorFlipped: (flipped) => set((state) => ({ 
-    calculator: { ...state.calculator, isFlipped: flipped } 
-  })),
-  
-  setStartScreenState: (state: 'initial' | 'starting' | 'complete') => 
-    set(prev => ({
-      startScreen: {
-        ...prev.startScreen,
-        transitionState: state
-      }
-    })),
-    
-  setStartScreenNames: (names: PlayerNames) =>
-    set(prev => ({
-      startScreen: {
-        ...prev.startScreen,
-        names
-      }
-    })),
-    
-  setMenuActiveButton: (button) => set((state) => ({
-    menu: { ...state.menu, activeButton: button }
-  })),
-  
-  setShowIntroduction: (show) => set((state) => ({
-    menu: { ...state.menu, showIntroduction: show }
-  })),
-  
-  setShowResetWarning: (show) => set((state) => ({
-    menu: { ...state.menu, showResetWarning: show }
-  })),
-  
-  resetAll: () => set(() => ({
-    calculator: {
-      isOpen: false,
-      value: 0,
-      isFlipped: false
-    },
-    gameInfo: {
-      isOpen: false
-    },
-    startScreen: {
-      transitionState: 'initial',
-      names: { 1: '', 2: '', 3: '', 4: '' }
-    },
-    history: {
-      warning: null
-    },
-    chargeEffects: {
-      berg: {
-        top: createInitialChargeState(),
-        bottom: createInitialChargeState()
-      },
-      bedanken: {
-        top: createInitialChargeState(),
-        bottom: createInitialChargeState()
-      },
-      matsch: {
-        top: createInitialChargeState(),
-        bottom: createInitialChargeState()
-      }
-    },
-    menu: {
-      isOpen: false,
-      activeButton: null,
-      showIntroduction: false,
-      showResetWarning: false
-    },
-    resultatKreidetafel: {
-      isOpen: false,
-      swipePosition: null,
-      currentStatistic: 'striche'
-    },
-    historyWarning: {
-      show: false,
-      message: '',
-      onConfirm: () => {},
-      onCancel: () => {}
-    }
-  })),
+      endCharge: (team, type) => set((state) => ({
+        chargeEffects: {
+          ...state.chargeEffects,
+          [type]: {
+            ...state.chargeEffects[type],
+            [team]: createInitialChargeState()
+          }
+        }
+      })),
 
-  setMenuOpen: (isOpen) => set((state) => ({
-    menu: { ...state.menu, isOpen }
-  })),
+      resetChargeEffects: () => set(() => ({
+        chargeEffects: {
+          berg: {
+            top: createInitialChargeState(),
+            bottom: createInitialChargeState()
+          },
+          bedanken: {
+            top: createInitialChargeState(),
+            bottom: createInitialChargeState()
+          },
+          matsch: {
+            top: createInitialChargeState(),
+            bottom: createInitialChargeState()
+          }
+        }
+      })),
 
-  openResultatKreidetafel: (position) => set({
-    resultatKreidetafel: {
-      isOpen: true,
-      swipePosition: position,
-      currentStatistic: 'striche'
-    }
-  }),
-  closeResultatKreidetafel: () => set({
-    resultatKreidetafel: {
-      isOpen: false,
-      swipePosition: null,
-      currentStatistic: 'striche'
-    }
-  }),
-  setGameInfoOpen: (isOpen: boolean) => set({ isGameInfoOpen: isOpen }),
-  setHistoryWarningOpen: (isOpen: boolean) => set({ isHistoryWarningOpen: isOpen }),
-  setHistoryWarningCallback: (callback: (() => void) | null) => 
-    set({ historyWarningCallback: callback }),
-  setLastDoubleClickPosition: (position) => set({ 
-    lastDoubleClickPosition: position 
-  }),
-  showHistoryWarning: ({ message, onConfirm, onCancel }) => {
-    set({
-      historyWarning: {
-        show: true,
-        message,
-        onConfirm,
-        onCancel
-      }
-    });
-  },
-  closeHistoryWarning: () => set(state => ({
-    historyWarning: {
-      ...state.historyWarning,
-      show: false
-    }
-  })),
-  pauseGame: () => set({ isPaused: true }),
-  resumeGame: () => set({ isPaused: false }),
-  setKreidetafelPosition: (position) => set((state) => ({
-    resultatKreidetafel: {
-      ...state.resultatKreidetafel,
-      swipePosition: position
-    }
-  })),
-  setKreidetafelStatistic: (statisticId) => set((state) => ({
-    resultatKreidetafel: {
-      ...state.resultatKreidetafel,
-      currentStatistic: statisticId
-    }
-  })),
-  setStrichStyle: (style: Partial<StrichStyle>) => 
-    set(state => ({
-      strichStyle: {
-        ...state.strichStyle,
-        ...style
-      }
-    })),
-  openFarbeSettings: () => set(state => ({
-    settings: { ...state.settings, isOpen: true, activeTab: 'farben' }
-  })),
-  closeFarbeSettings: () => set(state => ({
-    settings: { ...state.settings, isOpen: false }
-  })),
-  setFarbeMultiplier: (index: number, value: number) => {
-    const currentSettings = get().farbeSettings;
-    const newMultipliers = [...currentSettings.multipliers];
-    newMultipliers[index] = value;
-    if (validateMultipliers(newMultipliers)) {
-      const newSettings = { ...currentSettings, multipliers: newMultipliers };
-      saveFarbeSettings(newSettings);
-      set({ farbeSettings: newSettings });
-    }
-  },
-  setFarbeFlipped: (isFlipped: boolean) => {
-    const currentSettings = get().farbeSettings;
-    const newSettings = { ...currentSettings, isFlipped };
-    saveFarbeSettings(newSettings);
-    set({ farbeSettings: newSettings });
-  },
-  updateFarbeSettings: (settings: Partial<FarbeSettings>) => {
-    const currentSettings = get().farbeSettings;
-    const newSettings = { ...currentSettings, ...settings };
-    saveFarbeSettings(newSettings);
-    set({ farbeSettings: newSettings });
-  },
-  openScoreSettings: () => set(state => ({
-    settings: { ...state.settings, isOpen: true, activeTab: 'scores' }
-  })),
-  closeScoreSettings: () => set(state => ({
-    settings: { ...state.settings, isOpen: false }
-  })),
-  updateScoreSettings: (settings: Partial<ScoreSettings>) => 
-    set(state => {
-      const newSettings = { ...state.scoreSettings, ...settings };
-      saveScoreSettings(newSettings);
-      return { scoreSettings: newSettings };
+      openCalculator: () => set((state) => ({ 
+        calculator: { ...state.calculator, isOpen: true } 
+      })),
+      
+      closeCalculator: () => set((state) => ({ 
+        calculator: { ...state.calculator, isOpen: false } 
+      })),
+      
+      setCalculatorFlipped: (flipped) => set((state) => ({ 
+        calculator: { ...state.calculator, isFlipped: flipped } 
+      })),
+      
+      setStartScreenState: (state: 'initial' | 'starting' | 'complete') => 
+        set(prev => ({
+          startScreen: {
+            ...prev.startScreen,
+            transitionState: state
+          }
+        })),
+        
+      setStartScreenNames: (names: PlayerNames) =>
+        set(prev => ({
+          startScreen: {
+            ...prev.startScreen,
+            names
+          }
+        })),
+        
+      setMenuActiveButton: (button) => set((state) => ({
+        menu: { ...state.menu, activeButton: button }
+      })),
+      
+      setShowIntroduction: (show) => set((state) => ({
+        menu: { ...state.menu, showIntroduction: show }
+      })),
+      
+      setShowResetWarning: (show) => set((state) => ({
+        menu: { ...state.menu, showResetWarning: show }
+      })),
+      
+      resetAll: () => set(() => ({
+        calculator: {
+          isOpen: false,
+          value: 0,
+          isFlipped: false
+        },
+        gameInfo: {
+          isOpen: false
+        },
+        startScreen: {
+          transitionState: 'initial',
+          names: { 1: '', 2: '', 3: '', 4: '' }
+        },
+        history: {
+          warning: null
+        },
+        chargeEffects: {
+          berg: {
+            top: createInitialChargeState(),
+            bottom: createInitialChargeState()
+          },
+          bedanken: {
+            top: createInitialChargeState(),
+            bottom: createInitialChargeState()
+          },
+          matsch: {
+            top: createInitialChargeState(),
+            bottom: createInitialChargeState()
+          }
+        },
+        menu: {
+          isOpen: false,
+          activeButton: null,
+          showIntroduction: false,
+          showResetWarning: false
+        },
+        resultatKreidetafel: {
+          isOpen: false,
+          swipePosition: null,
+          currentStatistic: 'striche'
+        },
+        historyWarning: {
+          show: false,
+          message: '',
+          onConfirm: () => {},
+          onCancel: () => {}
+        }
+      })),
+
+      setMenuOpen: (isOpen) => set((state) => ({
+        menu: { ...state.menu, isOpen },
+        overlayPosition: isOpen ? state.overlayPosition : null
+      })),
+
+      openResultatKreidetafel: (position) => set({
+        resultatKreidetafel: {
+          isOpen: true,
+          swipePosition: position,
+          currentStatistic: 'striche'
+        },
+        overlayPosition: position
+      }),
+      closeResultatKreidetafel: () => set({
+        resultatKreidetafel: {
+          isOpen: false,
+          swipePosition: null,
+          currentStatistic: 'striche'
+        }
+      }),
+      setGameInfoOpen: (isOpen: boolean) => set({ isGameInfoOpen: isOpen }),
+      setHistoryWarningOpen: (isOpen: boolean) => set({ isHistoryWarningOpen: isOpen }),
+      setHistoryWarningCallback: (callback: (() => void) | null) => 
+        set({ historyWarningCallback: callback }),
+      setLastDoubleClickPosition: (position) => set({ 
+        lastDoubleClickPosition: position 
+      }),
+      showHistoryWarning: ({ message, onConfirm, onCancel }) => {
+        set({
+          historyWarning: {
+            show: true,
+            message,
+            onConfirm,
+            onCancel
+          }
+        });
+      },
+      closeHistoryWarning: () => set(state => ({
+        historyWarning: {
+          ...state.historyWarning,
+          show: false
+        }
+      })),
+      pauseGame: () => set({ isPaused: true }),
+      resumeGame: () => set({ isPaused: false }),
+      setKreidetafelPosition: (position) => set((state) => ({
+        resultatKreidetafel: {
+          ...state.resultatKreidetafel,
+          swipePosition: position
+        }
+      })),
+      setKreidetafelStatistic: (statisticId) => set((state) => ({
+        resultatKreidetafel: {
+          ...state.resultatKreidetafel,
+          currentStatistic: statisticId
+        }
+      })),
+      setStrichStyle: (style: Partial<StrichStyle>) => 
+        set(state => ({
+          strichStyle: {
+            ...state.strichStyle,
+            ...style
+          }
+        })),
+      openFarbeSettings: () => set(state => ({
+        settings: { ...state.settings, isOpen: true, activeTab: 'farben' }
+      })),
+      closeFarbeSettings: () => set(state => ({
+        settings: { ...state.settings, isOpen: false }
+      })),
+      setFarbeMultiplier: (index: number, value: number) => {
+        const currentSettings = get().farbeSettings;
+        const newMultipliers = [...currentSettings.multipliers];
+        newMultipliers[index] = value;
+        if (validateMultipliers(newMultipliers)) {
+          const newSettings = { ...currentSettings, multipliers: newMultipliers };
+          saveFarbeSettings(newSettings);
+          set({ farbeSettings: newSettings });
+        }
+      },
+      setFarbeFlipped: (isFlipped: boolean) => {
+        const currentSettings = get().farbeSettings;
+        const newSettings = { ...currentSettings, isFlipped };
+        saveFarbeSettings(newSettings);
+        set({ farbeSettings: newSettings });
+      },
+      updateFarbeSettings: (settings: Partial<FarbeSettings>) => 
+        set(state => {
+          const newSettings = { ...state.farbeSettings, ...settings };
+          saveFarbeSettings(newSettings);
+          return { farbeSettings: newSettings };
+        }),
+      openScoreSettings: () => set(state => ({
+        settings: { ...state.settings, isOpen: true, activeTab: 'scores' }
+      })),
+      closeScoreSettings: () => set(state => ({
+        settings: { ...state.settings, isOpen: false }
+      })),
+      updateScoreSettings: (settings: Partial<ScoreSettings>) => 
+        set(state => ({
+          scoreSettings: {
+            ...state.scoreSettings,
+            ...settings
+          }
+        })),
+      setScoreValue: (mode: ScoreMode, value: number) => {
+        if (!validateScoreValue(mode, value)) return;
+        
+        set(state => {
+          const newSettings = {
+            ...state.scoreSettings,
+            values: {
+              ...state.scoreSettings.values,
+              [mode]: value
+            }
+          };
+          return { scoreSettings: newSettings };
+        });
+      },
+      toggleScoreEnabled: (mode: ScoreMode) => 
+        set(state => ({
+          scoreSettings: {
+            ...state.scoreSettings,
+            enabled: {
+              ...state.scoreSettings.enabled,
+              [mode]: !state.scoreSettings.enabled[mode]
+            }
+          }
+        })),
+      setSettingsTab: (tab: SettingsTab['id']) => set(state => ({
+        settings: { ...state.settings, activeTab: tab }
+      })),
+      openSettings: () => set(state => ({
+        settings: { ...state.settings, isOpen: true }
+      })),
+      closeSettings: () => set(state => ({
+        settings: { ...state.settings, isOpen: false }
+      })),
+      cyclePictogramMode: () => set(state => {
+        const currentConfig = state.settings.pictogramConfig;
+        let newConfig: PictogramConfig;
+
+        if (!currentConfig.isEnabled) {
+          // Von 'Nein' zu 'Standard'
+          newConfig = { isEnabled: true, mode: 'svg' };
+        } else if (currentConfig.mode === 'svg') {
+          // Von 'Standard' zu 'Emojis'
+          newConfig = { isEnabled: true, mode: 'emoji' };
+        } else {
+          // Von 'Emojis' zurück zu 'Nein'
+          newConfig = { isEnabled: false, mode: 'svg' };
+        }
+
+        savePictogramSettings(newConfig);
+        return {
+          settings: {
+            ...state.settings,
+            pictogramConfig: newConfig
+          }
+        };
+      }),
+      updateScoreValue: (mode: ScoreMode, value: number) => 
+        set(state => {
+          if (!validateScoreValue(mode, value)) return state;
+          
+          const newValues = { ...state.scoreSettings.values };
+          newValues[mode] = value;
+          
+          // Automatische Anpassung von Berg/Schneider bei Sieg-Änderung
+          if (mode === 'sieg') {
+            const halfValue = Math.floor(value / 2);
+            newValues.berg = Math.min(newValues.berg, halfValue);
+            newValues.schneider = Math.min(newValues.schneider, halfValue);
+          }
+          
+          const newSettings = {
+            ...state.scoreSettings,
+            values: newValues
+          };
+          
+          saveScoreSettings(newSettings);
+          return { scoreSettings: newSettings };
+        }),
+      updateSettings: (
+        type: 'farbe' | 'score',
+        settings: Partial<FarbeSettings | ScoreSettings>
+      ) => {
+        set((state) => {
+          const currentSettings = type === 'farbe' 
+            ? state.farbeSettings 
+            : state.scoreSettings;
+          
+          const newSettings = {
+            ...currentSettings,
+            ...settings
+          };
+          
+          saveToStorage(type, newSettings);
+          
+          return {
+            [`${type}Settings`]: newSettings
+          };
+        });
+      },
+      setOverlayPosition: (position) => set({ overlayPosition: position }),
+      showJassFinishNotification: () => set(state => ({
+        jassFinishNotification: {
+          isOpen: true
+        }
+      })),
+      closeJassFinishNotification: () => set(state => ({
+        jassFinishNotification: {
+          isOpen: false
+        }
+      })),
+      setOnboardingStep: (step: OnboardingStep) => 
+        set((state) => ({ 
+          onboarding: { 
+            ...state.onboarding, 
+            currentStep: step 
+          } 
+        })),
+      completeOnboarding: () => 
+        set((state) => ({ 
+          onboarding: { 
+            ...state.onboarding, 
+            hasCompletedOnboarding: true 
+          } 
+        })),
+      showOnboarding: (canBeDismissed: boolean = false, isPWA: boolean = false) => 
+        set((state) => ({ 
+          onboarding: { 
+            ...state.onboarding, 
+            show: true, 
+            canBeDismissed,
+            isPWA 
+          } 
+        })),
+      hideOnboarding: () => 
+        set((state) => ({ 
+          onboarding: { 
+            ...state.onboarding, 
+            show: false,
+            hasCompletedOnboarding: true 
+          } 
+        })),
+      setCardStyle: (style: CardStyle) => set(state => ({
+        settings: {
+          ...state.settings,
+          cardStyle: style
+        }
+      })),
+      updateStrokeSettings: (settings: Partial<StrokeSettings>) => {
+        if (!validateStrokeSettings(settings)) return;
+        
+        set(state => ({
+          strokeSettings: {
+            ...state.strokeSettings,
+            ...settings
+          }
+        }));
+      },
+      setStrokeValue: (type: keyof StrokeSettings, value: 1 | 2) => {
+        if (!validateStrokeSettings({ [type]: value })) return;
+        
+        set(state => ({
+          strokeSettings: {
+            ...state.strokeSettings,
+            [type]: value
+          }
+        }));
+      },
     }),
-  setSettingsTab: (tab: SettingsTab['id']) => set(state => ({
-    settings: { ...state.settings, activeTab: tab }
-  })),
-  openSettings: () => set(state => ({
-    settings: { ...state.settings, isOpen: true }
-  })),
-  closeSettings: () => set(state => ({
-    settings: { ...state.settings, isOpen: false }
-  })),
-  cyclePictogramMode: () => set(state => {
-    const currentConfig = state.settings.pictogramConfig;
-    let newConfig: PictogramConfig;
-
-    if (!currentConfig.isEnabled) {
-      // Von 'Nein' zu 'Standard'
-      newConfig = { isEnabled: true, mode: 'svg' };
-    } else if (currentConfig.mode === 'svg') {
-      // Von 'Standard' zu 'Emojis'
-      newConfig = { isEnabled: true, mode: 'emoji' };
-    } else {
-      // Von 'Emojis' zurück zu 'Nein'
-      newConfig = { isEnabled: false, mode: 'svg' };
+    {
+      name: 'jass-ui-storage',
+      partialize: (state) => ({
+        scoreSettings: state.scoreSettings,
+        strokeSettings: state.strokeSettings
+      })
     }
+  )
+);
+// Hydration manuell durchführen
+if (typeof window !== 'undefined') {
+  useUIStore.persist.rehydrate();
+}
 
-    savePictogramSettings(newConfig);
-    return {
-      settings: {
-        ...state.settings,
-        pictogramConfig: newConfig
-      }
-    };
-  })
-}));

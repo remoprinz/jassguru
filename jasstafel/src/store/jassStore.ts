@@ -97,18 +97,39 @@ const aggregateGameResult = (teams: Record<TeamPosition, TeamStand>, scores: Tea
 const calculateStricheTotal = (striche: StricheRecord): number => 
   Object.values(striche).reduce((sum, count) => sum + count, 0);
 
-const createJassStore: StateCreator<JassStore> = (set, get) => ({
+// 1. Initial PlayerNames definieren
+const initialPlayerNames: PlayerNames = {
+  1: '', 2: '', 3: '', 4: ''
+};
+
+// 2. Initial Session State
+const initialSession = {
+  id: 'initial',
+  gruppeId: 'default',
+  startedAt: Date.now(),
+  playerNames: initialPlayerNames,
+  games: [],
+  metadata: {}
+};
+
+// 3. Vollständiger Initial State
+const initialJassState = {
   isJassStarted: false,
-  currentSession: null,
+  currentSession: initialSession,
   currentRound: 1,
+  currentGameId: 1,
   isJassCompleted: false,
   teams: {
     top: createInitialTeamStand(),
     bottom: createInitialTeamStand()
   },
   games: [],
-  currentGameId: 0,
-  currentGameCache: null,
+  currentGameCache: null
+};
+
+const createJassStore: StateCreator<JassStore> = (set, get) => ({
+  // Initial-State verwenden
+  ...initialJassState,
 
   saveSession: async () => {
     const state = get();
@@ -169,11 +190,9 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
     playerNames: PlayerNames;
     initialStartingPlayer: PlayerNumber;
   }) => {
-    const gameStore = useGameStore.getState();
-    
     const firstGame = createGameEntry(
       1,
-      gameStore.currentPlayer,
+      config.initialStartingPlayer,
       'default'
     );
     
@@ -259,18 +278,7 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
   },
 
   resetJass: () => {
-    set({
-      isJassStarted: false,
-      currentSession: null,
-      currentRound: 0,
-      isJassCompleted: false,
-      teams: {
-        top: createInitialTeamStand(),
-        bottom: createInitialTeamStand()
-      },
-      games: [],
-      currentGameId: 0,
-    });
+    set(initialJassState);
   },
 
   undoNewGame: () => {
@@ -427,6 +435,15 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
     set(state => {
       const currentGame = state.games.find(game => game.id === state.currentGameId);
       if (!currentGame) return state;
+
+      // Debug Log für Striche-Updates
+      if (update.teams) {
+        console.log('📝 JassStore Striche Update:', {
+          gameId: state.currentGameId,
+          top: update.teams.top?.striche,
+          bottom: update.teams.bottom?.striche
+        });
+      }
 
       // Tiefes Merge der Teams-Daten
       const updatedTeams = update.teams ? {

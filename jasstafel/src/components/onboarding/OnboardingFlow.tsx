@@ -1,0 +1,184 @@
+import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FaArrowLeft, FaArrowRight } from 'react-icons/fa';
+import type { OnboardingContent, BrowserOnboardingStep, AppOnboardingStep } from '../../types/jass';
+import { usePressableButton } from '../../hooks/usePressableButton';
+
+interface OnboardingFlowProps {
+  show: boolean;
+  step: BrowserOnboardingStep | AppOnboardingStep;
+  content: OnboardingContent;
+  onNext: () => void;
+  onPrevious: () => void;
+  onDismiss: () => void;
+  canBeDismissed: boolean;
+  isPWA: boolean;
+  isBrowserOnboarding: boolean;
+}
+
+export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ 
+  show, 
+  step,
+  content,
+  onNext,
+  onPrevious,
+  onDismiss,
+  canBeDismissed,
+  isPWA,
+  isBrowserOnboarding
+}) => {
+  // Im Development Mode direkt null zurückgeben
+  if (process.env.NODE_ENV === 'development') return null;
+
+  const previousButton = usePressableButton(onPrevious);
+  const nextButton = usePressableButton(onNext);
+  const isFirstStep = step === 'INSTALL_WELCOME';
+
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 flex items-center justify-center z-[9999] p-4"
+        >
+          <motion.div 
+            key={step}
+            initial={{ scale: 0.95 }}
+            animate={{ scale: 1 }}
+            exit={{ scale: 0.95 }}
+            className="bg-gray-800 p-6 rounded-lg shadow-lg max-w-xs w-full relative text-white"
+          >
+            <div className="flex flex-col items-center justify-center">
+              {isFirstStep ? (
+                <WelcomeStep content={content} />
+              ) : step === 'FINAL_HINTS' ? (
+                <FinalStep />
+              ) : (
+                <StandardStep content={content} />
+              )}
+
+              {/* Navigation Buttons */}
+              <NavigationButtons 
+                previousButton={previousButton}
+                nextButton={nextButton}
+              />
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
+// Separate Komponenten für bessere Übersichtlichkeit
+const WelcomeStep: React.FC<{ content: OnboardingContent }> = ({ content }) => (
+  <>
+    <h1 className="text-3xl font-bold mb-4 text-center text-white">
+      Willkommen zu Jassguru
+    </h1>
+    <img 
+      src="/welcome-guru.png"
+      alt="Jass Guru"
+      className="w-32 h-32 object-contain mb-4"
+    />
+    <h3 className="text-lg font-semibold mb-3 text-gray-300">
+      Schritt 1:
+    </h3>
+    <h2 className="text-2xl font-bold mb-4 text-center">
+      {content.title}
+    </h2>
+    {content.icon && <content.icon className="w-12 h-12 text-yellow-600 mb-4" />}
+    <p className="text-center text-base mb-6">
+      {content.message}
+    </p>
+    <h4 className="text-lg font-semibold mb-6 text-gray-300">
+      So geht's:
+    </h4>
+  </>
+);
+
+const FinalStep: React.FC = () => (
+  <>
+    <h1 className="text-3xl font-bold mb-4 text-center text-white">
+      Letzte Hinweise
+    </h1>
+    <img 
+      src="/welcome-guru.png"
+      alt="Jass Guru"
+      className="w-32 h-32 object-contain mb-4"
+    />
+    <h3 className="text-lg font-semibold mb-3 text-gray-300">
+      Achtung:
+    </h3>
+    <p className="text-center text-base mb-6">
+      Vermeide es, die App mehrfach zu installieren – das kann zu unerwünschtem Verhalten führen!
+    </p>
+    <h4 className="text-lg font-semibold mb-3 text-gray-300">
+      Nächster Schritt:
+    </h4>
+    <p className="text-center text-base mb-8">
+      Schliesse das Browser-Fenster nach der Installation. Beim ersten Öffnen der App wirst du durch alle wichtigen Funktionen geführt.
+    </p>
+    <h2 className="text-2xl font-bold text-center mb-8">
+      Gutes Jassen!
+    </h2>
+  </>
+);
+
+const StandardStep: React.FC<{ content: OnboardingContent }> = ({ content }) => (
+  <>
+    <h3 className="text-lg font-semibold mb-2 text-gray-300">
+      {content.title}
+    </h3>
+    {content.image && (
+      <div className="w-full mb-6">
+        <img 
+          src={content.image}
+          alt={content.title}
+          className="w-full h-auto rounded-lg border border-gray-700"
+        />
+      </div>
+    )}
+    <p className="text-center text-base mb-7">
+      {content.message}
+    </p>
+  </>
+);
+
+interface NavigationButtonsProps {
+  previousButton: ReturnType<typeof usePressableButton>;
+  nextButton: ReturnType<typeof usePressableButton>;
+}
+
+const NavigationButtons: React.FC<NavigationButtonsProps> = ({ previousButton, nextButton }) => (
+  <div className="flex justify-between w-full gap-4">
+    <button
+      {...previousButton.handlers}
+      className={`
+        flex-1 bg-gray-600 text-white px-6 py-2 rounded-full 
+        hover:bg-gray-700 transition-all duration-100 text-lg font-semibold 
+        flex items-center justify-center
+        ${previousButton.buttonClasses}
+      `}
+    >
+      <FaArrowLeft className="mr-2" />
+      Zurück
+    </button>
+    <button
+      {...nextButton.handlers}
+      className={`
+        flex-1 bg-yellow-600 text-white px-6 py-2 rounded-full 
+        hover:bg-yellow-700 transition-all duration-100 text-lg font-semibold 
+        flex items-center justify-center
+        ${nextButton.buttonClasses}
+      `}
+    >
+      Weiter
+      <FaArrowRight className="ml-2" />
+    </button>
+  </div>
+);
+
+export default OnboardingFlow;

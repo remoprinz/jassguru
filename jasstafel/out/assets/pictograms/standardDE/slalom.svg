@@ -8,6 +8,13 @@
       }
     </style>
   </defs>
-  <path class="st0" d="M15.5,20.8,12.5,19.4v-6.7h3l-5-7.8-5,7.8h3v6.7h-3l5,7.8,5-7.8h-3M8.5,8.8"/>
-  <path class="st0" d="M27.2,20.8,24.2,19.4v-6.7h3l-5-7.8-5,7.8h3v6.7h-3l5,7.8,5-7.8h-3M20.2,8.8"/>
+  <polygon class="st0" points="4 9.7 9.5 9.7 9.4 23.6 4 23.6 4 9.7"/>
+  <g>
+    <circle class="st0" cx="7.3" cy="23.4" r="3.2"/>
+    <path class="st0" d="M6.7,3.8l6.7,6.8h-4v6.8s-5.4,0-5.4,0v-6.8H0S6.7,3.8,6.7,3.8Z"/>
+  </g>
+  <path class="st0" d="M25.3,28l-6.7-6.8h4s0-6.8,0-6.8h5.4v6.8s4,0,4,0l-6.7,6.8Z"/>
+  <polygon class="st0" points="22.6 8.5 28 8.5 28 22.7 22.5 22.7 22.6 8.5"/>
+  <rect class="st0" x="4.2" y="13.2" width="23.5" height="5.4" transform="translate(-6.6 15.2) rotate(-43.2)"/>
+  <circle class="st0" cx="24.7" cy="8.6" r="3.2"/>
 </svg>

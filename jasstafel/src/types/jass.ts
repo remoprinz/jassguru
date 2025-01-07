@@ -1,7 +1,40 @@
 // src/types/jass.ts
 
-import { GameMode } from '../config/GameSettings';
 import { StatisticId } from './statistikTypes';
+import { IconType } from 'react-icons';
+import type { StrokeSettings } from '../config/GameSettings';
+
+// Definiere die gemeinsamen Steps
+export const COMMON_BROWSER_STEPS = {
+  INSTALL_WELCOME: 'INSTALL_WELCOME',
+  INSTALL_SHARE: 'INSTALL_SHARE',
+  INSTALL_FINAL: 'INSTALL_FINAL',
+  INSTALL_DONE: 'INSTALL_DONE',
+  FINAL_HINTS: 'FINAL_HINTS'
+} as const;
+
+// iOS-spezifische Steps
+export const IOS_BROWSER_STEPS = {
+  ...COMMON_BROWSER_STEPS,
+  INSTALL_HOME: 'INSTALL_HOME',
+} as const;
+
+// Android-spezifische Steps
+export const ANDROID_BROWSER_STEPS = {
+  ...COMMON_BROWSER_STEPS
+} as const;
+
+// Type für die Steps je nach Plattform
+export type iOSBrowserStep = typeof IOS_BROWSER_STEPS[keyof typeof IOS_BROWSER_STEPS];
+export type AndroidBrowserStep = typeof ANDROID_BROWSER_STEPS[keyof typeof ANDROID_BROWSER_STEPS];
+export type BrowserOnboardingStep = iOSBrowserStep | AndroidBrowserStep;
+
+export enum AppOnboardingStep {
+  INTRODUCTION = 'INTRODUCTION',
+  SCREEN_TIME = 'SCREEN_TIME'
+}
+
+export type OnboardingStep = BrowserOnboardingStep | AppOnboardingStep;
 
 export type TeamPosition = 'top' | 'bottom';
 export type PlayerNumber = 1 | 2 | 3 | 4;
@@ -48,16 +81,16 @@ export const getNextPlayerInTeam = (currentPlayer: PlayerNumber): PlayerNumber =
 };
 
 export type JassColor = 
-  | 'Misère'
-  | 'Schellen'
-  | 'Schilten'
-  | 'Eicheln'
-  | 'Rosen'
-  | 'Une'
-  | 'Obe'
-  | '3x3'
-  | 'Quer'
-  | 'Slalom';
+  | "Misère"
+  | "Eicheln"
+  | "Rosen"
+  | "Schellen"
+  | "Schilten"
+  | "Obe"
+  | "Une"
+  | "3x3"
+  | "Quer"
+  | "Slalom";
 
 export type StrichTyp = 'berg' | 'sieg' | 'matsch' | 'schneider' | 'kontermatsch';
 
@@ -85,14 +118,6 @@ export interface StricheRecord {
   schneider: number;
   kontermatsch: number;
 }
-
-export const STRICH_WERTE = {
-  berg: 1,
-  sieg: 2,
-  matsch: 1,
-  schneider: 2,
-  kontermatsch: 2
-} as const satisfies Record<StrichTyp, number>;
 
 export interface TeamScores {
   top: number;
@@ -156,6 +181,7 @@ export interface JassRoundEntry extends BaseRoundEntry {
   isRoundFinalized: true;
   isCompleted: true;
   farbe: JassColor;
+  cardStyle: CardStyle;
   strichInfo?: {
     team: TeamPosition;
     type: StrichTyp;
@@ -165,34 +191,54 @@ export interface JassRoundEntry extends BaseRoundEntry {
 // Der vereinigte Typ
 export type RoundEntry = WeisRoundEntry | JassRoundEntry;
 
-export type FarbeMode = 'misere' | 'eicheln' | 'rosen' | 'schellen' | 'schilten' | 'obe' | 'une' | 'dreimal' | 'slalom' | 'quer';
+export type FarbeMode = 
+  | "misère"
+  | "eicheln"
+  | "rosen"
+  | "schellen"
+  | "schilten"
+  | "obe"
+  | "une"
+  | "dreimal"
+  | "quer"
+  | "slalom";
 
 interface EmojiStyle {
   backgroundColor: string;
 }
 
 export interface FarbeSettingsConfig {
-  id: string;
+  id: FarbeMode;
   name: string;
   multiplier: number;
   order: number;
-  emojiStyle?: EmojiStyle;
+  emojiStyle: {
+    backgroundColor: string;
+  };
+  frStyle: {
+    backgroundColor: string;
+  };
+  standardStyle: {
+    backgroundColor: string;
+  };
 }
 
-export interface GameSettings {
-  bergScore: number;
-  siegScore: number;
-  schneiderScore: number;
-  enableWeis: boolean;
-  enableMultiplier: boolean;
-  colors: string[];
-  colorMultipliers: number[];
-  gameMode: GameMode;
+export interface SettingsTemplate<T> {
+  values: T;
+  isFlipped: boolean;
+  isEnabled?: Record<string, boolean>;
+}
 
-  bergTarget?: number;
-  siegTarget?: number;
-  schneiderTarget?: number;
-  enableStriche?: boolean;
+export interface FarbeSettings extends SettingsTemplate<number[]> {
+  values: number[];
+  multipliers: number[];
+  isFlipped: boolean;
+}
+
+export interface ScoreSettings extends SettingsTemplate<Record<ScoreMode, number>> {
+  values: Record<ScoreMode, number>;
+  isFlipped: boolean;
+  enabled: Record<ScoreMode, boolean>;
 }
 
 export interface PlayerStats {
@@ -342,8 +388,9 @@ export interface HistoryState {
 
 // Erweitern des GameState
 export interface GameState {
-  currentPlayer: PlayerNumber;    // Aktuelle Runde
-  startingPlayer: PlayerNumber;   // Dieses Spiel
+  currentPlayer: PlayerNumber;
+  startingPlayer: PlayerNumber;
+  initialStartingPlayer: PlayerNumber;
   isGameStarted: boolean;
   currentRound: number;
   weisPoints: TeamScores;
@@ -354,8 +401,14 @@ export interface GameState {
   currentRoundWeis: WeisAction[];
   isGameCompleted: boolean;
   isRoundCompleted: boolean;
-  farbe?: JassColor;
-  settings: GameSettings;
+  scoreSettings: {
+    scores: number[];
+    enabled: boolean[];
+  };
+  farbeSettings: {
+    colors: JassColor[];
+    multipliers: number[];
+  };
   playerNames: PlayerNames;
   currentHistoryIndex: number;
   historyState: HistoryState;
@@ -595,16 +648,13 @@ export const createInitialStartingPlayerState = (
 };
 
 export interface SettingsTab {
-  id: 'farben' | 'scores';
+  id: 'farben' | 'scores' | 'strokes';
   title: string;
 }
 
 export interface ScoreSettings {
-  bergScore: number;
-  siegScore: number;
-  schneiderScore: number;
-  isBergEnabled: boolean;
-  isSchneiderEnabled: boolean;
+  values: Record<ScoreMode, number>;
+  enabled: Record<ScoreMode, boolean>;
 }
 
 // Neue Types für Piktogramm-Settings
@@ -619,3 +669,71 @@ export interface SettingsState {
   activeTab: SettingsTab['id'];
   pictogramConfig: PictogramConfig;
 }
+
+export type ScoreMode = 'berg' | 'sieg' | 'schneider';
+
+// Basis-Konfiguration ohne Runtime-States
+export interface ScoreSettingsConfig {
+  id: ScoreMode;
+  name: string;
+  defaultValue: number;
+  maxValue: number;
+  order: number;
+}
+
+// Separate Interface für Runtime-Settings
+export interface ScoreSettings {
+  values: Record<ScoreMode, number>;
+  enabled: Record<ScoreMode, boolean>;
+}
+
+// HTML2Canvas Options Type
+export interface Html2CanvasOptions {
+  background?: string;
+  scale?: number;
+  width?: number;
+  height?: number;
+  scrollX?: number;
+  scrollY?: number;
+  windowWidth?: number;
+  windowHeight?: number;
+  x?: number;
+  y?: number;
+}
+
+// Neue Types für den Onboarding Flow
+export interface OnboardingContent {
+  title: string;
+  icon: IconType;
+  message?: string;
+  list?: string[];
+  image?: string;  // Optional, da nicht jeder Step ein Bild hat
+}
+export interface OnboardingState {
+  currentStep: OnboardingStep;
+  showOnboarding: boolean;
+  content: OnboardingContent;
+  canBeDismissed: boolean;
+}
+
+export interface OnboardingActions {
+  handleNext: () => void;
+  handlePrevious: () => void;
+  handleDismiss: () => void;
+}
+
+export type OnboardingFlow = OnboardingState & OnboardingActions;
+
+// Kartenstil-Definition
+export type CardStyle = 'DE' | 'FR';
+
+// Beziehung zwischen den Kartensymbolen in verschiedenen Stilen
+export interface CardSymbol {
+  DE: string;
+  FR: string;
+}
+
+// Mapping der Kartensymbole für alle Farben
+export type CardStyleMappings = {
+  [Color in JassColor]: CardSymbol;
+};

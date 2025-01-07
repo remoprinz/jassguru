@@ -8,5 +8,7 @@
       }
     </style>
   </defs>
-  <path class="st0" d="M24.4,20.7,19.6,19.2v-7.1h4.8L16.4,3.9l-8.1,8.2h4.8v7.1h-4.8l8.1,8.2,8.1-8.2h-4.8M13.1,8.1"/>
+  <rect class="st0" x="5.3" y="12.6" width="21.2" height="6.7" transform="translate(-6.6 15.9) rotate(-45)"/>
+  <polygon class="st0" points="14.7 4.3 27.5 4.3 27.5 16.7 14.7 4.3"/>
+  <polygon class="st0" points="16.7 27.6 4 27.6 4 15.1 16.7 27.6"/>
 </svg>

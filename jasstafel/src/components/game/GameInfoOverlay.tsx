@@ -37,6 +37,15 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
   const [jassTime, setJassTime] = useState('');
 
   const {
+    pauseTimer,
+    resumeTimer,
+    getCurrentTime,
+    gameStartTime,
+    roundStartTime,
+    jassStartTime
+  } = useTimerStore();
+
+  const {
     isPaused,
     pauseGame,
     resumeGame,
@@ -45,12 +54,6 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
     setCalculatorFlipped,
     scoreSettings
   } = useUIStore();
-
-  const {
-    gameStartTime,
-    roundStartTime,
-    jassStartTime
-  } = useTimerStore();
 
   const {
     currentMultiplier,
@@ -84,18 +87,21 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
   };
 
   const handlePauseClick = () => {
+    pauseTimer();
     pauseGame();
   };
 
   const handleResumeClick = () => {
+    resumeTimer();
     resumeGame();
   };
 
   useEffect(() => {
     const updateTimes = () => {
-      setGameTime(gameStartTime ? formatDuration(Date.now() - gameStartTime, false) : '0:00');
-      setRoundTime(roundStartTime ? formatDuration(Date.now() - roundStartTime, true) : '0:00');
-      setJassTime(jassStartTime ? formatDuration(Date.now() - jassStartTime, false) : '0:00');
+      const currentTime = getCurrentTime();
+      if (gameStartTime) setGameTime(formatDuration(currentTime - gameStartTime, false));
+      if (roundStartTime) setRoundTime(formatDuration(currentTime - roundStartTime, true));
+      if (jassStartTime) setJassTime(formatDuration(currentTime - jassStartTime, false));
     };
     
     updateTimes();
@@ -104,7 +110,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
     
     const interval = setInterval(updateTimes, 1000);
     return () => clearInterval(interval);
-  }, [isOpen, isPaused, gameStartTime, roundStartTime, jassStartTime]);
+  }, [isOpen, isPaused, gameStartTime, roundStartTime, jassStartTime, getCurrentTime]);
 
   const springProps = useSpring({
     opacity: isOpen ? 1 : 0,
@@ -119,7 +125,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
   }, [isOpen, lastDoubleClickPosition]);
 
   const canActivateSieg = () => {
-    if (!scoreSettings?.isBergEnabled) return true;
+    if (!scoreSettings?.enabled?.berg) return true;
     return isBergActiveForAnyTeam();
   };
 
@@ -218,6 +224,8 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
               subTitle={getRemainingPoints(isCalculatorFlipped ? 'top' : 'bottom', scores).title}
               points={getRemainingPoints(isCalculatorFlipped ? 'top' : 'bottom', scores).remaining}
               numberSize="text-3xl"
+              scoreSettings={scoreSettings}
+              scores={scores}
             />
           </div>
 
@@ -268,7 +276,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
               color="yellow"
               disabled={isPaused}
             >
-              SIEG
+              BEDANKEN
             </ChargeButton>
           </div>
 
@@ -313,7 +321,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
               }
             `}
           >
-            {isPaused ? 'WEITER' : 'PAUSE'}
+            {isPaused ? 'Weiter' : 'Pause'}
           </button>
         </div>
       </animated.div>

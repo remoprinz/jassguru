@@ -1,45 +1,57 @@
-export const BERG_SCORE = 2500;
-export const SIEG_SCORE = 5000;
-export const SCHNEIDER_SCORE = 2500;
-export const MAX_SCORE = 157;
-
 export enum GameMode {
   JASSGROUP = 'JASSGROUP',
-  // Hier können später weitere Modi hinzugefügt werden
-  // TOURNAMENT = 'TOURNAMENT',
-  // SINGLE = 'SINGLE',
-  // etc.
 }
 
+// Basis-Strich-Werte
+export const BASE_STRICH_WERTE = {
+  berg: 1,
+  sieg: 2,
+  matsch: 1
+} as const;
+
+// Stroke-Settings Types
+export interface StrokeSettings {
+  schneider: 1 | 2;
+  kontermatsch: 1 | 2;
+}
+
+// Default Stroke Settings
+export const DEFAULT_STROKE_SETTINGS: StrokeSettings = {
+  schneider: 2,
+  kontermatsch: 2
+} as const;
+
+// Wirklich NUR die Basis-Game-Settings
 export interface GameSettings {
-  bergScore: number;
-  siegScore: number;
-  schneiderScore: number;
   enableWeis: boolean;
   enableMultiplier: boolean;
   gameMode: GameMode;
+  strokeSettings: StrokeSettings;
 }
 
 export const defaultGameSettings: GameSettings = {
-  bergScore: BERG_SCORE,
-  siegScore: SIEG_SCORE,
-  schneiderScore: SCHNEIDER_SCORE,
-  gameMode: GameMode.JASSGROUP,
   enableWeis: true,
-  enableMultiplier: true
+  enableMultiplier: true,
+  gameMode: GameMode.JASSGROUP,
+  strokeSettings: DEFAULT_STROKE_SETTINGS
 };
 
-export function updateGameSettings(newSettings: Partial<GameSettings>): GameSettings {
-  return { ...defaultGameSettings, ...newSettings };
-}
+// Alle Strich-Werte in einem Objekt (ersetzt STRICH_WERTE aus jass.ts)
+export const STRICH_WERTE = {
+  berg: BASE_STRICH_WERTE.berg,
+  sieg: BASE_STRICH_WERTE.sieg,
+  matsch: BASE_STRICH_WERTE.matsch,
+  schneider: DEFAULT_STROKE_SETTINGS.schneider,
+  kontermatsch: DEFAULT_STROKE_SETTINGS.kontermatsch
+} as const;
 
-export function validateGameSettings(settings: Partial<GameSettings>): boolean {
-  if (settings.siegScore !== undefined && (settings.siegScore <= 0 || settings.siegScore > 10000)) {
+// Hilfsfunktion zur Validierung der Stroke-Settings
+export const validateStrokeSettings = (settings: Partial<StrokeSettings>): boolean => {
+  if (settings.schneider !== undefined && ![1, 2].includes(settings.schneider)) {
     return false;
   }
-  if (settings.bergScore !== undefined && settings.siegScore !== undefined && 
-      (settings.bergScore <= 0 || settings.bergScore >= settings.siegScore)) {
+  if (settings.kontermatsch !== undefined && ![1, 2].includes(settings.kontermatsch)) {
     return false;
   }
   return true;
-}
+};

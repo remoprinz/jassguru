@@ -3,12 +3,13 @@ import { useGameStore } from '../../store/gameStore';
 import { useJassStore } from '../../store/jassStore';
 import { useUIStore } from '../../store/uiStore';
 import { useTimerStore } from '../../store/timerStore';
-import { FaTrashAlt, FaInfoCircle, FaCog, FaChalkboard } from 'react-icons/fa';
+import { FaTrashAlt, FaInfoCircle, FaCog } from 'react-icons/fa';
+import { TbClipboardText } from 'react-icons/tb';
 import { motion } from 'framer-motion';
-import IntroductionMessage from '../ui/IntroductionMessage';
 import ResetWarning from '../notifications/ResetWarning';
 import FarbeSettingsModal from '../settings/SettingsModal';
 import type { TeamPosition } from '../../types/jass';
+import { isPWA } from '../../utils/browserDetection';
 
 interface MenuOverlayProps {
   isOpen: boolean;
@@ -21,10 +22,8 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
   onClose,
   swipePosition 
 }) => {
-  const { resetGame } = useGameStore();
   const { openResultatKreidetafel, openFarbeSettings } = useUIStore();
   const [pressedButton, setPressedButton] = useState<string | null>(null);
-  const [showIntroduction, setShowIntroduction] = useState(false);
   const [showResetWarning, setShowResetWarning] = useState(false);
 
   const iconStyle = "w-12 h-12 p-2 rounded-xl shadow-md transition-transform hover:scale-110";
@@ -56,23 +55,28 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
     setShowResetWarning(true);
   };
 
-  const handleResetConfirm = useCallback(async () => {
-    setShowResetWarning(false);
-    await onClose();
-    
-    const gameStore = useGameStore.getState();
+  const handleResetConfirm = useCallback(() => {
+    // Alle Stores in der richtigen Reihenfolge zurücksetzen
     const jassStore = useJassStore.getState();
+    const gameStore = useGameStore.getState();
     const uiStore = useUIStore.getState();
     const timerStore = useTimerStore.getState();
 
+    // 1. Zuerst Jass zurücksetzen (triggert isJassStarted = false)
     jassStore.resetJass();
+
+    // 2. Dann Game zurücksetzen
     gameStore.resetGame();
+
+    // 3. UI zurücksetzen
     uiStore.resetAll();
+
+    // 4. Timer stoppen und zurücksetzen
     timerStore.resetAllTimers();
 
-    setTimeout(() => {
-      uiStore.setStartScreenState('initial');
-    }, 300);
+    // 5. Dialog schließen
+    setShowResetWarning(false);
+    onClose();
   }, [onClose]);
 
   const handleResultatClick = useCallback(() => {
@@ -90,7 +94,12 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
     }, 100);
   }, [openFarbeSettings, onClose]);
 
-  const buttons = [
+  const handleInfoClick = useCallback(() => {
+    useUIStore.getState().showOnboarding(true, isPWA());
+    onClose();
+  }, [onClose]);
+
+  const bottomButtons = [
     {
       icon: FaTrashAlt,
       onClick: handleReset,
@@ -99,7 +108,7 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
     },
     {
       icon: FaInfoCircle,
-      onClick: () => setShowIntroduction(true),
+      onClick: handleInfoClick,
       color: 'bg-blue-500',
       id: 'info'
     },
@@ -110,15 +119,41 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
       id: 'farbe'
     },
     {
-      icon: FaChalkboard,
+      icon: TbClipboardText,
       onClick: handleResultatClick,
       color: 'bg-green-500',
       id: 'resultat'
     }
   ];
 
-  // Drehe die Reihenfolge der Buttons um, wenn von oben gewischt wird
-  const orderedButtons = swipePosition === 'top' ? [...buttons].reverse() : buttons;
+  const topButtons = [
+    {
+      icon: TbClipboardText,
+      onClick: handleResultatClick,
+      color: 'bg-green-500',
+      id: 'resultat'
+    },
+    {
+      icon: FaCog,
+      onClick: handleFarbeSettingsClick,
+      color: 'bg-yellow-500',
+      id: 'farbe'
+    },
+    {
+      icon: FaInfoCircle,
+      onClick: handleInfoClick,
+      color: 'bg-blue-500',
+      id: 'info'
+    },
+    {
+      icon: FaTrashAlt,
+      onClick: handleReset,
+      color: 'bg-red-500',
+      id: 'trash'
+    }
+  ];
+
+  const buttons = swipePosition === 'top' ? topButtons : bottomButtons;
 
   return (
     <>
@@ -131,7 +166,7 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
         animate={isOpen ? "visible" : "hidden"}
       >
         <div className="flex justify-center space-x-10">
-          {orderedButtons.map(({ icon: Icon, onClick, color, id }) => (
+          {buttons.map(({ icon: Icon, onClick, color, id }) => (
             <motion.button 
               key={id}
               onClick={onClick}
@@ -142,19 +177,13 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
             >
               <Icon 
                 className={`w-full h-full ${pressedButton === id ? 'opacity-70' : ''}`}
-                style={{ transform: swipePosition === 'top' ? 'rotate(180deg)' : 'none' }}
+                style={{
+                  transform: swipePosition === 'top' ? 'rotate(180deg)' : 'none'
+                }}
               />
             </motion.button>
           ))}
         </div>
-        {showIntroduction && (
-          <IntroductionMessage 
-            onDismiss={() => setShowIntroduction(false)} 
-            showTitle={false} 
-            show={true} 
-            message="Willkommen zu Jassguru"
-          />
-        )}
       </motion.div>
       <FarbeSettingsModal />
       <ResetWarning 

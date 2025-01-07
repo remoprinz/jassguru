@@ -5,6 +5,7 @@ import { FaInfoCircle } from 'react-icons/fa';
 interface BrowserMessage {
   show: boolean;
   message: string;
+  title: string;
 }
 
 export const isIOS = () => {
@@ -27,36 +28,26 @@ export const isPWA = () => {
 export const useBrowserDetection = (hasShownIntro: boolean) => {
   const [browserMessage, setBrowserMessage] = useState<BrowserMessage>({
     show: false,
-    message: ''
+    message: '',
+    title: ''
   });
 
   useEffect(() => {
-    if (!hasShownIntro) {
-      return;
-    }
-
     const isStandalone = isPWA();
-    const hasShownIOSMessage = localStorage.getItem('hasShownIOSMessage') === 'true';
-    const appOpenCount = parseInt(localStorage.getItem('appOpenCount') || '0', 10);
 
     if (!isStandalone) {
       setBrowserMessage({
         show: true,
-        message: 'Nutze die Jasstafel als Vollbild-App. Klicke dazu unten auf das "Teilen-Symbol" (Böxchen mit Pfeil nach oben) und wähle "Zum Home-Bilschirm". Android: Oben rechts "Menü", dann "Zum Startbildschirm beifügen".'
-      });
-    } else if (isIOS() && !hasShownIOSMessage && appOpenCount > 1) {
-      setBrowserMessage({
-        show: true,
-        message: 'Zurzeit ist es auf einem iOS-Gerät nicht möglich, den Bildschirm wach zu halten. Stelle zum Jassen die "Automatische Sperre" auf fünf Minuten unter "Einstellungen > Bildschirm & Helligkeit".'
-      });
-      localStorage.setItem('hasShownIOSMessage', 'true');
-    }
+        title: 'Installiere die Jasstafel-App',
+        message: `Auf iOS: Tippe unten auf das "Teilen-Symbol" (Böxchen mit Pfeil nach oben) und wähle "Zum Home-Bildschirm".
 
-    localStorage.setItem('appOpenCount', (appOpenCount + 1).toString());
+Auf Android: Tippe oben rechts auf "Menü", dann "Zum Startbildschirm beifügen".`
+      });
+    }
   }, [hasShownIntro]);
 
   const dismissMessage = () => {
-    setBrowserMessage({ show: false, message: '' });
+    setBrowserMessage({ show: false, message: '', title: '' });
   };
 
   return { browserMessage, dismissMessage };

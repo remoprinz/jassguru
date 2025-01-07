@@ -1,4 +1,4 @@
-import React, { useState, MouseEvent } from 'react';
+import React, { useState, MouseEvent, useEffect } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { useUIStore } from '../../store/uiStore';
 import { useJassStore } from '../../store/jassStore';
@@ -32,47 +32,63 @@ const StartScreen: React.FC = () => {
     return ((current % 4) + 1) as PlayerNumber;
   };
 
+  // Separate Funktion für die Rotation ohne Event-Parameter
+  const rotateStartingPlayer = () => {
+    setStartingPlayer(current => getNextPlayer(current));
+  };
+
   // Event Handler für den Button-Click
   const handleRotateClick = (e: MouseEvent<HTMLButtonElement>) => {
     setStartingPlayer(current => getNextPlayer(current));
   };
 
   const handleStart = async () => {
+    // Erst den StartScreen-State zurücksetzen
+    useUIStore.getState().resetStartScreen();
+
+    // Sicherstellen, dass keine leeren Namen existieren
+    const validatedNames: PlayerNames = {
+      1: names[1]?.trim() || `Spieler 1`,
+      2: names[2]?.trim() || `Spieler 2`,
+      3: names[3]?.trim() || `Spieler 3`,
+      4: names[4]?.trim() || `Spieler 4`
+    };
+
     console.log('🎮 StartScreen.handleStart:', {
       startingPlayer,
       teamConfig,
-      names,
+      validatedNames,
     });
 
     // Team-Konfiguration speichern
     setTeamConfig(teamConfig);
     
-    // 1. Namen entsprechend der Team-Konfiguration zuordnen
+    // Namen entsprechend der Team-Konfiguration zuordnen
     const orderedNames: PlayerNames = {
-      1: names[teamConfig.bottom.includes(1) ? 1 : 2],
-      2: names[teamConfig.top.includes(2) ? 2 : 1],
-      3: names[teamConfig.bottom.includes(3) ? 3 : 4],
-      4: names[teamConfig.top.includes(4) ? 4 : 3]
+      1: validatedNames[teamConfig.bottom.includes(1) ? 1 : 2],
+      2: validatedNames[teamConfig.top.includes(2) ? 2 : 1],
+      3: validatedNames[teamConfig.bottom.includes(3) ? 3 : 4],
+      4: validatedNames[teamConfig.top.includes(4) ? 4 : 3]
     };
 
     console.log('📝 Ordered Names:', orderedNames);
     
-    // 2. GameStore mit initialem Startspieler initialisieren
+    // Wichtig: initialStartingPlayer bleibt unverändert!
+    // Dies ist der Spieler, der das allererste Spiel eröffnet
+    jassStore.startJass({
+      playerNames: orderedNames,
+      initialStartingPlayer: startingPlayer  // Kommt aus lokalem State
+    });
+
+    // GameStore mit gleichem Startspieler initialisieren
     useGameStore.setState({ 
       playerNames: orderedNames,
-      currentPlayer: startingPlayer,     // Aktueller Spieler
-      startingPlayer: startingPlayer     // Startspieler dieses Spiels
+      currentPlayer: startingPlayer,
+      startingPlayer: startingPlayer
     });
 
     console.log('🎲 GameStore Updated:', useGameStore.getState());
     
-    // 3. JassStore mit initialem Startspieler initialisieren
-    const jassStore = useJassStore.getState();
-    jassStore.startJass({
-      playerNames: orderedNames,
-      initialStartingPlayer: startingPlayer
-    });
-
     // 4. Spielstatus richtig setzen
     useGameStore.setState(state => ({
       ...state,
@@ -111,12 +127,12 @@ const StartScreen: React.FC = () => {
           <div className="space-y-4">
             <input
               type="text"
-              placeholder="Spieler 1 (Team 1)"
+              placeholder="Spieler 1 (Team 1) - Dein Gerät"
               value={names[1]}
               onChange={(e) => setNames(prev => ({ ...prev, 1: e.target.value }))}
               className={`w-full p-2 ${teamConfig.bottom.includes(1) ? 'bg-gray-500' : 'bg-gray-800'} 
                 border ${startingPlayer === 1 ? 'border-yellow-500 ring-2 ring-yellow-500' : 'border-gray-600'} 
-                rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 
+                rounded-xl text-white placeholder-gray-300 focus:outline-none focus:ring-2 
                 focus:ring-green-500 focus:border-transparent`}
             />
             <input
@@ -126,7 +142,7 @@ const StartScreen: React.FC = () => {
               onChange={(e) => setNames(prev => ({ ...prev, 2: e.target.value }))}
               className={`w-full p-2 ${teamConfig.top.includes(2) ? 'bg-gray-700' : 'bg-gray-800'} 
                 border ${startingPlayer === 2 ? 'border-yellow-500 ring-2 ring-yellow-500' : 'border-gray-600'} 
-                rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 
+                rounded-xl text-white placeholder-gray-300 focus:outline-none focus:ring-2 
                 focus:ring-green-500 focus:border-transparent`}
             />
             <input
@@ -136,7 +152,7 @@ const StartScreen: React.FC = () => {
               onChange={(e) => setNames(prev => ({ ...prev, 3: e.target.value }))}
               className={`w-full p-2 ${teamConfig.bottom.includes(3) ? 'bg-gray-500' : 'bg-gray-800'} 
                 border ${startingPlayer === 3 ? 'border-yellow-500 ring-2 ring-yellow-500' : 'border-gray-600'} 
-                rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 
+                rounded-xl text-white placeholder-gray-300 focus:outline-none focus:ring-2 
                 focus:ring-green-500 focus:border-transparent`}
             />
             <input
@@ -146,7 +162,7 @@ const StartScreen: React.FC = () => {
               onChange={(e) => setNames(prev => ({ ...prev, 4: e.target.value }))}
               className={`w-full p-2 ${teamConfig.top.includes(4) ? 'bg-gray-700' : 'bg-gray-800'} 
                 border ${startingPlayer === 4 ? 'border-yellow-500 ring-2 ring-yellow-500' : 'border-gray-600'} 
-                rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 
+                rounded-xl text-white placeholder-gray-300 focus:outline-none focus:ring-2 
                 focus:ring-green-500 focus:border-transparent`}
             />
           </div>

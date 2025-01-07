@@ -1,19 +1,28 @@
-import React, { type ReactElement, useState, useEffect } from 'react';
+import React, { type ReactElement, useState, useEffect, memo } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useSpring, animated } from 'react-spring';
 import { FARBE_MODES } from '../../config/FarbeSettings';
 import { useUIStore } from '../../store/uiStore';
 import { FiRotateCcw, FiX, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
-import type { ScoreSettings } from '../../types/jass';
-import { BERG_SCORE, SIEG_SCORE, SCHNEIDER_SCORE } from '../../config/GameSettings';
-import type { JassColor } from '../../types/jass';
+import { 
+  type ScoreMode, 
+  type JassColor,
+} from '../../types/jass';
 import { getPictogram } from '../../utils/pictogramUtils';
+import dynamic from 'next/dynamic';
+import type { CardStyle } from '../../types/jass';
+import { CARD_SYMBOL_MAPPINGS } from '../../config/CardStyles';
+import { usePressableButton } from '../../hooks/usePressableButton';
 
 // Neue Konstante für Multiplier-Optionen
 const MULTIPLIER_OPTIONS = [0, 1, 2, 3, 4, 5, 6, 7, 8];
 
-// Neue Konstante für die Pictogram-Modi
-const PICTOGRAM_MODES = ['Nein', 'Standard', 'Emojis'] as const;
+// Neue Konstanten für Score-Einstellungen
+const SCORE_RANGES = {
+  sieg: { min: 0, max: 10000, default: 5000 },
+  berg: { min: 0, max: 5000, default: 2500 },
+  schneider: { min: 0, max: 5000, default: 2500 }
+} as const;
 
 interface MultiplierButtonProps {
   multiplier: number;
@@ -33,9 +42,43 @@ const MultiplierButton = ({ multiplier, onMultiplierClick }: MultiplierButtonPro
   </button>
 );
 
+// Neue PictogramModeButton Komponente
+const PictogramModeButton: React.FC<{
+  isEnabled: boolean;
+  mode: 'svg' | 'emoji' | null;
+  onClick: () => void;
+}> = ({ isEnabled, mode, onClick }) => {
+  const { handlers, buttonClasses } = usePressableButton(onClick);
+
+  const getButtonText = () => {
+    if (!isEnabled) return 'Nein';
+    return mode === 'svg' ? 'Standard' : 'Emojis';
+  };
+
+  return (
+    <button
+      {...handlers}
+      className={`px-4 py-2 rounded-lg text-lg font-bold transition-all duration-150
+        ${!isEnabled 
+          ? 'bg-gray-600/50 text-gray-400 hover:bg-gray-700/50'
+          : 'bg-green-500 text-white hover:bg-green-600'
+        } ${buttonClasses}`}
+    >
+      {getButtonText()}
+    </button>
+  );
+};
+
 // Neue Komponente für das Piktogramm
-const FarbePictogram: React.FC<{ farbe: JassColor, mode: 'svg' | 'emoji' }> = ({ farbe, mode }) => {
-  const pictogramUrl = getPictogram(farbe, mode);
+const FarbePictogram: React.FC<{ 
+  farbe: JassColor, 
+  mode: 'svg' | 'emoji' 
+}> = ({ farbe, mode }) => {
+  const { settings } = useUIStore();
+  const pictogramUrl = getPictogram(farbe, mode, settings.cardStyle);
+  
+  // Den Namen entsprechend des aktuellen Kartenstils verwenden
+  const displayName = CARD_SYMBOL_MAPPINGS[farbe][settings.cardStyle];
   
   return (
     <div className="flex items-center justify-center w-8 h-8">
@@ -44,7 +87,7 @@ const FarbePictogram: React.FC<{ farbe: JassColor, mode: 'svg' | 'emoji' }> = ({
       ) : (
         <img 
           src={pictogramUrl} 
-          alt={farbe} 
+          alt={displayName}
           className="w-6 h-6 object-contain"
         />
       )}
@@ -52,45 +95,107 @@ const FarbePictogram: React.FC<{ farbe: JassColor, mode: 'svg' | 'emoji' }> = ({
   );
 };
 
-const SettingsModal = (): ReactElement => {
+const CardStyleButton: React.FC<{
+  style: CardStyle;
+  isActive: boolean;
+  onClick: () => void;
+}> = ({ style, isActive, onClick }) => {
+  const { handlers, buttonClasses } = usePressableButton(onClick);
+
+  return (
+    <button
+      {...handlers}
+      className={`px-3 py-1 rounded ${
+        isActive 
+          ? 'bg-green-500 text-white' 
+          : 'bg-gray-700 text-gray-300'
+      } ${buttonClasses}`}
+    >
+      {style}
+    </button>
+  );
+};
+
+// Neue Komponente für die Strich-Buttons
+const StrokeButton: React.FC<{
+  value: 1 | 2;
+  isActive: boolean;
+  onClick: () => void;
+}> = ({ value, isActive, onClick }) => {
+  const { handlers, buttonClasses } = usePressableButton(onClick);
+
+  return (
+    <button
+      {...handlers}
+      className={`px-4 py-2 rounded-lg text-xl font-bold transition-all duration-150 ${
+        isActive 
+          ? 'bg-green-500 text-white hover:bg-green-600' 
+          : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+      } ${buttonClasses}`}
+    >
+      {value}
+    </button>
+  );
+};
+
+const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
   const { 
     settings, 
-    farbeSettings, 
+    farbeSettings,
     scoreSettings,
-    updateFarbeSettings, 
+    updateFarbeSettings,
     updateScoreSettings,
     closeSettings,
     setSettingsTab,
-    cyclePictogramMode
+    cyclePictogramMode,
+    setCardStyle,
+    strokeSettings,
+    updateStrokeSettings
   } = useUIStore();
   
-  // Farben-Settings State
+  // States für beide Settings-Typen - gleiche Struktur
   const [tempMultipliers, setTempMultipliers] = useState<number[]>(
     farbeSettings.multipliers
   );
 
-  // Score-Settings State mit Werten aus dem Store
-  const [tempScoreSettings, setTempScoreSettings] = useState<ScoreSettings>({
-    siegScore: scoreSettings?.siegScore ?? SIEG_SCORE,
-    bergScore: scoreSettings?.bergScore ?? BERG_SCORE,
-    schneiderScore: scoreSettings?.schneiderScore ?? SCHNEIDER_SCORE,
-    isBergEnabled: scoreSettings?.isBergEnabled ?? true,
-    isSchneiderEnabled: scoreSettings?.isSchneiderEnabled ?? true
+  const [tempScores, setTempScores] = useState<Record<ScoreMode, number>>(
+    scoreSettings.values
+  );
+  
+  const [tempEnabled, setTempEnabled] = useState<Record<ScoreMode, boolean>>(
+    scoreSettings.enabled
+  );
+
+  const [isFlipped, setIsFlipped] = useState(false);
+
+  const [tempStrokeSettings, setTempStrokeSettings] = useState(strokeSettings);
+
+  // Spring Animation
+  const springProps = useSpring({
+    opacity: settings.isOpen ? 1 : 0,
+    transform: `scale(${settings.isOpen ? 1 : 0.95}) rotate(${isFlipped ? '180deg' : '0deg'})`,
+    config: { mass: 1, tension: 300, friction: 20 }
   });
 
-  // Synchronisiere tempScoreSettings mit settings
+  // Sync mit Store
   useEffect(() => {
-    if (scoreSettings) {
-      setTempScoreSettings(scoreSettings);
-    }
+    setTempScores(scoreSettings.values);
+    setTempEnabled(scoreSettings.enabled);
   }, [scoreSettings]);
 
   const handleClose = () => {
-    // Beide Settings speichern
+    // Beide Settings speichern - gleiche Struktur
     updateFarbeSettings({
-      multipliers: tempMultipliers
+      multipliers: tempMultipliers,
+      isFlipped: isFlipped
     });
-    updateScoreSettings(tempScoreSettings);
+    
+    updateScoreSettings({
+      values: tempScores,
+      enabled: tempEnabled
+    });
+
+    updateStrokeSettings(tempStrokeSettings);
     closeSettings();
   };
 
@@ -102,189 +207,236 @@ const SettingsModal = (): ReactElement => {
     });
   };
 
-  const handleScoreChange = (key: keyof ScoreSettings, value: number | boolean) => {
-    setTempScoreSettings(prev => {
-      // Wenn es ein boolean-Wert ist (für die Toggles), direkt übernehmen
-      if (typeof value === 'boolean') {
-        const newSettings = { ...prev, [key]: value };
-        updateScoreSettings(newSettings);
-        return newSettings;
+  const handleScoreChange = (mode: ScoreMode, value: number) => {
+    setTempScores(prev => {
+      const newScores = { ...prev };
+      const validatedValue = Math.max(
+        SCORE_RANGES[mode].min,
+        Math.min(value, SCORE_RANGES[mode].max)
+      );
+      
+      newScores[mode] = validatedValue;
+
+      // Automatische Anpassung für berg/schneider wenn sieg geändert wird
+      if (mode === 'sieg') {
+        const maxSubScore = Math.floor(validatedValue / 2);
+        newScores.berg = Math.min(prev.berg, maxSubScore);
+        newScores.schneider = Math.min(prev.schneider, maxSubScore);
       }
 
-      // Für numerische Werte
-      let validatedValue = value;
-
-      // Validierung für Berg- und Schneider-Punkte
-      if (key === 'bergScore' || key === 'schneiderScore') {
-        // Maximaler Wert ist die Hälfte der Siegpunkte
-        const maxValue = Math.floor(prev.siegScore / 2);
-        validatedValue = Math.min(value, maxValue);
-      }
-
-      // Wenn Siegpunkte geändert werden, Berg- und Schneider-Punkte automatisch auf die Hälfte setzen
-      if (key === 'siegScore') {
-        const halfValue = Math.floor(value / 2);
-        return {
-          ...prev,
-          siegScore: value,
-          bergScore: halfValue,      // Automatisch auf die Hälfte setzen
-          schneiderScore: halfValue  // Automatisch auf die Hälfte setzen
-        };
-      }
-
-      const newSettings = { ...prev, [key]: validatedValue };
-      updateScoreSettings(newSettings);
-      return newSettings;
+      return newScores;
     });
   };
 
-  // Separater State für die Ausrichtung
-  const [isFlipped, setIsFlipped] = useState(false);
-
-  // Animation mit Rotation
-  const springProps = useSpring({
-    opacity: settings.isOpen ? 1 : 0,
-    transform: `scale(${settings.isOpen ? 1 : 0.95}) rotate(${isFlipped ? '180deg' : '0deg'})`,
-    config: { mass: 1, tension: 300, friction: 20 }
-  });
+  const handleScoreToggle = (mode: ScoreMode) => {
+    setTempEnabled(prev => ({
+      ...prev,
+      [mode]: !prev[mode]
+    }));
+  };
 
   // Handler für Tab-Wechsel
   const handleTabChange = () => {
-    setSettingsTab(settings.activeTab === 'farben' ? 'scores' : 'farben');
+    const tabOrder = ['farben', 'scores', 'strokes'] as const;
+    const currentIndex = tabOrder.indexOf(settings.activeTab);
+    const nextIndex = (currentIndex + 1) % tabOrder.length;
+    setSettingsTab(tabOrder[nextIndex]);
   };
 
   const renderFarbenSettings = () => (
-    <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-      <div className="flex items-center justify-between bg-gray-700/50 p-3 rounded-lg">
-        <span className="text-white text-lg">Piktogramme</span>
-        <button
-          onClick={cyclePictogramMode}
-          className={`px-4 py-2 rounded-lg text-lg font-bold transition-all duration-150
-            ${!settings.pictogramConfig.isEnabled 
-              ? 'bg-gray-600/50 text-gray-400 hover:bg-gray-700/50'
-              : 'bg-green-500 text-white hover:bg-green-600'}`}
-        >
-          {!settings.pictogramConfig.isEnabled 
-            ? 'Nein' 
-            : settings.pictogramConfig.mode === 'svg' 
-              ? 'Standard' 
-              : 'Emojis'}
-        </button>
+    <>
+      {/* Nur Jasskarten fixiert */}
+      <div className="mb-4">
+        <div className="flex items-center justify-between bg-gray-700/50 p-3 rounded-lg">
+          <span className="text-white text-lg">Jasskarten</span>
+          <div className="flex gap-2">
+            <CardStyleButton 
+              style="DE"
+              isActive={settings.cardStyle === 'DE'}
+              onClick={() => setCardStyle('DE')}
+            />
+            <CardStyleButton 
+              style="FR"
+              isActive={settings.cardStyle === 'FR'}
+              onClick={() => setCardStyle('FR')}
+            />
+          </div>
+        </div>
       </div>
 
-      {FARBE_MODES.map((mode, index) => (
-        <div key={mode.id} className="flex items-center bg-gray-700/50 p-3 rounded-lg">
-          <span className="text-white text-lg w-12">{mode.name}</span>
-          
-          <div className="flex-1 flex justify-center items-center">
-            {settings.pictogramConfig.isEnabled && (
-              <FarbePictogram 
-                farbe={mode.name as JassColor}
-                mode={settings.pictogramConfig.mode}
-              />
-            )}
-          </div>
-          
-          <MultiplierButton
-            multiplier={tempMultipliers[index]}
-            onMultiplierClick={() => handleMultiplierClick(index)}
+      {/* Scrollbarer Bereich mit Piktogrammen als erste Option */}
+      <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2">
+        {/* Piktogramme als erste Option im scrollbaren Bereich */}
+        <div className="flex items-center justify-between bg-gray-700/50 p-3 rounded-lg">
+          <span className="text-white text-lg">Piktogramme</span>
+          <PictogramModeButton 
+            isEnabled={settings.pictogramConfig.isEnabled}
+            mode={settings.pictogramConfig.mode}
+            onClick={cyclePictogramMode}
           />
         </div>
-      ))}
-    </div>
+
+        {/* Farben-Liste */}
+        {FARBE_MODES.map((mode, index) => (
+          <div key={mode.id} className="flex items-center bg-gray-700/50 p-3 rounded-lg">
+            <span className="text-white text-lg w-12">
+              {CARD_SYMBOL_MAPPINGS[mode.name as JassColor][settings.cardStyle]}
+            </span>
+            
+            <div className="flex-1 flex justify-center items-center">
+              {settings.pictogramConfig.isEnabled && (
+                <FarbePictogram 
+                  farbe={mode.name as JassColor}
+                  mode={settings.pictogramConfig.mode}
+                />
+              )}
+            </div>
+            
+            <MultiplierButton
+              multiplier={tempMultipliers[index]}
+              onMultiplierClick={() => handleMultiplierClick(index)}
+            />
+          </div>
+        ))}
+      </div>
+    </>
   );
 
-  const renderScoreSettings = () => {
-    // Hilfsfunktion zum Formatieren der Zahlen
-    const formatNumber = (value: number) => value === 0 ? '' : value.toString();
+  const renderScoreSettings = () => (
+    <div className="space-y-6">
+      {/* Sieg-Punkte bleiben einzeln */}
+      <div className="flex items-center justify-between bg-gray-700/50 p-3 rounded-lg">
+        <span className="text-white text-lg">Sieg-Punkte</span>
+        <input
+          type="number"
+          value={tempScores.sieg}
+          onChange={(e) => handleScoreChange('sieg', parseInt(e.target.value) || 0)}
+          onFocus={(e) => e.target.select()}
+          className="w-24 px-3 py-2 bg-gray-600 text-white rounded-lg text-right
+            focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          min={SCORE_RANGES.sieg.min}
+          max={SCORE_RANGES.sieg.max}
+          style={{ WebkitAppearance: 'none', MozAppearance: 'textfield' }}
+        />
+      </div>
 
-    return (
-      <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between bg-gray-700/50 p-3 rounded-lg">
-            <span className="text-white text-lg">Sieg-Punkte</span>
+      {/* Berg Gruppe */}
+      <div className="bg-gray-700/50 rounded-lg overflow-hidden">
+        <div className="flex items-center justify-between p-3 border-b border-gray-600">
+          <span className="text-white text-lg">Berg aktiviert</span>
+          <button
+            onClick={() => handleScoreToggle('berg')}
+            className={`px-4 py-2 rounded-lg text-lg font-bold transition-all duration-150
+              ${tempEnabled.berg
+                ? 'bg-green-500 text-white hover:bg-green-600'
+                : 'bg-gray-600/50 text-gray-400 hover:bg-gray-700/50'}`}
+          >
+            {tempEnabled.berg ? 'Ja' : 'Nein'}
+          </button>
+        </div>
+        {tempEnabled.berg && (
+          <div className="flex items-center justify-between p-3">
+            <span className="text-white text-lg">Berg-Punkte</span>
             <input
               type="number"
-              value={formatNumber(tempScoreSettings.siegScore)}
-              placeholder={SIEG_SCORE.toString()}
-              onChange={(e) => handleScoreChange('siegScore', Math.max(0, parseInt(e.target.value) || 0))}
+              value={tempScores.berg}
+              onChange={(e) => handleScoreChange('berg', parseInt(e.target.value) || 0)}
               onFocus={(e) => e.target.select()}
               className="w-24 px-3 py-2 bg-gray-600 text-white rounded-lg text-right
                 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              min="0"
+              min={SCORE_RANGES.berg.min}
+              max={Math.floor(tempScores.sieg / 2)}
               style={{ WebkitAppearance: 'none', MozAppearance: 'textfield' }}
             />
           </div>
+        )}
+      </div>
 
-          <div className="flex items-center justify-between bg-gray-700/50 p-3 rounded-lg">
-            <span className="text-white text-lg">Berg aktiviert</span>
-            <button
-              onClick={() => handleScoreChange('isBergEnabled', !tempScoreSettings.isBergEnabled)}
-              className={`px-4 py-2 rounded-lg text-lg font-bold transition-all duration-150
-                ${tempScoreSettings.isBergEnabled 
-                  ? 'bg-green-500 text-white hover:bg-green-600' 
-                  : 'bg-gray-600/50 text-gray-400 hover:bg-gray-700/50'}`}
-            >
-              {tempScoreSettings.isBergEnabled ? 'Ja' : 'Nein'}
-            </button>
+      {/* Schneider Gruppe */}
+      <div className="bg-gray-700/50 rounded-lg overflow-hidden">
+        <div className="flex items-center justify-between p-3 border-b border-gray-600">
+          <span className="text-white text-lg">Schneider aktiviert</span>
+          <button
+            onClick={() => handleScoreToggle('schneider')}
+            className={`px-4 py-2 rounded-lg text-lg font-bold transition-all duration-150
+              ${tempEnabled.schneider
+                ? 'bg-green-500 text-white hover:bg-green-600'
+                : 'bg-gray-600/50 text-gray-400 hover:bg-gray-700/50'}`}
+          >
+            {tempEnabled.schneider ? 'Ja' : 'Nein'}
+          </button>
+        </div>
+        {tempEnabled.schneider && (
+          <div className="flex items-center justify-between p-3">
+            <span className="text-white text-lg">Schneider-Punkte</span>
+            <input
+              type="number"
+              value={tempScores.schneider}
+              onChange={(e) => handleScoreChange('schneider', parseInt(e.target.value) || 0)}
+              onFocus={(e) => e.target.select()}
+              className="w-24 px-3 py-2 bg-gray-600 text-white rounded-lg text-right
+                focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              min={SCORE_RANGES.schneider.min}
+              max={Math.floor(tempScores.sieg / 2)}
+              style={{ WebkitAppearance: 'none', MozAppearance: 'textfield' }}
+            />
           </div>
+        )}
+      </div>
+    </div>
+  );
 
-          {tempScoreSettings.isBergEnabled && (
-            <div className="flex items-center justify-between bg-gray-700/50 p-3 rounded-lg">
-              <span className="text-white text-lg">Berg-Punkte</span>
-              <input
-                type="number"
-                value={formatNumber(tempScoreSettings.bergScore)}
-                placeholder={BERG_SCORE.toString()}
-                onChange={(e) => handleScoreChange('bergScore', Math.max(0, parseInt(e.target.value) || 0))}
-                onFocus={(e) => e.target.select()}
-                className="w-24 px-3 py-2 bg-gray-600 text-white rounded-lg text-right
-                  focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                min="0"
-                max={Math.floor(tempScoreSettings.siegScore / 2)}
-                style={{ WebkitAppearance: 'none', MozAppearance: 'textfield' }}
-              />
-            </div>
-          )}
-
-          <div className="flex items-center justify-between bg-gray-700/50 p-3 rounded-lg">
-            <span className="text-white text-lg">Schneider aktiviert</span>
-            <button
-              onClick={() => handleScoreChange('isSchneiderEnabled', !tempScoreSettings.isSchneiderEnabled)}
-              className={`px-4 py-2 rounded-lg text-lg font-bold transition-all duration-150
-                ${tempScoreSettings.isSchneiderEnabled 
-                  ? 'bg-green-500 text-white hover:bg-green-600' 
-                  : 'bg-gray-600/50 text-gray-400 hover:bg-gray-700/50'}`}
-            >
-              {tempScoreSettings.isSchneiderEnabled ? 'Ja' : 'Nein'}
-            </button>
+  const renderStrokeSettings = () => (
+    <>
+      <div className="space-y-4">
+        {/* Schneider-Striche */}
+        <div className="flex items-center justify-between bg-gray-700/50 p-4 rounded-lg min-h-[4rem]">
+          <span className="text-lg text-white">Schneider-Striche</span>
+          <div className="flex gap-3">
+            <StrokeButton 
+              value={1}
+              isActive={tempStrokeSettings.schneider === 1}
+              onClick={() => setTempStrokeSettings(prev => ({ ...prev, schneider: 1 }))}
+            />
+            <StrokeButton 
+              value={2}
+              isActive={tempStrokeSettings.schneider === 2}
+              onClick={() => setTempStrokeSettings(prev => ({ ...prev, schneider: 2 }))}
+            />
           </div>
+        </div>
 
-          {tempScoreSettings.isSchneiderEnabled && (
-            <div className="flex items-center justify-between bg-gray-700/50 p-3 rounded-lg">
-              <span className="text-white text-lg">Schneider-Punkte</span>
-              <input
-                type="number"
-                value={formatNumber(tempScoreSettings.schneiderScore)}
-                placeholder={SCHNEIDER_SCORE.toString()}
-                onChange={(e) => handleScoreChange('schneiderScore', Math.max(0, parseInt(e.target.value) || 0))}
-                onFocus={(e) => e.target.select()}
-                className="w-24 px-3 py-2 bg-gray-600 text-white rounded-lg text-right
-                  focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                min="0"
-                style={{ WebkitAppearance: 'none', MozAppearance: 'textfield' }}
-              />
-            </div>
-          )}
+        {/* Kontermatsch-Striche */}
+        <div className="flex items-center justify-between bg-gray-700/50 p-4 rounded-lg min-h-[4rem]">
+          <span className="text-lg text-white">Kontermatsch-Striche</span>
+          <div className="flex gap-3">
+            <StrokeButton 
+              value={1}
+              isActive={tempStrokeSettings.kontermatsch === 1}
+              onClick={() => setTempStrokeSettings(prev => ({ ...prev, kontermatsch: 1 }))}
+            />
+            <StrokeButton 
+              value={2}
+              isActive={tempStrokeSettings.kontermatsch === 2}
+              onClick={() => setTempStrokeSettings(prev => ({ ...prev, kontermatsch: 2 }))}
+            />
+          </div>
         </div>
       </div>
-    );
-  };
+    </>
+  );
 
   const getTabTitle = () => {
-    return settings.activeTab === 'farben' 
-      ? 'Farben Einstellungen'
-      : 'Punkte Einstellungen';
+    switch (settings.activeTab) {
+      case 'farben':
+        return 'Farben Einstellungen';
+      case 'scores':
+        return 'Punkte Einstellungen';
+      case 'strokes':
+        return 'Striche Einstellungen';
+      default:
+        return '';
+    }
   };
 
   return (
@@ -298,7 +450,7 @@ const SettingsModal = (): ReactElement => {
         >
           <animated.div 
             style={springProps} 
-            className="w-full max-w-lg p-4"
+            className="w-full max-w-lg p-4 max-h-[85vh]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="bg-gray-800 rounded-lg p-6 relative">
@@ -326,38 +478,62 @@ const SettingsModal = (): ReactElement => {
                 {getTabTitle()}
               </h2>
 
-              {settings.activeTab === 'farben' ? renderFarbenSettings() : renderScoreSettings()}
+              {settings.activeTab === 'farben' && renderFarbenSettings()}
+              {settings.activeTab === 'scores' && renderScoreSettings()}
+              {settings.activeTab === 'strokes' && renderStrokeSettings()}
 
               <div className="mt-8 flex justify-center items-center space-x-6">
-                <button
-                  onClick={handleTabChange}
-                  className={`p-3 text-gray-400 hover:text-white transition-colors
-                    bg-gray-700/30 rounded-lg hover:bg-gray-700/50`}
-                >
-                  <FiChevronLeft size={32} />
-                </button>
+                <NavigationButton 
+                  direction="left" 
+                  onClick={handleTabChange} 
+                />
 
-                <button
-                  onClick={handleClose}
-                  className="py-3 px-8 bg-yellow-600 text-white rounded-lg font-medium text-lg
-                    hover:bg-yellow-700 transition-all duration-150 active:scale-95"
-                >
-                  Speichern
-                </button>
+                <SaveButton onClick={handleClose} />
 
-                <button
-                  onClick={handleTabChange}
-                  className={`p-3 text-gray-400 hover:text-white transition-colors
-                    bg-gray-700/30 rounded-lg hover:bg-gray-700/50`}
-                >
-                  <FiChevronRight size={32} />
-                </button>
+                <NavigationButton 
+                  direction="right" 
+                  onClick={handleTabChange} 
+                />
               </div>
             </div>
           </animated.div>
         </div>
       )}
     </AnimatePresence>
+  );
+}), { ssr: false });
+
+const NavigationButton: React.FC<{
+  direction: 'left' | 'right';
+  onClick: () => void;
+}> = ({ direction, onClick }) => {
+  const { handlers, buttonClasses } = usePressableButton(onClick);
+  const Icon = direction === 'left' ? FiChevronLeft : FiChevronRight;
+
+  return (
+    <button
+      {...handlers}
+      className={`p-3 text-white transition-colors
+        bg-gray-700 rounded-lg hover:bg-gray-600 ${buttonClasses}`}
+    >
+      <Icon size={32} />
+    </button>
+  );
+};
+
+const SaveButton: React.FC<{
+  onClick: () => void;
+}> = ({ onClick }) => {
+  const { handlers, buttonClasses } = usePressableButton(onClick);
+
+  return (
+    <button
+      {...handlers}
+      className={`py-3 px-8 bg-yellow-600 text-white rounded-lg font-medium text-lg
+        hover:bg-yellow-700 transition-all duration-150 ${buttonClasses}`}
+    >
+      Speichern
+    </button>
   );
 };
 

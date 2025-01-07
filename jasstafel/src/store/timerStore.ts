@@ -18,6 +18,9 @@ interface TimerState {
   gameStartTime: number | null;
   roundStartTime: number | null;
   history: TimerHistory;
+  isPaused: boolean;
+  pauseStartTime: number | null;
+  totalPausedTime: number;
 }
 
 interface TimerAnalytics {
@@ -41,6 +44,9 @@ interface TimerActions {
   completeGame: () => void;
   completeJass: () => void;
   getAnalytics: () => TimerAnalytics;
+  pauseTimer: () => void;
+  resumeTimer: () => void;
+  getCurrentTime: () => number;
 }
 
 type TimerStore = TimerState & TimerActions;
@@ -56,6 +62,9 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
     games: [],
     rounds: []
   },
+  isPaused: false,
+  pauseStartTime: null,
+  totalPausedTime: 0,
 
   // Actions
   startJassTimer: () => {
@@ -147,7 +156,7 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
 
   getAnalytics: () => {
     const state = get();
-    const now = Date.now();
+    const currentTime = get().getCurrentTime();
 
     // Hilfsfunktion für Durchschnittsberechnung
     const calculateAverage = (durations: number[]) => 
@@ -170,15 +179,15 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
 
     // Aktuelle Zeiten
     const currentJassDuration = state.jassStartTime 
-      ? now - state.jassStartTime 
+      ? currentTime - state.jassStartTime 
       : 0;
     
     const currentGameDuration = state.gameStartTime 
-      ? now - state.gameStartTime 
+      ? currentTime - state.gameStartTime 
       : 0;
     
     const currentRoundDuration = state.roundStartTime 
-      ? now - state.roundStartTime 
+      ? currentTime - state.roundStartTime 
       : 0;
 
     return {
@@ -220,5 +229,34 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
         rounds: []
       }
     }));
+  },
+
+  pauseTimer: () => {
+    set(state => ({
+      ...state,
+      isPaused: true,
+      pauseStartTime: Date.now()
+    }));
+  },
+
+  resumeTimer: () => {
+    set(state => {
+      const pauseDuration = state.pauseStartTime ? Date.now() - state.pauseStartTime : 0;
+      return {
+        ...state,
+        isPaused: false,
+        pauseStartTime: null,
+        totalPausedTime: state.totalPausedTime + pauseDuration
+      };
+    });
+  },
+
+  getCurrentTime: () => {
+    const state = get();
+    const now = Date.now();
+    const pausedTime = state.isPaused && state.pauseStartTime 
+      ? now - state.pauseStartTime 
+      : 0;
+    return now - (state.totalPausedTime + pausedTime);
   }
 }));
