@@ -148,3 +148,23 @@ export const getFarbeModeConfig = (mode: FarbeMode): FarbeSettingsConfig => {
 export const getFarbeModeMultiplier = (mode: FarbeMode): number => {
   return getFarbeModeConfig(mode).multiplier;
 };
+
+// Neue Interface Definition
+export interface FarbeSettings {
+  values: number[];  // Multiplier-Werte
+  isFlipped: boolean;
+}
+
+// Default Settings hinzufügen
+export const DEFAULT_FARBE_SETTINGS: FarbeSettings = {
+  values: FARBE_MODES.map(mode => mode.multiplier),
+  isFlipped: false
+} as const;
+
+// Validierungsfunktion
+export const validateFarbeSettings = (settings: Partial<FarbeSettings>): boolean => {
+  if (settings.values) {
+    return settings.values.every(value => value >= 0 && value <= 8);
+  }
+  return true;
+};

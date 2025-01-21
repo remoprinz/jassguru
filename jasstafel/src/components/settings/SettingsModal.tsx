@@ -1,4 +1,4 @@
-import React, { type ReactElement, useState, useEffect, memo } from 'react';
+import React, { type ReactElement, useState, useEffect, memo, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useSpring, animated } from 'react-spring';
 import { FARBE_MODES } from '../../config/FarbeSettings';
@@ -13,15 +13,31 @@ import dynamic from 'next/dynamic';
 import type { CardStyle } from '../../types/jass';
 import { CARD_SYMBOL_MAPPINGS } from '../../config/CardStyles';
 import { usePressableButton } from '../../hooks/usePressableButton';
+import { useTutorialComponent } from '../../hooks/useTutorialComponent';
+import { SCORE_MODES } from '../../config/ScoreSettings';
+import { useTutorialStore } from '../../store/tutorialStore';
+import { TUTORIAL_STEPS } from '../../types/tutorial';
 
 // Neue Konstante für Multiplier-Optionen
 const MULTIPLIER_OPTIONS = [0, 1, 2, 3, 4, 5, 6, 7, 8];
 
 // Neue Konstanten für Score-Einstellungen
 const SCORE_RANGES = {
-  sieg: { min: 0, max: 10000, default: 5000 },
-  berg: { min: 0, max: 5000, default: 2500 },
-  schneider: { min: 0, max: 5000, default: 2500 }
+  sieg: { 
+    min: 0, 
+    max: SCORE_MODES.find(m => m.id === 'sieg')?.maxValue || 10000, 
+    default: SCORE_MODES.find(m => m.id === 'sieg')?.defaultValue || 2000 
+  },
+  berg: { 
+    min: 0, 
+    max: SCORE_MODES.find(m => m.id === 'berg')?.maxValue || 5000, 
+    default: SCORE_MODES.find(m => m.id === 'berg')?.defaultValue || 2000 
+  },
+  schneider: { 
+    min: 0, 
+    max: SCORE_MODES.find(m => m.id === 'schneider')?.maxValue || 5000, 
+    default: SCORE_MODES.find(m => m.id === 'schneider')?.defaultValue || 1000 
+  }
 } as const;
 
 interface MultiplierButtonProps {
@@ -139,6 +155,7 @@ const StrokeButton: React.FC<{
 };
 
 const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
+  const { preventClose } = useTutorialComponent('settings');
   const { 
     settings, 
     farbeSettings,
@@ -150,12 +167,14 @@ const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
     cyclePictogramMode,
     setCardStyle,
     strokeSettings,
-    updateStrokeSettings
+    updateStrokeSettings,
+    tutorialBlockedUI,
+    openSettings
   } = useUIStore();
   
   // States für beide Settings-Typen - gleiche Struktur
   const [tempMultipliers, setTempMultipliers] = useState<number[]>(
-    farbeSettings.multipliers
+    farbeSettings.values
   );
 
   const [tempScores, setTempScores] = useState<Record<ScoreMode, number>>(
@@ -177,6 +196,38 @@ const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
     config: { mass: 1, tension: 300, friction: 20 }
   });
 
+  // Ref für das Modal
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  const currentStep = useTutorialStore(state => state.getCurrentStep());
+  
+  // Prüfe ob wir in einem der Settings-Tutorial Steps sind
+  const isInSettingsTutorial = currentStep?.id.startsWith('SETTINGS_');
+
+  // Kombiniere preventClose mit Tutorial-Status
+  const isBlocked = preventClose || isInSettingsTutorial;
+
+  // Click-Outside Handler
+  const handleClickOutside = (event: MouseEvent) => {
+    if (
+      !isBlocked && // Nutze isBlocked statt nur preventClose
+      modalRef.current && 
+      !modalRef.current.contains(event.target as Node)
+    ) {
+      handleClose();
+    }
+  };
+
+  // Event Listener für Click-Outside
+  useEffect(() => {
+    if (settings.isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [settings.isOpen, preventClose]);
+
   // Sync mit Store
   useEffect(() => {
     setTempScores(scoreSettings.values);
@@ -184,17 +235,17 @@ const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
   }, [scoreSettings]);
 
   const handleClose = () => {
-    // Beide Settings speichern - gleiche Struktur
+    // Erlaube Schließen im SETTINGS_STROKES Step
+    if (isBlocked && currentStep?.id !== TUTORIAL_STEPS.SETTINGS_STROKES) return;
+
     updateFarbeSettings({
-      multipliers: tempMultipliers,
+      values: tempMultipliers,
       isFlipped: isFlipped
     });
-    
     updateScoreSettings({
       values: tempScores,
       enabled: tempEnabled
     });
-
     updateStrokeSettings(tempStrokeSettings);
     closeSettings();
   };
@@ -210,20 +261,33 @@ const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
   const handleScoreChange = (mode: ScoreMode, value: number) => {
     setTempScores(prev => {
       const newScores = { ...prev };
-      const validatedValue = Math.max(
-        SCORE_RANGES[mode].min,
-        Math.min(value, SCORE_RANGES[mode].max)
-      );
       
-      newScores[mode] = validatedValue;
-
-      // Automatische Anpassung für berg/schneider wenn sieg geändert wird
+      // Entferne führende Nullen und konvertiere zu Nummer
+      const cleanValue = parseInt(value.toString().replace(/^0+/, '')) || 0;
+      
       if (mode === 'sieg') {
-        const maxSubScore = Math.floor(validatedValue / 2);
-        newScores.berg = Math.min(prev.berg, maxSubScore);
-        newScores.schneider = Math.min(prev.schneider, maxSubScore);
+        // Minimum 1000 Punkte für Sieg
+        const validatedValue = Math.max(1000, Math.min(cleanValue, SCORE_RANGES[mode].max));
+        newScores.sieg = validatedValue;
+        
+        // Berg und Schneider automatisch auf die Hälfte setzen
+        const halfValue = Math.floor(validatedValue / 2);
+        newScores.berg = halfValue;
+        newScores.schneider = halfValue;
+      } else if (mode === 'berg') {
+        // Wenn Berg geändert wird, Sieg-Punkte automatisch anpassen
+        const newBergValue = Math.min(cleanValue, SCORE_RANGES.berg.max);
+        newScores.berg = newBergValue;
+        newScores.schneider = newBergValue; // Schneider gleich wie Berg
+        
+        // Sieg-Punkte auf das Doppelte setzen (mindestens 1000)
+        newScores.sieg = Math.max(1000, newBergValue * 2);
+      } else {
+        // Schneider kann maximal die Hälfte der Sieg-Punkte sein
+        const maxValue = Math.floor(prev.sieg / 2);
+        newScores[mode] = Math.min(cleanValue, maxValue);
       }
-
+      
       return newScores;
     });
   };
@@ -241,6 +305,15 @@ const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
     const currentIndex = tabOrder.indexOf(settings.activeTab);
     const nextIndex = (currentIndex + 1) % tabOrder.length;
     setSettingsTab(tabOrder[nextIndex]);
+
+    // Wenn wir im Tutorial sind, zum nächsten Step wechseln
+    const currentStep = useTutorialStore.getState().getCurrentStep();
+    if (
+      (currentStep?.id === TUTORIAL_STEPS.SETTINGS_NAVIGATE && tabOrder[nextIndex] === 'scores') ||
+      (currentStep?.id === TUTORIAL_STEPS.SETTINGS_NAVIGATE_STROKES && tabOrder[nextIndex] === 'strokes')
+    ) {
+      useTutorialStore.getState().nextStep();
+    }
   };
 
   const renderFarbenSettings = () => (
@@ -442,34 +515,35 @@ const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
   return (
     <AnimatePresence>
       {settings.isOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeSettings();
-          }}
-        >
+        <div className="fixed inset-0 flex items-center justify-center z-40 bg-black/50 px-4">
           <animated.div 
-            style={springProps} 
+            ref={modalRef}
+            style={springProps}
             className="w-full max-w-lg p-4 max-h-[85vh]"
-            onClick={(e) => e.stopPropagation()}
           >
             <div className="bg-gray-800 rounded-lg p-6 relative">
-              {/* Dreh-Button nur für Rotation */}
+              {/* Dreh-Button */}
               <button
                 onClick={() => setIsFlipped(!isFlipped)}
+                disabled={isBlocked}  // Nutze isBlocked
                 className={`absolute bottom-full mb-[-10px] left-1/2 transform -translate-x-1/2 
-                  text-white hover:text-gray-300 transition-all duration-1000
+                  text-white transition-all duration-1000
                   w-24 h-24 flex items-center justify-center
                   rounded-full
+                  ${isBlocked ? 'opacity-50 cursor-not-allowed text-gray-500' : 'hover:text-gray-300'}
                   ${isFlipped ? 'rotate-180' : 'rotate-0'}`}
                 aria-label="Umdrehen"
               >
                 <FiRotateCcw className="w-8 h-8" />
               </button>
 
+              {/* Close-Button */}
               <button
-                onClick={closeSettings}
-                className="absolute right-2 top-2 p-2 text-gray-400 hover:text-white transition-colors"
+                onClick={handleClose}
+                disabled={isBlocked}  // Nutze isBlocked
+                className={`absolute right-2 top-2 p-2 text-gray-400 
+                  ${isBlocked ? 'opacity-50 cursor-not-allowed' : 'hover:text-white'} 
+                  transition-colors`}
               >
                 <FiX size={24} />
               </button>
@@ -506,31 +580,64 @@ const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
 const NavigationButton: React.FC<{
   direction: 'left' | 'right';
   onClick: () => void;
-}> = ({ direction, onClick }) => {
+}> = memo(({ direction, onClick }) => {
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const { handlers, buttonClasses } = usePressableButton(onClick);
   const Icon = direction === 'left' ? FiChevronLeft : FiChevronRight;
+  const currentStep = useTutorialStore(state => state.getCurrentStep());
+  
+  const buttonId = direction === 'right' 
+    ? 'settings-navigation-next-button' 
+    : 'settings-navigation-prev-button';
+  
+  // Wenn wir im Tutorial sind und es der linke Button ist, immer deaktivieren
+  const isDisabled = 
+    (currentStep?.id === TUTORIAL_STEPS.SETTINGS_NAVIGATE_STROKES && direction === 'left') ||
+    (currentStep?.id === TUTORIAL_STEPS.SETTINGS_NAVIGATE && direction === 'left');
 
   return (
     <button
       {...handlers}
+      ref={buttonRef}
+      id={buttonId}
+      data-testid={buttonId}
+      disabled={isDisabled}
       className={`p-3 text-white transition-colors
-        bg-gray-700 rounded-lg hover:bg-gray-600 ${buttonClasses}`}
+        bg-gray-700 rounded-lg hover:bg-gray-600 ${buttonClasses}
+        ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
     >
       <Icon size={32} />
     </button>
   );
-};
+});
 
 const SaveButton: React.FC<{
   onClick: () => void;
 }> = ({ onClick }) => {
-  const { handlers, buttonClasses } = usePressableButton(onClick);
+  const { buttonClasses } = usePressableButton(onClick);
+  const currentStep = useTutorialStore(state => state.getCurrentStep());
+  const nextStep = useTutorialStore(state => state.nextStep);
+  
+  const handleSaveClick = () => {
+    onClick();
+    
+    // Wenn wir im SETTINGS_STROKES Step sind, zum nächsten Tutorial-Step
+    if (currentStep?.id === TUTORIAL_STEPS.SETTINGS_STROKES) {
+      nextStep();
+    }
+    
+    window.dispatchEvent(new CustomEvent('settingsSaved'));
+  };
+  
+  const isDisabled = currentStep?.id === TUTORIAL_STEPS.SETTINGS_NAVIGATE_STROKES;
 
   return (
     <button
-      {...handlers}
+      onClick={handleSaveClick}
+      disabled={isDisabled}
       className={`py-3 px-8 bg-yellow-600 text-white rounded-lg font-medium text-lg
-        hover:bg-yellow-700 transition-all duration-150 ${buttonClasses}`}
+        hover:bg-yellow-700 transition-all duration-150 ${buttonClasses}
+        ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
     >
       Speichern
     </button>

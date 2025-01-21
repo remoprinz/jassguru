@@ -2,39 +2,6 @@
 
 import { StatisticId } from './statistikTypes';
 import { IconType } from 'react-icons';
-import type { StrokeSettings } from '../config/GameSettings';
-
-// Definiere die gemeinsamen Steps
-export const COMMON_BROWSER_STEPS = {
-  INSTALL_WELCOME: 'INSTALL_WELCOME',
-  INSTALL_SHARE: 'INSTALL_SHARE',
-  INSTALL_FINAL: 'INSTALL_FINAL',
-  INSTALL_DONE: 'INSTALL_DONE',
-  FINAL_HINTS: 'FINAL_HINTS'
-} as const;
-
-// iOS-spezifische Steps
-export const IOS_BROWSER_STEPS = {
-  ...COMMON_BROWSER_STEPS,
-  INSTALL_HOME: 'INSTALL_HOME',
-} as const;
-
-// Android-spezifische Steps
-export const ANDROID_BROWSER_STEPS = {
-  ...COMMON_BROWSER_STEPS
-} as const;
-
-// Type für die Steps je nach Plattform
-export type iOSBrowserStep = typeof IOS_BROWSER_STEPS[keyof typeof IOS_BROWSER_STEPS];
-export type AndroidBrowserStep = typeof ANDROID_BROWSER_STEPS[keyof typeof ANDROID_BROWSER_STEPS];
-export type BrowserOnboardingStep = iOSBrowserStep | AndroidBrowserStep;
-
-export enum AppOnboardingStep {
-  INTRODUCTION = 'INTRODUCTION',
-  SCREEN_TIME = 'SCREEN_TIME'
-}
-
-export type OnboardingStep = BrowserOnboardingStep | AppOnboardingStep;
 
 export type TeamPosition = 'top' | 'bottom';
 export type PlayerNumber = 1 | 2 | 3 | 4;
@@ -92,7 +59,46 @@ export type JassColor =
   | "Quer"
   | "Slalom";
 
+// Alle Strich-Kategorien als Union Type
 export type StrichTyp = 'berg' | 'sieg' | 'matsch' | 'schneider' | 'kontermatsch';
+
+// Vollständiger Record für Striche
+export interface StricheRecord {
+  berg: number;
+  sieg: number;
+  matsch: number;
+  schneider: number;
+  kontermatsch: number;
+}
+
+// Update-Type für einzelne Strich-Änderungen
+export interface StricheUpdate {
+  readonly team: TeamPosition;
+  readonly type: StrichTyp;
+  readonly value: number;  // Absoluter Wert!
+}
+
+// Aggregierte Striche über mehrere Spiele
+export interface StricheTotals {
+  top: StricheRecord;
+  bottom: StricheRecord;
+}
+
+// Game-Update mit vollständigem Striche-Record
+export interface GameUpdate {
+  teams?: {
+    top?: Partial<TeamStand>;
+    bottom?: Partial<TeamStand>;
+  };
+  currentRound?: number;
+  currentPlayer?: PlayerNumber;
+  roundHistory?: RoundEntry[];
+  isGameCompleted?: boolean;
+  currentHistoryIndex?: number;
+  historyState?: HistoryState;
+  isGameStarted?: boolean;
+  isRoundCompleted?: boolean;
+}
 
 export interface StatisticProps {
   teams: {
@@ -109,14 +115,6 @@ export interface StatisticModule {
   title: string;
   component: React.FC<StatisticProps>;
   calculateData: (state: JassState) => TeamScores;
-}
-
-export interface StricheRecord {
-  berg: number;
-  sieg: number;
-  matsch: number;
-  schneider: number;
-  kontermatsch: number;
 }
 
 export interface TeamScores {
@@ -163,10 +161,7 @@ export interface BaseRoundEntry {
     roundNumber: number;
     nextPlayer: PlayerNumber;
   };
-  striche: {
-    top: StricheRecord;
-    bottom: StricheRecord;
-  };
+  striche: StricheState;
 }
 
 // Spezifische Typen für Weis und Jass
@@ -247,20 +242,18 @@ export interface PlayerStats {
 }
 
 export interface TeamStand {
+  striche: StricheRecord;
+  jassPoints: number;
+  weisPoints: number;
+  total: number;
   bergActive: boolean;
   bedankenActive: boolean;
   isSigned: boolean;
-  striche: StricheRecord;
-  total: number;
-  jassPoints: number;
-  weisPoints: number;
-  playerStats: {
-    [key in PlayerNumber]: { 
-      striche: number; 
-      points: number;
-      weisPoints: number;
-    }
-  }
+  playerStats: Record<PlayerNumber, {
+    striche: number;
+    points: number;
+    weisPoints: number;
+  }>;
 }
 
 export interface GameEntry {
@@ -302,6 +295,8 @@ export interface JassState {
   };
   games: GameEntry[];
   currentGameId: number;
+  getCurrentGame: () => GameEntry | undefined;
+  updateCurrentGame: (update: GameUpdate) => void;
 }
 
 export interface JassActions {
@@ -348,14 +343,6 @@ export interface JassActions {
   updateWeisPoints: (position: TeamPosition, points: number) => void;
 
   // Neue Action hinzufügen
-  updateCurrentGame: (update: {
-    teams: Record<TeamPosition, TeamStand>;
-    roundHistory: RoundEntry[];
-    currentRound: number;
-    currentPlayer: PlayerNumber;
-  }) => void;
-
-  // Nach den existierenden Types (ca. Zeile 200) hinzufügen:
   getTotalsUpToGame: (gameId: number) => GameTotals;
 }
 export type JassStore = JassState & JassActions;
@@ -386,6 +373,12 @@ export interface HistoryState {
   lastNavigationTimestamp: number | null;
 }
 
+// Neue Type-Definition für die Striche-Struktur
+export type StricheState = {
+  top: StricheRecord;
+  bottom: StricheRecord;
+};
+
 // Erweitern des GameState
 export interface GameState {
   currentPlayer: PlayerNumber;
@@ -396,7 +389,7 @@ export interface GameState {
   weisPoints: TeamScores;
   jassPoints: TeamScores;
   scores: TeamScores;
-  striche: Record<TeamPosition, StricheRecord>;
+  striche: StricheState;
   roundHistory: RoundEntry[];
   currentRoundWeis: WeisAction[];
   isGameCompleted: boolean;
@@ -551,8 +544,8 @@ export function isJassRoundEntry(entry: RoundEntry): entry is JassRoundEntry {
 // Nach den existierenden Types (ca. Zeile 200) hinzufügen:
 export interface GameTotals {
   striche: {
-    top: number;
-    bottom: number;
+    top: StricheRecord;
+    bottom: StricheRecord;
   };
   punkte: {
     top: number;
@@ -700,30 +693,6 @@ export interface Html2CanvasOptions {
   x?: number;
   y?: number;
 }
-
-// Neue Types für den Onboarding Flow
-export interface OnboardingContent {
-  title: string;
-  icon: IconType;
-  message?: string;
-  list?: string[];
-  image?: string;  // Optional, da nicht jeder Step ein Bild hat
-}
-export interface OnboardingState {
-  currentStep: OnboardingStep;
-  showOnboarding: boolean;
-  content: OnboardingContent;
-  canBeDismissed: boolean;
-}
-
-export interface OnboardingActions {
-  handleNext: () => void;
-  handlePrevious: () => void;
-  handleDismiss: () => void;
-}
-
-export type OnboardingFlow = OnboardingState & OnboardingActions;
-
 // Kartenstil-Definition
 export type CardStyle = 'DE' | 'FR';
 
@@ -737,3 +706,57 @@ export interface CardSymbol {
 export type CardStyleMappings = {
   [Color in JassColor]: CardSymbol;
 };
+
+// Neue Type für Store-Updates
+export interface StoreUpdate {
+  gameState?: Partial<GameState>;
+  jassState?: Partial<JassState>;
+}
+
+// Tutorial-bezogene Types
+export interface TutorialOverlayProps {
+  onCloseMenu: () => void;
+}
+
+// Neue Basis-Types für Sprüche (nach den existierenden Types)
+export interface SpruchMitIcon {
+  text: string;
+  icon: string;
+}
+
+// 2. Basis-Types für Spiellogik und Berechnungen
+export interface StricheCount {
+  normal: number;
+  matsch: number;
+  sieg?: number;
+}
+
+// Abgeleitet von StricheCount
+export type StricheKategorie = keyof Omit<StricheCount, 'sieg'>;
+
+// Hilfs-Interface für Sprüche-Sammlung
+export interface Sprueche {
+  [key: string]: SpruchMitIcon;
+}
+
+// 3. Basis-Parameter für Sprüche
+export interface JassSpruchBaseParams {
+  stricheDifference: number;
+  pointDifference: number;
+  winnerNames: string[];
+  loserNames: string[];
+  isUnentschieden: boolean;
+  isStricheMode: boolean;
+  type: GameEndType;
+  isSchneider: boolean;
+  totalMatsche: number;
+}
+
+// 4. Gemeinsame Types für Kategorisierung
+export type GameEndType = 'gameEnd' | 'jassEnd';
+
+// Neue Timer-bezogene Types
+export interface TimerAnalytics {
+  totalJassTime: number;    // Gesamtdauer des Jass
+  currentGameDuration: number;  // Dauer des aktuellen Spiels
+}

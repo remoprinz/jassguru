@@ -25,7 +25,7 @@ interface MultiplierState {
 export const useMultiplierStore = create<MultiplierState>((set, get) => ({
   currentMultiplier: Math.max(...multipliers.filter(m => m > 1)),
   setMultiplier: (value: Multiplier) => set({ currentMultiplier: value }),
-  getDividedPoints: (points) => Math.floor(points / get().currentMultiplier),
+  getDividedPoints: (points) => Math.ceil(points / get().currentMultiplier),
   getRemainingPoints: (team: TeamPosition, scores: TeamScores) => {
     const { scoreSettings } = useUIStore.getState();
     
@@ -93,6 +93,7 @@ interface MultiplierCalculatorProps {
   numberSize?: string;
   scoreSettings?: ScoreSettings;
   scores: TeamScores;
+  team: TeamPosition;
 }
 
 const MultiplierCalculator: React.FC<MultiplierCalculatorProps> = ({ 
@@ -102,7 +103,8 @@ const MultiplierCalculator: React.FC<MultiplierCalculatorProps> = ({
   className = "",
   numberSize = "text-xl",
   scoreSettings,
-  scores
+  scores,
+  team
 }) => {
   const { currentMultiplier, setMultiplier, getDividedPoints, getRemainingPoints } = useMultiplierStore();
   const farbeSettings = useUIStore(state => state.farbeSettings);
@@ -111,10 +113,10 @@ const MultiplierCalculator: React.FC<MultiplierCalculatorProps> = ({
   // Aktualisiere den Multiplikator wenn sich die Farbe-Settings ändern
   useEffect(() => {
     // Konvertiere das Record-Objekt in ein Array von Werten
-    const multiplierValues = Object.values(farbeSettings.multipliers);
+    const multiplierValues = Object.values(farbeSettings.values);
     const highestMultiplier = Math.max(...multiplierValues.filter(m => m > 1));
     setMultiplier(Math.min(highestMultiplier, 8));
-  }, [farbeSettings.multipliers, setMultiplier]);
+  }, [farbeSettings.values, setMultiplier]);
 
   return (
     <div>
@@ -148,7 +150,7 @@ const MultiplierCalculator: React.FC<MultiplierCalculatorProps> = ({
         <div className="text-center">
           <span className="text-gray-400 text-xs">{currentMultiplier}-fach</span>
           <div className={`${numberSize} font-bold mt-0`}>
-            {getDividedPoints(getRemainingPoints('bottom', scores).remaining)}
+            {getDividedPoints(getRemainingPoints(team, scores).remaining)}
           </div>
         </div>
       </div>

@@ -520,43 +520,36 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     addStrich: (team: TeamPosition, type: StrichTyp) => {
       set(state => {
-        const { strokeSettings } = useUIStore.getState();  // UI-Store Einstellungen holen
-        const newStriche = { ...state.striche };
-        
-        // Dynamischer Strich-Wert basierend auf den Einstellungen
-        let increment = 1;  // Standard-Wert
-        
-        // Für Schneider und Kontermatsch die Einstellungen aus dem UI-Store verwenden
-        if (type === 'schneider') {
-          increment = strokeSettings.schneider;
-        } else if (type === 'kontermatsch') {
-          increment = strokeSettings.kontermatsch;
-        }
+        // Neues Striche-Objekt mit allen Kategorien
+        const newStriche = {
+          ...state.striche[team],
+          [type]: state.striche[team][type] + 1
+        };
 
-        newStriche[team][type] += increment;
-
-        // Sofortiges Update des jassStore
+        // Sofortige Synchronisation mit JassStore
         const jassStore = useJassStore.getState();
-        const currentGame = jassStore.getCurrentGame();
-        
-        if (currentGame) {
-          jassStore.updateCurrentGame({
-            teams: {
-              ...currentGame.teams,
-              [team]: {
-                ...currentGame.teams[team],
-                striche: newStriche[team]
-              }
-            },
-            roundHistory: currentGame.roundHistory,
-            currentRound: state.currentRound,
-            currentPlayer: state.currentPlayer
-          });
-        }
+        jassStore.updateCurrentGame({
+          teams: {
+            [team]: {
+              striche: newStriche // Übergebe kompletten StricheRecord
+            }
+          }
+        });
+
+        // Debug-Logging
+        console.log('🎲 Strich hinzugefügt:', {
+          team,
+          type,
+          newValue: newStriche[type],
+          allStriche: newStriche
+        });
 
         return {
           ...state,
-          striche: newStriche
+          striche: {
+            ...state.striche,
+            [team]: newStriche
+          }
         };
       });
     },

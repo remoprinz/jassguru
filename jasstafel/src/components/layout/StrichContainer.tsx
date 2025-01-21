@@ -88,13 +88,13 @@ const calculateBoxConfigs = (
         height: '20%',
         bottom: `calc(-4.5% + ${bottom20erOffset})`,
         left: '2%',
-        width: '90%',
+        width: '80%',
       },
       'restzahl': {
         height: '20%',
-        top: '88%',
+        top: '76%',
         right: '-2%',
-        width: '20%',
+        width: '16%',
       }
     };
   } else {
@@ -103,7 +103,7 @@ const calculateBoxConfigs = (
         height: '20%',
         top: `calc(-4.5% + ${top20erOffset})`,
         right: '2%',
-        width: '90%',
+        width: '80%',
       },
       '50er': {
         height: '20%',
@@ -121,9 +121,9 @@ const calculateBoxConfigs = (
       },
       'restzahl': {
         height: '20%',
-        bottom: '88%',
+        bottom: '76%',
         left: '-2%',
-        width: '20%',
+        width: '16%',
       }
     };
   }
@@ -163,9 +163,6 @@ const StrichContainer: React.FC<StrichContainerProps> = ({
   top20erOffset = '2%',
   bottom20erOffset = '2%'
 }) => {
-  const lastClickTimeRef = useRef<number>(0);
-  const clickTimeoutRef = useRef<NodeJS.Timeout>();
-  
   const { 
     updateScoreByStrich,
     addWeisPoints,
@@ -183,56 +180,6 @@ const StrichContainer: React.FC<StrichContainerProps> = ({
   } = useUIStore();
 
   const visualStriche = getVisualStriche(position);
-
-  const handleBoxClick = useCallback((event: React.MouseEvent, boxType: string) => {
-    const now = Date.now();
-    const timeSinceLastClick = now - lastClickTimeRef.current;
-    
-    if (timeSinceLastClick < 200) {
-      if (clickTimeoutRef.current) {
-        clearTimeout(clickTimeoutRef.current);
-      }
-      setGameInfoOpen(true);
-      setLastDoubleClickPosition(position);
-      return;
-    }
-    
-    lastClickTimeRef.current = now;
-    
-    const executeAction = () => {
-      const points = getClickValue(boxType);
-      addWeisPoints(position, points);
-      onBlendEffect(position);
-    };
-
-    if (currentHistoryIndex < roundHistory.length - 1) {
-      showHistoryWarning(
-        HISTORY_WARNING_MESSAGE,
-        executeAction,
-        () => jumpToLatest()
-      );
-      return;
-    }
-
-    clickTimeoutRef.current = setTimeout(executeAction, 200);
-    
-  }, [
-    addWeisPoints, 
-    onBlendEffect, 
-    position, 
-    currentHistoryIndex,
-    roundHistory.length,
-    showHistoryWarning,
-    jumpToLatest
-  ]);
-
-  useEffect(() => {
-    return () => {
-      if (clickTimeoutRef.current) {
-        clearTimeout(clickTimeoutRef.current);
-      }
-    };
-  }, []);
 
   const boxConfigs = calculateBoxConfigs(
     position,
@@ -257,7 +204,8 @@ const StrichContainer: React.FC<StrichContainerProps> = ({
               key={boxType}
               customStyle={config}
               data-strich-box="true"
-              onClick={(event) => handleBoxClick(event, boxType)}
+              data-position={position}
+              data-box-type={boxType}
             >
               {boxValue === 'restzahl' ? (
                 <BoxLabel position={position}>

@@ -74,17 +74,17 @@ const StrichContainer = styled.div<{ type: 'horizontal' | 'vertikal' }>`
 `;
 
 const StrichElement = styled(animated.div)<{
-  type: 'horizontal' | 'vertikal' | 'diagonal';
-  position: TeamPosition;
-  isDiagonal?: boolean;
+  $type: 'horizontal' | 'vertikal';
+  $position: TeamPosition;
+  $isDiagonal?: boolean;
 }>`
   position: absolute;
   background-color: ${defaultStyle.baseStrich.color};
   opacity: ${defaultStyle.baseStrich.opacity};
   transition: all 0.2s ease;
 
-  ${({ type, isDiagonal }) => {
-    if (isDiagonal) {
+  ${({ $type, $isDiagonal }) => {
+    if ($isDiagonal) {
       return `
         width: ${defaultStyle.diagonalStrich.length}px;
         height: ${defaultStyle.diagonalStrich.width}px;
@@ -100,11 +100,16 @@ const StrichElement = styled(animated.div)<{
   }}
 `;
 
-const StrichGroup = styled(animated.div)<{ type: 'horizontal' | 'vertikal' }>`
+// StrichGroup Interface hinzufügen
+interface StrichGroupProps {
+  $type: 'horizontal' | 'vertikal';
+}
+
+const StrichGroup = styled(animated.div)<StrichGroupProps>`
   position: relative;
   display: inline-flex;
   align-items: center;
-  margin-right: ${props => props.type === 'horizontal' ? '8px' : '12px'};
+  margin-right: ${props => props.$type === 'horizontal' ? '8px' : '12px'};
 `;
 
 // Separate Styles für diagonale Striche je nach Typ
@@ -139,12 +144,12 @@ const StrichDisplay: React.FC<StrichDisplayProps> = ({ type, count, position, st
     // 1. Normale 5er-Gruppen
     for (let i = 0; i < fullGroups; i++) {
       elements.push(
-        <StrichGroup key={`group-${i}`} type={type}>
+        <StrichGroup key={`group-${i}`} $type={type}>
           {[...Array(4)].map((_, idx) => (
             <StrichElement
               key={`strich-${i}-${idx}`}
-              type={type}
-              position={position}
+              $type={type}
+              $position={position}
               style={{
                 opacity: spring.progress.to(p => p > i * 5 + idx ? 1 : 0),
                 transform: spring.progress.to(p => 
@@ -155,9 +160,10 @@ const StrichDisplay: React.FC<StrichDisplayProps> = ({ type, count, position, st
             />
           ))}
           <StrichElement
-            type="diagonal"
-            position={position}
-            isDiagonal
+            key={`diagonal-${i}`}
+            $type={type}
+            $position={position}
+            $isDiagonal
             style={{
               opacity: spring.progress.to(p => p > i * 5 + 4 ? 1 : 0),
               transform: spring.progress.to(p => 
@@ -174,12 +180,12 @@ const StrichDisplay: React.FC<StrichDisplayProps> = ({ type, count, position, st
     // 2. Restliche Striche
     if (remainder > 0) {
       elements.push(
-        <StrichGroup key="remainder" type={type}>
+        <StrichGroup key="remainder" $type={type}>
           {[...Array(remainder)].map((_, idx) => (
             <StrichElement
               key={`rest-${idx}`}
-              type={type}
-              position={position}
+              $type={type}
+              $position={position}
               style={{
                 opacity: spring.progress.to(p => 
                   p > fullGroups * 5 + idx ? 1 : 0

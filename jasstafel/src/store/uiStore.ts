@@ -8,15 +8,13 @@ import type {
   SettingsTab, 
   PictogramConfig, 
   ScoreMode, 
-  FarbeSettings, 
   CardStyle 
 } from '../types/jass';
 import { StatisticId } from '../types/statistikTypes';
 import { FARBE_MODES } from '../config/FarbeSettings';
 import { 
   SCORE_MODES, 
-  DEFAULT_SCORE_SETTINGS, 
-  validateScoreValue,
+  validateScoreValue, 
   type ScoreSettings 
 } from '../config/ScoreSettings';
 import { 
@@ -24,6 +22,13 @@ import {
   validateStrokeSettings, 
   type StrokeSettings 
 } from '../config/GameSettings';
+import { 
+  DEFAULT_FARBE_SETTINGS,
+  validateFarbeSettings,
+  type FarbeSettings 
+} from '../config/FarbeSettings';
+import { NotificationConfig, Notification, JassFinishNotificationConfig } from '../types/notification';
+import type { SpruchMitIcon } from '../types/sprueche';
 
 export enum OnboardingStep {
   INSTALL = 'INSTALL',
@@ -40,8 +45,7 @@ const STORAGE_KEYS = {
   farbe: 'jass-farbe-settings',
   score: 'jass-score-settings',
   pictogram: 'jass-pictogram-settings',
-  strokes: 'jass-stroke-settings',
-  scores: 'jass-score-settings'
+  strokes: 'jass-stroke-settings'
 } as const;
 
 // Generische Save-Funktion
@@ -136,6 +140,20 @@ interface UISettingsState {
   pictogramConfig: PictogramConfig;
 }
 
+type NotificationMessage = {
+  content: string | SpruchMitIcon;
+  fixedFooter?: string;
+}
+
+export interface JassFinishNotification {
+  isOpen: boolean;
+  mode: 'share' | 'continue';
+  message: NotificationMessage;
+  onShare?: () => void;
+  onBack?: () => void;
+  onContinue?: () => void;
+}
+
 export interface UIState {
   calculator: {
     isOpen: boolean;
@@ -167,6 +185,7 @@ export interface UIState {
     isOpen: boolean;
     swipePosition: TeamPosition | null;
     currentStatistic: 'striche' | 'jasspunkte';
+    animationComplete: boolean;
   };
   settings: UISettingsState;
   farbeSettings: FarbeSettings;
@@ -187,6 +206,11 @@ export interface UIState {
   overlayPosition: TeamPosition | null;
   jassFinishNotification: {
     isOpen: boolean;
+    mode: 'share' | 'continue';
+    message?: SpruchMitIcon;
+    onShare?: () => Promise<void>;
+    onBack?: () => void;
+    onContinue?: () => void;
   };
   onboarding: {
     currentStep: OnboardingStep;
@@ -195,6 +219,20 @@ export interface UIState {
     canBeDismissed: boolean;
     isPWA: boolean;
   };
+  isTutorialInfoOpen: boolean;
+  splitContainer: {
+    isOpen: boolean;
+    position: TeamPosition;
+  };
+  tutorialBlockedUI: {
+    settingsClose: boolean;
+    calculatorClose: boolean;
+    gameInfoClose: boolean;
+    resultatKreidetafelClose: boolean;
+  };
+  topSwipeAnimation: boolean;
+  bottomSwipeAnimation: boolean;
+  notifications: Notification[];
 }
 
 interface UIActions {
@@ -244,7 +282,9 @@ interface UIActions {
   closeSettings: () => void;
   cyclePictogramMode: () => void;
   setOverlayPosition: (position: TeamPosition | null) => void;
-  showJassFinishNotification: () => void;
+  showJassFinishNotification: (props: Omit<Partial<JassFinishNotificationConfig>, 'message'> & {
+    message?: SpruchMitIcon;
+  }) => void;
   closeJassFinishNotification: () => void;
   setOnboardingStep: (step: OnboardingStep) => void;
   completeOnboarding: () => void;
@@ -254,6 +294,18 @@ interface UIActions {
   resetStartScreen: () => void;
   updateStrokeSettings: (settings: Partial<StrokeSettings>) => void;
   setStrokeValue: (type: keyof StrokeSettings, value: 1 | 2) => void;
+  openTutorialInfo: () => void;
+  closeTutorialInfo: () => void;
+  closeAllOverlays: () => void;
+  openMenu: () => void;
+  setSplitContainer: (isOpen: boolean, position: TeamPosition) => void;
+  closeGameInfo: () => void;
+  setTopSwipeAnimation: (active: boolean) => void;
+  setBottomSwipeAnimation: (active: boolean) => void;
+  showNotification: (config: NotificationConfig) => void;
+  removeNotification: (id: string) => void;
+  setResultatPosition: (position: TeamPosition) => void;
+  setResultatAnimationComplete: (complete: boolean) => void;
 }
 
 export type UIStore = UIState & UIActions;
@@ -294,7 +346,6 @@ const loadStrokeSettings = (): StrokeSettings => {
 // Initiale Werte
 const initialFarbeSettings: FarbeSettings = {
   values: FARBE_MODES.map(mode => mode.multiplier),
-  multipliers: FARBE_MODES.map(mode => mode.multiplier),
   isFlipped: false
 };
 
@@ -347,7 +398,8 @@ const initialState: UIState = {
   resultatKreidetafel: {
     isOpen: false,
     swipePosition: null,
-    currentStatistic: 'striche'
+    currentStatistic: 'striche',
+    animationComplete: true
   },
   settings: {
     isOpen: false,
@@ -375,7 +427,12 @@ const initialState: UIState = {
   strichStyle: defaultStrichStyle,
   overlayPosition: null,
   jassFinishNotification: {
-    isOpen: false
+    isOpen: false,
+    mode: 'share',
+    message: undefined,
+    onShare: async () => {},
+    onBack: () => {},
+    onContinue: () => {}
   },
   onboarding: {
     currentStep: OnboardingStep.INSTALL,
@@ -383,6 +440,39 @@ const initialState: UIState = {
     show: false,
     canBeDismissed: true,
     isPWA: false
+  },
+  isTutorialInfoOpen: false,
+  splitContainer: {
+    isOpen: false,
+    position: 'bottom'
+  },
+  tutorialBlockedUI: {
+    settingsClose: false,
+    calculatorClose: false,
+    gameInfoClose: false,
+    resultatKreidetafelClose: false
+  },
+  topSwipeAnimation: false,
+  bottomSwipeAnimation: false,
+  notifications: [],
+};
+
+// Load-Funktionen für jeden Settings-Typ
+const loadFarbeSettings = (): FarbeSettings => {
+  if (typeof window === 'undefined') return DEFAULT_FARBE_SETTINGS;
+  
+  try {
+    const stored = localStorage.getItem(STORAGE_KEYS.farbe);
+    if (!stored) return DEFAULT_FARBE_SETTINGS;
+    
+    const parsed = JSON.parse(stored);
+    return {
+      values: parsed.values ?? DEFAULT_FARBE_SETTINGS.values,
+      isFlipped: parsed.isFlipped ?? DEFAULT_FARBE_SETTINGS.isFlipped
+    };
+  } catch (error) {
+    console.error('Fehler beim Laden der Farbe-Settings:', error);
+    return DEFAULT_FARBE_SETTINGS;
   }
 };
 
@@ -461,9 +551,11 @@ export const useUIStore = create<UIStore>()(
         }
       })),
 
-      openCalculator: () => set((state) => ({ 
-        calculator: { ...state.calculator, isOpen: true } 
-      })),
+      openCalculator: () => {
+        const state = get();
+        if (state.tutorialBlockedUI.calculatorClose) return;
+        set({ calculator: { ...state.calculator, isOpen: true } });
+      },
       
       closeCalculator: () => set((state) => ({ 
         calculator: { ...state.calculator, isOpen: false } 
@@ -540,7 +632,8 @@ export const useUIStore = create<UIStore>()(
         resultatKreidetafel: {
           isOpen: false,
           swipePosition: null,
-          currentStatistic: 'striche'
+          currentStatistic: 'striche',
+          animationComplete: true
         },
         historyWarning: {
           show: false,
@@ -559,7 +652,8 @@ export const useUIStore = create<UIStore>()(
         resultatKreidetafel: {
           isOpen: true,
           swipePosition: position,
-          currentStatistic: 'striche'
+          currentStatistic: 'striche',
+          animationComplete: false
         },
         overlayPosition: position
       }),
@@ -567,7 +661,8 @@ export const useUIStore = create<UIStore>()(
         resultatKreidetafel: {
           isOpen: false,
           swipePosition: null,
-          currentStatistic: 'striche'
+          currentStatistic: 'striche',
+          animationComplete: true
         }
       }),
       setGameInfoOpen: (isOpen: boolean) => set({ isGameInfoOpen: isOpen }),
@@ -622,10 +717,10 @@ export const useUIStore = create<UIStore>()(
       })),
       setFarbeMultiplier: (index: number, value: number) => {
         const currentSettings = get().farbeSettings;
-        const newMultipliers = [...currentSettings.multipliers];
-        newMultipliers[index] = value;
-        if (validateMultipliers(newMultipliers)) {
-          const newSettings = { ...currentSettings, multipliers: newMultipliers };
+        const newValues = [...currentSettings.values];
+        newValues[index] = value;
+        if (validateMultipliers(newValues)) {
+          const newSettings = { ...currentSettings, values: newValues };
           saveFarbeSettings(newSettings);
           set({ farbeSettings: newSettings });
         }
@@ -637,10 +732,16 @@ export const useUIStore = create<UIStore>()(
         set({ farbeSettings: newSettings });
       },
       updateFarbeSettings: (settings: Partial<FarbeSettings>) => 
-        set(state => {
-          const newSettings = { ...state.farbeSettings, ...settings };
-          saveFarbeSettings(newSettings);
-          return { farbeSettings: newSettings };
+        set((state) => {
+          const newSettings = {
+            ...state.farbeSettings,
+            ...settings
+          };
+          if (validateFarbeSettings(newSettings)) {
+            saveToStorage('farbe', newSettings);
+            return { farbeSettings: newSettings };
+          }
+          return state;
         }),
       openScoreSettings: () => set(state => ({
         settings: { ...state.settings, isOpen: true, activeTab: 'scores' }
@@ -755,16 +856,23 @@ export const useUIStore = create<UIStore>()(
         });
       },
       setOverlayPosition: (position) => set({ overlayPosition: position }),
-      showJassFinishNotification: () => set(state => ({
+      showJassFinishNotification: (props: Omit<Partial<JassFinishNotificationConfig>, 'message'> & {
+        message?: SpruchMitIcon;
+      }) => set({
         jassFinishNotification: {
+          mode: 'share',
+          message: { text: '', icon: '♥️' },
+          ...props,
           isOpen: true
         }
-      })),
-      closeJassFinishNotification: () => set(state => ({
+      }),
+      closeJassFinishNotification: () => set({
         jassFinishNotification: {
-          isOpen: false
+          isOpen: false,
+          mode: 'share',
+          message: { text: '', icon: '♥️' }
         }
-      })),
+      }),
       setOnboardingStep: (step: OnboardingStep) => 
         set((state) => ({ 
           onboarding: { 
@@ -822,12 +930,91 @@ export const useUIStore = create<UIStore>()(
           }
         }));
       },
+      openTutorialInfo: () => set({ isTutorialInfoOpen: true }),
+      closeTutorialInfo: () => set({ isTutorialInfoOpen: false }),
+      closeAllOverlays: () => set(state => ({
+        ...state,
+        menu: {
+          ...state.menu,
+          isOpen: false
+        },
+        isGameInfoOpen: false,
+        // ... andere Overlays
+      })),
+      openMenu: () => set(state => ({
+        ...state,
+        menu: {
+          ...state.menu,
+          isOpen: true
+        }
+      })),
+      setSplitContainer: (isOpen: boolean, position: TeamPosition) => 
+        set(state => ({
+          splitContainer: {
+            isOpen,
+            position
+          }
+        })),
+      closeGameInfo: () => set(state => ({
+        gameInfo: {
+          ...state.gameInfo,
+          isOpen: false
+        }
+      })),
+      tutorialBlockedUI: {
+        settingsClose: false,
+        calculatorClose: false,
+        gameInfoClose: false,
+        resultatKreidetafelClose: false
+      },
+      openGameInfo: () => {
+        const state = get();
+        if (state.tutorialBlockedUI.gameInfoClose) return;
+        set({ gameInfo: { isOpen: true } });
+      },
+      setTopSwipeAnimation: (active) => set({ topSwipeAnimation: active }),
+      setBottomSwipeAnimation: (active) => set({ bottomSwipeAnimation: active }),
+      showNotification: (config: NotificationConfig) => set(state => ({
+        notifications: [
+          ...state.notifications,
+          {
+            ...config,
+            id: Math.random().toString(36).substr(2, 9),
+            timestamp: Date.now(),
+            type: config.type || 'info',
+            position: config.position || 'bottom'
+          } as Notification
+        ]
+      })),
+      removeNotification: (id) => set(state => ({
+        notifications: state.notifications.filter(n => n.id !== id)
+      })),
+      setResultatPosition: (position: TeamPosition) => 
+        set(state => ({
+          resultatKreidetafel: {
+            ...state.resultatKreidetafel,
+            swipePosition: position
+          }
+        })),
+      setResultatAnimationComplete: (complete: boolean) => 
+        set(state => ({
+          resultatKreidetafel: {
+            ...state.resultatKreidetafel,
+            animationComplete: complete
+          }
+        }))
     }),
     {
       name: 'jass-ui-storage',
       partialize: (state) => ({
+        farbeSettings: state.farbeSettings,
         scoreSettings: state.scoreSettings,
-        strokeSettings: state.strokeSettings
+        strokeSettings: state.strokeSettings,
+        settings: {
+          ...state.settings,
+          cardStyle: state.settings.cardStyle,
+          pictogramConfig: state.settings.pictogramConfig
+        }
       })
     }
   )

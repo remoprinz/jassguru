@@ -19,13 +19,16 @@ import {
   GameState,
   getTeamConfig,
   determineNextStartingPlayer,
-  TeamConfig
+  TeamConfig,
+  GameUpdate,
+  StricheTotals
 } from '../types/jass';
 import { useTimerStore } from './timerStore';
 import { 
   getNextPlayerInTeam,
   getTeamForPlayer 
 } from '../types/jass';
+import { aggregateStricheForTeam } from '../utils/stricheCalculations';
 
 const createGameEntry = (
   id: number, 
@@ -133,14 +136,18 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
 
   saveSession: async () => {
     const state = get();
-    const gameState = useGameStore.getState();
+    const gameStore = useGameStore.getState();
+    
+    // Striche für beide Teams aggregieren
+    const topStriche = aggregateStricheForTeam(state.games, 'top');
+    const bottomStriche = aggregateStricheForTeam(state.games, 'bottom');
     
     const session: JassSession = {
       id: `session_${Date.now()}`,
       gruppeId: 'default',
       startedAt: state.games[0]?.timestamp || Date.now(),
       endedAt: Date.now(),
-      playerNames: gameState.playerNames,
+      playerNames: gameStore.playerNames,
       games: state.games.map(g => g.id),
       metadata: {
         location: 'Standard Location',
@@ -155,13 +162,13 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
         },
         weisCount: state.games.reduce((acc, game) => 
           acc + (game.teams.top.weisPoints + game.teams.bottom.weisPoints), 0),
-        stricheCount: state.games.reduce((acc, game) => ({
-          berg: acc.berg + game.teams.top.striche.berg + game.teams.bottom.striche.berg,
-          sieg: acc.sieg + game.teams.top.striche.sieg + game.teams.bottom.striche.sieg,
-          matsch: acc.matsch + game.teams.top.striche.matsch + game.teams.bottom.striche.matsch,
-          schneider: acc.schneider + game.teams.top.striche.schneider + game.teams.bottom.striche.schneider,
-          kontermatsch: acc.kontermatsch + game.teams.top.striche.kontermatsch + game.teams.bottom.striche.kontermatsch
-        }), { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 })
+        stricheCount: {
+          berg: topStriche.berg + bottomStriche.berg,
+          sieg: topStriche.sieg + bottomStriche.sieg,
+          matsch: topStriche.matsch + bottomStriche.matsch,
+          schneider: topStriche.schneider + bottomStriche.schneider,
+          kontermatsch: topStriche.kontermatsch + bottomStriche.kontermatsch
+        }
       }
     };
 
@@ -431,21 +438,12 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
     });
   },
 
-  updateCurrentGame: (update) => {
+  updateCurrentGame: (update: GameUpdate) => {
     set(state => {
-      const currentGame = state.games.find(game => game.id === state.currentGameId);
+      const currentGame = state.games.find(g => g.id === state.currentGameId);
       if (!currentGame) return state;
 
-      // Debug Log für Striche-Updates
-      if (update.teams) {
-        console.log('📝 JassStore Striche Update:', {
-          gameId: state.currentGameId,
-          top: update.teams.top?.striche,
-          bottom: update.teams.bottom?.striche
-        });
-      }
-
-      // Tiefes Merge der Teams-Daten
+      // Tiefes Merge der Teams mit Typensicherheit
       const updatedTeams = update.teams ? {
         top: {
           ...currentGame.teams.top,
@@ -457,16 +455,16 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
         }
       } : currentGame.teams;
 
+      const updatedGame = {
+        ...currentGame,
+        ...update,
+        teams: updatedTeams
+      };
+
       return {
         ...state,
-        games: state.games.map(game => 
-          game.id === state.currentGameId
-            ? {
-                ...game,
-                ...update,
-                teams: updatedTeams
-              }
-            : game
+        games: state.games.map(g =>
+          g.id === updatedGame.id ? updatedGame : g
         )
       };
     });
@@ -474,21 +472,41 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
 
   getTotalsUpToGame: (gameId: number): GameTotals => {
     const state = get();
-    const relevantGames = state.games.filter(game => game.id <= gameId);
-    
+    const relevantGames = state.games.filter(g => g.id <= gameId);
+
+    const initialTotals: GameTotals = {
+      striche: {
+        top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
+        bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }
+      },
+      punkte: {
+        top: 0,
+        bottom: 0
+      }
+    };
+
     return relevantGames.reduce((totals, game) => ({
       striche: {
-        top: totals.striche.top + calculateStricheTotal(game.teams.top.striche),
-        bottom: totals.striche.bottom + calculateStricheTotal(game.teams.bottom.striche)
+        top: {
+          berg: totals.striche.top.berg + game.teams.top.striche.berg,
+          sieg: totals.striche.top.sieg + game.teams.top.striche.sieg,
+          matsch: totals.striche.top.matsch + game.teams.top.striche.matsch,
+          schneider: totals.striche.top.schneider + game.teams.top.striche.schneider,
+          kontermatsch: totals.striche.top.kontermatsch + game.teams.top.striche.kontermatsch
+        },
+        bottom: {
+          berg: totals.striche.bottom.berg + game.teams.bottom.striche.berg,
+          sieg: totals.striche.bottom.sieg + game.teams.bottom.striche.sieg,
+          matsch: totals.striche.bottom.matsch + game.teams.bottom.striche.matsch,
+          schneider: totals.striche.bottom.schneider + game.teams.bottom.striche.schneider,
+          kontermatsch: totals.striche.bottom.kontermatsch + game.teams.bottom.striche.kontermatsch
+        }
       },
       punkte: {
         top: totals.punkte.top + game.teams.top.total,
         bottom: totals.punkte.bottom + game.teams.bottom.total
       }
-    }), {
-      striche: { top: 0, bottom: 0 },
-      punkte: { top: 0, bottom: 0 }
-    });
+    }), initialTotals);
   },
 
   startGame: () => {

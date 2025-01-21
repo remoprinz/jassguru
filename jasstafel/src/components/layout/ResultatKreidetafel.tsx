@@ -5,6 +5,11 @@ import { FiX, FiRotateCcw } from 'react-icons/fi';
 import format from 'date-fns/format';
 import type { UIStore } from '../../store/uiStore';
 import type { GameStore } from '../../types/jass';
+import type { 
+  TeamPosition, 
+  StricheCount,
+  TimerAnalytics
+} from '../../types/jass';
 import { STATISTIC_MODULES } from '../../statistics/registry';
 import { StricheStatistik } from '../../statistics/StricheStatistik';
 import { JasspunkteStatistik } from '../../statistics/JasspunkteStatistik';
@@ -12,13 +17,24 @@ import { useJassStore } from '../../store/jassStore';
 import { useSpring } from 'react-spring';
 import { animated } from 'react-spring';
 import html2canvas from 'html2canvas';
-import { FaShare } from 'react-icons/fa';
 import { useTimerStore } from '../../store/timerStore';
 import { usePressableButton } from '../../hooks/usePressableButton';
-import type { Html2CanvasOptions } from '../../types/jass';
 import JassFinishNotification from '../notifications/JassFinishNotification';
+import { useTutorialStore } from '../../store/tutorialStore';
+import { TUTORIAL_STEPS } from '../../types/tutorial';
+import { getJassSpruch } from '../../utils/jasssprueche';
+import { calculateTeamStats } from '../../utils/teamCalculations';
+import { getNormalStricheCount } from '../../utils/stricheCalculations';
+import type { StricheRecord } from '../../types/jass';
 
-type BlobCallback = (blob: Blob | null) => void;
+// Record Type für Team-Striche (verwendet importierte Types)
+type TeamStricheRecord = Record<TeamPosition, StricheCount>;
+
+// Initial-Werte mit korrekten Types
+const initialStriche: TeamStricheRecord = {
+  top: { normal: 0, matsch: 0 },
+  bottom: { normal: 0, matsch: 0 }
+};
 
 const PlayerName: React.FC<{ 
   name: string, 
@@ -87,16 +103,43 @@ const PlayerName: React.FC<{
 };
 
 const ResultatKreidetafel = () => {
+  // 1. Basis Store-Zugriffe
+  const isOpen = useUIStore(state => state.resultatKreidetafel.isOpen);
+  const swipePosition = useUIStore(state => state.resultatKreidetafel.swipePosition);
+  
+  // 2. JassStore Zugriffe
+  const games = useJassStore(state => state.games);
+  
+  // 3. Timer-Analytics mit Abhängigkeit von games und memoization
+  const timerAnalytics = useMemo(() => {
+    const timerStore = useTimerStore.getState();
+    return timerStore.getAnalytics();
+  }, [games.length]); // Nur neu berechnen, wenn sich die Anzahl der Spiele ändert
+  
   // Touch-State
   const [touchStart, setTouchStart] = React.useState<number | null>(null);
   const [touchEnd, setTouchEnd] = React.useState<number | null>(null);
   const [swipeDirection, setSwipeDirection] = React.useState<'left' | 'right' | null>(null);
 
   // Atomare Store-Zugriffe
-  const isOpen = useUIStore((state: UIStore) => state.resultatKreidetafel.isOpen);
-  const swipePosition = useUIStore((state: UIStore) => state.resultatKreidetafel.swipePosition);
   const currentStatistic = useUIStore((state: UIStore) => state.resultatKreidetafel.currentStatistic);
-  const closeResultatKreidetafel = useUIStore((state: UIStore) => state.closeResultatKreidetafel);
+  const closeResultatKreidetafel = useCallback(() => {
+    useUIStore.setState(state => ({
+      resultatKreidetafel: {
+        ...state.resultatKreidetafel,
+        isOpen: false
+      },
+      // Wichtig: Notification-State zurücksetzen
+      jassFinishNotification: {
+        isOpen: false,
+        mode: 'share',
+        message: { text: '', icon: '♥️' }, // SpruchMitIcon Format
+        onShare: undefined,
+        onBack: undefined,
+        onContinue: undefined
+      }
+    }));
+  }, []);
 
   // Game Store Zugriffe
   const playerNames = useGameStore((state: GameStore) => state.playerNames);
@@ -114,13 +157,25 @@ const ResultatKreidetafel = () => {
   const canNavigateForward = useJassStore(state => state.canNavigateForward());
 
   // 1. Store-Zugriffe für aktuelle Striche
-  const currentStriche = useGameStore(state => state.striche);
+  const storeStriche = useGameStore(state => state.striche);
+
+  // Transformation für UI
+  const uiStriche = useMemo(() => ({
+    top: {
+      ...storeStriche.top,
+      normal: getNormalStricheCount(storeStriche.top)
+    },
+    bottom: {
+      ...storeStriche.bottom,
+      normal: getNormalStricheCount(storeStriche.bottom)
+    }
+  }), [storeStriche]);
 
   // 2. Hilfsfunktion für Validierung - NUR aktuelles Spiel
   const canStartNewGame = useMemo(() => {
     // Prüfen ob im AKTUELLEN Spiel mindestens ein Sieg existiert
-    return currentStriche.top.sieg > 0 || currentStriche.bottom.sieg > 0;
-  }, [currentStriche]);
+    return storeStriche.top.sieg > 0 || storeStriche.bottom.sieg > 0;
+  }, [storeStriche]);
 
   // Button-Handler mit Store-Logik
   const handleBack = useCallback(() => {
@@ -208,10 +263,12 @@ const ResultatKreidetafel = () => {
     } else {
       // B) Neues Spiel - nur mit Sieg im aktuellen Spiel erlaubt
       if (!canStartNewGame) {
-        useUIStore.getState().showHistoryWarning({
+        useUIStore.getState().showNotification({
           message: "Bitte erst bedanken, bevor ein neues Spiel gestartet wird.",
-          onConfirm: () => {}, 
-          onCancel: () => {}
+          type: 'warning',
+          position: swipePosition === 'top' ? 'top' : 'bottom',
+          isFlipped: swipePosition === 'top',
+          actions: [{ label: 'Verstanden', onClick: closeResultatKreidetafel }]
         });
         return;
       }
@@ -241,18 +298,37 @@ const ResultatKreidetafel = () => {
 
   // Store-Zugriffe hinzufügen
   const teams = useJassStore(state => state.teams);
-  const games = useJassStore(state => state.games);
   const currentGameId = useJassStore(state => state.currentGameId);
   const currentTotals = useMemo(() => {
-    const relevantGames = games.filter(game => game.id <= currentGameId);
+    const { scoreSettings } = useUIStore.getState();
+    const { games } = useJassStore.getState();
     
-    // Basis-Totale aus VORHERIGEN Spielen (nicht current!)
-    const baseTotals = relevantGames
-      .filter(game => game.id < currentGameId)
+    // Hilfsfunktion zur korrekten Berechnung der Striche
+    const calculateStriche = (striche: StricheRecord): number => {
+      let total = 0;
+      // Berg nur wenn aktiviert
+      if (scoreSettings?.enabled?.berg) {
+        total += striche.berg;
+      }
+      // Sieg immer
+      total += striche.sieg;
+      // Schneider nur wenn aktiviert
+      if (scoreSettings?.enabled?.schneider) {
+        total += striche.schneider;
+      }
+      // Matsch und Kontermatsch immer
+      total += striche.matsch;
+      total += striche.kontermatsch;
+      return total;
+    };
+
+    // 1. Basis-Totale aus vorherigen Spielen (OHNE aktuelles Spiel)
+    const baseTotals = games
+      .filter(game => game.id < currentGameId)  // Wichtig: < statt <=
       .reduce((totals, game) => ({
         striche: {
-          top: totals.striche.top + Object.values(game.teams.top.striche).reduce((sum, count) => sum + count, 0),
-          bottom: totals.striche.bottom + Object.values(game.teams.bottom.striche).reduce((sum, count) => sum + count, 0)
+          top: totals.striche.top + calculateStriche(game.teams.top.striche),
+          bottom: totals.striche.bottom + calculateStriche(game.teams.bottom.striche)
         },
         punkte: {
           top: totals.punkte.top + game.teams.top.total,
@@ -263,18 +339,18 @@ const ResultatKreidetafel = () => {
         punkte: { top: 0, bottom: 0 }
       });
 
-    // Nur aktuelle Striche und aktuelle Punkte hinzufügen
+    // 2. Aktuelle Striche hinzufügen
     return {
       striche: {
-        top: baseTotals.striche.top + Object.values(currentStriche.top).reduce((sum, count) => sum + count, 0),
-        bottom: baseTotals.striche.bottom + Object.values(currentStriche.bottom).reduce((sum, count) => sum + count, 0)
+        top: baseTotals.striche.top + calculateStriche(uiStriche.top),
+        bottom: baseTotals.striche.bottom + calculateStriche(uiStriche.bottom)
       },
       punkte: {
         top: baseTotals.punkte.top + topScore,
         bottom: baseTotals.punkte.bottom + bottomScore
       }
     };
-  }, [currentGameId, games, currentStriche, topScore, bottomScore, weisPoints]);
+  }, [currentGameId, uiStriche, topScore, bottomScore]);  // Abhängigkeiten aktualisiert
 
   // Touch-Handler mit korrekter Typisierung
   const handleStatisticChange = React.useCallback((direction: 'left' | 'right') => {
@@ -324,43 +400,70 @@ const ResultatKreidetafel = () => {
     setSwipeDirection(null);
   };
 
-  // Vereinfachte Animation Props
+  // Animation mit onRest Callback
   const springProps = useSpring({
     opacity: isOpen ? 1 : 0,
     transform: `scale(${isOpen ? 1 : 0.95}) rotate(${isFlipped ? '180deg' : '0deg'})`,
-    config: { mass: 1, tension: 300, friction: 20 }
+    config: { mass: 1, tension: 300, friction: 20 },
+    onRest: () => {
+      // Animation ist fertig
+      useUIStore.setState(state => ({
+        resultatKreidetafel: {
+          ...state.resultatKreidetafel,
+          animationComplete: true
+        }
+      }));
+    }
   });
 
-  // Store-Zugriffe für Striche
-  const topTotalStriche = useGameStore(state => state.getTotalStriche('top'));
-  const bottomTotalStriche = useGameStore(state => state.getTotalStriche('bottom'));
-
   // Neue Share-Funktion
-  const statistikContainerRef = useRef<HTMLDivElement>(null);
+  const kreidetafelRef = useRef<HTMLDivElement>(null);
 
   const handleShareAndComplete = useCallback(async () => {
     try {
-      // 1. Referenz auf den gesamten Kreidetafel-Content und den scrollbaren Container
-      const kreidetafelContent = document.querySelector('.kreidetafel-content') as HTMLElement;
-      const statistikContainer = statistikContainerRef.current;
-      const buttonContainer = document.querySelector('.button-container') as HTMLElement;
+      // 1. Originale Werte speichern
+      const originalState = useUIStore.getState().resultatKreidetafel;
+      
+      // 2. Komponente vollständig auf "bottom" setzen
+      useUIStore.setState(state => ({
+        resultatKreidetafel: {
+          ...state.resultatKreidetafel,
+          swipePosition: 'bottom',
+          isFlipped: false
+        }
+      }));
 
-      if (!kreidetafelContent || !statistikContainer || !buttonContainer) return;
+      // 3. Warten auf vollständiges Re-render
+      await new Promise(resolve => setTimeout(resolve, 400));
 
-      // 2. Originale Styles speichern
-      const originalMaxHeight = statistikContainer.style.maxHeight;
-      const originalOverflow = statistikContainer.style.overflowY;
-      const originalButtonDisplay = buttonContainer.style.display;
+      // 4. Screenshot-Logik
+      const kreidetafelContent = document.querySelector('.kreidetafel-content');
+      const statistikContainer = document.querySelector('.statistik-container');
+      const buttonContainer = document.querySelector('.button-container');
+      
+      if (!kreidetafelContent || !statistikContainer || !buttonContainer || 
+          !(kreidetafelContent instanceof HTMLElement) ||
+          !(statistikContainer instanceof HTMLElement) ||
+          !(buttonContainer instanceof HTMLElement)) {
+        throw new Error('Erforderliche Elemente nicht gefunden');
+      }
 
-      // 3. Container für Screenshot vorbereiten
+      // 5. Originale Styles speichern
+      const originalStyles = {
+        maxHeight: statistikContainer.style.maxHeight,
+        overflowY: statistikContainer.style.overflowY,
+        buttonDisplay: buttonContainer.style.display
+      };
+
+      // 6. Styles für Screenshot anpassen
       statistikContainer.style.maxHeight = 'none';
       statistikContainer.style.overflowY = 'visible';
-      buttonContainer.style.display = 'none'; // Buttons ausblenden
+      buttonContainer.style.display = 'none';
 
       try {
-        // 4. Screenshot mit angepassten Optionen
+        // 7. Screenshot mit originalen Optionen
         const canvas = await html2canvas(kreidetafelContent, {
-          background: '#1F2937',
+          backgroundColor: '#1F2937',
           useCORS: true,
           logging: false,
           windowWidth: kreidetafelContent.scrollWidth,
@@ -368,28 +471,49 @@ const ResultatKreidetafel = () => {
           scale: 2
         } as any);
 
-        // 5. Blob erstellen und teilen
+        // 8. Blob erstellen
         const blob = await new Promise<Blob>((resolve) => {
-          canvas.toBlob((blob) => resolve(blob!), 'image/png', 1.0);
+          canvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+          }, 'image/png', 1.0);
         });
 
+        // 9. Share API mit Text und Bild
         if (navigator.share) {
+          const notification = useUIStore.getState().jassFinishNotification;
+          const shareText = notification?.message 
+            ? typeof notification.message === 'string' 
+              ? notification.message 
+              : notification.message.text
+            : 'Jass Resultat';
+            
+          const fullShareText = `${shareText}\n\nGeneriert von:\n👉 https://jassguru.web.app`;
+          
           await navigator.share({
             files: [new File([blob], 'jass-resultat.png', { type: 'image/png' })],
-            title: 'Jass Resultat',
-            text: 'Jassergebnis von https://jassguru.web.app'
+            text: fullShareText
           });
         }
       } finally {
-        // 6. Ursprüngliche Styles wiederherstellen
-        statistikContainer.style.maxHeight = originalMaxHeight;
-        statistikContainer.style.overflowY = originalOverflow;
-        buttonContainer.style.display = originalButtonDisplay;
+        // 10. Ursprüngliche Styles wiederherstellen
+        statistikContainer.style.maxHeight = originalStyles.maxHeight;
+        statistikContainer.style.overflowY = originalStyles.overflowY;
+        buttonContainer.style.display = originalStyles.buttonDisplay;
+
+        // 11. Ursprünglichen Zustand wiederherstellen
+        useUIStore.setState(state => ({
+          resultatKreidetafel: {
+            ...state.resultatKreidetafel,
+            ...originalState
+          }
+        }));
       }
+
+      closeResultatKreidetafel();
     } catch (error) {
-      console.error('Screenshot Fehler:', error);
+      console.error('Screenshot/Share Fehler:', error);
     }
-  }, []);
+  }, [closeResultatKreidetafel]);
 
   const completeJass = useTimerStore(state => state.completeJass);
 
@@ -399,20 +523,123 @@ const ResultatKreidetafel = () => {
 
   // Notification State aus dem UIStore
   const isJassFinishOpen = useUIStore((state) => state.jassFinishNotification.isOpen);
-  const showJassFinishNotification = useUIStore((state) => state.showJassFinishNotification);
 
-  // Beenden-Handler anpassen
-  const handleBeendenClick = () => {
-    showJassFinishNotification();
-  };
+  // Team-Statistiken auf Komponenten-Ebene berechnen (NEU)
+  const teamStats = useMemo(() => calculateTeamStats({
+    playerNames: Object.values(playerNames).filter(Boolean),
+    currentStatistic: currentStatistic === 'jasspunkte' ? 'punkte' : currentStatistic,
+    totals: {
+      striche: {
+        team1: currentTotals.striche.top,
+        team2: currentTotals.striche.bottom
+      },
+      punkte: {
+        team1: currentTotals.punkte.top,
+        team2: currentTotals.punkte.bottom
+      }
+    },
+    matchCount: {
+      team1: uiStriche.top.matsch || 0,
+      team2: uiStriche.bottom.matsch || 0
+    },
+    type: 'gameEnd',
+    gameHistory: {
+      gesamtStand: {
+        team1: currentTotals.striche.top,
+        team2: currentTotals.striche.bottom
+      },
+      gameNumber: currentGameId,
+      totalGames: games.length
+    },
+    currentStriche: {
+      team1: {
+        normal: uiStriche.top.normal,
+        matsch: uiStriche.top.matsch
+      },
+      team2: {
+        normal: uiStriche.bottom.normal,
+        matsch: uiStriche.bottom.matsch
+      }
+    }
+  }), [currentTotals, currentGameId, games.length, playerNames, currentStatistic, uiStriche]);
+
+  const handleBeendenClick = useCallback(() => {
+    const uiStore = useUIStore.getState();
+    const timerStore = useTimerStore.getState();
+
+    if (!canStartNewGame) {
+      uiStore.showNotification({
+        message: "Bitte erst bedanken, bevor der Jass beendet wird.",
+        type: 'warning',
+        position: swipePosition === 'top' ? 'top' : 'bottom',
+        isFlipped: swipePosition === 'top',
+        actions: [{ label: 'Verstanden', onClick: closeResultatKreidetafel }]
+      });
+      return;
+    }
+
+    // 1. Timer-Analytics VOR dem prepareJassEnd holen
+    const timerAnalytics = timerStore.getAnalytics();
+    
+    // 2. Jass-Ende vorbereiten (aber noch nicht finalisieren)
+    const jassDuration = timerStore.prepareJassEnd();
+
+    const spruch = getJassSpruch({
+      stricheDifference: Math.abs(currentTotals.striche.top - currentTotals.striche.bottom),
+      pointDifference: Math.abs(currentTotals.punkte.top - currentTotals.punkte.bottom),
+      isUnentschieden: currentStatistic === 'striche' 
+        ? currentTotals.striche.top === currentTotals.striche.bottom 
+        : currentTotals.punkte.top === currentTotals.punkte.bottom,
+      winnerNames: currentStatistic === 'striche'
+        ? currentTotals.striche.top > currentTotals.striche.bottom
+          ? [playerNames[2], playerNames[4]].filter(Boolean)
+          : [playerNames[1], playerNames[3]].filter(Boolean)
+        : currentTotals.punkte.top > currentTotals.punkte.bottom
+          ? [playerNames[2], playerNames[4]].filter(Boolean)
+          : [playerNames[1], playerNames[3]].filter(Boolean),
+      loserNames: currentStatistic === 'striche'
+        ? currentTotals.striche.top > currentTotals.striche.bottom
+          ? [playerNames[1], playerNames[3]].filter(Boolean)
+          : [playerNames[2], playerNames[4]].filter(Boolean)
+        : currentTotals.punkte.top > currentTotals.punkte.bottom
+          ? [playerNames[1], playerNames[3]].filter(Boolean)
+          : [playerNames[2], playerNames[4]].filter(Boolean),
+      isStricheMode: currentStatistic === 'striche',
+      type: 'jassEnd',
+      timerAnalytics,  // Jetzt korrekt definiert!
+      matchCount: {
+        team1: uiStriche.top.matsch ?? 0,
+        team2: uiStriche.bottom.matsch ?? 0
+      },
+      totalMatsche: (uiStriche.top.matsch ?? 0) + (uiStriche.bottom.matsch ?? 0),
+      isSchneider: currentTotals.punkte.top < uiStore.scoreSettings.values.schneider || 
+                  currentTotals.punkte.bottom < uiStore.scoreSettings.values.schneider,
+      gameStats: teamStats.gameStats,
+      gesamtStand: teamStats.gesamtStand,
+      previousGesamtStand: teamStats.previousGesamtStand
+    });
+
+    useUIStore.setState({
+      jassFinishNotification: {
+        isOpen: true,
+        mode: 'share',
+        message: spruch,
+        onShare: async () => {
+          timerStore.finalizeJassEnd();
+          await handleShareAndComplete();
+        },
+        onBack: closeResultatKreidetafel
+      }
+    });
+  }, [canStartNewGame, swipePosition, closeResultatKreidetafel, handleShareAndComplete]);
 
   // Scroll-Effekt für alle relevanten Änderungen
   useEffect(() => {
-    if (statistikContainerRef.current && isOpen) {
+    if (kreidetafelRef.current && isOpen) {
       // Kleine Verzögerung für Animation
       setTimeout(() => {
-        if (statistikContainerRef.current) {
-          statistikContainerRef.current.scrollTop = statistikContainerRef.current.scrollHeight;
+        if (kreidetafelRef.current) {
+          kreidetafelRef.current.scrollTop = kreidetafelRef.current.scrollHeight;
         }
       }, 50);
     }
@@ -428,6 +655,111 @@ const ResultatKreidetafel = () => {
         : 'translateX(0px)',
     config: { tension: 280, friction: 20 }
   });
+
+  const { isActive: isTutorialActive, getCurrentStep } = useTutorialStore();
+  const currentStep = getCurrentStep();
+
+  useEffect(() => {
+    if (isOpen && isTutorialActive && (!currentStep || currentStep.id !== TUTORIAL_STEPS.RESULTAT_INFO)) {
+      closeResultatKreidetafel();
+    }
+  }, [isOpen, isTutorialActive, currentStep, closeResultatKreidetafel]);
+
+  // Button-Handler anpassen
+  const handleNextGameClick = useCallback(() => {
+    const scoreSettings = useUIStore.getState().scoreSettings;
+
+    if (canNavigateForward) {
+      handleNextGame();
+      return;
+    }
+
+    if (!canStartNewGame) {
+      useUIStore.getState().showNotification({
+        message: "Bitte erst bedanken, bevor ein neues Spiel gestartet wird.",
+        type: 'warning',
+        position: swipePosition === 'top' ? 'top' : 'bottom',
+        isFlipped: swipePosition === 'top',
+        actions: [{ label: 'Verstanden', onClick: closeResultatKreidetafel }]
+      });
+      return;
+    }
+
+    const spruch = getJassSpruch({
+      stricheDifference: Math.abs(currentTotals.striche.top - currentTotals.striche.bottom),
+      pointDifference: Math.abs(currentTotals.punkte.top - currentTotals.punkte.bottom),
+      isUnentschieden: currentStatistic === 'striche' 
+        ? currentTotals.striche.top === currentTotals.striche.bottom 
+        : currentTotals.punkte.top === currentTotals.punkte.bottom,
+      winnerNames: currentStatistic === 'striche'
+        ? currentTotals.striche.top > currentTotals.striche.bottom
+          ? [playerNames[2], playerNames[4]].filter(Boolean)
+          : [playerNames[1], playerNames[3]].filter(Boolean)
+        : currentTotals.punkte.top > currentTotals.punkte.bottom
+          ? [playerNames[2], playerNames[4]].filter(Boolean)
+          : [playerNames[1], playerNames[3]].filter(Boolean),
+      loserNames: currentStatistic === 'striche'
+        ? currentTotals.striche.top > currentTotals.striche.bottom
+          ? [playerNames[1], playerNames[3]].filter(Boolean)
+          : [playerNames[2], playerNames[4]].filter(Boolean)
+        : currentTotals.punkte.top > currentTotals.punkte.bottom
+          ? [playerNames[1], playerNames[3]].filter(Boolean)
+          : [playerNames[2], playerNames[4]].filter(Boolean),
+      isStricheMode: currentStatistic === 'striche',
+      type: 'gameEnd',
+      timerAnalytics,
+      totalMatsche: (uiStriche.top.matsch ?? 0) + (uiStriche.bottom.matsch ?? 0),
+      isSchneider: currentTotals.punkte.top < scoreSettings.values.schneider || 
+                  currentTotals.punkte.bottom < scoreSettings.values.schneider,
+      gameStats: teamStats.gameStats,
+      gesamtStand: teamStats.gesamtStand,
+      previousGesamtStand: teamStats.previousGesamtStand,
+      matchCount: {
+        team1: uiStriche.top.matsch ?? 0,
+        team2: uiStriche.bottom.matsch ?? 0
+      }
+    });
+
+    useUIStore.setState({
+      jassFinishNotification: {
+        isOpen: true,
+        mode: 'continue',
+        message: spruch,
+        onBack: closeResultatKreidetafel,
+        onContinue: () => {
+          closeResultatKreidetafel();
+          handleNextGame();
+        }
+      }
+    });
+  }, [
+    canNavigateForward,
+    handleNextGame,
+    canStartNewGame,
+    swipePosition,
+    currentTotals,
+    currentStatistic,
+    playerNames,
+    timerAnalytics,
+    uiStriche,
+    closeResultatKreidetafel
+  ]);
+
+  // Auch beim Öffnen der Kreidetafel sollten wir den Notification-State zurücksetzen
+  useEffect(() => {
+    if (isOpen) {
+      useUIStore.setState(state => ({
+        jassFinishNotification: {
+          isOpen: false,
+          mode: 'share',
+          message: { text: '', icon: '🎲' }, // SpruchMitIcon Format
+          onShare: undefined,
+          onBack: undefined,
+          onContinue: undefined
+        }
+      }));
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -526,8 +858,8 @@ const ResultatKreidetafel = () => {
             {/* Statistik-Container mit Scroll und Swipe-Animation */}
             <div className="border-t border-b border-gray-700">
               <div 
-                ref={statistikContainerRef}
-                className="max-h-[280px] overflow-y-auto"
+                ref={kreidetafelRef}
+                className="statistik-container max-h-[280px] overflow-y-auto"
               >
                 <animated.div style={swipeAnimation} className="py-2">
                   {currentStatistic === 'striche' ? (
@@ -631,7 +963,7 @@ const ResultatKreidetafel = () => {
             </button>
 
             <button 
-              {...nextButton.handlers}
+              onClick={handleNextGameClick}
               className={`
                 py-2 px-4 text-white rounded-lg font-medium text-base
                 transition-all duration-150
@@ -655,11 +987,7 @@ const ResultatKreidetafel = () => {
       </div>
 
       {/* JassFinishNotification einbinden */}
-      <JassFinishNotification
-        show={isJassFinishOpen}
-        onShare={handleShareAndComplete}
-        onBack={closeResultatKreidetafel}
-      />
+      <JassFinishNotification />
     </>
   );
 };

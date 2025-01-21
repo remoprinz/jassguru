@@ -4,6 +4,9 @@ import ZShape from './ZShape';
 import useSwipeGesture from '../../hooks/useSwipeGesture';
 import StrichContainer from './StrichContainer';
 import type { TeamPosition } from '../../types/jass';
+import { useUIStore } from '../../store/uiStore';
+import { useTutorialStore } from '../../store/tutorialStore';
+import { TUTORIAL_STEPS } from '../../types/tutorial';
 
 interface SplitContainerProps {
   position: TeamPosition;
@@ -18,10 +21,11 @@ interface SplitContainerProps {
   y: SpringValue<number>;
   mainOpacity: SpringValue<number>;
   getBrightness: (y: number) => number;
-  onLongPress: () => void;
+  onLongPress: (position: TeamPosition) => void;
   score: number;
   triggerBlendEffect: (position: TeamPosition) => void;
   isHistoryNavigationActive?: boolean;
+  onDoubleClick?: (position: TeamPosition) => void;
 }
 
 const SplitContainer = forwardRef<HTMLDivElement, SplitContainerProps>(({
@@ -37,14 +41,44 @@ const SplitContainer = forwardRef<HTMLDivElement, SplitContainerProps>(({
   score,
   triggerBlendEffect,
   isHistoryNavigationActive,
+  onDoubleClick,
 }, ref) => {
+  const { isOpen, position: splitPosition } = useUIStore((state) => state.splitContainer);
   const [pressTimer, setPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const { isActive: isTutorialActive, getCurrentStep } = useTutorialStore();
+  const [lastTapTime, setLastTapTime] = useState(0);
+  const DOUBLE_TAP_DELAY = 300;
 
   const handleMouseDown = () => {
-    const timer = setTimeout(() => {
-      onLongPress();
-    }, 400);
-    setPressTimer(timer);
+    const now = Date.now();
+    const timeSinceLastClick = now - lastTapTime;
+    
+    // Wenn der letzte Klick weniger als DOUBLE_TAP_DELAY her ist,
+    // starten wir KEINEN Long-Press-Timer
+    if (timeSinceLastClick < DOUBLE_TAP_DELAY) {
+      console.log('🔍 Potential double-click detected, skipping longpress');
+      return;
+    }
+
+    console.log('🔍 MouseDown:', { 
+      isTutorialActive,
+      currentStep: getCurrentStep()?.id,
+      shouldAllowPress: !isTutorialActive || getCurrentStep()?.id === TUTORIAL_STEPS.CALCULATOR_OPEN
+    });
+
+    // Wenn kein Tutorial aktiv ist ODER wir sind im Calculator-Step
+    if (!isTutorialActive || getCurrentStep()?.id === TUTORIAL_STEPS.CALCULATOR_OPEN) {
+      console.log('✅ Setting timer for longpress');
+      const timer = setTimeout(() => {
+        console.log('⏰ Timer fired - calling onLongPress');
+        onLongPress(position);
+      }, 400);
+      setPressTimer(timer);
+    } else {
+      console.log('❌ LongPress blocked');
+    }
+    
+    setLastTapTime(now);
   };
 
   const handleMouseUp = () => {
@@ -102,20 +136,67 @@ const SplitContainer = forwardRef<HTMLDivElement, SplitContainerProps>(({
     pointerEvents: 'none',
   };
 
+  const handleTap = (e: React.TouchEvent) => {
+    const currentTime = new Date().getTime();
+    const tapLength = currentTime - lastTapTime;
+    
+    if (tapLength < DOUBLE_TAP_DELAY && tapLength > 0) {
+      // Double tap detected
+      const currentStep = getCurrentStep();
+      
+      if (isTutorialActive) {
+        if (currentStep?.id === TUTORIAL_STEPS.GAME_INFO) {
+          onDoubleClick?.(position);
+          return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      
+      onDoubleClick?.(position);
+    }
+    
+    setLastTapTime(currentTime);
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    const currentStep = getCurrentStep();
+    
+    if (isTutorialActive) {
+      if (currentStep?.id === TUTORIAL_STEPS.GAME_INFO) {
+        onDoubleClick?.(position);
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    
+    onDoubleClick?.(position);
+  };
+
   return (
     <animated.div 
       style={{ 
         ...containerStyle, 
-        transform: y.to(value => 
-          value === 0 ? 'none' : `translateY(${position === 'top' ? -value : value}px)`
-        ),
+        transform: y.to(value => {
+          if (isOpen && position === splitPosition) {
+            return `translateY(${position === 'top' ? -100 : 100}%)`;
+          }
+          return value === 0 ? 'none' : `translateY(${position === 'top' ? -value : value}px)`;
+        })
       }}
       data-swipe-area={position}
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
-      onTouchStart={handleMouseDown}
+      onTouchStart={(e) => {
+        handleMouseDown();
+        handleTap(e);
+      }}
       onTouchEnd={handleMouseUp}
       onContextMenu={(e) => e.preventDefault()}
+      onDoubleClick={handleDoubleClick}
     >
       <div style={zShapeStyle}>
         <ZShape 

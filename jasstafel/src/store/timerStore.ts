@@ -21,16 +21,12 @@ interface TimerState {
   isPaused: boolean;
   pauseStartTime: number | null;
   totalPausedTime: number;
+  lastJassDuration: number;
 }
 
-interface TimerAnalytics {
-  averageRoundDuration: number;
-  averageGameDuration: number;
-  averageJassDuration: number;
+export interface TimerAnalytics {
   totalJassTime: number;
-  currentJassDuration: number;
   currentGameDuration: number;
-  currentRoundDuration: number;
 }
 
 interface TimerActions {
@@ -47,10 +43,14 @@ interface TimerActions {
   pauseTimer: () => void;
   resumeTimer: () => void;
   getCurrentTime: () => number;
+  prepareJassEnd: () => number;
+  finalizeJassEnd: () => void;
 }
 
 type TimerStore = TimerState & TimerActions;
 
+// Hilfsfunktionen auslagern für bessere Performance
+const getPositiveTime = (time: number): number => Math.max(0, time);
 // Store
 export const useTimerStore = create<TimerStore>((set, get) => ({
   // Initial State
@@ -65,6 +65,7 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
   isPaused: false,
   pauseStartTime: null,
   totalPausedTime: 0,
+  lastJassDuration: 0,
 
   // Actions
   startJassTimer: () => {
@@ -137,67 +138,40 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
 
   completeJass: () => {
     const now = Date.now();
-    set(state => {
-      const jassHistory = [...state.history.jass];
-      const currentJass = jassHistory[jassHistory.length - 1];
-      if (currentJass) {
-        currentJass.endTime = now;
-        currentJass.duration = now - currentJass.startTime;
+    const state = get();
+    const lastJassDuration = state.jassStartTime 
+      ? now - state.jassStartTime 
+      : 0;
+
+    set(state => ({
+      ...state,
+      lastJassDuration,
+      jassStartTime: null,
+      gameStartTime: null,
+      roundStartTime: null,
+      history: {
+        ...state.history,
+        jass: state.history.jass.slice(0, -1)
       }
-      return {
-        ...state,
-        jassStartTime: null,
-        gameStartTime: null,
-        roundStartTime: null,
-        history: { ...state.history, jass: jassHistory }
-      };
-    });
+    }));
   },
 
   getAnalytics: () => {
     const state = get();
     const currentTime = get().getCurrentTime();
 
-    // Hilfsfunktion für Durchschnittsberechnung
-    const calculateAverage = (durations: number[]) => 
-      durations.length > 0 
-        ? durations.reduce((a, b) => a + b, 0) / durations.length 
-        : 0;
-
-    // Abgeschlossene Zeiten
-    const completedRounds = state.history.rounds
-      .filter(r => r.duration)
-      .map(r => r.duration as number);
-    
-    const completedGames = state.history.games
-      .filter(g => g.duration)
-      .map(g => g.duration as number);
-    
-    const completedJass = state.history.jass
-      .filter(j => j.duration)
-      .map(j => j.duration as number);
-
-    // Aktuelle Zeiten
-    const currentJassDuration = state.jassStartTime 
-      ? currentTime - state.jassStartTime 
-      : 0;
-    
+    // Aktuelle Zeiten berechnen
     const currentGameDuration = state.gameStartTime 
-      ? currentTime - state.gameStartTime 
+      ? getPositiveTime(currentTime - state.gameStartTime)
       : 0;
     
-    const currentRoundDuration = state.roundStartTime 
-      ? currentTime - state.roundStartTime 
-      : 0;
+    const totalJassTime = state.jassStartTime 
+      ? getPositiveTime(currentTime - state.jassStartTime)
+      : state.lastJassDuration;
 
     return {
-      averageRoundDuration: calculateAverage(completedRounds),
-      averageGameDuration: calculateAverage(completedGames),
-      averageJassDuration: calculateAverage(completedJass),
-      totalJassTime: completedJass.reduce((a, b) => a + b, 0) + currentJassDuration,
-      currentJassDuration,
-      currentGameDuration,
-      currentRoundDuration
+      totalJassTime,
+      currentGameDuration
     };
   },
 
@@ -255,8 +229,27 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
     const state = get();
     const now = Date.now();
     const pausedTime = state.isPaused && state.pauseStartTime 
-      ? now - state.pauseStartTime 
+      ? getPositiveTime(now - state.pauseStartTime)
       : 0;
-    return now - (state.totalPausedTime + pausedTime);
+    return getPositiveTime(now - (state.totalPausedTime + pausedTime));
+  },
+
+  prepareJassEnd: () => {
+    const now = Date.now();
+    const state = get();
+    return state.jassStartTime ? now - state.jassStartTime : 0;
+  },
+
+  finalizeJassEnd: () => {
+    set(state => ({
+      ...state,
+      jassStartTime: null,
+      gameStartTime: null,
+      roundStartTime: null,
+      history: {
+        ...state.history,
+        jass: state.history.jass.slice(0, -1)
+      }
+    }));
   }
 }));

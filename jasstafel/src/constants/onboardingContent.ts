@@ -1,36 +1,106 @@
 import { FaDownload, FaInfoCircle, FaClock } from 'react-icons/fa';
 import type { IconType } from 'react-icons';
+import { IoIosDownload } from 'react-icons/io';
 
-// Exakt gleicher Content wie vorher
+// 1. Definiere die Steps
+export type BrowserOnboardingStep = 
+  | 'WELCOME_SCREEN'
+  | 'INSTALL_WELCOME'
+  | 'INSTALL_SHARE'
+  | 'INSTALL_HOME'
+  | 'INSTALL_FINAL'
+  | 'INSTALL_DONE'
+  | 'FINAL_HINTS';
+
+// OS-spezifische Steps
+export type iOSBrowserStep = Extract<BrowserOnboardingStep, 
+  | 'WELCOME_SCREEN'
+  | 'INSTALL_WELCOME'
+  | 'INSTALL_SHARE'
+  | 'INSTALL_HOME'
+  | 'INSTALL_FINAL'
+  | 'INSTALL_DONE'
+  | 'FINAL_HINTS'
+>;
+
+export type AndroidBrowserStep = Extract<BrowserOnboardingStep,
+  | 'WELCOME_SCREEN'
+  | 'INSTALL_WELCOME'
+  | 'INSTALL_SHARE'
+  | 'INSTALL_HOME'
+  | 'INSTALL_FINAL'
+  | 'FINAL_HINTS'
+>;
+
+// Step-Konstanten
+export const IOS_BROWSER_STEPS = {
+  WELCOME_SCREEN: 'WELCOME_SCREEN',
+  INSTALL_WELCOME: 'INSTALL_WELCOME',
+  INSTALL_SHARE: 'INSTALL_SHARE',
+  INSTALL_HOME: 'INSTALL_HOME',
+  INSTALL_FINAL: 'INSTALL_FINAL',
+  INSTALL_DONE: 'INSTALL_DONE',
+  FINAL_HINTS: 'FINAL_HINTS'
+} as const;
+
+export const ANDROID_BROWSER_STEPS = {
+  WELCOME_SCREEN: 'WELCOME_SCREEN',
+  INSTALL_WELCOME: 'INSTALL_WELCOME',
+  INSTALL_SHARE: 'INSTALL_SHARE',
+  INSTALL_HOME: 'INSTALL_HOME',
+  INSTALL_FINAL: 'INSTALL_FINAL',
+  FINAL_HINTS: 'FINAL_HINTS'
+} as const;
+
+// App Onboarding Steps hinzufügen (minimal)
+export enum AppOnboardingStep {
+  INTRODUCTION = 'INTRODUCTION'
+}
+
+// 2. Definiere die Content-Struktur
+export interface OnboardingContent {
+  title: string;
+  message: string;
+  icon?: IconType;
+  image?: string;
+  secondaryMessage?: string;
+  finalMessage?: string;
+}
+
+// 3. Der Content
+// ... vorherige Types und Interfaces bleiben ...
+
 export const BROWSER_ONBOARDING = {
   iOS: {
+    WELCOME_SCREEN: {
+      title: "Willkommen bei Jassguru",
+      message: "Keine Diskussionen ums Zählen, keine Zeitverschwendung für Rechnereien, keine zerknitterten Zettel – hier kommt die digitale Jasstafel, die sich alles merkt und alles kann!",
+      secondaryMessage: "Ihr macht die Stiche, ich schreib die Striche.",
+      image: "/welcome-guru.png",
+    },
     INSTALL_WELCOME: {
-      title: "Installiere die Jassapp",
-      message: "Füge sie jetzt deinem Homebildschirm hinzu. Die moderne Webapp funktioniert ganz ohne App Store!",
-      icon: FaDownload as IconType
+      title: "Jassguru in 3 Schritten",
+      message: "Die moderne Jassguru-App funktioniert ganz ohne App Store. In drei einfachen Schritten bist du startklar:",
+      image: "/welcome-guru.png",
     },
     INSTALL_SHARE: {
       title: "Schritt 1",
       message: "Tippe auf das Teilen-Symbol.",
-      icon: FaDownload as IconType,
       image: "/onboarding_pics/pfeilchenbox.png"
     },
     INSTALL_HOME: {
       title: "Schritt 2",
       message: "Scrolle hinunter und wähle \"Zum Home-Bildschirm\".",
-      icon: FaDownload as IconType,
       image: "/onboarding_pics/zumhomebildschirm.png"
     },
     INSTALL_FINAL: {
       title: "Schritt 3",
       message: "Tippe auf \"Hinzufügen\".",
-      icon: FaDownload as IconType,
       image: "/onboarding_pics/hinzufuegen.png"
     },
     INSTALL_DONE: {
-      title: "Schritt 4",
-      message: "Fertig! App öffnen und Jassen.",
-      icon: FaDownload as IconType,
+      title: "Fertig",
+      message: "App öffnen und Jassen.",
       image: "/onboarding_pics/homescreen.png"
     },
     FINAL_HINTS: {
@@ -40,27 +110,31 @@ export const BROWSER_ONBOARDING = {
     }
   },
   Android: {
+    WELCOME_SCREEN: {
+      title: "Willkommen bei Jassguru",
+      message: "Keine Diskussionen ums Zählen, keine Zeitverschwendung für Rechnereien, keine zerknitterten Zettel – hier kommt die digitale Jasstafel, die sich alles merkt und alles kann!",
+      secondaryMessage: "Ihr macht die Stiche – ich schreib die Striche.",
+      image: "/welcome-guru.png",
+    },
     INSTALL_WELCOME: {
-      title: "Installiere die Jassapp",
-      message: "Füge sie jetzt deinem Homebildschirm hinzu. Die moderne Webapp funktioniert ganz ohne App Store!",
-      icon: FaDownload as IconType
+      title: "Jassguru in 3 Schritten",
+      message: "Die moderne Jassguru-App funktioniert ganz ohne App Store. In drei einfachen Schritten bist du startklar:",
+      icon: IoIosDownload,
+      image: "/welcome-guru.png",
     },
     INSTALL_SHARE: {
       title: "Schritt 1",
       message: "Klicke auf die drei Punkte.",
-      icon: FaDownload as IconType,
       image: "/onboarding_pics/android_menu.png"
     },
     INSTALL_HOME: {
       title: "Schritt 2",
       message: "Wähle \"Zum Startbildschirm hin...\"",
-      icon: FaDownload as IconType,
       image: "/onboarding_pics/android_hinzufuegen.png"
     },
     INSTALL_FINAL: {
       title: "Schritt 3",
       message: "App öffnen und Jassen!",
-      icon: FaDownload as IconType,
       image: "/onboarding_pics/homescreen.png"
     },
     FINAL_HINTS: {
@@ -68,29 +142,11 @@ export const BROWSER_ONBOARDING = {
       message: "Vermeide es, die App mehrfach zu installieren. Das kann zu unerwünschtem Verhalten führen.",
       secondaryMessage: "Beim ersten Öffnen der App wirst du durch alle wichtigen Funktionen geführt.",
       finalMessage: "Viel Spass beim Jassen!",
-      icon: FaInfoCircle as IconType,
       image: "/welcome-guru.png"
     }
   }
 };
-
-export const APP_ONBOARDING = {
-  INTRODUCTION: {
-    title: "Willkommen zu Jassguru",
-    message: "So bedienst du die Jasstafel:",
-    icon: FaInfoCircle as IconType,
-    list: [
-      "Swipe nach unten/oben für das Menü. Dort kannst du die Einstellungen vornehmen",
-      "Mit dem grünen Knopf im Menü öffnest du die Resultattafel und startest ein neues Spiel",
-      "Halte die Seite des zählenden Spielers lange gedrückt, um die Punkte einzutragen",
-      "Doppelklicke auf deine Seite für Spiel-Informationen, Berg und Bedanken",
-      "Schreibe Weise durch Klicken auf die Z-Linie",
-      "Navigiere durch die Spiel-Historie durch links/rechts Swipen und korrigiere Ergebnisse"
-    ]
-  },
-  SCREEN_TIME: {
-    title: "Bildschirmzeit einstellen",
-    message: "Stelle die Bildschirmzeit auf mindestens 5 Minuten ein, damit die App während dem Jassen nicht ausgeht.",
-    icon: FaClock as IconType
-  }
+// 4. Hilfsfunktionen
+export const hasImage = (content: OnboardingContent): content is OnboardingContent & { image: string } => {
+  return 'image' in content;
 }; 

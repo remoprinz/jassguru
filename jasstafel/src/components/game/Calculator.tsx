@@ -13,6 +13,8 @@ import { FARBE_MODES } from '../../config/FarbeSettings';
 import { MAX_SCORE, MATSCH_SCORE } from '../../config/ScoreSettings';
 import { getPictogram } from '../../utils/pictogramUtils';
 import { usePressableButton } from '../../hooks/usePressableButton';
+import { useTutorialStore } from '../../store/tutorialStore';
+import { TUTORIAL_STEPS } from '../../types/tutorial';
 
 interface CalculatorProps {
   isOpen: boolean;
@@ -30,6 +32,8 @@ const Calculator: React.FC<CalculatorProps> = ({
 }) => {
   const { finalizeRound, currentHistoryIndex, roundHistory, showHistoryWarning, jumpToLatest, validateHistoryAction } = useGameStore();
   const { calculator, setCalculatorFlipped, farbeSettings, settings: { pictogramConfig, cardStyle } } = useUIStore();
+  const { isActive: isTutorialActive, getCurrentStep } = useTutorialStore();
+  const currentStep = getCurrentStep();
 
   const [value, setValue] = useState(initialValue?.toString() || '0');
   const [opponentValue, setOpponentValue] = useState('0');
@@ -217,16 +221,13 @@ const Calculator: React.FC<CalculatorProps> = ({
   const numberOrder = calculator.isFlipped ? [1,2,3,4,5,6,7,8,9] : [1,2,3,4,5,6,7,8,9];
 
   // Erweiterte Farben-Map (nur mit den wirklich benötigten Eigenschaften)
-  const sortedColors = useMemo(() => 
-    FARBE_MODES
-      .map((mode, index) => ({
-        color: mode.name,      // Name für die Anzeige und Speicherung
-        multiplier: farbeSettings.multipliers[index]
-      }))
-      .filter(item => item.multiplier > 0)
-      .sort((a, b) => a.multiplier - b.multiplier),
-    [farbeSettings.multipliers]
-  );
+  const colorMultipliers = FARBE_MODES
+    .map((mode, index) => ({
+      color: mode.name,
+      multiplier: farbeSettings.values[index]
+    }))
+    .filter(item => item.multiplier > 0)
+    .sort((a, b) => a.multiplier - b.multiplier);
 
   const getGridClasses = (activeColors: number): string => {
     // Basis-Grid-Klassen mit group und has-active wenn ein Button selektiert ist
@@ -352,6 +353,33 @@ const Calculator: React.FC<CalculatorProps> = ({
   // OK-Button anpassen
   const { handlers: okHandlers, buttonClasses: okClasses } = usePressableButton(handleSubmit);
 
+  // Prüfen ob Calculator geöffnet werden darf
+  useEffect(() => {
+    console.log('🧮 Calculator Effect:', {
+      isOpen,
+      isTutorialActive,
+      currentStepId: currentStep?.id,
+      shouldClose: isOpen && isTutorialActive && currentStep?.id !== TUTORIAL_STEPS.CALCULATOR_OPEN
+    });
+
+    if (isOpen && isTutorialActive) {
+      if (currentStep?.id === TUTORIAL_STEPS.CALCULATOR_OPEN) {
+        // Direkt feuern, ohne Timeout
+        window.dispatchEvent(new CustomEvent('calculatorOpen'));
+      } else {
+        console.log('🚫 Closing calculator');
+        onClose();
+      }
+    }
+  }, [isOpen, isTutorialActive, currentStep, onClose]);
+
+  // Event-Handling wie in GameInfoOverlay
+  useEffect(() => {
+    if (isOpen) {
+      document.dispatchEvent(new Event('calculatorOpen'));
+    }
+  }, [isOpen]);
+
   return (
     <div
       className={`fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 transition-opacity duration-300 prevent-interactions ${
@@ -457,8 +485,8 @@ const Calculator: React.FC<CalculatorProps> = ({
             </div>
           </div>
           <div className="mt-4"></div>
-          <div className={getGridClasses(sortedColors.length)}>
-            {sortedColors.map(({ color, multiplier }) => renderFarbeButton(color, multiplier))}
+          <div className={getGridClasses(colorMultipliers.length)}>
+            {colorMultipliers.map(({ color, multiplier }) => renderFarbeButton(color, multiplier))}
           </div>
           <div className="grid grid-cols-3 gap-3 w-full">
             {numberOrder.map((num) => renderNumberButton(num))}

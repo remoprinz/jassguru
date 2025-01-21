@@ -12,11 +12,15 @@ import { useUIStore } from '../../store/uiStore';
 import { useTimerStore } from '../../store/timerStore';
 import { useMultiplierStore } from './MultiplierCalculator';
 import type { StrichTyp } from '../../types/jass';
+import { useTutorialStore } from '../../store/tutorialStore';
+import { TUTORIAL_STEPS } from '../../types/tutorial';
 
 interface GameInfoOverlayProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+const DOUBLE_CLICK_DELAY = 300; // gleiche Zeit wie in useGlobalClick
 
 const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) => {
   const { 
@@ -35,6 +39,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
   const [gameTime, setGameTime] = useState('');
   const [roundTime, setRoundTime] = useState('');
   const [jassTime, setJassTime] = useState('');
+  const [canClose, setCanClose] = useState(true);
 
   const {
     pauseTimer,
@@ -129,11 +134,39 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
     return isBergActiveForAnyTeam();
   };
 
+  const { isActive: isTutorialActive, getCurrentStep } = useTutorialStore();
+  const currentStep = getCurrentStep();
+
+  useEffect(() => {
+    if (isOpen && isTutorialActive) {
+      if (currentStep?.id !== TUTORIAL_STEPS.JASS_SETTINGS && 
+          currentStep?.id !== TUTORIAL_STEPS.GAME_INFO) {
+        onClose();
+      }
+    }
+  }, [isOpen, isTutorialActive, currentStep, onClose]);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.dispatchEvent(new Event('gameInfoOpen'));
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setCanClose(false);
+      const timer = setTimeout(() => {
+        setCanClose(true);
+      }, DOUBLE_CLICK_DELAY); // Synchron mit useGlobalClick delay
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
   return (
     <div 
       className={`fixed inset-0 flex items-center justify-center z-50 ${isOpen ? '' : 'pointer-events-none'}`}
       onClick={(e) => {
-        if (isPaused) return;
+        if (isPaused || !canClose) return;
         
         const target = e.target as HTMLElement;
         if (target.closest('[data-strich-box="true"]')) {
@@ -223,6 +256,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
               mainTitle="Punkte bis"
               subTitle={getRemainingPoints(isCalculatorFlipped ? 'top' : 'bottom', scores).title}
               points={getRemainingPoints(isCalculatorFlipped ? 'top' : 'bottom', scores).remaining}
+              team={isCalculatorFlipped ? 'top' : 'bottom'}
               numberSize="text-3xl"
               scoreSettings={scoreSettings}
               scores={scores}

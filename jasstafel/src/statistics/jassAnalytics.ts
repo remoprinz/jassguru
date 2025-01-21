@@ -11,7 +11,6 @@ import { useTimerStore } from '../store/timerStore';
 // Interface für die Spielstatistiken
 export interface GameStatistics {
   totalGames: number;
-  averageGameDuration?: number;
   colorStats: Record<JassColor, number>;
   teamStats: Record<TeamPosition, {
     totalPoints: number;
@@ -42,7 +41,6 @@ export class JassAnalytics {
 
     const stats: GameStatistics = {
       totalGames: this.games.length,
-      averageGameDuration: timeAnalytics.averageGameDuration,
       colorStats: {} as Record<JassColor, number>,
       teamStats: {
         top: this.initTeamStats(),
@@ -69,7 +67,8 @@ export class JassAnalytics {
         sieg: 0,
         matsch: 0,
         schneider: 0,
-        kontermatsch: 0
+        kontermatsch: 0,
+        normal: 0
       },
       averagePointsPerGame: 0
     };

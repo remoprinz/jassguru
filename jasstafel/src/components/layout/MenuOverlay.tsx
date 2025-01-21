@@ -9,12 +9,31 @@ import { motion } from 'framer-motion';
 import ResetWarning from '../notifications/ResetWarning';
 import FarbeSettingsModal from '../settings/SettingsModal';
 import type { TeamPosition } from '../../types/jass';
-import { isPWA } from '../../utils/browserDetection';
+import { useTutorialStore } from '../../store/tutorialStore';
+import { TUTORIAL_STEPS } from '../../types/tutorial';
+import { TutorialCategory } from '../../types/tutorial';
+import dynamic from 'next/dynamic';
+import { IconType } from 'react-icons';
 
 interface MenuOverlayProps {
   isOpen: boolean;
   onClose: () => void;
   swipePosition: TeamPosition;
+}
+
+const TutorialOverlay = dynamic(() => import('../tutorial/TutorialOverlay'), {
+  loading: () => null,
+  ssr: false // Da Tutorial client-side only ist
+});
+
+// Definiere einen Interface-Typ für die Button-Properties
+interface MenuButton {
+  icon: IconType;
+  onClick: () => void;
+  color: string;
+  id: string;
+  className?: string;
+  'data-tutorial'?: string;  // Optional data-tutorial Attribut
 }
 
 const MenuOverlay: React.FC<MenuOverlayProps> = ({ 
@@ -25,6 +44,8 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
   const { openResultatKreidetafel, openFarbeSettings } = useUIStore();
   const [pressedButton, setPressedButton] = useState<string | null>(null);
   const [showResetWarning, setShowResetWarning] = useState(false);
+  const currentStep = useTutorialStore(state => state.getCurrentStep());
+  const { isCategoryCompleted } = useTutorialStore();
 
   const iconStyle = "w-12 h-12 p-2 rounded-xl shadow-md transition-transform hover:scale-110";
 
@@ -52,7 +73,21 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
 
   const handleReset = () => {
     handleButtonPress('trash');
-    setShowResetWarning(true);
+    useUIStore.getState().showNotification({
+      message: "Möchten Sie wirklich das Spiel zurücksetzen? Alle Daten werden gelöscht.",
+      type: 'warning',
+      isFlipped: swipePosition === 'top',
+      actions: [
+        {
+          label: 'Ja',
+          onClick: handleResetConfirm
+        },
+        {
+          label: 'Abbrechen',
+          onClick: () => {}  // Notification schließt automatisch
+        }
+      ]
+    });
   };
 
   const handleResetConfirm = useCallback(() => {
@@ -89,22 +124,37 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
 
   const handleFarbeSettingsClick = useCallback(() => {
     openFarbeSettings();
-    setTimeout(() => {
-      onClose();
-    }, 100);
-  }, [openFarbeSettings, onClose]);
+    
+    if (currentStep?.id === TUTORIAL_STEPS.JASS_SETTINGS) {
+      document.dispatchEvent(new Event('settingsOpen'));
+    }
+  }, [openFarbeSettings, currentStep]);
 
   const handleInfoClick = useCallback(() => {
-    useUIStore.getState().showOnboarding(true, isPWA());
-    onClose();
-  }, [onClose]);
+    // Nur Tutorials anzeigen, die noch nicht abgeschlossen sind
+    const hasUncompletedTutorials = Object.values(TutorialCategory).some(
+      category => !isCategoryCompleted(category)
+    );
+    
+    if (hasUncompletedTutorials) {
+      useUIStore.getState().openTutorialInfo();
+      // Verzögere das Schließen des Menüs um sicherzustellen, 
+      // dass das Tutorial-Overlay zuerst geöffnet wird
+      setTimeout(() => {
+        onClose();
+      }, 100);
+    } else {
+      onClose();
+    }
+  }, [onClose, isCategoryCompleted]);
 
-  const bottomButtons = [
+  const bottomButtons: MenuButton[] = [
     {
       icon: FaTrashAlt,
       onClick: handleReset,
       color: 'bg-red-500',
-      id: 'trash'
+      id: 'trash',
+      'data-tutorial': 'new-game-button'
     },
     {
       icon: FaInfoCircle,
@@ -116,7 +166,8 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
       icon: FaCog,
       onClick: handleFarbeSettingsClick,
       color: 'bg-yellow-500',
-      id: 'farbe'
+      id: 'farbe',
+      className: 'settings-button'
     },
     {
       icon: TbClipboardText,
@@ -126,7 +177,7 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
     }
   ];
 
-  const topButtons = [
+  const topButtons: MenuButton[] = [
     {
       icon: TbClipboardText,
       onClick: handleResultatClick,
@@ -137,7 +188,8 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
       icon: FaCog,
       onClick: handleFarbeSettingsClick,
       color: 'bg-yellow-500',
-      id: 'farbe'
+      id: 'farbe',
+      className: 'settings-button'
     },
     {
       icon: FaInfoCircle,
@@ -155,6 +207,12 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
 
   const buttons = swipePosition === 'top' ? topButtons : bottomButtons;
 
+  const isButtonHighlighted = (id: string) => {
+    return (currentStep?.id === TUTORIAL_STEPS.RESULTAT_INFO && id === 'resultat') ||
+           (currentStep?.id === TUTORIAL_STEPS.NEW_GAME && id === 'trash') ||
+           (currentStep?.id === TUTORIAL_STEPS.JASS_SETTINGS && id === 'farbe');
+  };
+
   return (
     <>
       <motion.div 
@@ -166,11 +224,27 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
         animate={isOpen ? "visible" : "hidden"}
       >
         <div className="flex justify-center space-x-10">
-          {buttons.map(({ icon: Icon, onClick, color, id }) => (
+          {buttons.map(({ icon: Icon, onClick, color, id, className, 'data-tutorial': dataTutorial }) => (
             <motion.button 
               key={id}
               onClick={onClick}
-              className={`${iconStyle} ${color} text-white`}
+              data-tutorial={dataTutorial}
+              disabled={
+                (currentStep?.id === TUTORIAL_STEPS.SETTINGS && className !== 'settings-button') ||
+                (currentStep?.id === TUTORIAL_STEPS.MENU_GESTURE && id !== 'resultat') ||
+                (currentStep?.id === TUTORIAL_STEPS.RESULTAT_INFO && id !== 'resultat') ||
+                (currentStep?.id === TUTORIAL_STEPS.NEW_GAME && id !== 'trash') ||
+                (currentStep?.id === TUTORIAL_STEPS.JASS_SETTINGS && id !== 'farbe')
+              }
+              className={`${iconStyle} ${color} ${className || ''} text-white
+                ${isButtonHighlighted(id) ? 'ring-4 ring-white ring-opacity-50 animate-pulse' : ''}
+                ${((currentStep?.id === TUTORIAL_STEPS.SETTINGS && className !== 'settings-button') ||
+                   currentStep?.id === TUTORIAL_STEPS.MENU_GESTURE ||
+                   (currentStep?.id === TUTORIAL_STEPS.RESULTAT_INFO && id !== 'resultat') ||
+                   (currentStep?.id === TUTORIAL_STEPS.NEW_GAME && id !== 'trash') ||
+                   (currentStep?.id === TUTORIAL_STEPS.JASS_SETTINGS && id !== 'farbe'))
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : ''}`}
               variants={itemVariants}
               onMouseDown={() => handleButtonPress(id)}
               onTouchStart={() => handleButtonPress(id)}

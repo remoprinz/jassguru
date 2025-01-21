@@ -9,8 +9,8 @@ import Calculator from '../game/Calculator';
 import { useGameStore } from '../../store/gameStore';
 import StartScreen from './StartScreen';
 import RoundInfo from '../game/RoundInfo';
-import { useDoubleClick } from '../../hooks/useDoubleClick';
-import { PlayerNumber, TeamPosition, OnboardingContent, OnboardingState, OnboardingActions, BrowserOnboardingStep } from '../../types/jass';
+import { useGlobalClick } from '../../hooks/useGlobalClick';   
+import { PlayerNumber, TeamPosition } from '../../types/jass';
 import { useUIStore } from '../../store/uiStore';
 import MenuOverlay from './MenuOverlay';
 import ResultatKreidetafel from './ResultatKreidetafel';
@@ -21,7 +21,13 @@ import { useJassStore } from '../../store/jassStore';
 import { useOnboardingFlow } from '../../hooks/useOnboardingFlow';
 import OnboardingFlow from '../onboarding/OnboardingFlow';
 import { isPWA } from '../../utils/browserDetection';
-import { isDev, FORCE_PWA_INSTALL } from '../../utils/devUtils';
+import { shouldShowTutorial } from '../../utils/devUtils';
+import { useTutorialStore } from '../../store/tutorialStore';
+import TutorialOverlay from '../tutorial/TutorialOverlay';
+import TutorialInfoDialog from '../tutorial/TutorialInfoDialog';
+import { isDev, FORCE_TUTORIAL } from '../../utils/devUtils';
+import GlobalNotificationContainer from '../notifications/GlobalNotificationContainer';
+import { useTimerStore } from '../../store/timerStore';
 
 interface JassKreidetafelProps {
   middleLineThickness?: number;
@@ -40,7 +46,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [activeContainer, setActiveContainer] = useState<'top' | 'bottom' | null>(null);
 
-  const { 
+  const {
     isGameStarted,
     isGameCompleted,
     scores: { top: topScore, bottom: bottomScore },
@@ -51,44 +57,52 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
 
   const { isJassStarted } = useJassStore();
 
-  const { 
+  const {
     menu: { isOpen: isMenuOpen },
     setMenuOpen,
     historyWarning,
     isGameInfoOpen,
     setGameInfoOpen,
     setLastDoubleClickPosition,
-    setOverlayPosition
+    setOverlayPosition,
+    isTutorialInfoOpen
   } = useUIStore();
 
   const viewportHeight = useViewportHeight();
 
-  // PWA Status und Browser Onboarding
+  // Browser-Onboarding
   const [isPWAInstalled] = useState(() => isPWA());
   const [isBrowserOnboarding, setIsBrowserOnboarding] = useState(!isPWAInstalled);
   const [forceOnboarding, setForceOnboarding] = useState(false);
 
-  const { 
-    currentStep, 
-    showOnboarding, 
+  const {
+    currentStep,
+    showOnboarding,
     content,
     handleNext,
     handlePrevious,
     handleDismiss,
-    canBeDismissed 
+    canBeDismissed
   } = useOnboardingFlow(isBrowserOnboarding);
 
-  // Beim ersten Laden das Onboarding anzeigen
+  // Tutorial
+  const {
+    isActive: isTutorialActive,
+    hasCompletedTutorial,
+    getCurrentStep,
+    startTutorial,
+    setActive
+  } = useTutorialStore();
+
+  // Onboarding beim ersten Laden
   useEffect(() => {
     if (!isPWAInstalled) {
       useUIStore.getState().showOnboarding(true, isPWAInstalled);
-      setForceOnboarding(true); // Immer true
+      setForceOnboarding(true);
     }
-  }, []);
+  }, [isPWAInstalled]);
 
-  const isFirstTimeLoad = useMemo(() => 
-    !isJassStarted && !isGameStarted
-  , [isJassStarted, isGameStarted]);
+  const isFirstTimeLoad = useMemo(() => !isJassStarted && !isGameStarted, [isJassStarted, isGameStarted]);
 
   useEffect(() => {
     setMounted(true);
@@ -98,18 +112,21 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     setIsCalculatorOpen(false);
   }, []);
 
+  // Container-Höhen berechnen
   const { topContainerHeight, bottomContainerHeight, middleLinePosition } = useMemo(() => {
     if (typeof window === 'undefined' || !mounted) {
       return { topContainerHeight: 0, bottomContainerHeight: 0, middleLinePosition: 0 };
     }
-
-    const safeAreaTop = isPWA() ? parseInt(window.getComputedStyle(document.documentElement).getPropertyValue('--safe-area-top') || '0') : 0;
-    const safeAreaBottom = isPWA() ? parseInt(window.getComputedStyle(document.documentElement).getPropertyValue('--safe-area-bottom') || '0') : 0;
+    const safeAreaTop = isPWA()
+      ? parseInt(window.getComputedStyle(document.documentElement).getPropertyValue('--safe-area-top') || '0')
+      : 0;
+    const safeAreaBottom = isPWA()
+      ? parseInt(window.getComputedStyle(document.documentElement).getPropertyValue('--safe-area-bottom') || '0')
+      : 0;
 
     const adjustedViewportHeight = viewportHeight - safeAreaTop - safeAreaBottom;
     const midLinePos = Math.floor(adjustedViewportHeight / 2);
-    const availableHeight = adjustedViewportHeight;
-    const halfHeight = Math.floor(availableHeight / 2);
+    const halfHeight = Math.floor(adjustedViewportHeight / 2);
 
     return {
       topContainerHeight: halfHeight,
@@ -118,105 +135,128 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     };
   }, [viewportHeight, middleLineThickness, mounted]);
 
-  const { y: topY, mainOpacity: topMainOpacity, oppositeOpacity: topOppositeOpacity, animateSwipe: animateTopSwipe, getBrightness: getTopBrightness } = useSwipeAnimation({
+  // Animations-Hooks
+  const {
+    y: topY,
+    mainOpacity: topMainOpacity,
+    oppositeOpacity: topOppositeOpacity,
+    animateSwipe: animateTopSwipe,
+    getBrightness: getTopBrightness
+  } = useSwipeAnimation({
     initialPosition: 0,
     maxOffset: viewportHeight * 0.07,
     position: 'top'
   });
 
-  const { y: bottomY, mainOpacity: bottomMainOpacity, oppositeOpacity: bottomOppositeOpacity, animateSwipe: animateBottomSwipe, getBrightness: getBottomBrightness } = useSwipeAnimation({
+  const {
+    y: bottomY,
+    mainOpacity: bottomMainOpacity,
+    oppositeOpacity: bottomOppositeOpacity,
+    animateSwipe: animateBottomSwipe,
+    getBrightness: getBottomBrightness
+  } = useSwipeAnimation({
     initialPosition: 0,
     maxOffset: viewportHeight * 0.07,
     position: 'bottom'
   });
 
-  const triggerBlendEffect = useCallback((position: 'top' | 'bottom', direction: 'left' | 'right' = 'left') => {
-    const animate = position === 'top' ? animateTopSwipe : animateBottomSwipe;
-    animate(direction);
+  // Blend / History
+  const triggerBlendEffect = useCallback(
+    (position: 'top' | 'bottom', direction: 'left' | 'right' = 'left') => {
+      const animate = position === 'top' ? animateTopSwipe : animateBottomSwipe;
+      animate(direction);
+      const brightness = position === 'top' ? getTopBrightness : getBottomBrightness;
+      brightness(1.2);
+      setTimeout(() => brightness(1), 300);
+    },
+    [animateTopSwipe, animateBottomSwipe, getTopBrightness, getBottomBrightness]
+  );
 
-    // Optional: Visuelles Feedback
-    const brightness = position === 'top' ? getTopBrightness : getBottomBrightness;
-    brightness(1.2); // Kurzzeitig aufhellen
-    
-    setTimeout(() => {
-      brightness(1); // Zurück zur normalen Helligkeit
-    }, 300);
-  }, [animateTopSwipe, animateBottomSwipe, getTopBrightness, getBottomBrightness]);
-
-  // History Navigation Hooks
   const topHistoryNav = useNavigationHistory('top');
   const bottomHistoryNav = useNavigationHistory('bottom');
 
-  const handleSwipe = useCallback((direction: 'up' | 'down' | 'left' | 'right', pos: TeamPosition) => {
-    if (direction === 'left' || direction === 'right') {
-      const historyNav = pos === 'top' ? topHistoryNav : bottomHistoryNav;
-      historyNav.handleSwipe(direction);
-      triggerBlendEffect(pos, direction);
-      return;
-    }
-
-    // Bestehende Menü-Navigation
-    if (direction === 'up' || direction === 'down') {
-      const shouldOpen = (pos === 'top' && direction === 'up') || 
-                        (pos === 'bottom' && direction === 'down');
-      const shouldClose = (pos === 'top' && direction === 'down') || 
-                         (pos === 'bottom' && direction === 'up');
-
-      if (shouldOpen) {
-        setOverlayPosition(pos);
-        setActiveContainer(pos);
-        setTimeout(() => {
-          setMenuOpen(true);
-          animateTopSwipe(true);
-          animateBottomSwipe(true);
-        }, 0);
-      } else if (shouldClose) {
-        setMenuOpen(false);
-        setActiveContainer(null);
-        setOverlayPosition(null);
-        animateTopSwipe(false);
-        animateBottomSwipe(false);
+  // Swipes
+  const handleSwipe = useCallback(
+    (direction: 'up' | 'down' | 'left' | 'right', pos: TeamPosition) => {
+      if (direction === 'left' || direction === 'right') {
+        const historyNav = pos === 'top' ? topHistoryNav : bottomHistoryNav;
+        historyNav.handleSwipe(direction);
+        triggerBlendEffect(pos, direction);
+        return;
       }
-    }
-  }, [topHistoryNav, bottomHistoryNav, animateTopSwipe, animateBottomSwipe, setMenuOpen, triggerBlendEffect, setOverlayPosition]);
+      if (direction === 'up' || direction === 'down') {
+        const shouldOpen = (pos === 'top' && direction === 'up') || (pos === 'bottom' && direction === 'down');
+        const shouldClose = (pos === 'top' && direction === 'down') || (pos === 'bottom' && direction === 'up');
 
-  const handleLongPress = useCallback((position: 'top' | 'bottom') => {
-    if (!isMenuOpen) {
-      setOverlayPosition(position);
-      setActiveContainer(position);
-      setIsCalculatorOpen(true);
-    }
-  }, [isMenuOpen]);
+        if (shouldOpen) {
+          setOverlayPosition(pos);
+          setActiveContainer(pos);
+          setTimeout(() => {
+            setMenuOpen(true);
+            animateTopSwipe(true);
+            animateBottomSwipe(true);
+          }, 0);
+        } else if (shouldClose) {
+          setMenuOpen(false);
+          setActiveContainer(null);
+          setOverlayPosition(null);
+          animateTopSwipe(false);
+          animateBottomSwipe(false);
+        }
+      }
+    },
+    [topHistoryNav, bottomHistoryNav, animateTopSwipe, animateBottomSwipe, setMenuOpen, setOverlayPosition, triggerBlendEffect]
+  );
 
+  // LongPress → Kalkulator
+  const handleLongPress = useCallback(
+    (position: TeamPosition) => {
+      if (!isMenuOpen) {
+        setOverlayPosition(position);
+        setActiveContainer(position);
+        setIsCalculatorOpen(true);
+        // Tutorial-Event
+        window.dispatchEvent(new CustomEvent('calculatorOpen'));
+      }
+    },
+    [isMenuOpen]
+  );
+
+  // Calculator
   const handleCalculatorClose = useCallback(() => {
     setIsCalculatorOpen(false);
     setActiveContainer(null);
     setOverlayPosition(null);
   }, []);
 
-  const handleTafelClick = useDoubleClick((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isMenuOpen) {
-      const clickY = e.clientY;
-      const position: TeamPosition = clickY < middleLinePosition ? 'top' : 'bottom';
+  // "Einzelklick" vs. "Doppelklick" in useGlobalClick
+  const { handleGlobalClick } = useGlobalClick({
+    onSingleClick: (position, boxType) => {
+      setActiveContainer(position);
       
-      setOverlayPosition(position);
-      setLastDoubleClickPosition(position);
-      setGameInfoOpen(true);
-    }
+      // Hier die Logik für die Restzahl-Box hinzufügen
+      if (boxType === 'restzahl') {
+        updateScoreByStrich(position, 1);  // Genau 1 Punkt für Restzahl-Weis
+      } else {
+        const numeric = parseInt(boxType, 10) || 20;
+        updateScoreByStrich(position, numeric);
+      }
+    },
+    middleLinePosition,
+    delay: 300
   });
 
+  // Window Resizing
   useEffect(() => {
     if (mounted) {
       const initialCalc = setTimeout(() => {
         const vh = window.innerHeight;
         document.documentElement.style.setProperty('--vh', `${vh}px`);
       }, 0);
-
       const secondCalc = setTimeout(() => {
         const vh = window.innerHeight;
         document.documentElement.style.setProperty('--vh', `${vh}px`);
       }, 100);
-
       return () => {
         clearTimeout(initialCalc);
         clearTimeout(secondCalc);
@@ -224,19 +264,14 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     }
   }, [mounted]);
 
+  // Scroll
   useEffect(() => {
-    const handleScroll = () => {
-      // Falls wir später scroll-abhängige Logik brauchen
-    };
-
+    const handleScroll = () => {};
     window.addEventListener('scroll', handleScroll, { passive: false });
-
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-    };
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Blend-Effekt bei Punkteänderungen
+  // Punkte-Änderungen
   const prevTopScore = usePrevious(topScore);
   const prevBottomScore = usePrevious(bottomScore);
 
@@ -252,116 +287,189 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     }
   }, [bottomScore, prevBottomScore, triggerBlendEffect]);
 
-  const handleMenuClose = useCallback(() => {
+  // Menü/Overlay
+  const closeMenu = useCallback(() => {
     setMenuOpen(false);
     setActiveContainer(null);
-    
-    // Animation für beide Container zurücksetzen
     animateTopSwipe(false);
     animateBottomSwipe(false);
   }, [setMenuOpen, animateTopSwipe, animateBottomSwipe]);
 
-  const handleStrichClick = useCallback((value: number, position: TeamPosition) => {
-    updateScoreByStrich(position, value);
-  }, [updateScoreByStrich]);
-
   const handleBlendEffect = useCallback((position: TeamPosition) => {
-    // TODO: Blend-Effekt Implementierung
+    // optionaler Blend-Effekt
   }, []);
 
-  // Debug-Log entfernen
+  // Debug
   useEffect(() => {
-    console.log('Onboarding Status:', {
-      showOnboarding,
-      forceOnboarding,
-      canBeDismissed,
-      isPWAInstalled
-    });
+    console.log('Onboarding Status:', { showOnboarding, forceOnboarding, canBeDismissed, isPWAInstalled });
   }, [showOnboarding, forceOnboarding, canBeDismissed, isPWAInstalled]);
 
-  // Render-Logik vereinfacht
+  // Tutorial
+  useEffect(() => {
+    console.log('Tutorial Conditions:', {
+      isPWA: isPWAInstalled,
+      shouldShow: shouldShowTutorial(),
+      hasCompleted: hasCompletedTutorial,
+      mounted,
+      isBrowserOnboarding
+    });
+    const tutorialStore = useTutorialStore.getState();
+    if (
+      (isPWAInstalled || isDev) &&
+      shouldShowTutorial() &&
+      (!hasCompletedTutorial || FORCE_TUTORIAL) &&
+      mounted &&
+      !tutorialStore.isActive
+    ) {
+      console.log('Starting Tutorial!');
+      startTutorial();
+    }
+  }, [mounted, isPWAInstalled]);
+
+  const tutorialInteractions = useMemo(() => {
+    if (!isTutorialActive) return null;
+    return {
+      handleSwipe,
+      handleLongPress: (pos: TeamPosition) => handleLongPress(pos)
+    };
+  }, [isTutorialActive, handleSwipe, handleLongPress]);
+
+  // Tutorial-Events (SplitContainer)
+  useEffect(() => {
+    const handleTutorialSplitContainer = (evt: CustomEvent) => {
+      console.log('🎯 Tutorial Split Container Event:', {
+        action: evt.detail.action,
+        teamPosition: evt.detail.teamPosition,
+        currentStep: getCurrentStep()?.id
+      });
+      const { action, teamPosition } = evt.detail;
+      if (action === 'open') {
+        console.log('📂 Opening container with:', {
+          teamPosition,
+          isMenuOpen: useUIStore.getState().menu.isOpen
+        });
+        setOverlayPosition(teamPosition);
+        setActiveContainer(teamPosition);
+        setMenuOpen(true);
+
+        requestAnimationFrame(() => {
+          animateTopSwipe(true);
+          animateBottomSwipe(true);
+        });
+      } else if (action === 'close') {
+        console.log('📂 Closing container');
+        setOverlayPosition(null);
+        setActiveContainer(null);
+        setMenuOpen(false);
+
+        requestAnimationFrame(() => {
+          animateTopSwipe(false);
+          animateBottomSwipe(false);
+        });
+      }
+    };
+
+    window.addEventListener('tutorial:splitContainer', handleTutorialSplitContainer as EventListener);
+    return () => {
+      window.removeEventListener('tutorial:splitContainer', handleTutorialSplitContainer as EventListener);
+    };
+  }, [animateTopSwipe, animateBottomSwipe, setMenuOpen, getCurrentStep]);
+
   if (!mounted) return null;
 
   return (
-    <div 
+    <div
       className="relative w-full h-full overflow-hidden bg-chalk-black prevent-interactions"
-      onClick={handleTafelClick}
+      onClick={handleGlobalClick}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <OnboardingFlow 
-        show={showOnboarding && forceOnboarding}
-        step={currentStep as BrowserOnboardingStep}
-        content={content}
-        onNext={handleNext}
-        onPrevious={handlePrevious}
-        onDismiss={() => {}} // Leere Funktion
-        canBeDismissed={false} // Immer false
-        isPWA={isPWAInstalled}
-        isBrowserOnboarding={isBrowserOnboarding}
-      />
-      {isFirstTimeLoad ? (
+      <>
+        <TutorialOverlay onCloseMenu={closeMenu} />
+        {isTutorialInfoOpen && <TutorialInfoDialog />}
+      </>
+
+      {!isPWAInstalled && (
+        <OnboardingFlow
+          show={showOnboarding && forceOnboarding}
+          step={currentStep as any}
+          content={content}
+          onNext={handleNext}
+          onPrevious={handlePrevious}
+          onDismiss={() => {}}
+          canBeDismissed={false}
+          isPWA={isPWAInstalled}
+          isBrowserOnboarding={isBrowserOnboarding}
+        />
+      )}
+
+      {isFirstTimeLoad && !isTutorialActive ? (
         <StartScreen />
       ) : (
         <>
+          {/* TOP */}
           <SplitContainer
             position="top"
             height={topContainerHeight}
             zShapeConfig={zShapeConfig}
             padding="paddingTop"
-            onSwipe={handleSwipe}
+            onSwipe={tutorialInteractions?.handleSwipe ?? handleSwipe}
             y={topY}
             mainOpacity={topMainOpacity}
             getBrightness={getTopBrightness}
-            onLongPress={() => handleLongPress('top')}
+            onLongPress={(pos) => handleLongPress(pos)}
             score={topScore}
             triggerBlendEffect={handleBlendEffect}
             isHistoryNavigationActive={topHistoryNav.isInPast}
           />
-          <animated.div 
+          <animated.div
             style={{
               position: 'absolute',
               left: '5%',
               width: '90%',
               top: middleLinePosition - middleLineThickness / 2,
               height: `${middleLineThickness / 2}px`,
-              transform: topY.to(y => `translateY(${-y}px)`)
-            }} 
-            className="bg-chalk-red" 
+              transform: topY.to((val) => `translateY(${-val}px)`)
+            }}
+            className="bg-chalk-red"
           />
-          <animated.div 
+          <animated.div
             style={{
               position: 'absolute',
               left: '5%',
               width: '90%',
               top: middleLinePosition,
               height: `${middleLineThickness / 2}px`,
-              transform: bottomY.to(y => `translateY(${y}px)`)
-            }} 
-            className="bg-chalk-red" 
+              transform: bottomY.to((val) => `translateY(${val}px)`)
+            }}
+            className="bg-chalk-red"
           />
+
           <RoundInfo
             currentPlayer={currentPlayer as PlayerNumber}
             currentRound={currentRound}
             opacity={topMainOpacity.get()}
             isOpen={isMenuOpen}
             isGameStarted={!isGameCompleted}
-            gameStartTime={null} 
+            gameStartTime={null}
             roundStartTime={null}
           />
+
+          {/* BOTTOM */}
           <SplitContainer
             position="bottom"
             height={bottomContainerHeight}
             zShapeConfig={zShapeConfig}
             padding="paddingBottom"
-            onSwipe={handleSwipe}
+            onSwipe={tutorialInteractions?.handleSwipe ?? handleSwipe}
             y={bottomY}
             mainOpacity={bottomMainOpacity}
             getBrightness={getBottomBrightness}
-            onLongPress={() => handleLongPress('bottom')}
+            onLongPress={(pos) => handleLongPress(pos)}
             score={bottomScore}
             triggerBlendEffect={handleBlendEffect}
             isHistoryNavigationActive={bottomHistoryNav.isInPast}
           />
+
           {isCalculatorOpen && (
             <Calculator
               isOpen={isCalculatorOpen}
@@ -371,9 +479,9 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
               clickedPosition={activeContainer!}
             />
           )}
-          <MenuOverlay 
+          <MenuOverlay
             isOpen={isMenuOpen}
-            onClose={handleMenuClose}
+            onClose={closeMenu}
             swipePosition={activeContainer || 'bottom'}
           />
           <ResultatKreidetafel />
@@ -384,23 +492,20 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
         message={historyWarning.message}
         onConfirm={historyWarning.onConfirm}
         onDismiss={historyWarning.onCancel}
+        swipePosition={activeContainer || 'bottom'}
       />
-      <GameInfoOverlay 
-        isOpen={isGameInfoOpen}
-        onClose={() => setGameInfoOpen(false)}
-      />
+      <GameInfoOverlay isOpen={isGameInfoOpen} onClose={() => setGameInfoOpen(false)} />
+      <GlobalNotificationContainer />
     </div>
   );
 };
 
-// Helper Hook für Vergleich mit vorherigem Wert
+// Helper: usePrevious
 function usePrevious<T>(value: T): T | undefined {
   const ref = useRef<T>();
-  
   useEffect(() => {
     ref.current = value;
   }, [value]);
-  
   return ref.current;
 }
 

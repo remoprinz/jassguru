@@ -4,18 +4,30 @@ import {
   ANDROID_BROWSER_STEPS,
   iOSBrowserStep,
   AndroidBrowserStep,
-  AppOnboardingStep,
-  OnboardingContent
-} from '../types/jass';
+  OnboardingContent,
+  BROWSER_ONBOARDING,
+  AppOnboardingStep
+} from '../constants/onboardingContent';
 import { useUIStore } from '../store/uiStore';
-import { BROWSER_ONBOARDING, APP_ONBOARDING } from '../constants/onboardingContent';
 import { getDeviceOS } from '../utils/deviceUtils';
+import { FaInfoCircle } from 'react-icons/fa';
+import { IconType } from 'react-icons';
 
 type DeviceOS = 'iOS' | 'Android';
 
 // Type Guard für Content mit Image
 const hasImage = (content: OnboardingContent): content is OnboardingContent & { image: string } => {
   return 'image' in content;
+};
+
+// 1. APP_ONBOARDING als Record definieren
+const APP_ONBOARDING: Record<AppOnboardingStep, OnboardingContent> = {
+  [AppOnboardingStep.INTRODUCTION]: {
+    title: "Willkommen",
+    message: "Willkommen bei Jassguru",
+    icon: FaInfoCircle as IconType
+  }
+  // ... weitere Schritte hinzufügen
 };
 
 export const useOnboardingFlow = (isBrowserOnboarding: boolean = false) => {
@@ -27,7 +39,7 @@ export const useOnboardingFlow = (isBrowserOnboarding: boolean = false) => {
   type CurrentStepType = typeof osKey extends 'iOS' ? iOSBrowserStep : AndroidBrowserStep;
 
   const [currentStep, setCurrentStep] = useState<CurrentStepType | AppOnboardingStep>(
-    isBrowserOnboarding ? STEPS.INSTALL_WELCOME : AppOnboardingStep.INTRODUCTION
+    isBrowserOnboarding ? 'WELCOME_SCREEN' : AppOnboardingStep.INTRODUCTION
   );
 
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -73,10 +85,19 @@ export const useOnboardingFlow = (isBrowserOnboarding: boolean = false) => {
     setShowOnboarding(false);
   }, []);
 
-  // Content basierend auf aktuellem Step
+  // 2. Sichere Content-Zuweisung mit Nullish Coalescing
   const content = isBrowserOnboarding 
-    ? BROWSER_ONBOARDING[osKey][currentStep as keyof typeof BROWSER_ONBOARDING[typeof osKey]]
-    : APP_ONBOARDING[currentStep as keyof typeof APP_ONBOARDING];
+    ? BROWSER_ONBOARDING[osKey]?.[currentStep as keyof typeof BROWSER_ONBOARDING[typeof osKey]] 
+    : APP_ONBOARDING[currentStep as AppOnboardingStep] ?? {
+        title: "Fehler",
+        message: "Inhalt nicht gefunden",
+        icon: FaInfoCircle as IconType
+      };
+
+  // 3. Optional: Validierung hinzufügen
+  if (!content) {
+    console.error(`Kein Content gefunden für Step: ${currentStep}`);
+  }
 
   return {
     currentStep,
