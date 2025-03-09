@@ -11,23 +11,16 @@ import {
   GameEntry,
   TeamStand,
   TeamScores,
-  StrichTyp,
+
   JassSession,
   GameTotals,
   StricheRecord,
   PlayerNumber,
-  GameState,
-  getTeamConfig,
   determineNextStartingPlayer,
-  TeamConfig,
   GameUpdate,
-  StricheTotals
+  JassColor,
 } from '../types/jass';
 import { useTimerStore } from './timerStore';
-import { 
-  getNextPlayerInTeam,
-  getTeamForPlayer 
-} from '../types/jass';
 import { aggregateStricheForTeam } from '../utils/stricheCalculations';
 
 const createGameEntry = (
@@ -243,7 +236,11 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
     const currentGame = state.games.find(game => game.id === state.currentGameId);
     if (!currentGame) return;
 
-    // VOLLSTÄNDIGER Spielzustand wird gespeichert
+    // 1. Finale Spielzeit vom Timer holen
+    const timerStore = useTimerStore.getState();
+    const finalDuration = timerStore.getGameDuration(state.currentGameId);
+
+    // 2. VOLLSTÄNDIGER Spielzustand wird gespeichert
     const updatedGame: GameEntry = {
       ...currentGame,
       // Basis-Informationen
@@ -273,15 +270,28 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
       // Spielstatus
       isGameStarted: gameStore.isGameStarted,
       isRoundCompleted: gameStore.isRoundCompleted,
-      isGameCompleted: true // Wird beim Finalisieren auf true gesetzt
+      isGameCompleted: true,
+
+      // Metadata mit Timer-Informationen
+      metadata: {
+        duration: finalDuration,
+        completedAt: Date.now(),
+        roundStats: currentGame.metadata?.roundStats ?? {
+          weisCount: 0,
+          colorStats: {} as { [K in JassColor]: number }
+        }
+      }
     };
 
-    // Update games array
-    const newGames = state.games.map(game => 
-      game.id === currentGame.id ? updatedGame : game
-    );
+    // 3. Update games array
+    set((state) => ({
+      games: state.games.map(game => 
+        game.id === currentGame.id ? updatedGame : game
+      )
+    }));
 
-    set({ games: newGames });
+    // 4. Timer für dieses Spiel stoppen
+    timerStore.completeGame();
   },
 
   resetJass: () => {
@@ -323,46 +333,61 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
     });
   },
 
-  navigateToGame: (gameId) => {
+  navigateToGame: (gameId: number) => {
     const state = get();
     const targetGame = state.games.find(game => game.id === gameId);
     if (!targetGame) return;
 
     const isLatestGame = gameId === state.games.length;
-    const lastHistoryIndex = targetGame.roundHistory.length - 1;
-    const lastRound = targetGame.roundHistory[lastHistoryIndex];
+    const lastHistoryIndex = (targetGame.roundHistory?.length || 0) - 1;
 
-    const roundState = lastRound?.roundState ?? {
-      roundNumber: targetGame.currentRound,
-      nextPlayer: targetGame.currentPlayer
-    };
+    // 1. Timer GENAU WIE BEI NEUEM SPIEL aktivieren
+    const timerStore = useTimerStore.getState();
+    timerStore.activateGameTimer(gameId);
+    timerStore.startGameTimer();    // NEU: Explizit aufrufen
+    timerStore.startRoundTimer();   // NEU: Explizit aufrufen
 
-    // GameStore-State unterschiedlich setzen je nachdem ob aktuelles oder historisches Spiel
-    useGameStore.setState({
+    // 2. JassStore aktualisieren
+    set((state) => ({
+      ...state,
+      currentGameId: gameId,
+      teams: targetGame.teams
+    }));
+
+    // 3. GameStore aktualisieren GENAU WIE BEI NEUEM SPIEL
+    useGameStore.setState((state) => ({
+      ...state,
+      isGameStarted: true,          // Immer auf true setzen
+      isRoundCompleted: false,      // NEU: Immer auf false setzen
+      isGameCompleted: false,       // NEU: Immer auf false setzen
+      currentRound: targetGame.currentRound || 1,
+      currentPlayer: targetGame.currentPlayer,
       scores: {
         top: targetGame.teams.top.jassPoints,
         bottom: targetGame.teams.bottom.jassPoints
       },
+      weisPoints: {
+        top: targetGame.teams.top.weisPoints || 0,
+        bottom: targetGame.teams.bottom.weisPoints || 0
+      },
       striche: {
-        top: targetGame.teams.top.striche,
-        bottom: targetGame.teams.bottom.striche
+        top: { ...targetGame.teams.top.striche },
+        bottom: { ...targetGame.teams.bottom.striche }
       },
-      roundHistory: targetGame.roundHistory,
-      currentRound: roundState.roundNumber,
-      currentPlayer: roundState.nextPlayer,
-      currentHistoryIndex: isLatestGame ? lastHistoryIndex : -1, // Reset bei aktuellem Spiel
+      roundHistory: targetGame.roundHistory || [],
+      currentHistoryIndex: isLatestGame ? lastHistoryIndex : -1,
       historyState: {
-        isNavigating: !isLatestGame, // Nur bei historischen Spielen navigieren
+        isNavigating: !isLatestGame,
         lastNavigationTimestamp: Date.now()
-      },
-      isGameStarted: true,
-      isRoundCompleted: lastRound?.isRoundFinalized ?? false,
-      isGameCompleted: targetGame.isGameCompleted ?? false
-    });
+      }
+    }));
 
-    set({
-      currentGameId: gameId,
-      teams: targetGame.teams
+    // 4. Debug-Logging
+    console.log('🎮 Game Navigation Complete:', {
+      gameId,
+      timersStarted: true,
+      gameStarted: true,
+      roundStarted: true
     });
   },
 
@@ -378,7 +403,23 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
   navigateToNextGame: () => {
     const state = get();
     if (state.currentGameId < state.games.length) {
+      // Debug-Logging vor der Navigation
+      console.log('⏭️ Navigating to next game:', {
+        from: state.currentGameId,
+        to: state.currentGameId + 1
+      });
+
+      // Explizit die Timer starten, bevor wir navigieren
+      const timerStore = useTimerStore.getState();
+      const nextGameId = state.currentGameId + 1;
+      
+      // Navigieren
       get().navigateToGame(state.currentGameId + 1);
+      
+      // Zusätzlich explizit die Timer starten
+      timerStore.startGameTimer();
+      timerStore.startRoundTimer();
+      
       return true;
     }
     return false;
@@ -516,27 +557,30 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
       return;
     }
 
-    const gameStore = useGameStore.getState();
+    // 1. Neues Spiel vorbereiten
     const newGameId = state.currentGameId + 1;
-    
-    // Hole das aktuelle Spiel für die Determination
     const currentGame = state.games.find(game => game.id === state.currentGameId);
-    
-    // Bestimme den korrekten Startspieler
     const nextStartingPlayer = determineNextStartingPlayer(
       currentGame || null,
-      gameStore.startingPlayer
+      useGameStore.getState().startingPlayer
     );
     
-    // Erstelle neues Spiel mit korrektem Startspieler
+    // 2. Neues Spiel erstellen
     const newGame = createGameEntry(
       newGameId,
       nextStartingPlayer,
       state.currentSession.id
     );
-    
-    // GameStore aktualisieren
-    useGameStore.setState({
+
+    // 3. Timer für neues Spiel aktivieren
+    const timerStore = useTimerStore.getState();
+    timerStore.activateGameTimer(newGameId);
+    timerStore.startGameTimer();
+    timerStore.startRoundTimer();
+
+    // 4. GameStore zurücksetzen
+    useGameStore.setState((state) => ({
+      ...state,
       currentPlayer: nextStartingPlayer,
       startingPlayer: nextStartingPlayer,
       scores: { top: 0, bottom: 0 },
@@ -550,10 +594,10 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
       isGameStarted: true,
       isRoundCompleted: false,
       isGameCompleted: false
-    });
-    
-    // JassStore aktualisieren
-    set((state): JassState => ({
+    }));
+
+    // 5. JassStore aktualisieren
+    set((state) => ({
       ...state,
       currentGameId: newGameId,
       games: [...state.games, newGame],
@@ -575,15 +619,9 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
         }
       }
     }));
-    
-    // Session speichern
-    get().saveSession().catch(console.error);
 
-    // Timer für neues Spiel starten
-    const timerStore = useTimerStore.getState();
-    timerStore.resetGameTimers();
-    timerStore.startGameTimer();
-    timerStore.startRoundTimer();
+    // 6. Session speichern
+    get().saveSession().catch(console.error);
   },
 });
 

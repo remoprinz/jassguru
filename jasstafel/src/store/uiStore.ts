@@ -29,7 +29,6 @@ import {
 } from '../config/FarbeSettings';
 import { NotificationConfig, Notification, JassFinishNotificationConfig } from '../types/notification';
 import type { SpruchMitIcon } from '../types/sprueche';
-
 export enum OnboardingStep {
   INSTALL = 'INSTALL',
   INTRODUCTION = 'INTRODUCTION',
@@ -166,6 +165,7 @@ export interface UIState {
   startScreen: {
     transitionState: 'initial' | 'starting' | 'complete';
     names: PlayerNames;
+    isOpen: boolean;
   };
   history: {
     warning: string | null;
@@ -233,6 +233,8 @@ export interface UIState {
   topSwipeAnimation: boolean;
   bottomSwipeAnimation: boolean;
   notifications: Notification[];
+  isSettingsOpen: boolean;
+  isCalculatorOpen: boolean;
 }
 
 interface UIActions {
@@ -302,10 +304,12 @@ interface UIActions {
   closeGameInfo: () => void;
   setTopSwipeAnimation: (active: boolean) => void;
   setBottomSwipeAnimation: (active: boolean) => void;
-  showNotification: (config: NotificationConfig) => void;
+  showNotification: (config: NotificationConfig ) => void;
   removeNotification: (id: string) => void;
   setResultatPosition: (position: TeamPosition) => void;
   setResultatAnimationComplete: (complete: boolean) => void;
+  canOpenGameInfo: () => boolean;
+  setStartScreenOpen: (isOpen: boolean) => void;
 }
 
 export type UIStore = UIState & UIActions;
@@ -370,7 +374,8 @@ const initialState: UIState = {
   },
   startScreen: {
     transitionState: 'initial',
-    names: { 1: '', 2: '', 3: '', 4: '' }
+    names: { 1: '', 2: '', 3: '', 4: '' },
+    isOpen: true
   },
   history: {
     warning: null
@@ -455,6 +460,8 @@ const initialState: UIState = {
   topSwipeAnimation: false,
   bottomSwipeAnimation: false,
   notifications: [],
+  isSettingsOpen: false,
+  isCalculatorOpen: false,
 };
 
 // Load-Funktionen für jeden Settings-Typ
@@ -486,7 +493,8 @@ export const useUIStore = create<UIStore>()(
         ...state,  // Alle anderen Settings (Farbe etc.) bleiben erhalten
         startScreen: {
           transitionState: 'initial',
-          names: { 1: '', 2: '', 3: '', 4: '' }
+          names: { 1: '', 2: '', 3: '', 4: '' },
+          isOpen: true
         }
       })),
 
@@ -565,13 +573,13 @@ export const useUIStore = create<UIStore>()(
         calculator: { ...state.calculator, isFlipped: flipped } 
       })),
       
-      setStartScreenState: (state: 'initial' | 'starting' | 'complete') => 
-        set(prev => ({
-          startScreen: {
-            ...prev.startScreen,
-            transitionState: state
-          }
-        })),
+      setStartScreenState: (state: 'initial' | 'starting' | 'complete') => set(prevState => ({
+        startScreen: {
+          ...prevState.startScreen,
+          transitionState: state,
+          isOpen: state !== 'complete'  // Schließen wenn 'complete'
+        }
+      })),
         
       setStartScreenNames: (names: PlayerNames) =>
         set(prev => ({
@@ -604,7 +612,8 @@ export const useUIStore = create<UIStore>()(
         },
         startScreen: {
           transitionState: 'initial',
-          names: { 1: '', 2: '', 3: '', 4: '' }
+          names: { 1: '', 2: '', 3: '', 4: '' },
+          isOpen: true
         },
         history: {
           warning: null
@@ -974,21 +983,22 @@ export const useUIStore = create<UIStore>()(
       },
       setTopSwipeAnimation: (active) => set({ topSwipeAnimation: active }),
       setBottomSwipeAnimation: (active) => set({ bottomSwipeAnimation: active }),
-      showNotification: (config: NotificationConfig) => set(state => ({
-        notifications: [
-          ...state.notifications,
-          {
-            ...config,
-            id: Math.random().toString(36).substr(2, 9),
-            timestamp: Date.now(),
-            type: config.type || 'info',
-            position: config.position || 'bottom'
-          } as Notification
-        ]
-      })),
-      removeNotification: (id) => set(state => ({
-        notifications: state.notifications.filter(n => n.id !== id)
-      })),
+      showNotification: (config) => {
+        const notification: Notification = {
+          ...config,
+          id: crypto.randomUUID(),
+          timestamp: Date.now()
+        };
+        
+        set((state) => ({
+          notifications: [...state.notifications, notification]
+        }));
+      },
+      removeNotification: (id) => {
+        set((state) => ({
+          notifications: state.notifications.filter((n) => n.id !== id)
+        }));
+      },
       setResultatPosition: (position: TeamPosition) => 
         set(state => ({
           resultatKreidetafel: {
@@ -1002,7 +1012,27 @@ export const useUIStore = create<UIStore>()(
             ...state.resultatKreidetafel,
             animationComplete: complete
           }
-        }))
+        })),
+      canOpenGameInfo: () => {
+        const state = get();
+        // StartScreen-Check hinzufügen
+        return !(
+          state.startScreen.isOpen ||  // Neue Bedingung
+          state.settings.isOpen ||
+          state.isCalculatorOpen ||
+          state.menu.isOpen ||
+          state.resultatKreidetafel.isOpen ||
+          state.jassFinishNotification.isOpen ||
+          state.isTutorialInfoOpen ||
+          state.splitContainer.isOpen
+        );
+      },
+      setStartScreenOpen: (isOpen: boolean) => set(prevState => ({
+        startScreen: {
+          ...prevState.startScreen,
+          isOpen
+        }
+      })),
     }),
     {
       name: 'jass-ui-storage',

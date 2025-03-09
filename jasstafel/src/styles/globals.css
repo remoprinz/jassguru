@@ -103,3 +103,7 @@ body {
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}

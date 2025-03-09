@@ -11,11 +11,11 @@ export const aufholjagdNoetigSprueche: SpruchGenerator[] = [
   }),
   (params) => ({
     text: `${params.winnerNames.join(' & ')} ziehen davon - Zeit für ein Comeback der anderen!`,
-    icon: '🔄'
+    icon: '😰'
   }),
   (params) => ({
     text: `Die Luft wird dünn für ${params.loserNames.join(' & ')} - aber aufgeben ist keine Option!`,
-    icon: '💨'
+    icon: '🥺'
   }),
   (params) => ({
     text: `${params.loserNames.join(' & ')}, jetzt oder nie - Zeit für die große Aufholjagd!`,

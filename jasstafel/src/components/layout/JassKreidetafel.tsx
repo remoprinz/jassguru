@@ -27,7 +27,8 @@ import TutorialOverlay from '../tutorial/TutorialOverlay';
 import TutorialInfoDialog from '../tutorial/TutorialInfoDialog';
 import { isDev, FORCE_TUTORIAL } from '../../utils/devUtils';
 import GlobalNotificationContainer from '../notifications/GlobalNotificationContainer';
-import { useTimerStore } from '../../store/timerStore';
+import { useDeviceScale } from '../../hooks/useDeviceScale';
+import html2canvas from 'html2canvas';
 
 interface JassKreidetafelProps {
   middleLineThickness?: number;
@@ -52,7 +53,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     scores: { top: topScore, bottom: bottomScore },
     currentPlayer,
     currentRound,
-    updateScoreByStrich
+    addWeisPoints
   } = useGameStore();
 
   const { isJassStarted } = useJassStore();
@@ -63,7 +64,6 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     historyWarning,
     isGameInfoOpen,
     setGameInfoOpen,
-    setLastDoubleClickPosition,
     setOverlayPosition,
     isTutorialInfoOpen
   } = useUIStore();
@@ -90,9 +90,11 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     isActive: isTutorialActive,
     hasCompletedTutorial,
     getCurrentStep,
-    startTutorial,
-    setActive
+    startTutorial
   } = useTutorialStore();
+
+  // Device Scale Hook
+  const { scale, deviceType } = useDeviceScale();
 
   // Onboarding beim ersten Laden
   useEffect(() => {
@@ -236,14 +238,14 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
       
       // Hier die Logik für die Restzahl-Box hinzufügen
       if (boxType === 'restzahl') {
-        updateScoreByStrich(position, 1);  // Genau 1 Punkt für Restzahl-Weis
+        addWeisPoints(position, 1);  // Genau 1 Punkt für Restzahl-Weis
       } else {
         const numeric = parseInt(boxType, 10) || 20;
-        updateScoreByStrich(position, numeric);
+        addWeisPoints(position, numeric);  // addWeisPoints statt updateScoreByStrich
       }
     },
     middleLinePosition,
-    delay: 300
+    delay: 230
   });
 
   // Window Resizing
@@ -375,6 +377,93 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     };
   }, [animateTopSwipe, animateBottomSwipe, setMenuOpen, getCurrentStep]);
 
+  // Screenshot-Funktion hinzufügen
+  const captureAndShareScreenshot = useCallback(async (message: string) => {
+    try {
+      // 1. Originale Werte speichern
+      const originalState = useUIStore.getState().resultatKreidetafel;
+      
+      // 2. Komponente vollständig auf "bottom" setzen
+      useUIStore.setState(state => ({
+        resultatKreidetafel: {
+          ...state.resultatKreidetafel,
+          swipePosition: 'bottom',
+          isFlipped: false
+        }
+      }));
+
+      // 3. Warten auf vollständiges Re-render
+      await new Promise(resolve => setTimeout(resolve, 400));
+
+      // 4. Screenshot-Logik
+      const kreidetafelContent = document.querySelector('.kreidetafel-content');
+      const statistikContainer = document.querySelector('.statistik-container');
+      const buttonContainer = document.querySelector('.button-container');
+      
+      if (!kreidetafelContent || !statistikContainer || !buttonContainer || 
+          !(kreidetafelContent instanceof HTMLElement) ||
+          !(statistikContainer instanceof HTMLElement) ||
+          !(buttonContainer instanceof HTMLElement)) {
+        throw new Error('Erforderliche Elemente nicht gefunden');
+      }
+
+      // 5. Originale Styles speichern
+      const originalStyles = {
+        maxHeight: statistikContainer.style.maxHeight,
+        overflowY: statistikContainer.style.overflowY,
+        buttonDisplay: buttonContainer.style.display
+      };
+
+      // 6. Styles für Screenshot anpassen
+      statistikContainer.style.maxHeight = 'none';
+      statistikContainer.style.overflowY = 'visible';
+      buttonContainer.style.display = 'none';
+
+      try {
+        // 7. Screenshot mit originalen Optionen
+        const canvas = await html2canvas(kreidetafelContent, {
+          useCORS: true,
+          logging: false,
+          width: kreidetafelContent.scrollWidth,
+          height: kreidetafelContent.scrollHeight,
+          scale: 2
+        } as any);
+
+        // 8. Blob erstellen
+        const blob = await new Promise<Blob>((resolve) => {
+          canvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+          }, 'image/png', 1.0);
+        });
+
+        // 9. Share API mit Text und Bild
+        if (navigator.share) {
+          const fullShareText = `${message}\n\nGeneriert von:\n👉 https://jassguru.web.app`;
+          
+          await navigator.share({
+            files: [new File([blob], 'jass-resultat.png', { type: 'image/png' })],
+            text: fullShareText
+          });
+        }
+      } finally {
+        // 10. Ursprüngliche Styles wiederherstellen
+        statistikContainer.style.maxHeight = originalStyles.maxHeight;
+        statistikContainer.style.overflowY = originalStyles.overflowY;
+        buttonContainer.style.display = originalStyles.buttonDisplay;
+
+        // 11. Ursprünglichen Zustand wiederherstellen
+        useUIStore.setState(state => ({
+          resultatKreidetafel: {
+            ...state.resultatKreidetafel,
+            ...originalState
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Screenshot/Share Fehler:', error);
+    }
+  }, []);
+
   if (!mounted) return null;
 
   return (
@@ -382,6 +471,14 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
       className="relative w-full h-full overflow-hidden bg-chalk-black prevent-interactions"
       onClick={handleGlobalClick}
       onContextMenu={(e) => e.preventDefault()}
+      style={{
+        transform: `scale(${scale})`,
+        transformOrigin: 'center center',
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center'
+      }}
     >
       <>
         <TutorialOverlay onCloseMenu={closeMenu} />

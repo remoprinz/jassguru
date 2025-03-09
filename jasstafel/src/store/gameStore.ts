@@ -30,6 +30,7 @@ import { jassAnalytics } from '../statistics/jassAnalytics';
 import { useTimerStore } from './timerStore';
 import { STRICH_WERTE } from '../config/GameSettings';
 import { CARD_SYMBOL_MAPPINGS } from '../config/CardStyles';
+import { createInitialHistoryState } from '../types/jass';
 
 // Hilfsfunktion für die Farbenübersetzung (vereinfacht)
 const getDBFarbe = (farbe: JassColor, cardStyle: CardStyle): string => {
@@ -68,11 +69,6 @@ const initialPlayerNames: PlayerNames = {
   4: '' 
 };
 
-const initialHistoryState: HistoryState = {
-  isNavigating: false,
-  lastNavigationTimestamp: null
-};
-
 const calculateTotalScores = (weis: TeamScores, jass: TeamScores): TeamScores => ({
   top: weis.top + jass.top,
   bottom: weis.bottom + jass.bottom,
@@ -106,7 +102,7 @@ const createInitialState = (initialPlayer: PlayerNumber): GameState => ({
   },
   playerNames: initialPlayerNames,
   currentHistoryIndex: -1,
-  historyState: initialHistoryState,
+  historyState: createInitialHistoryState(),
 });
 
 // Hilfsfunktionen für die History
@@ -173,14 +169,24 @@ const createRoundEntry = (
 
 const validateScore = (score: number): number => Math.max(0, score);
 
-const NAVIGATION_COOLDOWN = 300; // ms
+// Konstanten für die Navigation
+const NAVIGATION_COOLDOWN = 300; // 300ms Cooldown zwischen Navigationen
 
-const linkRoundEntries = (entries: RoundEntry[]): RoundEntry[] => {
-  return entries.map((entry, index) => ({
-    ...entry,
-    previousRoundId: index > 0 ? entries[index - 1].roundId : undefined,
-    nextRoundId: index < entries.length - 1 ? entries[index + 1].roundId : undefined
-  }));
+// Typ für die Navigationsrichtung
+type NavigationDirection = 'forward' | 'backward';
+
+// Hilfsfunktion für die Navigation
+const calculateNewIndex = (
+  currentIndex: number, 
+  direction: NavigationDirection, 
+  historyLength: number
+): number => {
+  const newIndex = direction === 'forward' 
+    ? currentIndex + 1 
+    : currentIndex - 1;
+  
+  // Boundary check
+  return Math.min(Math.max(0, newIndex), historyLength - 1);
 };
 
 // Neue Hilfsfunktion für History-Management
@@ -333,8 +339,37 @@ const calculateTotalStriche = (striche: StricheRecord): number => {
   return Object.values(striche).reduce((sum, count) => sum + count, 0);
 };
 
+// Hilfsfunktion für die Synchronisation mit dem JassStore
+const syncWithJassStore = (state: GameState) => {
+  const jassStore = useJassStore.getState();
+  const currentGame = jassStore.getCurrentGame();
+  if (!currentGame) return;
+
+  // Wichtig: Aktualisiere das aktuelle Spiel im jassStore
+  jassStore.updateCurrentGame({
+    teams: {
+      top: {
+        ...currentGame.teams.top,
+        striche: state.striche.top,
+        jassPoints: state.jassPoints.top,
+        weisPoints: state.weisPoints.top,
+        total: state.scores.top
+      },
+      bottom: {
+        ...currentGame.teams.bottom,
+        striche: state.striche.bottom,
+        jassPoints: state.jassPoints.bottom,
+        weisPoints: state.weisPoints.bottom,
+        total: state.scores.bottom
+      }
+    },
+    roundHistory: state.roundHistory,
+    currentRound: state.currentRound,
+    currentPlayer: state.currentPlayer
+  });
+};
+
 export const useGameStore = create<GameStore>((set, get) => {
-  // Explizit undefined verhindern
   const defaultPlayer: PlayerNumber = 1;
   
   return {
@@ -396,6 +431,10 @@ export const useGameStore = create<GameStore>((set, get) => {
     ) => {
       const timerStore = useTimerStore.getState();
       const { settings } = useUIStore.getState(); // UI Store für cardStyle
+
+      // Timer explizit zurücksetzen bevor wir einen neuen starten
+      timerStore.resetRoundTimer();
+      timerStore.startRoundTimer();
 
       set((state) => {
         const { strokeSettings } = useUIStore.getState(); // Hole aktuelle Stroke-Settings
@@ -555,6 +594,7 @@ export const useGameStore = create<GameStore>((set, get) => {
     },
 
     addWeisPoints: (team: TeamPosition, points: number) => {
+      console.trace('🔍 addWeisPoints called from:');  // Zeigt den Stack-Trace
       set((state) => {
         const newWeisPoints = { ...state.weisPoints };
         newWeisPoints[team] += points;
@@ -715,68 +755,75 @@ export const useGameStore = create<GameStore>((set, get) => {
     },
 
     // Neue History-Navigation Actions
-    navigateHistory: (direction: 'forward' | 'backward') => {
-      const state = get();
-      const now = Date.now();
-      
-      if (state.historyState.lastNavigationTimestamp && 
-          now - state.historyState.lastNavigationTimestamp < NAVIGATION_COOLDOWN) {
-        return;
-      }
-
+    navigateHistory: (direction: NavigationDirection) => {
       set(state => {
+        const now = Date.now();
+        
+        if (state.historyState.isNavigating && 
+            (now - state.historyState.lastNavigationTimestamp) < NAVIGATION_COOLDOWN) {
+          return state;
+        }
+
         const newIndex = direction === 'forward' 
           ? state.currentHistoryIndex + 1 
           : state.currentHistoryIndex - 1;
 
-        // Grundlegende Validierung
-        if (newIndex < -1 || newIndex > state.roundHistory.length) {
-          return state;
-        }
-
-        // Drei mögliche Zustände:
-        // 1. Initialzustand (-1)
+        // Wichtig: Erlaube Navigation zu -1 für den initialen Zustand
         if (newIndex === -1) {
-          return {
+          const initialState = {
             ...createInitialState(state.startingPlayer),
             playerNames: state.playerNames,
-            scoreSettings: state.scoreSettings,    // Behalte Score-Settings
-            farbeSettings: state.farbeSettings,    // Behalte Farben-Settings
             roundHistory: state.roundHistory,
             currentHistoryIndex: -1,
-            historyState: { isNavigating: true, lastNavigationTimestamp: now }
+            scores: { top: 0, bottom: 0 },       // Explizit auf 0 setzen
+            weisPoints: { top: 0, bottom: 0 },   // Explizit auf 0 setzen
+            jassPoints: { top: 0, bottom: 0 },   // Explizit auf 0 setzen
+            striche: {                           // Explizit auf 0 setzen
+              top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
+              bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }
+            },
+            historyState: {
+              isNavigating: true,
+              lastNavigationTimestamp: now
+            }
           };
+
+          // Synchronisiere mit JassStore
+          syncWithJassStore(initialState);
+          return initialState;
         }
 
-        // 2. Historischer Zustand
         const targetEntry = state.roundHistory[newIndex];
-        const historicalState = {
+        const timerStore = useTimerStore.getState();
+        const jassStore = useJassStore.getState();  // Hole den jassStore
+        
+        if (direction === 'forward') {
+          // Beim Vorwärtsgehen Timer explizit reaktivieren
+          timerStore.reactivateGameTimer(jassStore.currentGameId);  // Verwende currentGameId vom jassStore
+        } else if (targetEntry?.timerSnapshot) {
+          // Beim Rückwärtsgehen Timer-Snapshot wiederherstellen
+          timerStore.restoreTimerSnapshot(targetEntry.timerSnapshot);
+        }
+
+        // Historischen Spielzustand wiederherstellen
+        const newState = {
           ...state,
           currentRound: targetEntry.roundState.roundNumber,
           currentPlayer: targetEntry.roundState.nextPlayer,
-          weisPoints: { ...targetEntry.weisPoints },
-          jassPoints: { ...targetEntry.jassPoints },
-          scores: { ...targetEntry.scores },
-          striche: JSON.parse(JSON.stringify(targetEntry.striche)), // Deep copy
-          currentRoundWeis: [...targetEntry.weisActions],
-          isRoundCompleted: targetEntry.isCompleted,
-          farbe: getFarbe(targetEntry),
+          weisPoints: targetEntry.weisPoints,
+          jassPoints: targetEntry.jassPoints,
+          scores: targetEntry.scores,
+          striche: targetEntry.striche,
+          currentRoundWeis: targetEntry.weisActions,
           currentHistoryIndex: newIndex,
-          historyState: { isNavigating: true, lastNavigationTimestamp: now }
+          historyState: {
+            isNavigating: true,
+            lastNavigationTimestamp: now
+          }
         };
 
-        // 3. Aktueller Live-Zustand (nach letztem Eintrag)
-        if (isLatestState(newIndex, state.roundHistory)) {
-          const liveState = get();
-          return {
-            ...historicalState,
-            currentRound: liveState.currentRound,
-            isRoundCompleted: false,
-            farbe: undefined
-          };
-        }
-
-        return historicalState;
+        syncWithJassStore(newState);
+        return newState;
       });
     },
 
@@ -791,24 +838,33 @@ export const useGameStore = create<GameStore>((set, get) => {
     },
 
     jumpToLatest: () => {
-      const state = get();
-      if (state.roundHistory.length === 0) return;
-      
-      const latestEntry = state.roundHistory[state.roundHistory.length - 1];
-      set({
-        ...state,
-        weisPoints: latestEntry.weisPoints,
-        jassPoints: latestEntry.jassPoints,
-        scores: latestEntry.scores,
-        currentPlayer: latestEntry.currentPlayer,
-        currentRound: latestEntry.roundId,
-        striche: convertVisualToStriche(latestEntry.visualStriche),
-        currentRoundWeis: latestEntry.weisActions,
-        currentHistoryIndex: state.roundHistory.length - 1,
-        historyState: {
-          isNavigating: false,
-          lastNavigationTimestamp: Date.now()
+      set(state => {
+        const lastIndex = state.roundHistory.length - 1;
+        if (lastIndex === state.currentHistoryIndex) return state;
+
+        const latestEntry = state.roundHistory[lastIndex];
+        
+        // Timer-Zustand wiederherstellen
+        if (latestEntry.timerSnapshot) {
+          const timerStore = useTimerStore.getState();
+          timerStore.restoreTimerSnapshot(latestEntry.timerSnapshot);
         }
+
+        return {
+          ...state,
+          currentRound: latestEntry.roundState.roundNumber,
+          currentPlayer: latestEntry.roundState.nextPlayer,
+          weisPoints: latestEntry.weisPoints,
+          jassPoints: latestEntry.jassPoints,
+          scores: latestEntry.scores,
+          striche: latestEntry.striche,
+          currentRoundWeis: latestEntry.weisActions,
+          currentHistoryIndex: lastIndex,
+          historyState: {
+            isNavigating: true,
+            lastNavigationTimestamp: Date.now()
+          }
+        };
       });
     },
 
@@ -929,7 +985,6 @@ export const useGameStore = create<GameStore>((set, get) => {
       set(state => {
         const { scoreSettings } = useUIStore.getState();
         
-        // Wenn Berg deaktiviert ist, keine Änderung
         if (!scoreSettings?.enabled?.berg) return state;
 
         const activeTeam = getActiveStrichTeam(state, 'berg');
@@ -943,10 +998,14 @@ export const useGameStore = create<GameStore>((set, get) => {
           newStriche[otherTeam].berg = 0;
         }
 
-        return {
+        const newState = {
           ...state,
           striche: newStriche
         };
+
+        // Wichtig: Synchronisiere mit JassStore
+        syncWithJassStore(newState);
+        return newState;
       });
     },
 
@@ -958,21 +1017,24 @@ export const useGameStore = create<GameStore>((set, get) => {
         // Wenn Berg aktiviert ist, prüfen ob ein Berg existiert
         const bergCheck = scoreSettings?.enabled?.berg 
           ? (state.striche.top.berg > 0 || state.striche.bottom.berg > 0)
-          : true; // Wenn Berg deaktiviert ist, immer true
+          : true;
         
+        // Basisstruktur für die Striche
+        const baseStriche = {
+          ...state.striche
+        };
+
         // Wenn das Team bereits Sieg hat -> komplett entfernen
         if (activeTeam === team) {
-          return {
-            ...state,
-            striche: {
-              ...state.striche,
-              [team]: {
-                ...state.striche[team],
-                sieg: 0,
-                schneider: 0  // Schneider auch entfernen
-              }
-            }
+          baseStriche[team] = {
+            ...baseStriche[team],
+            sieg: 0,
+            schneider: 0
           };
+
+          const newState = { striche: baseStriche };
+          syncWithJassStore({ ...state, ...newState });
+          return newState;
         }
         
         // Sieg kann gesetzt werden wenn:
@@ -980,33 +1042,34 @@ export const useGameStore = create<GameStore>((set, get) => {
         // - Berg aktiviert ist UND existiert
         if (!activeTeam && bergCheck) {
           const otherTeam = team === 'top' ? 'bottom' : 'top';
-          const newState = {
-            ...state,
-            striche: {
-              ...state.striche,
-              [team]: {
-                ...state.striche[team],
-                sieg: STRICH_WERTE.sieg
-              },
-              [otherTeam]: {
-                ...state.striche[otherTeam],
-                sieg: 0
-              }
-            }
+          
+          // Setze Sieg für aktives Team
+          baseStriche[team] = {
+            ...baseStriche[team],
+            sieg: STRICH_WERTE.sieg
+          };
+          
+          // Entferne Sieg und Schneider vom anderen Team
+          baseStriche[otherTeam] = {
+            ...baseStriche[otherTeam],
+            sieg: 0,
+            schneider: 0
           };
 
-          // Automatische Schneider-Prüfung nur wenn aktiviert
+          // Automatische Schneider-Prüfung
           if (scoreSettings?.enabled?.schneider) {
             const otherTeamPoints = state.scores[otherTeam];
             if (otherTeamPoints < scoreSettings.values.schneider) {
-              newState.striche[team].schneider = strokeSettings.schneider;
+              baseStriche[team].schneider = strokeSettings.schneider;
             }
           }
 
+          const newState = { striche: baseStriche };
+          syncWithJassStore({ ...state, ...newState });
           return newState;
         }
 
-        return state;
+        return {};
       });
     },
 
@@ -1054,34 +1117,39 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     addMatsch: (team: TeamPosition) => {
       set(state => {
-        const { strokeSettings } = useUIStore.getState();
-        
-        const isBottomTeamsTurn = state.currentPlayer % 2 === 0;
-        const isKontermatsch = 
-          (isBottomTeamsTurn && team === 'top') || 
-          (!isBottomTeamsTurn && team === 'bottom');
+        // Prüfen ob wir in der Vergangenheit sind
+        if (state.currentHistoryIndex < state.roundHistory.length - 1) {
+          const { showHistoryWarning } = useUIStore.getState();
+          showHistoryWarning({
+            message: 'Möchten Sie wirklich einen Matsch in der Vergangenheit hinzufügen?',
+            onConfirm: () => get().addMatsch(team),
+            onCancel: () => get().jumpToLatest()
+          });
+          return state;
+        }
 
-        const strichTyp = isKontermatsch ? 'kontermatsch' : 'matsch';
-        const increment = strichTyp === 'kontermatsch' 
-          ? strokeSettings.kontermatsch 
-          : STRICH_WERTE.matsch;
+        const newStriche = {
+          ...state.striche,
+          [team]: {
+            ...state.striche[team],
+            matsch: state.striche[team].matsch + 1
+          }
+        };
 
-        console.log('🎲 Matsch/Kontermatsch hinzufügen:', {
-          team,
-          strichTyp,
-          settings: strokeSettings,
-          increment
-        });
+        // Neuen History-Eintrag erstellen
+        const newEntry = createRoundEntry(
+          { ...state, striche: newStriche },
+          get(),
+          'jass',
+          { strichType: 'matsch' }
+        );
+
+        const historyUpdate = truncateFutureAndAddEntry(state, newEntry);
 
         return {
           ...state,
-          striche: {
-            ...state.striche,
-            [team]: {
-              ...state.striche[team],
-              [strichTyp]: state.striche[team][strichTyp] + increment
-            }
-          }
+          striche: newStriche,
+          ...historyUpdate
         };
       });
     },
@@ -1125,7 +1193,46 @@ export const useGameStore = create<GameStore>((set, get) => {
 
       // Timer auf null setzen
       timerStore.resetRoundTimer();
-    }
+    },
+
+    // Neue Methode für Kontermatsch
+    addKontermatsch: (team: TeamPosition) => {
+      set(state => {
+        if (state.currentHistoryIndex < state.roundHistory.length - 1) {
+          const { showHistoryWarning } = useUIStore.getState();
+          showHistoryWarning({
+            message: 'Möchten Sie wirklich einen Kontermatsch in der Vergangenheit hinzufügen?',
+            onConfirm: () => get().addKontermatsch(team),
+            onCancel: () => get().jumpToLatest()
+          });
+          return state;
+        }
+
+        const newStriche = {
+          ...state.striche,
+          [team]: {
+            ...state.striche[team],
+            kontermatsch: state.striche[team].kontermatsch + 1
+          }
+        };
+
+        // Neuen History-Eintrag erstellen
+        const newEntry = createRoundEntry(
+          { ...state, striche: newStriche },
+          get(),
+          'jass',
+          { strichType: 'kontermatsch' }
+        );
+
+        const historyUpdate = truncateFutureAndAddEntry(state, newEntry);
+
+        return {
+          ...state,
+          striche: newStriche,
+          ...historyUpdate
+        };
+      });
+    },
   };
 });
 

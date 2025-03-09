@@ -16,8 +16,8 @@ export const TUTORIAL_CONTENT: TutorialStep[] = [
   // Basic Tutorial Flow
   {
     id: TUTORIAL_STEPS.WELCOME,
-    title: "Willkommen zurück!",
-    content: "Lass uns die wichtigsten Funktionen kennenlernen. Führe die folgendenden Aktionen durch, um die App zu erkunden!",
+    title: "Hoi zäme!",
+    content: "Bereit für eine kleine Führung durch die App? Führe die folgendenden Aktionen durch!",
     overlayPosition: {
       vertical: 'top',
       horizontal: 'center',
@@ -571,19 +571,31 @@ export const TUTORIAL_CONTENT: TutorialStep[] = [
     image: '/welcome-guru.png',
     category: TutorialCategory.TIPS,
     order: 1,
-    autoProgress: false,
-    hideNavigation: true
+    autoProgress: false
   },
   {
-    id: TUTORIAL_STEPS.TIPS_QUICK_CLOSE,
-    title: "Schnelles Schliessen",
-    content: "Tipp: Du kannst alle Komponenten auch durch Klicken ausserhalb des Fensters schliessen - das ist oft schneller als den Schliessen-Button zu treffen.",
+    id: TUTORIAL_STEPS.TIPS_PLAYER_ORDER,
+    title: "Spielerreihenfolge ändern",
+    content: "Falls die Spielerreihenfolge geändert werden muss, einfach auf den Namen klicken und den gewünschten Spieler auswählen.",
     overlayPosition: {
       vertical: 'center',
       horizontal: 'center'
     },
     category: TutorialCategory.TIPS,
     order: 2,
+    image: '/tutorial_pics/dropdown-namen.png',
+    autoProgress: false
+  },
+  {
+    id: TUTORIAL_STEPS.TIPS_QUICK_CLOSE,
+    title: "Schnelles Schliessen",
+    content: "Du kannst alle Komponenten auch durch Klicken ausserhalb des Fensters schliessen - das ist oft schneller als den Schliessen-Button zu treffen.",
+    overlayPosition: {
+      vertical: 'center',
+      horizontal: 'center'
+    },
+    category: TutorialCategory.TIPS,
+    order: 3,
     icon: BsXCircle,
     autoProgress: false
   },
@@ -596,7 +608,7 @@ export const TUTORIAL_CONTENT: TutorialStep[] = [
       horizontal: 'center'
     },
     category: TutorialCategory.TIPS,
-    order: 3,
+    order: 4,
     icon: BsApple,
     autoProgress: false,
     onExit: () => {

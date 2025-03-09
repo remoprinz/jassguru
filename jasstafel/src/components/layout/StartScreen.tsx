@@ -14,8 +14,7 @@ const screenVariants = {
 };
 
 const StartScreen: React.FC = () => {
-  const { startGame } = useGameStore();
-  const { setStartScreenState } = useUIStore();
+  const { setStartScreenState, showNotification } = useUIStore();
   const jassStore = useJassStore();
   const timerStore = useTimerStore();
   const tutorialStore = useTutorialStore();
@@ -24,7 +23,7 @@ const StartScreen: React.FC = () => {
   const [names, setNames] = useState<PlayerNames>({
     1: '', 2: '', 3: '', 4: ''
   });
-  const [teamConfig, setTeamConfigState] = useState<TeamConfig>(DEFAULT_TEAM_CONFIG);
+  const [teamConfig] = useState<TeamConfig>(DEFAULT_TEAM_CONFIG);
 
   // Neuer State für den Startspieler
   const [startingPlayer, setStartingPlayer] = useState<PlayerNumber>(1);
@@ -58,6 +57,47 @@ const StartScreen: React.FC = () => {
   };
 
   const handleStart = async () => {
+    // Prüfen ob Namen eingegeben wurden
+    const emptyNames = Object.entries(names).filter(([_, name]) => !name.trim());
+    
+    if (emptyNames.length > 0) {
+      showNotification({
+        type: 'warning',
+        message: 'Es wurden nicht alle Spielernamen eingegeben. Möchtest du trotzdem fortfahren?',
+        actions: [
+          {
+            label: 'Ohne\nNamen',  // Zeilenumbruch für bessere Lesbarkeit
+            onClick: async () => {
+              // Standardnamen vergeben
+              const validatedNames: PlayerNames = {
+                1: names[1]?.trim() || `Spieler 1`,
+                2: names[2]?.trim() || `Spieler 2`,
+                3: names[3]?.trim() || `Spieler 3`,
+                4: names[4]?.trim() || `Spieler 4`
+              };
+              setNames(validatedNames);
+              await startGameFlow(validatedNames);
+            }
+          },
+          {
+            label: 'Namen\neingeben',  // Zeilenumbruch für bessere Lesbarkeit
+            onClick: () => {
+              // Fokus auf das erste leere Namensfeld setzen
+              const firstEmptyField = document.querySelector<HTMLInputElement>(`input[data-player="${emptyNames[0][0]}"]`);
+              firstEmptyField?.focus();
+            }
+          }
+        ]
+      });
+      return;
+    }
+
+    // Wenn alle Namen vorhanden sind, direkt starten
+    await startGameFlow(names);
+  };
+
+  // Neue Hilfsfunktion für den eigentlichen Start-Flow
+  const startGameFlow = async (playerNames: PlayerNames) => {
     // Tutorial-Status sicherstellen
     if (tutorialStore.isActive) {
       console.log('🎓 Force ending tutorial on game start...');
@@ -67,18 +107,10 @@ const StartScreen: React.FC = () => {
     // Erst den StartScreen-State zurücksetzen
     useUIStore.getState().resetStartScreen();
 
-    // Sicherstellen, dass keine leeren Namen existieren
-    const validatedNames: PlayerNames = {
-      1: names[1]?.trim() || `Spieler 1`,
-      2: names[2]?.trim() || `Spieler 2`,
-      3: names[3]?.trim() || `Spieler 3`,
-      4: names[4]?.trim() || `Spieler 4`
-    };
-
     console.log('🎮 StartScreen.handleStart:', {
       startingPlayer,
       teamConfig,
-      validatedNames,
+      playerNames,
     });
 
     // Team-Konfiguration speichern
@@ -86,10 +118,10 @@ const StartScreen: React.FC = () => {
     
     // Namen entsprechend der Team-Konfiguration zuordnen
     const orderedNames: PlayerNames = {
-      1: validatedNames[teamConfig.bottom.includes(1) ? 1 : 2],
-      2: validatedNames[teamConfig.top.includes(2) ? 2 : 1],
-      3: validatedNames[teamConfig.bottom.includes(3) ? 3 : 4],
-      4: validatedNames[teamConfig.top.includes(4) ? 4 : 3]
+      1: playerNames[teamConfig.bottom.includes(1) ? 1 : 2],
+      2: playerNames[teamConfig.top.includes(2) ? 2 : 1],
+      3: playerNames[teamConfig.bottom.includes(3) ? 3 : 4],
+      4: playerNames[teamConfig.top.includes(4) ? 4 : 3]
     };
 
     console.log('📝 Ordered Names:', orderedNames);

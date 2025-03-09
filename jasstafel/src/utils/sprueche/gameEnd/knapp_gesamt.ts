@@ -7,18 +7,18 @@ export const knappGesamtSprueche: SpruchGenerator[] = [
   }),
   (params) => ({
     text: `Das ist Nervenkitzel pur - die Teams trennen nur wenige Striche!`,
-    icon: '🎯'
+    icon: '🫣'
   }),
   (params) => ({
     text: `Kopf an Kopf - hier ist noch alles möglich!`,
-    icon: '🤝'
+    icon: '🫢'
   }),
   (params) => ({
     text: `Ein echter Krimi - jeder Strich zählt jetzt!`,
-    icon: '🎲'
+    icon: '🦹'
   }),
   (params) => ({
     text: `So eng war's schon lange nicht mehr - wer behält die Nerven?`,
-    icon: '🎯'
+    icon: '🫦'
   })
 ]; 

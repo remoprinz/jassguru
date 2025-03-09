@@ -5,7 +5,8 @@ export const TUTORIAL_STEPS = {
   GAME_INFO: 'GAME_INFO',
   WEIS: 'WEIS',
   HISTORY: 'HISTORY',
-  WELCOME: 'WELCOME'
+  WELCOME: 'WELCOME',
+  TIPS_PLAYER_ORDER: 'TIPS_PLAYER_ORDER'
 } as const;
 
 // Gruppierung für die Info-Übersicht (wird später für MenuOverlay verwendet)

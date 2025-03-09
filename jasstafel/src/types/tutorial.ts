@@ -42,7 +42,8 @@
     // Tips Tutorial Flow
     TIPS_WELCOME = 'TIPS_WELCOME',
     TIPS_QUICK_CLOSE = 'TIPS_QUICK_CLOSE',
-    TIPS_IPHONE_WAKE = 'TIPS_IPHONE_WAKE'
+    TIPS_IPHONE_WAKE = 'TIPS_IPHONE_WAKE',
+    TIPS_PLAYER_ORDER = 'TIPS_PLAYER_ORDER'
   }
 
   export type TutorialStepId = keyof typeof TUTORIAL_STEPS;

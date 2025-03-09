@@ -13,7 +13,7 @@ export const comebackSprueche: SpruchGenerator[] = [
 
     return {
       text: `Was für eine Aufholjagd! ${params.winnerNames.join(' & ')} drehen einen ${Math.abs(previousDiff)}-Punkte-Rückstand!`,
-      icon: '🔄'
+      icon: '🥳'
     };
   },
   (params): SpruchMitIcon | null => {
@@ -24,7 +24,7 @@ export const comebackSprueche: SpruchGenerator[] = [
 
     return {
       text: `${params.winnerNames.join(' & ')} beweisen Kampfgeist - vom Rückstand zum Sieg!`,
-      icon: '💪'
+      icon: '🤩'
     };
   },
   // ... weitere Comeback-Sprüche ...

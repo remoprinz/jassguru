@@ -6,6 +6,7 @@ import type {
   BrowserOnboardingStep,
 } from '../../constants/onboardingContent';
 import { usePressableButton } from '../../hooks/usePressableButton';
+import { useDeviceScale } from '../../hooks/useDeviceScale';
 
 interface OnboardingFlowProps {
   show: boolean;
@@ -30,47 +31,65 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   isPWA,
   isBrowserOnboarding
 }) => {
+  const { overlayScale, urlBarPosition } = useDeviceScale();
+
   // Im Development Mode direkt null zurückgeben
   if (process.env.NODE_ENV === 'development') return null;
 
   const previousButton = usePressableButton(onPrevious);
   const nextButton = usePressableButton(onNext);
   const isFirstStep = step === 'WELCOME_SCREEN';
+  const isWelcomeStep = step === 'WELCOME_SCREEN' || step === 'INSTALL_WELCOME';
 
   return (
     <AnimatePresence>
       {show && (
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 flex items-center justify-center z-[9999] p-4"
-        >
+        <>
+          {/* Dunkler Hintergrund-Overlay */}
           <motion.div 
-            key={step}
-            initial={{ scale: 0.95 }}
-            animate={{ scale: 1 }}
-            exit={{ scale: 0.95 }}
-            className="bg-gray-800 p-6 rounded-lg shadow-lg max-w-xs w-full relative text-white"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/90 z-[99998]"
+          />
+          
+          {/* Onboarding Content */}
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className={`fixed inset-0 flex items-center justify-center z-[99999] 
+              ${urlBarPosition === 'top' ? 'pt-16 pb-8' : 'pt-8 pb-16'}`}
           >
-            <div className="flex flex-col items-center justify-center">
-              {isFirstStep ? (
-                <WelcomeStep content={content} />
-              ) : step === 'FINAL_HINTS' ? (
-                <FinalStep />
-              ) : (
-                <StandardStep content={content} />
-              )}
+            <motion.div 
+              key={step}
+              initial={{ scale: 0.95 }}
+              animate={{ 
+                scale: overlayScale,
+                y: urlBarPosition === 'top' ? 40 : -40 
+              }}
+              exit={{ scale: 0.95 }}
+              className="bg-gray-800 p-6 rounded-lg shadow-lg max-w-xs w-full relative text-white"
+            >
+              <div className="flex flex-col items-center justify-center">
+                {isWelcomeStep ? (
+                  <WelcomeStep content={content} />
+                ) : step === 'FINAL_HINTS' ? (
+                  <FinalStep />
+                ) : (
+                  <StandardStep content={content} />
+                )}
 
-              {/* Navigation Buttons */}
-              <NavigationButtons 
-                previousButton={previousButton}
-                nextButton={nextButton}
-                step={step}
-              />
-            </div>
+                {/* Navigation Buttons */}
+                <NavigationButtons 
+                  previousButton={previousButton}
+                  nextButton={nextButton}
+                  step={step}
+                />
+              </div>
+            </motion.div>
           </motion.div>
-        </motion.div>
+        </>
       )}
     </AnimatePresence>
   );
@@ -80,7 +99,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
 const WelcomeStep: React.FC<{ content: OnboardingContent }> = ({ content }) => (
   <>
     <h1 className="text-3xl font-bold mb-4 text-center text-white">
-      Willkommen bei Jassguru
+      {content.title}
     </h1>
     {content.image && (
       <img 
@@ -89,7 +108,10 @@ const WelcomeStep: React.FC<{ content: OnboardingContent }> = ({ content }) => (
         className="w-full h-auto mb-6"
       />
     )}
-    <p className="text-center text-base mb-6">
+    <p className={`
+      text-center text-base whitespace-pre-line
+      ${content.title === "Jassguru in 3 Schritten" ? 'mb-12' : 'mb-6'}
+    `}>
       {content.message}
     </p>
     {content.secondaryMessage && (
@@ -150,6 +172,11 @@ const StandardStep: React.FC<{ content: OnboardingContent }> = ({ content }) => 
     <p className="text-center text-base mb-7">
       {content.message}
     </p>
+    {content.secondaryMessage && (
+      <p className="text-center text-base mb-7">
+        {content.secondaryMessage}
+      </p>
+    )}
   </>
 );
 

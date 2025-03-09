@@ -15,6 +15,7 @@ import { animated, useSpring } from 'react-spring';
 import { GiCardPick } from 'react-icons/gi';
 import { BsLightbulb } from 'react-icons/bs';
 import { TbClipboardText } from 'react-icons/tb';
+import { useDeviceScale } from '../../hooks/useDeviceScale';
 
 // Lokales Mapping für die Info-Dialog Kategorien (nicht exportiert)
 const INFO_CATEGORIES = {
@@ -118,6 +119,7 @@ const TutorialInfoDialog: React.FC = () => {
   const { closeTutorialInfo, isTutorialInfoOpen: isOpen } = useUIStore();
   const isFlipped = useUIStore(state => state.calculator.isFlipped);
   const { setCalculatorFlipped } = useUIStore();
+  const { overlayScale } = useDeviceScale();
 
   // HELP_STEPS in die Komponente verschieben
   const HELP_STEPS = [
@@ -210,7 +212,7 @@ const TutorialInfoDialog: React.FC = () => {
 
   const springProps = useSpring({
     opacity: isOpen ? 1 : 0,
-    transform: `scale(${isOpen ? 1 : 0.95}) rotate(${isFlipped ? '180deg' : '0deg'})`,
+    transform: `scale(${isOpen ? overlayScale : 0.95}) rotate(${isFlipped ? '180deg' : '0deg'})`,
     config: { mass: 1, tension: 300, friction: 20 }
   });
 

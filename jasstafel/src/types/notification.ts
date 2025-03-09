@@ -1,33 +1,52 @@
 import type { SpruchMitIcon } from './sprueche';
+import React from 'react';
+import type { TeamPosition, ChargeDuration } from './jass';
+import type { ReactNode } from 'react';
 
 // Position der Notification auf dem Bildschirm
 export type NotificationPosition = 'top' | 'bottom';
 
-// Art der Notification (bestimmt u.a. die Farbe)
-export type NotificationType = 'warning' | 'info' | 'error' | 'success';
+// 1. Basis-Types
+export type NotificationVariant = 
+  | 'success' 
+  | 'error' 
+  | 'warning' 
+  | 'info' 
+  | 'bedanken'
+  | 'select'  // Neue Variante für Spielerauswahl
+  | 'history';
 
-// Definition einer Aktion (Button) in der Notification
+// Definition einer Aktion in der Notification
 export interface NotificationAction {
-  label: string;
+  label: ReactNode;  // Erlaubt React-Komponenten als Label
   onClick: () => void;
 }
 
-// Basis-Konfiguration für neue Notifications
-export interface NotificationConfig {
-  message: string;
-  type?: NotificationType;
-  position?: NotificationPosition;
+// 2. Basis-Notification Interface
+export interface BaseNotification {
+  id: string;
+  message: string | ReactNode;
+  type: NotificationVariant;
+  timestamp: number;
+  position?: 'top' | 'bottom';
   isFlipped?: boolean;
-  actions?: NotificationAction[];
-  autoHideDuration?: number;
   preventClose?: boolean;
+  actions?: NotificationAction[];
+  image?: string;
 }
 
-// Interne Notification mit zusätzlichen Pflichtfeldern
-export interface Notification extends NotificationConfig {
-  id: string;
-  timestamp: number;
-}
+// Union Type für Notification-Konfigurationen (ohne id/timestamp)
+export type NotificationConfig = Omit<BaseNotification, 'id' | 'timestamp'>;
+
+// 3. Union Type für alle möglichen Notifications
+export type Notification = BaseNotification;
+
+// Type Guard für NotificationAction mit ReactNode Label
+export const isNotificationActionWithReactNode = (
+  action: NotificationAction
+): action is NotificationAction & { label: ReactNode } => {
+  return React.isValidElement(action.label);
+};
 
 // Props für die JassFinish-Notification
 export interface JassFinishNotificationConfig {

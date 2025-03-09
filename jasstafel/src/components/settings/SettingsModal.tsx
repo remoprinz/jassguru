@@ -189,6 +189,8 @@ const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
 
   const [tempStrokeSettings, setTempStrokeSettings] = useState(strokeSettings);
 
+  const [tempInput, setTempInput] = useState<{[key in ScoreMode]?: string}>({});
+
   // Spring Animation
   const springProps = useSpring({
     opacity: settings.isOpen ? 1 : 0,
@@ -256,6 +258,23 @@ const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
       const nextIndex = (MULTIPLIER_OPTIONS.indexOf(current) + 1) % MULTIPLIER_OPTIONS.length;
       return prev.map((m, i) => i === index ? MULTIPLIER_OPTIONS[nextIndex] : m);
     });
+  };
+
+  const handleScoreInputChange = (mode: ScoreMode, inputValue: string) => {
+    // Speichere den rohen Input-Wert
+    setTempInput(prev => ({ ...prev, [mode]: inputValue }));
+    
+    // Wenn der Input leer ist oder keine gültige Zahl, nicht validieren
+    if (!inputValue || isNaN(parseInt(inputValue))) return;
+    
+    const numValue = parseInt(inputValue);
+    
+    // Nur validieren wenn der Wert komplett eingegeben wurde (z.B. über 100)
+    if (mode === 'sieg' && numValue >= 100) {
+      handleScoreChange(mode, numValue);
+    } else if (mode !== 'sieg' && numValue > 0) {
+      handleScoreChange(mode, numValue);
+    }
   };
 
   const handleScoreChange = (mode: ScoreMode, value: number) => {
@@ -377,19 +396,34 @@ const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
 
   const renderScoreSettings = () => (
     <div className="space-y-6">
-      {/* Sieg-Punkte bleiben einzeln */}
+      {/* Sieg-Punkte Input */}
       <div className="flex items-center justify-between bg-gray-700/50 p-3 rounded-lg">
         <span className="text-white text-lg">Sieg-Punkte</span>
         <input
-          type="number"
-          value={tempScores.sieg}
-          onChange={(e) => handleScoreChange('sieg', parseInt(e.target.value) || 0)}
-          onFocus={(e) => e.target.select()}
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          value={tempInput.sieg ?? tempScores.sieg}
+          onChange={(e) => {
+            const value = e.target.value.replace(/[^0-9]/g, '');
+            handleScoreInputChange('sieg', value);
+          }}
+          onBlur={() => {
+            // Bei Verlassen des Feldes final validieren
+            const value = parseInt(tempInput.sieg || '0');
+            handleScoreChange('sieg', value);
+            setTempInput(prev => ({ ...prev, sieg: undefined })); // Reset temp input
+          }}
+          onFocus={(e) => {
+            e.target.select();
+            setTimeout(() => e.target.select(), 0);
+          }}
           className="w-24 px-3 py-2 bg-gray-600 text-white rounded-lg text-right
             focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-          min={SCORE_RANGES.sieg.min}
-          max={SCORE_RANGES.sieg.max}
-          style={{ WebkitAppearance: 'none', MozAppearance: 'textfield' }}
+          style={{ 
+            WebkitAppearance: 'none',
+            MozAppearance: 'textfield'
+          }}
         />
       </div>
 
@@ -411,15 +445,26 @@ const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
           <div className="flex items-center justify-between p-3">
             <span className="text-white text-lg">Berg-Punkte</span>
             <input
-              type="number"
-              value={tempScores.berg}
-              onChange={(e) => handleScoreChange('berg', parseInt(e.target.value) || 0)}
-              onFocus={(e) => e.target.select()}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={tempInput.berg ?? tempScores.berg}
+              onChange={(e) => {
+                const value = e.target.value.replace(/[^0-9]/g, '');
+                handleScoreInputChange('berg', value);
+              }}
+              onBlur={() => {
+                // Bei Verlassen des Feldes final validieren
+                const value = parseInt(tempInput.berg || '0');
+                handleScoreChange('berg', value);
+                setTempInput(prev => ({ ...prev, berg: undefined })); // Reset temp input
+              }}
               className="w-24 px-3 py-2 bg-gray-600 text-white rounded-lg text-right
                 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              min={SCORE_RANGES.berg.min}
-              max={Math.floor(tempScores.sieg / 2)}
-              style={{ WebkitAppearance: 'none', MozAppearance: 'textfield' }}
+              style={{ 
+                WebkitAppearance: 'none',
+                MozAppearance: 'textfield'
+              }}
             />
           </div>
         )}
@@ -443,15 +488,26 @@ const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
           <div className="flex items-center justify-between p-3">
             <span className="text-white text-lg">Schneider-Punkte</span>
             <input
-              type="number"
-              value={tempScores.schneider}
-              onChange={(e) => handleScoreChange('schneider', parseInt(e.target.value) || 0)}
-              onFocus={(e) => e.target.select()}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={tempInput.schneider ?? tempScores.schneider}
+              onChange={(e) => {
+                const value = e.target.value.replace(/[^0-9]/g, '');
+                handleScoreInputChange('schneider', value);
+              }}
+              onBlur={() => {
+                // Bei Verlassen des Feldes final validieren
+                const value = parseInt(tempInput.schneider || '0');
+                handleScoreChange('schneider', value);
+                setTempInput(prev => ({ ...prev, schneider: undefined })); // Reset temp input
+              }}
               className="w-24 px-3 py-2 bg-gray-600 text-white rounded-lg text-right
                 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              min={SCORE_RANGES.schneider.min}
-              max={Math.floor(tempScores.sieg / 2)}
-              style={{ WebkitAppearance: 'none', MozAppearance: 'textfield' }}
+              style={{ 
+                WebkitAppearance: 'none',
+                MozAppearance: 'textfield'
+              }}
             />
           </div>
         )}

@@ -7,7 +7,7 @@ export const dominierendSprueche: SpruchGenerator[] = [
   }),
   (params) => ({
     text: `Die Luft wird dünn! ${params.winnerNames.join(' & ')} wittern den Sieg!`,
-    icon: '👃'
+    icon: '🥳'
   }),
   (params) => ({
     text: `${params.winnerNames.join(' & ')} haben den Sieg vor Augen - jetzt bloss nicht nachlassen!`,
@@ -15,7 +15,7 @@ export const dominierendSprueche: SpruchGenerator[] = [
   }),
   (params) => ({
     text: `Das riecht nach Sieg für ${params.winnerNames.join(' & ')}!`,
-    icon: '🌟'
+    icon: '👃'
   }),
   (params) => ({
     text: `${params.winnerNames.join(' & ')} sind auf der Zielgeraden - gleich ist es geschafft!`,

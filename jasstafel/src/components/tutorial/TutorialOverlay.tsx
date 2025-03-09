@@ -193,27 +193,48 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onCloseMenu }) => {
       >
         <div className="flex flex-col items-center w-full max-w-md px-8 mb-8 mx-auto">
           {/* Navigation Buttons */}
-          <div className="w-full flex items-center justify-between gap-4 mb-4">
-            {!isHelpMode ? (
-              <TutorialNavigation
-                showBackButton={!currentStep.hideBackButton}
-                isFirstStep={currentStep.id === TUTORIAL_STEPS.WELCOME}
-                isLastStep={currentStep.id === TUTORIAL_STEPS.BASIC_COMPLETE}
-                onNext={currentStep.id === TUTORIAL_STEPS.BASIC_COMPLETE ? handleEndTutorial : undefined}
-              />
-            ) : (
+          <div className={`w-full flex items-center ${
+            // Wenn es der Welcome Screen ist UND die Checkbox angezeigt wird
+            currentStep?.id === TUTORIAL_STEPS.WELCOME ? 'justify-center' : 'justify-between'
+          } gap-4 mb-4`}>
+            {/* "Verstanden" Button NUR für Help-Mode (wenn man während des Spiels auf Hilfe klickt) */}
+            {isHelpMode && currentStep.category !== TutorialCategory.TIPS ? (
               <button
                 onClick={handleExitHelpStep}
                 className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold 
-                  py-3 px-8 rounded-full w-[180px] mx-auto block"
+                  py-3 px-8 rounded-full w-[180px] mx-auto block
+                  active:bg-yellow-600"
               >
                 Verstanden
               </button>
+            ) : (
+              /* Normale Navigation für alle Tutorial-Flows (Basic, Settings, Tips) */
+              <TutorialNavigation
+                showBackButton={!currentStep.hideBackButton}
+                isFirstStep={
+                  currentStep.id === TUTORIAL_STEPS.WELCOME || 
+                  currentStep.id === TUTORIAL_STEPS.TIPS_WELCOME
+                }
+                isLastStep={
+                  currentStep.id === TUTORIAL_STEPS.BASIC_COMPLETE ||
+                  currentStep.id === TUTORIAL_STEPS.TIPS_IPHONE_WAKE
+                }
+                onNext={
+                  currentStep.id === TUTORIAL_STEPS.BASIC_COMPLETE || 
+                  currentStep.id === TUTORIAL_STEPS.TIPS_IPHONE_WAKE 
+                    ? handleEndTutorial 
+                    : undefined
+                }
+              />
             )}
           </div>
 
-          {/* "Nicht mehr anzeigen" Checkbox - nur im letzten Step des normalen Tutorials */}
-          {!isHelpMode && currentStep.id === TUTORIAL_STEPS.BASIC_COMPLETE && (
+          {/* "Nicht mehr anzeigen" Checkbox - nur im letzten Step des normalen Tutorials oder Tips */}
+          {!isHelpMode && (
+            currentStep.category === TutorialCategory.BASIC || 
+            currentStep.id === TUTORIAL_STEPS.BASIC_COMPLETE || 
+            currentStep.id === TUTORIAL_STEPS.TIPS_IPHONE_WAKE
+          ) && (
             <div className="flex items-center justify-center gap-2 text-white mt-2">
               <input
                 type="checkbox"

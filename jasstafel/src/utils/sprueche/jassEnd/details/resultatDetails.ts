@@ -7,7 +7,7 @@ export const resultatDetailsSprueche: SpruchGenerator[] = [
       : [params.gesamtStand.team2, params.gesamtStand.team1];
 
     return {
-      text: `${leftScore} : ${rightScore} Punkte`,
+      text: `${leftScore} : ${rightScore} Striche`,
       icon: ''
     };
   },

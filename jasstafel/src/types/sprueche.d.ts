@@ -84,4 +84,16 @@ export interface ErweiterterKombinierterSpruch {
 export type ZeitSprueche = {
   gameEnd: Record<SpieltempoKategorie, SpruchGenerator[]>;
   jassEnd: Record<SpieltempoKategorie, SpruchGenerator[]>;
-}; 
+};
+
+export type BedankenChargeLevel = 'none' | 'low' | 'medium' | 'high' | 'super' | 'extreme';
+
+export interface BedankenSpruch {
+  text: string;
+  buttons: {
+    cancel: string;
+    confirm: string;
+  };
+}
+
+export type BedankenSprueche = Record<BedankenChargeLevel, BedankenSpruch[]>; 

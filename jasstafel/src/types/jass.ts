@@ -92,12 +92,14 @@ export interface GameUpdate {
   };
   currentRound?: number;
   currentPlayer?: PlayerNumber;
+  startingPlayer?: PlayerNumber;
   roundHistory?: RoundEntry[];
   isGameCompleted?: boolean;
   currentHistoryIndex?: number;
   historyState?: HistoryState;
   isGameStarted?: boolean;
   isRoundCompleted?: boolean;
+  metadata?: GameMetadata;
 }
 
 export interface StatisticProps {
@@ -162,6 +164,8 @@ export interface BaseRoundEntry {
     nextPlayer: PlayerNumber;
   };
   striche: StricheState;
+  timerSnapshot?: TimerSnapshot;
+  actionType: 'weis' | 'jass';
 }
 
 // Spezifische Typen für Weis und Jass
@@ -256,6 +260,18 @@ export interface TeamStand {
   }>;
 }
 
+// Bestehende metadata-Definition erweitern
+export interface GameMetadata {
+  duration?: number;
+  completedAt?: number;
+  roundStats: {
+    weisCount: number;
+    colorStats: Record<JassColor, number>;
+  };
+  // Weitere optionale Felder können hier hinzugefügt werden
+}
+
+// GameEntry Interface anpassen (metadata bleibt optional)
 export interface GameEntry {
   id: number;
   timestamp: number;
@@ -274,13 +290,7 @@ export interface GameEntry {
   isGameStarted: boolean;
   isRoundCompleted: boolean;
   isGameCompleted: boolean;
-  metadata?: {
-    duration?: number;
-    roundStats: {
-      weisCount: number;
-      colorStats: Record<JassColor, number>;
-    };
-  };
+  metadata?: GameMetadata;  // Bleibt optional wie bisher
 }
 
 // Jass State: Aggregierter Zustand über mehrere Spiele
@@ -367,11 +377,17 @@ export interface VisualStricheCounts {
   restZahl: number;
 }
 
-// Neue Types für History-Navigation
+// Interface Definition
 export interface HistoryState {
   isNavigating: boolean;
-  lastNavigationTimestamp: number | null;
+  lastNavigationTimestamp: number;  // Kein null mehr erlaubt
 }
+
+// Hilfsfunktion für die Initialisierung
+export const createInitialHistoryState = (): HistoryState => ({
+  isNavigating: false,
+  lastNavigationTimestamp: Date.now()  // Initialer Timestamp statt null
+});
 
 // Neue Type-Definition für die Striche-Struktur
 export type StricheState = {
@@ -453,6 +469,8 @@ export interface GameActions {
   
   // Neue Aktion für Striche-Total
   getTotalStriche: (team: TeamPosition) => number;
+  addMatsch: (team: TeamPosition) => void;
+  addKontermatsch: (team: TeamPosition) => void;
 }
 
 export type GameStore = GameState & GameActions;
@@ -512,33 +530,6 @@ export interface SessionStatistics {
   mostPlayedColor?: JassColor;
   weisCount: number;
   stricheCount: Record<StrichTyp, number>;
-}
-
-// Erweiterung der bestehenden GameEntry
-export interface GameEntry {
-  id: number;
-  timestamp: number;
-  teams: Record<TeamPosition, TeamStand>;
-  sessionId: string;
-  
-  // Spielzustand
-  currentRound: number;
-  currentPlayer: PlayerNumber;
-  roundHistory: RoundEntry[];
-  
-  // Optionale Metadaten
-  metadata?: {
-    duration?: number;
-    roundStats: {
-      weisCount: number;
-      colorStats: Record<JassColor, number>;
-    };
-  };
-}
-
-// Type Guard Funktion als normale Export-Funktion (nicht als type)
-export function isJassRoundEntry(entry: RoundEntry): entry is JassRoundEntry {
-  return entry.actionType === 'jass';
 }
 
 // Nach den existierenden Types (ca. Zeile 200) hinzufügen:
@@ -760,3 +751,101 @@ export interface TimerAnalytics {
   totalJassTime: number;    // Gesamtdauer des Jass
   currentGameDuration: number;  // Dauer des aktuellen Spiels
 }
+
+// Neue Types für das Charge-System
+export type ChargeLevel = 'none' | 'low' | 'medium' | 'high' | 'super' | 'extreme';
+
+export interface ChargeState {
+  isCharging: boolean;
+  chargeStartTime: number | null;
+  chargeLevel: ChargeLevel;
+}
+
+export type EffectType = 'rain' | 'explosion' | 'cannon' | 'firework';
+
+export interface EffectParams {
+  y: number;
+  gravity: number;
+  startVelocity: number;
+  spread: number;
+}
+
+export interface EffectConfig {
+  chargeLevel: ChargeLevel;
+  team: TeamPosition;
+  isFlipped?: boolean;
+  type: 'berg' | 'sieg';
+  effectType: EffectType;
+}
+
+// Konstanten für das Charge-System
+export const CHARGE_THRESHOLDS = {
+  low: 300,      // 0.8 Sekunden - Minimale Schwelle für Effekt
+  medium: 1000,  // 1.5 Sekunden
+  high: 2000,    // 2.5 Sekunden
+  super: 3000,   // 4 Sekunden
+  extreme: 5000  // 6 Sekunden
+} as const;
+
+// Type Guard für ChargeLevel
+export const isValidChargeLevel = (level: string): level is ChargeLevel => {
+  return ['none', 'low', 'medium', 'high', 'super', 'extreme'].includes(level);
+};
+
+// Bestehende ChargeLevel Type erweitern
+export type ChargeDuration = {
+  duration: number;
+  level: ChargeLevel;
+};
+
+// Bestehende ChargeButtonProps anpassen
+export interface ChargeButtonActionProps {
+  chargeDuration: { 
+    duration: number; 
+    level: ChargeLevel 
+  };
+  type: 'berg' | 'sieg';
+  team: TeamPosition;
+  isActivating: boolean;
+}
+
+export interface TimerSnapshot {
+  elapsedJassTime: number;
+  elapsedGameTime: number;
+  elapsedRoundTime: number;
+  totalPausedTime: number;
+}
+
+// Füge eine Hilfsfunktion für initiales GameState hinzu
+export const createInitialGameState = (
+  initialPlayer: PlayerNumber,
+  playerNames: PlayerNames
+): GameState => ({
+  currentPlayer: initialPlayer,
+  startingPlayer: initialPlayer,
+  initialStartingPlayer: initialPlayer,
+  isGameStarted: false,
+  currentRound: 1,
+  weisPoints: { top: 0, bottom: 0 },
+  jassPoints: { top: 0, bottom: 0 },
+  scores: { top: 0, bottom: 0 },
+  striche: { top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }, bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 } },
+  roundHistory: [],
+  currentRoundWeis: [],
+  isGameCompleted: false,
+  isRoundCompleted: false,
+  scoreSettings: { scores: [0, 0], enabled: [false, false] },
+  farbeSettings: { colors: [], multipliers: [] },
+  playerNames,
+  currentHistoryIndex: 0,
+  historyState: createInitialHistoryState(),
+});
+
+// NEU: Type Guard Funktionen hinzufügen (keine bestehenden Definitionen betroffen)
+export const isJassRoundEntry = (entry: RoundEntry): entry is JassRoundEntry => {
+  return entry.actionType === 'jass';
+};
+
+export const isWeisRoundEntry = (entry: RoundEntry): entry is WeisRoundEntry => {
+  return entry.actionType === 'weis';
+};

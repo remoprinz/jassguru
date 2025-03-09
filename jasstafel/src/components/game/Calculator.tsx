@@ -15,6 +15,7 @@ import { getPictogram } from '../../utils/pictogramUtils';
 import { usePressableButton } from '../../hooks/usePressableButton';
 import { useTutorialStore } from '../../store/tutorialStore';
 import { TUTORIAL_STEPS } from '../../types/tutorial';
+import { useDeviceScale } from '../../hooks/useDeviceScale';
 
 interface CalculatorProps {
   isOpen: boolean;
@@ -48,9 +49,11 @@ const Calculator: React.FC<CalculatorProps> = ({
   const [lastClickTime, setLastClickTime] = useState(0);
   const [isClient, setIsClient] = useState(false);
 
+  const { scale, overlayScale } = useDeviceScale();
+
   const springProps = useSpring({
     opacity: isOpen ? 1 : 0,
-    transform: `scale(${isOpen ? 1 : 0.95}) rotate(${calculator.isFlipped ? '180deg' : '0deg'})`,
+    transform: `scale(${isOpen ? overlayScale : 0.95}) rotate(${calculator.isFlipped ? '180deg' : '0deg'})`,
     config: { mass: 1, tension: 300, friction: 20 }
   });
 
@@ -391,6 +394,7 @@ const Calculator: React.FC<CalculatorProps> = ({
       <animated.div
         style={springProps}
         className="relative w-11/12 max-w-md"
+        onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={(e) => {

@@ -1,35 +1,106 @@
-// Basis-Interface für Effekt-Parameter
-interface EffectParams {
-  chargeAmount?: number;  // Wie "stark" der Effekt sein soll
-  isFlipped?: boolean;    // Für Orientierung des Effekts
-  position?: 'top' | 'bottom';  // Wo der Effekt starten soll
-}
+import confetti, { Shape } from 'canvas-confetti';
+import type { 
+  ChargeLevel, 
+  EffectConfig,
+  EffectParams 
+} from '../../types/jass';
+import { getPerspectiveParams, getEffectParams } from '../../utils/effectUtils';
+import { createBergConfetti, getConfettiIntensity } from './BergConfetti';
+import { createBedankenFirework, getFireworkIntensity } from './BedankenFireworks';
 
-// Effekt-Funktionen mit Platzhalter-Implementierung
-export const triggerBergConfetti = (params?: EffectParams) => {
-  console.log('🏔️ Berg-Effekt!', params);
-  // TODO: Zufällige Auswahl aus verschiedenen Berg-Effekten
-  // - Konfetti-Explosion
-  // - Bergsilhouette-Animation
-  // - "Berg!"-Text-Animation
+// ------------------------------------------------------------------------
+// Helper für Promise-Handling
+// ------------------------------------------------------------------------
+const handleConfettiPromise = (promise: Promise<void> | null): Promise<void> => {
+  return promise || Promise.resolve();
 };
 
-export const triggerBedankenFireworks = (params?: EffectParams) => {
-  console.log('🎆 Bedanken-Effekt!', params);
-  // TODO: Verschiedene Feuerwerk-Effekte
-  // - Klassisches Feuerwerk
-  // - Spiralförmige Funken
-  // - Goldener Regen
+// ------------------------------------------------------------------------
+// Berg-Effekt (Gold-Konfetti)
+// ------------------------------------------------------------------------
+export const triggerBergConfetti = (config: EffectConfig): void => {
+  const { chargeLevel, team, isFlipped = false } = config;
+  
+  const { y, gravity } = getEffectParams(team, isFlipped, 'rain');
+  
+  if (!chargeLevel || chargeLevel === 'none') return;
+
+  const positions = [0.2, 0.35, 0.5, 0.65, 0.8];
+
+  // Erste Welle
+  positions.forEach((x, i) => {
+    setTimeout(() => createBergConfetti(x, y, gravity, chargeLevel), i * 100);
+  });
+
+  // Zusätzliche Wellen für höhere Levels
+  if (chargeLevel === 'high' || chargeLevel === 'super') {
+    setTimeout(() => {
+      positions.forEach((x, i) => {
+        setTimeout(() => createBergConfetti(x, y, gravity, chargeLevel), i * 100);
+      });
+    }, 300);
+  }
+
+  if (chargeLevel === 'extreme') {
+    setTimeout(() => {
+      positions.forEach((x, i) => {
+        setTimeout(() => createBergConfetti(x, y, gravity, chargeLevel), i * 50);
+      });
+    }, 600);
+  }
 };
 
-export const triggerSchneiderEffect = () => {
-  // Implementierung für Schneider-Effekt
-};
+// ------------------------------------------------------------------------
+// Bedanken/Sieg-Effekt (Feuerwerk)
+// ------------------------------------------------------------------------
+export const triggerBedankenFireworks = (config: EffectConfig): void => {
+  const { chargeLevel, team, isFlipped = false } = config;
+  if (chargeLevel === 'none') return;
 
-export const triggerKontermatschChaos = (chargeAmount?: number) => {
-  // Implementierung für Kontermatsch-Chaos
-};
+  const { y, gravity } = getEffectParams(team, isFlipped, 'firework');
+  
+  const positions = [0.2, 0.5, 0.8];
 
-export const triggerMatschConfetti = (chargeAmount?: number, isFlipped?: boolean) => {
-  // Implementierung für Matsch-Konfetti
-}; 
+  // Erste Welle
+  positions.forEach((x, i) => {
+    setTimeout(() => {
+      createBedankenFirework(x, y, gravity, chargeLevel, 'shoot');
+      setTimeout(() => {
+        createBedankenFirework(x, 0.5, -gravity, chargeLevel, 'explode');
+      }, 300);
+    }, i * 500);
+  });
+
+  // Zusätzliche Welle für höhere Levels
+  if (chargeLevel === 'high' || chargeLevel === 'super') {
+    setTimeout(() => {
+      positions.forEach((x, i) => {
+        setTimeout(() => {
+          createBedankenFirework(x, y, gravity, chargeLevel, 'shoot');
+          setTimeout(() => {
+            createBedankenFirework(x, 0.5, -gravity, chargeLevel, 'explode');
+          }, 300);
+        }, i * 500);
+      });
+    }, 800);
+  }
+
+  // Finale für extreme Level
+  if (chargeLevel === 'extreme') {
+    setTimeout(() => {
+      positions.forEach((x, i) => {
+        setTimeout(() => {
+          createBedankenFirework(x, y, gravity, chargeLevel, 'shoot');
+          setTimeout(() => {
+            createBedankenFirework(x, 0.5, -gravity, chargeLevel, 'explode');
+          }, 300);
+          // Zusätzliche Explosionen für extreme Level
+          setTimeout(() => {
+            createBedankenFirework(x + 0.1, 0.5, -gravity, chargeLevel, 'explode');
+            createBedankenFirework(x - 0.1, 0.5, -gravity, chargeLevel, 'explode');
+          }, 400);
+        }, i * 400);
+      });
+    }, 1600);
+  }
+};

@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useEffect } from 'react';
 import { useUIStore } from '../../store/uiStore';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { UIStore } from '../../store/uiStore';
+import { usePressableButton } from '../../hooks/usePressableButton';
 
 const JassFinishNotification: React.FC = () => {
   const notification = useUIStore(state => state.jassFinishNotification);
@@ -66,6 +66,26 @@ const JassFinishNotification: React.FC = () => {
     return icons;
   }, [message, mode]);
 
+  const displayContent = useMemo(() => {
+    if (mode === 'share') {
+      return (
+        <img 
+          src="/welcome-guru.png" 
+          alt="Jass Guru" 
+          className="w-64 h-64 object-cover mb-6 rounded-lg"
+        />
+      );
+    }
+
+    return (
+      <div className="text-6xl mb-4">
+        {displayIcons.map((icon, index) => (
+          <span key={index} className="mx-1">{icon}</span>
+        ))}
+      </div>
+    );
+  }, [mode, displayIcons]);
+
   const handleShare = useCallback(async () => {
     try {
       if (onShare) {
@@ -114,6 +134,10 @@ const JassFinishNotification: React.FC = () => {
     closeJassFinishNotification();
   }, [onContinue, closeJassFinishNotification]);
 
+  // Nur die Button-Handler mit usePressableButton ausstatten
+  const backButton = usePressableButton(handleBack);
+  const actionButton = usePressableButton(mode === 'share' ? handleShare : handleContinue);
+
   useEffect(() => {
     if (isOpen) {
       useUIStore.setState(state => ({
@@ -144,11 +168,7 @@ const JassFinishNotification: React.FC = () => {
             className="bg-gray-800 p-6 rounded-lg shadow-lg max-w-xs w-full relative text-white z-10"
           >
             <div className="flex flex-col items-center justify-center mb-4">
-              <div className="text-6xl mb-2 flex gap-2">
-                {displayIcons.map((icon, index) => (
-                  <span key={index}>{icon}</span>
-                ))}
-              </div>
+              {displayContent}
               <div className="text-center mb-6">
                 <p className="mb-2">
                   {typeof message === 'string' ? message : message.text}
@@ -157,22 +177,34 @@ const JassFinishNotification: React.FC = () => {
             </div>
             <div className="flex justify-between gap-4">
               <button
-                onClick={handleBack}
-                className="flex-1 bg-gray-600 text-white px-6 py-2 rounded-full hover:bg-gray-700 transition-colors text-lg font-semibold"
+                {...backButton.handlers}
+                className={`
+                  flex-1 bg-gray-600 text-white px-6 py-2 rounded-full 
+                  hover:bg-gray-700 transition-colors text-lg font-semibold
+                  ${backButton.buttonClasses}
+                `}
               >
                 Zurück
               </button>
               {mode === 'share' ? (
                 <button
-                  onClick={handleShare}
-                  className="flex-1 bg-yellow-600 text-white px-6 py-2 rounded-full hover:bg-yellow-700 transition-colors text-lg font-semibold"
+                  {...actionButton.handlers}
+                  className={`
+                    flex-1 bg-yellow-600 text-white px-6 py-2 rounded-full 
+                    hover:bg-yellow-700 transition-colors text-lg font-semibold
+                    ${actionButton.buttonClasses}
+                  `}
                 >
                   Teilen
                 </button>
               ) : (
                 <button
-                  onClick={handleContinue}
-                  className="flex-1 bg-green-600 text-white px-6 py-2 rounded-full hover:bg-green-700 transition-colors text-lg font-semibold"
+                  {...actionButton.handlers}
+                  className={`
+                    flex-1 bg-green-600 text-white px-6 py-2 rounded-full 
+                    hover:bg-green-700 transition-colors text-lg font-semibold
+                    ${actionButton.buttonClasses}
+                  `}
                 >
                   Weiterjassen!
                 </button>

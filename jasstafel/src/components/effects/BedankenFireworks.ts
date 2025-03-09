@@ -1,69 +1,74 @@
 import confetti, { Shape } from 'canvas-confetti';
+import type { ChargeLevel, EffectConfig } from '../../types/jass';
+import { CHARGE_THRESHOLDS } from '../../types/jass';
+import { getEffectParams } from '../../utils/effectUtils';
 
-const createFirework = (x: number, y: number, colors: string[]) => {
-  return confetti({
-    particleCount: 100,
-    spread: 360,
-    startVelocity: 25,
-    origin: { x, y },
-    colors: colors.map(color => `rgba${color.substring(4, color.length - 1)}, 0.8)`),
-    ticks: 200,
-    shapes: ['circle' as Shape],
-    gravity: 0.8,
-    decay: 0.94,
-    scalar: 2
-  });
-};
-
-export const triggerBedankenFireworks = (chargeAmount: number) => {
-  const burstCount = Math.floor(chargeAmount * 5); // Max 5 Feuerwerke
-  const colors = [
-    'rgba(0, 255, 0, 0.8)',    // Hellgrün
-    'rgba(50, 205, 50, 0.8)',  // Limegreen
-    'rgba(152, 251, 152, 0.8)' // Palegreen
-  ];
+export function createBedankenFirework(x: number, y: number, gravity: number, chargeLevel: ChargeLevel, phase: 'shoot' | 'explode') {
+  const intensity = getFireworkIntensity(chargeLevel);
   
-  // Rakete von unten nach oben mit Rauchspur
-  const rocketAnimation = (x: number) => {
-    return new Promise<void>((resolve) => {
-      let position = 0.9; // Start von unten
-      const interval = setInterval(() => {
-        position -= 0.1;
-        
-        // Rauchspur hinzufügen
-        confetti({
-          particleCount: 3,
-          spread: 10,
-          startVelocity: 1,
-          origin: { x, y: position + 0.1 },
-          colors: ['rgba(128, 128, 128, 0.5)'], // Grauer Rauch
-          ticks: 20,
-          shapes: ['circle' as Shape],
-          gravity: 0.3,
-          decay: 0.95,
-          scalar: 0.5
-        });
+  // Wenn gravity negativ (flipped), dann schießen wir von oben nach unten
+  const startVelocity = phase === 'shoot' 
+    ? (gravity < 0 ? 45 : -45)  // Bei negativer Gravitation nach unten schießen
+    : 30;
+  
+  return confetti({
+    particleCount: phase === 'shoot' ? 10 : Math.floor(intensity / 5),
+    origin: { x, y },
+    spread: phase === 'shoot' ? 15 : 360,  // Schmal hoch, dann kreisförmig explodieren
+    startVelocity,
+    gravity: gravity,
+    decay: phase === 'shoot' ? 0.92 : 0.94,
+    shapes: ['circle' as Shape],
+    colors: [
+      '#FF0000', '#00FF00', '#0000FF',
+      '#FFFF00', '#FF00FF', '#00FFFF'
+    ],
+    scalar: 1,  // Immer gleiche Größe
+    ticks: phase === 'shoot' ? 100 : (chargeLevel === 'extreme' ? 200 : 150)
+  });
+}
 
-        if (position <= 0.3) { // Explosion bei y=0.3
-          clearInterval(interval);
-          createFirework(x, position, colors);
-          
-          // Zweite, verzögerte Explosion für mehr Effekt
-          setTimeout(() => {
-            createFirework(x + 0.1, position + 0.1, colors);
-          }, 100);
-          
-          resolve();
-        }
-      }, 50);
-    });
-  };
-
-  // Mehrere Raketen nacheinander
-  for (let i = 0; i < burstCount; i++) {
-    setTimeout(() => {
-      const randomX = 0.2 + Math.random() * 0.6; // Zwischen 0.2 und 0.8
-      rocketAnimation(randomX);
-    }, i * 300);
+export const getFireworkIntensity = (chargeLevel: ChargeLevel): number => {
+  switch (chargeLevel) {
+    case 'low': return 500;       // Basis-Level
+    case 'medium': return 1000;    // Deutlich mehr
+    case 'high': return 2500;      // Jetzt wird's wild
+    case 'super': return 5000;    // SEHR viel
+    case 'extreme': return 10000;  // ABSOLUT MASSIV
+    default: return 0;          
   }
 };
+
+export async function triggerBedankenFireworks(config: EffectConfig): Promise<void> {
+  const { chargeLevel, team, isFlipped = false } = config;
+  if (chargeLevel === 'none') return;
+
+  const duration = CHARGE_THRESHOLDS[chargeLevel];
+  if (!duration) return;
+
+  const { y, gravity } = getEffectParams(team, isFlipped, 'firework');
+  
+  const positions = chargeLevel === 'extreme' ? 
+    [0.2, 0.35, 0.5, 0.65, 0.8] :  // 5 Positionen
+    chargeLevel === 'super' ? 
+    [0.25, 0.5, 0.75] :            // 3 Positionen
+    [0.3, 0.7];                     // 2 Basis-Positionen
+
+  const endTime = Date.now() + duration;
+  
+  while (Date.now() < endTime) {
+    for (const baseX of positions) {
+      // Schuss mit originaler Gravitation
+      createBedankenFirework(baseX, y, gravity, chargeLevel, 'shoot');
+      
+      await new Promise<void>(resolve => setTimeout(resolve, 300));
+      
+      // Explosion mit gleicher Gravitation (nicht mehr umkehren)
+      createBedankenFirework(baseX, 0.5, gravity, chargeLevel, 'explode');
+      
+      await new Promise<void>(resolve => setTimeout(resolve, 500));
+    }
+
+    await new Promise<void>(resolve => setTimeout(resolve, 800));
+  }
+}
