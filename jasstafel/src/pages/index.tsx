@@ -1,19 +1,28 @@
-import React from 'react';
-import JassKreidetafel from '../components/layout/JassKreidetafel';
+'use client';
 
-const Home: React.FC = () => {
-  return (
-    <div className="w-screen h-screen relative z-10">
-      <JassKreidetafel 
-        middleLineThickness={3}
-        zShapeConfig={{
-          innerSpacing: 50,
-          sideSpacing: 0,
-          edgeSpacing: 70
-        }}
-      />
-    </div>
-  );
-};
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
+import WelcomeScreen from '@/components/auth/WelcomeScreen';
+import { useAuthStore } from '@/store/authStore';
 
-export default Home;
+export default function Home() {
+  const router = useRouter();
+  const { status, isGuest, initAuth } = useAuthStore();
+  const [isClient, setIsClient] = useState(false);
+
+  // Client-Side Rendering aktivieren
+  useEffect(() => {
+    setIsClient(true);
+    initAuth();
+  }, [initAuth]);
+
+  // Die automatische Weiterleitung zu /start wurde entfernt
+  // Stattdessen wird nun immer die WelcomeScreen-Komponente angezeigt
+
+  // Server-Rendering vermeiden
+  if (!isClient) {
+    return null;
+  }
+
+  return <WelcomeScreen />;
+}
