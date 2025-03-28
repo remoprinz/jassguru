@@ -29,6 +29,7 @@ import { isDev, FORCE_TUTORIAL } from '../../utils/devUtils';
 import GlobalNotificationContainer from '../notifications/GlobalNotificationContainer';
 import { useDeviceScale } from '../../hooks/useDeviceScale';
 import html2canvas from 'html2canvas';
+import { useAuthStore } from '../../store/authStore';
 
 interface JassKreidetafelProps {
   middleLineThickness?: number;
@@ -40,7 +41,7 @@ interface JassKreidetafelProps {
 }
 
 const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
-  middleLineThickness = 60,
+  middleLineThickness = 4,
   zShapeConfig
 }) => {
   const [mounted, setMounted] = useState(false);
@@ -92,6 +93,9 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     getCurrentStep,
     startTutorial
   } = useTutorialStore();
+
+  // Auth-Status abrufen
+  const { isAuthenticated } = useAuthStore();
 
   // Device Scale Hook
   const { scale, deviceType } = useDeviceScale();
@@ -463,6 +467,18 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
       console.error('Screenshot/Share Fehler:', error);
     }
   }, []);
+
+  // Funktion, die entscheidet, ob das Tutorial angezeigt werden soll
+  const shouldShowTutorial = useCallback(() => {
+    // Tutorial nicht anzeigen, wenn der Benutzer eingeloggt ist
+    if (isAuthenticated()) {
+      console.log('Tutorial deaktiviert für eingeloggte Benutzer');
+      return false;
+    }
+    
+    // Standard Tutorial-Logik für nicht eingeloggte Benutzer
+    return !isGameStarted && !isJassStarted && !isTutorialInfoOpen;
+  }, [isAuthenticated, isGameStarted, isJassStarted, isTutorialInfoOpen]);
 
   if (!mounted) return null;
 

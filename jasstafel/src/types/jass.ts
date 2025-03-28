@@ -849,3 +849,110 @@ export const isJassRoundEntry = (entry: RoundEntry): entry is JassRoundEntry => 
 export const isWeisRoundEntry = (entry: RoundEntry): entry is WeisRoundEntry => {
   return entry.actionType === 'weis';
 };
+
+// Auth-bezogene Typen
+export type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'unauthenticated' | 'error';
+
+export interface AuthUser {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+  emailVerified: boolean;
+  isAnonymous: boolean;
+  metadata: {
+    creationTime?: string;
+    lastSignInTime?: string;
+  };
+}
+
+// Online-Offline Modus
+export type AppMode = 'offline' | 'online';
+
+// Kombinierter User-Context
+export interface UserContext {
+  authUser: AuthUser | null;
+  player: FirestorePlayer | null;
+  isLoading: boolean;
+  error: string | null;
+}
+
+// Firestore Datenmodelle
+export interface FirestoreUser {
+  uid: string;
+  email: string;
+  displayName: string | null;
+  photoURL: string | null;
+  createdAt: any; // Timestamp
+  updatedAt: any; // Timestamp
+  isGuest?: boolean;
+  playerId?: string; // ID des verknüpften Players
+  roles?: string[];
+  preferences?: {
+    theme: string;
+    notifications: boolean;
+  };
+  metadata?: Record<string, any>;
+}
+
+export interface FirestorePlayer {
+  id: string;
+  nickname: string;
+  userId: string | null; // Null für Gastspieler
+  isGuest: boolean;
+  createdAt: any; // Timestamp
+  groupIds: string[]; // Gruppen, in denen dieser Spieler Mitglied ist
+  metadata?: Record<string, any>;
+}
+
+export interface FirestoreGroup {
+  id: string;
+  name: string;
+  description: string | null;
+  createdAt: any; // Timestamp
+  createdBy: string; // User ID
+  adminIds: string[]; // User IDs
+  playerIds: string[]; // Player IDs
+  metadata?: Record<string, any>;
+}
+
+export interface FirestoreTeam {
+  id: string;
+  player1Id: string;
+  player2Id: string;
+  groupId: string;
+  createdAt: any; // Timestamp
+  metadata?: Record<string, any>;
+}
+
+export interface FirestoreGame {
+  id: string;
+  sessionId: string;
+  groupId: string;
+  team1Id: string;
+  team2Id: string;
+  startTime: any; // Timestamp
+  endTime: any | null; // Timestamp
+  startingPlayer: PlayerNumber;
+  currentRound: number;
+  isCompleted: boolean;
+  scores: {
+    team1: {
+      striche: StricheRecord;
+      jassPoints: number;
+      weisPoints: number;
+    };
+    team2: {
+      striche: StricheRecord;
+      jassPoints: number;
+      weisPoints: number;
+    }
+  };
+  metadata?: Record<string, any>;
+}
+
+interface NotificationAction {
+  label: string;
+  onClick: () => void;
+  className?: string; // Optionale className-Eigenschaft hinzufügen
+}

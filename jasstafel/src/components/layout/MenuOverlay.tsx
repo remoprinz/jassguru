@@ -14,6 +14,8 @@ import { TUTORIAL_STEPS } from '../../types/tutorial';
 import { TutorialCategory } from '../../types/tutorial';
 import dynamic from 'next/dynamic';
 import { IconType } from 'react-icons';
+import { useAuthStore } from '../../store/authStore';
+import { useRouter } from 'next/router';
 
 interface MenuOverlayProps {
   isOpen: boolean;
@@ -46,6 +48,8 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
   const [showResetWarning, setShowResetWarning] = useState(false);
   const currentStep = useTutorialStore(state => state.getCurrentStep());
   const { isCategoryCompleted } = useTutorialStore();
+  const authStore = useAuthStore();
+  const router = useRouter();
 
   const iconStyle = "w-12 h-12 p-2 rounded-xl shadow-md transition-transform hover:scale-110";
 
@@ -74,17 +78,18 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
   const handleReset = () => {
     handleButtonPress('trash');
     useUIStore.getState().showNotification({
-      message: "Möchten Sie wirklich das Spiel zurücksetzen? Alle Daten werden gelöscht.",
+      message: "Möchtest du den Jass wirklich beenden? Falls du nicht eingeloggt bist, werden die Daten gelöscht.",
       type: 'warning',
       isFlipped: swipePosition === 'top',
       actions: [
         {
-          label: 'Ja',
-          onClick: handleResetConfirm
+          label: 'Zurück',
+          onClick: () => {}  // Notification schließt automatisch
         },
         {
-          label: 'Abbrechen',
-          onClick: () => {}  // Notification schließt automatisch
+          label: 'Jass beenden!',
+          onClick: handleResetConfirm,
+          className: 'bg-yellow-600 hover:bg-yellow-700'
         }
       ]
     });
@@ -96,6 +101,7 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
     const gameStore = useGameStore.getState();
     const uiStore = useUIStore.getState();
     const timerStore = useTimerStore.getState();
+    const authStore = useAuthStore.getState();
 
     // 1. Zuerst Jass zurücksetzen (triggert isJassStarted = false)
     jassStore.resetJass();
@@ -112,6 +118,15 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
     // 5. Dialog schließen
     setShowResetWarning(false);
     onClose();
+    
+    // 6. Weiterleitung basierend auf Login-Status
+    if (!authStore.isAuthenticated()) {
+      // Nicht eingeloggt -> zurück zum WelcomeScreen
+      router.push('/');
+    } else {
+      // Eingeloggt -> zum StartScreen
+      router.push('/start');
+    }
   }, [onClose]);
 
   const handleResultatClick = useCallback(() => {

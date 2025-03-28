@@ -20,6 +20,7 @@ export type NotificationVariant =
 export interface NotificationAction {
   label: ReactNode;  // Erlaubt React-Komponenten als Label
   onClick: () => void;
+  className?: string; // Optionale className-Eigenschaft für benutzerdefiniertes Styling
 }
 
 // 2. Basis-Notification Interface
