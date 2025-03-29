@@ -17,6 +17,7 @@ import {
 import { useAuthStore } from '@/store/authStore';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useRouter } from 'next/router';
+import Image from 'next/image';
 
 // Schema für die Registrierung
 const registerSchema = z.object({
@@ -28,7 +29,7 @@ const registerSchema = z.object({
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export function RegisterForm() {
-  const { register, status, error, clearError } = useAuthStore();
+  const { register, loginWithGoogle, status, error, clearError } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
@@ -49,6 +50,17 @@ export function RegisterForm() {
       router.push('/jass');
     } catch (error) {
       console.error('Registrierungsfehler:', error);
+    }
+  };
+  
+  const handleGoogleRegister = async () => {
+    clearError();
+    try {
+      await loginWithGoogle();
+      // Nach erfolgreicher Google-Anmeldung direkt zur Jass-Seite navigieren
+      router.push('/jass');
+    } catch (error) {
+      console.error('Google-Registrierungsfehler:', error);
     }
   };
 
@@ -72,10 +84,10 @@ export function RegisterForm() {
                 <FormLabel className="text-gray-300">Name</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="Ihr Name"
+                    placeholder="Dein Jassname"
                     type="text"
                     disabled={isLoading}
-                    className="bg-gray-700 border-gray-600 text-white"
+                    className="bg-gray-800 border-gray-700 text-white focus:border-gray-500"
                     {...field}
                   />
                 </FormControl>
@@ -92,10 +104,10 @@ export function RegisterForm() {
                 <FormLabel className="text-gray-300">E-Mail</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="ihre.email@beispiel.ch"
+                    placeholder="deine.email@beispiel.ch"
                     type="email"
                     disabled={isLoading}
-                    className="bg-gray-700 border-gray-600 text-white"
+                    className="bg-gray-800 border-gray-700 text-white focus:border-gray-500"
                     {...field}
                   />
                 </FormControl>
@@ -116,7 +128,7 @@ export function RegisterForm() {
                       placeholder="••••••••"
                       type={showPassword ? "text" : "password"}
                       disabled={isLoading}
-                      className="bg-gray-700 border-gray-600 text-white pr-20"
+                      className="bg-gray-800 border-gray-700 text-white pr-20 focus:border-gray-500"
                       {...field}
                     />
                     <button
@@ -135,13 +147,40 @@ export function RegisterForm() {
 
           <Button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+            className="w-full bg-green-600 hover:bg-green-700 text-white h-12 rounded-md"
             disabled={isLoading}
           >
             {isLoading ? "Registrierung..." : "Registrieren"}
           </Button>
         </form>
       </Form>
+      
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t border-gray-700" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-gray-800 px-2 text-gray-400">
+            oder
+          </span>
+        </div>
+      </div>
+      
+      <Button
+        variant="outline"
+        className="w-full bg-white hover:bg-gray-50 text-gray-600 border border-gray-300 font-medium h-12 rounded-md flex items-center justify-center"
+        onClick={handleGoogleRegister}
+        disabled={isLoading}
+      >
+        <Image 
+          src="/google-logo.svg" 
+          alt="Google Logo" 
+          width={18} 
+          height={18} 
+          className="mr-3" 
+        />
+        Mit Google fortfahren
+      </Button>
     </div>
   );
 } 

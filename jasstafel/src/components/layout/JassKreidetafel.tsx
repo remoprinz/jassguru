@@ -30,7 +30,6 @@ import GlobalNotificationContainer from '../notifications/GlobalNotificationCont
 import { useDeviceScale } from '../../hooks/useDeviceScale';
 import html2canvas from 'html2canvas';
 import { useAuthStore } from '../../store/authStore';
-
 interface JassKreidetafelProps {
   middleLineThickness?: number;
   zShapeConfig: {

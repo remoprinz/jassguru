@@ -495,11 +495,19 @@ const ResultatKreidetafel = () => {
   const kreidetafelRef = useRef<HTMLDivElement>(null);
 
   const handleShareAndComplete = useCallback(async () => {
+    // Diese Variablen außerhalb von try/finally deklarieren, 
+    // damit sie in beiden Blöcken sichtbar sind
+    let localStatistikContainer: HTMLElement | null = null;
+    let localButtonContainer: HTMLElement | null = null;
+    const localOriginalStyles = {
+      maxHeight: '',
+      overflowY: '',
+      buttonDisplay: ''
+    };
+    const localOriginalState = useUIStore.getState().resultatKreidetafel;
+
     try {
       console.log("🔄 Screenshot-Prozess gestartet");
-      
-      // 1. Originale Werte speichern
-      const originalState = useUIStore.getState().resultatKreidetafel;
       
       // 2. Komponente vollständig auf "bottom" setzen
       useUIStore.setState(state => ({
@@ -526,151 +534,117 @@ const ResultatKreidetafel = () => {
       console.log("✅ Element für Screenshot gefunden:", kreidetafelContent);
 
       // 5. Alle relevanten Container identifizieren
-      const statistikContainer = document.querySelector('.statistik-container');
-      const buttonContainer = document.querySelector('.grid.gap-4.mt-4'); // Buttons Container
+      localStatistikContainer = document.querySelector('.statistik-container') as HTMLElement | null;
+      localButtonContainer = document.querySelector('.grid.gap-4.mt-4') as HTMLElement | null;
       
-      // Typensichere Variablen-Definition
-      const originalStyles: {
-        maxHeight?: string;
-        overflowY?: string;
-        buttonDisplay?: string;
-      } = {};
-      
-      if (statistikContainer instanceof HTMLElement && buttonContainer instanceof HTMLElement) {
+      if (localStatistikContainer && localButtonContainer) {
         // Speichern der originalen Stile
-        originalStyles.maxHeight = statistikContainer.style.maxHeight;
-        originalStyles.overflowY = statistikContainer.style.overflowY;
-        originalStyles.buttonDisplay = buttonContainer.style.display;
+        localOriginalStyles.maxHeight = localStatistikContainer.style.maxHeight;
+        localOriginalStyles.overflowY = localStatistikContainer.style.overflowY;
+        localOriginalStyles.buttonDisplay = localButtonContainer.style.display;
         
         // Styles für optimalen Screenshot anpassen
-        statistikContainer.style.maxHeight = 'none'; // Alles anzeigen
-        statistikContainer.style.overflowY = 'visible'; // Kein Scrolling
-        buttonContainer.style.display = 'none'; // Buttons ausblenden
+        localStatistikContainer.style.maxHeight = 'none'; // Alles anzeigen
+        localStatistikContainer.style.overflowY = 'visible'; // Kein Scrolling
+        localButtonContainer.style.display = 'none'; // Buttons ausblenden
         console.log("✅ Container-Styles angepasst für vollständigen Screenshot");
       } else {
         console.warn("⚠️ Nicht alle Container gefunden, fahre mit Fallback-Logik fort");
       }
 
-// ... existing code ...
-try {
-  console.log("📸 Erstelle Screenshot mit html2canvas");
-  const canvas = await html2canvas(kreidetafelContent, {
-    background: '#1F2937',
-    useCORS: true,
-    logging: true,
-    width: kreidetafelContent.scrollWidth,
-    height: kreidetafelContent.scrollHeight,
-    scale: 2
-  } as any);
+      console.log("📸 Erstelle Screenshot mit html2canvas");
+      const canvas = await html2canvas(kreidetafelContent, {
+        background: '#1F2937',
+        useCORS: true,
+        logging: true,
+        width: kreidetafelContent.scrollWidth,
+        height: kreidetafelContent.scrollHeight,
+        scale: 2
+      } as any);
 
-// ... existing code ...
+      console.log("✅ Canvas erstellt:", { 
+        width: canvas.width, 
+        height: canvas.height 
+      });
 
-        console.log("✅ Canvas erstellt:", { 
-          width: canvas.width, 
-          height: canvas.height 
-        });
+      // 7. Blob erstellen
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        try {
+          canvas.toBlob((b) => {
+            if (b) {
+              console.log("✅ Blob erstellt:", { 
+                size: b.size, 
+                type: b.type 
+              });
+              resolve(b);
+            } else {
+              reject(new Error("Blob ist null"));
+            }
+          }, 'image/png', 1.0);
+        } catch (error) {
+          console.error("❌ Fehler bei toBlob():", error);
+          reject(error);
+        }
+      });
 
-        // 7. Blob erstellen
-        const blob = await new Promise<Blob>((resolve, reject) => {
-          try {
-            canvas.toBlob((b) => {
-              if (b) {
-                console.log("✅ Blob erstellt:", { 
-                  size: b.size, 
-                  type: b.type 
-                });
-                resolve(b);
-              } else {
-                reject(new Error("Blob ist null"));
-              }
-            }, 'image/png', 1.0);
-          } catch (error) {
-            console.error("❌ Fehler bei toBlob():", error);
-            reject(error);
-          }
-        });
+      // 8. File erstellen
+      const file = new File([blob], 'jass-resultat.png', { type: 'image/png' });
+      console.log("✅ File erstellt:", { 
+        name: file.name, 
+        size: file.size, 
+        type: file.type 
+      });
 
-        // 8. File erstellen
-        const file = new File([blob], 'jass-resultat.png', { type: 'image/png' });
-        console.log("✅ File erstellt:", { 
-          name: file.name, 
-          size: file.size, 
-          type: file.type 
-        });
-
-        // 9. Share API mit Text und Bild
-        if (navigator.share) {
-          const notification = useUIStore.getState().jassFinishNotification;
-          const shareText = notification?.message 
-            ? typeof notification.message === 'string' 
-              ? notification.message 
-              : notification.message.text
-            : 'Jass Resultat';
-            
-          const fullShareText = `${shareText}\n\nGeneriert von:\n👉 https://jassguru.web.app`;
+      // 9. Share API mit Text und Bild
+      if (navigator.share) {
+        const notification = useUIStore.getState().jassFinishNotification;
+        const shareText = notification?.message 
+          ? typeof notification.message === 'string' 
+            ? notification.message 
+            : notification.message.text
+          : 'Jass Resultat';
           
-          const shareData = { 
-            files: [file],
-            text: fullShareText
-          };
-          
-          // WICHTIG: Überprüfen ob das Teilen von Files unterstützt wird
-          if (navigator.canShare && navigator.canShare(shareData)) {
-            console.log("🔄 Teile mit Files:", shareData);
-            await navigator.share(shareData);
-            console.log("✅ Teilen mit Files erfolgreich!");
-          } else {
-            console.warn("⚠️ Teilen von Files wird nicht unterstützt - versuche Fallback mit nur Text");
-            // Fallback: Nur Text teilen
-            await navigator.share({ text: fullShareText });
-            console.log("✅ Teilen nur mit Text erfolgreich!");
-          }
+        const fullShareText = `${shareText}\n\nGeneriert von:\n👉 https://jassguru.web.app`;
+        
+        const shareData = { 
+          files: [file],
+          text: fullShareText
+        };
+        
+        // WICHTIG: Überprüfen ob das Teilen von Files unterstützt wird
+        if (navigator.canShare && navigator.canShare(shareData)) {
+          console.log("🔄 Teile mit Files:", shareData);
+          await navigator.share(shareData);
+          console.log("✅ Teilen mit Files erfolgreich!");
         } else {
-          console.error("❌ navigator.share wird nicht unterstützt");
+          console.warn("⚠️ Teilen von Files wird nicht unterstützt - versuche Fallback mit nur Text");
+          // Fallback: Nur Text teilen
+          await navigator.share({ text: fullShareText });
+          console.log("✅ Teilen nur mit Text erfolgreich!");
         }
-      } finally {
-        // 10. Ursprüngliche Styles wiederherstellen
-        if (statistikContainer instanceof HTMLElement && buttonContainer instanceof HTMLElement) {
-          statistikContainer.style.maxHeight = originalStyles.maxHeight || '';
-          statistikContainer.style.overflowY = originalStyles.overflowY || '';
-          buttonContainer.style.display = originalStyles.buttonDisplay || '';
-          console.log("✅ Container-Styles wiederhergestellt");
-        }
-
-        // 11. Ursprünglichen Zustand wiederherstellen
-        useUIStore.setState(state => ({
-          resultatKreidetafel: {
-            ...state.resultatKreidetafel,
-            ...originalState
-          }
-        }));
-        console.log("✅ UI-Zustand wiederhergestellt");
+      } else {
+        console.error("❌ navigator.share wird nicht unterstützt");
+      }
+    } finally {
+      // 10. Ursprüngliche Styles wiederherstellen
+      if (localStatistikContainer && localButtonContainer) {
+        localStatistikContainer.style.maxHeight = localOriginalStyles.maxHeight || '';
+        localStatistikContainer.style.overflowY = localOriginalStyles.overflowY || '';
+        localButtonContainer.style.display = localOriginalStyles.buttonDisplay || '';
+        console.log("✅ Container-Styles wiederhergestellt");
       }
 
-      closeResultatKreidetafel();
-    } catch (error) {
-      console.error('❌ Screenshot/Share Fehler:', error);
-      
-      // Fallback: Versuch, zumindest den Text zu teilen
-      try {
-        if (navigator.share) {
-          const notification = useUIStore.getState().jassFinishNotification;
-          const shareText = notification?.message 
-            ? typeof notification.message === 'string' 
-              ? notification.message 
-              : notification.message.text
-            : 'Jass Resultat';
-          
-          const fallbackText = `${shareText}\n\n(Screenshot konnte nicht erstellt werden)\n\nGeneriert von:\n👉 https://jassguru.web.app`;
-          await navigator.share({ text: fallbackText });
-          console.log("✅ Fallback: Teilen nur mit Text erfolgreich!");
+      // 11. Ursprünglichen Zustand wiederherstellen
+      useUIStore.setState(state => ({
+        resultatKreidetafel: {
+          ...state.resultatKreidetafel,
+          ...localOriginalState
         }
-      } catch (shareError) {
-        console.error('❌ Auch Text-Share fehlgeschlagen:', shareError);
-      }
-      
-      closeResultatKreidetafel();
+      }));
+      console.log("✅ UI-Zustand wiederhergestellt");
     }
+
+    closeResultatKreidetafel();
   }, [closeResultatKreidetafel]);
 
   const completeJass = useTimerStore(state => state.completeJass);
@@ -844,46 +818,15 @@ try {
       return;
     }
 
-    const spruch = getJassSpruch({
-      stricheDifference: Math.abs(currentTotals.striche.top - currentTotals.striche.bottom),
-      pointDifference: Math.abs(currentTotals.punkte.top - currentTotals.punkte.bottom),
-      isUnentschieden: currentStatistic === 'striche' 
-        ? currentTotals.striche.top === currentTotals.striche.bottom 
-        : currentTotals.punkte.top === currentTotals.punkte.bottom,
-      winnerNames: currentStatistic === 'striche'
-        ? currentTotals.striche.top > currentTotals.striche.bottom
-          ? [playerNames[2], playerNames[4]].filter(Boolean)
-          : [playerNames[1], playerNames[3]].filter(Boolean)
-        : currentTotals.punkte.top > currentTotals.punkte.bottom
-          ? [playerNames[2], playerNames[4]].filter(Boolean)
-          : [playerNames[1], playerNames[3]].filter(Boolean),
-      loserNames: currentStatistic === 'striche'
-        ? currentTotals.striche.top > currentTotals.striche.bottom
-          ? [playerNames[1], playerNames[3]].filter(Boolean)
-          : [playerNames[2], playerNames[4]].filter(Boolean)
-        : currentTotals.punkte.top > currentTotals.punkte.bottom
-          ? [playerNames[1], playerNames[3]].filter(Boolean)
-          : [playerNames[2], playerNames[4]].filter(Boolean),
-      isStricheMode: currentStatistic === 'striche',
-      type: 'gameEnd',
-      timerAnalytics,
-      totalMatsche: (uiStriche.top.matsch ?? 0) + (uiStriche.bottom.matsch ?? 0),
-      isSchneider: currentTotals.punkte.top < scoreSettings.values.schneider || 
-                  currentTotals.punkte.bottom < scoreSettings.values.schneider,
-      gameStats: teamStats.gameStats,
-      gesamtStand: teamStats.gesamtStand,
-      previousGesamtStand: teamStats.previousGesamtStand,
-      matchCount: {
-        team1: uiStriche.top.matsch ?? 0,
-        team2: uiStriche.bottom.matsch ?? 0
-      }
-    });
-
+    // Einfache Nachricht statt komplexem Spruch
     useUIStore.setState({
       jassFinishNotification: {
         isOpen: true,
         mode: 'continue',
-        message: spruch,
+        message: { 
+          text: "Bist du sicher, dass du ein neues Spiel beginnen möchtest? Die Daten des aktuellen Spiels werden gespeichert.", 
+          icon: '✅' 
+        },
         onBack: closeResultatKreidetafel,
         onContinue: () => {
           closeResultatKreidetafel();
@@ -896,11 +839,6 @@ try {
     handleNextGame,
     canStartNewGame,
     swipePosition,
-    currentTotals,
-    currentStatistic,
-    playerNames,
-    timerAnalytics,
-    uiStriche,
     closeResultatKreidetafel
   ]);
 

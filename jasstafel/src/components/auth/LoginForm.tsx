@@ -19,6 +19,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { FaGoogle } from 'react-icons/fa';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import Image from 'next/image';
 
 const loginSchema = z.object({
   email: z.string().email('Ungültige E-Mail-Adresse'),
@@ -83,10 +84,10 @@ export function LoginForm() {
                 <FormLabel className="text-gray-300">E-Mail</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="ihre.email@beispiel.ch"
+                    placeholder="deine.email@beispiel.ch"
                     type="email"
                     disabled={isLoading}
-                    className="bg-gray-700 border-gray-600 text-white"
+                    className="bg-gray-800 border-gray-700 text-white focus:border-gray-500"
                     {...field}
                   />
                 </FormControl>
@@ -107,7 +108,7 @@ export function LoginForm() {
                       placeholder="••••••••"
                       type={showPassword ? "text" : "password"}
                       disabled={isLoading}
-                      className="bg-gray-700 border-gray-600 text-white pr-20"
+                      className="bg-gray-800 border-gray-700 text-white pr-20 focus:border-gray-500"
                       {...field}
                     />
                     <button
@@ -126,7 +127,7 @@ export function LoginForm() {
 
           <Button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+            className="w-full bg-green-600 hover:bg-green-700 text-white h-12 rounded-md"
             disabled={isLoading}
           >
             {isLoading ? "Anmeldung läuft..." : "Anmelden"}
@@ -147,12 +148,18 @@ export function LoginForm() {
 
       <Button
         variant="outline"
-        className="w-full border-gray-600 text-white hover:bg-gray-700"
+        className="w-full bg-white hover:bg-gray-50 text-gray-600 border border-gray-300 font-medium h-12 rounded-md flex items-center justify-center"
         onClick={handleGoogleLogin}
         disabled={isLoading}
       >
-        <FaGoogle className="mr-2 h-4 w-4" />
-        Mit Google anmelden
+        <Image 
+          src="/google-logo.svg" 
+          alt="Google Logo" 
+          width={18} 
+          height={18} 
+          className="mr-3" 
+        />
+        Mit Google fortfahren
       </Button>
 
       <p className="text-center text-sm text-gray-400">

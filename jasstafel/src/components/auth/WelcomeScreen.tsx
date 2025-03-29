@@ -57,7 +57,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         className="w-full max-w-md bg-gray-800 rounded-xl p-8 shadow-2xl space-y-8"
       >
         <div className="flex flex-col items-center justify-center space-y-4">
-          <div className="relative w-24 h-24 mb-4">
+          <div className="relative w-36 h-36 mb-4">
             <Image
               src="/welcome-guru.png"
               alt="Jass Kreidetafel"
@@ -68,11 +68,11 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           </div>
           
           <h1 className="text-3xl font-bold text-white text-center">
-            Jass Kreidetafel
+            Willkommen bei jassguru.ch
           </h1>
           
           <p className="text-gray-400 text-center">
-            Punktestand im Jass ganz einfach verfolgen!
+            Jetzt anmelden und losjassen!
           </p>
         </div>
 

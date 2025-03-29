@@ -82,7 +82,7 @@ const AuthTabs: React.FC<AuthTabsProps> = ({ defaultTab = 'login' }) => {
         <Button
           variant="outline"
           onClick={handleGuestPlay}
-          className="w-full border-gray-600 text-white hover:bg-gray-700 h-12 rounded-xl"
+          className="w-full bg-gray-700 hover:bg-gray-600 text-white border-gray-600 h-12 rounded-xl"
         >
           Als Gast spielen
         </Button>

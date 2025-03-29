@@ -11,24 +11,22 @@ interface AuthLayoutProps {
 
 export function AuthLayout({ children, title }: AuthLayoutProps) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="flex flex-col items-center max-w-md w-full space-y-8">
-        <div className="flex flex-col items-center">
+    <div className="min-h-screen flex items-center justify-center bg-gray-900 py-6 px-4 sm:px-6 lg:px-8 sm:py-12">
+      <div className="flex flex-col items-center max-w-md w-full space-y-4 sm:space-y-6">
+        <div className="flex flex-col items-center hidden sm:flex">
           <Link href="/">
             <Image
-              src="/icon-192x192.png"
+              src="/welcome-guru.png"
               alt="Jasstafel Logo"
-              width={100}
-              height={100}
+              width={80}
+              height={80}
               className="mb-4"
             />
           </Link>
-          {title && <h2 className="text-center text-3xl font-extrabold text-gray-900">{title}</h2>}
+          {title && <h2 className="text-center text-3xl font-extrabold text-white">{title}</h2>}
         </div>
 
-        <div className="w-full bg-white p-8 rounded-lg shadow-md">
-          {children}
-        </div>
+        {children}
 
         <div className="w-full text-center text-xs text-gray-500">
           &copy; {new Date().getFullYear()} Jassguru.ch - Alle Rechte vorbehalten

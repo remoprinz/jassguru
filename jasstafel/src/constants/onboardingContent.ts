@@ -65,6 +65,10 @@ export interface OnboardingContent {
   image?: string;
   secondaryMessage?: string;
   finalMessage?: string;
+  // Neue Desktop-spezifische Eigenschaften
+  desktopTitle?: string;
+  desktopMessage?: string;
+  desktopSecondaryMessage?: string;
 }
 
 // 3. Der Content
@@ -82,6 +86,9 @@ export const BROWSER_ONBOARDING = {
       title: "Jassguru in 3 Schritten",
       message: "Die moderne Jassguru-App funktioniert ganz ohne App Store. In drei einfachen Schritten bist du startklar:",
       image: "/welcome-guru.png",
+      desktopTitle: "Mobile App installieren",
+      desktopMessage: "Jassguru ist eine Mobile App. Scanne einfach diesen QR-Code mit der Kamera Deines Telefons.",
+      desktopSecondaryMessage: "Die App wird direkt in Deinem Browser geöffnet, wo Du sie mit wenigen Klicks installieren kannst.",
     },
     INSTALL_SHARE: {
       title: "Schritt 1",
@@ -121,6 +128,9 @@ export const BROWSER_ONBOARDING = {
       message: "Die moderne Jassguru-App funktioniert ganz ohne App Store. In drei einfachen Schritten bist du startklar:",
       icon: IoIosDownload,
       image: "/welcome-guru.png",
+      desktopTitle: "Mobile App installieren",
+      desktopMessage: "Jassguru funktioniert am besten als App auf Deinem Smartphone. Scanne einfach diesen QR-Code mit der Kamera Deines Telefons.",
+      desktopSecondaryMessage: "Die App wird direkt in Deinem Browser geöffnet, wo Du sie mit wenigen Klicks installieren kannst.",
     },
     INSTALL_SHARE: {
       title: "Schritt 1",
