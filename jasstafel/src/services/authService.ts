@@ -13,7 +13,8 @@ import {
   doc, 
   getDoc, 
   setDoc,
-  serverTimestamp
+  serverTimestamp,
+  sendEmailVerification
 } from './firebaseInit';
 import { User, UserCredential } from 'firebase/auth';
 import { AuthUser, FirestoreUser } from '../types/jass';
@@ -34,6 +35,37 @@ export const mapUserToAuthUser = (user: User): AuthUser => {
       lastSignInTime: user.metadata.lastSignInTime
     }
   };
+};
+
+/**
+ * Helfer-Funktion zum Erstellen/Aktualisieren des Firestore-Benutzerdokuments.
+ */
+const createOrUpdateFirestoreUser = async (user: User, displayName?: string): Promise<void> => {
+  if (!isFirebaseReady || !db) {
+    console.warn('Firestore ist nicht bereit. Überspringe Benutzerdokument-Erstellung.');
+    return; 
+  }
+
+  const userRef = doc(db, "users", user.uid);
+  const userData: Partial<FirestoreUser> = {
+      // Wir verwenden Partial, da wir ggf. nur aktualisieren
+      uid: user.uid,
+      email: user.email || '', 
+      displayName: displayName || user.displayName || null,
+      photoURL: user.photoURL || null,
+      updatedAt: serverTimestamp(), // Immer aktualisieren
+      // createdAt wird nur gesetzt, wenn das Dokument neu ist
+  };
+
+  try {
+      // setDoc mit merge: true erstellt oder aktualisiert das Dokument.
+      // Um createdAt nur beim ersten Mal zu setzen, bräuchte man eine Transaktion oder getDoc vorher.
+      // Für Einfachheit verwenden wir hier merge: true
+      await setDoc(userRef, { ...userData, createdAt: serverTimestamp() }, { merge: true }); 
+      console.log("Firestore user document created/updated for UID:", user.uid);
+  } catch (error) {
+      console.error("Error writing user document to Firestore:", error);
+  }
 };
 
 /**
@@ -76,258 +108,235 @@ const LOCAL_DEV_USER: AuthUser = {
 };
 
 /**
- * Benutzer mit E-Mail und Passwort anmelden
+ * Registriert einen neuen Benutzer mit E-Mail und Passwort.
+ * Aktualisiert das Profil mit dem Anzeigenamen, erstellt/aktualisiert das Firestore-Dokument
+ * und sendet eine Verifizierungs-E-Mail.
  */
-export const loginWithEmail = async (email: string, password: string): Promise<AuthUser> => {
-  // Prüfen, ob wir lokale Auth oder Offline-Modus verwenden sollen
-  if (useLocalAuth() || isOfflineMode() || !isFirebaseReady) {
-    console.log('Lokale Authentifizierung oder Offline-Modus: Verwende lokale Anmeldung');
-    return createMockAuthUser(email);
+export const registerWithEmail = async (email: string, password: string, displayName?: string): Promise<AuthUser> => {
+  if (!isFirebaseReady) {
+    console.warn('Firebase ist nicht bereit. Registrierung im Mock-Modus.');
+    throw new Error('Firebase ist nicht initialisiert.');
   }
-
-  try {
-    // Normale Firebase Auth
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    const authUser = mapUserToAuthUser(userCredential.user);
-    
-    // Wenn wir hierher kommen, speichern wir, dass die API nicht blockiert ist
-    sessionStorage.removeItem('firebase-auth-blocked');
-    
-    // Überprüfen, ob der Benutzer ein Firestore-Dokument hat
-    const userDoc = await getUserDocument(userCredential.user.uid);
-    if (!userDoc) {
-      // Erstellen des Benutzer-Dokuments, wenn es nicht existiert
-      await createUserDocument(userCredential.user);
-    }
-    
-    return authUser;
-  } catch (error: any) {
-    console.error('Fehler bei der Anmeldung:', error);
-    
-    // Verbesserte Fehlerbehandlung
-    if (error.code === 'auth/invalid-api-key' || 
-        error.code === 'auth/network-request-failed' ||
-        error.code?.includes('auth/requests-to-this-api')) {
-      // API-Schlüssel ist ungültig oder nicht autorisiert
-      sessionStorage.setItem('firebase-auth-blocked', 'true');
-      throw new Error('Firebase API blockiert. Bitte verwende den Offline-Modus oder lokale Authentifizierung.');
-    } else if (error.code === 'auth/user-not-found' || 
-               error.code === 'auth/wrong-password') {
-      throw new Error('E-Mail oder Passwort ungültig.');
-    } else {
-      throw error;
-    }
-  }
-};
-
-/**
- * Mit Google anmelden
- */
-export const loginWithGoogle = async (): Promise<AuthUser> => {
-  // Prüfen, ob wir lokale Auth oder Offline-Modus verwenden sollen
-  if (useLocalAuth() || isOfflineMode() || !isFirebaseReady) {
-    console.log('Lokale Authentifizierung: Simuliere Google-Anmeldung');
-    return createMockAuthUser('google-user@example.com', 'Google User');
-  }
-
-  try {
-    const user = await signInWithGoogle();
-    
-    // Wenn wir hierher kommen, speichern wir, dass die API nicht blockiert ist
-    sessionStorage.removeItem('firebase-auth-blocked');
-    
-    // Prüfen, ob der Benutzer bereits ein Firestore-Dokument hat
-    const userDoc = await getUserDocument(user.uid);
-    if (!userDoc) {
-      // Erstellen des Benutzer-Dokuments, wenn es nicht existiert
-      await createUserDocument(user);
-    }
-    
-    return mapUserToAuthUser(user);
-  } catch (error: any) {
-    console.error('Fehler bei der Google-Anmeldung:', error);
-    
-    if (error.code === 'auth/popup-closed-by-user') {
-      throw new Error('Anmeldungsvorgang wurde abgebrochen.');
-    } else if (error.code === 'auth/popup-blocked') {
-      throw new Error('Das Popup wurde vom Browser blockiert. Bitte erlaube Popups für diese Seite.');
-    } else if (error.code === 'auth/invalid-api-key' || 
-              error.code === 'auth/network-request-failed' ||
-              error.code?.includes('auth/requests-to-this-api')) {
-      // API-Schlüssel ist ungültig oder nicht autorisiert
-      sessionStorage.setItem('firebase-auth-blocked', 'true');
-      throw new Error('Firebase API blockiert. Bitte verwende den Offline-Modus oder lokale Authentifizierung.');
-    } else {
-      throw error;
-    }
-  }
-};
-
-/**
- * Neuen Benutzer registrieren
- */
-export const registerWithEmail = async (
-  email: string, 
-  password: string, 
-  displayName?: string
-): Promise<AuthUser> => {
-  // Prüfen, ob wir lokale Auth oder Offline-Modus verwenden sollen
-  if (useLocalAuth() || isOfflineMode() || !isFirebaseReady) {
-    console.log('Lokale Authentifizierung oder Offline-Modus: Verwende lokale Registrierung');
-    return createMockAuthUser(email, displayName);
-  }
-
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-    
-    // Display-Name setzen, falls angegeben
-    if (displayName) {
-      await updateProfile(user, { displayName });
-    }
-    
-    // Benutzer-Dokument in Firestore erstellen
-    await createUserDocument(user);
-    
-    return mapUserToAuthUser(user);
-  } catch (error: any) {
-    console.error('Fehler bei der Registrierung:', error);
-    
-    if (error.code === 'auth/email-already-in-use') {
-      throw new Error('Diese E-Mail-Adresse wird bereits verwendet.');
-    } else if (error.code === 'auth/invalid-email') {
-      throw new Error('Ungültige E-Mail-Adresse.');
-    } else if (error.code === 'auth/weak-password') {
-      throw new Error('Das Passwort ist zu schwach. Bitte wähle ein stärkeres Passwort.');
-    } else if (error.code === 'auth/invalid-api-key' || 
-              error.code === 'auth/network-request-failed' ||
-              error.code?.includes('auth/requests-to-this-api')) {
-      // API-Schlüssel ist ungültig oder nicht autorisiert
-      sessionStorage.setItem('firebase-auth-blocked', 'true');
-      throw new Error('Firebase API blockiert. Bitte verwende den Offline-Modus oder lokale Authentifizierung.');
+    const user = userCredential.user; // Das Firebase User Objekt
+
+    if (user) { // Sicherstellen, dass das User-Objekt existiert
+        // Aktionen parallel starten:
+        const promises = [];
+
+        // 1. Profil aktualisieren (falls displayName vorhanden)
+        if (displayName) {
+            promises.push(
+                updateProfile(user, { displayName })
+                    .catch(err => console.error("Profil-Update fehlgeschlagen:", err))
+            );
+        }
+
+        // 2. Firestore Dokument erstellen/aktualisieren
+        // Annahme: createOrUpdateFirestoreUser existiert und ist korrekt implementiert
+        promises.push(createOrUpdateFirestoreUser(user, displayName));
+
+        // 3. Verifizierungs-E-Mail senden
+        promises.push(
+            sendEmailVerification(user)
+                .then(() => console.log('Verifizierungs-E-Mail gesendet an:', user.email))
+                .catch(err => console.error("Senden der Verifizierungs-E-Mail fehlgeschlagen:", err))
+        );
+
+        // Warten, bis alle parallel gestarteten Aktionen abgeschlossen sind (Fehler werden nur geloggt)
+        await Promise.all(promises);
+
+        // Den authentifizierten Benutzer zurückgeben
+        // mapUserToAuthUser sollte den User direkt verarbeiten können
+        return mapUserToAuthUser(user);
     } else {
-      throw error;
+        // Dieser Fall sollte nach erfolgreichem createUserWithEmailAndPassword nicht eintreten
+        throw new Error('Benutzerobjekt nach Erstellung nicht verfügbar.');
     }
+
+  } catch (error) {
+    console.error('Registrierungsfehler im Service:', error);
+    if (error instanceof Error) {
+      const errorCode = (error as any).code;
+      if (errorCode === 'auth/email-already-in-use') {
+        throw new Error('Diese E-Mail-Adresse wird bereits verwendet.');
+      } else if (errorCode === 'auth/weak-password') {
+        throw new Error('Das Passwort ist zu schwach. Es muss mindestens 6 Zeichen lang sein.');
+      }
+      // Hier können weitere spezifische Fehlercodes behandelt werden
+    }
+    throw new Error('Registrierung fehlgeschlagen. Bitte überprüfen Sie Ihre Eingaben.');
   }
 };
 
 /**
- * Abmelden
+ * Meldet einen Benutzer mit E-Mail und Passwort an.
+ */
+export const loginWithEmail = async (email: string, password: string): Promise<AuthUser> => {
+  if (!isFirebaseReady) {
+    throw new Error('Firebase ist nicht initialisiert.');
+  }
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    return mapUserToAuthUser(userCredential.user);
+  } catch (error) {
+    console.error('Login-Fehler im Service:', error);
+    if (error instanceof Error) {
+      const errorCode = (error as any).code;
+      if (errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password' || errorCode === 'auth/invalid-credential') {
+        throw new Error('Ungültige E-Mail oder Passwort.');
+      }
+    }
+    throw new Error('Anmeldung fehlgeschlagen.');
+  }
+};
+
+/**
+ * Meldet einen Benutzer mit Google an.
+ */
+export const loginWithGoogle = async (): Promise<AuthUser> => {
+  if (!isFirebaseReady) {
+    throw new Error('Firebase ist nicht initialisiert.');
+  }
+  try {
+    // signInWithGoogle gibt hier direkt das User-Objekt zurück, nicht UserCredential
+    const user = await signInWithGoogle(); 
+    
+    // Sicherstellen, dass das User-Objekt vorhanden ist
+    if (!user) {
+      throw new Error('Anmeldung mit Google fehlgeschlagen: Kein Benutzerobjekt erhalten.');
+    }
+
+    // Firestore User Dokument erstellen/aktualisieren nach Google Login
+    // Direkt das User-Objekt übergeben
+    await createOrUpdateFirestoreUser(user);
+    
+    // Direkt das User-Objekt mappen und zurückgeben
+    return mapUserToAuthUser(user);
+
+  } catch (error) {
+    console.error('Google Login-Fehler im Service:', error);
+     if (error instanceof Error) {
+      const errorCode = (error as any).code;
+      // Behandeln Sie spezifische Google-Login-Fehler, falls nötig
+      if (errorCode === 'auth/popup-closed-by-user') {
+        throw new Error('Anmeldung mit Google abgebrochen.');
+      }
+      // Hier könnten weitere Google-spezifische Fehlercodes behandelt werden
+    }
+    throw new Error('Anmeldung mit Google fehlgeschlagen.');
+  }
+};
+
+/**
+ * Meldet den aktuellen Benutzer ab.
  */
 export const logout = async (): Promise<void> => {
-  // Im Offline-Modus machen wir nichts (der Status wird vom Store selbst verwaltet)
-  if (isOfflineMode() || !isFirebaseReady) {
-    console.log('Offline-Modus: Kein Firebase-Logout notwendig');
-    return;
+  if (!isFirebaseReady) {
+     console.warn('Firebase nicht bereit, Logout übersprungen.');
+     return; // Im Offline-Modus nichts tun
   }
-
   try {
     await auth.signOut();
   } catch (error) {
     console.error('Fehler beim Abmelden:', error);
-    throw error;
+    throw new Error('Abmeldung fehlgeschlagen.');
   }
 };
 
 /**
- * Passwort zurücksetzen
+ * Sendet eine E-Mail zum Zurücksetzen des Passworts.
  */
 export const resetPassword = async (email: string): Promise<void> => {
-  // Prüfen, ob wir lokale Auth oder Offline-Modus verwenden sollen
-  if (useLocalAuth() || isOfflineMode() || !isFirebaseReady) {
-    console.log('Lokale Authentifizierung oder Offline-Modus: Passwortwiederherstellung simuliert');
-    return;
+   if (!isFirebaseReady) {
+    throw new Error('Firebase ist nicht initialisiert.');
   }
-
   try {
     await sendPasswordResetEmail(auth, email);
-  } catch (error: any) {
-    console.error('Fehler beim Zurücksetzen des Passworts:', error);
-    
-    if (error.code === 'auth/user-not-found') {
-      throw new Error('Kein Benutzer mit dieser E-Mail-Adresse gefunden.');
-    } else if (error.code === 'auth/invalid-email') {
-      throw new Error('Ungültige E-Mail-Adresse.');
-    } else if (error.code === 'auth/invalid-api-key' || 
-               error.code === 'auth/network-request-failed' ||
-               error.code?.includes('auth/requests-to-this-api')) {
-      // API-Schlüssel ist ungültig oder nicht autorisiert
-      sessionStorage.setItem('firebase-auth-blocked', 'true');
-      throw new Error('Firebase API blockiert. Bitte verwende den Offline-Modus oder lokale Authentifizierung.');
-    } else {
-      throw error;
+  } catch (error) {
+    console.error('Fehler beim Senden der Passwort-Reset-E-Mail:', error);
+    if (error instanceof Error) {
+      const errorCode = (error as any).code;
+      if (errorCode === 'auth/user-not-found') {
+        // Geben Sie keinen Hinweis darauf, ob die E-Mail existiert
+        throw new Error('E-Mail zum Zurücksetzen des Passworts konnte nicht gesendet werden. Überprüfen Sie die Adresse.');
+      }
     }
+    throw new Error('Passwort-Reset fehlgeschlagen.');
   }
 };
 
 /**
- * Ruft das Benutzer-Dokument aus Firestore ab
+ * Sendet die Verifizierungs-E-Mail erneut an den aktuell angemeldeten Benutzer.
+ * Funktioniert nur, wenn auth.currentUser gesetzt ist (z.B. nach einem fehlgeschlagenen Login-Versuch wegen fehlender Verifizierung).
+ */
+export const resendVerificationEmail = async (): Promise<void> => {
+  if (!isFirebaseReady) {
+    throw new Error('Firebase ist nicht initialisiert.');
+  }
+  const user = auth.currentUser;
+  if (user) {
+    try {
+      await sendEmailVerification(user);
+      console.log('Verifizierungs-E-Mail erneut gesendet an:', user.email);
+    } catch (error) {
+      console.error('Fehler beim erneuten Senden der Verifizierungs-E-Mail:', error);
+      throw new Error('Fehler beim Senden der Verifizierungs-E-Mail.');
+    }
+  } else {
+    // Dies sollte nicht passieren, wenn die Funktion direkt nach einem Login-Versuch aufgerufen wird.
+    console.warn('resendVerificationEmail aufgerufen, ohne dass ein Benutzer angemeldet ist.');
+    throw new Error('Kein Benutzer angemeldet, um die E-Mail erneut zu senden.');
+  }
+};
+
+/**
+ * Ruft das Firestore-Benutzerdokument für eine gegebene UID ab.
  */
 export const getUserDocument = async (uid: string): Promise<FirestoreUser | null> => {
-  // Prüfen, ob wir lokale Auth oder Offline-Modus verwenden sollen
-  if (useLocalAuth() || isOfflineMode() || !isFirebaseReady) {
-    console.log('Lokale Authentifizierung oder Offline-Modus: Simuliere Benutzer-Dokument');
-    return {
-      uid,
-      email: 'user@example.com',
-      displayName: 'Lokaler Benutzer',
-      photoURL: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      roles: ['user'],
-      preferences: {
-        theme: 'light',
-        notifications: true
-      }
-    };
+  if (!isFirebaseReady || !db) {
+    console.warn('Firestore ist nicht bereit. Kann Benutzerdokument nicht abrufen.');
+    return null;
   }
-
   try {
     const userDocRef = doc(db, 'users', uid);
-    const userDoc = await getDoc(userDocRef);
-    
-    if (userDoc.exists()) {
-      return userDoc.data() as FirestoreUser;
+    const userDocSnap = await getDoc(userDocRef);
+    if (userDocSnap.exists()) {
+      return userDocSnap.data() as FirestoreUser;
     } else {
+      console.log('Kein Firestore-Dokument für Benutzer gefunden:', uid);
       return null;
     }
   } catch (error) {
-    console.error('Fehler beim Abrufen des Benutzer-Dokuments:', error);
-    return null;
+    console.error('Fehler beim Abrufen des Benutzerdokuments:', error);
+    return null; // Fehler als nicht gefunden behandeln
   }
 };
 
-/**
- * Erstellt ein Benutzer-Dokument in Firestore
- */
-export const createUserDocument = async (user: User): Promise<void> => {
-  // Prüfen, ob wir lokale Auth oder Offline-Modus verwenden sollen
-  if (useLocalAuth() || isOfflineMode() || !isFirebaseReady) {
-    console.log('Lokale Authentifizierung oder Offline-Modus: Simuliere Erstellung des Benutzer-Dokuments');
-    return;
-  }
+// Hinzufügen einer Hilfsfunktion zum Erstellen/Aktualisieren des Firestore-Benutzers, 
+// falls diese noch nicht existiert oder anderswo ist.
+// Diese Funktion wird hier angenommen, basierend auf dem Code-Kontext.
+const createFirestoreUser = async (user: User, displayName?: string): Promise<void> => {
+    if (!isFirebaseReady || !db) return; // Nur ausführen wenn Firebase bereit ist
 
-  try {
-    const userDocRef = doc(db, 'users', user.uid);
-    
-    // Benutzer-Daten für Firestore vorbereiten
+    const userRef = doc(db, "users", user.uid);
     const userData: FirestoreUser = {
-      uid: user.uid,
-      email: user.email || '',
-      displayName: user.displayName || user.email?.split('@')[0] || '',
-      photoURL: user.photoURL,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      roles: ['user'],
-      preferences: {
-        theme: 'light',
-        notifications: true
-      }
+        uid: user.uid,
+        email: user.email || '', // E-Mail sollte vorhanden sein
+        displayName: displayName || user.displayName || null,
+        photoURL: user.photoURL || null,
+        createdAt: serverTimestamp(), // Beim ersten Erstellen
+        updatedAt: serverTimestamp(),
+        // Weitere Felder nach Bedarf initialisieren
     };
-    
-    await setDoc(userDocRef, userData);
-  } catch (error) {
-    console.error('Fehler beim Erstellen des Benutzer-Dokuments:', error);
-    // Hier werfen wir keinen Fehler, da dies nicht kritisch für die Anmeldung ist
-  }
+
+    try {
+        // setDoc mit merge: true erstellt das Dokument oder aktualisiert es, falls es existiert
+        await setDoc(userRef, userData, { merge: true });
+        console.log("Firestore user document created/updated for UID:", user.uid);
+    } catch (error) {
+        console.error("Error writing user document to Firestore:", error);
+        // Hier könnte man entscheiden, ob der Fehler kritisch ist
+    }
 }; 

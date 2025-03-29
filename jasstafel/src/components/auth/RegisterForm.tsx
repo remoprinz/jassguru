@@ -18,6 +18,7 @@ import { useAuthStore } from '@/store/authStore';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
+import { useUIStore } from '@/store/uiStore';
 
 // Schema für die Registrierung
 const registerSchema = z.object({
@@ -30,6 +31,7 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export function RegisterForm() {
   const { register, loginWithGoogle, status, error, clearError } = useAuthStore();
+  const showNotification = useUIStore(state => state.showNotification);
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
@@ -46,10 +48,18 @@ export function RegisterForm() {
     clearError();
     try {
       await register(data.email, data.password, data.displayName);
-      // Nach erfolgreicher Registrierung direkt zur Jass-Seite navigieren
-      router.push('/jass');
-    } catch (error) {
-      console.error('Registrierungsfehler:', error);
+      
+      // Erfolgsmeldung anzeigen
+      showNotification({
+        message: 'Du hast dich erfolgreich registriert! Du kannst nun eine Jassgruppe erstellen oder beitreten.',
+        type: 'success'
+      });
+      
+      setTimeout(() => {
+        router.push('/auth/login');
+      }, 1500);
+    } catch (err) {
+      console.error('Registrierungsfehler im Formular:', err);
     }
   };
   
@@ -57,8 +67,7 @@ export function RegisterForm() {
     clearError();
     try {
       await loginWithGoogle();
-      // Nach erfolgreicher Google-Anmeldung direkt zur Jass-Seite navigieren
-      router.push('/jass');
+      router.push('/start');
     } catch (error) {
       console.error('Google-Registrierungsfehler:', error);
     }
@@ -150,7 +159,7 @@ export function RegisterForm() {
             className="w-full bg-green-600 hover:bg-green-700 text-white h-12 rounded-md"
             disabled={isLoading}
           >
-            {isLoading ? "Registrierung..." : "Registrieren"}
+            {isLoading ? "Registrierung läuft..." : "Registrieren"}
           </Button>
         </form>
       </Form>

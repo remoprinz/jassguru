@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -20,6 +20,7 @@ import { FaGoogle } from 'react-icons/fa';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
+import { useUIStore } from '@/store/uiStore';
 
 const loginSchema = z.object({
   email: z.string().email('Ungültige E-Mail-Adresse'),
@@ -29,8 +30,10 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
-  const { login, loginWithGoogle, status, error, clearError } = useAuthStore();
+  const { login, loginWithGoogle, status, error, clearError, resendVerificationEmail, user } = useAuthStore();
+  const showNotification = useUIStore(state => state.showNotification);
   const [showPassword, setShowPassword] = useState(false);
+  const [showVerificationWarning, setShowVerificationWarning] = useState(false);
   const router = useRouter();
 
   const form = useForm<LoginFormValues>({
@@ -41,26 +44,62 @@ export function LoginForm() {
     },
   });
 
+  useEffect(() => {
+    if (error || status !== 'error') {
+        setShowVerificationWarning(false);
+    }
+  }, [error, status]);
+
   const onSubmit = async (data: LoginFormValues) => {
     clearError();
+    setShowVerificationWarning(false);
     try {
       await login(data.email, data.password);
-      // Nach erfolgreicher Anmeldung direkt zur Jass-Seite navigieren
-      router.push('/jass');
-    } catch (error) {
-      // Fehlerbehandlung erfolgt bereits im AuthStore
-      console.error('Login error:', error);
+      
+      const loggedInUser = useAuthStore.getState().user;
+
+      if (loggedInUser) {
+        if (loggedInUser.emailVerified) {
+          router.push('/start');
+        } else {
+          setShowVerificationWarning(true);
+          clearError(); 
+        }
+      } else {
+        throw new Error('Benutzerdaten nach Login nicht verfügbar.');
+      }
+
+    } catch (err) {
+      console.error('Login-Fehler im Formular:', err);
+      setShowVerificationWarning(false); 
     }
   };
 
   const handleGoogleLogin = async () => {
     clearError();
+    setShowVerificationWarning(false);
     try {
       await loginWithGoogle();
-      // Nach erfolgreicher Google-Anmeldung direkt zur Jass-Seite navigieren
-      router.push('/jass');
+      router.push('/start'); 
     } catch (error) {
       console.error('Google login error:', error);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    try {
+      await resendVerificationEmail();
+      setShowVerificationWarning(false);
+      showNotification({
+        message: 'Bestätigungs-E-Mail wurde erneut gesendet. Bitte prüfen Sie Ihr Postfach.',
+        type: 'success'
+      });
+    } catch (resendError) {
+      console.error('Fehler beim erneuten Senden:', resendError);
+      showNotification({
+         message: error || 'Fehler beim erneuten Senden der E-Mail.',
+         type: 'error'
+      });
     }
   };
 
@@ -68,9 +107,25 @@ export function LoginForm() {
 
   return (
     <div className="w-full space-y-4">
-      {error && (
+      {error && !showVerificationWarning && (
         <Alert variant="destructive" className="bg-red-900/30 border-red-900 text-red-200">
           <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {showVerificationWarning && (
+        <Alert className="bg-yellow-900/30 border-yellow-900 text-yellow-200">
+          <AlertDescription className="flex flex-col space-y-2">
+            <span>Bitte bestätigen Sie Ihre E-Mail-Adresse. Überprüfen Sie Ihr Postfach (auch Spam).</span>
+            <Button
+              variant="link"
+              className="p-0 h-auto text-yellow-300 hover:text-yellow-200 self-start"
+              onClick={handleResendVerification}
+              disabled={isLoading}
+            >
+              {isLoading ? 'Sende...' : 'Bestätigungs-E-Mail erneut senden'}
+            </Button>
+          </AlertDescription>
         </Alert>
       )}
 

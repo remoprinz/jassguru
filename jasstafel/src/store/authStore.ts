@@ -9,7 +9,8 @@ import {
   registerWithEmail, 
   resetPassword,
   getUserDocument,
-  mapUserToAuthUser
+  mapUserToAuthUser,
+  resendVerificationEmail
 } from '../services/authService';
 import { AuthStatus, AuthUser, AppMode } from '../types/jass';
 
@@ -33,6 +34,7 @@ interface AuthActions {
   clearError: () => void;
   continueAsGuest: () => void;
   isAuthenticated: () => boolean;
+  resendVerificationEmail: () => Promise<void>;
 }
 
 type AuthStore = AuthState & AuthActions;
@@ -158,6 +160,21 @@ export const useAuthStore = create<AuthStore>()(
       isAuthenticated: () => {
         const state = get();
         return state.status === 'authenticated' || state.isGuest;
+      },
+
+      resendVerificationEmail: async () => {
+        try {
+          set({ status: 'loading', error: null });
+          await resendVerificationEmail();
+          set(state => ({ status: state.status === 'loading' ? (state.user ? 'authenticated' : 'unauthenticated') : state.status }));
+        } catch (error) {
+          console.error('Error in store resendVerificationEmail:', error);
+          set({ 
+            status: 'error', 
+            error: error instanceof Error ? error.message : 'Fehler beim erneuten Senden der E-Mail.' 
+          });
+          throw error;
+        }
       },
 
       initAuth: () => {
