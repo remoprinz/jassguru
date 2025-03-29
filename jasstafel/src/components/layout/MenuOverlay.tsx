@@ -3,7 +3,7 @@ import { useGameStore } from '../../store/gameStore';
 import { useJassStore } from '../../store/jassStore';
 import { useUIStore } from '../../store/uiStore';
 import { useTimerStore } from '../../store/timerStore';
-import { FaTrashAlt, FaInfoCircle, FaCog } from 'react-icons/fa';
+import { FaTrashAlt, FaInfoCircle, FaCog, FaHome } from 'react-icons/fa';
 import { TbClipboardText } from 'react-icons/tb';
 import { motion } from 'framer-motion';
 import ResetWarning from '../notifications/ResetWarning';
@@ -74,6 +74,22 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
     setTimeout(() => setPressedButton(null), 150);
   };
 
+  const handleHomeClick = useCallback(() => {
+    handleButtonPress('home');
+
+    // Prüfen, ob der Benutzer ECHT eingeloggt ist (nicht nur Gast)
+    if (authStore.status === 'authenticated') {
+      // Nur echt eingeloggte Benutzer zur Startseite leiten
+      router.push('/start');
+    } else {
+      // Gäste und völlig nicht authentifizierte Benutzer zur Login-Seite leiten
+      router.push('/auth/login');
+    }
+
+    setTimeout(() => {
+      onClose();
+    }, 100);
+  }, [router, onClose, authStore]);
 
   const handleReset = () => {
     handleButtonPress('trash');
@@ -163,6 +179,7 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
     }
   }, [onClose, isCategoryCompleted]);
 
+  // Definition für den neuen Satz von 5 Buttons inklusive Home-Button in der Mitte
   const bottomButtons: MenuButton[] = [
     {
       icon: FaTrashAlt,
@@ -172,17 +189,23 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
       'data-tutorial': 'new-game-button'
     },
     {
+      icon: FaCog,
+      onClick: handleFarbeSettingsClick,
+      color: 'bg-orange-500', // Farbe auf Orange geändert
+      id: 'farbe',
+      className: 'settings-button'
+    },
+    {
+      icon: FaHome,
+      onClick: handleHomeClick,
+      color: 'bg-yellow-500',
+      id: 'home'
+    },
+    {
       icon: FaInfoCircle,
       onClick: handleInfoClick,
       color: 'bg-blue-500',
       id: 'info'
-    },
-    {
-      icon: FaCog,
-      onClick: handleFarbeSettingsClick,
-      color: 'bg-yellow-500',
-      id: 'farbe',
-      className: 'settings-button'
     },
     {
       icon: TbClipboardText,
@@ -200,17 +223,23 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
       id: 'resultat'
     },
     {
-      icon: FaCog,
-      onClick: handleFarbeSettingsClick,
-      color: 'bg-yellow-500',
-      id: 'farbe',
-      className: 'settings-button'
-    },
-    {
       icon: FaInfoCircle,
       onClick: handleInfoClick,
       color: 'bg-blue-500',
       id: 'info'
+    },
+    {
+      icon: FaHome,
+      onClick: handleHomeClick,
+      color: 'bg-yellow-500',
+      id: 'home'
+    },
+    {
+      icon: FaCog,
+      onClick: handleFarbeSettingsClick,
+      color: 'bg-orange-500', // Farbe auf Orange geändert
+      id: 'farbe',
+      className: 'settings-button'
     },
     {
       icon: FaTrashAlt,
@@ -238,40 +267,42 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
         initial="hidden"
         animate={isOpen ? "visible" : "hidden"}
       >
-        <div className="flex justify-center space-x-10">
-          {buttons.map(({ icon: Icon, onClick, color, id, className, 'data-tutorial': dataTutorial }) => (
-            <motion.button 
-              key={id}
-              onClick={onClick}
-              data-tutorial={dataTutorial}
-              disabled={
-                (currentStep?.id === TUTORIAL_STEPS.SETTINGS && className !== 'settings-button') ||
-                (currentStep?.id === TUTORIAL_STEPS.MENU_GESTURE && id !== 'resultat') ||
-                (currentStep?.id === TUTORIAL_STEPS.RESULTAT_INFO && id !== 'resultat') ||
-                (currentStep?.id === TUTORIAL_STEPS.NEW_GAME && id !== 'trash') ||
-                (currentStep?.id === TUTORIAL_STEPS.JASS_SETTINGS && id !== 'farbe')
-              }
-              className={`${iconStyle} ${color} ${className || ''} text-white
-                ${isButtonHighlighted(id) ? 'ring-4 ring-white ring-opacity-50 animate-pulse' : ''}
-                ${((currentStep?.id === TUTORIAL_STEPS.SETTINGS && className !== 'settings-button') ||
-                   currentStep?.id === TUTORIAL_STEPS.MENU_GESTURE ||
-                   (currentStep?.id === TUTORIAL_STEPS.RESULTAT_INFO && id !== 'resultat') ||
-                   (currentStep?.id === TUTORIAL_STEPS.NEW_GAME && id !== 'trash') ||
-                   (currentStep?.id === TUTORIAL_STEPS.JASS_SETTINGS && id !== 'farbe'))
-                  ? 'opacity-50 cursor-not-allowed' 
-                  : ''}`}
-              variants={itemVariants}
-              onMouseDown={() => handleButtonPress(id)}
-              onTouchStart={() => handleButtonPress(id)}
-            >
-              <Icon 
-                className={`w-full h-full ${pressedButton === id ? 'opacity-70' : ''}`}
-                style={{
-                  transform: swipePosition === 'top' ? 'rotate(180deg)' : 'none'
-                }}
-              />
-            </motion.button>
-          ))}
+        <div className="flex justify-center items-center w-full px-8 sm:px-12 min-w-[320px]">
+          <div className="flex justify-between space-x-4 sm:space-x-6 w-full max-w-2xl">
+            {buttons.map(({ icon: Icon, onClick, color, id, className, 'data-tutorial': dataTutorial }) => (
+              <motion.button 
+                key={id}
+                onClick={onClick}
+                data-tutorial={dataTutorial}
+                disabled={
+                  (currentStep?.id === TUTORIAL_STEPS.SETTINGS && className !== 'settings-button') ||
+                  (currentStep?.id === TUTORIAL_STEPS.MENU_GESTURE && id !== 'resultat') ||
+                  (currentStep?.id === TUTORIAL_STEPS.RESULTAT_INFO && id !== 'resultat') ||
+                  (currentStep?.id === TUTORIAL_STEPS.NEW_GAME && id !== 'trash') ||
+                  (currentStep?.id === TUTORIAL_STEPS.JASS_SETTINGS && id !== 'farbe')
+                }
+                className={`${iconStyle} ${color} ${className || ''} text-white flex-shrink-0
+                  ${isButtonHighlighted(id) ? 'ring-4 ring-white ring-opacity-50 animate-pulse' : ''}
+                  ${((currentStep?.id === TUTORIAL_STEPS.SETTINGS && className !== 'settings-button') ||
+                     currentStep?.id === TUTORIAL_STEPS.MENU_GESTURE ||
+                     (currentStep?.id === TUTORIAL_STEPS.RESULTAT_INFO && id !== 'resultat') ||
+                     (currentStep?.id === TUTORIAL_STEPS.NEW_GAME && id !== 'trash') ||
+                     (currentStep?.id === TUTORIAL_STEPS.JASS_SETTINGS && id !== 'farbe'))
+                    ? 'opacity-50 cursor-not-allowed' 
+                    : ''}`}
+                variants={itemVariants}
+                onMouseDown={() => handleButtonPress(id)}
+                onTouchStart={() => handleButtonPress(id)}
+              >
+                <Icon 
+                  className={`w-full h-full ${pressedButton === id ? 'opacity-70' : ''}`}
+                  style={{
+                    transform: swipePosition === 'top' ? 'rotate(180deg)' : 'none'
+                  }}
+                />
+              </motion.button>
+            ))}
+          </div>
         </div>
       </motion.div>
       <FarbeSettingsModal />
