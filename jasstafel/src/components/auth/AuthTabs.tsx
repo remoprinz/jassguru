@@ -43,8 +43,8 @@ const AuthTabs: React.FC<AuthTabsProps> = ({ defaultTab = 'login' }) => {
         </h1>
         <p className="text-gray-400 mt-1">
           {activeTab === 'login' 
-            ? 'Melde dich an, um deine Jass-Daten zu speichern' 
-            : 'Erstelle ein Konto, um deine Jass-Daten zu speichern'}
+            ? 'Melde dich an, um auf deine gespeicherten Spiele, Statistiken und dein Profil zuzugreifen.' 
+            : 'Registriere dich, um Spiele zu speichern, Statistiken zu verfolgen und dein Jass-Profil zu erstellen.'}
         </p>
       </div>
 

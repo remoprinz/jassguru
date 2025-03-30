@@ -1,6 +1,5 @@
 import React from 'react';
 import { animated, useSpring } from 'react-spring';
-import { useJassStore } from '../../store/jassStore';
 import { useGameStore } from '../../store/gameStore';
 import { PlayerNumber } from '../../types/jass';
 

@@ -1,11 +1,14 @@
-import React from 'react';
 import { useState, useEffect } from 'react';
-import { FaInfoCircle } from 'react-icons/fa';
 
 interface BrowserMessage {
   show: boolean;
   message: string;
   title: string;
+}
+
+// Definiere eine typensichere Schnittstelle für iOS navigator
+interface IosNavigator extends Navigator {
+  standalone?: boolean;
 }
 
 export const isIOS = () => {
@@ -19,7 +22,7 @@ export const isIOS = () => {
 export const isPWA = () => {
   if (typeof window !== 'undefined') {
     return window.matchMedia('(display-mode: standalone)').matches ||
-           (window.navigator as any).standalone ||
+           (window.navigator as IosNavigator).standalone ||
            document.referrer.includes('android-app://');
   }
   return false;

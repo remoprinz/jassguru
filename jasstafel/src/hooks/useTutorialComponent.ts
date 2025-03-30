@@ -1,6 +1,6 @@
 import { useTutorialStore } from '../store/tutorialStore';
 import { TUTORIAL_COMPONENT_MAPPING, type TutorialComponent } from '../constants/tutorialComponentMapping';
-import { TUTORIAL_STEPS, type TutorialStepId } from '../types/tutorial';
+import { TUTORIAL_STEPS } from '../types/tutorial';
 import { useEffect } from 'react';
 
 export const useTutorialComponent = (

@@ -3,7 +3,6 @@ import { StatisticProps } from '../types/statistikTypes';
 import ResultatZeile from '../components/game/ResultatZeile';
 import { useGameStore } from '../store/gameStore';
 import { animated, useSpring } from 'react-spring';
-import type { StricheRecord } from '../types/jass';
 
 export const JasspunkteStatistik: React.FC<StatisticProps> = ({ 
   teams, 

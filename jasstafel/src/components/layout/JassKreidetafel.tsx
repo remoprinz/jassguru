@@ -21,7 +21,6 @@ import { useJassStore } from '../../store/jassStore';
 import { useOnboardingFlow } from '../../hooks/useOnboardingFlow';
 import OnboardingFlow from '../onboarding/OnboardingFlow';
 import { isPWA } from '../../utils/browserDetection';
-import { shouldShowTutorial } from '../../utils/devUtils';
 import { useTutorialStore } from '../../store/tutorialStore';
 import TutorialOverlay from '../tutorial/TutorialOverlay';
 import TutorialInfoDialog from '../tutorial/TutorialInfoDialog';
@@ -30,6 +29,17 @@ import GlobalNotificationContainer from '../notifications/GlobalNotificationCont
 import { useDeviceScale } from '../../hooks/useDeviceScale';
 import html2canvas from 'html2canvas';
 import { useAuthStore } from '../../store/authStore';
+import { BrowserOnboardingStep } from '../../constants/onboardingContent';
+
+// Definiere HTML2Canvas-Optionen Typ
+interface HTML2CanvasOptions {
+  useCORS: boolean;
+  logging: boolean;
+  width: number;
+  height: number;
+  scale: number;
+}
+
 interface JassKreidetafelProps {
   middleLineThickness?: number;
   zShapeConfig: {
@@ -430,7 +440,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
           width: kreidetafelContent.scrollWidth,
           height: kreidetafelContent.scrollHeight,
           scale: 2
-        } as any);
+        } as HTML2CanvasOptions);
 
         // 8. Blob erstellen
         const blob = await new Promise<Blob>((resolve) => {
@@ -503,7 +513,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
       {!isPWAInstalled && (
         <OnboardingFlow
           show={showOnboarding && forceOnboarding}
-          step={currentStep as any}
+          step={currentStep as BrowserOnboardingStep}
           content={content}
           onNext={handleNext}
           onPrevious={handlePrevious}

@@ -3,10 +3,16 @@ import { useTutorialStore } from '../store/tutorialStore';
 import type { TeamPosition } from '../types/jass';
 import { TUTORIAL_STEPS } from '../types/tutorial';
 
+// Definiere einen allgemeinen Ereignistyp für Mausinteraktionen
+type MouseEventLike = {
+  preventDefault: () => void;
+  stopPropagation: () => void;
+} & Partial<React.MouseEvent<HTMLDivElement>>;
+
 interface TutorialInteractionProps {
   onSwipe: (direction: 'up' | 'down' | 'left' | 'right', position: TeamPosition) => void;
   onLongPress: (position: TeamPosition) => void;
-  handleTafelClick: (e: React.MouseEvent<HTMLDivElement>) => void;
+  handleTafelClick: (e: React.MouseEvent<HTMLDivElement> | MouseEventLike) => void;
 }
 
 export const useTutorialInteractions = ({
@@ -58,12 +64,14 @@ export const useTutorialInteractions = ({
     }
   }, [isActive, currentStep?.id]);
 
-  const handleGlobalDoubleClick = useCallback((e: MouseEvent, position: TeamPosition) => {
+  const handleGlobalDoubleClick = useCallback((e: MouseEventLike, position: TeamPosition) => {
+    const isActive = useTutorialStore.getState().isActive;
+    const getCurrentStep = useTutorialStore.getState().getCurrentStep;
     const currentStep = getCurrentStep();
     
     if (isActive) {
       if (currentStep?.id === TUTORIAL_STEPS.GAME_INFO) {
-        handleTafelClick(e as any);
+        handleTafelClick(e);
         document.dispatchEvent(new Event('gameInfoOpen'));
         return;
       }
@@ -72,7 +80,7 @@ export const useTutorialInteractions = ({
       return;
     }
     
-    handleTafelClick(e as any);
+    handleTafelClick(e);
   }, [isActive, currentStep?.id]);
 
   useEffect(() => {

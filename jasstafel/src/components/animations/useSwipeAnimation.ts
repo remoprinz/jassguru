@@ -6,7 +6,7 @@ interface UseSwipeAnimationProps {
   position: 'top' | 'bottom';
 }
 
-const useSwipeAnimation = ({ initialPosition, maxOffset, position }: UseSwipeAnimationProps) => {
+const useSwipeAnimation = ({ initialPosition, maxOffset }: UseSwipeAnimationProps) => {
   const [springs, api] = useSpring(() => ({ 
     y: initialPosition,
     mainOpacity: 1,

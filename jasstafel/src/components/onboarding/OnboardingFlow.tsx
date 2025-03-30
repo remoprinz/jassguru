@@ -50,11 +50,17 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   isPWA,
   isBrowserOnboarding
 }) => {
+  // Hooks MÜSSEN hier oben und unbedingt aufgerufen werden
   const { overlayScale, urlBarPosition } = useDeviceScale();
   const [viewportHeight, setViewportHeight] = useState(0);
   const [availableContentHeight, setAvailableContentHeight] = useState(0);
   const [isDesktop, setIsDesktop] = useState(false);
-  
+  const previousButtonHandlers = usePressableButton(onPrevious);
+  const nextButtonHandlers = usePressableButton(onNext);
+
+  // Konstante für Development Mode
+  const isDevelopment = process.env.NODE_ENV === 'development';
+
   // Erfasst die Viewport-Dimensionen und überprüft, ob es sich um einen Desktop handelt
   useEffect(() => {
     const updateDimensions = () => {
@@ -103,11 +109,6 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
     return Math.min(baseHeight, Math.floor(availableContentHeight * 0.65));
   }, [availableContentHeight, deviceSize]);
 
-  // Im Development Mode direkt null zurückgeben
-  if (process.env.NODE_ENV === 'development') return null;
-
-  const previousButton = usePressableButton(onPrevious);
-  const nextButton = usePressableButton(onNext);
   const isFirstStep = step === 'WELCOME_SCREEN';
   const isWelcomeStep = step === 'WELCOME_SCREEN' || step === 'INSTALL_WELCOME';
   
@@ -124,6 +125,13 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
     }
   };
 
+  // WICHTIG: Hier die Bedingung für Development Mode einfügen
+  if (isDevelopment) {
+    console.log('OnboardingFlow im Development Mode ausgeblendet (Rendering null)');
+    return null;
+  }
+
+  // JSX wird nur zurückgegeben, wenn nicht im Development Mode
   return (
     <AnimatePresence>
       {show && (
@@ -152,7 +160,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                 y: urlBarPosition === 'top' ? (deviceSize === 'xs' ? 20 : 40) : (deviceSize === 'xs' ? -20 : -40) 
               }}
               exit={{ scale: 0.95 }}
-              className={`bg-gray-800 ${getPadding()} rounded-lg shadow-lg max-w-xs w-full relative text-white 
+              className={`bg-gray-800 ${getPadding()} rounded-lg shadow-lg w-full relative text-white 
+                max-w-xs sm:max-w-sm md:max-w-md 
                 ${deviceSize === 'xs' ? 'max-h-[90vh] overflow-y-auto' : ''}`}
             >
               <div className="flex flex-col items-center justify-center">
@@ -187,8 +196,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
 
                 {/* Navigation Buttons */}
                 <NavigationButtons 
-                  previousButton={previousButton}
-                  nextButton={nextButton}
+                  previousButton={previousButtonHandlers}
+                  nextButton={nextButtonHandlers}
                   step={step}
                   deviceSize={deviceSize}
                   optimalImageHeight={optimalImageHeight}
@@ -476,15 +485,15 @@ const NavigationButtons: React.FC<NavigationButtonsProps> = ({
 }) => {
   const getButtonClass = () => {
     switch (deviceSize) {
-      case 'xs': return 'px-4 py-1.5 text-base';
-      case 'sm': return 'px-5 py-2 text-base';
-      case 'lg': return 'px-8 py-2.5 text-lg'; // Größere Buttons für große Geräte
-      default: return 'px-6 py-2 text-lg';
+      case 'xs': return 'px-3 py-1.5 text-sm';
+      case 'sm': return 'px-4 py-2 text-base';
+      case 'lg': return 'px-6 py-2.5 text-lg';
+      default: return 'px-5 py-2 text-base';
     }
   };
 
   return (
-    <div className="flex justify-between w-full gap-2 sm:gap-4">
+    <div className="flex justify-between w-full gap-2 sm:gap-3">
       <button
         {...previousButton.handlers}
         className={`
@@ -494,7 +503,7 @@ const NavigationButtons: React.FC<NavigationButtonsProps> = ({
           ${previousButton.buttonClasses}
         `}
       >
-        <FaArrowLeft className={`${deviceSize === 'xs' ? 'mr-1' : 'mr-2'}`} />
+        <FaArrowLeft className={`${deviceSize === 'xs' ? 'mr-0.5' : 'mr-1'}`} size={deviceSize === 'xs' ? 12 : 14} />
         Zurück
       </button>
       <button
@@ -506,7 +515,7 @@ const NavigationButtons: React.FC<NavigationButtonsProps> = ({
           ${nextButton.buttonClasses}
         `}
       >
-        <>Weiter<FaArrowRight className={`${deviceSize === 'xs' ? 'ml-1' : 'ml-2'}`} /></>
+        <>Weiter<FaArrowRight className={`${deviceSize === 'xs' ? 'ml-0.5' : 'ml-1'}`} size={deviceSize === 'xs' ? 12 : 14} /></>
       </button>
     </div>
   );

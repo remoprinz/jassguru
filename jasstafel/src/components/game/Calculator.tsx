@@ -1,10 +1,10 @@
 // src/components/game/Calculator.tsx
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { useUIStore } from '../../store/uiStore';
-import { TeamPosition, JassColor, StrichTyp } from '../../types/jass';
+import { TeamPosition, JassColor, StrichTyp, CardStyle } from '../../types/jass';
 import { FiRotateCcw, FiX } from 'react-icons/fi';
 import { useSpring, animated } from 'react-spring';
 import { triggerMatschConfetti } from '../effects/MatschConfetti';
@@ -24,6 +24,12 @@ interface CalculatorProps {
   initialValue?: number;
   clickedPosition: TeamPosition;
 }
+
+// Füge einen PictogramConfig Typ hinzu oder importiere ihn, falls er existiert
+type PictogramConfig = {
+  isEnabled: boolean;
+  mode: 'svg' | 'emoji';
+};
 
 const Calculator: React.FC<CalculatorProps> = ({
   isOpen,
@@ -286,8 +292,30 @@ const Calculator: React.FC<CalculatorProps> = ({
     return color;
   };
 
-  // Render-Logik für Farben-Buttons
-  const renderFarbeButton = (color: string, multiplier: number) => {
+  // Umwandlung in React-Komponenten
+  const FarbeButton: React.FC<{
+    color: string,
+    multiplier: number,
+    handleColorClick: (color: string, multiplier: number) => void,
+    selectedColor: string,
+    pictogramConfig: PictogramConfig,
+    isClient: boolean,
+    getButtonStyle: (color: string, isSelected: boolean, mode: 'svg' | 'emoji') => string,
+    getPictogram: (color: JassColor, mode: 'svg' | 'emoji', style: CardStyle) => string,
+    cardStyle: CardStyle,
+    getDisplayName: (color: string) => string
+  }> = ({
+    color, 
+    multiplier, 
+    handleColorClick,
+    selectedColor,
+    pictogramConfig,
+    isClient,
+    getButtonStyle,
+    getPictogram,
+    cardStyle,
+    getDisplayName
+  }) => {
     const { handlers, buttonClasses } = usePressableButton(
       () => handleColorClick(color, multiplier)
     );
@@ -330,9 +358,15 @@ const Calculator: React.FC<CalculatorProps> = ({
     );
   };
 
-  // Zahlentasten anpassen
-  const renderNumberButton = (num: number) => {
-    const { isPressedDown, handlers, buttonClasses } = usePressableButton(
+  // Nummerntasten als React-Komponente
+  const NumberButton: React.FC<{
+    num: number,
+    handleNumberClick: (num: number) => void
+  }> = ({
+    num,
+    handleNumberClick
+  }) => {
+    const { handlers, buttonClasses } = usePressableButton(
       () => handleNumberClick(num)
     );
 
@@ -344,6 +378,35 @@ const Calculator: React.FC<CalculatorProps> = ({
       >
         {num}
       </button>
+    );
+  };
+
+  // Die alte renderXXX Funktionen durch Aufrufe der neuen Komponenten ersetzen
+  const renderFarbeButton = (color: string, multiplier: number) => {
+    return (
+      <FarbeButton
+        key={color}
+        color={color}
+        multiplier={multiplier}
+        handleColorClick={handleColorClick}
+        selectedColor={selectedColor || ""}
+        pictogramConfig={pictogramConfig}
+        isClient={isClient}
+        getButtonStyle={getButtonStyle}
+        getPictogram={getPictogram}
+        cardStyle={cardStyle}
+        getDisplayName={getDisplayName}
+      />
+    );
+  };
+
+  const renderNumberButton = (num: number) => {
+    return (
+      <NumberButton
+        key={num}
+        num={num}
+        handleNumberClick={handleNumberClick}
+      />
     );
   };
 

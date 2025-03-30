@@ -5,18 +5,21 @@ import { useRouter } from 'next/router';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
-import MainLayout from '@/components/layout/MainLayout';
+import Header from '@/components/layout/Header';
 
 const StartPage: React.FC = () => {
   const { user, status, isAuthenticated, logout, isGuest } = useAuthStore();
   const router = useRouter();
 
-  // Redirect to home if not authenticated and not a guest (and not loading)
+  // Redirect to home only if explicitly unauthenticated
   useEffect(() => {
-    if (!isAuthenticated() && status !== 'loading') {
+    // Nur umleiten, wenn der Status explizit 'unauthenticated' ist
+    if (status === 'unauthenticated') {
+      console.log("StartPage: Auth status is 'unauthenticated', redirecting to /"); // Zusätzliches Logging
       router.push('/');
     }
-  }, [isAuthenticated, status, router]);
+    // Abhängigkeit von isAuthenticated kann entfernt werden, da wir nur auf 'unauthenticated' prüfen
+  }, [status, router]);
 
   const handleLogout = async () => {
     await logout();
@@ -33,18 +36,21 @@ const StartPage: React.FC = () => {
 
   if (status === 'loading') {
     return (
-      <MainLayout>
-        <div className="flex min-h-screen items-center justify-center bg-gray-900 text-white">
-          <div>Laden...</div>
+      <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 text-white">
+        <div className="flex items-center justify-center">
+          <div className="h-6 w-6 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
+          <span className="ml-2">Laden...</span>
         </div>
-      </MainLayout>
+      </div>
     );
   }
 
   return (
-    <MainLayout>
-      <div className="flex min-h-screen flex-col items-center bg-gray-900 p-4 text-white">
-        <div className="mt-10 mb-8 flex w-full max-w-md flex-col items-center">
+    <div className="flex min-h-screen flex-col bg-gray-900">
+      <Header />
+      
+      <main className="flex flex-1 flex-col items-center p-4 text-white">
+        <div className="mt-6 mb-8 flex w-full max-w-md flex-col items-center">
           <div className="mb-6 flex flex-col items-center">
             <Image 
               src="/icon-192x192.png" 
@@ -91,8 +97,8 @@ const StartPage: React.FC = () => {
             </Button>
           </div>
         </div>
-      </div>
-    </MainLayout>
+      </main>
+    </div>
   );
 };
 

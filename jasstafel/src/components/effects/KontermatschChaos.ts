@@ -46,7 +46,7 @@ export const createChaosExplosion = (x: number, y: number) => {
   });
 };
 
-export const triggerKontermatschChaos = (chargeAmount: number) => {
+export const triggerKontermatschChaos = () => {
   const overlay = document.createElement('div');
   overlay.style.position = 'fixed';
   overlay.style.top = '0';

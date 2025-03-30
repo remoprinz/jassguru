@@ -230,4 +230,7 @@ const SplitContainer = forwardRef<HTMLDivElement, SplitContainerProps>(({
   );
 });
 
+// Display-Name für die Komponente hinzufügen
+SplitContainer.displayName = 'SplitContainer';
+
 export default SplitContainer;

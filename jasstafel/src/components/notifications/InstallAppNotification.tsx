@@ -1,7 +1,6 @@
 import React from 'react';
 import { FaDownload } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
-import Image from 'next/image';
 
 interface InstallAppNotificationProps {
   show: boolean;
@@ -43,7 +42,7 @@ const InstallAppNotification: React.FC<InstallAppNotificationProps> = ({
               />
               <h2 className="text-xl font-bold mb-4 text-center">{title}</h2>
               <FaDownload className="w-12 h-12 text-yellow-600 mb-2" />
-              <h3 className="text-lg font-medium mb-4 text-center">So geht's:</h3>
+              <h3 className="text-lg font-medium mb-4 text-center">So geht&apos;s:</h3>
               <p className="text-center mb-6 text-base whitespace-pre-line">
                 {message}
               </p>

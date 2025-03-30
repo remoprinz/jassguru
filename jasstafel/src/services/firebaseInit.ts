@@ -29,8 +29,7 @@ import {
   Timestamp,
   Firestore,
   CollectionReference,
-  DocumentData,
-  connectFirestoreEmulator
+  DocumentData
 } from "firebase/firestore";
 
 // Prüfen, ob wir in einer lokalen Entwicklungsumgebung sind
@@ -175,11 +174,11 @@ try {
   console.error('Fehler bei der Firebase-Initialisierung:', error);
   
   // Dummy-Objekte erstellen
-  // @ts-ignore - Wir erstellen Dummy-Objekte für den Fall, dass Firebase nicht initialisiert werden kann
+  // @ts-expect-error - Firebase-App-Dummy für Offline-Mode
   app = {};
-  // @ts-ignore
+  // @ts-expect-error - Firebase-Auth-Dummy für Offline-Mode
   auth = {};
-  // @ts-ignore
+  // @ts-expect-error - Firestore-DB-Dummy für Offline-Mode
   db = {};
 }
 
@@ -273,6 +272,7 @@ export {
   sendEmailVerification,
   updateProfile,
   sendPasswordResetEmail,
+  getAuth,
   // Firestore exports
   collection,
   doc,

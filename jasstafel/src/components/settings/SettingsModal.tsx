@@ -667,6 +667,9 @@ const NavigationButton: React.FC<{
   );
 });
 
+// Display-Name für die Komponente hinzufügen
+NavigationButton.displayName = 'NavigationButton';
+
 const SaveButton: React.FC<{
   onClick: () => void;
 }> = ({ onClick }) => {

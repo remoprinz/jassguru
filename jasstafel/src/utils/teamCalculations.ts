@@ -1,8 +1,6 @@
 import { useUIStore } from '../store/uiStore';
 import type { 
-  TeamPosition, 
-  StricheKategorie,
-  SpruchMitIcon 
+  StricheKategorie 
 } from '../types/jass';
 
 // Types

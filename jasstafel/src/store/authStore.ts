@@ -8,9 +8,9 @@ import {
   logout, 
   registerWithEmail, 
   resetPassword,
-  getUserDocument,
   mapUserToAuthUser,
-  resendVerificationEmail
+  resendVerificationEmail,
+  uploadProfilePicture as uploadProfilePictureService
 } from '../services/authService';
 import { AuthStatus, AuthUser, AppMode } from '../types/jass';
 
@@ -21,6 +21,7 @@ interface AuthState {
   appMode: AppMode;
   error: string | null;
   isGuest: boolean;
+  uploadStatus?: 'idle' | 'loading' | 'success' | 'error';
 }
 
 interface AuthActions {
@@ -35,6 +36,7 @@ interface AuthActions {
   continueAsGuest: () => void;
   isAuthenticated: () => boolean;
   resendVerificationEmail: () => Promise<void>;
+  uploadProfilePicture: (file: File) => Promise<void>;
 }
 
 type AuthStore = AuthState & AuthActions;
@@ -49,6 +51,7 @@ export const useAuthStore = create<AuthStore>()(
       appMode: 'offline',
       error: null,
       isGuest: false,
+      uploadStatus: 'idle',
 
       // Aktionen
       login: async (email: string, password: string) => {
@@ -177,14 +180,62 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
 
+      uploadProfilePicture: async (file: File) => {
+        console.log("AuthStore: Starte Profilbild-Upload..."); 
+        const user = get().user;
+        if (!user || !user.uid) {
+          const errorMsg = "Kein Benutzer angemeldet, um Profilbild hochzuladen.";
+          console.error("AuthStore: uploadProfilePicture ABORT - ", errorMsg);
+          throw new Error(errorMsg);
+        }
+
+        const previousStatus = get().status;
+        
+        try {
+          console.log("AuthStore: Starte Profilbild-Upload für User:", user.uid);
+          
+          set(state => ({ 
+            ...state, 
+            error: null,
+            uploadStatus: 'loading'
+          }));
+          
+          const updatedUser = await uploadProfilePictureService(file, user.uid);
+          console.log("AuthStore: Upload erfolgreich, aktualisierter User:", updatedUser);
+          
+          set(state => ({
+            ...state,
+            user: updatedUser,
+            uploadStatus: 'success',
+            error: null
+          }));
+
+        } catch (error) {
+          console.error('AuthStore: Fehler beim Profilbild-Upload:', error);
+          
+          set(state => ({ 
+            ...state,
+            uploadStatus: 'error',
+            error: error instanceof Error ? error.message : 'Fehler beim Hochladen des Profilbilds.'
+          }));
+          
+          throw error;
+        }
+      },
+
       initAuth: () => {
+        console.log("AUTH_STORE: initAuth aufgerufen");
         if (get().isGuest) {
+           console.log("AUTH_STORE: initAuth - Ist Gast, überspringe Listener.");
           return;
         }
         
+        console.log("AUTH_STORE: initAuth - Registriere onAuthStateChanged Listener...");
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+          console.log("AUTH_STORE: onAuthStateChanged FEUERTE!", "firebaseUser:", firebaseUser ? firebaseUser.uid : 'null');
           if (firebaseUser) {
             try {
+              console.log("AUTH_STORE: onAuthStateChanged - Firebase User vorhanden, mappe und setze Status 'authenticated'");
               const authUser = mapUserToAuthUser(firebaseUser);
               set({ 
                 user: authUser, 
@@ -194,27 +245,35 @@ export const useAuthStore = create<AuthStore>()(
                 isGuest: false,
                 error: null 
               });
+              console.log("AUTH_STORE: onAuthStateChanged - Zustand nach set 'authenticated':", get().status, get().user?.uid);
 
-              const userDoc = await getUserDocument(firebaseUser.uid);
-              if (userDoc) {
-                console.log('User document loaded:', userDoc);
-              }
+              // Optional: User-Dokument laden (könnte man für Debugging auskommentieren)
+              // const userDoc = await getUserDocument(firebaseUser.uid);
+              // if (userDoc) {
+              //   console.log('AUTH_STORE: onAuthStateChanged - User document loaded:', userDoc);
+              // }
             } catch (error) {
-              console.error('Error initializing auth:', error);
+              console.error('AUTH_STORE: onAuthStateChanged - Fehler beim Verarbeiten des Firebase Users:', error);
               set({ 
                 status: 'error', 
                 error: error instanceof Error ? error.message : 'Fehler beim Initialisieren der Authentifizierung' 
               });
+              console.log("AUTH_STORE: onAuthStateChanged - Zustand nach set 'error':", get().status);
             }
           } else {
+             console.log("AUTH_STORE: onAuthStateChanged - Kein Firebase User, setze Status 'unauthenticated'");
             set({ 
               user: null, 
               firebaseUser: null,
               status: 'unauthenticated', 
               error: null 
             });
+             console.log("AUTH_STORE: onAuthStateChanged - Zustand nach set 'unauthenticated':", get().status);
           }
         });
+        console.log("AUTH_STORE: initAuth - Listener registriert.");
+        // Unsubscribe zurückgeben, falls benötigt
+        // return unsubscribe; 
       },
 
       clearError: () => {

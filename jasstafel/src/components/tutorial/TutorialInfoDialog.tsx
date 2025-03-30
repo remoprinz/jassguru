@@ -1,7 +1,6 @@
 import React from 'react';
 import { 
   TUTORIAL_STEPS,
-  TutorialCategory,
   type TutorialStepId,
   type TutorialSplitContainerEventDetail
 } from '../../types/tutorial';
@@ -12,7 +11,6 @@ import { FaInfoCircle, FaPencilAlt, FaGripLinesVertical, FaTrashAlt, FaCog } fro
 import { FaHandshakeSimple } from 'react-icons/fa6';
 import { MdSwipe, MdHelp } from 'react-icons/md';
 import { animated, useSpring } from 'react-spring';
-import { GiCardPick } from 'react-icons/gi';
 import { BsLightbulb } from 'react-icons/bs';
 import { TbClipboardText } from 'react-icons/tb';
 import { useDeviceScale } from '../../hooks/useDeviceScale';

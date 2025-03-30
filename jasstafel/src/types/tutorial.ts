@@ -1,5 +1,5 @@
   // src/types/tutorial.ts
-  import { StateStorage, PersistStorage } from 'zustand/middleware';
+  import { PersistStorage } from 'zustand/middleware';
   import { IconType } from 'react-icons';
   import type { TeamPosition } from './jass';
   import type { StorageValue } from 'zustand/middleware';
@@ -188,7 +188,8 @@
     stepId: TutorialStepId;
   }
 
-  export interface TutorialSplitContainerEvent extends CustomEvent<TutorialSplitContainerEventDetail> {}
+  // Direkte Verwendung des CustomEvent-Typs statt eines leeren Interfaces
+  export type TutorialSplitContainerEvent = CustomEvent<TutorialSplitContainerEventDetail>;
 
   export type TutorialEventName = 
     | 'calculatorOpen' 

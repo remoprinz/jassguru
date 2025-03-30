@@ -7,7 +7,6 @@ import {
   TeamPosition, 
   PlayerNames,
   JassStore,
-  JassState,
   GameEntry,
   TeamStand,
   TeamScores,

@@ -1,6 +1,6 @@
 import { GiCardPick } from 'react-icons/gi';
 import { MdSwipeVertical } from 'react-icons/md';
-import { TUTORIAL_STEPS, TutorialCategory, type TutorialStep, type TutorialStepId, type TutorialSplitContainerEventDetail } from '../types/tutorial';
+import { TUTORIAL_STEPS, TutorialCategory, type TutorialStep, type TutorialSplitContainerEventDetail } from '../types/tutorial';
 import { useUIStore } from '../store/uiStore';
 import { useTutorialStore } from '../store/tutorialStore';
 import { FaGripLinesVertical } from 'react-icons/fa';

@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/form';
 import { useAuthStore } from '@/store/authStore';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import Link from 'next/link';
 
 const resetPasswordSchema = z.object({
   email: z.string().email('Ungültige E-Mail-Adresse'),
@@ -41,8 +42,8 @@ export function ResetPasswordForm() {
       await resetPassword(data.email);
       setSuccessMessage('Eine E-Mail zum Zurücksetzen Ihres Passworts wurde gesendet. Bitte überprüfen Sie Ihren Posteingang.');
       form.reset();
-    } catch (error) {
-      // Der Fehler wird bereits im Store gesetzt
+    } catch {
+      // Der Fehler wird bereits im Store gesetzt, keine lokale Variable nötig
     }
   };
 
@@ -51,19 +52,19 @@ export function ResetPasswordForm() {
   return (
     <div className="w-full max-w-md space-y-6">
       <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-bold">Passwort zurücksetzen</h1>
-        <p className="text-gray-500">Geben Sie Ihre E-Mail-Adresse ein, um Ihr Passwort zurückzusetzen</p>
+        <h1 className="text-2xl font-bold text-white">Passwort zurücksetzen</h1>
+        <p className="text-gray-300">Geben Sie Ihre E-Mail-Adresse ein, um Ihr Passwort zurückzusetzen</p>
       </div>
 
       {error && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="bg-red-900/30 border-red-900 text-red-200">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
       {successMessage && (
-        <Alert className="bg-green-50 border-green-200">
-          <AlertDescription className="text-green-800">{successMessage}</AlertDescription>
+        <Alert className="bg-green-900/30 border-green-900 text-green-200">
+          <AlertDescription>{successMessage}</AlertDescription>
         </Alert>
       )}
 
@@ -74,23 +75,24 @@ export function ResetPasswordForm() {
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>E-Mail</FormLabel>
+                <FormLabel className="text-gray-300">E-Mail</FormLabel>
                 <FormControl>
                   <Input
                     placeholder="ihre.email@beispiel.ch"
                     type="email"
                     disabled={isLoading}
+                    className="bg-gray-800 border-gray-700 text-white focus:border-gray-500"
                     {...field}
                   />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-red-300" />
               </FormItem>
             )}
           />
 
           <Button
             type="submit"
-            className="w-full"
+            className="w-full bg-green-600 hover:bg-green-700 text-white h-12 rounded-md"
             disabled={isLoading}
           >
             {isLoading ? "Wird gesendet..." : "Zurücksetzen-Link senden"}
@@ -98,10 +100,10 @@ export function ResetPasswordForm() {
         </form>
       </Form>
 
-      <p className="text-center text-sm text-gray-500">
-        <a href="/auth/login" className="underline hover:text-gray-800">
+      <p className="text-center text-sm text-gray-400">
+        <Link href="/auth/login" className="text-blue-400 hover:underline">
           Zurück zum Login
-        </a>
+        </Link>
       </p>
     </div>
   );

@@ -10,8 +10,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
-  DialogClose
+  DialogTitle
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { FaWifi } from 'react-icons/fa';
@@ -24,25 +23,25 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 export function OfflineModeToggle() {
   const { appMode, setAppMode } = useAuthStore();
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [targetMode, setTargetMode] = useState<'online' | 'offline'>(appMode);
   const [isLocalDev, setIsLocalDev] = useState(false);
   const [showApiBlockedWarning, setShowApiBlockedWarning] = useState(false);
   const [isLocalAuthEnabled, setIsLocalAuthEnabled] = useState(false);
 
+  const localAuth = useLocalAuth();
+
   useEffect(() => {
     setIsLocalDev(window.location.hostname === 'localhost');
-    setIsLocalAuthEnabled(useLocalAuth());
+    setIsLocalAuthEnabled(localAuth);
     
     // Prüfe, ob die App im lokalen Modus ist und die API vorher blockiert wurde
     const hasApiBlockedError = sessionStorage.getItem('firebase-auth-blocked') === 'true';
     setShowApiBlockedWarning(hasApiBlockedError);
-  }, []);
+  }, [localAuth]);
 
   const isOffline = appMode === 'offline';
 
   const handleToggleChange = (checked: boolean) => {
     const newMode = checked ? 'offline' : 'online';
-    setTargetMode(newMode);
     
     // Wenn wir in den Offline-Modus wechseln, zeigen wir einen Bestätigungsdialog
     if (newMode === 'offline') {

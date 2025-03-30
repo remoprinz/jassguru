@@ -1,4 +1,4 @@
-import { FaDownload, FaInfoCircle, FaClock } from 'react-icons/fa';
+import { FaInfoCircle } from 'react-icons/fa';
 import type { IconType } from 'react-icons';
 import { IoIosDownload } from 'react-icons/io';
 
@@ -87,7 +87,7 @@ export const BROWSER_ONBOARDING = {
       message: "Die moderne Jassguru-App funktioniert ganz ohne App Store. In drei einfachen Schritten bist du startklar:",
       image: "/welcome-guru.png",
       desktopTitle: "Mobile App installieren",
-      desktopMessage: "Jassguru ist eine Mobile App. Scanne einfach diesen QR-Code mit der Kamera Deines Telefons.",
+      desktopMessage: "Jassguru ist eine Mobile App. Scanne einfach diesen QR-Code mit der Kamera deines Telefons.",
       desktopSecondaryMessage: "Die App wird direkt in Deinem Browser geöffnet, wo Du sie mit wenigen Klicks installieren kannst.",
     },
     INSTALL_SHARE: {

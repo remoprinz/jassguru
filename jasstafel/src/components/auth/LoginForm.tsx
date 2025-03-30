@@ -16,7 +16,6 @@ import {
 } from '@/components/ui/form';
 import { useAuthStore } from '@/store/authStore';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { FaGoogle } from 'react-icons/fa';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
@@ -30,7 +29,7 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
-  const { login, loginWithGoogle, status, error, clearError, resendVerificationEmail, user } = useAuthStore();
+  const { login, loginWithGoogle, status, error, clearError, resendVerificationEmail } = useAuthStore();
   const showNotification = useUIStore(state => state.showNotification);
   const [showPassword, setShowPassword] = useState(false);
   const [showVerificationWarning, setShowVerificationWarning] = useState(false);

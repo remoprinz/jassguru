@@ -1,7 +1,7 @@
 // src/types/jass.ts
 
 import { StatisticId } from './statistikTypes';
-import { IconType } from 'react-icons';
+import { Timestamp, FieldValue } from 'firebase/firestore';
 
 export type TeamPosition = 'top' | 'bottom';
 export type PlayerNumber = 1 | 2 | 3 | 4;
@@ -877,14 +877,19 @@ export interface UserContext {
   error: string | null;
 }
 
+// FirestoreMetadata als generischer Typ für Metadaten
+export interface FirestoreMetadata {
+  [key: string]: string | number | boolean | null | Timestamp | FieldValue | FirestoreMetadata;
+}
+
 // Firestore Datenmodelle
 export interface FirestoreUser {
   uid: string;
   email: string;
   displayName: string | null;
   photoURL: string | null;
-  createdAt: any; // Timestamp
-  updatedAt: any; // Timestamp
+  createdAt: Timestamp | FieldValue; 
+  updatedAt: Timestamp | FieldValue;
   isGuest?: boolean;
   playerId?: string; // ID des verknüpften Players
   roles?: string[];
@@ -892,7 +897,7 @@ export interface FirestoreUser {
     theme: string;
     notifications: boolean;
   };
-  metadata?: Record<string, any>;
+  metadata?: FirestoreMetadata;
 }
 
 export interface FirestorePlayer {
@@ -900,20 +905,20 @@ export interface FirestorePlayer {
   nickname: string;
   userId: string | null; // Null für Gastspieler
   isGuest: boolean;
-  createdAt: any; // Timestamp
+  createdAt: Timestamp | FieldValue;
   groupIds: string[]; // Gruppen, in denen dieser Spieler Mitglied ist
-  metadata?: Record<string, any>;
+  metadata?: FirestoreMetadata;
 }
 
 export interface FirestoreGroup {
   id: string;
   name: string;
   description: string | null;
-  createdAt: any; // Timestamp
+  createdAt: Timestamp | FieldValue;
   createdBy: string; // User ID
   adminIds: string[]; // User IDs
   playerIds: string[]; // Player IDs
-  metadata?: Record<string, any>;
+  metadata?: FirestoreMetadata;
 }
 
 export interface FirestoreTeam {
@@ -921,8 +926,8 @@ export interface FirestoreTeam {
   player1Id: string;
   player2Id: string;
   groupId: string;
-  createdAt: any; // Timestamp
-  metadata?: Record<string, any>;
+  createdAt: Timestamp | FieldValue;
+  metadata?: FirestoreMetadata;
 }
 
 export interface FirestoreGame {
@@ -931,8 +936,8 @@ export interface FirestoreGame {
   groupId: string;
   team1Id: string;
   team2Id: string;
-  startTime: any; // Timestamp
-  endTime: any | null; // Timestamp
+  startTime: Timestamp | FieldValue;
+  endTime: (Timestamp | FieldValue) | null;
   startingPlayer: PlayerNumber;
   currentRound: number;
   isCompleted: boolean;
@@ -948,7 +953,7 @@ export interface FirestoreGame {
       weisPoints: number;
     }
   };
-  metadata?: Record<string, any>;
+  metadata?: FirestoreMetadata;
 }
 
 interface NotificationAction {

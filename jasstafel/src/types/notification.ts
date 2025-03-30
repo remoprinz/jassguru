@@ -1,6 +1,5 @@
 import type { SpruchMitIcon } from './sprueche';
 import React from 'react';
-import type { TeamPosition, ChargeDuration } from './jass';
 import type { ReactNode } from 'react';
 
 // Position der Notification auf dem Bildschirm

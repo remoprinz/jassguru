@@ -4,7 +4,6 @@ import { useTutorialStore } from '../../store/tutorialStore';
 import { TUTORIAL_STEPS, type TutorialStep, TutorialCategory } from '../../types/tutorial';
 import TutorialNavigation from './TutorialNavigation';
 import { useUIStore } from '../../store/uiStore';
-import { TUTORIAL_CONTENT } from '../../constants/tutorialContent';
 import { type TutorialOverlayProps } from '../../types/jass';
 import { useTutorialComponent } from '../../hooks/useTutorialComponent';
 

@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useRef, useEffect, useState } from 'react';
 import { useUIStore } from '../../store/uiStore';
 import { useGameStore } from '../../store/gameStore';
-import { FiX, FiRotateCcw, FiSkipBack, FiPlayCircle } from 'react-icons/fi';
+import { FiX, FiRotateCcw, FiSkipBack } from 'react-icons/fi';
 import format from 'date-fns/format';
 import type { UIStore } from '../../store/uiStore';
 import type { GameStore } from '../../types/jass';
@@ -560,7 +560,7 @@ const ResultatKreidetafel = () => {
         width: kreidetafelContent.scrollWidth,
         height: kreidetafelContent.scrollHeight,
         scale: 2
-      } as any);
+      } as ScreenshotOptions);
 
       console.log("✅ Canvas erstellt:", { 
         width: canvas.width, 

@@ -3,7 +3,6 @@
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuthStore } from '@/store/authStore';
-import { Button } from '@/components/ui/button';
 import MainLayout from '@/components/layout/MainLayout';
 
 const ContinueGamePage: React.FC = () => {

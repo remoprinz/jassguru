@@ -1,6 +1,5 @@
 import React, { useCallback } from 'react';
 import { FaExclamationTriangle } from 'react-icons/fa';
-import { useGameStore } from '../../store/gameStore';
 import { useUIStore } from '../../store/uiStore';
 import { motion, AnimatePresence } from 'framer-motion';
 

@@ -6,18 +6,24 @@ import {
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
   updateProfile,
-  isLocalDevelopment,
-  isOfflineMode,
   isFirebaseReady,
-  useLocalAuth,
   doc, 
   getDoc, 
   setDoc,
   serverTimestamp,
-  sendEmailVerification
+  sendEmailVerification,
+  getAuth
 } from './firebaseInit';
-import { User, UserCredential } from 'firebase/auth';
+import { User } from 'firebase/auth';
 import { AuthUser, FirestoreUser } from '../types/jass';
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { updateDoc } from "firebase/firestore";
+
+// Type-Definition für Firebase Auth Fehler
+interface FirebaseAuthError extends Error {
+  code?: string;
+  message: string;
+}
 
 /**
  * Helfer-Funktion zum Mapping eines Firebase-Benutzers zu unserem AuthUser-Format
@@ -158,7 +164,7 @@ export const registerWithEmail = async (email: string, password: string, display
   } catch (error) {
     console.error('Registrierungsfehler im Service:', error);
     if (error instanceof Error) {
-      const errorCode = (error as any).code;
+      const errorCode = (error as FirebaseAuthError).code;
       if (errorCode === 'auth/email-already-in-use') {
         throw new Error('Diese E-Mail-Adresse wird bereits verwendet.');
       } else if (errorCode === 'auth/weak-password') {
@@ -183,7 +189,7 @@ export const loginWithEmail = async (email: string, password: string): Promise<A
   } catch (error) {
     console.error('Login-Fehler im Service:', error);
     if (error instanceof Error) {
-      const errorCode = (error as any).code;
+      const errorCode = (error as FirebaseAuthError).code;
       if (errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password' || errorCode === 'auth/invalid-credential') {
         throw new Error('Ungültige E-Mail oder Passwort.');
       }
@@ -218,7 +224,7 @@ export const loginWithGoogle = async (): Promise<AuthUser> => {
   } catch (error) {
     console.error('Google Login-Fehler im Service:', error);
      if (error instanceof Error) {
-      const errorCode = (error as any).code;
+      const errorCode = (error as FirebaseAuthError).code;
       // Behandeln Sie spezifische Google-Login-Fehler, falls nötig
       if (errorCode === 'auth/popup-closed-by-user') {
         throw new Error('Anmeldung mit Google abgebrochen.');
@@ -257,7 +263,7 @@ export const resetPassword = async (email: string): Promise<void> => {
   } catch (error) {
     console.error('Fehler beim Senden der Passwort-Reset-E-Mail:', error);
     if (error instanceof Error) {
-      const errorCode = (error as any).code;
+      const errorCode = (error as FirebaseAuthError).code;
       if (errorCode === 'auth/user-not-found') {
         // Geben Sie keinen Hinweis darauf, ob die E-Mail existiert
         throw new Error('E-Mail zum Zurücksetzen des Passworts konnte nicht gesendet werden. Überprüfen Sie die Adresse.');
@@ -339,4 +345,131 @@ const createFirestoreUser = async (user: User, displayName?: string): Promise<vo
         console.error("Error writing user document to Firestore:", error);
         // Hier könnte man entscheiden, ob der Fehler kritisch ist
     }
+};
+
+/**
+ * Lädt ein neues Profilbild hoch, löscht das alte (falls vorhanden) und aktualisiert Firestore.
+ * @param file Die hochzuladende Bilddatei.
+ * @param userId Die ID des Benutzers.
+ * @returns Promise<AuthUser> Das aktualisierte AuthUser Objekt.
+ */
+export const uploadProfilePicture = async (file: File, userId: string): Promise<AuthUser> => {
+  if (!db) throw new Error("Firebase Database nicht initialisiert.");
+  const storage = getStorage();
+  if (!storage) throw new Error("Firebase Storage nicht initialisiert.");
+  const authInstance = getAuth(); // Holen Sie sich die Auth-Instanz
+
+  // 1. Alten Pfad ermitteln und altes Bild löschen (optional, aber gut für Speicherplatz)
+  const userDocRef = doc(db, 'users', userId);
+  try {
+    const userDocSnap = await getDoc(userDocRef);
+    console.log("User document loaded:", userDocSnap.exists() ? userDocSnap.data() : "No document");
+    if (userDocSnap.exists()) {
+      const oldPhotoURL = userDocSnap.data()?.photoURL;
+      if (oldPhotoURL) {
+        // Versuchen, die Referenz aus der URL zu extrahieren und das alte Bild zu löschen
+        try {
+          const oldImageRef = ref(storage, oldPhotoURL);
+          await deleteObject(oldImageRef);
+          console.log("Altes Profilbild gelöscht:", oldPhotoURL);
+        } catch (deleteError) {
+          // Fehler beim Löschen des alten Bildes ist nicht kritisch, kann aber geloggt werden
+          console.warn("Konnte altes Profilbild nicht löschen:", deleteError);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Fehler beim Abrufen des Benutzerdokuments zum Löschen des alten Bildes:", error);
+    // Fortfahren, auch wenn das alte Bild nicht gelöscht werden konnte
+  }
+
+  // 2. Neuen Pfad definieren und Bild hochladen
+  const filePath = `profileImages/${userId}/${file.name}`;
+  const storageRef = ref(storage, filePath);
+
+  try {
+    console.log(`Lade ${file.name} (${(file.size / 1024).toFixed(2)} KB) hoch nach ${filePath}...`);
+    
+    // Überprüfe Dateiformat
+    const fileType = file.type.toLowerCase();
+    if (!fileType.startsWith('image/')) {
+      throw new Error("Die Datei ist kein Bild. Unterstützte Formate: JPEG, PNG, GIF.");
+    }
+    
+    // Überprüfe Dateigröße (5MB Limit)
+    const fileSizeInMB = file.size / (1024 * 1024);
+    if (fileSizeInMB > 5) {
+      throw new Error(`Die Datei ist zu groß (${fileSizeInMB.toFixed(2)} MB). Maximale Größe: 5 MB.`);
+    }
+
+    const uploadResult = await uploadBytes(storageRef, file);
+    console.log("Upload erfolgreich:", uploadResult);
+
+    // 3. Download-URL abrufen
+    const downloadURL = await getDownloadURL(uploadResult.ref);
+    console.log("Download URL:", downloadURL);
+
+    // 4. Firestore aktualisieren
+    await updateDoc(userDocRef, {
+      photoURL: downloadURL,
+      updatedAt: serverTimestamp()
+    });
+    console.log("Firestore photoURL aktualisiert.");
+
+    // 5. Aktuellen Firebase Auth User holen und neu mappen
+    const currentUser = authInstance.currentUser;
+    if (!currentUser) {
+      throw new Error('Benutzer ist nach dem Upload nicht mehr angemeldet.');
+    }
+    
+    // Bei Bedarf das Auth-Profil aktualisieren
+    try {
+      await updateProfile(currentUser, { photoURL: downloadURL });
+      console.log("Auth-Profil aktualisiert.");
+    } catch (profileError) {
+      console.warn("Konnte Auth-Profil nicht aktualisieren:", profileError);
+      // Nicht kritisch, fortfahren
+    }
+    
+    // Wir mappen den aktuellen Firebase-User mit der neuen URL
+    const updatedAuthUser = mapUserToAuthUser(currentUser);
+    // Sicherstellen, dass die hochgeladene URL verwendet wird
+    updatedAuthUser.photoURL = downloadURL; 
+
+    console.log("AuthService: Gebe aktualisierten AuthUser zurück:", updatedAuthUser);
+    return updatedAuthUser;
+
+  } catch (error) {
+    console.error("Fehler beim Hochladen des Profilbilds oder Aktualisieren von Firestore:", error);
+    
+    // Detaillierte Fehlerbehandlung
+    if (error instanceof Error) {
+      if ('code' in error) {
+        const errorCode = (error as FirebaseAuthError).code;
+        switch (errorCode) {
+          case 'storage/unauthorized':
+            throw new Error("Berechtigung fehlt. Stellen Sie sicher, dass Sie eingeloggt sind und die Storage-Regeln korrekt sind.");
+          case 'storage/canceled':
+            throw new Error("Upload wurde abgebrochen.");
+          case 'storage/unknown':
+            throw new Error("Storage-Fehler: Bitte überprüfen Sie die Verbindung und Firebase-Konfiguration. Der Bucket muss existieren und korrekt konfiguriert sein (CORS).");
+          case 'storage/retry-limit-exceeded':
+            throw new Error("Zeitüberschreitung beim Upload. Bitte überprüfen Sie Ihre Internetverbindung.");
+          case 'storage/invalid-checksum':
+            throw new Error("Die Datei wurde während des Uploads beschädigt. Bitte versuchen Sie es erneut.");
+          case 'storage/object-not-found':
+            throw new Error("Das Bild konnte nach dem Upload nicht gefunden werden.");
+          case 'storage/bucket-not-found':
+            throw new Error("Der Firebase Storage Bucket existiert nicht. Bitte überprüfen Sie Ihre Firebase-Konfiguration.");
+          case 'storage/quota-exceeded':
+            throw new Error("Storage-Kontingent überschritten. Bitte kontaktieren Sie den Administrator.");
+          default:
+            throw new Error(`Fehler beim Bildupload (${errorCode}): ${error.message}`);
+        }
+      }
+      throw new Error(`Fehler beim Bildupload: ${error.message}`);
+    } else {
+      throw new Error("Ein unbekannter Fehler ist beim Bildupload aufgetreten. Bitte versuchen Sie es später erneut.");
+    }
+  }
 }; 

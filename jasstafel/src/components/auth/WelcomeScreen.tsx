@@ -7,7 +7,7 @@ import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useUIStore } from '@/store/uiStore';
+import { Loader2 } from 'lucide-react';
 
 export interface WelcomeScreenProps {
   onLogin?: () => void;
@@ -19,8 +19,9 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   onGuestPlay 
 }) => {
   const router = useRouter();
-  const { status, isGuest, continueAsGuest } = useAuthStore();
+  const { continueAsGuest } = useAuthStore();
   const [isClient, setIsClient] = useState(false);
+  const [isGuestLoading, setIsGuestLoading] = useState(false);
 
   // Erst Rendering im Browser erlauben
   useEffect(() => {
@@ -30,13 +31,29 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   // Die automatische Weiterleitung zu /start wurde entfernt
   // Stattdessen bleiben wir auf der Willkommensseite
 
-  const handleGuestPlay = () => {
-    // Als Gast anmelden und direkt zu Kreidetafel weiterleiten
-    continueAsGuest();
-    if (onGuestPlay) onGuestPlay();
+  const handleGuestPlay = async () => {
+    // Wenn bereits ein Ladevorgang läuft, nichts weiter tun
+    if (isGuestLoading) return;
     
-    // Direkt zur Jass-Kreidetafel navigieren
-    router.push('/jass');
+    // Ladeindikator setzen
+    setIsGuestLoading(true);
+    
+    try {
+      // Als Gast anmelden
+      continueAsGuest();
+      if (onGuestPlay) onGuestPlay();
+      
+      // Kurze Verzögerung für Animation und Verarbeitung
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Direkt zur Jass-Kreidetafel navigieren
+      await router.push('/jass');
+    } catch (error) {
+      console.error('Fehler beim Navigieren zur Jass-Seite:', error);
+    } finally {
+      // Ladeindikator zurücksetzen (für den Fall, dass wir zum Screen zurückkehren)
+      setIsGuestLoading(false);
+    }
   };
 
   const handleLogin = () => {
@@ -68,7 +85,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           </div>
           
           <h1 className="text-3xl font-bold text-white text-center">
-            Willkommen bei jassguru.ch
+            Willkommen bei Jassguru
           </h1>
           
           <p className="text-gray-400 text-center">
@@ -86,9 +103,17 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           
           <Button
             onClick={handleGuestPlay}
+            disabled={isGuestLoading}
             className="w-full bg-yellow-600 hover:bg-yellow-700 text-white h-14 text-lg rounded-xl shadow-lg"
           >
-            Als Gast spielen
+            {isGuestLoading ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" /> 
+                Lade Spiel...
+              </>
+            ) : (
+              "Als Gast spielen"
+            )}
           </Button>
         </div>
 
@@ -102,7 +127,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       </motion.div>
       
       <div className="mt-6 text-gray-500 text-sm text-center">
-        &copy; {new Date().getFullYear()} Jassguru.ch - Alle Rechte vorbehalten
+        &copy; {new Date().getFullYear()} jassguru.ch - Alle Rechte vorbehalten
       </div>
     </div>
   );

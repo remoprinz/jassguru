@@ -1,10 +1,9 @@
-import React, { useRef, useCallback, useEffect } from 'react';
+import React from 'react';
 import { styled } from '@mui/material/styles';
 import RoemischeZahlen from '../game/RoemischeZahlen';
 import { useGameStore } from '../../store/gameStore';
 import { useUIStore } from '../../store/uiStore';
 import type { TeamPosition, StrichValue } from '../../types/jass';
-import { HISTORY_WARNING_MESSAGE } from '../notifications/HistoryWarnings';
 
 interface StrichContainerProps {
   position: TeamPosition;

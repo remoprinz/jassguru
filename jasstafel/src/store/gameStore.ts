@@ -19,14 +19,12 @@ import type {
   JassColor,
   GameStore,
   GameState,
-  HistoryState,
   WeisRoundEntry,
   JassRoundEntry,
   CardStyle
 } from '../types/jass';
 import { useUIStore } from './uiStore';
 import { HISTORY_WARNING_MESSAGE } from '../components/notifications/HistoryWarnings';
-import { jassAnalytics } from '../statistics/jassAnalytics';
 import { useTimerStore } from './timerStore';
 import { STRICH_WERTE } from '../config/GameSettings';
 import { CARD_SYMBOL_MAPPINGS } from '../config/CardStyles';
@@ -161,7 +159,7 @@ const createRoundEntry = (
     actionType: 'jass',
     isRoundFinalized: true,
     isCompleted: true,
-    farbe: options?.farbe ? getDBFarbe(options.farbe, cardStyle) : options?.farbe!,
+    farbe: options?.farbe ? getDBFarbe(options.farbe, cardStyle) : (options?.farbe || undefined),
     cardStyle: cardStyle,
     strichType: options?.strichType
   } as JassRoundEntry;

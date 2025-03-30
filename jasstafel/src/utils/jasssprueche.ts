@@ -19,7 +19,6 @@ import {
 } from './sprueche';
 import { resultatDetailsSprueche } from './sprueche/jassEnd/details/resultatDetails';
 import { matchDetailsSprueche } from './sprueche/jassEnd/details/matchDetails';
-import { useTimerStore } from '../store/timerStore';
 
 // Parameter Interface (erweitert von TeamCalculationResult)
 export interface JassSpruchParams extends Pick<TeamCalculationResult, 

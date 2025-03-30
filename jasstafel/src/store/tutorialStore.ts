@@ -1,17 +1,12 @@
 // src/store/tutorialStore.ts
 
 import { create } from 'zustand';
-import { persist, createJSONStorage, type PersistStorage } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { isDev, FORCE_TUTORIAL } from '../utils/devUtils';
 import { 
-  type TutorialStore, 
-  type TutorialStep, 
-  type TutorialCategory as TutorialCategoryType,
+  type TutorialStore,
   TutorialCategory,
   type TutorialStepId,
-  type PersistedTutorialState,
-  createDevStorage,
-  TUTORIAL_EVENTS,
   type TutorialEventName
 } from '../types/tutorial';
 import { TUTORIAL_CONTENT } from '../constants/tutorialContent';

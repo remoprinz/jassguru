@@ -1,19 +1,9 @@
-import confetti, { Shape } from 'canvas-confetti';
 import type { 
-  ChargeLevel, 
-  EffectConfig,
-  EffectParams 
+  EffectConfig 
 } from '../../types/jass';
-import { getPerspectiveParams, getEffectParams } from '../../utils/effectUtils';
-import { createBergConfetti, getConfettiIntensity } from './BergConfetti';
-import { createBedankenFirework, getFireworkIntensity } from './BedankenFireworks';
-
-// ------------------------------------------------------------------------
-// Helper für Promise-Handling
-// ------------------------------------------------------------------------
-const handleConfettiPromise = (promise: Promise<void> | null): Promise<void> => {
-  return promise || Promise.resolve();
-};
+import { getEffectParams } from '../../utils/effectUtils';
+import { createBergConfetti } from './BergConfetti';
+import { createBedankenFirework } from './BedankenFireworks';
 
 // ------------------------------------------------------------------------
 // Berg-Effekt (Gold-Konfetti)

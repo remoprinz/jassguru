@@ -1,7 +1,7 @@
 // src/types/uiStore.ts (oder src/store/uiStore.ts)
 
 import { create, StateCreator } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
 import type { 
   TeamPosition, 
   PlayerNames, 

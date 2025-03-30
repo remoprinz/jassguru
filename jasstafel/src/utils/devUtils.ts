@@ -1,5 +1,4 @@
 // Dev Environment Detection
-import { isPWA } from './browserDetection';
 import { useTutorialStore } from '../store/tutorialStore';
 
 export const isDev = process.env.NODE_ENV === 'development';

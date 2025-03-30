@@ -1,5 +1,4 @@
 import {
-  db,
   collections,
   doc,
   getDoc,
@@ -8,7 +7,8 @@ import {
   where,
   getDocs,
   serverTimestamp,
-  isFirebaseReady
+  isFirebaseReady,
+  Timestamp
 } from './firebaseInit';
 import { AuthUser, FirestorePlayer } from '../types/jass';
 import { nanoid } from 'nanoid';
@@ -147,7 +147,7 @@ export const createGuestPlayer = async (nickname: string, initialGroupId?: strin
 };
 
 /**
- * Mock-Player für Offline-Modus oder Entwicklungsumgebung
+ * Erstellt einen Mock-Spieler für die Offline-Entwicklung
  */
 const createMockPlayer = (nickname: string, userId?: string): FirestorePlayer => {
   const playerId = nanoid();
@@ -157,7 +157,7 @@ const createMockPlayer = (nickname: string, userId?: string): FirestorePlayer =>
     nickname,
     userId: userId || null,
     isGuest: !userId,
-    createdAt: new Date().toISOString(), // Für Mock verwenden wir einen String statt Timestamp
+    createdAt: Timestamp.fromDate(new Date()), // Korrekten Timestamp-Typ verwenden
     groupIds: [],
     metadata: { isMock: true }
   };
