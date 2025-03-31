@@ -4,15 +4,19 @@ import { auth } from '../services/firebaseInit';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { 
   loginWithEmail, 
-  loginWithGoogle, 
+  signInWithGoogleProvider,
   logout, 
   registerWithEmail, 
-  resetPassword,
+  sendPasswordReset,
   mapUserToAuthUser,
   resendVerificationEmail,
   uploadProfilePicture as uploadProfilePictureService
 } from '../services/authService';
-import { AuthStatus, AuthUser, AppMode } from '../types/jass';
+import { AuthStatus, AuthUser, AppMode, FirestoreGroup, FirestoreUser } from '../types/jass';
+import { useGroupStore } from './groupStore';
+import { getGroupById } from '../services/groupService';
+import { doc, onSnapshot, Unsubscribe } from 'firebase/firestore';
+import { db } from '../services/firebaseInit';
 
 interface AuthState {
   status: AuthStatus;
@@ -40,6 +44,8 @@ interface AuthActions {
 }
 
 type AuthStore = AuthState & AuthActions;
+
+let userDocUnsubscribe: Unsubscribe | null = null;
 
 export const useAuthStore = create<AuthStore>()(
   persist(
@@ -76,7 +82,7 @@ export const useAuthStore = create<AuthStore>()(
       loginWithGoogle: async () => {
         try {
           set({ status: 'loading', error: null });
-          const user = await loginWithGoogle();
+          const user = await signInWithGoogleProvider();
           set({ 
             user, 
             status: 'authenticated', 
@@ -112,6 +118,7 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       logout: async () => {
+        useGroupStore.getState().resetGroupStore();
         try {
           set({ status: 'loading', error: null });
           await logout();
@@ -134,7 +141,7 @@ export const useAuthStore = create<AuthStore>()(
       resetPassword: async (email: string) => {
         try {
           set({ status: 'loading', error: null });
-          await resetPassword(email);
+          await sendPasswordReset(email);
           set({ status: get().user ? 'authenticated' : 'unauthenticated' });
         } catch (error) {
           set({ 
@@ -150,6 +157,7 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       continueAsGuest: () => {
+        useGroupStore.getState().resetGroupStore();
         set({
           status: 'unauthenticated',
           user: null,
@@ -225,55 +233,128 @@ export const useAuthStore = create<AuthStore>()(
 
       initAuth: () => {
         console.log("AUTH_STORE: initAuth aufgerufen");
-        if (get().isGuest) {
-           console.log("AUTH_STORE: initAuth - Ist Gast, überspringe Listener.");
-          return;
-        }
+        const { setCurrentGroup, setError, resetGroupStore, loadUserGroups } = useGroupStore.getState();
         
+        if (userDocUnsubscribe) {
+          console.log("AUTH_STORE: Melde bestehenden User Doc Listener ab.");
+          userDocUnsubscribe();
+          userDocUnsubscribe = null;
+        }
+
         console.log("AUTH_STORE: initAuth - Registriere onAuthStateChanged Listener...");
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
           console.log("AUTH_STORE: onAuthStateChanged FEUERTE!", "firebaseUser:", firebaseUser ? firebaseUser.uid : 'null');
+
+          if (userDocUnsubscribe) {
+            console.log("AUTH_STORE: (onAuthStateChanged) Melde bestehenden User Doc Listener ab.");
+            userDocUnsubscribe();
+            userDocUnsubscribe = null;
+          }
+
           if (firebaseUser) {
             try {
-              console.log("AUTH_STORE: onAuthStateChanged - Firebase User vorhanden, mappe und setze Status 'authenticated'");
-              const authUser = mapUserToAuthUser(firebaseUser);
-              set({ 
-                user: authUser, 
-                firebaseUser,
-                status: 'authenticated', 
-                appMode: 'online',
-                isGuest: false,
-                error: null 
-              });
-              console.log("AUTH_STORE: onAuthStateChanged - Zustand nach set 'authenticated':", get().status, get().user?.uid);
+              console.log("AUTH_STORE: Richte onSnapshot Listener für User Doc ein:", firebaseUser.uid);
+              const userDocRef = doc(db, 'users', firebaseUser.uid);
 
-              // Optional: User-Dokument laden (könnte man für Debugging auskommentieren)
-              // const userDoc = await getUserDocument(firebaseUser.uid);
-              // if (userDoc) {
-              //   console.log('AUTH_STORE: onAuthStateChanged - User document loaded:', userDoc);
-              // }
-            } catch (error) {
-              console.error('AUTH_STORE: onAuthStateChanged - Fehler beim Verarbeiten des Firebase Users:', error);
-              set({ 
-                status: 'error', 
-                error: error instanceof Error ? error.message : 'Fehler beim Initialisieren der Authentifizierung' 
+              userDocUnsubscribe = onSnapshot(userDocRef, async (userDocSnap) => {
+                console.log("AUTH_STORE: User Doc Snapshot empfangen.", userDocSnap.exists() ? "Dokument existiert." : "Dokument existiert NICHT.");
+                if (!firebaseUser) {
+                  console.warn("AUTH_STORE: User Doc Snapshot empfangen, aber Firebase User ist null. Breche ab.");
+                  return;
+                }
+
+                const userDocData = userDocSnap.data();
+                console.log("AUTH_STORE: Snapshot - Gelesene lastActiveGroupId:", userDocData?.lastActiveGroupId);
+
+                const firestoreLastActiveGroupId = userDocData ? userDocData['lastActiveGroupId'] : null;
+                console.log("AUTH_STORE: Snapshot - Explizit gelesene lastActiveGroupId:", firestoreLastActiveGroupId);
+                
+                let finalGroupId = null;
+                if (userDocSnap.exists() && userDocData && typeof userDocData === 'object' && 'lastActiveGroupId' in userDocData) {
+                  finalGroupId = userDocData.lastActiveGroupId ?? null;
+                }
+                console.log("AUTH_STORE: Snapshot - Final ermittelte GroupId:", finalGroupId);
+
+                const firestoreDataForMapping: Partial<FirestoreUser> | null = userDocData 
+                  ? { ...userDocData, lastActiveGroupId: finalGroupId }
+                  : null;
+
+                const latestAuthUser = mapUserToAuthUser(firebaseUser, firestoreDataForMapping);
+
+                set({
+                  user: latestAuthUser,
+                  firebaseUser,
+                  status: 'authenticated',
+                  appMode: 'online',
+                  isGuest: false,
+                  error: null
+                });
+                console.log("AUTH_STORE: Zustand nach Snapshot aktualisiert. LastActiveGroupId im State:", get().user?.lastActiveGroupId);
+
+                const activeGroupId = finalGroupId;
+                console.log("AUTH_STORE: Snapshot - Versuche Gruppe zu setzen basierend auf ID:", activeGroupId);
+
+                const currentGroupIdInStore = useGroupStore.getState().currentGroup?.id;
+
+                if (activeGroupId) {
+                  if (activeGroupId === currentGroupIdInStore) {
+                    console.log("AUTH_STORE: Snapshot - Aktive Gruppe (", activeGroupId, ") ist bereits im Store gesetzt. Überspringe Update.");
+                    return;
+                  }
+                  try {
+                    const group = await getGroupById(activeGroupId);
+                    if (group) {
+                      console.log("AUTH_STORE: Snapshot - Gruppe gefunden:", group.name);
+                      await loadUserGroups(latestAuthUser.uid);
+                      const userGroups = useGroupStore.getState().userGroups;
+                      if (userGroups.some((g: FirestoreGroup) => g.id === activeGroupId)) {
+                        console.log("AUTH_STORE: Snapshot - Setze Gruppe:", group.name);
+                        await setCurrentGroup(group);
+                      } else {
+                        console.warn("AUTH_STORE: Snapshot - Gruppe (", activeGroupId, ") nicht in User-Liste. Setze auf null.");
+                        await setCurrentGroup(null);
+                      }
+                    } else {
+                      console.warn("AUTH_STORE: Snapshot - Gruppe mit ID (", activeGroupId, ") nicht gefunden. Setze auf null.");
+                      await setCurrentGroup(null);
+                    }
+                  } catch (groupError) {
+                    console.error("AUTH_STORE: Snapshot - Fehler beim Holen/Setzen der Gruppe:", groupError);
+                    setError("Fehler beim Laden der aktiven Gruppe.");
+                    await setCurrentGroup(null);
+                  }
+                } else {
+                  if (currentGroupIdInStore !== null) {
+                    console.log("AUTH_STORE: Snapshot - Keine lastActiveGroupId, aber Gruppe im Store. Setze auf null.");
+                    await setCurrentGroup(null);
+                  } else {
+                    console.log("AUTH_STORE: Snapshot - Keine lastActiveGroupId und keine Gruppe im Store. Keine Aktion nötig.");
+                  }
+                }
+              }, (error) => {
+                console.error("AUTH_STORE: Fehler im onSnapshot Listener für User Doc:", error);
+                setError("Fehler beim Überwachen der Benutzerdaten.");
               });
-              console.log("AUTH_STORE: onAuthStateChanged - Zustand nach set 'error':", get().status);
+
+            } catch (error) {
+              console.error('AUTH_STORE: Fehler beim Verarbeiten von onAuthStateChanged:', error);
+              setError(error instanceof Error ? error.message : 'Fehler beim Initialisieren des Auth-Status.');
+              set({ status: 'error', error: error instanceof Error ? error.message : 'Auth-Init Fehler' });
             }
           } else {
-             console.log("AUTH_STORE: onAuthStateChanged - Kein Firebase User, setze Status 'unauthenticated'");
-            set({ 
-              user: null, 
+            console.log("AUTH_STORE: onAuthStateChanged - Kein Firebase User, setze Status 'unauthenticated'");
+            set({
+              user: null,
               firebaseUser: null,
-              status: 'unauthenticated', 
-              error: null 
+              status: 'unauthenticated',
+              error: null
             });
-             console.log("AUTH_STORE: onAuthStateChanged - Zustand nach set 'unauthenticated':", get().status);
+            resetGroupStore();
+            console.log("AUTH_STORE: onAuthStateChanged - Zustand nach set 'unauthenticated':", get().status);
           }
         });
+
         console.log("AUTH_STORE: initAuth - Listener registriert.");
-        // Unsubscribe zurückgeben, falls benötigt
-        // return unsubscribe; 
       },
 
       clearError: () => {
