@@ -84,7 +84,7 @@ export const GroupSelector: React.FC = () => {
            {/* Display placeholder if no group is selected */}
            <SelectValue placeholder="Gruppe auswählen..." />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent position="popper">
           {/* Optional: Add a placeholder/clear item if needed
            <SelectItem value="" disabled className="text-muted-foreground">
              Gruppe auswählen...

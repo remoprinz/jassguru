@@ -25,7 +25,6 @@ import { useTutorialStore } from '../../store/tutorialStore';
 import TutorialOverlay from '../tutorial/TutorialOverlay';
 import TutorialInfoDialog from '../tutorial/TutorialInfoDialog';
 import { isDev, FORCE_TUTORIAL } from '../../utils/devUtils';
-import GlobalNotificationContainer from '../notifications/GlobalNotificationContainer';
 import { useDeviceScale } from '../../hooks/useDeviceScale';
 import html2canvas from 'html2canvas';
 import { useAuthStore } from '../../store/authStore';
@@ -617,7 +616,6 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
         swipePosition={activeContainer || 'bottom'}
       />
       <GameInfoOverlay isOpen={isGameInfoOpen} onClose={() => setGameInfoOpen(false)} />
-      <GlobalNotificationContainer />
     </div>
   );
 };

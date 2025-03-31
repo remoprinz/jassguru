@@ -33,6 +33,9 @@ import {
   getDownloadURL, 
   deleteObject 
 } from "firebase/storage";
+import { auth } from './firebaseInit';
+import { useGroupStore } from '@/store/groupStore'; // Importiere den GroupStore
+import { useAuthStore } from '@/store/authStore'; // Importiere den AuthStore
 
 /**
  * Erstellt eine neue Jassgruppe in Firestore.
@@ -192,9 +195,7 @@ export const getUserGroups = async (userId: string): Promise<FirestoreGroup[]> =
 
   try {
     // 1. Player ID für den User holen
-    // Annahme: User-Display-Name ist hier nicht relevant, da wir nur die ID brauchen.
-    // Wenn getPlayerIdForUser den Namen braucht, muss die Signatur angepasst werden.
-    const playerId = await getPlayerIdForUser(userId, null); // Pass null for displayName
+    const playerId = await getPlayerIdForUser(userId, null);
     if (!playerId) {
       console.log(`Keine Spieler-ID für Benutzer ${userId} gefunden.`);
       return [];
@@ -208,26 +209,34 @@ export const getUserGroups = async (userId: string): Promise<FirestoreGroup[]> =
     }
 
     const groupIds = playerDoc.groupIds;
+    console.log(`getUserGroups: Found ${groupIds.length} group IDs for player ${playerId}.`);
 
     // 3. Alle Gruppen-Dokumente für die gefundenen IDs holen
-    // Firestore 'in' Abfragen sind auf 10 Elemente limitiert. Bei mehr Gruppen muss man mehrere Abfragen machen.
-    // Für den Anfang gehen wir von <= 10 Gruppen aus.
-    // TODO: Implementiere Paginierung oder mehrere Abfragen, falls > 10 Gruppen möglich sind.
-    if (groupIds.length > 10) {
-      console.warn(`Benutzer ${userId} ist in mehr als 10 Gruppen (${groupIds.length}). Es werden nur die ersten 10 geladen.`);
-      // Hier könnte man die Abfrage aufsplitten
+    // Firestore 'in' Abfragen sind auf max 30 Elemente limitiert (vorher 10). Teile die Abfrage bei Bedarf.
+    const allGroups: FirestoreGroup[] = [];
+    const chunkSize = 30; // Max Elemente für Firestore 'in' Abfrage
+
+    for (let i = 0; i < groupIds.length; i += chunkSize) {
+      const chunkGroupIds = groupIds.slice(i, i + chunkSize);
+      console.log(`getUserGroups: Fetching chunk ${i / chunkSize + 1} with ${chunkGroupIds.length} group IDs.`);
+      
+      if (chunkGroupIds.length > 0) {
+        const groupsQuery = query(collection(db, GROUPS_COLLECTION), where('__name__', 'in', chunkGroupIds));
+        const groupsSnapshot = await getDocs(groupsQuery);
+        
+        const chunkGroups: FirestoreGroup[] = groupsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...(doc.data() as Omit<FirestoreGroup, 'id'>)
+        }));
+        allGroups.push(...chunkGroups);
+        console.log(`getUserGroups: Fetched ${chunkGroups.length} groups in this chunk.`);
+      } else {
+        console.log(`getUserGroups: Skipping empty chunk.`);
+      }
     }
 
-    const groupsQuery = query(collection(db, GROUPS_COLLECTION), where('__name__', 'in', groupIds.slice(0, 10)));
-    const groupsSnapshot = await getDocs(groupsQuery);
-
-    const groups: FirestoreGroup[] = groupsSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...(doc.data() as Omit<FirestoreGroup, 'id'>)
-    }));
-
-    console.log(`Gefundene Gruppen für Benutzer ${userId}:`, groups.map(g => g.name));
-    return groups;
+    console.log(`getUserGroups: Total groups fetched for user ${userId}: ${allGroups.length}`, allGroups.map(g => g.name));
+    return allGroups;
 
   } catch (error) {
     console.error(`Fehler beim Abrufen der Gruppen für Benutzer ${userId}:`, error);
@@ -288,7 +297,18 @@ export const uploadGroupLogo = async (groupId: string, file: File): Promise<stri
   // Definiere den Pfad im Storage (eindeutig pro Gruppe)
   // Verwende einen konsistenten Namen, z.B. 'logo' mit der passenden Endung
   const fileExtension = file.name.split('.').pop() || 'png'; // Fallback auf png
-  const filePath = `groupLogos/${groupId}/logo.${fileExtension}`;
+  // Alter Pfad
+  // const filePath = `groupLogos/${groupId}/logo.${fileExtension}`;
+  
+  // NEUER PFAD: Füge die userId als Verzeichnisebene hinzu, um einfachere Storage-Regeln zu ermöglichen
+  // Das erlaubt uns, die simple "request.auth.uid == userId"-Regel zu verwenden, genau wie bei Profilbildern.
+  const authUser = auth.currentUser;
+  if (!authUser) {
+    throw new Error("Kein authentifizierter Benutzer für Logo-Upload.");
+  }
+  const userId = authUser.uid;
+  const filePath = `groupLogos/${userId}/${groupId}/logo.${fileExtension}`;
+  
   const storageRef = ref(storage, filePath);
 
   try {
@@ -317,6 +337,27 @@ export const uploadGroupLogo = async (groupId: string, file: File): Promise<stri
       updatedAt: serverTimestamp() // Optional: Update-Zeitstempel setzen
     });
     console.log(`Firestore Gruppe ${groupId} mit neuer logoUrl aktualisiert.`);
+
+    // NEU: Direkte Aktualisierung des GroupStore
+    useGroupStore.getState().updateGroupInList(groupId, { logoUrl: downloadURL });
+    console.log(`GroupStore für Gruppe ${groupId} mit neuer logoUrl direkt aktualisiert.`);
+
+    // NEU: Versuch, das Neuladen der Gruppen zu erzwingen, um UI-Update sicherzustellen
+    const authState = useAuthStore.getState();
+    if (authState.user) {
+      try {
+        console.log(`GroupService: Reloading groups for user ${authState.user.uid} after logo upload...`);
+        await useGroupStore.getState().loadUserGroups(authState.user.uid);
+        console.log(`GroupService: User groups reloaded for ${authState.user.uid}.`);
+        // Stelle sicher, dass die gerade aktualisierte Gruppe auch die aktive ist
+        const reloadedGroup = useGroupStore.getState().userGroups.find(g => g.id === groupId) || null;
+        useGroupStore.getState().setCurrentGroup(reloadedGroup);
+        console.log(`GroupService: Set current group after reload to:`, reloadedGroup?.name);
+      } catch(reloadError) {
+          console.error("GroupService: Fehler beim Neuladen der Gruppen nach Logo-Upload:", reloadError);
+          // Fehler hier nicht weiterwerfen, da der Upload erfolgreich war.
+      }
+    }
 
     return downloadURL;
 

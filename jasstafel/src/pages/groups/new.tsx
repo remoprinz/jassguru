@@ -197,9 +197,12 @@ const CreateGroupPage: React.FC = () => {
 
   return (
     <MainLayout>
-      <Header title="Neue Gruppe erstellen" showBackButton={true} />
-      <div className="flex flex-1 flex-col items-center justify-center bg-gray-900 p-4 text-white">
+      <Header showBackButton={true} />
+      <div className="flex flex-1 flex-col items-center bg-gray-900 p-4 pt-6 text-white">
         <div className="w-full max-w-md space-y-6">
+          <h1 className="text-center text-2xl font-bold text-white mb-6">
+            Neue Gruppe erstellen
+          </h1>
           {error && (
             <div className="rounded-md border border-red-900 bg-red-900/20 p-3 text-center text-red-200">
               {error}

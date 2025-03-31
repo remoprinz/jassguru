@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom'; // Import ReactDOM für Portals
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUIStore } from '../../store/uiStore';
 import type { 
@@ -14,6 +15,12 @@ import {
 const GlobalNotificationContainer: React.FC = () => {
   const notifications = useUIStore(state => state.notifications);
   const removeNotification = useUIStore(state => state.removeNotification);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    // Stelle sicher, dass dies nur auf dem Client ausgeführt wird
+    setIsClient(true);
+  }, []);
 
   const renderIcon = (notification: Notification): JSX.Element => {
     // Zuerst prüfen ob ein Image vorhanden ist
@@ -90,7 +97,7 @@ const GlobalNotificationContainer: React.FC = () => {
     ));
   };
 
-  return (
+  const notificationContent = (
     <AnimatePresence>
       {notifications.map((notification) => (
         <motion.div
@@ -126,6 +133,17 @@ const GlobalNotificationContainer: React.FC = () => {
         </motion.div>
       ))}
     </AnimatePresence>
+  );
+
+  // Rendere nichts serverseitig oder bevor document.body verfügbar ist
+  if (!isClient) {
+    return null;
+  }
+
+  // Verwende createPortal, um den Inhalt direkt in document.body zu rendern
+  return ReactDOM.createPortal(
+    notificationContent,
+    document.body
   );
 };
 

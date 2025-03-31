@@ -47,10 +47,10 @@ const GroupsPage: React.FC = () => {
           <Link href="/profile" passHref legacyBehavior>
             <Button
               variant="ghost"
-              className="absolute top-4 left-4 text-white hover:bg-gray-700 p-2"
+              className="absolute top-8 left-4 text-white hover:bg-gray-700 p-3"
               aria-label="Zurück zur Profilseite"
             >
-              <ArrowLeft size={24} />
+              <ArrowLeft size={28} />
             </Button>
           </Link>
   

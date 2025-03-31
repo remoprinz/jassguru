@@ -1,0 +1,32 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // --- Profilbilder ---
+    match /profileImages/{userId}/{allPaths=**} {
+       // Jeder darf lesen (Bilder anzeigen)
+       allow read: if true; 
+       
+       // Nur der eigene User darf sein Profilbild hochladen/löschen
+       allow write, delete: if request.auth != null && request.auth.uid == userId; 
+    }
+
+    // --- Gruppenlogos ---
+    // NEUER PFAD mit userId als erstem Segment nach 'groupLogos'
+    match /groupLogos/{userId}/{groupId}/{allPaths=**} { 
+       // Jeder darf lesen (Logos anzeigen)
+       allow read: if true; 
+       
+       // Nur der eigene User darf Logos in SEINEM Unterverzeichnis speichern
+       // Das bedeutet, nur der User mit der entsprechenden ID kann Logos hochladen
+       // Die Gruppenzugehörigkeit wird im Client-Code sichergestellt (uploadGroupLogo prüft, ob User Admin ist)
+       allow write, delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Optional: Alle anderen Pfade blockieren
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+} 

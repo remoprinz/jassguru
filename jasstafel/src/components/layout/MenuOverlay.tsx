@@ -189,23 +189,23 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
       'data-tutorial': 'new-game-button'
     },
     {
-      icon: FaCog,
-      onClick: handleFarbeSettingsClick,
-      color: 'bg-orange-500', // Farbe auf Orange geändert
-      id: 'farbe',
-      className: 'settings-button'
+      icon: FaInfoCircle,
+      onClick: handleInfoClick,
+      color: 'bg-yellow-500',
+      id: 'info'
     },
     {
       icon: FaHome,
       onClick: handleHomeClick,
-      color: 'bg-yellow-500',
+      color: 'bg-blue-500',
       id: 'home'
     },
     {
-      icon: FaInfoCircle,
-      onClick: handleInfoClick,
-      color: 'bg-blue-500',
-      id: 'info'
+      icon: FaCog,
+      onClick: handleFarbeSettingsClick,
+      color: 'bg-orange-500',
+      id: 'farbe',
+      className: 'settings-button'
     },
     {
       icon: TbClipboardText,
@@ -219,32 +219,32 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
     {
       icon: TbClipboardText,
       onClick: handleResultatClick,
-      color: 'bg-green-500',
+      color: 'bg-red-500',
       id: 'resultat'
-    },
-    {
-      icon: FaInfoCircle,
-      onClick: handleInfoClick,
-      color: 'bg-blue-500',
-      id: 'info'
-    },
-    {
-      icon: FaHome,
-      onClick: handleHomeClick,
-      color: 'bg-yellow-500',
-      id: 'home'
     },
     {
       icon: FaCog,
       onClick: handleFarbeSettingsClick,
-      color: 'bg-orange-500', // Farbe auf Orange geändert
+      color: 'bg-yellow-500',
       id: 'farbe',
       className: 'settings-button'
     },
     {
+      icon: FaHome,
+      onClick: handleHomeClick,
+      color: 'bg-blue-500',
+      id: 'home'
+    },
+    {
+      icon: FaInfoCircle,
+      onClick: handleInfoClick,
+      color: 'bg-orange-500',
+      id: 'info'
+    },
+    {
       icon: FaTrashAlt,
       onClick: handleReset,
-      color: 'bg-red-500',
+      color: 'bg-green-500',
       id: 'trash'
     }
   ];

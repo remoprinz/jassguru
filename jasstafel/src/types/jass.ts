@@ -864,6 +864,7 @@ export interface AuthUser {
     creationTime?: string;
     lastSignInTime?: string;
   };
+  lastActiveGroupId?: string | null;
 }
 
 // Online-Offline Modus
@@ -882,31 +883,35 @@ export interface FirestoreMetadata {
   [key: string]: string | number | boolean | null | Timestamp | FieldValue | FirestoreMetadata;
 }
 
-// Firestore Datenmodelle
+// Firestore User Document Structure
 export interface FirestoreUser {
   uid: string;
-  email: string;
+  email: string | null;
   displayName: string | null;
   photoURL: string | null;
-  createdAt: Timestamp | FieldValue; 
-  updatedAt: Timestamp | FieldValue;
-  isGuest?: boolean;
-  playerId?: string; // ID des verknüpften Players
-  roles?: string[];
+  createdAt: Timestamp | FieldValue;
+  lastLogin: Timestamp | FieldValue;
   preferences?: {
-    theme: string;
-    notifications: boolean;
+    theme?: string;
+    notifications?: boolean;
   };
-  metadata?: FirestoreMetadata;
+  lastActiveGroupId?: string | null;
+  lastUpdated?: Timestamp | FieldValue;
 }
 
 export interface FirestorePlayer {
   id: string;
   nickname: string;
-  userId: string | null; // Null für Gastspieler
+  userId: string | null;
   isGuest: boolean;
   createdAt: Timestamp | FieldValue;
-  groupIds: string[]; // Gruppen, in denen dieser Spieler Mitglied ist
+  updatedAt?: Timestamp | FieldValue;
+  groupIds: string[];
+  stats: {
+    gamesPlayed: number;
+    wins: number;
+    totalScore: number;
+  };
   metadata?: FirestoreMetadata;
 }
 
@@ -914,10 +919,11 @@ export interface FirestoreGroup {
   id: string;
   name: string;
   description: string | null;
+  logoUrl: string | null;
   createdAt: Timestamp | FieldValue;
-  createdBy: string; // User ID
-  adminIds: string[]; // User IDs
-  playerIds: string[]; // Player IDs
+  createdBy: string;
+  adminIds: string[];
+  playerIds: string[];
   metadata?: FirestoreMetadata;
 }
 

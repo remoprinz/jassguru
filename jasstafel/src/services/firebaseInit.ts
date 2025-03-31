@@ -1,4 +1,4 @@
-import { initializeApp, FirebaseApp } from "firebase/app";
+import { initializeApp, /*getApps, getApp,*/ FirebaseApp } from "firebase/app";
 import { 
   getAuth, 
   signInWithPopup, 
@@ -31,6 +31,7 @@ import {
   CollectionReference,
   DocumentData
 } from "firebase/firestore";
+import { getStorage, /*connectStorageEmulator,*/ FirebaseStorage } from 'firebase/storage';
 
 // Prüfen, ob wir in einer lokalen Entwicklungsumgebung sind
 const isLocalEnv = typeof window !== 'undefined' && 
@@ -58,8 +59,8 @@ console.log('Firebase Config geladen:', {
 // Überprüfen, ob die Firebase-Konfiguration vollständig ist
 const isMissingConfig = () => {
   const missingFields = Object.entries(firebaseConfig)
-    .filter(([key, value]) => !value)
-    .map(([key]) => key);
+    .filter(([_, value]) => !value)
+    .map(([configKey]) => configKey);
 
   if (missingFields.length > 0) {
     console.warn('Fehlende Firebase-Konfigurationsfelder:', missingFields);
@@ -99,6 +100,7 @@ if (isLocalEnv) {
 let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
+let storage: FirebaseStorage;
 let analytics: Analytics | null = null;
 
 let isFirebaseInitialized = false;
@@ -134,6 +136,8 @@ try {
   //   console.log('Verbinde mit Firestore Emulator auf localhost:8080');
   //   connectFirestoreEmulator(db, 'localhost', 8080);
   // }
+  
+  storage = getStorage(app);
   
   isFirebaseInitialized = true;
   
@@ -264,6 +268,7 @@ export {
   analytics, 
   app, 
   db,
+  storage,
   registerWithEmailAndPassword, 
   signInWithEmailAndPassword,
   resetPassword, 

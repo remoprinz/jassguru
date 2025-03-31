@@ -7,11 +7,13 @@ import {
   where,
   getDocs,
   serverTimestamp,
-  isFirebaseReady,
-  Timestamp
+  Timestamp,
+  db,
 } from './firebaseInit';
 import { AuthUser, FirestorePlayer } from '../types/jass';
 import { nanoid } from 'nanoid';
+import { PLAYERS_COLLECTION } from '../constants/firestore';
+import { addDoc, collection } from 'firebase/firestore';
 
 /**
  * Erstellt einen neuen Spieler in Firestore
@@ -22,7 +24,7 @@ export const createPlayer = async (
   initialGroupId?: string
 ): Promise<FirestorePlayer> => {
   // Offline-Modus oder Entwicklungsmodus prüfen
-  if (!isFirebaseReady || !collections.players) {
+  if (!collections.players) {
     // Mock-Player für Offline/Entwicklung
     return createMockPlayer(nickname, authUser?.uid);
   }
@@ -45,7 +47,13 @@ export const createPlayer = async (
       userId,
       isGuest,
       createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
       groupIds: initialGroupId ? [initialGroupId] : [],
+      stats: {
+        gamesPlayed: 0,
+        wins: 0,
+        totalScore: 0,
+      },
       metadata: {}
     };
 
@@ -72,7 +80,7 @@ export const createPlayer = async (
  * Spieler anhand des Nicknamens abrufen
  */
 export const getPlayerByNickname = async (nickname: string): Promise<FirestorePlayer | null> => {
-  if (!isFirebaseReady || !collections.players) {
+  if (!collections.players) {
     // Im Offline-Modus simulieren wir, dass der Spieler nicht existiert
     return null;
   }
@@ -96,7 +104,7 @@ export const getPlayerByNickname = async (nickname: string): Promise<FirestorePl
  * Spieler anhand der Benutzer-ID abrufen
  */
 export const getPlayerByUserId = async (userId: string): Promise<FirestorePlayer | null> => {
-  if (!isFirebaseReady || !collections.players) {
+  if (!collections.players) {
     // Im Offline-Modus simulieren wir, dass der Spieler nicht existiert
     return null;
   }
@@ -120,7 +128,7 @@ export const getPlayerByUserId = async (userId: string): Promise<FirestorePlayer
  * Spieler anhand der ID abrufen
  */
 export const getPlayerById = async (playerId: string): Promise<FirestorePlayer | null> => {
-  if (!isFirebaseReady || !collections.players) {
+  if (!collections.players) {
     // Im Offline-Modus simulieren wir, dass der Spieler nicht existiert
     return null;
   }
@@ -157,8 +165,101 @@ const createMockPlayer = (nickname: string, userId?: string): FirestorePlayer =>
     nickname,
     userId: userId || null,
     isGuest: !userId,
-    createdAt: Timestamp.fromDate(new Date()), // Korrekten Timestamp-Typ verwenden
+    createdAt: Timestamp.fromDate(new Date()),
+    updatedAt: Timestamp.fromDate(new Date()),
     groupIds: [],
+    stats: {
+      gamesPlayed: 0,
+      wins: 0,
+      totalScore: 0,
+    },
     metadata: { isMock: true }
   };
-}; 
+};
+
+/**
+ * Findet oder erstellt ein Player-Dokument für einen gegebenen User.
+ * Sucht zuerst nach einem Player mit der userId. Wenn keiner existiert, wird ein neuer erstellt.
+ *
+ * @param userId Die Firebase Auth User ID.
+ * @param displayName Der Anzeigename des Users (wird für den initialen Nickname verwendet).
+ * @returns Die ID des gefundenen oder neu erstellten Player-Dokuments oder null bei Fehlern.
+ */
+export const getPlayerIdForUser = async (userId: string, displayName: string | null): Promise<string | null> => {
+  if (!db) {
+    console.error("getPlayerIdForUser: Firestore ist nicht initialisiert.");
+    return null;
+  }
+  if (!userId) {
+    console.error("getPlayerIdForUser: Ungültige userId.");
+    return null;
+  }
+
+  const playersRef = collection(db, PLAYERS_COLLECTION);
+  const q = query(playersRef, where("userId", "==", userId));
+
+  try {
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+      const playerId = querySnapshot.docs[0].id;
+      console.log(`getPlayerIdForUser: Vorhandener Spieler gefunden für User ${userId}: ${playerId}`);
+      return playerId;
+    } else {
+      console.log(`getPlayerIdForUser: Kein Spieler gefunden für User ${userId}, erstelle neuen Spieler.`);
+      const newPlayerData: Omit<FirestorePlayer, 'id'> = {
+        userId: userId,
+        nickname: displayName || `Spieler_${userId.substring(0, 6)}`,
+        isGuest: false,
+        stats: {
+          gamesPlayed: 0,
+          wins: 0,
+          totalScore: 0,
+        },
+        groupIds: [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      const playerDocRef = await addDoc(playersRef, newPlayerData);
+      console.log(`getPlayerIdForUser: Neuer Spieler erstellt mit ID: ${playerDocRef.id} für User ${userId}`);
+      return playerDocRef.id;
+    }
+  } catch (error) {
+    console.error(`getPlayerIdForUser: Fehler beim Suchen/Erstellen des Spielers für User ${userId}:`, error);
+    return null;
+  }
+};
+
+/**
+ * Ruft das Player-Dokument anhand seiner ID ab.
+ *
+ * @param playerId Die ID des Player-Dokuments.
+ * @returns Ein Promise, das das FirestorePlayer-Objekt oder null auflöst, wenn nicht gefunden oder Fehler.
+ */
+export const getPlayerDocument = async (playerId: string): Promise<FirestorePlayer | null> => {
+  if (!db) {
+    console.error("getPlayerDocument: Firestore ist nicht initialisiert.");
+    return null;
+  }
+  if (!playerId) {
+    console.warn("getPlayerDocument ohne playerId aufgerufen.");
+    return null;
+  }
+
+  try {
+    const playerRef = doc(db, PLAYERS_COLLECTION, playerId);
+    const playerSnap = await getDoc(playerRef);
+
+    if (playerSnap.exists()) {
+      return { id: playerSnap.id, ...(playerSnap.data() as Omit<FirestorePlayer, 'id'>) };
+    } else {
+      console.log(`getPlayerDocument: Spieler-Dokument mit ID ${playerId} nicht gefunden.`);
+      return null;
+    }
+  } catch (error) {
+    console.error(`getPlayerDocument: Fehler beim Abrufen des Spieler-Dokuments ${playerId}:`, error);
+    return null;
+  }
+};
+
+// Zukünftige Funktionen (updatePlayerStats, etc.) können hier hinzugefügt werden.

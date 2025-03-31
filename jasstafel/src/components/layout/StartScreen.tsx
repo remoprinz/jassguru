@@ -1,4 +1,4 @@
-import React, { useState, MouseEvent } from 'react';
+import React, { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { useUIStore } from '../../store/uiStore';
 import { useJassStore } from '../../store/jassStore';
@@ -16,7 +16,6 @@ const screenVariants = {
 const StartScreen: React.FC = () => {
   const { setStartScreenState, showNotification } = useUIStore();
   const jassStore = useJassStore();
-  const timerStore = useTimerStore();
   const tutorialStore = useTutorialStore();
   
   // State für Namen und Team-Konfiguration
@@ -33,13 +32,8 @@ const StartScreen: React.FC = () => {
     return ((current % 4) + 1) as PlayerNumber;
   };
 
-  // Separate Funktion für die Rotation ohne Event-Parameter
-  const rotateStartingPlayer = () => {
-    setStartingPlayer(current => getNextPlayer(current));
-  };
-
   // Event Handler für den Button-Click
-  const handleRotateClick = (e: MouseEvent<HTMLButtonElement>) => {
+  const handleRotateClick = () => {
     setStartingPlayer(current => getNextPlayer(current));
   };
 

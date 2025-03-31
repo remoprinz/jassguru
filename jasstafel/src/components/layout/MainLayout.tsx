@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { FaHome, FaPlus, FaGamepad, FaUser } from 'react-icons/fa';
 import { useAuthStore } from '@/store/authStore';
+import { BottomNavigation } from './BottomNavigation';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -22,7 +23,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   return (
     <div className="flex flex-col min-h-screen bg-gray-900">
       {/* Hauptinhalt */}
-      <main className="flex-grow">
+      <main className="flex-grow relative">
         {children}
       </main>
 
@@ -60,6 +61,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           )}
         </div>
       </nav>
+      <BottomNavigation />
     </div>
   );
 };

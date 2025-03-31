@@ -9,15 +9,20 @@ import Head from 'next/head';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { AuthProvider } from '../providers/AuthProvider';
 import { UserProvider } from '../providers/UserProvider';
+import { useAuthStore } from '@/store/authStore';
+import GlobalNotificationContainer from '../components/notifications/GlobalNotificationContainer';
 
 const MyApp = ({ Component, pageProps }: AppProps) => {
   const [isClient, setIsClient] = useState(false);
   useWakeLock();
+  const initAuth = useAuthStore(state => state.initAuth);
 
   useEffect(() => {
     setIsClient(true);
     register();
-  }, []);
+    console.log("_app.tsx: useEffect - Rufe initAuth() auf");
+    initAuth();
+  }, [initAuth]);
 
   return (
     <AppProvider>
@@ -30,6 +35,7 @@ const MyApp = ({ Component, pageProps }: AppProps) => {
       <AuthProvider>
         <UserProvider>
           <Component {...pageProps} />
+          <GlobalNotificationContainer />
         </UserProvider>
       </AuthProvider>
       <DebugLog />

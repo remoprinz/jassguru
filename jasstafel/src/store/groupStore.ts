@@ -24,6 +24,7 @@ interface GroupActions {
   setError: (error: string | null) => void;
   clearError: () => void;
   resetGroupStore: () => void;
+  updateGroupInList: (groupId: string, updateData: Partial<FirestoreGroup>) => void;
 }
 
 type GroupStore = GroupState & GroupActions;
@@ -91,6 +92,35 @@ export const useGroupStore = create<GroupStore>((set, get) => ({
       // updateUserDocument(user.uid, { lastActiveGroupId: null });
     }
     set(initialState)
+  },
+
+  // NEUE FUNKTION: Aktualisiert Daten für eine Gruppe in der userGroups-Liste
+  updateGroupInList: (groupId, updateData) => {
+    set((state) => {
+      const groupIndex = state.userGroups.findIndex(g => g.id === groupId);
+      if (groupIndex !== -1) {
+        const updatedGroups = [...state.userGroups];
+        // Führe Update durch und stelle sicher, dass das Objekt FirestoreGroup entspricht
+        const updatedGroup = { 
+            ...updatedGroups[groupIndex],
+            ...updateData 
+        } as FirestoreGroup; // Type Assertion hier sinnvoll
+        updatedGroups[groupIndex] = updatedGroup;
+        
+        // Wenn die aktualisierte Gruppe die aktuelle ist, auch currentGroup updaten
+        const newCurrentGroup = state.currentGroup?.id === groupId 
+          ? updatedGroup // Verwende das bereits aktualisierte Objekt
+          : state.currentGroup;
+        
+        console.log(`GROUP_STORE: Updated group ${groupId} in list with data:`, updateData);
+        return { userGroups: updatedGroups, currentGroup: newCurrentGroup };
+      } else {
+        // Optional: Wenn die Gruppe nicht in der Liste ist (sollte nicht passieren),
+        // könnte man sie hinzufügen oder einen Fehler loggen.
+        console.warn(`GROUP_STORE: updateGroupInList: Gruppe ${groupId} nicht in userGroups gefunden zum Aktualisieren.`);
+        return {}; // Keine Änderung
+      }
+    });
   },
 }));
 

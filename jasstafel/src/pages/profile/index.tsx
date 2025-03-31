@@ -10,6 +10,7 @@ import MainLayout from '@/components/layout/MainLayout';
 import { useUIStore } from '@/store/uiStore';
 import { Camera, Upload, X, ArrowLeft } from 'lucide-react'; // Icons für das UI
 import Link from 'next/link'; // Importiere Link
+import imageCompression from 'browser-image-compression'; // Import hinzugefügt
 
 const ProfilePage: React.FC = () => {
   const { user, status, isAuthenticated, uploadProfilePicture, error, clearError } = useAuthStore();
@@ -42,14 +43,14 @@ const ProfilePage: React.FC = () => {
   }, [previewUrl]);
 
   // Handler für Dateiauswahl
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     
     if (files && files.length > 0) {
-      const file = files[0];
+      const originalFile = files[0];
       
       // Prüfen ob es ein Bild ist
-      if (!file.type.startsWith('image/')) {
+      if (!originalFile.type.startsWith('image/')) {
         showNotification({
           message: 'Bitte wählen Sie eine Bilddatei aus (JPEG oder PNG).',
           type: 'error'
@@ -57,23 +58,56 @@ const ProfilePage: React.FC = () => {
         return;
       }
       
-      // Prüfen der Dateigröße (max 5 MB)
-      const maxSizeInBytes = 5 * 1024 * 1024; // 5 MB
-      if (file.size > maxSizeInBytes) {
+      // Prüfen der Dateigröße (Initialprüfung, z.B. 10 MB)
+      const initialMaxSizeInBytes = 10 * 1024 * 1024; // 10 MB
+      if (originalFile.size > initialMaxSizeInBytes) {
         showNotification({
-          message: 'Die Datei ist zu groß. Bitte wählen Sie ein Bild unter 5 MB.',
+          message: 'Die Datei ist zu groß (max. 10 MB).',
           type: 'error'
         });
         return;
       }
-      
-      // Vorschau erstellen und Datei speichern
-      const objectUrl = URL.createObjectURL(file);
-      setPreviewUrl(objectUrl);
-      setSelectedFile(file);
-      
-      // Zurücksetzen des Fehlers, falls vorhanden
+
+      // Kompressionslogik beginnt hier
+      setIsUploading(true);
       clearError();
+      // Alte Vorschau entfernen
+      if (previewUrl) {
+         URL.revokeObjectURL(previewUrl);
+         setPreviewUrl(null);
+      }
+      setSelectedFile(null);
+
+      const options = {
+        maxSizeMB: 1, // Max. 1 MB für Profilbilder
+        maxWidthOrHeight: 1024, // Max. 1024px
+        useWebWorker: true,
+      };
+
+      try {
+        console.log(`Komprimiere Profilbild: ${originalFile.name}, Größe: ${(originalFile.size / 1024 / 1024).toFixed(2)} MB`);
+        const compressedFile = await imageCompression(originalFile, options);
+        console.log(`Profilbild komprimiert: ${compressedFile.name}, Größe: ${(compressedFile.size / 1024 / 1024).toFixed(2)} MB`);
+
+        // Vorschau mit komprimiertem Bild erstellen und Datei speichern
+        const objectUrl = URL.createObjectURL(compressedFile);
+        setPreviewUrl(objectUrl);
+        setSelectedFile(compressedFile);
+
+      } catch (compressionError) {
+        console.error('Fehler bei der Bildkomprimierung:', compressionError);
+        showNotification({
+          message: 'Fehler bei der Bildkomprimierung.',
+          type: 'error'
+        });
+        // Zurücksetzen, falls Komprimierung fehlschlägt
+        setSelectedFile(null);
+        setPreviewUrl(null);
+        if (fileInputRef.current) {
+           fileInputRef.current.value = '';
+        }
+        setIsUploading(false);
+      }
     }
   };
 
@@ -81,11 +115,9 @@ const ProfilePage: React.FC = () => {
   const handleUpload = async () => {
     if (!selectedFile) return;
     
-    setIsUploading(true);
     try {
       await uploadProfilePicture(selectedFile);
       
-      // Erfolg anzeigen
       showNotification({
         message: 'Profilbild erfolgreich aktualisiert.',
         type: 'success'
@@ -95,7 +127,6 @@ const ProfilePage: React.FC = () => {
       setSelectedFile(null);
       setPreviewUrl(null);
       
-      // Optional: Datei-Input zurücksetzen
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -144,10 +175,10 @@ const ProfilePage: React.FC = () => {
         <Link href="/start" passHref legacyBehavior>
           <Button
             variant="ghost"
-            className="absolute top-4 left-4 text-white hover:bg-gray-700 p-2"
+            className="absolute top-8 left-4 text-white hover:bg-gray-700 p-3"
             aria-label="Zurück zur Startseite"
           >
-            <ArrowLeft size={24} />
+            <ArrowLeft size={28} />
           </Button>
         </Link>
 
@@ -253,6 +284,13 @@ const ProfilePage: React.FC = () => {
               disabled
             >
               Profil bearbeiten
+            </Button>
+
+            <Button
+              onClick={() => router.push('/profile/groups')}
+              className="w-full bg-purple-600 hover:bg-purple-700"
+            >
+              Meine Gruppen
             </Button>
 
             <Button

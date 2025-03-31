@@ -49,7 +49,6 @@ export default function Home() {
   // Client-Side Rendering aktivieren
   useEffect(() => {
     setIsClient(true);
-    initAuth();
     
     // PWA-Status überprüfen
     const pwaInstalled = isPWA();
@@ -63,7 +62,7 @@ export default function Home() {
       // Onboarding aktivieren
       useUIStore.getState().showOnboarding(true, pwaInstalled);
     }
-  }, [initAuth]);
+  }, []);
 
   // Server-Rendering vermeiden
   if (!isClient) {
