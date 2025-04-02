@@ -28,6 +28,7 @@ export interface BaseNotification {
   message: string | ReactNode;
   type: NotificationVariant;
   timestamp: number;
+  duration?: number;
   position?: 'top' | 'bottom';
   isFlipped?: boolean;
   preventClose?: boolean;

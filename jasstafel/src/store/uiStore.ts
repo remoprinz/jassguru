@@ -27,12 +27,20 @@ import {
   validateFarbeSettings,
   type FarbeSettings 
 } from '../config/FarbeSettings';
-import { NotificationConfig, Notification, JassFinishNotificationConfig } from '../types/notification';
+import { Notification, JassFinishNotificationConfig, NotificationConfig } from '../types/notification';
 import type { SpruchMitIcon } from '../types/sprueche';
+import { immer } from 'zustand/middleware/immer';
+
 export enum OnboardingStep {
   INSTALL = 'INSTALL',
-  INTRODUCTION = 'INTRODUCTION',
-  SCREEN_TIME = 'SCREEN_TIME'
+  WELCOME = 'WELCOME',
+  GROUP_CHOICE = 'GROUP_CHOICE',
+  GROUP_CREATE = 'GROUP_CREATE',
+  GROUP_JOIN = 'GROUP_JOIN',
+  GAME_START = 'GAME_START',
+  PROFILE = 'PROFILE',
+  SETTINGS = 'SETTINGS',
+  COMPLETE = 'COMPLETE',
 }
 
 const validateMultipliers = (multipliers: number[]): boolean => {
@@ -153,6 +161,25 @@ export interface JassFinishNotification {
   onContinue?: () => void;
 }
 
+export type NotificationType = 'info' | 'success' | 'warning' | 'error';
+
+export interface NotificationAction {
+  label: string;
+  onClick: () => void;
+}
+
+export type StartScreenState = 'idle' | 'starting' | 'complete';
+
+// NEU: Definition für den Zustand des Page-CTAs
+export interface PageCtaState {
+  isVisible: boolean;
+  text: string;
+  onClick: (() => void) | null;
+  loading?: boolean;
+  disabled?: boolean;
+  variant?: 'default' | 'destructive' | 'success' | 'info' | 'primary' | 'secondary' | string; // Farbvarianten
+}
+
 export interface UIState {
   calculator: {
     isOpen: boolean;
@@ -235,6 +262,12 @@ export interface UIState {
   notifications: Notification[];
   isSettingsOpen: boolean;
   isCalculatorOpen: boolean;
+  isMenuOpen: boolean;
+  activeModal: string | null;
+  isNotificationCenterOpen: boolean;
+  isLoading: boolean; // Generischer Ladezustand
+  startScreenState: StartScreenState;
+  pageCta: PageCtaState;
 }
 
 interface UIActions {
@@ -304,12 +337,23 @@ interface UIActions {
   closeGameInfo: () => void;
   setTopSwipeAnimation: (active: boolean) => void;
   setBottomSwipeAnimation: (active: boolean) => void;
-  showNotification: (config: NotificationConfig ) => void;
+  showNotification: (config: NotificationConfig) => void;
   removeNotification: (id: string) => void;
   setResultatPosition: (position: TeamPosition) => void;
   setResultatAnimationComplete: (complete: boolean) => void;
   canOpenGameInfo: () => boolean;
   setStartScreenOpen: (isOpen: boolean) => void;
+  toggleMenu: () => void;
+  closeMenu: () => void;
+  toggleNotificationCenter: () => void;
+  openNotificationCenter: () => void;
+  closeNotificationCenter: () => void;
+  setLoading: (loading: boolean) => void;
+  setPageCta: (ctaConfig: Partial<Omit<PageCtaState, 'isVisible' | 'variant'>> & { isVisible: true; text: string; onClick: () => void; variant?: PageCtaState['variant'] }) => void;
+  resetPageCta: () => void;
+  setPageCtaLoading: (isLoading: boolean) => void;
+  setPageCtaDisabled: (isDisabled: boolean) => void;
+  resetUI: () => void;
 }
 
 export type UIStore = UIState & UIActions;
@@ -462,6 +506,19 @@ const initialState: UIState = {
   notifications: [],
   isSettingsOpen: false,
   isCalculatorOpen: false,
+  isMenuOpen: false,
+  activeModal: null,
+  isNotificationCenterOpen: false,
+  isLoading: false,
+  startScreenState: 'idle' as StartScreenState,
+  pageCta: {
+    isVisible: false,
+    text: '',
+    onClick: null,
+    loading: false,
+    disabled: false,
+    variant: 'default',
+  } as PageCtaState,
 };
 
 // Load-Funktionen für jeden Settings-Typ
@@ -485,7 +542,7 @@ const loadFarbeSettings = (): FarbeSettings => {
 
 export const useUIStore = create<UIStore>()(
   persist(
-    (set, get) => ({
+    immer((set, get) => ({
       ...initialState,
 
       // Neue Methode speziell für StartScreen Reset
@@ -983,21 +1040,32 @@ export const useUIStore = create<UIStore>()(
       },
       setTopSwipeAnimation: (active) => set({ topSwipeAnimation: active }),
       setBottomSwipeAnimation: (active) => set({ bottomSwipeAnimation: active }),
-      showNotification: (config) => {
-        const notification: Notification = {
+      showNotification: (config: NotificationConfig) => {
+        const newNotification: Notification = {
           ...config,
           id: crypto.randomUUID(),
-          timestamp: Date.now()
+          timestamp: Date.now(),
         };
         
-        set((state) => ({
-          notifications: [...state.notifications, notification]
-        }));
+        set((state) => {
+          if (!state.notifications.some((n: Notification) => n.id === newNotification.id)) {
+            state.notifications.push(newNotification);
+          }
+        });
+
+        if ('duration' in newNotification && 
+            typeof newNotification.duration === 'number' && 
+            newNotification.duration > 0 && 
+            (!('actions' in newNotification) || !newNotification.actions || newNotification.actions.length === 0)) {            
+          setTimeout(() => {
+            get().removeNotification(newNotification.id);
+          }, newNotification.duration);
+        }
       },
-      removeNotification: (id) => {
-        set((state) => ({
-          notifications: state.notifications.filter((n) => n.id !== id)
-        }));
+      removeNotification: (id: string) => {
+        set((state) => {
+          state.notifications = state.notifications.filter((n: Notification) => n.id !== id);
+        });
       },
       setResultatPosition: (position: TeamPosition) => 
         set(state => ({
@@ -1015,9 +1083,8 @@ export const useUIStore = create<UIStore>()(
         })),
       canOpenGameInfo: () => {
         const state = get();
-        // StartScreen-Check hinzufügen
         return !(
-          state.startScreen.isOpen ||  // Neue Bedingung
+          state.startScreen.isOpen ||
           state.settings.isOpen ||
           state.isCalculatorOpen ||
           state.menu.isOpen ||
@@ -1033,7 +1100,48 @@ export const useUIStore = create<UIStore>()(
           isOpen
         }
       })),
-    }),
+      toggleMenu: () => set((state) => { state.isMenuOpen = !state.isMenuOpen; }),
+      closeMenu: () => set({ isMenuOpen: false }),
+      toggleNotificationCenter: () => set((state) => { 
+        state.isNotificationCenterOpen = !state.isNotificationCenterOpen; 
+      }),
+      openNotificationCenter: () => set({ isNotificationCenterOpen: true }),
+      closeNotificationCenter: () => set({ isNotificationCenterOpen: false }),
+      setLoading: (loading: boolean) => set({ isLoading: loading }),
+      setPageCta: (ctaConfig) => 
+        set((state) => {
+          if (ctaConfig.isVisible && ctaConfig.text && ctaConfig.onClick) {
+             state.pageCta = {
+               isVisible: true,
+               text: ctaConfig.text,
+               onClick: ctaConfig.onClick,
+               loading: ctaConfig.loading ?? false,
+               disabled: ctaConfig.disabled ?? false,
+               variant: ctaConfig.variant ?? 'default',
+             };
+          } else {
+              console.warn('setPageCta received invalid configuration:', ctaConfig);
+              state.pageCta = { ...initialState.pageCta }; 
+          }
+      }),
+      resetPageCta: () => 
+        set((state) => {
+            state.pageCta = { ...initialState.pageCta };
+        }),
+      setPageCtaLoading: (isLoading) => 
+        set((state) => {
+            if (state.pageCta.isVisible) {
+                state.pageCta.loading = isLoading;
+            }
+        }),
+      setPageCtaDisabled: (isDisabled) => 
+        set((state) => {
+             if (state.pageCta.isVisible) {
+                state.pageCta.disabled = isDisabled;
+             }
+        }),
+      resetUI: () => set(initialState),
+    })),
     {
       name: 'jass-ui-storage',
       partialize: (state) => ({

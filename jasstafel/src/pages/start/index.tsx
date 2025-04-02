@@ -216,7 +216,12 @@ const StartPage: React.FC = () => {
                   )}
                 </div>
                 <p className="text-sm text-gray-400 mb-1 mt-4">Aktive Gruppe:</p>
-                <h1 className="text-3xl font-bold text-center text-white mb-4">{currentGroup.name}</h1>
+                <h1 className="text-3xl font-bold text-center text-white mb-1">{currentGroup.name}</h1>
+                {currentGroup.description && (
+                  <p className="text-gray-400 text-center mb-4 px-8 max-w-[80%] mx-auto">
+                    {currentGroup.description}
+                  </p>
+                )}
 
                  {selectedFile && (
                   <div className="flex gap-2 justify-center mb-4">
@@ -286,11 +291,11 @@ const StartPage: React.FC = () => {
 
                  {isAdmin && (
                     <div className="flex flex-col items-center">
-                       <span className="text-xs text-gray-400 mb-2">Settings</span>
+                       <span className="text-xs text-gray-400 mb-2">Bearbeiten</span>
                        <Button 
                          variant="default" 
                          className="h-12 w-12 flex items-center justify-center bg-blue-600 border-blue-700 hover:bg-blue-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
-                         onClick={() => alert('Einstellungen - TODO')}
+                         onClick={() => router.push('/groups/settings')}
                        >
                            <Settings 
                              style={{ height: '1.5rem', width: '1.5rem' }} 

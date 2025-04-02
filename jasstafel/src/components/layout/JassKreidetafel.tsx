@@ -492,16 +492,12 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
 
   return (
     <div
-      className="relative w-full h-full overflow-hidden bg-chalk-black prevent-interactions"
+      className="relative w-full h-screen overflow-hidden bg-chalk-black prevent-interactions max-w-xl mx-auto flex flex-col justify-center"
       onClick={handleGlobalClick}
       onContextMenu={(e) => e.preventDefault()}
       style={{
         transform: `scale(${scale})`,
         transformOrigin: 'center center',
-        height: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center'
       }}
     >
       <>

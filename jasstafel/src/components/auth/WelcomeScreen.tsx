@@ -89,7 +89,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           </h1>
           
           <p className="text-gray-400 text-center">
-          Melde dich an, um Gruppenstatistiken zu erfassen und mehr Funktionen zu nutzen. Oder spiele einfach als Gast.
+          Melde dich an, um Gruppenstatistiken zu erfassen und weitere Funktionen zu nutzen. Oder spiele einfach als Gast.
           </p>
         </div>
 

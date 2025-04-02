@@ -51,13 +51,14 @@ export function RegisterForm() {
       
       // Erfolgsmeldung anzeigen
       showNotification({
-        message: 'Du hast dich erfolgreich registriert! Du kannst nun eine Jassgruppe erstellen oder beitreten.',
+        message: 'Ein Bestätigungslink wurde an deine E-Mail gesendet. Bitte überprüfe dein Postfach, um die Registrierung abzuschliessen.',
         type: 'success'
       });
       
-      setTimeout(() => {
-        router.push('/auth/login');
-      }, 1500);
+      // Entfernen oder anpassen des Redirects, da der Benutzer zuerst die E-Mail bestätigen muss.
+      // setTimeout(() => {
+      //   router.push('/auth/login');
+      // }, 1500);
     } catch (err) {
       console.error('Registrierungsfehler im Formular:', err);
     }

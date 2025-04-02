@@ -4,7 +4,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
-  updateProfile,
+  updateProfile as firebaseUpdateProfile,
   GoogleAuthProvider,
   signInWithPopup,
   fetchSignInMethodsForEmail,
@@ -56,7 +56,7 @@ export const mapUserToAuthUser = (user: FirebaseAuthUser, firestoreUser?: Partia
     },
     // Füge Felder aus Firestore hinzu, falls vorhanden
     lastActiveGroupId: firestoreUser?.lastActiveGroupId ?? null,
-    // Hier könnten auch 'preferences' etc. aus firestoreUser gemappt werden
+    statusMessage: firestoreUser?.statusMessage ?? null,
   };
 };
 
@@ -91,11 +91,11 @@ export const createOrUpdateFirestoreUser = async (user: FirebaseAuthUser, isNewU
 
     if (isNewUser) {
       userData.createdAt = serverTimestamp();
-      // Set default preferences with required fields
+      userData.statusMessage = "Grüezi! Ich jasse mit Jassguru.";
       userData.preferences = {
-        theme: 'light', // Default theme
-        notifications: true // Default notification setting
-      }; 
+        theme: 'light',
+        notifications: true
+      };
     }
     
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -185,7 +185,7 @@ export const registerWithEmail = async (email: string, password: string, display
 
         if (displayName) {
             promises.push(
-                updateProfile(user, { displayName })
+                firebaseUpdateProfile(user, { displayName })
                     .catch(err => console.error("Profil-Update fehlgeschlagen:", { userId: user.uid, error: err }))
             );
         }
@@ -455,7 +455,7 @@ export const uploadProfilePicture = async (file: File, userId: string): Promise<
     }
     
     try {
-      await updateProfile(currentUser, { photoURL: downloadURL });
+      await firebaseUpdateProfile(currentUser, { photoURL: downloadURL });
       console.log("Auth-Profil aktualisiert.");
     } catch (profileError) {
       console.warn("Konnte Auth-Profil nicht aktualisieren:", profileError);
@@ -498,5 +498,33 @@ export const uploadProfilePicture = async (file: File, userId: string): Promise<
     } else {
       throw new Error("Ein unbekannter Fehler ist beim Bildupload aufgetreten. Bitte versuchen Sie es später erneut.");
     }
+  }
+};
+
+export const updateUserProfile = async (updates: { displayName?: string; statusMessage?: string }): Promise<void> => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Kein Benutzer angemeldet');
+  }
+
+  try {
+    // Update in Firebase Auth (nur displayName)
+    if (updates.displayName) {
+      await firebaseUpdateProfile(currentUser, {
+        displayName: updates.displayName
+      });
+    }
+
+    // Update in Firestore (displayName und statusMessage)
+    const userRef = doc(db, 'users', currentUser.uid);
+    const updateData = {
+      ...(updates.displayName && { displayName: updates.displayName }),
+      ...(updates.statusMessage !== undefined && { statusMessage: updates.statusMessage }),
+      lastUpdated: serverTimestamp()
+    };
+    
+    await updateDoc(userRef, updateData);
+  } catch (error) {
+    throw error;
   }
 }; 

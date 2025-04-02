@@ -19,7 +19,7 @@ import {
   PLAYERS_COLLECTION,
   // USERS_COLLECTION <-- Removed unused import
 } from '../constants/firestore';
-import { FirestoreGroup } from '../types/jass';
+import { FirestoreGroup } from '../types/group';
 // Importiere die Funktion zum Sicherstellen des Players (wird in Phase 2.2 erstellt/refaktorisiert)
 import { getPlayerIdForUser, getPlayerDocument } from './playerService';
 // Importiere die neue Funktion zum Aktualisieren des Benutzerdokuments
@@ -36,6 +36,7 @@ import {
 import { auth } from './firebaseInit';
 import { useGroupStore } from '@/store/groupStore'; // Importiere den GroupStore
 import { useAuthStore } from '@/store/authStore'; // Importiere den AuthStore
+import { Timestamp } from 'firebase/firestore';
 
 /**
  * Erstellt eine neue Jassgruppe in Firestore.
@@ -81,13 +82,20 @@ export const createGroup = async (
     // 2. Neues Gruppen-Dokument erstellen
     const groupData: Omit<FirestoreGroup, 'id'> = {
       name: trimmedGroupName,
-      description: null,
+      description: "Willkommen in unserer Jassrunde!",
       logoUrl: null,
-      createdAt: serverTimestamp(),
+      createdAt: serverTimestamp() as unknown as Timestamp,
       createdBy: userId,
-      adminIds: [userId],
       playerIds: [playerId],
-      metadata: {}
+      adminIds: [userId],
+      isPublic: true,
+      players: {
+        [userId]: {
+          displayName: userDisplayName || 'Unbekannt',
+          email: auth.currentUser?.email || '',
+          joinedAt: serverTimestamp() as unknown as Timestamp
+        }
+      }
     };
     console.log(`createGroup: Adding new group document with name '${trimmedGroupName}'...`);
     const groupRef = await addDoc(groupsCollectionRef, groupData);

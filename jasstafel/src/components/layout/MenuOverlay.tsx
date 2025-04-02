@@ -219,13 +219,13 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
     {
       icon: TbClipboardText,
       onClick: handleResultatClick,
-      color: 'bg-red-500',
+      color: 'bg-green-500',
       id: 'resultat'
     },
     {
       icon: FaCog,
       onClick: handleFarbeSettingsClick,
-      color: 'bg-yellow-500',
+      color: 'bg-orange-500',
       id: 'farbe',
       className: 'settings-button'
     },
@@ -238,13 +238,13 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
     {
       icon: FaInfoCircle,
       onClick: handleInfoClick,
-      color: 'bg-orange-500',
+      color: 'bg-yellow-500',
       id: 'info'
     },
     {
       icon: FaTrashAlt,
       onClick: handleReset,
-      color: 'bg-green-500',
+      color: 'bg-red-500',
       id: 'trash'
     }
   ];

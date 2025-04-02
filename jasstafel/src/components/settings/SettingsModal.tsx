@@ -558,7 +558,7 @@ const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
   const getTabTitle = () => {
     switch (settings.activeTab) {
       case 'farben':
-        return 'Farben Einstellungen';
+        return 'Jass Einstellungen';
       case 'scores':
         return 'Punkte Einstellungen';
       case 'strokes':
@@ -571,60 +571,58 @@ const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
   return (
     <AnimatePresence>
       {settings.isOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-40 bg-black/50 px-4">
+        <div className="fixed inset-0 flex items-center justify-center z-40 bg-black/50">
           <animated.div 
             ref={modalRef}
             style={springProps}
-            className="w-full max-w-lg p-4 max-h-[85vh]"
+            className="relative w-11/12 max-w-3xl bg-gray-800 rounded-lg p-6"
           >
-            <div className="bg-gray-800 rounded-lg p-6 relative">
-              {/* Dreh-Button */}
-              <button
-                onClick={() => setIsFlipped(!isFlipped)}
-                disabled={isBlocked}  // Nutze isBlocked
-                className={`absolute bottom-full mb-[-10px] left-1/2 transform -translate-x-1/2 
-                  text-white transition-all duration-1000
-                  w-24 h-24 flex items-center justify-center
-                  rounded-full
-                  ${isBlocked ? 'opacity-50 cursor-not-allowed text-gray-500' : 'hover:text-gray-300'}
-                  ${isFlipped ? 'rotate-180' : 'rotate-0'}`}
-                aria-label="Umdrehen"
-              >
-                <FiRotateCcw className="w-8 h-8" />
-              </button>
+            {/* Dreh-Button */}
+            <button
+              onClick={() => setIsFlipped(!isFlipped)}
+              disabled={isBlocked}
+              className={`absolute bottom-full mb-[-10px] left-1/2 transform -translate-x-1/2 
+                text-white transition-all duration-1000
+                w-24 h-24 flex items-center justify-center
+                rounded-full
+                ${isBlocked ? 'opacity-50 cursor-not-allowed text-gray-500' : 'hover:text-gray-300'}
+                ${isFlipped ? 'rotate-180' : 'rotate-0'}`}
+              aria-label="Umdrehen"
+            >
+              <FiRotateCcw className="w-8 h-8" />
+            </button>
 
-              {/* Close-Button */}
-              <button
-                onClick={handleClose}
-                disabled={isBlocked}  // Nutze isBlocked
-                className={`absolute right-2 top-2 p-2 text-gray-400 
-                  ${isBlocked ? 'opacity-50 cursor-not-allowed' : 'hover:text-white'} 
-                  transition-colors`}
-              >
-                <FiX size={24} />
-              </button>
+            {/* Close-Button */}
+            <button
+              onClick={handleClose}
+              disabled={isBlocked}
+              className={`absolute right-2 top-2 p-2 text-gray-400 
+                ${isBlocked ? 'opacity-50 cursor-not-allowed' : 'hover:text-white'} 
+                transition-colors`}
+            >
+              <FiX size={24} />
+            </button>
 
-              <h2 className="text-2xl font-bold text-white text-center mb-6">
-                {getTabTitle()}
-              </h2>
+            <h2 className="text-2xl font-bold text-white text-center mb-6">
+              {getTabTitle()}
+            </h2>
 
-              {settings.activeTab === 'farben' && renderFarbenSettings()}
-              {settings.activeTab === 'scores' && renderScoreSettings()}
-              {settings.activeTab === 'strokes' && renderStrokeSettings()}
+            {settings.activeTab === 'farben' && renderFarbenSettings()}
+            {settings.activeTab === 'scores' && renderScoreSettings()}
+            {settings.activeTab === 'strokes' && renderStrokeSettings()}
 
-              <div className="mt-8 flex justify-center items-center space-x-6">
-                <NavigationButton 
-                  direction="left" 
-                  onClick={handleTabChange} 
-                />
+            <div className="mt-8 flex justify-center items-center space-x-6">
+              <NavigationButton 
+                direction="left" 
+                onClick={handleTabChange} 
+              />
 
-                <SaveButton onClick={handleClose} />
+              <SaveButton onClick={handleClose} />
 
-                <NavigationButton 
-                  direction="right" 
-                  onClick={handleTabChange} 
-                />
-              </div>
+              <NavigationButton 
+                direction="right" 
+                onClick={handleTabChange} 
+              />
             </div>
           </animated.div>
         </div>

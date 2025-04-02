@@ -1,24 +1,15 @@
-import { Home, Users, BarChart, ClipboardList } from 'lucide-react';
+import { Home, BarChart, ClipboardList, User } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
-import { useGroupStore } from '@/store/groupStore';
 import { useUIStore } from '@/store/uiStore';
 
 export function BottomNavigation() {
   const router = useRouter();
   const currentPath = router.pathname;
   const { isGuest } = useAuthStore();
-  const { currentGroup, userGroups } = useGroupStore();
   const showNotification = useUIStore(state => state.showNotification);
-
-  let groupHref = '/profile/groups';
-  if (currentGroup) {
-    groupHref = `/groups/${currentGroup.id}`;
-  } else if (userGroups.length === 0) {
-    groupHref = '/groups/new';
-  }
 
   const handleStatistikClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -48,10 +39,10 @@ export function BottomNavigation() {
       active: currentPath === '/start'
     },
     {
-      name: 'Gruppe',
-      href: groupHref,
-      icon: Users,
-      active: currentPath.startsWith('/profile/groups') || currentPath.startsWith('/groups')
+      name: 'Profil',
+      href: '/profile',
+      icon: User,
+      active: currentPath.startsWith('/profile')
     },
     {
       name: 'Statistik',
@@ -64,7 +55,7 @@ export function BottomNavigation() {
     {
       name: 'Jassen',
       href: '/jass',
-      icon: ClipboardList,
+      icon: ClipboardList,  
       active: currentPath === '/jass'
     }
   ];
@@ -76,9 +67,8 @@ export function BottomNavigation() {
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-gray-900 border-t border-gray-800 h-24">
-      {/* Safe Area Padding für iOS + zusätzliches Padding */}
-      <div className="flex justify-around items-center h-full px-4 pb-safe pb-8">
+    <nav className="fixed bottom-0 left-1/2 transform -translate-x-1/2 z-50 bg-gray-900 border-t border-gray-800 h-24 max-w-3xl w-full">
+      <div className="w-full flex justify-around items-center h-full px-4 pb-safe pb-8">
         {navigationItems.map((item) => (
           item.external && item.onClick ? (
             <button

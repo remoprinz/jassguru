@@ -63,6 +63,8 @@
           "@types/node": "^16.18.112",
           "@types/react": "^18.3.10",
           "@types/react-dom": "^18.3.0",
+          "@typescript-eslint/eslint-plugin": "^8.29.0",
+          "@typescript-eslint/parser": "^8.29.0",
           "autoprefixer": "^10.4.20",
           "babel-core": "^4.7.16",
           "babel-jest": "^29.7.0",

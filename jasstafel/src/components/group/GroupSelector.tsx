@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"; // Assuming Shadcn UI path
 import { Skeleton } from "@/components/ui/skeleton"; // Assuming Shadcn UI path
-import { FirestoreGroup } from '@/types/jass'; // Adjust path if needed
+import { FirestoreGroup } from '@/types/group'; // Changed from jass to group
 
 export const GroupSelector: React.FC = () => {
   // --- Use atomic selectors for Zustand state --- 

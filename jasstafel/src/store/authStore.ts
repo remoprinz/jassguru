@@ -10,7 +10,8 @@ import {
   sendPasswordReset,
   mapUserToAuthUser,
   resendVerificationEmail,
-  uploadProfilePicture as uploadProfilePictureService
+  uploadProfilePicture as uploadProfilePictureService,
+  updateUserProfile
 } from '../services/authService';
 import { AuthStatus, AuthUser, AppMode, FirestoreGroup, FirestoreUser } from '../types/jass';
 import { useGroupStore } from './groupStore';
@@ -41,6 +42,7 @@ interface AuthActions {
   isAuthenticated: () => boolean;
   resendVerificationEmail: () => Promise<void>;
   uploadProfilePicture: (file: File) => Promise<void>;
+  updateProfile: (updates: { displayName?: string; statusMessage?: string }) => Promise<void>;
 }
 
 type AuthStore = AuthState & AuthActions;
@@ -231,6 +233,36 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
 
+      updateProfile: async (updates: { displayName?: string; statusMessage?: string }) => {
+        const state = get();
+        if (!state.user) {
+          throw new Error('Kein Benutzer angemeldet');
+        }
+
+        try {
+          set({ status: 'loading', error: null });
+
+          // Update in Firebase und Firestore
+          await updateUserProfile(updates);
+
+          // Update local state
+          set(state => ({
+            user: state.user ? {
+              ...state.user,
+              ...updates
+            } : null,
+            status: 'authenticated'
+          }));
+
+        } catch (error) {
+          set({ 
+            status: 'error', 
+            error: error instanceof Error ? error.message : 'Fehler beim Aktualisieren des Profils' 
+          });
+          throw error;
+        }
+      },
+
       initAuth: () => {
         console.log("AUTH_STORE: initAuth aufgerufen");
         const { setCurrentGroup, setError, resetGroupStore, loadUserGroups } = useGroupStore.getState();
@@ -257,26 +289,13 @@ export const useAuthStore = create<AuthStore>()(
               const userDocRef = doc(db, 'users', firebaseUser.uid);
 
               userDocUnsubscribe = onSnapshot(userDocRef, async (userDocSnap) => {
-                console.log("AUTH_STORE: User Doc Snapshot empfangen.", userDocSnap.exists() ? "Dokument existiert." : "Dokument existiert NICHT.");
                 if (!firebaseUser) {
-                  console.warn("AUTH_STORE: User Doc Snapshot empfangen, aber Firebase User ist null. Breche ab.");
                   return;
                 }
 
                 const userDocData = userDocSnap.data();
-                console.log("AUTH_STORE: Snapshot - Gelesene lastActiveGroupId:", userDocData?.lastActiveGroupId);
-
-                const firestoreLastActiveGroupId = userDocData ? userDocData['lastActiveGroupId'] : null;
-                console.log("AUTH_STORE: Snapshot - Explizit gelesene lastActiveGroupId:", firestoreLastActiveGroupId);
-                
-                let finalGroupId = null;
-                if (userDocSnap.exists() && userDocData && typeof userDocData === 'object' && 'lastActiveGroupId' in userDocData) {
-                  finalGroupId = userDocData.lastActiveGroupId ?? null;
-                }
-                console.log("AUTH_STORE: Snapshot - Final ermittelte GroupId:", finalGroupId);
-
                 const firestoreDataForMapping: Partial<FirestoreUser> | null = userDocData 
-                  ? { ...userDocData, lastActiveGroupId: finalGroupId }
+                  ? { ...userDocData }
                   : null;
 
                 const latestAuthUser = mapUserToAuthUser(firebaseUser, firestoreDataForMapping);
@@ -289,50 +308,37 @@ export const useAuthStore = create<AuthStore>()(
                   isGuest: false,
                   error: null
                 });
-                console.log("AUTH_STORE: Zustand nach Snapshot aktualisiert. LastActiveGroupId im State:", get().user?.lastActiveGroupId);
 
-                const activeGroupId = finalGroupId;
-                console.log("AUTH_STORE: Snapshot - Versuche Gruppe zu setzen basierend auf ID:", activeGroupId);
-
+                const activeGroupId = userDocData?.lastActiveGroupId ?? null;
                 const currentGroupIdInStore = useGroupStore.getState().currentGroup?.id;
 
                 if (activeGroupId) {
                   if (activeGroupId === currentGroupIdInStore) {
-                    console.log("AUTH_STORE: Snapshot - Aktive Gruppe (", activeGroupId, ") ist bereits im Store gesetzt. Überspringe Update.");
                     return;
                   }
                   try {
                     const group = await getGroupById(activeGroupId);
                     if (group) {
-                      console.log("AUTH_STORE: Snapshot - Gruppe gefunden:", group.name);
                       await loadUserGroups(latestAuthUser.uid);
                       const userGroups = useGroupStore.getState().userGroups;
                       if (userGroups.some((g: FirestoreGroup) => g.id === activeGroupId)) {
-                        console.log("AUTH_STORE: Snapshot - Setze Gruppe:", group.name);
                         await setCurrentGroup(group);
                       } else {
-                        console.warn("AUTH_STORE: Snapshot - Gruppe (", activeGroupId, ") nicht in User-Liste. Setze auf null.");
                         await setCurrentGroup(null);
                       }
                     } else {
-                      console.warn("AUTH_STORE: Snapshot - Gruppe mit ID (", activeGroupId, ") nicht gefunden. Setze auf null.");
                       await setCurrentGroup(null);
                     }
                   } catch (groupError) {
-                    console.error("AUTH_STORE: Snapshot - Fehler beim Holen/Setzen der Gruppe:", groupError);
                     setError("Fehler beim Laden der aktiven Gruppe.");
                     await setCurrentGroup(null);
                   }
                 } else {
                   if (currentGroupIdInStore !== null) {
-                    console.log("AUTH_STORE: Snapshot - Keine lastActiveGroupId, aber Gruppe im Store. Setze auf null.");
                     await setCurrentGroup(null);
-                  } else {
-                    console.log("AUTH_STORE: Snapshot - Keine lastActiveGroupId und keine Gruppe im Store. Keine Aktion nötig.");
                   }
                 }
               }, (error) => {
-                console.error("AUTH_STORE: Fehler im onSnapshot Listener für User Doc:", error);
                 setError("Fehler beim Überwachen der Benutzerdaten.");
               });
 

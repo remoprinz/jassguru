@@ -51,6 +51,14 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({ isOpen, onClose, imageS
     }
   }, [imageSrc, croppedAreaPixels, onCropComplete, onClose]);
 
+  const handleZoomIn = () => {
+    setZoom((prevZoom) => Math.min(prevZoom + 0.1, 3));
+  };
+
+  const handleZoomOut = () => {
+    setZoom((prevZoom) => Math.max(prevZoom - 0.1, 1));
+  };
+
   if (!imageSrc) {
     return null; // Nicht rendern, wenn keine Bildquelle vorhanden ist
   }
@@ -72,24 +80,40 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({ isOpen, onClose, imageS
             onCropChange={setCrop}
             onZoomChange={setZoom}
             onCropComplete={onCropCompleteInternal}
+            minZoom={1}
+            maxZoom={3}
           />
         </div>
-        <div className="flex items-center space-x-2 py-4">
-          <span className="text-sm">Zoom</span>
+        <div className="flex items-center justify-between space-x-4 py-4">
+          <Button
+            onClick={handleZoomOut}
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600"
+            aria-label="Verkleinern"
+          >
+            -
+          </Button>
           <Slider
             min={1}
             max={3}
             step={0.1}
             value={[zoom]}
             onValueChange={(value: number[]) => setZoom(value[0])}
-            className="w-full"
+            className="flex-grow mx-4"
+            aria-label="Zoom-Level"
           />
+          <Button
+            onClick={handleZoomIn}
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600"
+            aria-label="Vergrößern"
+          >
+            +
+          </Button>
         </div>
         <DialogFooter className="flex-col space-y-2 sm:flex-col sm:space-x-0 sm:space-y-2">
           <Button 
             onClick={showCroppedImage} 
             className="w-full bg-blue-600 hover:bg-blue-700"
-           > 
+          > 
             Zuschneiden
           </Button>
           <Button 

@@ -1,9 +1,12 @@
 // src/store/groupStore.ts
 import { create } from 'zustand';
-import { FirestoreGroup } from '../types/jass';
+import { FirestoreGroup } from '../types/group';
 import { useAuthStore } from './authStore';
 import { updateUserDocument } from '../services/authService';
 import { getUserGroups } from '../services/groupService';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../services/firebaseInit';
+import { GROUPS_COLLECTION } from '../constants/firestore';
 
 // Statusnamen angepasst (loaded -> success)
 type GroupLoadingStatus = 'idle' | 'loading' | 'success' | 'error';
@@ -25,6 +28,7 @@ interface GroupActions {
   clearError: () => void;
   resetGroupStore: () => void;
   updateGroupInList: (groupId: string, updateData: Partial<FirestoreGroup>) => void;
+  updateGroup: (groupId: string, updates: Partial<FirestoreGroup>) => Promise<void>;
 }
 
 type GroupStore = GroupState & GroupActions;
@@ -121,6 +125,30 @@ export const useGroupStore = create<GroupStore>((set, get) => ({
         return {}; // Keine Änderung
       }
     });
+  },
+
+  updateGroup: async (groupId: string, updates: Partial<FirestoreGroup>) => {
+    if (!db) throw new Error("Firestore ist nicht initialisiert.");
+    
+    try {
+      const groupRef = doc(db, GROUPS_COLLECTION, groupId);
+      await updateDoc(groupRef, {
+        ...updates,
+        updatedAt: serverTimestamp()
+      });
+
+      // Aktualisiere den Store
+      const currentGroup = get().currentGroup;
+      if (currentGroup?.id === groupId) {
+        set({ currentGroup: { ...currentGroup, ...updates } });
+      }
+      
+      // Aktualisiere die Gruppe in der Liste
+      get().updateGroupInList(groupId, updates);
+    } catch (error) {
+      console.error("Fehler beim Aktualisieren der Gruppe:", error);
+      throw new Error("Gruppe konnte nicht aktualisiert werden.");
+    }
   },
 }));
 

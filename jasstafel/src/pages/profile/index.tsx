@@ -8,8 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import Image from 'next/image';
 import MainLayout from '@/components/layout/MainLayout';
 import { useUIStore } from '@/store/uiStore';
-import { Camera, Upload, X, ArrowLeft } from 'lucide-react'; // Icons für das UI
-import Link from 'next/link'; // Importiere Link
+import { Camera, Upload, X, UserCog, Users, BarChart3 } from 'lucide-react'; // Icons für das UI
 import imageCompression from 'browser-image-compression'; // Import hinzugefügt
 // Platzhalter für die neue Komponente
 import ImageCropModal from '@/components/ui/ImageCropModal';
@@ -218,19 +217,8 @@ const ProfilePage: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="flex min-h-screen flex-col items-center bg-gray-900 p-4 text-white relative">
-        {/* Zurück-Button oben links */}
-        <Link href="/start" passHref legacyBehavior>
-          <Button
-            variant="ghost"
-            className="absolute top-8 left-4 text-white hover:bg-gray-700 p-3"
-            aria-label="Zurück zur Startseite"
-          >
-            <ArrowLeft size={28} />
-          </Button>
-        </Link>
-
-        <div className="w-full max-w-md space-y-8 py-8">
+      <div className="flex min-h-screen flex-col items-center bg-gray-900 text-white">
+        <div className="w-full max-w-md space-y-8">
           {error && (
             <Alert variant="destructive" className="bg-red-900/30 border-red-900 text-red-200 mb-4">
               <AlertDescription>{error}</AlertDescription>
@@ -245,7 +233,7 @@ const ProfilePage: React.FC = () => {
             onCropComplete={handleCropComplete} // Callback für erfolgreiches Cropping
           />
 
-          <div className="text-center">
+          <div className="text-center mt-6">
             {/* Profilbild-Container mit Overlay für Upload */}
             <div className="flex justify-center items-center mx-auto">
               <div className="relative h-32 w-32 overflow-hidden rounded-full bg-gray-800 border-2 border-gray-700">
@@ -285,13 +273,15 @@ const ProfilePage: React.FC = () => {
               </div>
             </div>
 
-            {/* Name und Email */}
-            <h1 className="mt-4 text-2xl font-bold">
+            {/* Name und Jasspruch */}
+            <h1 className="mt-4 text-3xl font-bold text-center text-white mb-1"> 
               {user?.displayName || 'Kein Name festgelegt'}
             </h1>
-            <p className="mt-2 text-gray-400">
-              {user?.email || 'Keine E-Mail-Adresse'}
-            </p>
+            {user?.statusMessage && (
+              <p className="text-gray-400 text-center mb-4 px-8 max-w-[90%] mx-auto">
+                {user.statusMessage}
+              </p>
+            )}
 
             {/* Upload-Bereich nur anzeigen, wenn ein Bild ausgewählt wurde */}
             {selectedFile && (
@@ -333,30 +323,150 @@ const ProfilePage: React.FC = () => {
             />
           </div>
 
-          <div className="mt-8 space-y-4">
-            <Button
-              onClick={() => router.push('/profile/edit')}
-              className="w-full bg-blue-600 hover:bg-blue-700"
-              disabled
-            >
-              Profil bearbeiten
-            </Button>
+          {/* --- NEUER AKTIONSBUTTON-BEREICH --- */}
+          <div className="flex justify-evenly mb-6 w-full mt-8"> 
+             
+             {/* 1. Button: Meine Gruppen (Links) */}
+             <div className="flex flex-col items-center">
+                <span className="text-xs text-gray-400 mb-2">Gruppen</span>
+                <Button 
+                  variant="default" 
+                  className="h-12 w-12 flex items-center justify-center bg-purple-600 border-purple-700 hover:bg-purple-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
+                  onClick={() => router.push('/profile/groups')}
+                >
+                    <Users 
+                      style={{ height: '1.5rem', width: '1.5rem' }} 
+                    />
+                </Button>
+             </div>
 
-            <Button
-              onClick={() => router.push('/profile/groups')}
-              className="w-full bg-purple-600 hover:bg-purple-700"
-            >
-              Meine Gruppen
-            </Button>
+             {/* 2. Button: Meine Statistik (Mitte) */}
+             <div className="flex flex-col items-center">
+                <span className="text-xs text-gray-400 mb-2">Statistik</span>
+                <Button 
+                  variant="default" 
+                  className="h-12 w-12 flex items-center justify-center bg-gray-600 border-gray-700 hover:bg-gray-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
+                  onClick={() => alert('Meine Statistik - TODO')}
+                  disabled // Deaktiviert bis Implementierung
+                >
+                    <BarChart3 
+                      style={{ height: '1.5rem', width: '1.5rem' }} 
+                    />
+                </Button>
+             </div>
 
-            <Button
-              onClick={() => router.push('/profile/statistics')}
-              className="w-full bg-gray-700 hover:bg-gray-600"
-              variant="outline"
-              disabled
-            >
-              Meine Statistiken
-            </Button>
+             {/* 3. Button: Profil bearbeiten (Rechts) */}
+             <div className="flex flex-col items-center">
+                 <span className="text-xs text-gray-400 mb-2">Bearbeiten</span>
+                 <Button 
+                   variant="default" 
+                   className="h-12 w-12 flex items-center justify-center bg-blue-600 border-blue-700 hover:bg-blue-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
+                   onClick={() => router.push('/profile/edit')}
+                 >
+                     <UserCog 
+                       style={{ height: '1.5rem', width: '1.5rem' }} 
+                     />
+                 </Button>
+             </div>
+
+          </div>
+
+          {/* --- NEUER STATISTIKBEREICH (basiert auf Gruppenstatistik) --- */}
+          <div className="w-full bg-gray-800/50 rounded-lg p-4 mb-8">
+            <div className="space-y-3 text-sm px-2 pb-2">
+
+              {/* Block 1: Spielerübersicht */}
+              <div>
+                <h3 className="text-base font-semibold text-white mb-2">Spielerübersicht</h3>
+                <div className="space-y-1">
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Anzahl Gruppen:</span>
+                    <span className="text-gray-100">0</span> {/* TODO: Aus userGroups laden */}
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Anzahl Jass-Partien gespielt:</span>
+                    <span className="text-gray-100">0</span> {/* Placeholder */}
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Anzahl Spiele gespielt:</span>
+                    <span className="text-gray-100">0</span> {/* Placeholder */}
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Gesamte Jass-Zeit:</span>
+                    <span className="text-gray-100">-</span> {/* Placeholder */}
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Mitglied seit:</span>
+                    <span className="text-gray-100">-</span> {/* TODO: user.metadata.creationTime */} 
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Letzte Aktivität:</span>
+                    <span className="text-gray-100">-</span> {/* TODO: user.metadata.lastSignInTime */}
+                  </div>
+                </div>
+              </div>
+
+              {/* Divider */} 
+              <div className="pt-2 pb-1">
+                <hr className="border-gray-600/50" />
+              </div>
+
+              {/* Block 2: Persönliche Durchschnittswerte */}
+               <div>
+                <h3 className="text-base font-semibold text-white mb-2">Deine Durchschnittswerte</h3>
+                <div className="space-y-1">
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Ø Punkte pro Spiel:</span>
+                    <span className="text-gray-100">-</span> {/* Placeholder */}
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Ø Striche pro Spiel:</span>
+                    <span className="text-gray-100">-</span> {/* Placeholder */}
+                  </div>
+                   <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Ø Weispunkte pro Spiel:</span>
+                    <span className="text-gray-100">-</span> {/* Placeholder */}
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Ø Matsch pro Spiel:</span>
+                    <span className="text-gray-100">-</span> {/* Placeholder */}
+                  </div>
+                </div>
+              </div>
+
+               {/* Divider */}
+              <div className="pt-2 pb-1">
+                <hr className="border-gray-600/50" />
+              </div>
+
+               {/* Block 3: Persönliche Highlights */}
+               <div>
+                <h3 className="text-base font-semibold text-white mb-2">Deine Highlights</h3>
+                 <div className="space-y-1">
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Höchste Punktzahl (Spiel):</span>
+                    <span className="text-gray-100">N/A (0)</span> {/* Placeholder */}
+                  </div>
+                   <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Höchste Weispunkte (Spiel):</span>
+                    <span className="text-gray-100">N/A (0)</span> {/* Placeholder */}
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Höchste Siegquote (Partie):</span>
+                    <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
+                  </div>
+                   <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Höchste Siegquote (Spiel):</span>
+                    <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
+                  </div>
+                   <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Meiste Matches (Spiel):</span>
+                    <span className="text-gray-100">N/A (0)</span> {/* Placeholder */}
+                  </div>
+                </div>
+              </div>
+
+            </div>
           </div>
         </div>
       </div>

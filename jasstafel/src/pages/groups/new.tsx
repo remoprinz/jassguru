@@ -26,7 +26,7 @@ import { createGroup, uploadGroupLogo } from '@/services/groupService';
 import MainLayout from '@/components/layout/MainLayout';
 import Header from '@/components/layout/Header';
 import { Camera, X } from 'lucide-react';
-import { FirestoreGroup } from '@/types/jass'; // Import FirestoreGroup type
+import { FirestoreGroup } from '@/types/group';
 
 // Zod Schema für die Formularvalidierung
 const createGroupSchema = z.object({

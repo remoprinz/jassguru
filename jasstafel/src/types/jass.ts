@@ -860,6 +860,7 @@ export interface AuthUser {
   photoURL: string | null;
   emailVerified: boolean;
   isAnonymous: boolean;
+  statusMessage?: string | null;
   metadata: {
     creationTime?: string;
     lastSignInTime?: string;
@@ -886,17 +887,18 @@ export interface FirestoreMetadata {
 // Firestore User Document Structure
 export interface FirestoreUser {
   uid: string;
-  email: string | null;
+  email: string;
   displayName: string | null;
   photoURL: string | null;
-  createdAt: Timestamp | FieldValue;
-  lastLogin: Timestamp | FieldValue;
-  preferences?: {
-    theme?: string;
-    notifications?: boolean;
-  };
   lastActiveGroupId?: string | null;
-  lastUpdated?: Timestamp | FieldValue;
+  statusMessage?: string | null;
+  preferences?: {
+    theme: string;
+    notifications: boolean;
+  };
+  createdAt?: FieldValue;
+  lastLogin?: FieldValue;
+  lastUpdated?: FieldValue;
 }
 
 export interface FirestorePlayer {
@@ -966,4 +968,17 @@ interface NotificationAction {
   label: string;
   onClick: () => void;
   className?: string; // Optionale className-Eigenschaft hinzufügen
+}
+
+// Typdefinitionen für Jass-Gruppen
+export interface JassGroup {
+  id: string;
+  name: string;
+  description?: string;
+  statusMessage?: string; // Optionaler Gruppen-Jasspruch/Status hinzugefügt
+  logoUrl?: string | null;
+  adminIds: string[];
+  playerIds: string[];
+  createdAt: FieldValue | Timestamp;
+  // Weitere gruppenspezifische Felder...
 }
