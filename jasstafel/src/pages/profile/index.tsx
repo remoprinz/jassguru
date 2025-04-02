@@ -11,6 +11,8 @@ import { useUIStore } from '@/store/uiStore';
 import { Camera, Upload, X, ArrowLeft } from 'lucide-react'; // Icons für das UI
 import Link from 'next/link'; // Importiere Link
 import imageCompression from 'browser-image-compression'; // Import hinzugefügt
+// Platzhalter für die neue Komponente
+import ImageCropModal from '@/components/ui/ImageCropModal';
 
 const ProfilePage: React.FC = () => {
   const { user, status, isAuthenticated, uploadProfilePicture, error, clearError } = useAuthStore();
@@ -22,6 +24,10 @@ const ProfilePage: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+
+  // State für das Crop Modal
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null); // URL des Originalbildes für den Cropper
 
   // Nur für angemeldete Benutzer (keine Gäste)
   useEffect(() => {
@@ -68,53 +74,97 @@ const ProfilePage: React.FC = () => {
         return;
       }
 
-      // Kompressionslogik beginnt hier
-      setIsUploading(true);
+      // --- Anpassung beginnt ---
+      // Nicht mehr sofort komprimieren oder hochladen-Status setzen
+      // setIsUploading(true); // Wird erst beim finalen Upload gesetzt
       clearError();
-      // Alte Vorschau entfernen
-      if (previewUrl) {
-         URL.revokeObjectURL(previewUrl);
-         setPreviewUrl(null);
-      }
+      
+      // Alte Vorschau/Datei entfernen
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
       setSelectedFile(null);
 
-      const options = {
-        maxSizeMB: 1, // Max. 1 MB für Profilbilder
-        maxWidthOrHeight: 1024, // Max. 1024px
-        useWebWorker: true,
-      };
+      // Erstelle eine temporäre URL für das Originalbild, um es dem Cropper zu übergeben
+      const objectUrl = URL.createObjectURL(originalFile);
+      setImageToCrop(objectUrl); // Bild für das Modal setzen
+      setCropModalOpen(true);   // Modal öffnen
 
-      try {
-        console.log(`Komprimiere Profilbild: ${originalFile.name}, Größe: ${(originalFile.size / 1024 / 1024).toFixed(2)} MB`);
-        const compressedFile = await imageCompression(originalFile, options);
-        console.log(`Profilbild komprimiert: ${compressedFile.name}, Größe: ${(compressedFile.size / 1024 / 1024).toFixed(2)} MB`);
-
-        // Vorschau mit komprimiertem Bild erstellen und Datei speichern
-        const objectUrl = URL.createObjectURL(compressedFile);
-        setPreviewUrl(objectUrl);
-        setSelectedFile(compressedFile);
-
-      } catch (compressionError) {
-        console.error('Fehler bei der Bildkomprimierung:', compressionError);
-        showNotification({
-          message: 'Fehler bei der Bildkomprimierung.',
-          type: 'error'
-        });
-        // Zurücksetzen, falls Komprimierung fehlschlägt
-        setSelectedFile(null);
-        setPreviewUrl(null);
-        if (fileInputRef.current) {
-           fileInputRef.current.value = '';
-        }
-        setIsUploading(false);
-      }
+      // Kompressionslogik wird in handleCropComplete verschoben
+      /* 
+      const options = { ... };
+      try { ... } catch { ... } 
+      */
+      // --- Anpassung endet ---
     }
+  };
+
+  // Neue Funktion: Wird vom Crop-Modal aufgerufen
+  const handleCropComplete = async (croppedImageBlob: Blob | null) => {
+    // Verhindern, dass die Funktion erneut ausgeführt wird, während sie schon läuft
+    if (isUploading && !croppedImageBlob) {
+        console.log("Ignoriere Abbruch-Aufruf während Verarbeitung läuft.");
+        return;
+    }
+
+    setCropModalOpen(false); // Modal schließen
+    if (imageToCrop) {
+      URL.revokeObjectURL(imageToCrop); // Temporäre Original-URL freigeben
+      setImageToCrop(null);
+    }
+
+    if (!croppedImageBlob) {
+        console.log("Cropping abgebrochen oder fehlgeschlagen.");
+        if (fileInputRef.current) fileInputRef.current.value = ''; // Input zurücksetzen
+        setIsUploading(false); // Sicherstellen, dass Status false ist bei Abbruch
+        return;
+    }
+
+    // --- Start der Verarbeitung ---
+    setIsUploading(true); 
+    console.log(`Zugeschnittenes Bild erhalten, Größe: ${(croppedImageBlob.size / 1024).toFixed(2)} KB`);
+
+    // Jetzt das zugeschnittene Bild komprimieren
+    const options = {
+      maxSizeMB: 0.2, 
+      maxWidthOrHeight: 1024, 
+      useWebWorker: true,
+      fileType: 'image/jpeg', 
+      initialQuality: 0.8 
+    };
+
+    try {
+      console.log("Komprimiere zugeschnittenes Bild...");
+      const compressedBlob = await imageCompression(new File([croppedImageBlob], "cropped_image.jpg", { type: 'image/jpeg' }), options);
+      console.log(`Komprimiertes Bild, Größe: ${(compressedBlob.size / 1024).toFixed(2)} KB`);
+
+      // Vorschau mit komprimiertem Bild erstellen und Datei speichern
+      const finalPreviewUrl = URL.createObjectURL(compressedBlob);
+      setPreviewUrl(finalPreviewUrl);
+      setSelectedFile(new File([compressedBlob], "profile_picture.jpg", { type: 'image/jpeg' }));
+      // --- Verarbeitung erfolgreich beendet ---
+      setIsUploading(false); // Status zurücksetzen, bereit für 'Hochladen' Klick
+
+    } catch (compressionError) {
+      console.error('Fehler bei der Komprimierung des zugeschnittenen Bildes:', compressionError);
+      showNotification({
+        message: 'Fehler bei der Bildkomprimierung.',
+        type: 'error'
+      });
+      // Zurücksetzen
+      setSelectedFile(null);
+      setPreviewUrl(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      // --- Verarbeitung fehlgeschlagen ---
+      setIsUploading(false); // Status zurücksetzen bei Fehler
+    } 
+    // Das finally hier ist nicht mehr nötig, da wir es in try/catch behandeln
   };
 
   // Handler für Bildupload
   const handleUpload = async () => {
-    if (!selectedFile) return;
+    if (!selectedFile) return; // Jetzt prüfen wir auf selectedFile (komprimierter Blob)
     
+    setIsUploading(true); // Setze Upload-Status hier
     try {
       await uploadProfilePicture(selectedFile);
       
@@ -123,7 +173,6 @@ const ProfilePage: React.FC = () => {
         type: 'success'
       });
       
-      // Zurücksetzen des Auswahlstatus
       setSelectedFile(null);
       setPreviewUrl(null);
       
@@ -133,9 +182,8 @@ const ProfilePage: React.FC = () => {
       
     } catch (error) {
       console.error('Fehler beim Hochladen des Profilbilds:', error);
-      // Fehlermeldung wird bereits im Store gesetzt
     } finally {
-      setIsUploading(false);
+      setIsUploading(false); // Setze Upload-Status zurück nach Versuch
     }
   };
 
@@ -188,6 +236,14 @@ const ProfilePage: React.FC = () => {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
+
+          {/* Modal einfügen und mit State verbinden */}
+          <ImageCropModal
+            isOpen={cropModalOpen}
+            onClose={() => handleCropComplete(null)} // Aufruf mit null bei Abbruch/Schließen
+            imageSrc={imageToCrop}
+            onCropComplete={handleCropComplete} // Callback für erfolgreiches Cropping
+          />
 
           <div className="text-center">
             {/* Profilbild-Container mit Overlay für Upload */}

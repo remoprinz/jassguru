@@ -1,23 +1,39 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useAuthStore } from '@/store/authStore';
 import { useGroupStore } from '@/store/groupStore';
 import { useGameStore } from '@/store/gameStore';
+import { useUIStore } from '@/store/uiStore';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
-import Header from '@/components/layout/Header';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import MainLayout from '@/components/layout/MainLayout';
 import { GroupSelector } from '@/components/group/GroupSelector';
-import { Users, Settings, UserPlus } from 'lucide-react';
+import { Users, Settings, UserPlus, Camera, Upload, X } from 'lucide-react';
+import imageCompression from 'browser-image-compression';
+import { uploadGroupLogo } from '@/services/groupService';
+import ImageCropModal from '@/components/ui/ImageCropModal';
 
 const StartPage: React.FC = () => {
   const { user, status } = useAuthStore();
-  const { currentGroup, userGroups, status: groupStatus } = useGroupStore();
+  const { currentGroup, userGroups, status: groupStatus, error: groupError, clearError: clearGroupError } = useGroupStore();
   const isGameInProgress = useGameStore(state => state.isGameStarted && !state.isGameCompleted);
   const router = useRouter();
+  const setPageCta = useUIStore((state) => state.setPageCta);
+  const resetPageCta = useUIStore((state) => state.resetPageCta);
+  const showNotification = useUIStore(state => state.showNotification);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+
+  const isAdmin = currentGroup && user && currentGroup.adminIds.includes(user.uid);
 
   useEffect(() => {
     if (status === 'unauthenticated' && process.env.NODE_ENV === 'production') {
@@ -26,19 +42,144 @@ const StartPage: React.FC = () => {
     } else if (status === 'unauthenticated') {
         console.log("StartPage: Auth status is 'unauthenticated' in non-production environment, redirect skipped.");
     }
-  }, [status, router]);
+    clearGroupError();
+    return () => {
+       clearGroupError();
+       if (previewUrl) {
+         URL.revokeObjectURL(previewUrl);
+       }
+     };
+  }, [status, router, currentGroup, clearGroupError, previewUrl]);
 
   const handleGameAction = () => {
     router.push('/jass');
   };
 
-  // Helper Variable für Admin-Check
-  const isAdmin = currentGroup && user && currentGroup.adminIds.includes(user.uid);
+  useEffect(() => {
+    if (currentGroup) {
+       const ctaText = isGameInProgress ? 'Jass fortsetzen' : 'Neuen Jass starten';
+       const ctaVariant = isGameInProgress ? 'info' : 'default';
+
+       setPageCta({
+         isVisible: true,
+         text: ctaText,
+         onClick: handleGameAction,
+         loading: false,
+         disabled: false,
+         variant: ctaVariant,
+       });
+    } else {
+       resetPageCta();
+    }
+  
+    return () => {
+      resetPageCta();
+    };
+  }, [currentGroup, isGameInProgress, setPageCta, resetPageCta, handleGameAction]);
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      const originalFile = files[0];
+      if (!originalFile.type.startsWith('image/')) {
+        showNotification({ message: 'Bitte wählen Sie eine Bilddatei (JPEG oder PNG)..', type: 'error' });
+        return;
+      }
+      const initialMaxSizeInBytes = 10 * 1024 * 1024; // 10 MB
+      if (originalFile.size > initialMaxSizeInBytes) {
+        showNotification({ message: 'Die Datei ist zu groß (max. 10 MB).', type: 'error' });
+        return;
+      }
+
+      clearGroupError();
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+      setSelectedFile(null);
+
+      const objectUrl = URL.createObjectURL(originalFile);
+      setImageToCrop(objectUrl);
+      setCropModalOpen(true);
+    }
+  };
+
+  const handleCropComplete = async (croppedImageBlob: Blob | null) => {
+    setCropModalOpen(false);
+    if (imageToCrop) {
+      URL.revokeObjectURL(imageToCrop);
+      setImageToCrop(null);
+    }
+
+    if (!croppedImageBlob) {
+        console.log("Cropping abgebrochen oder fehlgeschlagen.");
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        setIsUploading(false);
+        return;
+    }
+
+    setIsUploading(true);
+    console.log(`Zugeschnittenes Gruppenlogo erhalten, Größe: ${(croppedImageBlob.size / 1024).toFixed(2)} KB`);
+
+    const options = {
+      maxSizeMB: 0.2,
+      maxWidthOrHeight: 1024,
+      useWebWorker: true,
+      fileType: 'image/jpeg',
+      initialQuality: 0.8
+    };
+
+    try {
+      console.log("Komprimiere zugeschnittenes Gruppenlogo...");
+      const compressedBlob = await imageCompression(new File([croppedImageBlob], "cropped_logo.jpg", { type: 'image/jpeg' }), options);
+      console.log(`Komprimiertes Gruppenlogo, Größe: ${(compressedBlob.size / 1024).toFixed(2)} KB`);
+
+      const finalPreviewUrl = URL.createObjectURL(compressedBlob);
+      setPreviewUrl(finalPreviewUrl);
+      setSelectedFile(new File([compressedBlob], "group_logo.jpg", { type: 'image/jpeg' }));
+      setIsUploading(false);
+
+    } catch (compressionError) {
+      console.error('Fehler bei der Komprimierung des zugeschnittenen Gruppenlogos:', compressionError);
+      showNotification({ message: 'Fehler bei der Bildkomprimierung.', type: 'error' });
+      setSelectedFile(null);
+      setPreviewUrl(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      setIsUploading(false);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile || !currentGroup) return;
+    
+    setIsUploading(true);
+    try {
+      await uploadGroupLogo(currentGroup.id, selectedFile);
+      showNotification({ message: 'Gruppenlogo erfolgreich aktualisiert.', type: 'success' });
+      setSelectedFile(null);
+      setPreviewUrl(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } catch (error) {
+      console.error('Fehler beim Hochladen des Gruppenlogos:', error);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleSelectClick = () => {
+    if (isAdmin && fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleCancelSelection = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   if (status === 'loading' || groupStatus === 'loading') {
     return (
       <MainLayout>
-        <Header />
         <div className="flex flex-1 items-center justify-center">
           <div className="h-8 w-8 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
           <span className="ml-3 text-white">Laden...</span>
@@ -49,83 +190,247 @@ const StartPage: React.FC = () => {
 
   return (
     <MainLayout>
-      <Header />
-      <div className="flex flex-1 flex-col items-center p-4 pb-24 text-white">
+      <div className="flex flex-1 flex-col items-center text-white">
         <div className="flex w-full max-w-md flex-col items-center">
           {currentGroup ? (
             <>
-              <div className="mt-2 mb-4 flex flex-col items-center">
-                <Avatar className="h-32 w-32 mb-4 border-2 border-gray-700">
-                  <AvatarImage src={currentGroup.logoUrl ?? undefined} alt={currentGroup.name ?? 'Gruppe'} className="object-cover" />
-                  <AvatarFallback className="bg-gray-700 text-gray-200 text-5xl font-bold">
-                    {currentGroup.name?.charAt(0).toUpperCase() || 'G'}
-                  </AvatarFallback>
-                </Avatar>
-                <p className="text-sm text-gray-400 mb-1">Aktive Gruppe:</p>
-                <h1 className="text-3xl font-bold text-center text-white mb-4">{currentGroup.name}</h1>
-              </div>
-              <div className="flex justify-center space-x-4 mb-6 w-full">
-                  <Button variant="outline" size="icon" className="bg-gray-700 border-gray-600 hover:bg-gray-600 text-white" onClick={() => alert('Einladen - TODO')}>
-                      <UserPlus className="h-5 w-5" />
-                  </Button>
-                   <Button variant="outline" size="icon" className="bg-gray-700 border-gray-600 hover:bg-gray-600 text-white" onClick={() => alert('Mitglieder - TODO')}>
-                       <Users className="h-5 w-5" />
-                   </Button>
+              <div className="mt-6 mb-4 flex flex-col items-center">
+                <div 
+                  className={`relative group cursor-pointer ${isAdmin ? 'cursor-pointer' : 'cursor-default'}`} 
+                  onClick={handleSelectClick}
+                >
+                   <Avatar className="h-32 w-32 border-2 border-gray-700 overflow-hidden">
+                    {previewUrl ? (
+                      <AvatarImage src={previewUrl} alt="Logo Vorschau" className="object-cover h-full w-full" />
+                    ) : (
+                      <AvatarImage src={currentGroup.logoUrl ?? undefined} alt={currentGroup.name ?? 'Gruppe'} className="object-cover h-full w-full" />
+                    )}
+                    <AvatarFallback className="bg-gray-700 text-gray-200 text-5xl font-bold">
+                      {currentGroup.name?.charAt(0).toUpperCase() || 'G'}
+                    </AvatarFallback>
+                  </Avatar>
                    {isAdmin && (
-                       <Button variant="outline" size="icon" className="bg-gray-700 border-gray-600 hover:bg-gray-700 text-white" onClick={() => alert('Einstellungen - TODO')}>
-                           <Settings className="h-5 w-5" />
-                       </Button>
-                   )}
+                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-all duration-200 rounded-full">
+                      <Camera className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" size={32} />
+                    </div>
+                  )}
+                </div>
+                <p className="text-sm text-gray-400 mb-1 mt-4">Aktive Gruppe:</p>
+                <h1 className="text-3xl font-bold text-center text-white mb-4">{currentGroup.name}</h1>
+
+                 {selectedFile && (
+                  <div className="flex gap-2 justify-center mb-4">
+                    <Button
+                      onClick={handleUpload}
+                      className="bg-green-600 hover:bg-green-700 flex items-center gap-1"
+                      disabled={!selectedFile || isUploading}
+                    >
+                      {isUploading ? (
+                        <>
+                          <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-1"></div>
+                          Hochladen...
+                        </>
+                      ) : (
+                        <>
+                          <Upload size={16} /> Hochladen
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={handleCancelSelection}
+                      className="bg-gray-600 hover:bg-gray-700 flex items-center gap-1"
+                      disabled={isUploading}
+                    >
+                      <X size={16} /> Abbrechen
+                    </Button>
+                  </div>
+                )}
+
               </div>
 
-              {/* Statistikbereich beginnt jetzt direkt nach den Buttons */}
-              {/* max-h-[35vh] begrenzt die Höhe, overflow-y-auto fügt Scrollbar bei Bedarf hinzu */}
-              <div className="w-full bg-gray-800/50 rounded-lg p-4 mb-8 max-h-[35vh] overflow-y-auto">
-                {/* px-2 für inneren horizontalen Abstand */} 
-                <div className="space-y-2 text-sm px-2 pb-2">
-                  {/* Zählungen (reduziert & neu sortiert) */}
-                  <div className="flex justify-between">
-                    <span className="font-medium text-gray-300">Mitglieder:</span>
-                    <span className="text-gray-100">{currentGroup?.playerIds?.length ?? 0}</span>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept="image/jpeg, image/png"
+                className="hidden"
+                disabled={isUploading}
+              />
+
+              <div className="flex justify-evenly mb-6 w-full">
+                 <div className="flex flex-col items-center">
+                     <span className="text-xs text-gray-400 mb-2">Einladen</span>
+                     <Button 
+                       variant="default" 
+                       className="h-12 w-12 flex items-center justify-center bg-orange-600 border-orange-700 hover:bg-orange-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
+                       onClick={() => alert('Einladen - TODO')}
+                     >
+                         <UserPlus 
+                           style={{ height: '1.5rem', width: '1.5rem' }} 
+                         />
+                     </Button>
+                 </div>
+
+                 <div className="flex flex-col items-center">
+                    <span className="text-xs text-gray-400 mb-2">Mitglieder</span>
+                    <Button 
+                      variant="default" 
+                      className="h-12 w-12 flex items-center justify-center bg-yellow-600 border-yellow-700 hover:bg-yellow-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
+                      onClick={() => alert('Mitglieder - TODO')}
+                    >
+                        <Users 
+                          style={{ height: '1.5rem', width: '1.5rem' }} 
+                        />
+                    </Button>
+                 </div>
+
+                 {isAdmin && (
+                    <div className="flex flex-col items-center">
+                       <span className="text-xs text-gray-400 mb-2">Settings</span>
+                       <Button 
+                         variant="default" 
+                         className="h-12 w-12 flex items-center justify-center bg-blue-600 border-blue-700 hover:bg-blue-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
+                         onClick={() => alert('Einstellungen - TODO')}
+                       >
+                           <Settings 
+                             style={{ height: '1.5rem', width: '1.5rem' }} 
+                           />
+                       </Button>
+                    </div>
+                 )}
+              </div>
+
+              {/* --- VOLLSTÄNDIGER STATISTIKBEREICH --- */}
+              <div className="w-full bg-gray-800/50 rounded-lg p-4 mb-8">
+                <div className="space-y-3 text-sm px-2 pb-2"> {/* Etwas mehr Platz mit space-y-3 */}
+
+                  {/* Block 1: Gruppenübersicht */}
+                  <div>
+                    <h3 className="text-base font-semibold text-white mb-2">Gruppenübersicht</h3>
+                    <div className="space-y-1"> {/* Innerer Abstand für Items */}
+                      <div className="flex justify-between">
+                        <span className="font-medium text-gray-300">Mitglieder:</span>
+                        <span className="text-gray-100">{currentGroup?.playerIds?.length ?? 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium text-gray-300">Anzahl Jass-Partien:</span>
+                        <span className="text-gray-100">0</span> {/* Placeholder */}
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium text-gray-300">Anzahl Spiele:</span>
+                        <span className="text-gray-100">0</span> {/* Placeholder */}
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium text-gray-300">Gesamte Jass-Zeit:</span>
+                        <span className="text-gray-100">-</span> {/* Placeholder */}
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium text-gray-300">Erster Jass:</span>
+                        <span className="text-gray-100">-</span> {/* Placeholder */}
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium text-gray-300">Letzter Jass:</span>
+                        <span className="text-gray-100">-</span> {/* Placeholder */}
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium text-gray-300">Ort:</span>
+                        <span className="text-gray-100">N/A</span> {/* Placeholder */}
+                      </div>
+                    </div>
                   </div>
-                   <div className="flex justify-between">
-                    <span className="font-medium text-gray-300">Jasse:</span>
-                    <span className="text-gray-100">0</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium text-gray-300">Spiele:</span>
-                    <span className="text-gray-100">0</span>
-                  </div>
-                 
+
                   {/* Divider */}
                   <div className="pt-2 pb-1">
-                    <hr className="border-gray-600" />
+                    <hr className="border-gray-600/50" /> {/* Etwas dezenterer Divider */}
                   </div>
 
-                  {/* Durchschnitte (reduziert) */}
-                   <div className="flex justify-between">
-                    <span className="font-medium text-gray-300">Ø Matsche / Spiel:</span>
-                    <span className="text-gray-100">-</span>
+                  {/* Block 2: Durchschnittswerte & Details */}
+                   <div>
+                    <h3 className="text-base font-semibold text-white mb-2">Durchschnittswerte & Details</h3>
+                    <div className="space-y-1">
+                      <div className="flex justify-between">
+                        <span className="font-medium text-gray-300">Ø Dauer pro Partie:</span>
+                        <span className="text-gray-100">-</span> {/* Placeholder */}
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium text-gray-300">Ø Dauer pro Spiel:</span>
+                        <span className="text-gray-100">-</span> {/* Placeholder */}
+                      </div>
+                       <div className="flex justify-between">
+                        <span className="font-medium text-gray-300">Ø Spiele pro Partie:</span>
+                        <span className="text-gray-100">-</span> {/* Placeholder */}
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium text-gray-300">Ø Runden pro Spiel:</span>
+                        <span className="text-gray-100">-</span> {/* Placeholder */}
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium text-gray-300">Ø Matsch pro Spiel:</span>
+                        <span className="text-gray-100">-</span> {/* Placeholder */}
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Divider */}
+                   {/* Divider */}
                   <div className="pt-2 pb-1">
-                    <hr className="border-gray-600" />
+                    <hr className="border-gray-600/50" />
                   </div>
 
-                  {/* Eckdaten */}
-                  <div className="flex justify-between">
-                    <span className="font-medium text-gray-300">Erster Jass:</span>
-                    <span className="text-gray-100">-</span> 
+                   {/* Block 3: Spieler-Highlights */}
+                   <div>
+                    <h3 className="text-base font-semibold text-white mb-2">Spieler-Highlights</h3>
+                     <div className="space-y-1">
+                      <div className="flex justify-between">
+                        <span className="font-medium text-gray-300">Meiste Spiele:</span>
+                        <span className="text-gray-100">N/A (-)</span> {/* Placeholder */}
+                      </div>
+                       <div className="flex justify-between">
+                        <span className="font-medium text-gray-300">Höchste Strichdifferenz:</span>
+                        <span className="text-gray-100">N/A (+0)</span> {/* Placeholder */}
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium text-gray-300">Höchste Siegquote (pro Partie):</span>
+                        <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium text-gray-300">Höchste Siegquote (pro Spiel):</span>
+                        <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium text-gray-300">Höchste Matschquote (pro Spiel):</span>
+                        <span className="text-gray-100">N/A (0.00)</span> {/* Placeholder */}
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium text-gray-300">Die meisten Weispunkte (pro Spiel):</span>
+                        <span className="text-gray-100">N/A (0)</span> {/* Placeholder */}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium text-gray-300">Letzter Jass:</span>
-                    <span className="text-gray-100">-</span>
+
+                   {/* Divider */}
+                  <div className="pt-2 pb-1">
+                    <hr className="border-gray-600/50" />
                   </div>
-                   <div className="flex justify-between">
-                    <span className="font-medium text-gray-300">Ort:</span>
-                    <span className="text-gray-100">-</span>
+
+                   {/* Block 4: Team-Highlights */}
+                   <div>
+                    <h3 className="text-base font-semibold text-white mb-2">Team-Highlights</h3>
+                     <div className="space-y-1">
+                      <div className="flex justify-between">
+                        <span className="font-medium text-gray-300">Höchste Siegquote (pro Partie):</span>
+                        <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium text-gray-300">Höchste Siegquote (pro Spiel):</span>
+                        <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
+                      </div>
+                       <div className="flex justify-between">
+                        <span className="font-medium text-gray-300">Höchste Matschquote (pro Spiel):</span>
+                         <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
+                      </div>
+                    </div>
                   </div>
+
                 </div>
               </div>
             </>
@@ -172,18 +477,15 @@ const StartPage: React.FC = () => {
             </div>
           )}
         </div>
-        {currentGroup && (
-            <div className="fixed bottom-24 left-0 right-0 px-4 pb-6 z-20">
-              <div className="w-full max-w-md mx-auto">
-                 <Button 
-                   onClick={handleGameAction}
-                   className={`w-full h-14 text-lg rounded-xl shadow-lg ${isGameInProgress ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'}`}
-                 >
-                   {isGameInProgress ? 'Jass fortsetzen' : 'Neuen Jass starten'}
-                 </Button>
-              </div>
-            </div>
-        )}
+
+        {/* Crop Modal einfügen */}
+        <ImageCropModal
+           isOpen={cropModalOpen}
+           onClose={() => handleCropComplete(null)} // Signalisiert Abbruch
+           imageSrc={imageToCrop}
+           onCropComplete={handleCropComplete}
+        />
+
       </div>
     </MainLayout>
   );
