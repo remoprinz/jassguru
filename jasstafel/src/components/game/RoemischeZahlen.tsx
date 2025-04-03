@@ -1,7 +1,7 @@
-import React, { useMemo, useCallback, useEffect } from 'react';
-import { styled } from '@mui/material/styles';
-import { useSpring, animated, config } from 'react-spring';
-import type { TeamPosition } from '../../types/jass';
+import React, {useMemo, useCallback, useEffect} from "react";
+import {styled} from "@mui/material/styles";
+import {useSpring, animated, config} from "react-spring";
+import type {TeamPosition} from "../../types/jass";
 
 interface RoemischeZahlenProps {
   stricheCount: number;
@@ -10,7 +10,7 @@ interface RoemischeZahlenProps {
   strichColor: string;
   animationDuration?: number;
   isActive: boolean;
-  direction: 'ltr' | 'rtl';
+  direction: "ltr" | "rtl";
   edgeOffset: number;
   strichSpacing?: number;
   einheitSpacing?: number;
@@ -19,7 +19,7 @@ interface RoemischeZahlenProps {
   xSize?: number;
   isXMode?: boolean;
   xAngle?: number;
-  xAlignment?: 'left' | 'right';
+  xAlignment?: "left" | "right";
   isDiagonal?: boolean;
   diagonalAngle?: number;
   diagonalStrichHeight?: string;
@@ -58,36 +58,36 @@ interface RoemischeZahlenProps {
   };
 }
 
-const StrichContainer = styled('div')({
-  position: 'absolute',
-  width: '100%',
-  height: '100%',
-  display: 'flex',
-  flexDirection: 'row',
-  alignItems: 'flex-end',
-  justifyContent: 'flex-start',
+const StrichContainer = styled("div")({
+  position: "absolute",
+  width: "100%",
+  height: "100%",
+  display: "flex",
+  flexDirection: "row",
+  alignItems: "flex-end",
+  justifyContent: "flex-start",
 });
 
 const Strich = styled(animated.div, {
-  shouldForwardProp: (prop) => prop !== 'isVertical' && prop !== 'color'
-})<{ isVertical: boolean; color: string }>(({ isVertical, color }) => ({
-  position: 'absolute',
+  shouldForwardProp: (prop) => prop !== "isVertical" && prop !== "color",
+})<{ isVertical: boolean; color: string }>(({isVertical, color}) => ({
+  position: "absolute",
   backgroundColor: color,
-  width: '2px',
-  height: isVertical ? '100%' : '2px',
-  transformOrigin: 'top left',
+  width: "2px",
+  height: isVertical ? "100%" : "2px",
+  transformOrigin: "top left",
 }));
 
-const StrichContainerStyled = styled('div')<{ isRotated?: boolean }>(({ isRotated }) => ({
-  position: 'absolute',
-  width: '100%',
-  height: '100%',
-  display: 'flex',
-  flexDirection: 'row',
-  alignItems: 'flex-end',
-  justifyContent: 'flex-start',
-  transform: isRotated ? 'rotate(180deg)' : 'rotate(0)',
-  transformOrigin: 'center center',
+const StrichContainerStyled = styled("div")<{ isRotated?: boolean }>(({isRotated}) => ({
+  position: "absolute",
+  width: "100%",
+  height: "100%",
+  display: "flex",
+  flexDirection: "row",
+  alignItems: "flex-end",
+  justifyContent: "flex-start",
+  transform: isRotated ? "rotate(180deg)" : "rotate(0)",
+  transformOrigin: "center center",
 }));
 
 const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
@@ -106,11 +106,11 @@ const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
   xSize = 20,
   isXMode = false,
   xAngle = 15,
-  xAlignment = 'left',
+  xAlignment = "left",
   isDiagonal = false,
   diagonalAngle = 0,
-  diagonalStrichHeight = '100%',
-  diagonalStrichWidth = '2px',
+  diagonalStrichHeight = "100%",
+  diagonalStrichWidth = "2px",
   diagonalStrichOffset,
   diagonalStrichAngle = 0,
   topDiagonalStrichOffset,
@@ -130,9 +130,9 @@ const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
   const restStriche = stricheCount % 5;
   const shouldDrawNewStrich = stricheCount > 0;
   const newStrichProps = useSpring({
-    from: { scaleY: 0 },
-    to: { scaleY: shouldDrawNewStrich ? 1 : 0 },
-    config: { ...config.stiff, duration: animationDuration },
+    from: {scaleY: 0},
+    to: {scaleY: shouldDrawNewStrich ? 1 : 0},
+    config: {...config.stiff, duration: animationDuration},
   });
 
   const renderStrich = useCallback((index: number, isNew: boolean, isVertical: boolean) => {
@@ -154,27 +154,27 @@ const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
         offset = diagonalStrichOffset20er;
         angle = diagonalStrichAngle20er || diagonalStrichAngle;
       } else {
-        offset = position === 'top' ? topDiagonalStrichOffset : bottomDiagonalStrichOffset;
-        angle = position === 'top' ? topDiagonalStrichAngle : bottomDiagonalStrichAngle;
+        offset = position === "top" ? topDiagonalStrichOffset : bottomDiagonalStrichOffset;
+        angle = position === "top" ? topDiagonalStrichAngle : bottomDiagonalStrichAngle;
       }
 
-      const positionStyle = position === 'top'
-        ? {
-            right: `calc(${edgeOffset + baseOffset + diagonalOffset}px + ${offset.horizontal} ${einheitWert === 100 ? '- 0px' : ''})`,
-            top: `calc(0px + ${offset.vertical})`,
-          }
-        : {
-            left: `calc(${edgeOffset + baseOffset}px + ${offset.horizontal})`,
-            bottom: `calc(0px + ${offset.vertical})`,
-          };
+      const positionStyle = position === "top" ?
+        {
+          right: `calc(${edgeOffset + baseOffset + diagonalOffset}px + ${offset.horizontal} ${einheitWert === 100 ? "- 0px" : ""})`,
+          top: `calc(0px + ${offset.vertical})`,
+        } :
+        {
+          left: `calc(${edgeOffset + baseOffset}px + ${offset.horizontal})`,
+          bottom: `calc(0px + ${offset.vertical})`,
+        };
 
       const strichStyle: React.CSSProperties = {
-        position: 'absolute',
+        position: "absolute",
         height: diagonalStrichHeight,
         width: diagonalStrichWidth,
         ...positionStyle,
         transform: `rotate(${angle}deg)`,
-        transformOrigin: position === 'top' && einheitWert === 100 ? 'bottom left' : position === 'bottom' ? 'bottom left' : 'bottom left',
+        transformOrigin: position === "top" && einheitWert === 100 ? "bottom left" : position === "bottom" ? "bottom left" : "bottom left",
         backgroundColor: strichColor,
       };
 
@@ -186,17 +186,17 @@ const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
       );
     } else if (isVertical) {
       let positionStyle;
-      if (direction === 'ltr') {
-        const adjustedOffset = position === 'bottom' && einheitWert === 0 ? 0 : 5; // Anpassung für untere 20er-Box
-        positionStyle = { left: `${edgeOffset + baseOffset + strichOffset + adjustedOffset}px` };
+      if (direction === "ltr") {
+        const adjustedOffset = position === "bottom" && einheitWert === 0 ? 0 : 5; // Anpassung für untere 20er-Box
+        positionStyle = {left: `${edgeOffset + baseOffset + strichOffset + adjustedOffset}px`};
       } else {
-        positionStyle = { right: `${edgeOffset + baseOffset + strichOffset}px` };
+        positionStyle = {right: `${edgeOffset + baseOffset + strichOffset}px`};
       }
 
       const strichStyle: React.CSSProperties = {
-        position: 'absolute',
-        height: '100%',
-        width: '2px',
+        position: "absolute",
+        height: "100%",
+        width: "2px",
         ...positionStyle,
       };
 
@@ -223,12 +223,12 @@ const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
     );
   }, [renderStrich]);
 
-  const einheitenElements = useMemo(() => 
-    Array.from({ length: einheitenCount }).map((_, index) => renderEinheit(index)),
+  const einheitenElements = useMemo(() =>
+    Array.from({length: einheitenCount}).map((_, index) => renderEinheit(index)),
   [einheitenCount, renderEinheit]);
 
-  const restStricheElements = useMemo(() => 
-    Array.from({ length: restStriche }).map((_, index) => 
+  const restStricheElements = useMemo(() =>
+    Array.from({length: restStriche}).map((_, index) =>
       renderStrich(einheitenCount * 5 + index, false, index < 4)
     ),
   [restStriche, einheitenCount, renderStrich]);
@@ -247,7 +247,7 @@ const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
     const xSizePx =35; // Passen Sie die Größe nach Bedarf an
     const xSpacingPx = 0; // Passen Sie den Abstand nach Bedarf an
 
-    return Array.from({ length: xCount }).map((_, index) => {
+    return Array.from({length: xCount}).map((_, index) => {
       const xOffset = index * (xSizePx + xSpacingPx);
       return `${xOffset}px`;
     });
@@ -260,14 +260,14 @@ const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
       const isPartial = (index * 2 + 1) === stricheCount;
 
       const xStyle: React.CSSProperties = {
-        position: 'absolute',
-        width: '0%',  // Anstelle von festen Pixelwerten
-        height: '104%', // Anstelle von festen Pixelwerten
-        top: '50%',
-        transform: 'translateY(-50%)',
+        position: "absolute",
+        width: "0%", // Anstelle von festen Pixelwerten
+        height: "104%", // Anstelle von festen Pixelwerten
+        top: "50%",
+        transform: "translateY(-50%)",
       };
 
-      if (position === 'top') {
+      if (position === "top") {
         xStyle.right = `calc(${xPosition} + 40px)`; // Hier ist die Änderung
       } else {
         xStyle.left = `calc(${xPosition} + 20px)`; // Fügen Sie einen Offset hinzu
@@ -276,21 +276,21 @@ const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
       return (
         <div key={`x-${index}`} style={xStyle}>
           <div style={{
-            position: 'absolute',
-            width: '2px',
-            height: '100%',
+            position: "absolute",
+            width: "2px",
+            height: "100%",
             backgroundColor: strichColor,
             transform: `rotate(${xAngle}deg)`,
-            transformOrigin: 'center',
+            transformOrigin: "center",
             opacity: isComplete || isPartial ? 1 : 0,
           }} />
           <div style={{
-            position: 'absolute',
-            width: '2px',
-            height: '100%',
+            position: "absolute",
+            width: "2px",
+            height: "100%",
             backgroundColor: strichColor,
             transform: `rotate(-${xAngle}deg)`,
-            transformOrigin: 'center',
+            transformOrigin: "center",
             opacity: isComplete ? 1 : 0,
           }} />
         </div>
@@ -302,38 +302,38 @@ const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
     const xCount = Math.floor(stricheCount / 10);
     const spacing = 15; // Abstand zwischen den X-Symbolen in Pixeln
     const totalWidth = xCount * xSize + (xCount - 1) * spacing;
-    
+
     return xCount > 0 ? (
-      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-        {Array.from({ length: xCount }).map((_, index) => (
+      <div style={{position: "relative", width: "100%", height: "100%"}}>
+        {Array.from({length: xCount}).map((_, index) => (
           <div
             key={`hundred-x-${index}`}
             style={{
-              position: 'absolute',
-              ...(position === 'top' 
-                ? { right: `${23 + index * (xSize + spacing)}px` }
-                : { left: `${23 + index * (xSize + spacing)}px` }),
-              top: '50%',
-              transform: 'translateY(-50%)',
+              position: "absolute",
+              ...(position === "top" ?
+                {right: `${23 + index * (xSize + spacing)}px`} :
+                {left: `${23 + index * (xSize + spacing)}px`}),
+              top: "50%",
+              transform: "translateY(-50%)",
               width: `${xSize}px`,
-              height: '107%',
+              height: "107%",
             }}
           >
             <div style={{
-              position: 'absolute',
-              width: '2px',
-              height: '100%',
+              position: "absolute",
+              width: "2px",
+              height: "100%",
               backgroundColor: strichColor,
               transform: `rotate(${xAngle}deg)`,
-              transformOrigin: 'center',
+              transformOrigin: "center",
             }} />
             <div style={{
-              position: 'absolute',
-              width: '2px',
-              height: '100%',
+              position: "absolute",
+              width: "2px",
+              height: "100%",
               backgroundColor: strichColor,
               transform: `rotate(-${xAngle}deg)`,
-              transformOrigin: 'center',
+              transformOrigin: "center",
             }} />
           </div>
         ))}
@@ -354,23 +354,23 @@ const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
       const xOffsetBottom = xOffset100erBottom ?? 40; // Abstand zum letzten X für die untere Box
 
       return (
-        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        <div style={{position: "relative", width: "100%", height: "100%"}}>
           {renderHundredXs()}
           {totalStriche > 0 && (
             <div style={{
-              position: 'absolute',
-              ...(position === 'top'
-                ? { right: xCount > 0 
-                    ? `calc(${xWidth}px + ${xOffsetTop}px)` 
-                    : `calc(${initialOffset}px + 16px)` }
-                : { left: xCount > 0
-                    ? `calc(${xWidth}px + ${xOffsetBottom}px)`
-                    : `calc(${initialOffset}px - 8px)` }),
+              position: "absolute",
+              ...(position === "top" ?
+                {right: xCount > 0 ?
+                  `calc(${xWidth}px + ${xOffsetTop}px)` :
+                  `calc(${initialOffset}px + 16px)`} :
+                {left: xCount > 0 ?
+                  `calc(${xWidth}px + ${xOffsetBottom}px)` :
+                  `calc(${initialOffset}px - 8px)`}),
               top: 0,
               bottom: 0,
               width: `${totalStriche * strichSpacing}px`,
             }}>
-              {Array.from({ length: totalStriche }).map((_, index) => 
+              {Array.from({length: totalStriche}).map((_, index) =>
                 renderStrich(index, false, true)
               )}
             </div>
@@ -383,20 +383,20 @@ const RoemischeZahlen: React.FC<RoemischeZahlenProps> = ({
       const totalWidth = einheitenCount * (einheitSpacing + strichSpacing * 4) + restStriche * strichSpacing;
 
       return (
-        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        <div style={{position: "relative", width: "100%", height: "100%"}}>
           <div style={{
-            position: 'absolute',
-            ...(position === 'top'
-              ? { right: '25px' }
-              : { left: '0px' }),
+            position: "absolute",
+            ...(position === "top" ?
+              {right: "25px"} :
+              {left: "0px"}),
             top: 0,
             bottom: 0,
             width: `${totalWidth}px`,
           }}>
-            {Array.from({ length: einheitenCount }).map((_, index) => 
+            {Array.from({length: einheitenCount}).map((_, index) =>
               renderEinheit(index)
             )}
-            {Array.from({ length: restStriche }).map((_, index) => 
+            {Array.from({length: restStriche}).map((_, index) =>
               renderStrich(einheitenCount * 5 + index, false, index < 4)
             )}
           </div>

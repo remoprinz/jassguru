@@ -9,11 +9,11 @@ import {
   serverTimestamp,
   Timestamp,
   db,
-} from './firebaseInit';
-import { AuthUser, FirestorePlayer } from '../types/jass';
-import { nanoid } from 'nanoid';
-import { PLAYERS_COLLECTION } from '../constants/firestore';
-import { addDoc, collection } from 'firebase/firestore';
+} from "./firebaseInit";
+import {AuthUser, FirestorePlayer} from "../types/jass";
+import {nanoid} from "nanoid";
+import {PLAYERS_COLLECTION} from "../constants/firestore";
+import {addDoc, collection} from "firebase/firestore";
 
 /**
  * Erstellt einen neuen Spieler in Firestore
@@ -54,24 +54,24 @@ export const createPlayer = async (
         wins: 0,
         totalScore: 0,
       },
-      metadata: {}
+      metadata: {},
     };
 
     await setDoc(doc(collections.players, playerId), playerData);
-    
+
     // Player ID zum User-Dokument hinzufügen, wenn der Spieler kein Gast ist
     if (authUser && collections.users) {
       const userRef = doc(collections.users, authUser.uid);
       const userDoc = await getDoc(userRef);
-      
+
       if (userDoc.exists()) {
-        await setDoc(userRef, { playerId }, { merge: true });
+        await setDoc(userRef, {playerId}, {merge: true});
       }
     }
 
     return playerData;
   } catch (error) {
-    console.error('Fehler beim Erstellen des Spielers:', error);
+    console.error("Fehler beim Erstellen des Spielers:", error);
     throw error;
   }
 };
@@ -86,16 +86,16 @@ export const getPlayerByNickname = async (nickname: string): Promise<FirestorePl
   }
 
   try {
-    const q = query(collections.players, where('nickname', '==', nickname));
+    const q = query(collections.players, where("nickname", "==", nickname));
     const querySnapshot = await getDocs(q);
-    
+
     if (querySnapshot.empty) {
       return null;
     }
 
     return querySnapshot.docs[0].data() as FirestorePlayer;
   } catch (error) {
-    console.error('Fehler beim Abrufen des Spielers nach Nickname:', error);
+    console.error("Fehler beim Abrufen des Spielers nach Nickname:", error);
     throw error;
   }
 };
@@ -110,16 +110,16 @@ export const getPlayerByUserId = async (userId: string): Promise<FirestorePlayer
   }
 
   try {
-    const q = query(collections.players, where('userId', '==', userId));
+    const q = query(collections.players, where("userId", "==", userId));
     const querySnapshot = await getDocs(q);
-    
+
     if (querySnapshot.empty) {
       return null;
     }
 
     return querySnapshot.docs[0].data() as FirestorePlayer;
   } catch (error) {
-    console.error('Fehler beim Abrufen des Spielers nach User-ID:', error);
+    console.error("Fehler beim Abrufen des Spielers nach User-ID:", error);
     throw error;
   }
 };
@@ -135,14 +135,14 @@ export const getPlayerById = async (playerId: string): Promise<FirestorePlayer |
 
   try {
     const playerDoc = await getDoc(doc(collections.players, playerId));
-    
+
     if (!playerDoc.exists()) {
       return null;
     }
 
     return playerDoc.data() as FirestorePlayer;
   } catch (error) {
-    console.error('Fehler beim Abrufen des Spielers nach ID:', error);
+    console.error("Fehler beim Abrufen des Spielers nach ID:", error);
     throw error;
   }
 };
@@ -159,7 +159,7 @@ export const createGuestPlayer = async (nickname: string, initialGroupId?: strin
  */
 const createMockPlayer = (nickname: string, userId?: string): FirestorePlayer => {
   const playerId = nanoid();
-  
+
   return {
     id: playerId,
     nickname,
@@ -173,7 +173,7 @@ const createMockPlayer = (nickname: string, userId?: string): FirestorePlayer =>
       wins: 0,
       totalScore: 0,
     },
-    metadata: { isMock: true }
+    metadata: {isMock: true},
   };
 };
 
@@ -183,7 +183,7 @@ const createMockPlayer = (nickname: string, userId?: string): FirestorePlayer =>
  *
  * @param userId Die Firebase Auth User ID.
  * @param displayName Der Anzeigename des Users (wird für den initialen Nickname verwendet).
- * @returns Die ID des gefundenen oder neu erstellten Player-Dokuments oder null bei Fehlern.
+ * @return Die ID des gefundenen oder neu erstellten Player-Dokuments oder null bei Fehlern.
  */
 export const getPlayerIdForUser = async (userId: string, displayName: string | null): Promise<string | null> => {
   if (!db) {
@@ -206,7 +206,7 @@ export const getPlayerIdForUser = async (userId: string, displayName: string | n
       return playerId;
     } else {
       console.log(`getPlayerIdForUser: Kein Spieler gefunden für User ${userId}, erstelle neuen Spieler.`);
-      const newPlayerData: Omit<FirestorePlayer, 'id'> = {
+      const newPlayerData: Omit<FirestorePlayer, "id"> = {
         userId: userId,
         nickname: displayName || `Spieler_${userId.substring(0, 6)}`,
         isGuest: false,
@@ -234,7 +234,7 @@ export const getPlayerIdForUser = async (userId: string, displayName: string | n
  * Ruft das Player-Dokument anhand seiner ID ab.
  *
  * @param playerId Die ID des Player-Dokuments.
- * @returns Ein Promise, das das FirestorePlayer-Objekt oder null auflöst, wenn nicht gefunden oder Fehler.
+ * @return Ein Promise, das das FirestorePlayer-Objekt oder null auflöst, wenn nicht gefunden oder Fehler.
  */
 export const getPlayerDocument = async (playerId: string): Promise<FirestorePlayer | null> => {
   if (!db) {
@@ -251,7 +251,7 @@ export const getPlayerDocument = async (playerId: string): Promise<FirestorePlay
     const playerSnap = await getDoc(playerRef);
 
     if (playerSnap.exists()) {
-      return { id: playerSnap.id, ...(playerSnap.data() as Omit<FirestorePlayer, 'id'>) };
+      return {id: playerSnap.id, ...(playerSnap.data() as Omit<FirestorePlayer, "id">)};
     } else {
       console.log(`getPlayerDocument: Spieler-Dokument mit ID ${playerId} nicht gefunden.`);
       return null;

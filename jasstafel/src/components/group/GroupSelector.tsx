@@ -1,6 +1,6 @@
-import React from 'react';
-import { useAuthStore } from '@/store/authStore';
-import { useGroupStore } from '@/store/groupStore';
+import React from "react";
+import {useAuthStore} from "@/store/authStore";
+import {useGroupStore} from "@/store/groupStore";
 import {
   Select,
   SelectContent,
@@ -8,19 +8,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"; // Assuming Shadcn UI path
-import { Skeleton } from "@/components/ui/skeleton"; // Assuming Shadcn UI path
-import { FirestoreGroup } from '@/types/group'; // Changed from jass to group
+import {Skeleton} from "@/components/ui/skeleton"; // Assuming Shadcn UI path
+import {FirestoreGroup} from "@/types/group"; // Changed from jass to group
 
 export const GroupSelector: React.FC = () => {
-  // --- Use atomic selectors for Zustand state --- 
-  const user = useAuthStore(state => state.user);
-  const isGuest = useAuthStore(state => state.isGuest);
-  
-  const userGroups = useGroupStore(state => state.userGroups);
-  const currentGroup = useGroupStore(state => state.currentGroup);
-  const status = useGroupStore(state => state.status);
-  const error = useGroupStore(state => state.error);
-  const setCurrentGroup = useGroupStore(state => state.setCurrentGroup);
+  // --- Use atomic selectors for Zustand state ---
+  const user = useAuthStore((state) => state.user);
+  const isGuest = useAuthStore((state) => state.isGuest);
+
+  const userGroups = useGroupStore((state) => state.userGroups);
+  const currentGroup = useGroupStore((state) => state.currentGroup);
+  const status = useGroupStore((state) => state.status);
+  const error = useGroupStore((state) => state.error);
+  const setCurrentGroup = useGroupStore((state) => state.setCurrentGroup);
   // -----------------------------------------------
 
   // *** LOGGING ENTFERNT ***
@@ -28,15 +28,15 @@ export const GroupSelector: React.FC = () => {
 
   const handleValueChange = (groupId: string) => {
     if (!groupId) {
-        // console.log("GroupSelector: No group selected (potentially cleared).");
-        return;
+      // console.log("GroupSelector: No group selected (potentially cleared).");
+      return;
     }
-    const selectedGroup: FirestoreGroup | undefined = userGroups.find(group => group.id === groupId);
+    const selectedGroup: FirestoreGroup | undefined = userGroups.find((group) => group.id === groupId);
     if (selectedGroup) {
       // console.log("GroupSelector: Setting current group to:", selectedGroup.name);
       setCurrentGroup(selectedGroup);
     } else {
-        console.warn(`GroupSelector: Selected group with ID ${groupId} not found in userGroups.`);
+      console.warn(`GroupSelector: Selected group with ID ${groupId} not found in userGroups.`);
     }
   };
 
@@ -49,16 +49,16 @@ export const GroupSelector: React.FC = () => {
 
   // --- Render based on status ---
 
-  if (status === 'loading') {
+  if (status === "loading") {
     // *** LOGGING ENTFERNT ***
     // console.log('[GroupSelector] Rendering: Skeleton (loading).');
     return <Skeleton className="h-10 w-full rounded-md" />; // Adjust size as needed
   }
 
-  if (status === 'error') {
+  if (status === "error") {
     // *** LOGGING ENTFERNT ***
     // console.log('[GroupSelector] Rendering: Error message.');
-    return <div className="text-red-500 text-sm">Fehler: {error || 'Gruppen konnten nicht geladen werden.'}</div>;
+    return <div className="text-red-500 text-sm">Fehler: {error || "Gruppen konnten nicht geladen werden."}</div>;
   }
 
   // If not loading or error, and no groups are found, show message/button
@@ -81,8 +81,8 @@ export const GroupSelector: React.FC = () => {
         onValueChange={handleValueChange}
       >
         <SelectTrigger className="w-full">
-           {/* Display placeholder if no group is selected */}
-           <SelectValue placeholder="Gruppe auswählen..." />
+          {/* Display placeholder if no group is selected */}
+          <SelectValue placeholder="Gruppe auswählen..." />
         </SelectTrigger>
         <SelectContent position="popper">
           {/* Optional: Add a placeholder/clear item if needed

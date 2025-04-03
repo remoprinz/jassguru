@@ -1,7 +1,7 @@
-import React from 'react';
-import { FaArrowLeft, FaArrowRight } from 'react-icons/fa';
-import { useTutorialStore } from '../../store/tutorialStore';
-import { usePressableButton } from '../../hooks/usePressableButton';
+import React from "react";
+import {FaArrowLeft, FaArrowRight} from "react-icons/fa";
+import {useTutorialStore} from "../../store/tutorialStore";
+import {usePressableButton} from "../../hooks/usePressableButton";
 
 interface NavigationButtonProps {
   onClick: () => void;
@@ -9,13 +9,13 @@ interface NavigationButtonProps {
   children: React.ReactNode;
 }
 
-const NavigationButton: React.FC<NavigationButtonProps> = ({ 
-  onClick, 
-  className = '', 
-  children 
+const NavigationButton: React.FC<NavigationButtonProps> = ({
+  onClick,
+  className = "",
+  children,
 }) => {
   const buttonProps = usePressableButton(onClick);
-  
+
   return (
     <button
       {...buttonProps.handlers}
@@ -38,13 +38,13 @@ interface NavigationProps {
   isLastStep?: boolean;
 }
 
-const TutorialNavigation: React.FC<NavigationProps> = ({ 
+const TutorialNavigation: React.FC<NavigationProps> = ({
   onNext,
   showBackButton = true,
   isFirstStep = false,
-  isLastStep = false
+  isLastStep = false,
 }) => {
-  const { previousStep, nextStep } = useTutorialStore();
+  const {previousStep, nextStep} = useTutorialStore();
 
   const handleNext = () => {
     if (isLastStep && onNext) {
@@ -69,13 +69,13 @@ const TutorialNavigation: React.FC<NavigationProps> = ({
       <NavigationButton
         onClick={handleNext}
         className={`bg-yellow-600 hover:bg-yellow-700 active:bg-yellow-600 
-          ${!showBackButton || isFirstStep ? 'ml-auto' : ''}`}
+          ${!showBackButton || isFirstStep ? "ml-auto" : ""}`}
       >
-        {isLastStep ? 'Fertig' : 'Weiter'}
+        {isLastStep ? "Fertig" : "Weiter"}
         {!isLastStep && <FaArrowRight className="ml-2" />}
       </NavigationButton>
     </div>
   );
 };
 
-export default TutorialNavigation; 
+export default TutorialNavigation;

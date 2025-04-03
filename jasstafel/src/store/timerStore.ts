@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+import {create} from "zustand";
 
 // Types
 interface TimeDuration {
@@ -67,7 +67,7 @@ export interface TimerActions {
 }
 
 // Importiere TimerSnapshot aus types/jass
-import type { TimerSnapshot } from '../types/jass';
+import type {TimerSnapshot} from "../types/jass";
 
 type TimerStore = TimerState & TimerActions;
 
@@ -82,7 +82,7 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
   history: {
     jass: [],
     games: [],
-    rounds: []
+    rounds: [],
   },
   isPaused: false,
   pauseStartTime: null,
@@ -93,42 +93,42 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
 
   // Actions
   startJassTimer: () => {
-    set(state => ({
+    set((state) => ({
       ...state,
       jassStartTime: Date.now(),
       history: {
         ...state.history,
-        jass: [...state.history.jass, { startTime: Date.now() }]
-      }
+        jass: [...state.history.jass, {startTime: Date.now()}],
+      },
     }));
   },
 
   startGameTimer: () => {
-    set(state => ({
+    set((state) => ({
       ...state,
       gameStartTime: Date.now(),
       history: {
         ...state.history,
-        games: [...state.history.games, { startTime: Date.now() }]
-      }
+        games: [...state.history.games, {startTime: Date.now()}],
+      },
     }));
   },
 
   startRoundTimer: () => {
     const now = Date.now();
-    set(state => ({
+    set((state) => ({
       ...state,
       roundStartTime: now,
       history: {
         ...state.history,
-        rounds: [...state.history.rounds, { startTime: now }]
-      }
+        rounds: [...state.history.rounds, {startTime: now}],
+      },
     }));
   },
 
   completeRound: () => {
     const now = Date.now();
-    set(state => {
+    set((state) => {
       const rounds = [...state.history.rounds];
       const currentRound = rounds[rounds.length - 1];
       if (currentRound) {
@@ -138,14 +138,14 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
       return {
         ...state,
         roundStartTime: null,
-        history: { ...state.history, rounds }
+        history: {...state.history, rounds},
       };
     });
   },
 
   completeGame: () => {
     const now = Date.now();
-    set(state => {
+    set((state) => {
       const games = [...state.history.games];
       const currentGame = games[games.length - 1];
       if (currentGame) {
@@ -156,7 +156,7 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
         ...state,
         gameStartTime: null,
         roundStartTime: null,
-        history: { ...state.history, games }
+        history: {...state.history, games},
       };
     });
   },
@@ -164,11 +164,11 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
   completeJass: () => {
     const now = Date.now();
     const state = get();
-    const lastJassDuration = state.jassStartTime 
-      ? now - state.jassStartTime 
-      : 0;
+    const lastJassDuration = state.jassStartTime ?
+      now - state.jassStartTime :
+      0;
 
-    set(state => ({
+    set((state) => ({
       ...state,
       lastJassDuration,
       jassStartTime: null,
@@ -176,8 +176,8 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
       roundStartTime: null,
       history: {
         ...state.history,
-        jass: state.history.jass.slice(0, -1)
-      }
+        jass: state.history.jass.slice(0, -1),
+      },
     }));
   },
 
@@ -186,38 +186,38 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
     const currentTime = get().getCurrentTime();
 
     // Aktuelle Zeiten berechnen
-    const currentGameDuration = state.gameStartTime 
-      ? getPositiveTime(currentTime - state.gameStartTime)
-      : 0;
-    
-    const totalJassTime = state.jassStartTime 
-      ? getPositiveTime(currentTime - state.jassStartTime)
-      : state.lastJassDuration;
+    const currentGameDuration = state.gameStartTime ?
+      getPositiveTime(currentTime - state.gameStartTime) :
+      0;
+
+    const totalJassTime = state.jassStartTime ?
+      getPositiveTime(currentTime - state.jassStartTime) :
+      state.lastJassDuration;
 
     return {
       totalJassTime,
-      currentGameDuration
+      currentGameDuration,
     };
   },
 
   // Bestehende Reset-Methoden
   resetRoundTimer: () => {
-    set(state => ({
+    set((state) => ({
       ...state,
-      roundStartTime: null
+      roundStartTime: null,
     }));
   },
 
   resetGameTimers: () => {
-    set(state => ({
+    set((state) => ({
       ...state,
       gameStartTime: null,
-      roundStartTime: null
+      roundStartTime: null,
     }));
   },
 
   resetAllTimers: () => {
-    set(state => ({
+    set((state) => ({
       ...state,
       jassStartTime: null,
       gameStartTime: null,
@@ -225,27 +225,27 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
       history: {
         jass: [],
         games: [],
-        rounds: []
-      }
+        rounds: [],
+      },
     }));
   },
 
   pauseTimer: () => {
-    set(state => ({
+    set((state) => ({
       ...state,
       isPaused: true,
-      pauseStartTime: Date.now()
+      pauseStartTime: Date.now(),
     }));
   },
 
   resumeTimer: () => {
-    set(state => {
+    set((state) => {
       const pauseDuration = state.pauseStartTime ? Date.now() - state.pauseStartTime : 0;
       return {
         ...state,
         isPaused: false,
         pauseStartTime: null,
-        totalPausedTime: state.totalPausedTime + pauseDuration
+        totalPausedTime: state.totalPausedTime + pauseDuration,
       };
     });
   },
@@ -253,7 +253,7 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
   getCurrentTime: () => {
     const state = get();
     const now = Date.now();
-    
+
     // Wenn der Timer pausiert ist, verwende die pausierte Zeit
     if (state.isPaused && state.pauseStartTime) {
       return state.pauseStartTime - state.totalPausedTime;
@@ -270,42 +270,42 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
   },
 
   finalizeJassEnd: () => {
-    set(state => ({
+    set((state) => ({
       ...state,
       jassStartTime: null,
       gameStartTime: null,
       roundStartTime: null,
       history: {
         ...state.history,
-        jass: state.history.jass.slice(0, -1)
-      }
+        jass: state.history.jass.slice(0, -1),
+      },
     }));
   },
 
   getElapsedTimes: () => {
     const state = get();
     const now = Date.now();
-    const pausedTime = state.totalPausedTime + 
+    const pausedTime = state.totalPausedTime +
       (state.isPaused && state.pauseStartTime ? now - state.pauseStartTime : 0);
 
     return {
       jass: state.jassStartTime ? now - state.jassStartTime - pausedTime : 0,
       game: state.gameStartTime ? now - state.gameStartTime - pausedTime : 0,
-      round: state.roundStartTime ? now - state.roundStartTime - pausedTime : 0
+      round: state.roundStartTime ? now - state.roundStartTime - pausedTime : 0,
     };
   },
 
   getTotalPausedTime: () => {
     const state = get();
-    return state.totalPausedTime + 
+    return state.totalPausedTime +
       (state.isPaused && state.pauseStartTime ? Date.now() - state.pauseStartTime : 0);
   },
 
   restoreTimerSnapshot: (snapshot: TimerSnapshot) => {
     const now = Date.now();
     const currentState = get();
-    
-    set(state => {
+
+    set((state) => {
       // 1. Basis-Timer-Zustand wiederherstellen
       const baseState = {
         jassStartTime: now - snapshot.elapsedJassTime - snapshot.totalPausedTime,
@@ -313,12 +313,12 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
         roundStartTime: now - snapshot.elapsedRoundTime - snapshot.totalPausedTime,
         totalPausedTime: snapshot.totalPausedTime,
         isPaused: false,
-        pauseStartTime: null
+        pauseStartTime: null,
       };
 
       // 2. Game-Timer-Map aktualisieren
       const newTimers = new Map(state.gameTimers);
-      
+
       if (state.activeGameId) {
         const activeTimer = newTimers.get(state.activeGameId);
         if (activeTimer) {
@@ -331,7 +331,7 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
       return {
         ...state,
         ...baseState,
-        gameTimers: newTimers
+        gameTimers: newTimers,
       };
     });
   },
@@ -339,16 +339,16 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
   activateGameTimer: (gameId: number) => {
     const currentState = get();
     const now = Date.now();
-    
-    set(state => {
+
+    set((state) => {
       // Timer Map klonen
       const newTimers = new Map(state.gameTimers);
 
       // Aktuellen Timer pausieren
-      const oldTimer = state.activeGameId !== null 
-        ? newTimers.get(state.activeGameId)
-        : null;
-      
+      const oldTimer = state.activeGameId !== null ?
+        newTimers.get(state.activeGameId) :
+        null;
+
       if (oldTimer?.isActive) {
         oldTimer.totalDuration += now - oldTimer.startTime - oldTimer.pausedTime;
         oldTimer.isActive = false;
@@ -356,16 +356,16 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
 
       // Neuen Timer aktivieren
       let gameTimer = newTimers.get(gameId);
-      
+
       if (!gameTimer) {
         gameTimer = {
           startTime: now,
           totalDuration: 0,
           pausedTime: 0,
-          isActive: false
+          isActive: false,
         };
       }
-      
+
       gameTimer.startTime = now;
       gameTimer.isActive = true;
       gameTimer.pausedTime = 0;
@@ -386,7 +386,7 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
         jassStartTime: existingJassStartTime,
         // Pausenstatus zurücksetzen
         isPaused: false,
-        pauseStartTime: null
+        pauseStartTime: null,
       };
     });
   },
@@ -399,7 +399,7 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
     if (!timer.isActive) {
       return timer.totalDuration;
     }
-    
+
     const now = Date.now();
     return timer.totalDuration + (now - timer.startTime - timer.pausedTime);
   },
@@ -409,13 +409,13 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
     const currentState = get();
     const now = Date.now();
 
-    set(state => {
+    set((state) => {
       const newTimers = new Map(state.gameTimers);
       const gameTimer = newTimers.get(gameId) ?? {
         startTime: now,
         totalDuration: 0,
         pausedTime: 0,
-        isActive: false
+        isActive: false,
       };
 
       // Timer explizit reaktivieren
@@ -437,8 +437,8 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
         isPaused: false,
         pauseStartTime: null,
         // jassStartTime NICHT überschreiben, wenn bereits gesetzt
-        jassStartTime: existingJassStartTime
+        jassStartTime: existingJassStartTime,
       };
     });
-  }
+  },
 }));

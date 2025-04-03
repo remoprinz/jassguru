@@ -1,4 +1,4 @@
-import type { JassSession } from '../types/jass';
+import type {JassSession} from "../types/jass";
 
 // Interface für den Storage-Adapter
 export interface StorageAdapter {
@@ -9,7 +9,7 @@ export interface StorageAdapter {
 
 // Implementierung für localStorage
 export class LocalStorageAdapter implements StorageAdapter {
-  private readonly STORAGE_KEY = 'jass_sessions';
+  private readonly STORAGE_KEY = "jass_sessions";
 
   private getStorageKey(id: string): string {
     return `${this.STORAGE_KEY}_${id}`;
@@ -19,15 +19,15 @@ export class LocalStorageAdapter implements StorageAdapter {
     try {
       const key = this.getStorageKey(data.id);
       await localStorage.setItem(key, JSON.stringify(data));
-      
+
       // Update session list
       const sessions = await this.listSessions();
-      if (!sessions.find(s => s.id === data.id)) {
+      if (!sessions.find((s) => s.id === data.id)) {
         sessions.push(data);
         await localStorage.setItem(this.STORAGE_KEY, JSON.stringify(sessions));
       }
     } catch (error) {
-      console.error('Fehler beim Speichern der Session:', error);
+      console.error("Fehler beim Speichern der Session:", error);
       throw error;
     }
   }
@@ -43,7 +43,7 @@ export class LocalStorageAdapter implements StorageAdapter {
       const data = localStorage.getItem(this.STORAGE_KEY);
       return data ? JSON.parse(data) : [];
     } catch (error) {
-      console.error('Fehler beim Laden der Sessions:', error);
+      console.error("Fehler beim Laden der Sessions:", error);
       return [];
     }
   }

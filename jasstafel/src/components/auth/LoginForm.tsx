@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import {useState, useEffect} from "react";
+import {useForm} from "react-hook-form";
+import {zodResolver} from "@hookform/resolvers/zod";
+import * as z from "zod";
+import {Button} from "@/components/ui/button";
+import {Input} from "@/components/ui/input";
 import {
   Form,
   FormControl,
@@ -13,24 +13,24 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { useAuthStore } from '@/store/authStore';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import Link from 'next/link';
-import { useRouter } from 'next/router';
-import Image from 'next/image';
-import { useUIStore } from '@/store/uiStore';
+} from "@/components/ui/form";
+import {useAuthStore} from "@/store/authStore";
+import {Alert, AlertDescription} from "@/components/ui/alert";
+import Link from "next/link";
+import {useRouter} from "next/router";
+import Image from "next/image";
+import {useUIStore} from "@/store/uiStore";
 
 const loginSchema = z.object({
-  email: z.string().email('Ungültige E-Mail-Adresse'),
-  password: z.string().min(6, 'Passwort muss mindestens 6 Zeichen lang sein'),
+  email: z.string().email("Ungültige E-Mail-Adresse"),
+  password: z.string().min(6, "Passwort muss mindestens 6 Zeichen lang sein"),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
-  const { login, loginWithGoogle, status, error, clearError, resendVerificationEmail } = useAuthStore();
-  const showNotification = useUIStore(state => state.showNotification);
+  const {login, loginWithGoogle, status, error, clearError, resendVerificationEmail} = useAuthStore();
+  const showNotification = useUIStore((state) => state.showNotification);
   const [showPassword, setShowPassword] = useState(false);
   const [showVerificationWarning, setShowVerificationWarning] = useState(false);
   const router = useRouter();
@@ -38,14 +38,14 @@ export function LoginForm() {
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: '',
-      password: '',
+      email: "",
+      password: "",
     },
   });
 
   useEffect(() => {
-    if (error || status !== 'error') {
-        setShowVerificationWarning(false);
+    if (error || status !== "error") {
+      setShowVerificationWarning(false);
     }
   }, [error, status]);
 
@@ -54,23 +54,22 @@ export function LoginForm() {
     setShowVerificationWarning(false);
     try {
       await login(data.email, data.password);
-      
+
       const loggedInUser = useAuthStore.getState().user;
 
       if (loggedInUser) {
         if (loggedInUser.emailVerified) {
-          router.push('/start');
+          router.push("/start");
         } else {
           setShowVerificationWarning(true);
-          clearError(); 
+          clearError();
         }
       } else {
-        throw new Error('Benutzerdaten nach Login nicht verfügbar.');
+        throw new Error("Benutzerdaten nach Login nicht verfügbar.");
       }
-
     } catch (err) {
-      console.error('Login-Fehler im Formular:', err);
-      setShowVerificationWarning(false); 
+      console.error("Login-Fehler im Formular:", err);
+      setShowVerificationWarning(false);
     }
   };
 
@@ -79,9 +78,9 @@ export function LoginForm() {
     setShowVerificationWarning(false);
     try {
       await loginWithGoogle();
-      router.push('/start'); 
+      router.push("/start");
     } catch (error) {
-      console.error('Google login error:', error);
+      console.error("Google login error:", error);
     }
   };
 
@@ -90,19 +89,19 @@ export function LoginForm() {
       await resendVerificationEmail();
       setShowVerificationWarning(false);
       showNotification({
-        message: 'Bestätigungs-E-Mail wurde erneut gesendet. Bitte prüfen Sie Ihr Postfach.',
-        type: 'success'
+        message: "Bestätigungs-E-Mail wurde erneut gesendet. Bitte prüfen Sie Ihr Postfach.",
+        type: "success",
       });
     } catch (resendError) {
-      console.error('Fehler beim erneuten Senden:', resendError);
+      console.error("Fehler beim erneuten Senden:", resendError);
       showNotification({
-         message: error || 'Fehler beim erneuten Senden der E-Mail.',
-         type: 'error'
+        message: error || "Fehler beim erneuten Senden der E-Mail.",
+        type: "error",
       });
     }
   };
 
-  const isLoading = status === 'loading';
+  const isLoading = status === "loading";
 
   return (
     <div className="w-full space-y-4">
@@ -122,7 +121,7 @@ export function LoginForm() {
               onClick={handleResendVerification}
               disabled={isLoading}
             >
-              {isLoading ? 'Sende...' : 'Bestätigungs-E-Mail erneut senden'}
+              {isLoading ? "Sende..." : "Bestätigungs-E-Mail erneut senden"}
             </Button>
           </AlertDescription>
         </Alert>
@@ -133,7 +132,7 @@ export function LoginForm() {
           <FormField
             control={form.control}
             name="email"
-            render={({ field }) => (
+            render={({field}) => (
               <FormItem>
                 <FormLabel className="text-gray-300">E-Mail</FormLabel>
                 <FormControl>
@@ -153,7 +152,7 @@ export function LoginForm() {
           <FormField
             control={form.control}
             name="password"
-            render={({ field }) => (
+            render={({field}) => (
               <FormItem>
                 <FormLabel className="text-gray-300">Passwort</FormLabel>
                 <FormControl>
@@ -206,12 +205,12 @@ export function LoginForm() {
         onClick={handleGoogleLogin}
         disabled={isLoading}
       >
-        <Image 
-          src="/google-logo.svg" 
-          alt="Google Logo" 
-          width={18} 
-          height={18} 
-          className="mr-3" 
+        <Image
+          src="/google-logo.svg"
+          alt="Google Logo"
+          width={18}
+          height={18}
+          className="mr-3"
         />
         Mit Google fortfahren
       </Button>
@@ -223,4 +222,4 @@ export function LoginForm() {
       </p>
     </div>
   );
-} 
+}

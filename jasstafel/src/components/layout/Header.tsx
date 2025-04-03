@@ -1,29 +1,29 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { useRouter } from 'next/router';
-import { useAuthStore } from '@/store/authStore';
-import Image from 'next/image';
-import Link from 'next/link';
-import { FaUser } from 'react-icons/fa';
+import React from "react";
+import {useRouter} from "next/router";
+import {useAuthStore} from "@/store/authStore";
+import Image from "next/image";
+import Link from "next/link";
+import {FaUser} from "react-icons/fa";
 
 interface HeaderProps {
   showBackButton?: boolean;
   title?: string;
 }
 
-const Header: React.FC<HeaderProps> = ({ 
+const Header: React.FC<HeaderProps> = ({
   showBackButton = false,
-  title
+  title,
 }) => {
-  const { user, isGuest } = useAuthStore();
+  const {user, isGuest} = useAuthStore();
   const router = useRouter();
 
   const handleProfileClick = () => {
     if (isGuest) {
-      router.push('/auth/login');
+      router.push("/auth/login");
     } else {
-      router.push('/profile');
+      router.push("/profile");
     }
   };
 
@@ -32,7 +32,7 @@ const Header: React.FC<HeaderProps> = ({
       <div className="w-full flex items-center justify-between px-4">
         <div className="flex items-center">
           {showBackButton && (
-            <button 
+            <button
               onClick={() => router.back()}
               className="mr-2 flex h-10 w-10 items-center justify-center rounded-full text-gray-300 hover:bg-gray-700 transition-colors"
               aria-label="Zurück"
@@ -48,20 +48,20 @@ const Header: React.FC<HeaderProps> = ({
             </Link>
           )}
         </div>
-        
-        <div 
+
+        <div
           className="flex cursor-pointer items-center"
           onClick={handleProfileClick}
         >
           <div className="mr-3 text-right">
             <span className="block text-sm font-medium text-white">
-              {user?.displayName || (isGuest ? 'Gast' : 'Anmelden')}
+              {user?.displayName || (isGuest ? "Gast" : "Anmelden")}
             </span>
             <span className="block text-xs text-gray-400">
-              {user?.email || (isGuest ? 'Nicht angemeldet' : 'Kein Konto')}
+              {user?.email || (isGuest ? "Nicht angemeldet" : "Kein Konto")}
             </span>
           </div>
-          
+
           <div className="h-10 w-10 overflow-hidden rounded-full bg-gray-700">
             {user?.photoURL ? (
               <Image
@@ -89,4 +89,4 @@ const Header: React.FC<HeaderProps> = ({
   );
 };
 
-export default Header; 
+export default Header;

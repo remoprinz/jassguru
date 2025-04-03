@@ -1,63 +1,63 @@
 // src/types/uiStore.ts (oder src/store/uiStore.ts)
 
-import { create, StateCreator } from 'zustand';
-import { persist } from 'zustand/middleware';
-import type { 
-  TeamPosition, 
-  PlayerNames, 
-  SettingsTab, 
-  PictogramConfig, 
-  ScoreMode, 
-  CardStyle 
-} from '../types/jass';
-import { StatisticId } from '../types/statistikTypes';
-import { FARBE_MODES } from '../config/FarbeSettings';
-import { 
-  SCORE_MODES, 
-  validateScoreValue, 
-  type ScoreSettings 
-} from '../config/ScoreSettings';
-import { 
-  DEFAULT_STROKE_SETTINGS, 
-  validateStrokeSettings, 
-  type StrokeSettings 
-} from '../config/GameSettings';
-import { 
+import {create, StateCreator} from "zustand";
+import {persist} from "zustand/middleware";
+import type {
+  TeamPosition,
+  PlayerNames,
+  SettingsTab,
+  PictogramConfig,
+  ScoreMode,
+  CardStyle,
+} from "../types/jass";
+import {StatisticId} from "../types/statistikTypes";
+import {FARBE_MODES} from "../config/FarbeSettings";
+import {
+  SCORE_MODES,
+  validateScoreValue,
+  type ScoreSettings,
+} from "../config/ScoreSettings";
+import {
+  DEFAULT_STROKE_SETTINGS,
+  validateStrokeSettings,
+  type StrokeSettings,
+} from "../config/GameSettings";
+import {
   DEFAULT_FARBE_SETTINGS,
   validateFarbeSettings,
-  type FarbeSettings 
-} from '../config/FarbeSettings';
-import { Notification, JassFinishNotificationConfig, NotificationConfig } from '../types/notification';
-import type { SpruchMitIcon } from '../types/sprueche';
-import { immer } from 'zustand/middleware/immer';
+  type FarbeSettings,
+} from "../config/FarbeSettings";
+import {Notification, JassFinishNotificationConfig, NotificationConfig} from "../types/notification";
+import type {SpruchMitIcon} from "../types/sprueche";
+import {immer} from "zustand/middleware/immer";
 
 export enum OnboardingStep {
-  INSTALL = 'INSTALL',
-  WELCOME = 'WELCOME',
-  GROUP_CHOICE = 'GROUP_CHOICE',
-  GROUP_CREATE = 'GROUP_CREATE',
-  GROUP_JOIN = 'GROUP_JOIN',
-  GAME_START = 'GAME_START',
-  PROFILE = 'PROFILE',
-  SETTINGS = 'SETTINGS',
-  COMPLETE = 'COMPLETE',
+  INSTALL = "INSTALL",
+  WELCOME = "WELCOME",
+  GROUP_CHOICE = "GROUP_CHOICE",
+  GROUP_CREATE = "GROUP_CREATE",
+  GROUP_JOIN = "GROUP_JOIN",
+  GAME_START = "GAME_START",
+  PROFILE = "PROFILE",
+  SETTINGS = "SETTINGS",
+  COMPLETE = "COMPLETE",
 }
 
 const validateMultipliers = (multipliers: number[]): boolean => {
-  return multipliers.every(m => m >= 0 && m <= 8);
+  return multipliers.every((m) => m >= 0 && m <= 8);
 };
 
 // Storage Keys
 const STORAGE_KEYS = {
-  farbe: 'jass-farbe-settings',
-  score: 'jass-score-settings',
-  pictogram: 'jass-pictogram-settings',
-  strokes: 'jass-stroke-settings'
+  farbe: "jass-farbe-settings",
+  score: "jass-score-settings",
+  pictogram: "jass-pictogram-settings",
+  strokes: "jass-stroke-settings",
 } as const;
 
 // Generische Save-Funktion
 const saveToStorage = <T>(key: keyof typeof STORAGE_KEYS, data: T): void => {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
   try {
     localStorage.setItem(STORAGE_KEYS[key], JSON.stringify(data));
   } catch (error) {
@@ -66,21 +66,21 @@ const saveToStorage = <T>(key: keyof typeof STORAGE_KEYS, data: T): void => {
 };
 
 // Spezifische Save-Funktionen
-const saveFarbeSettings = (settings: FarbeSettings) => 
-  saveToStorage('farbe', settings);
+const saveFarbeSettings = (settings: FarbeSettings) =>
+  saveToStorage("farbe", settings);
 
-const saveScoreSettings = (settings: ScoreSettings) => 
-  saveToStorage('score', settings);
+const saveScoreSettings = (settings: ScoreSettings) =>
+  saveToStorage("score", settings);
 
-const savePictogramSettings = (settings: PictogramConfig) => 
-  saveToStorage('pictogram', settings);
+const savePictogramSettings = (settings: PictogramConfig) =>
+  saveToStorage("pictogram", settings);
 
-const saveStrokeSettings = (settings: StrokeSettings) => 
-  saveToStorage('strokes', settings);
+const saveStrokeSettings = (settings: StrokeSettings) =>
+  saveToStorage("strokes", settings);
 
 const initialPictogramSettings: PictogramConfig = {
   isEnabled: true,
-  mode: 'svg'
+  mode: "svg",
 };
 
 interface ChargeState {
@@ -92,7 +92,7 @@ interface ChargeState {
 const createInitialChargeState = (): ChargeState => ({
   isActive: false,
   pressStartTime: null,
-  chargeAmount: 0
+  chargeAmount: 0,
 });
 
 export interface StricheDisplay {
@@ -124,25 +124,25 @@ export const defaultStrichStyle: StrichStyle = {
   baseStrich: {
     length: 20,
     width: 1.5,
-    color: 'rgba(255, 255, 255, 0.9)',
-    opacity: 0.9
+    color: "rgba(255, 255, 255, 0.9)",
+    opacity: 0.9,
   },
   diagonalStrich: {
     length: 28,
     width: 1.5,
     angle: 45,
-    offset: { x: -1, y: 0 }
+    offset: {x: -1, y: 0},
   },
   container: {
     spacing: 4,
     groupSpacing: 8,
-    scale: 1
-  }
+    scale: 1,
+  },
 };
 
 interface UISettingsState {
   isOpen: boolean;
-  activeTab: SettingsTab['id'];
+  activeTab: SettingsTab["id"];
   cardStyle: CardStyle;
   pictogramConfig: PictogramConfig;
 }
@@ -154,21 +154,21 @@ type NotificationMessage = {
 
 export interface JassFinishNotification {
   isOpen: boolean;
-  mode: 'share' | 'continue';
+  mode: "share" | "continue";
   message: NotificationMessage;
   onShare?: () => void;
   onBack?: () => void;
   onContinue?: () => void;
 }
 
-export type NotificationType = 'info' | 'success' | 'warning' | 'error';
+export type NotificationType = "info" | "success" | "warning" | "error";
 
 export interface NotificationAction {
   label: string;
   onClick: () => void;
 }
 
-export type StartScreenState = 'idle' | 'starting' | 'complete';
+export type StartScreenState = "idle" | "starting" | "complete";
 
 // NEU: Definition für den Zustand des Page-CTAs
 export interface PageCtaState {
@@ -177,7 +177,7 @@ export interface PageCtaState {
   onClick: (() => void) | null;
   loading?: boolean;
   disabled?: boolean;
-  variant?: 'default' | 'destructive' | 'success' | 'info' | 'primary' | 'secondary' | string; // Farbvarianten
+  variant?: "default" | "destructive" | "success" | "info" | "primary" | "secondary" | string; // Farbvarianten
 }
 
 export interface UIState {
@@ -190,7 +190,7 @@ export interface UIState {
     isOpen: boolean;
   };
   startScreen: {
-    transitionState: 'initial' | 'starting' | 'complete';
+    transitionState: "initial" | "starting" | "complete";
     names: PlayerNames;
     isOpen: boolean;
   };
@@ -211,7 +211,7 @@ export interface UIState {
   resultatKreidetafel: {
     isOpen: boolean;
     swipePosition: TeamPosition | null;
-    currentStatistic: 'striche' | 'jasspunkte';
+    currentStatistic: "striche" | "jasspunkte";
     animationComplete: boolean;
   };
   settings: UISettingsState;
@@ -233,7 +233,7 @@ export interface UIState {
   overlayPosition: TeamPosition | null;
   jassFinishNotification: {
     isOpen: boolean;
-    mode: 'share' | 'continue';
+    mode: "share" | "continue";
     message?: SpruchMitIcon;
     onShare?: () => Promise<void>;
     onBack?: () => void;
@@ -271,14 +271,14 @@ export interface UIState {
 }
 
 interface UIActions {
-  startCharge: (team: TeamPosition, type: 'berg' | 'bedanken' | 'matsch') => void;
-  updateCharge: (team: TeamPosition, type: 'berg' | 'bedanken' | 'matsch') => void;
-  endCharge: (team: TeamPosition, type: 'berg' | 'bedanken' | 'matsch') => void;
+  startCharge: (team: TeamPosition, type: "berg" | "bedanken" | "matsch") => void;
+  updateCharge: (team: TeamPosition, type: "berg" | "bedanken" | "matsch") => void;
+  endCharge: (team: TeamPosition, type: "berg" | "bedanken" | "matsch") => void;
   resetChargeEffects: () => void;
   openCalculator: () => void;
   closeCalculator: () => void;
   setCalculatorFlipped: (flipped: boolean) => void;
-  setStartScreenState: (state: 'initial' | 'starting' | 'complete') => void;
+  setStartScreenState: (state: "initial" | "starting" | "complete") => void;
   setStartScreenNames: (names: PlayerNames) => void;
   setMenuActiveButton: (button: string | null) => void;
   setShowIntroduction: (show: boolean) => void;
@@ -312,12 +312,12 @@ interface UIActions {
   updateScoreSettings: (settings: Partial<ScoreSettings>) => void;
   setScoreValue: (mode: ScoreMode, value: number) => void;
   toggleScoreEnabled: (mode: ScoreMode) => void;
-  setSettingsTab: (tab: SettingsTab['id']) => void;
+  setSettingsTab: (tab: SettingsTab["id"]) => void;
   openSettings: () => void;
   closeSettings: () => void;
   cyclePictogramMode: () => void;
   setOverlayPosition: (position: TeamPosition | null) => void;
-  showJassFinishNotification: (props: Omit<Partial<JassFinishNotificationConfig>, 'message'> & {
+  showJassFinishNotification: (props: Omit<Partial<JassFinishNotificationConfig>, "message"> & {
     message?: SpruchMitIcon;
   }) => void;
   closeJassFinishNotification: () => void;
@@ -349,7 +349,7 @@ interface UIActions {
   openNotificationCenter: () => void;
   closeNotificationCenter: () => void;
   setLoading: (loading: boolean) => void;
-  setPageCta: (ctaConfig: Partial<Omit<PageCtaState, 'isVisible' | 'variant'>> & { isVisible: true; text: string; onClick: () => void; variant?: PageCtaState['variant'] }) => void;
+  setPageCta: (ctaConfig: Partial<Omit<PageCtaState, "isVisible" | "variant">> & { isVisible: true; text: string; onClick: () => void; variant?: PageCtaState["variant"] }) => void;
   resetPageCta: () => void;
   setPageCtaLoading: (isLoading: boolean) => void;
   setPageCtaDisabled: (isDisabled: boolean) => void;
@@ -374,90 +374,90 @@ interface GameSettings<T> {
 
 // Spezifische Load-Funktionen für jeden Settings-Typ
 const loadStrokeSettings = (): StrokeSettings => {
-  if (typeof window === 'undefined') return DEFAULT_STROKE_SETTINGS;
-  
+  if (typeof window === "undefined") return DEFAULT_STROKE_SETTINGS;
+
   try {
     const stored = localStorage.getItem(STORAGE_KEYS.strokes);
     if (!stored) return DEFAULT_STROKE_SETTINGS;
-    
+
     const parsed = JSON.parse(stored);
     return {
       schneider: parsed.schneider ?? DEFAULT_STROKE_SETTINGS.schneider,
-      kontermatsch: parsed.kontermatsch ?? DEFAULT_STROKE_SETTINGS.kontermatsch
+      kontermatsch: parsed.kontermatsch ?? DEFAULT_STROKE_SETTINGS.kontermatsch,
     };
   } catch (error) {
-    console.error('Fehler beim Laden der Striche-Settings:', error);
+    console.error("Fehler beim Laden der Striche-Settings:", error);
     return DEFAULT_STROKE_SETTINGS;
   }
 };
 
 // Initiale Werte
 const initialFarbeSettings: FarbeSettings = {
-  values: FARBE_MODES.map(mode => mode.multiplier),
-  isFlipped: false
+  values: FARBE_MODES.map((mode) => mode.multiplier),
+  isFlipped: false,
 };
 
 const initialScoreSettings: ScoreSettings = {
   values: Object.fromEntries(
-    SCORE_MODES.map(mode => [mode.id, mode.defaultValue])
+    SCORE_MODES.map((mode) => [mode.id, mode.defaultValue])
   ) as Record<ScoreMode, number>,
   isFlipped: false,
   enabled: Object.fromEntries(
-    SCORE_MODES.map(mode => [mode.id, true])
-  ) as Record<ScoreMode, boolean>
+    SCORE_MODES.map((mode) => [mode.id, true])
+  ) as Record<ScoreMode, boolean>,
 };
 
 const initialState: UIState = {
   calculator: {
     isOpen: false,
     value: 0,
-    isFlipped: false
+    isFlipped: false,
   },
   gameInfo: {
-    isOpen: false
+    isOpen: false,
   },
   startScreen: {
-    transitionState: 'initial',
-    names: { 1: '', 2: '', 3: '', 4: '' },
-    isOpen: true
+    transitionState: "initial",
+    names: {1: "", 2: "", 3: "", 4: ""},
+    isOpen: true,
   },
   history: {
-    warning: null
+    warning: null,
   },
-  chargeEffects: { 
+  chargeEffects: {
     berg: {
       top: createInitialChargeState(),
-      bottom: createInitialChargeState()
+      bottom: createInitialChargeState(),
     },
     bedanken: {
       top: createInitialChargeState(),
-      bottom: createInitialChargeState()
+      bottom: createInitialChargeState(),
     },
     matsch: {
       top: createInitialChargeState(),
-      bottom: createInitialChargeState()
-    }
+      bottom: createInitialChargeState(),
+    },
   },
   menu: {
     isOpen: false,
     activeButton: null,
     showIntroduction: false,
-    showResetWarning: false
+    showResetWarning: false,
   },
   resultatKreidetafel: {
     isOpen: false,
     swipePosition: null,
-    currentStatistic: 'striche',
-    animationComplete: true
+    currentStatistic: "striche",
+    animationComplete: true,
   },
   settings: {
     isOpen: false,
-    activeTab: 'farben',
-    cardStyle: 'DE',
+    activeTab: "farben",
+    cardStyle: "DE",
     pictogramConfig: {
       isEnabled: true,
-      mode: 'svg'
-    }
+      mode: "svg",
+    },
   },
   farbeSettings: initialFarbeSettings,
   scoreSettings: initialScoreSettings,
@@ -468,38 +468,38 @@ const initialState: UIState = {
   lastDoubleClickPosition: null,
   historyWarning: {
     show: false,
-    message: '',
+    message: "",
     onConfirm: () => {},
-    onCancel: () => {}
+    onCancel: () => {},
   },
   isPaused: false,
   strichStyle: defaultStrichStyle,
   overlayPosition: null,
   jassFinishNotification: {
     isOpen: false,
-    mode: 'share',
+    mode: "share",
     message: undefined,
     onShare: async () => {},
     onBack: () => {},
-    onContinue: () => {}
+    onContinue: () => {},
   },
   onboarding: {
     currentStep: OnboardingStep.INSTALL,
     hasCompletedOnboarding: true,
     show: false,
     canBeDismissed: true,
-    isPWA: false
+    isPWA: false,
   },
   isTutorialInfoOpen: false,
   splitContainer: {
     isOpen: false,
-    position: 'bottom'
+    position: "bottom",
   },
   tutorialBlockedUI: {
     settingsClose: false,
     calculatorClose: false,
     gameInfoClose: false,
-    resultatKreidetafelClose: false
+    resultatKreidetafelClose: false,
   },
   topSwipeAnimation: false,
   bottomSwipeAnimation: false,
@@ -510,32 +510,32 @@ const initialState: UIState = {
   activeModal: null,
   isNotificationCenterOpen: false,
   isLoading: false,
-  startScreenState: 'idle' as StartScreenState,
+  startScreenState: "idle" as StartScreenState,
   pageCta: {
     isVisible: false,
-    text: '',
+    text: "",
     onClick: null,
     loading: false,
     disabled: false,
-    variant: 'default',
+    variant: "default",
   } as PageCtaState,
 };
 
 // Load-Funktionen für jeden Settings-Typ
 const loadFarbeSettings = (): FarbeSettings => {
-  if (typeof window === 'undefined') return DEFAULT_FARBE_SETTINGS;
-  
+  if (typeof window === "undefined") return DEFAULT_FARBE_SETTINGS;
+
   try {
     const stored = localStorage.getItem(STORAGE_KEYS.farbe);
     if (!stored) return DEFAULT_FARBE_SETTINGS;
-    
+
     const parsed = JSON.parse(stored);
     return {
       values: parsed.values ?? DEFAULT_FARBE_SETTINGS.values,
-      isFlipped: parsed.isFlipped ?? DEFAULT_FARBE_SETTINGS.isFlipped
+      isFlipped: parsed.isFlipped ?? DEFAULT_FARBE_SETTINGS.isFlipped,
     };
   } catch (error) {
-    console.error('Fehler beim Laden der Farbe-Settings:', error);
+    console.error("Fehler beim Laden der Farbe-Settings:", error);
     return DEFAULT_FARBE_SETTINGS;
   }
 };
@@ -547,12 +547,12 @@ export const useUIStore = create<UIStore>()(
 
       // Neue Methode speziell für StartScreen Reset
       resetStartScreen: () => set((state) => ({
-        ...state,  // Alle anderen Settings (Farbe etc.) bleiben erhalten
+        ...state, // Alle anderen Settings (Farbe etc.) bleiben erhalten
         startScreen: {
-          transitionState: 'initial',
-          names: { 1: '', 2: '', 3: '', 4: '' },
-          isOpen: true
-        }
+          transitionState: "initial",
+          names: {1: "", 2: "", 3: "", 4: ""},
+          isOpen: true,
+        },
       })),
 
       startCharge: (team, type) => set((state) => ({
@@ -563,10 +563,10 @@ export const useUIStore = create<UIStore>()(
             [team]: {
               isActive: true,
               pressStartTime: Date.now(),
-              chargeAmount: 0
-            }
-          }
-        }
+              chargeAmount: 0,
+            },
+          },
+        },
       })),
 
       updateCharge: (team, type) => {
@@ -581,10 +581,10 @@ export const useUIStore = create<UIStore>()(
                 ...state.chargeEffects[type],
                 [team]: {
                   ...effect,
-                  chargeAmount: Math.min(elapsed / 1000, 1)
-                }
-              }
-            }
+                  chargeAmount: Math.min(elapsed / 1000, 1),
+                },
+              },
+            },
           }));
         }
       },
@@ -594,469 +594,469 @@ export const useUIStore = create<UIStore>()(
           ...state.chargeEffects,
           [type]: {
             ...state.chargeEffects[type],
-            [team]: createInitialChargeState()
-          }
-        }
+            [team]: createInitialChargeState(),
+          },
+        },
       })),
 
       resetChargeEffects: () => set(() => ({
         chargeEffects: {
           berg: {
             top: createInitialChargeState(),
-            bottom: createInitialChargeState()
+            bottom: createInitialChargeState(),
           },
           bedanken: {
             top: createInitialChargeState(),
-            bottom: createInitialChargeState()
+            bottom: createInitialChargeState(),
           },
           matsch: {
             top: createInitialChargeState(),
-            bottom: createInitialChargeState()
-          }
-        }
+            bottom: createInitialChargeState(),
+          },
+        },
       })),
 
       openCalculator: () => {
         const state = get();
         if (state.tutorialBlockedUI.calculatorClose) return;
-        set({ calculator: { ...state.calculator, isOpen: true } });
+        set({calculator: {...state.calculator, isOpen: true}});
       },
-      
-      closeCalculator: () => set((state) => ({ 
-        calculator: { ...state.calculator, isOpen: false } 
+
+      closeCalculator: () => set((state) => ({
+        calculator: {...state.calculator, isOpen: false},
       })),
-      
-      setCalculatorFlipped: (flipped) => set((state) => ({ 
-        calculator: { ...state.calculator, isFlipped: flipped } 
+
+      setCalculatorFlipped: (flipped) => set((state) => ({
+        calculator: {...state.calculator, isFlipped: flipped},
       })),
-      
-      setStartScreenState: (state: 'initial' | 'starting' | 'complete') => set(prevState => ({
+
+      setStartScreenState: (state: "initial" | "starting" | "complete") => set((prevState) => ({
         startScreen: {
           ...prevState.startScreen,
           transitionState: state,
-          isOpen: state !== 'complete'  // Schließen wenn 'complete'
-        }
+          isOpen: state !== "complete", // Schließen wenn 'complete'
+        },
       })),
-        
+
       setStartScreenNames: (names: PlayerNames) =>
-        set(prev => ({
+        set((prev) => ({
           startScreen: {
             ...prev.startScreen,
-            names
-          }
+            names,
+          },
         })),
-        
+
       setMenuActiveButton: (button) => set((state) => ({
-        menu: { ...state.menu, activeButton: button }
+        menu: {...state.menu, activeButton: button},
       })),
-      
+
       setShowIntroduction: (show) => set((state) => ({
-        menu: { ...state.menu, showIntroduction: show }
+        menu: {...state.menu, showIntroduction: show},
       })),
-      
+
       setShowResetWarning: (show) => set((state) => ({
-        menu: { ...state.menu, showResetWarning: show }
+        menu: {...state.menu, showResetWarning: show},
       })),
-      
+
       resetAll: () => set(() => ({
         calculator: {
           isOpen: false,
           value: 0,
-          isFlipped: false
+          isFlipped: false,
         },
         gameInfo: {
-          isOpen: false
+          isOpen: false,
         },
         startScreen: {
-          transitionState: 'initial',
-          names: { 1: '', 2: '', 3: '', 4: '' },
-          isOpen: true
+          transitionState: "initial",
+          names: {1: "", 2: "", 3: "", 4: ""},
+          isOpen: true,
         },
         history: {
-          warning: null
+          warning: null,
         },
         chargeEffects: {
           berg: {
             top: createInitialChargeState(),
-            bottom: createInitialChargeState()
+            bottom: createInitialChargeState(),
           },
           bedanken: {
             top: createInitialChargeState(),
-            bottom: createInitialChargeState()
+            bottom: createInitialChargeState(),
           },
           matsch: {
             top: createInitialChargeState(),
-            bottom: createInitialChargeState()
-          }
+            bottom: createInitialChargeState(),
+          },
         },
         menu: {
           isOpen: false,
           activeButton: null,
           showIntroduction: false,
-          showResetWarning: false
+          showResetWarning: false,
         },
         resultatKreidetafel: {
           isOpen: false,
           swipePosition: null,
-          currentStatistic: 'striche',
-          animationComplete: true
+          currentStatistic: "striche",
+          animationComplete: true,
         },
         historyWarning: {
           show: false,
-          message: '',
+          message: "",
           onConfirm: () => {},
-          onCancel: () => {}
-        }
+          onCancel: () => {},
+        },
       })),
 
       setMenuOpen: (isOpen) => set((state) => ({
-        menu: { ...state.menu, isOpen },
-        overlayPosition: isOpen ? state.overlayPosition : null
+        menu: {...state.menu, isOpen},
+        overlayPosition: isOpen ? state.overlayPosition : null,
       })),
 
       openResultatKreidetafel: (position) => set({
         resultatKreidetafel: {
           isOpen: true,
           swipePosition: position,
-          currentStatistic: 'striche',
-          animationComplete: false
+          currentStatistic: "striche",
+          animationComplete: false,
         },
-        overlayPosition: position
+        overlayPosition: position,
       }),
       closeResultatKreidetafel: () => set({
         resultatKreidetafel: {
           isOpen: false,
           swipePosition: null,
-          currentStatistic: 'striche',
-          animationComplete: true
-        }
+          currentStatistic: "striche",
+          animationComplete: true,
+        },
       }),
-      setGameInfoOpen: (isOpen: boolean) => set({ isGameInfoOpen: isOpen }),
-      setHistoryWarningOpen: (isOpen: boolean) => set({ isHistoryWarningOpen: isOpen }),
-      setHistoryWarningCallback: (callback: (() => void) | null) => 
-        set({ historyWarningCallback: callback }),
-      setLastDoubleClickPosition: (position) => set({ 
-        lastDoubleClickPosition: position 
+      setGameInfoOpen: (isOpen: boolean) => set({isGameInfoOpen: isOpen}),
+      setHistoryWarningOpen: (isOpen: boolean) => set({isHistoryWarningOpen: isOpen}),
+      setHistoryWarningCallback: (callback: (() => void) | null) =>
+        set({historyWarningCallback: callback}),
+      setLastDoubleClickPosition: (position) => set({
+        lastDoubleClickPosition: position,
       }),
-      showHistoryWarning: ({ message, onConfirm, onCancel }) => {
+      showHistoryWarning: ({message, onConfirm, onCancel}) => {
         set({
           historyWarning: {
             show: true,
             message,
             onConfirm,
-            onCancel
-          }
+            onCancel,
+          },
         });
       },
-      closeHistoryWarning: () => set(state => ({
+      closeHistoryWarning: () => set((state) => ({
         historyWarning: {
           ...state.historyWarning,
-          show: false
-        }
+          show: false,
+        },
       })),
-      pauseGame: () => set({ isPaused: true }),
-      resumeGame: () => set({ isPaused: false }),
+      pauseGame: () => set({isPaused: true}),
+      resumeGame: () => set({isPaused: false}),
       setKreidetafelPosition: (position) => set((state) => ({
         resultatKreidetafel: {
           ...state.resultatKreidetafel,
-          swipePosition: position
-        }
+          swipePosition: position,
+        },
       })),
       setKreidetafelStatistic: (statisticId) => set((state) => ({
         resultatKreidetafel: {
           ...state.resultatKreidetafel,
-          currentStatistic: statisticId
-        }
+          currentStatistic: statisticId,
+        },
       })),
-      setStrichStyle: (style: Partial<StrichStyle>) => 
-        set(state => ({
+      setStrichStyle: (style: Partial<StrichStyle>) =>
+        set((state) => ({
           strichStyle: {
             ...state.strichStyle,
-            ...style
-          }
+            ...style,
+          },
         })),
-      openFarbeSettings: () => set(state => ({
-        settings: { ...state.settings, isOpen: true, activeTab: 'farben' }
+      openFarbeSettings: () => set((state) => ({
+        settings: {...state.settings, isOpen: true, activeTab: "farben"},
       })),
-      closeFarbeSettings: () => set(state => ({
-        settings: { ...state.settings, isOpen: false }
+      closeFarbeSettings: () => set((state) => ({
+        settings: {...state.settings, isOpen: false},
       })),
       setFarbeMultiplier: (index: number, value: number) => {
         const currentSettings = get().farbeSettings;
         const newValues = [...currentSettings.values];
         newValues[index] = value;
         if (validateMultipliers(newValues)) {
-          const newSettings = { ...currentSettings, values: newValues };
+          const newSettings = {...currentSettings, values: newValues};
           saveFarbeSettings(newSettings);
-          set({ farbeSettings: newSettings });
+          set({farbeSettings: newSettings});
         }
       },
       setFarbeFlipped: (isFlipped: boolean) => {
         const currentSettings = get().farbeSettings;
-        const newSettings = { ...currentSettings, isFlipped };
+        const newSettings = {...currentSettings, isFlipped};
         saveFarbeSettings(newSettings);
-        set({ farbeSettings: newSettings });
+        set({farbeSettings: newSettings});
       },
-      updateFarbeSettings: (settings: Partial<FarbeSettings>) => 
+      updateFarbeSettings: (settings: Partial<FarbeSettings>) =>
         set((state) => {
           const newSettings = {
             ...state.farbeSettings,
-            ...settings
+            ...settings,
           };
           if (validateFarbeSettings(newSettings)) {
-            saveToStorage('farbe', newSettings);
-            return { farbeSettings: newSettings };
+            saveToStorage("farbe", newSettings);
+            return {farbeSettings: newSettings};
           }
           return state;
         }),
-      openScoreSettings: () => set(state => ({
-        settings: { ...state.settings, isOpen: true, activeTab: 'scores' }
+      openScoreSettings: () => set((state) => ({
+        settings: {...state.settings, isOpen: true, activeTab: "scores"},
       })),
-      closeScoreSettings: () => set(state => ({
-        settings: { ...state.settings, isOpen: false }
+      closeScoreSettings: () => set((state) => ({
+        settings: {...state.settings, isOpen: false},
       })),
-      updateScoreSettings: (settings: Partial<ScoreSettings>) => 
-        set(state => ({
+      updateScoreSettings: (settings: Partial<ScoreSettings>) =>
+        set((state) => ({
           scoreSettings: {
             ...state.scoreSettings,
-            ...settings
-          }
+            ...settings,
+          },
         })),
       setScoreValue: (mode: ScoreMode, value: number) => {
         if (!validateScoreValue(mode, value)) return;
-        
-        set(state => {
+
+        set((state) => {
           const newSettings = {
             ...state.scoreSettings,
             values: {
               ...state.scoreSettings.values,
-              [mode]: value
-            }
+              [mode]: value,
+            },
           };
-          return { scoreSettings: newSettings };
+          return {scoreSettings: newSettings};
         });
       },
-      toggleScoreEnabled: (mode: ScoreMode) => 
-        set(state => ({
+      toggleScoreEnabled: (mode: ScoreMode) =>
+        set((state) => ({
           scoreSettings: {
             ...state.scoreSettings,
             enabled: {
               ...state.scoreSettings.enabled,
-              [mode]: !state.scoreSettings.enabled[mode]
-            }
-          }
+              [mode]: !state.scoreSettings.enabled[mode],
+            },
+          },
         })),
-      setSettingsTab: (tab: SettingsTab['id']) => set(state => ({
-        settings: { ...state.settings, activeTab: tab }
+      setSettingsTab: (tab: SettingsTab["id"]) => set((state) => ({
+        settings: {...state.settings, activeTab: tab},
       })),
-      openSettings: () => set(state => ({
-        settings: { ...state.settings, isOpen: true }
+      openSettings: () => set((state) => ({
+        settings: {...state.settings, isOpen: true},
       })),
-      closeSettings: () => set(state => ({
-        settings: { ...state.settings, isOpen: false }
+      closeSettings: () => set((state) => ({
+        settings: {...state.settings, isOpen: false},
       })),
-      cyclePictogramMode: () => set(state => {
+      cyclePictogramMode: () => set((state) => {
         const currentConfig = state.settings.pictogramConfig;
         let newConfig: PictogramConfig;
 
         if (!currentConfig.isEnabled) {
           // Von 'Nein' zu 'Standard'
-          newConfig = { isEnabled: true, mode: 'svg' };
-        } else if (currentConfig.mode === 'svg') {
+          newConfig = {isEnabled: true, mode: "svg"};
+        } else if (currentConfig.mode === "svg") {
           // Von 'Standard' zu 'Emojis'
-          newConfig = { isEnabled: true, mode: 'emoji' };
+          newConfig = {isEnabled: true, mode: "emoji"};
         } else {
           // Von 'Emojis' zurück zu 'Nein'
-          newConfig = { isEnabled: false, mode: 'svg' };
+          newConfig = {isEnabled: false, mode: "svg"};
         }
 
         savePictogramSettings(newConfig);
         return {
           settings: {
             ...state.settings,
-            pictogramConfig: newConfig
-          }
+            pictogramConfig: newConfig,
+          },
         };
       }),
-      updateScoreValue: (mode: ScoreMode, value: number) => 
-        set(state => {
+      updateScoreValue: (mode: ScoreMode, value: number) =>
+        set((state) => {
           if (!validateScoreValue(mode, value)) return state;
-          
-          const newValues = { ...state.scoreSettings.values };
+
+          const newValues = {...state.scoreSettings.values};
           newValues[mode] = value;
-          
+
           // Automatische Anpassung von Berg/Schneider bei Sieg-Änderung
-          if (mode === 'sieg') {
+          if (mode === "sieg") {
             const halfValue = Math.floor(value / 2);
             newValues.berg = Math.min(newValues.berg, halfValue);
             newValues.schneider = Math.min(newValues.schneider, halfValue);
           }
-          
+
           const newSettings = {
             ...state.scoreSettings,
-            values: newValues
+            values: newValues,
           };
-          
+
           saveScoreSettings(newSettings);
-          return { scoreSettings: newSettings };
+          return {scoreSettings: newSettings};
         }),
       updateSettings: (
-        type: 'farbe' | 'score',
+        type: "farbe" | "score",
         settings: Partial<FarbeSettings | ScoreSettings>
       ) => {
         set((state) => {
-          const currentSettings = type === 'farbe' 
-            ? state.farbeSettings 
-            : state.scoreSettings;
-          
+          const currentSettings = type === "farbe" ?
+            state.farbeSettings :
+            state.scoreSettings;
+
           const newSettings = {
             ...currentSettings,
-            ...settings
+            ...settings,
           };
-          
+
           saveToStorage(type, newSettings);
-          
+
           return {
-            [`${type}Settings`]: newSettings
+            [`${type}Settings`]: newSettings,
           };
         });
       },
-      setOverlayPosition: (position) => set({ overlayPosition: position }),
-      showJassFinishNotification: (props: Omit<Partial<JassFinishNotificationConfig>, 'message'> & {
+      setOverlayPosition: (position) => set({overlayPosition: position}),
+      showJassFinishNotification: (props: Omit<Partial<JassFinishNotificationConfig>, "message"> & {
         message?: SpruchMitIcon;
       }) => set({
         jassFinishNotification: {
-          mode: 'share',
-          message: { text: '', icon: '♥️' },
+          mode: "share",
+          message: {text: "", icon: "♥️"},
           ...props,
-          isOpen: true
-        }
+          isOpen: true,
+        },
       }),
       closeJassFinishNotification: () => set({
         jassFinishNotification: {
           isOpen: false,
-          mode: 'share',
-          message: { text: '', icon: '♥️' }
-        }
+          mode: "share",
+          message: {text: "", icon: "♥️"},
+        },
       }),
-      setOnboardingStep: (step: OnboardingStep) => 
-        set((state) => ({ 
-          onboarding: { 
-            ...state.onboarding, 
-            currentStep: step 
-          } 
+      setOnboardingStep: (step: OnboardingStep) =>
+        set((state) => ({
+          onboarding: {
+            ...state.onboarding,
+            currentStep: step,
+          },
         })),
-      completeOnboarding: () => 
-        set((state) => ({ 
-          onboarding: { 
-            ...state.onboarding, 
-            hasCompletedOnboarding: true 
-          } 
+      completeOnboarding: () =>
+        set((state) => ({
+          onboarding: {
+            ...state.onboarding,
+            hasCompletedOnboarding: true,
+          },
         })),
-      showOnboarding: (canBeDismissed: boolean = false, isPWA: boolean = false) => 
-        set((state) => ({ 
-          onboarding: { 
-            ...state.onboarding, 
-            show: true, 
+      showOnboarding: (canBeDismissed: boolean = false, isPWA: boolean = false) =>
+        set((state) => ({
+          onboarding: {
+            ...state.onboarding,
+            show: true,
             canBeDismissed,
-            isPWA 
-          } 
+            isPWA,
+          },
         })),
-      hideOnboarding: () => 
-        set((state) => ({ 
-          onboarding: { 
-            ...state.onboarding, 
+      hideOnboarding: () =>
+        set((state) => ({
+          onboarding: {
+            ...state.onboarding,
             show: false,
-            hasCompletedOnboarding: true 
-          } 
+            hasCompletedOnboarding: true,
+          },
         })),
-      setCardStyle: (style: CardStyle) => set(state => ({
+      setCardStyle: (style: CardStyle) => set((state) => ({
         settings: {
           ...state.settings,
-          cardStyle: style
-        }
+          cardStyle: style,
+        },
       })),
       updateStrokeSettings: (settings: Partial<StrokeSettings>) => {
         if (!validateStrokeSettings(settings)) return;
-        
-        set(state => ({
+
+        set((state) => ({
           strokeSettings: {
             ...state.strokeSettings,
-            ...settings
-          }
+            ...settings,
+          },
         }));
       },
       setStrokeValue: (type: keyof StrokeSettings, value: 1 | 2) => {
-        if (!validateStrokeSettings({ [type]: value })) return;
-        
-        set(state => ({
+        if (!validateStrokeSettings({[type]: value})) return;
+
+        set((state) => ({
           strokeSettings: {
             ...state.strokeSettings,
-            [type]: value
-          }
+            [type]: value,
+          },
         }));
       },
-      openTutorialInfo: () => set({ isTutorialInfoOpen: true }),
-      closeTutorialInfo: () => set({ isTutorialInfoOpen: false }),
-      closeAllOverlays: () => set(state => ({
+      openTutorialInfo: () => set({isTutorialInfoOpen: true}),
+      closeTutorialInfo: () => set({isTutorialInfoOpen: false}),
+      closeAllOverlays: () => set((state) => ({
         ...state,
         menu: {
           ...state.menu,
-          isOpen: false
+          isOpen: false,
         },
         isGameInfoOpen: false,
         // ... andere Overlays
       })),
-      openMenu: () => set(state => ({
+      openMenu: () => set((state) => ({
         ...state,
         menu: {
           ...state.menu,
-          isOpen: true
-        }
+          isOpen: true,
+        },
       })),
-      setSplitContainer: (isOpen: boolean, position: TeamPosition) => 
-        set(state => ({
+      setSplitContainer: (isOpen: boolean, position: TeamPosition) =>
+        set((state) => ({
           splitContainer: {
             isOpen,
-            position
-          }
+            position,
+          },
         })),
-      closeGameInfo: () => set(state => ({
+      closeGameInfo: () => set((state) => ({
         gameInfo: {
           ...state.gameInfo,
-          isOpen: false
-        }
+          isOpen: false,
+        },
       })),
       tutorialBlockedUI: {
         settingsClose: false,
         calculatorClose: false,
         gameInfoClose: false,
-        resultatKreidetafelClose: false
+        resultatKreidetafelClose: false,
       },
       openGameInfo: () => {
         const state = get();
         if (state.tutorialBlockedUI.gameInfoClose) return;
-        set({ gameInfo: { isOpen: true } });
+        set({gameInfo: {isOpen: true}});
       },
-      setTopSwipeAnimation: (active) => set({ topSwipeAnimation: active }),
-      setBottomSwipeAnimation: (active) => set({ bottomSwipeAnimation: active }),
+      setTopSwipeAnimation: (active) => set({topSwipeAnimation: active}),
+      setBottomSwipeAnimation: (active) => set({bottomSwipeAnimation: active}),
       showNotification: (config: NotificationConfig) => {
         const newNotification: Notification = {
           ...config,
           id: crypto.randomUUID(),
           timestamp: Date.now(),
         };
-        
+
         set((state) => {
           if (!state.notifications.some((n: Notification) => n.id === newNotification.id)) {
             state.notifications.push(newNotification);
           }
         });
 
-        if ('duration' in newNotification && 
-            typeof newNotification.duration === 'number' && 
-            newNotification.duration > 0 && 
-            (!('actions' in newNotification) || !newNotification.actions || newNotification.actions.length === 0)) {            
+        if ("duration" in newNotification &&
+            typeof newNotification.duration === "number" &&
+            newNotification.duration > 0 &&
+            (!("actions" in newNotification) || !newNotification.actions || newNotification.actions.length === 0)) {
           setTimeout(() => {
             get().removeNotification(newNotification.id);
           }, newNotification.duration);
@@ -1067,19 +1067,19 @@ export const useUIStore = create<UIStore>()(
           state.notifications = state.notifications.filter((n: Notification) => n.id !== id);
         });
       },
-      setResultatPosition: (position: TeamPosition) => 
-        set(state => ({
+      setResultatPosition: (position: TeamPosition) =>
+        set((state) => ({
           resultatKreidetafel: {
             ...state.resultatKreidetafel,
-            swipePosition: position
-          }
+            swipePosition: position,
+          },
         })),
-      setResultatAnimationComplete: (complete: boolean) => 
-        set(state => ({
+      setResultatAnimationComplete: (complete: boolean) =>
+        set((state) => ({
           resultatKreidetafel: {
             ...state.resultatKreidetafel,
-            animationComplete: complete
-          }
+            animationComplete: complete,
+          },
         })),
       canOpenGameInfo: () => {
         const state = get();
@@ -1094,56 +1094,58 @@ export const useUIStore = create<UIStore>()(
           state.splitContainer.isOpen
         );
       },
-      setStartScreenOpen: (isOpen: boolean) => set(prevState => ({
+      setStartScreenOpen: (isOpen: boolean) => set((prevState) => ({
         startScreen: {
           ...prevState.startScreen,
-          isOpen
-        }
+          isOpen,
+        },
       })),
-      toggleMenu: () => set((state) => { state.isMenuOpen = !state.isMenuOpen; }),
-      closeMenu: () => set({ isMenuOpen: false }),
-      toggleNotificationCenter: () => set((state) => { 
-        state.isNotificationCenterOpen = !state.isNotificationCenterOpen; 
+      toggleMenu: () => set((state) => {
+        state.isMenuOpen = !state.isMenuOpen;
       }),
-      openNotificationCenter: () => set({ isNotificationCenterOpen: true }),
-      closeNotificationCenter: () => set({ isNotificationCenterOpen: false }),
-      setLoading: (loading: boolean) => set({ isLoading: loading }),
-      setPageCta: (ctaConfig) => 
+      closeMenu: () => set({isMenuOpen: false}),
+      toggleNotificationCenter: () => set((state) => {
+        state.isNotificationCenterOpen = !state.isNotificationCenterOpen;
+      }),
+      openNotificationCenter: () => set({isNotificationCenterOpen: true}),
+      closeNotificationCenter: () => set({isNotificationCenterOpen: false}),
+      setLoading: (loading: boolean) => set({isLoading: loading}),
+      setPageCta: (ctaConfig) =>
         set((state) => {
           if (ctaConfig.isVisible && ctaConfig.text && ctaConfig.onClick) {
-             state.pageCta = {
-               isVisible: true,
-               text: ctaConfig.text,
-               onClick: ctaConfig.onClick,
-               loading: ctaConfig.loading ?? false,
-               disabled: ctaConfig.disabled ?? false,
-               variant: ctaConfig.variant ?? 'default',
-             };
+            state.pageCta = {
+              isVisible: true,
+              text: ctaConfig.text,
+              onClick: ctaConfig.onClick,
+              loading: ctaConfig.loading ?? false,
+              disabled: ctaConfig.disabled ?? false,
+              variant: ctaConfig.variant ?? "default",
+            };
           } else {
-              console.warn('setPageCta received invalid configuration:', ctaConfig);
-              state.pageCta = { ...initialState.pageCta }; 
+            console.warn("setPageCta received invalid configuration:", ctaConfig);
+            state.pageCta = {...initialState.pageCta};
           }
-      }),
-      resetPageCta: () => 
-        set((state) => {
-            state.pageCta = { ...initialState.pageCta };
         }),
-      setPageCtaLoading: (isLoading) => 
+      resetPageCta: () =>
         set((state) => {
-            if (state.pageCta.isVisible) {
-                state.pageCta.loading = isLoading;
-            }
+          state.pageCta = {...initialState.pageCta};
         }),
-      setPageCtaDisabled: (isDisabled) => 
+      setPageCtaLoading: (isLoading) =>
         set((state) => {
-             if (state.pageCta.isVisible) {
-                state.pageCta.disabled = isDisabled;
-             }
+          if (state.pageCta.isVisible) {
+            state.pageCta.loading = isLoading;
+          }
+        }),
+      setPageCtaDisabled: (isDisabled) =>
+        set((state) => {
+          if (state.pageCta.isVisible) {
+            state.pageCta.disabled = isDisabled;
+          }
         }),
       resetUI: () => set(initialState),
     })),
     {
-      name: 'jass-ui-storage',
+      name: "jass-ui-storage",
       partialize: (state) => ({
         farbeSettings: state.farbeSettings,
         scoreSettings: state.scoreSettings,
@@ -1151,14 +1153,14 @@ export const useUIStore = create<UIStore>()(
         settings: {
           ...state.settings,
           cardStyle: state.settings.cardStyle,
-          pictogramConfig: state.settings.pictogramConfig
-        }
-      })
+          pictogramConfig: state.settings.pictogramConfig,
+        },
+      }),
     }
   )
 );
 // Hydration manuell durchführen
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   useUIStore.persist.rehydrate();
 }
 

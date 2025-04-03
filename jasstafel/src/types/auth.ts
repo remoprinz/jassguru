@@ -6,4 +6,4 @@ export interface UserProfile {
   statusMessage?: string;
   creationTime?: string;
   lastSignInTime?: string;
-} 
+}

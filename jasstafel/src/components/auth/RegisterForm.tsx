@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import {useState} from "react";
+import {useForm} from "react-hook-form";
+import {zodResolver} from "@hookform/resolvers/zod";
+import * as z from "zod";
+import {Button} from "@/components/ui/button";
+import {Input} from "@/components/ui/input";
 import {
   Form,
   FormControl,
@@ -13,34 +13,34 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { useAuthStore } from '@/store/authStore';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useRouter } from 'next/router';
-import Image from 'next/image';
-import { useUIStore } from '@/store/uiStore';
+} from "@/components/ui/form";
+import {useAuthStore} from "@/store/authStore";
+import {Alert, AlertDescription} from "@/components/ui/alert";
+import {useRouter} from "next/router";
+import Image from "next/image";
+import {useUIStore} from "@/store/uiStore";
 
 // Schema für die Registrierung
 const registerSchema = z.object({
-  email: z.string().email('Ungültige E-Mail-Adresse'),
-  password: z.string().min(6, 'Passwort muss mindestens 6 Zeichen lang sein'),
-  displayName: z.string().min(2, 'Name muss mindestens 2 Zeichen lang sein').max(50, 'Name darf maximal 50 Zeichen lang sein'),
+  email: z.string().email("Ungültige E-Mail-Adresse"),
+  password: z.string().min(6, "Passwort muss mindestens 6 Zeichen lang sein"),
+  displayName: z.string().min(2, "Name muss mindestens 2 Zeichen lang sein").max(50, "Name darf maximal 50 Zeichen lang sein"),
 });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export function RegisterForm() {
-  const { register, loginWithGoogle, status, error, clearError } = useAuthStore();
-  const showNotification = useUIStore(state => state.showNotification);
+  const {register, loginWithGoogle, status, error, clearError} = useAuthStore();
+  const showNotification = useUIStore((state) => state.showNotification);
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      email: '',
-      password: '',
-      displayName: '',
+      email: "",
+      password: "",
+      displayName: "",
     },
   });
 
@@ -48,33 +48,33 @@ export function RegisterForm() {
     clearError();
     try {
       await register(data.email, data.password, data.displayName);
-      
+
       // Erfolgsmeldung anzeigen
       showNotification({
-        message: 'Ein Bestätigungslink wurde an deine E-Mail gesendet. Bitte überprüfe dein Postfach, um die Registrierung abzuschliessen.',
-        type: 'success'
+        message: "Ein Bestätigungslink wurde an deine E-Mail gesendet. Bitte überprüfe dein Postfach, um die Registrierung abzuschliessen.",
+        type: "success",
       });
-      
+
       // Entfernen oder anpassen des Redirects, da der Benutzer zuerst die E-Mail bestätigen muss.
       // setTimeout(() => {
       //   router.push('/auth/login');
       // }, 1500);
     } catch (err) {
-      console.error('Registrierungsfehler im Formular:', err);
+      console.error("Registrierungsfehler im Formular:", err);
     }
   };
-  
+
   const handleGoogleRegister = async () => {
     clearError();
     try {
       await loginWithGoogle();
-      router.push('/start');
+      router.push("/start");
     } catch (error) {
-      console.error('Google-Registrierungsfehler:', error);
+      console.error("Google-Registrierungsfehler:", error);
     }
   };
 
-  const isLoading = status === 'loading';
+  const isLoading = status === "loading";
 
   return (
     <div className="w-full space-y-4">
@@ -89,7 +89,7 @@ export function RegisterForm() {
           <FormField
             control={form.control}
             name="displayName"
-            render={({ field }) => (
+            render={({field}) => (
               <FormItem>
                 <FormLabel className="text-gray-300">Name</FormLabel>
                 <FormControl>
@@ -109,7 +109,7 @@ export function RegisterForm() {
           <FormField
             control={form.control}
             name="email"
-            render={({ field }) => (
+            render={({field}) => (
               <FormItem>
                 <FormLabel className="text-gray-300">E-Mail</FormLabel>
                 <FormControl>
@@ -129,7 +129,7 @@ export function RegisterForm() {
           <FormField
             control={form.control}
             name="password"
-            render={({ field }) => (
+            render={({field}) => (
               <FormItem>
                 <FormLabel className="text-gray-300">Passwort</FormLabel>
                 <FormControl>
@@ -164,7 +164,7 @@ export function RegisterForm() {
           </Button>
         </form>
       </Form>
-      
+
       <div className="relative">
         <div className="absolute inset-0 flex items-center">
           <span className="w-full border-t border-gray-700" />
@@ -175,22 +175,22 @@ export function RegisterForm() {
           </span>
         </div>
       </div>
-      
+
       <Button
         variant="outline"
         className="w-full bg-white hover:bg-gray-50 text-gray-600 border border-gray-300 font-medium h-12 rounded-md flex items-center justify-center"
         onClick={handleGoogleRegister}
         disabled={isLoading}
       >
-        <Image 
-          src="/google-logo.svg" 
-          alt="Google Logo" 
-          width={18} 
-          height={18} 
-          className="mr-3" 
+        <Image
+          src="/google-logo.svg"
+          alt="Google Logo"
+          width={18}
+          height={18}
+          className="mr-3"
         />
         Mit Google fortfahren
       </Button>
     </div>
   );
-} 
+}

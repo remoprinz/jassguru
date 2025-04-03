@@ -1,13 +1,16 @@
 import React, { useCallback, useMemo, useRef, useEffect, useState } from 'react';
-import { useUIStore } from '../../store/uiStore';
+import { useUIStore, UIStore } from '../../store/uiStore';
 import { useGameStore } from '../../store/gameStore';
 import { FiX, FiRotateCcw, FiSkipBack } from 'react-icons/fi';
-import format from 'date-fns/format';
-import type { UIStore } from '../../store/uiStore';
-import type { GameStore } from '../../types/jass';
-import type { 
+import { format } from 'date-fns';
+import type { GameStore, StricheCount } from '../../types/jass';
+import { 
   TeamPosition, 
-  StricheCount,
+  StricheRecord,
+  type JassStore,
+  PlayerNumber, 
+  GameEntry,
+  determineNextStartingPlayer
 } from '../../types/jass';
 import { STATISTIC_MODULES } from '../../statistics/registry';
 import { StricheStatistik } from '../../statistics/StricheStatistik';
@@ -24,8 +27,9 @@ import { TUTORIAL_STEPS } from '../../types/tutorial';
 import { getJassSpruch } from '../../utils/jasssprueche';
 import { calculateTeamStats } from '../../utils/teamCalculations';
 import { getNormalStricheCount } from '../../utils/stricheCalculations';
-import type { StricheRecord } from '../../types/jass';
 import { useDeviceScale } from '../../hooks/useDeviceScale';
+import { ArrowLeft, ArrowRight, Share } from 'lucide-react';
+import { useSwipeable } from 'react-swipeable';
 
 // Record Type für Team-Striche (verwendet importierte Types)
 type TeamStricheRecord = Record<TeamPosition, StricheCount>;
@@ -351,7 +355,24 @@ const ResultatKreidetafel = () => {
       jassStore.finalizeGame();
       
       // 2. Dann neues Spiel im jassStore erstellen
-      jassStore.startGame();
+      const { gamePlayers } = gameStore; // Get GamePlayers object from gameStore
+      const { teams } = jassStore; // Get teams from jassStore
+      
+      // Prüfen, ob gamePlayers gesetzt ist (sollte es sein)
+      if (!gamePlayers) {
+        console.error("FEHLER: gamePlayers ist null in handleNextGame!");
+        // Hier ggf. Fehlerbehandlung oder Fallback
+        return; 
+      }
+
+      // Nächsten Startspieler bestimmen
+      const currentGameEntry = jassStore.getCurrentGame();
+      const initialStartingPlayer = determineNextStartingPlayer(
+        currentGameEntry ?? null, // Konvertiere undefined zu null
+        gameStore.initialStartingPlayer
+      );
+      
+      jassStore.startGame(gamePlayers, initialStartingPlayer); // Pass GamePlayers und Startspieler
       
       // 3. GameStore komplett zurücksetzen für neues Spiel
       gameStore.resetGame();

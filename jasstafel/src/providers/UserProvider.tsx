@@ -1,22 +1,22 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useAuthStore } from '@/store/authStore';
-import { getPlayerByUserId } from '@/services/playerService';
-import { FirestorePlayer, UserContext as UserContextType } from '@/types/jass';
+import React, {createContext, useContext, useEffect, useState} from "react";
+import {useAuthStore} from "@/store/authStore";
+import {getPlayerByUserId} from "@/services/playerService";
+import {FirestorePlayer, UserContext as UserContextType} from "@/types/jass";
 
 // User-Kontext erstellen
 const UserContext = createContext<UserContextType>({
   authUser: null,
   player: null,
   isLoading: true,
-  error: null
+  error: null,
 });
 
 export const useUser = () => useContext(UserContext);
 
-export function UserProvider({ children }: { children: React.ReactNode }) {
-  const { user: authUser, status, error, appMode } = useAuthStore();
+export function UserProvider({children}: { children: React.ReactNode }) {
+  const {user: authUser, status, error, appMode} = useAuthStore();
   const [player, setPlayer] = useState<FirestorePlayer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [playerError, setPlayerError] = useState<string | null>(null);
@@ -29,7 +29,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
       try {
         // Wenn Online-Modus aktiv und Benutzer authentifiziert ist
-        if (authUser && appMode === 'online') {
+        if (authUser && appMode === "online") {
           const playerData = await getPlayerByUserId(authUser.uid);
           setPlayer(playerData);
         } else {
@@ -37,14 +37,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           setPlayer(null);
         }
       } catch (err) {
-        console.error('Fehler beim Laden des Spielers:', err);
-        setPlayerError('Spieler konnte nicht geladen werden');
+        console.error("Fehler beim Laden des Spielers:", err);
+        setPlayerError("Spieler konnte nicht geladen werden");
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (status === 'authenticated' || status === 'unauthenticated') {
+    if (status === "authenticated" || status === "unauthenticated") {
       loadPlayer();
     }
   }, [authUser, status, appMode]);
@@ -52,8 +52,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const value: UserContextType = {
     authUser,
     player,
-    isLoading: status === 'loading' || isLoading,
-    error: error || playerError
+    isLoading: status === "loading" || isLoading,
+    error: error || playerError,
   };
 
   return (
@@ -61,4 +61,4 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       {children}
     </UserContext.Provider>
   );
-} 
+}

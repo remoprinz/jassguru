@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import {useEffect} from "react";
 
 interface UseSwipeGestureProps {
   onSwipeUp?: () => void;
@@ -6,7 +6,7 @@ interface UseSwipeGestureProps {
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
   threshold?: number;
-  element?: 'top' | 'bottom';
+  element?: "top" | "bottom";
 }
 
 const useSwipeGesture = ({
@@ -15,7 +15,7 @@ const useSwipeGesture = ({
   onSwipeLeft,
   onSwipeRight,
   threshold = 50,
-  element
+  element,
 }: UseSwipeGestureProps) => {
   useEffect(() => {
     let startX: number | null = null;
@@ -25,7 +25,7 @@ const useSwipeGesture = ({
       const target = e.target as HTMLElement;
       const swipeArea = target.closest(`[data-swipe-area="${element}"]`);
       if (!swipeArea) return;
-      
+
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
     };
@@ -63,12 +63,12 @@ const useSwipeGesture = ({
       }
     };
 
-    document.addEventListener('touchstart', handleTouchStart);
-    document.addEventListener('touchmove', handleTouchMove);
+    document.addEventListener("touchstart", handleTouchStart);
+    document.addEventListener("touchmove", handleTouchMove);
 
     return () => {
-      document.removeEventListener('touchstart', handleTouchStart);
-      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener("touchstart", handleTouchStart);
+      document.removeEventListener("touchmove", handleTouchMove);
     };
   }, [onSwipeUp, onSwipeDown, onSwipeLeft, onSwipeRight, threshold, element]);
 };

@@ -1,10 +1,10 @@
-import confetti from 'canvas-confetti';
+import confetti from "canvas-confetti";
 
 export const triggerMatschConfetti = (chargeAmount: number, isCalculatorFlipped: boolean) => {
   const minChargeForConfetti = 0.3;
   if (chargeAmount < minChargeForConfetti) return;
 
-  const button = document.querySelector('.matsch-button');
+  const button = document.querySelector(".matsch-button");
   if (button) {
     const rect = button.getBoundingClientRect();
     const x = (rect.left + rect.width / 2) / window.innerWidth;
@@ -19,8 +19,8 @@ export const triggerMatschConfetti = (chargeAmount: number, isCalculatorFlipped:
         particleCount: particleCount,
         angle: adjustedAngle,
         spread: spread,
-        origin: { x, y },
-        colors: ['#FF0000', '#FFA500', '#FFFF00', '#00FF00', '#0000FF', '#800080'],
+        origin: {x, y},
+        colors: ["#FF0000", "#FFA500", "#FFFF00", "#00FF00", "#0000FF", "#800080"],
         scalar: scalar,
         gravity: isCalculatorFlipped ? -1 : 1,
         ticks: 300,

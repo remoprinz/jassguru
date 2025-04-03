@@ -1,7 +1,7 @@
-import React from 'react';
-import styled from 'styled-components';
-import { animated, useSpring } from 'react-spring';
-import type { TeamPosition } from '../../types/jass';
+import React from "react";
+import styled from "styled-components";
+import {animated, useSpring} from "react-spring";
+import type {TeamPosition} from "../../types/jass";
 
 // 1. Erweiterte Interfaces
 interface StrichStyle {
@@ -26,7 +26,7 @@ interface StrichStyle {
 }
 
 interface StrichDisplayProps {
-  type: 'horizontal' | 'vertikal';
+  type: "horizontal" | "vertikal";
   count: number;
   position: TeamPosition;
   style?: StrichStyle;
@@ -37,33 +37,33 @@ const defaultStyle: StrichStyle = {
   baseStrich: {
     length: 38,
     width: 3,
-    color: '#FFFFFF',
-    opacity: 1
+    color: "#FFFFFF",
+    opacity: 1,
   },
   diagonalStrich: {
     length: 54,
     width: 3.5,
     angle: -45,
-    offset: { x: 0, y: 10 }
+    offset: {x: 0, y: 10},
   },
   container: {
     spacing: 10,
     groupSpacing: 12,
     scale: 1,
-    stackSpacing: 0
-  }
+    stackSpacing: 0,
+  },
 };
 
-const StrichContainer = styled.div<{ type: 'horizontal' | 'vertikal' }>`
+const StrichContainer = styled.div<{ type: "horizontal" | "vertikal" }>`
   position: relative;
   display: flex;
   align-items: center;
   
   /* Basis-Styles */
-  min-height: ${props => props.type === 'horizontal' ? '16px' : '50px'};
+  min-height: ${(props) => props.type === "horizontal" ? "16px" : "50px"};
   
   /* Container-spezifische Positionierung */
-  ${props => props.type === 'horizontal' ? `
+  ${(props) => props.type === "horizontal" ? `
     transform: rotate(-90deg);
     transform-origin: left center;
     margin: 1px 0px;
@@ -74,7 +74,7 @@ const StrichContainer = styled.div<{ type: 'horizontal' | 'vertikal' }>`
 `;
 
 const StrichElement = styled(animated.div)<{
-  $type: 'horizontal' | 'vertikal';
+  $type: "horizontal" | "vertikal";
   $position: TeamPosition;
   $isDiagonal?: boolean;
 }>`
@@ -83,7 +83,7 @@ const StrichElement = styled(animated.div)<{
   opacity: ${defaultStyle.baseStrich.opacity};
   transition: all 0.2s ease;
 
-  ${({ $type, $isDiagonal }) => {
+  ${({$type, $isDiagonal}) => {
     if ($isDiagonal) {
       return `
         width: ${defaultStyle.diagonalStrich.length}px;
@@ -102,38 +102,38 @@ const StrichElement = styled(animated.div)<{
 
 // StrichGroup Interface hinzufügen
 interface StrichGroupProps {
-  $type: 'horizontal' | 'vertikal';
+  $type: "horizontal" | "vertikal";
 }
 
 const StrichGroup = styled(animated.div)<StrichGroupProps>`
   position: relative;
   display: inline-flex;
   align-items: center;
-  margin-right: ${props => props.$type === 'horizontal' ? '8px' : '12px'};
+  margin-right: ${(props) => props.$type === "horizontal" ? "8px" : "12px"};
 `;
 
 // Separate Styles für diagonale Striche je nach Typ
-const getDiagonalStyles = (type: 'horizontal' | 'vertikal') => {
-  if (type === 'horizontal') {
+const getDiagonalStyles = (type: "horizontal" | "vertikal") => {
+  if (type === "horizontal") {
     return {
       left: `${-0.2 * defaultStyle.container.spacing}px`,
-      top: '18px',
-      transform: 'rotate(-50deg)'
+      top: "18px",
+      transform: "rotate(-50deg)",
     };
   }
   return {
     left: `${3 * defaultStyle.container.spacing - 32}px`, // Feintuning für vertikale Gruppe
-    top: '18px',
-    transform: 'rotate(-45deg)'
+    top: "18px",
+    transform: "rotate(-45deg)",
   };
 };
 
-const StrichDisplay: React.FC<StrichDisplayProps> = ({ type, count, position, style }) => {
+const StrichDisplay: React.FC<StrichDisplayProps> = ({type, count, position, style}) => {
   // Ein einzelner Spring für die ganze Animation
   const spring = useSpring({
-    from: { progress: 0 },
-    to: { progress: count },
-    config: { tension: 400, friction: 15 }
+    from: {progress: 0},
+    to: {progress: count},
+    config: {tension: 400, friction: 15},
   });
 
   const renderStriche = () => {
@@ -151,11 +151,11 @@ const StrichDisplay: React.FC<StrichDisplayProps> = ({ type, count, position, st
               $type={type}
               $position={position}
               style={{
-                opacity: spring.progress.to(p => p > i * 5 + idx ? 1 : 0),
-                transform: spring.progress.to(p => 
-                  p > i * 5 + idx ? 'scale(1)' : 'scale(0)'
+                opacity: spring.progress.to((p) => p > i * 5 + idx ? 1 : 0),
+                transform: spring.progress.to((p) =>
+                  p > i * 5 + idx ? "scale(1)" : "scale(0)"
                 ),
-                left: `${idx * defaultStyle.container.spacing}px`
+                left: `${idx * defaultStyle.container.spacing}px`,
               }}
             />
           ))}
@@ -165,12 +165,12 @@ const StrichDisplay: React.FC<StrichDisplayProps> = ({ type, count, position, st
             $position={position}
             $isDiagonal
             style={{
-              opacity: spring.progress.to(p => p > i * 5 + 4 ? 1 : 0),
-              transform: spring.progress.to(p => 
-                p > i * 5 + 4 ? getDiagonalStyles(type).transform : 'scale(0)'
+              opacity: spring.progress.to((p) => p > i * 5 + 4 ? 1 : 0),
+              transform: spring.progress.to((p) =>
+                p > i * 5 + 4 ? getDiagonalStyles(type).transform : "scale(0)"
               ),
               left: getDiagonalStyles(type).left,
-              top: getDiagonalStyles(type).top
+              top: getDiagonalStyles(type).top,
             }}
           />
         </StrichGroup>
@@ -187,13 +187,13 @@ const StrichDisplay: React.FC<StrichDisplayProps> = ({ type, count, position, st
               $type={type}
               $position={position}
               style={{
-                opacity: spring.progress.to(p => 
+                opacity: spring.progress.to((p) =>
                   p > fullGroups * 5 + idx ? 1 : 0
                 ),
-                transform: spring.progress.to(p => 
-                  p > fullGroups * 5 + idx ? 'scale(1)' : 'scale(0)'
+                transform: spring.progress.to((p) =>
+                  p > fullGroups * 5 + idx ? "scale(1)" : "scale(0)"
                 ),
-                left: `${idx * defaultStyle.container.spacing}px`
+                left: `${idx * defaultStyle.container.spacing}px`,
               }}
             />
           ))}

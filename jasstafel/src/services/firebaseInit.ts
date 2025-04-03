@@ -1,7 +1,7 @@
-import { initializeApp, /*getApps, getApp,*/ FirebaseApp } from "firebase/app";
-import { 
-  getAuth, 
-  signInWithPopup, 
+import {initializeApp, /* getApps, getApp,*/ FirebaseApp} from "firebase/app";
+import {
+  getAuth,
+  signInWithPopup,
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -10,12 +10,12 @@ import {
   sendPasswordResetEmail,
   User,
   Auth,
-  connectAuthEmulator
+  connectAuthEmulator,
 } from "firebase/auth";
-import { getAnalytics, isSupported, Analytics } from "firebase/analytics";
-import { 
-  getFirestore, 
-  collection, 
+import {getAnalytics, isSupported, Analytics} from "firebase/analytics";
+import {
+  getFirestore,
+  collection,
   doc,
   setDoc,
   getDoc,
@@ -29,13 +29,13 @@ import {
   Timestamp,
   Firestore,
   CollectionReference,
-  DocumentData
+  DocumentData,
 } from "firebase/firestore";
-import { getStorage, /*connectStorageEmulator,*/ FirebaseStorage } from 'firebase/storage';
+import {getStorage, /* connectStorageEmulator,*/ FirebaseStorage} from "firebase/storage";
 
 // Prüfen, ob wir in einer lokalen Entwicklungsumgebung sind
-const isLocalEnv = typeof window !== 'undefined' && 
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const isLocalEnv = typeof window !== "undefined" &&
+  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
 
 // Firebase-Konfiguration für Next.js mit dynamischer authDomain
 const firebaseConfig = {
@@ -46,14 +46,14 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 // Debug-Ausgabe der Firebase-Konfiguration (ohne API-Schlüssel)
-console.log('Firebase Config geladen:', {
+console.log("Firebase Config geladen:", {
   authDomain: firebaseConfig.authDomain,
   projectId: firebaseConfig.projectId,
-  apiKeyDefined: !!firebaseConfig.apiKey // Nur prüfen, ob der API-Key definiert ist
+  apiKeyDefined: !!firebaseConfig.apiKey, // Nur prüfen, ob der API-Key definiert ist
 });
 
 // Überprüfen, ob die Firebase-Konfiguration vollständig ist
@@ -63,7 +63,7 @@ const isMissingConfig = () => {
     .map(([configKey]) => configKey);
 
   if (missingFields.length > 0) {
-    console.warn('Fehlende Firebase-Konfigurationsfelder:', missingFields);
+    console.warn("Fehlende Firebase-Konfigurationsfelder:", missingFields);
     return true;
   }
   return false;
@@ -72,10 +72,10 @@ const isMissingConfig = () => {
 // Wenn die Konfiguration unvollständig ist, zeige eine deutliche Warnung
 if (isMissingConfig()) {
   console.error(
-    '❌ FIREBASE-KONFIGURATION FEHLT! ❌\n' +
-    'Bitte stelle sicher, dass du die .env.local Datei korrekt eingerichtet hast.\n' +
-    'Kopiere .env.example zu .env.local und fülle alle NEXT_PUBLIC_FIREBASE_* Werte aus.\n' +
-    'Die Anwendung wird nicht korrekt funktionieren, bis dies behoben ist.'
+    "❌ FIREBASE-KONFIGURATION FEHLT! ❌\n" +
+    "Bitte stelle sicher, dass du die .env.local Datei korrekt eingerichtet hast.\n" +
+    "Kopiere .env.example zu .env.local und fülle alle NEXT_PUBLIC_FIREBASE_* Werte aus.\n" +
+    "Die Anwendung wird nicht korrekt funktionieren, bis dies behoben ist."
   );
 
   // Wir setzen keinen Fallback mehr, da dies ein Sicherheitsrisiko darstellt
@@ -84,16 +84,16 @@ if (isMissingConfig()) {
 
 // CORS-Workaround für localhost
 if (isLocalEnv) {
-  console.log('Lokale Entwicklungsumgebung erkannt, optimiere Konfiguration für localhost');
-  
+  console.log("Lokale Entwicklungsumgebung erkannt, optimiere Konfiguration für localhost");
+
   // Firebase Authentifizierung im Offline-Modus deaktivieren
-  if (process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_ENABLED === 'false') {
-    console.log('Firebase-Authentifizierung ist in der lokalen Entwicklungsumgebung eingeschränkt.');
-    console.log('Für den Offline-Modus wird empfohlen, die lokale Entwicklungsanmeldung zu verwenden.');
-    console.log('Oder aktiviere die Firebase Auth Emulator-Suite durch Setzen von NEXT_PUBLIC_FIREBASE_EMULATOR_ENABLED=true');
+  if (process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_ENABLED === "false") {
+    console.log("Firebase-Authentifizierung ist in der lokalen Entwicklungsumgebung eingeschränkt.");
+    console.log("Für den Offline-Modus wird empfohlen, die lokale Entwicklungsanmeldung zu verwenden.");
+    console.log("Oder aktiviere die Firebase Auth Emulator-Suite durch Setzen von NEXT_PUBLIC_FIREBASE_EMULATOR_ENABLED=true");
   }
-  
-  console.log('Lokale Entwicklung: authDomain auf "localhost" gesetzt, um CORS- und Referer-Probleme zu vermeiden.');
+
+  console.log("Lokale Entwicklung: authDomain auf \"localhost\" gesetzt, um CORS- und Referer-Probleme zu vermeiden.");
 }
 
 // Initialisiere Firebase nur, wenn die Konfiguration vorhanden ist
@@ -108,75 +108,75 @@ let isFirebaseInitialized = false;
 try {
   // Initialisiere Firebase
   app = initializeApp(firebaseConfig);
-  
+
   // Auth initialisieren
   auth = getAuth(app);
-  
+
   // Emulator-Konfiguration
-  if (process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_ENABLED === 'true') {
-    console.log('Verbinde mit Firebase Auth Emulator auf localhost:9099');
-    connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+  if (process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_ENABLED === "true") {
+    console.log("Verbinde mit Firebase Auth Emulator auf localhost:9099");
+    connectAuthEmulator(auth, "http://127.0.0.1:9099", {disableWarnings: true});
   }
-  
+
   // Für die lokale Entwicklung: Zusätzliche Konfiguration für Auth
   if (isLocalEnv) {
     // DEAKTIVIERT: Auth Domain Überschreibung entfernt, damit Firebase Auth korrekt funktioniert
     // auth.config.authDomain = 'localhost';
     // console.log('Auth authDomain explizit auf "localhost" gesetzt');
-    
+
     // Debug-Information
-    console.log('Verwende Firebase Auth mit Original Auth Domain für korrekte Authentifizierung');
+    console.log("Verwende Firebase Auth mit Original Auth Domain für korrekte Authentifizierung");
   }
-  
+
   // Firestore initialisieren
   db = getFirestore(app);
-  
+
   // Firestore Emulator deaktiviert, da Java nicht installiert ist
   // if (process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_ENABLED === 'true') {
   //   console.log('Verbinde mit Firestore Emulator auf localhost:8080');
   //   connectFirestoreEmulator(db, 'localhost', 8080);
   // }
-  
+
   storage = getStorage(app);
-  
+
   isFirebaseInitialized = true;
-  
+
   // Analytics bedingt initialisieren (falls im Browser)
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     // Prüfen, ob wir in lokaler Entwicklung sind
     if (isLocalEnv) {
-      console.log('Analytics wird in der lokalen Entwicklungsumgebung deaktiviert');
+      console.log("Analytics wird in der lokalen Entwicklungsumgebung deaktiviert");
       analytics = null; // Kein Analytics in lokaler Entwicklung
     } else {
       // Nur im Browser und in Produktion Analytics initialisieren
-      isSupported().then(supported => {
+      isSupported().then((supported) => {
         if (supported) {
           analytics = getAnalytics(app);
         }
-      }).catch(error => {
-        console.error('Analytics nicht unterstützt:', error);
+      }).catch((error) => {
+        console.error("Analytics nicht unterstützt:", error);
       });
     }
   }
 
   // Zusätzliche Debugging-Informationen für lokale Entwicklung
   if (isLocalEnv) {
-    console.log('Lokale Entwicklungsumgebung: Vollständige Firebase-Konfiguration:', {
+    console.log("Lokale Entwicklungsumgebung: Vollständige Firebase-Konfiguration:", {
       ...firebaseConfig,
-      apiKey: firebaseConfig.apiKey ? '[VORHANDEN]' : '[FEHLT]' // Zeige nicht den tatsächlichen API-Key
+      apiKey: firebaseConfig.apiKey ? "[VORHANDEN]" : "[FEHLT]", // Zeige nicht den tatsächlichen API-Key
     });
-    
+
     // Für die lokale Entwicklung ohne Emulator gibt es einige Einschränkungen
     console.warn(
-      'Hinweis: In der lokalen Entwicklungsumgebung wurde die Firebase-Auth ' +
-      'für die korrekte Verwendung mit localhost konfiguriert. ' +
-      'Falls weiterhin Probleme auftreten, verwende die lokale Entwicklungsanmeldung oder ' +
-      'aktiviere die Firebase Auth Emulator-Suite.'
+      "Hinweis: In der lokalen Entwicklungsumgebung wurde die Firebase-Auth " +
+      "für die korrekte Verwendung mit localhost konfiguriert. " +
+      "Falls weiterhin Probleme auftreten, verwende die lokale Entwicklungsanmeldung oder " +
+      "aktiviere die Firebase Auth Emulator-Suite."
     );
   }
 } catch (error) {
-  console.error('Fehler bei der Firebase-Initialisierung:', error);
-  
+  console.error("Fehler bei der Firebase-Initialisierung:", error);
+
   // Dummy-Objekte erstellen
   // @ts-expect-error - Firebase-App-Dummy für Offline-Mode
   app = {};
@@ -191,14 +191,14 @@ try {
 const registerWithEmailAndPassword = async (email: string, password: string): Promise<User> => {
   try {
     if (!isFirebaseInitialized) {
-      throw new Error('Firebase Auth ist nicht initialisiert oder im Offline-Modus.');
+      throw new Error("Firebase Auth ist nicht initialisiert oder im Offline-Modus.");
     }
-    
+
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     await sendEmailVerification(userCredential.user);
     return userCredential.user;
   } catch (error) {
-    console.error('Error during registration:', error);
+    console.error("Error during registration:", error);
     throw error;
   }
 };
@@ -206,12 +206,12 @@ const registerWithEmailAndPassword = async (email: string, password: string): Pr
 const resetPassword = async (email: string): Promise<void> => {
   try {
     if (!isFirebaseInitialized) {
-      throw new Error('Firebase Auth ist nicht initialisiert oder im Offline-Modus.');
+      throw new Error("Firebase Auth ist nicht initialisiert oder im Offline-Modus.");
     }
-    
+
     await sendPasswordResetEmail(auth, email);
   } catch (error) {
-    console.error('Error resetting password:', error);
+    console.error("Error resetting password:", error);
     throw error;
   }
 };
@@ -219,14 +219,14 @@ const resetPassword = async (email: string): Promise<void> => {
 const signInWithGoogle = async (): Promise<User> => {
   try {
     if (!isFirebaseInitialized) {
-      throw new Error('Firebase Auth ist nicht initialisiert oder im Offline-Modus.');
+      throw new Error("Firebase Auth ist nicht initialisiert oder im Offline-Modus.");
     }
-    
+
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
     return result.user;
   } catch (error) {
-    console.error('Error signing in with Google:', error);
+    console.error("Error signing in with Google:", error);
     throw error;
   }
 };
@@ -246,32 +246,32 @@ let collections: Collections = {
   players: null,
   groups: null,
   games: null,
-  teams: null
+  teams: null,
 };
 
 if (isFirebaseInitialized) {
   try {
     collections = {
-      users: collection(db, 'users'),
-      players: collection(db, 'players'),
-      groups: collection(db, 'groups'),
-      games: collection(db, 'games'),
-      teams: collection(db, 'teams')
+      users: collection(db, "users"),
+      players: collection(db, "players"),
+      groups: collection(db, "groups"),
+      games: collection(db, "games"),
+      teams: collection(db, "teams"),
     };
   } catch (error) {
-    console.error('Fehler beim Initialisieren der Firestore-Collections:', error);
+    console.error("Fehler beim Initialisieren der Firestore-Collections:", error);
   }
 }
 
-export { 
-  auth, 
-  analytics, 
-  app, 
+export {
+  auth,
+  analytics,
+  app,
   db,
   storage,
-  registerWithEmailAndPassword, 
+  registerWithEmailAndPassword,
   signInWithEmailAndPassword,
-  resetPassword, 
+  resetPassword,
   signInWithGoogle,
   createUserWithEmailAndPassword,
   sendEmailVerification,
@@ -290,11 +290,11 @@ export {
   updateDoc,
   deleteDoc,
   serverTimestamp,
-  Timestamp
+  Timestamp,
 };
 
 export const firebaseApp = app;
-export { collections };
+export {collections};
 
 // Prüft, ob wir im lokalen Entwicklungsmodus sind
 export const isLocalDevelopment = () => {
@@ -304,15 +304,15 @@ export const isLocalDevelopment = () => {
 // Prüft, ob wir im Offline-Modus arbeiten sollten (lokale Entwicklung oder explizite Konfiguration)
 export const isOfflineMode = () => {
   // Nur aktivieren, wenn explizit angefordert
-  return process.env.NEXT_PUBLIC_FIREBASE_PREFER_OFFLINE === 'true';
+  return process.env.NEXT_PUBLIC_FIREBASE_PREFER_OFFLINE === "true";
   // Original: return isLocalDevelopment() && process.env.NEXT_PUBLIC_FIREBASE_PREFER_OFFLINE === 'true';
-}
+};
 
 // Prüft, ob lokale Authentifizierung verwendet werden soll
 export const useLocalAuth = () => {
   // Lokale Authentifizierung explizit aktivieren
-  return isLocalDevelopment() && process.env.NEXT_PUBLIC_FIREBASE_USE_LOCAL_AUTH === 'true';
-}
+  return isLocalDevelopment() && process.env.NEXT_PUBLIC_FIREBASE_USE_LOCAL_AUTH === "true";
+};
 
 // Flag zur Prüfung, ob Firebase korrekt initialisiert wurde
 export const isFirebaseReady = isFirebaseInitialized;

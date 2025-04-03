@@ -1,4 +1,4 @@
-import { MAX_SCORE } from '../config/ScoreSettings';
+import {MAX_SCORE} from "../config/ScoreSettings";
 
 export function validateAndClampScore(score: number): number {
   return Math.max(0, score); // Nur negative Zahlen verhindern
@@ -26,5 +26,5 @@ export function convertToRomanNumerals(score: number): string {
   const fifties = Math.floor((score % 100) / 50);
   const twenties = Math.floor((score % 50) / 20);
 
-  return 'X'.repeat(hundreds) + 'L'.repeat(fifties) + 'I'.repeat(twenties);
+  return "X".repeat(hundreds) + "L".repeat(fifties) + "I".repeat(twenties);
 }

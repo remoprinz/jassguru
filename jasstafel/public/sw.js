@@ -67,7 +67,7 @@ if (!self.define) {
     });
   };
 }
-define(['./workbox-e43f5367'], (function (workbox) { 'use strict';
+define(['./workbox-52d22c71'], (function (workbox) { 'use strict';
 
   importScripts();
   self.skipWaiting();
@@ -98,4 +98,3 @@ define(['./workbox-e43f5367'], (function (workbox) { 'use strict';
   }), 'GET');
 
 }));
-//# sourceMappingURL=sw.js.map

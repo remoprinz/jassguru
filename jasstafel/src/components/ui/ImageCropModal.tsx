@@ -1,9 +1,9 @@
-import React, { useState, useCallback } from 'react';
-import Cropper, { Area } from 'react-easy-crop';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
-import { getCroppedImg } from '@/utils/cropImage'; // Hilfsfunktion, die wir noch erstellen müssen
+import React, {useState, useCallback} from "react";
+import Cropper, {Area} from "react-easy-crop";
+import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter} from "@/components/ui/dialog";
+import {Button} from "@/components/ui/button";
+import {Slider} from "@/components/ui/slider";
+import {getCroppedImg} from "@/utils/cropImage"; // Hilfsfunktion, die wir noch erstellen müssen
 
 interface ImageCropModalProps {
   isOpen: boolean;
@@ -12,8 +12,8 @@ interface ImageCropModalProps {
   onCropComplete: (blob: Blob | null) => void;
 }
 
-const ImageCropModal: React.FC<ImageCropModalProps> = ({ isOpen, onClose, imageSrc, onCropComplete }) => {
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
+const ImageCropModal: React.FC<ImageCropModalProps> = ({isOpen, onClose, imageSrc, onCropComplete}) => {
+  const [crop, setCrop] = useState({x: 0, y: 0});
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
 
@@ -26,7 +26,7 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({ isOpen, onClose, imageS
     onClose();
     // Reset state if needed when closing
     setZoom(1);
-    setCrop({ x: 0, y: 0 });
+    setCrop({x: 0, y: 0});
   };
 
   const showCroppedImage = useCallback(async () => {
@@ -43,9 +43,9 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({ isOpen, onClose, imageS
       onClose();
       // Reset state after successful crop
       setZoom(1);
-      setCrop({ x: 0, y: 0 });
+      setCrop({x: 0, y: 0});
     } catch (e) {
-      console.error('Error cropping image:', e);
+      console.error("Error cropping image:", e);
       onCropComplete(null); // Signalisiert Fehler
       onClose();
     }
@@ -69,7 +69,7 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({ isOpen, onClose, imageS
         <DialogHeader className="pt-0 px-0">
           <DialogTitle>Bild zuschneiden</DialogTitle>
         </DialogHeader>
-        <div className="relative h-64 w-full bg-gray-900"> 
+        <div className="relative h-64 w-full bg-gray-900">
           <Cropper
             image={imageSrc}
             crop={crop}
@@ -110,14 +110,14 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({ isOpen, onClose, imageS
           </Button>
         </div>
         <DialogFooter className="flex-col space-y-2 sm:flex-col sm:space-x-0 sm:space-y-2">
-          <Button 
-            onClick={showCroppedImage} 
+          <Button
+            onClick={showCroppedImage}
             className="w-full bg-blue-600 hover:bg-blue-700"
-          > 
+          >
             Zuschneiden
           </Button>
-          <Button 
-            onClick={handleClose} 
+          <Button
+            onClick={handleClose}
             className="w-full bg-gray-600 text-white hover:bg-gray-500 border border-gray-500"
           >
             Abbrechen
@@ -128,4 +128,4 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({ isOpen, onClose, imageS
   );
 };
 
-export default ImageCropModal; 
+export default ImageCropModal;

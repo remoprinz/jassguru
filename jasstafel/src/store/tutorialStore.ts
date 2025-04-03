@@ -1,16 +1,16 @@
 // src/store/tutorialStore.ts
 
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { isDev, FORCE_TUTORIAL } from '../utils/devUtils';
-import { 
+import {create} from "zustand";
+import {persist, createJSONStorage} from "zustand/middleware";
+import {isDev, FORCE_TUTORIAL} from "../utils/devUtils";
+import {
   type TutorialStore,
   TutorialCategory,
   type TutorialStepId,
-  type TutorialEventName
-} from '../types/tutorial';
-import { TUTORIAL_CONTENT } from '../constants/tutorialContent';
-import { isPWA } from '../utils/browserDetection';
+  type TutorialEventName,
+} from "../types/tutorial";
+import {TUTORIAL_CONTENT} from "../constants/tutorialContent";
+import {isPWA} from "../utils/browserDetection";
 
 export const useTutorialStore = create<TutorialStore>()(
   persist(
@@ -24,7 +24,7 @@ export const useTutorialStore = create<TutorialStore>()(
         settingsClose: false,
         calculatorClose: false,
         gameInfoClose: false,
-        resultatKreidetafelClose: false
+        resultatKreidetafelClose: false,
       },
       completedCategories: [],
 
@@ -33,26 +33,26 @@ export const useTutorialStore = create<TutorialStore>()(
       activeEvents: new Set<TutorialEventName>(),
 
       // Actions
-      setActive: (active: boolean) => set({ 
+      setActive: (active: boolean) => set({
         isActive: active,
-        currentStepIndex: active ? get().currentStepIndex : 0
+        currentStepIndex: active ? get().currentStepIndex : 0,
       }),
 
       startTutorial: (stepId?: TutorialStepId, options?: { isHelpMode?: boolean }) => {
         if (!isDev && !isPWA()) return;
-        
+
         const state = get();
         if (state.hasCompletedTutorial && !FORCE_TUTORIAL && !stepId) return;
-        
+
         // Cleanup vorheriger Events
         state.cleanupStepEvents();
 
         set({
           isActive: true,
           isHelpMode: options?.isHelpMode ?? false,
-          currentStepIndex: stepId 
-            ? state.steps.findIndex(step => step.id === stepId)
-            : 0
+          currentStepIndex: stepId ?
+            state.steps.findIndex((step) => step.id === stepId) :
+            0,
         });
       },
 
@@ -63,67 +63,67 @@ export const useTutorialStore = create<TutorialStore>()(
           isActive: false,
           isHelpMode: false,
           currentStepIndex: 0,
-          hasCompletedTutorial: neverShowAgain
+          hasCompletedTutorial: neverShowAgain,
         });
       },
 
       nextStep: () => {
-        const { steps, currentStepIndex } = get();
+        const {steps, currentStepIndex} = get();
         const currentStep = steps[currentStepIndex];
-        
-        console.log('🎯 Tutorial nextStep:', {
+
+        console.log("🎯 Tutorial nextStep:", {
           from: currentStep?.id,
           currentIndex: currentStepIndex,
           nextIndex: currentStepIndex + 1,
-          nextStep: steps[currentStepIndex + 1]?.id
+          nextStep: steps[currentStepIndex + 1]?.id,
         });
-        
+
         // 1. Erst onExit
         currentStep?.onExit?.();
-        
+
         // 2. Navigation prüfen (mit Type Guard)
-        if (currentStep?.navigation && 'next' in currentStep.navigation) {
+        if (currentStep?.navigation && "next" in currentStep.navigation) {
           const nextNavigation = currentStep.navigation.next;
           if (nextNavigation?.targetStep) {
             const targetIndex = steps.findIndex(
-              step => step.id === nextNavigation.targetStep
+              (step) => step.id === nextNavigation.targetStep
             );
             if (targetIndex !== -1) {
-              set({ currentStepIndex: targetIndex });
+              set({currentStepIndex: targetIndex});
               // 3. Dann onEnter des Ziel-Steps
               steps[targetIndex]?.onEnter?.();
               return;
             }
           }
         }
-        
+
         // Standard-Navigation
         const nextIndex = currentStepIndex + 1;
         if (nextIndex < steps.length) {
-          set({ currentStepIndex: nextIndex });
+          set({currentStepIndex: nextIndex});
           steps[nextIndex]?.onEnter?.();
         }
       },
 
       previousStep: () => {
-        const { steps, currentStepIndex } = get();
+        const {steps, currentStepIndex} = get();
         const currentStep = steps[currentStepIndex];
 
         // Erst UI-Updates durchführen
         if (currentStep?.navigation?.back) {
           const targetStep = steps.find(
-            step => step.id === currentStep.navigation?.back?.targetStep
+            (step) => step.id === currentStep.navigation?.back?.targetStep
           );
           if (targetStep?.onEnter) {
             targetStep.onEnter(); // UI-Updates VOR dem Step-Wechsel
           }
-          
+
           // Dann erst den Step wechseln
           const targetIndex = steps.findIndex(
-            step => step.id === currentStep.navigation?.back?.targetStep
+            (step) => step.id === currentStep.navigation?.back?.targetStep
           );
           if (targetIndex !== -1) {
-            set({ currentStepIndex: targetIndex });
+            set({currentStepIndex: targetIndex});
             return;
           }
         }
@@ -134,17 +134,17 @@ export const useTutorialStore = create<TutorialStore>()(
           if (prevStep.onEnter) {
             prevStep.onEnter();
           }
-          set({ currentStepIndex: currentStepIndex - 1 });
+          set({currentStepIndex: currentStepIndex - 1});
         }
       },
 
-      skipTutorial: () => set({ 
-        isActive: false, 
-        hasCompletedTutorial: true 
+      skipTutorial: () => set({
+        isActive: false,
+        hasCompletedTutorial: true,
       }),
 
       getCurrentStep: () => {
-        const { steps, currentStepIndex, isActive } = get();
+        const {steps, currentStepIndex, isActive} = get();
         if (!isActive || !steps) return null;
         return steps[currentStepIndex];
       },
@@ -152,23 +152,23 @@ export const useTutorialStore = create<TutorialStore>()(
       resetTutorial: () => set({
         isActive: false,
         currentStepIndex: 0,
-        hasCompletedTutorial: false
+        hasCompletedTutorial: false,
       }),
 
-      setTutorialUIBlocking: (blocking: { [key: string]: boolean }) => 
+      setTutorialUIBlocking: (blocking: { [key: string]: boolean }) =>
         set((state): Partial<TutorialStore> => ({
           tutorialUIBlocking: {
             ...state.tutorialUIBlocking,
-            ...blocking
-          }
+            ...blocking,
+          },
         })),
 
-      markCategoryAsCompleted: (category: TutorialCategory) => 
-        set(state => ({
-          completedCategories: [...state.completedCategories, category]
+      markCategoryAsCompleted: (category: TutorialCategory) =>
+        set((state) => ({
+          completedCategories: [...state.completedCategories, category],
         })),
 
-      isCategoryCompleted: (category) => 
+      isCategoryCompleted: (category) =>
         get().completedCategories.includes(category),
 
       // Neue Actions
@@ -179,45 +179,45 @@ export const useTutorialStore = create<TutorialStore>()(
           set({
             isActive: false,
             isHelpMode: false,
-            currentStepIndex: 0
+            currentStepIndex: 0,
           });
         }
       },
 
       cleanupStepEvents: () => {
         const state = get();
-        
+
         // Cleanup alle registrierten Events
-        state.activeEvents.forEach(eventName => {
+        state.activeEvents.forEach((eventName) => {
           document.removeEventListener(eventName, () => {});
         });
 
         // UI-Blocking zurücksetzen
-        set(state => ({
+        set((state) => ({
           activeEvents: new Set(),
           tutorialUIBlocking: {
             calculatorClose: false,
             gameInfoClose: false,
             settingsClose: false,
-            resultatKreidetafelClose: false
-          }
+            resultatKreidetafelClose: false,
+          },
         }));
       },
 
       // Helper für Event-Registrierung
       registerEvent: (eventName: TutorialEventName) => {
-        set(state => ({
-          activeEvents: new Set([...state.activeEvents, eventName])
+        set((state) => ({
+          activeEvents: new Set([...state.activeEvents, eventName]),
         }));
-      }
+      },
     }),
     {
-      name: isDev ? 'dev-tutorial-storage' : 'jass-tutorial-storage',
+      name: isDev ? "dev-tutorial-storage" : "jass-tutorial-storage",
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         hasCompletedTutorial: state.hasCompletedTutorial,
-        completedCategories: state.completedCategories
-      })
+        completedCategories: state.completedCategories,
+      }),
     }
   )
 );

@@ -1,65 +1,65 @@
-import React, { useCallback, useMemo, useEffect } from 'react';
-import { useUIStore } from '../../store/uiStore';
-import { motion, AnimatePresence } from 'framer-motion';
-import { usePressableButton } from '../../hooks/usePressableButton';
+import React, {useCallback, useMemo, useEffect} from "react";
+import {useUIStore} from "../../store/uiStore";
+import {motion, AnimatePresence} from "framer-motion";
+import {usePressableButton} from "../../hooks/usePressableButton";
 
 const JassFinishNotification: React.FC = () => {
-  const notification = useUIStore(state => state.jassFinishNotification);
-  
-  const { 
+  const notification = useUIStore((state) => state.jassFinishNotification);
+
+  const {
     jassFinishNotification: {
       isOpen,
-      message = { text: "Jass beendet!", icon: "♥️" },
-      mode = 'share',
+      message = {text: "Jass beendet!", icon: "♥️"},
+      mode = "share",
       onShare = async () => {},
       onBack = () => {},
-      onContinue = () => {}
+      onContinue = () => {},
     },
-    closeJassFinishNotification 
+    closeJassFinishNotification,
   } = useUIStore();
-  
-  const isFlipped = useUIStore(state => state.resultatKreidetafel.swipePosition === 'top');
+
+  const isFlipped = useUIStore((state) => state.resultatKreidetafel.swipePosition === "top");
 
   const displayIcons = useMemo(() => {
-    if (typeof message !== 'string' && message.icon) {
+    if (typeof message !== "string" && message.icon) {
       return [message.icon];
     }
 
     const icons: string[] = [];
-    const msgText = typeof message === 'string' ? message : message.text;
+    const msgText = typeof message === "string" ? message : message.text;
     const msg = msgText.toLowerCase();
-    
-    if (msg.includes('schneider')) {
-      icons.push('✂️');
+
+    if (msg.includes("schneider")) {
+      icons.push("✂️");
       return icons;
     }
-    
-    if (msg.includes('unentschieden')) {
-      icons.push('🤝');
-    } else if (msg.includes('vernichtend')) {
-      icons.push('💥');
-    } else if (msg.includes('knapp')) {
-      icons.push('😅');
+
+    if (msg.includes("unentschieden")) {
+      icons.push("🤝");
+    } else if (msg.includes("vernichtend")) {
+      icons.push("💥");
+    } else if (msg.includes("knapp")) {
+      icons.push("😅");
     }
 
-    if (msg.includes('matsch')) {
-      icons.push('💪');
+    if (msg.includes("matsch")) {
+      icons.push("💪");
     }
-    if (msg.includes('rekord')) {
-      icons.push('🏆');
+    if (msg.includes("rekord")) {
+      icons.push("🏆");
     }
-    if (msg.includes('schnell') || msg.includes('blitz')) {
-      icons.push('⚡');
+    if (msg.includes("schnell") || msg.includes("blitz")) {
+      icons.push("⚡");
     }
-    if (msg.includes('langsam') || msg.includes('gemütlich')) {
-      icons.push('��');
+    if (msg.includes("langsam") || msg.includes("gemütlich")) {
+      icons.push("��");
     }
 
     if (icons.length === 0) {
-      if (mode === 'share') {
-        icons.push('🎉');
+      if (mode === "share") {
+        icons.push("🎉");
       } else {
-        icons.push(typeof message === 'string' ? '🎲' : message.icon);
+        icons.push(typeof message === "string" ? "🎲" : message.icon);
       }
     }
 
@@ -67,11 +67,11 @@ const JassFinishNotification: React.FC = () => {
   }, [message, mode]);
 
   const displayContent = useMemo(() => {
-    if (mode === 'share') {
+    if (mode === "share") {
       return (
-        <img 
-          src="/welcome-guru.png" 
-          alt="Jass Guru" 
+        <img
+          src="/welcome-guru.png"
+          alt="Jass Guru"
           className="w-64 h-64 object-cover mb-6 rounded-lg"
         />
       );
@@ -91,19 +91,19 @@ const JassFinishNotification: React.FC = () => {
       if (onShare) {
         await onShare();
       }
-      
-      const shareText = typeof message === 'string' ? message : message.text;
-      const appUrl = 'https://jassguru.web.app';
+
+      const shareText = typeof message === "string" ? message : message.text;
+      const appUrl = "https://jassguru.web.app";
       const fullShareText = `${shareText}\n\nGeneriert mit 👉 ${appUrl}`;
-      
+
       // Überprüfen ob Web Share API verfügbar ist
       if (navigator.share) {
         try {
           await navigator.share({
-            text: fullShareText
+            text: fullShareText,
           });
         } catch (error) {
-          console.error('Share failed:', error);
+          console.error("Share failed:", error);
           // Fallback: Text in Zwischenablage kopieren
           await navigator.clipboard.writeText(fullShareText);
           // TODO: Zeige Feedback dass Text kopiert wurde
@@ -113,10 +113,10 @@ const JassFinishNotification: React.FC = () => {
         await navigator.clipboard.writeText(fullShareText);
         // TODO: Zeige Feedback dass Text kopiert wurde
       }
-      
+
       closeJassFinishNotification();
     } catch (error) {
-      console.error('Share error:', error);
+      console.error("Share error:", error);
     }
   }, [onShare, message, closeJassFinishNotification]);
 
@@ -136,11 +136,11 @@ const JassFinishNotification: React.FC = () => {
 
   // Nur die Button-Handler mit usePressableButton ausstatten
   const backButton = usePressableButton(handleBack);
-  const actionButton = usePressableButton(mode === 'share' ? handleShare : handleContinue);
+  const actionButton = usePressableButton(mode === "share" ? handleShare : handleContinue);
 
   useEffect(() => {
     if (isOpen) {
-      useUIStore.setState(state => ({
+      useUIStore.setState((state) => ({
         // ... State-Updates hier
       }));
     }
@@ -149,29 +149,29 @@ const JassFinishNotification: React.FC = () => {
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+        <motion.div
+          initial={{opacity: 0}}
+          animate={{opacity: 1}}
+          exit={{opacity: 0}}
           className={`fixed inset-0 flex items-center justify-center z-[9999] ${
-            isFlipped ? 'rotate-180' : ''
+            isFlipped ? "rotate-180" : ""
           }`}
         >
-          <div 
-            className="fixed inset-0 bg-black bg-opacity-50" 
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50"
             onClick={handleBack}
           />
-          <motion.div 
-            initial={{ scale: 0.95 }}
-            animate={{ scale: 1 }}
-            exit={{ scale: 0.95 }}
+          <motion.div
+            initial={{scale: 0.95}}
+            animate={{scale: 1}}
+            exit={{scale: 0.95}}
             className="bg-gray-800 p-6 rounded-lg shadow-lg max-w-xs w-full relative text-white z-10"
           >
             <div className="flex flex-col items-center justify-center mb-4">
               {displayContent}
               <div className="text-center mb-6">
                 <p className="mb-2">
-                  {typeof message === 'string' ? message : message.text}
+                  {typeof message === "string" ? message : message.text}
                 </p>
               </div>
             </div>
@@ -186,7 +186,7 @@ const JassFinishNotification: React.FC = () => {
               >
                 Zurück
               </button>
-              {mode === 'share' ? (
+              {mode === "share" ? (
                 <button
                   {...actionButton.handlers}
                   className={`

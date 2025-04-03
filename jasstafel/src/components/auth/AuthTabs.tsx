@@ -1,30 +1,30 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/router';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LoginForm } from './LoginForm';
-import { RegisterForm } from './RegisterForm';
-import { useAuthStore } from '@/store/authStore';
-import { Button } from '@/components/ui/button';
-import { FiArrowLeft } from 'react-icons/fi';
+import React, {useState} from "react";
+import {useRouter} from "next/router";
+import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
+import {LoginForm} from "./LoginForm";
+import {RegisterForm} from "./RegisterForm";
+import {useAuthStore} from "@/store/authStore";
+import {Button} from "@/components/ui/button";
+import {FiArrowLeft} from "react-icons/fi";
 
 export interface AuthTabsProps {
-  defaultTab?: 'login' | 'register';
+  defaultTab?: "login" | "register";
 }
 
-const AuthTabs: React.FC<AuthTabsProps> = ({ defaultTab = 'login' }) => {
+const AuthTabs: React.FC<AuthTabsProps> = ({defaultTab = "login"}) => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<string>(defaultTab);
-  const { continueAsGuest } = useAuthStore();
+  const {continueAsGuest} = useAuthStore();
 
   const handleGuestPlay = () => {
     continueAsGuest();
-    router.push('/jass');
+    router.push("/jass");
   };
 
   const handleBack = () => {
-    router.push('/');
+    router.push("/");
   };
 
   return (
@@ -39,40 +39,40 @@ const AuthTabs: React.FC<AuthTabsProps> = ({ defaultTab = 'login' }) => {
 
       <div className="mb-6 text-center">
         <h1 className="text-2xl font-bold text-white">
-          {activeTab === 'login' ? 'Anmelden' : 'Registrieren'}
+          {activeTab === "login" ? "Anmelden" : "Registrieren"}
         </h1>
         <p className="text-gray-400 mt-1">
-          {activeTab === 'login' 
-            ? 'Melde dich an, um auf deine gespeicherten Spiele, Statistiken und dein Profil zuzugreifen.' 
-            : 'Registriere dich, um Spiele zu speichern, Statistiken zu verfolgen und dein Jass-Profil zu erstellen.'}
+          {activeTab === "login" ?
+            "Melde dich an, um auf deine gespeicherten Spiele, Statistiken und dein Profil zuzugreifen." :
+            "Registriere dich, um Spiele zu speichern, Statistiken zu verfolgen und dein Jass-Profil zu erstellen."}
         </p>
       </div>
 
-      <Tabs 
-        defaultValue={defaultTab} 
+      <Tabs
+        defaultValue={defaultTab}
         value={activeTab}
         onValueChange={setActiveTab}
         className="w-full"
       >
         <TabsList className="grid grid-cols-2 mb-6 bg-gray-700">
-          <TabsTrigger 
+          <TabsTrigger
             value="login"
             className="data-[state=active]:bg-gray-600 data-[state=active]:text-white"
           >
             Anmelden
           </TabsTrigger>
-          <TabsTrigger 
+          <TabsTrigger
             value="register"
             className="data-[state=active]:bg-gray-600 data-[state=active]:text-white"
           >
             Registrieren
           </TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="login" className="mt-0">
           <LoginForm />
         </TabsContent>
-        
+
         <TabsContent value="register" className="mt-0">
           <RegisterForm />
         </TabsContent>
@@ -91,4 +91,4 @@ const AuthTabs: React.FC<AuthTabsProps> = ({ defaultTab = 'login' }) => {
   );
 };
 
-export default AuthTabs; 
+export default AuthTabs;

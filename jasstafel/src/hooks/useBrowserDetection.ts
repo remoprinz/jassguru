@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import {useState, useEffect} from "react";
 
 interface BrowserMessage {
   show: boolean;
@@ -12,7 +12,7 @@ interface IosNavigator extends Navigator {
 }
 
 export const isIOS = () => {
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     const userAgent = window.navigator.userAgent.toLowerCase();
     return /iphone|ipad|ipod/.test(userAgent);
   }
@@ -20,10 +20,10 @@ export const isIOS = () => {
 };
 
 export const isPWA = () => {
-  if (typeof window !== 'undefined') {
-    return window.matchMedia('(display-mode: standalone)').matches ||
+  if (typeof window !== "undefined") {
+    return window.matchMedia("(display-mode: standalone)").matches ||
            (window.navigator as IosNavigator).standalone ||
-           document.referrer.includes('android-app://');
+           document.referrer.includes("android-app://");
   }
   return false;
 };
@@ -31,8 +31,8 @@ export const isPWA = () => {
 export const useBrowserDetection = (hasShownIntro: boolean) => {
   const [browserMessage, setBrowserMessage] = useState<BrowserMessage>({
     show: false,
-    message: '',
-    title: ''
+    message: "",
+    title: "",
   });
 
   useEffect(() => {
@@ -41,17 +41,17 @@ export const useBrowserDetection = (hasShownIntro: boolean) => {
     if (!isStandalone) {
       setBrowserMessage({
         show: true,
-        title: 'Installiere die Jasstafel-App',
+        title: "Installiere die Jasstafel-App",
         message: `Auf iOS: Tippe unten auf das "Teilen-Symbol" (Böxchen mit Pfeil nach oben) und wähle "Zum Home-Bildschirm".
 
-Auf Android: Tippe oben rechts auf "Menü", dann "Zum Startbildschirm beifügen".`
+Auf Android: Tippe oben rechts auf "Menü", dann "Zum Startbildschirm beifügen".`,
       });
     }
   }, [hasShownIntro]);
 
   const dismissMessage = () => {
-    setBrowserMessage({ show: false, message: '', title: '' });
+    setBrowserMessage({show: false, message: "", title: ""});
   };
 
-  return { browserMessage, dismissMessage };
+  return {browserMessage, dismissMessage};
 };

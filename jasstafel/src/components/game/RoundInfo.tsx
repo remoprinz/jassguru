@@ -1,7 +1,7 @@
-import React from 'react';
-import { animated, useSpring } from 'react-spring';
-import { useGameStore } from '../../store/gameStore';
-import { PlayerNumber } from '../../types/jass';
+import React from "react";
+import {animated, useSpring} from "react-spring";
+import {useGameStore} from "../../store/gameStore";
+import {PlayerNumber} from "../../types/jass";
 
 interface RoundInfoProps {
   currentPlayer: PlayerNumber;
@@ -13,20 +13,20 @@ interface RoundInfoProps {
   roundStartTime: number | null;
 }
 
-const RoundInfo: React.FC<RoundInfoProps> = ({ 
-  currentPlayer, 
-  opacity, 
-  isOpen, 
-  isGameStarted 
+const RoundInfo: React.FC<RoundInfoProps> = ({
+  currentPlayer,
+  opacity,
+  isOpen,
+  isGameStarted,
 }) => {
-  const { playerNames } = useGameStore();
-  
+  const {playerNames} = useGameStore();
+
   const fadeProps = useSpring({
-    from: { opacity: 0 },
-    to: { opacity: isOpen ? 0 : opacity },
-    config: { duration: 150 },
+    from: {opacity: 0},
+    to: {opacity: isOpen ? 0 : opacity},
+    config: {duration: 150},
     delay: isOpen ? 0 : 750,
-    immediate: isOpen
+    immediate: isOpen,
   });
 
   if (isOpen) return null;
@@ -39,15 +39,15 @@ const RoundInfo: React.FC<RoundInfoProps> = ({
 
     return (
       <div className="flex items-center gap-1.5">
-        <span className={currentPlayer === player1 
-          ? "text-white font-semibold text-xl"
-          : "text-gray-500"}>
+        <span className={currentPlayer === player1 ?
+          "text-white font-semibold text-xl" :
+          "text-gray-500"}>
           {name1}
         </span>
         <span className="text-gray-500">+</span>
-        <span className={currentPlayer === player2 
-          ? "text-white font-semibold text-xl"
-          : "text-gray-500"}>
+        <span className={currentPlayer === player2 ?
+          "text-white font-semibold text-xl" :
+          "text-gray-500"}>
           {name2}
         </span>
       </div>
@@ -55,23 +55,23 @@ const RoundInfo: React.FC<RoundInfoProps> = ({
   };
 
   return (
-    <animated.div 
+    <animated.div
       className="absolute inset-x-0 flex flex-col items-center justify-center pointer-events-none"
-      style={{ 
+      style={{
         ...fadeProps,
-        top: 'calc(50% - 4rem)',
-        height: '3.5rem'
+        top: "calc(50% - 4rem)",
+        height: "3.5rem",
       }}
     >
       {/* Oberes Team (Spieler 1 & 3) - normal */}
       <div className="absolute w-full flex justify-center top-[4.5rem]">
-        {isGameStarted ? formatTeamNames(true) : 'START'}
+        {isGameStarted ? formatTeamNames(true) : "START"}
       </div>
 
       {/* Unteres Team (Spieler 2 & 4) - gedreht */}
       <div className="absolute w-full flex justify-center bottom-0">
         <div className="rotate-180">
-          {isGameStarted ? formatTeamNames(false) : 'START'}
+          {isGameStarted ? formatTeamNames(false) : "START"}
         </div>
       </div>
     </animated.div>

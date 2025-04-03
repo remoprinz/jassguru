@@ -1,10 +1,10 @@
 // src/store/jassStore.ts
 
-import { create, StateCreator } from 'zustand';
-import { useGameStore } from './gameStore';
-import { jassStorage } from './jassStorage';
-import { 
-  TeamPosition, 
+import {create, StateCreator} from "zustand";
+import {useGameStore} from "./gameStore";
+import {jassStorage} from "./jassStorage";
+import {
+  TeamPosition,
   PlayerNames,
   JassStore,
   GameEntry,
@@ -18,26 +18,26 @@ import {
   determineNextStartingPlayer,
   GameUpdate,
   JassColor,
-} from '../types/jass';
-import { useTimerStore } from './timerStore';
-import { aggregateStricheForTeam } from '../utils/stricheCalculations';
+} from "../types/jass";
+import {useTimerStore} from "./timerStore";
+import {aggregateStricheForTeam} from "../utils/stricheCalculations";
 
 const createGameEntry = (
-  id: number, 
+  id: number,
   startingPlayer: PlayerNumber,
-  sessionId: string = 'default'
+  sessionId: string = "default"
 ): GameEntry => {
-  console.log('📝 Creating Game Entry:', {
+  console.log("📝 Creating Game Entry:", {
     id,
     startingPlayer,
-    sessionId
+    sessionId,
   });
   return ({
     id,
     timestamp: Date.now(),
     teams: {
       top: createInitialTeamStand(),
-      bottom: createInitialTeamStand()
+      bottom: createInitialTeamStand(),
     },
     sessionId,
     currentRound: 1,
@@ -48,11 +48,11 @@ const createGameEntry = (
     currentHistoryIndex: -1,
     historyState: {
       isNavigating: false,
-      lastNavigationTimestamp: Date.now()
+      lastNavigationTimestamp: Date.now(),
     },
     isGameStarted: false,
     isRoundCompleted: false,
-    isGameCompleted: false
+    isGameCompleted: false,
   });
 };
 
@@ -60,51 +60,51 @@ export const createInitialTeamStand = (): TeamStand => ({
   bergActive: false,
   bedankenActive: false,
   isSigned: false,
-  striche: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
+  striche: {berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0},
   total: 0,
   jassPoints: 0,
   weisPoints: 0,
   playerStats: {
-    1: { striche: 0, points: 0, weisPoints: 0 },
-    2: { striche: 0, points: 0, weisPoints: 0 },
-    3: { striche: 0, points: 0, weisPoints: 0 },
-    4: { striche: 0, points: 0, weisPoints: 0 }
-  }
+    1: {striche: 0, points: 0, weisPoints: 0},
+    2: {striche: 0, points: 0, weisPoints: 0},
+    3: {striche: 0, points: 0, weisPoints: 0},
+    4: {striche: 0, points: 0, weisPoints: 0},
+  },
 });
 
 const aggregateGameResult = (teams: Record<TeamPosition, TeamStand>, scores: TeamScores): Record<TeamPosition, TeamStand> => {
-  const newTeams = { ...teams };
+  const newTeams = {...teams};
   newTeams.top = {
     ...newTeams.top,
     jassPoints: newTeams.top.jassPoints + scores.top,
     weisPoints: newTeams.top.weisPoints + (scores.weisPoints?.top || 0),
-    total: newTeams.top.total + scores.top + (scores.weisPoints?.top || 0)
+    total: newTeams.top.total + scores.top + (scores.weisPoints?.top || 0),
   };
   newTeams.bottom = {
     ...newTeams.bottom,
     jassPoints: newTeams.bottom.jassPoints + scores.bottom,
     weisPoints: newTeams.bottom.weisPoints + (scores.weisPoints?.bottom || 0),
-    total: newTeams.bottom.total + scores.bottom + (scores.weisPoints?.bottom || 0)
+    total: newTeams.bottom.total + scores.bottom + (scores.weisPoints?.bottom || 0),
   };
   return newTeams;
 };
 
-const calculateStricheTotal = (striche: StricheRecord): number => 
+const calculateStricheTotal = (striche: StricheRecord): number =>
   Object.values(striche).reduce((sum, count) => sum + count, 0);
 
 // 1. Initial PlayerNames definieren
 const initialPlayerNames: PlayerNames = {
-  1: '', 2: '', 3: '', 4: ''
+  1: "", 2: "", 3: "", 4: "",
 };
 
 // 2. Initial Session State
 const initialSession = {
-  id: 'initial',
-  gruppeId: 'default',
+  id: "initial",
+  gruppeId: "default",
   startedAt: Date.now(),
   playerNames: initialPlayerNames,
   games: [],
-  metadata: {}
+  metadata: {},
 };
 
 // 3. Vollständiger Initial State
@@ -116,10 +116,10 @@ const initialJassState = {
   isJassCompleted: false,
   teams: {
     top: createInitialTeamStand(),
-    bottom: createInitialTeamStand()
+    bottom: createInitialTeamStand(),
   },
   games: [],
-  currentGameCache: null
+  currentGameCache: null,
 };
 
 const createJassStore: StateCreator<JassStore> = (set, get) => ({
@@ -129,46 +129,46 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
   saveSession: async () => {
     const state = get();
     const gameStore = useGameStore.getState();
-    
+
     // Striche für beide Teams aggregieren
-    const topStriche = aggregateStricheForTeam(state.games, 'top');
-    const bottomStriche = aggregateStricheForTeam(state.games, 'bottom');
-    
+    const topStriche = aggregateStricheForTeam(state.games, "top");
+    const bottomStriche = aggregateStricheForTeam(state.games, "bottom");
+
     const session: JassSession = {
       id: `session_${Date.now()}`,
-      gruppeId: 'default',
+      gruppeId: "default",
       startedAt: state.games[0]?.timestamp || Date.now(),
       endedAt: Date.now(),
       playerNames: gameStore.playerNames,
-      games: state.games.map(g => g.id),
+      games: state.games.map((g) => g.id),
       metadata: {
-        location: 'Standard Location',
-        notes: ''
+        location: "Standard Location",
+        notes: "",
       },
       statistics: {
         gamesPlayed: state.games.length,
         totalDuration: Date.now() - (state.games[0]?.timestamp || Date.now()),
         scores: {
           top: state.teams.top.total,
-          bottom: state.teams.bottom.total
+          bottom: state.teams.bottom.total,
         },
-        weisCount: state.games.reduce((acc, game) => 
+        weisCount: state.games.reduce((acc, game) =>
           acc + (game.teams.top.weisPoints + game.teams.bottom.weisPoints), 0),
         stricheCount: {
           berg: topStriche.berg + bottomStriche.berg,
           sieg: topStriche.sieg + bottomStriche.sieg,
           matsch: topStriche.matsch + bottomStriche.matsch,
           schneider: topStriche.schneider + bottomStriche.schneider,
-          kontermatsch: topStriche.kontermatsch + bottomStriche.kontermatsch
-        }
-      }
+          kontermatsch: topStriche.kontermatsch + bottomStriche.kontermatsch,
+        },
+      },
     };
 
     try {
       await jassStorage.saveSession(session);
       return session.id;
     } catch (error) {
-      console.error('Fehler beim Speichern der Session:', error);
+      console.error("Fehler beim Speichern der Session:", error);
       throw error;
     }
   },
@@ -180,7 +180,7 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
       // Dies erfordert zusätzliche Logik, da wir die kompletten Game-Daten
       // separat speichern müssen
     } catch (error) {
-      console.error('Fehler beim Laden der Session:', error);
+      console.error("Fehler beim Laden der Session:", error);
       throw error;
     }
   },
@@ -192,38 +192,38 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
     const firstGame = createGameEntry(
       1,
       config.initialStartingPlayer,
-      'default'
+      "default"
     );
-    
-    console.log('🃏 First Game Created:', firstGame);
-    
+
+    console.log("🃏 First Game Created:", firstGame);
+
     set({
       currentGameId: 1,
       games: [firstGame],
       currentSession: {
         id: `jass_${Date.now()}`,
-        gruppeId: 'default',
+        gruppeId: "default",
         startedAt: Date.now(),
         playerNames: config.playerNames,
         games: [1],
         metadata: {
-          location: 'Standard Location',
-          notes: ''
+          location: "Standard Location",
+          notes: "",
         },
         statistics: {
           gamesPlayed: 1,
           totalDuration: 0,
-          scores: { top: 0, bottom: 0 },
+          scores: {top: 0, bottom: 0},
           weisCount: 0,
           stricheCount: {
-            berg: 0, sieg: 0, matsch: 0, 
-            schneider: 0, kontermatsch: 0
-          }
-        }
-      }
+            berg: 0, sieg: 0, matsch: 0,
+            schneider: 0, kontermatsch: 0,
+          },
+        },
+      },
     });
 
-    set({ isJassStarted: true });
+    set({isJassStarted: true});
 
     const timerStore = useTimerStore.getState();
     timerStore.startJassTimer();
@@ -232,7 +232,7 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
   finalizeGame: () => {
     const state = get();
     const gameStore = useGameStore.getState();
-    const currentGame = state.games.find(game => game.id === state.currentGameId);
+    const currentGame = state.games.find((game) => game.id === state.currentGameId);
     if (!currentGame) return;
 
     // 1. Finale Spielzeit vom Timer holen
@@ -244,28 +244,28 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
       ...currentGame,
       // Basis-Informationen
       teams: {
-        top: { 
-          ...currentGame.teams.top, 
+        top: {
+          ...currentGame.teams.top,
           jassPoints: gameStore.scores.top,
           total: gameStore.scores.top,
-          striche: { ...gameStore.striche.top }
+          striche: {...gameStore.striche.top},
         },
-        bottom: { 
-          ...currentGame.teams.bottom, 
+        bottom: {
+          ...currentGame.teams.bottom,
           jassPoints: gameStore.scores.bottom,
           total: gameStore.scores.bottom,
-          striche: { ...gameStore.striche.bottom }
-        }
+          striche: {...gameStore.striche.bottom},
+        },
       },
       // Komplette Spielhistorie
       roundHistory: gameStore.roundHistory,
       currentRound: gameStore.currentRound,
       currentPlayer: gameStore.currentPlayer,
-      
+
       // Navigationszustand
       currentHistoryIndex: gameStore.currentHistoryIndex,
       historyState: gameStore.historyState,
-      
+
       // Spielstatus
       isGameStarted: gameStore.isGameStarted,
       isRoundCompleted: gameStore.isRoundCompleted,
@@ -277,16 +277,16 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
         completedAt: Date.now(),
         roundStats: currentGame.metadata?.roundStats ?? {
           weisCount: 0,
-          colorStats: {} as { [K in JassColor]: number }
-        }
-      }
+          colorStats: {} as { [K in JassColor]: number },
+        },
+      },
     };
 
     // 3. Update games array
     set((state) => ({
-      games: state.games.map(game => 
+      games: state.games.map((game) =>
         game.id === currentGame.id ? updatedGame : game
-      )
+      ),
     }));
 
     // 4. Timer für dieses Spiel stoppen
@@ -307,34 +307,34 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
 
     const gameStore = useGameStore.getState();
     gameStore.resetGamePoints();
-    gameStore.setScore('top', previousGame.teams.top.jassPoints);
-    gameStore.setScore('bottom', previousGame.teams.bottom.jassPoints);
+    gameStore.setScore("top", previousGame.teams.top.jassPoints);
+    gameStore.setScore("bottom", previousGame.teams.bottom.jassPoints);
 
     const removedGame = state.games[state.games.length - 1];
-    const reversedTeams = { ...state.teams };
+    const reversedTeams = {...state.teams};
 
     reversedTeams.top = {
       ...reversedTeams.top,
       jassPoints: reversedTeams.top.jassPoints - removedGame.teams.top.jassPoints,
-      total: reversedTeams.top.total - removedGame.teams.top.jassPoints
+      total: reversedTeams.top.total - removedGame.teams.top.jassPoints,
     };
 
     reversedTeams.bottom = {
       ...reversedTeams.bottom,
       jassPoints: reversedTeams.bottom.jassPoints - removedGame.teams.bottom.jassPoints,
-      total: reversedTeams.bottom.total - removedGame.teams.bottom.jassPoints
+      total: reversedTeams.bottom.total - removedGame.teams.bottom.jassPoints,
     };
 
     set({
       games: newGames,
       currentGameId: previousGame.id,
-      teams: reversedTeams
+      teams: reversedTeams,
     });
   },
 
   navigateToGame: (gameId: number) => {
     const state = get();
-    const targetGame = state.games.find(game => game.id === gameId);
+    const targetGame = state.games.find((game) => game.id === gameId);
     if (!targetGame) return;
 
     const isLatestGame = gameId === state.games.length;
@@ -343,50 +343,50 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
     // 1. Timer GENAU WIE BEI NEUEM SPIEL aktivieren
     const timerStore = useTimerStore.getState();
     timerStore.activateGameTimer(gameId);
-    timerStore.startGameTimer();    // NEU: Explizit aufrufen
-    timerStore.startRoundTimer();   // NEU: Explizit aufrufen
+    timerStore.startGameTimer(); // NEU: Explizit aufrufen
+    timerStore.startRoundTimer(); // NEU: Explizit aufrufen
 
     // 2. JassStore aktualisieren
     set((state) => ({
       ...state,
       currentGameId: gameId,
-      teams: targetGame.teams
+      teams: targetGame.teams,
     }));
 
     // 3. GameStore aktualisieren GENAU WIE BEI NEUEM SPIEL
     useGameStore.setState((state) => ({
       ...state,
-      isGameStarted: true,          // Immer auf true setzen
-      isRoundCompleted: false,      // NEU: Immer auf false setzen
-      isGameCompleted: false,       // NEU: Immer auf false setzen
+      isGameStarted: true, // Immer auf true setzen
+      isRoundCompleted: false, // NEU: Immer auf false setzen
+      isGameCompleted: false, // NEU: Immer auf false setzen
       currentRound: targetGame.currentRound || 1,
       currentPlayer: targetGame.currentPlayer,
       scores: {
         top: targetGame.teams.top.jassPoints,
-        bottom: targetGame.teams.bottom.jassPoints
+        bottom: targetGame.teams.bottom.jassPoints,
       },
       weisPoints: {
         top: targetGame.teams.top.weisPoints || 0,
-        bottom: targetGame.teams.bottom.weisPoints || 0
+        bottom: targetGame.teams.bottom.weisPoints || 0,
       },
       striche: {
-        top: { ...targetGame.teams.top.striche },
-        bottom: { ...targetGame.teams.bottom.striche }
+        top: {...targetGame.teams.top.striche},
+        bottom: {...targetGame.teams.bottom.striche},
       },
       roundHistory: targetGame.roundHistory || [],
       currentHistoryIndex: isLatestGame ? lastHistoryIndex : -1,
       historyState: {
         isNavigating: !isLatestGame,
-        lastNavigationTimestamp: Date.now()
-      }
+        lastNavigationTimestamp: Date.now(),
+      },
     }));
 
     // 4. Debug-Logging
-    console.log('🎮 Game Navigation Complete:', {
+    console.log("🎮 Game Navigation Complete:", {
       gameId,
       timersStarted: true,
       gameStarted: true,
-      roundStarted: true
+      roundStarted: true,
     });
   },
 
@@ -403,22 +403,22 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
     const state = get();
     if (state.currentGameId < state.games.length) {
       // Debug-Logging vor der Navigation
-      console.log('⏭️ Navigating to next game:', {
+      console.log("⏭️ Navigating to next game:", {
         from: state.currentGameId,
-        to: state.currentGameId + 1
+        to: state.currentGameId + 1,
       });
 
       // Explizit die Timer starten, bevor wir navigieren
       const timerStore = useTimerStore.getState();
       const nextGameId = state.currentGameId + 1;
-      
+
       // Navigieren
       get().navigateToGame(state.currentGameId + 1);
-      
+
       // Zusätzlich explizit die Timer starten
       timerStore.startGameTimer();
       timerStore.startRoundTimer();
-      
+
       return true;
     }
     return false;
@@ -438,7 +438,7 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
     const state = get();
     return {
       top: state.teams.top.total,
-      bottom: state.teams.bottom.total
+      bottom: state.teams.bottom.total,
     };
   },
 
@@ -446,7 +446,7 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
     const state = get();
     return {
       top: state.teams.top.jassPoints,
-      bottom: state.teams.bottom.jassPoints
+      bottom: state.teams.bottom.jassPoints,
     };
   },
 
@@ -454,12 +454,12 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
 
   getCurrentGame: () => {
     const state = get();
-    return state.games.find(game => game.id === state.currentGameId);
+    return state.games.find((game) => game.id === state.currentGameId);
   },
 
   getVisibleGames: () => {
     const state = get();
-    return state.games.filter(game => game.id <= state.currentGameId);
+    return state.games.filter((game) => game.id <= state.currentGameId);
   },
 
   getState: () => get(),
@@ -467,62 +467,62 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
   subscribe: (listener) => useJassStore.subscribe(listener),
 
   updateWeisPoints: (team: TeamPosition, points: number) => {
-    set(state => {
-      const newTeams = { ...state.teams };
+    set((state) => {
+      const newTeams = {...state.teams};
       newTeams[team].weisPoints += points;
       newTeams[team].total += points;
 
       return {
-        teams: newTeams
+        teams: newTeams,
       };
     });
   },
 
   updateCurrentGame: (update: GameUpdate) => {
-    set(state => {
-      const currentGame = state.games.find(g => g.id === state.currentGameId);
+    set((state) => {
+      const currentGame = state.games.find((g) => g.id === state.currentGameId);
       if (!currentGame) return state;
 
       // Tiefes Merge der Teams mit Typensicherheit
       const updatedTeams = update.teams ? {
         top: {
           ...currentGame.teams.top,
-          ...update.teams.top
+          ...update.teams.top,
         },
         bottom: {
           ...currentGame.teams.bottom,
-          ...update.teams.bottom
-        }
+          ...update.teams.bottom,
+        },
       } : currentGame.teams;
 
       const updatedGame = {
         ...currentGame,
         ...update,
-        teams: updatedTeams
+        teams: updatedTeams,
       };
 
       return {
         ...state,
-        games: state.games.map(g =>
+        games: state.games.map((g) =>
           g.id === updatedGame.id ? updatedGame : g
-        )
+        ),
       };
     });
   },
 
   getTotalsUpToGame: (gameId: number): GameTotals => {
     const state = get();
-    const relevantGames = state.games.filter(g => g.id <= gameId);
+    const relevantGames = state.games.filter((g) => g.id <= gameId);
 
     const initialTotals: GameTotals = {
       striche: {
-        top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
-        bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }
+        top: {berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0},
+        bottom: {berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0},
       },
       punkte: {
         top: 0,
-        bottom: 0
-      }
+        bottom: 0,
+      },
     };
 
     return relevantGames.reduce((totals, game) => ({
@@ -532,38 +532,38 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
           sieg: totals.striche.top.sieg + game.teams.top.striche.sieg,
           matsch: totals.striche.top.matsch + game.teams.top.striche.matsch,
           schneider: totals.striche.top.schneider + game.teams.top.striche.schneider,
-          kontermatsch: totals.striche.top.kontermatsch + game.teams.top.striche.kontermatsch
+          kontermatsch: totals.striche.top.kontermatsch + game.teams.top.striche.kontermatsch,
         },
         bottom: {
           berg: totals.striche.bottom.berg + game.teams.bottom.striche.berg,
           sieg: totals.striche.bottom.sieg + game.teams.bottom.striche.sieg,
           matsch: totals.striche.bottom.matsch + game.teams.bottom.striche.matsch,
           schneider: totals.striche.bottom.schneider + game.teams.bottom.striche.schneider,
-          kontermatsch: totals.striche.bottom.kontermatsch + game.teams.bottom.striche.kontermatsch
-        }
+          kontermatsch: totals.striche.bottom.kontermatsch + game.teams.bottom.striche.kontermatsch,
+        },
       },
       punkte: {
         top: totals.punkte.top + game.teams.top.total,
-        bottom: totals.punkte.bottom + game.teams.bottom.total
-      }
+        bottom: totals.punkte.bottom + game.teams.bottom.total,
+      },
     }), initialTotals);
   },
 
   startGame: () => {
     const state = get();
     if (!state.currentSession) {
-      console.error('Keine gültige Session gefunden');
+      console.error("Keine gültige Session gefunden");
       return;
     }
 
     // 1. Neues Spiel vorbereiten
     const newGameId = state.currentGameId + 1;
-    const currentGame = state.games.find(game => game.id === state.currentGameId);
+    const currentGame = state.games.find((game) => game.id === state.currentGameId);
     const nextStartingPlayer = determineNextStartingPlayer(
       currentGame || null,
       useGameStore.getState().startingPlayer
     );
-    
+
     // 2. Neues Spiel erstellen
     const newGame = createGameEntry(
       newGameId,
@@ -582,17 +582,17 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
       ...state,
       currentPlayer: nextStartingPlayer,
       startingPlayer: nextStartingPlayer,
-      scores: { top: 0, bottom: 0 },
-      weisPoints: { top: 0, bottom: 0 },
+      scores: {top: 0, bottom: 0},
+      weisPoints: {top: 0, bottom: 0},
       striche: {
-        top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
-        bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }
+        top: {berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0},
+        bottom: {berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0},
       },
       roundHistory: [],
       currentRound: 1,
       isGameStarted: true,
       isRoundCompleted: false,
-      isGameCompleted: false
+      isGameCompleted: false,
     }));
 
     // 5. JassStore aktualisieren
@@ -609,14 +609,14 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
           totalDuration: Date.now() - state.currentSession!.startedAt,
           scores: {
             top: state.teams.top.total,
-            bottom: state.teams.bottom.total
+            bottom: state.teams.bottom.total,
           },
           weisCount: state.currentSession!.statistics?.weisCount || 0,
           stricheCount: state.currentSession!.statistics?.stricheCount || {
-            berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0
-          }
-        }
-      }
+            berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0,
+          },
+        },
+      },
     }));
 
     // 6. Session speichern

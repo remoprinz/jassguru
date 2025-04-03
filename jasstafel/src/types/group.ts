@@ -1,4 +1,4 @@
-import { Timestamp } from 'firebase/firestore';
+import {Timestamp} from "firebase/firestore";
 
 export interface FirestoreGroup {
   id: string;
@@ -68,4 +68,4 @@ export interface FirestoreGroup {
       rate: number;
     };
   };
-} 
+}

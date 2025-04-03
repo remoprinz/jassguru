@@ -18,4 +18,12 @@ node_modules/
 *.config.ts
 
 # Statische Assets
-public/ 
+public/
+
+# Exclude specific files and directories
+build/
+dist/
+functions/.eslintrc.js
+jest.setup.js
+next.config.js
+.eslintrc.cjs 

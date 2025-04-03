@@ -1,12 +1,12 @@
 export enum GameMode {
-  JASSGROUP = 'JASSGROUP',
+  JASSGROUP = "JASSGROUP",
 }
 
 // Basis-Strich-Werte
 export const BASE_STRICH_WERTE = {
   berg: 1,
   sieg: 2,
-  matsch: 1
+  matsch: 1,
 } as const;
 
 // Stroke-Settings Types
@@ -18,7 +18,7 @@ export interface StrokeSettings {
 // Default Stroke Settings
 export const DEFAULT_STROKE_SETTINGS: StrokeSettings = {
   schneider: 2,
-  kontermatsch: 2
+  kontermatsch: 2,
 } as const;
 
 // Wirklich NUR die Basis-Game-Settings
@@ -33,7 +33,7 @@ export const defaultGameSettings: GameSettings = {
   enableWeis: true,
   enableMultiplier: true,
   gameMode: GameMode.JASSGROUP,
-  strokeSettings: DEFAULT_STROKE_SETTINGS
+  strokeSettings: DEFAULT_STROKE_SETTINGS,
 };
 
 // Alle Strich-Werte in einem Objekt (ersetzt STRICH_WERTE aus jass.ts)
@@ -42,7 +42,7 @@ export const STRICH_WERTE = {
   sieg: BASE_STRICH_WERTE.sieg,
   matsch: BASE_STRICH_WERTE.matsch,
   schneider: DEFAULT_STROKE_SETTINGS.schneider,
-  kontermatsch: DEFAULT_STROKE_SETTINGS.kontermatsch
+  kontermatsch: DEFAULT_STROKE_SETTINGS.kontermatsch,
 } as const;
 
 // Hilfsfunktion zur Validierung der Stroke-Settings

@@ -1,7 +1,7 @@
 // src/statistics/types.ts
-import { TeamStand, GameEntry, JassState } from './jass';
+import {TeamStand, GameEntry, JassState} from "./jass";
 
-export type StatisticId = 'striche' | 'jasspunkte';
+export type StatisticId = "striche" | "jasspunkte";
 
 // Neue Interface für die Gesamtstatistik
 export interface JassTotal {
@@ -13,7 +13,7 @@ export interface JassTotal {
     top: number;
     bottom: number;
   };
-  matsche: number;  // Neue Property für Gesamtanzahl Matsche
+  matsche: number; // Neue Property für Gesamtanzahl Matsche
 }
 
 export interface StatisticProps {
@@ -23,7 +23,7 @@ export interface StatisticProps {
   };
   games: GameEntry[];
   currentGameId: number;
-  onSwipe?: (direction: 'left' | 'right') => void;
+  onSwipe?: (direction: "left" | "right") => void;
 }
 
 export interface StatisticModule {

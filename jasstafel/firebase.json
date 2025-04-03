@@ -77,6 +77,10 @@
       }
     ]
   },
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs18"
+  },
   "emulators": {
     "auth": {
       "port": 9099

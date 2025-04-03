@@ -1,44 +1,44 @@
-import type { CardStyleMappings } from '../types/jass';
+import type {CardStyleMappings} from "../types/jass";
 
 export const CARD_SYMBOL_MAPPINGS: CardStyleMappings = {
-  Misère: {
-    DE: 'Misère',
-    FR: 'Misère'
+  "Misère": {
+    DE: "Misère",
+    FR: "Misère",
   },
-  Eicheln: {
-    DE: 'Eichel',
-    FR: 'Schaufel'
+  "Eicheln": {
+    DE: "Eichel",
+    FR: "Schaufel",
   },
-  Rosen: {
-    DE: 'Rosen',
-    FR: 'Kreuz'
+  "Rosen": {
+    DE: "Rosen",
+    FR: "Kreuz",
   },
-  Schellen: {
-    DE: 'Schellen',
-    FR: 'Herz'
+  "Schellen": {
+    DE: "Schellen",
+    FR: "Herz",
   },
-  Schilten: {
-    DE: 'Schilten',
-    FR: 'Ecke'
+  "Schilten": {
+    DE: "Schilten",
+    FR: "Ecke",
   },
-  Obe: {
-    DE: 'Obe',
-    FR: 'Obe'
+  "Obe": {
+    DE: "Obe",
+    FR: "Obe",
   },
-  Une: {
-    DE: 'Unde',
-    FR: 'Unde'
+  "Une": {
+    DE: "Unde",
+    FR: "Unde",
   },
-  '3x3': {
-    DE: '3x3',
-    FR: '3x3'
+  "3x3": {
+    DE: "3x3",
+    FR: "3x3",
   },
-  Quer: {
-    DE: 'Quer',
-    FR: 'Quer'
+  "Quer": {
+    DE: "Quer",
+    FR: "Quer",
   },
-  Slalom: {
-    DE: 'Slalom',
-    FR: 'Slalom'
-  }
-} as const; 
+  "Slalom": {
+    DE: "Slalom",
+    FR: "Slalom",
+  },
+} as const;

@@ -1,23 +1,23 @@
-import type { SpruchMitIcon } from './sprueche';
-import React from 'react';
-import type { ReactNode } from 'react';
+import type {SpruchMitIcon} from "./sprueche";
+import React from "react";
+import type {ReactNode} from "react";
 
 // Position der Notification auf dem Bildschirm
-export type NotificationPosition = 'top' | 'bottom';
+export type NotificationPosition = "top" | "bottom";
 
 // 1. Basis-Types
-export type NotificationVariant = 
-  | 'success' 
-  | 'error' 
-  | 'warning' 
-  | 'info' 
-  | 'bedanken'
-  | 'select'  // Neue Variante für Spielerauswahl
-  | 'history';
+export type NotificationVariant =
+  | "success"
+  | "error"
+  | "warning"
+  | "info"
+  | "bedanken"
+  | "select" // Neue Variante für Spielerauswahl
+  | "history";
 
 // Definition einer Aktion in der Notification
 export interface NotificationAction {
-  label: ReactNode;  // Erlaubt React-Komponenten als Label
+  label: ReactNode; // Erlaubt React-Komponenten als Label
   onClick: () => void;
   className?: string; // Optionale className-Eigenschaft für benutzerdefiniertes Styling
 }
@@ -29,7 +29,7 @@ export interface BaseNotification {
   type: NotificationVariant;
   timestamp: number;
   duration?: number;
-  position?: 'top' | 'bottom';
+  position?: "top" | "bottom";
   isFlipped?: boolean;
   preventClose?: boolean;
   actions?: NotificationAction[];
@@ -37,7 +37,7 @@ export interface BaseNotification {
 }
 
 // Union Type für Notification-Konfigurationen (ohne id/timestamp)
-export type NotificationConfig = Omit<BaseNotification, 'id' | 'timestamp'>;
+export type NotificationConfig = Omit<BaseNotification, "id" | "timestamp">;
 
 // 3. Union Type für alle möglichen Notifications
 export type Notification = BaseNotification;
@@ -52,7 +52,7 @@ export const isNotificationActionWithReactNode = (
 // Props für die JassFinish-Notification
 export interface JassFinishNotificationConfig {
   message?: SpruchMitIcon;
-  mode?: 'share' | 'continue'; 
+  mode?: "share" | "continue";
   onShare?: () => Promise<void>;
   onBack?: () => void;
   onContinue?: () => void;

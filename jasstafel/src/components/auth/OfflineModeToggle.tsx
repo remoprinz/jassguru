@@ -1,27 +1,27 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useAuthStore } from '@/store/authStore';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { 
+import {useState, useEffect} from "react";
+import {useAuthStore} from "@/store/authStore";
+import {Switch} from "@/components/ui/switch";
+import {Label} from "@/components/ui/label";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { FaWifi } from 'react-icons/fa';
-import { MdWifiOff } from 'react-icons/md';
-import { LuUserCog } from 'react-icons/lu';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useLocalAuth } from '@/services/firebaseInit';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {Button} from "@/components/ui/button";
+import {FaWifi} from "react-icons/fa";
+import {MdWifiOff} from "react-icons/md";
+import {LuUserCog} from "react-icons/lu";
+import {Alert, AlertDescription} from "@/components/ui/alert";
+import {useLocalAuth} from "@/services/firebaseInit";
+import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "@/components/ui/tooltip";
 
 export function OfflineModeToggle() {
-  const { appMode, setAppMode } = useAuthStore();
+  const {appMode, setAppMode} = useAuthStore();
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [isLocalDev, setIsLocalDev] = useState(false);
   const [showApiBlockedWarning, setShowApiBlockedWarning] = useState(false);
@@ -30,21 +30,21 @@ export function OfflineModeToggle() {
   const localAuth = useLocalAuth();
 
   useEffect(() => {
-    setIsLocalDev(window.location.hostname === 'localhost');
+    setIsLocalDev(window.location.hostname === "localhost");
     setIsLocalAuthEnabled(localAuth);
-    
+
     // Prüfe, ob die App im lokalen Modus ist und die API vorher blockiert wurde
-    const hasApiBlockedError = sessionStorage.getItem('firebase-auth-blocked') === 'true';
+    const hasApiBlockedError = sessionStorage.getItem("firebase-auth-blocked") === "true";
     setShowApiBlockedWarning(hasApiBlockedError);
   }, [localAuth]);
 
-  const isOffline = appMode === 'offline';
+  const isOffline = appMode === "offline";
 
   const handleToggleChange = (checked: boolean) => {
-    const newMode = checked ? 'offline' : 'online';
-    
+    const newMode = checked ? "offline" : "online";
+
     // Wenn wir in den Offline-Modus wechseln, zeigen wir einen Bestätigungsdialog
-    if (newMode === 'offline') {
+    if (newMode === "offline") {
       setShowConfirmDialog(true);
     } else {
       // Kein Dialog nötig, wenn wir zurück in den Online-Modus wechseln
@@ -53,7 +53,7 @@ export function OfflineModeToggle() {
   };
 
   const confirmOfflineMode = () => {
-    setAppMode('offline');
+    setAppMode("offline");
     setShowConfirmDialog(false);
   };
 
@@ -69,10 +69,10 @@ export function OfflineModeToggle() {
               id="offline-mode"
             />
             <Label htmlFor="offline-mode" className="text-sm">
-              {isOffline ? 'Offline-Modus aktiv' : 'Online-Modus aktiv'}
+              {isOffline ? "Offline-Modus aktiv" : "Online-Modus aktiv"}
             </Label>
           </div>
-          
+
           {isLocalAuthEnabled && !isOffline && (
             <TooltipProvider>
               <Tooltip>
@@ -89,7 +89,7 @@ export function OfflineModeToggle() {
             </TooltipProvider>
           )}
         </div>
-        
+
         {isLocalDev && !isOffline && !isLocalAuthEnabled && (
           <Alert className="bg-amber-50 text-amber-800 border-amber-200 text-xs p-2">
             <AlertDescription>
@@ -97,7 +97,7 @@ export function OfflineModeToggle() {
             </AlertDescription>
           </Alert>
         )}
-        
+
         {isLocalDev && isOffline && (
           <Alert className="bg-amber-50 text-amber-800 border-amber-200 text-xs p-2">
             <AlertDescription>
@@ -105,7 +105,7 @@ export function OfflineModeToggle() {
             </AlertDescription>
           </Alert>
         )}
-        
+
         {isLocalAuthEnabled && !isOffline && (
           <Alert className="bg-green-50 text-green-800 border-green-200 text-xs p-2">
             <AlertDescription>
@@ -113,7 +113,7 @@ export function OfflineModeToggle() {
             </AlertDescription>
           </Alert>
         )}
-        
+
         {showApiBlockedWarning && !isOffline && !isLocalAuthEnabled && (
           <Alert className="bg-red-50 text-red-800 border-red-200 text-xs p-2">
             <AlertDescription>
@@ -132,7 +132,7 @@ export function OfflineModeToggle() {
               Sie können später zum Online-Modus zurückkehren, um Ihre Daten zu synchronisieren.
               {isLocalDev && (
                 <p className="mt-2 text-amber-600">
-                  <strong>Hinweis:</strong> In der lokalen Entwicklungsumgebung ist der Offline-Modus besonders nützlich, 
+                  <strong>Hinweis:</strong> In der lokalen Entwicklungsumgebung ist der Offline-Modus besonders nützlich,
                   da er ohne Verbindung zur Firebase-API funktioniert.
                 </p>
               )}
@@ -156,4 +156,4 @@ export function OfflineModeToggle() {
       </Dialog>
     </>
   );
-} 
+}

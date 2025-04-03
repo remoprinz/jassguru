@@ -1,13 +1,13 @@
-import React from 'react';
-import { StatisticProps } from '../types/statistikTypes';
-import ResultatZeile from '../components/game/ResultatZeile';
-import { useGameStore } from '../store/gameStore';
+import React from "react";
+import {StatisticProps} from "../types/statistikTypes";
+import ResultatZeile from "../components/game/ResultatZeile";
+import {useGameStore} from "../store/gameStore";
 
-export const StricheStatistik: React.FC<StatisticProps> = ({ 
-  teams, 
-  games, 
-  currentGameId, 
-  onSwipe 
+export const StricheStatistik: React.FC<StatisticProps> = ({
+  teams,
+  games,
+  currentGameId,
+  onSwipe,
 }) => {
   const gameStore = useGameStore();
 
@@ -19,10 +19,10 @@ export const StricheStatistik: React.FC<StatisticProps> = ({
           gameId={game.id}
           spielNummer={index + 1}
           topTeam={{
-            striche: game.id === currentGameId ? gameStore.striche.top : game.teams.top.striche
+            striche: game.id === currentGameId ? gameStore.striche.top : game.teams.top.striche,
           }}
           bottomTeam={{
-            striche: game.id === currentGameId ? gameStore.striche.bottom : game.teams.bottom.striche
+            striche: game.id === currentGameId ? gameStore.striche.bottom : game.teams.bottom.striche,
           }}
           showJassPoints={false}
         />

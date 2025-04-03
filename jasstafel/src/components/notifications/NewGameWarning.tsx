@@ -1,7 +1,7 @@
-import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { FaInfoCircle } from 'react-icons/fa';
-import { usePressableButton } from '../../hooks/usePressableButton';
+import React from "react";
+import {motion, AnimatePresence} from "framer-motion";
+import {FaInfoCircle} from "react-icons/fa";
+import {usePressableButton} from "../../hooks/usePressableButton";
 
 interface NewGameWarningProps {
   show: boolean;
@@ -9,7 +9,7 @@ interface NewGameWarningProps {
   onDismiss: () => void;
 }
 
-const NewGameWarning: React.FC<NewGameWarningProps> = ({ show, onConfirm, onDismiss }) => {
+const NewGameWarning: React.FC<NewGameWarningProps> = ({show, onConfirm, onDismiss}) => {
   const handleConfirm = () => {
     onConfirm();
   };
@@ -21,9 +21,9 @@ const NewGameWarning: React.FC<NewGameWarningProps> = ({ show, onConfirm, onDism
     <AnimatePresence>
       {show && (
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          initial={{opacity: 0}}
+          animate={{opacity: 1}}
+          exit={{opacity: 0}}
           className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fade-in pointer-events-auto"
         >
           <div className="fixed inset-0 bg-black bg-opacity-50" onClick={onDismiss} />
@@ -31,7 +31,7 @@ const NewGameWarning: React.FC<NewGameWarningProps> = ({ show, onConfirm, onDism
             <div className="flex flex-col items-center justify-center mb-10">
               <FaInfoCircle className="w-12 h-14 text-yellow-600 mb-6" />
               <p className="text-center">
-                Möchten Sie wirklich ein neues Spiel starten? 
+                Möchten Sie wirklich ein neues Spiel starten?
                 Die Daten des aktuellen Spiels werden gelöscht.
               </p>
             </div>

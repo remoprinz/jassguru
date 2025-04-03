@@ -1,9 +1,8 @@
-const withPWA = require('next-pwa');
+import withPWAInit from 'next-pwa';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
   output: 'export',
   images: {
     unoptimized: true,
@@ -13,12 +12,13 @@ const nextConfig = {
   },
 };
 
-module.exports = withPWA({
-  dest: 'public/sw',
+const withPWA = withPWAInit({
+  dest: 'public',
   register: true,
   skipWaiting: true,
   scope: '/',
   disable: false,
   buildExcludes: [/middleware-manifest\.json$/],
-  publicExcludes: ['!sw/**/*']
-})(nextConfig);
+});
+
+export default withPWA(nextConfig);

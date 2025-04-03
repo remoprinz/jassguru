@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import {useState} from "react";
+import {useForm} from "react-hook-form";
+import {zodResolver} from "@hookform/resolvers/zod";
+import * as z from "zod";
+import {Button} from "@/components/ui/button";
+import {Input} from "@/components/ui/input";
 import {
   Form,
   FormControl,
@@ -13,25 +13,25 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { useAuthStore } from '@/store/authStore';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import Link from 'next/link';
+} from "@/components/ui/form";
+import {useAuthStore} from "@/store/authStore";
+import {Alert, AlertDescription} from "@/components/ui/alert";
+import Link from "next/link";
 
 const resetPasswordSchema = z.object({
-  email: z.string().email('Ungültige E-Mail-Adresse'),
+  email: z.string().email("Ungültige E-Mail-Adresse"),
 });
 
 type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
 
 export function ResetPasswordForm() {
-  const { resetPassword, status, error, clearError } = useAuthStore();
+  const {resetPassword, status, error, clearError} = useAuthStore();
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const form = useForm<ResetPasswordFormValues>({
     resolver: zodResolver(resetPasswordSchema),
     defaultValues: {
-      email: '',
+      email: "",
     },
   });
 
@@ -40,14 +40,14 @@ export function ResetPasswordForm() {
       clearError();
       setSuccessMessage(null);
       await resetPassword(data.email);
-      setSuccessMessage('Eine E-Mail zum Zurücksetzen Ihres Passworts wurde gesendet. Bitte überprüfen Sie Ihren Posteingang.');
+      setSuccessMessage("Eine E-Mail zum Zurücksetzen Ihres Passworts wurde gesendet. Bitte überprüfen Sie Ihren Posteingang.");
       form.reset();
     } catch {
       // Der Fehler wird bereits im Store gesetzt, keine lokale Variable nötig
     }
   };
 
-  const isLoading = status === 'loading';
+  const isLoading = status === "loading";
 
   return (
     <div className="w-full max-w-md space-y-6">
@@ -73,7 +73,7 @@ export function ResetPasswordForm() {
           <FormField
             control={form.control}
             name="email"
-            render={({ field }) => (
+            render={({field}) => (
               <FormItem>
                 <FormLabel className="text-gray-300">E-Mail</FormLabel>
                 <FormControl>
@@ -107,4 +107,4 @@ export function ResetPasswordForm() {
       </p>
     </div>
   );
-} 
+}

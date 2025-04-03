@@ -1,12 +1,12 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { cn } from "@/lib/utils"
+import * as React from "react";
+import {cn} from "@/lib/utils";
 
 type TextareaProps = React.ComponentPropsWithoutRef<"textarea">
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, ...props }, ref) => {
+  ({className, ...props}, ref) => {
     return (
       <textarea
         className={cn(
@@ -16,11 +16,11 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         ref={ref}
         {...props}
       />
-    )
+    );
   }
-)
-Textarea.displayName = "Textarea"
+);
+Textarea.displayName = "Textarea";
 
-export { Textarea }
+export {Textarea};
 
-export default Textarea; 
+export default Textarea;

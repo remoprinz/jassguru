@@ -1,24 +1,24 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState, useRef } from 'react';
-import { useRouter } from 'next/router';
-import { useAuthStore } from '@/store/authStore';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import Image from 'next/image';
-import MainLayout from '@/components/layout/MainLayout';
-import { useUIStore } from '@/store/uiStore';
-import { Camera, Upload, X, UserCog, Users, BarChart3 } from 'lucide-react'; // Icons für das UI
-import imageCompression from 'browser-image-compression'; // Import hinzugefügt
+import React, {useEffect, useState, useRef} from "react";
+import {useRouter} from "next/router";
+import {useAuthStore} from "@/store/authStore";
+import {Button} from "@/components/ui/button";
+import {Alert, AlertDescription} from "@/components/ui/alert";
+import Image from "next/image";
+import MainLayout from "@/components/layout/MainLayout";
+import {useUIStore} from "@/store/uiStore";
+import {Camera, Upload, X, UserCog, Users, BarChart3} from "lucide-react"; // Icons für das UI
+import imageCompression from "browser-image-compression"; // Import hinzugefügt
 // Platzhalter für die neue Komponente
-import ImageCropModal from '@/components/ui/ImageCropModal';
+import ImageCropModal from "@/components/ui/ImageCropModal";
 
 const ProfilePage: React.FC = () => {
-  const { user, status, isAuthenticated, uploadProfilePicture, error, clearError } = useAuthStore();
-  const showNotification = useUIStore(state => state.showNotification);
+  const {user, status, isAuthenticated, uploadProfilePicture, error, clearError} = useAuthStore();
+  const showNotification = useUIStore((state) => state.showNotification);
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   // State für die Bildauswahl und Vorschau
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -30,8 +30,8 @@ const ProfilePage: React.FC = () => {
 
   // Nur für angemeldete Benutzer (keine Gäste)
   useEffect(() => {
-    if (!isAuthenticated() || status === 'unauthenticated') {
-      router.push('/');
+    if (!isAuthenticated() || status === "unauthenticated") {
+      router.push("/");
     }
     // Error zurücksetzen beim Montieren
     clearError();
@@ -50,25 +50,25 @@ const ProfilePage: React.FC = () => {
   // Handler für Dateiauswahl
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-    
+
     if (files && files.length > 0) {
       const originalFile = files[0];
-      
+
       // Prüfen ob es ein Bild ist
-      if (!originalFile.type.startsWith('image/')) {
+      if (!originalFile.type.startsWith("image/")) {
         showNotification({
-          message: 'Bitte wählen Sie eine Bilddatei aus (JPEG oder PNG).',
-          type: 'error'
+          message: "Bitte wählen Sie eine Bilddatei aus (JPEG oder PNG).",
+          type: "error",
         });
         return;
       }
-      
+
       // Prüfen der Dateigröße (Initialprüfung, z.B. 10 MB)
       const initialMaxSizeInBytes = 10 * 1024 * 1024; // 10 MB
       if (originalFile.size > initialMaxSizeInBytes) {
         showNotification({
-          message: 'Die Datei ist zu groß (max. 10 MB).',
-          type: 'error'
+          message: "Die Datei ist zu groß (max. 10 MB).",
+          type: "error",
         });
         return;
       }
@@ -77,7 +77,7 @@ const ProfilePage: React.FC = () => {
       // Nicht mehr sofort komprimieren oder hochladen-Status setzen
       // setIsUploading(true); // Wird erst beim finalen Upload gesetzt
       clearError();
-      
+
       // Alte Vorschau/Datei entfernen
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
@@ -86,12 +86,12 @@ const ProfilePage: React.FC = () => {
       // Erstelle eine temporäre URL für das Originalbild, um es dem Cropper zu übergeben
       const objectUrl = URL.createObjectURL(originalFile);
       setImageToCrop(objectUrl); // Bild für das Modal setzen
-      setCropModalOpen(true);   // Modal öffnen
+      setCropModalOpen(true); // Modal öffnen
 
       // Kompressionslogik wird in handleCropComplete verschoben
-      /* 
+      /*
       const options = { ... };
-      try { ... } catch { ... } 
+      try { ... } catch { ... }
       */
       // --- Anpassung endet ---
     }
@@ -101,8 +101,8 @@ const ProfilePage: React.FC = () => {
   const handleCropComplete = async (croppedImageBlob: Blob | null) => {
     // Verhindern, dass die Funktion erneut ausgeführt wird, während sie schon läuft
     if (isUploading && !croppedImageBlob) {
-        console.log("Ignoriere Abbruch-Aufruf während Verarbeitung läuft.");
-        return;
+      console.log("Ignoriere Abbruch-Aufruf während Verarbeitung läuft.");
+      return;
     }
 
     setCropModalOpen(false); // Modal schließen
@@ -112,75 +112,73 @@ const ProfilePage: React.FC = () => {
     }
 
     if (!croppedImageBlob) {
-        console.log("Cropping abgebrochen oder fehlgeschlagen.");
-        if (fileInputRef.current) fileInputRef.current.value = ''; // Input zurücksetzen
-        setIsUploading(false); // Sicherstellen, dass Status false ist bei Abbruch
-        return;
+      console.log("Cropping abgebrochen oder fehlgeschlagen.");
+      if (fileInputRef.current) fileInputRef.current.value = ""; // Input zurücksetzen
+      setIsUploading(false); // Sicherstellen, dass Status false ist bei Abbruch
+      return;
     }
 
     // --- Start der Verarbeitung ---
-    setIsUploading(true); 
+    setIsUploading(true);
     console.log(`Zugeschnittenes Bild erhalten, Größe: ${(croppedImageBlob.size / 1024).toFixed(2)} KB`);
 
     // Jetzt das zugeschnittene Bild komprimieren
     const options = {
-      maxSizeMB: 0.2, 
-      maxWidthOrHeight: 1024, 
+      maxSizeMB: 0.2,
+      maxWidthOrHeight: 1024,
       useWebWorker: true,
-      fileType: 'image/jpeg', 
-      initialQuality: 0.8 
+      fileType: "image/jpeg",
+      initialQuality: 0.8,
     };
 
     try {
       console.log("Komprimiere zugeschnittenes Bild...");
-      const compressedBlob = await imageCompression(new File([croppedImageBlob], "cropped_image.jpg", { type: 'image/jpeg' }), options);
+      const compressedBlob = await imageCompression(new File([croppedImageBlob], "cropped_image.jpg", {type: "image/jpeg"}), options);
       console.log(`Komprimiertes Bild, Größe: ${(compressedBlob.size / 1024).toFixed(2)} KB`);
 
       // Vorschau mit komprimiertem Bild erstellen und Datei speichern
       const finalPreviewUrl = URL.createObjectURL(compressedBlob);
       setPreviewUrl(finalPreviewUrl);
-      setSelectedFile(new File([compressedBlob], "profile_picture.jpg", { type: 'image/jpeg' }));
+      setSelectedFile(new File([compressedBlob], "profile_picture.jpg", {type: "image/jpeg"}));
       // --- Verarbeitung erfolgreich beendet ---
       setIsUploading(false); // Status zurücksetzen, bereit für 'Hochladen' Klick
-
     } catch (compressionError) {
-      console.error('Fehler bei der Komprimierung des zugeschnittenen Bildes:', compressionError);
+      console.error("Fehler bei der Komprimierung des zugeschnittenen Bildes:", compressionError);
       showNotification({
-        message: 'Fehler bei der Bildkomprimierung.',
-        type: 'error'
+        message: "Fehler bei der Bildkomprimierung.",
+        type: "error",
       });
       // Zurücksetzen
       setSelectedFile(null);
       setPreviewUrl(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (fileInputRef.current) fileInputRef.current.value = "";
       // --- Verarbeitung fehlgeschlagen ---
       setIsUploading(false); // Status zurücksetzen bei Fehler
-    } 
+    }
     // Das finally hier ist nicht mehr nötig, da wir es in try/catch behandeln
   };
 
   // Handler für Bildupload
   const handleUpload = async () => {
     if (!selectedFile) return; // Jetzt prüfen wir auf selectedFile (komprimierter Blob)
-    
+
     setIsUploading(true); // Setze Upload-Status hier
     try {
       await uploadProfilePicture(selectedFile);
-      
+
       showNotification({
-        message: 'Profilbild erfolgreich aktualisiert.',
-        type: 'success'
+        message: "Profilbild erfolgreich aktualisiert.",
+        type: "success",
       });
-      
+
       setSelectedFile(null);
       setPreviewUrl(null);
-      
+
       if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+        fileInputRef.current.value = "";
       }
-      
     } catch (error) {
-      console.error('Fehler beim Hochladen des Profilbilds:', error);
+      console.error("Fehler beim Hochladen des Profilbilds:", error);
     } finally {
       setIsUploading(false); // Setze Upload-Status zurück nach Versuch
     }
@@ -201,11 +199,11 @@ const ProfilePage: React.FC = () => {
     setSelectedFile(null);
     setPreviewUrl(null);
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
   };
 
-  if (status === 'loading' && !isUploading) {
+  if (status === "loading" && !isUploading) {
     return (
       <MainLayout>
         <div className="flex min-h-screen items-center justify-center bg-gray-900 text-white">
@@ -246,24 +244,24 @@ const ProfilePage: React.FC = () => {
                     height={128}
                     className="object-cover h-full w-full"
                   />
-                ) : 
+                ) :
                 /* Sonst zeige aktuelles Profilbild oder Platzhalter */
-                user?.photoURL ? (
-                  <Image
-                    src={user.photoURL}
-                    alt="Profilbild"
-                    width={128}
-                    height={128}
-                    className="object-cover h-full w-full"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-blue-600 text-4xl font-bold">
-                    {user?.displayName?.charAt(0) || user?.email?.charAt(0) || "?"}
-                  </div>
-                )}
+                  user?.photoURL ? (
+                    <Image
+                      src={user.photoURL}
+                      alt="Profilbild"
+                      width={128}
+                      height={128}
+                      className="object-cover h-full w-full"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-blue-600 text-4xl font-bold">
+                      {user?.displayName?.charAt(0) || user?.email?.charAt(0) || "?"}
+                    </div>
+                  )}
 
                 {/* Kamera-Icon Overlay für Upload mit Hover-Effekt */}
-                <button 
+                <button
                   onClick={handleSelectClick}
                   className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-60 transition-all duration-200"
                   disabled={isUploading}
@@ -274,8 +272,8 @@ const ProfilePage: React.FC = () => {
             </div>
 
             {/* Name und Jasspruch */}
-            <h1 className="mt-4 text-3xl font-bold text-center text-white mb-1"> 
-              {user?.displayName || 'Kein Name festgelegt'}
+            <h1 className="mt-4 text-3xl font-bold text-center text-white mb-1">
+              {user?.displayName || "Kein Name festgelegt"}
             </h1>
             {user?.statusMessage && (
               <p className="text-gray-400 text-center mb-4 px-8 max-w-[90%] mx-auto">
@@ -324,50 +322,50 @@ const ProfilePage: React.FC = () => {
           </div>
 
           {/* --- NEUER AKTIONSBUTTON-BEREICH --- */}
-          <div className="flex justify-evenly mb-6 w-full mt-8"> 
-             
-             {/* 1. Button: Meine Gruppen (Links) */}
-             <div className="flex flex-col items-center">
-                <span className="text-xs text-gray-400 mb-2">Gruppen</span>
-                <Button 
-                  variant="default" 
-                  className="h-12 w-12 flex items-center justify-center bg-purple-600 border-purple-700 hover:bg-purple-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
-                  onClick={() => router.push('/profile/groups')}
-                >
-                    <Users 
-                      style={{ height: '1.5rem', width: '1.5rem' }} 
-                    />
-                </Button>
-             </div>
+          <div className="flex justify-evenly mb-6 w-full mt-8">
 
-             {/* 2. Button: Meine Statistik (Mitte) */}
-             <div className="flex flex-col items-center">
-                <span className="text-xs text-gray-400 mb-2">Statistik</span>
-                <Button 
-                  variant="default" 
-                  className="h-12 w-12 flex items-center justify-center bg-gray-600 border-gray-700 hover:bg-gray-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
-                  onClick={() => alert('Meine Statistik - TODO')}
-                  disabled // Deaktiviert bis Implementierung
-                >
-                    <BarChart3 
-                      style={{ height: '1.5rem', width: '1.5rem' }} 
-                    />
-                </Button>
-             </div>
+            {/* 1. Button: Meine Gruppen (Links) */}
+            <div className="flex flex-col items-center">
+              <span className="text-xs text-gray-400 mb-2">Gruppen</span>
+              <Button
+                variant="default"
+                className="h-12 w-12 flex items-center justify-center bg-purple-600 border-purple-700 hover:bg-purple-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
+                onClick={() => router.push("/profile/groups")}
+              >
+                <Users
+                  style={{height: "1.5rem", width: "1.5rem"}}
+                />
+              </Button>
+            </div>
 
-             {/* 3. Button: Profil bearbeiten (Rechts) */}
-             <div className="flex flex-col items-center">
-                 <span className="text-xs text-gray-400 mb-2">Bearbeiten</span>
-                 <Button 
-                   variant="default" 
-                   className="h-12 w-12 flex items-center justify-center bg-blue-600 border-blue-700 hover:bg-blue-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
-                   onClick={() => router.push('/profile/edit')}
-                 >
-                     <UserCog 
-                       style={{ height: '1.5rem', width: '1.5rem' }} 
-                     />
-                 </Button>
-             </div>
+            {/* 2. Button: Meine Statistik (Mitte) */}
+            <div className="flex flex-col items-center">
+              <span className="text-xs text-gray-400 mb-2">Statistik</span>
+              <Button
+                variant="default"
+                className="h-12 w-12 flex items-center justify-center bg-gray-600 border-gray-700 hover:bg-gray-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
+                onClick={() => alert("Meine Statistik - TODO")}
+                disabled // Deaktiviert bis Implementierung
+              >
+                <BarChart3
+                  style={{height: "1.5rem", width: "1.5rem"}}
+                />
+              </Button>
+            </div>
+
+            {/* 3. Button: Profil bearbeiten (Rechts) */}
+            <div className="flex flex-col items-center">
+              <span className="text-xs text-gray-400 mb-2">Bearbeiten</span>
+              <Button
+                variant="default"
+                className="h-12 w-12 flex items-center justify-center bg-blue-600 border-blue-700 hover:bg-blue-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
+                onClick={() => router.push("/profile/edit")}
+              >
+                <UserCog
+                  style={{height: "1.5rem", width: "1.5rem"}}
+                />
+              </Button>
+            </div>
 
           </div>
 
@@ -397,7 +395,7 @@ const ProfilePage: React.FC = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium text-gray-300">Mitglied seit:</span>
-                    <span className="text-gray-100">-</span> {/* TODO: user.metadata.creationTime */} 
+                    <span className="text-gray-100">-</span> {/* TODO: user.metadata.creationTime */}
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium text-gray-300">Letzte Aktivität:</span>
@@ -406,13 +404,13 @@ const ProfilePage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Divider */} 
+              {/* Divider */}
               <div className="pt-2 pb-1">
                 <hr className="border-gray-600/50" />
               </div>
 
               {/* Block 2: Persönliche Durchschnittswerte */}
-               <div>
+              <div>
                 <h3 className="text-base font-semibold text-white mb-2">Deine Durchschnittswerte</h3>
                 <div className="space-y-1">
                   <div className="flex justify-between">
@@ -423,7 +421,7 @@ const ProfilePage: React.FC = () => {
                     <span className="font-medium text-gray-300">Ø Striche pro Spiel:</span>
                     <span className="text-gray-100">-</span> {/* Placeholder */}
                   </div>
-                   <div className="flex justify-between">
+                  <div className="flex justify-between">
                     <span className="font-medium text-gray-300">Ø Weispunkte pro Spiel:</span>
                     <span className="text-gray-100">-</span> {/* Placeholder */}
                   </div>
@@ -434,20 +432,20 @@ const ProfilePage: React.FC = () => {
                 </div>
               </div>
 
-               {/* Divider */}
+              {/* Divider */}
               <div className="pt-2 pb-1">
                 <hr className="border-gray-600/50" />
               </div>
 
-               {/* Block 3: Persönliche Highlights */}
-               <div>
+              {/* Block 3: Persönliche Highlights */}
+              <div>
                 <h3 className="text-base font-semibold text-white mb-2">Deine Highlights</h3>
-                 <div className="space-y-1">
+                <div className="space-y-1">
                   <div className="flex justify-between">
                     <span className="font-medium text-gray-300">Höchste Punktzahl (Spiel):</span>
                     <span className="text-gray-100">N/A (0)</span> {/* Placeholder */}
                   </div>
-                   <div className="flex justify-between">
+                  <div className="flex justify-between">
                     <span className="font-medium text-gray-300">Höchste Weispunkte (Spiel):</span>
                     <span className="text-gray-100">N/A (0)</span> {/* Placeholder */}
                   </div>
@@ -455,11 +453,11 @@ const ProfilePage: React.FC = () => {
                     <span className="font-medium text-gray-300">Höchste Siegquote (Partie):</span>
                     <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
                   </div>
-                   <div className="flex justify-between">
+                  <div className="flex justify-between">
                     <span className="font-medium text-gray-300">Höchste Siegquote (Spiel):</span>
                     <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
                   </div>
-                   <div className="flex justify-between">
+                  <div className="flex justify-between">
                     <span className="font-medium text-gray-300">Meiste Matches (Spiel):</span>
                     <span className="text-gray-100">N/A (0)</span> {/* Placeholder */}
                   </div>
@@ -474,4 +472,4 @@ const ProfilePage: React.FC = () => {
   );
 };
 
-export default ProfilePage; 
+export default ProfilePage;

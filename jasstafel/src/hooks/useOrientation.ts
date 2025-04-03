@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import {useState, useEffect} from "react";
 
 interface OrientationMessage {
   show: boolean;
@@ -8,7 +8,7 @@ interface OrientationMessage {
 export const useOrientation = () => {
   const [orientationMessage, setOrientationMessage] = useState<OrientationMessage>({
     show: false,
-    message: ''
+    message: "",
   });
 
   useEffect(() => {
@@ -17,31 +17,31 @@ export const useOrientation = () => {
       if (!isPortrait) {
         setOrientationMessage({
           show: true,
-          message: 'Die Orientierungssperre ist zurzeit nicht möglich auf diesem Gerät. Drehe die Jasstafel um 90 Grad.'
+          message: "Die Orientierungssperre ist zurzeit nicht möglich auf diesem Gerät. Drehe die Jasstafel um 90 Grad.",
         });
       } else {
-        setOrientationMessage({ show: false, message: '' });
+        setOrientationMessage({show: false, message: ""});
       }
 
-      document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
-      document.documentElement.style.setProperty('--app-width', `${window.innerWidth}px`);
+      document.documentElement.style.setProperty("--app-height", `${window.innerHeight}px`);
+      document.documentElement.style.setProperty("--app-width", `${window.innerWidth}px`);
     };
 
-    if (typeof window !== 'undefined') {
-      window.addEventListener('resize', handleOrientationChange);
+    if (typeof window !== "undefined") {
+      window.addEventListener("resize", handleOrientationChange);
       handleOrientationChange(); // Initial call
     }
 
     return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('resize', handleOrientationChange);
+      if (typeof window !== "undefined") {
+        window.removeEventListener("resize", handleOrientationChange);
       }
     };
   }, []);
 
   const dismissOrientationMessage = () => {
-    setOrientationMessage({ show: false, message: '' });
+    setOrientationMessage({show: false, message: ""});
   };
 
-  return { orientationMessage, dismissOrientationMessage };
+  return {orientationMessage, dismissOrientationMessage};
 };

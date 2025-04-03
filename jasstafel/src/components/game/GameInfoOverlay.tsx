@@ -1,24 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { animated, useSpring } from 'react-spring';
-import { FiRotateCcw, FiX, FiPlay, FiPause } from 'react-icons/fi';
-import { useGameStore } from '../../store/gameStore';
-import { useJassStore } from '../../store/jassStore';
-import { formatDuration } from '../../utils/timeUtils';
-import MultiplierCalculator from './MultiplierCalculator';
-import { ChargeButton } from '../ui/ChargeButton';
-import type { 
-  PlayerNumber, 
+import React, {useState, useEffect} from "react";
+import {animated, useSpring} from "react-spring";
+import {FiRotateCcw, FiX, FiPlay, FiPause} from "react-icons/fi";
+import {useGameStore} from "../../store/gameStore";
+import {useJassStore} from "../../store/jassStore";
+import {formatDuration} from "../../utils/timeUtils";
+import MultiplierCalculator, {useMultiplierStore} from "./MultiplierCalculator";
+import {ChargeButton} from "../ui/ChargeButton";
+import type {
+  PlayerNumber,
   ChargeLevel,
-  ChargeButtonActionProps
-} from '../../types/jass';
-import { useUIStore } from '../../store/uiStore';
-import { useTimerStore } from '../../store/timerStore';
-import { useMultiplierStore } from './MultiplierCalculator';
-import { useTutorialStore } from '../../store/tutorialStore';
-import { TUTORIAL_STEPS } from '../../types/tutorial';
-import { getRandomBedankenSpruch } from '../../utils/sprueche/bedanken';
-import { getRandomBergSpruch } from '../../utils/sprueche/berg';
-import { useDeviceScale } from '../../hooks/useDeviceScale';
+  ChargeButtonActionProps,
+} from "../../types/jass";
+import {useUIStore} from "../../store/uiStore";
+import {useTimerStore} from "../../store/timerStore";
+import {useTutorialStore} from "../../store/tutorialStore";
+import {TUTORIAL_STEPS} from "../../types/tutorial";
+import {getRandomBedankenSpruch} from "../../utils/sprueche/bedanken";
+import {getRandomBergSpruch} from "../../utils/sprueche/berg";
+import {useDeviceScale} from "../../hooks/useDeviceScale";
 
 interface GameInfoOverlayProps {
   isOpen: boolean;
@@ -27,8 +26,8 @@ interface GameInfoOverlayProps {
 
 const DOUBLE_CLICK_DELAY = 230; // geändert von 200 auf 230, um konsistent mit useGlobalClick zu sein
 
-const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) => {
-  const { 
+const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
+  const {
     currentRound,
     currentPlayer,
     playerNames,
@@ -36,16 +35,16 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
     isSiegActive,
     addBerg,
     addSieg,
-    scores
+    scores,
   } = useGameStore();
 
-  const { currentGameId } = useJassStore();
+  const {currentGameId} = useJassStore();
 
   const [isPressedDown, setIsPressedDown] = useState(false);
   const [showDepth, setShowDepth] = useState(false);
-  const [gameTime, setGameTime] = useState('');
-  const [roundTime, setRoundTime] = useState('');
-  const [jassTime, setJassTime] = useState('');
+  const [gameTime, setGameTime] = useState("");
+  const [roundTime, setRoundTime] = useState("");
+  const [jassTime, setJassTime] = useState("");
   const [canClose, setCanClose] = useState(true);
 
   const {
@@ -54,7 +53,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
     getCurrentTime,
     gameStartTime,
     roundStartTime,
-    jassStartTime
+    jassStartTime,
   } = useTimerStore();
 
   const {
@@ -62,23 +61,23 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
     pauseGame,
     resumeGame,
     lastDoubleClickPosition,
-    calculator: { isFlipped: isCalculatorFlipped },
+    calculator: {isFlipped: isCalculatorFlipped},
     setCalculatorFlipped,
     scoreSettings,
     showNotification,
-    endCharge
+    endCharge,
   } = useUIStore();
 
   const {
     currentMultiplier,
     getDividedPoints,
-    getRemainingPoints
+    getRemainingPoints,
   } = useMultiplierStore();
 
-  const activeTeam = isCalculatorFlipped ? 'top' : 'bottom';
+  const activeTeam = isCalculatorFlipped ? "top" : "bottom";
 
   const isBergActiveForAnyTeam = () => {
-    return isBergActive('top') || isBergActive('bottom');
+    return isBergActive("top") || isBergActive("bottom");
   };
 
   const canActivateSieg = () => {
@@ -90,18 +89,18 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
     if (isPaused) {
       showNotification({
         message: "Zum Fortfahren bitte die Pause beenden und oben links auf  ▶️  klicken!",
-        type: 'warning',
-        position: isCalculatorFlipped ? 'top' : 'bottom',
-        isFlipped: isCalculatorFlipped
+        type: "warning",
+        position: isCalculatorFlipped ? "top" : "bottom",
+        isFlipped: isCalculatorFlipped,
       });
       return;
     }
-    
+
     // Beim Schließen den Multiplikator auf den höchsten Wert zurücksetzen
-    const { values } = useUIStore.getState().farbeSettings;
-    const highestMultiplier = Math.max(...Object.values(values).filter(m => m > 1));
-    useMultiplierStore.setState({ currentMultiplier: highestMultiplier });
-    
+    const {values} = useUIStore.getState().farbeSettings;
+    const highestMultiplier = Math.max(...Object.values(values).filter((m) => m > 1));
+    useMultiplierStore.setState({currentMultiplier: highestMultiplier});
+
     onClose();
   };
 
@@ -119,79 +118,81 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
     // WICHTIG: Sofort die Zeiten aktualisieren, zusätzlich alle 50ms prüfen, wenn das Overlay geöffnet ist
     const updateTimes = () => {
       const currentTime = getCurrentTime();
-      if (isOpen) console.log('⏱️ Timer werden aktualisiert', { 
-        gameStartTime: gameStartTime ? new Date(gameStartTime).toISOString() : null,
-        roundStartTime: roundStartTime ? new Date(roundStartTime).toISOString() : null,
-        jassStartTime: jassStartTime ? new Date(jassStartTime).toISOString() : null,
-        currentGameId
-      });
-      
+      if (isOpen) {
+        console.log("⏱️ Timer werden aktualisiert", {
+          gameStartTime: gameStartTime ? new Date(gameStartTime).toISOString() : null,
+          roundStartTime: roundStartTime ? new Date(roundStartTime).toISOString() : null,
+          jassStartTime: jassStartTime ? new Date(jassStartTime).toISOString() : null,
+          currentGameId,
+        });
+      }
+
       // Timer-Text nur setzen, wenn Werte existieren
       if (gameStartTime) setGameTime(formatDuration(currentTime - gameStartTime, false));
       if (roundStartTime) setRoundTime(formatDuration(currentTime - roundStartTime, true));
       if (jassStartTime) setJassTime(formatDuration(currentTime - jassStartTime, false));
     };
-    
+
     // Sofort ausführen
     updateTimes();
-    
+
     if (!isOpen || isPaused) return;
-    
+
     // Hauptintervall - jede Sekunde
     const interval = setInterval(updateTimes, 1000);
-    
+
     // Zusätzlicher schneller Check für Timer-Änderungen, wenn Overlay geöffnet ist
     const quickInterval = setInterval(() => {
       // Nur einen schnellen Update für neu gestartete Timer durchführen
       const timerStore = useTimerStore.getState();
       const newGameStartTime = timerStore.gameStartTime;
       const newRoundStartTime = timerStore.roundStartTime;
-      
+
       // Wenn sich Timer-Werte geändert haben, sofort aktualisieren
       if (newGameStartTime !== gameStartTime || newRoundStartTime !== roundStartTime) {
-        console.log('⏱️ [SCHNELLES UPDATE] Timer haben sich geändert');
+        console.log("⏱️ [SCHNELLES UPDATE] Timer haben sich geändert");
         updateTimes();
       }
     }, 50);
-    
+
     return () => {
       clearInterval(interval);
       clearInterval(quickInterval);
     };
   }, [
-    isOpen, 
-    isPaused, 
-    getCurrentTime, 
-    gameStartTime, 
-    roundStartTime, 
-    jassStartTime, 
-    currentGameId, 
+    isOpen,
+    isPaused,
+    getCurrentTime,
+    gameStartTime,
+    roundStartTime,
+    jassStartTime,
+    currentGameId,
     currentRound,
     scores,
     // WICHTIG: diese Abhängigkeit hinzufügen, um Rerendering zu erzwingen
-    useTimerStore.getState().isPaused
+    useTimerStore.getState().isPaused,
   ]);
 
-  const { overlayScale } = useDeviceScale();
+  const {overlayScale} = useDeviceScale();
 
   const springProps = useSpring({
     opacity: isOpen ? 1 : 0,
-    transform: `scale(${isOpen ? overlayScale : 0.95}) rotate(${isCalculatorFlipped ? '180deg' : '0deg'})`,
-    config: { mass: 1, tension: 300, friction: 20 }
+    transform: `scale(${isOpen ? overlayScale : 0.95}) rotate(${isCalculatorFlipped ? "180deg" : "0deg"})`,
+    config: {mass: 1, tension: 300, friction: 20},
   });
 
   useEffect(() => {
     if (isOpen && lastDoubleClickPosition) {
-      setCalculatorFlipped(lastDoubleClickPosition === 'top');
+      setCalculatorFlipped(lastDoubleClickPosition === "top");
     }
   }, [isOpen, lastDoubleClickPosition]);
 
-  const { isActive: isTutorialActive, getCurrentStep } = useTutorialStore();
+  const {isActive: isTutorialActive, getCurrentStep} = useTutorialStore();
   const currentStep = getCurrentStep();
 
   useEffect(() => {
     if (isOpen && isTutorialActive) {
-      if (currentStep?.id !== TUTORIAL_STEPS.JASS_SETTINGS && 
+      if (currentStep?.id !== TUTORIAL_STEPS.JASS_SETTINGS &&
           currentStep?.id !== TUTORIAL_STEPS.GAME_INFO) {
         onClose();
       }
@@ -200,7 +201,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
 
   useEffect(() => {
     if (isOpen) {
-      document.dispatchEvent(new Event('gameInfoOpen'));
+      document.dispatchEvent(new Event("gameInfoOpen"));
     }
   }, [isOpen]);
 
@@ -217,7 +218,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
   const showPauseNotification = () => {
     showNotification({
       message: "Möchtest du die Pause aufheben um fortzufahren?",
-      type: 'warning',
+      type: "warning",
       actions: [{
         label: (
           <div className="flex items-center justify-center w-full gap-1.5">
@@ -228,8 +229,8 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
         onClick: () => {
           resumeGame();
           onClose();
-        }
-      }]
+        },
+      }],
     });
   };
 
@@ -239,16 +240,16 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
       return;
     }
 
-    const team = isCalculatorFlipped ? 'top' : 'bottom';
-    const oppositeTeam = team === 'top' ? 'bottom' : 'top';
+    const team = isCalculatorFlipped ? "top" : "bottom";
+    const oppositeTeam = team === "top" ? "bottom" : "top";
 
     // Prüfen ob der Gegner bereits BERG hat
     if (isBergActive(oppositeTeam)) {
       showNotification({
-        message: 'Sorry, dein Gegner hat den BERG schon geschrieben!',
-        type: 'warning',
+        message: "Sorry, dein Gegner hat den BERG schon geschrieben!",
+        type: "warning",
         position: team,
-        isFlipped: isCalculatorFlipped
+        isFlipped: isCalculatorFlipped,
       });
       return;
     }
@@ -261,20 +262,20 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
       const getNotificationDelay = (level: ChargeLevel): number => {
         const baseDelay = 250;
         switch (level) {
-          case 'extreme': return baseDelay + 5000;
-          case 'super':   return baseDelay + 3000;
-          case 'high':    return baseDelay + 2000;
-          case 'medium':  return baseDelay + 1000;
-          case 'low':     return baseDelay + 500;
-          default:        return baseDelay;
+        case "extreme": return baseDelay + 5000;
+        case "super": return baseDelay + 3000;
+        case "high": return baseDelay + 2000;
+        case "medium": return baseDelay + 1000;
+        case "low": return baseDelay + 500;
+        default: return baseDelay;
         }
       };
 
       setTimeout(() => {
         const spruch = getRandomBergSpruch(actionProps.chargeDuration.level);
-        
+
         showNotification({
-          type: 'bedanken',
+          type: "bedanken",
           message: spruch.text,
           position: team,
           isFlipped: isCalculatorFlipped,
@@ -283,25 +284,25 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
             {
               label: spruch.buttons.cancel,
               onClick: () => {
-                endCharge(team, 'berg');
+                endCharge(team, "berg");
                 onClose();
-              }
+              },
             },
             {
               label: spruch.buttons.confirm,
               onClick: () => {
-                endCharge(team, 'berg');
+                endCharge(team, "berg");
                 onClose();
-                useUIStore.setState(state => ({
+                useUIStore.setState((state) => ({
                   resultatKreidetafel: {
                     ...state.resultatKreidetafel,
                     isOpen: true,
-                    swipePosition: team
-                  }
+                    swipePosition: team,
+                  },
                 }));
-              }
-            }
-          ]
+              },
+            },
+          ],
         });
       }, getNotificationDelay(actionProps.chargeDuration.level));
     }
@@ -310,24 +311,24 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
   const handleSiegClick = (actionProps: ChargeButtonActionProps) => {
     if (isPaused) {
       showNotification({
-        message: 'Bitte Pause-Modus beenden',
-        type: 'warning',
-        position: isCalculatorFlipped ? 'top' : 'bottom',
-        isFlipped: isCalculatorFlipped
+        message: "Bitte Pause-Modus beenden",
+        type: "warning",
+        position: isCalculatorFlipped ? "top" : "bottom",
+        isFlipped: isCalculatorFlipped,
       });
       return;
     }
 
-    const team = isCalculatorFlipped ? 'top' : 'bottom';
-    const oppositeTeam = team === 'top' ? 'bottom' : 'top';
+    const team = isCalculatorFlipped ? "top" : "bottom";
+    const oppositeTeam = team === "top" ? "bottom" : "top";
 
     // Prüfen ob der Gegner bereits BEDANKEN hat
     if (isSiegActive(oppositeTeam)) {
       showNotification({
-        type: 'warning',
-        message: 'Der Gegner hat bereits BEDANKEN aktiviert!',
+        type: "warning",
+        message: "Der Gegner hat bereits BEDANKEN aktiviert!",
         position: team,
-        isFlipped: isCalculatorFlipped
+        isFlipped: isCalculatorFlipped,
       });
       return;
     }
@@ -340,20 +341,20 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
       const getNotificationDelay = (level: ChargeLevel): number => {
         const baseDelay = 250;
         switch (level) {
-          case 'extreme': return baseDelay + 5000;
-          case 'super':   return baseDelay + 3000;
-          case 'high':    return baseDelay + 2000;
-          case 'medium':  return baseDelay + 1000;
-          case 'low':     return baseDelay + 500;
-          default:        return baseDelay;
+        case "extreme": return baseDelay + 5000;
+        case "super": return baseDelay + 3000;
+        case "high": return baseDelay + 2000;
+        case "medium": return baseDelay + 1000;
+        case "low": return baseDelay + 500;
+        default: return baseDelay;
         }
       };
 
       setTimeout(() => {
         const spruch = getRandomBedankenSpruch(actionProps.chargeDuration.level);
-        
+
         showNotification({
-          type: 'bedanken',
+          type: "bedanken",
           message: spruch.text,
           position: team,
           isFlipped: isCalculatorFlipped,
@@ -362,25 +363,25 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
             {
               label: spruch.buttons.cancel,
               onClick: () => {
-                endCharge(team, 'bedanken');
+                endCharge(team, "bedanken");
                 onClose();
-              }
+              },
             },
             {
               label: spruch.buttons.confirm,
               onClick: () => {
-                endCharge(team, 'bedanken');
+                endCharge(team, "bedanken");
                 onClose();
-                useUIStore.setState(state => ({
+                useUIStore.setState((state) => ({
                   resultatKreidetafel: {
                     ...state.resultatKreidetafel,
                     isOpen: true,
-                    swipePosition: team
-                  }
+                    swipePosition: team,
+                  },
                 }));
-              }
-            }
-          ]
+              },
+            },
+          ],
         });
       }, getNotificationDelay(actionProps.chargeDuration.level));
     }
@@ -389,17 +390,17 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
   const [isPlayerSelectOpen, setIsPlayerSelectOpen] = useState(false);
 
   const handlePlayerSelect = (selectedPlayer: PlayerNumber) => {
-    useGameStore.setState(state => ({
+    useGameStore.setState((state) => ({
       ...state,
       currentPlayer: selectedPlayer,
       // Wenn es die erste Runde ist, setzen wir auch den Startspieler
-      ...(currentRound === 1 && { startingPlayer: selectedPlayer })
+      ...(currentRound === 1 && {startingPlayer: selectedPlayer}),
     }));
   };
 
   return (
-    <div 
-      className={`fixed inset-0 flex items-center justify-center z-50 ${isOpen ? '' : 'pointer-events-none'}`}
+    <div
+      className={`fixed inset-0 flex items-center justify-center z-50 ${isOpen ? "" : "pointer-events-none"}`}
       onClick={(e) => {
         if (!canClose) return;
         if (e.target === e.currentTarget) {
@@ -407,7 +408,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
         }
       }}
     >
-      <animated.div 
+      <animated.div
         style={springProps}
         className="relative w-11/12 max-w-md bg-gray-800 bg-opacity-95 rounded-xl p-6 shadow-lg select-none"
         onClick={(e) => e.stopPropagation()}
@@ -418,35 +419,35 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
             text-white hover:text-gray-300 transition-all duration-1000
             w-24 h-24 flex items-center justify-center
             rounded-full
-            ${isCalculatorFlipped ? 'rotate-180' : 'rotate-0'}`}
+            ${isCalculatorFlipped ? "rotate-180" : "rotate-0"}`}
           aria-label="Umdrehen"
         >
           <FiRotateCcw className="w-8 h-8" />
         </button>
 
         <div className="flex items-center justify-between mb-6">
-          <button 
+          <button
             onClick={isPaused ? handleResumeClick : handlePauseClick}
             className={`
               w-10 h-10 rounded-full flex items-center justify-center
-              ${isPaused 
-                ? 'bg-green-600 hover:bg-green-500' 
-                : 'bg-gray-600 hover:bg-gray-500'
-              }
+              ${isPaused ?
+      "bg-green-600 hover:bg-green-500" :
+      "bg-gray-600 hover:bg-gray-500"
+    }
               text-white hover:text-white
               transition-all duration-150
               shadow-md hover:shadow-lg
             `}
-            aria-label={isPaused ? 'Weiter' : 'Pause'}
+            aria-label={isPaused ? "Weiter" : "Pause"}
           >
             {isPaused ? <FiPlay className="w-5 h-5" /> : <FiPause className="w-5 h-5" />}
           </button>
-          
+
           <h2 className="text-2xl font-bold text-white text-center">
             Spielstand
           </h2>
-          
-          <button 
+
+          <button
             onClick={handleClose}
             className="w-12 h-12 rounded-full flex items-center justify-center -mr-2 -mt-2
               text-gray-400 hover:text-white
@@ -463,17 +464,17 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
               <span className="text-gray-400 text-xs">Spiel</span>
               <div className="text-xl font-bold">{currentGameId}</div>
             </div>
-            
+
             <div className="text-center -ml-10 pl-0">
               <span className="text-gray-400 text-xs">Runde</span>
               <div className="text-xl font-bold">{currentRound}</div>
             </div>
-            
+
             <div className="text-center -ml-10 pl-0">
               <span className="text-gray-400 text-xs">Spieldauer</span>
               <div className="text-xl font-bold">{gameTime}</div>
             </div>
-            
+
             <div className="text-center -ml-8 pl-0">
               <span className="text-gray-400 text-xs">Jassdauer</span>
               <div className="text-xl font-bold">{jassTime}</div>
@@ -483,14 +484,14 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
           <div className="text-center text-white mt-1">
             <span className="text-gray-400">Spieler</span>
             <div className="relative">
-              <button 
+              <button
                 onClick={() => setIsPlayerSelectOpen(!isPlayerSelectOpen)}
-                className="w-full text-3xl font-bold p-2 bg-gray-700 hover:bg-gray-600 
+                className="w-full text-3xl font-bold p-2 bg-gray-700 hover:bg-gray-600
                           bg-opacity-50 rounded-xl mt-1 transition-colors"
               >
                 {playerNames[currentPlayer as PlayerNumber] || `Spieler ${currentPlayer}`}
               </button>
-              
+
               {isPlayerSelectOpen && (
                 <div className="absolute left-0 right-0 mt-1 bg-gray-700 rounded-xl overflow-hidden shadow-lg z-50">
                   {Object.entries(playerNames).map(([num, name]) => (
@@ -518,11 +519,11 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
           </div>
 
           <div className="text-center text-white mt-3">
-            <MultiplierCalculator 
+            <MultiplierCalculator
               mainTitle="Punkte bis"
-              subTitle={getRemainingPoints(isCalculatorFlipped ? 'top' : 'bottom', scores).title}
-              points={getRemainingPoints(isCalculatorFlipped ? 'top' : 'bottom', scores).remaining}
-              team={isCalculatorFlipped ? 'top' : 'bottom'}
+              subTitle={getRemainingPoints(isCalculatorFlipped ? "top" : "bottom", scores).title}
+              points={getRemainingPoints(isCalculatorFlipped ? "top" : "bottom", scores).remaining}
+              team={isCalculatorFlipped ? "top" : "bottom"}
               numberSize="text-3xl"
               scoreSettings={scoreSettings}
               scores={scores}
@@ -535,10 +536,10 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
               <div className="grid grid-cols-3 gap-2 -mt-10">
                 <div className="text-center">
                   <span className="text-gray-400 text-xs">
-                    {getRemainingPoints(isCalculatorFlipped ? 'bottom' : 'top', scores).title}
+                    {getRemainingPoints(isCalculatorFlipped ? "bottom" : "top", scores).title}
                   </span>
                   <div className="text-xl font-bold mt-0">
-                    {getRemainingPoints(isCalculatorFlipped ? 'bottom' : 'top', scores).remaining}
+                    {getRemainingPoints(isCalculatorFlipped ? "bottom" : "top", scores).remaining}
                   </div>
                 </div>
                 <div className="invisible">
@@ -547,7 +548,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
                 <div className="text-center">
                   <span className="text-gray-400 text-xs">{currentMultiplier}-fach</span>
                   <div className="text-xl font-bold mt-0">
-                    {getDividedPoints(getRemainingPoints(isCalculatorFlipped ? 'bottom' : 'top', scores).remaining)}
+                    {getDividedPoints(getRemainingPoints(isCalculatorFlipped ? "bottom" : "top", scores).remaining)}
                   </div>
                 </div>
               </div>
@@ -560,7 +561,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
             <ChargeButton
               onAction={handleBergClick}
               isButtonActive={isBergActive(activeTeam)}
-              isActiveGlobal={isBergActive('top') || isBergActive('bottom')}
+              isActiveGlobal={isBergActive("top") || isBergActive("bottom")}
               color="yellow"
               disabled={isPaused}
               type="berg"
@@ -572,7 +573,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({ isOpen, onClose }) =>
             <ChargeButton
               onAction={handleSiegClick}
               isButtonActive={isSiegActive(activeTeam)}
-              isActiveGlobal={isSiegActive('top') || isSiegActive('bottom')}
+              isActiveGlobal={isSiegActive("top") || isSiegActive("bottom")}
               color="yellow"
               disabled={isPaused || !canActivateSieg()}
               type="sieg"

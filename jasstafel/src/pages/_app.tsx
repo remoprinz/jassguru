@@ -1,21 +1,20 @@
-import React from 'react';
-import '../styles/globals.css';
-import type { AppProps } from 'next/app';
-import { useEffect, useState } from 'react';
-import { register } from '../pwa/serviceWorkerRegistration';
-import DebugLog from '../components/ui/DebugLog';
-import { AppProvider } from '../contexts/AppContext';
-import Head from 'next/head';
-import { useWakeLock } from '../hooks/useWakeLock';
-import { AuthProvider } from '../providers/AuthProvider';
-import { UserProvider } from '../providers/UserProvider';
-import { useAuthStore } from '@/store/authStore';
-import GlobalNotificationContainer from '../components/notifications/GlobalNotificationContainer';
+import React, {useEffect, useState} from "react";
+import "../styles/globals.css";
+import type {AppProps} from "next/app";
+import {register} from "../pwa/serviceWorkerRegistration";
+import DebugLog from "../components/ui/DebugLog";
+import {AppProvider} from "../contexts/AppContext";
+import Head from "next/head";
+import {useWakeLock} from "../hooks/useWakeLock";
+import {AuthProvider} from "../providers/AuthProvider";
+import {UserProvider} from "../providers/UserProvider";
+import {useAuthStore} from "@/store/authStore";
+import GlobalNotificationContainer from "../components/notifications/GlobalNotificationContainer";
 
-const MyApp = ({ Component, pageProps }: AppProps) => {
+const MyApp = ({Component, pageProps}: AppProps) => {
   const [isClient, setIsClient] = useState(false);
   useWakeLock();
-  const initAuth = useAuthStore(state => state.initAuth);
+  const initAuth = useAuthStore((state) => state.initAuth);
 
   useEffect(() => {
     setIsClient(true);

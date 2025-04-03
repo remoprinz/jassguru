@@ -1,9 +1,9 @@
-import React from 'react';
-import { styled } from '@mui/material/styles';
-import RoemischeZahlen from '../game/RoemischeZahlen';
-import { useGameStore } from '../../store/gameStore';
-import { useUIStore } from '../../store/uiStore';
-import type { TeamPosition, StrichValue } from '../../types/jass';
+import React from "react";
+import {styled} from "@mui/material/styles";
+import RoemischeZahlen from "../game/RoemischeZahlen";
+import {useGameStore} from "../../store/gameStore";
+import {useUIStore} from "../../store/uiStore";
+import type {TeamPosition, StrichValue} from "../../types/jass";
 
 interface StrichContainerProps {
   position: TeamPosition;
@@ -25,130 +25,130 @@ interface BoxConfig {
   transformOrigin?: string;
 }
 
-const Container = styled('div')({
-  position: 'absolute',
-  width: '75%',
-  maxWidth: '320px',
-  height: '80%',
-  top: '10%',
-  left: '50%',
-  transform: 'translateX(-50%)',
-  pointerEvents: 'none',
+const Container = styled("div")({
+  position: "absolute",
+  width: "75%",
+  maxWidth: "320px",
+  height: "80%",
+  top: "10%",
+  left: "50%",
+  transform: "translateX(-50%)",
+  pointerEvents: "none",
 });
 
-const StrichBox = styled('div')<{ customStyle: React.CSSProperties }>(({ customStyle }) => ({
-  position: 'absolute',
-  width: '100%',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'flex-start',
-  padding: '0 10px',
-  boxSizing: 'border-box',
-  pointerEvents: 'auto',
-  cursor: 'pointer',
+const StrichBox = styled("div")<{ customStyle: React.CSSProperties }>(({customStyle}) => ({
+  position: "absolute",
+  width: "100%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-start",
+  padding: "0 10px",
+  boxSizing: "border-box",
+  pointerEvents: "auto",
+  cursor: "pointer",
   ...(customStyle as React.CSSProperties),
 }));
 
-const BoxLabel = styled('span')<{ position: TeamPosition }>(({ position }) => ({
-  position: 'absolute',
-  [position === 'top' ? 'left' : 'right']: '10px',
-  top: '50%',
-  transform: position === 'top' ? 'translateY(-50%) rotate(180deg)' : 'translateY(-50%)',
-  color: 'rgba(255, 255, 255, 0.8)',
-  fontSize: '16px',
-  fontWeight: 'bold',
+const BoxLabel = styled("span")<{ position: TeamPosition }>(({position}) => ({
+  position: "absolute",
+  [position === "top" ? "left" : "right"]: "10px",
+  top: "50%",
+  transform: position === "top" ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)",
+  color: "rgba(255, 255, 255, 0.8)",
+  fontSize: "16px",
+  fontWeight: "bold",
 }));
 
 const calculateBoxConfigs = (
-  position: TeamPosition, 
+  position: TeamPosition,
   diagonalAngle: number = -43,
-  top100erOffset: string = '0%',
-  bottom100erOffset: string = '0%',
-  top20erOffset: string = '0%',
-  bottom20erOffset: string = '0%'
+  top100erOffset: string = "0%",
+  bottom100erOffset: string = "0%",
+  top20erOffset: string = "0%",
+  bottom20erOffset: string = "0%"
 ): Record<string, BoxConfig> => {
-  if (position === 'bottom') {
+  if (position === "bottom") {
     return {
-      '100er': {
-        height: '20%',
+      "100er": {
+        height: "20%",
         top: `calc(-3.5% + ${bottom100erOffset})`,
-        left: '-4%',
-        width: '105%',
+        left: "-4%",
+        width: "105%",
       },
-      '50er': {
-        height: '20%',
-        top: '70%',
-        left: '9%',
-        width: '95%',
+      "50er": {
+        height: "20%",
+        top: "70%",
+        left: "9%",
+        width: "95%",
         transform: `rotate(${diagonalAngle}deg)`,
-        transformOrigin: 'top left',
+        transformOrigin: "top left",
       },
-      '20er': {
-        height: '20%',
+      "20er": {
+        height: "20%",
         bottom: `calc(-4.5% + ${bottom20erOffset})`,
-        left: '2%',
-        width: '80%',
+        left: "2%",
+        width: "80%",
       },
-      'restzahl': {
-        height: '20%',
-        top: '76%',
-        right: '-2%',
-        width: '16%',
-      }
+      "restzahl": {
+        height: "20%",
+        top: "76%",
+        right: "-2%",
+        width: "16%",
+      },
     };
   } else {
     return {
-      '20er': {
-        height: '20%',
+      "20er": {
+        height: "20%",
         top: `calc(-4.5% + ${top20erOffset})`,
-        right: '2%',
-        width: '80%',
+        right: "2%",
+        width: "80%",
       },
-      '50er': {
-        height: '20%',
-        bottom: '14%',
-        left: '22%',
-        width: '95%',
+      "50er": {
+        height: "20%",
+        bottom: "14%",
+        left: "22%",
+        width: "95%",
         transform: `rotate(${diagonalAngle}deg)`,
-        transformOrigin: 'bottom left',
+        transformOrigin: "bottom left",
       },
-      '100er': {
-        height: '20%',
+      "100er": {
+        height: "20%",
         bottom: `calc(-3.5% + ${top100erOffset})`,
-        right: '-4%',
-        width: '105%',
+        right: "-4%",
+        width: "105%",
       },
-      'restzahl': {
-        height: '20%',
-        bottom: '76%',
-        left: '-2%',
-        width: '16%',
-      }
+      "restzahl": {
+        height: "20%",
+        bottom: "76%",
+        left: "-2%",
+        width: "16%",
+      },
     };
   }
 };
 
-const StrichContainerStyled = styled('div')<{ isRotated?: boolean }>(({ isRotated }) => ({
-  position: 'absolute',
-  width: '100%',
-  height: '100%',
-  display: 'flex',
-  flexDirection: 'row', 
-  alignItems: 'flex-end',
-  justifyContent: 'flex-start',
-  transform: isRotated ? 'rotateX(180deg) rotateY(180deg) rotateZ(180deg)' : 'none',
-  transformOrigin: 'center center',
+const StrichContainerStyled = styled("div")<{ isRotated?: boolean }>(({isRotated}) => ({
+  position: "absolute",
+  width: "100%",
+  height: "100%",
+  display: "flex",
+  flexDirection: "row",
+  alignItems: "flex-end",
+  justifyContent: "flex-start",
+  transform: isRotated ? "rotateX(180deg) rotateY(180deg) rotateZ(180deg)" : "none",
+  transformOrigin: "center center",
 }));
 
-const getBoxValue = (boxType: string): StrichValue | 'restzahl' => {
-  if (boxType === 'restzahl') return 'restzahl';
+const getBoxValue = (boxType: string): StrichValue | "restzahl" => {
+  if (boxType === "restzahl") return "restzahl";
   const value = parseInt(boxType);
   if (value === 20 || value === 50 || value === 100) return value;
   return 20; // Fallback
 };
 
 const getClickValue = (boxType: string): number => {
-  if (boxType === 'restzahl') return 1;
+  if (boxType === "restzahl") return 1;
   const value = parseInt(boxType);
   if (value === 20 || value === 50 || value === 100) return value;
   return 20; // Fallback
@@ -157,25 +157,25 @@ const getClickValue = (boxType: string): number => {
 const StrichContainer: React.FC<StrichContainerProps> = ({
   position,
   onBlendEffect,
-  top100erOffset = '2%',
-  bottom100erOffset = '2%',
-  top20erOffset = '2%',
-  bottom20erOffset = '2%'
+  top100erOffset = "2%",
+  bottom100erOffset = "2%",
+  top20erOffset = "2%",
+  bottom20erOffset = "2%",
 }) => {
-  const { 
+  const {
     updateScoreByStrich,
     addWeisPoints,
     currentHistoryIndex,
     roundHistory,
     showHistoryWarning,
     getVisualStriche,
-    jumpToLatest
+    jumpToLatest,
   } = useGameStore();
 
   const {
     setGameInfoOpen,
     setLastDoubleClickPosition,
-    closeHistoryWarning
+    closeHistoryWarning,
   } = useUIStore();
 
   const visualStriche = getVisualStriche(position);
@@ -191,12 +191,12 @@ const StrichContainer: React.FC<StrichContainerProps> = ({
 
   return (
     <Container>
-      <StrichContainerStyled isRotated={position === 'top'}>
+      <StrichContainerStyled isRotated={position === "top"}>
         {Object.entries(boxConfigs).map(([boxType, config]) => {
           const boxValue = getBoxValue(boxType);
-          const stricheCount = boxValue === 'restzahl'
-            ? visualStriche.restZahl
-            : (visualStriche.stricheCounts[boxValue] || 0);
+          const stricheCount = boxValue === "restzahl" ?
+            visualStriche.restZahl :
+            (visualStriche.stricheCounts[boxValue] || 0);
 
           return (
             <StrichBox
@@ -206,7 +206,7 @@ const StrichContainer: React.FC<StrichContainerProps> = ({
               data-position={position}
               data-box-type={boxType}
             >
-              {boxValue === 'restzahl' ? (
+              {boxValue === "restzahl" ? (
                 <BoxLabel position={position}>
                   {visualStriche.restZahl}
                 </BoxLabel>
@@ -218,41 +218,41 @@ const StrichContainer: React.FC<StrichContainerProps> = ({
                   strichColor="rgb(255, 255, 255)"
                   animationDuration={100}
                   isActive={true}
-                  direction={position === 'top' ? 'rtl' : 'ltr'}
+                  direction={position === "top" ? "rtl" : "ltr"}
                   edgeOffset={0}
                   isXMode={boxValue === 50}
                   xAngle={18}
-                  xAlignment={position === 'top' ? 'right' : 'left'}
+                  xAlignment={position === "top" ? "right" : "left"}
                   isDiagonal={true}
-                  diagonalAngle={position === 'top' ? -43 : 43}
-                  diagonalStrichHeight={position === 'top' ? "116%" : "116%"}
-                  diagonalStrichWidth={position === 'top' ? "2px" : "2px"}
+                  diagonalAngle={position === "top" ? -43 : 43}
+                  diagonalStrichHeight={position === "top" ? "116%" : "116%"}
+                  diagonalStrichWidth={position === "top" ? "2px" : "2px"}
                   diagonalStrichOffset={{
-                    vertical: position === 'top' ? "0%" : "0%",
-                    horizontal: position === 'top' ? "0%" : "0%"
+                    vertical: position === "top" ? "0%" : "0%",
+                    horizontal: position === "top" ? "0%" : "0%",
                   }}
-                  diagonalStrichAngle={position === 'top' ? -25 : 25}
+                  diagonalStrichAngle={position === "top" ? -25 : 25}
                   topDiagonalStrichOffset={{
                     vertical: "0%",
-                    horizontal: "0%"
+                    horizontal: "0%",
                   }}
                   bottomDiagonalStrichOffset={{
                     vertical: "0%",
-                    horizontal: "0%"
+                    horizontal: "0%",
                   }}
-                  topDiagonalStrichAngle={position === 'top' ? 30 : 30}
-                  bottomDiagonalStrichAngle={position === 'top' ? 30 : 30}
+                  topDiagonalStrichAngle={position === "top" ? 30 : 30}
+                  bottomDiagonalStrichAngle={position === "top" ? 30 : 30}
                   position={position}
                   diagonalStrichOffset100er={{
-                    vertical: position === 'top' ? "-18%" : "3%",
-                    horizontal: position === 'top' ? "10%" : "-5%"
+                    vertical: position === "top" ? "-18%" : "3%",
+                    horizontal: position === "top" ? "10%" : "-5%",
                   }}
                   diagonalStrichOffset20er={{
-                    vertical: position === 'top' ? "-20%" : "3.5%",
-                    horizontal: position === 'top' ? "5.5%" : "-1.5%"
+                    vertical: position === "top" ? "-20%" : "3.5%",
+                    horizontal: position === "top" ? "5.5%" : "-1.5%",
                   }}
-                  diagonalStrichAngle100er={position === 'top' ? 35 : 35}
-                  diagonalStrichAngle20er={position === 'top' ? 35 : 35}
+                  diagonalStrichAngle100er={position === "top" ? 35 : 35}
+                  diagonalStrichAngle20er={position === "top" ? 35 : 35}
                 />
               )}
             </StrichBox>

@@ -1,14 +1,14 @@
 // scoreCalculations.ts
 
-import type { StrichValue } from '../types/jass';
+import type {StrichValue} from "../types/jass";
 
-type Position = 'top' | 'bottom';
+type Position = "top" | "bottom";
 
 export const calculateStricheCounts = (score: number) => {
   const striche: Record<StrichValue, number> = {
     100: Math.floor(score / 100),
     50: 0,
-    20: 0
+    20: 0,
   };
 
   let restZahl = score % 100;
@@ -23,7 +23,7 @@ export const calculateStricheCounts = (score: number) => {
     restZahl = restZahl % 20;
   }
 
-  return { striche, restZahl };
+  return {striche, restZahl};
 };
 
 export const calculateRoundScores = (
@@ -36,16 +36,16 @@ export const calculateRoundScores = (
     total: 0,
     weis: 0,
     play: 0,
-    stricheCounts: { '20': 0, '50': 0, '100': 0 },
-    restZahl: 0
+    stricheCounts: {"20": 0, "50": 0, "100": 0},
+    restZahl: 0,
   };
 
   const scores = {
-    top: { ...initial, total: isHistoryNavigation ? 0 : (previousScores?.top || 0) },
-    bottom: { ...initial, total: isHistoryNavigation ? 0 : (previousScores?.bottom || 0) }
+    top: {...initial, total: isHistoryNavigation ? 0 : (previousScores?.top || 0)},
+    bottom: {...initial, total: isHistoryNavigation ? 0 : (previousScores?.bottom || 0)},
   };
 
-  weisActions.forEach(action => {
+  weisActions.forEach((action) => {
     scores[action.position].weis += action.value;
     scores[action.position].total += action.value;
   });
@@ -57,7 +57,7 @@ export const calculateRoundScores = (
     scores.bottom.total += playAction.scores.bottom;
   }
 
-  ['top', 'bottom'].forEach((pos) => {
+  ["top", "bottom"].forEach((pos) => {
     const position = pos as Position;
     const result = calculateStricheCounts(scores[position].total);
     scores[position].stricheCounts = result.striche;

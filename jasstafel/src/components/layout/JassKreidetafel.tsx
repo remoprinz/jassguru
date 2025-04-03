@@ -1,34 +1,34 @@
 // src/components/layout/JassKreidetafel.tsx
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { animated } from 'react-spring';
-import useViewportHeight from '../../hooks/useViewportHeight';
-import SplitContainer from './SplitContainer';
-import useSwipeAnimation from '../animations/useSwipeAnimation';
-import Calculator from '../game/Calculator';
-import { useGameStore } from '../../store/gameStore';
-import StartScreen from './StartScreen';
-import RoundInfo from '../game/RoundInfo';
-import { useGlobalClick } from '../../hooks/useGlobalClick';   
-import { PlayerNumber, TeamPosition } from '../../types/jass';
-import { useUIStore } from '../../store/uiStore';
-import MenuOverlay from './MenuOverlay';
-import ResultatKreidetafel from './ResultatKreidetafel';
-import { useNavigationHistory } from '../../hooks/useNavigationHistory';
-import HistoryWarning from '../notifications/HistoryWarnings';
-import GameInfoOverlay from '../game/GameInfoOverlay';
-import { useJassStore } from '../../store/jassStore';
-import { useOnboardingFlow } from '../../hooks/useOnboardingFlow';
-import OnboardingFlow from '../onboarding/OnboardingFlow';
-import { isPWA } from '../../utils/browserDetection';
-import { useTutorialStore } from '../../store/tutorialStore';
-import TutorialOverlay from '../tutorial/TutorialOverlay';
-import TutorialInfoDialog from '../tutorial/TutorialInfoDialog';
-import { isDev, FORCE_TUTORIAL } from '../../utils/devUtils';
-import { useDeviceScale } from '../../hooks/useDeviceScale';
-import html2canvas from 'html2canvas';
-import { useAuthStore } from '../../store/authStore';
-import { BrowserOnboardingStep } from '../../constants/onboardingContent';
+import React, {useState, useEffect, useMemo, useCallback, useRef} from "react";
+import {animated} from "react-spring";
+import useViewportHeight from "../../hooks/useViewportHeight";
+import SplitContainer from "./SplitContainer";
+import useSwipeAnimation from "../animations/useSwipeAnimation";
+import Calculator from "../game/Calculator";
+import {useGameStore} from "../../store/gameStore";
+import StartScreen from "./StartScreen";
+import RoundInfo from "../game/RoundInfo";
+import {useGlobalClick} from "../../hooks/useGlobalClick";
+import {PlayerNumber, TeamPosition} from "../../types/jass";
+import {useUIStore} from "../../store/uiStore";
+import MenuOverlay from "./MenuOverlay";
+import ResultatKreidetafel from "./ResultatKreidetafel";
+import {useNavigationHistory} from "../../hooks/useNavigationHistory";
+import HistoryWarning from "../notifications/HistoryWarnings";
+import GameInfoOverlay from "../game/GameInfoOverlay";
+import {useJassStore} from "../../store/jassStore";
+import {useOnboardingFlow} from "../../hooks/useOnboardingFlow";
+import OnboardingFlow from "../onboarding/OnboardingFlow";
+import {isPWA} from "../../utils/browserDetection";
+import {useTutorialStore} from "../../store/tutorialStore";
+import TutorialOverlay from "../tutorial/TutorialOverlay";
+import TutorialInfoDialog from "../tutorial/TutorialInfoDialog";
+import {isDev, FORCE_TUTORIAL} from "../../utils/devUtils";
+import {useDeviceScale} from "../../hooks/useDeviceScale";
+import html2canvas from "html2canvas";
+import {useAuthStore} from "../../store/authStore";
+import {BrowserOnboardingStep} from "../../constants/onboardingContent";
 
 // Definiere HTML2Canvas-Optionen Typ
 interface HTML2CanvasOptions {
@@ -50,31 +50,31 @@ interface JassKreidetafelProps {
 
 const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
   middleLineThickness = 4,
-  zShapeConfig
+  zShapeConfig,
 }) => {
   const [mounted, setMounted] = useState(false);
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
-  const [activeContainer, setActiveContainer] = useState<'top' | 'bottom' | null>(null);
+  const [activeContainer, setActiveContainer] = useState<"top" | "bottom" | null>(null);
 
   const {
     isGameStarted,
     isGameCompleted,
-    scores: { top: topScore, bottom: bottomScore },
+    scores: {top: topScore, bottom: bottomScore},
     currentPlayer,
     currentRound,
-    addWeisPoints
+    addWeisPoints,
   } = useGameStore();
 
-  const { isJassStarted } = useJassStore();
+  const {isJassStarted} = useJassStore();
 
   const {
-    menu: { isOpen: isMenuOpen },
+    menu: {isOpen: isMenuOpen},
     setMenuOpen,
     historyWarning,
     isGameInfoOpen,
     setGameInfoOpen,
     setOverlayPosition,
-    isTutorialInfoOpen
+    isTutorialInfoOpen,
   } = useUIStore();
 
   const viewportHeight = useViewportHeight();
@@ -91,7 +91,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     handleNext,
     handlePrevious,
     handleDismiss,
-    canBeDismissed
+    canBeDismissed,
   } = useOnboardingFlow(isBrowserOnboarding);
 
   // Tutorial
@@ -99,14 +99,14 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     isActive: isTutorialActive,
     hasCompletedTutorial,
     getCurrentStep,
-    startTutorial
+    startTutorial,
   } = useTutorialStore();
 
   // Auth-Status abrufen
-  const { isAuthenticated } = useAuthStore();
+  const {isAuthenticated} = useAuthStore();
 
   // Device Scale Hook
-  const { scale, deviceType } = useDeviceScale();
+  const {scale, deviceType} = useDeviceScale();
 
   // Onboarding beim ersten Laden
   useEffect(() => {
@@ -127,16 +127,16 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
   }, []);
 
   // Container-Höhen berechnen
-  const { topContainerHeight, bottomContainerHeight, middleLinePosition } = useMemo(() => {
-    if (typeof window === 'undefined' || !mounted) {
-      return { topContainerHeight: 0, bottomContainerHeight: 0, middleLinePosition: 0 };
+  const {topContainerHeight, bottomContainerHeight, middleLinePosition} = useMemo(() => {
+    if (typeof window === "undefined" || !mounted) {
+      return {topContainerHeight: 0, bottomContainerHeight: 0, middleLinePosition: 0};
     }
-    const safeAreaTop = isPWA()
-      ? parseInt(window.getComputedStyle(document.documentElement).getPropertyValue('--safe-area-top') || '0')
-      : 0;
-    const safeAreaBottom = isPWA()
-      ? parseInt(window.getComputedStyle(document.documentElement).getPropertyValue('--safe-area-bottom') || '0')
-      : 0;
+    const safeAreaTop = isPWA() ?
+      parseInt(window.getComputedStyle(document.documentElement).getPropertyValue("--safe-area-top") || "0") :
+      0;
+    const safeAreaBottom = isPWA() ?
+      parseInt(window.getComputedStyle(document.documentElement).getPropertyValue("--safe-area-bottom") || "0") :
+      0;
 
     const adjustedViewportHeight = viewportHeight - safeAreaTop - safeAreaBottom;
     const midLinePos = Math.floor(adjustedViewportHeight / 2);
@@ -145,7 +145,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     return {
       topContainerHeight: halfHeight,
       bottomContainerHeight: halfHeight,
-      middleLinePosition: midLinePos + safeAreaTop
+      middleLinePosition: midLinePos + safeAreaTop,
     };
   }, [viewportHeight, middleLineThickness, mounted]);
 
@@ -155,11 +155,11 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     mainOpacity: topMainOpacity,
     oppositeOpacity: topOppositeOpacity,
     animateSwipe: animateTopSwipe,
-    getBrightness: getTopBrightness
+    getBrightness: getTopBrightness,
   } = useSwipeAnimation({
     initialPosition: 0,
     maxOffset: viewportHeight * 0.07,
-    position: 'top'
+    position: "top",
   });
 
   const {
@@ -167,40 +167,40 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     mainOpacity: bottomMainOpacity,
     oppositeOpacity: bottomOppositeOpacity,
     animateSwipe: animateBottomSwipe,
-    getBrightness: getBottomBrightness
+    getBrightness: getBottomBrightness,
   } = useSwipeAnimation({
     initialPosition: 0,
     maxOffset: viewportHeight * 0.07,
-    position: 'bottom'
+    position: "bottom",
   });
 
   // Blend / History
   const triggerBlendEffect = useCallback(
-    (position: 'top' | 'bottom', direction: 'left' | 'right' = 'left') => {
-      const animate = position === 'top' ? animateTopSwipe : animateBottomSwipe;
+    (position: "top" | "bottom", direction: "left" | "right" = "left") => {
+      const animate = position === "top" ? animateTopSwipe : animateBottomSwipe;
       animate(direction);
-      const brightness = position === 'top' ? getTopBrightness : getBottomBrightness;
+      const brightness = position === "top" ? getTopBrightness : getBottomBrightness;
       brightness(1.2);
       setTimeout(() => brightness(1), 300);
     },
     [animateTopSwipe, animateBottomSwipe, getTopBrightness, getBottomBrightness]
   );
 
-  const topHistoryNav = useNavigationHistory('top');
-  const bottomHistoryNav = useNavigationHistory('bottom');
+  const topHistoryNav = useNavigationHistory("top");
+  const bottomHistoryNav = useNavigationHistory("bottom");
 
   // Swipes
   const handleSwipe = useCallback(
-    (direction: 'up' | 'down' | 'left' | 'right', pos: TeamPosition) => {
-      if (direction === 'left' || direction === 'right') {
-        const historyNav = pos === 'top' ? topHistoryNav : bottomHistoryNav;
+    (direction: "up" | "down" | "left" | "right", pos: TeamPosition) => {
+      if (direction === "left" || direction === "right") {
+        const historyNav = pos === "top" ? topHistoryNav : bottomHistoryNav;
         historyNav.handleSwipe(direction);
         triggerBlendEffect(pos, direction);
         return;
       }
-      if (direction === 'up' || direction === 'down') {
-        const shouldOpen = (pos === 'top' && direction === 'up') || (pos === 'bottom' && direction === 'down');
-        const shouldClose = (pos === 'top' && direction === 'down') || (pos === 'bottom' && direction === 'up');
+      if (direction === "up" || direction === "down") {
+        const shouldOpen = (pos === "top" && direction === "up") || (pos === "bottom" && direction === "down");
+        const shouldClose = (pos === "top" && direction === "down") || (pos === "bottom" && direction === "up");
 
         if (shouldOpen) {
           setOverlayPosition(pos);
@@ -230,7 +230,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
         setActiveContainer(position);
         setIsCalculatorOpen(true);
         // Tutorial-Event
-        window.dispatchEvent(new CustomEvent('calculatorOpen'));
+        window.dispatchEvent(new CustomEvent("calculatorOpen"));
       }
     },
     [isMenuOpen]
@@ -244,20 +244,20 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
   }, []);
 
   // "Einzelklick" vs. "Doppelklick" in useGlobalClick
-  const { handleGlobalClick } = useGlobalClick({
+  const {handleGlobalClick} = useGlobalClick({
     onSingleClick: (position, boxType) => {
       setActiveContainer(position);
-      
+
       // Hier die Logik für die Restzahl-Box hinzufügen
-      if (boxType === 'restzahl') {
-        addWeisPoints(position, 1);  // Genau 1 Punkt für Restzahl-Weis
+      if (boxType === "restzahl") {
+        addWeisPoints(position, 1); // Genau 1 Punkt für Restzahl-Weis
       } else {
         const numeric = parseInt(boxType, 10) || 20;
-        addWeisPoints(position, numeric);  // addWeisPoints statt updateScoreByStrich
+        addWeisPoints(position, numeric); // addWeisPoints statt updateScoreByStrich
       }
     },
     middleLinePosition,
-    delay: 230
+    delay: 230,
   });
 
   // Window Resizing
@@ -265,11 +265,11 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     if (mounted) {
       const initialCalc = setTimeout(() => {
         const vh = window.innerHeight;
-        document.documentElement.style.setProperty('--vh', `${vh}px`);
+        document.documentElement.style.setProperty("--vh", `${vh}px`);
       }, 0);
       const secondCalc = setTimeout(() => {
         const vh = window.innerHeight;
-        document.documentElement.style.setProperty('--vh', `${vh}px`);
+        document.documentElement.style.setProperty("--vh", `${vh}px`);
       }, 100);
       return () => {
         clearTimeout(initialCalc);
@@ -281,8 +281,8 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
   // Scroll
   useEffect(() => {
     const handleScroll = () => {};
-    window.addEventListener('scroll', handleScroll, { passive: false });
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener("scroll", handleScroll, {passive: false});
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   // Punkte-Änderungen
@@ -291,13 +291,13 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
 
   useEffect(() => {
     if (prevTopScore !== undefined && topScore !== prevTopScore) {
-      triggerBlendEffect('top', topScore > prevTopScore ? 'left' : 'right');
+      triggerBlendEffect("top", topScore > prevTopScore ? "left" : "right");
     }
   }, [topScore, prevTopScore, triggerBlendEffect]);
 
   useEffect(() => {
     if (prevBottomScore !== undefined && bottomScore !== prevBottomScore) {
-      triggerBlendEffect('bottom', bottomScore > prevBottomScore ? 'left' : 'right');
+      triggerBlendEffect("bottom", bottomScore > prevBottomScore ? "left" : "right");
     }
   }, [bottomScore, prevBottomScore, triggerBlendEffect]);
 
@@ -315,17 +315,17 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
 
   // Debug
   useEffect(() => {
-    console.log('Onboarding Status:', { showOnboarding, forceOnboarding, canBeDismissed, isPWAInstalled });
+    console.log("Onboarding Status:", {showOnboarding, forceOnboarding, canBeDismissed, isPWAInstalled});
   }, [showOnboarding, forceOnboarding, canBeDismissed, isPWAInstalled]);
 
   // Tutorial
   useEffect(() => {
-    console.log('Tutorial Conditions:', {
+    console.log("Tutorial Conditions:", {
       isPWA: isPWAInstalled,
       shouldShow: shouldShowTutorial(),
       hasCompleted: hasCompletedTutorial,
       mounted,
-      isBrowserOnboarding
+      isBrowserOnboarding,
     });
     const tutorialStore = useTutorialStore.getState();
     if (
@@ -335,7 +335,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
       mounted &&
       !tutorialStore.isActive
     ) {
-      console.log('Starting Tutorial!');
+      console.log("Starting Tutorial!");
       startTutorial();
     }
   }, [mounted, isPWAInstalled]);
@@ -344,23 +344,23 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     if (!isTutorialActive) return null;
     return {
       handleSwipe,
-      handleLongPress: (pos: TeamPosition) => handleLongPress(pos)
+      handleLongPress: (pos: TeamPosition) => handleLongPress(pos),
     };
   }, [isTutorialActive, handleSwipe, handleLongPress]);
 
   // Tutorial-Events (SplitContainer)
   useEffect(() => {
     const handleTutorialSplitContainer = (evt: CustomEvent) => {
-      console.log('🎯 Tutorial Split Container Event:', {
+      console.log("🎯 Tutorial Split Container Event:", {
         action: evt.detail.action,
         teamPosition: evt.detail.teamPosition,
-        currentStep: getCurrentStep()?.id
+        currentStep: getCurrentStep()?.id,
       });
-      const { action, teamPosition } = evt.detail;
-      if (action === 'open') {
-        console.log('📂 Opening container with:', {
+      const {action, teamPosition} = evt.detail;
+      if (action === "open") {
+        console.log("📂 Opening container with:", {
           teamPosition,
-          isMenuOpen: useUIStore.getState().menu.isOpen
+          isMenuOpen: useUIStore.getState().menu.isOpen,
         });
         setOverlayPosition(teamPosition);
         setActiveContainer(teamPosition);
@@ -370,8 +370,8 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
           animateTopSwipe(true);
           animateBottomSwipe(true);
         });
-      } else if (action === 'close') {
-        console.log('📂 Closing container');
+      } else if (action === "close") {
+        console.log("📂 Closing container");
         setOverlayPosition(null);
         setActiveContainer(null);
         setMenuOpen(false);
@@ -383,9 +383,9 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
       }
     };
 
-    window.addEventListener('tutorial:splitContainer', handleTutorialSplitContainer as EventListener);
+    window.addEventListener("tutorial:splitContainer", handleTutorialSplitContainer as EventListener);
     return () => {
-      window.removeEventListener('tutorial:splitContainer', handleTutorialSplitContainer as EventListener);
+      window.removeEventListener("tutorial:splitContainer", handleTutorialSplitContainer as EventListener);
     };
   }, [animateTopSwipe, animateBottomSwipe, setMenuOpen, getCurrentStep]);
 
@@ -394,42 +394,42 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     try {
       // 1. Originale Werte speichern
       const originalState = useUIStore.getState().resultatKreidetafel;
-      
+
       // 2. Komponente vollständig auf "bottom" setzen
-      useUIStore.setState(state => ({
+      useUIStore.setState((state) => ({
         resultatKreidetafel: {
           ...state.resultatKreidetafel,
-          swipePosition: 'bottom',
-          isFlipped: false
-        }
+          swipePosition: "bottom",
+          isFlipped: false,
+        },
       }));
 
       // 3. Warten auf vollständiges Re-render
-      await new Promise(resolve => setTimeout(resolve, 400));
+      await new Promise((resolve) => setTimeout(resolve, 400));
 
       // 4. Screenshot-Logik
-      const kreidetafelContent = document.querySelector('.kreidetafel-content');
-      const statistikContainer = document.querySelector('.statistik-container');
-      const buttonContainer = document.querySelector('.button-container');
-      
-      if (!kreidetafelContent || !statistikContainer || !buttonContainer || 
+      const kreidetafelContent = document.querySelector(".kreidetafel-content");
+      const statistikContainer = document.querySelector(".statistik-container");
+      const buttonContainer = document.querySelector(".button-container");
+
+      if (!kreidetafelContent || !statistikContainer || !buttonContainer ||
           !(kreidetafelContent instanceof HTMLElement) ||
           !(statistikContainer instanceof HTMLElement) ||
           !(buttonContainer instanceof HTMLElement)) {
-        throw new Error('Erforderliche Elemente nicht gefunden');
+        throw new Error("Erforderliche Elemente nicht gefunden");
       }
 
       // 5. Originale Styles speichern
       const originalStyles = {
         maxHeight: statistikContainer.style.maxHeight,
         overflowY: statistikContainer.style.overflowY,
-        buttonDisplay: buttonContainer.style.display
+        buttonDisplay: buttonContainer.style.display,
       };
 
       // 6. Styles für Screenshot anpassen
-      statistikContainer.style.maxHeight = 'none';
-      statistikContainer.style.overflowY = 'visible';
-      buttonContainer.style.display = 'none';
+      statistikContainer.style.maxHeight = "none";
+      statistikContainer.style.overflowY = "visible";
+      buttonContainer.style.display = "none";
 
       try {
         // 7. Screenshot mit originalen Optionen
@@ -438,23 +438,23 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
           logging: false,
           width: kreidetafelContent.scrollWidth,
           height: kreidetafelContent.scrollHeight,
-          scale: 2
+          scale: 2,
         } as HTML2CanvasOptions);
 
         // 8. Blob erstellen
         const blob = await new Promise<Blob>((resolve) => {
           canvas.toBlob((blob) => {
             if (blob) resolve(blob);
-          }, 'image/png', 1.0);
+          }, "image/png", 1.0);
         });
 
         // 9. Share API mit Text und Bild
         if (navigator.share) {
           const fullShareText = `${message}\n\nGeneriert von:\n👉 https://jassguru.web.app`;
-          
+
           await navigator.share({
-            files: [new File([blob], 'jass-resultat.png', { type: 'image/png' })],
-            text: fullShareText
+            files: [new File([blob], "jass-resultat.png", {type: "image/png"})],
+            text: fullShareText,
           });
         }
       } finally {
@@ -464,15 +464,15 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
         buttonContainer.style.display = originalStyles.buttonDisplay;
 
         // 11. Ursprünglichen Zustand wiederherstellen
-        useUIStore.setState(state => ({
+        useUIStore.setState((state) => ({
           resultatKreidetafel: {
             ...state.resultatKreidetafel,
-            ...originalState
-          }
+            ...originalState,
+          },
         }));
       }
     } catch (error) {
-      console.error('Screenshot/Share Fehler:', error);
+      console.error("Screenshot/Share Fehler:", error);
     }
   }, []);
 
@@ -480,10 +480,10 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
   const shouldShowTutorial = useCallback(() => {
     // Tutorial nicht anzeigen, wenn der Benutzer eingeloggt ist
     if (isAuthenticated()) {
-      console.log('Tutorial deaktiviert für eingeloggte Benutzer');
+      console.log("Tutorial deaktiviert für eingeloggte Benutzer");
       return false;
     }
-    
+
     // Standard Tutorial-Logik für nicht eingeloggte Benutzer
     return !isGameStarted && !isJassStarted && !isTutorialInfoOpen;
   }, [isAuthenticated, isGameStarted, isJassStarted, isTutorialInfoOpen]);
@@ -497,7 +497,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
       onContextMenu={(e) => e.preventDefault()}
       style={{
         transform: `scale(${scale})`,
-        transformOrigin: 'center center',
+        transformOrigin: "center center",
       }}
     >
       <>
@@ -540,23 +540,23 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
           />
           <animated.div
             style={{
-              position: 'absolute',
-              left: '5%',
-              width: '90%',
+              position: "absolute",
+              left: "5%",
+              width: "90%",
               top: middleLinePosition - middleLineThickness / 2,
               height: `${middleLineThickness / 2}px`,
-              transform: topY.to((val) => `translateY(${-val}px)`)
+              transform: topY.to((val) => `translateY(${-val}px)`),
             }}
             className="bg-chalk-red"
           />
           <animated.div
             style={{
-              position: 'absolute',
-              left: '5%',
-              width: '90%',
+              position: "absolute",
+              left: "5%",
+              width: "90%",
               top: middleLinePosition,
               height: `${middleLineThickness / 2}px`,
-              transform: bottomY.to((val) => `translateY(${val}px)`)
+              transform: bottomY.to((val) => `translateY(${val}px)`),
             }}
             className="bg-chalk-red"
           />
@@ -599,7 +599,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
           <MenuOverlay
             isOpen={isMenuOpen}
             onClose={closeMenu}
-            swipePosition={activeContainer || 'bottom'}
+            swipePosition={activeContainer || "bottom"}
           />
           <ResultatKreidetafel />
         </>
@@ -609,7 +609,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
         message={historyWarning.message}
         onConfirm={historyWarning.onConfirm}
         onDismiss={historyWarning.onCancel}
-        swipePosition={activeContainer || 'bottom'}
+        swipePosition={activeContainer || "bottom"}
       />
       <GameInfoOverlay isOpen={isGameInfoOpen} onClose={() => setGameInfoOpen(false)} />
     </div>

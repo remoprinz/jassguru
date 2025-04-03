@@ -1,20 +1,20 @@
-import React, { useRef, useEffect } from 'react';
+import React, {useRef, useEffect} from "react";
 
 interface ZShapeProps {
   className?: string;
   outerStrokeWidth?: number;
   diagonalStrokeWidth?: number;
-  position: 'top' | 'bottom';
+  position: "top" | "bottom";
   isReversed: boolean;
   onShapeRendered?: (dimensions: { width: number; height: number; left: number; top: number }) => void;
 }
 
-const ZShape: React.FC<ZShapeProps> = ({ 
-  className, 
+const ZShape: React.FC<ZShapeProps> = ({
+  className,
   outerStrokeWidth = 2,
   diagonalStrokeWidth = 0.75,
   position,
-  onShapeRendered
+  onShapeRendered,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -25,7 +25,7 @@ const ZShape: React.FC<ZShapeProps> = ({
         width: rect.width,
         height: rect.height,
         left: rect.left,
-        top: rect.top
+        top: rect.top,
       });
     }
   }, [onShapeRendered]);
@@ -34,13 +34,13 @@ const ZShape: React.FC<ZShapeProps> = ({
   const diagonalCompensation = Math.sqrt(2);
 
   return (
-    <svg 
+    <svg
       ref={svgRef}
       className={className}
-      viewBox="0 0 120 100" 
+      viewBox="0 0 120 100"
       preserveAspectRatio="xMidYMid meet"
     >
-      <g transform={position === 'top' ? 'translate(0, 0)' : 'none'}>
+      <g transform={position === "top" ? "translate(0, 0)" : "none"}>
         <path d="M0 0 L110 0" stroke="currentColor" strokeWidth={outerStrokeWidth} fill="none" />
         <path d="M0 100 L110 0" stroke="currentColor" strokeWidth={diagonalStrokeWidth * diagonalCompensation} fill="none" />
         <path d="M0 100 L110 100" stroke="currentColor" strokeWidth={outerStrokeWidth} fill="none" />

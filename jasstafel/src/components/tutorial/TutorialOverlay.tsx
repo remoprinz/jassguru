@@ -1,17 +1,17 @@
-import React, { useState, useEffect, useCallback, memo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useTutorialStore } from '../../store/tutorialStore';
-import { TUTORIAL_STEPS, type TutorialStep, TutorialCategory } from '../../types/tutorial';
-import TutorialNavigation from './TutorialNavigation';
-import { useUIStore } from '../../store/uiStore';
-import { type TutorialOverlayProps } from '../../types/jass';
-import { useTutorialComponent } from '../../hooks/useTutorialComponent';
+import React, {useState, useEffect, useCallback, memo} from "react";
+import {motion, AnimatePresence} from "framer-motion";
+import {useTutorialStore} from "../../store/tutorialStore";
+import {TUTORIAL_STEPS, type TutorialStep, TutorialCategory} from "../../types/tutorial";
+import TutorialNavigation from "./TutorialNavigation";
+import {useUIStore} from "../../store/uiStore";
+import {type TutorialOverlayProps} from "../../types/jass";
+import {useTutorialComponent} from "../../hooks/useTutorialComponent";
 
 interface SpotlightProps {
   target?: string;
 }
 
-const Spotlight: React.FC<SpotlightProps> = ({ target }) => {
+const Spotlight: React.FC<SpotlightProps> = ({target}) => {
   const [targetElement, setTargetElement] = React.useState<DOMRect | null>(null);
   const retryCount = React.useRef(0);
   const maxRetries = 10;
@@ -47,10 +47,10 @@ const Spotlight: React.FC<SpotlightProps> = ({ target }) => {
     findTarget();
 
     const handleButtonReady = () => findTarget();
-    window.addEventListener('nextButtonReady', handleButtonReady);
+    window.addEventListener("nextButtonReady", handleButtonReady);
 
     return () => {
-      window.removeEventListener('nextButtonReady', handleButtonReady);
+      window.removeEventListener("nextButtonReady", handleButtonReady);
     };
   }, [target]);
 
@@ -60,29 +60,29 @@ const Spotlight: React.FC<SpotlightProps> = ({ target }) => {
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      initial={{opacity: 0}}
+      animate={{opacity: 1}}
+      exit={{opacity: 0}}
       className="absolute"
       style={{
         top: targetElement.top,
         left: targetElement.left,
         width: targetElement.width,
         height: targetElement.height,
-        border: '2px solid rgba(255, 255, 255, 0.8)',
-        borderRadius: '8px',
-        boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)',
+        border: "2px solid rgba(255, 255, 255, 0.8)",
+        borderRadius: "8px",
+        boxShadow: "0 0 0 9999px rgba(0, 0, 0, 0.5)",
         zIndex: 1000,
-        pointerEvents: 'none'
+        pointerEvents: "none",
       }}
     />
   );
 };
 
-const getPositionStyles = (position: TutorialStep['overlayPosition']): React.CSSProperties => {
+const getPositionStyles = (position: TutorialStep["overlayPosition"]): React.CSSProperties => {
   const styles: React.CSSProperties = {
-    position: 'fixed',
-    transform: ''
+    position: "fixed",
+    transform: "",
   };
 
   // Offset in Prozent umrechnen (1px = 0.1vh für vertikalen Offset)
@@ -91,52 +91,52 @@ const getPositionStyles = (position: TutorialStep['overlayPosition']): React.CSS
 
   // Basis-Position setzen
   switch (position.vertical) {
-    case 'top':
-      styles.top = '20vh';
-      break;
-    case 'center':
-      styles.top = '50vh';
-      styles.transform = 'translateY(-50%)';
-      break;
-    case 'bottom':
-      styles.bottom = '20vh';
-      break;
+  case "top":
+    styles.top = "20vh";
+    break;
+  case "center":
+    styles.top = "50vh";
+    styles.transform = "translateY(-50%)";
+    break;
+  case "bottom":
+    styles.bottom = "20vh";
+    break;
   }
 
   switch (position.horizontal) {
-    case 'left':
-      styles.left = '20%';
-      break;
-    case 'center':
-      styles.left = '50%';
-      if (styles.transform) {
-        styles.transform += ' translateX(-50%)';
-      } else {
-        styles.transform = 'translateX(-50%)';
-      }
-      break;
-    case 'right':
-      styles.right = '20%';
-      break;
+  case "left":
+    styles.left = "20%";
+    break;
+  case "center":
+    styles.left = "50%";
+    if (styles.transform) {
+      styles.transform += " translateX(-50%)";
+    } else {
+      styles.transform = "translateX(-50%)";
+    }
+    break;
+  case "right":
+    styles.right = "20%";
+    break;
   }
 
   // Offset anwenden
   if (position.offset) {
     // Vertikaler Offset
-    if (typeof position.offset.y === 'number') {
-      if (position.vertical === 'bottom') {
+    if (typeof position.offset.y === "number") {
+      if (position.vertical === "bottom") {
         styles.bottom = `calc(20vh + ${getVerticalOffsetInVh(position.offset.y)})`;
       } else {
-        styles.top = `calc(${position.vertical === 'center' ? '50vh' : '20vh'} + ${getVerticalOffsetInVh(position.offset.y)})`;
+        styles.top = `calc(${position.vertical === "center" ? "50vh" : "20vh"} + ${getVerticalOffsetInVh(position.offset.y)})`;
       }
     }
 
     // Horizontaler Offset
-    if (typeof position.offset.x === 'number') {
-      if (position.horizontal === 'right') {
+    if (typeof position.offset.x === "number") {
+      if (position.horizontal === "right") {
         styles.right = `calc(20% + ${getHorizontalOffsetInVw(position.offset.x)})`;
       } else {
-        styles.left = `calc(${position.horizontal === 'center' ? '50%' : '20%'} + ${getHorizontalOffsetInVw(position.offset.x)})`;
+        styles.left = `calc(${position.horizontal === "center" ? "50%" : "20%"} + ${getHorizontalOffsetInVw(position.offset.x)})`;
       }
     }
   }
@@ -149,28 +149,28 @@ const getPositionStyles = (position: TutorialStep['overlayPosition']): React.CSS
   return styles;
 };
 
-const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onCloseMenu }) => {
-  const { 
-    isActive, 
-    getCurrentStep, 
-    nextStep, 
-    previousStep, 
+const TutorialOverlay: React.FC<TutorialOverlayProps> = ({onCloseMenu}) => {
+  const {
+    isActive,
+    getCurrentStep,
+    nextStep,
+    previousStep,
     endTutorial,
     isHelpMode,
     exitHelpStep,
-    markCategoryAsCompleted
+    markCategoryAsCompleted,
   } = useTutorialStore();
-  const closeSettings = useUIStore(state => state.closeSettings);
+  const closeSettings = useUIStore((state) => state.closeSettings);
 
   const [isContentVisible, setIsContentVisible] = useState(true);
   const [neverShowAgain, setNeverShowAgain] = useState(false);
   const currentStep = getCurrentStep();
 
   // Nutze den erweiterten useTutorialComponent Hook
-  useTutorialComponent('splitContainer', setIsContentVisible);
-  useTutorialComponent('calculator', setIsContentVisible);
-  useTutorialComponent('gameInfo', setIsContentVisible);
-  useTutorialComponent('settings', setIsContentVisible);
+  useTutorialComponent("splitContainer", setIsContentVisible);
+  useTutorialComponent("calculator", setIsContentVisible);
+  useTutorialComponent("gameInfo", setIsContentVisible);
+  useTutorialComponent("settings", setIsContentVisible);
 
   // Neue Handler für Help-Mode
   const handleExitHelpStep = useCallback(() => {
@@ -185,22 +185,22 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onCloseMenu }) => {
     if (!currentStep || currentStep.hideNavigation) return null;
 
     return (
-      <motion.div 
+      <motion.div
         key="tutorial-overlay-navigation"
         className="fixed left-1/2 transform -translate-x-1/2 z-[1001]"
-        style={{ bottom: '4vh' }}
+        style={{bottom: "4vh"}}
       >
         <div className="flex flex-col items-center w-full max-w-md px-8 mb-8 mx-auto">
           {/* Navigation Buttons */}
           <div className={`w-full flex items-center ${
             // Wenn es der Welcome Screen ist UND die Checkbox angezeigt wird
-            currentStep?.id === TUTORIAL_STEPS.WELCOME ? 'justify-center' : 'justify-between'
+            currentStep?.id === TUTORIAL_STEPS.WELCOME ? "justify-center" : "justify-between"
           } gap-4 mb-4`}>
             {/* "Verstanden" Button NUR für Help-Mode (wenn man während des Spiels auf Hilfe klickt) */}
             {isHelpMode && currentStep.category !== TutorialCategory.TIPS ? (
               <button
                 onClick={handleExitHelpStep}
-                className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold 
+                className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold
                   py-3 px-8 rounded-full w-[180px] mx-auto block
                   active:bg-yellow-600"
               >
@@ -211,7 +211,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onCloseMenu }) => {
               <TutorialNavigation
                 showBackButton={!currentStep.hideBackButton}
                 isFirstStep={
-                  currentStep.id === TUTORIAL_STEPS.WELCOME || 
+                  currentStep.id === TUTORIAL_STEPS.WELCOME ||
                   currentStep.id === TUTORIAL_STEPS.TIPS_WELCOME
                 }
                 isLastStep={
@@ -219,10 +219,10 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onCloseMenu }) => {
                   currentStep.id === TUTORIAL_STEPS.TIPS_IPHONE_WAKE
                 }
                 onNext={
-                  currentStep.id === TUTORIAL_STEPS.BASIC_COMPLETE || 
-                  currentStep.id === TUTORIAL_STEPS.TIPS_IPHONE_WAKE 
-                    ? handleEndTutorial 
-                    : undefined
+                  currentStep.id === TUTORIAL_STEPS.BASIC_COMPLETE ||
+                  currentStep.id === TUTORIAL_STEPS.TIPS_IPHONE_WAKE ?
+                    handleEndTutorial :
+                    undefined
                 }
               />
             )}
@@ -230,8 +230,8 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onCloseMenu }) => {
 
           {/* "Nicht mehr anzeigen" Checkbox - nur im letzten Step des normalen Tutorials oder Tips */}
           {!isHelpMode && (
-            currentStep.category === TutorialCategory.BASIC || 
-            currentStep.id === TUTORIAL_STEPS.BASIC_COMPLETE || 
+            currentStep.category === TutorialCategory.BASIC ||
+            currentStep.id === TUTORIAL_STEPS.BASIC_COMPLETE ||
             currentStep.id === TUTORIAL_STEPS.TIPS_IPHONE_WAKE
           ) && (
             <div className="flex items-center justify-center gap-2 text-white mt-2">
@@ -260,13 +260,13 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onCloseMenu }) => {
     uiStore.menu.isOpen = false;
     uiStore.closeAllOverlays();
     uiStore.setMenuOpen(false);
-    
+
     // 2. UI-Blockierungen aufheben
     useTutorialStore.getState().setTutorialUIBlocking({
       calculatorClose: false,
       gameInfoClose: false,
       settingsClose: false,
-      resultatKreidetafelClose: false
+      resultatKreidetafelClose: false,
     });
 
     // 3. Kategorie als abgeschlossen markieren
@@ -288,25 +288,25 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onCloseMenu }) => {
 
   // 4. Alle useEffect Hooks
   useEffect(() => {
-    if (currentStep?.target === 'save-settings') {
-      document.getElementById('save-settings')?.addEventListener('click', handleSaveClick);
+    if (currentStep?.target === "save-settings") {
+      document.getElementById("save-settings")?.addEventListener("click", handleSaveClick);
     }
     return () => {
-      document.getElementById('save-settings')?.removeEventListener('click', handleSaveClick);
+      document.getElementById("save-settings")?.removeEventListener("click", handleSaveClick);
     };
   }, [currentStep, handleSaveClick]);
 
   useEffect(() => {
     const shouldBlock = !currentStep || (
-      currentStep.id !== TUTORIAL_STEPS.CALCULATOR_OPEN && 
+      currentStep.id !== TUTORIAL_STEPS.CALCULATOR_OPEN &&
       currentStep.id !== TUTORIAL_STEPS.GAME_INFO
     );
-    
+
     useTutorialStore.getState().setTutorialUIBlocking({
       calculatorClose: shouldBlock,
       gameInfoClose: shouldBlock,
       settingsClose: true,
-      resultatKreidetafelClose: true
+      resultatKreidetafelClose: true,
     });
 
     return () => {
@@ -314,7 +314,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onCloseMenu }) => {
         calculatorClose: false,
         gameInfoClose: false,
         settingsClose: false,
-        resultatKreidetafelClose: false
+        resultatKreidetafelClose: false,
       });
     };
   }, [currentStep?.id]);
@@ -325,22 +325,22 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onCloseMenu }) => {
       const handleCalculatorOpen = ((e: CustomEvent) => {
         setIsContentVisible(false);
       }) as EventListener;
-      
-      document.addEventListener('calculatorOpen', handleCalculatorOpen);
+
+      document.addEventListener("calculatorOpen", handleCalculatorOpen);
       return () => {
-        document.removeEventListener('calculatorOpen', handleCalculatorOpen);
+        document.removeEventListener("calculatorOpen", handleCalculatorOpen);
         setIsContentVisible(true);
       };
     }
-    
+
     if (currentStep?.id === TUTORIAL_STEPS.GAME_INFO) {
       const handleGameInfoOpen = () => {
         setIsContentVisible(false);
       };
-      
-      document.addEventListener('gameInfoOpen', handleGameInfoOpen);
+
+      document.addEventListener("gameInfoOpen", handleGameInfoOpen);
       return () => {
-        document.removeEventListener('gameInfoOpen', handleGameInfoOpen);
+        document.removeEventListener("gameInfoOpen", handleGameInfoOpen);
         setIsContentVisible(true);
       };
     }
@@ -350,10 +350,10 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onCloseMenu }) => {
       const handleResultatOpen = () => {
         setIsContentVisible(false);
       };
-      
-      document.addEventListener('resultatKreidetafelOpen', handleResultatOpen);
+
+      document.addEventListener("resultatKreidetafelOpen", handleResultatOpen);
       return () => {
-        document.removeEventListener('resultatKreidetafelOpen', handleResultatOpen);
+        document.removeEventListener("resultatKreidetafelOpen", handleResultatOpen);
         setIsContentVisible(true);
       };
     }
@@ -365,10 +365,10 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onCloseMenu }) => {
       const handleSettingsOpen = () => {
         setIsContentVisible(false);
       };
-      
-      document.addEventListener('settingsOpen', handleSettingsOpen);
+
+      document.addEventListener("settingsOpen", handleSettingsOpen);
       return () => {
-        document.removeEventListener('settingsOpen', handleSettingsOpen);
+        document.removeEventListener("settingsOpen", handleSettingsOpen);
         setIsContentVisible(true);
       };
     }
@@ -392,10 +392,10 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onCloseMenu }) => {
 
   return (
     <AnimatePresence key="tutorial-overlay">
-      <motion.div 
+      <motion.div
         key="tutorial-overlay-backdrop"
-        className="fixed inset-0 z-50" 
-        style={{ pointerEvents: 'none' }}
+        className="fixed inset-0 z-50"
+        style={{pointerEvents: "none"}}
       >
         {currentStep.target && <Spotlight target={currentStep.target} />}
 
@@ -403,22 +403,22 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onCloseMenu }) => {
         {currentStep.id === TUTORIAL_STEPS.SETTINGS && (
           <>
             {/* Oberer blockierender Bereich */}
-            <div 
+            <div
               className="fixed left-0 right-0 top-0 bg-transparent"
-              style={{ 
-                height: 'calc(50% - 40px)', // Höhe bis zum Button
-                pointerEvents: 'auto',
-                zIndex: 1002 
+              style={{
+                height: "calc(50% - 40px)", // Höhe bis zum Button
+                pointerEvents: "auto",
+                zIndex: 1002,
               }}
             />
             {/* Unterer blockierender Bereich */}
-            <div 
+            <div
               className="fixed left-0 right-0 bg-transparent"
-              style={{ 
-                top: 'calc(50% + 40px)', // Position unter dem Button
+              style={{
+                top: "calc(50% + 40px)", // Position unter dem Button
                 bottom: 0,
-                pointerEvents: 'auto',
-                zIndex: 1002 
+                pointerEvents: "auto",
+                zIndex: 1002,
               }}
             />
           </>
@@ -427,14 +427,14 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onCloseMenu }) => {
 
       {/* Content nur anzeigen wenn isContentVisible true ist */}
       {isContentVisible && (
-        <motion.div 
+        <motion.div
           key="tutorial-overlay-content"
           className={`bg-gray-800 rounded-lg shadow-lg flex flex-col items-center text-center w-10/12 max-w-md fixed
-            ${currentStep.title ? 'p-6' : 'py-4 px-6'}`}
-          style={{ 
+            ${currentStep.title ? "p-6" : "py-4 px-6"}`}
+          style={{
             ...getPositionStyles(currentStep.overlayPosition),
             zIndex: 1001,
-            pointerEvents: 'auto'
+            pointerEvents: "auto",
           }}
         >
           {currentStep.title && (
@@ -442,20 +442,20 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onCloseMenu }) => {
               {currentStep.title}
             </h2>
           )}
-          
+
           {currentStep.icon && (
             <currentStep.icon className="w-12 h-12 text-yellow-600 mb-4" />
           )}
-          
+
           {currentStep.image && (
-            <img 
-              src={currentStep.image} 
+            <img
+              src={currentStep.image}
               alt=""
               className="w-64 h-64 mb-6 rounded-lg object-cover"
             />
           )}
 
-          <p className={`text-white text-lg max-w-[90%] ${!currentStep.title ? 'my-2' : ''}`}>
+          <p className={`text-white text-lg max-w-[90%] ${!currentStep.title ? "my-2" : ""}`}>
             {currentStep.content}
           </p>
         </motion.div>
@@ -467,4 +467,4 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onCloseMenu }) => {
   );
 };
 
-export default memo(TutorialOverlay); 
+export default memo(TutorialOverlay);

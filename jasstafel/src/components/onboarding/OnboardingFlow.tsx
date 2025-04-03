@@ -1,19 +1,19 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { FaArrowLeft, FaArrowRight } from 'react-icons/fa';
-import type { 
-  OnboardingContent, 
+import React, {useState, useEffect, useMemo} from "react";
+import {motion, AnimatePresence} from "framer-motion";
+import {FaArrowLeft, FaArrowRight} from "react-icons/fa";
+import type {
+  OnboardingContent,
   BrowserOnboardingStep,
-} from '../../constants/onboardingContent';
-import { usePressableButton } from '../../hooks/usePressableButton';
-import { useDeviceScale } from '../../hooks/useDeviceScale';
+} from "../../constants/onboardingContent";
+import {usePressableButton} from "../../hooks/usePressableButton";
+import {useDeviceScale} from "../../hooks/useDeviceScale";
 
 // Neue Funktion zur Erkennung von Desktop-Geräten
 function isDesktopDevice() {
   // Wenn im Browser ausgeführt
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     // Keine Touch-Unterstützung deutet auf Desktop hin
-    if (!('ontouchstart' in window || navigator.maxTouchPoints > 0)) {
+    if (!("ontouchstart" in window || navigator.maxTouchPoints > 0)) {
       return true;
     }
     // Große Bildschirme sind wahrscheinlich Desktops (>= 1024px)
@@ -25,7 +25,7 @@ function isDesktopDevice() {
 }
 
 // QR-Code URL
-const QR_CODE_URL = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('https://jassguru.web.app')}`;
+const QR_CODE_URL = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent("https://jassguru.web.app")}`;
 
 interface OnboardingFlowProps {
   show: boolean;
@@ -39,8 +39,8 @@ interface OnboardingFlowProps {
   isBrowserOnboarding: boolean;
 }
 
-export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ 
-  show, 
+export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
+  show,
   step,
   content,
   onNext,
@@ -48,10 +48,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   onDismiss,
   canBeDismissed,
   isPWA,
-  isBrowserOnboarding
+  isBrowserOnboarding,
 }) => {
   // Hooks MÜSSEN hier oben und unbedingt aufgerufen werden
-  const { overlayScale, urlBarPosition } = useDeviceScale();
+  const {overlayScale, urlBarPosition} = useDeviceScale();
   const [viewportHeight, setViewportHeight] = useState(0);
   const [availableContentHeight, setAvailableContentHeight] = useState(0);
   const [isDesktop, setIsDesktop] = useState(false);
@@ -59,36 +59,36 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   const nextButtonHandlers = usePressableButton(onNext);
 
   // Konstante für Development Mode
-  const isDevelopment = process.env.NODE_ENV === 'development';
+  const isDevelopment = process.env.NODE_ENV === "development";
 
   // Erfasst die Viewport-Dimensionen und überprüft, ob es sich um einen Desktop handelt
   useEffect(() => {
     const updateDimensions = () => {
       setViewportHeight(window.innerHeight);
-      
+
       // Berechne die verfügbare Höhe für den Inhalt (abzüglich Navigation und Padding)
       const estimatedHeaderHeight = 60; // Überschrift
       const estimatedButtonHeight = 60; // Navigationsbuttons
       const estimatedVerticalPadding = 48; // Padding oben und unten
       const estimatedContentHeight = window.innerHeight - estimatedHeaderHeight - estimatedButtonHeight - estimatedVerticalPadding;
       setAvailableContentHeight(estimatedContentHeight);
-      
+
       // Überprüfe, ob es sich um ein Desktop-Gerät handelt
       setIsDesktop(isDesktopDevice());
     };
-    
+
     updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
+    window.addEventListener("resize", updateDimensions);
+    return () => window.removeEventListener("resize", updateDimensions);
   }, []);
 
   // Berechnet die optimale Skalierung für verschiedene Bildschirmgrößen
   const deviceSize = useMemo(() => {
     // Weniger strenge Bedingungen für große Geräte
-    if (viewportHeight < 600) return 'xs'; // Sehr kleine Geräte
-    if (viewportHeight < 700) return 'sm'; // Kleine Geräte
-    if (viewportHeight >= 750) return 'lg'; // Große Geräte - weniger strenge Bedingung
-    return 'md'; // Standard Geräte
+    if (viewportHeight < 600) return "xs"; // Sehr kleine Geräte
+    if (viewportHeight < 700) return "sm"; // Kleine Geräte
+    if (viewportHeight >= 750) return "lg"; // Große Geräte - weniger strenge Bedingung
+    return "md"; // Standard Geräte
   }, [viewportHeight]);
 
   // Berechne die optimale Bildgröße basierend auf dem verfügbaren Platz
@@ -98,36 +98,36 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
     // Begrenze auf maximal 220px
     return Math.min(calculatedHeight, 220);
   }, [availableContentHeight]);
-  
+
   // Berechne die optimale Bildgröße für Standard-Schritt-Bilder
   const optimalStepImageHeight = useMemo(() => {
     // Für die Schritt-Bilder großzügigere Basiswerte verwenden
-    const baseHeight = deviceSize === 'lg' ? 380 : deviceSize === 'md' ? 320 : 
-                      deviceSize === 'sm' ? 260 : 220;
-    
+    const baseHeight = deviceSize === "lg" ? 380 : deviceSize === "md" ? 320 :
+      deviceSize === "sm" ? 260 : 220;
+
     // Begrenze die Höhe auf 65% der verfügbaren Content-Höhe - mehr Platz nutzen
     return Math.min(baseHeight, Math.floor(availableContentHeight * 0.65));
   }, [availableContentHeight, deviceSize]);
 
-  const isFirstStep = step === 'WELCOME_SCREEN';
-  const isWelcomeStep = step === 'WELCOME_SCREEN' || step === 'INSTALL_WELCOME';
-  
+  const isFirstStep = step === "WELCOME_SCREEN";
+  const isWelcomeStep = step === "WELCOME_SCREEN" || step === "INSTALL_WELCOME";
+
   // Neuer Spezialfall: Prüfen, ob QR-Code angezeigt werden soll
-  const shouldShowQRCode = isDesktop && step === 'INSTALL_WELCOME';
+  const shouldShowQRCode = isDesktop && step === "INSTALL_WELCOME";
 
   // Dynamische Padding-Anpassung basierend auf der Gerätegroße
   const getPadding = () => {
     switch (deviceSize) {
-      case 'xs': return 'p-3';
-      case 'sm': return 'p-4';
-      case 'lg': return 'p-6';
-      default: return 'p-5';
+    case "xs": return "p-3";
+    case "sm": return "p-4";
+    case "lg": return "p-6";
+    default: return "p-5";
     }
   };
 
   // WICHTIG: Hier die Bedingung für Development Mode einfügen
   if (isDevelopment) {
-    console.log('OnboardingFlow im Development Mode ausgeblendet (Rendering null)');
+    console.log("OnboardingFlow im Development Mode ausgeblendet (Rendering null)");
     return null;
   }
 
@@ -137,65 +137,65 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       {show && (
         <>
           {/* Dunkler Hintergrund-Overlay */}
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+          <motion.div
+            initial={{opacity: 0}}
+            animate={{opacity: 1}}
+            exit={{opacity: 0}}
             className="fixed inset-0 bg-black/90 z-[99998]"
           />
-          
+
           {/* Onboarding Content */}
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+          <motion.div
+            initial={{opacity: 0}}
+            animate={{opacity: 1}}
+            exit={{opacity: 0}}
             className={`fixed inset-0 flex items-center justify-center z-[99999] 
-              ${urlBarPosition === 'top' ? 'pt-8 sm:pt-16 pb-4 sm:pb-8' : 'pt-4 sm:pt-8 pb-8 sm:pb-16'}`}
+              ${urlBarPosition === "top" ? "pt-8 sm:pt-16 pb-4 sm:pb-8" : "pt-4 sm:pt-8 pb-8 sm:pb-16"}`}
           >
-            <motion.div 
+            <motion.div
               key={step}
-              initial={{ scale: 0.95 }}
-              animate={{ 
+              initial={{scale: 0.95}}
+              animate={{
                 scale: overlayScale,
-                y: urlBarPosition === 'top' ? (deviceSize === 'xs' ? 20 : 40) : (deviceSize === 'xs' ? -20 : -40) 
+                y: urlBarPosition === "top" ? (deviceSize === "xs" ? 20 : 40) : (deviceSize === "xs" ? -20 : -40),
               }}
-              exit={{ scale: 0.95 }}
+              exit={{scale: 0.95}}
               className={`bg-gray-800 ${getPadding()} rounded-lg shadow-lg w-full relative text-white 
                 max-w-xs sm:max-w-sm md:max-w-md 
-                ${deviceSize === 'xs' ? 'max-h-[90vh] overflow-y-auto' : ''}`}
+                ${deviceSize === "xs" ? "max-h-[90vh] overflow-y-auto" : ""}`}
             >
               <div className="flex flex-col items-center justify-center">
                 {isWelcomeStep ? (
                   shouldShowQRCode ? (
-                    <QRCodeStep 
-                      content={content} 
-                      deviceSize={deviceSize} 
+                    <QRCodeStep
+                      content={content}
+                      deviceSize={deviceSize}
                       optimalImageHeight={optimalImageHeight}
                     />
                   ) : (
-                    <WelcomeStep 
-                      content={content} 
-                      deviceSize={deviceSize} 
-                      optimalImageHeight={optimalImageHeight} 
+                    <WelcomeStep
+                      content={content}
+                      deviceSize={deviceSize}
+                      optimalImageHeight={optimalImageHeight}
                     />
                   )
-                ) : step === 'FINAL_HINTS' ? (
-                  <FinalStep 
-                    deviceSize={deviceSize} 
-                    optimalImageHeight={optimalImageHeight} 
+                ) : step === "FINAL_HINTS" ? (
+                  <FinalStep
+                    deviceSize={deviceSize}
+                    optimalImageHeight={optimalImageHeight}
                     optimalStepImageHeight={optimalStepImageHeight}
                   />
                 ) : (
-                  <StandardStep 
-                    content={content} 
-                    deviceSize={deviceSize} 
-                    optimalImageHeight={optimalImageHeight} 
+                  <StandardStep
+                    content={content}
+                    deviceSize={deviceSize}
+                    optimalImageHeight={optimalImageHeight}
                     optimalStepImageHeight={optimalStepImageHeight}
                   />
                 )}
 
                 {/* Navigation Buttons */}
-                <NavigationButtons 
+                <NavigationButtons
                   previousButton={previousButtonHandlers}
                   nextButton={nextButtonHandlers}
                   step={step}
@@ -213,27 +213,27 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
 };
 
 // Neue QR-Code-Komponente für Desktop-Geräte
-const QRCodeStep: React.FC<{ content: OnboardingContent } & StepComponentProps> = ({ 
-  content, 
+const QRCodeStep: React.FC<{ content: OnboardingContent } & StepComponentProps> = ({
+  content,
   deviceSize,
-  optimalImageHeight 
+  optimalImageHeight,
 }) => {
   // Dynamische Klassen basierend auf Gerätegroße
   const getTitleClass = () => {
     switch (deviceSize) {
-      case 'xs': return 'text-2xl mb-2';
-      case 'sm': return 'text-2xl mb-3';
-      case 'lg': return 'text-3xl mb-5';
-      default: return 'text-3xl mb-4';
+    case "xs": return "text-2xl mb-2";
+    case "sm": return "text-2xl mb-3";
+    case "lg": return "text-3xl mb-5";
+    default: return "text-3xl mb-4";
     }
   };
 
   const getTextClass = () => {
     switch (deviceSize) {
-      case 'xs': return 'text-sm mb-3';
-      case 'sm': return 'text-base mb-4';
-      case 'lg': return 'text-base mb-6';
-      default: return 'text-base mb-5';
+    case "xs": return "text-sm mb-3";
+    case "sm": return "text-base mb-4";
+    case "lg": return "text-base mb-6";
+    default: return "text-base mb-5";
     }
   };
 
@@ -250,11 +250,11 @@ const QRCodeStep: React.FC<{ content: OnboardingContent } & StepComponentProps> 
       <h1 className={`font-bold text-center text-white ${getTitleClass()}`}>
         {title}
       </h1>
-      <div className={`flex justify-center items-center ${deviceSize === 'xs' ? 'mb-2' : deviceSize === 'sm' ? 'mb-3' : 'mb-5'}`}>
-        <img 
+      <div className={`flex justify-center items-center ${deviceSize === "xs" ? "mb-2" : deviceSize === "sm" ? "mb-3" : "mb-5"}`}>
+        <img
           src={QR_CODE_URL}
           alt="QR-Code für Jassguru App"
-          style={{ height: `${qrCodeSize}px`, width: `${qrCodeSize}px` }}
+          style={{height: `${qrCodeSize}px`, width: `${qrCodeSize}px`}}
           className="object-contain bg-white p-2 rounded-md"
         />
       </div>
@@ -264,7 +264,7 @@ const QRCodeStep: React.FC<{ content: OnboardingContent } & StepComponentProps> 
         {message}
       </p>
       {secondaryMessage && (
-        <p className={`text-center ${deviceSize === 'xs' ? 'text-sm mb-3' : 'text-base mb-6'}`}>
+        <p className={`text-center ${deviceSize === "xs" ? "text-sm mb-3" : "text-base mb-6"}`}>
           {secondaryMessage}
         </p>
       )}
@@ -279,27 +279,27 @@ interface StepComponentProps {
   optimalStepImageHeight?: number;
 }
 
-const WelcomeStep: React.FC<{ content: OnboardingContent } & StepComponentProps> = ({ 
-  content, 
+const WelcomeStep: React.FC<{ content: OnboardingContent } & StepComponentProps> = ({
+  content,
   deviceSize,
-  optimalImageHeight 
+  optimalImageHeight,
 }) => {
   // Dynamische Klassen basierend auf Gerätegroße
   const getTitleClass = () => {
     switch (deviceSize) {
-      case 'xs': return 'text-2xl mb-2';
-      case 'sm': return 'text-2xl mb-3';
-      case 'lg': return 'text-3xl mb-5';
-      default: return 'text-3xl mb-4';
+    case "xs": return "text-2xl mb-2";
+    case "sm": return "text-2xl mb-3";
+    case "lg": return "text-3xl mb-5";
+    default: return "text-3xl mb-4";
     }
   };
 
   const getTextClass = () => {
     switch (deviceSize) {
-      case 'xs': return 'text-sm mb-3';
-      case 'sm': return 'text-base mb-4';
-      case 'lg': return 'text-base mb-6';
-      default: return 'text-base mb-5';
+    case "xs": return "text-sm mb-3";
+    case "sm": return "text-base mb-4";
+    case "lg": return "text-base mb-6";
+    default: return "text-base mb-5";
     }
   };
 
@@ -309,21 +309,21 @@ const WelcomeStep: React.FC<{ content: OnboardingContent } & StepComponentProps>
         {content.title}
       </h1>
       {content.image && (
-        <img 
+        <img
           src={content.image}
           alt="Jass Guru"
-          style={{ height: `${optimalImageHeight}px` }}
-          className={`w-auto object-contain ${deviceSize === 'xs' ? 'mb-2' : deviceSize === 'sm' ? 'mb-3' : 'mb-5'}`}
+          style={{height: `${optimalImageHeight}px`}}
+          className={`w-auto object-contain ${deviceSize === "xs" ? "mb-2" : deviceSize === "sm" ? "mb-3" : "mb-5"}`}
         />
       )}
       <p className={`
         text-center whitespace-pre-line ${getTextClass()}
-        ${content.title === "Jassguru in 3 Schritten" && (deviceSize === 'md' || deviceSize === 'lg') ? 'mb-12' : ''}
+        ${content.title === "Jassguru in 3 Schritten" && (deviceSize === "md" || deviceSize === "lg") ? "mb-12" : ""}
       `}>
         {content.message}
       </p>
       {content.secondaryMessage && (
-        <p className={`text-center ${deviceSize === 'xs' ? 'text-sm mb-3' : 'text-base mb-6'}`}>
+        <p className={`text-center ${deviceSize === "xs" ? "text-sm mb-3" : "text-base mb-6"}`}>
           {content.secondaryMessage}
         </p>
       )}
@@ -331,35 +331,35 @@ const WelcomeStep: React.FC<{ content: OnboardingContent } & StepComponentProps>
   );
 };
 
-const FinalStep: React.FC<StepComponentProps> = ({ 
-  deviceSize, 
+const FinalStep: React.FC<StepComponentProps> = ({
+  deviceSize,
   optimalImageHeight,
-  optimalStepImageHeight = optimalImageHeight
+  optimalStepImageHeight = optimalImageHeight,
 }) => {
   const getHeadingClass = () => {
     switch (deviceSize) {
-      case 'xs': return 'text-xl mb-2';
-      case 'sm': return 'text-2xl mb-3';
-      case 'lg': return 'text-3xl mb-4';
-      default: return 'text-3xl mb-4';
+    case "xs": return "text-xl mb-2";
+    case "sm": return "text-2xl mb-3";
+    case "lg": return "text-3xl mb-4";
+    default: return "text-3xl mb-4";
     }
   };
 
   const getSubheadingClass = () => {
     switch (deviceSize) {
-      case 'xs': return 'text-base mb-2';
-      case 'sm': return 'text-lg mb-2';
-      case 'lg': return 'text-xl mb-3';
-      default: return 'text-lg mb-3';
+    case "xs": return "text-base mb-2";
+    case "sm": return "text-lg mb-2";
+    case "lg": return "text-xl mb-3";
+    default: return "text-lg mb-3";
     }
   };
 
   const getTextClass = () => {
     switch (deviceSize) {
-      case 'xs': return 'text-sm mb-3';
-      case 'sm': return 'text-base mb-4';
-      case 'lg': return 'text-base mb-6';
-      default: return 'text-base mb-5';
+    case "xs": return "text-sm mb-3";
+    case "sm": return "text-base mb-4";
+    case "lg": return "text-base mb-6";
+    default: return "text-base mb-5";
     }
   };
 
@@ -371,11 +371,11 @@ const FinalStep: React.FC<StepComponentProps> = ({
       <h1 className={`font-bold text-center text-white ${getHeadingClass()}`}>
         Letzte Hinweise
       </h1>
-      <img 
+      <img
         src="/welcome-guru.png"
         alt="Jass Guru"
-        style={{ height: `${finalImageHeight}px`, width: 'auto' }}
-        className={`object-contain ${deviceSize === 'xs' ? 'mb-2' : deviceSize === 'sm' ? 'mb-3' : 'mb-4'}`}
+        style={{height: `${finalImageHeight}px`, width: "auto"}}
+        className={`object-contain ${deviceSize === "xs" ? "mb-2" : deviceSize === "sm" ? "mb-3" : "mb-4"}`}
       />
       <h3 className={`font-semibold text-gray-300 ${getSubheadingClass()}`}>
         Achtung:
@@ -389,49 +389,49 @@ const FinalStep: React.FC<StepComponentProps> = ({
       <p className={`text-center ${getTextClass()}`}>
         Du kannst das Browser-Fenster nach der Installation schliessen. Beim ersten Öffnen der App wirst du durch alle wichtigen Funktionen geführt.
       </p>
-      <h2 className={`font-bold text-center ${deviceSize === 'xs' ? 'text-xl mb-4' : deviceSize === 'lg' ? 'text-2xl mb-8' : 'text-2xl mb-6'}`}>
+      <h2 className={`font-bold text-center ${deviceSize === "xs" ? "text-xl mb-4" : deviceSize === "lg" ? "text-2xl mb-8" : "text-2xl mb-6"}`}>
         Gutes Jassen!
       </h2>
     </>
   );
 };
 
-const StandardStep: React.FC<{ content: OnboardingContent } & StepComponentProps> = ({ 
-  content, 
-  deviceSize, 
+const StandardStep: React.FC<{ content: OnboardingContent } & StepComponentProps> = ({
+  content,
+  deviceSize,
   optimalImageHeight,
-  optimalStepImageHeight = optimalImageHeight
+  optimalStepImageHeight = optimalImageHeight,
 }) => {
   const getHeadingClass = () => {
     switch (deviceSize) {
-      case 'xs': return 'text-xl mb-2';
-      case 'sm': return 'text-2xl mb-3';
-      case 'lg': return 'text-3xl mb-5';
-      default: return 'text-3xl mb-4';
+    case "xs": return "text-xl mb-2";
+    case "sm": return "text-2xl mb-3";
+    case "lg": return "text-3xl mb-5";
+    default: return "text-3xl mb-4";
     }
   };
 
   const getIconSize = () => {
     switch (deviceSize) {
-      case 'xs': return 36;
-      case 'sm': return 42;
-      case 'lg': return 56; // Größeres Icon für große Geräte
-      default: return 48;
+    case "xs": return 36;
+    case "sm": return 42;
+    case "lg": return 56; // Größeres Icon für große Geräte
+    default: return 48;
     }
   };
 
   const getTextClass = () => {
     switch (deviceSize) {
-      case 'xs': return 'text-sm mb-4';
-      case 'sm': return 'text-base mb-5';
-      case 'lg': return 'text-base mb-7';
-      default: return 'text-base mb-6';
+    case "xs": return "text-sm mb-4";
+    case "sm": return "text-base mb-5";
+    case "lg": return "text-base mb-7";
+    default: return "text-base mb-6";
     }
   };
 
   // Berechne einen angemessenen Maximalwert für die Bildbreite - großzügiger für große Geräte
-  const maxWidth = deviceSize === 'xs' ? 220 : deviceSize === 'sm' ? 260 : 
-                  deviceSize === 'lg' ? 420 : 340;
+  const maxWidth = deviceSize === "xs" ? 220 : deviceSize === "sm" ? 260 :
+    deviceSize === "lg" ? 420 : 340;
 
   return (
     <>
@@ -439,21 +439,21 @@ const StandardStep: React.FC<{ content: OnboardingContent } & StepComponentProps
         {content.title}
       </h1>
       {content.image && (
-        <div className={`w-full mx-auto ${deviceSize === 'xs' ? 'mb-3' : deviceSize === 'lg' ? 'mb-6' : 'mb-5'}`}>
-          <img 
+        <div className={`w-full mx-auto ${deviceSize === "xs" ? "mb-3" : deviceSize === "lg" ? "mb-6" : "mb-5"}`}>
+          <img
             src={content.image}
             alt={content.title}
-            style={{ 
-              maxHeight: `${optimalStepImageHeight}px`, 
+            style={{
+              maxHeight: `${optimalStepImageHeight}px`,
               maxWidth: `${maxWidth}px`,
-              width: 'auto'
+              width: "auto",
             }}
             className="object-contain mx-auto"
           />
         </div>
       )}
       {content.icon && (
-        <div className={`text-yellow-600 ${deviceSize === 'xs' ? 'mb-2' : deviceSize === 'lg' ? 'mb-5' : 'mb-4'}`}>
+        <div className={`text-yellow-600 ${deviceSize === "xs" ? "mb-2" : deviceSize === "lg" ? "mb-5" : "mb-4"}`}>
           <content.icon size={getIconSize()} />
         </div>
       )}
@@ -475,20 +475,20 @@ interface NavigationButtonsProps extends StepComponentProps {
   step: BrowserOnboardingStep;
 }
 
-const NavigationButtons: React.FC<NavigationButtonsProps> = ({ 
-  previousButton, 
-  nextButton, 
+const NavigationButtons: React.FC<NavigationButtonsProps> = ({
+  previousButton,
+  nextButton,
   step,
   deviceSize,
   optimalImageHeight,
-  optimalStepImageHeight
+  optimalStepImageHeight,
 }) => {
   const getButtonClass = () => {
     switch (deviceSize) {
-      case 'xs': return 'px-3 py-1.5 text-sm';
-      case 'sm': return 'px-4 py-2 text-base';
-      case 'lg': return 'px-6 py-2.5 text-lg';
-      default: return 'px-5 py-2 text-base';
+    case "xs": return "px-3 py-1.5 text-sm";
+    case "sm": return "px-4 py-2 text-base";
+    case "lg": return "px-6 py-2.5 text-lg";
+    default: return "px-5 py-2 text-base";
     }
   };
 
@@ -503,7 +503,7 @@ const NavigationButtons: React.FC<NavigationButtonsProps> = ({
           ${previousButton.buttonClasses}
         `}
       >
-        <FaArrowLeft className={`${deviceSize === 'xs' ? 'mr-0.5' : 'mr-1'}`} size={deviceSize === 'xs' ? 12 : 14} />
+        <FaArrowLeft className={`${deviceSize === "xs" ? "mr-0.5" : "mr-1"}`} size={deviceSize === "xs" ? 12 : 14} />
         Zurück
       </button>
       <button
@@ -515,7 +515,7 @@ const NavigationButtons: React.FC<NavigationButtonsProps> = ({
           ${nextButton.buttonClasses}
         `}
       >
-        <>Weiter<FaArrowRight className={`${deviceSize === 'xs' ? 'ml-0.5' : 'ml-1'}`} size={deviceSize === 'xs' ? 12 : 14} /></>
+        <>Weiter<FaArrowRight className={`${deviceSize === "xs" ? "ml-0.5" : "ml-1"}`} size={deviceSize === "xs" ? 12 : 14} /></>
       </button>
     </div>
   );

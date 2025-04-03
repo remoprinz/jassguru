@@ -4,11 +4,11 @@ interface IosNavigator extends Navigator {
 }
 
 export const isPWA = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  
+  if (typeof window === "undefined") return false;
+
   return (
-    window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia("(display-mode: standalone)").matches ||
     (window.navigator as IosNavigator).standalone ||
-    document.referrer.includes('android-app://')
+    document.referrer.includes("android-app://")
   );
-}; 
+};

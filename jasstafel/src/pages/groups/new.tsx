@@ -1,15 +1,15 @@
 // src/pages/groups/new.tsx
 // Seite zum Erstellen einer neuen Jassgruppe
 
-'use client';
+"use client";
 
-import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/router';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import React, {useState, useEffect, useRef} from "react";
+import {useRouter} from "next/router";
+import {useForm} from "react-hook-form";
+import {zodResolver} from "@hookform/resolvers/zod";
+import * as z from "zod";
+import {Button} from "@/components/ui/button";
+import {Input} from "@/components/ui/input";
 import {
   Form,
   FormControl,
@@ -17,36 +17,36 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useAuthStore } from '@/store/authStore';
-import { useUIStore } from '@/store/uiStore';
-import { useGroupStore } from '@/store/groupStore';
-import { createGroup, uploadGroupLogo } from '@/services/groupService';
-import MainLayout from '@/components/layout/MainLayout';
-import Header from '@/components/layout/Header';
-import { Camera, X } from 'lucide-react';
-import { FirestoreGroup } from '@/types/group';
+} from "@/components/ui/form";
+import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
+import {useAuthStore} from "@/store/authStore";
+import {useUIStore} from "@/store/uiStore";
+import {useGroupStore} from "@/store/groupStore";
+import {createGroup, uploadGroupLogo} from "@/services/groupService";
+import MainLayout from "@/components/layout/MainLayout";
+import Header from "@/components/layout/Header";
+import {Camera, X} from "lucide-react";
+import {FirestoreGroup} from "@/types/group";
 
 // Zod Schema für die Formularvalidierung
 const createGroupSchema = z.object({
   groupName: z.string()
-    .min(3, 'Gruppenname muss mindestens 3 Zeichen lang sein')
-    .max(50, 'Gruppenname darf maximal 50 Zeichen lang sein'),
+    .min(3, "Gruppenname muss mindestens 3 Zeichen lang sein")
+    .max(50, "Gruppenname darf maximal 50 Zeichen lang sein"),
 });
 
 type CreateGroupFormValues = z.infer<typeof createGroupSchema>;
 
 const CreateGroupPage: React.FC = () => {
-  const { user, status, isAuthenticated } = useAuthStore();
-  const showNotification = useUIStore(state => state.showNotification);
-  const loadUserGroups = useGroupStore(state => state.loadUserGroups);
-  const setCurrentGroup = useGroupStore(state => state.setCurrentGroup);
+  const {user, status, isAuthenticated} = useAuthStore();
+  const showNotification = useUIStore((state) => state.showNotification);
+  const loadUserGroups = useGroupStore((state) => state.loadUserGroups);
+  const setCurrentGroup = useGroupStore((state) => state.setCurrentGroup);
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  // --- State and Ref for Logo --- 
+
+  // --- State and Ref for Logo ---
   const [selectedLogoFile, setSelectedLogoFile] = useState<File | null>(null);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
   const logoFileInputRef = useRef<HTMLInputElement>(null);
@@ -54,8 +54,8 @@ const CreateGroupPage: React.FC = () => {
 
   // Redirect, wenn nicht eingeloggt
   useEffect(() => {
-    if (status !== 'loading' && !isAuthenticated()) {
-      router.push('/auth/login');
+    if (status !== "loading" && !isAuthenticated()) {
+      router.push("/auth/login");
     }
   }, [status, isAuthenticated, router]);
 
@@ -71,7 +71,7 @@ const CreateGroupPage: React.FC = () => {
   const form = useForm<CreateGroupFormValues>({
     resolver: zodResolver(createGroupSchema),
     defaultValues: {
-      groupName: '',
+      groupName: "",
     },
   });
 
@@ -80,13 +80,13 @@ const CreateGroupPage: React.FC = () => {
     const files = event.target.files;
     if (files && files.length > 0) {
       const file = files[0];
-      if (!file.type.startsWith('image/')) {
-        showNotification({ message: 'Bitte Bilddatei wählen (JPEG, PNG, GIF).', type: 'error' });
+      if (!file.type.startsWith("image/")) {
+        showNotification({message: "Bitte Bilddatei wählen (JPEG, PNG, GIF).", type: "error"});
         return;
       }
       const maxSizeInBytes = 2 * 1024 * 1024; // 2MB Limit for Logos
       if (file.size > maxSizeInBytes) {
-        showNotification({ message: 'Logo ist zu groß (max. 2 MB).', type: 'error' });
+        showNotification({message: "Logo ist zu groß (max. 2 MB).", type: "error"});
         return;
       }
       const objectUrl = URL.createObjectURL(file);
@@ -107,7 +107,7 @@ const CreateGroupPage: React.FC = () => {
     setSelectedLogoFile(null);
     setLogoPreviewUrl(null);
     if (logoFileInputRef.current) {
-      logoFileInputRef.current.value = '';
+      logoFileInputRef.current.value = "";
     }
   };
   // --------------------------------------------------------
@@ -120,7 +120,7 @@ const CreateGroupPage: React.FC = () => {
 
     setIsLoading(true);
     setError(null);
-    let newGroup: FirestoreGroup | null = null; 
+    let newGroup: FirestoreGroup | null = null;
 
     try {
       // Step 1: Create the group document and get the full object
@@ -129,7 +129,7 @@ const CreateGroupPage: React.FC = () => {
       console.log(`CreateGroupPage: Group document ${newGroup?.id} created successfully.`);
 
       // Step 2: Upload logo if selected
-      if (selectedLogoFile && newGroup?.id) { 
+      if (selectedLogoFile && newGroup?.id) {
         console.log(`CreateGroupPage: Attempting to upload logo for group ${newGroup.id}...`);
         try {
           await uploadGroupLogo(newGroup.id, selectedLogoFile);
@@ -138,9 +138,9 @@ const CreateGroupPage: React.FC = () => {
           console.error("Fehler beim Hochladen des Gruppenlogos:", logoError);
           // Notify user, but don't block navigation (group exists)
           showNotification({
-            message: `Gruppe erstellt, aber Logo-Upload fehlgeschlagen: ${logoError instanceof Error ? logoError.message : 'Unbekannter Fehler'}`,
-            type: 'warning',
-          }); 
+            message: `Gruppe erstellt, aber Logo-Upload fehlgeschlagen: ${logoError instanceof Error ? logoError.message : "Unbekannter Fehler"}`,
+            type: "warning",
+          });
           // Continue without logo error blocking the flow
         }
       }
@@ -158,21 +158,20 @@ const CreateGroupPage: React.FC = () => {
       console.log("CreateGroupPage: User groups reloaded.");
 
       showNotification({
-        message: `Gruppe "${data.groupName}" erfolgreich erstellt! ${selectedLogoFile ? '(Logo wird verarbeitet)' : ''}`,
-        type: 'success',
+        message: `Gruppe "${data.groupName}" erfolgreich erstellt! ${selectedLogoFile ? "(Logo wird verarbeitet)" : ""}`,
+        type: "success",
       });
-      router.push('/profile/groups'); // Navigate to the groups list page
-
+      router.push("/profile/groups"); // Navigate to the groups list page
     } catch (err) {
       console.error("Fehler beim Erstellen der Gruppe (onSubmit):");
       // Log the error before setting the state message
       if (err instanceof Error) {
-           console.error(err.message);
-           setError(err.message);
-       } else {
-           console.error("Ein unbekannter Fehler ist aufgetreten.", err);
-           setError("Ein unbekannter Fehler ist aufgetreten.");
-       }
+        console.error(err.message);
+        setError(err.message);
+      } else {
+        console.error("Ein unbekannter Fehler ist aufgetreten.", err);
+        setError("Ein unbekannter Fehler ist aufgetreten.");
+      }
       // If group creation failed, newGroup remains null, logo upload is skipped.
     } finally {
       setIsLoading(false);
@@ -180,7 +179,7 @@ const CreateGroupPage: React.FC = () => {
   };
 
   // Zeige Ladezustand an, während Auth-Status geprüft wird oder Benutzer noch nicht geladen
-  if (status === 'loading' || !user) {
+  if (status === "loading" || !user) {
     return (
       <MainLayout>
         <div className="flex min-h-screen items-center justify-center bg-gray-900 text-white">
@@ -192,7 +191,7 @@ const CreateGroupPage: React.FC = () => {
 
   // Rendere nichts, wenn der User nicht authentifiziert ist (Redirect wird im useEffect behandelt)
   if (!isAuthenticated()) {
-      return null;
+    return null;
   }
 
   return (
@@ -211,11 +210,11 @@ const CreateGroupPage: React.FC = () => {
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              {/* --- Logo Selection UI --- */} 
+              {/* --- Logo Selection UI --- */}
               <FormItem className="flex flex-col items-center">
                 <FormLabel className="text-gray-300 mb-2">Gruppenlogo (Optional)</FormLabel>
                 <div className="relative">
-                  <Avatar 
+                  <Avatar
                     className="h-24 w-24 cursor-pointer border-2 border-gray-600 hover:border-gray-500 transition-colors"
                     onClick={handleLogoSelectClick}
                   >
@@ -224,35 +223,35 @@ const CreateGroupPage: React.FC = () => {
                       <Camera size={32} />
                     </AvatarFallback>
                   </Avatar>
-                  {/* Cancel Button overlay */} 
+                  {/* Cancel Button overlay */}
                   {logoPreviewUrl && (
-                    <button 
-                      type="button" 
-                      onClick={handleCancelLogoSelection} 
+                    <button
+                      type="button"
+                      onClick={handleCancelLogoSelection}
                       className="absolute -top-1 -right-1 z-10 rounded-full bg-red-600 p-1 text-white shadow-md hover:bg-red-700 transition-colors"
                       aria-label="Logo-Auswahl aufheben"
                       disabled={isLoading}
                     >
-                       <X size={14} />
+                      <X size={14} />
                     </button>
                   )}
                 </div>
-                 <input
+                <input
                   type="file"
                   ref={logoFileInputRef}
                   onChange={handleLogoFileChange}
                   accept="image/jpeg, image/png, image/gif"
                   className="hidden"
                   disabled={isLoading}
-                 />
-                 <FormMessage className="text-red-300 mt-1" /> {/* For potential future logo validation errors */}
+                />
+                <FormMessage className="text-red-300 mt-1" /> {/* For potential future logo validation errors */}
               </FormItem>
-              {/* ------------------------ */} 
+              {/* ------------------------ */}
 
               <FormField
                 control={form.control}
                 name="groupName"
-                render={({ field }) => (
+                render={({field}) => (
                   <FormItem>
                     <FormLabel className="text-gray-300">Gruppenname</FormLabel>
                     <FormControl>

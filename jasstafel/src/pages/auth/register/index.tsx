@@ -1,7 +1,7 @@
-import React from 'react';
-import { AuthLayout } from '@/components/auth/AuthLayout';
-import AuthTabs from '@/components/auth/AuthTabs';
-import { AuthProvider } from '@/providers/AuthProvider';
+import React from "react";
+import {AuthLayout} from "@/components/auth/AuthLayout";
+import AuthTabs from "@/components/auth/AuthTabs";
+import {AuthProvider} from "@/providers/AuthProvider";
 
 const RegisterPage: React.FC = () => {
   return (
@@ -13,4 +13,4 @@ const RegisterPage: React.FC = () => {
   );
 };
 
-export default RegisterPage; 
+export default RegisterPage;

@@ -1,21 +1,21 @@
 // src/components/game/Calculator.tsx
-'use client';
+"use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { useGameStore } from '../../store/gameStore';
-import { useUIStore } from '../../store/uiStore';
-import { TeamPosition, JassColor, StrichTyp, CardStyle } from '../../types/jass';
-import { FiRotateCcw, FiX } from 'react-icons/fi';
-import { useSpring, animated } from 'react-spring';
-import { triggerMatschConfetti } from '../effects/MatschConfetti';
-import { HISTORY_WARNING_MESSAGE } from '../notifications/HistoryWarnings';
-import { FARBE_MODES } from '../../config/FarbeSettings';
-import { MAX_SCORE, MATSCH_SCORE } from '../../config/ScoreSettings';
-import { getPictogram } from '../../utils/pictogramUtils';
-import { usePressableButton } from '../../hooks/usePressableButton';
-import { useTutorialStore } from '../../store/tutorialStore';
-import { TUTORIAL_STEPS } from '../../types/tutorial';
-import { useDeviceScale } from '../../hooks/useDeviceScale';
+import React, {useState, useEffect, useCallback} from "react";
+import {useGameStore} from "../../store/gameStore";
+import {useUIStore} from "../../store/uiStore";
+import {TeamPosition, JassColor, StrichTyp, CardStyle} from "../../types/jass";
+import {FiRotateCcw, FiX} from "react-icons/fi";
+import {useSpring, animated} from "react-spring";
+import {triggerMatschConfetti} from "../effects/MatschConfetti";
+import {HISTORY_WARNING_MESSAGE} from "../notifications/HistoryWarnings";
+import {FARBE_MODES} from "../../config/FarbeSettings";
+import {MAX_SCORE, MATSCH_SCORE} from "../../config/ScoreSettings";
+import {getPictogram} from "../../utils/pictogramUtils";
+import {usePressableButton} from "../../hooks/usePressableButton";
+import {useTutorialStore} from "../../store/tutorialStore";
+import {TUTORIAL_STEPS} from "../../types/tutorial";
+import {useDeviceScale} from "../../hooks/useDeviceScale";
 
 interface CalculatorProps {
   isOpen: boolean;
@@ -28,7 +28,7 @@ interface CalculatorProps {
 // Füge einen PictogramConfig Typ hinzu oder importiere ihn, falls er existiert
 type PictogramConfig = {
   isEnabled: boolean;
-  mode: 'svg' | 'emoji';
+  mode: "svg" | "emoji";
 };
 
 const Calculator: React.FC<CalculatorProps> = ({
@@ -37,14 +37,14 @@ const Calculator: React.FC<CalculatorProps> = ({
   initialValue = 0,
   clickedPosition,
 }) => {
-  const { finalizeRound, currentHistoryIndex, roundHistory, showHistoryWarning, jumpToLatest, validateHistoryAction } = useGameStore();
-  const { calculator, setCalculatorFlipped, farbeSettings, settings: { pictogramConfig, cardStyle } } = useUIStore();
-  const { isActive: isTutorialActive, getCurrentStep } = useTutorialStore();
+  const {finalizeRound, currentHistoryIndex, roundHistory, showHistoryWarning, jumpToLatest, validateHistoryAction} = useGameStore();
+  const {calculator, setCalculatorFlipped, farbeSettings, settings: {pictogramConfig, cardStyle}} = useUIStore();
+  const {isActive: isTutorialActive, getCurrentStep} = useTutorialStore();
   const currentStep = getCurrentStep();
 
-  const [value, setValue] = useState(initialValue?.toString() || '0');
-  const [opponentValue, setOpponentValue] = useState('0');
-  const [totalValue, setTotalValue] = useState('0');
+  const [value, setValue] = useState(initialValue?.toString() || "0");
+  const [opponentValue, setOpponentValue] = useState("0");
+  const [totalValue, setTotalValue] = useState("0");
   const [multiplier, setMultiplier] = useState(1);
   const [selectedColor, setSelectedColor] = useState<JassColor | null>(null);
   const [pressedButtons, setPressedButtons] = useState<Set<number | string>>(new Set());
@@ -55,12 +55,12 @@ const Calculator: React.FC<CalculatorProps> = ({
   const [lastClickTime, setLastClickTime] = useState(0);
   const [isClient, setIsClient] = useState(false);
 
-  const { scale, overlayScale } = useDeviceScale();
+  const {scale, overlayScale} = useDeviceScale();
 
   const springProps = useSpring({
     opacity: isOpen ? 1 : 0,
-    transform: `scale(${isOpen ? overlayScale : 0.95}) rotate(${calculator.isFlipped ? '180deg' : '0deg'})`,
-    config: { mass: 1, tension: 300, friction: 20 }
+    transform: `scale(${isOpen ? overlayScale : 0.95}) rotate(${calculator.isFlipped ? "180deg" : "0deg"})`,
+    config: {mass: 1, tension: 300, friction: 20},
   });
 
   useEffect(() => {
@@ -71,7 +71,7 @@ const Calculator: React.FC<CalculatorProps> = ({
 
   useEffect(() => {
     if (isOpen && clickedPosition) {
-      setCalculatorFlipped(clickedPosition === 'top');
+      setCalculatorFlipped(clickedPosition === "top");
     }
   }, [isOpen, clickedPosition, setCalculatorFlipped]);
 
@@ -80,11 +80,11 @@ const Calculator: React.FC<CalculatorProps> = ({
   }, []);
 
   const calculateValues = (inputValue: string, currentMultiplier: number) => {
-    if (inputValue === '0') {
-      setOpponentValue('0');
-      setTotalValue('0');
+    if (inputValue === "0") {
+      setOpponentValue("0");
+      setTotalValue("0");
     } else if (inputValue === MATSCH_SCORE.toString()) {
-      setOpponentValue('0');
+      setOpponentValue("0");
       const total = MATSCH_SCORE * currentMultiplier;
       setTotalValue(total.toString());
     } else {
@@ -104,7 +104,7 @@ const Calculator: React.FC<CalculatorProps> = ({
 
   const validateInput = (input: string): string => {
     const numericValue = parseInt(input, 10);
-    if (isNaN(numericValue)) return '0';
+    if (isNaN(numericValue)) return "0";
     return Math.min(numericValue, 157).toString();
   };
 
@@ -120,15 +120,15 @@ const Calculator: React.FC<CalculatorProps> = ({
     setLastClickTime(now);
 
     setValue((prevValue) => {
-      if (prevValue === '0') return num.toString();
-      
+      if (prevValue === "0") return num.toString();
+
       const newValue = prevValue + num.toString();
       const numericValue = parseInt(newValue, 10);
-      
+
       if (numericValue <= MAX_SCORE) {
         return newValue;
       }
-      
+
       return prevValue;
     });
 
@@ -150,13 +150,13 @@ const Calculator: React.FC<CalculatorProps> = ({
 
   const handleSubmit = useCallback(() => {
     if (!hasValidScore() || !selectedColor) return;
-    
+
     const finalScore = parseInt(totalValue, 10);
     const finalOpponentScore = parseInt(opponentValue, 10);
-    
+
     const scores = {
-      top: clickedPosition === 'top' ? finalScore : finalOpponentScore,
-      bottom: clickedPosition === 'bottom' ? finalScore : finalOpponentScore
+      top: clickedPosition === "top" ? finalScore : finalOpponentScore,
+      bottom: clickedPosition === "bottom" ? finalScore : finalOpponentScore,
     };
 
     if (!validateHistoryAction()) {
@@ -169,7 +169,7 @@ const Calculator: React.FC<CalculatorProps> = ({
             scores.bottom,
             isMatschActive ? {
               team: clickedPosition,
-              type: 'matsch' as StrichTyp
+              type: "matsch" as StrichTyp,
             } : undefined
           );
           onClose();
@@ -185,7 +185,7 @@ const Calculator: React.FC<CalculatorProps> = ({
       scores.bottom,
       isMatschActive ? {
         team: clickedPosition,
-        type: 'matsch' as StrichTyp
+        type: "matsch" as StrichTyp,
       } : undefined
     );
 
@@ -203,12 +203,12 @@ const Calculator: React.FC<CalculatorProps> = ({
     jumpToLatest,
     finalizeRound,
     onClose,
-    validateHistoryAction
+    validateHistoryAction,
   ]);
 
   const handleClear = () => {
-    setValue('0');
-    setOpponentValue('0');
+    setValue("0");
+    setOpponentValue("0");
     setMultiplier(1);
     setSelectedColor(null);
     setIsMatschActive(false);
@@ -220,72 +220,72 @@ const Calculator: React.FC<CalculatorProps> = ({
 
   const handleMatsch = (e?: React.MouseEvent | React.TouchEvent) => {
     e?.stopPropagation();
-    setValue('257');
-    setOpponentValue('0');
+    setValue("257");
+    setOpponentValue("0");
     setTotalValue((257 * multiplier).toString());
     setIsMatschActive(true);
     triggerMatschConfetti(confettiCharge, calculator.isFlipped);
   };
 
-  const numberOrder = calculator.isFlipped ? [1,2,3,4,5,6,7,8,9] : [1,2,3,4,5,6,7,8,9];
+  const numberOrder = calculator.isFlipped ? [1, 2, 3, 4, 5, 6, 7, 8, 9] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
   // Erweiterte Farben-Map (nur mit den wirklich benötigten Eigenschaften)
   const colorMultipliers = FARBE_MODES
     .map((mode, index) => ({
       color: mode.name,
-      multiplier: farbeSettings.values[index]
+      multiplier: farbeSettings.values[index],
     }))
-    .filter(item => item.multiplier > 0)
+    .filter((item) => item.multiplier > 0)
     .sort((a, b) => a.multiplier - b.multiplier);
 
   const getGridClasses = (activeColors: number): string => {
     // Basis-Grid-Klassen mit group und has-active wenn ein Button selektiert ist
-    const baseClasses = `grid grid-cols-5 gap-2 mb-4 w-full group ${selectedColor ? 'has-active' : ''}`;
-    
+    const baseClasses = `grid grid-cols-5 gap-2 mb-4 w-full group ${selectedColor ? "has-active" : ""}`;
+
     if (activeColors <= 4) {
-      return baseClasses.replace('grid-cols-5', 'grid-cols-4');
+      return baseClasses.replace("grid-cols-5", "grid-cols-4");
     } else if (activeColors <= 6) {
-      return baseClasses.replace('grid-cols-5', 'grid-cols-3');
+      return baseClasses.replace("grid-cols-5", "grid-cols-3");
     } else if (activeColors <= 8) {
-      return baseClasses.replace('grid-cols-5', 'grid-cols-4');
+      return baseClasses.replace("grid-cols-5", "grid-cols-4");
     }
-    
+
     return baseClasses;
   };
 
   // Neue Funktion für das Button-Styling
-  const getButtonStyle = (color: string, isSelected: boolean, mode: 'svg' | 'emoji'): string => {
-    const farbeMode = FARBE_MODES.find(m => m.name === color);
-    
+  const getButtonStyle = (color: string, isSelected: boolean, mode: "svg" | "emoji"): string => {
+    const farbeMode = FARBE_MODES.find((m) => m.name === color);
+
     if (isSelected) {
-      return 'bg-orange-500';
+      return "bg-orange-500";
     }
 
-    if (cardStyle === 'FR') {
-      return farbeMode?.frStyle?.backgroundColor || 'bg-gray-600';
+    if (cardStyle === "FR") {
+      return farbeMode?.frStyle?.backgroundColor || "bg-gray-600";
     }
-    
-    if (mode === 'emoji') {
-      return farbeMode?.emojiStyle?.backgroundColor || 'bg-gray-600';
+
+    if (mode === "emoji") {
+      return farbeMode?.emojiStyle?.backgroundColor || "bg-gray-600";
     }
-    
-    return farbeMode?.standardStyle?.backgroundColor || 'bg-gray-600';
+
+    return farbeMode?.standardStyle?.backgroundColor || "bg-gray-600";
   };
 
   // Neue Hilfsfunktion für die Namensanpassung
   const getDisplayName = (color: string): string => {
     // Wenn keine Piktogramme aktiviert sind, spezielle Behandlung für "Une"
-    if (!pictogramConfig.isEnabled && color.toLowerCase() === 'une') {
-      return 'Unde';
+    if (!pictogramConfig.isEnabled && color.toLowerCase() === "une") {
+      return "Unde";
     }
 
-    if (cardStyle === 'FR' && !pictogramConfig.isEnabled) {
+    if (cardStyle === "FR" && !pictogramConfig.isEnabled) {
       // Mapping für französische Namen wenn keine Piktogramme
       const frenchNames: Record<string, string> = {
-        'Eicheln': 'Schaufel',
-        'Rosen': 'Kreuz',
-        'Schellen': 'Herz',
-        'Schilten': 'Ecke'
+        "Eicheln": "Schaufel",
+        "Rosen": "Kreuz",
+        "Schellen": "Herz",
+        "Schilten": "Ecke",
       };
       return frenchNames[color] || color;
     }
@@ -300,13 +300,13 @@ const Calculator: React.FC<CalculatorProps> = ({
     selectedColor: string,
     pictogramConfig: PictogramConfig,
     isClient: boolean,
-    getButtonStyle: (color: string, isSelected: boolean, mode: 'svg' | 'emoji') => string,
-    getPictogram: (color: JassColor, mode: 'svg' | 'emoji', style: CardStyle) => string,
+    getButtonStyle: (color: string, isSelected: boolean, mode: "svg" | "emoji") => string,
+    getPictogram: (color: JassColor, mode: "svg" | "emoji", style: CardStyle) => string,
     cardStyle: CardStyle,
     getDisplayName: (color: string) => string
   }> = ({
-    color, 
-    multiplier, 
+    color,
+    multiplier,
     handleColorClick,
     selectedColor,
     pictogramConfig,
@@ -314,38 +314,38 @@ const Calculator: React.FC<CalculatorProps> = ({
     getButtonStyle,
     getPictogram,
     cardStyle,
-    getDisplayName
+    getDisplayName,
   }) => {
-    const { handlers, buttonClasses } = usePressableButton(
+    const {handlers, buttonClasses} = usePressableButton(
       () => handleColorClick(color, multiplier)
     );
 
     // Angepasster Vergleich für "Misère"
-    const isMisereSelected = color.toLowerCase() === 'misère' && selectedColor === color;
+    const isMisereSelected = color.toLowerCase() === "misère" && selectedColor === color;
 
     return (
       <button
         key={color}
         {...handlers}
         className={`p-1 rounded text-white select-none text-xs h-12 flex items-center justify-center ${
-          selectedColor === color ? 'active' : ''
+          selectedColor === color ? "active" : ""
         } ${getButtonStyle(color, selectedColor === color, pictogramConfig.mode)} ${buttonClasses}`}
         aria-label={`${color}`}
       >
         {isClient && pictogramConfig.isEnabled ? (
-          pictogramConfig.mode === 'emoji' ? (
+          pictogramConfig.mode === "emoji" ? (
             <span className="text-2xl">
-              {getPictogram(color as JassColor, 'emoji', cardStyle)}
+              {getPictogram(color as JassColor, "emoji", cardStyle)}
             </span>
           ) : (
-            <img 
-              src={getPictogram(color as JassColor, 'svg', cardStyle)}
+            <img
+              src={getPictogram(color as JassColor, "svg", cardStyle)}
               alt={color}
               className={`w-10 h-10 object-contain ${
-                isMisereSelected ? 'invert brightness-0' : ''
+                isMisereSelected ? "invert brightness-0" : ""
               }`}
               onError={(e) => {
-                e.currentTarget.style.display = 'none';
+                e.currentTarget.style.display = "none";
                 const parent = e.currentTarget.parentElement;
                 if (parent) {
                   parent.textContent = getDisplayName(color);
@@ -364,9 +364,9 @@ const Calculator: React.FC<CalculatorProps> = ({
     handleNumberClick: (num: number) => void
   }> = ({
     num,
-    handleNumberClick
+    handleNumberClick,
   }) => {
-    const { handlers, buttonClasses } = usePressableButton(
+    const {handlers, buttonClasses} = usePressableButton(
       () => handleNumberClick(num)
     );
 
@@ -411,29 +411,29 @@ const Calculator: React.FC<CalculatorProps> = ({
   };
 
   // Matsch-Button anpassen
-  const { isPressedDown: isMatschPressed, handlers: matschHandlers, buttonClasses: matschClasses } = usePressableButton(handleMatsch);
+  const {isPressedDown: isMatschPressed, handlers: matschHandlers, buttonClasses: matschClasses} = usePressableButton(handleMatsch);
 
   // Clear-Button anpassen
-  const { handlers: clearHandlers, buttonClasses: clearClasses } = usePressableButton(handleClear);
+  const {handlers: clearHandlers, buttonClasses: clearClasses} = usePressableButton(handleClear);
 
   // OK-Button anpassen
-  const { handlers: okHandlers, buttonClasses: okClasses } = usePressableButton(handleSubmit);
+  const {handlers: okHandlers, buttonClasses: okClasses} = usePressableButton(handleSubmit);
 
   // Prüfen ob Calculator geöffnet werden darf
   useEffect(() => {
-    console.log('🧮 Calculator Effect:', {
+    console.log("🧮 Calculator Effect:", {
       isOpen,
       isTutorialActive,
       currentStepId: currentStep?.id,
-      shouldClose: isOpen && isTutorialActive && currentStep?.id !== TUTORIAL_STEPS.CALCULATOR_OPEN
+      shouldClose: isOpen && isTutorialActive && currentStep?.id !== TUTORIAL_STEPS.CALCULATOR_OPEN,
     });
 
     if (isOpen && isTutorialActive) {
       if (currentStep?.id === TUTORIAL_STEPS.CALCULATOR_OPEN) {
         // Direkt feuern, ohne Timeout
-        window.dispatchEvent(new CustomEvent('calculatorOpen'));
+        window.dispatchEvent(new CustomEvent("calculatorOpen"));
       } else {
-        console.log('🚫 Closing calculator');
+        console.log("🚫 Closing calculator");
         onClose();
       }
     }
@@ -442,14 +442,14 @@ const Calculator: React.FC<CalculatorProps> = ({
   // Event-Handling wie in GameInfoOverlay
   useEffect(() => {
     if (isOpen) {
-      document.dispatchEvent(new Event('calculatorOpen'));
+      document.dispatchEvent(new Event("calculatorOpen"));
     }
   }, [isOpen]);
 
   return (
     <div
       className={`fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 transition-opacity duration-300 prevent-interactions ${
-        isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
       }`}
       onClick={onClose}
       onContextMenu={(e) => e.preventDefault()}
@@ -468,13 +468,13 @@ const Calculator: React.FC<CalculatorProps> = ({
             text-white hover:text-gray-300 transition-all duration-1000
             w-24 h-24 flex items-center justify-center
             rounded-full
-            ${calculator.isFlipped ? 'rotate-180' : 'rotate-0'}`}
+            ${calculator.isFlipped ? "rotate-180" : "rotate-0"}`}
           aria-label="Umdrehen"
         >
           <FiRotateCcw className="w-8 h-8" />
         </button>
 
-        <button 
+        <button
           onClick={(e) => {
             e.stopPropagation();
             onClose();
@@ -483,7 +483,7 @@ const Calculator: React.FC<CalculatorProps> = ({
         >
           <FiX size={24} />
         </button>
-        <div 
+        <div
           className="bg-gray-800 p-6 rounded-lg transition-all duration-700 flex flex-col items-center"
           onClick={(e) => e.stopPropagation()}
         >
@@ -508,7 +508,7 @@ const Calculator: React.FC<CalculatorProps> = ({
                   setPressedMatsch(true);
                   setConfettiCharge(0);
                   const interval = setInterval(() => {
-                    setConfettiCharge(prev => Math.min(prev + 1, 20));
+                    setConfettiCharge((prev) => Math.min(prev + 1, 20));
                   }, 100);
                   setChargeInterval(interval);
                 }}
@@ -525,7 +525,7 @@ const Calculator: React.FC<CalculatorProps> = ({
                   setPressedMatsch(true);
                   setConfettiCharge(0);
                   const interval = setInterval(() => {
-                    setConfettiCharge(prev => Math.min(prev + 1, 20));
+                    setConfettiCharge((prev) => Math.min(prev + 1, 20));
                   }, 100);
                   setChargeInterval(interval);
                 }}
@@ -535,11 +535,11 @@ const Calculator: React.FC<CalculatorProps> = ({
                   handleMatsch();
                 }}
                 className={`w-1/3 p-1 rounded select-none transition-all duration-100 text-lg flex items-center justify-center matsch-button ${
-                  isMatschActive
-                    ? 'bg-orange-500 text-white' 
-                    : pressedMatsch
-                      ? 'bg-gray-600 text-white scale-95 opacity-80'
-                      : 'bg-gray-700 text-white hover:bg-orange-500 scale-100 opacity-100'
+                  isMatschActive ?
+                    "bg-orange-500 text-white" :
+                    pressedMatsch ?
+                      "bg-gray-600 text-white scale-95 opacity-80" :
+                      "bg-gray-700 text-white hover:bg-orange-500 scale-100 opacity-100"
                 }`}
                 disabled={isMatschActive}
               >
@@ -553,22 +553,22 @@ const Calculator: React.FC<CalculatorProps> = ({
           </div>
           <div className="mt-4"></div>
           <div className={getGridClasses(colorMultipliers.length)}>
-            {colorMultipliers.map(({ color, multiplier }) => renderFarbeButton(color, multiplier))}
+            {colorMultipliers.map(({color, multiplier}) => renderFarbeButton(color, multiplier))}
           </div>
           <div className="grid grid-cols-3 gap-3 w-full">
             {numberOrder.map((num) => renderNumberButton(num))}
-            <button 
+            <button
               {...clearHandlers}
               className={`bg-red-600 text-white p-4 rounded select-none text-2xl ${clearClasses}`}
             >
               C
             </button>
             {renderNumberButton(0)}
-            <button 
+            <button
               {...okHandlers}
               disabled={!hasValidScore() || !selectedColor}
               className={`bg-green-600 text-white p-4 rounded select-none text-2xl ${okClasses}
-                ${(!hasValidScore() || !selectedColor) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                ${(!hasValidScore() || !selectedColor) ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               OK
             </button>

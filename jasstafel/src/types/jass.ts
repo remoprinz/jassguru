@@ -1,9 +1,12 @@
 // src/types/jass.ts
 
-import { StatisticId } from './statistikTypes';
-import { Timestamp, FieldValue } from 'firebase/firestore';
+import {StatisticId} from "./statistikTypes";
+import {Timestamp, FieldValue} from "firebase/firestore";
+// Importiere Default Settings
+import {DEFAULT_SCORE_SETTINGS} from "../config/ScoreSettings";
+import {DEFAULT_FARBE_SETTINGS} from "../config/FarbeSettings";
 
-export type TeamPosition = 'top' | 'bottom';
+export type TeamPosition = "top" | "bottom";
 export type PlayerNumber = 1 | 2 | 3 | 4;
 export type PlayerNames = {
   1: string;
@@ -12,7 +15,7 @@ export type PlayerNames = {
   4: string;
 };
 
-export type TeamPlayers = [PlayerNumber, PlayerNumber];  // Tuple Type für genau 2 Spieler
+export type TeamPlayers = [PlayerNumber, PlayerNumber]; // Tuple Type für genau 2 Spieler
 
 export interface TeamConfig {
   top: TeamPlayers;
@@ -21,8 +24,8 @@ export interface TeamConfig {
 
 // Standard-Konfiguration
 export const DEFAULT_TEAM_CONFIG: TeamConfig = {
-  top: [2, 4],    // Standard: Spieler 2 & 4 oben
-  bottom: [1, 3]  // Standard: Spieler 1 & 3 unten
+  top: [2, 4], // Standard: Spieler 2 & 4 oben
+  bottom: [1, 3], // Standard: Spieler 1 & 3 unten
 } as const;
 
 // Aktuelle Team-Konfiguration (wird zur Laufzeit gesetzt)
@@ -38,16 +41,16 @@ export const getTeamConfig = (): TeamConfig => ACTIVE_TEAM_CONFIG;
 
 // Hilfsfunktionen
 export const getTeamForPlayer = (player: PlayerNumber): TeamPosition => {
-  return ACTIVE_TEAM_CONFIG.top.includes(player) ? 'top' : 'bottom';
+  return ACTIVE_TEAM_CONFIG.top.includes(player) ? "top" : "bottom";
 };
 
 export const getNextPlayerInTeam = (currentPlayer: PlayerNumber): PlayerNumber => {
   const team = getTeamForPlayer(currentPlayer);
-  const teamPlayers = team === 'top' ? ACTIVE_TEAM_CONFIG.top : ACTIVE_TEAM_CONFIG.bottom;
+  const teamPlayers = team === "top" ? ACTIVE_TEAM_CONFIG.top : ACTIVE_TEAM_CONFIG.bottom;
   return teamPlayers[0] === currentPlayer ? teamPlayers[1] : teamPlayers[0];
 };
 
-export type JassColor = 
+export type JassColor =
   | "Misère"
   | "Eicheln"
   | "Rosen"
@@ -60,7 +63,7 @@ export type JassColor =
   | "Slalom";
 
 // Alle Strich-Kategorien als Union Type
-export type StrichTyp = 'berg' | 'sieg' | 'matsch' | 'schneider' | 'kontermatsch';
+export type StrichTyp = "berg" | "sieg" | "matsch" | "schneider" | "kontermatsch";
 
 // Vollständiger Record für Striche
 export interface StricheRecord {
@@ -75,7 +78,7 @@ export interface StricheRecord {
 export interface StricheUpdate {
   readonly team: TeamPosition;
   readonly type: StrichTyp;
-  readonly value: number;  // Absoluter Wert!
+  readonly value: number; // Absoluter Wert!
 }
 
 // Aggregierte Striche über mehrere Spiele
@@ -109,7 +112,7 @@ export interface StatisticProps {
   };
   games: GameEntry[];
   currentGameId: number;
-  onSwipe?: (direction: 'left' | 'right') => void;
+  onSwipe?: (direction: "left" | "right") => void;
 }
 
 export interface StatisticModule {
@@ -149,7 +152,7 @@ export interface BaseRoundEntry {
   };
   previousRoundId?: number;
   nextRoundId?: number;
-  
+
   // Neue Tracking-Felder
   ansager?: PlayerNumber;
   startTime?: number;
@@ -165,18 +168,18 @@ export interface BaseRoundEntry {
   };
   striche: StricheState;
   timerSnapshot?: TimerSnapshot;
-  actionType: 'weis' | 'jass';
+  actionType: "weis" | "jass";
 }
 
 // Spezifische Typen für Weis und Jass
 export interface WeisRoundEntry extends BaseRoundEntry {
-  actionType: 'weis';
+  actionType: "weis";
   isRoundFinalized: false;
   isCompleted: false;
 }
 
 export interface JassRoundEntry extends BaseRoundEntry {
-  actionType: 'jass';
+  actionType: "jass";
   isRoundFinalized: true;
   isCompleted: true;
   farbe: JassColor;
@@ -190,7 +193,7 @@ export interface JassRoundEntry extends BaseRoundEntry {
 // Der vereinigte Typ
 export type RoundEntry = WeisRoundEntry | JassRoundEntry;
 
-export type FarbeMode = 
+export type FarbeMode =
   | "misère"
   | "eicheln"
   | "rosen"
@@ -230,14 +233,13 @@ export interface SettingsTemplate<T> {
 
 export interface FarbeSettings extends SettingsTemplate<number[]> {
   values: number[];
-  multipliers: number[];
   isFlipped: boolean;
 }
 
-export interface ScoreSettings extends SettingsTemplate<Record<ScoreMode, number>> {
+export interface ScoreSettingsValues {
   values: Record<ScoreMode, number>;
-  isFlipped: boolean;
   enabled: Record<ScoreMode, boolean>;
+  isFlipped: boolean;
 }
 
 export interface PlayerStats {
@@ -290,7 +292,7 @@ export interface GameEntry {
   isGameStarted: boolean;
   isRoundCompleted: boolean;
   isGameCompleted: boolean;
-  metadata?: GameMetadata;  // Bleibt optional wie bisher
+  metadata?: GameMetadata; // Bleibt optional wie bisher
 }
 
 // Jass State: Aggregierter Zustand über mehrere Spiele
@@ -317,7 +319,7 @@ export interface JassActions {
   }) => void;
 
   // Für Folgespiele (umbenannt von startNewGame)
-  startGame: () => void;
+  startGame: (gamePlayers: GamePlayers, initialStartingPlayer: PlayerNumber) => void;
 
   // Game Management
   finalizeGame: () => void;
@@ -359,15 +361,15 @@ export type JassStore = JassState & JassActions;
 
 export const convertToDisplayStriche = (striche: StricheRecord) => {
   // MATSCH und KONTERMATSCH sind horizontal
-  const horizontal = (striche.matsch || 0) + 
+  const horizontal = (striche.matsch || 0) +
                     (striche.kontermatsch || 0);
-  
+
   // BERG, SIEG und SCHNEIDER sind vertikal
-  const vertikal = (striche.berg || 0) + 
-                   (striche.sieg || 0) + 
+  const vertikal = (striche.berg || 0) +
+                   (striche.sieg || 0) +
                    (striche.schneider || 0);
-  
-  return { horizontal, vertikal };
+
+  return {horizontal, vertikal};
 };
 
 // Visuelle Strich-Repräsentation
@@ -380,13 +382,13 @@ export interface VisualStricheCounts {
 // Interface Definition
 export interface HistoryState {
   isNavigating: boolean;
-  lastNavigationTimestamp: number;  // Kein null mehr erlaubt
+  lastNavigationTimestamp: number; // Kein null mehr erlaubt
 }
 
 // Hilfsfunktion für die Initialisierung
 export const createInitialHistoryState = (): HistoryState => ({
   isNavigating: false,
-  lastNavigationTimestamp: Date.now()  // Initialer Timestamp statt null
+  lastNavigationTimestamp: Date.now(), // Initialer Timestamp statt null
 });
 
 // Neue Type-Definition für die Striche-Struktur
@@ -405,31 +407,26 @@ export interface GameState {
   weisPoints: TeamScores;
   jassPoints: TeamScores;
   scores: TeamScores;
-  striche: StricheState;
+  striche: Record<TeamPosition, StricheRecord>;
   roundHistory: RoundEntry[];
   currentRoundWeis: WeisAction[];
   isGameCompleted: boolean;
   isRoundCompleted: boolean;
-  scoreSettings: {
-    scores: number[];
-    enabled: boolean[];
-  };
-  farbeSettings: {
-    colors: JassColor[];
-    multipliers: number[];
-  };
+  farbeSettings: FarbeSettings;
+  scoreSettings: ScoreSettingsValues;
   playerNames: PlayerNames;
+  gamePlayers: GamePlayers | null;
   currentHistoryIndex: number;
   historyState: HistoryState;
 }
 
 // Erweitern der GameActions
 export interface GameActions {
-  startGame: () => void;
+  startGame: (gamePlayers: GamePlayers, initialStartingPlayer: PlayerNumber) => void;
   startRound: () => void;
   finalizeRound: (
-    farbe: JassColor, 
-    topScore: number, 
+    farbe: JassColor,
+    topScore: number,
     bottomScore: number,
     strichInfo?: {
       team: TeamPosition,
@@ -452,7 +449,7 @@ export interface GameActions {
     onCancel: () => void
   ) => void;
   getVisualStriche: (position: TeamPosition) => VisualStricheCounts;
-  navigateHistory: (direction: 'forward' | 'backward') => void;
+  navigateHistory: (direction: "forward" | "backward") => void;
   canNavigateForward: () => boolean;
   canNavigateBackward: () => boolean;
   syncHistoryState: (entry: RoundEntry) => void;
@@ -461,16 +458,22 @@ export interface GameActions {
   logGameHistory: () => void;
   isBergActive: (team: TeamPosition) => boolean;
   isSiegActive: (team: TeamPosition) => boolean;
-  
+
   // Berg und Sieg Aktionen
   addBerg: (team: TeamPosition) => void;
   addSieg: (team: TeamPosition) => void;
   addSchneider: (team: TeamPosition) => void;
-  
+
   // Neue Aktion für Striche-Total
   getTotalStriche: (team: TeamPosition) => number;
   addMatsch: (team: TeamPosition) => void;
   addKontermatsch: (team: TeamPosition) => void;
+  resetGameState: (playerNumber?: PlayerNumber) => void;
+  rebuildStateFromHistory: (index: number) => void;
+  setPlayers: (newPlayers: PlayerNames) => void;
+  setScoreSettings: (settings: ScoreSettingsValues) => void;
+  setFarbeSettings: (settings: FarbeSettings) => void;
+  getPlayerName: (playerNumber: PlayerNumber) => string;
 }
 
 export type GameStore = GameState & GameActions;
@@ -482,7 +485,7 @@ export interface HistoryNavigationState {
 }
 
 export const getFinalizedRounds = (history: RoundEntry[]): RoundEntry[] => {
-  return history.filter(entry => entry.isRoundFinalized);
+  return history.filter((entry) => entry.isRoundFinalized);
 };
 
 // Neue Basis-Typen für die Gruppenhierarchie
@@ -491,7 +494,7 @@ export interface JassGruppe {
   name: string;
   createdAt: number;
   members: PlayerNames[];
-  sessions: string[];  // Array von Session-IDs
+  sessions: string[]; // Array von Session-IDs
   metadata: {
     location?: string;
     notes?: string;
@@ -563,50 +566,50 @@ export const getNextPlayer = (current: PlayerNumber): PlayerNumber => {
 
 // Neue Funktion hinzufügen (bestehender Code bleibt unverändert)
 export const determineNextStartingPlayer = (
-    currentGame: GameEntry | null,
-    initialStartingPlayer: PlayerNumber
+  currentGame: GameEntry | null,
+  initialStartingPlayer: PlayerNumber
 ): PlayerNumber => {
-    if (!currentGame) {
-        return initialStartingPlayer;
-    }
+  if (!currentGame) {
+    return initialStartingPlayer;
+  }
 
-    // 1. Prüfen, welches Team gewonnen hat
-    const winningTeam = currentGame.teams.top.striche.sieg > 0 ? 'top' : 
-                       currentGame.teams.bottom.striche.sieg > 0 ? 'bottom' : 
-                       null;
+  // 1. Prüfen, welches Team gewonnen hat
+  const winningTeam = currentGame.teams.top.striche.sieg > 0 ? "top" :
+    currentGame.teams.bottom.striche.sieg > 0 ? "bottom" :
+      null;
 
-    if (!winningTeam) {
-        return initialStartingPlayer;
-    }
+  if (!winningTeam) {
+    return initialStartingPlayer;
+  }
 
-    // 2. Das Verliererteam identifizieren
-    const losingTeam = winningTeam === 'top' ? 'bottom' : 'top';
-    
-    // 3. Den aktuellen Spieler prüfen
-    const teamConfig = getTeamConfig();
-    const losingTeamPlayers = teamConfig[losingTeam];
-    const currentPlayer = currentGame.currentPlayer;
+  // 2. Das Verliererteam identifizieren
+  const losingTeam = winningTeam === "top" ? "bottom" : "top";
 
-    // ✅ NEUE LOGIK: Wenn der aktuelle Spieler im Verliererteam ist,
-    // darf er direkt das nächste Spiel starten
-    if (losingTeamPlayers.includes(currentPlayer)) {
-        return currentPlayer;
-    }
+  // 3. Den aktuellen Spieler prüfen
+  const teamConfig = getTeamConfig();
+  const losingTeamPlayers = teamConfig[losingTeam];
+  const currentPlayer = currentGame.currentPlayer;
 
-    // Sonst: Den nächsten Spieler aus dem Verliererteam finden
-    let nextPlayer = getNextPlayer(currentPlayer);
-    while (!losingTeamPlayers.includes(nextPlayer)) {
-        nextPlayer = getNextPlayer(nextPlayer);
-    }
+  // ✅ NEUE LOGIK: Wenn der aktuelle Spieler im Verliererteam ist,
+  // darf er direkt das nächste Spiel starten
+  if (losingTeamPlayers.includes(currentPlayer)) {
+    return currentPlayer;
+  }
 
-    return nextPlayer;
+  // Sonst: Den nächsten Spieler aus dem Verliererteam finden
+  let nextPlayer = getNextPlayer(currentPlayer);
+  while (!losingTeamPlayers.includes(nextPlayer)) {
+    nextPlayer = getNextPlayer(nextPlayer);
+  }
+
+  return nextPlayer;
 };
 
 // Startspieler-Management Types
 export interface StartingPlayerState {
-  currentPlayer: PlayerNumber;    // Aktueller Spieler in dieser Runde
-  startingPlayer: PlayerNumber;   // Startspieler dieses Spiels
-  initialStartingPlayer: PlayerNumber;  // Allererster Startspieler des Jass
+  currentPlayer: PlayerNumber; // Aktueller Spieler in dieser Runde
+  startingPlayer: PlayerNumber; // Startspieler dieses Spiels
+  initialStartingPlayer: PlayerNumber; // Allererster Startspieler des Jass
 }
 
 // Type Guard für Startspieler
@@ -621,18 +624,18 @@ export const createInitialStartingPlayerState = (
   initialPlayer: PlayerNumber
 ): StartingPlayerState => {
   if (!isValidStartingPlayer(initialPlayer)) {
-    throw new Error('Ungültiger Startspieler');
+    throw new Error("Ungültiger Startspieler");
   }
-  
+
   return {
     currentPlayer: initialPlayer,
     startingPlayer: initialPlayer,
-    initialStartingPlayer: initialPlayer
+    initialStartingPlayer: initialPlayer,
   };
 };
 
 export interface SettingsTab {
-  id: 'farben' | 'scores' | 'strokes';
+  id: "farben" | "scores" | "strokes";
   title: string;
 }
 
@@ -644,17 +647,17 @@ export interface ScoreSettings {
 // Neue Types für Piktogramm-Settings
 export interface PictogramConfig {
   isEnabled: boolean;
-  mode: 'svg' | 'emoji';
+  mode: "svg" | "emoji";
 }
 
 // Erweitern der bestehenden Settings-Interfaces
 export interface SettingsState {
   isOpen: boolean;
-  activeTab: SettingsTab['id'];
+  activeTab: SettingsTab["id"];
   pictogramConfig: PictogramConfig;
 }
 
-export type ScoreMode = 'berg' | 'sieg' | 'schneider';
+export type ScoreMode = "berg" | "sieg" | "schneider";
 
 // Basis-Konfiguration ohne Runtime-States
 export interface ScoreSettingsConfig {
@@ -663,12 +666,6 @@ export interface ScoreSettingsConfig {
   defaultValue: number;
   maxValue: number;
   order: number;
-}
-
-// Separate Interface für Runtime-Settings
-export interface ScoreSettings {
-  values: Record<ScoreMode, number>;
-  enabled: Record<ScoreMode, boolean>;
 }
 
 // HTML2Canvas Options Type
@@ -685,7 +682,7 @@ export interface Html2CanvasOptions {
   y?: number;
 }
 // Kartenstil-Definition
-export type CardStyle = 'DE' | 'FR';
+export type CardStyle = "DE" | "FR";
 
 // Beziehung zwischen den Kartensymbolen in verschiedenen Stilen
 export interface CardSymbol {
@@ -723,7 +720,7 @@ export interface StricheCount {
 }
 
 // Abgeleitet von StricheCount
-export type StricheKategorie = keyof Omit<StricheCount, 'sieg'>;
+export type StricheKategorie = keyof Omit<StricheCount, "sieg">;
 
 // Hilfs-Interface für Sprüche-Sammlung
 export interface Sprueche {
@@ -744,16 +741,16 @@ export interface JassSpruchBaseParams {
 }
 
 // 4. Gemeinsame Types für Kategorisierung
-export type GameEndType = 'gameEnd' | 'jassEnd';
+export type GameEndType = "gameEnd" | "jassEnd";
 
 // Neue Timer-bezogene Types
 export interface TimerAnalytics {
-  totalJassTime: number;    // Gesamtdauer des Jass
-  currentGameDuration: number;  // Dauer des aktuellen Spiels
+  totalJassTime: number; // Gesamtdauer des Jass
+  currentGameDuration: number; // Dauer des aktuellen Spiels
 }
 
 // Neue Types für das Charge-System
-export type ChargeLevel = 'none' | 'low' | 'medium' | 'high' | 'super' | 'extreme';
+export type ChargeLevel = "none" | "low" | "medium" | "high" | "super" | "extreme";
 
 export interface ChargeState {
   isCharging: boolean;
@@ -761,7 +758,7 @@ export interface ChargeState {
   chargeLevel: ChargeLevel;
 }
 
-export type EffectType = 'rain' | 'explosion' | 'cannon' | 'firework';
+export type EffectType = "rain" | "explosion" | "cannon" | "firework";
 
 export interface EffectParams {
   y: number;
@@ -774,22 +771,22 @@ export interface EffectConfig {
   chargeLevel: ChargeLevel;
   team: TeamPosition;
   isFlipped?: boolean;
-  type: 'berg' | 'sieg';
+  type: "berg" | "sieg";
   effectType: EffectType;
 }
 
 // Konstanten für das Charge-System
 export const CHARGE_THRESHOLDS = {
-  low: 300,      // 0.8 Sekunden - Minimale Schwelle für Effekt
-  medium: 1000,  // 1.5 Sekunden
-  high: 2000,    // 2.5 Sekunden
-  super: 3000,   // 4 Sekunden
-  extreme: 5000  // 6 Sekunden
+  low: 300, // 0.8 Sekunden - Minimale Schwelle für Effekt
+  medium: 1000, // 1.5 Sekunden
+  high: 2000, // 2.5 Sekunden
+  super: 3000, // 4 Sekunden
+  extreme: 5000, // 6 Sekunden
 } as const;
 
 // Type Guard für ChargeLevel
 export const isValidChargeLevel = (level: string): level is ChargeLevel => {
-  return ['none', 'low', 'medium', 'high', 'super', 'extreme'].includes(level);
+  return ["none", "low", "medium", "high", "super", "extreme"].includes(level);
 };
 
 // Bestehende ChargeLevel Type erweitern
@@ -800,11 +797,11 @@ export type ChargeDuration = {
 
 // Bestehende ChargeButtonProps anpassen
 export interface ChargeButtonActionProps {
-  chargeDuration: { 
-    duration: number; 
-    level: ChargeLevel 
+  chargeDuration: {
+    duration: number;
+    level: ChargeLevel
   };
-  type: 'berg' | 'sieg';
+  type: "berg" | "sieg";
   team: TeamPosition;
   isActivating: boolean;
 }
@@ -826,32 +823,34 @@ export const createInitialGameState = (
   initialStartingPlayer: initialPlayer,
   isGameStarted: false,
   currentRound: 1,
-  weisPoints: { top: 0, bottom: 0 },
-  jassPoints: { top: 0, bottom: 0 },
-  scores: { top: 0, bottom: 0 },
-  striche: { top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }, bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 } },
+  weisPoints: {top: 0, bottom: 0},
+  jassPoints: {top: 0, bottom: 0},
+  scores: {top: 0, bottom: 0},
+  striche: {top: {berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0}, bottom: {berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0}},
   roundHistory: [],
   currentRoundWeis: [],
   isGameCompleted: false,
   isRoundCompleted: false,
-  scoreSettings: { scores: [0, 0], enabled: [false, false] },
-  farbeSettings: { colors: [], multipliers: [] },
+  // Verwende die importierten Default-Settings für die Initialisierung
+  scoreSettings: {...DEFAULT_SCORE_SETTINGS},
+  farbeSettings: {...DEFAULT_FARBE_SETTINGS},
   playerNames,
-  currentHistoryIndex: 0,
+  currentHistoryIndex: -1, // Korrigierter Initialwert für History Index
   historyState: createInitialHistoryState(),
+  gamePlayers: null,
 });
 
 // NEU: Type Guard Funktionen hinzufügen (keine bestehenden Definitionen betroffen)
 export const isJassRoundEntry = (entry: RoundEntry): entry is JassRoundEntry => {
-  return entry.actionType === 'jass';
+  return entry.actionType === "jass";
 };
 
 export const isWeisRoundEntry = (entry: RoundEntry): entry is WeisRoundEntry => {
-  return entry.actionType === 'weis';
+  return entry.actionType === "weis";
 };
 
 // Auth-bezogene Typen
-export type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'unauthenticated' | 'error';
+export type AuthStatus = "idle" | "loading" | "authenticated" | "unauthenticated" | "error";
 
 export interface AuthUser {
   uid: string;
@@ -869,7 +868,7 @@ export interface AuthUser {
 }
 
 // Online-Offline Modus
-export type AppMode = 'offline' | 'online';
+export type AppMode = "offline" | "online";
 
 // Kombinierter User-Context
 export interface UserContext {
@@ -982,3 +981,27 @@ export interface JassGroup {
   createdAt: FieldValue | Timestamp;
   // Weitere gruppenspezifische Felder...
 }
+
+// +++ NEUE TYPEN für Spieler-Info (Mitglied/Gast) +++
+export type MemberInfo = {
+  type: "member";
+  uid: string;
+  name: string;
+};
+
+export type GuestInfo = {
+  type: "guest";
+  name: string;
+  email?: string | null; // Optional, für spätere Einladung
+  consent?: boolean; // Optional, für Einwilligung zur E-Mail-Speicherung
+};
+
+export type PlayerInfo = MemberInfo | GuestInfo | null;
+
+export type GamePlayers = {
+  1: PlayerInfo;
+  2: PlayerInfo;
+  3: PlayerInfo;
+  4: PlayerInfo;
+};
+// +++ ENDE NEUE TYPEN +++

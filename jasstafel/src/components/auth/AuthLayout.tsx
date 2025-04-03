@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import { ReactNode } from 'react';
-import Image from 'next/image';
-import Link from 'next/link';
+import {ReactNode} from "react";
+import Image from "next/image";
+import Link from "next/link";
 
 interface AuthLayoutProps {
   children: ReactNode;
   title?: string;
 }
 
-export function AuthLayout({ children, title }: AuthLayoutProps) {
+export function AuthLayout({children, title}: AuthLayoutProps) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 py-6 px-4 sm:px-6 lg:px-8 sm:py-12">
       <div className="flex flex-col items-center max-w-md w-full space-y-4 sm:space-y-6">
@@ -34,4 +34,4 @@ export function AuthLayout({ children, title }: AuthLayoutProps) {
       </div>
     </div>
   );
-} 
+}

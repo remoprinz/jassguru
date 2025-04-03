@@ -7,12 +7,12 @@ export const formatDuration = (ms: number, showSeconds = true) => {
   const remainingSeconds = seconds % 60;
 
   if (hours > 0) {
-    return showSeconds
-      ? `${hours}:${remainingMinutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`
-      : `${hours}:${remainingMinutes.toString().padStart(2, '0')}`;
+    return showSeconds ?
+      `${hours}:${remainingMinutes.toString().padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}` :
+      `${hours}:${remainingMinutes.toString().padStart(2, "0")}`;
   }
 
-  return showSeconds
-    ? `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`
-    : `0:${minutes.toString().padStart(2, '0')}`;
-}
+  return showSeconds ?
+    `${minutes.toString().padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}` :
+    `0:${minutes.toString().padStart(2, "0")}`;
+};

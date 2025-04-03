@@ -1,8 +1,8 @@
-import React from 'react';
-import StrichDisplay from './StrichDisplay';
-import { StricheRecord, convertToDisplayStriche } from '../../types/jass';
-import { useJassStore } from '../../store/jassStore';
-import { useGameStore } from '../../store/gameStore';
+import React from "react";
+import StrichDisplay from "./StrichDisplay";
+import {StricheRecord, convertToDisplayStriche} from "../../types/jass";
+import {useJassStore} from "../../store/jassStore";
+import {useGameStore} from "../../store/gameStore";
 
 interface ResultatZeileProps {
   spielNummer: number;
@@ -23,14 +23,14 @@ const ResultatZeile: React.FC<ResultatZeileProps> = ({
   topTeam,
   bottomTeam,
   showJassPoints,
-  gameId
+  gameId,
 }) => {
-  const currentGameId = useJassStore(state => state.currentGameId);
-  const currentGame = useJassStore(state => state.getCurrentGame());
-  const currentStriche = useGameStore(state => state.striche);
-  const weisPoints = useGameStore(state => state.weisPoints);
-  const jassPoints = useGameStore(state => state.jassPoints);
-  
+  const currentGameId = useJassStore((state) => state.currentGameId);
+  const currentGame = useJassStore((state) => state.getCurrentGame());
+  const currentStriche = useGameStore((state) => state.striche);
+  const weisPoints = useGameStore((state) => state.weisPoints);
+  const jassPoints = useGameStore((state) => state.jassPoints);
+
   if (gameId > currentGameId) {
     return null;
   }
@@ -40,13 +40,13 @@ const ResultatZeile: React.FC<ResultatZeileProps> = ({
   const finalTopTeam = isCurrentGame ? {
     striche: currentStriche.top,
     jassPoints: (jassPoints.top + weisPoints.top),
-    total: currentGame?.teams.top.total
+    total: currentGame?.teams.top.total,
   } : topTeam;
 
   const finalBottomTeam = isCurrentGame ? {
     striche: currentStriche.bottom,
     jassPoints: (jassPoints.bottom + weisPoints.bottom),
-    total: currentGame?.teams.bottom.total
+    total: currentGame?.teams.bottom.total,
   } : bottomTeam;
 
   const topStriche = convertToDisplayStriche(finalTopTeam.striche);
@@ -57,7 +57,7 @@ const ResultatZeile: React.FC<ResultatZeileProps> = ({
       <div className="text-gray-400 text-center pl-2">
         {spielNummer}
       </div>
-      
+
       <div className="flex justify-center -ml-[-22px]">
         {showJassPoints ? (
           <div className="text-xl text-white text-center w-[90px]">
@@ -78,7 +78,7 @@ const ResultatZeile: React.FC<ResultatZeileProps> = ({
           </div>
         )}
       </div>
-      
+
       <div className="flex justify-center -ml-[-10px]">
         {showJassPoints ? (
           <div className="text-xl text-white text-center w-[100px]">

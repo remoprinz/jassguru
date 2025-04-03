@@ -1,35 +1,35 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/router';
-import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
-import { useAuthStore } from '@/store/authStore';
-import { useUIStore } from '@/store/uiStore';
-import MainLayout from '@/components/layout/MainLayout';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import Textarea from '../../components/ui/textarea';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import React, {useEffect, useState} from "react";
+import {useRouter} from "next/router";
+import Link from "next/link";
+import {ArrowLeft} from "lucide-react";
+import {useAuthStore} from "@/store/authStore";
+import {useUIStore} from "@/store/uiStore";
+import MainLayout from "@/components/layout/MainLayout";
+import {Button} from "@/components/ui/button";
+import {Input} from "@/components/ui/input";
+import Textarea from "../../components/ui/textarea";
+import {Alert, AlertDescription} from "@/components/ui/alert";
 
 const EditProfilePage: React.FC = () => {
-  const { user, status, isAuthenticated, updateProfile } = useAuthStore();
-  const showNotification = useUIStore(state => state.showNotification);
+  const {user, status, isAuthenticated, updateProfile} = useAuthStore();
+  const showNotification = useUIStore((state) => state.showNotification);
   const setPageCta = useUIStore((state) => state.setPageCta);
   const resetPageCta = useUIStore((state) => state.resetPageCta);
   const router = useRouter();
 
   // Form state
-  const [displayName, setDisplayName] = useState(user?.displayName || '');
-  const [statusMessage, setStatusMessage] = useState(user?.statusMessage || '');
+  const [displayName, setDisplayName] = useState(user?.displayName || "");
+  const [statusMessage, setStatusMessage] = useState(user?.statusMessage || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Redirect wenn nicht eingeloggt
   useEffect(() => {
-    if (status === 'authenticated' || status === 'unauthenticated') {
+    if (status === "authenticated" || status === "unauthenticated") {
       if (!isAuthenticated()) {
-        router.push('/');
+        router.push("/");
       }
     }
   }, [status, isAuthenticated, router]);
@@ -37,8 +37,8 @@ const EditProfilePage: React.FC = () => {
   // Form-Daten aktualisieren wenn User-Daten geladen werden
   useEffect(() => {
     if (user) {
-      setDisplayName(user.displayName || '');
-      setStatusMessage(user.statusMessage || '');
+      setDisplayName(user.displayName || "");
+      setStatusMessage(user.statusMessage || "");
     }
   }, [user]);
 
@@ -48,16 +48,16 @@ const EditProfilePage: React.FC = () => {
     setError(null);
 
     try {
-      await updateProfile({ displayName, statusMessage });
-      
+      await updateProfile({displayName, statusMessage});
+
       showNotification({
-        message: 'Profil erfolgreich aktualisiert.',
-        type: 'success'
+        message: "Profil erfolgreich aktualisiert.",
+        type: "success",
       });
-      
-      router.push('/profile');
+
+      router.push("/profile");
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ein Fehler ist aufgetreten');
+      setError(err instanceof Error ? err.message : "Ein Fehler ist aufgetreten");
       setIsSubmitting(false);
     }
   };
@@ -66,14 +66,14 @@ const EditProfilePage: React.FC = () => {
   useEffect(() => {
     setPageCta({
       isVisible: true,
-      text: 'Speichern',
+      text: "Speichern",
       onClick: () => {
-        const form = document.getElementById('profile-form') as HTMLFormElement;
+        const form = document.getElementById("profile-form") as HTMLFormElement;
         form?.requestSubmit();
       },
       loading: isSubmitting,
       disabled: isSubmitting,
-      variant: 'default',
+      variant: "info",
     });
 
     return () => {
@@ -82,7 +82,7 @@ const EditProfilePage: React.FC = () => {
   }, [setPageCta, resetPageCta, isSubmitting]);
 
   // Zeige Ladescreen während Auth-Status geprüft wird
-  if (status === 'loading') {
+  if (status === "loading") {
     return (
       <MainLayout>
         <div className="flex min-h-screen items-center justify-center bg-gray-900 text-white">
@@ -156,4 +156,4 @@ const EditProfilePage: React.FC = () => {
   );
 };
 
-export default EditProfilePage; 
+export default EditProfilePage;

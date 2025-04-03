@@ -1,12 +1,12 @@
-import type { 
-  GameEntry, 
-  RoundEntry, 
-  JassColor, 
-  TeamPosition, 
+import type {
+  GameEntry,
+  RoundEntry,
+  JassColor,
+  TeamPosition,
   StrichTyp,
-  TeamScores 
-} from '../types/jass';
-import { useTimerStore } from '../store/timerStore';
+  TeamScores,
+} from "../types/jass";
+import {useTimerStore} from "../store/timerStore";
 
 // Interface für die Spielstatistiken
 export interface GameStatistics {
@@ -44,9 +44,9 @@ export class JassAnalytics {
       colorStats: {} as Record<JassColor, number>,
       teamStats: {
         top: this.initTeamStats(),
-        bottom: this.initTeamStats()
+        bottom: this.initTeamStats(),
       },
-      totalWeisCount: 0
+      totalWeisCount: 0,
     };
 
     // Statistiken aus den Runden aggregieren
@@ -68,9 +68,9 @@ export class JassAnalytics {
         matsch: 0,
         schneider: 0,
         kontermatsch: 0,
-        normal: 0
+        normal: 0,
       },
-      averagePointsPerGame: 0
+      averagePointsPerGame: 0,
     };
   }
 
@@ -78,28 +78,28 @@ export class JassAnalytics {
     for (const round of this.rounds) {
       // Weis-Punkte
       stats.totalWeisCount += round.weisActions.length;
-      
+
       // Team-Punkte
       this.updateTeamStats(stats, round.scores);
 
       // Farben-Statistik (nur für Jass-Runden)
-      if ('farbe' in round) {
+      if ("farbe" in round) {
         stats.colorStats[round.farbe] = (stats.colorStats[round.farbe] || 0) + 1;
       }
     }
 
     // Durchschnittliche Punkte pro Spiel berechnen
     if (this.games.length > 0) {
-      ['top', 'bottom'].forEach((team) => {
+      ["top", "bottom"].forEach((team) => {
         const position = team as TeamPosition;
-        stats.teamStats[position].averagePointsPerGame = 
+        stats.teamStats[position].averagePointsPerGame =
           stats.teamStats[position].totalPoints / this.games.length;
       });
     }
   }
 
   private updateTeamStats(stats: GameStatistics, scores: TeamScores): void {
-    ['top', 'bottom'].forEach((team) => {
+    ["top", "bottom"].forEach((team) => {
       const position = team as TeamPosition;
       stats.teamStats[position].totalPoints += scores[position];
       if (scores.weisPoints) {
@@ -109,11 +109,11 @@ export class JassAnalytics {
   }
 
   private getMostPlayedColor(colorStats: Record<JassColor, number>): JassColor | undefined {
-    return Object.entries(colorStats).reduce((a, b) => 
-      (b[1] > (a?.[1] ?? 0) ? b : a), ['', 0]
+    return Object.entries(colorStats).reduce((a, b) =>
+      (b[1] > (a?.[1] ?? 0) ? b : a), ["", 0]
     )[0] as JassColor | undefined;
   }
 }
 
 // Singleton-Instanz exportieren
-export const jassAnalytics = new JassAnalytics(); 
+export const jassAnalytics = new JassAnalytics();
