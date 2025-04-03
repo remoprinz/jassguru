@@ -2,6 +2,7 @@
 
 import React, {useState, useEffect, useMemo, useCallback, useRef} from "react";
 import {animated} from "react-spring";
+import { useRouter } from 'next/router';
 import useViewportHeight from "../../hooks/useViewportHeight";
 import SplitContainer from "./SplitContainer";
 import useSwipeAnimation from "../animations/useSwipeAnimation";
@@ -48,13 +49,21 @@ interface JassKreidetafelProps {
   };
 }
 
+// Define paths where the browser onboarding flow should NOT be shown
+const onboardingExcludedPaths = ['/join', '/login', '/register', '/groups/new', '/groups/join']; // Add more if needed
+
 const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
   middleLineThickness = 4,
   zShapeConfig,
 }) => {
+  const currentPath = useRouter().pathname;
+
   const [mounted, setMounted] = useState(false);
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [activeContainer, setActiveContainer] = useState<"top" | "bottom" | null>(null);
+
+  const router = useRouter();
+  const pathname = router.pathname;
 
   const {
     isGameStarted,
@@ -75,24 +84,36 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     setGameInfoOpen,
     setOverlayPosition,
     isTutorialInfoOpen,
+    onboarding,
+    showOnboarding: showOnboardingAction,
+    hideOnboarding: hideOnboardingAction,
   } = useUIStore();
 
   const viewportHeight = useViewportHeight();
 
-  // Browser-Onboarding
-  const [isPWAInstalled] = useState(() => isPWA());
-  const [isBrowserOnboarding, setIsBrowserOnboarding] = useState(!isPWAInstalled);
-  const [forceOnboarding, setForceOnboarding] = useState(false);
+  // Leite den Status direkt aus dem Store ab
+  const showOnboardingState = onboarding.show;
+  const canBeDismissedState = onboarding.canBeDismissed;
 
+  const [isPWAInstalled] = useState(() => isPWA());
+
+  // Bestimme *ob* Browser Onboarding erforderlich ist
+  const isBrowserOnboardingRequired = useMemo(() => {
+    const currentPath = pathname;
+    const isExcluded = onboardingExcludedPaths.includes(currentPath);
+    const result = !isPWAInstalled && !isExcluded;
+    return result;
+  }, [isPWAInstalled, pathname]);
+
+  // Hook liefert showOnboarding nicht mehr
   const {
     currentStep,
-    showOnboarding,
     content,
     handleNext,
     handlePrevious,
     handleDismiss,
     canBeDismissed,
-  } = useOnboardingFlow(isBrowserOnboarding);
+  } = useOnboardingFlow(isBrowserOnboardingRequired);
 
   // Tutorial
   const {
@@ -108,13 +129,16 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
   // Device Scale Hook
   const {scale, deviceType} = useDeviceScale();
 
-  // Onboarding beim ersten Laden
+  // Onboarding beim ersten Laden - Modified Logic
   useEffect(() => {
-    if (!isPWAInstalled) {
-      useUIStore.getState().showOnboarding(true, isPWAInstalled);
-      setForceOnboarding(true);
+    if (isBrowserOnboardingRequired) {
+      // Zeige Onboarding im Store an
+      showOnboardingAction(true, isPWAInstalled); // canBeDismissed=true wird intern gesetzt
+    } else {
+      // Verstecke Onboarding im Store
+      hideOnboardingAction();
     }
-  }, [isPWAInstalled]);
+  }, [isBrowserOnboardingRequired, showOnboardingAction, hideOnboardingAction, isPWAInstalled]);
 
   const isFirstTimeLoad = useMemo(() => !isJassStarted && !isGameStarted, [isJassStarted, isGameStarted]);
 
@@ -315,8 +339,9 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
 
   // Debug
   useEffect(() => {
-    console.log("Onboarding Status:", {showOnboarding, forceOnboarding, canBeDismissed, isPWAInstalled});
-  }, [showOnboarding, forceOnboarding, canBeDismissed, isPWAInstalled]);
+    // showOnboarding kommt nicht mehr vom Hook
+    console.log("Onboarding Status (aus Store):", {show: showOnboardingState, canBeDismissed: canBeDismissedState, required: isBrowserOnboardingRequired, isPWA: isPWAInstalled});
+  }, [showOnboardingState, canBeDismissedState, isBrowserOnboardingRequired, isPWAInstalled]);
 
   // Tutorial
   useEffect(() => {
@@ -325,7 +350,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
       shouldShow: shouldShowTutorial(),
       hasCompleted: hasCompletedTutorial,
       mounted,
-      isBrowserOnboarding,
+      isBrowserOnboarding: isBrowserOnboardingRequired,
     });
     const tutorialStore = useTutorialStore.getState();
     if (
@@ -505,17 +530,19 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
         {isTutorialInfoOpen && <TutorialInfoDialog />}
       </>
 
-      {!isPWAInstalled && (
+      {/* Rendere OnboardingFlow wenn erforderlich */}
+      {isBrowserOnboardingRequired && (
         <OnboardingFlow
-          show={showOnboarding && forceOnboarding}
+          // show wird jetzt direkt vom Store-Wert gesteuert
+          show={showOnboardingState}
           step={currentStep as BrowserOnboardingStep}
           content={content}
           onNext={handleNext}
           onPrevious={handlePrevious}
-          onDismiss={() => {}}
-          canBeDismissed={false}
+          onDismiss={handleDismiss}
+          canBeDismissed={canBeDismissedState ?? false}
           isPWA={isPWAInstalled}
-          isBrowserOnboarding={isBrowserOnboarding}
+          isBrowserOnboarding={isBrowserOnboardingRequired}
         />
       )}
 

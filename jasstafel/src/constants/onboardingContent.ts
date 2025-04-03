@@ -77,7 +77,7 @@ export interface OnboardingContent {
 export const BROWSER_ONBOARDING = {
   iOS: {
     WELCOME_SCREEN: {
-      title: "Willkommen bei Jassguru",
+      title: "Jetzt Jassguru-App installieren",
       message: "Keine Diskussionen ums Zählen, keine Zeitverschwendung für Rechnereien, keine zerknitterten Zettel – hier kommt die digitale Jasstafel, die sich alles merkt und alles kann!",
       secondaryMessage: "Ihr macht die Stiche, ich schreib die Striche.",
       image: "/welcome-guru.png",
@@ -111,14 +111,14 @@ export const BROWSER_ONBOARDING = {
       image: "/onboarding_pics/homescreen.png",
     },
     FINAL_HINTS: {
-      title: "Letzte Hinweise",
+      title: "Hinweise",
       message: "",
       icon: FaInfoCircle as IconType,
     },
   },
   Android: {
     WELCOME_SCREEN: {
-      title: "Willkommen bei Jassguru",
+      title: "Jetzt Jassguru-App installieren",
       message: "Keine Diskussionen ums Zählen, keine Zeitverschwendung für Rechnereien, keine zerknitterten Zettel – hier kommt die digitale Jasstafel, die sich alles merkt und alles kann!",
       secondaryMessage: "Ihr macht die Stiche – ich schreib die Striche.",
       image: "/welcome-guru.png",
@@ -148,7 +148,7 @@ export const BROWSER_ONBOARDING = {
       image: "/onboarding_pics/homescreen.png",
     },
     FINAL_HINTS: {
-      title: "Abschliessende\nHinweise",
+      title: "Hinweise",
       message: "Vermeide es, die App mehrfach zu installieren. Das kann zu unerwünschtem Verhalten führen.",
       secondaryMessage: "Beim ersten Öffnen der App wirst du durch alle wichtigen Funktionen geführt.",
       finalMessage: "Viel Spass beim Jassen!",

@@ -8,10 +8,13 @@ import {useAuthStore} from "@/store/authStore";
 import MainLayout from "@/components/layout/MainLayout";
 import {GroupSelector} from "@/components/group/GroupSelector"; // Import the GroupSelector
 import {Button} from "@/components/ui/button";
+import {useUIStore} from "@/store/uiStore";
 
 const GroupsPage: React.FC = () => {
   const {user, status, isAuthenticated, isGuest} = useAuthStore();
   const router = useRouter();
+  const setPageCta = useUIStore((state) => state.setPageCta);
+  const resetPageCta = useUIStore((state) => state.resetPageCta);
 
   // Redirect if not authenticated or if guest, only check on definitive statuses
   useEffect(() => {
@@ -25,6 +28,24 @@ const GroupsPage: React.FC = () => {
     }
     // During 'loading' or 'idle', wait for status to resolve
   }, [status, isAuthenticated, isGuest, router]); // Dependencies remain the same
+
+  // useEffect für den CTA Button
+  useEffect(() => {
+    setPageCta({
+      isVisible: true,
+      text: "Neue Gruppe erstellen",
+      onClick: () => router.push("/groups/new"),
+      loading: false,
+      disabled: false,
+      variant: "warning", // Gelbe Farbe
+    });
+
+    // Cleanup: Button entfernen, wenn Komponente unmounted wird
+    return () => {
+      resetPageCta();
+    };
+    // Abhängigkeiten: Sicherstellen, dass der Button bei Bedarf neu gesetzt wird
+  }, [setPageCta, resetPageCta, router]);
 
   // Show loading state while auth status is being determined
   if (status === "loading" || status === "idle") {
@@ -68,19 +89,16 @@ const GroupsPage: React.FC = () => {
               {/* <div style={{ color: 'cyan', border: '1px solid cyan', padding: '5px' }}>Simple Div Test</div> */}
             </div>
 
-            {/* Placeholder for future actions like "Create Group" */}
+            {/* Placeholder for future actions like "Create Group" - wird jetzt durch CTA ersetzt */}
+            {/*
             <div className="mt-6 text-center">
-              {/* Example: Button to navigate to a create group page */}
-              {/*
               <Button
-                onClick={() => router.push('/groups/create')}
-                variant="outline"
-                className="border-purple-500 text-purple-300 hover:bg-purple-900/50 hover:text-purple-200"
+                onClick={() => router.push('/groups/new')}
               >
                 Neue Gruppe erstellen
               </Button>
-              */}
             </div>
+            */}
           </div>
         </div>
       </MainLayout>

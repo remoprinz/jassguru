@@ -3,7 +3,7 @@
 
 "use client";
 
-import React, {useState, useEffect, useRef} from "react";
+import React, {useState, useEffect, useRef, useCallback} from "react";
 import {useRouter} from "next/router";
 import {useForm} from "react-hook-form";
 import {zodResolver} from "@hookform/resolvers/zod";
@@ -24,7 +24,6 @@ import {useUIStore} from "@/store/uiStore";
 import {useGroupStore} from "@/store/groupStore";
 import {createGroup, uploadGroupLogo} from "@/services/groupService";
 import MainLayout from "@/components/layout/MainLayout";
-import Header from "@/components/layout/Header";
 import {Camera, X} from "lucide-react";
 import {FirestoreGroup} from "@/types/group";
 
@@ -40,6 +39,8 @@ type CreateGroupFormValues = z.infer<typeof createGroupSchema>;
 const CreateGroupPage: React.FC = () => {
   const {user, status, isAuthenticated} = useAuthStore();
   const showNotification = useUIStore((state) => state.showNotification);
+  const setPageCta = useUIStore((state) => state.setPageCta);
+  const resetPageCta = useUIStore((state) => state.resetPageCta);
   const loadUserGroups = useGroupStore((state) => state.loadUserGroups);
   const setCurrentGroup = useGroupStore((state) => state.setCurrentGroup);
   const router = useRouter();
@@ -112,7 +113,8 @@ const CreateGroupPage: React.FC = () => {
   };
   // --------------------------------------------------------
 
-  const onSubmit = async (data: CreateGroupFormValues) => {
+  // --- onSubmit Funktion HIERHIN VERSCHOBEN UND MIT useCallback GEWRAPPT --- 
+  const onSubmit = useCallback(async (data: CreateGroupFormValues) => {
     if (!user) {
       setError("Benutzer nicht gefunden. Bitte erneut anmelden.");
       return;
@@ -136,12 +138,10 @@ const CreateGroupPage: React.FC = () => {
           console.log(`CreateGroupPage: Logo for group ${newGroup.id} uploaded successfully.`);
         } catch (logoError) {
           console.error("Fehler beim Hochladen des Gruppenlogos:", logoError);
-          // Notify user, but don't block navigation (group exists)
           showNotification({
             message: `Gruppe erstellt, aber Logo-Upload fehlgeschlagen: ${logoError instanceof Error ? logoError.message : "Unbekannter Fehler"}`,
             type: "warning",
           });
-          // Continue without logo error blocking the flow
         }
       }
 
@@ -154,17 +154,16 @@ const CreateGroupPage: React.FC = () => {
 
       // Step 4: Reload user groups and navigate
       console.log("CreateGroupPage: Reloading user groups...");
-      await loadUserGroups(user.uid); // Reload to include the new group
+      await loadUserGroups(user.uid);
       console.log("CreateGroupPage: User groups reloaded.");
 
       showNotification({
         message: `Gruppe "${data.groupName}" erfolgreich erstellt! ${selectedLogoFile ? "(Logo wird verarbeitet)" : ""}`,
         type: "success",
       });
-      router.push("/profile/groups"); // Navigate to the groups list page
+      router.push("/profile/groups");
     } catch (err) {
       console.error("Fehler beim Erstellen der Gruppe (onSubmit):");
-      // Log the error before setting the state message
       if (err instanceof Error) {
         console.error(err.message);
         setError(err.message);
@@ -172,11 +171,31 @@ const CreateGroupPage: React.FC = () => {
         console.error("Ein unbekannter Fehler ist aufgetreten.", err);
         setError("Ein unbekannter Fehler ist aufgetreten.");
       }
-      // If group creation failed, newGroup remains null, logo upload is skipped.
     } finally {
       setIsLoading(false);
     }
-  };
+  // Abhängigkeiten für useCallback definieren
+  }, [user, selectedLogoFile, router, showNotification, setCurrentGroup, loadUserGroups]); 
+  // --------------------------------------------------------
+
+  // CTA-Button konfigurieren (kommt NACH onSubmit)
+  useEffect(() => {
+    setPageCta({
+      isVisible: true,
+      text: "Gruppe erstellen",
+      // Verwende form.handleSubmit(onSubmitCallback) - onSubmit ist jetzt stabil
+      onClick: () => form.handleSubmit(onSubmit)(),
+      loading: isLoading,
+      disabled: isLoading || !form.formState.isValid,
+      variant: "default", // Grün
+    });
+
+    return () => {
+      resetPageCta();
+    };
+    // Abhängigkeit von form.handleSubmit entfernt, da es von react-hook-form stabilisiert wird
+    // onSubmit ist jetzt durch useCallback stabilisiert
+  }, [isLoading, form.formState.isValid, setPageCta, resetPageCta, onSubmit]);
 
   // Zeige Ladezustand an, während Auth-Status geprüft wird oder Benutzer noch nicht geladen
   if (status === "loading" || !user) {
@@ -196,8 +215,7 @@ const CreateGroupPage: React.FC = () => {
 
   return (
     <MainLayout>
-      <Header showBackButton={true} />
-      <div className="flex flex-1 flex-col items-center bg-gray-900 p-4 pt-6 text-white">
+      <div className="flex flex-1 flex-col items-center bg-gray-900 p-4 text-white">
         <div className="w-full max-w-md space-y-6">
           <h1 className="text-center text-2xl font-bold text-white mb-6">
             Neue Gruppe erstellen
@@ -267,14 +285,6 @@ const CreateGroupPage: React.FC = () => {
                   </FormItem>
                 )}
               />
-
-              <Button
-                type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 rounded-md"
-                disabled={isLoading}
-              >
-                {isLoading ? "Wird erstellt..." : "Gruppe erstellen"}
-              </Button>
             </form>
           </Form>
         </div>

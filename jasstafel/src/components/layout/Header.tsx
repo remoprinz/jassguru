@@ -6,6 +6,14 @@ import {useAuthStore} from "@/store/authStore";
 import Image from "next/image";
 import Link from "next/link";
 import {FaUser} from "react-icons/fa";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface HeaderProps {
   showBackButton?: boolean;
@@ -16,14 +24,12 @@ const Header: React.FC<HeaderProps> = ({
   showBackButton = false,
   title,
 }) => {
-  const {user, isGuest} = useAuthStore();
+  const {user, isGuest, logout} = useAuthStore();
   const router = useRouter();
 
   const handleProfileClick = () => {
     if (isGuest) {
       router.push("/auth/login");
-    } else {
-      router.push("/profile");
     }
   };
 
@@ -49,41 +55,72 @@ const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        <div
-          className="flex cursor-pointer items-center"
-          onClick={handleProfileClick}
-        >
-          <div className="mr-3 text-right">
-            <span className="block text-sm font-medium text-white">
-              {user?.displayName || (isGuest ? "Gast" : "Anmelden")}
-            </span>
-            <span className="block text-xs text-gray-400">
-              {user?.email || (isGuest ? "Nicht angemeldet" : "Kein Konto")}
-            </span>
-          </div>
-
-          <div className="h-10 w-10 overflow-hidden rounded-full bg-gray-700">
-            {user?.photoURL ? (
-              <Image
-                src={user.photoURL}
-                alt="Profilbild"
-                width={40}
-                height={40}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-blue-600 text-white">
-                {user?.displayName ? (
-                  <span className="text-base font-semibold">
-                    {user.displayName[0]?.toUpperCase()}
+        {!isGuest ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <div className="flex cursor-pointer items-center">
+                <div className="mr-3 text-right">
+                  <span className="block text-sm font-medium text-white">
+                    {user?.displayName || "Profil"}
                   </span>
-                ) : (
-                  <FaUser className="h-5 w-5 text-gray-300" />
-                )}
+                  <span className="block text-xs text-gray-400">
+                    {user?.email || ""}
+                  </span>
+                </div>
+                <div className="h-10 w-10 overflow-hidden rounded-full bg-gray-700">
+                  {user?.photoURL ? (
+                    <Image
+                      src={user.photoURL}
+                      alt="Profilbild"
+                      width={40}
+                      height={40}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-blue-600 text-white">
+                      {user?.displayName ? (
+                        <span className="text-base font-semibold">
+                          {user.displayName[0]?.toUpperCase()}
+                        </span>
+                      ) : (
+                        <FaUser className="h-5 w-5 text-gray-300" />
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56 mr-2 bg-gray-700 border-gray-600 text-white" align="end">
+              <DropdownMenuLabel className="text-gray-400">Mein Konto</DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-gray-600"/>
+              <DropdownMenuItem onClick={() => router.push('/profile')} className="cursor-pointer hover:bg-gray-600 focus:bg-gray-600">
+                Profil
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/profile/groups')} className="cursor-pointer hover:bg-gray-600 focus:bg-gray-600">
+                Meine Gruppen
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-gray-600"/>
+              <DropdownMenuItem onClick={logout} className="cursor-pointer text-red-400 hover:bg-red-900/50 focus:bg-red-900/50">
+                Abmelden
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <div
+            className="flex cursor-pointer items-center"
+            onClick={handleProfileClick}
+          >
+            <div className="mr-3 text-right">
+              <span className="block text-sm font-medium text-white">Gast</span>
+              <span className="block text-xs text-gray-400">Anmelden</span>
+            </div>
+            <div className="h-10 w-10 overflow-hidden rounded-full bg-gray-700">
+              <div className="flex h-full w-full items-center justify-center bg-gray-600 text-white">
+                <FaUser className="h-5 w-5 text-gray-300" />
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </header>
   );

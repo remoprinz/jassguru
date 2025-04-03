@@ -76,10 +76,10 @@ const InviteModal: React.FC<InviteModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-sm">
+      <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-sm rounded-xl">
         <DialogHeader>
           <DialogTitle className="text-center text-xl">
-            Gruppe "{groupName}" einladen
+            Zur Gruppe einladen
           </DialogTitle>
         </DialogHeader>
 
@@ -126,7 +126,7 @@ const InviteModal: React.FC<InviteModalProps> = ({
               </div>
               <Button
                 onClick={handleShare}
-                className="w-full bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+                className="w-full bg-green-600 hover:bg-green-700 flex items-center gap-2 text-white"
               >
                 <Share2 size={18} /> Link teilen
               </Button>
@@ -134,23 +134,22 @@ const InviteModal: React.FC<InviteModalProps> = ({
           )}
         </div>
 
-        <DialogFooter className="sm:justify-center border-t border-gray-700 pt-4">
-          {/* Button zum Generieren eines neuen Links (optional) */}
+        <DialogFooter className="flex flex-col space-y-2 pt-4 border-t border-gray-700">
+          {/* Button zum Generieren eines neuen Links (optional) - jetzt Gelb */}
           {onGenerateNew && inviteLink && !isLoading && (
             <Button
-              variant="outline"
-              className="text-gray-400 border-gray-600 hover:bg-gray-700 hover:text-white"
+              className="w-full bg-yellow-600 hover:bg-yellow-700 text-white"
               onClick={onGenerateNew}
             >
                Neuen Code generieren
             </Button>
           )}
+          {/* Schliessen Button - jetzt Rot und Text angepasst */}
           <Button
-            variant="outline"
-            className="text-gray-400 border-gray-600 hover:bg-gray-700 hover:text-white"
+            className="w-full bg-red-600 hover:bg-red-700 text-white"
             onClick={onClose}
           >
-            Schließen
+            Schliessen
           </Button>
         </DialogFooter>
       </DialogContent>

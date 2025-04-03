@@ -204,11 +204,11 @@ const StartPage: React.FC = () => {
 
     try {
       // Firebase Function aufrufen
-      const functions = getFunctions(); // Initialisiert Functions (Standardregion)
-      const generateToken = httpsCallable(functions, "generateGroupInviteToken");
-
-      console.log(`Calling generateGroupInviteToken for group ${currentGroup.id}`);
-      const result = await generateToken({groupId: currentGroup.id});
+      const functions = getFunctions(undefined, "europe-west1"); // Region explizit angeben!
+      const generateToken = httpsCallable(functions, 'generateGroupInviteToken');
+      
+      console.log(`Calling generateGroupInviteToken for group ${currentGroup.id} in region europe-west1`);
+      const result = await generateToken({ groupId: currentGroup.id });
       console.log("Function result:", result);
 
       // Typ-Überprüfung des Ergebnisses
@@ -282,7 +282,7 @@ const StartPage: React.FC = () => {
                 <p className="text-sm text-gray-400 mb-1 mt-4">Aktive Gruppe:</p>
                 <h1 className="text-3xl font-bold text-center text-white mb-1">{currentGroup.name}</h1>
                 {currentGroup.description && (
-                  <p className="text-gray-400 text-center mb-4 px-8 max-w-[80%] mx-auto">
+                  <p className="text-gray-400 text-center mb-4 px-8 max-w-[80%] mx-auto whitespace-nowrap">
                     {currentGroup.description}
                   </p>
                 )}
@@ -358,7 +358,7 @@ const StartPage: React.FC = () => {
 
                 {isAdmin && (
                   <div className="flex flex-col items-center">
-                    <span className="text-xs text-gray-400 mb-2">Bearbeiten</span>
+                    <span className="text-xs text-gray-400 mb-2">Admin</span>
                     <Button
                       variant="default"
                       className="h-12 w-12 flex items-center justify-center bg-blue-600 border-blue-700 hover:bg-blue-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"

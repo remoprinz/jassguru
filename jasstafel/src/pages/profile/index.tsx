@@ -322,14 +322,14 @@ const ProfilePage: React.FC = () => {
           </div>
 
           {/* --- NEUER AKTIONSBUTTON-BEREICH --- */}
-          <div className="flex justify-evenly mb-6 w-full mt-8">
+          <div className="flex justify-around mb-6 w-full mt-8">
 
-            {/* 1. Button: Meine Gruppen (Links) */}
+            {/* 1. Button: Meine Gruppen (Links) - Farbe geändert */}
             <div className="flex flex-col items-center">
               <span className="text-xs text-gray-400 mb-2">Gruppen</span>
               <Button
                 variant="default"
-                className="h-12 w-12 flex items-center justify-center bg-purple-600 border-purple-700 hover:bg-purple-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
+                className="h-12 w-12 flex items-center justify-center bg-yellow-600 border-yellow-700 hover:bg-yellow-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
                 onClick={() => router.push("/profile/groups")}
               >
                 <Users
@@ -338,8 +338,8 @@ const ProfilePage: React.FC = () => {
               </Button>
             </div>
 
-            {/* 2. Button: Meine Statistik (Mitte) */}
-            <div className="flex flex-col items-center">
+            {/* 2. Button: Meine Statistik (Mitte) - ENTFERNT */}
+            {/* <div className="flex flex-col items-center">
               <span className="text-xs text-gray-400 mb-2">Statistik</span>
               <Button
                 variant="default"
@@ -351,11 +351,11 @@ const ProfilePage: React.FC = () => {
                   style={{height: "1.5rem", width: "1.5rem"}}
                 />
               </Button>
-            </div>
+            </div> */}
 
-            {/* 3. Button: Profil bearbeiten (Rechts) */}
+            {/* 3. Button: Profil bearbeiten (Rechts) - Text geändert */}
             <div className="flex flex-col items-center">
-              <span className="text-xs text-gray-400 mb-2">Bearbeiten</span>
+              <span className="text-xs text-gray-400 mb-2">Settings</span>
               <Button
                 variant="default"
                 className="h-12 w-12 flex items-center justify-center bg-blue-600 border-blue-700 hover:bg-blue-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"

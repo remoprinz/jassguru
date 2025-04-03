@@ -598,7 +598,7 @@ export const TUTORIAL_CONTENT: TutorialStep[] = [
   {
     id: TUTORIAL_STEPS.TIPS_IPHONE_WAKE,
     title: "Tipp für iPhone Nutzer",
-    content: "Da die Wachhalte-Funktion auf iPhones nicht verfügbar ist, empfehlen wir dir die Auto-Sperre auf 5 Minuten einzustellen:\n\nEinstellungen → Bildschirm & Helligkeit → Automatische Sperre → 5 Minuten",
+    content: "Da die Wachhalte-Funktion auf iPhones nicht verfügbar ist, empfehlen wir dir die Auto-Sperre auf 5 Minuten einzustellen oder auszuschalten:\n\nEinstellungen → Bildschirm & Helligkeit → Automatische Sperre → 5 Minuten",
     overlayPosition: {
       vertical: "center",
       horizontal: "center",

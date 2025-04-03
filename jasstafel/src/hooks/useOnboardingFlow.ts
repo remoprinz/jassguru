@@ -31,10 +31,10 @@ const APP_ONBOARDING: Record<AppOnboardingStep, OnboardingContent> = {
 };
 
 export const useOnboardingFlow = (isBrowserOnboarding: boolean = false) => {
-  const isDevelopment = process.env.NODE_ENV === "development";
+  // const isDevelopment = process.env.NODE_ENV === "development";
 
   // --- Hooks immer aufrufen ---
-  const deviceOS = getDeviceOS(); // Kein Hook, aber Teil der Logik
+  const deviceOS = getDeviceOS();
   const osKey = deviceOS === "other" ? "Android" : deviceOS as DeviceOS;
   const STEPS = osKey === "iOS" ? IOS_BROWSER_STEPS : ANDROID_BROWSER_STEPS;
   type CurrentStepType = typeof osKey extends "iOS" ? iOSBrowserStep : AndroidBrowserStep;
@@ -96,23 +96,13 @@ export const useOnboardingFlow = (isBrowserOnboarding: boolean = false) => {
       icon: FaInfoCircle as IconType,
     };
 
-  if (!content && !isDevelopment) { // Fehler nur loggen, wenn nicht im Dev-Dummy-Return
+  if (!content) { // Logge den Fehler immer, wenn kein Content da ist (sollte nicht passieren)
     console.error(`Kein Content gefunden für Step: ${currentStep}`);
-  }
-
-  // --- Bedingter Rückgabewert ---
-  // Hier steuern wir, was zurückgegeben wird, basierend auf isDevelopment
-  const finalShowOnboarding = isDevelopment ? false : (isBrowserOnboarding || showOnboardingState);
-
-  // Im Development Mode loggen wir weiterhin, aber geben kontrollierte Werte zurück
-  if (isDevelopment) {
-    console.log("useOnboardingFlow: Development Mode erkannt - Onboarding deaktiviert");
   }
 
   return {
     currentStep,
-    showOnboarding: finalShowOnboarding, // Hier die Logik anwenden
-    content: content || {title: "", message: ""}, // Fallback für Content
+    content: content || {title: "", message: ""},
     handleNext,
     handlePrevious,
     handleDismiss,
