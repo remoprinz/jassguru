@@ -215,7 +215,7 @@ const ProfilePage: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="flex min-h-screen flex-col items-center bg-gray-900 text-white">
+      <div className="flex min-h-screen flex-col items-center bg-gray-900 text-white pt-4">
         <div className="w-full max-w-md space-y-8">
           {error && (
             <Alert variant="destructive" className="bg-red-900/30 border-red-900 text-red-200 mb-4">

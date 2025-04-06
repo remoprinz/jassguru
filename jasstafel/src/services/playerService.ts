@@ -9,11 +9,12 @@ import {
   serverTimestamp,
   Timestamp,
   db,
+  auth
 } from "./firebaseInit";
-import {AuthUser, FirestorePlayer} from "../types/jass";
+import { getDocFromServer, addDoc, collection } from "firebase/firestore";
+import {AuthUser, FirestorePlayer, FirestoreUser} from "../types/jass";
 import {nanoid} from "nanoid";
-import {PLAYERS_COLLECTION} from "../constants/firestore";
-import {addDoc, collection} from "firebase/firestore";
+import {PLAYERS_COLLECTION, USERS_COLLECTION} from "../constants/firestore";
 
 /**
  * Erstellt einen neuen Spieler in Firestore
@@ -178,88 +179,249 @@ const createMockPlayer = (nickname: string, userId?: string): FirestorePlayer =>
 };
 
 /**
- * Findet oder erstellt ein Player-Dokument für einen gegebenen User.
- * Sucht zuerst nach einem Player mit der userId. Wenn keiner existiert, wird ein neuer erstellt.
+ * Findet ODER erstellt ein Player-Dokument für einen User und stellt die Verknüpfung im User-Dokument sicher.
+ * Priorisiert die im User-Dokument gespeicherte playerId.
+ * Verhindert die Erstellung von Duplikaten.
  *
  * @param userId Die Firebase Auth User ID.
- * @param displayName Der Anzeigename des Users (wird für den initialen Nickname verwendet).
- * @return Die ID des gefundenen oder neu erstellten Player-Dokuments oder null bei Fehlern.
+ * @param displayName Der Anzeigename des Users (wird für initialen Nickname verwendet).
+ * @return Die ID des Player-Dokuments oder null bei schweren Fehlern.
  */
 export const getPlayerIdForUser = async (userId: string, displayName: string | null): Promise<string | null> => {
-  if (!db) {
-    console.error("getPlayerIdForUser: Firestore ist nicht initialisiert.");
-    return null;
-  }
-  if (!userId) {
-    console.error("getPlayerIdForUser: Ungültige userId.");
+  if (!db || !userId) {
+    console.error("getPlayerIdForUser: Ungültige Parameter (db, userId).");
     return null;
   }
 
   const playersRef = collection(db, PLAYERS_COLLECTION);
-  const q = query(playersRef, where("userId", "==", userId));
+  const userDocRef = doc(db, USERS_COLLECTION, userId);
 
   try {
-    const querySnapshot = await getDocs(q);
-    if (!querySnapshot.empty) {
-      const playerId = querySnapshot.docs[0].id;
-      console.log(`getPlayerIdForUser: Vorhandener Spieler gefunden für User ${userId}: ${playerId}`);
-      return playerId;
-    } else {
-      console.log(`getPlayerIdForUser: Kein Spieler gefunden für User ${userId}, erstelle neuen Spieler.`);
-      const newPlayerData: Omit<FirestorePlayer, "id"> = {
-        userId: userId,
-        nickname: displayName || `Spieler_${userId.substring(0, 6)}`,
-        isGuest: false,
-        stats: {
-          gamesPlayed: 0,
-          wins: 0,
-          totalScore: 0,
-        },
-        groupIds: [],
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      };
+    // --- Schritt 1: Lese User-Dokument --- 
+    const userDocSnap = await getDoc(userDocRef);
 
-      const playerDocRef = await addDoc(playersRef, newPlayerData);
-      console.log(`getPlayerIdForUser: Neuer Spieler erstellt mit ID: ${playerDocRef.id} für User ${userId}`);
-      return playerDocRef.id;
+    if (userDocSnap.exists()) {
+      const userData = userDocSnap.data() as FirestoreUser;
+      // --- Fall 1.1: playerId im User-Dokument vorhanden --- 
+      if (userData?.playerId && typeof userData.playerId === 'string') {
+        const existingPlayerId = userData.playerId;
+        const playerRef = doc(db, PLAYERS_COLLECTION, existingPlayerId);
+        const playerSnap = await getDoc(playerRef);
+        if (playerSnap.exists()) {
+          return existingPlayerId;
+        } else {
+          // Inkonsistenz: playerId im User-Doc, aber Player-Doc fehlt! 
+          console.warn(`getPlayerIdForUser: PlayerId ${existingPlayerId} found in user ${userId}, but player document MISSING! Clearing invalid playerId and attempting fallback/create.`);
+          try {
+             await setDoc(userDocRef, { playerId: null, updatedAt: serverTimestamp() }, { merge: true }); 
+          } catch (deleteError) {
+             console.error(`getPlayerIdForUser: Failed to set invalid playerId to null for user ${userId}:`, deleteError);
+          }
+          // Gehe weiter zu Schritt 2 (Query Fallback)
+        }
+      }
+      // --- Fall 1.2: User-Dokument existiert, aber KEINE playerId --- 
     }
+
+    // --- Schritt 2: Query Fallback (nur wenn Schritt 1 keine gültige, existierende playerId lieferte) --- 
+    const playerQuery = query(playersRef, where("userId", "==", userId));
+    const querySnapshot = await getDocs(playerQuery);
+
+    if (!querySnapshot.empty) {
+      // --- Fall 2.1: Spieler über Query gefunden --- 
+      if (querySnapshot.size > 1) {
+        // Sollte nicht passieren, aber loggen!
+        console.warn(`getPlayerIdForUser: WARNING - Found MULTIPLE (${querySnapshot.size}) players via query for userId ${userId}! Using the first one found.`);
+      }
+      const foundPlayerId = querySnapshot.docs[0].id;
+      console.log(`getPlayerIdForUser: Player ${foundPlayerId} found via query fallback for User ${userId}.`);
+      
+      // --- WICHTIG: Gefundene ID im User-Dokument speichern/aktualisieren --- 
+      try {
+        await setDoc(userDocRef, 
+            { 
+              playerId: foundPlayerId, 
+              updatedAt: serverTimestamp(), 
+            }, 
+            { merge: true });
+      } catch (userUpdateError) {
+        console.error(`getPlayerIdForUser: FAILED to store/update found playerId ${foundPlayerId} in user document ${userId}:`, userUpdateError);
+      }
+      return foundPlayerId;
+    }
+
+    // --- Schritt 3: Neuen Spieler erstellen (nur wenn Schritt 1 & 2 fehlschlugen) --- 
+    console.log(`getPlayerIdForUser: No player found via user document or query. Creating new player for User ${userId}.`);
+    const newPlayerData: Omit<FirestorePlayer, "id"> = {
+      userId: userId,
+      nickname: displayName || `Spieler_${userId.substring(0, 6)}`,
+      isGuest: false,
+      stats: { gamesPlayed: 0, wins: 0, totalScore: 0 },
+      groupIds: [],
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    const playerDocRef = await addDoc(playersRef, newPlayerData);
+    const newPlayerId = playerDocRef.id;
+    console.log(`getPlayerIdForUser: New player created with ID: ${newPlayerId} for User ${userId}`);
+
+    // --- Schritt 4: Neue PlayerID im User-Dokument speichern/erstellen --- 
+    try {
+      await setDoc(userDocRef, 
+          { 
+            playerId: newPlayerId, 
+            updatedAt: serverTimestamp(), 
+          }, 
+          { merge: true });
+    } catch (userUpdateError) {
+      console.error(`getPlayerIdForUser: FAILED to store new playerId ${newPlayerId} in user document ${userId}:`, userUpdateError);
+    }
+    return newPlayerId;
+
   } catch (error) {
-    console.error(`getPlayerIdForUser: Fehler beim Suchen/Erstellen des Spielers für User ${userId}:`, error);
+    console.error(`getPlayerIdForUser: General error processing userId ${userId}:`, error);
     return null;
   }
 };
 
 /**
- * Ruft das Player-Dokument anhand seiner ID ab.
- *
- * @param playerId Die ID des Player-Dokuments.
- * @return Ein Promise, das das FirestorePlayer-Objekt oder null auflöst, wenn nicht gefunden oder Fehler.
+ * Ruft ein einzelnes Player-Dokument anhand seiner ID ab.
+ * Beinhaltet eine detailliertere Fehlerbehandlung.
  */
 export const getPlayerDocument = async (playerId: string): Promise<FirestorePlayer | null> => {
-  if (!db) {
-    console.error("getPlayerDocument: Firestore ist nicht initialisiert.");
+  if (!db || !playerId) {
+    console.error("getPlayerDocument: Ungültige Parameter (db, playerId).");
     return null;
   }
-  if (!playerId) {
-    console.warn("getPlayerDocument ohne playerId aufgerufen.");
-    return null;
-  }
+
+  const playerDocRef = doc(db, PLAYERS_COLLECTION, playerId);
 
   try {
-    const playerRef = doc(db, PLAYERS_COLLECTION, playerId);
-    const playerSnap = await getDoc(playerRef);
+    const playerDocSnap = await getDoc(playerDocRef);
 
-    if (playerSnap.exists()) {
-      return {id: playerSnap.id, ...(playerSnap.data() as Omit<FirestorePlayer, "id">)};
+    if (playerDocSnap.exists()) {
+      return {id: playerDocSnap.id, ...playerDocSnap.data()} as FirestorePlayer;
     } else {
-      console.log(`getPlayerDocument: Spieler-Dokument mit ID ${playerId} nicht gefunden.`);
+      console.log(`getPlayerDocument: Kein Dokument gefunden für playerId ${playerId}.`);
       return null;
     }
-  } catch (error) {
-    console.error(`getPlayerDocument: Fehler beim Abrufen des Spieler-Dokuments ${playerId}:`, error);
+  } catch (error: unknown) {
+    console.error(`getPlayerDocument: Fehler beim Abrufen des Dokuments für playerId ${playerId}:`, error);
+    // Prüfe auf spezifische Fehlercodes, wenn nötig
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'permission-denied') {
+      console.error(`getPlayerDocument: BERECHTIGUNGSFEHLER beim Lesen von Player ${playerId}.`);
+      // Eventuell einen spezifischen Wert oder einen Fehler werfen, um dem Aufrufer dies mitzuteilen?
+      // Aktuell geben wir null zurück, was vom Frontend als "nicht gefunden" interpretiert wird.
+      // Besser wäre es, den Fehler weiterzugeben oder einen Status zurückzugeben.
+    }
+    // Gib null zurück, um das aktuelle Verhalten beizubehalten, aber mit detaillierterem Logging.
     return null;
   }
+};
+
+/**
+ * Stellt sicher, dass für jede playerId in einer Gruppe ein gültiges Player-Dokument existiert.
+ * Erstellt fehlende Player-Dokumente als Platzhalter, wenn notwendig.
+ * 
+ * @param playerIds Array von Player-IDs, deren Existenz überprüft/sichergestellt werden soll
+ * @param groupId ID der Gruppe, mit der diese Spieler verknüpft sind (für Platzhalter-Erstellung)
+ * @returns Array der tatsächlich existierenden/erstellten Player-Dokumente
+ */
+export const ensurePlayersExist = async (
+  playerIds: string[],
+  groupId: string
+): Promise<FirestorePlayer[]> => {
+  if (!db) {
+    console.error("ensurePlayersExist: Firestore ist nicht initialisiert.");
+    return [];
+  }
+  
+  if (!playerIds || playerIds.length === 0) {
+    return [];
+  }
+
+  const validPlayers: FirestorePlayer[] = [];
+  const missingPlayerIds: string[] = [];
+
+  // Schritt 1: Überprüfen, welche Player-Dokumente bereits existieren
+  for (const playerId of playerIds) {
+    try {
+      const player = await getPlayerDocument(playerId);
+      if (player) {
+        validPlayers.push(player);
+      } else {
+        missingPlayerIds.push(playerId);
+      }
+    } catch (error) {
+      console.error(`ensurePlayersExist: Fehler beim Prüfen von Player ${playerId}:`, error);
+      missingPlayerIds.push(playerId);
+    }
+  }
+
+  // Wenn alle Player existieren, sind wir fertig
+  if (missingPlayerIds.length === 0) {
+    return validPlayers;
+  }
+
+  console.log(`ensurePlayersExist: ${missingPlayerIds.length} fehlende Player-Dokumente gefunden für Gruppe ${groupId}.`);
+
+  // Schritt 2: Für fehlende Player-IDs Platzhalter erstellen
+  for (const missingPlayerId of missingPlayerIds) {
+    try {
+      const playerRef = doc(db, PLAYERS_COLLECTION, missingPlayerId);
+      
+      // Versuche zunächst, eine Zuordnung zu einem User zu finden (falls Inkonsistenz entstand)
+      // Dies ist ein "Best Effort"-Versuch
+      const usersQuery = query(collection(db, USERS_COLLECTION), where("playerId", "==", missingPlayerId));
+      const userSnapshot = await getDocs(usersQuery);
+      
+      let userId = null;
+      let nickname = `Spieler_${missingPlayerId.substring(0, 6)}`;
+      
+      if (!userSnapshot.empty) {
+        // Wir haben einen User gefunden, der mit dieser playerId verknüpft ist!
+        const userData = userSnapshot.docs[0].data() as FirestoreUser;
+        userId = userSnapshot.docs[0].id;
+        nickname = userData.displayName || nickname;
+        console.log(`ensurePlayersExist: Zugehörigen User ${userId} zu Player ${missingPlayerId} gefunden.`);
+      }
+      
+      // Erstelle den Platzhalter-Player
+      const placeholderData: FirestorePlayer = {
+        id: missingPlayerId,
+        nickname: nickname,
+        userId: userId,
+        isGuest: !userId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        groupIds: [groupId],
+        stats: {
+          gamesPlayed: 0,
+          wins: 0,
+          totalScore: 0,
+        },
+        metadata: {
+          isPlaceholder: true,
+          createdByEnsurePlayersExist: true,
+          createdAt: new Date().toISOString()
+        }
+      };
+      
+      // ID wird nicht in Firestore geschrieben, nur als Teil des Dokument-Pfads verwendet
+      const { id, ...dataToSave } = placeholderData;
+      
+      await setDoc(playerRef, dataToSave);
+      console.log(`ensurePlayersExist: Platzhalter für Player ${missingPlayerId} erstellt.`);
+      
+      validPlayers.push(placeholderData);
+      
+    } catch (error) {
+      console.error(`ensurePlayersExist: Fehler beim Erstellen des Platzhalters für ${missingPlayerId}:`, error);
+    }
+  }
+
+  return validPlayers;
 };
 
 // Zukünftige Funktionen (updatePlayerStats, etc.) können hier hinzugefügt werden.

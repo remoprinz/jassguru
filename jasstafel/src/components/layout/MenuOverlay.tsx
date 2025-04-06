@@ -118,11 +118,11 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
     const timerStore = useTimerStore.getState();
     const authStore = useAuthStore.getState();
 
-    // 1. Zuerst Jass zurücksetzen (triggert isJassStarted = false)
+    // 1. Zuerst JassStore zurücksetzen
     jassStore.resetJass();
 
-    // 2. Dann Game zurücksetzen
-    gameStore.resetGame();
+    // 2. Dann Game zurücksetzen (mit Spieler 1 als Standard-Starter)
+    gameStore.resetGame(1);
 
     // 3. UI zurücksetzen
     uiStore.resetAll();

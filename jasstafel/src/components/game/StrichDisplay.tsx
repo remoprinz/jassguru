@@ -1,5 +1,5 @@
 import React from "react";
-import styled from "styled-components";
+import { styled } from "styled-components";
 import {animated, useSpring} from "react-spring";
 import type {TeamPosition} from "../../types/jass";
 

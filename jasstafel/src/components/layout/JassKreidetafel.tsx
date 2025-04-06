@@ -20,7 +20,7 @@ import HistoryWarning from "../notifications/HistoryWarnings";
 import GameInfoOverlay from "../game/GameInfoOverlay";
 import {useJassStore} from "../../store/jassStore";
 import {useOnboardingFlow} from "../../hooks/useOnboardingFlow";
-import OnboardingFlow from "../onboarding/OnboardingFlow";
+import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
 import {isPWA} from "../../utils/browserDetection";
 import {useTutorialStore} from "../../store/tutorialStore";
 import TutorialOverlay from "../tutorial/TutorialOverlay";

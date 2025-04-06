@@ -1,10 +1,10 @@
 // src/types/jass.ts
 
-import {StatisticId} from "./statistikTypes";
-import {Timestamp, FieldValue} from "firebase/firestore";
+import { StatisticId } from "./statistikTypes";
+import { Timestamp, FieldValue } from "firebase/firestore";
 // Importiere Default Settings
-import {DEFAULT_SCORE_SETTINGS} from "../config/ScoreSettings";
-import {DEFAULT_FARBE_SETTINGS} from "../config/FarbeSettings";
+import { DEFAULT_SCORE_SETTINGS } from "../config/ScoreSettings";
+import { DEFAULT_FARBE_SETTINGS } from "../config/FarbeSettings";
 
 export type TeamPosition = "top" | "bottom";
 export type PlayerNumber = 1 | 2 | 3 | 4;
@@ -44,9 +44,12 @@ export const getTeamForPlayer = (player: PlayerNumber): TeamPosition => {
   return ACTIVE_TEAM_CONFIG.top.includes(player) ? "top" : "bottom";
 };
 
-export const getNextPlayerInTeam = (currentPlayer: PlayerNumber): PlayerNumber => {
+export const getNextPlayerInTeam = (
+  currentPlayer: PlayerNumber,
+): PlayerNumber => {
   const team = getTeamForPlayer(currentPlayer);
-  const teamPlayers = team === "top" ? ACTIVE_TEAM_CONFIG.top : ACTIVE_TEAM_CONFIG.bottom;
+  const teamPlayers =
+    team === "top" ? ACTIVE_TEAM_CONFIG.top : ACTIVE_TEAM_CONFIG.bottom;
   return teamPlayers[0] === currentPlayer ? teamPlayers[1] : teamPlayers[0];
 };
 
@@ -63,7 +66,12 @@ export type JassColor =
   | "Slalom";
 
 // Alle Strich-Kategorien als Union Type
-export type StrichTyp = "berg" | "sieg" | "matsch" | "schneider" | "kontermatsch";
+export type StrichTyp =
+  | "berg"
+  | "sieg"
+  | "matsch"
+  | "schneider"
+  | "kontermatsch";
 
 // Vollständiger Record für Striche
 export interface StricheRecord {
@@ -255,11 +263,14 @@ export interface TeamStand {
   bergActive: boolean;
   bedankenActive: boolean;
   isSigned: boolean;
-  playerStats: Record<PlayerNumber, {
-    striche: number;
-    points: number;
-    weisPoints: number;
-  }>;
+  playerStats: Record<
+    PlayerNumber,
+    {
+      striche: number;
+      points: number;
+      weisPoints: number;
+    }
+  >;
 }
 
 // Bestehende metadata-Definition erweitern
@@ -319,7 +330,10 @@ export interface JassActions {
   }) => void;
 
   // Für Folgespiele (umbenannt von startNewGame)
-  startGame: (gamePlayers: GamePlayers, initialStartingPlayer: PlayerNumber) => void;
+  startGame: (
+    gamePlayers: GamePlayers,
+    initialStartingPlayer: PlayerNumber,
+  ) => void;
 
   // Game Management
   finalizeGame: () => void;
@@ -356,20 +370,22 @@ export interface JassActions {
 
   // Neue Action hinzufügen
   getTotalsUpToGame: (gameId: number) => GameTotals;
+
+  // HIER die neue Action hinzufügen:
+  startNextGame: (initialStartingPlayer: PlayerNumber) => void;
 }
+
 export type JassStore = JassState & JassActions;
 
 export const convertToDisplayStriche = (striche: StricheRecord) => {
   // MATSCH und KONTERMATSCH sind horizontal
-  const horizontal = (striche.matsch || 0) +
-                    (striche.kontermatsch || 0);
+  const horizontal = (striche.matsch || 0) + (striche.kontermatsch || 0);
 
   // BERG, SIEG und SCHNEIDER sind vertikal
-  const vertikal = (striche.berg || 0) +
-                   (striche.sieg || 0) +
-                   (striche.schneider || 0);
+  const vertikal =
+    (striche.berg || 0) + (striche.sieg || 0) + (striche.schneider || 0);
 
-  return {horizontal, vertikal};
+  return { horizontal, vertikal };
 };
 
 // Visuelle Strich-Repräsentation
@@ -422,23 +438,30 @@ export interface GameState {
 
 // Erweitern der GameActions
 export interface GameActions {
-  startGame: (gamePlayers: GamePlayers, initialStartingPlayer: PlayerNumber) => void;
+  startGame: (
+    gamePlayers: GamePlayers,
+    initialStartingPlayer: PlayerNumber,
+  ) => void;
   startRound: () => void;
   finalizeRound: (
     farbe: JassColor,
     topScore: number,
     bottomScore: number,
     strichInfo?: {
-      team: TeamPosition,
-      type: StrichTyp
-    }
+      team: TeamPosition;
+      type: StrichTyp;
+    },
   ) => void;
-  updateScore: (team: TeamPosition, score: number, opponentScore: number) => void;
+  updateScore: (
+    team: TeamPosition,
+    score: number,
+    opponentScore: number,
+  ) => void;
   addStrich: (team: TeamPosition, type: StrichTyp) => void;
   addWeisPoints: (team: TeamPosition, points: number) => void;
   undoLastWeis: () => void;
   finalizeGame: () => void;
-  resetGame: () => void;
+  resetGame: (nextStarter: PlayerNumber) => void;
   resetGamePoints: () => void;
   setScore: (team: TeamPosition, score: number) => void;
   setPlayerNames: (names: PlayerNames) => void;
@@ -446,7 +469,7 @@ export interface GameActions {
   showHistoryWarning: (
     message: string,
     onConfirm: () => void,
-    onCancel: () => void
+    onCancel: () => void,
   ) => void;
   getVisualStriche: (position: TeamPosition) => VisualStricheCounts;
   navigateHistory: (direction: "forward" | "backward") => void;
@@ -515,7 +538,7 @@ export interface JassSession {
   };
   statistics?: {
     gamesPlayed: number;
-    totalDuration: number;
+    totalDuration?: number;
     scores: TeamScores;
     weisCount: number;
     stricheCount: Record<StrichTyp, number>;
@@ -560,50 +583,83 @@ export const isValidPlayerNumber = (num: number): num is PlayerNumber => {
 
 // Startspieler-Rotation mit Type Guard
 export const getNextPlayer = (current: PlayerNumber): PlayerNumber => {
-  const next = ((current % 4) + 1);
+  const next = (current % 4) + 1;
   return isValidPlayerNumber(next) ? next : 1;
 };
 
 // Neue Funktion hinzufügen (bestehender Code bleibt unverändert)
 export const determineNextStartingPlayer = (
-  currentGame: GameEntry | null,
-  initialStartingPlayer: PlayerNumber
+  previousGame: GameEntry | null,
+  lastRoundPlayer: PlayerNumber, // Geändert von initialStartingPlayer
 ): PlayerNumber => {
-  if (!currentGame) {
-    return initialStartingPlayer;
+  // Beginn des neuen Funktionskörpers
+
+  // Helper function for modulo-based player rotation (1 -> 2 -> 3 -> 4 -> 1)
+  const getNextPlayerClockwise = (player: PlayerNumber): PlayerNumber => {
+    return ((player % 4) + 1) as PlayerNumber;
+  };
+
+  // Parameter 'lastRoundPlayer' ist der Spieler, dessen Zug es am Ende des Spiels war
+  console.log(
+    `🏁 [V3] Starting Player Determination based on previous game ending with player ${lastRoundPlayer}'s turn.`,
+  );
+
+  // 1. Bestimme den Spieler, der nach dem letzten Spieler dran WÄRE
+  const playerWhoWouldBeNext = getNextPlayerClockwise(lastRoundPlayer);
+  console.log(
+    `🏁 [V3] Player ${playerWhoWouldBeNext} would be next in clockwise order.`,
+  );
+
+  // 2. Prüfen, ob es ein vorheriges Spiel gibt und wer 'bedankt' hat (Sieg-Strich)
+  if (previousGame) {
+    let winningTeam: TeamPosition | undefined;
+    if (previousGame.teams.top.striche.sieg > 0) {
+      winningTeam = "top";
+    } else if (previousGame.teams.bottom.striche.sieg > 0) {
+      winningTeam = "bottom";
+    }
+
+    if (!winningTeam) {
+      // Sollte nicht passieren. Fallback: Nächster Spieler beginnt.
+      console.warn(
+        `🏁 [V3] Starting Player Determination: Could not determine winning team from previous game (ID: ${previousGame.id}). Defaulting to next player: ${playerWhoWouldBeNext}.`,
+      );
+      return playerWhoWouldBeNext;
+    }
+
+    console.log(
+      `🏁 [V3] Previous game winner (based on 'sieg' strich): Team ${winningTeam}.`,
+    );
+
+    // 3. Team des Spielers ermitteln, der als nächstes dran wäre
+    const teamOfPlayerWhoWouldBeNext = getTeamForPlayer(playerWhoWouldBeNext);
+    console.log(
+      `🏁 [V3] Team of player ${playerWhoWouldBeNext} (who would be next) is ${teamOfPlayerWhoWouldBeNext}.`,
+    );
+
+    // 4. Kernlogik: Gehört der nächste Spieler zum Gewinnerteam?
+    if (teamOfPlayerWhoWouldBeNext === winningTeam) {
+      // JA -> Ausnahme! Überspringe diesen Spieler. Der Spieler DANACH startet.
+      const nextStarter = getNextPlayerClockwise(playerWhoWouldBeNext);
+      console.log(
+        `✨ [V3] Player ${playerWhoWouldBeNext} is on winning team. Skipping. Next player ${nextStarter} starts.`,
+      );
+      return nextStarter;
+    } else {
+      // NEIN -> Regel: Der Spieler, der als nächstes dran wäre, startet.
+      console.log(
+        `✨ [V3] Player ${playerWhoWouldBeNext} is on losing team. They start.`,
+      );
+      return playerWhoWouldBeNext;
+    }
+  } else {
+    // Fallback, falls kein vorheriges Spiel übergeben wurde
+    console.warn(
+      `🏁 [V3] Starting Player Determination: No previous game data provided. Defaulting to next player: ${playerWhoWouldBeNext}.`,
+    );
+    return playerWhoWouldBeNext;
   }
-
-  // 1. Prüfen, welches Team gewonnen hat
-  const winningTeam = currentGame.teams.top.striche.sieg > 0 ? "top" :
-    currentGame.teams.bottom.striche.sieg > 0 ? "bottom" :
-      null;
-
-  if (!winningTeam) {
-    return initialStartingPlayer;
-  }
-
-  // 2. Das Verliererteam identifizieren
-  const losingTeam = winningTeam === "top" ? "bottom" : "top";
-
-  // 3. Den aktuellen Spieler prüfen
-  const teamConfig = getTeamConfig();
-  const losingTeamPlayers = teamConfig[losingTeam];
-  const currentPlayer = currentGame.currentPlayer;
-
-  // ✅ NEUE LOGIK: Wenn der aktuelle Spieler im Verliererteam ist,
-  // darf er direkt das nächste Spiel starten
-  if (losingTeamPlayers.includes(currentPlayer)) {
-    return currentPlayer;
-  }
-
-  // Sonst: Den nächsten Spieler aus dem Verliererteam finden
-  let nextPlayer = getNextPlayer(currentPlayer);
-  while (!losingTeamPlayers.includes(nextPlayer)) {
-    nextPlayer = getNextPlayer(nextPlayer);
-  }
-
-  return nextPlayer;
-};
+}; // Ende des neuen Funktionskörpers
 
 // Startspieler-Management Types
 export interface StartingPlayerState {
@@ -614,14 +670,14 @@ export interface StartingPlayerState {
 
 // Type Guard für Startspieler
 export const isValidStartingPlayer = (
-  player: unknown
+  player: unknown,
 ): player is PlayerNumber => {
   return isValidPlayerNumber(Number(player));
 };
 
 // Hilfsfunktion für initiale Startspieler-Werte
 export const createInitialStartingPlayerState = (
-  initialPlayer: PlayerNumber
+  initialPlayer: PlayerNumber,
 ): StartingPlayerState => {
   if (!isValidStartingPlayer(initialPlayer)) {
     throw new Error("Ungültiger Startspieler");
@@ -750,7 +806,13 @@ export interface TimerAnalytics {
 }
 
 // Neue Types für das Charge-System
-export type ChargeLevel = "none" | "low" | "medium" | "high" | "super" | "extreme";
+export type ChargeLevel =
+  | "none"
+  | "low"
+  | "medium"
+  | "high"
+  | "super"
+  | "extreme";
 
 export interface ChargeState {
   isCharging: boolean;
@@ -799,7 +861,7 @@ export type ChargeDuration = {
 export interface ChargeButtonActionProps {
   chargeDuration: {
     duration: number;
-    level: ChargeLevel
+    level: ChargeLevel;
   };
   type: "berg" | "sieg";
   team: TeamPosition;
@@ -816,24 +878,27 @@ export interface TimerSnapshot {
 // Füge eine Hilfsfunktion für initiales GameState hinzu
 export const createInitialGameState = (
   initialPlayer: PlayerNumber,
-  playerNames: PlayerNames
+  playerNames: PlayerNames,
 ): GameState => ({
   currentPlayer: initialPlayer,
   startingPlayer: initialPlayer,
   initialStartingPlayer: initialPlayer,
   isGameStarted: false,
   currentRound: 1,
-  weisPoints: {top: 0, bottom: 0},
-  jassPoints: {top: 0, bottom: 0},
-  scores: {top: 0, bottom: 0},
-  striche: {top: {berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0}, bottom: {berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0}},
+  weisPoints: { top: 0, bottom: 0 },
+  jassPoints: { top: 0, bottom: 0 },
+  scores: { top: 0, bottom: 0 },
+  striche: {
+    top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
+    bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
+  },
   roundHistory: [],
   currentRoundWeis: [],
   isGameCompleted: false,
   isRoundCompleted: false,
   // Verwende die importierten Default-Settings für die Initialisierung
-  scoreSettings: {...DEFAULT_SCORE_SETTINGS},
-  farbeSettings: {...DEFAULT_FARBE_SETTINGS},
+  scoreSettings: { ...DEFAULT_SCORE_SETTINGS },
+  farbeSettings: { ...DEFAULT_FARBE_SETTINGS },
   playerNames,
   currentHistoryIndex: -1, // Korrigierter Initialwert für History Index
   historyState: createInitialHistoryState(),
@@ -841,16 +906,25 @@ export const createInitialGameState = (
 });
 
 // NEU: Type Guard Funktionen hinzufügen (keine bestehenden Definitionen betroffen)
-export const isJassRoundEntry = (entry: RoundEntry): entry is JassRoundEntry => {
+export const isJassRoundEntry = (
+  entry: RoundEntry,
+): entry is JassRoundEntry => {
   return entry.actionType === "jass";
 };
 
-export const isWeisRoundEntry = (entry: RoundEntry): entry is WeisRoundEntry => {
+export const isWeisRoundEntry = (
+  entry: RoundEntry,
+): entry is WeisRoundEntry => {
   return entry.actionType === "weis";
 };
 
 // Auth-bezogene Typen
-export type AuthStatus = "idle" | "loading" | "authenticated" | "unauthenticated" | "error";
+export type AuthStatus =
+  | "idle"
+  | "loading"
+  | "authenticated"
+  | "unauthenticated"
+  | "error";
 
 export interface AuthUser {
   uid: string;
@@ -865,6 +939,7 @@ export interface AuthUser {
     lastSignInTime?: string;
   };
   lastActiveGroupId?: string | null;
+  playerId?: string | null;
 }
 
 // Online-Offline Modus
@@ -880,7 +955,14 @@ export interface UserContext {
 
 // FirestoreMetadata als generischer Typ für Metadaten
 export interface FirestoreMetadata {
-  [key: string]: string | number | boolean | null | Timestamp | FieldValue | FirestoreMetadata;
+  [key: string]:
+    | string
+    | number
+    | boolean
+    | null
+    | Timestamp
+    | FieldValue
+    | FirestoreMetadata;
 }
 
 // Firestore User Document Structure
@@ -889,6 +971,7 @@ export interface FirestoreUser {
   email: string;
   displayName: string | null;
   photoURL: string | null;
+  playerId?: string | null;
   lastActiveGroupId?: string | null;
   statusMessage?: string | null;
   preferences?: {
@@ -958,7 +1041,7 @@ export interface FirestoreGame {
       striche: StricheRecord;
       jassPoints: number;
       weisPoints: number;
-    }
+    };
   };
   metadata?: FirestoreMetadata;
 }

@@ -77,7 +77,7 @@ export interface OnboardingContent {
 export const BROWSER_ONBOARDING = {
   iOS: {
     WELCOME_SCREEN: {
-      title: "Jetzt Jassguru-App installieren",
+      title: "Jassguru-App installieren",
       message: "Keine Diskussionen ums Zählen, keine Zeitverschwendung für Rechnereien, keine zerknitterten Zettel – hier kommt die digitale Jasstafel, die sich alles merkt und alles kann!",
       secondaryMessage: "Ihr macht die Stiche, ich schreib die Striche.",
       image: "/welcome-guru.png",
@@ -118,7 +118,7 @@ export const BROWSER_ONBOARDING = {
   },
   Android: {
     WELCOME_SCREEN: {
-      title: "Jetzt Jassguru-App installieren",
+      title: "Jassguru-App installieren",
       message: "Keine Diskussionen ums Zählen, keine Zeitverschwendung für Rechnereien, keine zerknitterten Zettel – hier kommt die digitale Jasstafel, die sich alles merkt und alles kann!",
       secondaryMessage: "Ihr macht die Stiche – ich schreib die Striche.",
       image: "/welcome-guru.png",

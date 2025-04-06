@@ -1,7 +1,7 @@
 import {create} from "zustand";
 import {persist} from "zustand/middleware";
 import {auth, db} from "../services/firebaseInit";
-import {onAuthStateChanged, User} from "firebase/auth";
+import {onAuthStateChanged, User, fetchSignInMethodsForEmail} from "firebase/auth";
 import {
   loginWithEmail,
   signInWithGoogleProvider,
@@ -12,11 +12,15 @@ import {
   resendVerificationEmail,
   uploadProfilePicture as uploadProfilePictureService,
   updateUserProfile,
+  updateUserDocument,
 } from "../services/authService";
-import {AuthStatus, AuthUser, AppMode, FirestoreGroup, FirestoreUser} from "../types/jass";
+import {AuthStatus, AuthUser, AppMode, FirestoreGroup, FirestoreUser, FirestorePlayer} from "../types/jass";
 import {useGroupStore} from "./groupStore";
-import {getGroupById} from "../services/groupService";
-import {doc, onSnapshot, Unsubscribe} from "firebase/firestore";
+import {getGroupById, getUserGroups} from "../services/groupService";
+import {doc, onSnapshot, Unsubscribe, FirestoreError, getDoc} from "firebase/firestore";
+import { processPendingInviteToken } from '../lib/handlePendingInvite';
+import { PLAYERS_COLLECTION, USERS_COLLECTION } from "@/constants/firestore";
+import { getPlayerIdForUser } from "../services/playerService";
 
 interface AuthState {
   status: AuthStatus;
@@ -47,6 +51,7 @@ interface AuthActions {
 type AuthStore = AuthState & AuthActions;
 
 let userDocUnsubscribe: Unsubscribe | null = null;
+let playerDocUnsubscribe: Unsubscribe | null = null;
 
 export const useAuthStore = create<AuthStore>()(
   persist(
@@ -100,8 +105,16 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       register: async (email: string, password: string, displayName?: string) => {
+        set({status: "loading", error: null});
         try {
-          set({status: "loading", error: null});
+          const signInMethods = await fetchSignInMethodsForEmail(auth, email);
+          
+          if (signInMethods && signInMethods.length > 0) {
+            console.warn(`AUTH_STORE: Registrierungsversuch für existierende E-Mail: ${email}. Methoden: ${signInMethods.join(", ")}`);
+            throw new Error("AUTH/EMAIL-ALREADY-IN-USE");
+          }
+          
+          console.log(`AUTH_STORE: E-Mail ${email} ist neu, fahre mit Registrierung fort.`);
           const user = await registerWithEmail(email, password, displayName);
           set({
             user,
@@ -110,15 +123,34 @@ export const useAuthStore = create<AuthStore>()(
             isGuest: false,
           });
         } catch (error) {
+          let errorMessage = "Ein unbekannter Fehler ist aufgetreten";
+          if (error instanceof Error) {
+             if (error.message === "AUTH/EMAIL-ALREADY-IN-USE") {
+                 errorMessage = "Diese E-Mail-Adresse ist bereits registriert. Bitte melde dich an oder verwende eine andere E-Mail.";
+             } else {
+                 errorMessage = error.message;
+             }
+          }
+          console.error("AUTH_STORE: Fehler bei Registrierung:", errorMessage);
           set({
             status: "error",
-            error: error instanceof Error ? error.message : "Ein unbekannter Fehler ist aufgetreten",
+            error: errorMessage,
           });
           throw error;
         }
       },
 
       logout: async () => {
+        if (userDocUnsubscribe) {
+          console.log("AUTH_STORE: Unsubscribing from user document listener.");
+          userDocUnsubscribe();
+          userDocUnsubscribe = null;
+        }
+        if (playerDocUnsubscribe) {
+          console.log("AUTH_STORE: Unsubscribing from player document listener.");
+          playerDocUnsubscribe();
+          playerDocUnsubscribe = null;
+        }
         useGroupStore.getState().resetGroupStore();
         try {
           set({status: "loading", error: null});
@@ -261,115 +293,134 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       initAuth: () => {
-        console.log("AUTH_STORE: initAuth aufgerufen");
-        const {setCurrentGroup, setError, resetGroupStore, loadUserGroups} = useGroupStore.getState();
-
-        if (userDocUnsubscribe) {
-          console.log("AUTH_STORE: Melde bestehenden User Doc Listener ab.");
-          userDocUnsubscribe();
-          userDocUnsubscribe = null;
-        }
-
+        console.log("AUTH_STORE: initAuth aufgerufen V2");
+        set({status: "loading"});
         console.log("AUTH_STORE: initAuth - Registriere onAuthStateChanged Listener...");
-        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-          console.log("AUTH_STORE: onAuthStateChanged FEUERTE!", "firebaseUser:", firebaseUser ? firebaseUser.uid : "null");
+        const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+          console.log(`AUTH_STORE: onAuthStateChanged FEUERTE! firebaseUser: ${firebaseUser?.uid}`);
 
-          if (userDocUnsubscribe) {
-            console.log("AUTH_STORE: (onAuthStateChanged) Melde bestehenden User Doc Listener ab.");
-            userDocUnsubscribe();
-            userDocUnsubscribe = null;
-          }
+          if (userDocUnsubscribe) userDocUnsubscribe();
+          if (playerDocUnsubscribe) playerDocUnsubscribe();
+          userDocUnsubscribe = null;
+          playerDocUnsubscribe = null;
 
           if (firebaseUser) {
+            const previousStatus = get().status;
+            set({status: "authenticated", firebaseUser: firebaseUser, isGuest: false, user: null });
+
+            let playerIdToLoad: string | null = null;
+
             try {
-              console.log("AUTH_STORE: Richte onSnapshot Listener für User Doc ein:", firebaseUser.uid);
-              const userDocRef = doc(db, "users", firebaseUser.uid);
+              const userRef = doc(db, USERS_COLLECTION, firebaseUser.uid);
+              const userSnap = await getDoc(userRef);
 
-              userDocUnsubscribe = onSnapshot(userDocRef, async (userDocSnap) => {
-                if (!firebaseUser) {
-                  return;
-                }
+              if (userSnap.exists()) {
+                  const userData = userSnap.data() as FirestoreUser;
+                   if (userData?.playerId && typeof userData.playerId === 'string') { 
+                      playerIdToLoad = userData.playerId;
+                   }
+              }
 
-                const userDocData = userDocSnap.data();
-                const firestoreDataForMapping: Partial<FirestoreUser> | null = userDocData ?
-                  {...userDocData} :
-                  null;
-
-                const latestAuthUser = mapUserToAuthUser(firebaseUser, firestoreDataForMapping);
-
-                set({
-                  user: latestAuthUser,
-                  firebaseUser,
-                  status: "authenticated",
-                  appMode: "online",
-                  isGuest: false,
-                  error: null,
-                });
-
-                const activeGroupId = userDocData?.lastActiveGroupId ?? null;
-                const currentGroupIdInStore = useGroupStore.getState().currentGroup?.id;
-
-                if (activeGroupId) {
-                  if (activeGroupId === currentGroupIdInStore) {
-                    return;
+              if (!playerIdToLoad) {
+                  const displayName = firebaseUser.displayName || `Spieler_${firebaseUser.uid.substring(0, 6)}`;
+                  playerIdToLoad = await getPlayerIdForUser(firebaseUser.uid, displayName);
+                  if (!playerIdToLoad) {
+                     console.error(`AUTH_STORE: CRITICAL - Failed to obtain playerId even through fallback/create!`);
+                     set({ status: "error", error: "Spielerprofil konnte nicht ermittelt werden." });
+                     return;
                   }
+              }
+
+              if (playerIdToLoad) {
+                  await useGroupStore.getState().loadUserGroupsByPlayerId(playerIdToLoad); 
+              } else {
+                  console.error("AUTH_STORE: No playerId available to load groups.");
+                  set({ status: "error", error: "Spieler-ID nicht verfügbar zum Laden der Gruppen." });
+                  return;
+              }
+
+              if (previousStatus === 'loading' || previousStatus === 'unauthenticated') {
+                const joinedGroupId = await processPendingInviteToken();
+                if (joinedGroupId) {
                   try {
-                    const group = await getGroupById(activeGroupId);
-                    if (group) {
-                      await loadUserGroups(latestAuthUser.uid);
-                      const userGroups = useGroupStore.getState().userGroups;
-                      if (userGroups.some((g: FirestoreGroup) => g.id === activeGroupId)) {
-                        await setCurrentGroup(group);
-                      } else {
-                        await setCurrentGroup(null);
-                      }
-                    } else {
-                      await setCurrentGroup(null);
-                    }
-                  } catch (groupError) {
-                    setError("Fehler beim Laden der aktiven Gruppe.");
-                    await setCurrentGroup(null);
+                    await updateUserDocument(firebaseUser.uid, { lastActiveGroupId: joinedGroupId });
+                  } catch (updateError) {
+                    console.error(`AUTH_STORE: Fehler beim Aktualisieren der lastActiveGroupId auf ${joinedGroupId}:`, updateError);
+                  }
+                }
+              }
+
+              console.log(`AUTH_STORE: Richte onSnapshot Listener für User Doc ein: ${firebaseUser.uid}`);
+              userDocUnsubscribe = onSnapshot(userRef, async (docSnap) => {
+                if (docSnap.exists()) {
+                  const userData = docSnap.data() as FirestoreUser;
+                  const mappedUser = mapUserToAuthUser(firebaseUser, userData);
+                  set({user: mappedUser, status: "authenticated"});
+                  
+                  const currentGroups = useGroupStore.getState().userGroups;
+                  const currentGroupMap = new Map(currentGroups.map(g => [g.id, g]));
+                  const currentActiveGroup = useGroupStore.getState().currentGroup;
+                  if (userData.lastActiveGroupId && 
+                      currentGroupMap.has(userData.lastActiveGroupId) && 
+                      currentActiveGroup?.id !== userData.lastActiveGroupId) {
+                       useGroupStore.getState().setCurrentGroup(currentGroupMap.get(userData.lastActiveGroupId)!);
                   }
                 } else {
-                  if (currentGroupIdInStore !== null) {
-                    await setCurrentGroup(null);
-                  }
+                   set({user: mapUserToAuthUser(firebaseUser, null), status: "authenticated"});
                 }
-              }, (error) => {
-                setError("Fehler beim Überwachen der Benutzerdaten.");
+              }, (error: FirestoreError) => {
+                 console.error(`AUTH_STORE: Fehler beim User Doc Listener für ${firebaseUser.uid}:`, error);
+                 set({ status: "error", error: "Fehler beim Laden der Benutzerdaten." });
               });
+
+              console.log(`AUTH_STORE: Richte onSnapshot Listener für Player Doc ein: ${firebaseUser.uid}`);
+              if (playerIdToLoad) {
+                const playerRef = doc(db, PLAYERS_COLLECTION, playerIdToLoad);
+                playerDocUnsubscribe = onSnapshot(playerRef, (playerSnap) => {
+                   if (playerSnap.exists()) {
+                     const playerData = playerSnap.data() as FirestorePlayer;
+                     const receivedGroupIds = playerData.groupIds || [];
+                     const currentStoredGroups = useGroupStore.getState().userGroups;
+                     const storedGroupIdsSet = new Set(currentStoredGroups.map(g => g.id));
+                     const receivedGroupIdsSet = new Set(receivedGroupIds);
+                     let discrepancyDetected = false;
+                     for (const storedId of storedGroupIdsSet) {
+                         if (!receivedGroupIdsSet.has(storedId)) {
+                             discrepancyDetected = true;
+                         }
+                     }
+                     if (!discrepancyDetected && storedGroupIdsSet.size !== receivedGroupIdsSet.size) {
+                          discrepancyDetected = true;
+                     }
+                   }
+                }, (error) => {
+                  console.error(`AUTH_STORE: Fehler beim Player Doc Listener für Player ${playerIdToLoad}:`, error as FirestoreError);
+                });
+              } else {
+                 console.warn("AUTH_STORE: Keine playerId vorhanden, kann Player Listener nicht einrichten.");
+              }
+
             } catch (error) {
-              console.error("AUTH_STORE: Fehler beim Verarbeiten von onAuthStateChanged:", error);
-              setError(error instanceof Error ? error.message : "Fehler beim Initialisieren des Auth-Status.");
-              set({status: "error", error: error instanceof Error ? error.message : "Auth-Init Fehler"});
+              console.error("AUTH_STORE: Schwerwiegender Fehler bei der Initialisierung (playerId/Gruppenladen):", error);
+              set({ status: "error", error: "Initialisierung fehlgeschlagen." });
             }
+
           } else {
-            console.log("AUTH_STORE: onAuthStateChanged - Kein Firebase User, setze Status 'unauthenticated'");
-            set({
-              user: null,
-              firebaseUser: null,
-              status: "unauthenticated",
-              error: null,
-            });
-            resetGroupStore();
-            console.log("AUTH_STORE: onAuthStateChanged - Zustand nach set 'unauthenticated':", get().status);
+            console.log("AUTH_STORE: Kein Firebase User eingeloggt.");
+            set({user: null, firebaseUser: null, status: "unauthenticated", isGuest: get().isGuest});
+            useGroupStore.getState().resetGroupStore();
           }
         });
-
-        console.log("AUTH_STORE: initAuth - Listener registriert.");
+        console.log("AUTH_STORE: initAuth V2 - Listener registriert.");
       },
-
       clearError: () => {
         set({error: null});
       },
     }),
     {
       name: "auth-storage",
-      partialize: (state) => ({
-        user: state.user,
-        appMode: state.appMode,
-        isGuest: state.isGuest,
-      }),
+      partialize: (state) => ({ appMode: state.appMode }),
     }
   )
 );
+

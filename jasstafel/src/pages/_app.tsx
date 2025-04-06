@@ -16,6 +16,8 @@ const MyApp = ({Component, pageProps}: AppProps) => {
   useWakeLock();
   const initAuth = useAuthStore((state) => state.initAuth);
 
+  console.log(`_app.tsx: Rendering Component: ${Component.displayName || Component.name || 'Unknown'}, Pathname: ${pageProps.router?.pathname || (typeof window !== 'undefined' ? window.location.pathname : '')}`);
+
   useEffect(() => {
     setIsClient(true);
     register();

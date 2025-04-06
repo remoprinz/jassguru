@@ -663,15 +663,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }));
   },
 
-  resetGame: () => {
+  resetGame: (nextStarter: PlayerNumber) => {
     const jassStore = useJassStore.getState();
     const state = get();
 
+    // Log zur Überprüfung
+    console.log(`🔄 Resetting GameStore, next starter should be: ${nextStarter}`);
+
     set((state) => ({
-      ...createInitialStateLocal(state.currentPlayer), // Behalte aktuellen Spieler
+      // Verwende den übergebenen nextStarter!
+      ...createInitialStateLocal(nextStarter), 
+      // Behalte Namen und Settings bei
       playerNames: jassStore.currentSession?.playerNames || state.playerNames,
-      scoreSettings: state.scoreSettings, // Behalte Score-Settings
-      farbeSettings: state.farbeSettings, // Behalte Farben-Settings
+      scoreSettings: state.scoreSettings, 
+      farbeSettings: state.farbeSettings,
+      // WICHTIG: gamePlayers hier auf null setzen, da neues Spiel
+      gamePlayers: null, 
     }));
   },
 

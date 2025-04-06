@@ -3,21 +3,24 @@ import { useUIStore, UIStore } from '../../store/uiStore';
 import { useGameStore } from '../../store/gameStore';
 import { FiX, FiRotateCcw, FiSkipBack } from 'react-icons/fi';
 import { format } from 'date-fns';
-import type { GameStore, StricheCount } from '../../types/jass';
-import { 
+// Bereinigter Import für jass.ts Typen
+import type { 
+  GameStore, 
+  StricheCount, 
   TeamPosition, 
   StricheRecord,
-  type JassStore,
+  JassStore,
   PlayerNumber, 
-  GameEntry,
-  determineNextStartingPlayer
+  GameEntry
 } from '../../types/jass';
+// Regulärer Import für die Funktion
+import { determineNextStartingPlayer } from '../../types/jass';
 import { STATISTIC_MODULES } from '../../statistics/registry';
 import { StricheStatistik } from '../../statistics/StricheStatistik';
 import { JasspunkteStatistik } from '../../statistics/JasspunkteStatistik';
 import { useJassStore } from '../../store/jassStore';
-import { useSpring } from 'react-spring';
-import { animated } from 'react-spring';
+// Bereinigter Import für react-spring
+import { useSpring, animated } from 'react-spring';
 import html2canvas from 'html2canvas';
 import { useTimerStore } from '../../store/timerStore';
 import { usePressableButton } from '../../hooks/usePressableButton';
@@ -211,8 +214,8 @@ const ResultatKreidetafel = () => {
       // 3. GameStore VOLLSTÄNDIG mit historischen Daten aktualisieren
       const previousGame = jassStore.getCurrentGame();
       if (previousGame) {
-        // Erst alles zurücksetzen
-        gameStore.resetGame();
+        // Erst alles zurücksetzen MIT dem Starter des vorherigen Spiels
+        gameStore.resetGame(previousGame.initialStartingPlayer);
         
         // Dann VOLLSTÄNDIGEN Spielzustand wiederherstellen
         useGameStore.setState(state => ({
@@ -220,6 +223,8 @@ const ResultatKreidetafel = () => {
           isGameStarted: true,
           currentRound: previousGame.currentRound || 1,
           currentPlayer: previousGame.currentPlayer,
+          startingPlayer: previousGame.startingPlayer,
+          initialStartingPlayer: previousGame.initialStartingPlayer,
           
           // Alle Punkte
           scores: {
@@ -309,7 +314,7 @@ const ResultatKreidetafel = () => {
         const nextGame = jassStore.getCurrentGame();
         if (nextGame) {
           console.log('🎲 Spieldaten werden aktualisiert...');
-          gameStore.resetGame();
+          gameStore.resetGame(nextGame.initialStartingPlayer);
           useGameStore.setState(state => ({
             ...state,
             isGameStarted: true,
@@ -355,27 +360,19 @@ const ResultatKreidetafel = () => {
       jassStore.finalizeGame();
       
       // 2. Dann neues Spiel im jassStore erstellen
-      const { gamePlayers } = gameStore; // Get GamePlayers object from gameStore
-      const { teams } = jassStore; // Get teams from jassStore
+      const { teams } = jassStore;
       
-      // Prüfen, ob gamePlayers gesetzt ist (sollte es sein)
-      if (!gamePlayers) {
-        console.error("FEHLER: gamePlayers ist null in handleNextGame!");
-        // Hier ggf. Fehlerbehandlung oder Fallback
-        return; 
-      }
-
       // Nächsten Startspieler bestimmen
       const currentGameEntry = jassStore.getCurrentGame();
       const initialStartingPlayer = determineNextStartingPlayer(
-        currentGameEntry ?? null, // Konvertiere undefined zu null
-        gameStore.initialStartingPlayer
+        currentGameEntry ?? null, 
+        currentGameEntry?.currentPlayer ?? 1
       );
       
-      jassStore.startGame(gamePlayers, initialStartingPlayer); // Pass GamePlayers und Startspieler
+      jassStore.startNextGame(initialStartingPlayer);
       
-      // 3. GameStore komplett zurücksetzen für neues Spiel
-      gameStore.resetGame();
+      // 3. GameStore komplett zurücksetzen für neues Spiel MIT korrektem Starter
+      gameStore.resetGame(initialStartingPlayer);
       
       // 4. Spielstatus richtig setzen
       useGameStore.setState(state => ({

@@ -39,6 +39,7 @@ module.exports = {
     "arrow-parens": "off",
     "no-multi-spaces": "off",
     "operator-linebreak": "off",
-    "eol-last": "off"
+    "eol-last": "off",
+    "padded-blocks": "off",
   },
 };

@@ -11,7 +11,7 @@ import Image from "next/image";
 import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
 import MainLayout from "@/components/layout/MainLayout";
 import {GroupSelector} from "@/components/group/GroupSelector";
-import {Users, Settings, UserPlus, Camera, Upload, X} from "lucide-react";
+import {Users, Settings, UserPlus, Camera, Upload, X, Loader2} from "lucide-react";
 import imageCompression from "browser-image-compression";
 import {uploadGroupLogo} from "@/services/groupService";
 import ImageCropModal from "@/components/ui/ImageCropModal";
@@ -252,304 +252,299 @@ const StartPage: React.FC = () => {
     );
   }
 
+  if (!currentGroup && userGroups.length > 0) {
+    // Fall: Gruppen vorhanden, aber keine ausgewählt
+    return (
+      <MainLayout>
+        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
+          <h1 className="text-2xl font-bold mb-4">Wähle deine Jassgruppe</h1>
+          <p className="text-gray-400 mb-6">Du bist Mitglied in mehreren Gruppen.</p>
+          <GroupSelector />
+          <div className="mt-8">
+            <Button onClick={() => router.push("/groups/new")} variant="secondary">
+              Neue Gruppe erstellen
+            </Button>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Fall: Keine Gruppe ausgewählt oder erstellt (dieser Fall sollte selten sein,
+  // da der CTA zum Erstellen führt, aber als Fallback)
+  if (!currentGroup) {
+    return (
+      <MainLayout>
+        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
+          <h1 className="text-3xl font-bold mb-4">Keine Gruppe aktiv</h1>
+          <p className="text-gray-400 mb-6">
+            Erstelle eine neue Gruppe oder trete einer bei.
+          </p>
+          {/* CTA wird bereits über useUIStore gesetzt, kein Button hier nötig */}
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout>
-      <div className="flex flex-1 flex-col items-center text-white">
-        <div className="flex w-full max-w-md flex-col items-center">
-          {currentGroup ? (
-            <>
-              <div className="mt-6 mb-4 flex flex-col items-center">
-                <div
-                  className={`relative group cursor-pointer ${isAdmin ? "cursor-pointer" : "cursor-default"}`}
-                  onClick={handleSelectClick}
-                >
-                  <Avatar className="h-32 w-32 border-2 border-gray-700 overflow-hidden">
-                    {previewUrl ? (
-                      <AvatarImage src={previewUrl} alt="Logo Vorschau" className="object-cover h-full w-full" />
-                    ) : (
-                      <AvatarImage src={currentGroup.logoUrl ?? undefined} alt={currentGroup.name ?? "Gruppe"} className="object-cover h-full w-full" />
-                    )}
-                    <AvatarFallback className="bg-gray-700 text-gray-200 text-5xl font-bold">
-                      {currentGroup.name?.charAt(0).toUpperCase() || "G"}
-                    </AvatarFallback>
-                  </Avatar>
-                  {isAdmin && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-all duration-200 rounded-full">
-                      <Camera className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" size={32} />
-                    </div>
-                  )}
-                </div>
-                <p className="text-sm text-gray-400 mb-1 mt-4">Aktive Gruppe:</p>
-                <h1 className="text-3xl font-bold text-center text-white mb-1">{currentGroup.name}</h1>
-                {currentGroup.description && (
-                  <p className="text-gray-400 text-center mb-4 px-8 max-w-[80%] mx-auto whitespace-nowrap">
-                    {currentGroup.description}
-                  </p>
-                )}
-
-                {selectedFile && (
-                  <div className="flex gap-2 justify-center mb-4">
-                    <Button
-                      onClick={handleUpload}
-                      className="bg-green-600 hover:bg-green-700 flex items-center gap-1"
-                      disabled={!selectedFile || isUploading}
-                    >
-                      {isUploading ? (
-                        <>
-                          <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-1"></div>
-                          Hochladen...
-                        </>
-                      ) : (
-                        <>
-                          <Upload size={16} /> Hochladen
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      onClick={handleCancelSelection}
-                      className="bg-gray-600 hover:bg-gray-700 flex items-center gap-1"
-                      disabled={isUploading}
-                    >
-                      <X size={16} /> Abbrechen
-                    </Button>
-                  </div>
-                )}
-
-              </div>
-
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept="image/jpeg, image/png"
-                className="hidden"
-                disabled={isUploading}
-              />
-
-              <div className="flex justify-evenly mb-6 w-full">
-                {/* "Einladen"-Button nur für Admins */}
-                {isAdmin && (
-                  <div className="flex flex-col items-center">
-                    <span className="text-xs text-gray-400 mb-2">Einladen</span>
-                    <Button
-                      variant="default"
-                      className="h-12 w-12 flex items-center justify-center bg-orange-600 border-orange-700 hover:bg-orange-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
-                      onClick={handleInviteClick}
-                    >
-                      <UserPlus
-                        style={{height: "1.5rem", width: "1.5rem"}}
-                      />
-                    </Button>
-                  </div>
-                )}
-
-                <div className="flex flex-col items-center">
-                  <span className="text-xs text-gray-400 mb-2">Mitglieder</span>
-                  <Button
-                    variant="default"
-                    className="h-12 w-12 flex items-center justify-center bg-yellow-600 border-yellow-700 hover:bg-yellow-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
-                    onClick={() => alert("Mitglieder - TODO")}
-                  >
-                    <Users
-                      style={{height: "1.5rem", width: "1.5rem"}}
-                    />
-                  </Button>
-                </div>
-
-                {isAdmin && (
-                  <div className="flex flex-col items-center">
-                    <span className="text-xs text-gray-400 mb-2">Admin</span>
-                    <Button
-                      variant="default"
-                      className="h-12 w-12 flex items-center justify-center bg-blue-600 border-blue-700 hover:bg-blue-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
-                      onClick={() => router.push("/groups/settings")}
-                    >
-                      <Settings
-                        style={{height: "1.5rem", width: "1.5rem"}}
-                      />
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              {/* --- VOLLSTÄNDIGER STATISTIKBEREICH --- */}
-              <div className="w-full bg-gray-800/50 rounded-lg p-4 mb-8">
-                <div className="space-y-3 text-sm px-2 pb-2"> {/* Etwas mehr Platz mit space-y-3 */}
-
-                  {/* Block 1: Gruppenübersicht */}
-                  <div>
-                    <h3 className="text-base font-semibold text-white mb-2">Gruppenübersicht</h3>
-                    <div className="space-y-1"> {/* Innerer Abstand für Items */}
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Mitglieder:</span>
-                        <span className="text-gray-100">{currentGroup?.playerIds?.length ?? 0}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Anzahl Jass-Partien:</span>
-                        <span className="text-gray-100">0</span> {/* Placeholder */}
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Anzahl Spiele:</span>
-                        <span className="text-gray-100">0</span> {/* Placeholder */}
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Gesamte Jass-Zeit:</span>
-                        <span className="text-gray-100">-</span> {/* Placeholder */}
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Erster Jass:</span>
-                        <span className="text-gray-100">-</span> {/* Placeholder */}
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Letzter Jass:</span>
-                        <span className="text-gray-100">-</span> {/* Placeholder */}
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Ort:</span>
-                        <span className="text-gray-100">N/A</span> {/* Placeholder */}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Divider */}
-                  <div className="pt-2 pb-1">
-                    <hr className="border-gray-600/50" /> {/* Etwas dezenterer Divider */}
-                  </div>
-
-                  {/* Block 2: Durchschnittswerte & Details */}
-                  <div>
-                    <h3 className="text-base font-semibold text-white mb-2">Durchschnittswerte & Details</h3>
-                    <div className="space-y-1">
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Ø Dauer pro Partie:</span>
-                        <span className="text-gray-100">-</span> {/* Placeholder */}
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Ø Dauer pro Spiel:</span>
-                        <span className="text-gray-100">-</span> {/* Placeholder */}
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Ø Spiele pro Partie:</span>
-                        <span className="text-gray-100">-</span> {/* Placeholder */}
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Ø Runden pro Spiel:</span>
-                        <span className="text-gray-100">-</span> {/* Placeholder */}
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Ø Matsch pro Spiel:</span>
-                        <span className="text-gray-100">-</span> {/* Placeholder */}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Divider */}
-                  <div className="pt-2 pb-1">
-                    <hr className="border-gray-600/50" />
-                  </div>
-
-                  {/* Block 3: Spieler-Highlights */}
-                  <div>
-                    <h3 className="text-base font-semibold text-white mb-2">Spieler-Highlights</h3>
-                    <div className="space-y-1">
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Meiste Spiele:</span>
-                        <span className="text-gray-100">N/A (-)</span> {/* Placeholder */}
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Höchste Strichdifferenz:</span>
-                        <span className="text-gray-100">N/A (+0)</span> {/* Placeholder */}
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Höchste Siegquote (pro Partie):</span>
-                        <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Höchste Siegquote (pro Spiel):</span>
-                        <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Höchste Matschquote (pro Spiel):</span>
-                        <span className="text-gray-100">N/A (0.00)</span> {/* Placeholder */}
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Die meisten Weispunkte (pro Spiel):</span>
-                        <span className="text-gray-100">N/A (0)</span> {/* Placeholder */}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Divider */}
-                  <div className="pt-2 pb-1">
-                    <hr className="border-gray-600/50" />
-                  </div>
-
-                  {/* Block 4: Team-Highlights */}
-                  <div>
-                    <h3 className="text-base font-semibold text-white mb-2">Team-Highlights</h3>
-                    <div className="space-y-1">
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Höchste Siegquote (pro Partie):</span>
-                        <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Höchste Siegquote (pro Spiel):</span>
-                        <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Höchste Matschquote (pro Spiel):</span>
-                        <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
-                      </div>
-                    </div>
-                  </div>
-
-                </div>
-              </div>
-            </>
-          ) : userGroups.length > 0 ? (
-            <div className="flex flex-col items-center text-center mt-8">
+      <div className="flex flex-col items-center justify-start min-h-screen bg-gray-900 text-white p-4 relative">
+        {/* Gruppenlogo und Name */}
+        <div className="relative mb-4 mt-6">
+          <div className="relative w-32 h-32 rounded-full overflow-hidden border-2 border-gray-700 flex items-center justify-center bg-gray-800">
+            {previewUrl ? (
               <Image
-                src="/welcome-guru.png"
-                alt="Jassguru Maskottchen"
-                width={120}
-                height={120}
-                className="mb-4"
+                src={previewUrl}
+                alt="Vorschau Gruppenlogo"
+                layout="fill"
+                objectFit="cover"
               />
-              <h2 className="text-xl font-semibold mb-2">Gruppe auswählen</h2>
-              <p className="text-gray-400 mb-4">Wähle eine Gruppe aus, um zu starten, oder erstelle eine neue.</p>
-              <div className="w-full mb-4">
-                <GroupSelector />
-              </div>
-              <Button
-                onClick={() => router.push("/groups/new")}
-                className="w-full bg-yellow-600 hover:bg-yellow-700"
+            ) : currentGroup.logoUrl ? (
+              <Image
+                src={currentGroup.logoUrl}
+                alt={`Logo ${currentGroup.name}`}
+                layout="fill"
+                objectFit="cover"
+                onError={(e) => {
+                  // Fallback, wenn das Logo nicht geladen werden kann
+                  (e.target as HTMLImageElement).src = "/placeholder-logo.png";
+                }}
+              />
+            ) : (
+              <span className="text-4xl font-bold text-gray-500">
+                {currentGroup.name.charAt(0).toUpperCase()}
+              </span>
+            )}
+
+            {/* Klickbarer Overlay-Button nur für Admins, wie auf der Profilseite */}
+            {isAdmin && (
+              <button
+                onClick={handleSelectClick}
+                className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-60 transition-all duration-200"
+                disabled={isUploading}
+                aria-label="Gruppenlogo ändern"
               >
-                Neue Gruppe erstellen
+                <Camera className="text-white opacity-0 hover:opacity-100 transition-opacity duration-200" size={32} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <h1 className="text-3xl font-bold mb-1 text-white">{currentGroup.name}</h1>
+        {/* Beschreibung - HIER text-center hinzufügen */} 
+        <div className="w-full max-w-md mb-6 text-center">
+          <p className="text-sm text-gray-400 mx-auto">
+            {currentGroup.description}
+          </p>
+        </div>
+
+        {/* Upload Actions wenn Datei ausgewählt */} 
+        {selectedFile && previewUrl && (
+          <div className="flex gap-2 justify-center mb-4">
+            <Button
+              onClick={handleUpload}
+              className="bg-green-600 hover:bg-green-700 flex items-center gap-1"
+              disabled={!selectedFile || isUploading}
+            >
+              {isUploading ? (
+                <>
+                  <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-1"></div>
+                  Hochladen...
+                </>
+              ) : (
+                <>
+                  <Upload size={16} /> Hochladen
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={handleCancelSelection}
+              className="bg-gray-600 hover:bg-gray-700 flex items-center gap-1"
+              disabled={isUploading}
+            >
+              <X size={16} /> Abbrechen
+            </Button>
+          </div>
+        )}
+
+        <div className="flex justify-evenly mb-6 w-full">
+          {/* "Einladen"-Button nur für Admins */}
+          {isAdmin && (
+            <div className="flex flex-col items-center">
+              <span className="text-xs text-gray-400 mb-2">Einladen</span>
+              <Button
+                variant="default"
+                className="h-12 w-12 flex items-center justify-center bg-orange-600 border-orange-700 hover:bg-orange-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
+                onClick={handleInviteClick}
+              >
+                <UserPlus
+                  style={{height: "1.5rem", width: "1.5rem"}}
+                />
               </Button>
             </div>
-          ) : (
-            <div className="flex flex-col items-center text-center mt-8">
-              <Image
-                src="/welcome-guru.png"
-                alt="Jassguru Maskottchen"
-                width={120}
-                height={120}
-                className="mb-4"
+          )}
+
+          <div className="flex flex-col items-center">
+            <span className="text-xs text-gray-400 mb-2">Mitglieder</span>
+            <Button
+              variant="default"
+              className="h-12 w-12 flex items-center justify-center bg-yellow-600 border-yellow-700 hover:bg-yellow-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
+              onClick={() => alert("Mitglieder - TODO")}
+            >
+              <Users
+                style={{height: "1.5rem", width: "1.5rem"}}
               />
-              <h1 className="text-2xl font-bold mb-2">
-                Willkommen, {user?.displayName || "Jasser"}!
-              </h1>
-              <div className="text-center px-6 mt-6 mb-6">
-                <p className="text-gray-400 text-lg leading-loose">
-                  Du gehörst noch zu keiner Jassrunde.
-                  <br />
-                  Erstelle jetzt deine eigene Gruppe und lade deine Freunde ein.
-                  <br />
-                  Oder suche nach einer bestehenden Gruppe, der du beitreten kannst.
-                </p>
-              </div>
+            </Button>
+          </div>
+
+          {isAdmin && (
+            <div className="flex flex-col items-center">
+              <span className="text-xs text-gray-400 mb-2">Admin</span>
+              <Button
+                variant="default"
+                className="h-12 w-12 flex items-center justify-center bg-blue-600 border-blue-700 hover:bg-blue-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
+                onClick={() => router.push("/groups/settings")}
+              >
+                <Settings
+                  style={{height: "1.5rem", width: "1.5rem"}}
+                />
+              </Button>
             </div>
           )}
+        </div>
+
+        {/* --- VOLLSTÄNDIGER STATISTIKBEREICH --- */}
+        <div className="w-full bg-gray-800/50 rounded-lg p-4 mb-8">
+          <div className="space-y-3 text-sm px-2 pb-2"> {/* Etwas mehr Platz mit space-y-3 */}
+
+            {/* Block 1: Gruppenübersicht */}
+            <div>
+              <h3 className="text-base font-semibold text-white mb-2">Gruppenübersicht</h3>
+              <div className="space-y-1"> {/* Innerer Abstand für Items */}
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-300">Mitglieder:</span>
+                  <span className="text-gray-100">{currentGroup?.playerIds?.length ?? 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-300">Anzahl Jass-Partien:</span>
+                  <span className="text-gray-100">0</span> {/* Placeholder */}
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-300">Anzahl Spiele:</span>
+                  <span className="text-gray-100">0</span> {/* Placeholder */}
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-300">Gesamte Jass-Zeit:</span>
+                  <span className="text-gray-100">-</span> {/* Placeholder */}
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-300">Erster Jass:</span>
+                  <span className="text-gray-100">-</span> {/* Placeholder */}
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-300">Letzter Jass:</span>
+                  <span className="text-gray-100">-</span> {/* Placeholder */}
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-300">Ort:</span>
+                  <span className="text-gray-100">N/A</span> {/* Placeholder */}
+                </div>
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="pt-2 pb-1">
+              <hr className="border-gray-600/50" /> {/* Etwas dezenterer Divider */}
+            </div>
+
+            {/* Block 2: Durchschnittswerte & Details */}
+            <div>
+              <h3 className="text-base font-semibold text-white mb-2">Durchschnittswerte & Details</h3>
+              <div className="space-y-1">
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-300">Ø Dauer pro Partie:</span>
+                  <span className="text-gray-100">-</span> {/* Placeholder */}
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-300">Ø Dauer pro Spiel:</span>
+                  <span className="text-gray-100">-</span> {/* Placeholder */}
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-300">Ø Spiele pro Partie:</span>
+                  <span className="text-gray-100">-</span> {/* Placeholder */}
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-300">Ø Runden pro Spiel:</span>
+                  <span className="text-gray-100">-</span> {/* Placeholder */}
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-300">Ø Matsch pro Spiel:</span>
+                  <span className="text-gray-100">-</span> {/* Placeholder */}
+                </div>
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="pt-2 pb-1">
+              <hr className="border-gray-600/50" />
+            </div>
+
+            {/* Block 3: Spieler-Highlights */}
+            <div>
+              <h3 className="text-base font-semibold text-white mb-2">Spieler-Highlights</h3>
+              <div className="space-y-1">
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-300">Meiste Spiele:</span>
+                  <span className="text-gray-100">N/A (-)</span> {/* Placeholder */}
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-300">Höchste Strichdifferenz:</span>
+                  <span className="text-gray-100">N/A (+0)</span> {/* Placeholder */}
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-300">Höchste Siegquote (pro Partie):</span>
+                  <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-300">Höchste Siegquote (pro Spiel):</span>
+                  <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-300">Höchste Matschquote (pro Spiel):</span>
+                  <span className="text-gray-100">N/A (0.00)</span> {/* Placeholder */}
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-300">Die meisten Weispunkte (pro Spiel):</span>
+                  <span className="text-gray-100">N/A (0)</span> {/* Placeholder */}
+                </div>
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="pt-2 pb-1">
+              <hr className="border-gray-600/50" />
+            </div>
+
+            {/* Block 4: Team-Highlights */}
+            <div>
+              <h3 className="text-base font-semibold text-white mb-2">Team-Highlights</h3>
+              <div className="space-y-1">
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-300">Höchste Siegquote (pro Partie):</span>
+                  <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-300">Höchste Siegquote (pro Spiel):</span>
+                  <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-300">Höchste Matschquote (pro Spiel):</span>
+                  <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
+                </div>
+              </div>
+            </div>
+
+          </div>
         </div>
 
         {/* Invite Modal einfügen */}
@@ -569,6 +564,16 @@ const StartPage: React.FC = () => {
           onClose={() => handleCropComplete(null)} // Signalisiert Abbruch
           imageSrc={imageToCrop}
           onCropComplete={handleCropComplete}
+        />
+
+        {/* Versteckter File-Input (Fehlte!) */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept="image/jpeg, image/png"
+          className="hidden"
+          disabled={isUploading}
         />
 
       </div>

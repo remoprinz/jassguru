@@ -57,6 +57,7 @@ export const mapUserToAuthUser = (user: FirebaseAuthUser, firestoreUser?: Partia
     // Füge Felder aus Firestore hinzu, falls vorhanden
     lastActiveGroupId: firestoreUser?.lastActiveGroupId ?? null,
     statusMessage: firestoreUser?.statusMessage ?? null,
+    playerId: firestoreUser?.playerId ?? null,
   };
 };
 

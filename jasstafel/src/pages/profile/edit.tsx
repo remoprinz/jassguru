@@ -9,7 +9,7 @@ import {useUIStore} from "@/store/uiStore";
 import MainLayout from "@/components/layout/MainLayout";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
-import Textarea from "../../components/ui/textarea";
+import {Textarea} from "@/components/ui/textarea";
 import {Alert, AlertDescription} from "@/components/ui/alert";
 
 const EditProfilePage: React.FC = () => {

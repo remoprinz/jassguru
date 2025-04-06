@@ -1,6 +1,30 @@
 import {https, region as functionsRegion} from "firebase-functions/v1";
 import * as admin from "firebase-admin";
 import * as crypto from "crypto";
+// import { FirestoreGroup } from "../../src/types/group"; // <-- Entfernt wegen Modul-Konflikt
+
+// --- Lokale Typdefinition START ---
+// Notwendig, da der direkte Import von ../../src/types nicht zuverlässig funktioniert
+interface FirestorePlayerInGroup {
+  displayName: string | null;
+  email: string | null;
+  joinedAt: admin.firestore.Timestamp;
+}
+
+interface FirestoreGroup {
+  id: string;
+  name: string;
+  description?: string;
+  logoUrl?: string | null;
+  createdAt: admin.firestore.Timestamp;
+  createdBy: string;
+  playerIds: string[];
+  adminIds: string[];
+  isPublic: boolean;
+  players?: { [key: string]: FirestorePlayerInGroup };
+  updatedAt?: admin.firestore.Timestamp; // Optional, falls verwendet
+}
+// --- Lokale Typdefinition ENDE ---
 
 // Initialisierung von Firebase Admin (nur einmal pro Instanz)
 try {
@@ -193,9 +217,11 @@ export const invalidateActiveGroupInvites = functionsRegion("europe-west1")
 
 /**
  * Ermöglicht einem authentifizierten Nutzer, einer Gruppe mittels eines gültigen Tokens beizutreten.
+ * FIX V2: Stellt sicher, dass alle Reads vor Writes in der Transaktion erfolgen.
  */
 export const joinGroupByToken = functionsRegion("europe-west1")
   .https.onCall(async (data: JoinGroupByTokenData, context: https.CallableContext) => {
+    console.log("--- joinGroupByToken V9 START ---"); // Bereinigt
     // 1. Authentifizierung prüfen
     if (!context.auth) {
       throw new https.HttpsError(
@@ -205,10 +231,8 @@ export const joinGroupByToken = functionsRegion("europe-west1")
     }
 
     const userId = context.auth.uid;
-    // Wir brauchen DisplayName und Email für das `players` Objekt in der Gruppe
     const userDisplayName = context.auth.token.name || "Unbekannter Jasser";
-    const userEmail = context.auth.token.email; // Kann null sein
-
+    const userEmail = context.auth.token.email;
     const token = data.token;
 
     // 2. Input validieren
@@ -220,9 +244,11 @@ export const joinGroupByToken = functionsRegion("europe-west1")
     }
 
     console.info(`User ${userId} attempts to join group with token ${token}`);
+    
+    let groupId: string | null = null; // groupId hier deklarieren für äußeren Catch-Block
 
     try {
-      // 3. Token-Dokument finden
+      // 3. Token-Dokument finden (Außerhalb der Transaktion)
       const tokenQuery = db.collection("groupInvites").where("token", "==", token);
       const tokenQuerySnapshot = await tokenQuery.get();
 
@@ -230,105 +256,295 @@ export const joinGroupByToken = functionsRegion("europe-west1")
         throw new https.HttpsError("not-found", "Einladungscode nicht gefunden oder ungültig.");
       }
 
-      // Annahme: Tokens sind eindeutig, also nur ein Ergebnis erwartet
-      const tokenDoc = tokenQuerySnapshot.docs[0];
-      const tokenData = tokenDoc.data();
+      const tokenDocSnapshot = tokenQuerySnapshot.docs[0];
+      const tokenDataOutside = tokenDocSnapshot.data();
+      const tokenDocId = tokenDocSnapshot.id;
 
-      // 4. Token validieren (Gültigkeit & Ablauf)
-      if (!tokenData.isValid) {
+      // 4. Token validieren (Außerhalb der Transaktion)
+      if (!tokenDataOutside) {
+        console.error(`T3.E1: tokenDoc exists but tokenData is undefined! Token: ${token}`);
+        throw new https.HttpsError("internal", "Fehler beim Lesen der Token-Daten.");
+      }
+
+      if (!tokenDataOutside.isValid) {
         throw new https.HttpsError("permission-denied", "Dieser Einladungscode ist nicht mehr gültig.");
       }
 
       const now = admin.firestore.Timestamp.now();
-      if (tokenData.expiresAt.toMillis() < now.toMillis()) {
-        // Token als ungültig markieren, wenn abgelaufen
-        await tokenDoc.ref.update({isValid: false});
+      if (tokenDataOutside.expiresAt.toMillis() < now.toMillis()) {
+        // Token als ungültig markieren (kann außerhalb der Transaktion erfolgen)
+        await tokenDocSnapshot.ref.update({isValid: false});
         throw new https.HttpsError("permission-denied", "Dieser Einladungscode ist abgelaufen.");
       }
 
-      const groupId = tokenData.groupId;
+      groupId = tokenDataOutside.groupId; // Wert hier zuweisen
+      if (!groupId) {
+          // Wichtige Prüfung, falls groupId im Token fehlt
+          console.error(`Initial Error: groupId missing in token data for ${tokenDocId}`);
+          throw new https.HttpsError("internal", "Gruppen-ID im Token nicht gefunden.");
+      }
 
-      // --- Transaktion starten ---
-      const joinResult = await db.runTransaction(async (transaction) => {
-        // 5. Gruppen-Dokument innerhalb der Transaktion lesen
-        const groupRef = db.collection("groups").doc(groupId);
-        const groupSnap = await transaction.get(groupRef);
+      // --- Transaktion starten --- 
+      try {
+        console.info(`Starting transaction for user ${userId} joining group ${groupId}`); // Geändert zu info
+        const joinResult = await db.runTransaction(async (transaction) => {
+          // console.log("--- Transaction V9 Start ---"); // Entfernt
 
-        if (!groupSnap.exists) {
-          throw new https.HttpsError("not-found", "Die zugehörige Gruppe wurde nicht gefunden.");
-        }
-        const groupData = groupSnap.data();
-        if (!groupData) {
-          throw new https.HttpsError("internal", "Fehler beim Lesen der Gruppendaten.");
-        }
+          // --- SCHRITT 1: PRELIMINARY READS --- 
+          // console.log("TxRead Phase 1 Start"); // Entfernt
+          // 1.1 User-Dokument lesen
+          const userRef = db.collection("users").doc(userId);
+          // console.log("TxRead: userRef"); // Entfernt
+          const userSnap = await transaction.get(userRef);
+          
+          // 1.2 Token-Dokument lesen (erneut, für Konsistenz innerhalb der Tx)
+          const tokenRef = db.collection("groupInvites").doc(tokenDocId);
+          // console.log("TxRead: tokenRef"); // Entfernt
+          const tokenDoc = await transaction.get(tokenRef);
+          // console.log("TxRead Phase 1 End"); // Entfernt
 
-        // 6. Prüfen, ob Nutzer bereits Mitglied ist
-        if (groupData.playerIds?.includes(userId)) {
-          console.info(`User ${userId} is already a member of group ${groupId}.`);
-          // Erfolg zurückgeben, da der Nutzer schon Mitglied ist
-          return {success: true, alreadyMember: true, groupId: groupId, groupName: groupData.name};
-        }
-
-        // 7. Player-Dokument des Nutzers innerhalb der Transaktion lesen
-        const playerRef = db.collection("players").doc(userId);
-        const playerSnap = await transaction.get(playerRef);
-        const playerGroups = playerSnap.exists ? playerSnap.data()?.groups || [] : [];
-
-        // 8. Gruppe zum Player-Dokument hinzufügen (falls noch nicht vorhanden)
-        if (!playerGroups.includes(groupId)) {
-          playerGroups.push(groupId);
-          if (playerSnap.exists) {
-            transaction.update(playerRef, {groups: playerGroups});
-          } else {
-            // Player-Dokument erstellen, falls nicht vorhanden
-            transaction.set(playerRef, {
-              uid: userId,
-              displayName: userDisplayName,
-              email: userEmail || null, // Default auf null, falls nicht vorhanden
-              groups: playerGroups,
-            });
+          // --- SCHRITT 2: VALIDATE TOKEN & GET GROUP ID (within Tx) --- 
+          // console.log("TxValidate & Get GroupId Start"); // Entfernt
+          if (!tokenDoc.exists) {
+            console.error(`Transaction Error: Token document ${tokenDocId} disappeared!`);
+            throw new Error("Einladungscode konnte nicht erneut gelesen werden.");
           }
-        }
+          const tokenData = tokenDoc.data();
+          // Erneute Validierung des Tokens innerhalb der Transaktion
+          if (!tokenData || !tokenData.isValid || tokenData.expiresAt.toMillis() < admin.firestore.Timestamp.now().toMillis()) {
+            console.warn(`Transaction Warning: Token ${tokenDocId} became invalid or expired during transaction.`);
+            throw new Error("Einladungscode wurde während des Vorgangs ungültig oder ist abgelaufen.");
+          }
+          
+          const currentGroupId = tokenData.groupId;
+          if (!currentGroupId || typeof currentGroupId !== 'string') { 
+            console.error("Transaction Error: groupId missing or invalid in token data during transaction.");
+            throw new Error("Gruppen-ID im Token nicht gefunden oder ungültig.");
+          }
+          // console.log(`TxValidate & Get GroupId End: Found GroupId ${currentGroupId}`); // Entfernt
 
-        // 9. Nutzer zur Gruppe hinzufügen
-        const newPlayerIds = [...(groupData.playerIds || []), userId];
-        const newPlayersMap = {
-          ...(groupData.players || {}),
-          [userId]: {
-            displayName: userDisplayName,
-            email: userEmail || null,
-            joinedAt: now, // Beitrittszeitpunkt
-          },
-        };
+          // --- SCHRITT 3: REMAINING READS (using validated currentGroupId) --- 
+          // console.log("TxRead Phase 2 Start"); // Entfernt
+          // 3.1 Gruppen-Dokument lesen
+          const groupRef = db.collection("groups").doc(currentGroupId);
+          // console.log("TxRead: groupRef"); // Entfernt
+          const groupSnap = await transaction.get(groupRef);
+          
+          // 3.2 Bedingte Reads für Player-ID Ermittlung
+          let playerVerifySnap: admin.firestore.DocumentSnapshot | null = null;
+          let playerQuerySnapshot: admin.firestore.QuerySnapshot | null = null;
+          let initialPlayerId: string | null = null;
+          
+          if (userSnap.exists && userSnap.data()?.playerId) {
+            initialPlayerId = userSnap.data()?.playerId;
+            const playerVerifyRef = db.collection("players").doc(initialPlayerId!);
+            // console.log(`TxRead: playerVerifyRef for ${initialPlayerId}`); // Entfernt
+            playerVerifySnap = await transaction.get(playerVerifyRef);
+          } else {
+            const playerQuery = db.collection("players").where("userId", "==", userId);
+            // console.log("TxRead: playerQuery"); // Entfernt
+            playerQuerySnapshot = await transaction.get(playerQuery);
+          }
+          // console.log("TxRead Phase End"); // Entfernt
+          
+          // --- SCHRITT 4: VALIDIERUNG & LOGIK (basierend auf Reads) --- 
+          // console.log("TxLogic Phase Start"); // Entfernt
+          
+          // 2.1 Gruppen-Dokument prüfen
+          if (!groupSnap.exists) {
+            console.error(`Transaction Error: Group ${currentGroupId} not found.`);
+            throw new Error("Die zugehörige Gruppe wurde nicht gefunden.");
+          }
+          const groupData = groupSnap.data()!;
+          if (!groupData) {
+            console.error(`Transaction Error: Could not read data for group ${currentGroupId}.`);
+            throw new Error("Fehler beim Lesen der Gruppendaten.");
+          }
+          
+          // 2.2 Token-Dokument prüfen (innerhalb Tx)
+          if (!tokenDoc.exists) {
+            console.error(`Transaction Error: Token document ${tokenDocId} disappeared!`);
+            throw new Error("Einladungscode konnte nicht erneut gelesen werden.");
+          }
+          const tokenDataInside = tokenDoc.data();
+          if (!tokenDataInside || !tokenDataInside.isValid || tokenDataInside.expiresAt.toMillis() < admin.firestore.Timestamp.now().toMillis()) {
+            // Wenn Token inzwischen ungültig/abgelaufen ist, Fehler werfen.
+            // Das Markieren als ungültig kann ggf. außerhalb erfolgen, wenn abgelaufen.
+            console.warn(`Transaction Warning: Token ${tokenDocId} became invalid or expired during transaction.`);
+            throw new Error("Einladungscode wurde während des Vorgangs ungültig oder ist abgelaufen.");
+          }
+          
+          // 2.3 Prüfen, ob Nutzer bereits Mitglied ist
+          if (groupData.playerIds?.includes(userId)) {
+            console.log(`Transaction: User ${userId} is already a member of group ${currentGroupId}.`);
+            const existingGroupData = { id: groupSnap.id, ...groupData } as FirestoreGroup;
+            return {success: true, alreadyMember: true, group: existingGroupData };
+          }
+          
+          // 2.4 Korrekte Player-ID bestimmen
+          let finalPlayerId: string | null = null;
+          let createNewPlayer = false;
+          
+          if (initialPlayerId && playerVerifySnap?.exists) {
+            finalPlayerId = initialPlayerId;
+            console.log(`TxLogic: Confirmed existing player ${finalPlayerId} from user doc.`);
+          } else if (playerQuerySnapshot && !playerQuerySnapshot.empty) {
+            if (playerQuerySnapshot.size > 1) {
+              console.warn(`TxLogic: Found MULTIPLE (${playerQuerySnapshot.size}) player docs for userId ${userId}! Using first one.`);
+            }
+            finalPlayerId = playerQuerySnapshot.docs[0].id;
+            console.log(`TxLogic: Found existing player ${finalPlayerId} via query.`);
+          } else {
+            // Kein existierender Player gefunden, neue ID generieren
+            finalPlayerId = crypto.randomBytes(12).toString('hex');
+            createNewPlayer = true;
+            console.log(`TxLogic: Will create new player with ID ${finalPlayerId}.`);
+          }
+          
+          if (!finalPlayerId) {
+             // Sollte nicht passieren, aber zur Sicherheit
+             console.error("TxLogic: CRITICAL - Could not determine finalPlayerId!");
+             throw new Error("Konnte die Spieler-ID nicht bestimmen.");
+          }
+          
+          // 2.5 Player-Daten vorbereiten (nur wenn neu erstellt wird)
+          let newPlayerData: any = null;
+          if (createNewPlayer) {
+             newPlayerData = {
+                userId: userId,
+                nickname: userDisplayName || `Spieler_${userId.substring(0, 6)}`,
+                isGuest: false,
+                stats: { gamesPlayed: 0, wins: 0, totalScore: 0 },
+                groupIds: [], // Wird unten hinzugefügt
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+             };
+          }
+          
+          // 2.6 User-Daten für Update vorbereiten
+          let userUpdateData: any = {
+             playerId: finalPlayerId,
+             lastActiveGroupId: currentGroupId, // Use validated group Id
+             lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+          };
+          if (!userSnap.exists) {
+             userUpdateData = {
+                ...userUpdateData,
+                displayName: userDisplayName,
+                email: userEmail,
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                lastLogin: admin.firestore.FieldValue.serverTimestamp(), 
+             };
+          }
+          
+          // console.log("TxLogic Phase End"); // Entfernt
+          
+          // --- SCHRITT 5: ALLE WRITES --- 
+          // console.log("TxWrite Phase Start"); // Entfernt
+          
+          // 3.1 Neuen Player schreiben (falls nötig)
+          if (createNewPlayer) {
+            const newPlayerRef = db.collection("players").doc(finalPlayerId);
+            // console.log(`TxWrite: Setting new player document ${finalPlayerId}`); // Entfernt
+            transaction.set(newPlayerRef, newPlayerData);
+          }
+          
+          // 3.2 User-Dokument schreiben/aktualisieren
+          if (!userSnap.exists) {
+            userUpdateData.lastActiveGroupId = currentGroupId;
+            // console.log(`TxWrite: Setting new user document ${userId}`); // Entfernt
+            transaction.set(userRef, userUpdateData);
+          } else {
+            const currentUserData = userSnap.data();
+            // Nur aktualisieren, wenn playerId nicht schon korrekt gesetzt war oder fehlte ODER lastActiveGroupId geändert wurde
+            if (currentUserData?.playerId !== finalPlayerId || currentUserData?.lastActiveGroupId !== currentGroupId) {
+               // console.log(`TxWrite: Updating user document ${userId} (playerId or lastActiveGroupId differs)`); // Entfernt
+               transaction.update(userRef, {
+                  playerId: finalPlayerId,
+                  lastActiveGroupId: currentGroupId, // Use validated group Id
+                  lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+               });
+            } else {
+               // console.log(`TxWrite: No user document update needed for ${userId} (playerId and lastActiveGroupId match).`); // Entfernt
+            }
+          }
+          
+          // 3.3 Player-Dokument aktualisieren (Gruppe hinzufügen)
+          const playerRef = db.collection("players").doc(finalPlayerId);
+          // console.log(`TxWrite: Updating player document ${finalPlayerId} (add groupId ${currentGroupId})`); // Entfernt
+          transaction.update(playerRef, {
+             groupIds: admin.firestore.FieldValue.arrayUnion(currentGroupId), // Use validated group Id
+             updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          });
+          
+          // 3.4 Gruppen-Dokument aktualisieren (User hinzufügen)
+          const groupPlayerEntry = {
+             displayName: userDisplayName,
+             email: userEmail,
+             joinedAt: admin.firestore.Timestamp.now(),
+          };
+          
+          // KORRIGIERT: userId statt finalPlayerId als Schlüssel im players-Objekt
+          console.log(`[Tx Detail] Updating group ${currentGroupId}: Adding playerId=${finalPlayerId} to playerIds array and metadata to players.${userId}`);
+          transaction.update(groupRef, {
+             playerIds: admin.firestore.FieldValue.arrayUnion(finalPlayerId),
+             [`players.${userId}`]: groupPlayerEntry, // Verwendet userId als Schlüssel
+             updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          });
 
-        transaction.update(groupRef, {
-          playerIds: newPlayerIds,
-          players: newPlayersMap,
+          // Gruppendaten für die Rückgabe vorbereiten (basierend auf groupSnap und den Updates)
+          const resultingGroupData = {
+            id: groupSnap.id, 
+            ...groupData, 
+            playerIds: [...(groupData.playerIds || []), finalPlayerId], 
+            players: {
+              ...(groupData.players || {}),
+              [userId]: groupPlayerEntry // Verwendet userId als Schlüssel
+            }
+          } as FirestoreGroup;
+          
+          // console.log("TxWrite Phase End (with groupId)"); // Entfernt
+          // console.log("--- Transaction V9 End: Success ---"); // Entfernt
+          return {success: true, alreadyMember: false, group: resultingGroupData };
+
+        }).catch((transactionError) => {
+          // Fängt NUR Fehler aus der Transaktion selbst
+          console.error(`Error during transaction V9 execution for user ${userId}, group ${groupId || 'UNKNOWN'}:`, transactionError);
+          // Fehler neu verpacken für den Client
+          throw new https.HttpsError(
+            "internal",
+            `Interner Fehler beim Beitritt zur Gruppe: ${transactionError instanceof Error ? transactionError.message : 'Unbekannter Transaktionsfehler'}`
+          );
         });
-
-        // Hier könnte man den Token optional invalidieren, wenn er nur einmal verwendet werden soll:
-        // transaction.update(tokenDoc.ref, { isValid: false });
-        // Wir lassen ihn aber gültig, wie besprochen.
-
-        return {success: true, alreadyMember: false, groupId: groupId, groupName: groupData.name};
-      }); // --- Transaktion Ende ---
-
-      console.info(`User ${userId} successfully joined group ${joinResult.groupId} (${joinResult.groupName})`);
-
-      // 10. Erfolg an Client zurückgeben
-      return joinResult;
+        
+        // Direkt das Ergebnis der erfolgreichen Transaktion zurückgeben
+        console.info(`Transaction V9 completed successfully for user ${userId} joining group ${groupId}.`); // Geändert zu info
+        return joinResult; 
+        
+      } catch (error) {
+        // Fängt Fehler GANZ AUẞEN (z.B. Token-Validierung VOR der Transaktion)
+        console.error(`Outer error joining group ${groupId || '(groupId not determined yet)'} for user ${userId}:`, error);
+        if (error instanceof https.HttpsError) {
+          throw error; // Bestehenden HttpsError weiterwerfen
+        } else {
+          // Allgemeine Fehler
+          throw new https.HttpsError(
+            "internal",
+            "Ein äußerer Fehler ist beim Beitreten zur Gruppe aufgetreten."
+          );
+        }
+      }
     } catch (error) {
-      console.error(`Error joining group with token ${token} for user ${userId}:`, error);
+      // Fängt Fehler GANZ AUẞEN (z.B. Token-Validierung VOR der Transaktion)
+      console.error(`Outer error joining group ${groupId || '(groupId not determined yet)'} for user ${userId}:`, error);
       if (error instanceof https.HttpsError) {
-        throw error;
+        throw error; // Bestehenden HttpsError weiterwerfen
       } else {
+        // Allgemeine Fehler
         throw new https.HttpsError(
           "internal",
-          "Ein interner Fehler ist beim Beitreten zur Gruppe aufgetreten."
+          "Ein äußerer Fehler ist beim Beitreten zur Gruppe aufgetreten."
         );
       }
     }
   });
-
-// Hier können später weitere Funktionen hinzugefügt werden:
-// export const joinGroupByToken = functions.https.onCall(...);

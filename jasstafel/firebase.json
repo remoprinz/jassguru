@@ -1,7 +1,7 @@
 {
   "hosting": {
     "site": "jassguru",
-    "public": "out",
+    "source": ".",
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -60,20 +60,6 @@
             "value": "public, max-age=31536000, immutable"
           }
         ]
-      }
-    ],
-    "rewrites": [
-      {
-        "source": "/service-worker.js",
-        "destination": "/service-worker.js"
-      },
-      {
-        "source": "/manifest.json",
-        "destination": "/manifest.json"
-      },
-      {
-        "source": "**",
-        "destination": "/index.html"
       }
     ]
   },

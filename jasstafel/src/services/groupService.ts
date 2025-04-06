@@ -3,7 +3,7 @@
 
 import {
   db,
-  doc,
+  doc as firestoreDoc,
   collection,
   updateDoc,
   serverTimestamp,
@@ -11,9 +11,9 @@ import {
   where,
   getDocs,
   getDoc,
-  auth} from "./firebaseInit";
-// Importiere addDoc und arrayUnion direkt aus firebase/firestore
-import {addDoc, arrayUnion} from "firebase/firestore";
+  auth,
+} from "./firebaseInit";
+// import { documentId } from "firebase/firestore"; // Entfernt
 import {
   GROUPS_COLLECTION,
   PLAYERS_COLLECTION,
@@ -35,7 +35,7 @@ import {
 } from "firebase/storage";
 import {useGroupStore} from "@/store/groupStore"; // Importiere den GroupStore
 import {useAuthStore} from "@/store/authStore"; // Importiere den AuthStore
-import {Timestamp} from "firebase/firestore";
+import { addDoc, arrayUnion, arrayRemove, Timestamp, documentId, runTransaction } from "firebase/firestore"; // documentId hier hinzugefügt, arrayRemove und runTransaction importiert
 
 /**
  * Erstellt eine neue Jassgruppe in Firestore.
@@ -103,15 +103,20 @@ export const createGroup = async (
 
     // NEU: Abrufen des gerade erstellten Dokuments, um das vollständige Objekt zurückzugeben
     const newGroupSnap = await getDoc(groupRef);
+
+    // Korrigierter Spread Operator: Sicherstellen, dass data() ein Objekt ist
     if (!newGroupSnap.exists()) {
       console.error(`createGroup: Newly created group document ${newGroupId} not found immediately after creation.`);
       throw new Error("Konnte das neu erstellte Gruppendokument nicht abrufen.");
     }
-    const newGroup = {id: newGroupSnap.id, ...newGroupSnap.data()} as FirestoreGroup;
+    // Daten innerhalb des Blocks zuweisen und Typ explizit machen
+    const groupDataFromSnap = newGroupSnap.data() as Omit<FirestoreGroup, 'id'>; 
+    // Explizite Typzuweisung und Spread (sollte jetzt funktionieren)
+    const newGroup: FirestoreGroup = { id: newGroupSnap.id, ...groupDataFromSnap };
     console.log("createGroup: Successfully fetched newly created group object.");
 
     // 3. Player-Dokument aktualisieren
-    const playerRef = doc(db, PLAYERS_COLLECTION, playerId);
+    const playerRef = firestoreDoc(db, PLAYERS_COLLECTION, playerId);
     console.log(`createGroup: Attempting to update player document ${playerId} to add groupId ${newGroupId}...`);
     try {
       await updateDoc(playerRef, {
@@ -171,7 +176,7 @@ export const getGroupById = async (groupId: string): Promise<FirestoreGroup | nu
   }
 
   try {
-    const groupRef = doc(db, GROUPS_COLLECTION, groupId);
+    const groupRef = firestoreDoc(db, GROUPS_COLLECTION, groupId);
     const groupSnap = await getDoc(groupRef);
 
     if (groupSnap.exists()) {
@@ -209,43 +214,129 @@ export const getUserGroups = async (userId: string): Promise<FirestoreGroup[]> =
 
     // 2. Player-Dokument holen, um groupIds zu bekommen
     const playerDoc = await getPlayerDocument(playerId);
+
     if (!playerDoc || !playerDoc.groupIds || playerDoc.groupIds.length === 0) {
-      console.log(`Spieler ${playerId} ist in keiner Gruppe.`);
+      console.log(`Spieler ${playerId} ist in keiner Gruppe (nach Prüfung des empfangenen playerDoc). groupIds:`, playerDoc?.groupIds);
       return [];
     }
 
     const groupIds = playerDoc.groupIds;
-    console.log(`getUserGroups: Found ${groupIds.length} group IDs for player ${playerId}.`);
 
     // 3. Alle Gruppen-Dokumente für die gefundenen IDs holen
-    // Firestore 'in' Abfragen sind auf max 30 Elemente limitiert (vorher 10). Teile die Abfrage bei Bedarf.
     const allGroups: FirestoreGroup[] = [];
-    const chunkSize = 30; // Max Elemente für Firestore 'in' Abfrage
+    const foundGroupIds = new Set<string>(); // Zum Nachverfolgen gefundener IDs
+    const chunkSize = 30;
 
     for (let i = 0; i < groupIds.length; i += chunkSize) {
-      const chunkGroupIds = groupIds.slice(i, i + chunkSize);
-      console.log(`getUserGroups: Fetching chunk ${i / chunkSize + 1} with ${chunkGroupIds.length} group IDs.`);
-
-      if (chunkGroupIds.length > 0) {
-        const groupsQuery = query(collection(db, GROUPS_COLLECTION), where("__name__", "in", chunkGroupIds));
+      const chunk = groupIds.slice(i, i + chunkSize);
+      const groupsQuery = query(collection(db, GROUPS_COLLECTION), where(documentId(), "in", chunk));
+      
+      try {
         const groupsSnapshot = await getDocs(groupsQuery);
-
-        const chunkGroups: FirestoreGroup[] = groupsSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...(doc.data() as Omit<FirestoreGroup, "id">),
-        }));
-        allGroups.push(...chunkGroups);
-        console.log(`getUserGroups: Fetched ${chunkGroups.length} groups in this chunk.`);
-      } else {
-        console.log("getUserGroups: Skipping empty chunk.");
+        groupsSnapshot.forEach((doc) => {
+          const data = doc.data() as Omit<FirestoreGroup, 'id'>;
+          allGroups.push({id: doc.id, ...data});
+          foundGroupIds.add(doc.id);
+        });
+      } catch (queryError) {
+          console.error(`getUserGroups: Error fetching chunk with IDs [${chunk.join(', ')}]:`, queryError);
       }
     }
 
-    console.log(`getUserGroups: Total groups fetched for user ${userId}: ${allGroups.length}`, allGroups.map((g) => g.name));
+    // --- Log fehlende Gruppen --- 
+    const requestedIdSet = new Set(groupIds);
+    const missingGroupIds = Array.from(requestedIdSet).filter(id => !foundGroupIds.has(id));
+    if (missingGroupIds.length > 0) {
+      console.warn(`getUserGroups: WARNING - Could not find group documents for ${missingGroupIds.length} requested IDs using 'in' query:`, missingGroupIds);
+      
+      // --- DIAGNOSE: Versuche, die erste fehlende Gruppe direkt mit getDoc abzurufen ---
+      const firstMissingId = missingGroupIds[0];
+      console.log(`getUserGroups: DIAGNOSIS - Attempting to fetch first missing group ${firstMissingId} directly via getDoc...`);
+      try {
+        const singleDocRef = firestoreDoc(db, GROUPS_COLLECTION, firstMissingId);
+        const singleDocSnap = await getDoc(singleDocRef); // Verwende getDoc hier, nicht getDocFromServer
+        if (singleDocSnap.exists()) {
+          console.log(`getUserGroups: DIAGNOSIS SUCCESS - Found group ${firstMissingId} via getDoc! Data:`, singleDocSnap.data());
+          // Optional: Man könnte die gefundene Gruppe hier zu allGroups hinzufügen
+          // const missingGroupData = singleDocSnap.data() as Omit<FirestoreGroup, 'id'>;
+          // allGroups.push({ id: singleDocSnap.id, ...missingGroupData });
+          // Aber fürs Debugging reicht das Log
+        } else {
+          console.error(`getUserGroups: DIAGNOSIS FAILED - Group ${firstMissingId} NOT FOUND even with direct getDoc! This is unexpected.`);
+        }
+      } catch (directGetError) {
+        console.error(`getUserGroups: DIAGNOSIS ERROR - Error fetching group ${firstMissingId} directly via getDoc:`, directGetError);
+      }
+      // --- ENDE DIAGNOSE ---
+    }
+    // --- Ende Log fehlende Gruppen --- 
+
+    console.log(`getUserGroups: Returning ${allGroups.length} full group objects for user ${userId}.`);
     return allGroups;
   } catch (error) {
     console.error(`Fehler beim Abrufen der Gruppen für Benutzer ${userId}:`, error);
-    throw new Error("Fehler beim Abrufen der Benutzergruppen.");
+    throw new Error("Gruppen konnten nicht abgerufen werden.");
+  }
+};
+
+/**
+ * Ruft alle Gruppen ab, in denen ein Spieler Mitglied ist, basierend auf seiner Player-ID.
+ * @param playerId Die ID des Spieler-Dokuments.
+ * @return Ein Promise, das ein Array von FirestoreGroup-Objekten auflöst.
+ */
+export const getUserGroupsByPlayerId = async (playerId: string): Promise<FirestoreGroup[]> => {
+  if (!db) throw new Error("Firestore ist nicht initialisiert.");
+  if (!playerId) {
+    console.warn("getUserGroupsByPlayerId ohne playerId aufgerufen.");
+    return [];
+  }
+
+  try {
+    // 1. Player-Dokument holen, um groupIds zu bekommen
+    const playerDoc = await getPlayerDocument(playerId);
+
+    if (!playerDoc || !playerDoc.groupIds || playerDoc.groupIds.length === 0) {
+      console.log(`Spieler ${playerId} ist in keiner Gruppe (laut Player-Dokument).`);
+      return [];
+    }
+
+    const groupIds = playerDoc.groupIds;
+
+    // 2. Alle Gruppen-Dokumente für die gefundenen IDs holen
+    const allGroups: FirestoreGroup[] = [];
+    const foundGroupIds = new Set<string>();
+    const chunkSize = 30;
+
+    for (let i = 0; i < groupIds.length; i += chunkSize) {
+      const chunk = groupIds.slice(i, i + chunkSize);
+      const groupsQuery = query(collection(db, GROUPS_COLLECTION), where(documentId(), "in", chunk));
+      
+      try {
+        const groupsSnapshot = await getDocs(groupsQuery);
+        groupsSnapshot.forEach((doc) => {
+          const data = doc.data() as Omit<FirestoreGroup, 'id'>;
+          allGroups.push({id: doc.id, ...data});
+          foundGroupIds.add(doc.id);
+        });
+      } catch (queryError) {
+          console.error(`getUserGroupsByPlayerId: Error fetching chunk with IDs [${chunk.join(', ')}]:`, queryError);
+      }
+    }
+
+    // Log fehlende Gruppen (wie in getUserGroups)
+    const requestedIdSet = new Set(groupIds);
+    const missingGroupIds = Array.from(requestedIdSet).filter(id => !foundGroupIds.has(id));
+    if (missingGroupIds.length > 0) {
+      console.warn(`getUserGroupsByPlayerId: WARNING - Could not find group documents for ${missingGroupIds.length} requested IDs using 'in' query:`, missingGroupIds);
+      // Optional: Fallback to individual fetches if needed, but log for now.
+    }
+
+    console.log(`getUserGroupsByPlayerId: Returning ${allGroups.length} full group objects for player ${playerId}.`);
+    return allGroups;
+
+  } catch (error) {
+    console.error(`Fehler beim Abrufen der Gruppen für Spieler ${playerId}:`, error);
+    throw new Error("Fehler beim Abrufen der Gruppendaten des Spielers.");
   }
 };
 
@@ -263,7 +354,7 @@ export const uploadGroupLogo = async (groupId: string, file: File): Promise<stri
   const storage = getStorage();
   if (!storage) throw new Error("Firebase Storage nicht initialisiert.");
 
-  const groupRef = doc(db, GROUPS_COLLECTION, groupId);
+  const groupRef = firestoreDoc(db, GROUPS_COLLECTION, groupId);
 
   // Optional: Altes Logo löschen
   try {
@@ -378,6 +469,130 @@ export const uploadGroupLogo = async (groupId: string, file: File): Promise<stri
     }
     // Fallback for non-Error types
     throw new Error("Fehler beim Hochladen des Gruppenlogos.");
+  }
+};
+
+/**
+ * Aktualisiert die Rolle eines Gruppenmitglieds (Admin <-> Mitglied).
+ * Führt Berechtigungsprüfungen durch (nur Admins können dies tun)
+ * und verhindert das Entfernen des letzten Admins.
+ *
+ * @param groupId Die ID der Gruppe.
+ * @param targetPlayerId Die Spieler-ID des Mitglieds, dessen Rolle geändert werden soll.
+ * @param newRole Die neue Rolle ('admin' oder 'member').
+ * @param requestingUserId Die User-ID des Benutzers, der die Änderung anfordert.
+ * @throws Wirft Fehler bei fehlender Berechtigung, ungültigen Daten oder wenn der letzte Admin entfernt werden soll.
+ */
+export const updateGroupMemberRole = async (
+  groupId: string,
+  targetPlayerId: string,
+  newRole: 'admin' | 'member',
+  requestingUserId: string
+): Promise<string> => {
+  if (!db) throw new Error("Firestore ist nicht initialisiert.");
+  if (!groupId || !targetPlayerId || !requestingUserId) {
+    throw new Error("Ungültige IDs für Gruppen- oder Spieleroperation.");
+  }
+  if (newRole !== 'admin' && newRole !== 'member') {
+    throw new Error("Ungültige Zielrolle angegeben.");
+  }
+  
+  const groupRef = firestoreDoc(db, GROUPS_COLLECTION, groupId);
+
+  try {
+    // Die Transaktion gibt das Ergebnis des inneren Callbacks zurück.
+    const resultUserId = await runTransaction(db, async (transaction) => {
+      const groupSnap = await transaction.get(groupRef);
+
+      if (!groupSnap.exists()) {
+        throw new Error(`Gruppe mit ID ${groupId} nicht gefunden.`);
+      }
+
+      const groupData = groupSnap.data() as FirestoreGroup; // Type assertion
+      const groupCreatorId = groupData.createdBy;
+
+      // --- NEUER SCHRITT: Lade Player-Dokument, um targetUserId zu erhalten --- 
+      const playerRef = firestoreDoc(db, PLAYERS_COLLECTION, targetPlayerId);
+      const playerSnap = await transaction.get(playerRef);
+
+      if (!playerSnap.exists()) {
+        console.error(`[Tx Detail] Fehler: Player-Dokument ${targetPlayerId} nicht gefunden.`);
+        throw new Error(`Spieler-Dokument ${targetPlayerId} nicht gefunden.`);
+      }
+      const targetUserId = playerSnap.data()?.userId;
+      if (!targetUserId) {
+        console.error(`[Tx Detail] Fehler: Player-Dokument ${targetPlayerId} hat keine verknüpfte userId.`);
+        throw new Error(`Zielspieler ${targetPlayerId} ist kein registrierter Benutzer und kann nicht zum Admin ernannt/entfernt werden.`);
+      }
+      console.log(`[Tx Detail] Ziel-UserID für Player ${targetPlayerId} ermittelt: ${targetUserId}`);
+      // --- ENDE NEUER SCHRITT --- 
+
+      // 1. Berechtigungsprüfung: Ist der anfordernde Benutzer Admin?
+      if (!groupData.adminIds || !groupData.adminIds.includes(requestingUserId)) {
+        throw new Error("Nur Admins dürfen Mitgliederrollen ändern.");
+      }
+
+      // --- NEUER SCHRITT: Prüfen, ob der Gründer entfernt werden soll --- 
+      if (targetUserId === groupCreatorId) {
+        console.error(`[Tx Detail] Versuch, den Gruppengründer (${targetUserId}) als Admin zu entfernen.`);
+        throw new Error("Der Gruppengründer kann nicht als Admin entfernt werden.");
+      }
+      // --- ENDE NEUER SCHRITT --- 
+
+      const currentAdminIds = groupData.adminIds || [];
+      // Prüfe Admin-Status anhand der targetUserId
+      const isTargetCurrentlyAdmin = currentAdminIds.includes(targetUserId);
+
+      if (newRole === 'admin') {
+        // Zum Admin ernennen
+        if (isTargetCurrentlyAdmin) {
+          console.log(`Spieler ${targetPlayerId} ist bereits Admin in Gruppe ${groupId}.`);
+          return targetUserId; // Keine Änderung, aber ID zurückgeben
+        }
+        console.log(`[Tx Detail] Ernenne User ${targetUserId} (Player ${targetPlayerId}) zum Admin.`);
+        transaction.update(groupRef, {
+          adminIds: arrayUnion(targetUserId),
+          updatedAt: serverTimestamp()
+        });
+        console.log(`Benutzer ${targetUserId} (Spieler ${targetPlayerId}) erfolgreich zum Admin in Gruppe ${groupId} ernannt.`);
+
+      } else { // newRole === 'member'
+        // Zum Mitglied zurückstufen (Admin-Status entfernen)
+        if (!isTargetCurrentlyAdmin) {
+          console.log(`Spieler ${targetPlayerId} ist bereits nur Mitglied in Gruppe ${groupId}.`);
+          return targetUserId; // Keine Änderung, aber ID zurückgeben
+        }
+
+        // 3. Schutzprüfung: Letzten Admin nicht entfernen
+        // WICHTIG: Prüfe auf <= 1, *bevor* der Gründer-Check durchgeführt wird,
+        //          falls der Gründer der einzige Admin ist.
+        if (currentAdminIds.length <= 1) {
+          console.error("[Tx Detail] Versuch, den letzten Admin zu entfernen.");
+          throw new Error("Der letzte Admin der Gruppe kann nicht entfernt werden.");
+        }
+
+        console.log(`[Tx Detail] Entferne Admin-Status für User ${targetUserId} (Player ${targetPlayerId})`);
+        transaction.update(groupRef, {
+          adminIds: arrayRemove(targetUserId),
+          updatedAt: serverTimestamp()
+        });
+        console.log(`Admin-Status für Spieler ${targetPlayerId} in Gruppe ${groupId} erfolgreich entfernt.`);
+      }
+
+      // Funktion gibt jetzt die targetUserId zurück
+      return targetUserId; 
+    });
+
+    // Gib die resultierende UserId zurück
+    return resultUserId;
+
+  } catch (error) {
+    console.error(`Fehler beim Aktualisieren der Mitgliedsrolle für Spieler ${targetPlayerId} in Gruppe ${groupId}:`, error);
+    // Fehler weiterwerfen, damit er im Store/UI behandelt werden kann
+    if (error instanceof Error) {
+        throw error; // Spezifischen Fehler weitergeben
+    }
+    throw new Error("Die Mitgliedsrolle konnte nicht aktualisiert werden.");
   }
 };
 

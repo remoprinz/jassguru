@@ -221,12 +221,64 @@ const createJassStore: StateCreator<JassStore> = (set, get) => ({
           },
         },
       },
+      isJassStarted: true,
     });
-
-    set({isJassStarted: true});
 
     const timerStore = useTimerStore.getState();
     timerStore.startJassTimer();
+  },
+
+  startNextGame: (initialStartingPlayer: PlayerNumber) => {
+    const state = get();
+    if (!state.isJassStarted || !state.currentSession) {
+      console.warn(
+        "Versuch, nächstes Spiel zu starten, ohne gestarteten Jass oder aktive Session."
+      );
+      return;
+    }
+    const currentSession = state.currentSession;
+
+    const nextGameId = state.currentGameId + 1;
+    const newGameEntry = createGameEntry(
+      nextGameId, 
+      initialStartingPlayer, 
+      currentSession.id
+    );
+
+    console.log(`✨ Starting Next Game (ID: ${nextGameId}) with starting player: ${initialStartingPlayer}`);
+
+    set((currentState) => {
+       if (!currentState.currentSession) return {}; 
+
+       // Expliziter Aufbau des neuen statistics-Objekts
+       const currentStats = currentState.currentSession.statistics;       
+       const newStatistics: JassSession['statistics'] = {
+          // Übernehme existierende Werte oder setze Defaults/undefined
+          gamesPlayed: nextGameId,
+          totalDuration: currentStats?.totalDuration, // Bleibt optional
+          scores: currentStats?.scores ?? { top: 0, bottom: 0 }, // <-- Default-Objekt hinzugefügt
+          weisCount: currentStats?.weisCount ?? 0, // Default 0 wenn undefined
+          stricheCount: currentStats?.stricheCount ?? { // Default leer wenn undefined
+             berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 
+          },
+       };
+
+       return {
+          currentGameId: nextGameId,
+          games: [...currentState.games, newGameEntry],
+          currentSession: {
+            ...currentState.currentSession, 
+            games: [...currentState.currentSession.games, nextGameId],
+            statistics: newStatistics, // Verwende das explizit erstellte Objekt
+          },
+          currentRound: 1,
+          isJassCompleted: false,
+       };
+    });
+
+    const timerStore = useTimerStore.getState();
+    timerStore.reactivateGameTimer(nextGameId);
+    console.log(`⏱️ Timer reaktiviert für Spiel ${nextGameId}`);
   },
 
   finalizeGame: () => {
