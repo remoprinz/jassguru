@@ -261,23 +261,31 @@ const GroupSettingsPage: React.FC = () => {
 
   // Funktion zum Aufruf der invalidateActiveGroupInvites Function
   const handleInvalidateInvites = async () => {
-    if (!currentGroup) return;
+    if (!currentGroup) {
+      console.error("handleInvalidateInvites: No current group found.");
+      return;
+    }
 
+    console.log("handleInvalidateInvites: Starting invalidation process...");
     setIsInvalidating(true);
     try {
-      const functions = getFunctions();
+      const functions = getFunctions(undefined, 'europe-west1');
       const invalidateFn = httpsCallable(functions, "invalidateActiveGroupInvites");
+      console.log(`handleInvalidateInvites: Calling cloud function for groupId: ${currentGroup.id} in region europe-west1`);
       const result = await invalidateFn({groupId: currentGroup.id});
+      console.log("handleInvalidateInvites: Cloud function result received:", result.data);
 
-      const data = result.data as { success: boolean; invalidatedCount: number };
+      const data = result.data as { success: boolean; invalidatedCount?: number; message?: string }; // Message optional gemacht
 
       if (data.success) {
+        const count = data.invalidatedCount ?? 0; // Default auf 0, falls nicht vorhanden
         showNotification({
-          message: `${data.invalidatedCount} Einladungslink(s) erfolgreich zurückgesetzt.`,
+          message: count > 0 ? `${count} Einladungslink(s) erfolgreich zurückgesetzt.` : "Keine aktiven Links gefunden.",
           type: "success",
         });
       } else {
-        throw new Error("Fehler beim Zurücksetzen der Links.");
+        // Expliziter Fehlerfall von der Funktion
+        throw new Error(data.message || "Fehler beim Zurücksetzen der Links vom Server.");
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unbekannter Fehler beim Zurücksetzen der Links.";
@@ -287,6 +295,7 @@ const GroupSettingsPage: React.FC = () => {
         type: "error",
       });
     } finally {
+      console.log("handleInvalidateInvites: Setting isInvalidating back to false.");
       setIsInvalidating(false);
     }
   };
@@ -530,60 +539,92 @@ const GroupSettingsPage: React.FC = () => {
                           <div className="flex items-center gap-2 flex-shrink-0">
                             {/* Action Buttons (only for admins, not for self) */}
                             {isCurrentUserAdmin && !isSelf && (
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className={`
-                                      h-auto text-xs font-medium transition-colors flex items-center justify-center
-                                      ${isLoading ?
-                                        'text-gray-500 border-gray-600 cursor-not-allowed' : // Loading state
-                                        isMemberAdmin ?
-                                          (isLastAdmin ?
-                                            'text-gray-500 border-gray-600 cursor-not-allowed' // Last admin (disabled remove)
-                                            // Style for 'Remove Admin' (now an X icon)
-                                            : 'border-red-600 text-red-400 hover:bg-red-900/30 hover:text-red-300 focus-visible:ring-red-500 w-7 h-7 p-0' // Adjusted padding and size for icon
-                                          ) :
-                                          // Style for 'Make Admin'
-                                          'bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-500 border-blue-600 px-2 py-1' // Keep original padding for text
-                                      }
-                                    `}
-                                    disabled={isLoading || (isMemberAdmin && isLastAdmin)}
-                                    title={isMemberAdmin && isLastAdmin ? "Letzter Admin kann nicht entfernt werden" : (isMemberAdmin ? "Admin-Status entfernen" : "Zum Admin ernennen")}
-                                  >
-                                    {isLoading ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : isMemberAdmin ? (
-                                      <X className="w-4 h-4" /> 
-                                    ) : (
-                                      'Zum Admin ernennen'
-                                    )}
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent className="bg-gray-800 border-gray-700 text-white">
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                      {isMemberAdmin ? 'Admin-Status entfernen?' : 'Zum Admin ernennen?'}
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription className="text-gray-400">
-                                      Möchten Sie die Rolle von "{member.nickname || 'diesem Mitglied'}" wirklich ändern?
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel className="bg-gray-600 hover:bg-gray-500 border-gray-600 text-white">Abbrechen</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => handleRoleChange(member.id, isMemberAdmin ? 'member' : 'admin')}
-                                      className={isMemberAdmin ? "bg-red-600 hover:bg-red-700 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"}
-                                    >
-                                      {isMemberAdmin ? 'Ja, entfernen' : 'Ja, ernennen'}
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
+                              <>
+                                {/* === Make Admin Button === */} 
+                                {!isMemberAdmin && (
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className={`
+                                          h-auto text-xs font-medium transition-colors flex items-center justify-center
+                                          ${isLoading ?
+                                            'text-gray-500 border-gray-600 cursor-not-allowed' // Loading state
+                                            : 'bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-500 border-blue-600 px-2 py-1 rounded-lg' // Style for 'Make Admin'
+                                          }
+                                        `}
+                                        disabled={isLoading}
+                                        title={"Zum Admin ernennen"}
+                                      >
+                                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Zum Admin ernennen'}
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    {/* AlertDialogContent for Make Admin */}
+                                    <AlertDialogContent className="bg-gray-800 border-gray-700 text-white">
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Zum Admin ernennen?</AlertDialogTitle>
+                                        <AlertDialogDescription className="text-gray-400">
+                                          Möchten Sie die Rolle von "{member.nickname || 'diesem Mitglied'}" wirklich ändern?
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel className="bg-gray-600 hover:bg-gray-500 border-gray-600 text-white">Abbrechen</AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={() => handleRoleChange(member.id, 'admin')}
+                                          className={"bg-blue-600 hover:bg-blue-700 text-white"}
+                                        >
+                                          Ja, ernennen
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                )}
+
+                                {/* === Remove Admin Button (only if member IS admin AND NOT the creator) === */} 
+                                {isMemberAdmin && member.userId !== currentGroup?.createdBy && (
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className={`
+                                          h-auto text-xs font-medium transition-colors flex items-center justify-center
+                                          ${isLoading || isLastAdmin ? // Simplified disabled check for remove
+                                            'text-gray-500 border-gray-600 cursor-not-allowed' // Loading or Last admin 
+                                            : 'bg-red-800/50 text-white hover:bg-red-700/60 focus-visible:ring-red-500 rounded-md w-6 h-6 p-0' // Style for 'Remove Admin' (X icon)
+                                          }
+                                        `}
+                                        disabled={isLoading || isLastAdmin} // Disable if loading or last admin
+                                        title={isLastAdmin ? "Letzter Admin kann nicht entfernt werden" : "Admin-Status entfernen"}
+                                      >
+                                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="w-4 h-4" />}
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    {/* AlertDialogContent for Remove Admin */} 
+                                    <AlertDialogContent className="bg-gray-800 border-gray-700 text-white">
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Admin-Status entfernen?</AlertDialogTitle>
+                                        <AlertDialogDescription className="text-gray-400">
+                                          Möchten Sie die Rolle von "{member.nickname || 'diesem Mitglied'}" wirklich ändern?
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel className="bg-gray-600 hover:bg-gray-500 border-gray-600 text-white">Abbrechen</AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={() => handleRoleChange(member.id, 'member')}
+                                          className={"bg-red-600 hover:bg-red-700 text-white"}
+                                        >
+                                          Ja, entfernen
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                )}
+                              </>
                             )}
 
-                            {/* Admin Badge (moved to the right) */}
+                            {/* Admin Badge (always shown if isMemberAdmin) */}
                             {isMemberAdmin && (
                               <Badge variant="outline" className="border-green-600 text-green-400 bg-green-900/30 px-2 py-0.5">
                                 <Crown className="w-3 h-3 mr-1" /> Admin
@@ -620,7 +661,11 @@ const GroupSettingsPage: React.FC = () => {
                             disabled={isInvalidating}
                             className="bg-red-700 hover:bg-red-800 border-red-900 text-white"
                           >
-                            {isInvalidating ? "Wird zurückgesetzt..." : "Alle Links zurücksetzen"}
+                            {isInvalidating ? (
+                                <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Wird zurückgesetzt... </>
+                            ) : (
+                                "Alle Links zurücksetzen"
+                            )}
                           </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent className="bg-gray-800 border-gray-700 text-white">
@@ -632,7 +677,13 @@ const GroupSettingsPage: React.FC = () => {
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
-                            <AlertDialogCancel className="text-gray-300 border-gray-600 hover:bg-gray-700">Abbrechen</AlertDialogCancel>
+                            {/* Angepasster Stil für Abbrechen */}
+                            <AlertDialogCancel 
+                              className="bg-transparent border border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
+                              disabled={isInvalidating} // Auch hier deaktivieren
+                            >
+                                Abbrechen
+                            </AlertDialogCancel>
                             <AlertDialogAction
                               onClick={handleInvalidateInvites}
                               className="bg-red-600 hover:bg-red-700 text-white"

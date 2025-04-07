@@ -548,3 +548,84 @@ export const joinGroupByToken = functionsRegion("europe-west1")
       }
     }
   });
+
+// --- NEUE FUNKTION START ---
+/**
+ * Wird ausgelöst, wenn ein neues User-Dokument in Firestore erstellt wird.
+ * Erstellt automatisch das zugehörige Player-Dokument und verknüpft es.
+ */
+export const onCreateUserDocument = functionsRegion("europe-west1")
+  .firestore.document("users/{userId}")
+  .onCreate(async (snap, context) => {
+    // Dynamischer Import von nanoid
+    const { nanoid } = await import('nanoid');
+
+    const userId = context.params.userId;
+    const firestoreUserData = snap.data(); // User-Daten aus dem Firestore-Trigger
+
+    if (!firestoreUserData) {
+      console.error(`[onCreateUserDocument] User data is missing for user ${userId}. Cannot create player.`);
+      return null;
+    }
+
+    let authDisplayName: string | null | undefined = null;
+    let nickname: string;
+
+    try {
+      // --- NEU: Firebase Auth User abrufen --- 
+      const authUser = await admin.auth().getUser(userId);
+      authDisplayName = authUser.displayName;
+      console.log(`[onCreateUserDocument] Fetched Auth user ${userId}, displayName: ${authDisplayName}`);
+    } catch (authError) {
+      console.error(`[onCreateUserDocument] Could not fetch Auth user for ${userId}:`, authError);
+      // Fehler ist nicht kritisch, wir machen mit Firestore-Daten weiter
+    }
+
+    // --- Nickname bestimmen (Priorität: Auth > Firestore > Generisch) --- 
+    nickname = authDisplayName || firestoreUserData.displayName || `Spieler_${nanoid(6)}`;
+
+    console.log(`[onCreateUserDocument] Triggered for user ${userId}. Using nickname: ${nickname}. Creating player...`);
+
+    // 1. Erstelle das Player-Dokument
+    // --- ALT: const playerId = nanoid(); --- (Wir verwenden die userId oder eine Hash davon?)
+    // Konsistenz: Wir sollten dieselbe Logik wie im Client verwenden, falls dort eine ID generiert wird
+    // ODER eine stabile ID verwenden. Fürs Erste generieren wir eine neue ID.
+    const playerId = db.collection("players").doc().id; // Generiert eine Firestore Auto-ID
+
+    const playerRef = db.collection("players").doc(playerId);
+    const playerData = {
+      // id: playerId, // ID ist im Dokumentpfad, nicht im Dokument selbst
+      nickname: nickname, // Der ermittelte Nickname
+      userId: userId,
+      isGuest: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      groupIds: [],
+      stats: {
+        gamesPlayed: 0,
+        wins: 0,
+        totalScore: 0,
+      },
+      metadata: { createdBy: 'onCreateUserDocument' }, // Optional: Markierung woher es kam
+    };
+
+    try {
+      await playerRef.set(playerData); // Verwende set() für eine neue ID
+      console.log(`[onCreateUserDocument] Player document ${playerId} created successfully for user ${userId}.`);
+
+      // 2. Aktualisiere das User-Dokument mit der neuen Player-ID
+      await snap.ref.update({ 
+        playerId: playerId,
+        // Sicherstellen, dass displayName im Firestore auch gesetzt/aktuell ist
+        displayName: nickname, // Speichere den finalen Nickname auch hier
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      console.log(`[onCreateUserDocument] User document ${userId} updated with playerId ${playerId} and ensured displayName.`);
+      return null; // Erfolgreiche Ausführung
+
+    } catch (error) {
+      console.error(`[onCreateUserDocument] Error creating player or updating user for ${userId}:`, error);
+      return null; // Funktion beenden
+    }
+  });
+// --- NEUE FUNKTION ENDE ---

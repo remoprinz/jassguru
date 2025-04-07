@@ -134,7 +134,9 @@ const InviteModal: React.FC<InviteModalProps> = ({
           )}
         </div>
 
-        <DialogFooter className="flex flex-col space-y-2 pt-4 border-t border-gray-700">
+        <DialogFooter 
+          className="flex flex-col sm:flex-col sm:justify-center pt-4 gap-3"
+        >
           {/* Button zum Generieren eines neuen Links (optional) - jetzt Gelb */}
           {onGenerateNew && inviteLink && !isLoading && (
             <Button

@@ -1,12 +1,12 @@
 import {create} from "zustand";
 import {persist} from "zustand/middleware";
 import {auth, db} from "../services/firebaseInit";
-import {onAuthStateChanged, User, fetchSignInMethodsForEmail} from "firebase/auth";
+import {onAuthStateChanged, User, fetchSignInMethodsForEmail, createUserWithEmailAndPassword, sendEmailVerification, updateProfile} from "firebase/auth";
+import { FirebaseError } from "firebase/app";
 import {
   loginWithEmail,
   signInWithGoogleProvider,
   logout,
-  registerWithEmail,
   sendPasswordReset,
   mapUserToAuthUser,
   resendVerificationEmail,
@@ -14,10 +14,9 @@ import {
   updateUserProfile,
   updateUserDocument,
 } from "../services/authService";
-import {AuthStatus, AuthUser, AppMode, FirestoreGroup, FirestoreUser, FirestorePlayer} from "../types/jass";
+import {AuthStatus, AuthUser, AppMode, FirestoreUser, FirestorePlayer} from "../types/jass";
 import {useGroupStore} from "./groupStore";
-import {getGroupById, getUserGroups} from "../services/groupService";
-import {doc, onSnapshot, Unsubscribe, FirestoreError, getDoc} from "firebase/firestore";
+import {doc, onSnapshot, Unsubscribe, FirestoreError, getDoc, serverTimestamp, setDoc} from "firebase/firestore";
 import { processPendingInviteToken } from '../lib/handlePendingInvite';
 import { PLAYERS_COLLECTION, USERS_COLLECTION } from "@/constants/firestore";
 import { getPlayerIdForUser } from "../services/playerService";
@@ -115,18 +114,60 @@ export const useAuthStore = create<AuthStore>()(
           }
           
           console.log(`AUTH_STORE: E-Mail ${email} ist neu, fahre mit Registrierung fort.`);
-          const user = await registerWithEmail(email, password, displayName);
-          set({
-            user,
-            status: "authenticated",
-            appMode: "online",
-            isGuest: false,
-          });
+          
+          // Schritt 1: User in Firebase Auth erstellen
+          const newUserCredential = await createUserWithEmailAndPassword(auth, email, password);
+          const firebaseUser = newUserCredential.user;
+          
+          // Schritt 2: SOFORT DisplayName in Firebase Auth setzen
+          if (displayName) {
+             try {
+               await updateProfile(firebaseUser, { displayName });
+               console.log(`AUTH_STORE: DisplayName '${displayName}' für User ${firebaseUser.uid} gesetzt.`);
+             } catch (profileError) {
+               console.error(`AUTH_STORE: Fehler beim Setzen des DisplayName für ${firebaseUser.uid}:`, profileError);
+               // Optional: Fehler behandeln, aber Registrierung fortsetzen?
+             }
+          }
+          
+          // Schritt 3: User-Dokument in Firestore erstellen/minimal aktualisieren, um Cloud Function zu triggern
+          // WICHTIG: Verwende setDoc mit merge:true statt updateUserDocument, um Fehler zu vermeiden
+          // und schreibe nur unkritische Felder.
+          const userDocRef = doc(db, USERS_COLLECTION, firebaseUser.uid); // User-Dokument-Referenz
+          const minimalUserData = {
+            // NICHT email oder createdAt hier schreiben!
+            displayName: displayName || undefined, // Setze den bekannten Namen
+            lastLogin: serverTimestamp(), // Aktualisiere Login-Zeit
+          };
+          try {
+            await setDoc(userDocRef, minimalUserData, { merge: true });
+            console.log(`AUTH_STORE: Minimal user data set/merged for ${firebaseUser.uid} to trigger onCreateUserDocument.`);
+          } catch (setDocError) {
+            console.error(`AUTH_STORE: Fehler beim initialen setDoc für User ${firebaseUser.uid}:`, setDocError);
+            // Dieser Fehler sollte die Registrierung nicht unbedingt blockieren, da der User in Auth existiert.
+            // Die Cloud Function könnte ggf. trotzdem triggern oder der Player wird beim nächsten Login erstellt.
+          }
+          
+          // Schritt 4: Verifizierungs-E-Mail senden
+          try {
+              await sendEmailVerification(firebaseUser);
+              console.log(`Verifizierungs-E-Mail gesendet an: ${email}`);
+          } catch (verificationError) {
+              console.error(`AUTH_STORE: Fehler beim Senden der Verifizierungs-E-Mail an ${email}:`, verificationError);
+          }
+          
+          // State aktualisieren (onAuthStateChanged wird wahrscheinlich übernehmen)
+          // Der direkte set hier könnte zu früh sein, bevor onAuthStateChanged den User mit gesetztem Namen hat
+          // Warten wir auf onAuthStateChanged, um den finalen State zu setzen.
+          // set({ status: "authenticated", firebaseUser, isGuest: false, user: mapUserToAuthUser(firebaseUser, initialUserData) }); 
+
         } catch (error) {
           let errorMessage = "Ein unbekannter Fehler ist aufgetreten";
           if (error instanceof Error) {
-             if (error.message === "AUTH/EMAIL-ALREADY-IN-USE") {
+             if ((error as FirebaseError).code === "auth/email-already-in-use" || error.message === "AUTH/EMAIL-ALREADY-IN-USE") {
                  errorMessage = "Diese E-Mail-Adresse ist bereits registriert. Bitte melde dich an oder verwende eine andere E-Mail.";
+             } else if ((error as FirebaseError).code === "auth/weak-password") {
+                  errorMessage = "Das Passwort ist zu schwach. Es muss mindestens 6 Zeichen lang sein.";
              } else {
                  errorMessage = error.message;
              }
@@ -324,19 +365,12 @@ export const useAuthStore = create<AuthStore>()(
               if (!playerIdToLoad) {
                   const displayName = firebaseUser.displayName || `Spieler_${firebaseUser.uid.substring(0, 6)}`;
                   playerIdToLoad = await getPlayerIdForUser(firebaseUser.uid, displayName);
-                  if (!playerIdToLoad) {
-                     console.error(`AUTH_STORE: CRITICAL - Failed to obtain playerId even through fallback/create!`);
-                     set({ status: "error", error: "Spielerprofil konnte nicht ermittelt werden." });
-                     return;
-                  }
               }
 
               if (playerIdToLoad) {
                   await useGroupStore.getState().loadUserGroupsByPlayerId(playerIdToLoad); 
               } else {
-                  console.error("AUTH_STORE: No playerId available to load groups.");
-                  set({ status: "error", error: "Spieler-ID nicht verfügbar zum Laden der Gruppen." });
-                  return;
+                  console.warn("AUTH_STORE: playerId not yet available immediately after login/register. Waiting for User Snapshot listener.");
               }
 
               if (previousStatus === 'loading' || previousStatus === 'unauthenticated') {

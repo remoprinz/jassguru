@@ -244,9 +244,11 @@ const StartPage: React.FC = () => {
   if (status === "loading" || groupStatus === "loading") {
     return (
       <MainLayout>
-        <div className="flex flex-1 items-center justify-center">
-          <div className="h-8 w-8 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
-          <span className="ml-3 text-white">Laden...</span>
+        <div className="flex flex-1 flex-col items-center justify-center min-h-[calc(100vh-112px)]">
+          <div>
+            <div className="mx-auto h-8 w-8 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
+            <span className="ml-3 text-white">Laden...</span>
+          </div>
         </div>
       </MainLayout>
     );

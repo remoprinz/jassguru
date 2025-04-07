@@ -250,34 +250,11 @@ export const getPlayerIdForUser = async (userId: string, displayName: string | n
       return foundPlayerId;
     }
 
-    // --- Schritt 3: Neuen Spieler erstellen (nur wenn Schritt 1 & 2 fehlschlugen) --- 
-    console.log(`getPlayerIdForUser: No player found via user document or query. Creating new player for User ${userId}.`);
-    const newPlayerData: Omit<FirestorePlayer, "id"> = {
-      userId: userId,
-      nickname: displayName || `Spieler_${userId.substring(0, 6)}`,
-      isGuest: false,
-      stats: { gamesPlayed: 0, wins: 0, totalScore: 0 },
-      groupIds: [],
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    };
-
-    const playerDocRef = await addDoc(playersRef, newPlayerData);
-    const newPlayerId = playerDocRef.id;
-    console.log(`getPlayerIdForUser: New player created with ID: ${newPlayerId} for User ${userId}`);
-
-    // --- Schritt 4: Neue PlayerID im User-Dokument speichern/erstellen --- 
-    try {
-      await setDoc(userDocRef, 
-          { 
-            playerId: newPlayerId, 
-            updatedAt: serverTimestamp(), 
-          }, 
-          { merge: true });
-    } catch (userUpdateError) {
-      console.error(`getPlayerIdForUser: FAILED to store new playerId ${newPlayerId} in user document ${userId}:`, userUpdateError);
-    }
-    return newPlayerId;
+    // --- Schritt 3 & 4 entfernt: Player-Erstellung wird durch onCreateUserDocument Cloud Function gehandhabt ---
+    // Die Funktion sollte hier null zurückgeben, wenn keine PlayerId gefunden wurde.
+    // Der Aufrufer (z.B. authStore) muss damit umgehen, dass die ID evtl. erst später verfügbar ist.
+    console.warn(`getPlayerIdForUser: No PlayerId found for User ${userId} via user document or query. Cloud Function onCreateUserDocument should handle creation.`);
+    return null;
 
   } catch (error) {
     console.error(`getPlayerIdForUser: General error processing userId ${userId}:`, error);

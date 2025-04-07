@@ -41,7 +41,7 @@ const CreateGroupPage: React.FC = () => {
   const showNotification = useUIStore((state) => state.showNotification);
   const setPageCta = useUIStore((state) => state.setPageCta);
   const resetPageCta = useUIStore((state) => state.resetPageCta);
-  const loadUserGroups = useGroupStore((state) => state.loadUserGroups);
+  const addUserGroup = useGroupStore((state) => state.addUserGroup);
   const setCurrentGroup = useGroupStore((state) => state.setCurrentGroup);
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -130,6 +130,12 @@ const CreateGroupPage: React.FC = () => {
       newGroup = await createGroup(user.uid, user.displayName, data.groupName);
       console.log(`CreateGroupPage: Group document ${newGroup?.id} created successfully.`);
 
+      // Füge die neue Gruppe direkt zum Store hinzu
+      if (newGroup) { 
+        addUserGroup(newGroup); 
+        console.log(`CreateGroupPage: Added new group ${newGroup.id} to store.`);
+      }
+
       // Step 2: Upload logo if selected
       if (selectedLogoFile && newGroup?.id) {
         console.log(`CreateGroupPage: Attempting to upload logo for group ${newGroup.id}...`);
@@ -152,18 +158,18 @@ const CreateGroupPage: React.FC = () => {
         console.log(`CreateGroupPage: setCurrentGroup für ${newGroup.id} aufgerufen.`);
       }
 
-      // Step 4: Reload user groups and navigate
-      console.log("CreateGroupPage: Reloading user groups...");
-      await loadUserGroups(user.uid);
-      console.log("CreateGroupPage: User groups reloaded.");
+      // Step 4: NICHT MEHR NÖTIG - Reload user groups and navigate
+      // console.log("CreateGroupPage: Reloading user groups...");
+      // await loadUserGroups(user.uid); // ENTFERNT
+      // console.log("CreateGroupPage: User groups reloaded.");
 
       showNotification({
         message: `Gruppe "${data.groupName}" erfolgreich erstellt! ${selectedLogoFile ? "(Logo wird verarbeitet)" : ""}`,
         type: "success",
       });
-      router.push("/profile/groups");
+      router.push("/profile/groups"); // Oder wohin Sie nach Erstellung navigieren möchten
     } catch (err) {
-      console.error("Fehler beim Erstellen der Gruppe (onSubmit):");
+      console.error("Fehler beim Erstellen der Gruppe (onSubmit):", err);
       if (err instanceof Error) {
         console.error(err.message);
         setError(err.message);
@@ -174,8 +180,8 @@ const CreateGroupPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  // Abhängigkeiten für useCallback definieren
-  }, [user, selectedLogoFile, router, showNotification, setCurrentGroup, loadUserGroups]); 
+  // loadUserGroups aus Abhängigkeiten entfernt, addUserGroup hinzugefügt
+  }, [user, selectedLogoFile, router, showNotification, setCurrentGroup, addUserGroup]); 
   // --------------------------------------------------------
 
   // CTA-Button konfigurieren (kommt NACH onSubmit)
