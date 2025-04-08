@@ -3,7 +3,7 @@
 import React, {useEffect, useState} from "react";
 import {useRouter} from "next/router";
 import Link from "next/link";
-import {ArrowLeft, Users, Globe, Settings, Crown, Loader2, ShieldCheck, AlertTriangle, Wrench, X} from "lucide-react";
+import {ArrowLeft, Users, Globe, Settings, Crown, Loader2, ShieldCheck, AlertTriangle, Wrench, X, Palette} from "lucide-react";
 import {useAuthStore} from "@/store/authStore";
 import {useGroupStore} from "@/store/groupStore";
 import {useUIStore} from "@/store/uiStore";
@@ -22,17 +22,46 @@ import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
 import {Badge} from "@/components/ui/badge";
 import {db} from "@/services/firebaseInit";
 import {doc, getDoc, updateDoc, arrayRemove, arrayUnion, Timestamp} from "firebase/firestore";
+import { FarbePictogram } from '@/components/settings/FarbePictogram';
+import { toTitleCase } from "@/utils/stringUtils";
+
+// --- NEUE IMPORTE für Jass-Einstellungen --- 
+// Entferne den falschen Import
+// import { DEFAULT_SCORE_SETTINGS, DEFAULT_STROKE_SETTINGS, DEFAULT_FARBE_SETTINGS } from '@/constants/jassSettings';
+
+// Füge korrekte Imports hinzu (basierend auf der vermuteten Struktur)
+import { DEFAULT_FARBE_SETTINGS, FARBE_MODES } from '@/config/FarbeSettings';
+import { DEFAULT_SCORE_SETTINGS, SCORE_MODES } from '@/config/ScoreSettings';
+import { DEFAULT_STROKE_SETTINGS } from '@/config/GameSettings'; // Nur Default importieren
+
+import type { ScoreSettings, StrokeSettings, FarbeSettings, ScoreMode, StrokeMode, FarbeModeKey, JassColor, CardStyle } from '@/types/jass';
+// Importiere STROKE_MODES jetzt aus types
+import { STROKE_MODES } from '@/types/jass'; 
+
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
 
 // Typ für FirestorePlayer mit _isPlaceholder Eigenschaft
 type PlayerWithPlaceholder = FirestorePlayer & { _isPlaceholder?: boolean };
 
+// --- Hinzufügen von SCORE_RANGES Konstante, falls noch nicht global vorhanden ---
+const SCORE_RANGES = {
+  sieg: { min: 1000, max: 10000, default: 2000 }, // Beispielwerte, anpassen falls nötig
+  berg: { min: 0, max: 5000, default: 1000 },
+  schneider: { min: 0, max: 5000, default: 1000 },
+} as const;
+
 const GroupSettingsPage: React.FC = () => {
   const {user, status, isAuthenticated} = useAuthStore();
-  const {currentGroup, updateGroup, updateMemberRole} = useGroupStore();
+  const {currentGroup, updateGroup, updateMemberRole, updateCurrentGroupScoreSettings, updateCurrentGroupStrokeSettings, updateCurrentGroupFarbeSettings} = useGroupStore();
+  
+  // Selektiere jede Funktion einzeln
   const showNotification = useUIStore((state) => state.showNotification);
   const setPageCta = useUIStore((state) => state.setPageCta);
   const resetPageCta = useUIStore((state) => state.resetPageCta);
+
   const router = useRouter();
+  const { groupId: routeGroupId } = router.query; // Umbenannt, um Konflikt zu vermeiden
 
   // Form state
   const [name, setName] = useState(currentGroup?.name || "");
@@ -48,6 +77,20 @@ const GroupSettingsPage: React.FC = () => {
   const [roleChangeLoading, setRoleChangeLoading] = useState<Record<string, boolean>>({});
   const [repairingData, setRepairingData] = useState(false);
   const [hasInconsistentData, setHasInconsistentData] = useState(false);
+
+  // === NEUER STATE für Jass-Einstellungen (Sichere Initialisierung) ===
+  const initialScoreSettings = currentGroup?.scoreSettings ?? DEFAULT_SCORE_SETTINGS;
+  const initialStrokeSettings = currentGroup?.strokeSettings ?? DEFAULT_STROKE_SETTINGS;
+  const initialFarbeSettings = currentGroup?.farbeSettings ?? DEFAULT_FARBE_SETTINGS;
+
+  const [tempScoreSettings, setTempScoreSettings] = useState<ScoreSettings>(initialScoreSettings);
+  const [tempStrokeSettings, setTempStrokeSettings] = useState<StrokeSettings>(initialStrokeSettings);
+  const [tempFarbeSettings, setTempFarbeSettings] = useState<FarbeSettings>(initialFarbeSettings);
+  const [isJassSettingsSaving, setIsJassSettingsSaving] = useState(false);
+  const [hasJassSettingsChanges, setHasJassSettingsChanges] = useState(false);
+  // --- Hinzufügen des tempInput State --- 
+  const [tempInput, setTempInput] = useState<{[key in ScoreMode]?: string}>({});
+  // === ENDE NEUER STATE ===
 
   // Check if current user is admin (using userId/uid, not playerId)
   const isCurrentUserAdmin = !!user?.uid && !!currentGroup?.adminIds.includes(user.uid);
@@ -83,11 +126,13 @@ const GroupSettingsPage: React.FC = () => {
         console.log(`[DEBUG] Lade Mitglieder für Gruppe ${currentGroup.id}. playerIds:`, currentGroup.playerIds);
         
         // Füge eine Validierung hinzu, um sicherzustellen, dass wir nur mit gültigen IDs arbeiten
-        const validPlayerIds = currentGroup.playerIds.filter(id => typeof id === 'string' && id.trim() !== '');
+        const validPlayerIds = currentGroup.playerIds.filter((id: string | unknown): id is string => 
+          typeof id === 'string' && id.trim() !== ''
+        );
         console.log(`[DEBUG] Nach Validierung: Verarbeite ${validPlayerIds.length} gültige Player-IDs`);
         
         // Erweiterte Logik: Prüfe und korrigiere playerIds, die eigentlich userIds sind
-        const memberPromises = validPlayerIds.map(async idToCheck => {
+        const memberPromises = validPlayerIds.map(async (idToCheck: string) => {
           console.log(`[DEBUG] Lade Spieler ${idToCheck}`);
           try {
             // Erst versuchen, als playerId zu laden (Standardweg)
@@ -153,17 +198,17 @@ const GroupSettingsPage: React.FC = () => {
         });
         
         const memberResults = await Promise.all(memberPromises);
-        const validMembers = memberResults.filter(member => member !== null) as FirestorePlayer[];
+        const validMembers = memberResults.filter((member: FirestorePlayer | null): member is FirestorePlayer => member !== null);
         
         console.log(`[DEBUG] ${validMembers.length}/${currentGroup.playerIds.length} Mitglieder geladen:`, 
-          validMembers.map(m => ({ 
+          validMembers.map((m: FirestorePlayer) => ({ 
             id: m.id, 
             nickname: m.nickname, 
             placeholder: (m as PlayerWithPlaceholder)._isPlaceholder 
           })));
         
         // Prüfe, ob Daten-Inkonsistenzen bestehen
-        setHasInconsistentData(validMembers.some(m => (m as PlayerWithPlaceholder)._isPlaceholder));
+        setHasInconsistentData(validMembers.some((m: FirestorePlayer) => (m as PlayerWithPlaceholder)._isPlaceholder));
         
         // Zeige Erfolgsbenachrichtigung bei Selbstheilung
         if (dataWasHealed) {
@@ -185,14 +230,380 @@ const GroupSettingsPage: React.FC = () => {
     fetchMembers();
   }, [currentGroup, showNotification]);
 
-  // Form-Daten aktualisieren wenn Gruppen-Daten geladen werden
+  // Effekt zum Synchronisieren des temporären Zustands, wenn sich die aktuelle Gruppe ändert
   useEffect(() => {
     if (currentGroup) {
-      setName(currentGroup.name || "");
-      setDescription(currentGroup.description || "");
-      setIsPublic(currentGroup.isPublic ?? true);
+      // Lade die Einstellungen aus der aktuellen Gruppe ODER Defaults, falls dort null/undefined
+      const groupScoreSettings = currentGroup.scoreSettings ?? DEFAULT_SCORE_SETTINGS;
+      const groupStrokeSettings = currentGroup.strokeSettings ?? DEFAULT_STROKE_SETTINGS;
+      const groupFarbeSettings = currentGroup.farbeSettings ?? DEFAULT_FARBE_SETTINGS;
+
+      // Setze den temporären Zustand auf die Werte der aktuellen Gruppe (oder Defaults)
+      setTempScoreSettings(groupScoreSettings);
+      setTempStrokeSettings(groupStrokeSettings);
+      setTempFarbeSettings(groupFarbeSettings);
+
+      // Reset Input-Felder (falls nötig)
+      setTempInput({}); 
+
+      // Nachdem geladen/synchronisiert wurde, gibt es keine ungespeicherten Änderungen
+      setHasJassSettingsChanges(false);
     }
-  }, [currentGroup]);
+    // Falls currentGroup null wird, passiert hier nichts, State bleibt bei Defaults
+  }, [currentGroup]); // Nur von currentGroup abhängig
+
+  // === NEUER useEffect: Überwache Änderungen im Jass Settings State ===
+  useEffect(() => {
+    // Nur ausführen, wenn currentGroup geladen ist, um Vergleichsfehler zu vermeiden
+    if (!currentGroup) return;
+    
+    const scoreChanged = JSON.stringify(tempScoreSettings) !== JSON.stringify(currentGroup.scoreSettings ?? DEFAULT_SCORE_SETTINGS);
+    const strokeChanged = JSON.stringify(tempStrokeSettings) !== JSON.stringify(currentGroup.strokeSettings ?? DEFAULT_STROKE_SETTINGS);
+    
+    // Sicherer Vergleich für Farbeinstellungen
+    const currentFarbeValues = currentGroup.farbeSettings?.values ?? DEFAULT_FARBE_SETTINGS.values;
+    const farbeChanged = JSON.stringify(tempFarbeSettings.values) !== JSON.stringify(currentFarbeValues);
+    const cardStyleChanged = tempFarbeSettings.cardStyle !== (currentGroup.farbeSettings?.cardStyle ?? DEFAULT_FARBE_SETTINGS.cardStyle);
+
+    setHasJassSettingsChanges(scoreChanged || strokeChanged || farbeChanged || cardStyleChanged);
+    // Abhängigkeiten bleiben gleich, aber der Guard am Anfang schützt
+  }, [tempScoreSettings, tempStrokeSettings, tempFarbeSettings, currentGroup]);
+  // === ENDE NEUER useEffect ===
+
+  // === NEUE HANDLER für Score Inputs (Adaptiert von SettingsModal) ===
+  const handleScoreInputChange = (mode: ScoreMode, inputValue: string) => {
+    setTempInput(prev => ({ ...prev, [mode]: inputValue }));
+    // Grundlegende Validierung, ob es eine Zahl ist
+    if (!inputValue || isNaN(parseInt(inputValue))) return; 
+    const numValue = parseInt(inputValue);
+
+    // Nur positive Werte oder 0 erlauben
+    if (numValue < 0) return;
+
+    // Speichere den Wert sofort im temp State, wenn gültig (onBlur wird Fein-Validierung machen)
+    // Wir passen handleScoreChange an, um die Logik zu zentralisieren
+    handleScoreChange(mode, numValue, true); // true signalisiert, dass es von onChange kommt
+  };
+
+  const handleScoreChange = (mode: ScoreMode, value: number, fromOnChange: boolean = false) => {
+    setTempScoreSettings(prev => {
+      const newScores = { ...prev.values }; // Arbeite mit prev.values
+      const newEnabled = { ...prev.enabled }; // Arbeite mit prev.enabled
+      // Ignoriere führende Nullen, stelle sicher, dass es eine Zahl ist
+      const cleanValue = isNaN(value) ? 0 : value; 
+
+      if (mode === 'sieg') {
+        // Mindestwert für Sieg = 1000
+        const validatedValue = Math.max(SCORE_RANGES.sieg.min, Math.min(cleanValue, SCORE_RANGES.sieg.max));
+        newScores.sieg = validatedValue;
+        // Berg/Schneider automatisch anpassen, wenn sie aktiviert sind und der neue Wert gültig ist
+        const halfValue = Math.floor(validatedValue / 2);
+        if (newEnabled.berg) {
+            newScores.berg = Math.min(halfValue, SCORE_RANGES.berg.max);
+        }
+        if (newEnabled.schneider) {
+            newScores.schneider = Math.min(halfValue, SCORE_RANGES.schneider.max);
+        }
+      } else if (mode === 'berg') {
+         // Kann nicht höher sein als halber Sieg
+         const maxBergValue = Math.floor(newScores.sieg / 2);
+         const validatedBergValue = Math.max(0, Math.min(cleanValue, maxBergValue, SCORE_RANGES.berg.max));
+         newScores.berg = validatedBergValue;
+         // Schneider anpassen, wenn aktiviert
+         if (newEnabled.schneider) {
+             newScores.schneider = Math.min(validatedBergValue, SCORE_RANGES.schneider.max);
+         }
+      } else if (mode === 'schneider') {
+         // Kann nicht höher sein als Berg (falls Berg aktiviert) oder halber Sieg
+         const maxSchneiderValueBasedOnBerg = newEnabled.berg ? newScores.berg : Math.floor(newScores.sieg / 2);
+         const maxSchneiderValue = Math.min(maxSchneiderValueBasedOnBerg, SCORE_RANGES.schneider.max);
+         newScores.schneider = Math.max(0, Math.min(cleanValue, maxSchneiderValue));
+      }
+
+      // Nur onBlur das tempInput leeren
+      if (!fromOnChange) {
+          setTempInput(prev => ({ ...prev, [mode]: undefined }));
+      }
+
+      return { ...prev, values: newScores, enabled: newEnabled }; // Gebe das gesamte ScoreSettings-Objekt zurück
+    });
+  };
+
+  const handleScoreToggle = (mode: ScoreMode) => {
+      setTempScoreSettings(prev => {
+          const newEnabled = { ...prev.enabled, [mode]: !prev.enabled[mode] };
+          const newValues = { ...prev.values };
+
+          // Wenn Modus deaktiviert wird, optional auf Default zurücksetzen oder Wert behalten?
+          // Aktuell: Wert bleibt erhalten. Ggf. anpassen.
+          // Beispiel: Bei Deaktivierung Berg -> Berg Punkte auf 0? oder Default?
+          // if (!newEnabled[mode]) { newValues[mode] = SCORE_RANGES[mode].default; }
+
+          // Logik: Wenn Berg deaktiviert wird, muss Schneider ggf. angepasst werden
+          if (mode === 'berg' && !newEnabled.berg && newEnabled.schneider) {
+              const maxSchneiderValue = Math.min(Math.floor(newValues.sieg / 2), SCORE_RANGES.schneider.max);
+              newValues.schneider = Math.min(newValues.schneider, maxSchneiderValue);
+          }
+
+          // Logik: Wenn Berg aktiviert wird, muss Schneider ggf. angepasst werden (darf nicht höher sein)
+          if (mode === 'berg' && newEnabled.berg && newEnabled.schneider) {
+              newValues.schneider = Math.min(newValues.schneider, newValues.berg, SCORE_RANGES.schneider.max);
+          }
+          
+          return { ...prev, values: newValues, enabled: newEnabled };
+      });
+  };
+  // === ENDE NEUE HANDLER ===
+
+  // === NEUE RENDER-FUNKTIONEN für Jass-Einstellungen ===
+  const renderScoreSettings = () => {
+    return (
+      <Card className="bg-gray-800 border-gray-700 shadow-inner mt-4">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg text-gray-200">Punkte-Ziele & Modi</CardTitle>
+          <CardDescription className="text-gray-400 text-sm">
+            Lege die Zielpunktzahlen für Sieg, Berg und Schneider fest und aktiviere/deaktiviere die Modi.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-0 pb-4">
+          {/* Sieg Punkte */} 
+          <div className="flex items-center justify-between space-x-2 p-2 rounded-md hover:bg-gray-700/50">
+            <Label htmlFor="score-sieg" className="font-medium text-gray-200">Sieg-Punkte</Label>
+            <Input
+              id="score-sieg"
+              type="number"
+              inputMode="numeric" // Besser für mobile Tastaturen
+              pattern="[0-9]*"
+              min={SCORE_RANGES.sieg.min}
+              max={SCORE_RANGES.sieg.max}
+              className="w-24 bg-gray-700 border-gray-600 text-white text-right"
+              value={tempInput.sieg ?? tempScoreSettings.values.sieg} // Zeige tempInput oder gespeicherten Wert
+              onChange={(e) => handleScoreInputChange('sieg', e.target.value.replace(/[^0-9]/g, ''))}
+              onBlur={() => handleScoreChange('sieg', parseInt(tempInput.sieg || tempScoreSettings.values.sieg.toString()))}
+               onFocus={(e) => { // Zum einfachen Überschreiben
+                   e.target.select();
+                   setTimeout(() => e.target.select(), 0);
+               }}
+            />
+          </div>
+
+          {/* Berg Punkte & Toggle */} 
+          <div className="bg-gray-700/50 rounded-lg overflow-hidden border border-gray-600/50">
+            <div className="flex items-center justify-between p-3 border-b border-gray-600/50">
+              <Label htmlFor="toggle-berg" className="font-medium text-gray-200">Berg aktiviert</Label>
+              <Switch
+                id="toggle-berg"
+                checked={tempScoreSettings.enabled.berg}
+                onCheckedChange={() => handleScoreToggle('berg')}
+                className="data-[state=checked]:bg-blue-600"
+              />
+            </div>
+            {tempScoreSettings.enabled.berg && (
+              <div className="flex items-center justify-between p-3">
+                <Label htmlFor="score-berg" className="font-medium text-gray-200">Berg-Punkte</Label>
+                <Input
+                  id="score-berg"
+                  type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  min="0"
+                  max={Math.floor(tempScoreSettings.values.sieg / 2)} // Max ist halber Sieg
+                  className="w-24 bg-gray-700 border-gray-600 text-white text-right"
+                  value={tempInput.berg ?? tempScoreSettings.values.berg}
+                  onChange={(e) => handleScoreInputChange('berg', e.target.value.replace(/[^0-9]/g, ''))}
+                  onBlur={() => handleScoreChange('berg', parseInt(tempInput.berg || tempScoreSettings.values.berg.toString()))}
+                   onFocus={(e) => { e.target.select(); setTimeout(() => e.target.select(), 0); }}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Schneider Punkte & Toggle */} 
+          <div className="bg-gray-700/50 rounded-lg overflow-hidden border border-gray-600/50">
+            <div className="flex items-center justify-between p-3 border-b border-gray-600/50">
+              <Label htmlFor="toggle-schneider" className="font-medium text-gray-200">Schneider aktiviert</Label>
+              <Switch
+                id="toggle-schneider"
+                checked={tempScoreSettings.enabled.schneider}
+                onCheckedChange={() => handleScoreToggle('schneider')}
+                className="data-[state=checked]:bg-blue-600"
+              />
+            </div>
+            {tempScoreSettings.enabled.schneider && (
+              <div className="flex items-center justify-between p-3">
+                <Label htmlFor="score-schneider" className="font-medium text-gray-200">Schneider-Punkte</Label>
+                <Input
+                  id="score-schneider"
+                  type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  min="0"
+                  // Max ist Berg (wenn aktiv) oder halber Sieg
+                  max={tempScoreSettings.enabled.berg ? tempScoreSettings.values.berg : Math.floor(tempScoreSettings.values.sieg / 2)}
+                  className="w-24 bg-gray-700 border-gray-600 text-white text-right"
+                  value={tempInput.schneider ?? tempScoreSettings.values.schneider}
+                  onChange={(e) => handleScoreInputChange('schneider', e.target.value.replace(/[^0-9]/g, ''))}
+                  onBlur={() => handleScoreChange('schneider', parseInt(tempInput.schneider || tempScoreSettings.values.schneider.toString()))}
+                  onFocus={(e) => { e.target.select(); setTimeout(() => e.target.select(), 0); }}
+                />
+              </div>
+            )}
+          </div>
+
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderStrokeSettings = () => {
+    return (
+        <Card className="bg-gray-800 border-gray-700 shadow-inner mt-4">
+            <CardHeader className="pb-4">
+                <CardTitle className="text-lg text-gray-200">Striche Zuweisung</CardTitle>
+                <CardDescription className="text-gray-400 text-sm">
+                    Legen Sie fest, wie viele Striche für bestimmte Punktbereiche vergeben werden.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-0 pb-4">
+                {STROKE_MODES.map((mode) => (
+                    <div key={mode} className="flex items-center justify-between space-x-4 p-2 rounded-md hover:bg-gray-700/50">
+                        <Label htmlFor={`stroke-${mode}`} className="font-medium capitalize flex-1 text-gray-200">
+                            {mode.replace(/([A-Z])/g, ' $1').trim()} Striche
+                        </Label>
+                        <Input
+                            id={`stroke-${mode}`}
+                            type="number"
+                            min="0"
+                            className="w-20 bg-gray-700 border-gray-600 text-white text-right"
+                            value={tempStrokeSettings[mode as StrokeMode] ?? ''}
+                            onChange={(e) => {
+                                const value = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
+                                if (value === undefined || !isNaN(value)) {
+                                    setTempStrokeSettings((prev) => ({
+                                        ...prev,
+                                        [mode]: value === undefined ? 0 : Math.max(0, value),
+                                    }));
+                                }
+                            }}
+                        />
+                    </div>
+                ))}
+            </CardContent>
+        </Card>
+    );
+  };
+
+  const renderFarbeSettings = () => {
+    return (
+      <Card className="bg-gray-800 border-gray-700 shadow-inner mt-4">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg text-gray-200">Farben & Kartensatz</CardTitle>
+          <CardDescription className="text-gray-400 text-sm">
+            Lege die Multiplikatoren und den verwendeten Kartensatz (Deutsch/Französisch) fest.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-0 pb-4">
+          {/* --- Kartensatz Auswahl --- */}
+          <div className="flex items-center justify-between space-x-2 p-3 rounded-lg bg-gray-700/50 border border-gray-600/50">
+            <Label className="font-medium text-gray-200">Kartensatz</Label>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={tempFarbeSettings.cardStyle === 'DE' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleCardStyleChange('DE')}
+                className={` ${tempFarbeSettings.cardStyle === 'DE' ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600' : 'text-gray-300 border-gray-600 hover:bg-gray-700 hover:text-white'}`}
+              >
+                Deutsch
+              </Button>
+              <Button
+                type="button"
+                variant={tempFarbeSettings.cardStyle === 'FR' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleCardStyleChange('FR')}
+                className={` ${tempFarbeSettings.cardStyle === 'FR' ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600' : 'text-gray-300 border-gray-600 hover:bg-gray-700 hover:text-white'}`}
+              >
+                Französisch
+              </Button>
+            </div>
+          </div>
+          {/* --- Ende Kartensatz Auswahl --- */}
+          
+          {/* Multiplikatoren (bestehender Code) */} 
+          <div className="border-t border-gray-700/50 pt-4 space-y-3">
+            <h4 className="text-base font-medium text-gray-300 mb-2">Multiplikatoren</h4>
+            {FARBE_MODES.map((mode) => (
+                <div key={mode.id} className="flex items-center justify-between space-x-4 p-2 rounded-md hover:bg-gray-700/50">
+                     <div className="flex items-center space-x-2 flex-1">
+                        <FarbePictogram farbe={mode.name as JassColor} mode="svg" className="w-5 h-5 flex-shrink-0" />
+                        <Label htmlFor={`farbe-${mode.id}`} className="font-medium text-gray-200">
+                            {mode.name}
+                        </Label>
+                    </div>
+                    <Input
+                        id={`farbe-${mode.id}`}
+                        type="number"
+                        min="1"
+                        className="w-20 bg-gray-700 border-gray-600 text-white text-right"
+                        value={tempFarbeSettings.values[mode.id as FarbeModeKey] ?? ''}
+                        onChange={(e) => {
+                            const value = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
+                            if (value === undefined || (!isNaN(value) && value >= 1)) {
+                                setTempFarbeSettings((prev) => ({
+                                    ...prev,
+                                    values: {
+                                        ...prev.values,
+                                        [mode.id]: value === undefined ? 1 : Math.max(1, value),
+                                    },
+                                }));
+                            }
+                        }}
+                    />
+                </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+  // === ENDE NEUE RENDER-FUNKTIONEN ===
+
+  // === NEUE HANDLER für Jass-Einstellungen ===
+  const handleSaveJassSettings = async () => {
+    if (!currentGroup || !hasJassSettingsChanges || isJassSettingsSaving) return;
+    setIsJassSettingsSaving(true);
+    const groupId = typeof routeGroupId === 'string' ? routeGroupId : currentGroup.id;
+
+    try {
+        await updateCurrentGroupScoreSettings(groupId, tempScoreSettings);
+        await updateCurrentGroupStrokeSettings(groupId, tempStrokeSettings);
+        await updateCurrentGroupFarbeSettings(groupId, tempFarbeSettings);
+
+        showNotification({ message: 'Jass-Einstellungen erfolgreich gespeichert!', type: 'success' });
+
+        setHasJassSettingsChanges(false);
+    } catch (err) {
+        console.error("Fehler beim Speichern der Jass-Einstellungen:", err);
+        showNotification({ message: `Fehler beim Speichern: ${err instanceof Error ? err.message : 'Unbekannter Fehler'}`, type: 'error' });
+    } finally {
+        setIsJassSettingsSaving(false);
+    }
+  };
+
+  const handleResetJassDefaults = () => {
+    setTempScoreSettings(DEFAULT_SCORE_SETTINGS);
+    setTempStrokeSettings(DEFAULT_STROKE_SETTINGS);
+    setTempFarbeSettings(DEFAULT_FARBE_SETTINGS);
+    
+    showNotification({ message: 'Jass-Einstellungen auf Standard zurückgesetzt (noch nicht gespeichert).', type: 'info'});
+  };
+  // === ENDE NEUE HANDLER ===
+
+  // === NEUER HANDLER für Card Style ===
+  const handleCardStyleChange = (style: CardStyle) => {
+    setTempFarbeSettings(prev => ({ ...prev, cardStyle: style }));
+  };
+  // === ENDE NEUER HANDLER ===
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -242,22 +653,31 @@ const GroupSettingsPage: React.FC = () => {
 
   // CTA Button Setup
   useEffect(() => {
-    setPageCta({
-      isVisible: true,
-      text: "Speichern",
-      onClick: () => {
-        const form = document.getElementById("group-form") as HTMLFormElement;
-        form?.requestSubmit();
-      },
-      loading: isSubmitting,
-      disabled: isSubmitting,
-      variant: "info",
-    });
+    // Find the form element
+    const form = document.getElementById("group-form") as HTMLFormElement | null;
+
+    // Only set CTA if form exists
+    if (form) {
+        setPageCta({
+            isVisible: true,
+            text: "Speichern",
+            onClick: () => {
+                // Trigger form submission directly
+                form.requestSubmit(); 
+            },
+            loading: isSubmitting,
+            disabled: isSubmitting,
+            variant: "info",
+        });
+    } else {
+        // If form is not mounted yet, maybe reset CTA or wait?
+        resetPageCta();
+    }
 
     return () => {
       resetPageCta();
     };
-  }, [setPageCta, resetPageCta, isSubmitting]);
+  }, [setPageCta, resetPageCta, isSubmitting]); // Dependency on isSubmitting remains
 
   // Funktion zum Aufruf der invalidateActiveGroupInvites Function
   const handleInvalidateInvites = async () => {
@@ -417,6 +837,67 @@ const GroupSettingsPage: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* === Jass-Einstellungen Card (ANGEPASST) === */}
+            <Card className="bg-gray-800 border-gray-700">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <Palette className="w-5 h-5" />
+                  Jass-Einstellungen
+                </CardTitle>
+                <CardDescription className="text-gray-400">
+                  Lege fest, welche Varianten und Multiplikatoren in der Gruppe gelten.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {/* --- Tabs für Jass-Einstellungen --- */}
+                <Tabs defaultValue="punkte" className="w-full">
+                  <TabsList className="grid w-full grid-cols-3 bg-gray-700/50 p-1 rounded-lg mb-4">
+                    <TabsTrigger value="punkte" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-gray-300 hover:bg-gray-600/50 rounded-md py-1.5 text-sm">Punkte</TabsTrigger>
+                    <TabsTrigger value="striche" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-gray-300 hover:bg-gray-600/50 rounded-md py-1.5 text-sm">Striche</TabsTrigger>
+                    <TabsTrigger value="farben" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-gray-300 hover:bg-gray-600/50 rounded-md py-1.5 text-sm">Farben</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="punkte">
+                    {renderScoreSettings()}
+                  </TabsContent>
+                  <TabsContent value="striche">
+                    {renderStrokeSettings()}
+                  </TabsContent>
+                  <TabsContent value="farben">
+                    {renderFarbeSettings()}
+                  </TabsContent>
+                </Tabs>
+                {/* --- Ende Tabs --- */}
+
+                {/* --- Buttons für Jass-Einstellungen --- */}
+                <div className="mt-5 pt-4 border-t border-gray-700/50 flex justify-end space-x-3">
+                    <Button
+                        type="button" // Wichtig: Nicht das Hauptformular absenden
+                        variant="outline"
+                        onClick={handleResetJassDefaults}
+                        disabled={isJassSettingsSaving}
+                        className="text-gray-300 border-gray-600 hover:bg-gray-700 hover:text-white"
+                        title="Jass-Einstellungen auf Standard zurücksetzen (nicht gespeichert)"
+                    >
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {/* TODO: Hier fehlt ein Icon (z.B. RotateCcw) - nachher fixen */} Standard
+                    </Button>
+                    <Button
+                        type="button" // Wichtig: Nicht das Hauptformular absenden
+                        onClick={handleSaveJassSettings}
+                        disabled={!hasJassSettingsChanges || isJassSettingsSaving}
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                        {isJassSettingsSaving ? (
+                            <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Speichern... </> 
+                        ) : ( 
+                            "Jass Speichern" 
+                        )}
+                    </Button>
+                </div>
+                {/* --- Ende Buttons --- */}
+              </CardContent>
+            </Card>
+            {/* === ENDE Jass-Einstellungen Card === */}
 
             {/* Sichtbarkeit */}
             <Card className="bg-gray-800 border-gray-700">

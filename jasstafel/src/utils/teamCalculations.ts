@@ -1,7 +1,7 @@
-import {useUIStore} from "../store/uiStore";
+import {useUIStore} from "@/store/uiStore";
 import type {
-  StricheKategorie,
-} from "../types/jass";
+  StrichTyp,
+} from "@/types/jass";
 
 // Types
 export interface TeamScores {
@@ -61,7 +61,7 @@ export interface CalculateTeamStatsParams {
     gameNumber: number;
     totalGames: number;
   };
-  currentStriche: Record<"team1" | "team2", Record<StricheKategorie, number>>;
+  currentStriche: Record<"team1" | "team2", Record<StrichTyp, number>>;
 }
 
 /**
@@ -98,7 +98,7 @@ export function calculateTeamStats(params: CalculateTeamStatsParams): TeamCalcul
     totals.punkte.team2 < schneiderPoints ? "team2" :
       undefined;
 
-  const NORMAL_STRICH: StricheKategorie = "normal";
+  const NORMAL_STRICH: StrichTyp = "sieg";
 
   // Neue Statistik-Berechnungen mit Striche-Details
   const previousGesamtStand = {

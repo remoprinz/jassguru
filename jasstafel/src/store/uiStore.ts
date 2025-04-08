@@ -9,23 +9,24 @@ import type {
   PictogramConfig,
   ScoreMode,
   CardStyle,
+  FarbeSettings,
+  ScoreSettings,
+  StrokeSettings,
+  FarbeModeKey
 } from "../types/jass";
 import {StatisticId} from "../types/statistikTypes";
 import {FARBE_MODES} from "../config/FarbeSettings";
 import {
   SCORE_MODES,
   validateScoreValue,
-  type ScoreSettings,
 } from "../config/ScoreSettings";
 import {
   DEFAULT_STROKE_SETTINGS,
   validateStrokeSettings,
-  type StrokeSettings,
 } from "../config/GameSettings";
 import {
   DEFAULT_FARBE_SETTINGS,
   validateFarbeSettings,
-  type FarbeSettings,
 } from "../config/FarbeSettings";
 import {Notification, JassFinishNotificationConfig, NotificationConfig} from "../types/notification";
 import type {SpruchMitIcon} from "../types/sprueche";
@@ -186,9 +187,6 @@ export interface UIState {
     value: number;
     isFlipped: boolean;
   };
-  gameInfo: {
-    isOpen: boolean;
-  };
   startScreen: {
     transitionState: "initial" | "starting" | "complete";
     names: PlayerNames;
@@ -268,6 +266,7 @@ export interface UIState {
   isLoading: boolean; // Generischer Ladezustand
   startScreenState: StartScreenState;
   pageCta: PageCtaState;
+  isFarbeSettingsModalOpen: boolean; // NEU: Zustand für das Farbe-Settings-Modal
 }
 
 interface UIActions {
@@ -304,7 +303,6 @@ interface UIActions {
   setStrichStyle: (style: Partial<StrichStyle>) => void;
   openFarbeSettings: () => void;
   closeFarbeSettings: () => void;
-  setFarbeMultiplier: (index: number, value: number) => void;
   setFarbeFlipped: (isFlipped: boolean) => void;
   updateFarbeSettings: (settings: Partial<FarbeSettings>) => void;
   openScoreSettings: () => void;
@@ -354,6 +352,9 @@ interface UIActions {
   setPageCtaLoading: (isLoading: boolean) => void;
   setPageCtaDisabled: (isDisabled: boolean) => void;
   resetUI: () => void;
+  openFarbeSettingsModal: () => void; // NEU: Aktion zum Öffnen des Modals
+  closeFarbeSettingsModal: () => void; // NEU: Aktion zum Schliessen des Modals
+  openGameInfo: () => void;
 }
 
 export type UIStore = UIState & UIActions;
@@ -391,11 +392,8 @@ const loadStrokeSettings = (): StrokeSettings => {
   }
 };
 
-// Initiale Werte
-const initialFarbeSettings: FarbeSettings = {
-  values: FARBE_MODES.map((mode) => mode.multiplier),
-  isFlipped: false,
-};
+// Initialer Zustand direkt aus der Default-Konstante
+const initialFarbeSettings: FarbeSettings = DEFAULT_FARBE_SETTINGS;
 
 const initialScoreSettings: ScoreSettings = {
   values: Object.fromEntries(
@@ -412,9 +410,6 @@ const initialState: UIState = {
     isOpen: false,
     value: 0,
     isFlipped: false,
-  },
-  gameInfo: {
-    isOpen: false,
   },
   startScreen: {
     transitionState: "initial",
@@ -519,6 +514,7 @@ const initialState: UIState = {
     disabled: false,
     variant: "default",
   } as PageCtaState,
+  isFarbeSettingsModalOpen: false, // NEU: Initialwert
 };
 
 // Load-Funktionen für jeden Settings-Typ
@@ -532,7 +528,7 @@ const loadFarbeSettings = (): FarbeSettings => {
     const parsed = JSON.parse(stored);
     return {
       values: parsed.values ?? DEFAULT_FARBE_SETTINGS.values,
-      isFlipped: parsed.isFlipped ?? DEFAULT_FARBE_SETTINGS.isFlipped,
+      cardStyle: parsed.cardStyle ?? DEFAULT_FARBE_SETTINGS.cardStyle,
     };
   } catch (error) {
     console.error("Fehler beim Laden der Farbe-Settings:", error);
@@ -540,7 +536,7 @@ const loadFarbeSettings = (): FarbeSettings => {
   }
 };
 
-export const useUIStore = create<UIStore>()(
+export const useUIStore = create<UIState & UIActions>()(
   persist(
     immer((set, get) => ({
       ...initialState,
@@ -664,9 +660,6 @@ export const useUIStore = create<UIStore>()(
           value: 0,
           isFlipped: false,
         },
-        gameInfo: {
-          isOpen: false,
-        },
         startScreen: {
           transitionState: "initial",
           names: {1: "", 2: "", 3: "", 4: ""},
@@ -781,16 +774,6 @@ export const useUIStore = create<UIStore>()(
       closeFarbeSettings: () => set((state) => ({
         settings: {...state.settings, isOpen: false},
       })),
-      setFarbeMultiplier: (index: number, value: number) => {
-        const currentSettings = get().farbeSettings;
-        const newValues = [...currentSettings.values];
-        newValues[index] = value;
-        if (validateMultipliers(newValues)) {
-          const newSettings = {...currentSettings, values: newValues};
-          saveFarbeSettings(newSettings);
-          set({farbeSettings: newSettings});
-        }
-      },
       setFarbeFlipped: (isFlipped: boolean) => {
         const currentSettings = get().farbeSettings;
         const newSettings = {...currentSettings, isFlipped};
@@ -1021,23 +1004,14 @@ export const useUIStore = create<UIStore>()(
             position,
           },
         })),
-      closeGameInfo: () => set((state) => ({
-        gameInfo: {
-          ...state.gameInfo,
-          isOpen: false,
-        },
-      })),
+      closeGameInfo: () => set({isGameInfoOpen: false}),
       tutorialBlockedUI: {
         settingsClose: false,
         calculatorClose: false,
         gameInfoClose: false,
         resultatKreidetafelClose: false,
       },
-      openGameInfo: () => {
-        const state = get();
-        if (state.tutorialBlockedUI.gameInfoClose) return;
-        set({gameInfo: {isOpen: true}});
-      },
+      openGameInfo: () => set({isGameInfoOpen: true}),
       setTopSwipeAnimation: (active) => set({topSwipeAnimation: active}),
       setBottomSwipeAnimation: (active) => set({bottomSwipeAnimation: active}),
       showNotification: (config: NotificationConfig) => {
@@ -1086,7 +1060,7 @@ export const useUIStore = create<UIStore>()(
         return !(
           state.startScreen.isOpen ||
           state.settings.isOpen ||
-          state.isCalculatorOpen ||
+          state.calculator.isOpen ||
           state.menu.isOpen ||
           state.resultatKreidetafel.isOpen ||
           state.jassFinishNotification.isOpen ||
@@ -1143,6 +1117,8 @@ export const useUIStore = create<UIStore>()(
           }
         }),
       resetUI: () => set(initialState),
+      openFarbeSettingsModal: () => set({ isFarbeSettingsModalOpen: true }),
+      closeFarbeSettingsModal: () => set({ isFarbeSettingsModalOpen: false }),
     })),
     {
       name: "jass-ui-storage",

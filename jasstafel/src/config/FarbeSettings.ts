@@ -1,4 +1,5 @@
 import type {FarbeMode, FarbeSettingsConfig} from "../types/jass";
+import type { FarbeSettings, FarbeModeKey, FarbeSettingsValues } from '../types/jass';
 
 const commonStandardStyle = {
   backgroundColor: "bg-gradient-to-b from-gray-600 to-gray-700 shadow-inner border border-gray-500/30 hover:from-gray-500 hover:to-gray-600 group-[.has-active]:bg-gray-600/75 group-[.active]:!from-gray-500 group-[.active]:!to-gray-600",
@@ -149,22 +150,36 @@ export const getFarbeModeMultiplier = (mode: FarbeMode): number => {
   return getFarbeModeConfig(mode).multiplier;
 };
 
-// Neue Interface Definition
-export interface FarbeSettings {
-  values: number[]; // Multiplier-Werte
-  isFlipped: boolean;
-}
-
 // Default Settings hinzufügen
 export const DEFAULT_FARBE_SETTINGS: FarbeSettings = {
-  values: FARBE_MODES.map((mode) => mode.multiplier),
-  isFlipped: false,
-} as const;
+  values: {
+    eicheln: 1,
+    rosen: 1,
+    schellen: 1,
+    schilten: 1,
+    obe: 1,
+    une: 1,
+    misère: 1,
+    dreimal: 3,
+    quer: 1,
+    slalom: 1,
+    obeabe: 1,
+    uneufe: 1
+  },
+  cardStyle: 'DE'
+};
 
 // Validierungsfunktion
 export const validateFarbeSettings = (settings: Partial<FarbeSettings>): boolean => {
   if (settings.values) {
-    return settings.values.every((value) => value >= 0 && value <= 8);
+    return Object.values(settings.values).every((value) => typeof value === 'number' && value >= 0 && value <= 8);
   }
   return true;
+};
+
+export const getFarbeMultiplier = (
+  farbeId: FarbeModeKey,
+  settings: FarbeSettings = DEFAULT_FARBE_SETTINGS
+): number => {
+  return settings.values[farbeId] ?? 1;
 };

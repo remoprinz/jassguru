@@ -1,7 +1,7 @@
 import confetti, {Shape} from "canvas-confetti";
-import type {ChargeLevel, EffectConfig} from "../../types/jass";
-import {CHARGE_THRESHOLDS} from "../../types/jass";
-import {getEffectParams} from "../../utils/effectUtils";
+import type {ChargeLevel, EffectConfig} from "@/types/jass";
+import {CHARGE_THRESHOLDS} from "@/types/jass";
+import {getEffectParams} from "@/utils/effectUtils";
 
 export function createBedankenFirework(x: number, y: number, gravity: number, chargeLevel: ChargeLevel, phase: "shoot" | "explode") {
   const intensity = getFireworkIntensity(chargeLevel);

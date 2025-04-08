@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"; // Assuming Shadcn UI path
 import {Skeleton} from "@/components/ui/skeleton"; // Assuming Shadcn UI path
-import {FirestoreGroup} from "@/types/group"; // Changed from jass to group
+import type { FirestoreGroup } from "@/types/jass"; 
 
 export const GroupSelector: React.FC = () => {
   // --- Use atomic selectors for Zustand state ---
@@ -34,7 +34,7 @@ export const GroupSelector: React.FC = () => {
     const selectedGroup: FirestoreGroup | undefined = userGroups.find((group) => group.id === groupId);
     if (selectedGroup) {
       // console.log("GroupSelector: Setting current group to:", selectedGroup.name);
-      setCurrentGroup(selectedGroup);
+      setCurrentGroup(selectedGroup as any);
     } else {
       console.warn(`GroupSelector: Selected group with ID ${groupId} not found in userGroups.`);
     }

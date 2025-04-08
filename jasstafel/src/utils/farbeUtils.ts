@@ -17,5 +17,6 @@ export const jassColorToFarbeMode = (color: JassColor): FarbeMode => {
     throw new Error(`Ungültige JassColor: ${color}`);
   }
 
-  return mode.id;
+  // Füge Type Cast hinzu, da color nur Standardfarben repräsentiert
+  return mode.id as FarbeMode;
 };

@@ -42,13 +42,14 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
   onClose,
   swipePosition,
 }) => {
-  const {openResultatKreidetafel, openFarbeSettings} = useUIStore();
+  const {openResultatKreidetafel, openSettings} = useUIStore();
   const [pressedButton, setPressedButton] = useState<string | null>(null);
   const [showResetWarning, setShowResetWarning] = useState(false);
   const currentStep = useTutorialStore((state) => state.getCurrentStep());
   const {isCategoryCompleted} = useTutorialStore();
   const authStore = useAuthStore();
   const router = useRouter();
+  const isAuthenticated = authStore.isAuthenticated;
 
   const iconStyle = "w-12 h-12 p-2 rounded-xl shadow-md transition-transform hover:scale-110";
 
@@ -153,12 +154,12 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
   }, [openResultatKreidetafel, swipePosition, onClose]);
 
   const handleFarbeSettingsClick = useCallback(() => {
-    openFarbeSettings();
+    openSettings();
 
     if (currentStep?.id === TUTORIAL_STEPS.JASS_SETTINGS) {
       document.dispatchEvent(new Event("settingsOpen"));
     }
-  }, [openFarbeSettings, currentStep]);
+  }, [openSettings, currentStep]);
 
   const handleInfoClick = useCallback(() => {
     // Nur Tutorials anzeigen, die noch nicht abgeschlossen sind
@@ -178,77 +179,43 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
     }
   }, [onClose, isCategoryCompleted]);
 
-  // Definition für den neuen Satz von 5 Buttons inklusive Home-Button in der Mitte
-  const bottomButtons: MenuButton[] = [
-    {
-      "icon": FaTrashAlt,
-      "onClick": handleReset,
-      "color": "bg-red-500",
-      "id": "trash",
-      "data-tutorial": "new-game-button",
-    },
-    {
-      icon: FaInfoCircle,
-      onClick: handleInfoClick,
-      color: "bg-yellow-500",
-      id: "info",
-    },
-    {
-      icon: FaHome,
-      onClick: handleHomeClick,
-      color: "bg-blue-500",
-      id: "home",
-    },
-    {
-      icon: FaCog,
-      onClick: handleFarbeSettingsClick,
-      color: "bg-orange-500",
-      id: "farbe",
-      className: "settings-button",
-    },
-    {
-      icon: TbClipboardText,
-      onClick: handleResultatClick,
-      color: "bg-green-500",
-      id: "resultat",
-    },
+  // === Button-Definitionen anpassen ===
+  const allButtonsBase: Omit<MenuButton, 'onClick'>[] = [
+    { icon: FaTrashAlt, color: "bg-red-500", id: "trash", "data-tutorial": "new-game-button" },
+    { icon: FaInfoCircle, color: "bg-yellow-500", id: "info" },
+    { icon: FaHome, color: "bg-blue-500", id: "home" },
+    { icon: FaCog, color: "bg-orange-500", id: "farbe", className: "settings-button" }, 
+    { icon: TbClipboardText, color: "bg-green-500", id: "resultat" },
   ];
 
-  const topButtons: MenuButton[] = [
-    {
-      icon: TbClipboardText,
-      onClick: handleResultatClick,
-      color: "bg-green-500",
-      id: "resultat",
-    },
-    {
-      icon: FaCog,
-      onClick: handleFarbeSettingsClick,
-      color: "bg-orange-500",
-      id: "farbe",
-      className: "settings-button",
-    },
-    {
-      icon: FaHome,
-      onClick: handleHomeClick,
-      color: "bg-blue-500",
-      id: "home",
-    },
-    {
-      icon: FaInfoCircle,
-      onClick: handleInfoClick,
-      color: "bg-yellow-500",
-      id: "info",
-    },
-    {
-      icon: FaTrashAlt,
-      onClick: handleReset,
-      color: "bg-red-500",
-      id: "trash",
-    },
-  ];
+  // Filter den Settings-Button raus, wenn ECHT eingeloggt (nicht Gast)
+  const filteredButtonDefs = authStore.status === 'authenticated' 
+    ? allButtonsBase.filter(b => b.id !== 'farbe')
+    : allButtonsBase;
 
-  const buttons = swipePosition === "top" ? topButtons : bottomButtons;
+  // Füge die onClick Handler hinzu
+  const getClickHandler = (id: string): (() => void) => {
+    switch(id) {
+      case 'trash': return handleReset;
+      case 'info': return handleInfoClick;
+      case 'home': return handleHomeClick;
+      case 'farbe': return handleFarbeSettingsClick; // Wird nur im Gastmodus relevant
+      case 'resultat': return handleResultatClick;
+      default: return () => {};
+    }
+  }
+
+  const finalButtonDefs: MenuButton[] = filteredButtonDefs.map(def => ({
+    ...def,
+    onClick: getClickHandler(def.id),
+  }));
+
+  // Buttons für Top/Bottom erstellen
+  const topButtons = swipePosition === 'top' ? [...finalButtonDefs].reverse() : finalButtonDefs;
+  const bottomButtons = swipePosition === 'bottom' ? finalButtonDefs : [...finalButtonDefs].reverse();
+
+  const buttonsToRender = swipePosition === "top" ? topButtons : bottomButtons;
+  // === Ende Button-Definitionen ===
 
   const isButtonHighlighted = (id: string) => {
     return (currentStep?.id === TUTORIAL_STEPS.RESULTAT_INFO && id === "resultat") ||
@@ -267,8 +234,10 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
         animate={isOpen ? "visible" : "hidden"}
       >
         <div className="flex justify-center items-center w-full px-8 sm:px-12 min-w-[320px]">
-          <div className="flex justify-between space-x-4 sm:space-x-6 w-full max-w-2xl">
-            {buttons.map(({icon: Icon, onClick, color, id, className, "data-tutorial": dataTutorial}) => (
+          <div className={`flex w-full max-w-2xl ${ 
+            buttonsToRender.length === 4 ? 'justify-around' : 'justify-between space-x-4 sm:space-x-6' 
+          }`}>
+            {buttonsToRender.map(({icon: Icon, onClick, color, id, className, "data-tutorial": dataTutorial}) => (
               <motion.button
                 key={id}
                 onClick={onClick}
@@ -278,15 +247,17 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
                   (currentStep?.id === TUTORIAL_STEPS.MENU_GESTURE && id !== "resultat") ||
                   (currentStep?.id === TUTORIAL_STEPS.RESULTAT_INFO && id !== "resultat") ||
                   (currentStep?.id === TUTORIAL_STEPS.NEW_GAME && id !== "trash") ||
-                  (currentStep?.id === TUTORIAL_STEPS.JASS_SETTINGS && id !== "farbe")
+                  (currentStep?.id === TUTORIAL_STEPS.JASS_SETTINGS && id !== "farbe" && isAuthenticated())
                 }
                 className={`${iconStyle} ${color} ${className || ""} text-white flex-shrink-0
                   ${isButtonHighlighted(id) ? "ring-4 ring-white ring-opacity-50 animate-pulse" : ""}
-                  ${((currentStep?.id === TUTORIAL_STEPS.SETTINGS && className !== "settings-button") ||
-                     currentStep?.id === TUTORIAL_STEPS.MENU_GESTURE ||
-                     (currentStep?.id === TUTORIAL_STEPS.RESULTAT_INFO && id !== "resultat") ||
-                     (currentStep?.id === TUTORIAL_STEPS.NEW_GAME && id !== "trash") ||
-                     (currentStep?.id === TUTORIAL_STEPS.JASS_SETTINGS && id !== "farbe")) ?
+                  ${(
+                    (currentStep?.id === TUTORIAL_STEPS.SETTINGS && className !== "settings-button") ||
+                    currentStep?.id === TUTORIAL_STEPS.MENU_GESTURE ||
+                    (currentStep?.id === TUTORIAL_STEPS.RESULTAT_INFO && id !== "resultat") ||
+                    (currentStep?.id === TUTORIAL_STEPS.NEW_GAME && id !== "trash") ||
+                    (currentStep?.id === TUTORIAL_STEPS.JASS_SETTINGS && id !== "farbe" && isAuthenticated())
+                  ) ?
                 "opacity-50 cursor-not-allowed" :
                 ""}`}
                 variants={itemVariants}

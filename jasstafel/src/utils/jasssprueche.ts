@@ -6,11 +6,11 @@ import type {
   KombinierterSpruch,
   ErweiterterKombinierterSpruch,
   SpieltempoKategorie,
-} from "../types/sprueche";
+} from "@/types/sprueche";
 import type {
   GameEndType,
   TimerAnalytics,
-} from "../types/jass";
+} from "@/types/jass";
 import type {TeamCalculationResult} from "./teamCalculations";
 import {
   gameEndSprueche,

@@ -14,7 +14,8 @@ import {
   updateUserProfile,
   updateUserDocument,
 } from "../services/authService";
-import {AuthStatus, AuthUser, AppMode, FirestoreUser, FirestorePlayer} from "../types/jass";
+import type { AuthStatus, AuthUser, AppMode } from "@/types/auth";
+import type { FirestorePlayer } from "@/types/jass";
 import {useGroupStore} from "./groupStore";
 import {doc, onSnapshot, Unsubscribe, FirestoreError, getDoc, serverTimestamp, setDoc} from "firebase/firestore";
 import { processPendingInviteToken } from '../lib/handlePendingInvite';
@@ -356,7 +357,7 @@ export const useAuthStore = create<AuthStore>()(
               const userSnap = await getDoc(userRef);
 
               if (userSnap.exists()) {
-                  const userData = userSnap.data() as FirestoreUser;
+                  const userData = userSnap.data() as Partial<FirestorePlayer>;
                    if (userData?.playerId && typeof userData.playerId === 'string') { 
                       playerIdToLoad = userData.playerId;
                    }
@@ -387,8 +388,8 @@ export const useAuthStore = create<AuthStore>()(
               console.log(`AUTH_STORE: Richte onSnapshot Listener für User Doc ein: ${firebaseUser.uid}`);
               userDocUnsubscribe = onSnapshot(userRef, async (docSnap) => {
                 if (docSnap.exists()) {
-                  const userData = docSnap.data() as FirestoreUser;
-                  const mappedUser = mapUserToAuthUser(firebaseUser, userData);
+                  const userData = docSnap.data();
+                  const mappedUser = mapUserToAuthUser(firebaseUser, userData as Partial<FirestorePlayer>);
                   set({user: mappedUser, status: "authenticated"});
                   
                   const currentGroups = useGroupStore.getState().userGroups;
@@ -397,7 +398,7 @@ export const useAuthStore = create<AuthStore>()(
                   if (userData.lastActiveGroupId && 
                       currentGroupMap.has(userData.lastActiveGroupId) && 
                       currentActiveGroup?.id !== userData.lastActiveGroupId) {
-                       useGroupStore.getState().setCurrentGroup(currentGroupMap.get(userData.lastActiveGroupId)!);
+                       useGroupStore.getState().setCurrentGroup(currentGroupMap.get(userData.lastActiveGroupId)! as any);
                   }
                 } else {
                    set({user: mapUserToAuthUser(firebaseUser, null), status: "authenticated"});

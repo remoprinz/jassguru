@@ -4,8 +4,12 @@ import {useTutorialStore} from "../../store/tutorialStore";
 import {TUTORIAL_STEPS, type TutorialStep, TutorialCategory} from "../../types/tutorial";
 import TutorialNavigation from "./TutorialNavigation";
 import {useUIStore} from "../../store/uiStore";
-import {type TutorialOverlayProps} from "../../types/jass";
 import {useTutorialComponent} from "../../hooks/useTutorialComponent";
+
+// Props-Typ hier definiert
+interface TutorialOverlayProps {
+  onCloseMenu?: () => void; // Optional gemacht, falls nicht immer benötigt
+}
 
 interface SpotlightProps {
   target?: string;
@@ -256,8 +260,6 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({onCloseMenu}) => {
   const handleEndTutorial = useCallback(() => {
     // 1. UI-Elemente schließen
     const uiStore = useUIStore.getState();
-    uiStore.splitContainer.isOpen = false;
-    uiStore.menu.isOpen = false;
     uiStore.closeAllOverlays();
     uiStore.setMenuOpen(false);
 

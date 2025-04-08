@@ -159,16 +159,22 @@ const StartScreen: React.FC = () => {
   };
 
   const startGameFlow = async (playerNames: PlayerNames, finalGamePlayers?: Required<GamePlayers>) => {
+    console.log(`[StartScreen startGameFlow] STARTING - Initial values: startingPlayer=${startingPlayer}`);
     if (tutorialStore.isActive) {
-      console.log("🎓 Force ending tutorial on game start...");
+      console.log("[StartScreen startGameFlow] Tutorial is active, ending it...");
       tutorialStore.endTutorial(true);
+      console.log(`[StartScreen startGameFlow] Tutorial ended. isActive: ${useTutorialStore.getState().isActive}`);
     }
     useUIStore.getState().resetStartScreen();
-    console.log("🎮 StartScreen.startGameFlow:", {startingPlayer, teamConfig, playerNames, finalGamePlayers});
+    console.log("[StartScreen startGameFlow] UI Store reset.");
+    console.log("[StartScreen startGameFlow] Setting team config...");
     setTeamConfig(teamConfig);
 
+    console.log("[StartScreen startGameFlow] Calling jassStore.startJass...");
     jassStore.startJass({playerNames: playerNames, initialStartingPlayer: startingPlayer});
+    console.log(`[StartScreen startGameFlow] AFTER jassStore.startJass - isJassStarted: ${useJassStore.getState().isJassStarted}`);
 
+    console.log("[StartScreen startGameFlow] Calling useGameStore.setState...");
     useGameStore.setState({
       currentPlayer: startingPlayer,
       startingPlayer: startingPlayer,
@@ -184,15 +190,20 @@ const StartScreen: React.FC = () => {
         4: { type: "guest", name: playerNames[4] ?? 'Spieler 4' },
       }
     });
+    console.log(`[StartScreen startGameFlow] AFTER useGameStore.setState - isGameStarted: ${useGameStore.getState().isGameStarted}`);
 
-    console.log("🎲 GameStore Updated:", useGameStore.getState());
+    console.log("[StartScreen startGameFlow] GameStore Updated (Full State):", useGameStore.getState());
     const timerStore = useTimerStore.getState();
+    console.log("[StartScreen startGameFlow] Resetting and starting timers...");
     timerStore.resetGameTimers();
     timerStore.startGameTimer();
     timerStore.startRoundTimer();
+    console.log("[StartScreen startGameFlow] Setting UI startScreenState to 'starting'...");
     setStartScreenState("starting");
     await new Promise((resolve) => setTimeout(resolve, 300));
+    console.log("[StartScreen startGameFlow] Setting UI startScreenState to 'complete'...");
     setStartScreenState("complete");
+    console.log("[StartScreen startGameFlow] FINISHED");
   };
 
   const getPlayerFieldClass = (playerNumber: PlayerNumber, isInput: boolean = false) => {

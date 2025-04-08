@@ -3,9 +3,102 @@
 import { StatisticId } from "./statistikTypes";
 import { Timestamp, FieldValue } from "firebase/firestore";
 // Importiere Default Settings
-import { DEFAULT_SCORE_SETTINGS } from "../config/ScoreSettings";
-import { DEFAULT_FARBE_SETTINGS } from "../config/FarbeSettings";
+import { DEFAULT_SCORE_SETTINGS } from "@/config/ScoreSettings";
+import { DEFAULT_FARBE_SETTINGS } from "@/config/FarbeSettings";
+import type { TeamCalculationResult } from "@/utils/teamCalculations";
+import { FARBE_MODES } from '@/config/FarbeSettings';
 
+// +++ BENÖTIGTE TYPEN FÜR FirestoreGroup etc. (Wieder eingefügt) +++
+
+// Beispielhafte Annahme für FirestoreMetadata:
+export interface FirestoreMetadata {
+  [key: string]:
+    | string
+    | number
+    | boolean
+    | null
+    | Timestamp
+    | FieldValue
+    | FirestoreMetadata;
+}
+
+// Beispielhafte Annahme für MemberInfo/GuestInfo (falls nicht schon vorhanden):
+export type MemberInfo = {
+  type: "member";
+  uid: string;
+  name: string;
+};
+
+export type GuestInfo = {
+  type: "guest";
+  name: string;
+  email?: string | null;
+  consent?: boolean;
+};
+
+// +++ EINSTELLUNGS-TYPEN ZENTRAL DEFINIEREN +++
+
+// Typ für Score-Einstellungen (Wieder eingefügt)
+export type ScoreMode = "berg" | "sieg" | "schneider";
+export interface ScoreSettings {
+  values: Record<ScoreMode, number>;
+  enabled: Record<ScoreMode, boolean>;
+  isFlipped?: boolean;
+}
+
+// Typ für Strich-Einstellungen
+export interface StrokeSettings {
+  schneider: 1 | 2;
+  kontermatsch: 1 | 2;
+}
+
+// === NEU: Typ für die Schlüssel exportieren ===
+export type StrokeMode = keyof StrokeSettings;
+// === ENDE NEU ===
+
+// === NEU: Konstante für die Modi exportieren ===
+export const STROKE_MODES: StrokeMode[] = ['schneider', 'kontermatsch'];
+// === ENDE NEU ===
+
+// +++ WEITERE BENÖTIGTE TYPEN (Wieder eingefügt/Definiert) +++
+
+// Kartenstil-Definition
+export type CardStyle = "DE" | "FR";
+
+// === NEU: ID-Typen hinzufügen ===
+export type PlayerId = string; // Eindeutige ID des Player-Dokuments
+export type GroupId = string; // Eindeutige ID des Group-Dokuments
+export type UserId = string; // Eindeutige ID des Firebase Auth Users (oft gleich wie in Firestore User Doc)
+// === Ende NEU ===
+
+// Basis für Firestore Dokumente
+export interface FirebaseDocument {
+  id: string;
+  createdAt: Timestamp | FieldValue;
+  updatedAt?: Timestamp | FieldValue; 
+  metadata?: FirestoreMetadata; // Annahme: FirestoreMetadata ist jetzt definiert
+}
+
+// Typ für Timer-Snapshot
+export interface TimerSnapshot {
+  elapsedJassTime: number;
+  elapsedGameTime: number;
+  elapsedRoundTime: number;
+  totalPausedTime: number;
+}
+
+// Typ für Spieler-Info (Annahme: MemberInfo/GuestInfo sind jetzt definiert)
+export type PlayerInfo = MemberInfo | GuestInfo | null;
+export type GamePlayers = {
+  1: PlayerInfo;
+  2: PlayerInfo;
+  3: PlayerInfo;
+  4: PlayerInfo;
+};
+
+// +++ BESTEHENDE TYPEN (Rest der Datei) +++
+
+// Basis-Typen
 export type TeamPosition = "top" | "bottom";
 export type PlayerNumber = 1 | 2 | 3 | 4;
 export type PlayerNames = {
@@ -201,6 +294,11 @@ export interface JassRoundEntry extends BaseRoundEntry {
 // Der vereinigte Typ
 export type RoundEntry = WeisRoundEntry | JassRoundEntry;
 
+// NEU: Type Guard Funktion
+export const isJassRoundEntry = (entry: RoundEntry): entry is JassRoundEntry => {
+  return entry.actionType === 'jass';
+};
+
 export type FarbeMode =
   | "misère"
   | "eicheln"
@@ -213,41 +311,44 @@ export type FarbeMode =
   | "quer"
   | "slalom";
 
+/**
+ * Repräsentiert die eindeutigen IDs der verschiedenen Farbmodi/Trumpfarten.
+ */
+export type FarbeModeId = FarbeMode;
+export type FarbeModeKey = FarbeModeId | 'obeabe' | 'uneufe';
+
 interface EmojiStyle {
   backgroundColor: string;
 }
 
+/**
+ * Konfiguration für einen einzelnen Farbmodus.
+ */
 export interface FarbeSettingsConfig {
-  id: FarbeMode;
+  id: FarbeModeKey; // Verwende den neuen Typ
   name: string;
   multiplier: number;
   order: number;
-  emojiStyle: {
-    backgroundColor: string;
-  };
-  frStyle: {
-    backgroundColor: string;
-  };
-  standardStyle: {
-    backgroundColor: string;
-  };
+  emojiStyle?: Record<string, string>;
+  standardStyle?: Record<string, string>;
+  frStyle?: Record<string, string>;
+}
+
+/**
+ * Typ für die Einstellungen der Farbmodi (Multiplikatoren).
+ * Wird in config/FarbeSettings.ts konkretisiert.
+ */
+export type FarbeSettingsValues = Record<FarbeModeKey, number>;
+
+export interface FarbeSettings {
+  values: FarbeSettingsValues;
+  cardStyle: CardStyle;
 }
 
 export interface SettingsTemplate<T> {
   values: T;
   isFlipped: boolean;
   isEnabled?: Record<string, boolean>;
-}
-
-export interface FarbeSettings extends SettingsTemplate<number[]> {
-  values: number[];
-  isFlipped: boolean;
-}
-
-export interface ScoreSettingsValues {
-  values: Record<ScoreMode, number>;
-  enabled: Record<ScoreMode, boolean>;
-  isFlipped: boolean;
 }
 
 export interface PlayerStats {
@@ -429,7 +530,7 @@ export interface GameState {
   isGameCompleted: boolean;
   isRoundCompleted: boolean;
   farbeSettings: FarbeSettings;
-  scoreSettings: ScoreSettingsValues;
+  scoreSettings: ScoreSettings;
   playerNames: PlayerNames;
   gamePlayers: GamePlayers | null;
   currentHistoryIndex: number;
@@ -494,7 +595,7 @@ export interface GameActions {
   resetGameState: (playerNumber?: PlayerNumber) => void;
   rebuildStateFromHistory: (index: number) => void;
   setPlayers: (newPlayers: PlayerNames) => void;
-  setScoreSettings: (settings: ScoreSettingsValues) => void;
+  setScoreSettings: (settings: ScoreSettings) => void;
   setFarbeSettings: (settings: FarbeSettings) => void;
   getPlayerName: (playerNumber: PlayerNumber) => string;
 }
@@ -695,11 +796,6 @@ export interface SettingsTab {
   title: string;
 }
 
-export interface ScoreSettings {
-  values: Record<ScoreMode, number>;
-  enabled: Record<ScoreMode, boolean>;
-}
-
 // Neue Types für Piktogramm-Settings
 export interface PictogramConfig {
   isEnabled: boolean;
@@ -713,151 +809,64 @@ export interface SettingsState {
   pictogramConfig: PictogramConfig;
 }
 
-export type ScoreMode = "berg" | "sieg" | "schneider";
+// +++ FirestorePlayer ZENTRAL DEFINIEREN +++
+export interface FirestorePlayer extends FirebaseDocument { // Stelle sicher, dass 'export' davor steht
+  nickname: string;
+  userId: string | null; // Verknüpfung zum Auth User
+  email?: string | null; // <-- HIER FEHLTE EMAIL
+  displayName?: string | null; // <-- HIER FEHLTE DISPLAYNAME
+  isGuest: boolean;
+  groupIds: string[];
+  stats?: { // stats ist optional
+    gamesPlayed: number;
+    wins: number;
+    totalScore: number;
+  };
+  // --- Hinzugefügte Felder basierend auf authService.ts Fehlern ---
+  lastActiveGroupId?: string | null; // Optional, kann null sein
+  statusMessage?: string | null;   // Optional, kann null sein
+  playerId?: string | null;      // Optional, Verknüpfung zum Spieler-Profil (falls separates Dokument)
+  preferences?: {              // Optionales Objekt für Einstellungen
+    theme?: 'light' | 'dark' | 'system';
+    notifications?: boolean;
+    // Weitere Präferenzen hier...
+  };
+  photoURL?: string | null; // Hinzugefügt, da in createOrUpdateFirestoreUser verwendet
+  lastLogin?: FieldValue | Timestamp; // Hinzugefügt, da in createOrUpdateFirestoreUser verwendet
+  // Optional: lastUpdated, wenn es konsistent verwendet wird
+  lastUpdated?: FieldValue | Timestamp;
+  // --------------------------------------------------------------
+}
 
-// Basis-Konfiguration ohne Runtime-States
-export interface ScoreSettingsConfig {
-  id: ScoreMode;
+// +++ FirestoreGroup ZENTRAL DEFINIEREN (KORREKT EINGEFÜGT) +++
+export interface FirestoreGroup extends FirebaseDocument {
   name: string;
-  defaultValue: number;
-  maxValue: number;
-  order: number;
+  description: string | null;
+  logoUrl: string | null;
+  createdBy: string; // User ID of creator
+  adminIds: string[]; // User IDs
+  playerIds: string[]; // Player IDs
+  isPublic: boolean;
+  
+  // Einstellungen als optionale Felder mit Partial für Flexibilität
+  farbeSettings?: Partial<FarbeSettings>;
+  scoreSettings?: Partial<ScoreSettings>;
+  strokeSettings?: Partial<StrokeSettings>;
+  
+  // Optional: Zusätzliche Felder aus der alten group.ts Definition (falls benötigt)
+  players?: { // Beispielhaft hinzugefügt, falls benötigt
+    [key: string]: {
+      displayName: string;
+      email: string;
+      joinedAt: Timestamp;
+    };
+  };
+  gameCount?: number;
+  // ... weitere Felder aus group.ts bei Bedarf ...
 }
 
-// HTML2Canvas Options Type
-export interface Html2CanvasOptions {
-  background?: string;
-  scale?: number;
-  width?: number;
-  height?: number;
-  scrollX?: number;
-  scrollY?: number;
-  windowWidth?: number;
-  windowHeight?: number;
-  x?: number;
-  y?: number;
-}
-// Kartenstil-Definition
-export type CardStyle = "DE" | "FR";
+export type ChargeLevel = "none" | "low" | "medium" | "high" | "super" | "extreme";
 
-// Beziehung zwischen den Kartensymbolen in verschiedenen Stilen
-export interface CardSymbol {
-  DE: string;
-  FR: string;
-}
-
-// Mapping der Kartensymbole für alle Farben
-export type CardStyleMappings = {
-  [Color in JassColor]: CardSymbol;
-};
-
-// Neue Type für Store-Updates
-export interface StoreUpdate {
-  gameState?: Partial<GameState>;
-  jassState?: Partial<JassState>;
-}
-
-// Tutorial-bezogene Types
-export interface TutorialOverlayProps {
-  onCloseMenu: () => void;
-}
-
-// Neue Basis-Types für Sprüche (nach den existierenden Types)
-export interface SpruchMitIcon {
-  text: string;
-  icon: string;
-}
-
-// 2. Basis-Types für Spiellogik und Berechnungen
-export interface StricheCount {
-  normal: number;
-  matsch: number;
-  sieg?: number;
-}
-
-// Abgeleitet von StricheCount
-export type StricheKategorie = keyof Omit<StricheCount, "sieg">;
-
-// Hilfs-Interface für Sprüche-Sammlung
-export interface Sprueche {
-  [key: string]: SpruchMitIcon;
-}
-
-// 3. Basis-Parameter für Sprüche
-export interface JassSpruchBaseParams {
-  stricheDifference: number;
-  pointDifference: number;
-  winnerNames: string[];
-  loserNames: string[];
-  isUnentschieden: boolean;
-  isStricheMode: boolean;
-  type: GameEndType;
-  isSchneider: boolean;
-  totalMatsche: number;
-}
-
-// 4. Gemeinsame Types für Kategorisierung
-export type GameEndType = "gameEnd" | "jassEnd";
-
-// Neue Timer-bezogene Types
-export interface TimerAnalytics {
-  totalJassTime: number; // Gesamtdauer des Jass
-  currentGameDuration: number; // Dauer des aktuellen Spiels
-}
-
-// Neue Types für das Charge-System
-export type ChargeLevel =
-  | "none"
-  | "low"
-  | "medium"
-  | "high"
-  | "super"
-  | "extreme";
-
-export interface ChargeState {
-  isCharging: boolean;
-  chargeStartTime: number | null;
-  chargeLevel: ChargeLevel;
-}
-
-export type EffectType = "rain" | "explosion" | "cannon" | "firework";
-
-export interface EffectParams {
-  y: number;
-  gravity: number;
-  startVelocity: number;
-  spread: number;
-}
-
-export interface EffectConfig {
-  chargeLevel: ChargeLevel;
-  team: TeamPosition;
-  isFlipped?: boolean;
-  type: "berg" | "sieg";
-  effectType: EffectType;
-}
-
-// Konstanten für das Charge-System
-export const CHARGE_THRESHOLDS = {
-  low: 300, // 0.8 Sekunden - Minimale Schwelle für Effekt
-  medium: 1000, // 1.5 Sekunden
-  high: 2000, // 2.5 Sekunden
-  super: 3000, // 4 Sekunden
-  extreme: 5000, // 6 Sekunden
-} as const;
-
-// Type Guard für ChargeLevel
-export const isValidChargeLevel = (level: string): level is ChargeLevel => {
-  return ["none", "low", "medium", "high", "super", "extreme"].includes(level);
-};
-
-// Bestehende ChargeLevel Type erweitern
-export type ChargeDuration = {
-  duration: number;
-  level: ChargeLevel;
-};
-
-// Bestehende ChargeButtonProps anpassen
 export interface ChargeButtonActionProps {
   chargeDuration: {
     duration: number;
@@ -868,223 +877,69 @@ export interface ChargeButtonActionProps {
   isActivating: boolean;
 }
 
-export interface TimerSnapshot {
-  elapsedJassTime: number;
-  elapsedGameTime: number;
-  elapsedRoundTime: number;
-  totalPausedTime: number;
+// +++ NEUE DEFINITIONEN FÜR EFFEKTE +++
+
+export type EffectType = "rain" | "explosion" | "cannon" | "firework"; // Zurück verschoben und exportiert
+
+export interface EffectConfig {
+  chargeLevel: ChargeLevel;
+  team: TeamPosition;
+  isFlipped?: boolean;
+  effectType: EffectType; // Typ hinzugefügt
 }
 
-// Füge eine Hilfsfunktion für initiales GameState hinzu
-export const createInitialGameState = (
-  initialPlayer: PlayerNumber,
-  playerNames: PlayerNames,
-): GameState => ({
-  currentPlayer: initialPlayer,
-  startingPlayer: initialPlayer,
-  initialStartingPlayer: initialPlayer,
-  isGameStarted: false,
-  currentRound: 1,
-  weisPoints: { top: 0, bottom: 0 },
-  jassPoints: { top: 0, bottom: 0 },
-  scores: { top: 0, bottom: 0 },
-  striche: {
-    top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
-    bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
-  },
-  roundHistory: [],
-  currentRoundWeis: [],
-  isGameCompleted: false,
-  isRoundCompleted: false,
-  // Verwende die importierten Default-Settings für die Initialisierung
-  scoreSettings: { ...DEFAULT_SCORE_SETTINGS },
-  farbeSettings: { ...DEFAULT_FARBE_SETTINGS },
-  playerNames,
-  currentHistoryIndex: -1, // Korrigierter Initialwert für History Index
-  historyState: createInitialHistoryState(),
-  gamePlayers: null,
-});
+export const CHARGE_THRESHOLDS: Record<ChargeLevel, number> = {
+  none: 0,
+  low: 500,      // Beispielwerte, bitte prüfen!
+  medium: 1500,
+  high: 3000,
+  super: 5000,
+  extreme: 8000,
+} as const;
 
-// NEU: Type Guard Funktionen hinzufügen (keine bestehenden Definitionen betroffen)
-export const isJassRoundEntry = (
-  entry: RoundEntry,
-): entry is JassRoundEntry => {
-  return entry.actionType === "jass";
-};
+// NEU: EffectParams hinzufügen und exportieren
+export interface EffectParams {
+  y: number;
+  gravity: number;
+  startVelocity: number;
+  spread: number;
+}
 
-export const isWeisRoundEntry = (
-  entry: RoundEntry,
-): entry is WeisRoundEntry => {
-  return entry.actionType === "weis";
-};
+// NEU: GameEndType definieren und exportieren
+export type GameEndType = "gameEnd" | "jassEnd";
 
-// Auth-bezogene Typen
-export type AuthStatus =
-  | "idle"
-  | "loading"
-  | "authenticated"
-  | "unauthenticated"
-  | "error";
+// TimerAnalytics exportieren - Korrigierte, einfache Struktur!
+export interface TimerAnalytics { 
+  totalJassTime: number;
+  currentGameDuration: number; // Nur diese beiden Felder werden zurückgegeben
+}
 
-export interface AuthUser {
-  uid: string;
-  email: string | null;
-  displayName: string | null;
-  photoURL: string | null;
-  emailVerified: boolean;
-  isAnonymous: boolean;
-  statusMessage?: string | null;
-  metadata: {
-    creationTime?: string;
-    lastSignInTime?: string;
+// NEU: CardStyleMappings definieren und exportieren
+export type CardStyleMappings = {
+  readonly [key in JassColor]: {
+    readonly DE: string;
+    readonly FR: string;
   };
-  lastActiveGroupId?: string | null;
-  playerId?: string | null;
-}
-
-// Online-Offline Modus
-export type AppMode = "offline" | "online";
-
-// Kombinierter User-Context
-export interface UserContext {
-  authUser: AuthUser | null;
-  player: FirestorePlayer | null;
-  isLoading: boolean;
-  error: string | null;
-}
-
-// FirestoreMetadata als generischer Typ für Metadaten
-export interface FirestoreMetadata {
-  [key: string]:
-    | string
-    | number
-    | boolean
-    | null
-    | Timestamp
-    | FieldValue
-    | FirestoreMetadata;
-}
-
-// Firestore User Document Structure
-export interface FirestoreUser {
-  uid: string;
-  email: string;
-  displayName: string | null;
-  photoURL: string | null;
-  playerId?: string | null;
-  lastActiveGroupId?: string | null;
-  statusMessage?: string | null;
-  preferences?: {
-    theme: string;
-    notifications: boolean;
-  };
-  createdAt?: FieldValue;
-  lastLogin?: FieldValue;
-  lastUpdated?: FieldValue;
-}
-
-export interface FirestorePlayer {
-  id: string;
-  nickname: string;
-  userId: string | null;
-  isGuest: boolean;
-  createdAt: Timestamp | FieldValue;
-  updatedAt?: Timestamp | FieldValue;
-  groupIds: string[];
-  stats: {
-    gamesPlayed: number;
-    wins: number;
-    totalScore: number;
-  };
-  metadata?: FirestoreMetadata;
-}
-
-export interface FirestoreGroup {
-  id: string;
-  name: string;
-  description: string | null;
-  logoUrl: string | null;
-  createdAt: Timestamp | FieldValue;
-  createdBy: string;
-  adminIds: string[];
-  playerIds: string[];
-  metadata?: FirestoreMetadata;
-}
-
-export interface FirestoreTeam {
-  id: string;
-  player1Id: string;
-  player2Id: string;
-  groupId: string;
-  createdAt: Timestamp | FieldValue;
-  metadata?: FirestoreMetadata;
-}
-
-export interface FirestoreGame {
-  id: string;
-  sessionId: string;
-  groupId: string;
-  team1Id: string;
-  team2Id: string;
-  startTime: Timestamp | FieldValue;
-  endTime: (Timestamp | FieldValue) | null;
-  startingPlayer: PlayerNumber;
-  currentRound: number;
-  isCompleted: boolean;
-  scores: {
-    team1: {
-      striche: StricheRecord;
-      jassPoints: number;
-      weisPoints: number;
-    };
-    team2: {
-      striche: StricheRecord;
-      jassPoints: number;
-      weisPoints: number;
-    };
-  };
-  metadata?: FirestoreMetadata;
-}
-
-interface NotificationAction {
-  label: string;
-  onClick: () => void;
-  className?: string; // Optionale className-Eigenschaft hinzufügen
-}
-
-// Typdefinitionen für Jass-Gruppen
-export interface JassGroup {
-  id: string;
-  name: string;
-  description?: string;
-  statusMessage?: string; // Optionaler Gruppen-Jasspruch/Status hinzugefügt
-  logoUrl?: string | null;
-  adminIds: string[];
-  playerIds: string[];
-  createdAt: FieldValue | Timestamp;
-  // Weitere gruppenspezifische Felder...
-}
-
-// +++ NEUE TYPEN für Spieler-Info (Mitglied/Gast) +++
-export type MemberInfo = {
-  type: "member";
-  uid: string;
-  name: string;
 };
 
-export type GuestInfo = {
-  type: "guest";
-  name: string;
-  email?: string | null; // Optional, für spätere Einladung
-  consent?: boolean; // Optional, für Einwilligung zur E-Mail-Speicherung
-};
-
-export type PlayerInfo = MemberInfo | GuestInfo | null;
-
-export type GamePlayers = {
-  1: PlayerInfo;
-  2: PlayerInfo;
-  3: PlayerInfo;
-  4: PlayerInfo;
-};
-// +++ ENDE NEUE TYPEN +++
+// NEU: JassSpruchParams exportieren (Definition existiert wahrscheinlich schon)
+export interface JassSpruchParams extends Pick<TeamCalculationResult,
+  "stricheDifference" |
+  "pointDifference" |
+  "winnerNames" |
+  "loserNames" |
+  "totalMatsche" |
+  "gameStats" |
+  "gesamtStand" |
+  "previousGesamtStand"
+> {
+  isUnentschieden: boolean;
+  isStricheMode: boolean;
+  type: GameEndType;
+  timerAnalytics: TimerAnalytics;
+  isSchneider: boolean;
+  matchCount: {
+    team1: number;
+    team2: number;
+  };
+}

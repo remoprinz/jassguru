@@ -1,7 +1,7 @@
 import confetti from "canvas-confetti";
-import type {ChargeLevel, EffectConfig} from "../../types/jass";
-import {getEffectParams} from "../../utils/effectUtils";
-import {CHARGE_THRESHOLDS} from "../../types/jass";
+import type {ChargeLevel, EffectConfig} from "@/types/jass";
+import {getEffectParams} from "@/utils/effectUtils";
+import {CHARGE_THRESHOLDS} from "@/types/jass";
 
 export function createBergConfetti(x: number, y: number, gravity: number, chargeLevel: ChargeLevel) {
   const intensity = getConfettiIntensity(chargeLevel);

@@ -70,7 +70,7 @@ export function useGlobalClick({
       globalClickState.isProcessingDoubleClick = true;
 
       // Setze einen Klick-Lock für eine kurze Zeit, um zu verhindern, dass weitere Klicks verarbeitet werden
-      globalClickState.lockUntil = now + 500; // 500ms Sperre
+      globalClickState.lockUntil = now + 250; 
 
       lastClickRef.current = 0;
       setLastDoubleClickPosition(position);

@@ -1,23 +1,23 @@
 import React, {useState, useEffect} from "react";
 import {animated, useSpring} from "react-spring";
 import {FiRotateCcw, FiX, FiPlay, FiPause} from "react-icons/fi";
-import {useGameStore} from "../../store/gameStore";
-import {useJassStore} from "../../store/jassStore";
-import {formatDuration} from "../../utils/timeUtils";
+import {useGameStore} from "@/store/gameStore";
+import {useJassStore} from "@/store/jassStore";
+import {formatDuration} from "@/utils/timeUtils";
 import MultiplierCalculator, {useMultiplierStore} from "./MultiplierCalculator";
-import {ChargeButton} from "../ui/ChargeButton";
+import {ChargeButton} from "@/components/ui/ChargeButton";
 import type {
   PlayerNumber,
   ChargeLevel,
   ChargeButtonActionProps,
-} from "../../types/jass";
-import {useUIStore} from "../../store/uiStore";
-import {useTimerStore} from "../../store/timerStore";
-import {useTutorialStore} from "../../store/tutorialStore";
-import {TUTORIAL_STEPS} from "../../types/tutorial";
-import {getRandomBedankenSpruch} from "../../utils/sprueche/bedanken";
-import {getRandomBergSpruch} from "../../utils/sprueche/berg";
-import {useDeviceScale} from "../../hooks/useDeviceScale";
+} from "@/types/jass";
+import {useUIStore} from "@/store/uiStore";
+import {useTimerStore} from "@/store/timerStore";
+import {useTutorialStore} from "@/store/tutorialStore";
+import {TUTORIAL_STEPS} from "@/types/tutorial";
+import {getRandomBedankenSpruch} from "@/utils/sprueche/bedanken";
+import {getRandomBergSpruch} from "@/utils/sprueche/berg";
+import {useDeviceScale} from "@/hooks/useDeviceScale";
 
 interface GameInfoOverlayProps {
   isOpen: boolean;
@@ -98,7 +98,15 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
 
     // Beim Schließen den Multiplikator auf den höchsten Wert zurücksetzen
     const {values} = useUIStore.getState().farbeSettings;
-    const highestMultiplier = Math.max(...Object.values(values).filter((m) => m > 1));
+    
+    // Korrigierter Code:
+    // 1. Sicherstellen, dass nur Zahlen > 1 betrachtet werden
+    const validMultipliers = Object.values(values)
+                                   .filter((v): v is number => typeof v === 'number' && v > 1);
+
+    // 2. Den höchsten Wert finden oder einen Standardwert (z.B. 1) nehmen, wenn keine gültigen Werte > 1 existieren
+    const highestMultiplier = validMultipliers.length > 0 ? Math.max(...validMultipliers) : 1;
+    
     useMultiplierStore.setState({currentMultiplier: highestMultiplier});
 
     onClose();

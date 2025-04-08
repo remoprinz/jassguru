@@ -1,10 +1,11 @@
-import type {SpruchMitIcon, JassSpruchBaseParams} from "../../../../types/jass";
-import {useJassStore} from "../../../../store/jassStore";
-import {useGameStore} from "../../../../store/gameStore";
-import {aggregateStricheTotal} from "../../../stricheCalculations";
+import type {SpruchMitIcon} from "@/types/sprueche";
+import type {JassSpruchParams} from "@/types/jass";
+import {useJassStore} from "@/store/jassStore";
+import {useGameStore} from "@/store/gameStore";
+import {aggregateStricheTotal} from "@/utils/stricheCalculations";
 
 // Erweitern der Basis-Parameter um Match-spezifische Daten
-interface MatchSpruchParams extends JassSpruchBaseParams {
+interface MatchSpruchParams extends JassSpruchParams {
   type: "gameEnd" | "jassEnd";
   winnerNames: string[]; // Wird vom aufrufenden Code befüllt, wenn man's braucht
   loserNames: string[]; // ""
@@ -13,6 +14,10 @@ interface MatchSpruchParams extends JassSpruchBaseParams {
   // > 0 => Team 2 (top) hat mehr Striche => Team 2 gewinnt
   // < 0 => Team 1 (bottom) hat mehr Striche => Team 1 gewinnt
   // = 0 => Unentschieden
+  matchCount: {
+    team1: number;
+    team2: number;
+  };
 }
 
 // Hilfsfunktion für zufällige Spruchauswahl

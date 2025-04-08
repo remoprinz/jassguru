@@ -1,47 +1,37 @@
 import React, { useCallback, useMemo, useRef, useEffect, useState } from 'react';
-import { useUIStore, UIStore } from '../../store/uiStore';
-import { useGameStore } from '../../store/gameStore';
+import { useUIStore, UIStore } from '@/store/uiStore';
+import { useGameStore } from '@/store/gameStore';
 import { FiX, FiRotateCcw, FiSkipBack } from 'react-icons/fi';
 import { format } from 'date-fns';
 // Bereinigter Import für jass.ts Typen
 import type { 
   GameStore, 
-  StricheCount, 
   TeamPosition, 
   StricheRecord,
   JassStore,
   PlayerNumber, 
   GameEntry
-} from '../../types/jass';
+} from '@/types/jass';
 // Regulärer Import für die Funktion
-import { determineNextStartingPlayer } from '../../types/jass';
-import { STATISTIC_MODULES } from '../../statistics/registry';
-import { StricheStatistik } from '../../statistics/StricheStatistik';
-import { JasspunkteStatistik } from '../../statistics/JasspunkteStatistik';
-import { useJassStore } from '../../store/jassStore';
+import { determineNextStartingPlayer } from '@/types/jass';
+import { STATISTIC_MODULES } from '@/statistics/registry';
+import { StricheStatistik } from '@/statistics/StricheStatistik';
+import { JasspunkteStatistik } from '@/statistics/JasspunkteStatistik';
+import { useJassStore } from '@/store/jassStore';
 // Bereinigter Import für react-spring
 import { useSpring, animated } from 'react-spring';
 import html2canvas from 'html2canvas';
-import { useTimerStore } from '../../store/timerStore';
-import { usePressableButton } from '../../hooks/usePressableButton';
+import { useTimerStore } from '@/store/timerStore';
+import { usePressableButton } from '@/hooks/usePressableButton';
 import JassFinishNotification from '../notifications/JassFinishNotification';
-import { useTutorialStore } from '../../store/tutorialStore';
-import { TUTORIAL_STEPS } from '../../types/tutorial';
-import { getJassSpruch } from '../../utils/jasssprueche';
-import { calculateTeamStats } from '../../utils/teamCalculations';
-import { getNormalStricheCount } from '../../utils/stricheCalculations';
-import { useDeviceScale } from '../../hooks/useDeviceScale';
+import { useTutorialStore } from '@/store/tutorialStore';
+import { TUTORIAL_STEPS } from '@/types/tutorial';
+import { getJassSpruch } from '@/utils/jasssprueche';
+import { calculateTeamStats } from '@/utils/teamCalculations';
+import { getNormalStricheCount } from '@/utils/stricheCalculations';
+import { useDeviceScale } from '@/hooks/useDeviceScale';
 import { ArrowLeft, ArrowRight, Share } from 'lucide-react';
 import { useSwipeable } from 'react-swipeable';
-
-// Record Type für Team-Striche (verwendet importierte Types)
-type TeamStricheRecord = Record<TeamPosition, StricheCount>;
-
-// Initial-Werte mit korrekten Types
-const initialStriche: TeamStricheRecord = {
-  top: { normal: 0, matsch: 0 },
-  bottom: { normal: 0, matsch: 0 }
-};
 
 const PlayerName: React.FC<{ 
   name: string, 
@@ -703,15 +693,15 @@ const ResultatKreidetafel = () => {
     },
     currentStriche: {
       team1: {
-        normal: uiStriche.top.normal,
-        matsch: uiStriche.top.matsch
+        ...storeStriche.top,
+        sieg: getNormalStricheCount(storeStriche.top)
       },
       team2: {
-        normal: uiStriche.bottom.normal,
-        matsch: uiStriche.bottom.matsch
+        ...storeStriche.bottom,
+        sieg: getNormalStricheCount(storeStriche.bottom)
       }
     }
-  }), [currentTotals, currentGameId, games.length, playerNames, currentStatistic, uiStriche]);
+  }), [currentTotals, currentGameId, games.length, playerNames, currentStatistic, uiStriche, storeStriche]);
 
   const handleBeendenClick = useCallback(() => {
     const uiStore = useUIStore.getState();

@@ -18,7 +18,7 @@ import {
 import {Button} from "@/components/ui/button";
 import {Check, ChevronsUpDown, UserPlus} from "lucide-react";
 import {cn} from "@/lib/utils";
-import type {FirestoreGroup} from "@/types/group";
+import type {FirestoreGroup} from "@/types/jass";
 import type {MemberInfo, PlayerInfo, PlayerNumber} from "@/types/jass";
 
 interface PlayerSelectPopoverProps {
@@ -50,7 +50,7 @@ export const PlayerSelectPopover: React.FC<PlayerSelectPopoverProps> = ({
       .map(([uid, playerData]): MemberInfo => ({
         type: "member",
         uid: uid,
-        name: playerData.displayName || "Unbekannt",
+        name: (playerData as { displayName?: string })?.displayName || "Unbekannt",
       }))
       .filter((member) => !selectedMemberIds.includes(member.uid));
   }, [group, currentSelection]);

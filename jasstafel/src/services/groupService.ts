@@ -19,7 +19,7 @@ import {
   PLAYERS_COLLECTION,
   // USERS_COLLECTION <-- Removed unused import
 } from "../constants/firestore";
-import {FirestoreGroup} from "../types/group";
+import type { FirestoreGroup } from "@/types/jass"; // Korrigierter Import
 // Importiere die Funktion zum Sicherstellen des Players (wird in Phase 2.2 erstellt/refaktorisiert)
 import {getPlayerIdForUser, getPlayerDocument} from "./playerService";
 // Importiere die neue Funktion zum Aktualisieren des Benutzerdokuments
@@ -36,6 +36,8 @@ import {
 import {useGroupStore} from "@/store/groupStore"; // Importiere den GroupStore
 import {useAuthStore} from "@/store/authStore"; // Importiere den AuthStore
 import { addDoc, arrayUnion, arrayRemove, Timestamp, documentId, runTransaction } from "firebase/firestore"; // documentId hier hinzugefügt, arrayRemove und runTransaction importiert
+import { DEFAULT_FARBE_SETTINGS } from "@/config/FarbeSettings"; // Nur die Konstante von hier
+import type { FarbeSettings, StrokeSettings, ScoreSettings, PlayerId, GroupId } from "@/types/jass"; 
 
 /**
  * Erstellt eine neue Jassgruppe in Firestore.
@@ -180,8 +182,18 @@ export const getGroupById = async (groupId: string): Promise<FirestoreGroup | nu
     const groupSnap = await getDoc(groupRef);
 
     if (groupSnap.exists()) {
-      // Wichtig: ID manuell hinzufügen, da sie nicht im Dokument selbst gespeichert ist
-      return {id: groupSnap.id, ...groupSnap.data()} as FirestoreGroup;
+      // Expliziter Typ für groupData
+      const groupData = groupSnap.data() as Partial<FirestoreGroup>; 
+      // Stelle sicher, dass farbeSettings vorhanden sind oder setze Default
+      const farbeSettings = groupData.farbeSettings ?? DEFAULT_FARBE_SETTINGS;
+
+      // Kombiniere ID, Daten und farbeSettings - explizite Typzuweisung
+      const finalGroup: FirestoreGroup = {
+        id: groupSnap.id,
+        ...groupData, // Spread des Partial<FirestoreGroup>
+        farbeSettings: farbeSettings
+      } as FirestoreGroup; // Cast am Ende beibehalten
+      return finalGroup;
     } else {
       console.log(`Gruppe mit ID ${groupId} nicht gefunden.`);
       return null;
@@ -447,7 +459,7 @@ export const uploadGroupLogo = async (groupId: string, file: File): Promise<stri
         console.log(`GroupService: User groups reloaded for ${authState.user.uid}.`);
         // Stelle sicher, dass die gerade aktualisierte Gruppe auch die aktive ist
         const reloadedGroup = useGroupStore.getState().userGroups.find((g) => g.id === groupId) || null;
-        useGroupStore.getState().setCurrentGroup(reloadedGroup);
+        useGroupStore.getState().setCurrentGroup(reloadedGroup as any); // Typ-Assertion hinzugefügt
         console.log("GroupService: Set current group after reload to:", reloadedGroup?.name);
       } catch (reloadError) {
         console.error("GroupService: Fehler beim Neuladen der Gruppen nach Logo-Upload:", reloadError);
@@ -593,6 +605,48 @@ export const updateGroupMemberRole = async (
         throw error; // Spezifischen Fehler weitergeben
     }
     throw new Error("Die Mitgliedsrolle konnte nicht aktualisiert werden.");
+  }
+};
+
+/**
+ * Aktualisiert spezifische Einstellungen einer Gruppe in Firestore.
+ * Derzeit unterstützt: name, description, isPublic, farbeSettings.
+ *
+ * @param groupId Die ID der zu aktualisierenden Gruppe.
+ * @param settings Ein Objekt mit den zu aktualisierenden Einstellungen.
+ * @throws Wirft Fehler, wenn Firestore nicht initialisiert ist oder das Update fehlschlägt.
+ */
+export const updateGroupSettings = async (
+  groupId: string,
+  settings: Partial<Pick<FirestoreGroup, 'name' | 'description' | 'isPublic' | 'farbeSettings'>>
+): Promise<void> => {
+  if (!db) throw new Error("Firestore ist nicht initialisiert.");
+  if (!groupId) throw new Error("Gruppen-ID fehlt.");
+  if (!settings || Object.keys(settings).length === 0) {
+    console.warn("updateGroupSettings ohne Einstellungen aufgerufen.");
+    return;
+  }
+
+  const groupRef = firestoreDoc(db, GROUPS_COLLECTION, groupId);
+
+  const updateData: Partial<FirestoreGroup> & { updatedAt: Timestamp } = {
+    ...settings,
+    updatedAt: serverTimestamp() as unknown as Timestamp,
+  };
+
+  Object.keys(updateData).forEach(key => {
+    if (updateData[key as keyof typeof updateData] === undefined) {
+      delete updateData[key as keyof typeof updateData];
+    }
+  });
+
+  try {
+    console.log(`Aktualisiere Gruppe ${groupId} mit Einstellungen:`, updateData);
+    await updateDoc(groupRef, updateData);
+    console.log(`Gruppe ${groupId} erfolgreich aktualisiert.`);
+  } catch (error) {
+    console.error(`Fehler beim Aktualisieren der Gruppe ${groupId}:`, error);
+    throw new Error("Fehler beim Aktualisieren der Gruppeneinstellungen.");
   }
 };
 

@@ -1,18 +1,23 @@
-import type {ScoreMode, ScoreSettingsConfig} from "../types/jass";
-
-// Basis-Konstanten
-export const MAX_SCORE = 157;
-export const MATSCH_SCORE = 257;
-
-// Score Settings Interface (falls noch nicht in types/jass.ts definiert)
-export interface ScoreSettings {
-  values: Record<ScoreMode, number>;
-  enabled: Record<ScoreMode, boolean>;
-  isFlipped: boolean;
+// Definiere ScoreSettingsConfig lokal in dieser Datei
+interface ScoreSettingsConfig {
+  id: ScoreMode;
+  name: string;
+  defaultValue: number;
+  maxValue: number;
+  order: number;
 }
 
-// Basis-Konfiguration mit strikter Typisierung
-export const SCORE_MODES: ScoreSettingsConfig[] = [
+// Importiere Typen mit Alias-Pfad
+import type { ScoreMode, ScoreSettings, StrokeSettings } from "@/types/jass";
+
+// Maximale Punktzahl pro Runde (ausser Match)
+export const MAX_SCORE = 157;
+
+// Punktzahl für einen Match
+export const MATSCH_SCORE = 257;
+
+// SCORE_MODES verwendet jetzt die lokale ScoreSettingsConfig
+export const SCORE_MODES: readonly ScoreSettingsConfig[] = [
   {
     id: "sieg",
     name: "Sieg",
@@ -34,7 +39,7 @@ export const SCORE_MODES: ScoreSettingsConfig[] = [
     maxValue: 5000,
     order: 3,
   },
-] as const;
+];
 
 // Style-Konfiguration bleibt
 export const SCORE_STYLES: Record<ScoreMode, string> = {
@@ -43,28 +48,41 @@ export const SCORE_STYLES: Record<ScoreMode, string> = {
   schneider: "bg-yellow-500 group-[.has-active]:bg-gray-600/75 group-[.active]:!bg-yellow-500",
 } as const;
 
-// Default Score Settings
+// +++ NEUE DEFAULTS (korrigiert) +++
 export const DEFAULT_SCORE_SETTINGS: ScoreSettings = {
-  values: {
-    sieg: SCORE_MODES[0].defaultValue,
-    berg: SCORE_MODES[1].defaultValue,
-    schneider: SCORE_MODES[2].defaultValue,
-  },
+  values: SCORE_MODES.reduce((acc, mode) => {
+    acc[mode.id as ScoreMode] = mode.defaultValue ?? (mode.id === 'sieg' ? 2000 : 1000);
+    return acc;
+  }, {} as Record<ScoreMode, number>),
   enabled: {
     sieg: true,
     berg: true,
     schneider: true,
   },
-  isFlipped: false,
-} as const;
+};
 
-// Optimierte Hilfsfunktionen
+export const DEFAULT_STROKE_SETTINGS: StrokeSettings = {
+  schneider: 1,
+  kontermatsch: 1,
+};
+// +++ ENDE NEUE DEFAULTS +++
+
+// Bestehende Hilfsfunktionen (unverändert lassen)
 export const getScoreModeConfig = (mode: ScoreMode): ScoreSettingsConfig => {
   const config = SCORE_MODES.find((m) => m.id === mode);
   if (!config) {
-    throw new Error(`Ungültiger Score-Mode: ${mode}`);
+    throw new Error(`Ungültiger ScoreMode: ${mode}`);
   }
   return config;
+};
+
+export const getScoreModeValue = (mode: ScoreMode, settings: ScoreSettings): number => {
+  return settings.values[mode] ?? getScoreModeConfig(mode).defaultValue;
+};
+
+export const isScoreModeEnabled = (mode: ScoreMode, settings: ScoreSettings): boolean => {
+  if (mode === 'sieg') return true;
+  return settings.enabled[mode] ?? false;
 };
 
 // Validierungsfunktion

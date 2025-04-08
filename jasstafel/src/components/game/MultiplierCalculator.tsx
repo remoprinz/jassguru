@@ -111,10 +111,17 @@ const MultiplierCalculator: React.FC<MultiplierCalculatorProps> = ({
 
   // Aktualisiere den Multiplikator wenn sich die Farbe-Settings ändern
   useEffect(() => {
-    // Konvertiere das Record-Objekt in ein Array von Werten
-    const multiplierValues = Object.values(farbeSettings.values);
-    const highestMultiplier = Math.max(...multiplierValues.filter((m) => m > 1));
-    setMultiplier(Math.min(highestMultiplier, 8));
+    // Korrigierter Code:
+    // 1. Sicherstellen, dass nur Zahlen > 1 betrachtet werden
+    const validMultipliers = Object.values(farbeSettings.values)
+                                   .filter((v): v is number => typeof v === 'number' && v > 1);
+
+    // 2. Den höchsten Wert finden oder einen Standardwert (z.B. 1) nehmen, falls keine gültigen > 1 existieren
+    const highestValidMultiplier = validMultipliers.length > 0 ? Math.max(...validMultipliers) : 1;
+
+    // 3. Den Multiplikator setzen
+    setMultiplier(highestValidMultiplier); 
+
   }, [farbeSettings.values, setMultiplier]);
 
   return (

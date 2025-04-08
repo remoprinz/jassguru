@@ -1,4 +1,14 @@
-import type {TeamPosition, EffectType, EffectParams} from "../types/jass";
+import type {
+  TeamPosition,
+  EffectType,
+  EffectParams
+} from "@/types/jass";
+
+// Definition von EffectType hier entfernt, wird jetzt aus jass.ts importiert
+// Definition von EffectParams hier entfernt, wird jetzt aus jass.ts importiert
+
+// Konstanten für Effektpositionen
+const EFFECT_Y_TOP = 0.1;
 
 interface PerspectiveParams {
   y: number;

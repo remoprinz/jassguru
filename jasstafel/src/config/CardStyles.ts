@@ -1,4 +1,4 @@
-import type {CardStyleMappings} from "../types/jass";
+import type {CardStyleMappings} from "@/types/jass";
 
 export const CARD_SYMBOL_MAPPINGS: CardStyleMappings = {
   "Misère": {

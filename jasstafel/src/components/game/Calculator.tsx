@@ -4,7 +4,7 @@
 import React, {useState, useEffect, useCallback} from "react";
 import {useGameStore} from "../../store/gameStore";
 import {useUIStore} from "../../store/uiStore";
-import {TeamPosition, JassColor, StrichTyp, CardStyle} from "../../types/jass";
+import {TeamPosition, JassColor, StrichTyp, CardStyle, FarbeModeKey} from "../../types/jass";
 import {FiRotateCcw, FiX} from "react-icons/fi";
 import {useSpring, animated} from "react-spring";
 import {triggerMatschConfetti} from "../effects/MatschConfetti";
@@ -231,9 +231,9 @@ const Calculator: React.FC<CalculatorProps> = ({
 
   // Erweiterte Farben-Map (nur mit den wirklich benötigten Eigenschaften)
   const colorMultipliers = FARBE_MODES
-    .map((mode, index) => ({
+    .map((mode) => ({
       color: mode.name,
-      multiplier: farbeSettings.values[index],
+      multiplier: farbeSettings.values[mode.id as FarbeModeKey] ?? 0,
     }))
     .filter((item) => item.multiplier > 0)
     .sort((a, b) => a.multiplier - b.multiplier);

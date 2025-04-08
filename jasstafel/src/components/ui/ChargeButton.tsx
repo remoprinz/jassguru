@@ -4,13 +4,13 @@ import type {
   TeamPosition,
   ChargeButtonActionProps,
   EffectType,
-} from "../../types/jass";
-import {CHARGE_THRESHOLDS} from "../../types/jass";
+} from "@/types/jass";
+import {CHARGE_THRESHOLDS} from "@/types/jass";
 import {
   triggerBergConfetti,
   triggerBedankenFireworks,
-} from "../effects/effects";
-import {useUIStore} from "../../store/uiStore";
+} from "@/components/effects/effects";
+import {useUIStore} from "@/store/uiStore";
 
 interface ChargeButtonProps {
   onAction: (props: ChargeButtonActionProps) => void;
@@ -136,7 +136,6 @@ export const ChargeButton: React.FC<ChargeButtonProps> = ({
         triggerBergConfetti({
           chargeLevel: level,
           team,
-          type,
           effectType: EFFECT_TYPE_MAP[type],
           isFlipped,
         });
@@ -144,7 +143,6 @@ export const ChargeButton: React.FC<ChargeButtonProps> = ({
         triggerBedankenFireworks({
           chargeLevel: level,
           team,
-          type,
           effectType: EFFECT_TYPE_MAP[type],
           isFlipped,
         });

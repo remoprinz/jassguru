@@ -30,6 +30,8 @@ import {useDeviceScale} from "../../hooks/useDeviceScale";
 import html2canvas from "html2canvas";
 import {useAuthStore} from "../../store/authStore";
 import {BrowserOnboardingStep} from "../../constants/onboardingContent";
+import { updateUserDocument } from "../../services/authService";
+import { useGroupStore } from "@/store/groupStore";
 
 // Definiere HTML2Canvas-Optionen Typ
 interface HTML2CanvasOptions {
@@ -89,6 +91,17 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     hideOnboarding: hideOnboardingAction,
   } = useUIStore();
 
+  // Tutorial Store Hook
+  const {
+    isActive: isTutorialActive,
+    hasCompletedTutorial,
+    getCurrentStep,
+    startTutorial,
+  } = useTutorialStore();
+
+  // Debug Logging für Store-Werte direkt nach dem Hook
+  console.log(`[JassKreidetafel Init Hooks] isJassStarted: ${isJassStarted}, isGameStarted: ${isGameStarted}, isTutorialActive: ${isTutorialActive}`);
+
   const viewportHeight = useViewportHeight();
 
   // Leite den Status direkt aus dem Store ab
@@ -115,14 +128,6 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     canBeDismissed,
   } = useOnboardingFlow(isBrowserOnboardingRequired);
 
-  // Tutorial
-  const {
-    isActive: isTutorialActive,
-    hasCompletedTutorial,
-    getCurrentStep,
-    startTutorial,
-  } = useTutorialStore();
-
   // Auth-Status abrufen
   const {isAuthenticated} = useAuthStore();
 
@@ -140,7 +145,12 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     }
   }, [isBrowserOnboardingRequired, showOnboardingAction, hideOnboardingAction, isPWAInstalled]);
 
-  const isFirstTimeLoad = useMemo(() => !isJassStarted && !isGameStarted, [isJassStarted, isGameStarted]);
+  const isFirstTimeLoad = useMemo(() => {
+    const result = !isJassStarted && !isGameStarted;
+    // Füge Log hinzu, um die Berechnung zu sehen
+    console.log(`[JassKreidetafel useMemo isFirstTimeLoad] isJassStarted: ${isJassStarted}, isGameStarted: ${isGameStarted} => result: ${result}`);
+    return result;
+  }, [isJassStarted, isGameStarted]);
 
   useEffect(() => {
     setMounted(true);
@@ -340,12 +350,12 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
   // Debug
   useEffect(() => {
     // showOnboarding kommt nicht mehr vom Hook
-    console.log("Onboarding Status (aus Store):", {show: showOnboardingState, canBeDismissed: canBeDismissedState, required: isBrowserOnboardingRequired, isPWA: isPWAInstalled});
+    console.log("[JassKreidetafel useEffect Debug] Onboarding Status (aus Store):", {show: showOnboardingState, canBeDismissed: canBeDismissedState, required: isBrowserOnboardingRequired, isPWA: isPWAInstalled});
   }, [showOnboardingState, canBeDismissedState, isBrowserOnboardingRequired, isPWAInstalled]);
 
   // Tutorial
   useEffect(() => {
-    console.log("Tutorial Conditions:", {
+    console.log("[JassKreidetafel useEffect Tutorial] Tutorial Conditions:", {
       isPWA: isPWAInstalled,
       shouldShow: shouldShowTutorial(),
       hasCompleted: hasCompletedTutorial,
@@ -360,7 +370,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
       mounted &&
       !tutorialStore.isActive
     ) {
-      console.log("Starting Tutorial!");
+      console.log("[JassKreidetafel useEffect Tutorial] Starting Tutorial!");
       startTutorial();
     }
   }, [mounted, isPWAInstalled]);
@@ -376,14 +386,14 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
   // Tutorial-Events (SplitContainer)
   useEffect(() => {
     const handleTutorialSplitContainer = (evt: CustomEvent) => {
-      console.log("🎯 Tutorial Split Container Event:", {
+      console.log("[JassKreidetafel useEffect Tutorial Event] 🎯 Tutorial Split Container Event:", {
         action: evt.detail.action,
         teamPosition: evt.detail.teamPosition,
         currentStep: getCurrentStep()?.id,
       });
       const {action, teamPosition} = evt.detail;
       if (action === "open") {
-        console.log("📂 Opening container with:", {
+        console.log("[JassKreidetafel useEffect Tutorial Event] 📂 Opening container with:", {
           teamPosition,
           isMenuOpen: useUIStore.getState().menu.isOpen,
         });
@@ -396,7 +406,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
           animateBottomSwipe(true);
         });
       } else if (action === "close") {
-        console.log("📂 Closing container");
+        console.log("[JassKreidetafel useEffect Tutorial Event] 📂 Closing container");
         setOverlayPosition(null);
         setActiveContainer(null);
         setMenuOpen(false);
@@ -513,7 +523,45 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     return !isGameStarted && !isJassStarted && !isTutorialInfoOpen;
   }, [isAuthenticated, isGameStarted, isJassStarted, isTutorialInfoOpen]);
 
+  const { currentGroup } = useGroupStore();
+  const { user } = useAuthStore();
+  const lastProcessedGroupId = useRef<string | null>(null);
+
+  // Effekt zum Synchronisieren der lastActiveGroupId im User-Dokument
+  useEffect(() => {
+    const userId = user?.uid;
+    const groupId = currentGroup?.id ?? null; // Aktuelle Group ID oder null
+
+    console.log(`[JassKreidetafel Effect lastActiveGroupId] Checking: userId=${userId}, groupId=${groupId}, lastProcessed=${lastProcessedGroupId.current}`);
+
+    // Nur ausführen, wenn sich die ID tatsächlich geändert hat und der User bekannt ist
+    if (userId && groupId !== lastProcessedGroupId.current) {
+      console.log(`[JassKreidetafel Effect lastActiveGroupId] UPDATING lastActiveGroupId to: ${groupId} for user ${userId}`);
+      updateUserDocument(userId, { lastActiveGroupId: groupId })
+        .then(() => {
+          console.log(`[JassKreidetafel Effect lastActiveGroupId] Successfully updated lastActiveGroupId to ${groupId}`);
+          lastProcessedGroupId.current = groupId; // Update nach erfolgreichem Schreiben
+        })
+        .catch(err => {
+          console.error(`[JassKreidetafel Effect lastActiveGroupId] Failed to update lastActiveGroupId to ${groupId} for user ${userId}:`, err);
+          // Optional: Fehlerbehandlung oder erneuter Versuch?
+        });
+    } else if (!userId && lastProcessedGroupId.current !== null) {
+       // Wenn der User sich ausloggt, den gespeicherten Wert zurücksetzen
+       console.log(`[JassKreidetafel Effect lastActiveGroupId] User logged out, resetting lastProcessedGroupId.`);
+       lastProcessedGroupId.current = null;
+    }
+
+  }, [user, currentGroup]);
+
   if (!mounted) return null;
+
+  // Log vor dem Return hinzufügen
+  console.log(`[JassKreidetafel Render Before Return] isJassStarted: ${isJassStarted}, isGameStarted: ${isGameStarted}, isTutorialActive: ${isTutorialActive}, isFirstTimeLoad: ${isFirstTimeLoad}`);
+
+  // Bedingung für das Anzeigen des StartScreens
+  const showStartScreenCondition = isFirstTimeLoad && !isTutorialActive;
+  console.log(`[JassKreidetafel Render Condition] Condition to show StartScreen (isFirstTimeLoad && !isTutorialActive): ${showStartScreenCondition}`);
 
   return (
     <div
@@ -531,22 +579,29 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
       </>
 
       {/* Rendere OnboardingFlow wenn erforderlich */}
-      {isBrowserOnboardingRequired && (
-        <OnboardingFlow
-          // show wird jetzt direkt vom Store-Wert gesteuert
-          show={showOnboardingState}
-          step={currentStep as BrowserOnboardingStep}
-          content={content}
-          onNext={handleNext}
-          onPrevious={handlePrevious}
-          onDismiss={handleDismiss}
-          canBeDismissed={canBeDismissedState ?? false}
-          isPWA={isPWAInstalled}
-          isBrowserOnboarding={isBrowserOnboardingRequired}
-        />
-      )}
+      {isBrowserOnboardingRequired && (() => {
+          // === DEBUG LOGS ===
+          console.log('[JassKreidetafel] NODE_ENV:', process.env.NODE_ENV);
+          const finalShowProp = showOnboardingState && process.env.NODE_ENV !== 'development';
+          console.log('[JassKreidetafel] OnboardingFlow - showOnboardingState:', showOnboardingState, 'finalShowProp:', finalShowProp);
+          // === ENDE DEBUG LOGS ===
+          return (
+            <OnboardingFlow
+              // show wird jetzt direkt vom Store-Wert gesteuert UND prüft auf Development-Mode
+              show={finalShowProp}
+              step={currentStep as BrowserOnboardingStep}
+              content={content}
+              onNext={handleNext}
+              onPrevious={handlePrevious}
+              onDismiss={handleDismiss}
+              canBeDismissed={canBeDismissedState ?? false}
+              isPWA={isPWAInstalled}
+              isBrowserOnboarding={isBrowserOnboardingRequired}
+            />
+          );
+      })()} // Sofort aufgerufene Funktion, um Logs einzufügen
 
-      {isFirstTimeLoad && !isTutorialActive ? (
+      {showStartScreenCondition ? (
         <StartScreen />
       ) : (
         <>

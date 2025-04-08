@@ -15,8 +15,6 @@ import {
   type GameState,
   type GameActions,
   type ScoreSettings,
-  type FarbeSettings,
-  type ScoreSettingsValues,
 
   TeamPosition,
   PlayerNumber,
@@ -34,8 +32,9 @@ import {HISTORY_WARNING_MESSAGE} from "../components/notifications/HistoryWarnin
 import {useTimerStore} from "./timerStore";
 import {STRICH_WERTE} from "../config/GameSettings";
 import {CARD_SYMBOL_MAPPINGS} from "../config/CardStyles";
-import {createInitialHistoryState} from "../types/jass";
+import {createInitialHistoryState, type FarbeSettings} from "../types/jass";
 import {DEFAULT_FARBE_SETTINGS} from "../config/FarbeSettings";
+import {useGroupStore} from "./groupStore";
 
 // Hilfsfunktion für die Farbenübersetzung (vereinfacht)
 const getDBFarbe = (farbe: JassColor, cardStyle: CardStyle): string => {
@@ -377,6 +376,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
   ...createInitialStateLocal(1),
 
   startGame: (players: GamePlayers, initialStartPlayer: PlayerNumber): void => {
+    // Kombiniere Gruppen-Einstellungen mit Defaults für vollständige Farbeinstellungen
+    const groupSettings = useGroupStore.getState().currentGroup?.farbeSettings;
+    const completeFarbeSettings: FarbeSettings = {
+        values: groupSettings?.values ?? DEFAULT_FARBE_SETTINGS.values,
+        cardStyle: groupSettings?.cardStyle ?? DEFAULT_FARBE_SETTINGS.cardStyle
+    };
+
+    console.log("🚀 Starting new game with FarbeSettings:", completeFarbeSettings);
+
     set((state): Partial<GameState> => {
       const names: PlayerNames = {
         1: players[1]?.name || "Spieler 1",
@@ -384,7 +392,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
         3: players[3]?.name || "Spieler 3",
         4: players[4]?.name || "Spieler 4",
       };
-
       return {
         gamePlayers: players,
         playerNames: names,
@@ -393,12 +400,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
         initialStartingPlayer: initialStartPlayer,
         isGameStarted: true,
         currentRound: 1,
-        weisPoints: {top: 0, bottom: 0},
-        jassPoints: {top: 0, bottom: 0},
-        scores: {top: 0, bottom: 0},
+        weisPoints: { top: 0, bottom: 0 },
+        jassPoints: { top: 0, bottom: 0 },
+        scores: { top: 0, bottom: 0 },
         striche: {
-          top: {...initialStricheRecord},
-          bottom: {...initialStricheRecord},
+          top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
+          bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
         },
         roundHistory: [],
         currentRoundWeis: [],
@@ -406,6 +413,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         isRoundCompleted: false,
         currentHistoryIndex: -1,
         historyState: createInitialHistoryState(),
+        farbeSettings: completeFarbeSettings,
+        scoreSettings: state.scoreSettings, 
       };
     }, false);
   },
@@ -1271,7 +1280,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // Sollte ggf. auch gamePlayers beeinflussen?
   },
 
-  setScoreSettings: (settings: ScoreSettingsValues) => {
+  setScoreSettings: (settings: ScoreSettings) => {
     console.warn("setScoreSettings not fully implemented");
     set({scoreSettings: settings});
   },

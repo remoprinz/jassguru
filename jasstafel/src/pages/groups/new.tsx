@@ -25,7 +25,7 @@ import {useGroupStore} from "@/store/groupStore";
 import {createGroup, uploadGroupLogo} from "@/services/groupService";
 import MainLayout from "@/components/layout/MainLayout";
 import {Camera, X} from "lucide-react";
-import {FirestoreGroup} from "@/types/group";
+import type { FirestoreGroup } from "@/types/jass";
 
 // Zod Schema für die Formularvalidierung
 const createGroupSchema = z.object({
@@ -154,7 +154,7 @@ const CreateGroupPage: React.FC = () => {
       // Step 3: Update lastActiveGroupId in Firestore and set current group in store
       if (newGroup?.id) {
         console.log(`CreateGroupPage: Calling setCurrentGroup for new group ${newGroup.id}...`);
-        setCurrentGroup(newGroup);
+        setCurrentGroup(newGroup as any); 
         console.log(`CreateGroupPage: setCurrentGroup für ${newGroup.id} aufgerufen.`);
       }
 

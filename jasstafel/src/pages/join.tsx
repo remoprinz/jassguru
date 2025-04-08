@@ -7,7 +7,7 @@ import {useUIStore} from "@/store/uiStore";
 import {useGroupStore} from "@/store/groupStore";
 import MainLayout from "@/components/layout/MainLayout";
 import {getFunctions, httpsCallable} from "firebase/functions";
-import {FirestoreGroup} from "../types/group";
+import type { FirestoreGroup } from "@/types/jass";
 import {FirebaseError} from "firebase/app";
 import {LOCAL_STORAGE_PENDING_INVITE_TOKEN_KEY} from '../constants/appConstants';
 import { Loader2 } from "lucide-react";
@@ -62,14 +62,14 @@ const JoinGroupPage: React.FC = () => {
 
             if (data.group) {
                 console.log("JOIN_PAGE useEffect: Group object received. Setting current group and adding to list:", data.group.name);
-                useGroupStore.getState().addUserGroup(data.group); 
-                setCurrentGroup(data.group);
+                useGroupStore.getState().addUserGroup(data.group);
+                setCurrentGroup(data.group as any);
             } else {
                 console.warn("JOIN_PAGE useEffect: Success is true, but group object is missing in response! Cloud function needs update?");
                 try {
                   await loadUserGroups(user.uid);
                   const updatedGroups = useGroupStore.getState().userGroups;
-                   setCurrentGroup(updatedGroups.length > 0 ? updatedGroups[0] : null);
+                   setCurrentGroup(updatedGroups.length > 0 ? updatedGroups[0] as any : null);
                 } catch (loadError) {
                   console.error("JOIN_PAGE useEffect: Error reloading groups as fallback:", loadError);
                   setCurrentGroup(null); 

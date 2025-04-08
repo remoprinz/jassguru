@@ -30,7 +30,8 @@ import {
   deleteObject,
 } from "firebase/storage";
 import {auth, db, isFirebaseReady} from "./firebaseInit";
-import {AuthUser, FirestoreUser} from "../types/jass";
+import type { AuthUser } from "@/types/auth";
+import type { FirestorePlayer } from "@/types/jass";
 
 // Type-Definition für Firebase Auth Fehler
 interface FirebaseAuthError extends Error {
@@ -42,7 +43,7 @@ interface FirebaseAuthError extends Error {
  * Helper function to map Firebase Auth User to application's AuthUser type.
  * Defined in this file.
  */
-export const mapUserToAuthUser = (user: FirebaseAuthUser, firestoreUser?: Partial<FirestoreUser> | null): AuthUser => {
+export const mapUserToAuthUser = (user: FirebaseAuthUser, firestoreUser?: Partial<FirestorePlayer> | null): AuthUser => {
   return {
     uid: user.uid,
     email: user.email,
@@ -82,7 +83,7 @@ export const createOrUpdateFirestoreUser = async (user: FirebaseAuthUser, isNewU
   try {
     const userDocRef = doc(db, "users", user.uid);
 
-    const userData: Partial<FirestoreUser> & { createdAt?: FieldValue, lastLogin?: FieldValue } = {
+    const userData: Partial<FirestorePlayer> & { uid: string } = {
       uid: user.uid,
       email: user.email || "",
       displayName: user.displayName || null,
@@ -99,8 +100,8 @@ export const createOrUpdateFirestoreUser = async (user: FirebaseAuthUser, isNewU
       };
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const {uid, ...dataToSave} = userData;
+    // Erstelle das Objekt für Firestore ohne uid
+    const { uid, ...dataToSave } = userData;
 
     await setDoc(userDocRef, dataToSave, {merge: true});
     console.log(`Firestore user document for ${user.uid} ${isNewUser ? "created" : "updated"} successfully.`);
@@ -119,7 +120,7 @@ export const createOrUpdateFirestoreUser = async (user: FirebaseAuthUser, isNewU
  *                       Example: { displayName: 'New Name', lastActiveGroupId: 'group123' }
  * @return A promise that resolves when the update is complete.
  */
-export const updateUserDocument = async (userId: string, dataToUpdate: Partial<FirestoreUser>): Promise<void> => {
+export const updateUserDocument = async (userId: string, dataToUpdate: Partial<FirestorePlayer>): Promise<void> => {
   // *** NEUES DETAILLIERTES LOGGING ***
   console.log(`AUTH_SERVICE: updateUserDocument CALLED for user ${userId}`, "Data:", JSON.stringify(dataToUpdate));
   // Optional: Stacktrace loggen, um den Aufrufer zu finden (kann sehr lang sein)
@@ -150,7 +151,7 @@ export const updateUserDocument = async (userId: string, dataToUpdate: Partial<F
     const userDocRef = doc(db, "users", userId);
 
     // Add lastUpdated timestamp automatically
-    const dataWithTimestamp: Partial<FirestoreUser> & { lastUpdated: FieldValue } = {
+    const dataWithTimestamp: Partial<FirestorePlayer> & { lastUpdated: FieldValue } = {
       ...dataToUpdate,
       lastUpdated: serverTimestamp(),
     };
@@ -374,7 +375,7 @@ export const resendVerificationEmail = async (): Promise<void> => {
   }
 };
 
-export const getUserDocument = async (uid: string): Promise<FirestoreUser | null> => {
+export const getUserDocument = async (uid: string): Promise<FirestorePlayer | null> => {
   if (!isFirebaseReady || !db) {
     console.warn("Firestore ist nicht bereit. Kann Benutzerdokument nicht abrufen.");
     return null;
@@ -383,7 +384,7 @@ export const getUserDocument = async (uid: string): Promise<FirestoreUser | null
     const userDocRef = doc(db, "users", uid);
     const userDocSnap = await getDoc(userDocRef);
     if (userDocSnap.exists()) {
-      return userDocSnap.data() as FirestoreUser;
+      return userDocSnap.data() as FirestorePlayer;
     } else {
       console.log("Kein Firestore-Dokument für Benutzer gefunden:", uid);
       return null;

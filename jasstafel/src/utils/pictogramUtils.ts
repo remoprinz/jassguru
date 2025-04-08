@@ -1,5 +1,6 @@
 import type {JassColor, CardStyle} from "../types/jass";
 import {CARD_SYMBOL_MAPPINGS} from "../config/CardStyles";
+import { toTitleCase } from "./stringUtils";
 
 // Die Hauptfarben sind PNGs in beiden Stilen (DE und FR)
 const PNG_SYMBOLS = ["Eicheln", "Rosen", "Schellen", "Schilten"];
@@ -43,7 +44,11 @@ const sanitizeFileName = (name: string): string => {
 };
 
 export const getPictogram = (color: JassColor, mode: "svg" | "emoji", style: CardStyle = "DE"): string => {
-  const cacheKey = `${color}-${mode}-${style}`;
+  // === Konvertiere Farbe zu Title Case für Mapping ===
+  const mappedColorKey = toTitleCase(color);
+  // === Ende Konvertierung ===
+
+  const cacheKey = `${mappedColorKey}-${mode}-${style}`; // Cache-Key mit korrektem Case
 
   if (pictogramCache[cacheKey]) {
     return pictogramCache[cacheKey];
@@ -51,12 +56,23 @@ export const getPictogram = (color: JassColor, mode: "svg" | "emoji", style: Car
 
   if (mode === "emoji") {
     const emojiMap = style === "DE" ? DE_EMOJI_MAP : FR_EMOJI_MAP;
-    pictogramCache[cacheKey] = emojiMap[color];
+    pictogramCache[cacheKey] = emojiMap[color as JassColor]; // Emojis verwenden evtl. den Original-Key?
     return pictogramCache[cacheKey];
   }
 
-  const symbolName = sanitizeFileName(CARD_SYMBOL_MAPPINGS[color][style]);
-  const path = `/assets/pictograms/standardDE/${symbolName}.${PNG_SYMBOLS.includes(color) ? "png" : "svg"}`;
+  // === HIER ABSICHERUNG mit mappedColorKey ===
+  const symbolMapping = CARD_SYMBOL_MAPPINGS[mappedColorKey as JassColor]; // Zugriff mit korrektem Case
+
+  // Prüfen, ob die Farbe und der spezifische Stil im Mapping existieren
+  if (symbolMapping === undefined || symbolMapping[style] === undefined) {
+      console.warn(`getPictogram: Mapping für Farbe '${mappedColorKey}' (Original: '${color}') oder Stil '${style}' nicht gefunden. Gebe leeren Pfad zurück.`);
+      pictogramCache[cacheKey] = ""; 
+      return "";
+  }
+  // === ENDE ABSICHERUNG ===
+
+  const symbolName = sanitizeFileName(symbolMapping[style]); // Sicherer Zugriff
+  const path = `/assets/pictograms/standardDE/${symbolName}.${PNG_SYMBOLS.includes(mappedColorKey) ? "png" : "svg"}`; // Verwende mappedColorKey für PNG/SVG Check
 
   pictogramCache[cacheKey] = path;
   return path;

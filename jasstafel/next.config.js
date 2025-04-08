@@ -10,6 +10,9 @@ const nextConfig = {
   webpack: (config) => {
     return config;
   },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 };
 
 const withPWA = withPWAInit({

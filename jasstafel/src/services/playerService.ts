@@ -12,7 +12,8 @@ import {
   auth
 } from "./firebaseInit";
 import { getDocFromServer, addDoc, collection } from "firebase/firestore";
-import {AuthUser, FirestorePlayer, FirestoreUser} from "../types/jass";
+import type { AuthUser } from "@/types/auth";
+import type { FirestorePlayer } from "@/types/jass";
 import {nanoid} from "nanoid";
 import {PLAYERS_COLLECTION, USERS_COLLECTION} from "../constants/firestore";
 
@@ -201,7 +202,7 @@ export const getPlayerIdForUser = async (userId: string, displayName: string | n
     const userDocSnap = await getDoc(userDocRef);
 
     if (userDocSnap.exists()) {
-      const userData = userDocSnap.data() as FirestoreUser;
+      const userData = userDocSnap.data();
       // --- Fall 1.1: playerId im User-Dokument vorhanden --- 
       if (userData?.playerId && typeof userData.playerId === 'string') {
         const existingPlayerId = userData.playerId;
@@ -358,7 +359,7 @@ export const ensurePlayersExist = async (
       
       if (!userSnapshot.empty) {
         // Wir haben einen User gefunden, der mit dieser playerId verknüpft ist!
-        const userData = userSnapshot.docs[0].data() as FirestoreUser;
+        const userData = userSnapshot.docs[0].data();
         userId = userSnapshot.docs[0].id;
         nickname = userData.displayName || nickname;
         console.log(`ensurePlayersExist: Zugehörigen User ${userId} zu Player ${missingPlayerId} gefunden.`);

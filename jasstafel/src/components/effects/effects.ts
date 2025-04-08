@@ -1,7 +1,7 @@
 import type {
   EffectConfig,
-} from "../../types/jass";
-import {getEffectParams} from "../../utils/effectUtils";
+} from "@/types/jass";
+import {getEffectParams} from "@/utils/effectUtils";
 import {createBergConfetti} from "./BergConfetti";
 import {createBedankenFirework} from "./BedankenFireworks";
 

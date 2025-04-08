@@ -1,8 +1,8 @@
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { LOCAL_STORAGE_PENDING_INVITE_TOKEN_KEY } from '../constants/appConstants';
-import { useUIStore } from '../store/uiStore';
-import { useGroupStore } from '../store/groupStore';
-import { FirestoreGroup } from '../types/group';
+import { useUIStore } from '@/store/uiStore';
+import { useGroupStore } from '@/store/groupStore';
+import type { FirestoreGroup } from '@/types/jass';
 
 /**
  * Checks for a pending invite token in localStorage and attempts to join the group.
@@ -46,14 +46,14 @@ export const processPendingInviteToken = async (): Promise<string | null> => {
 
       console.log("RAW Result from joinGroupByToken function:", JSON.stringify(result));
 
-      const data = result.data as {success?: boolean, group?: FirestoreGroup, message?: string};
+      const data = result.data as {success?: boolean, group?: Partial<FirestoreGroup>, message?: string};
       // Wichtig: Prüfe auf group.id!
       if (data?.success && data.group && data.group.id) {
-          const joinedGroup = data.group;
+          const joinedGroup = data.group as FirestoreGroup;
           console.log(`Successfully joined group '${joinedGroup.name}' via pending token. ID: ${joinedGroup.id}`);
           
           addUserGroup(joinedGroup);
-          setCurrentGroup(joinedGroup);
+          setCurrentGroup(joinedGroup as any);
           
           showNotification({ 
               message: `Du bist jetzt Mitglied der Gruppe '${joinedGroup.name}'.`,

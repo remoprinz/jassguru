@@ -1,16 +1,24 @@
 "use client";
 
-import React, {createContext, useContext, useEffect, useState} from "react";
+import React, {createContext, useContext, useEffect, useState, ReactNode} from "react";
+import {auth} from "@/services/firebaseInit";
 import {useAuthStore} from "@/store/authStore";
 import {getPlayerByUserId} from "@/services/playerService";
-import {FirestorePlayer, UserContext as UserContextType} from "@/types/jass";
+import {FirestorePlayer} from "@/types/jass";
+import type {AuthUser} from "@/types/auth";
+
+// Typ hier lokal definieren, aber mit dem internen AuthUser
+interface UserContextType {
+  user: AuthUser | null;
+  player: FirestorePlayer | null;
+  loading: boolean;
+}
 
 // User-Kontext erstellen
 const UserContext = createContext<UserContextType>({
-  authUser: null,
+  user: null,
   player: null,
-  isLoading: true,
-  error: null,
+  loading: true,
 });
 
 export const useUser = () => useContext(UserContext);
@@ -28,12 +36,10 @@ export function UserProvider({children}: { children: React.ReactNode }) {
       setPlayerError(null);
 
       try {
-        // Wenn Online-Modus aktiv und Benutzer authentifiziert ist
         if (authUser && appMode === "online") {
           const playerData = await getPlayerByUserId(authUser.uid);
           setPlayer(playerData);
         } else {
-          // Im Offline-Modus oder wenn nicht authentifiziert, setzen wir keinen Player
           setPlayer(null);
         }
       } catch (err) {
@@ -50,10 +56,9 @@ export function UserProvider({children}: { children: React.ReactNode }) {
   }, [authUser, status, appMode]);
 
   const value: UserContextType = {
-    authUser,
+    user: authUser,
     player,
-    isLoading: status === "loading" || isLoading,
-    error: error || playerError,
+    loading: status === "loading" || isLoading,
   };
 
   return (
