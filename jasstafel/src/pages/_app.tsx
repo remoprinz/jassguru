@@ -32,6 +32,17 @@ const MyApp = ({Component, pageProps}: AppProps) => {
           name="viewport"
           content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
         />
+        <title>Jassguru - Schreibe Jassgeschichte</title>
+        <meta name="description" content="Schreibe Jassgeschichte mit der digitalen Jasstafel und umfassenden Statistiken." />
+        <meta property="og:title" content="Jassguru - Schreibe Jassgeschichte" />
+        <meta property="og:description" content="Schreibe Jassgeschichte mit der digitalen Jasstafel und umfassenden Statistiken." />
+        <meta property="og:url" content="https://jassguru.ch" />
+        <meta property="og:image" content="https://jassguru.ch/welcome-guru.png" />
+        <meta property="og:type" content="website" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Jassguru - Schreibe Jassgeschichte" />
+        <meta name="twitter:description" content="Schreibe Jassgeschichte mit der digitalen Jasstafel und umfassenden Statistiken." />
+        <meta name="twitter:image" content="https://jassguru.ch/welcome-guru.png" />
       </Head>
       <AuthProvider>
         <UserProvider>

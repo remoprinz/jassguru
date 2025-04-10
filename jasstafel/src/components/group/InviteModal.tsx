@@ -16,8 +16,8 @@ interface InviteModalProps {
   onGenerateNew?: () => void; // Optional: Callback für neuen Link
 }
 
-// Ersetze dies mit deiner tatsächlichen App-URL
-const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://jasstafel.jassguru.ch";
+// --- App Base URL KORRIGIERT --- 
+const APP_BASE_URL = "https://jassguru.ch"; // Direkt setzen, um Umgebungsvariablen zu überschreiben
 
 const InviteModal: React.FC<InviteModalProps> = ({
   isOpen,
@@ -54,11 +54,44 @@ const InviteModal: React.FC<InviteModalProps> = ({
     if (!inviteLink) return;
     if (navigator.share) {
       try {
-        await navigator.share({
-          title: `Einladung zur Jassgruppe '${groupName}'`,
-          text: `Tritt meiner Jassgruppe '${groupName}' auf Jassguru bei!`,
-          url: inviteLink,
-        });
+        // --- Angepasster Share-Text (NEUE STRUKTUR - OHNE SLOGAN) ---
+        const titleText = "**Du wurdest zu Jassguru eingeladen**";
+        const bodyText = `Tritt der Jassgruppe '${groupName}' bei.`; 
+        const linkText = `👉 Hier beitreten: ${inviteLink}`;
+        const shareText = `${titleText}\n\n${bodyText}\n\n${linkText}`; // Slogan entfernt
+        // --- Ende Share-Text ---
+
+        // --- Bild laden: Immer /welcome-guru.png verwenden (Logik hinzugefügt) ---
+        let imageFile: File | null = null;
+        try {
+          const response = await fetch('/welcome-guru.png');
+          if (response.ok) {
+            const blob = await response.blob();
+            imageFile = new File([blob], 'welcome-guru.png', { type: blob.type || 'image/png' });
+            console.log("Modal: Standardbild für Teilen geladen.");
+          } else {
+            console.error("Modal: Standardbild konnte nicht geladen werden:", response.statusText);
+          }
+        } catch (fetchError) {
+          console.error("Modal: Fehler beim Laden des Standardbildes:", fetchError);
+        }
+        // --- Ende Bild laden ---
+
+        const shareData: ShareData = {
+          title: `Du wurdest zu Jassguru eingeladen`, // Titel als Metadaten
+          text: shareText,
+          url: inviteLink, // URL bleibt wichtig
+        };
+
+        // Bild hinzufügen, falls vorhanden und unterstützt
+        if (imageFile && navigator.canShare && navigator.canShare({ files: [imageFile] })) {
+          shareData.files = [imageFile];
+          console.log("Modal: Versuche Teilen mit Bild.");
+        } else {
+          console.log("Modal: Bild nicht verfügbar oder Teilen von Files nicht unterstützt.");
+        }
+
+        await navigator.share(shareData);
         console.log("Link erfolgreich geteilt");
       } catch (err) {
         // Share abgebrochen wird nicht als Fehler gewertet
@@ -78,7 +111,7 @@ const InviteModal: React.FC<InviteModalProps> = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-sm rounded-xl">
         <DialogHeader>
-          <DialogTitle className="text-center text-xl">
+          <DialogTitle className="text-center text-xl pt-4">
             Zur Gruppe einladen
           </DialogTitle>
         </DialogHeader>
@@ -102,7 +135,7 @@ const InviteModal: React.FC<InviteModalProps> = ({
           {inviteLink && !isLoading && !error && (
             <>
               <p className="text-sm text-gray-400 text-center">
-                Zeige diesen Code zum Scannen oder teile den Link:
+                QR Code zum Scannen zeigen oder per Link einladen:
               </p>
               <div className="bg-white p-2 rounded-lg inline-block">
                 <QRCodeCanvas value={inviteLink} size={192} level="M" />
@@ -126,33 +159,28 @@ const InviteModal: React.FC<InviteModalProps> = ({
               </div>
               <Button
                 onClick={handleShare}
-                className="w-full bg-green-600 hover:bg-green-700 flex items-center gap-2 text-white"
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                size="default"
               >
-                <Share2 size={18} /> Link teilen
+                 Einladen mit Link
               </Button>
             </>
           )}
         </div>
 
         <DialogFooter 
-          className="flex flex-col sm:flex-col sm:justify-center pt-4 gap-3"
+          className="flex flex-col sm:flex-col sm:justify-center pt-4 gap-2"
         >
-          {/* Button zum Generieren eines neuen Links (optional) - jetzt Gelb */}
+          {/* Button zum Generieren eines neuen Links (optional) - jetzt Gelb, kommt als zweites */}
           {onGenerateNew && inviteLink && !isLoading && (
             <Button
               className="w-full bg-yellow-600 hover:bg-yellow-700 text-white"
               onClick={onGenerateNew}
+              size="default"
             >
                Neuen Code generieren
             </Button>
           )}
-          {/* Schliessen Button - jetzt Rot und Text angepasst */}
-          <Button
-            className="w-full bg-red-600 hover:bg-red-700 text-white"
-            onClick={onClose}
-          >
-            Schliessen
-          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

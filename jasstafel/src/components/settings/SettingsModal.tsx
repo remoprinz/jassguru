@@ -399,6 +399,7 @@ const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
                             <FarbePictogram 
                                 farbe={mode.name as JassColor}
                                 mode={settings.pictogramConfig.mode ?? "svg"}
+                                cardStyle={settings.cardStyle}
                             />
                         )}
                     </div>

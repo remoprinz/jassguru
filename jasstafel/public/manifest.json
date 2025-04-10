@@ -1,7 +1,7 @@
 {
-  "name": "Jassguru Kreidetafel",
+  "name": "Jassguru App",
   "short_name": "Jassguru",
-  "description": "Digitale Kreidetafel für Jass-Spiele",
+  "description": "Digitale Kreidetafel und Statistiken für Jass-Spiele",
   "start_url": "/?source=pwa",
   "display": "standalone",
   "background_color": "#000000",

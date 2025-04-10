@@ -17,7 +17,7 @@ import {
 import type { AuthStatus, AuthUser, AppMode } from "@/types/auth";
 import type { FirestorePlayer } from "@/types/jass";
 import {useGroupStore} from "./groupStore";
-import {doc, onSnapshot, Unsubscribe, FirestoreError, getDoc, serverTimestamp, setDoc} from "firebase/firestore";
+import {doc, onSnapshot, Unsubscribe, FirestoreError, getDoc, serverTimestamp, setDoc, updateDoc} from "firebase/firestore";
 import { processPendingInviteToken } from '../lib/handlePendingInvite';
 import { PLAYERS_COLLECTION, USERS_COLLECTION } from "@/constants/firestore";
 import { getPlayerIdForUser } from "../services/playerService";
@@ -272,8 +272,6 @@ export const useAuthStore = create<AuthStore>()(
           throw new Error(errorMsg);
         }
 
-        const previousStatus = get().status;
-
         try {
           console.log("AuthStore: Starte Profilbild-Upload für User:", user.uid);
 
@@ -286,6 +284,26 @@ export const useAuthStore = create<AuthStore>()(
           const updatedUser = await uploadProfilePictureService(file, user.uid);
           console.log("AuthStore: Upload erfolgreich, aktualisierter User:", updatedUser);
 
+          if (updatedUser.photoURL && user.playerId) {
+            try {
+              const playerRef = doc(db, PLAYERS_COLLECTION, user.playerId);
+              await updateDoc(playerRef, {
+                photoURL: updatedUser.photoURL,
+                updatedAt: serverTimestamp()
+              });
+              console.log(`AuthStore: Direkte Synchronisation der photoURL zum player-Dokument ${user.playerId} erfolgreich.`);
+            } catch (playerUpdateError) {
+              console.warn(`AuthStore: Konnte photoURL nicht direkt im player-Dokument ${user.playerId} aktualisieren:`, playerUpdateError);
+            }
+          } else {
+             if (!user.playerId) {
+               console.warn(`AuthStore: Keine playerId im User-Objekt gefunden, direkte Player-Synchronisation übersprungen.`);
+             }
+             if (!updatedUser.photoURL) {
+                console.warn(`AuthStore: Keine photoURL im updatedUser-Objekt nach Upload, direkte Player-Synchronisation übersprungen.`);
+             }
+          }
+
           set((state) => ({
             ...state,
             user: updatedUser,
@@ -294,11 +312,24 @@ export const useAuthStore = create<AuthStore>()(
           }));
         } catch (error) {
           console.error("AuthStore: Fehler beim Profilbild-Upload:", error);
+          // NEU: Detailliertere Fehlermeldung extrahieren
+          let detailedErrorMessage = "Fehler beim Hochladen des Profilbilds.";
+          if (error instanceof Error) {
+            // Versuchen, spezifischere Firebase-Fehlercodes zu extrahieren
+            if ('code' in error) {
+              // Typüberprüfung für FirebaseError (optional, aber sicherer)
+              const firebaseError = error as { code: string; message: string };
+              detailedErrorMessage = `Fehler (${firebaseError.code}): ${firebaseError.message}`;
+            } else {
+              detailedErrorMessage = error.message;
+            }
+          }
 
           set((state) => ({
             ...state,
             uploadStatus: "error",
-            error: error instanceof Error ? error.message : "Fehler beim Hochladen des Profilbilds.",
+            // error: error instanceof Error ? error.message : "Fehler beim Hochladen des Profilbilds.", // Alte Version
+            error: detailedErrorMessage, // Neue Version mit mehr Details
           }));
 
           throw error;

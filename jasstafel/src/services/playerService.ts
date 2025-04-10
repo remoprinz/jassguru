@@ -11,7 +11,14 @@ import {
   db,
   auth
 } from "./firebaseInit";
-import { getDocFromServer, addDoc, collection } from "firebase/firestore";
+import {
+  getDocFromServer,
+  addDoc,
+  collection,
+  updateDoc,
+  arrayRemove,
+  arrayUnion
+} from "firebase/firestore";
 import type { AuthUser } from "@/types/auth";
 import type { FirestorePlayer } from "@/types/jass";
 import {nanoid} from "nanoid";
@@ -56,7 +63,9 @@ export const createPlayer = async (
         wins: 0,
         totalScore: 0,
       },
-      metadata: {},
+      metadata: {
+        isOG: true, // Original Jasster Auszeichnung für frühe Nutzer
+      },
     };
 
     await setDoc(doc(collections.players, playerId), playerData);
@@ -128,6 +137,7 @@ export const getPlayerByUserId = async (userId: string): Promise<FirestorePlayer
 
 /**
  * Spieler anhand der ID abrufen
+ * Ergänzt fehlende Felder (photoURL, statusMessage) aus dem users-Dokument, falls sie im players-Dokument fehlen
  */
 export const getPlayerById = async (playerId: string): Promise<FirestorePlayer | null> => {
   if (!collections.players) {
@@ -142,7 +152,40 @@ export const getPlayerById = async (playerId: string): Promise<FirestorePlayer |
       return null;
     }
 
-    return playerDoc.data() as FirestorePlayer;
+    // Basisspielerdaten aus dem players-Dokument
+    const playerData = playerDoc.data() as FirestorePlayer;
+    
+    // WICHTIG: Stellen wir sicher, dass die ID korrekt gesetzt ist
+    playerData.id = playerDoc.id;
+
+    // Überprüfen, ob bestimmte Felder fehlen und ergänzen aus users-Dokument
+    if ((!playerData.photoURL || !playerData.statusMessage) && playerData.userId) {
+      try {
+        console.log(`getPlayerById: Feld(er) fehlen, versuche Daten aus users/${playerData.userId} zu ergänzen`);
+        const userDocRef = doc(db, "users", playerData.userId);
+        const userDocSnap = await getDoc(userDocRef);
+        
+        if (userDocSnap.exists()) {
+          const userData = userDocSnap.data();
+          // Fehlende Felder ergänzen, ohne die vorhandenen zu überschreiben
+          if (!playerData.photoURL && userData.photoURL) {
+            console.log(`getPlayerById: Ergänze fehlendes photoURL aus users-Dokument für Player ${playerId}`);
+            playerData.photoURL = userData.photoURL;
+          }
+          if (!playerData.statusMessage && userData.statusMessage) {
+            console.log(`getPlayerById: Ergänze fehlendes statusMessage aus users-Dokument für Player ${playerId}`);
+            playerData.statusMessage = userData.statusMessage;
+          }
+        } else {
+          console.log(`getPlayerById: Kein users-Dokument gefunden für userId ${playerData.userId}`);
+        }
+      } catch (userError) {
+        // Fehlschlag beim Abrufen der User-Daten nicht kritisch, wir verwenden was wir haben
+        console.warn(`getPlayerById: Fehler beim Ergänzen aus users-Dokument:`, userError);
+      }
+    }
+
+    return playerData;
   } catch (error) {
     console.error("Fehler beim Abrufen des Spielers nach ID:", error);
     throw error;
@@ -301,6 +344,7 @@ export const getPlayerDocument = async (playerId: string): Promise<FirestorePlay
 /**
  * Stellt sicher, dass für jede playerId in einer Gruppe ein gültiges Player-Dokument existiert.
  * Erstellt fehlende Player-Dokumente als Platzhalter, wenn notwendig.
+ * Ergänzt fehlende Felder (photoURL, statusMessage) aus dem users-Dokument.
  * 
  * @param playerIds Array von Player-IDs, deren Existenz überprüft/sichergestellt werden soll
  * @param groupId ID der Gruppe, mit der diese Spieler verknüpft sind (für Platzhalter-Erstellung)
@@ -310,8 +354,8 @@ export const ensurePlayersExist = async (
   playerIds: string[],
   groupId: string
 ): Promise<FirestorePlayer[]> => {
-  if (!db) {
-    console.error("ensurePlayersExist: Firestore ist nicht initialisiert.");
+  if (!collections.players) {
+    console.warn("ensurePlayersExist: players collection not available (offline?). Returning empty array.");
     return [];
   }
   
@@ -319,87 +363,122 @@ export const ensurePlayersExist = async (
     return [];
   }
 
-  const validPlayers: FirestorePlayer[] = [];
-  const missingPlayerIds: string[] = [];
+  let dataWasHealed = false;
 
-  // Schritt 1: Überprüfen, welche Player-Dokumente bereits existieren
-  for (const playerId of playerIds) {
-    try {
-      const player = await getPlayerDocument(playerId);
-      if (player) {
-        validPlayers.push(player);
-      } else {
-        missingPlayerIds.push(playerId);
-      }
-    } catch (error) {
-      console.error(`ensurePlayersExist: Fehler beim Prüfen von Player ${playerId}:`, error);
-      missingPlayerIds.push(playerId);
-    }
-  }
+  try {
+    const validPlayerIds = playerIds.filter((id): id is string => 
+        typeof id === 'string' && id.trim() !== ''
+    );
 
-  // Wenn alle Player existieren, sind wir fertig
-  if (missingPlayerIds.length === 0) {
-    return validPlayers;
-  }
-
-  console.log(`ensurePlayersExist: ${missingPlayerIds.length} fehlende Player-Dokumente gefunden für Gruppe ${groupId}.`);
-
-  // Schritt 2: Für fehlende Player-IDs Platzhalter erstellen
-  for (const missingPlayerId of missingPlayerIds) {
-    try {
-      const playerRef = doc(db, PLAYERS_COLLECTION, missingPlayerId);
-      
-      // Versuche zunächst, eine Zuordnung zu einem User zu finden (falls Inkonsistenz entstand)
-      // Dies ist ein "Best Effort"-Versuch
-      const usersQuery = query(collection(db, USERS_COLLECTION), where("playerId", "==", missingPlayerId));
-      const userSnapshot = await getDocs(usersQuery);
-      
-      let userId = null;
-      let nickname = `Spieler_${missingPlayerId.substring(0, 6)}`;
-      
-      if (!userSnapshot.empty) {
-        // Wir haben einen User gefunden, der mit dieser playerId verknüpft ist!
-        const userData = userSnapshot.docs[0].data();
-        userId = userSnapshot.docs[0].id;
-        nickname = userData.displayName || nickname;
-        console.log(`ensurePlayersExist: Zugehörigen User ${userId} zu Player ${missingPlayerId} gefunden.`);
-      }
-      
-      // Erstelle den Platzhalter-Player
-      const placeholderData: FirestorePlayer = {
-        id: missingPlayerId,
-        nickname: nickname,
-        userId: userId,
-        isGuest: !userId,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        groupIds: [groupId],
-        stats: {
-          gamesPlayed: 0,
-          wins: 0,
-          totalScore: 0,
-        },
-        metadata: {
-          isPlaceholder: true,
-          createdByEnsurePlayersExist: true,
-          createdAt: new Date().toISOString()
+    const memberPromises = validPlayerIds.map(async (idToCheck) => {
+      try {
+        // Wir verwenden getPlayerById, die jetzt fehlende Felder ergänzt
+        const playerDoc = await getPlayerById(idToCheck);
+        if (playerDoc) {
+          return playerDoc;
         }
-      };
-      
-      // ID wird nicht in Firestore geschrieben, nur als Teil des Dokument-Pfads verwendet
-      const { id, ...dataToSave } = placeholderData;
-      
-      await setDoc(playerRef, dataToSave);
-      console.log(`ensurePlayersExist: Platzhalter für Player ${missingPlayerId} erstellt.`);
-      
-      validPlayers.push(placeholderData);
+
+        // Spieler nicht gefunden, prüfen ob es eine userId ist und versuchen zu heilen
+        const userRef = doc(db, USERS_COLLECTION, idToCheck);
+        const userSnap = await getDoc(userRef);
+
+        if (userSnap.exists() && userSnap.data()?.playerId) {
+          const correctPlayerId = userSnap.data()?.playerId;
+          // Auch hier nutzen wir getPlayerById für die Ergänzung fehlender Felder
+          const correctedPlayerDoc = await getPlayerById(correctPlayerId);
+
+          if (correctedPlayerDoc) {
+            // Selbstheilung der Gruppen-Daten
+            try {
+              const groupRef = doc(db, "groups", groupId); // Verwende groupId
+              await updateDoc(groupRef, { playerIds: arrayRemove(idToCheck) });
+              await updateDoc(groupRef, { playerIds: arrayUnion(correctPlayerId) });
+              dataWasHealed = true;
+              console.log(`[ensurePlayersExist] ✅ Gruppen-Daten automatisch geheilt: ${idToCheck} -> ${correctPlayerId} in Gruppe ${groupId}`);
+            } catch (updateError) {
+              console.error(`[ensurePlayersExist] ❌ Fehler bei Datenkorrektur für Gruppe ${groupId}:`, updateError);
+            }
+            return correctedPlayerDoc;
+          }
+        }
+
+        // Wenn alles fehlschlägt, erstelle einen Platzhalter
+        console.warn(`[ensurePlayersExist] Konnte keine Zuordnung für ID ${idToCheck} finden. Erstelle Platzhalter.`);
+        return {
+          id: idToCheck,
+          nickname: `Unbekannter Spieler ${idToCheck.slice(0, 4)}...`,
+          userId: null,
+          isGuest: false, // Annahme: Ein Platzhalter ist eher kein expliziter Gast
+          createdAt: Timestamp.fromDate(new Date()),
+          updatedAt: Timestamp.fromDate(new Date()),
+          groupIds: [groupId],
+          stats: { gamesPlayed: 0, wins: 0, totalScore: 0 },
+          _isPlaceholder: true // Markierung für UI-Behandlung
+        } as FirestorePlayer;
+      } catch (error) {
+        console.error(`[ensurePlayersExist] Fehler beim Laden/Korrigieren von ID ${idToCheck}:`, error);
+        return null;
+      }
+    });
+
+    const memberResults = await Promise.all(memberPromises);
+    const validMembers = memberResults.filter((member): member is FirestorePlayer => member !== null);
+    
+    if (dataWasHealed) {
+        // Optional: Hier könnte man eine Benachrichtigung triggern, aber Services sollten UI-agnostisch sein.
+        console.log(`[ensurePlayersExist] Datenheilung für Gruppe ${groupId} abgeschlossen.`);
+    }
+
+    return validMembers;
+  } catch (err) {
+    console.error("[ensurePlayersExist] Schwerwiegender Fehler beim Laden der Mitgliederdetails:", err);
+    throw new Error("Mitgliederdetails konnten nicht sichergestellt werden.");
+  }
+};
+
+/**
+ * Lädt alle Mitglieder einer Gruppe, stellt deren Existenz sicher (mit Selbstheilung)
+ * und sortiert sie absteigend nach der Anzahl gespielter Spiele.
+ *
+ * @param groupId Die ID der Gruppe.
+ * @returns Ein Promise, das ein Array von sortierten FirestorePlayer-Objekten auflöst.
+ */
+export const getGroupMembersSortedByGames = async (groupId: string): Promise<FirestorePlayer[]> => {
+    if (!collections.groups) {
+        console.warn("getGroupMembersSortedByGames: groups collection not available.");
+        return [];
+    }
+
+    try {
+        const groupRef = doc(collections.groups, groupId);
+        const groupSnap = await getDoc(groupRef);
+
+        if (!groupSnap.exists()) {
+            console.warn(`getGroupMembersSortedByGames: Group with id ${groupId} not found.`);
+            return [];
+        }
+
+        const groupData = groupSnap.data();
+        const playerIds = groupData?.playerIds as string[] | undefined;
+
+        if (!playerIds || playerIds.length === 0) {
+            return []; // Keine Mitglieder in der Gruppe
+        }
+
+        // Stelle sicher, dass alle Spieler existieren und lade ihre Daten
+        const members = await ensurePlayersExist(playerIds, groupId);
+
+        // Sortiere die Mitglieder nach gamesPlayed absteigend
+        const sortedMembers = [...members].sort((a, b) => 
+            (b.stats?.gamesPlayed ?? 0) - (a.stats?.gamesPlayed ?? 0)
+        );
+
+        return sortedMembers;
       
     } catch (error) {
-      console.error(`ensurePlayersExist: Fehler beim Erstellen des Platzhalters für ${missingPlayerId}:`, error);
+        console.error(`Fehler beim Laden und Sortieren der Mitglieder für Gruppe ${groupId}:`, error);
+        throw new Error("Mitglieder konnten nicht geladen oder sortiert werden.");
     }
-  }
-
-  return validPlayers;
 };
 
 // Zukünftige Funktionen (updatePlayerStats, etc.) können hier hinzugefügt werden.

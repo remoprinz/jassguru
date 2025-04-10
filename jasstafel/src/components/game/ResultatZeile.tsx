@@ -53,7 +53,7 @@ const ResultatZeile: React.FC<ResultatZeileProps> = ({
   const bottomStriche = convertToDisplayStriche(finalBottomTeam.striche);
 
   return (
-    <div className="grid grid-cols-[0.5fr_5fr_5fr] gap-4 items-center py-2 last:border-b-0 border-b border-gray-700">
+    <div className="grid grid-cols-[0.5fr_5fr_5fr] gap-4 items-start last:border-b-0 border-b border-gray-700">
       <div className="text-gray-400 text-center pl-2">
         {spielNummer}
       </div>
@@ -64,7 +64,7 @@ const ResultatZeile: React.FC<ResultatZeileProps> = ({
             {finalBottomTeam.jassPoints || 0}
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-2">
+          <div className="flex flex-col items-start gap-2">
             <StrichDisplay
               type="horizontal"
               count={bottomStriche.horizontal}
@@ -85,7 +85,7 @@ const ResultatZeile: React.FC<ResultatZeileProps> = ({
             {finalTopTeam.jassPoints || 0}
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-2">
+          <div className="flex flex-col items-start gap-2">
             <StrichDisplay
               type="horizontal"
               count={topStriche.horizontal}

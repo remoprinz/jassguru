@@ -19,6 +19,8 @@ import type { // Verwende 'type' für reine Typ-Importe
 } from '@/types/jass'; // Import aus der zentralen Datei
 import { DEFAULT_SCORE_SETTINGS, DEFAULT_STROKE_SETTINGS } from '../config/ScoreSettings';
 import { Timestamp } from 'firebase/firestore';
+import { useUIStore } from './uiStore'; // Importiere uiStore für Notifications
+import { GROUPS_COLLECTION } from '@/constants/firestore';
 
 // Statusnamen angepasst (loaded -> success)
 type GroupLoadingStatus = "idle" | "loading" | "success" | "error";
@@ -70,6 +72,12 @@ interface GroupActions {
   setCurrentGroupId: (groupId: string | null) => void;
   clearGroupState: () => void;
   isCurrentUserAdmin: (groupId?: string) => boolean;
+  updateCurrentGroupJassSettings: (groupId: string, updates: {
+    scoreSettings: ScoreSettings;
+    strokeSettings: StrokeSettings;
+    farbeSettingsValues: JassFarbeSettings['values'];
+    cardStyle: CardStyle;
+  }) => Promise<void>;
 }
 
 type GroupStore = GroupState & GroupActions;
@@ -248,15 +256,40 @@ const groupStoreCreator: StateCreator<
        console.warn("updateGroup called without updatable fields.");
        return;
     }
+    // Sofort den lokalen State optimistisch aktualisieren (falls gewünscht)
+    // set((state) => produce(state, draft => {
+    //   if (draft.currentGroup && draft.currentGroup.id === groupId) {
+    //     Object.assign(draft.currentGroup, data);
+    //   }
+    // }));
+
     try {
       const groupRef = doc(db, 'groups', groupId);
       const updateData = { ...data, updatedAt: serverTimestamp() };
       await updateDoc(groupRef, updateData);
-      get().updateGroupInList(groupId, data);
+
+      // Jetzt nach erfolgreichem Firestore-Update den lokalen State aktualisieren
+      set((state) => produce(state, draft => {
+         if (draft.currentGroup && draft.currentGroup.id === groupId) {
+             // Merge der neuen Daten in das bestehende currentGroup Objekt
+             Object.assign(draft.currentGroup, data);
+             // Zeitstempel könnte man hier annähern, aber Firestore-Listener wird es korrekt setzen
+             // FEHLERHAFTE ZEILE ENTFERNT: draft.currentGroup.updatedAt = new Date(); \n          }\n          // Aktualisiere auch die Liste der User-Gruppen\n          const groupIndex = draft.userGroups.findIndex((g: FirestoreGroup) => g.id === groupId);
+         }
+         // Aktualisiere auch die Liste der User-Gruppen
+         const groupIndex = draft.userGroups.findIndex((g: FirestoreGroup) => g.id === groupId);
+         if (groupIndex !== -1) {
+             Object.assign(draft.userGroups[groupIndex], data);
+             (draft.userGroups[groupIndex] as any).updatedAt = new Date();
+         }
+       }), false, 'updateGroupSuccess'); // Neuer State-Name für Klarheit
+
+      // get().updateGroupInList(groupId, data); // Diese Zeile wird durch den produce-Block ersetzt
     } catch (error) {
       console.error(`Fehler beim Aktualisieren der Gruppe ${groupId}:`, error);
       const message = error instanceof Error ? error.message : "Update fehlgeschlagen";
       set({ error: message }, false, 'updateGroupFail');
+      // Hier könnte man den optimistischen Update rückgängig machen, falls implementiert
       throw error; 
     }
   },
@@ -477,6 +510,84 @@ const groupStoreCreator: StateCreator<
     const targetGroupId = groupId ?? group?.id;
     if (!user || !group || group.id !== targetGroupId) return false;
     return group.adminIds.includes(user.uid);
+  },
+
+  updateCurrentGroupJassSettings: async (groupId: string, updates: {
+    scoreSettings: ScoreSettings;
+    strokeSettings: StrokeSettings;
+    farbeSettingsValues: JassFarbeSettings['values'];
+    cardStyle: CardStyle;
+  }) => {
+    const { scoreSettings, strokeSettings, farbeSettingsValues, cardStyle } = updates;
+    
+    console.log('updateCurrentGroupJassSettings wird aufgerufen mit:', {
+      scoreSettings,
+      strokeSettings,
+      farbeSettingsValues,
+      cardStyle
+    });
+    
+    if (!get().isCurrentUserAdmin(groupId)) {
+      useUIStore.getState().showNotification({ message: "Nur Admins können Jass-Einstellungen ändern.", type: "error" });
+      throw new Error("Nur Admins können Jass-Einstellungen ändern.");
+    }
+    
+    const groupRef = doc(db, GROUPS_COLLECTION, groupId);
+    const showNotification = useUIStore.getState().showNotification;
+
+    try {
+      // Erstelle ein komplettes farbeSettings-Objekt für das Update
+      const farbeSettings = {
+        values: farbeSettingsValues,
+        cardStyle: cardStyle
+      };
+      
+      // Ein einfaches, flaches Update-Objekt erstellen
+      const updateData = {
+        scoreSettings: scoreSettings,
+        strokeSettings: strokeSettings,
+        farbeSettings: farbeSettings,
+        updatedAt: serverTimestamp()
+      };
+      
+      console.log('Firebase Update wird ausgeführt mit:', JSON.stringify(updateData));
+      
+      // Ein einziger Update-Aufruf für alle Einstellungen
+      await updateDoc(groupRef, updateData);
+
+      console.log('Firebase Update erfolgreich abgeschlossen');
+
+      // Update lokalen State
+      set((state) => {
+        if (!state.currentGroup) return { currentGroup: null };
+        
+        const updatedGroup = {
+          ...state.currentGroup,
+          scoreSettings: JSON.parse(JSON.stringify(scoreSettings)),
+          strokeSettings: JSON.parse(JSON.stringify(strokeSettings)),
+          farbeSettings: {
+            ...(state.currentGroup.farbeSettings ?? { ...DEFAULT_FARBE_SETTINGS }),
+            values: JSON.parse(JSON.stringify(farbeSettingsValues)),
+            cardStyle
+          }
+        };
+          
+        console.log('Lokaler State wird aktualisiert auf:', {
+          scoreSettings: updatedGroup.scoreSettings,
+          strokeSettings: updatedGroup.strokeSettings,
+          farbeSettings: updatedGroup.farbeSettings
+        });
+        
+        return { currentGroup: updatedGroup };
+      }, false, 'updateCurrentGroupJassSettings');
+
+      showNotification({ message: "Jass-Einstellungen erfolgreich gespeichert!", type: "success" });
+
+    } catch (error) {
+      console.error("Fehler beim atomaren Speichern der Jass-Einstellungen:", error);
+      showNotification({ message: `Fehler beim Speichern: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`, type: "error" });
+      throw error;
+    }
   },
 });
 

@@ -1,4 +1,5 @@
 import React from "react";
+import { useRouter } from 'next/router';
 import {useAuthStore} from "@/store/authStore";
 import {useGroupStore} from "@/store/groupStore";
 import {
@@ -12,6 +13,7 @@ import {Skeleton} from "@/components/ui/skeleton"; // Assuming Shadcn UI path
 import type { FirestoreGroup } from "@/types/jass"; 
 
 export const GroupSelector: React.FC = () => {
+  const router = useRouter();
   // --- Use atomic selectors for Zustand state ---
   const user = useAuthStore((state) => state.user);
   const isGuest = useAuthStore((state) => state.isGuest);
@@ -35,6 +37,7 @@ export const GroupSelector: React.FC = () => {
     if (selectedGroup) {
       // console.log("GroupSelector: Setting current group to:", selectedGroup.name);
       setCurrentGroup(selectedGroup as any);
+      router.push('/start');
     } else {
       console.warn(`GroupSelector: Selected group with ID ${groupId} not found in userGroups.`);
     }

@@ -405,6 +405,13 @@ export interface GameEntry {
   isRoundCompleted: boolean;
   isGameCompleted: boolean;
   metadata?: GameMetadata; // Bleibt optional wie bisher
+
+  // --- NEUE FELDER für Errungenschaften & Statistik ---
+  gameMode?: JassColor; // Welcher Modus wurde angesagt? (Misère, Eicheln, Obe, etc.)
+  trumpfColor?: JassColor; // Spezifische Trumpffarbe, falls gameMode ein Trumpfspiel ist
+  startedAt?: Timestamp | FieldValue; // Zeitstempel Spielbeginn
+  completedAt?: Timestamp | FieldValue; // Zeitstempel Spielende
+  // --------------------------------------------------
 }
 
 // Jass State: Aggregierter Zustand über mehrere Spiele

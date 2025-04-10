@@ -7,6 +7,7 @@ import {useUIStore} from "@/store/uiStore";
 import {Button} from "@/components/ui/button";
 import {BottomNavigation} from "@/components/layout/BottomNavigation";
 import Header from "./Header";
+import GlobalNotificationContainer from "../notifications/GlobalNotificationContainer";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -29,7 +30,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({children}) => {
   const mainPaddingBottom = isCtaVisible ? "pb-44" : "pb-24";
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900 overflow-hidden max-w-3xl mx-auto">
+    <div className="flex flex-col h-screen bg-gray-900 max-w-3xl mx-auto">
       {/* Fixierter Header */}
       <Header />
 
@@ -76,7 +77,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({children}) => {
       {/* Bestehende Bottom Navigation (Höhe h-24 -> 6rem) */}
       <BottomNavigation />
 
-      {/* Alte <nav> Struktur entfernt */}
+      {/* Globale Benachrichtigungen (statt Toaster) */}
+      <GlobalNotificationContainer />
 
     </div>
   );

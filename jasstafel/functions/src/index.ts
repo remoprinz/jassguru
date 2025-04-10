@@ -629,3 +629,67 @@ export const onCreateUserDocument = functionsRegion("europe-west1")
     }
   });
 // --- NEUE FUNKTION ENDE ---
+
+/**
+ * Synchronisiert Änderungen am users-Dokument mit dem zugehörigen players-Dokument.
+ * Wird ausgelöst, wenn ein users-Dokument aktualisiert wird.
+ * Fokus auf Feldern: photoURL, statusMessage, displayName
+ */
+export const syncUserToPlayer = functionsRegion("europe-west1")
+  .firestore.document("users/{userId}")
+  .onUpdate(async (change, context) => {
+    const userId = context.params.userId;
+    const afterData = change.after.data();
+    const beforeData = change.before.data();
+    
+    // Felder, die synchronisiert werden sollen
+    const fieldsToSync = ['photoURL', 'statusMessage', 'displayName'];
+    
+    // Prüfen, ob relevante Felder geändert wurden
+    const hasRelevantChanges = fieldsToSync.some(
+      field => afterData[field] !== beforeData[field]
+    );
+    
+    if (!hasRelevantChanges) {
+      console.log(`[syncUserToPlayer] Keine relevanten Änderungen für User ${userId}. Synchronisation übersprungen.`);
+      return null;
+    }
+    
+    // PlayerId aus dem User-Dokument abrufen
+    const playerId = afterData.playerId;
+    if (!playerId) {
+      console.log(`[syncUserToPlayer] Kein playerId für User ${userId} gefunden. Synchronisation nicht möglich.`);
+      return null;
+    }
+    
+    // Nur die relevanten, geänderten Felder extrahieren
+    const updateData: Record<string, any> = {};
+    let fieldCount = 0;
+    
+    for (const field of fieldsToSync) {
+      if (afterData[field] !== beforeData[field] && afterData[field] !== undefined) {
+        updateData[field] = afterData[field];
+        fieldCount++;
+      }
+    }
+    
+    if (fieldCount === 0) {
+      console.log(`[syncUserToPlayer] Keine effektiven Änderungen nach Filterung für User ${userId}.`);
+      return null;
+    }
+    
+    // Zeitstempel hinzufügen
+    updateData.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+    
+    try {
+      // Player-Dokument aktualisieren
+      const playerRef = db.collection("players").doc(playerId);
+      await playerRef.update(updateData);
+      
+      console.log(`[syncUserToPlayer] Erfolgreich synchronisiert: User ${userId} -> Player ${playerId}, Felder: ${Object.keys(updateData).join(', ')}`);
+      return null;
+    } catch (error) {
+      console.error(`[syncUserToPlayer] Fehler bei der Synchronisation von User ${userId} zu Player ${playerId}:`, error);
+      return null;
+    }
+  });

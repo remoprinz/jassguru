@@ -164,10 +164,17 @@ const CreateGroupPage: React.FC = () => {
       // console.log("CreateGroupPage: User groups reloaded.");
 
       showNotification({
-        message: `Gruppe "${data.groupName}" erfolgreich erstellt! ${selectedLogoFile ? "(Logo wird verarbeitet)" : ""}`,
+        message: `Deine Jassgruppe "${data.groupName}" wurde erfolgreich erstellt! Nimm als erstes die individuellen Jass-Einstellungen von deiner Jassrunde vor.`,
         type: "success",
+        image: "/welcome-guru.png",
       });
-      router.push("/profile/groups"); // Oder wohin Sie nach Erstellung navigieren möchten
+      // Leite direkt zu den Einstellungen der neuen Gruppe weiter
+      if (newGroup?.id) {
+          router.push(`/groups/settings?groupId=${newGroup.id}`);
+      } else {
+          // Fallback, falls die ID fehlt (sollte nicht passieren)
+          router.push("/start");
+      }
     } catch (err) {
       console.error("Fehler beim Erstellen der Gruppe (onSubmit):", err);
       if (err instanceof Error) {

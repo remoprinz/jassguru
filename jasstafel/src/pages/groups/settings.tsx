@@ -3,7 +3,7 @@
 import React, {useEffect, useState} from "react";
 import {useRouter} from "next/router";
 import Link from "next/link";
-import {ArrowLeft, Users, Globe, Settings, Crown, Loader2, ShieldCheck, AlertTriangle, Wrench, X, Palette} from "lucide-react";
+import {ArrowLeft, Users, Globe, Settings, Crown, Loader2, ShieldCheck, AlertTriangle, Wrench, X, Palette, Share2, UserPlus} from "lucide-react";
 import {useAuthStore} from "@/store/authStore";
 import {useGroupStore} from "@/store/groupStore";
 import {useUIStore} from "@/store/uiStore";
@@ -51,9 +51,12 @@ const SCORE_RANGES = {
   schneider: { min: 0, max: 5000, default: 1000 },
 } as const;
 
-const GroupSettingsPage: React.FC = () => {
+// --- App Base URL KORRIGIERT --- 
+const APP_BASE_URL = "https://jassguru.ch"; // Direkt setzen, um Umgebungsvariablen zu überschreiben
+
+const GroupSettingsPage = () => {
   const {user, status, isAuthenticated} = useAuthStore();
-  const {currentGroup, updateGroup, updateMemberRole, updateCurrentGroupScoreSettings, updateCurrentGroupStrokeSettings, updateCurrentGroupFarbeSettings} = useGroupStore();
+  const {currentGroup, updateGroup, updateMemberRole, updateCurrentGroupScoreSettings, updateCurrentGroupStrokeSettings, updateCurrentGroupFarbeSettings, updateCurrentGroupJassSettings} = useGroupStore();
   
   // Selektiere jede Funktion einzeln
   const showNotification = useUIStore((state) => state.showNotification);
@@ -90,6 +93,16 @@ const GroupSettingsPage: React.FC = () => {
   const [hasJassSettingsChanges, setHasJassSettingsChanges] = useState(false);
   // --- Hinzufügen des tempInput State --- 
   const [tempInput, setTempInput] = useState<{[key in ScoreMode]?: string}>({});
+  // === ENDE NEUER STATE ===
+
+  // === NEUER STATE für Stroke und Farbe Inputs ===
+  const [tempStrokeInput, setTempStrokeInput] = useState<{[key in StrokeMode]?: string}>({});
+  const [tempFarbeInput, setTempFarbeInput] = useState<{[key in FarbeModeKey]?: string}>({});
+  // === ENDE NEUER STATE ===
+
+  // === NEUER STATE für direktes Einladen ===
+  const [isGeneratingDirectInvite, setIsGeneratingDirectInvite] = useState(false);
+  const [directInviteError, setDirectInviteError] = useState<string | null>(null);
   // === ENDE NEUER STATE ===
 
   // Check if current user is admin (using userId/uid, not playerId)
@@ -245,6 +258,8 @@ const GroupSettingsPage: React.FC = () => {
 
       // Reset Input-Felder (falls nötig)
       setTempInput({}); 
+      setTempStrokeInput({}); // Reset für Stroke-Inputs
+      setTempFarbeInput({}); // Reset für Farben-Inputs
 
       // Nachdem geladen/synchronisiert wurde, gibt es keine ungespeicherten Änderungen
       setHasJassSettingsChanges(false);
@@ -257,16 +272,28 @@ const GroupSettingsPage: React.FC = () => {
     // Nur ausführen, wenn currentGroup geladen ist, um Vergleichsfehler zu vermeiden
     if (!currentGroup) return;
     
-    const scoreChanged = JSON.stringify(tempScoreSettings) !== JSON.stringify(currentGroup.scoreSettings ?? DEFAULT_SCORE_SETTINGS);
-    const strokeChanged = JSON.stringify(tempStrokeSettings) !== JSON.stringify(currentGroup.strokeSettings ?? DEFAULT_STROKE_SETTINGS);
-    
-    // Sicherer Vergleich für Farbeinstellungen
+    // Hole die aktuellen Werte oder Defaults
+    const currentScoreSettings = currentGroup.scoreSettings ?? DEFAULT_SCORE_SETTINGS;
+    const currentStrokeSettings = currentGroup.strokeSettings ?? DEFAULT_STROKE_SETTINGS;
     const currentFarbeValues = currentGroup.farbeSettings?.values ?? DEFAULT_FARBE_SETTINGS.values;
+    const currentCardStyle = currentGroup.farbeSettings?.cardStyle ?? DEFAULT_FARBE_SETTINGS.cardStyle;
+    
+    // Vergleich der einzelnen Einstellungen - Debug-Ausgaben
+    const scoreChanged = JSON.stringify(tempScoreSettings) !== JSON.stringify(currentScoreSettings);
+    const strokeChanged = JSON.stringify(tempStrokeSettings) !== JSON.stringify(currentStrokeSettings);
     const farbeChanged = JSON.stringify(tempFarbeSettings.values) !== JSON.stringify(currentFarbeValues);
-    const cardStyleChanged = tempFarbeSettings.cardStyle !== (currentGroup.farbeSettings?.cardStyle ?? DEFAULT_FARBE_SETTINGS.cardStyle);
+    const cardStyleChanged = tempFarbeSettings.cardStyle !== currentCardStyle;
+
+    console.log('Änderungserkennung:', {
+      scoreChanged,
+      strokeChanged,
+      farbeChanged,
+      cardStyleChanged,
+      tempStrokeSettings,
+      currentStrokeSettings
+    });
 
     setHasJassSettingsChanges(scoreChanged || strokeChanged || farbeChanged || cardStyleChanged);
-    // Abhängigkeiten bleiben gleich, aber der Guard am Anfang schützt
   }, [tempScoreSettings, tempStrokeSettings, tempFarbeSettings, currentGroup]);
   // === ENDE NEUER useEffect ===
 
@@ -395,7 +422,7 @@ const GroupSettingsPage: React.FC = () => {
                 id="toggle-berg"
                 checked={tempScoreSettings.enabled.berg}
                 onCheckedChange={() => handleScoreToggle('berg')}
-                className="data-[state=checked]:bg-blue-600"
+                className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600 data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed"
               />
             </div>
             {tempScoreSettings.enabled.berg && (
@@ -426,7 +453,7 @@ const GroupSettingsPage: React.FC = () => {
                 id="toggle-schneider"
                 checked={tempScoreSettings.enabled.schneider}
                 onCheckedChange={() => handleScoreToggle('schneider')}
-                className="data-[state=checked]:bg-blue-600"
+                className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600 data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed"
               />
             </div>
             {tempScoreSettings.enabled.schneider && (
@@ -474,17 +501,24 @@ const GroupSettingsPage: React.FC = () => {
                             id={`stroke-${mode}`}
                             type="number"
                             min="0"
+                            max="2"
                             className="w-20 bg-gray-700 border-gray-600 text-white text-right"
-                            value={tempStrokeSettings[mode as StrokeMode] ?? ''}
+                            value={tempStrokeInput[mode as StrokeMode] ?? tempStrokeSettings[mode as StrokeMode] ?? ''}
                             onChange={(e) => {
-                                const value = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
-                                if (value === undefined || !isNaN(value)) {
-                                    setTempStrokeSettings((prev) => ({
-                                        ...prev,
-                                        [mode]: value === undefined ? 0 : Math.max(0, value),
-                                    }));
-                                }
+                                setTempStrokeInput(prev => ({ 
+                                  ...prev, 
+                                  [mode as StrokeMode]: e.target.value.replace(/[^0-9]/g, '')
+                                }));
                             }}
+                            onBlur={() => {
+                              const inputValue = tempStrokeInput[mode as StrokeMode];
+                              const value = inputValue === '' || inputValue === undefined ? 0 : parseInt(inputValue, 10);
+                              if (!isNaN(value)) {
+                                handleStrokeChange(mode as StrokeMode, value);
+                                setTempStrokeInput(prev => ({ ...prev, [mode as StrokeMode]: undefined }));
+                              }
+                            }}
+                            onFocus={(e) => { e.target.select(); setTimeout(() => e.target.select(), 0); }}
                         />
                     </div>
                 ))}
@@ -512,18 +546,22 @@ const GroupSettingsPage: React.FC = () => {
                 variant={tempFarbeSettings.cardStyle === 'DE' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => handleCardStyleChange('DE')}
-                className={` ${tempFarbeSettings.cardStyle === 'DE' ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600' : 'text-gray-300 border-gray-600 hover:bg-gray-700 hover:text-white'}`}
+                className={`min-w-[50px] text-center font-semibold ${tempFarbeSettings.cardStyle === 'DE' 
+                  ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' 
+                  : 'bg-gray-700 text-gray-400 border-gray-600 hover:bg-gray-600 hover:text-gray-300'}`}
               >
-                Deutsch
+                DE
               </Button>
               <Button
                 type="button"
                 variant={tempFarbeSettings.cardStyle === 'FR' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => handleCardStyleChange('FR')}
-                className={` ${tempFarbeSettings.cardStyle === 'FR' ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600' : 'text-gray-300 border-gray-600 hover:bg-gray-700 hover:text-white'}`}
+                className={`min-w-[50px] text-center font-semibold ${tempFarbeSettings.cardStyle === 'FR' 
+                  ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' 
+                  : 'bg-gray-700 text-gray-400 border-gray-600 hover:bg-gray-600 hover:text-gray-300'}`}
               >
-                Französisch
+                FR
               </Button>
             </div>
           </div>
@@ -532,35 +570,61 @@ const GroupSettingsPage: React.FC = () => {
           {/* Multiplikatoren (bestehender Code) */} 
           <div className="border-t border-gray-700/50 pt-4 space-y-3">
             <h4 className="text-base font-medium text-gray-300 mb-2">Multiplikatoren</h4>
-            {FARBE_MODES.map((mode) => (
-                <div key={mode.id} className="flex items-center justify-between space-x-4 p-2 rounded-md hover:bg-gray-700/50">
-                     <div className="flex items-center space-x-2 flex-1">
-                        <FarbePictogram farbe={mode.name as JassColor} mode="svg" className="w-5 h-5 flex-shrink-0" />
-                        <Label htmlFor={`farbe-${mode.id}`} className="font-medium text-gray-200">
-                            {mode.name}
-                        </Label>
-                    </div>
-                    <Input
-                        id={`farbe-${mode.id}`}
-                        type="number"
-                        min="1"
-                        className="w-20 bg-gray-700 border-gray-600 text-white text-right"
-                        value={tempFarbeSettings.values[mode.id as FarbeModeKey] ?? ''}
-                        onChange={(e) => {
-                            const value = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
-                            if (value === undefined || (!isNaN(value) && value >= 1)) {
-                                setTempFarbeSettings((prev) => ({
+            {FARBE_MODES.map((mode) => {
+                // Multiplikator aus dem State holen, Default auf 1 falls nicht vorhanden (für die Logik hier)
+                const multiplier = tempFarbeSettings.values[mode.id as FarbeModeKey] ?? 1;
+                const isInactive = multiplier === 0; // Prüfen ob inaktiv
+
+                return (
+                    <div
+                        key={mode.id}
+                        className={`flex items-center justify-between space-x-4 p-2 rounded-md transition-opacity duration-200 
+                            ${isInactive
+                                ? 'opacity-60 hover:bg-gray-700/30' // Style für inaktiv
+                                : 'hover:bg-gray-700/50'         // Normaler Hover-Style
+                            }`}
+                    >
+                         <div className="flex items-center space-x-2 flex-1">
+                            <FarbePictogram
+                                farbe={mode.name as JassColor}
+                                mode="svg"
+                                cardStyle={tempFarbeSettings.cardStyle}
+                                className="w-5 h-5 flex-shrink-0"
+                            />
+                            <Label htmlFor={`farbe-${mode.id}`} className="font-medium text-gray-200">
+                                {mode.name}
+                            </Label>
+                        </div>
+                        <Input
+                            id={`farbe-${mode.id}`}
+                            type="number"
+                            min="0" // Geändert von 1 auf 0
+                            max="12" // Maximalwert hinzugefügt
+                            className={`w-20 bg-gray-700 border-gray-600 text-white text-right ${isInactive ? 'text-gray-400' : ''}`} // Optional: Textfarbe im Input anpassen
+                            value={tempFarbeInput[mode.id as FarbeModeKey] ?? multiplier ?? ''} // Zeige Multiplikator (inkl. 0)
+                            onChange={(e) => {
+                                setTempFarbeInput(prev => ({
                                     ...prev,
-                                    values: {
-                                        ...prev.values,
-                                        [mode.id]: value === undefined ? 1 : Math.max(1, value),
-                                    },
+                                    [mode.id as FarbeModeKey]: e.target.value.replace(/[^0-9]/g, '')
                                 }));
-                            }
-                        }}
-                    />
-                </div>
-            ))}
+                            }}
+                            onBlur={() => {
+                                const inputValue = tempFarbeInput[mode.id as FarbeModeKey];
+                                // Default auf 0, wenn leer oder ungültig, und klemme zwischen 0 und 12
+                                let value = parseInt(inputValue || '0', 10);
+                                if (isNaN(value)) {
+                                    value = 0; // Default auf 0
+                                }
+                                value = Math.max(0, Math.min(value, 12)); // Klemmen
+
+                                handleFarbeValueChange(mode.id as FarbeModeKey, value); // Geklemmten Wert übergeben
+                                setTempFarbeInput(prev => ({ ...prev, [mode.id as FarbeModeKey]: undefined }));
+                            }}
+                            onFocus={(e) => { e.target.select(); setTimeout(() => e.target.select(), 0); }}
+                        />
+                    </div>
+                );
+            })}             
           </div>
         </CardContent>
       </Card>
@@ -568,116 +632,88 @@ const GroupSettingsPage: React.FC = () => {
   };
   // === ENDE NEUE RENDER-FUNKTIONEN ===
 
-  // === NEUE HANDLER für Jass-Einstellungen ===
-  const handleSaveJassSettings = async () => {
-    if (!currentGroup || !hasJassSettingsChanges || isJassSettingsSaving) return;
-    setIsJassSettingsSaving(true);
-    const groupId = typeof routeGroupId === 'string' ? routeGroupId : currentGroup.id;
-
-    try {
-        await updateCurrentGroupScoreSettings(groupId, tempScoreSettings);
-        await updateCurrentGroupStrokeSettings(groupId, tempStrokeSettings);
-        await updateCurrentGroupFarbeSettings(groupId, tempFarbeSettings);
-
-        showNotification({ message: 'Jass-Einstellungen erfolgreich gespeichert!', type: 'success' });
-
-        setHasJassSettingsChanges(false);
-    } catch (err) {
-        console.error("Fehler beim Speichern der Jass-Einstellungen:", err);
-        showNotification({ message: `Fehler beim Speichern: ${err instanceof Error ? err.message : 'Unbekannter Fehler'}`, type: 'error' });
-    } finally {
-        setIsJassSettingsSaving(false);
+  // === NEUE ZENTRALE HANDLER für Stroke und Farbe ===
+  const handleStrokeChange = (mode: StrokeMode, value: number) => {
+    // Stelle sicher, dass wir nur gültige Werte verwenden (1 oder 2)
+    let validValue = Math.max(0, Math.min(value, 2));
+    if (validValue > 0 && validValue !== 1 && validValue !== 2) {
+      validValue = 2;
     }
-  };
-
-  const handleResetJassDefaults = () => {
-    setTempScoreSettings(DEFAULT_SCORE_SETTINGS);
-    setTempStrokeSettings(DEFAULT_STROKE_SETTINGS);
-    setTempFarbeSettings(DEFAULT_FARBE_SETTINGS);
     
-    showNotification({ message: 'Jass-Einstellungen auf Standard zurückgesetzt (noch nicht gespeichert).', type: 'info'});
+    // Erstelle eine komplette Kopie des Objekts
+    setTempStrokeSettings((prev) => {
+      const newSettings = { ...prev };
+      newSettings[mode] = validValue as 1 | 2;
+      return newSettings;
+    });
+  };
+  
+  const handleFarbeValueChange = (modeId: FarbeModeKey, value: number) => {
+    // Stelle sicher, dass der Wert zwischen 0 und 12 liegt
+    const validValue = Math.max(0, Math.min(value, 12));
+    
+    setTempFarbeSettings((prev) => {
+      const newSettings = {
+        ...prev,
+        values: {
+          ...prev.values,
+          [modeId]: validValue
+        }
+      };
+      return newSettings;
+    });
   };
   // === ENDE NEUE HANDLER ===
 
-  // === NEUER HANDLER für Card Style ===
+  // === NEUE HANDLER für Card Style ===
   const handleCardStyleChange = (style: CardStyle) => {
     setTempFarbeSettings(prev => ({ ...prev, cardStyle: style }));
   };
   // === ENDE NEUER HANDLER ===
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setError(null);
-
-    try {
-      if (!currentGroup) throw new Error("Keine aktive Gruppe ausgewählt");
-
-      await updateGroup(currentGroup.id, {
-        name,
-        description,
-        isPublic,
-      });
-
-      showNotification({
-        message: "Gruppe erfolgreich aktualisiert.",
-        type: "success",
-      });
-
-      router.push("/start");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Ein Fehler ist aufgetreten");
-      setIsSubmitting(false);
-    }
-  };
-
-  // Handle role change
-  const handleRoleChange = async (targetPlayerId: string, newRole: 'admin' | 'member') => {
-    setRoleChangeLoading(prev => ({ ...prev, [targetPlayerId]: true }));
-    try {
-      await updateMemberRole(targetPlayerId, newRole);
-      showNotification({
-        message: `Rolle erfolgreich auf ${newRole === 'admin' ? 'Admin' : 'Mitglied'} geändert.`,
-        type: "success",
-      });
-    } catch (err) {
-      console.error("Fehler beim Ändern der Rolle:", err);
-      showNotification({
-        message: err instanceof Error ? err.message : "Rollenänderung fehlgeschlagen.",
-        type: "error",
-      });
-    } finally {
-      setRoleChangeLoading(prev => ({ ...prev, [targetPlayerId]: false }));
-    }
-  };
-
-  // CTA Button Setup
+  // --- Angepasster CTA Button Setup --- 
   useEffect(() => {
-    // Find the form element
     const form = document.getElementById("group-form") as HTMLFormElement | null;
+    
+    // Prüfe, ob Grundinfo-Änderungen vorliegen
+    const hasBasicChanges = 
+        (name !== (currentGroup?.name || "")) || 
+        (description !== (currentGroup?.description || "")) || 
+        (isPublic !== (currentGroup?.isPublic ?? true));
 
-    // Only set CTA if form exists
+    // Gesamtänderungsstatus (Grundinfos ODER Jass-Settings)
+    const hasAnyChanges = hasBasicChanges || hasJassSettingsChanges;
+    // Gesamt-Speicherstatus (Grundinfos ODER Jass-Settings)
+    const isAnySaving = isSubmitting || isJassSettingsSaving;
+
     if (form) {
-        setPageCta({
-            isVisible: true,
-            text: "Speichern",
-            onClick: () => {
-                // Trigger form submission directly
-                form.requestSubmit(); 
-            },
-            loading: isSubmitting,
-            disabled: isSubmitting,
-            variant: "info",
-        });
+    setPageCta({
+      isVisible: true,
+      text: "Speichern",
+      onClick: () => {
+          // Beide Speicherfunktionen aufrufen, falls Änderungen vorliegen
+          // Die Funktionen selbst prüfen intern, ob sie speichern müssen
+          if (hasBasicChanges) {
+            form.requestSubmit(); // Trigger für handleSubmit
+          }
+          if (hasJassSettingsChanges) {
+             handleSaveJassSettings();
+          }
+        },
+        loading: isAnySaving,
+        // Button deaktivieren, wenn gespeichert wird ODER keine Änderungen vorliegen
+        disabled: isAnySaving || !hasAnyChanges, 
+      variant: "info",
+    });
     } else {
-        // If form is not mounted yet, maybe reset CTA or wait?
-        resetPageCta();
+      resetPageCta();
     }
 
     return () => {
       resetPageCta();
     };
-  }, [setPageCta, resetPageCta, isSubmitting]); // Dependency on isSubmitting remains
+    // Abhängigkeiten um Jass-Settings erweitert
+  }, [setPageCta, resetPageCta, isSubmitting, isJassSettingsSaving, hasJassSettingsChanges, name, description, isPublic, currentGroup]); 
 
   // Funktion zum Aufruf der invalidateActiveGroupInvites Function
   const handleInvalidateInvites = async () => {
@@ -754,6 +790,247 @@ const GroupSettingsPage: React.FC = () => {
       setRepairingData(false);
     }
   };
+
+  // --- Handler für Jass-Einstellungen Speichern ---
+  const handleSaveJassSettings = async () => {
+    // Prüfungen bleiben gleich
+    if (!currentGroup || !hasJassSettingsChanges || isJassSettingsSaving) return;
+    
+    setIsJassSettingsSaving(true);
+    const groupId = typeof routeGroupId === 'string' ? routeGroupId : currentGroup.id; 
+
+    // Lese die DOM-Werte aus, um sicherzustellen, dass die aktuellsten Werte verwendet werden
+    const domValuesForSaving = getDOMInputValues();
+    
+    // Prüfe, ob DOM-Werte und State-Werte unterschiedlich sind
+    let usesDOMValues = false;
+    const strokeFromDOM: StrokeSettings = { ...tempStrokeSettings };
+    const farbeFromDOM = { ...tempFarbeSettings }; 
+    const farbeValuesFromDOM = { ...tempFarbeSettings.values };
+    
+    // Überprüfe stroke-Werte
+    for (const mode of STROKE_MODES) {
+      const domValue = domValuesForSaving.stroke[mode];
+      if (domValue && domValue !== '' && parseInt(domValue) > 0) {
+        // Konvertiere den DOM-Wert in eine Zahl und prüfe, ob er vom State abweicht
+        const numValue = Math.min(2, Math.max(1, parseInt(domValue)));
+        if (numValue !== tempStrokeSettings[mode as StrokeMode]) {
+          strokeFromDOM[mode as StrokeMode] = numValue as 1 | 2;
+          usesDOMValues = true;
+        }
+      }
+    }
+    
+    // Überprüfe farbe-Werte
+    for (const mode of FARBE_MODES) {
+      const domValue = domValuesForSaving.farbe[mode.id];
+      if (domValue && domValue !== '' && parseInt(domValue) > 0) {
+        // Konvertiere den DOM-Wert in eine Zahl und prüfe, ob er vom State abweicht
+        const numValue = Math.max(1, parseInt(domValue));
+        if (numValue !== tempFarbeSettings.values[mode.id as FarbeModeKey]) {
+          farbeValuesFromDOM[mode.id as FarbeModeKey] = numValue;
+          usesDOMValues = true;
+        }
+      }
+    }
+    
+    // Aktualisiere das farbeFromDOM-Objekt mit den geänderten Werten
+    if (usesDOMValues) {
+      farbeFromDOM.values = farbeValuesFromDOM;
+    }
+    
+    // Erstelle das Update-Objekt mit allen temporären Jass-Einstellungen - Erstelle Tiefe Kopien
+    const jassSettingsUpdates = {
+      scoreSettings: JSON.parse(JSON.stringify(tempScoreSettings)),
+      strokeSettings: JSON.parse(JSON.stringify(usesDOMValues ? strokeFromDOM : tempStrokeSettings)),
+      farbeSettingsValues: JSON.parse(JSON.stringify(usesDOMValues ? farbeFromDOM.values : tempFarbeSettings.values)),
+      cardStyle: tempFarbeSettings.cardStyle,
+    };
+
+    try {
+        // Rufe die atomare Action auf
+        await updateCurrentGroupJassSettings(groupId, jassSettingsUpdates);
+        
+        // Setze Änderungsindikator zurück
+        setHasJassSettingsChanges(false);
+    } catch (err) {
+        console.error("Fehler beim Speichern der Jass-Einstellungen:", err);
+    } finally {
+        setIsJassSettingsSaving(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      if (!currentGroup) throw new Error("Keine aktive Gruppe ausgewählt");
+
+      await updateGroup(currentGroup.id, {
+        name,
+        description,
+        isPublic,
+      });
+
+      showNotification({
+        message: "Gruppe erfolgreich aktualisiert.",
+        type: "success",
+      });
+
+      router.push("/start");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ein Fehler ist aufgetreten");
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle role change
+  const handleRoleChange = async (targetPlayerId: string, newRole: 'admin' | 'member') => {
+    setRoleChangeLoading(prev => ({ ...prev, [targetPlayerId]: true }));
+    try {
+      await updateMemberRole(targetPlayerId, newRole);
+      showNotification({
+        message: `Rolle erfolgreich auf ${newRole === 'admin' ? 'Admin' : 'Mitglied'} geändert.`,
+        type: "success",
+      });
+    } catch (err) {
+      console.error("Fehler beim Ändern der Rolle:", err);
+      showNotification({
+        message: err instanceof Error ? err.message : "Rollenänderung fehlgeschlagen.",
+        type: "error",
+      });
+    } finally {
+      setRoleChangeLoading(prev => ({ ...prev, [targetPlayerId]: false }));
+    }
+  };
+
+  // Funktion zur direkten Prüfung der DOM-Werte
+  const getDOMInputValues = () => {
+    // Resultat-Objekt
+    const result = {
+      stroke: {} as Record<string, string>,
+      farbe: {} as Record<string, string>
+    };
+    
+    // Sammle alle Stroke-Inputs
+    STROKE_MODES.forEach(mode => {
+      const element = document.getElementById(`stroke-${mode}`) as HTMLInputElement | null;
+      if (element) {
+        result.stroke[mode] = element.value;
+      }
+    });
+    
+    // Sammle alle Farbe-Inputs
+    FARBE_MODES.forEach(mode => {
+      const element = document.getElementById(`farbe-${mode.id}`) as HTMLInputElement | null;
+      if (element) {
+        result.farbe[mode.id] = element.value;
+      }
+    });
+    
+    return result;
+  };
+
+  // === NEUE FUNKTION: Handler für direktes Einladen/Teilen ===
+  const handleDirectInviteShare = async () => {
+    if (!currentGroup || !user) return;
+    setError(null);
+    setDirectInviteError(null);
+    setIsGeneratingDirectInvite(true);
+
+    const functions = getFunctions(undefined, "europe-west1");
+    const generateInviteToken = httpsCallable(functions, 'generateGroupInviteToken');
+
+    try {
+      console.log(`handleDirectInviteShare: Calling generateGroupInviteToken for group ${currentGroup.id}`);
+      const result = await generateInviteToken({ groupId: currentGroup.id });
+      const token = (result.data as { token: string }).token;
+
+      if (!token) {
+        throw new Error("Kein Token vom Server erhalten.");
+      }
+
+      const inviteLink = `${APP_BASE_URL}/join?token=${token}`;
+
+      // Name des Einladenden holen (Fallback auf 'Jemand')
+      const inviterName = user.displayName || user.email || 'Jemand';
+
+      // Share Text erstellen (NEUE STRUKTUR - OHNE SLOGAN)
+      const titleText = "**Du wurdest zu Jassguru eingeladen**";
+      const bodyText = `${inviterName} lädt dich ein, der Jassgruppe "${currentGroup.name}" beizutreten.`;
+      const linkText = `👉 Hier beitreten: ${inviteLink}`;
+      
+      const shareText = `${titleText}\n\n${bodyText}\n\n${linkText}`;
+
+      // --- Bild laden: Immer /welcome-guru.png verwenden --- 
+      let imageFile: File | null = null;
+      const imageUrlToLoad = '/welcome-guru.png';
+      console.log("Lade Standard-Bild für Teilen:", imageUrlToLoad);
+
+      try {
+        const response = await fetch(imageUrlToLoad);
+        if (!response.ok) {
+          throw new Error(`Standardbild konnte nicht geladen werden: ${response.statusText}`);
+        }
+        const blob = await response.blob();
+        imageFile = new File([blob], 'welcome-guru.png', { type: blob.type || 'image/png' });
+        console.log("Standardbild erfolgreich geladen und als File erstellt:", imageFile.name);
+      } catch (fetchError) {
+        console.error("Fehler beim Laden des Standardbildes:", fetchError);
+        // Hier gibt es keinen weiteren Fallback, imageFile bleibt null
+      }
+      // --- Ende Bild laden ---
+
+
+      if (navigator.share) {
+        const shareData: ShareData = {
+          title: `Du wurdest zu Jassguru eingeladen`, // Titel bleibt hier als Metadaten
+          text: shareText, // Text enthält jetzt den sichtbaren Titel
+          url: inviteLink, // URL explizit mitgeben
+        };
+
+        // Füge das Bild hinzu, falls vorhanden und Filesharing unterstützt wird
+        if (imageFile && navigator.canShare && navigator.canShare({ files: [imageFile] })) {
+          shareData.files = [imageFile];
+          console.log("Versuche Teilen mit Bild:", imageFile.name);
+        } else if (imageFile) {
+          console.log("Bild vorhanden, aber Teilen von Files nicht unterstützt. Teile nur Text.");
+        } else {
+          console.log("Kein Bild zum Teilen verfügbar.");
+        }
+
+        await navigator.share(shareData);
+        showNotification({ message: "Einladungslink geteilt!", type: "success" });
+      } else {
+        // Fallback: Link in die Zwischenablage kopieren
+        navigator.clipboard.writeText(inviteLink);
+        showNotification({ message: "Einladungslink in die Zwischenablage kopiert!", type: "info" });
+      }
+    } catch (error: any) {
+      console.error("Fehler beim Generieren/Teilen des Einladungslinks:", error);
+      // Detailliertere Fehlermeldung versuchen
+      let errorMessage = "Ein interner Fehler ist aufgetreten."; // Generischer Fallback
+      if (error?.code && typeof error.code === 'string') {
+         // Firebase Function error codes (z.B. 'internal', 'unauthenticated', 'permission-denied')
+         // Format: "Fehler (Code): Nachricht"
+         errorMessage = `Fehler (${error.code}): ${error.message || 'Keine weitere Information.'}`;
+      } else if (error instanceof Error) {
+         errorMessage = `Fehler: ${error.message}`;
+      } else if (typeof error === 'string') {
+         errorMessage = error; // Falls nur ein String geworfen wird
+      }
+      
+      console.error("Angezeigte Fehlermeldung:", errorMessage); // Logge die spezifische Meldung
+
+      setDirectInviteError(errorMessage); // Zeige die spezifischere Meldung an
+      showNotification({ message: errorMessage, type: "error" });
+    } finally {
+      setIsGeneratingDirectInvite(false);
+    }
+  };
+  // === ENDE NEUE FUNKTION ===
 
   // Zeige Ladescreen während Auth-Status geprüft wird
   if (status === "loading") {
@@ -851,11 +1128,11 @@ const GroupSettingsPage: React.FC = () => {
               </CardHeader>
               <CardContent>
                 {/* --- Tabs für Jass-Einstellungen --- */}
-                <Tabs defaultValue="punkte" className="w-full">
+                <Tabs defaultValue="farben" className="w-full">
                   <TabsList className="grid w-full grid-cols-3 bg-gray-700/50 p-1 rounded-lg mb-4">
+                    <TabsTrigger value="farben" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-gray-300 hover:bg-gray-600/50 rounded-md py-1.5 text-sm">Farben</TabsTrigger>
                     <TabsTrigger value="punkte" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-gray-300 hover:bg-gray-600/50 rounded-md py-1.5 text-sm">Punkte</TabsTrigger>
                     <TabsTrigger value="striche" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-gray-300 hover:bg-gray-600/50 rounded-md py-1.5 text-sm">Striche</TabsTrigger>
-                    <TabsTrigger value="farben" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-gray-300 hover:bg-gray-600/50 rounded-md py-1.5 text-sm">Farben</TabsTrigger>
                   </TabsList>
                   <TabsContent value="punkte">
                     {renderScoreSettings()}
@@ -868,68 +1145,50 @@ const GroupSettingsPage: React.FC = () => {
                   </TabsContent>
                 </Tabs>
                 {/* --- Ende Tabs --- */}
-
-                {/* --- Buttons für Jass-Einstellungen --- */}
-                <div className="mt-5 pt-4 border-t border-gray-700/50 flex justify-end space-x-3">
-                    <Button
-                        type="button" // Wichtig: Nicht das Hauptformular absenden
-                        variant="outline"
-                        onClick={handleResetJassDefaults}
-                        disabled={isJassSettingsSaving}
-                        className="text-gray-300 border-gray-600 hover:bg-gray-700 hover:text-white"
-                        title="Jass-Einstellungen auf Standard zurücksetzen (nicht gespeichert)"
-                    >
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {/* TODO: Hier fehlt ein Icon (z.B. RotateCcw) - nachher fixen */} Standard
-                    </Button>
-                    <Button
-                        type="button" // Wichtig: Nicht das Hauptformular absenden
-                        onClick={handleSaveJassSettings}
-                        disabled={!hasJassSettingsChanges || isJassSettingsSaving}
-                        className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                        {isJassSettingsSaving ? (
-                            <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Speichern... </> 
-                        ) : ( 
-                            "Jass Speichern" 
-                        )}
-                    </Button>
-                </div>
-                {/* --- Ende Buttons --- */}
               </CardContent>
             </Card>
             {/* === ENDE Jass-Einstellungen Card === */}
 
-            {/* Sichtbarkeit */}
-            <Card className="bg-gray-800 border-gray-700">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
-                  <Globe className="w-5 h-5" />
-                  Sichtbarkeit
-                </CardTitle>
-                <CardDescription className="text-gray-400">
-                  Wer kann die Gruppe sehen und beitreten?
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <label className="text-sm font-medium text-gray-200">
-                      Öffentliche Gruppe
-                    </label>
-                    <p className="text-sm text-gray-400">
-                      Die Gruppe ist für alle sichtbar und beitretbar
-                    </p>
-                  </div>
-                  <Switch
-                    checked={isPublic}
-                    onCheckedChange={setIsPublic}
-                    className="data-[state=checked]:bg-green-600"
-                  />
-                </div>
-              </CardContent>
-            </Card>
+            {/* === NEUE KARTE: Aktionen (nur für Admins) === */}
+            {isCurrentUserAdmin && (
+               <Card className="bg-gray-800 border-gray-700">
+                 <CardHeader className="pb-2">
+                   <CardTitle className="text-white flex items-center gap-2">
+                     <UserPlus className="w-5 h-5" />
+                     Freunde einladen
+                   </CardTitle>
+                 </CardHeader>
+                 <CardContent>
+                   <div className="flex flex-col">
+                     <div>
+                       <p className="text-sm text-gray-400 mt-1 mb-4">
+                         Lade deine Jassfreunde zur Gruppe ein.
+                       </p>
+                       <Button
+                         onClick={handleDirectInviteShare}
+                         disabled={isGeneratingDirectInvite || !currentGroup}
+                         className="w-full bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-2"
+                       >
+                         {isGeneratingDirectInvite ? (
+                           <>
+                             <Loader2 className="h-4 w-4 animate-spin" />
+                             Wird generiert...
+                           </>
+                         ) : (
+                           "Zur Gruppe einladen"
+                         )}
+                       </Button>
+                       {directInviteError && (
+                         <p className="text-xs text-red-400 mt-2 text-center">{directInviteError}</p>
+                       )}
+                     </div>
+                   </div>
+                 </CardContent>
+               </Card>
+            )}
+            {/* === ENDE NEUE KARTE === */}
 
-            {/* Mitglieder */}
+            {/* Mitglieder - Bleibt hier */}
             <Card className="bg-gray-800 border-gray-700">
               <CardHeader>
                 <CardTitle className="text-white flex items-center gap-2">
@@ -1117,6 +1376,36 @@ const GroupSettingsPage: React.FC = () => {
                     })}
                   </ul>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Sichtbarkeit - Nach Mitglieder verschoben */}
+            <Card className="bg-gray-800 border-gray-700">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <Globe className="w-5 h-5" />
+                  Sichtbarkeit
+                </CardTitle>
+                <CardDescription className="text-gray-400">
+                  Wer kann die Gruppe sehen und beitreten?
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <label className="text-sm font-medium text-gray-200">
+                      Öffentliche Gruppe
+                    </label>
+                    <p className="text-sm text-gray-400">
+                      Die Gruppe ist für alle sichtbar und beitretbar
+                    </p>
+                  </div>
+                  <Switch
+                    checked={isPublic}
+                    onCheckedChange={setIsPublic}
+                    className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600 data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed"
+                  />
+                </div>
               </CardContent>
             </Card>
 

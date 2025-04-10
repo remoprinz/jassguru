@@ -17,8 +17,8 @@ export interface StrokeSettings {
 
 // Default Stroke Settings
 export const DEFAULT_STROKE_SETTINGS: StrokeSettings = {
-  schneider: 2,
-  kontermatsch: 2,
+  schneider: 1,
+  kontermatsch: 1,
 } as const;
 
 // Wirklich NUR die Basis-Game-Settings

@@ -76,14 +76,14 @@ export function RegisterForm() {
       )}
 
       {registrationSuccess ? (
-        <Alert className="bg-yellow-900/30 border-yellow-900 text-yellow-200">
-          <AlertDescription className="text-yellow-200">
+        <Alert className="bg-green-900/30 border-green-900 text-green-200">
+          <AlertDescription className="text-green-200">
             Ein Bestätigungslink wurde an deine E-Mail gesendet. Bitte überprüfe dein Postfach (auch Spam), um die Registrierung abzuschliessen.
           </AlertDescription>
           <div className="mt-4 flex justify-center">
             <Button
               variant="default"
-              className="bg-yellow-500 hover:bg-yellow-600 text-black px-4 py-2 rounded-md text-sm"
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm"
               onClick={() => setRegistrationSuccess(false)}
             >
               Verstanden

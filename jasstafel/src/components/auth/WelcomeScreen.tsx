@@ -121,7 +121,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           </h1>
 
           <p className="text-gray-400 text-center">
-          Registriere dich jetzt, um Gruppenstatistiken zu erfassen und weitere Funktionen zu nutzen. Oder spiele einfach als Gast.
+          Erstelle dein eigenes Profil und gründe Jassgruppen mit deinen Freunden. Schreibt zusammen Jassgeschichte mit detaillierten Statistiken und vieles mehr. Zum Ausprobieren einfach als Gast jassen.
           </p>
         </div>
 

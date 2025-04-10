@@ -395,108 +395,79 @@ export const getUserDocument = async (uid: string): Promise<FirestorePlayer | nu
   }
 };
 
+/**
+ * @returns The updated AuthUser object with the new photoURL.
+ */
 export const uploadProfilePicture = async (file: File, userId: string): Promise<AuthUser> => {
-  if (!db) throw new Error("Firebase Database nicht initialisiert.");
-  const storage = getStorage();
-  if (!storage) throw new Error("Firebase Storage nicht initialisiert.");
-  const authInstance = getAuth();
-
-  const userDocRef = doc(db, "users", userId);
-  try {
-    const userDocSnap = await getDoc(userDocRef);
-    console.log("User document loaded:", userDocSnap.exists() ? userDocSnap.data() : "No document");
-    if (userDocSnap.exists()) {
-      const oldPhotoURL = userDocSnap.data()?.photoURL;
-      if (oldPhotoURL) {
-        try {
-          const oldImageRef = ref(storage, oldPhotoURL);
-          await deleteObject(oldImageRef);
-          console.log("Altes Profilbild gelöscht:", oldPhotoURL);
-        } catch (deleteError) {
-          console.warn("Konnte altes Profilbild nicht löschen:", deleteError);
-        }
-      }
-    }
-  } catch (error) {
-    console.error("Fehler beim Abrufen des Benutzerdokuments zum Löschen des alten Bildes:", error);
+  if (!userId) {
+    console.error("uploadProfilePicture: User ID is missing.");
+    throw new Error("User ID is required to upload profile picture.");
   }
 
-  const filePath = `profileImages/${userId}/${file.name}`;
-  const storageRef = ref(storage, filePath);
+  const storage = getStorage();
+  const storageRef = ref(storage, `profilePictures/${userId}/profile.${file.name.split('.').pop()}`);
+  const currentAuth = getAuth();
+  const currentUser = currentAuth.currentUser;
+
+  if (!currentUser) {
+    console.error("uploadProfilePicture: No current user found in auth.");
+    throw new Error("Authentication error: No current user found.");
+  }
+
+  console.log(`AUTH_SERVICE: Uploading profile picture for user ${userId} to path: ${storageRef.fullPath}`);
 
   try {
-    console.log(`Lade ${file.name} (${(file.size / 1024).toFixed(2)} KB) hoch nach ${filePath}...`);
+    // 1. Datei hochladen
+    const snapshot = await uploadBytes(storageRef, file);
+    console.log(`AUTH_SERVICE: Profile picture uploaded for user ${userId}. Upload successful.`);
 
-    const fileType = file.type.toLowerCase();
-    if (!fileType.startsWith("image/")) {
-      throw new Error("Die Datei ist kein Bild. Unterstützte Formate: JPEG, PNG, GIF.");
-    }
+    // 2. Download-URL holen
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    console.log(`AUTH_SERVICE: Download URL obtained for user ${userId}:`, downloadURL);
 
-    const fileSizeInMB = file.size / (1024 * 1024);
-    if (fileSizeInMB > 5) {
-      throw new Error(`Die Datei ist zu groß (${fileSizeInMB.toFixed(2)} MB). Maximale Größe: 5 MB.`);
-    }
+    // 3. Firebase Auth Profil aktualisieren
+    await firebaseUpdateProfile(currentUser, { photoURL: downloadURL });
+    console.log(`AUTH_SERVICE: Firebase Auth profile updated for user ${userId} with new photoURL.`);
 
-    const uploadResult = await uploadBytes(storageRef, file);
-    console.log("Upload erfolgreich:", uploadResult);
-
-    const downloadURL = await getDownloadURL(uploadResult.ref);
-    console.log("Download URL:", downloadURL);
-
-    await updateDoc(userDocRef, {
-      photoURL: downloadURL,
-      updatedAt: serverTimestamp(),
-    });
-    console.log("Firestore photoURL aktualisiert.");
-
-    const currentUser = authInstance.currentUser;
-    if (!currentUser) {
-      throw new Error("Benutzer ist nach dem Upload nicht mehr angemeldet.");
-    }
-
+    // --- NEUER SCHRITT 4: Firestore User-Dokument aktualisieren ---
     try {
-      await firebaseUpdateProfile(currentUser, {photoURL: downloadURL});
-      console.log("Auth-Profil aktualisiert.");
-    } catch (profileError) {
-      console.warn("Konnte Auth-Profil nicht aktualisieren:", profileError);
+      await updateUserDocument(userId, { photoURL: downloadURL });
+      console.log(`AUTH_SERVICE: Firestore 'users' document updated for user ${userId} with new photoURL.`);
+    } catch (firestoreError) {
+      console.error(`AUTH_SERVICE: Error updating Firestore 'users' document for user ${userId} with photoURL:`, firestoreError);
+      // Wir werfen den Fehler nicht unbedingt weiter, da Auth aktualisiert wurde,
+      // aber loggen ihn deutlich.
+      // Eventuell Rollback von Auth Update? Vorerst nicht.
     }
+    // --- ENDE NEUER SCHRITT 4 ---
 
-    const updatedAuthUser = mapUserToAuthUser(currentUser);
-    updatedAuthUser.photoURL = downloadURL;
-
-    console.log("AuthService: Gebe aktualisierten AuthUser zurück:", updatedAuthUser);
+    // 5. Aktualisierte Benutzerdaten (inkl. Firestore-Daten) abrufen und zurückgeben
+    // Hinweis: Wir rufen getUserDocument auf, um sicherzustellen, dass wir die neuesten
+    // Firestore-Daten haben, da mapUserToAuthUser diese verwendet.
+    // Dies geht davon aus, dass die Cloud Function die Daten vom 'users' zum 'players'
+    // Dokument synchronisiert hat oder dass getUserDocument indirekt auf das 'players'
+    // Dokument zugreift, wenn 'users' nicht die nötigen Felder hat.
+    // Wenn mapUserToAuthUser nur 'users' liest, ist das ok.
+    const firestoreUserData = await getUserDocument(userId); // Holt Daten aus 'users' collection
+    const updatedAuthUser = mapUserToAuthUser(currentUser, firestoreUserData); 
+    
+    console.log(`AUTH_SERVICE: Returning updated AuthUser object for ${userId}:`, updatedAuthUser);
     return updatedAuthUser;
-  } catch (error) {
-    console.error("Fehler beim Hochladen des Profilbilds oder Aktualisieren von Firestore:", error);
 
-    if (error instanceof Error) {
-      if ("code" in error) {
-        const errorCode = (error as FirebaseAuthError).code;
-        switch (errorCode) {
-        case "storage/unauthorized":
-          throw new Error("Berechtigung fehlt. Stellen Sie sicher, dass Sie eingeloggt sind und die Storage-Regeln korrekt sind.");
-        case "storage/canceled":
-          throw new Error("Upload wurde abgebrochen.");
-        case "storage/unknown":
-          throw new Error("Storage-Fehler: Bitte überprüfen Sie die Verbindung und Firebase-Konfiguration. Der Bucket muss existieren und korrekt konfiguriert sein (CORS).");
-        case "storage/retry-limit-exceeded":
-          throw new Error("Zeitüberschreitung beim Upload. Bitte überprüfen Sie Ihre Internetverbindung.");
-        case "storage/invalid-checksum":
-          throw new Error("Die Datei wurde während des Uploads beschädigt. Bitte versuchen Sie es erneut.");
-        case "storage/object-not-found":
-          throw new Error("Das Bild konnte nach dem Upload nicht gefunden werden.");
-        case "storage/bucket-not-found":
-          throw new Error("Der Firebase Storage Bucket existiert nicht. Bitte überprüfen Sie Ihre Firebase-Konfiguration.");
-        case "storage/quota-exceeded":
-          throw new Error("Storage-Kontingent überschritten. Bitte kontaktieren Sie den Administrator.");
-        default:
-          throw new Error(`Fehler beim Bildupload (${errorCode}): ${error.message}`);
+  } catch (error) {
+    console.error(`AUTH_SERVICE: Error during profile picture upload process for user ${userId}:`, error);
+    // Spezifischere Fehlerbehandlung basierend auf dem Fehlercode (Storage, Auth etc.)
+    if (error instanceof Error && 'code' in error) {
+        const storageErrorCode = (error as any).code;
+        if (storageErrorCode === 'storage/unauthorized') {
+            throw new Error("Berechtigungsfehler: Sie dürfen kein Profilbild hochladen.");
+        } else if (storageErrorCode === 'storage/canceled') {
+            throw new Error("Der Upload wurde abgebrochen.");
+        } else if (storageErrorCode === 'storage/unknown') {
+            throw new Error("Ein unbekannter Speicherfehler ist aufgetreten.");
         }
-      }
-      throw new Error(`Fehler beim Bildupload: ${error.message}`);
-    } else {
-      throw new Error("Ein unbekannter Fehler ist beim Bildupload aufgetreten. Bitte versuchen Sie es später erneut.");
     }
+    throw new Error(`Profilbild konnte nicht hochgeladen werden: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
 

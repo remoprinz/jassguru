@@ -19,6 +19,7 @@ const withPWA = withPWAInit({
   dest: 'public',
   register: true,
   skipWaiting: true,
+  clientsClaim: true,
   scope: '/',
   disable: false,
   buildExcludes: [/middleware-manifest\.json$/],

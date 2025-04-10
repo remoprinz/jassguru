@@ -32,6 +32,9 @@ import { getNormalStricheCount } from '@/utils/stricheCalculations';
 import { useDeviceScale } from '@/hooks/useDeviceScale';
 import { ArrowLeft, ArrowRight, Share } from 'lucide-react';
 import { useSwipeable } from 'react-swipeable';
+import { useGroupStore } from '@/store/groupStore';
+import { DEFAULT_STROKE_SETTINGS } from '@/config/GameSettings';
+import { DEFAULT_FARBE_SETTINGS } from '@/config/FarbeSettings';
 
 const PlayerName: React.FC<{ 
   name: string, 
@@ -121,7 +124,11 @@ const ResultatKreidetafel = () => {
   // 1. Basis Store-Zugriffe
   const isOpen = useUIStore(state => state.resultatKreidetafel.isOpen);
   const swipePosition = useUIStore(state => state.resultatKreidetafel.swipePosition);
-  
+  const { currentGroup } = useGroupStore();
+  const activeStrokeSettings = currentGroup?.strokeSettings ?? DEFAULT_STROKE_SETTINGS;
+  const activeScoreSettings = currentGroup?.scoreSettings ?? useUIStore.getState().scoreSettings;
+  const activeFarbeSettings = currentGroup?.farbeSettings ?? DEFAULT_FARBE_SETTINGS;
+
   // 2. JassStore Zugriffe
   const games = useJassStore(state => state.games);
   
@@ -386,53 +393,77 @@ const ResultatKreidetafel = () => {
     const { games } = useJassStore.getState();
     
     // Hilfsfunktion zur korrekten Berechnung der Striche
-    const calculateStriche = (striche: StricheRecord): number => {
-      let total = 0;
-      // Berg nur wenn aktiviert
-      if (scoreSettings?.enabled?.berg) {
-        total += striche.berg;
+    const calculateStricheValue = (striche: StricheRecord, strokeSettings: typeof DEFAULT_STROKE_SETTINGS, scoreSettingsEnabled: { berg: boolean, schneider: boolean }): number => {
+      let totalValue = 0;
+      // Berg nur wenn aktiviert (zählt immer 1)
+      if (scoreSettingsEnabled.berg) {
+        totalValue += striche.berg;
       }
-      // Sieg immer
-      total += striche.sieg;
-      // Schneider nur wenn aktiviert
-      if (scoreSettings?.enabled?.schneider) {
-        total += striche.schneider;
+      // Sieg zählt immer 2
+      totalValue += striche.sieg * 2;
+      // Schneider nur wenn aktiviert (Wert aus Settings)
+      if (scoreSettingsEnabled.schneider) {
+        // Annahme: Feld heißt 'schneider', Wert ist 1 oder 2
+        totalValue += striche.schneider * (strokeSettings.schneider ?? 1); // Multipliziere Anzahl mit Wert (1 oder 2)
       }
-      // Matsch und Kontermatsch immer
-      total += striche.matsch;
-      total += striche.kontermatsch;
-      return total;
+      // Matsch (Wert ist immer 1)
+      totalValue += striche.matsch; 
+      // Kontermatsch (Wert aus Settings)
+      // Annahme: Feld heißt 'kontermatsch', Wert ist 1 oder 2
+      totalValue += striche.kontermatsch * (strokeSettings.kontermatsch ?? 1); // Multipliziere Anzahl mit Wert (1 oder 2)
+      return totalValue;
     };
 
-    // 1. Basis-Totale aus vorherigen Spielen (OHNE aktuelles Spiel)
+    // 1. Basis-Totale aus vorherigen Spielen (OHNE aktuelles Spiel) - Keine Einstellungsanwendung hier
     const baseTotals = games
       .filter(game => game.id < currentGameId)  // Wichtig: < statt <=
-      .reduce((totals, game) => ({
-        striche: {
-          top: totals.striche.top + calculateStriche(game.teams.top.striche),
-          bottom: totals.striche.bottom + calculateStriche(game.teams.bottom.striche)
-        },
-        punkte: {
-          top: totals.punkte.top + game.teams.top.total,
-          bottom: totals.punkte.bottom + game.teams.bottom.total
-        }
-      }), {
-        striche: { top: 0, bottom: 0 },
-        punkte: { top: 0, bottom: 0 }
-      });
+      .reduce((totals, game) => {
+         // --- WICHTIG: Hier die Striche einfach addieren (1 pro Eintrag), da Einstellungen damals nicht galten ---
+         let gameStricheTop = 0;
+         let gameStricheBottom = 0;
+         // Diese Logik MUSS die damalige Struktur widerspiegeln - Annahme: Berg/Schneider waren damals ggf. auch schon optional?
+         // Wenn wir nicht sicher sind, wie es war, ist die einfachste Annahme, jeden Eintrag als 1 zu zählen.
+         // Sicherer: Verwende die Logik von calculateStricheValue, aber mit strokeSettings = {siegStriche: 1, ...} (alle 1) und den damaligen scoreSettings?
+         // Fürs Erste zählen wir einfach die Einträge > 0
+         gameStricheTop += game.teams.top.striche.sieg > 0 ? game.teams.top.striche.sieg : 0;
+         gameStricheTop += game.teams.top.striche.berg > 0 ? game.teams.top.striche.berg : 0; // Nur zählen wenn > 0
+         gameStricheTop += game.teams.top.striche.schneider > 0 ? game.teams.top.striche.schneider : 0;
+         gameStricheTop += game.teams.top.striche.matsch > 0 ? game.teams.top.striche.matsch : 0;
+         gameStricheTop += game.teams.top.striche.kontermatsch > 0 ? game.teams.top.striche.kontermatsch : 0;
 
-    // 2. Aktuelle Striche hinzufügen
+         gameStricheBottom += game.teams.bottom.striche.sieg > 0 ? game.teams.bottom.striche.sieg : 0;
+         gameStricheBottom += game.teams.bottom.striche.berg > 0 ? game.teams.bottom.striche.berg : 0;
+         gameStricheBottom += game.teams.bottom.striche.schneider > 0 ? game.teams.bottom.striche.schneider : 0;
+         gameStricheBottom += game.teams.bottom.striche.matsch > 0 ? game.teams.bottom.striche.matsch : 0;
+         gameStricheBottom += game.teams.bottom.striche.kontermatsch > 0 ? game.teams.bottom.striche.kontermatsch : 0;
+
+         return {
+           striche: {
+             top: totals.striche.top + gameStricheTop,
+             bottom: totals.striche.bottom + gameStricheBottom
+           },
+           punkte: {
+             top: totals.punkte.top + game.teams.top.total,
+             bottom: totals.punkte.bottom + game.teams.bottom.total
+           }
+         };
+      }, { striche: { top: 0, bottom: 0 }, punkte: { top: 0, bottom: 0 } });
+
+    // 2. Aktuelle Striche hinzufügen - HIER die aktiven Einstellungen anwenden
+    const currentTopStricheValue = calculateStricheValue(uiStriche.top, activeStrokeSettings, activeScoreSettings.enabled);
+    const currentBottomStricheValue = calculateStricheValue(uiStriche.bottom, activeStrokeSettings, activeScoreSettings.enabled);
+
     return {
       striche: {
-        top: baseTotals.striche.top + calculateStriche(uiStriche.top),
-        bottom: baseTotals.striche.bottom + calculateStriche(uiStriche.bottom)
+        top: baseTotals.striche.top + currentTopStricheValue,
+        bottom: baseTotals.striche.bottom + currentBottomStricheValue
       },
       punkte: {
         top: baseTotals.punkte.top + topScore,
         bottom: baseTotals.punkte.bottom + bottomScore
       }
     };
-  }, [currentGameId, uiStriche, topScore, bottomScore]);  // Abhängigkeiten aktualisiert
+  }, [currentGameId, uiStriche, topScore, bottomScore, games, activeStrokeSettings, activeScoreSettings]); 
 
   // Touch-Handler mit korrekter Typisierung
   const handleStatisticChange = React.useCallback((direction: 'left' | 'right') => {
@@ -541,9 +572,9 @@ const ResultatKreidetafel = () => {
       
       console.log("✅ Element für Screenshot gefunden:", kreidetafelContent);
 
-      // 5. Alle relevanten Container identifizieren
+      // 5. Alle relevanten Container identifizieren (mit ID)
       localStatistikContainer = document.querySelector('.statistik-container') as HTMLElement | null;
-      localButtonContainer = document.querySelector('.grid.gap-4.mt-4') as HTMLElement | null;
+      localButtonContainer = document.getElementById('resultat-buttons-container');
       
       if (localStatistikContainer && localButtonContainer) {
         // Speichern der originalen Stile
@@ -612,7 +643,8 @@ const ResultatKreidetafel = () => {
             : notification.message.text
           : 'Jass Resultat';
           
-        const fullShareText = `${shareText}\n\nGeneriert von:\n👉 https://jassguru.web.app`;
+        // Angepasster Text und korrekte Domain
+        const fullShareText = `${shareText}\n\nGeneriert von:\n👉 https://jassguru.ch`; 
         
         const shareData = { 
           files: [file],
@@ -627,7 +659,7 @@ const ResultatKreidetafel = () => {
         } else {
           console.warn("⚠️ Teilen von Files wird nicht unterstützt - versuche Fallback mit nur Text");
           // Fallback: Nur Text teilen
-          await navigator.share({ text: fullShareText });
+          await navigator.share({ text: fullShareText }); // Nur Text teilen im Fallback
           console.log("✅ Teilen nur mit Text erfolgreich!");
         }
       } else {
@@ -701,7 +733,7 @@ const ResultatKreidetafel = () => {
         sieg: getNormalStricheCount(storeStriche.bottom)
       }
     }
-  }), [currentTotals, currentGameId, games.length, playerNames, currentStatistic, uiStriche, storeStriche]);
+  }), [currentTotals, currentGameId, games.length, playerNames, currentStatistic, uiStriche, storeStriche, activeScoreSettings]);
 
   const handleBeendenClick = useCallback(() => {
     const uiStore = useUIStore.getState();
@@ -752,8 +784,8 @@ const ResultatKreidetafel = () => {
         team2: uiStriche.bottom.matsch ?? 0
       },
       totalMatsche: (uiStriche.top.matsch ?? 0) + (uiStriche.bottom.matsch ?? 0),
-      isSchneider: currentTotals.punkte.top < uiStore.scoreSettings.values.schneider || 
-                  currentTotals.punkte.bottom < uiStore.scoreSettings.values.schneider,
+      isSchneider: currentTotals.punkte.top < activeScoreSettings.values.schneider || 
+                  currentTotals.punkte.bottom < activeScoreSettings.values.schneider,
       gameStats: teamStats.gameStats,
       gesamtStand: teamStats.gesamtStand,
       previousGesamtStand: teamStats.previousGesamtStand
@@ -982,6 +1014,7 @@ const ResultatKreidetafel = () => {
                   teams={teams}
                   games={games}
                   currentGameId={currentGameId}
+                  cardStyle={activeFarbeSettings.cardStyle}
                   onSwipe={handleStatisticChange}
                 />
               ) : (
@@ -989,6 +1022,7 @@ const ResultatKreidetafel = () => {
                   teams={teams}
                   games={games}
                   currentGameId={currentGameId}
+                  cardStyle={activeFarbeSettings.cardStyle}
                   onSwipe={handleStatisticChange}
                 />
               )}
@@ -1032,7 +1066,9 @@ const ResultatKreidetafel = () => {
         </div>
 
         {/* Button Container (jetzt Teil des Hauptcontainers, nicht in einem separaten div) */}
-        <div className={`
+        <div 
+          id="resultat-buttons-container"
+          className={`
           grid gap-4 mt-4 
           ${canNavigateForward && canNavigateBack
             ? 'grid-cols-3' // Navigation Mode: 3 Spalten

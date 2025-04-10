@@ -4,6 +4,7 @@
 import React, {useState, useEffect, useCallback} from "react";
 import {useGameStore} from "../../store/gameStore";
 import {useUIStore} from "../../store/uiStore";
+import {useGroupStore} from "../../store/groupStore";
 import {TeamPosition, JassColor, StrichTyp, CardStyle, FarbeModeKey} from "../../types/jass";
 import {FiRotateCcw, FiX} from "react-icons/fi";
 import {useSpring, animated} from "react-spring";
@@ -16,6 +17,7 @@ import {usePressableButton} from "../../hooks/usePressableButton";
 import {useTutorialStore} from "../../store/tutorialStore";
 import {TUTORIAL_STEPS} from "../../types/tutorial";
 import {useDeviceScale} from "../../hooks/useDeviceScale";
+import {DEFAULT_FARBE_SETTINGS} from "@/config/FarbeSettings";
 
 interface CalculatorProps {
   isOpen: boolean;
@@ -38,9 +40,12 @@ const Calculator: React.FC<CalculatorProps> = ({
   clickedPosition,
 }) => {
   const {finalizeRound, currentHistoryIndex, roundHistory, showHistoryWarning, jumpToLatest, validateHistoryAction} = useGameStore();
-  const {calculator, setCalculatorFlipped, farbeSettings, settings: {pictogramConfig, cardStyle}} = useUIStore();
+  const {calculator, setCalculatorFlipped, settings: {pictogramConfig}} = useUIStore();
   const {isActive: isTutorialActive, getCurrentStep} = useTutorialStore();
   const currentStep = getCurrentStep();
+
+  const {currentGroup} = useGroupStore();
+  const activeFarbeSettings = currentGroup?.farbeSettings ?? DEFAULT_FARBE_SETTINGS;
 
   const [value, setValue] = useState(initialValue?.toString() || "0");
   const [opponentValue, setOpponentValue] = useState("0");
@@ -233,10 +238,15 @@ const Calculator: React.FC<CalculatorProps> = ({
   const colorMultipliers = FARBE_MODES
     .map((mode) => ({
       color: mode.name,
-      multiplier: farbeSettings.values[mode.id as FarbeModeKey] ?? 0,
+      multiplier: activeFarbeSettings.values[mode.id as FarbeModeKey] ?? 0,
     }))
     .filter((item) => item.multiplier > 0)
     .sort((a, b) => a.multiplier - b.multiplier);
+
+  // Aufbereitete Farbenliste für die Anzeige, mit leerer Kachel bei ungerader Anzahl
+  const displayColorMultipliers = colorMultipliers.length % 2 === 1 ?
+    [{ color: "empty", multiplier: 0 }, ...colorMultipliers] :
+    colorMultipliers;
 
   const getGridClasses = (activeColors: number): string => {
     // Basis-Grid-Klassen mit group und has-active wenn ein Button selektiert ist
@@ -261,7 +271,7 @@ const Calculator: React.FC<CalculatorProps> = ({
       return "bg-orange-500";
     }
 
-    if (cardStyle === "FR") {
+    if (activeFarbeSettings.cardStyle === "FR") {
       return farbeMode?.frStyle?.backgroundColor || "bg-gray-600";
     }
 
@@ -279,7 +289,7 @@ const Calculator: React.FC<CalculatorProps> = ({
       return "Unde";
     }
 
-    if (cardStyle === "FR" && !pictogramConfig.isEnabled) {
+    if (activeFarbeSettings.cardStyle === "FR" && !pictogramConfig.isEnabled) {
       // Mapping für französische Namen wenn keine Piktogramme
       const frenchNames: Record<string, string> = {
         "Eicheln": "Schaufel",
@@ -335,11 +345,11 @@ const Calculator: React.FC<CalculatorProps> = ({
         {isClient && pictogramConfig.isEnabled ? (
           pictogramConfig.mode === "emoji" ? (
             <span className="text-2xl">
-              {getPictogram(color as JassColor, "emoji", cardStyle)}
+              {getPictogram(color as JassColor, "emoji", activeFarbeSettings.cardStyle)}
             </span>
           ) : (
             <img
-              src={getPictogram(color as JassColor, "svg", cardStyle)}
+              src={getPictogram(color as JassColor, "svg", activeFarbeSettings.cardStyle)}
               alt={color}
               className={`w-10 h-10 object-contain ${
                 isMisereSelected ? "invert brightness-0" : ""
@@ -383,6 +393,16 @@ const Calculator: React.FC<CalculatorProps> = ({
 
   // Die alte renderXXX Funktionen durch Aufrufe der neuen Komponenten ersetzen
   const renderFarbeButton = (color: string, multiplier: number) => {
+    // Leere Kachel rendern
+    if (color === "empty") {
+      return (
+        <div 
+          key="empty-placeholder" 
+          className="p-1 rounded text-white select-none text-xs h-12 flex items-center justify-center bg-gray-700"
+        />
+      );
+    }
+    
     return (
       <FarbeButton
         key={color}
@@ -394,7 +414,7 @@ const Calculator: React.FC<CalculatorProps> = ({
         isClient={isClient}
         getButtonStyle={getButtonStyle}
         getPictogram={getPictogram}
-        cardStyle={cardStyle}
+        cardStyle={activeFarbeSettings.cardStyle}
         getDisplayName={getDisplayName}
       />
     );
@@ -553,7 +573,7 @@ const Calculator: React.FC<CalculatorProps> = ({
           </div>
           <div className="mt-4"></div>
           <div className={getGridClasses(colorMultipliers.length)}>
-            {colorMultipliers.map(({color, multiplier}) => renderFarbeButton(color, multiplier))}
+            {displayColorMultipliers.map(({color, multiplier}) => renderFarbeButton(color, multiplier))}
           </div>
           <div className="grid grid-cols-3 gap-3 w-full">
             {numberOrder.map((num) => renderNumberButton(num))}

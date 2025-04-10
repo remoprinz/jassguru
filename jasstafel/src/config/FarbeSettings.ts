@@ -155,16 +155,16 @@ export const DEFAULT_FARBE_SETTINGS: FarbeSettings = {
   values: {
     eicheln: 1,
     rosen: 1,
-    schellen: 1,
-    schilten: 1,
-    obe: 1,
-    une: 1,
-    misère: 1,
-    dreimal: 3,
-    quer: 1,
-    slalom: 1,
-    obeabe: 1,
-    uneufe: 1
+    schellen: 2,
+    schilten: 2,
+    obe: 3,
+    une: 3,
+    misère: 0,
+    dreimal: 0,
+    quer: 0,
+    slalom: 0,
+    obeabe: 0,
+    uneufe: 0
   },
   cardStyle: 'DE'
 };

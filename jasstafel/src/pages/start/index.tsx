@@ -11,12 +11,16 @@ import Image from "next/image";
 import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
 import MainLayout from "@/components/layout/MainLayout";
 import {GroupSelector} from "@/components/group/GroupSelector";
-import {Users, Settings, UserPlus, Camera, Upload, X, Loader2} from "lucide-react";
+import {Users, Settings, UserPlus, Camera, Upload, X, Loader2, BarChart} from "lucide-react";
 import imageCompression from "browser-image-compression";
 import {uploadGroupLogo} from "@/services/groupService";
 import ImageCropModal from "@/components/ui/ImageCropModal";
 import InviteModal from "@/components/group/InviteModal";
 import {getFunctions, httpsCallable} from "firebase/functions";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { GroupMemberList } from "@/components/group/GroupMemberList";
+import { getGroupMembersSortedByGames } from "@/services/playerService";
+import type { FirestorePlayer } from "@/types/jass";
 
 const StartPage: React.FC = () => {
   const {user, status} = useAuthStore();
@@ -41,6 +45,15 @@ const StartPage: React.FC = () => {
   const [isGeneratingInvite, setIsGeneratingInvite] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
 
+  // === NEUER STATE für Mitglieder ===
+  const [members, setMembers] = useState<FirestorePlayer[]>([]);
+  const [membersLoading, setMembersLoading] = useState(true);
+  const [membersError, setMembersError] = useState<string | null>(null);
+  // === ENDE NEUER STATE ===
+
+  // Kombinierter Ladezustand: Auth ODER Gruppen laden noch
+  const showGlobalLoader = status === "loading" || (status === 'authenticated' && groupStatus === "loading");
+
   const isAdmin = currentGroup && user && currentGroup.adminIds.includes(user.uid);
 
   useEffect(() => {
@@ -53,11 +66,41 @@ const StartPage: React.FC = () => {
     clearGroupError();
     return () => {
       clearGroupError();
+      setMembersError(null); // Auch Mitglieder-Fehler zurücksetzen
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
       }
     };
-  }, [status, router, currentGroup, clearGroupError, previewUrl]);
+  }, [status, router, clearGroupError, previewUrl]);
+
+  // === NEUER useEffect zum Laden der Mitglieder ===
+  useEffect(() => {
+    const loadMembers = async () => {
+      if (!currentGroup) {
+        setMembers([]);
+        setMembersLoading(false);
+        return;
+      }
+
+      setMembersLoading(true);
+      setMembersError(null);
+      try {
+        const fetchedMembers = await getGroupMembersSortedByGames(currentGroup.id);
+        setMembers(fetchedMembers);
+      } catch (error) {
+        console.error("Fehler beim Laden der Gruppenmitglieder:", error);
+        const message = error instanceof Error ? error.message : "Mitglieder konnten nicht geladen werden.";
+        setMembersError(message);
+        showNotification({ message, type: "error" });
+      } finally {
+        setMembersLoading(false);
+      }
+    };
+
+    loadMembers();
+    // Abhängigkeit: currentGroup.id (stellt sicher, dass neu geladen wird, wenn sich die Gruppe ändert)
+  }, [currentGroup?.id, showNotification]);
+  // === ENDE NEUER useEffect ===
 
   const handleGameAction = () => {
     router.push("/jass");
@@ -93,7 +136,7 @@ const StartPage: React.FC = () => {
     return () => {
       resetPageCta();
     };
-  }, [currentGroup, isGameInProgress, setPageCta, resetPageCta, handleGameAction, userGroups, router]);
+  }, [currentGroup, isGameInProgress, setPageCta, resetPageCta, userGroups, router]);
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -176,6 +219,7 @@ const StartPage: React.FC = () => {
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (error) {
       console.error("Fehler beim Hochladen des Gruppenlogos:", error);
+      showNotification({message: error instanceof Error ? error.message : "Hochladen fehlgeschlagen.", type: "error"}); // Zeige spezifische Fehlermeldung
     } finally {
       setIsUploading(false);
     }
@@ -241,7 +285,8 @@ const StartPage: React.FC = () => {
     handleInviteClick(); // Ruft die Generierungslogik erneut auf
   };
 
-  if (status === "loading" || groupStatus === "loading") {
+  // Prüfe den kombinierten Ladezustand ZUERST
+  if (showGlobalLoader) {
     return (
       <MainLayout>
         <div className="flex flex-1 flex-col items-center justify-center min-h-[calc(100vh-112px)]">
@@ -254,6 +299,8 @@ const StartPage: React.FC = () => {
     );
   }
 
+  // Wenn wir hier sind, ist Auth fertig UND Gruppenstatus ist nicht mehr 'loading'
+
   if (!currentGroup && userGroups.length > 0) {
     // Fall: Gruppen vorhanden, aber keine ausgewählt
     return (
@@ -262,19 +309,14 @@ const StartPage: React.FC = () => {
           <h1 className="text-2xl font-bold mb-4">Wähle deine Jassgruppe</h1>
           <p className="text-gray-400 mb-6">Du bist Mitglied in mehreren Gruppen.</p>
           <GroupSelector />
-          <div className="mt-8">
-            <Button onClick={() => router.push("/groups/new")} variant="secondary">
-              Neue Gruppe erstellen
-            </Button>
-          </div>
         </div>
       </MainLayout>
     );
   }
 
-  // Fall: Keine Gruppe ausgewählt oder erstellt (dieser Fall sollte selten sein,
-  // da der CTA zum Erstellen führt, aber als Fallback)
-  if (!currentGroup) {
+  // Fall: Keine Gruppe ausgewählt oder erstellt
+  // Dieser Fall tritt nur ein, wenn Auth & Gruppen fertig geladen sind, keine Gruppen da sind
+  if (!currentGroup && userGroups.length === 0) {
     return (
       <MainLayout>
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
@@ -287,6 +329,8 @@ const StartPage: React.FC = () => {
       </MainLayout>
     );
   }
+
+  // Wenn wir hier ankommen, MUSS currentGroup existieren (implizit durch vorherige Checks)
 
   return (
     <MainLayout>
@@ -386,19 +430,7 @@ const StartPage: React.FC = () => {
             </div>
           )}
 
-          <div className="flex flex-col items-center">
-            <span className="text-xs text-gray-400 mb-2">Mitglieder</span>
-            <Button
-              variant="default"
-              className="h-12 w-12 flex items-center justify-center bg-yellow-600 border-yellow-700 hover:bg-yellow-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
-              onClick={() => alert("Mitglieder - TODO")}
-            >
-              <Users
-                style={{height: "1.5rem", width: "1.5rem"}}
-              />
-            </Button>
-          </div>
-
+          {/* Admin Button (Einstellungen) */}
           {isAdmin && (
             <div className="flex flex-col items-center">
               <span className="text-xs text-gray-400 mb-2">Admin</span>
@@ -415,160 +447,176 @@ const StartPage: React.FC = () => {
           )}
         </div>
 
-        {/* --- VOLLSTÄNDIGER STATISTIKBEREICH --- */}
-        <div className="w-full bg-gray-800/50 rounded-lg p-4 mb-8">
-          <div className="space-y-3 text-sm px-2 pb-2"> {/* Etwas mehr Platz mit space-y-3 */}
+        {/* === NEU: TABS für Statistik und Mitglieder === */}
+        <Tabs defaultValue="statistics" className="w-full max-w-md mb-8">
+          <TabsList className="grid w-full grid-cols-2 bg-gray-800/50 p-1 rounded-lg mb-4">
+            <TabsTrigger 
+              value="statistics" 
+              className="data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-400 hover:bg-gray-700/50 rounded-md py-1.5 text-sm font-medium"
+            >
+              <BarChart className="w-4 h-4 mr-2" /> Statistik
+            </TabsTrigger>
+            <TabsTrigger 
+              value="members" 
+              className="data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-400 hover:bg-gray-700/50 rounded-md py-1.5 text-sm font-medium"
+            >
+              <Users className="w-4 h-4 mr-2" /> Mitglieder
+            </TabsTrigger>
+          </TabsList>
 
-            {/* Block 1: Gruppenübersicht */}
-            <div>
-              <h3 className="text-base font-semibold text-white mb-2">Gruppenübersicht</h3>
-              <div className="space-y-1"> {/* Innerer Abstand für Items */}
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-300">Mitglieder:</span>
-                  <span className="text-gray-100">{currentGroup?.playerIds?.length ?? 0}</span>
+          {/* Tab Content: Statistik (Bestehender Code verschoben) */}
+          <TabsContent value="statistics" className="w-full bg-gray-800/50 rounded-lg p-4">
+            {/* Anzeige eines Fehlers, falls beim Laden der Mitglieder was schiefgeht (kann auch hier relevant sein) */}
+            {membersError && !membersLoading && (
+                <div className="text-red-400 text-sm text-center p-4 bg-red-900/30 rounded-md mb-4">
+                    Fehler beim Laden der Mitgliederdaten: {membersError}
                 </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-300">Anzahl Jass-Partien:</span>
-                  <span className="text-gray-100">0</span> {/* Placeholder */}
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-300">Anzahl Spiele:</span>
-                  <span className="text-gray-100">0</span> {/* Placeholder */}
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-300">Gesamte Jass-Zeit:</span>
-                  <span className="text-gray-100">-</span> {/* Placeholder */}
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-300">Erster Jass:</span>
-                  <span className="text-gray-100">-</span> {/* Placeholder */}
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-300">Letzter Jass:</span>
-                  <span className="text-gray-100">-</span> {/* Placeholder */}
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-300">Ort:</span>
-                  <span className="text-gray-100">N/A</span> {/* Placeholder */}
+            )}
+            <div className="space-y-3 text-sm px-2 pb-2">
+              {/* Block 1: Gruppenübersicht */}
+              <div>
+                <h3 className="text-base font-semibold text-white mb-2">Gruppenübersicht</h3>
+                <div className="space-y-1">
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Mitglieder:</span>
+                    {/* Zeige die tatsächliche Mitgliederzahl (wenn geladen) */}
+                    <span className="text-gray-100">{membersLoading ? '...' : members.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Anzahl Jass-Partien:</span>
+                    <span className="text-gray-100">0</span> {/* Placeholder */}
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Anzahl Spiele:</span>
+                    <span className="text-gray-100">0</span> {/* Placeholder */}
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Gesamte Jass-Zeit:</span>
+                    <span className="text-gray-100">-</span> {/* Placeholder */}
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Erster Jass:</span>
+                    <span className="text-gray-100">-</span> {/* Placeholder */}
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Letzter Jass:</span>
+                    <span className="text-gray-100">-</span> {/* Placeholder */}
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Ort:</span>
+                    <span className="text-gray-100">N/A</span> {/* Placeholder */}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Divider */}
-            <div className="pt-2 pb-1">
-              <hr className="border-gray-600/50" /> {/* Etwas dezenterer Divider */}
-            </div>
+              {/* Divider */}
+              <div className="pt-2 pb-1">
+                <hr className="border-gray-600/50" />
+              </div>
 
-            {/* Block 2: Durchschnittswerte & Details */}
-            <div>
-              <h3 className="text-base font-semibold text-white mb-2">Durchschnittswerte & Details</h3>
-              <div className="space-y-1">
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-300">Ø Dauer pro Partie:</span>
-                  <span className="text-gray-100">-</span> {/* Placeholder */}
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-300">Ø Dauer pro Spiel:</span>
-                  <span className="text-gray-100">-</span> {/* Placeholder */}
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-300">Ø Spiele pro Partie:</span>
-                  <span className="text-gray-100">-</span> {/* Placeholder */}
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-300">Ø Runden pro Spiel:</span>
-                  <span className="text-gray-100">-</span> {/* Placeholder */}
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-300">Ø Matsch pro Spiel:</span>
-                  <span className="text-gray-100">-</span> {/* Placeholder */}
+              {/* Block 2: Durchschnittswerte & Details */}
+              <div>
+                <h3 className="text-base font-semibold text-white mb-2">Durchschnittswerte & Details</h3>
+                <div className="space-y-1">
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Ø Dauer pro Partie:</span>
+                    <span className="text-gray-100">-</span> {/* Placeholder */}
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Ø Dauer pro Spiel:</span>
+                    <span className="text-gray-100">-</span> {/* Placeholder */}
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Ø Spiele pro Partie:</span>
+                    <span className="text-gray-100">-</span> {/* Placeholder */}
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Ø Runden pro Spiel:</span>
+                    <span className="text-gray-100">-</span> {/* Placeholder */}
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Ø Matsch pro Spiel:</span>
+                    <span className="text-gray-100">-</span> {/* Placeholder */}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Divider */}
-            <div className="pt-2 pb-1">
-              <hr className="border-gray-600/50" />
-            </div>
+              {/* Divider */}
+              <div className="pt-2 pb-1">
+                <hr className="border-gray-600/50" />
+              </div>
 
-            {/* Block 3: Spieler-Highlights */}
-            <div>
-              <h3 className="text-base font-semibold text-white mb-2">Spieler-Highlights</h3>
-              <div className="space-y-1">
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-300">Meiste Spiele:</span>
-                  <span className="text-gray-100">N/A (-)</span> {/* Placeholder */}
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-300">Höchste Strichdifferenz:</span>
-                  <span className="text-gray-100">N/A (+0)</span> {/* Placeholder */}
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-300">Höchste Siegquote (pro Partie):</span>
-                  <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-300">Höchste Siegquote (pro Spiel):</span>
-                  <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-300">Höchste Matschquote (pro Spiel):</span>
-                  <span className="text-gray-100">N/A (0.00)</span> {/* Placeholder */}
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-300">Die meisten Weispunkte (pro Spiel):</span>
-                  <span className="text-gray-100">N/A (0)</span> {/* Placeholder */}
+              {/* Block 3: Spieler-Highlights */}
+              <div>
+                <h3 className="text-base font-semibold text-white mb-2">Spieler-Highlights</h3>
+                <div className="space-y-1">
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Meiste Spiele:</span>
+                    <span className="text-gray-100">N/A (-)</span> {/* Placeholder */}
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Höchste Strichdifferenz:</span>
+                    <span className="text-gray-100">N/A (+0)</span> {/* Placeholder */}
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Höchste Siegquote (pro Partie):</span>
+                    <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Höchste Siegquote (pro Spiel):</span>
+                    <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Höchste Matschquote (pro Spiel):</span>
+                    <span className="text-gray-100">N/A (0.00)</span> {/* Placeholder */}
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Die meisten Weispunkte (pro Spiel):</span>
+                    <span className="text-gray-100">N/A (0)</span> {/* Placeholder */}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Divider */}
-            <div className="pt-2 pb-1">
-              <hr className="border-gray-600/50" />
-            </div>
+              {/* Divider */}
+              <div className="pt-2 pb-1">
+                <hr className="border-gray-600/50" />
+              </div>
 
-            {/* Block 4: Team-Highlights */}
-            <div>
-              <h3 className="text-base font-semibold text-white mb-2">Team-Highlights</h3>
-              <div className="space-y-1">
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-300">Höchste Siegquote (pro Partie):</span>
-                  <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-300">Höchste Siegquote (pro Spiel):</span>
-                  <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-300">Höchste Matschquote (pro Spiel):</span>
-                  <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
+              {/* Block 4: Team-Highlights */}
+              <div>
+                <h3 className="text-base font-semibold text-white mb-2">Team-Highlights</h3>
+                <div className="space-y-1">
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Höchste Siegquote (pro Partie):</span>
+                    <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Höchste Siegquote (pro Spiel):</span>
+                    <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-300">Höchste Matschquote (pro Spiel):</span>
+                    <span className="text-gray-100">N/A (0%)</span> {/* Placeholder */}
+                  </div>
                 </div>
               </div>
+
             </div>
+          </TabsContent>
 
-          </div>
-        </div>
+          {/* Tab Content: Mitglieder */}
+          <TabsContent value="members" className="w-full bg-gray-800/50 rounded-lg p-4">
+             {/* Anzeige eines Fehlers, falls beim Laden der Mitglieder was schiefgeht */}
+            {membersError && !membersLoading && (
+                <div className="text-red-400 text-sm text-center p-4 bg-red-900/30 rounded-md">
+                    Fehler: {membersError}
+                </div>
+            )}
+            <GroupMemberList members={members} isLoading={membersLoading} />
+          </TabsContent>
+        </Tabs>
 
-        {/* Invite Modal einfügen */}
-        <InviteModal
-          isOpen={isInviteModalOpen}
-          onClose={handleCloseInviteModal}
-          isLoading={isGeneratingInvite}
-          error={inviteError}
-          inviteToken={inviteToken}
-          groupName={currentGroup?.name || "Gruppe"}
-          onGenerateNew={handleGenerateNewInvite} // Callback übergeben
-        />
-
-        {/* Crop Modal einfügen */}
-        <ImageCropModal
-          isOpen={cropModalOpen}
-          onClose={() => handleCropComplete(null)} // Signalisiert Abbruch
-          imageSrc={imageToCrop}
-          onCropComplete={handleCropComplete}
-        />
-
-        {/* Versteckter File-Input (Fehlte!) */}
+        {/* Versteckter File-Input bleibt HIER drin */}
         <input
           type="file"
           ref={fileInputRef}
@@ -578,7 +626,25 @@ const StartPage: React.FC = () => {
           disabled={isUploading}
         />
 
-      </div>
+      </div> {/* Schließendes Tag des Haupt-Inhalts-Div */}
+
+      {/* Modals werden HIER gerendert, außerhalb des Haupt-Layout-Containers */}
+      <InviteModal
+        isOpen={isInviteModalOpen}
+        onClose={handleCloseInviteModal}
+        isLoading={isGeneratingInvite}
+        error={inviteError}
+        inviteToken={inviteToken}
+        groupName={currentGroup?.name || "Gruppe"}
+        onGenerateNew={handleGenerateNewInvite} // Callback übergeben
+      />
+
+      <ImageCropModal
+        isOpen={cropModalOpen}
+        onClose={() => handleCropComplete(null)} // Signalisiert Abbruch
+        imageSrc={imageToCrop}
+        onCropComplete={handleCropComplete}
+      />
     </MainLayout>
   );
 };

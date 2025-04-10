@@ -322,7 +322,7 @@ const ProfilePage: React.FC = () => {
           </div>
 
           {/* --- NEUER AKTIONSBUTTON-BEREICH --- */}
-          <div className="flex justify-around mb-6 w-full mt-8">
+          <div className="flex justify-evenly gap-4 mb-6 w-full mt-8">
 
             {/* 1. Button: Meine Gruppen (Links) - Farbe geändert */}
             <div className="flex flex-col items-center">

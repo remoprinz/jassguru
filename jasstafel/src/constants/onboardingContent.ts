@@ -78,8 +78,8 @@ export const BROWSER_ONBOARDING = {
   iOS: {
     WELCOME_SCREEN: {
       title: "Jassguru-App installieren",
-      message: "Keine Diskussionen ums Zählen, keine Zeitverschwendung für Rechnereien, keine zerknitterten Zettel – hier kommt die digitale Jasstafel, die sich alles merkt und alles kann!",
-      secondaryMessage: "Ihr macht die Stiche, ich schreib die Striche.",
+      message: "Keine Diskussionen ums Zählen, keine Zeitverschwendung für Rechnereien, keine zerknitterten Zettel. Installiere jetzt die digitale Jasstafel, die sich alles merkt und alles kann!",
+      secondaryMessage: "Du machst die Stiche, ich schreib die Striche.",
       image: "/welcome-guru.png",
     },
     INSTALL_WELCOME: {
