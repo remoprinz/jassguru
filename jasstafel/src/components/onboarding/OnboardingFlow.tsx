@@ -7,6 +7,7 @@ import type {
 } from "../../constants/onboardingContent";
 import {usePressableButton} from "../../hooks/usePressableButton";
 import {useDeviceScale} from "../../hooks/useDeviceScale";
+import { isDev } from "../../utils/devUtils";
 
 // Neue Funktion zur Erkennung von Desktop-Geräten
 function isDesktopDevice() {
@@ -58,8 +59,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   const previousButtonHandlers = usePressableButton(onPrevious);
   const nextButtonHandlers = usePressableButton(onNext);
 
-  // Konstante für Development Mode
-  const isDevelopment = process.env.NODE_ENV === "development";
+  // Konstante für Development Mode - wird jetzt importiert
+  // const isDevelopment = process.env.NODE_ENV === "development";
 
   // Erfasst die Viewport-Dimensionen und überprüft, ob es sich um einen Desktop handelt
   useEffect(() => {
@@ -125,13 +126,21 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
     }
   };
 
-  // WICHTIG: Hier die Bedingung für Development Mode einfügen
-  if (isDevelopment) {
-    console.log("OnboardingFlow im Development Mode ausgeblendet (Rendering null)");
-    return null;
+  // WICHTIG: Überprüfung auf Development Mode
+  // Der Code hier sollte *nach* allen Hooks stehen, aber *vor* dem return des JSX.
+  if (isDev) { // Verwende die importierte isDev Konstante
+    // Detaillierteres Logging hinzufügen
+    console.log(`[DEV MODE] OnboardingFlow: isDev is true. Rendering null.`);
+    return null; // Komponente nicht rendern im Development Mode
   }
 
-  // JSX wird nur zurückgegeben, wenn nicht im Development Mode
+  // Zusätzliche Prüfung: Nur rendern, wenn 'show' true ist (redundant mit AnimatePresence, aber schadet nicht)
+  if (!show) {
+     console.log("OnboardingFlow: 'show' prop is false. Rendering null.");
+     return null;
+  }
+
+  // JSX wird nur zurückgegeben, wenn NICHT im Development Mode und show=true
   return (
     <AnimatePresence>
       {show && (

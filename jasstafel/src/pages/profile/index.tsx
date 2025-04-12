@@ -382,11 +382,11 @@ const ProfilePage: React.FC = () => {
                     <span className="text-gray-100">0</span> {/* TODO: Aus userGroups laden */}
                   </div>
                   <div className="flex justify-between">
-                    <span className="font-medium text-gray-300">Anzahl Jass-Partien gespielt:</span>
+                    <span className="font-medium text-gray-300">Anzahl Partien:</span>
                     <span className="text-gray-100">0</span> {/* Placeholder */}
                   </div>
                   <div className="flex justify-between">
-                    <span className="font-medium text-gray-300">Anzahl Spiele gespielt:</span>
+                    <span className="font-medium text-gray-300">Anzahl Spiele:</span>
                     <span className="text-gray-100">0</span> {/* Placeholder */}
                   </div>
                   <div className="flex justify-between">

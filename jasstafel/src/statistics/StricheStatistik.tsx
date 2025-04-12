@@ -3,13 +3,14 @@ import {StatisticProps} from "../types/statistikTypes";
 import ResultatZeile from "../components/game/ResultatZeile";
 import {useGameStore} from "../store/gameStore";
 import { getPictogram } from '@/utils/pictogramUtils';
-import type { CardStyle, JassColor } from '@/types/jass';
+import type { CardStyle, JassColor, StrokeSettings } from '@/types/jass';
 
 interface StricheStatistikProps {
   teams: any;
   games: any[];
   currentGameId: number;
   cardStyle: CardStyle;
+  strokeSettings: StrokeSettings;
   onSwipe: (direction: 'left' | 'right') => void;
 }
 
@@ -18,6 +19,7 @@ export const StricheStatistik: React.FC<StricheStatistikProps> = ({
   games,
   currentGameId,
   cardStyle,
+  strokeSettings,
   onSwipe,
 }) => {
   const gameStore = useGameStore();
@@ -26,20 +28,15 @@ export const StricheStatistik: React.FC<StricheStatistikProps> = ({
     <div className="flex flex-col w-full space-y-4">
       <div>
         {games.map((game, index) => (
-          <div key={game.id} className="flex items-start">
-            <img 
-              src={getPictogram(game.farbe as JassColor, 'svg', cardStyle)}
-              alt={game.farbe}
-              className="w-5 h-5 inline-block mr-2 flex-shrink-0"
-            />
-            <ResultatZeile
-              gameId={game.id}
-              spielNummer={index + 1}
-              topTeam={{ striche: game.teams.top.striche }}
-              bottomTeam={{ striche: game.teams.bottom.striche }}
-              showJassPoints={false}
-            />
-          </div>
+          <ResultatZeile
+            key={game.id}
+            gameId={game.id}
+            spielNummer={index + 1}
+            topTeam={{ striche: game.teams.top.striche }}
+            bottomTeam={{ striche: game.teams.bottom.striche }}
+            showJassPoints={false}
+            strokeSettings={strokeSettings}
+          />
         ))}
       </div>
     </div>

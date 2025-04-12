@@ -6,7 +6,6 @@ import {calculateStricheCounts} from "../game/scoreCalculations";
 import {
   RoundEntry,
   isJassRoundEntry,
-  determineNextStartingPlayer,
   getNextPlayer,
   type PlayerInfo,
   type MemberInfo,
@@ -32,8 +31,9 @@ import {HISTORY_WARNING_MESSAGE} from "../components/notifications/HistoryWarnin
 import {useTimerStore} from "./timerStore";
 import {STRICH_WERTE} from "../config/GameSettings";
 import {CARD_SYMBOL_MAPPINGS} from "../config/CardStyles";
-import {createInitialHistoryState, type FarbeSettings} from "../types/jass";
+import {createInitialHistoryState, type FarbeSettings, StrokeSettings} from "../types/jass";
 import {DEFAULT_FARBE_SETTINGS} from "../config/FarbeSettings";
+import {DEFAULT_STROKE_SETTINGS} from "../config/GameSettings";
 import {useGroupStore} from "./groupStore";
 
 // Hilfsfunktion für die Farbenübersetzung (vereinfacht)
@@ -106,6 +106,7 @@ const createInitialStateLocal = (initialPlayer: PlayerNumber): GameState => ({
   gamePlayers: null,
   currentHistoryIndex: -1,
   historyState: createInitialHistoryState(),
+  strokeSettings: DEFAULT_STROKE_SETTINGS,
 });
 
 // Hilfsfunktionen für die History
@@ -1036,11 +1037,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   addSieg: (team: TeamPosition) => {
     set((state) => {
-      const {scoreSettings, strokeSettings} = useUIStore.getState();
+      // Hole die KORREKTEN, KONTEXTABHÄNGIGEN Einstellungen
+      const { currentGroup } = useGroupStore.getState();
+      const uiStoreSettings = useUIStore.getState();
+      const activeScoreSettings = currentGroup?.scoreSettings ?? uiStoreSettings.scoreSettings;
+      const activeStrokeSettings = currentGroup?.strokeSettings ?? uiStoreSettings.strokeSettings;
+      
       const activeTeam = getActiveStrichTeam(state, "sieg");
 
-      // Wenn Berg aktiviert ist, prüfen ob ein Berg existiert
-      const bergCheck = scoreSettings?.enabled?.berg ?
+      // Wenn Berg aktiviert ist, prüfen ob ein Berg existiert (verwende activeScoreSettings)
+      const bergCheck = activeScoreSettings.enabled.berg ?
         (state.striche.top.berg > 0 || state.striche.bottom.berg > 0) :
         true;
 
@@ -1054,7 +1060,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         baseStriche[team] = {
           ...baseStriche[team],
           sieg: 0,
-          schneider: 0,
+          schneider: 0, // Auch Schneider entfernen, wenn Sieg entfernt wird
         };
 
         const newState = {striche: baseStriche};
@@ -1068,10 +1074,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (!activeTeam && bergCheck) {
         const otherTeam = team === "top" ? "bottom" : "top";
 
-        // Setze Sieg für aktives Team
+        // Setze Sieg für aktives Team (IMMER auf 1)
         baseStriche[team] = {
           ...baseStriche[team],
-          sieg: STRICH_WERTE.sieg,
+          sieg: 1, // Korrigiert: Immer 1 setzen
         };
 
         // Entferne Sieg und Schneider vom anderen Team
@@ -1081,12 +1087,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
           schneider: 0,
         };
 
-        // Automatische Schneider-Prüfung
-        if (scoreSettings?.enabled?.schneider) {
+        // Automatische Schneider-Prüfung (verwende activeScoreSettings)
+        if (activeScoreSettings.enabled.schneider) {
           const otherTeamPoints = state.scores[otherTeam];
-          if (otherTeamPoints < scoreSettings.values.schneider) {
-            baseStriche[team].schneider = strokeSettings.schneider;
+          if (otherTeamPoints < activeScoreSettings.values.schneider) {
+            // Setze Schneider auf 1, die Wertigkeit (1 oder 2) kommt aus activeStrokeSettings in calculateStricheValue
+            baseStriche[team].schneider = 1; 
+          } else {
+            // Explizit auf 0 setzen, falls Bedingung nicht mehr gilt
+            baseStriche[team].schneider = 0;
           }
+        } else {
+           // Explizit auf 0 setzen, falls Schneider deaktiviert ist
+           baseStriche[team].schneider = 0;
         }
 
         const newState = {striche: baseStriche};
@@ -1094,49 +1107,70 @@ export const useGameStore = create<GameStore>((set, get) => ({
         return newState;
       }
 
-      return {};
+      return {}; // Keine Änderung
     });
   },
 
   addSchneider: (team: TeamPosition) => {
     set((state) => {
-      const {scoreSettings, strokeSettings} = useUIStore.getState();
+      // Hole die KORREKTEN, KONTEXTABHÄNGIGEN Einstellungen
+      const { currentGroup } = useGroupStore.getState();
+      const uiStoreSettings = useUIStore.getState();
+      const activeScoreSettings = currentGroup?.scoreSettings ?? uiStoreSettings.scoreSettings;
+      // Stroke Settings werden hier nicht für den Wert gebraucht, nur Score Settings
 
       // Debug-Logging
       console.log("🎲 Settings beim Schneider:", {
-        scoreSettings,
-        strokeSettings,
+        activeScoreSettings,
         team,
         currentStriche: state.striche[team],
       });
 
-      // 1. Prüfen ob das Team SIEG hat
-      const hasSieg = state.striche[team].sieg > 0;
-      if (!hasSieg) return state;
+      // 1. Prüfen ob das Team SIEG hat (striche.sieg ist jetzt 1 oder 0)
+      const hasSieg = state.striche[team].sieg === 1;
+      if (!hasSieg) {
+         console.log("Kein Sieg vorhanden, Schneider nicht hinzugefügt.");
+         return state; // Keine Änderung, wenn kein Sieg
+      }
 
       // 2. Gegnerteam bestimmen und Punkte prüfen
       const otherTeam = team === "top" ? "bottom" : "top";
       const otherTeamPoints = state.scores[otherTeam];
 
-      // Verwende die Score-Settings für den Schwellenwert
-      const isSchneider = scoreSettings.enabled.schneider &&
-        otherTeamPoints < scoreSettings.values.schneider;
+      // Verwende die aktiven Score-Settings für den Schwellenwert und Aktivierung
+      const isSchneider = activeScoreSettings.enabled.schneider &&
+        otherTeamPoints < activeScoreSettings.values.schneider;
+        
+      console.log("Schneider Prüfung:", { isSchneider, otherTeamPoints, limit: activeScoreSettings.values.schneider, enabled: activeScoreSettings.enabled.schneider });
 
-      // 3. SCHNEIDER-Striche setzen wenn Bedingungen erfüllt
-      return {
+      // Schneider wird jetzt auf 1 gesetzt, wenn Bedingungen erfüllt, sonst 0
+      const newSchneiderValue = isSchneider ? 1 : 0;
+      
+      // Nur updaten, wenn sich der Wert ändert
+      if (state.striche[team].schneider === newSchneiderValue) {
+          console.log("Schneider-Status unverändert.");
+          return state;
+      }
+
+      // 3. SCHNEIDER-Striche setzen/entfernen
+      const newState = {
         ...state,
         striche: {
           ...state.striche,
           [team]: {
             ...state.striche[team],
-            schneider: isSchneider ? strokeSettings.schneider : 0,
+            schneider: newSchneiderValue, // Setze auf 1 oder 0
           },
           [otherTeam]: {
             ...state.striche[otherTeam],
-            schneider: 0,
+            schneider: 0, // Schneider immer beim Gegner entfernen
           },
         },
       };
+      
+      // Synchronisiere mit JassStore
+      syncWithJassStore(newState);
+      return newState;
     });
   },
 

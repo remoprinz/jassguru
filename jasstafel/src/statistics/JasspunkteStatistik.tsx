@@ -4,13 +4,14 @@ import ResultatZeile from "../components/game/ResultatZeile";
 import {useGameStore} from "../store/gameStore";
 import {animated, useSpring} from "react-spring";
 import { getPictogram } from '@/utils/pictogramUtils';
-import type { CardStyle, JassColor } from '@/types/jass';
+import type { CardStyle, JassColor, StrokeSettings } from '@/types/jass';
 
 interface JasspunkteStatistikProps {
   teams: any;
   games: any[];
   currentGameId: number;
   cardStyle: CardStyle;
+  strokeSettings: StrokeSettings;
   onSwipe: (direction: 'left' | 'right') => void;
 }
 
@@ -19,6 +20,7 @@ export const JasspunkteStatistik: React.FC<JasspunkteStatistikProps> = ({
   games,
   currentGameId,
   cardStyle,
+  strokeSettings,
   onSwipe
 }) => {
   const scores = useGameStore((state) => state.scores);
@@ -58,6 +60,7 @@ export const JasspunkteStatistik: React.FC<JasspunkteStatistikProps> = ({
               jassPoints: game.teams.bottom.jassPoints,
             }}
             showJassPoints={true}
+            strokeSettings={strokeSettings}
           />
         </div>
       ))}

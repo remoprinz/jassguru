@@ -7,6 +7,7 @@ import { DEFAULT_SCORE_SETTINGS } from "@/config/ScoreSettings";
 import { DEFAULT_FARBE_SETTINGS } from "@/config/FarbeSettings";
 import type { TeamCalculationResult } from "@/utils/teamCalculations";
 import { FARBE_MODES } from '@/config/FarbeSettings';
+import { DEFAULT_STROKE_SETTINGS } from "@/config/GameSettings"; // Importiere die Defaults
 
 // +++ BENÖTIGTE TYPEN FÜR FirestoreGroup etc. (Wieder eingefügt) +++
 
@@ -485,13 +486,26 @@ export interface JassActions {
 
 export type JassStore = JassState & JassActions;
 
-export const convertToDisplayStriche = (striche: StricheRecord) => {
-  // MATSCH und KONTERMATSCH sind horizontal
-  const horizontal = (striche.matsch || 0) + (striche.kontermatsch || 0);
+// Funktion anpassen: strokeSettings als Argument hinzufügen
+export const convertToDisplayStriche = (
+  striche: StricheRecord,
+  strokeSettings: StrokeSettings = DEFAULT_STROKE_SETTINGS // Standardwert hinzufügen
+) => {
+  // MATSCH ist immer horizontal (Wert 1)
+  const matschHorizontal = striche.matsch || 0;
+  // KONTERMATSCH ist horizontal, Wert aus Settings (1 oder 2)
+  const kontermatschHorizontal = (striche.kontermatsch || 0) * (strokeSettings.kontermatsch || 1);
 
-  // BERG, SIEG und SCHNEIDER sind vertikal
-  const vertikal =
-    (striche.berg || 0) + (striche.sieg || 0) + (striche.schneider || 0);
+  // BERG ist immer vertikal (Wert 1)
+  const bergVertikal = striche.berg || 0;
+  // SIEG ist immer vertikal (Wert 2)
+  const siegVertikal = (striche.sieg || 0) * 2;
+  // SCHNEIDER ist vertikal, Wert aus Settings (1 oder 2)
+  const schneiderVertikal = (striche.schneider || 0) * (strokeSettings.schneider || 1);
+
+  // Gesamte horizontale und vertikale Striche berechnen
+  const horizontal = matschHorizontal + kontermatschHorizontal;
+  const vertikal = bergVertikal + siegVertikal + schneiderVertikal;
 
   return { horizontal, vertikal };
 };
@@ -542,6 +556,7 @@ export interface GameState {
   gamePlayers: GamePlayers | null;
   currentHistoryIndex: number;
   historyState: HistoryState;
+  strokeSettings: StrokeSettings; // Füge StrokeSettings hinzu
 }
 
 // Erweitern der GameActions
@@ -848,26 +863,26 @@ export interface FirestorePlayer extends FirebaseDocument { // Stelle sicher, da
 // +++ FirestoreGroup ZENTRAL DEFINIEREN (KORREKT EINGEFÜGT) +++
 export interface FirestoreGroup extends FirebaseDocument {
   name: string;
-  description: string | null;
+  description: string;
   logoUrl: string | null;
-  createdBy: string; // User ID of creator
-  adminIds: string[]; // User IDs
-  playerIds: string[]; // Player IDs
+  createdAt: Timestamp; // Verwende Timestamp für Konsistenz
+  updatedAt?: Timestamp; // Optional
+  createdBy: string; // userId des Erstellers
+  playerIds: PlayerId[]; // Array von Spieler-IDs (Dokument-IDs aus 'players')
+  adminIds: string[]; // Array von User-IDs (Auth-IDs), die Admin sind
   isPublic: boolean;
-  
-  // Einstellungen als optionale Felder mit Partial für Flexibilität
-  farbeSettings?: Partial<FarbeSettings>;
-  scoreSettings?: Partial<ScoreSettings>;
-  strokeSettings?: Partial<StrokeSettings>;
-  
-  // Optional: Zusätzliche Felder aus der alten group.ts Definition (falls benötigt)
-  players?: { // Beispielhaft hinzugefügt, falls benötigt
-    [key: string]: {
+  players: {
+    [key: string]: { // Hier verwenden wir PlayerId als Key
       displayName: string;
-      email: string;
+      email?: string; // E-Mail optional machen
       joinedAt: Timestamp;
     };
   };
+  // Einstellungen für die Gruppe
+  farbeSettings?: Omit<FarbeSettings, 'isFlipped'>; // Verwende importierten Typ
+  scoreSettings?: ScoreSettings; // Verwende importierten Typ
+  strokeSettings?: StrokeSettings; // Verwende importierten Typ
+  cardStyle?: CardStyle; // Kartensatz-Stil
   gameCount?: number;
   // ... weitere Felder aus group.ts bei Bedarf ...
 }

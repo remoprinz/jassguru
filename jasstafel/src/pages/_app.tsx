@@ -20,7 +20,9 @@ const MyApp = ({Component, pageProps}: AppProps) => {
 
   useEffect(() => {
     setIsClient(true);
+    console.log("_app.tsx: useEffect - BEFORE calling register()");
     register();
+    console.log("_app.tsx: useEffect - AFTER calling register()");
     console.log("_app.tsx: useEffect - Rufe initAuth() auf");
     initAuth();
   }, [initAuth]);

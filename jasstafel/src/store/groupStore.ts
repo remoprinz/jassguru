@@ -82,10 +82,13 @@ interface GroupActions {
 
 type GroupStore = GroupState & GroupActions;
 
+// +++ NEU: Typ für persistierte Gruppen (ohne 'players') +++
+type PersistedGroup = Omit<FirestoreGroup, 'players'>;
+
 // Define type for the persisted part of the state
 type PersistedState = {
   currentGroupId: string | null;
-  userGroups: FirestoreGroup[];
+  userGroups: PersistedGroup[]; // Verwende den neuen Typ
 };
 
 const initialState: GroupState = {
@@ -144,8 +147,22 @@ const groupStoreCreator: StateCreator<
       (docSnap) => {
         if (docSnap.exists()) {
           const rawData = docSnap.data();
+          // --- HIER ANREICHERUNG ANWENDEN, wenn nötig! ---
+          // Wenn Live-Updates auch die aktuellen Spieler brauchen:
+          // const playerIds = rawData.playerIds || [];
+          // const enrichedPlayers = await fetchAndEnrichPlayers(playerIds, rawData.players); // Eigene Hilfsfunktion
+          // rawData.players = enrichedPlayers;
+          // ----------------------------------------------
           const farbeSettings = rawData.farbeSettings ?? DEFAULT_FARBE_SETTINGS;
-          const updatedGroupData = { id: docSnap.id, ...rawData, farbeSettings } as FirestoreGroup;
+          const scoreSettings = rawData.scoreSettings ?? DEFAULT_SCORE_SETTINGS;
+          const strokeSettings = rawData.strokeSettings ?? DEFAULT_STROKE_SETTINGS;
+          const updatedGroupData = {
+            id: docSnap.id,
+            ...rawData,
+            farbeSettings,
+            scoreSettings,
+            strokeSettings
+          } as FirestoreGroup;
           
           console.log(`GROUP_STORE: Snapshot received for current group ${group.id}. Updating state.`);
           if (get().currentGroup?.id === group.id) {
@@ -203,19 +220,28 @@ const groupStoreCreator: StateCreator<
     set({ status: "loading", error: null }, false, 'loadGroupsByPlayerIdStart');
     try {
         const groups = await getUserGroupsByPlayerId(playerId);
+        // HINWEIS: getUserGroupsByPlayerId liefert bereits angereicherte Daten
         const groupsWithDefaults = groups.map(g => ({
           ...g,
           farbeSettings: g.farbeSettings ?? DEFAULT_FARBE_SETTINGS
+          // Defaults für score/stroke hier nicht nötig, da sie schon in `g` sein sollten, wenn vorhanden
         }));
         const oldState = get();
         const currentGroup = oldState.currentGroup;
+        // Überprüfung, ob die aktuelle Gruppe noch in der *neuen* Liste vorhanden ist
         const currentGroupStillExists = currentGroup && groupsWithDefaults.some((g: FirestoreGroup) => g.id === currentGroup.id);
+        
         set({
             userGroups: groupsWithDefaults,
-            currentGroup: currentGroupStillExists ? currentGroup : null,
+            // Setze currentGroup auf null, wenn es nicht mehr existiert ODER wenn es die gleiche ID hat,
+            // aber möglicherweise veraltete Daten (z.B. wenn Anreicherung im Listener fehlt).
+            // Es ist sicherer, es auf null zu setzen und den User neu auswählen zu lassen, 
+            // oder den Listener robuster zu machen.
+            currentGroup: currentGroupStillExists ? currentGroup : null, 
             status: "success",
             error: null,
         }, false, 'loadGroupsByPlayerIdSuccess');
+        
         if (currentGroup && !currentGroupStillExists) {
             const userId = useAuthStore.getState().user?.uid;
             if (userId) {
@@ -236,8 +262,10 @@ const groupStoreCreator: StateCreator<
   fetchCurrentGroup: async (groupId: string) => {
     set({ status: "loading", error: null }, false, 'fetchCurrentGroupStart');
     try {
+      // HINWEIS: getGroupById liefert aktuell *keine* angereicherten Spielerdaten!
+      // Das könnte zu Inkonsistenzen führen, wenn diese Funktion verwendet wird.
       const group = await getGroupById(groupId);
-      get().setCurrentGroup(group as any);
+      get().setCurrentGroup(group as any); // Typ-Assertion beibehalten
       if (!group) {
         set({ status: "error", error: "Gruppe nicht gefunden" }, false, 'fetchCurrentGroupNotFound');
       }
@@ -274,13 +302,15 @@ const groupStoreCreator: StateCreator<
              // Merge der neuen Daten in das bestehende currentGroup Objekt
              Object.assign(draft.currentGroup, data);
              // Zeitstempel könnte man hier annähern, aber Firestore-Listener wird es korrekt setzen
-             // FEHLERHAFTE ZEILE ENTFERNT: draft.currentGroup.updatedAt = new Date(); \n          }\n          // Aktualisiere auch die Liste der User-Gruppen\n          const groupIndex = draft.userGroups.findIndex((g: FirestoreGroup) => g.id === groupId);
-         }
-         // Aktualisiere auch die Liste der User-Gruppen
-         const groupIndex = draft.userGroups.findIndex((g: FirestoreGroup) => g.id === groupId);
-         if (groupIndex !== -1) {
+             // FEHLERHAFTE ZEILE ENTFERNT: draft.currentGroup.updatedAt = new Date(); 
+          }
+          // Aktualisiere auch die Liste der User-Gruppen
+          const groupIndex = draft.userGroups.findIndex((g: FirestoreGroup) => g.id === groupId);
+          if (groupIndex !== -1) {
              Object.assign(draft.userGroups[groupIndex], data);
-             (draft.userGroups[groupIndex] as any).updatedAt = new Date();
+             // Wichtig: Hier nicht `players` überschreiben, falls es in `data` nicht enthalten ist
+             // Der Spread sorgt dafür, dass nur vorhandene Felder aus `data` übernommen werden.
+             (draft.userGroups[groupIndex] as any).updatedAt = new Date(); // Annäherung
          }
        }), false, 'updateGroupSuccess'); // Neuer State-Name für Klarheit
 
@@ -420,6 +450,8 @@ const groupStoreCreator: StateCreator<
         const updatedGroup = {
           ...updatedGroups[groupIndex],
           ...updates,
+          // Stelle sicher, dass `players` nicht überschrieben wird, wenn `updates` es nicht enthält
+          players: updates.players ?? updatedGroups[groupIndex].players, 
           farbeSettings: updates.farbeSettings ?? updatedGroups[groupIndex].farbeSettings ?? DEFAULT_FARBE_SETTINGS
         } as FirestoreGroup;
         updatedGroups[groupIndex] = updatedGroup;
@@ -433,9 +465,12 @@ const groupStoreCreator: StateCreator<
   addUserGroup: (group: FirestoreGroup) => {
       const currentGroups = get().userGroups;
       if (!currentGroups.some((g) => g.id === group.id)) {
+          // Stelle sicher, dass die hinzugefügte Gruppe Defaults hat und angereichert ist
+          // Normalerweise sollte die Gruppe bereits angereichert sein, wenn sie hier ankommt
           const groupWithDefaults = {
               ...group,
-              farbeSettings: group.farbeSettings ?? DEFAULT_FARBE_SETTINGS
+              farbeSettings: group.farbeSettings ?? DEFAULT_FARBE_SETTINGS,
+              players: group.players // Behalte die (hoffentlich) angereicherten Spieler bei
           };
           set({ userGroups: [...currentGroups, groupWithDefaults] }, false, 'addUserGroup');
       }
@@ -465,8 +500,10 @@ const groupStoreCreator: StateCreator<
          } else if (role === 'member' && updatedAdminIds.includes(targetUserId)) {
            updatedAdminIds = updatedAdminIds.filter(id => id !== targetUserId);
          }
-         get().updateGroupInList(groupId, { adminIds: updatedAdminIds });
-         return { status: "success", error: null };
+         // Rufe updateGroupInList auf, um die adminIds in der Liste zu aktualisieren
+         // Die Funktion selbst kümmert sich um die Aktualisierung von currentGroup über den Listener
+         get().updateGroupInList(groupId, { adminIds: updatedAdminIds }); 
+         return { status: "success", error: null }; // Kein direktes Update von currentGroup hier
        }, false, 'updateMemberRoleSuccess');
       console.log(`GROUP_STORE: updateMemberRole - Rolle für Spieler ${playerId} (User ${targetUserId}) in Gruppe ${groupId} erfolgreich auf ${role} gesetzt.`);
     } catch (error) {
@@ -509,7 +546,8 @@ const groupStoreCreator: StateCreator<
     const user = useAuthStore.getState().user; // Annahme: Zugriff auf AuthStore nötig
     const targetGroupId = groupId ?? group?.id;
     if (!user || !group || group.id !== targetGroupId) return false;
-    return group.adminIds.includes(user.uid);
+    // Überprüfe, ob die adminIds existieren und die userId enthalten
+    return Array.isArray(group.adminIds) && group.adminIds.includes(user.uid);
   },
 
   updateCurrentGroupJassSettings: async (groupId: string, updates: {
@@ -600,6 +638,7 @@ export const useGroupStore = create<GroupStore>()(
         name: "jass-group-store",
         partialize: (state): PersistedState => ({
           currentGroupId: state.currentGroupId,
+          // Das Mapping bleibt gleich, da PersistedGroup jetzt der erwartete Typ ist
           userGroups: state.userGroups.map(g => ({
             id: g.id,
             name: g.name,
@@ -614,6 +653,7 @@ export const useGroupStore = create<GroupStore>()(
             farbeSettings: g.farbeSettings,
             scoreSettings: g.scoreSettings,
             strokeSettings: g.strokeSettings,
+            // players wird hier absichtlich weggelassen
           })),
         }),
         onRehydrateStorage: () => {
@@ -626,18 +666,36 @@ export const useGroupStore = create<GroupStore>()(
             }
             console.log("GroupStore: Rehydrierung abgeschlossen.");
             const persistedGroupId = state?.currentGroupId;
-            const rehydratedGroup = state?.userGroups.find(g => g.id === persistedGroupId);
-
-            if (rehydratedGroup) {
-                console.log(`GroupStore: Rehydrierte Gruppe ${rehydratedGroup.id} gefunden. Setze Gruppe und starte Listener.`);
-                state?.setCurrentGroup({ ...rehydratedGroup } as any);
-            } else if (persistedGroupId) {
-                 console.warn(`GroupStore: Persistierte Gruppen-ID ${persistedGroupId} gefunden, aber Gruppe nicht in rehydrierter Liste.`);
-                 state?.setCurrentGroup(null);
+            // Wichtig: Suche in state.userGroups, das *jetzt* PersistedGroup[] ist!
+            // Aber die setCurrentGroup Funktion erwartet eine vollständige FirestoreGroup.
+            // Das ist ein Problem. Wir sollten die rehydrierten Daten *nicht* direkt 
+            // verwenden, um den Listener zu starten. Der Listener sollte erst gestartet werden,
+            // wenn die *vollständigen* Gruppen geladen sind.
+            // Wir setzen den currentGroup vorerst auf null und lassen loadUserGroupsByPlayerId 
+            // den richtigen Zustand herstellen und ggf. den Listener starten.
+            
+            if (persistedGroupId) {
+              console.log(`GroupStore: Rehydrierte Gruppen-ID ${persistedGroupId} gefunden. Warte auf vollständiges Laden.`);
+              // Setze den aktuellen Zustand NICHT direkt aus den persistierten Daten.
+              // set({ currentGroup: null }); // Sicherstellen, dass kein alter Zustand verwendet wird
             } else {
-                 console.log("GroupStore: Keine aktuelle Gruppe nach Rehydrierung.");
-                 state?.setCurrentGroup(null);
+               console.log("GroupStore: Keine aktuelle Gruppe nach Rehydrierung.");
+               // set({ currentGroup: null });
             }
+            // Die Logik zum Starten des Listeners muss nach dem Laden der vollständigen Daten erfolgen,
+            // idealerweise in loadUserGroupsByPlayerId oder durch expliziten Aufruf nach der Rehydrierung.
+            // Fürs Erste entfernen wir die Logik hier, die den Listener startet.
+            // const rehydratedGroup = state?.userGroups.find(g => g.id === persistedGroupId);
+            // if (rehydratedGroup) {
+            //     console.log(`GroupStore: Rehydrierte Gruppe ${rehydratedGroup.id} gefunden. Setze Gruppe und starte Listener.`);
+            //     state?.setCurrentGroup({ ...rehydratedGroup } as any); // <-- Das ist problematisch, da `players` fehlt!
+            // } else if (persistedGroupId) {
+            //      console.warn(`GroupStore: Persistierte Gruppen-ID ${persistedGroupId} gefunden, aber Gruppe nicht in rehydrierter Liste.`);
+            //      state?.setCurrentGroup(null);
+            // } else {
+            //      console.log("GroupStore: Keine aktuelle Gruppe nach Rehydrierung.");
+            //      state?.setCurrentGroup(null);
+            // }
           };
         },
         version: 1,

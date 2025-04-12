@@ -125,7 +125,10 @@ const ResultatKreidetafel = () => {
   const isOpen = useUIStore(state => state.resultatKreidetafel.isOpen);
   const swipePosition = useUIStore(state => state.resultatKreidetafel.swipePosition);
   const { currentGroup } = useGroupStore();
-  const activeStrokeSettings = currentGroup?.strokeSettings ?? DEFAULT_STROKE_SETTINGS;
+  // Hole strokeSettings auch aus dem UIStore für den Gastmodus-Fallback
+  const uiStoreStrokeSettings = useUIStore((state) => state.strokeSettings);
+  // Passe activeStrokeSettings an: Gruppe -> UI Store -> Default
+  const activeStrokeSettings = currentGroup?.strokeSettings ?? uiStoreStrokeSettings ?? DEFAULT_STROKE_SETTINGS;
   const activeScoreSettings = currentGroup?.scoreSettings ?? useUIStore.getState().scoreSettings;
   const activeFarbeSettings = currentGroup?.farbeSettings ?? DEFAULT_FARBE_SETTINGS;
 
@@ -404,43 +407,37 @@ const ResultatKreidetafel = () => {
       // Schneider nur wenn aktiviert (Wert aus Settings)
       if (scoreSettingsEnabled.schneider) {
         // Annahme: Feld heißt 'schneider', Wert ist 1 oder 2
-        totalValue += striche.schneider * (strokeSettings.schneider ?? 1); // Multipliziere Anzahl mit Wert (1 oder 2)
+        totalValue += striche.schneider * (strokeSettings.schneider ?? 1);
       }
       // Matsch (Wert ist immer 1)
-      totalValue += striche.matsch; 
+      totalValue += striche.matsch;
       // Kontermatsch (Wert aus Settings)
       // Annahme: Feld heißt 'kontermatsch', Wert ist 1 oder 2
-      totalValue += striche.kontermatsch * (strokeSettings.kontermatsch ?? 1); // Multipliziere Anzahl mit Wert (1 oder 2)
+      totalValue += striche.kontermatsch * (strokeSettings.kontermatsch ?? 1);
       return totalValue;
     };
 
-    // 1. Basis-Totale aus vorherigen Spielen (OHNE aktuelles Spiel) - Keine Einstellungsanwendung hier
+    // 1. Basis-Totale aus vorherigen Spielen (OHNE aktuelles Spiel) - JETZT MIT KORREKTER ZÄHLUNG
     const baseTotals = games
-      .filter(game => game.id < currentGameId)  // Wichtig: < statt <=
+      .filter(game => game.id < currentGameId)
       .reduce((totals, game) => {
-         // --- WICHTIG: Hier die Striche einfach addieren (1 pro Eintrag), da Einstellungen damals nicht galten ---
-         let gameStricheTop = 0;
-         let gameStricheBottom = 0;
-         // Diese Logik MUSS die damalige Struktur widerspiegeln - Annahme: Berg/Schneider waren damals ggf. auch schon optional?
-         // Wenn wir nicht sicher sind, wie es war, ist die einfachste Annahme, jeden Eintrag als 1 zu zählen.
-         // Sicherer: Verwende die Logik von calculateStricheValue, aber mit strokeSettings = {siegStriche: 1, ...} (alle 1) und den damaligen scoreSettings?
-         // Fürs Erste zählen wir einfach die Einträge > 0
-         gameStricheTop += game.teams.top.striche.sieg > 0 ? game.teams.top.striche.sieg : 0;
-         gameStricheTop += game.teams.top.striche.berg > 0 ? game.teams.top.striche.berg : 0; // Nur zählen wenn > 0
-         gameStricheTop += game.teams.top.striche.schneider > 0 ? game.teams.top.striche.schneider : 0;
-         gameStricheTop += game.teams.top.striche.matsch > 0 ? game.teams.top.striche.matsch : 0;
-         gameStricheTop += game.teams.top.striche.kontermatsch > 0 ? game.teams.top.striche.kontermatsch : 0;
-
-         gameStricheBottom += game.teams.bottom.striche.sieg > 0 ? game.teams.bottom.striche.sieg : 0;
-         gameStricheBottom += game.teams.bottom.striche.berg > 0 ? game.teams.bottom.striche.berg : 0;
-         gameStricheBottom += game.teams.bottom.striche.schneider > 0 ? game.teams.bottom.striche.schneider : 0;
-         gameStricheBottom += game.teams.bottom.striche.matsch > 0 ? game.teams.bottom.striche.matsch : 0;
-         gameStricheBottom += game.teams.bottom.striche.kontermatsch > 0 ? game.teams.bottom.striche.kontermatsch : 0;
+         // Verwende calculateStricheValue für jedes historische Spiel
+         // mit den AKTUELLEN Einstellungen (activeStrokeSettings, activeScoreSettings.enabled)
+         const gameStricheValueTop = calculateStricheValue(
+           game.teams.top.striche,
+           activeStrokeSettings,      // Aktuelle Stroke-Einstellungen
+           activeScoreSettings.enabled // Aktuelle Score-Modus-Aktivierungen
+         );
+         const gameStricheValueBottom = calculateStricheValue(
+           game.teams.bottom.striche,
+           activeStrokeSettings,      // Aktuelle Stroke-Einstellungen
+           activeScoreSettings.enabled // Aktuelle Score-Modus-Aktivierungen
+         );
 
          return {
            striche: {
-             top: totals.striche.top + gameStricheTop,
-             bottom: totals.striche.bottom + gameStricheBottom
+             top: totals.striche.top + gameStricheValueTop, // Addiere den berechneten WERT
+             bottom: totals.striche.bottom + gameStricheValueBottom // Addiere den berechneten WERT
            },
            punkte: {
              top: totals.punkte.top + game.teams.top.total,
@@ -453,6 +450,7 @@ const ResultatKreidetafel = () => {
     const currentTopStricheValue = calculateStricheValue(uiStriche.top, activeStrokeSettings, activeScoreSettings.enabled);
     const currentBottomStricheValue = calculateStricheValue(uiStriche.bottom, activeStrokeSettings, activeScoreSettings.enabled);
 
+    // 3. Gesamttotal (BLEIBT GLEICH)
     return {
       striche: {
         top: baseTotals.striche.top + currentTopStricheValue,
@@ -1015,6 +1013,7 @@ const ResultatKreidetafel = () => {
                   games={games}
                   currentGameId={currentGameId}
                   cardStyle={activeFarbeSettings.cardStyle}
+                  strokeSettings={activeStrokeSettings}
                   onSwipe={handleStatisticChange}
                 />
               ) : (
@@ -1023,6 +1022,7 @@ const ResultatKreidetafel = () => {
                   games={games}
                   currentGameId={currentGameId}
                   cardStyle={activeFarbeSettings.cardStyle}
+                  strokeSettings={activeStrokeSettings}
                   onSwipe={handleStatisticChange}
                 />
               )}

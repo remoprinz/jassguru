@@ -1,26 +1,40 @@
 // src/pwa/serviceWorkerRegistration.ts
 
+// Version, die bei jedem Build inkrementiert werden sollte
+// Dies hilft dem Browser zu erkennen, dass es sich um ein echtes Update handelt
+const SW_VERSION = '1.0.2'; // Ändern Sie diese Nummer bei jedem Test
+
+// Globale Variable zur Speicherung der aktuellen Registrierung
+let activeRegistration: ServiceWorkerRegistration | null = null;
+
+// Funktion zum Abrufen der aktuellen Registrierung
+export function getActiveRegistration(): ServiceWorkerRegistration | null {
+  return activeRegistration;
+}
+
 export function register() {
   if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      const swUrl = "/sw/service-worker.js";
-      navigator.serviceWorker.register(swUrl)
-        .then((registration) => {
-          registration.addEventListener("updatefound", () => {
-            const newWorker = registration.installing;
-            if (newWorker) {
-              newWorker.addEventListener("statechange", () => {
-                if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
-                  console.log("Neue Version verfügbar. Bitte aktualisieren Sie die Seite.");
-                }
-              });
-            }
-          });
-        })
-        .catch((error) => {
-          console.error("Fehler bei der Service Worker Registrierung:", error);
-        });
-    });
+    // Füge eine Versionsnummer als Query-Parameter hinzu
+    const swUrl = `/sw.js?v=${SW_VERSION}`;
+    navigator.serviceWorker.register(swUrl)
+      .then((registration) => {
+        console.log('[ServiceWorkerRegistration]', 'Registration successful with version', SW_VERSION, 'scope is:', registration.scope);
+        
+        // Speichere die Registrierung in der globalen Variable
+        activeRegistration = registration;
+        
+        // Dispatch eines benutzerdefinierten Events, um die Registrierung an andere Komponenten weiterzugeben
+        if (typeof window !== 'undefined') {
+          const event = new CustomEvent('swRegistered', { detail: { registration } });
+          window.dispatchEvent(event);
+          
+          // Füge eine globale Variable für direkten Zugriff hinzu
+          (window as any).__SW_REGISTRATION = registration;
+        }
+      })
+      .catch((error) => {
+        console.error("[ServiceWorkerRegistration]", "Fehler bei der Service Worker Registrierung:", error);
+      });
   }
 }
 

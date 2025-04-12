@@ -25,7 +25,7 @@ import {isPWA} from "../../utils/browserDetection";
 import {useTutorialStore} from "../../store/tutorialStore";
 import TutorialOverlay from "../tutorial/TutorialOverlay";
 import TutorialInfoDialog from "../tutorial/TutorialInfoDialog";
-import {isDev, FORCE_TUTORIAL} from "../../utils/devUtils";
+import { isDev, FORCE_TUTORIAL } from "../../utils/devUtils";
 import {useDeviceScale} from "../../hooks/useDeviceScale";
 import html2canvas from "html2canvas";
 import {useAuthStore} from "../../store/authStore";
@@ -114,7 +114,8 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
   const isBrowserOnboardingRequired = useMemo(() => {
     const currentPath = pathname;
     const isExcluded = onboardingExcludedPaths.includes(currentPath);
-    const result = !isPWAInstalled && !isExcluded;
+    const result = !isDev && !isPWAInstalled && !isExcluded;
+    console.log(`[JassKreidetafel useMemo isBrowserOnboardingRequired] isDev: ${isDev}, isPWAInstalled: ${isPWAInstalled}, isExcluded: ${isExcluded} => result: ${result}`);
     return result;
   }, [isPWAInstalled, pathname]);
 
@@ -485,7 +486,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
 
         // 9. Share API mit Text und Bild
         if (navigator.share) {
-          const fullShareText = `${message}\n\nGeneriert von:\n👉 https://jassguru.web.app`;
+          const fullShareText = `${message}\n\nGeneriert von:\n👉 https://jassguru.ch`;
 
           await navigator.share({
             files: [new File([blob], "jass-resultat.png", {type: "image/png"})],
@@ -581,14 +582,14 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
       {/* Rendere OnboardingFlow wenn erforderlich */}
       {isBrowserOnboardingRequired && (() => {
           // === DEBUG LOGS ===
-          console.log('[JassKreidetafel] NODE_ENV:', process.env.NODE_ENV);
-          const finalShowProp = showOnboardingState && process.env.NODE_ENV !== 'development';
-          console.log('[JassKreidetafel] OnboardingFlow - showOnboardingState:', showOnboardingState, 'finalShowProp:', finalShowProp);
+          // Entferne die redundanten Konsolenausgaben und die separate Variable
+          // console.log('[JassKreidetafel] isDev:', isDev);
+          // console.log('[JassKreidetafel] OnboardingFlow - showOnboardingState:', showOnboardingState, 'finalShowProp:', showOnboardingState && !isDev);
           // === ENDE DEBUG LOGS ===
           return (
             <OnboardingFlow
-              // show wird jetzt direkt vom Store-Wert gesteuert UND prüft auf Development-Mode
-              show={finalShowProp}
+              // show wird jetzt direkt vom Store-Wert gesteuert UND prüft auf Development-Mode mit isDev
+              show={showOnboardingState && !isDev} // Direkte Verwendung der Bedingung
               step={currentStep as BrowserOnboardingStep}
               content={content}
               onNext={handleNext}
@@ -669,13 +670,14 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
             isHistoryNavigationActive={bottomHistoryNav.isInPast}
           />
 
-          {isCalculatorOpen && (
+          {/* Render Calculator only if it's open AND the menu is NOT open */}
+          {isCalculatorOpen && !isMenuOpen && activeContainer && (
             <Calculator
               isOpen={isCalculatorOpen}
               onClose={handleCalculatorClose}
               onCancel={handleCalculatorClose}
               initialValue={0}
-              clickedPosition={activeContainer!}
+              clickedPosition={activeContainer}
             />
           )}
           <MenuOverlay

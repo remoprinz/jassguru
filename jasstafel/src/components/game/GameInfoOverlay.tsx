@@ -3,6 +3,7 @@ import {animated, useSpring} from "react-spring";
 import {FiRotateCcw, FiX, FiPlay, FiPause} from "react-icons/fi";
 import {useGameStore} from "@/store/gameStore";
 import {useJassStore} from "@/store/jassStore";
+import {useGroupStore} from "@/store/groupStore";
 import {formatDuration} from "@/utils/timeUtils";
 import MultiplierCalculator, {useMultiplierStore} from "./MultiplierCalculator";
 import {ChargeButton} from "@/components/ui/ChargeButton";
@@ -39,6 +40,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
   } = useGameStore();
 
   const {currentGameId} = useJassStore();
+  const currentGroup = useGroupStore((state) => state.currentGroup);
 
   const [isPressedDown, setIsPressedDown] = useState(false);
   const [showDepth, setShowDepth] = useState(false);
@@ -81,7 +83,8 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
   };
 
   const canActivateSieg = () => {
-    if (!scoreSettings?.enabled?.berg) return true;
+    const settings = currentGroup?.scoreSettings || scoreSettings;
+    if (!settings?.enabled?.berg) return true;
     return isBergActiveForAnyTeam();
   };
 
@@ -533,7 +536,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
               points={getRemainingPoints(isCalculatorFlipped ? "top" : "bottom", scores).remaining}
               team={isCalculatorFlipped ? "top" : "bottom"}
               numberSize="text-3xl"
-              scoreSettings={scoreSettings}
+              scoreSettings={currentGroup?.scoreSettings || scoreSettings}
               scores={scores}
             />
           </div>

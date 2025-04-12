@@ -1,15 +1,10 @@
 import {useState, useEffect} from "react";
 import {create} from "zustand";
 import {useUIStore} from "../../store/uiStore";
-import {FARBE_MODES} from "../../config/FarbeSettings";
+import {useGroupStore} from "../../store/groupStore";
 import type {TeamPosition, TeamScores, ScoreSettings} from "../../types/jass";
 
-// Multiplier-Liste für den Zyklus (1x wird nicht benötigt)
-const multipliers = Array.from(new Set(FARBE_MODES.map((mode) => mode.multiplier)))
-  .filter((m): m is number => m > 1)
-  .sort((a, b) => b - a);
-
-type Multiplier = (typeof multipliers)[number];
+type Multiplier = number;
 
 interface MultiplierState {
   currentMultiplier: Multiplier;
@@ -22,11 +17,12 @@ interface MultiplierState {
 }
 
 export const useMultiplierStore = create<MultiplierState>((set, get) => ({
-  currentMultiplier: Math.max(...multipliers.filter((m) => m > 1)),
+  currentMultiplier: 1,
   setMultiplier: (value: Multiplier) => set({currentMultiplier: value}),
   getDividedPoints: (points) => Math.ceil(points / get().currentMultiplier),
   getRemainingPoints: (team: TeamPosition, scores: TeamScores) => {
-    const {scoreSettings} = useUIStore.getState();
+    const currentGroup = useGroupStore.getState().currentGroup;
+    const scoreSettings = currentGroup?.scoreSettings || useUIStore.getState().scoreSettings;
 
     const teamScore = scores[team];
     const oppositeTeam = team === "top" ? "bottom" : "top";
@@ -36,7 +32,6 @@ export const useMultiplierStore = create<MultiplierState>((set, get) => ({
     const bergScore = scoreSettings.values.berg;
     const schneiderScore = scoreSettings.values.schneider;
 
-    // 1. Wenn Berg deaktiviert ist, direkt SIEG als Ziel
     if (!scoreSettings.enabled.berg) {
       return {
         title: "SIEG",
@@ -44,7 +39,6 @@ export const useMultiplierStore = create<MultiplierState>((set, get) => ({
       };
     }
 
-    // 2. Wenn das Gegnerteam bereits BERG hat
     if (oppositeScore >= bergScore) {
       if (!scoreSettings.enabled.schneider || teamScore >= schneiderScore) {
         return {
@@ -60,7 +54,6 @@ export const useMultiplierStore = create<MultiplierState>((set, get) => ({
       }
     }
 
-    // 3. Wenn Team BERG hat, dann ist das Ziel SIEG
     if (teamScore >= bergScore) {
       return {
         title: "SIEG",
@@ -68,7 +61,6 @@ export const useMultiplierStore = create<MultiplierState>((set, get) => ({
       };
     }
 
-    // 4. Standardfall: Beide Teams haben noch kein BERG
     if (scoreSettings.enabled.berg) {
       return {
         title: "BERG",
@@ -76,7 +68,6 @@ export const useMultiplierStore = create<MultiplierState>((set, get) => ({
       };
     }
 
-    // 5. Fallback: Wenn weder BERG noch SCHNEIDER aktiviert sind -> SIEG
     return {
       title: "SIEG",
       remaining: siegScore - teamScore,
@@ -106,23 +97,26 @@ const MultiplierCalculator: React.FC<MultiplierCalculatorProps> = ({
   team,
 }) => {
   const {currentMultiplier, setMultiplier, getDividedPoints, getRemainingPoints} = useMultiplierStore();
-  const farbeSettings = useUIStore((state) => state.farbeSettings);
+  const currentGroup = useGroupStore((state) => state.currentGroup);
   const [pressedButton, setPressedButton] = useState(false);
 
-  // Aktualisiere den Multiplikator wenn sich die Farbe-Settings ändern
   useEffect(() => {
-    // Korrigierter Code:
-    // 1. Sicherstellen, dass nur Zahlen > 1 betrachtet werden
-    const validMultipliers = Object.values(farbeSettings.values)
-                                   .filter((v): v is number => typeof v === 'number' && v > 1);
+    if (!currentGroup?.farbeSettings?.values) return;
 
-    // 2. Den höchsten Wert finden oder einen Standardwert (z.B. 1) nehmen, falls keine gültigen > 1 existieren
-    const highestValidMultiplier = validMultipliers.length > 0 ? Math.max(...validMultipliers) : 1;
+    const validMultipliers = Object.values(currentGroup.farbeSettings.values)
+      .filter((v): v is number => typeof v === 'number' && v > 1)
+      .sort((a, b) => b - a);
 
-    // 3. Den Multiplikator setzen
-    setMultiplier(highestValidMultiplier); 
+    const highestValidMultiplier = validMultipliers.length > 0 ? validMultipliers[0] : 1;
+    setMultiplier(highestValidMultiplier);
 
-  }, [farbeSettings.values, setMultiplier]);
+  }, [currentGroup?.farbeSettings?.values, setMultiplier]);
+
+  const availableMultipliers = currentGroup?.farbeSettings?.values
+    ? Object.values(currentGroup.farbeSettings.values)
+        .filter((v): v is number => typeof v === 'number' && v > 1)
+        .sort((a, b) => b - a)
+    : [1];
 
   return (
     <div>
@@ -137,9 +131,9 @@ const MultiplierCalculator: React.FC<MultiplierCalculatorProps> = ({
 
         <button
           onClick={() => {
-            const currentIndex = multipliers.indexOf(currentMultiplier);
-            const nextIndex = currentIndex === multipliers.length - 1 ? 0 : currentIndex + 1;
-            setMultiplier(multipliers[nextIndex]);
+            const currentIndex = availableMultipliers.indexOf(currentMultiplier);
+            const nextIndex = currentIndex === availableMultipliers.length - 1 ? 0 : currentIndex + 1;
+            setMultiplier(availableMultipliers[nextIndex]);
           }}
           onMouseDown={() => setPressedButton(true)}
           onMouseUp={() => setPressedButton(false)}

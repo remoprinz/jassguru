@@ -615,15 +615,18 @@ export const useUIStore = create<UIState & UIActions>()(
       openCalculator: () => {
         const state = get();
         if (state.tutorialBlockedUI.calculatorClose) return;
-        set({calculator: {...state.calculator, isOpen: true}});
+        if (state.isMenuOpen) {
+          set({ isMenuOpen: false });
+        }
+        set({ calculator: { ...state.calculator, isOpen: true } });
       },
 
       closeCalculator: () => set((state) => ({
-        calculator: {...state.calculator, isOpen: false},
+        calculator: { ...state.calculator, isOpen: false },
       })),
 
       setCalculatorFlipped: (flipped) => set((state) => ({
-        calculator: {...state.calculator, isFlipped: flipped},
+        calculator: { ...state.calculator, isFlipped: flipped },
       })),
 
       setStartScreenState: (state: "initial" | "starting" | "complete") => set((prevState) => ({
@@ -643,15 +646,15 @@ export const useUIStore = create<UIState & UIActions>()(
         })),
 
       setMenuActiveButton: (button) => set((state) => ({
-        menu: {...state.menu, activeButton: button},
+        menu: { ...state.menu, activeButton: button },
       })),
 
       setShowIntroduction: (show) => set((state) => ({
-        menu: {...state.menu, showIntroduction: show},
+        menu: { ...state.menu, showIntroduction: show },
       })),
 
       setShowResetWarning: (show) => set((state) => ({
-        menu: {...state.menu, showResetWarning: show},
+        menu: { ...state.menu, showResetWarning: show },
       })),
 
       resetAll: () => set(() => ({
@@ -700,12 +703,22 @@ export const useUIStore = create<UIState & UIActions>()(
           onConfirm: () => {},
           onCancel: () => {},
         },
+        isMenuOpen: false,
       })),
 
-      setMenuOpen: (isOpen) => set((state) => ({
-        menu: {...state.menu, isOpen},
-        overlayPosition: isOpen ? state.overlayPosition : null,
-      })),
+      setMenuOpen: (isOpen: boolean) => set((state) => {
+        if (isOpen && state.calculator.isOpen) {
+          return {
+            menu: { ...state.menu, isOpen },
+            calculator: { ...state.calculator, isOpen: false },
+            overlayPosition: isOpen ? state.overlayPosition : null,
+          };
+        }
+        return {
+          menu: { ...state.menu, isOpen },
+          overlayPosition: isOpen ? state.overlayPosition : null,
+        };
+      }),
 
       openResultatKreidetafel: (position) => set({
         resultatKreidetafel: {
@@ -769,10 +782,10 @@ export const useUIStore = create<UIState & UIActions>()(
           },
         })),
       openFarbeSettings: () => set((state) => ({
-        settings: {...state.settings, isOpen: true, activeTab: "farben"},
+        settings: { ...state.settings, isOpen: true, activeTab: "farben" },
       })),
       closeFarbeSettings: () => set((state) => ({
-        settings: {...state.settings, isOpen: false},
+        settings: { ...state.settings, isOpen: false },
       })),
       setFarbeFlipped: (isFlipped: boolean) => {
         const currentSettings = get().farbeSettings;
@@ -793,10 +806,10 @@ export const useUIStore = create<UIState & UIActions>()(
           return state;
         }),
       openScoreSettings: () => set((state) => ({
-        settings: {...state.settings, isOpen: true, activeTab: "scores"},
+        settings: { ...state.settings, isOpen: true, activeTab: "scores" },
       })),
       closeScoreSettings: () => set((state) => ({
-        settings: {...state.settings, isOpen: false},
+        settings: { ...state.settings, isOpen: false },
       })),
       updateScoreSettings: (settings: Partial<ScoreSettings>) =>
         set((state) => ({
@@ -830,13 +843,13 @@ export const useUIStore = create<UIState & UIActions>()(
           },
         })),
       setSettingsTab: (tab: SettingsTab["id"]) => set((state) => ({
-        settings: {...state.settings, activeTab: tab},
+        settings: { ...state.settings, activeTab: tab },
       })),
       openSettings: () => set((state) => ({
-        settings: {...state.settings, isOpen: true},
+        settings: { ...state.settings, isOpen: true },
       })),
       closeSettings: () => set((state) => ({
-        settings: {...state.settings, isOpen: false},
+        settings: { ...state.settings, isOpen: false },
       })),
       cyclePictogramMode: () => set((state) => {
         const currentConfig = state.settings.pictogramConfig;
@@ -988,15 +1001,20 @@ export const useUIStore = create<UIState & UIActions>()(
           isOpen: false,
         },
         isGameInfoOpen: false,
-        // ... andere Overlays
       })),
-      openMenu: () => set((state) => ({
-        ...state,
-        menu: {
-          ...state.menu,
-          isOpen: true,
-        },
-      })),
+      openMenu: () => set((state) => {
+        if (state.calculator.isOpen) {
+          return {
+            ...state,
+            isMenuOpen: true,
+            calculator: { ...state.calculator, isOpen: false },
+          };
+        }
+        return {
+          ...state,
+          isMenuOpen: true,
+        };
+      }),
       setSplitContainer: (isOpen: boolean, position: TeamPosition) =>
         set((state) => ({
           splitContainer: {
@@ -1075,7 +1093,16 @@ export const useUIStore = create<UIState & UIActions>()(
         },
       })),
       toggleMenu: () => set((state) => {
-        state.isMenuOpen = !state.isMenuOpen;
+        const newMenuState = !state.isMenuOpen;
+        if (newMenuState && state.calculator.isOpen) {
+          return {
+            isMenuOpen: newMenuState,
+            calculator: { ...state.calculator, isOpen: false },
+          };
+        }
+        return {
+          isMenuOpen: newMenuState,
+        };
       }),
       closeMenu: () => set({isMenuOpen: false}),
       toggleNotificationCenter: () => set((state) => {

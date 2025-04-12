@@ -177,16 +177,11 @@ const PlayerProfilePage = () => {
                   <h3 className="text-base font-semibold text-white mb-2">Spielerübersicht</h3>
                   <div className="space-y-1">
                     <div className="flex justify-between">
-                      <span className="font-medium text-gray-300">Anzahl Gruppen:</span>
-                      {/* Annahme: player.groupIds existiert */}
-                      <span className="text-gray-100">{player.groupIds?.length ?? 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="font-medium text-gray-300">Anzahl Jass-Partien gespielt:</span>
+                      <span className="font-medium text-gray-300">Partien gespielt:</span>
                       <span className="text-gray-100">{player.stats?.gamesPlayed ?? 0}</span> {/* Placeholder anpassen */}
                     </div>
                     <div className="flex justify-between">
-                      <span className="font-medium text-gray-300">Anzahl Spiele gespielt:</span>
+                      <span className="font-medium text-gray-300">Spiele gespielt:</span>
                       <span className="text-gray-100">{player.stats?.gamesPlayed ?? 0}</span> {/* Placeholder anpassen */}
                     </div>
                     <div className="flex justify-between">

@@ -8,6 +8,7 @@ import {Button} from "@/components/ui/button";
 import {BottomNavigation} from "@/components/layout/BottomNavigation";
 import Header from "./Header";
 import GlobalNotificationContainer from "../notifications/GlobalNotificationContainer";
+import UpdateNotifier from '@/components/pwa/UpdateNotifier';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -39,6 +40,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({children}) => {
         {/* Container für Padding etc. - KEINE max-width mehr hier */}
         <div className="w-full px-4">
           {children}
+          <UpdateNotifier />
         </div>
       </main>
 
