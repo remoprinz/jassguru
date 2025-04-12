@@ -1040,15 +1040,18 @@ export const useUIStore = create<UIState & UIActions>()(
         };
 
         set((state) => {
+          // Verhindere Duplikate basierend auf ID (wichtig für PWA-Update)
           if (!state.notifications.some((n: Notification) => n.id === newNotification.id)) {
-            state.notifications.push(newNotification);
+             // Stelle sicher, dass wir nicht zu viele Notifications haben
+             if (state.notifications.length >= 5) {
+                state.notifications.shift(); // Entferne die älteste
+             }
+             state.notifications.push(newNotification);
           }
         });
 
-        if ("duration" in newNotification &&
-            typeof newNotification.duration === "number" &&
-            newNotification.duration > 0 &&
-            (!("actions" in newNotification) || !newNotification.actions || newNotification.actions.length === 0)) {
+        // Auto-Entfernung nur wenn Dauer angegeben UND keine Aktionen vorhanden sind
+        if (newNotification.duration && newNotification.duration > 0 && !newNotification.actions?.length) {
           setTimeout(() => {
             get().removeNotification(newNotification.id);
           }, newNotification.duration);
