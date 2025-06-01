@@ -263,7 +263,7 @@ const NewTournamentPage: React.FC = () => {
           aria-label="Zurück"
         >
           <ArrowLeft size={24} />
-        </Button>
+          </Button>
 
         <div className="w-full max-w-md space-y-6 mt-16 sm:mt-12 pt-6 pb-24">
           <h1 className="text-center text-2xl font-bold text-white mb-6">
@@ -272,72 +272,72 @@ const NewTournamentPage: React.FC = () => {
           {error && (
             <div className="rounded-md border border-red-900 bg-red-900/20 p-3 text-center text-red-200">
               {error}
-            </div>
+        </div>
           )}
 
           <form id="create-tournament-form" onSubmit={handleSubmit} className="space-y-4">
-            {currentGroup && (
-              <div className="mb-4 text-sm text-gray-400 border-b border-gray-700 pb-3">
-                Turnier wird für Gruppe <span className="font-semibold text-purple-300">{currentGroup.name}</span> erstellt.
-              </div>
-            )}
+          {currentGroup && (
+            <div className="mb-4 text-sm text-gray-400 border-b border-gray-700 pb-3">
+              Turnier wird für Gruppe <span className="font-semibold text-purple-300">{currentGroup.name}</span> erstellt.
+            </div>
+          )}
 
-            <div className="flex flex-col items-center space-y-2">
+          <div className="flex flex-col items-center space-y-2">
               <Label className="text-gray-300 self-start">Turnier-Profilbild</Label>
-              <div className="relative">
-                <Avatar
-                  className="h-24 w-24 cursor-pointer border-2 border-gray-600 hover:border-gray-500 transition-colors"
-                  onClick={handleLogoSelectClick}
+            <div className="relative">
+              <Avatar
+                className="h-24 w-24 cursor-pointer border-2 border-gray-600 hover:border-gray-500 transition-colors"
+                onClick={handleLogoSelectClick}
+              >
+                <AvatarImage src={logoPreviewUrl ?? undefined} alt="Turnier Profilbild Vorschau" className="object-cover" />
+                <AvatarFallback className="bg-gray-700 text-gray-400">
+                  <Camera size={32} />
+                </AvatarFallback>
+              </Avatar>
+              {logoPreviewUrl && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon"
+                  onClick={handleCancelLogoSelection}
+                  className="absolute -top-1 -right-1 z-10 rounded-full bg-red-600/80 hover:bg-red-700 w-7 h-7 min-w-0 p-1"
+                  aria-label="Bildauswahl aufheben"
+                  disabled={isImageProcessing}
                 >
-                  <AvatarImage src={logoPreviewUrl ?? undefined} alt="Turnier Profilbild Vorschau" className="object-cover" />
-                  <AvatarFallback className="bg-gray-700 text-gray-400">
-                    <Camera size={32} />
-                  </AvatarFallback>
-                </Avatar>
-                {logoPreviewUrl && (
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    onClick={handleCancelLogoSelection}
-                    className="absolute -top-1 -right-1 z-10 rounded-full bg-red-600/80 hover:bg-red-700 w-7 h-7 min-w-0 p-1"
-                    aria-label="Bildauswahl aufheben"
-                    disabled={isImageProcessing}
-                  >
-                    <X size={16} />
-                  </Button>
-                )}
-              </div>
-              <input
-                type="file"
-                ref={logoFileInputRef}
-                onChange={handleLogoFileChange}
-                accept="image/jpeg, image/png, image/webp"
-                className="hidden"
-                disabled={isImageProcessing}
-              />
-              {imageError && <p className="text-sm text-red-400">{imageError}</p>}
+                  <X size={16} />
+                </Button>
+              )}
+            </div>
+            <input
+              type="file"
+              ref={logoFileInputRef}
+              onChange={handleLogoFileChange}
+              accept="image/jpeg, image/png, image/webp"
+              className="hidden"
+              disabled={isImageProcessing}
+            />
+            {imageError && <p className="text-sm text-red-400">{imageError}</p>}
               <p className="text-xs text-gray-500 text-center">Du kannst das Bild später ändern oder bearbeiten auf der Turnierseite, max 5MB</p>
-            </div>
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="tournamentName" className="text-white">Turniername</Label>
-              <Input
-                id="tournamentName"
-                type="text"
-                value={tournamentName}
-                onChange={handleNameChange}
-                placeholder="z.B. Jassreise Krakau 2025"
-                required
-                className="bg-gray-700 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500"
-                disabled={isImageProcessing}
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="tournamentName" className="text-white">Turniername</Label>
+            <Input
+              id="tournamentName"
+              type="text"
+              value={tournamentName}
+              onChange={handleNameChange}
+              placeholder="z.B. Jassreise Krakau 2025"
+              required
+              className="bg-gray-700 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500"
+              disabled={isImageProcessing}
+            />
+          </div>
 
-            {error && (
-              <p className="text-sm text-red-400 bg-red-900/40 p-3 rounded-md">{error}</p>
-            )}
-          </form>
+          {error && (
+            <p className="text-sm text-red-400 bg-red-900/40 p-3 rounded-md">{error}</p>
+          )}
+        </form>
         </div>
       </div>
     </MainLayout>

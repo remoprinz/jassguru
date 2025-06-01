@@ -8,7 +8,7 @@ import {Alert, AlertDescription} from "@/components/ui/alert";
 import Image from "next/image";
 import MainLayout from "@/components/layout/MainLayout";
 import {useUIStore} from "@/store/uiStore";
-import {Camera, Upload, X, UserCog, Users, BarChart3, CheckCircle, XCircle, MinusCircle, Archive, Award as AwardIcon} from "lucide-react"; // AwardIcon hinzugefügt
+import {Camera, Upload, X, UserCog, Users, BarChart3, CheckCircle, XCircle, MinusCircle, Archive, Award as AwardIcon, User, Shield} from "lucide-react"; // User und Shield hinzugefügt
 import ImageCropModal from "@/components/ui/ImageCropModal";
 import {toast} from "sonner";
 import {compressImage} from "@/utils/imageUtils";
@@ -22,6 +22,7 @@ import type { StricheRecord } from '@/types/jass';
 import { fetchTournamentsForUser } from '@/services/tournamentService';
 import type { TournamentInstance } from '@/types/tournament';
 import { fetchPlayerStatistics, PlayerStatistics } from '@/services/statisticsService';
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 // NEU: Typ-Guard für Firestore Timestamp (wie in start/index.tsx)
 function isFirestoreTimestamp(value: any): value is Timestamp {
@@ -325,37 +326,12 @@ const ProfilePage: React.FC = () => {
       // Logik aus renderSessionItem übernehmen und anpassen
       const session = item;
       const { id, startedAt, playerNames, finalScores, status, finalStriche, participantUids } = session;
-      const userId = user?.uid;
-      let outcome: 'win' | 'loss' | 'draw' | 'unknown' = 'unknown';
-
-      // Ergebnis bestimmen
-      if (status === 'completed' && finalScores && userId && participantUids.includes(userId)) {
-          let userTeam: 'top' | 'bottom' | null = null;
-          if (user && user.displayName && (playerNames['1'] === user.displayName || playerNames['3'] === user.displayName)) {
-              userTeam = 'bottom';
-          } else if (user && user.displayName && (playerNames['2'] === user.displayName || playerNames['4'] === user.displayName)) {
-              userTeam = 'top';
-          }
-
-          if (userTeam) {
-              if (finalScores.top === finalScores.bottom) {
-                  outcome = 'draw';
-              } else if (userTeam === 'top' && finalScores.top > finalScores.bottom) {
-                  outcome = 'win';
-              } else if (userTeam === 'bottom' && finalScores.bottom > finalScores.top) {
-                  outcome = 'win';
-              } else {
-                  outcome = 'loss';
-              }
-          }
-      }
-
-      const outcomeIcon = {
-          win: <CheckCircle className="w-4 h-4 text-green-500" />, 
-          loss: <XCircle className="w-4 h-4 text-red-500" />,    
-          draw: <MinusCircle className="w-4 h-4 text-yellow-500" />,
-          unknown: null
-      }[outcome];
+      
+      // KORREKTUR: Nur sessionStatusIcon verwenden, NICHT outcomeIcon für Win/Loss
+      // Stark vereinfachte Bedingung - nur status wird geprüft
+      const sessionStatusIcon = status === 'completed'
+        ? <CheckCircle className="w-4 h-4 text-green-500" />
+        : <XCircle className="w-4 h-4 text-red-500" />;
 
       const title = 'Partie'; // Verwenden wir einen Standardwert
 
@@ -379,7 +355,7 @@ const ProfilePage: React.FC = () => {
                      {title} - {formattedDate} 
                       </span>
                    <div className="flex-shrink-0">
-                      {outcomeIcon}
+                      {sessionStatusIcon}
                    </div>
                  </div>
               </div>
@@ -593,179 +569,625 @@ const ProfilePage: React.FC = () => {
 
           {/* --- NEU: Tabs für Statistik und Partien --- */}
           <Tabs defaultValue="stats" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 bg-gray-800/50 p-1 rounded-lg mb-4">
+            <TabsList className="grid w-full grid-cols-2 bg-gray-800 p-1 rounded-lg mb-4 sticky top-0 z-30 backdrop-blur-md">
               <TabsTrigger 
                 value="stats" 
-                className="data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-400 hover:bg-gray-700/50 rounded-md py-1.5 text-sm font-medium" 
+                className="data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:bg-blue-700/80 hover:text-white rounded-md py-1.5 text-sm font-medium" 
               > 
                 <BarChart3 className="w-4 h-4 mr-2" /> Statistik 
               </TabsTrigger> 
               <TabsTrigger 
                 value="archive" 
-                className="data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-400 hover:bg-gray-700/50 rounded-md py-1.5 text-sm font-medium" 
+                className="data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:bg-blue-700/80 hover:text-white rounded-md py-1.5 text-sm font-medium" 
               > 
                 <Archive className="w-4 h-4 mr-2" /> Archiv 
               </TabsTrigger> 
-            </TabsList> 
+            </TabsList>
 
-            {/* Inhalt für Statistik-Tab (aktueller Inhalt) */} 
-            <TabsContent value="stats" className="w-full bg-gray-800/50 rounded-lg p-4 mb-8"> 
-              {statsError && !statsLoading && (
-                <div className="text-red-400 text-sm text-center p-4 bg-red-900/30 rounded-md mb-4">
-                  Fehler beim Laden der Statistiken: {statsError}
+            {/* Inhalt für Statistik-Tab (jetzt mit Sub-Tabs) */}
+            <TabsContent value="stats" className="w-full mb-8"> 
+              <Tabs defaultValue="individual" className="w-full">
+                {/* Kleinerer Abstand (8px statt 16px) */}
+                <div className="h-2"></div>
+                
+                {/* Sticky Container für Sub-Tabs - mit solidem Hintergrund zwischen den Tabs */}
+                <div className="sticky top-[44px] z-20 bg-gray-900 pt-0 pb-4">
+                  {/* Solider Hintergrund der den gesamten Bereich zwischen den Tabs abdeckt */}
+                  <div className="absolute top-[-44px] left-0 right-0 h-[44px] bg-gray-900"></div>
+                  
+                  <TabsList className="grid w-full grid-cols-3 bg-gray-800 p-1 rounded-lg backdrop-blur-md">
+                    <TabsTrigger
+                      value="individual"
+                      className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-gray-400 hover:bg-blue-700/80 hover:text-white rounded-md py-1.5 text-sm font-medium"
+                    >
+                      <User className="w-4 h-4 mr-1.5" />
+                      Individuell
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="partner"
+                      className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-gray-400 hover:bg-blue-700/80 hover:text-white rounded-md py-1.5 text-sm font-medium"
+                    >
+                      <Users className="w-4 h-4 mr-1.5" />
+                      Partner
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="opponent"
+                      className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-gray-400 hover:bg-blue-700/80 hover:text-white rounded-md py-1.5 text-sm font-medium"
+                    >
+                      <Shield className="w-4 h-4 mr-1.5" />
+                      Gegner
+                    </TabsTrigger>
+                  </TabsList>
                 </div>
-              )}
-              {statsLoading ? (
-                <div className="flex justify-center items-center py-10">
-                  <div className="h-6 w-6 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
-                  <span className="ml-3 text-gray-300">Lade Statistiken...</span>
-                </div>
-              ) : (
-                <div className="space-y-3 text-sm px-2 pb-2"> 
-                  {/* Block 1: Spielerübersicht */}
-                  <div>
-                    <h3 className="text-base font-semibold text-white mb-2">Spielerübersicht</h3>
-                    <div className="space-y-1">
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Anzahl Gruppen:</span>
-                        <span className="text-gray-100">{playerStats?.groupCount || 0}</span>
+                
+                {/* Sanfter Gradient UNTERHALB der Sub-Tabs - absolut positioniert */}
+                <div className="absolute top-[132px] left-0 right-0 h-12 bg-gradient-to-b from-gray-900 via-gray-900/80 via-gray-900/40 to-transparent pointer-events-none z-10"></div>
+                
+                <TabsContent value="individual" className="w-full bg-gray-800/50 rounded-lg p-4">
+                  {statsError && !statsLoading && (
+                    <div className="text-red-400 text-sm text-center p-4 bg-red-900/30 rounded-md mb-4">
+                      Fehler beim Laden der Statistiken: {statsError}
+                    </div>
+                  )}
+                  {statsLoading ? (
+                    <div className="flex justify-center items-center py-10">
+                      <div className="h-6 w-6 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
+                      <span className="ml-3 text-gray-300">Lade Statistiken...</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 text-sm"> 
+                      {/* Block 1: Spielerübersicht */}
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                          <h3 className="text-base font-semibold text-white">Spielerübersicht</h3>
+                        </div>
+                        <div className="p-4 space-y-2">
+                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-300">Anzahl Gruppen:</span>
+                            <span className="text-gray-100">{playerStats?.groupCount || 0}</span>
+                          </div>
+                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-300">Anzahl Partien:</span>
+                            <span className="text-gray-100">{playerStats?.totalSessions || 0}</span>
+                          </div>
+                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-300">Anzahl Turniere:</span>
+                            <span className="text-gray-100">0</span>
+                          </div>
+                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-300">Anzahl Spiele:</span>
+                            <span className="text-gray-100">{playerStats?.totalGames || 0}</span>
+                          </div>
+                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-300">Gesamte Jass-Zeit:</span>
+                            <span className="text-gray-100">{playerStats?.totalPlayTime || '-'}</span>
+                          </div>
+                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-300">Erster Jass:</span>
+                            <span className="text-gray-100">{playerStats?.firstJassDate || '-'}</span>
+                          </div>
+                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-300">Letzter Jass:</span>
+                            <span className="text-gray-100">{playerStats?.lastJassDate || '-'}</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Anzahl Partien:</span>
-                        <span className="text-gray-100">{playerStats?.totalSessions || 0}</span>
+
+                      {/* NEU: Sektion Turniersiege */}
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                          <h3 className="text-base font-semibold text-white">Turniersiege</h3>
+                        </div>
+                        <div className="p-4 space-y-2">
+                          <div className="flex justify-between items-center bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-200">Turniersiege</span>
+                            <span className="text-lg font-bold text-white">0</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Anzahl Spiele:</span>
-                        <span className="text-gray-100">{playerStats?.totalGames || 0}</span>
+
+                      {/* Block 3: Durchschnittswerte */}
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                          <h3 className="text-base font-semibold text-white">Durchschnittswerte</h3>
+                        </div>
+                        <div className="p-4 space-y-2">
+                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-300">Ø Striche pro Spiel:</span>
+                            <span className="text-gray-100">{playerStats?.avgStrichePerGame?.toFixed(1) || '0.0'}</span>
+                          </div>
+                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-300">Ø Siegquote Partie:</span>
+                            <span className="text-gray-100">
+                              {playerStats?.sessionWinRate ? `${(playerStats.sessionWinRate * 100).toFixed(1)}%` : '0.0%'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-300">Ø Siegquote Spiel:</span>
+                            <span className="text-gray-100">
+                              {playerStats?.gameWinRate ? `${(playerStats.gameWinRate * 100).toFixed(1)}%` : '0.0%'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-300">Ø Punkte pro Spiel:</span>
+                            <span className="text-gray-100">{playerStats?.avgPointsPerGame?.toFixed(1) || '0.0'}</span>
+                          </div>
+                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-300">Ø Matsch pro Spiel:</span>
+                            <span className="text-gray-100">{playerStats?.avgMatschPerGame?.toFixed(2) || '0.00'}</span>
+                          </div>
+                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-300">Ø Schneider pro Spiel:</span>
+                            <span className="text-gray-100">0.00</span>
+                          </div>
+                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-300">Ø Weispunkte pro Spiel:</span>
+                            <span className="text-gray-100">{playerStats?.avgWeisPointsPerGame?.toFixed(1) || '0.0'}</span>
+                          </div>
+                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-300">Ø Zeit pro Runde:</span>
+                            <span className="text-gray-100">0m 0s</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Gesamte Jass-Zeit:</span>
-                        <span className="text-gray-100">{playerStats?.totalPlayTime || '-'}</span>
+                      
+                      {/* NEU: Block Spieler-Ergebnisse */}
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                          <h3 className="text-base font-semibold text-white">Spieler-Ergebnisse</h3>
+                        </div>
+                        <div className="p-4 space-y-2">
+                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-300">Strichdifferenz:</span>
+                            <span className="text-gray-100">+0</span>
+                          </div>
+                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-300">Punktdifferenz:</span>
+                            <span className="text-gray-100">+0</span>
+                          </div>
+                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-300">Partien gewonnen:</span>
+                            <span className="text-gray-100">{playerStats?.sessionsWon || 0}</span>
+                          </div>
+                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-300">Partien unentschieden:</span>
+                            <span className="text-gray-100">{playerStats?.sessionsTied || 0}</span>
+                          </div>
+                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-300">Partien verloren:</span>
+                            <span className="text-gray-100">{playerStats?.sessionsLost || 0}</span>
+                          </div>
+                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-300">Spiele gewonnen:</span>
+                            <span className="text-gray-100">{playerStats?.gamesWon || 0}</span>
+                          </div>
+                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-300">Spiele verloren:</span>
+                            <span className="text-gray-100">0</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Erster Jass:</span>
-                        <span className="text-gray-100">{playerStats?.firstJassDate || '-'}</span>
+
+                      {/* Block 4: Highlights Partien */}
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                          <h3 className="text-base font-semibold text-white">Highlights Partien</h3>
+                        </div>
+                        <div className="p-4 space-y-2">
+                          <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
+                            <span className="font-medium text-gray-300">Höchste Strichdifferenz:</span>
+                            <span className="text-gray-100">13 (8.5.2025)</span>
+                          </Link>
+                          <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
+                            <span className="font-medium text-gray-300">Längste Siegesserie:</span>
+                            <span className="text-gray-100">1 (8.5.2025)</span>
+                          </Link>
+                          <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
+                            <span className="font-medium text-gray-300">Längste Serie ohne Niederlage:</span>
+                            <span className="text-gray-100">2 (22.5.2025 - 29.5.2025)</span>
+                          </Link>
+                          <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
+                            <span className="font-medium text-gray-300">Höchste Anzahl Matsche:</span>
+                            <span className="text-gray-100">4 (8.5.2025)</span>
+                          </Link>
+                          <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
+                            <span className="font-medium text-gray-300">Meiste Weispunkte:</span>
+                            <span className="text-gray-100">140 (8.5.2025)</span>
+                          </Link>
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Letzter Jass:</span>
-                        <span className="text-gray-100">{playerStats?.lastJassDate || '-'}</span>
+
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                          <h3 className="text-base font-semibold text-white">Highlights Spiele</h3>
+                        </div>
+                        <div className="p-4 space-y-2">
+                          <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
+                            <span className="font-medium text-gray-300">Höchste Strichdifferenz:</span>
+                            <span className="text-gray-100">8 (8.5.2025)</span>
+                          </Link>
+                          <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
+                            <span className="font-medium text-gray-300">Längste Siegesserie:</span>
+                            <span className="text-gray-100">3 (8.5.2025)</span>
+                          </Link>
+                          <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
+                            <span className="font-medium text-gray-300">Längste Serie ohne Niederlage:</span>
+                            <span className="text-gray-100">3 (8.5.2025)</span>
+                          </Link>
+                          <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
+                            <span className="font-medium text-gray-300">Höchste Anzahl Matsche:</span>
+                            <span className="text-gray-100">3 (8.5.2025)</span>
+                          </Link>
+                          <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
+                            <span className="font-medium text-gray-300">Meiste Weispunkte:</span>
+                            <span className="text-gray-100">80 (8.5.2025)</span>
+                          </Link>
+                        </div>
                       </div>
+
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                          <h3 className="text-base font-semibold text-white">Lowlights Partien</h3>
+                        </div>
+                        <div className="p-4 space-y-2">
+                          <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
+                            <span className="font-medium text-gray-300">Höchste erhaltene Strichdifferenz:</span>
+                            <span className="text-gray-100">-14 (15.5.2025)</span>
+                          </Link>
+                          <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
+                            <span className="font-medium text-gray-300">Längste Niederlagenserie:</span>
+                            <span className="text-gray-100">1 (15.5.2025)</span>
+                          </Link>
+                          <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
+                            <span className="font-medium text-gray-300">Längste Serie ohne Sieg:</span>
+                            <span className="text-gray-100">2 (15.5.2025 - 22.5.2025)</span>
+                          </Link>
+                          <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
+                            <span className="font-medium text-gray-300">Höchste Anzahl Matsche bekommen:</span>
+                            <span className="text-gray-100">4 (15.5.2025)</span>
+                          </Link>
+                          <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
+                            <span className="font-medium text-gray-300">Meiste Weispunkte erhalten:</span>
+                            <span className="text-gray-100">80 (8.5.2025)</span>
+                          </Link>
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                          <h3 className="text-base font-semibold text-white">Lowlights Spiele</h3>
+                        </div>
+                        <div className="p-4 space-y-2">
+                          <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
+                            <span className="font-medium text-gray-300">Höchste erhaltene Strichdifferenz:</span>
+                            <span className="text-gray-100">-7 (15.5.2025)</span>
+                          </Link>
+                          <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
+                            <span className="font-medium text-gray-300">Längste Niederlagen:</span>
+                            <span className="text-gray-100">3 (15.5.2025)</span>
+                          </Link>
+                          <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
+                            <span className="font-medium text-gray-300">Längste Serie ohne Sieg:</span>
+                            <span className="text-gray-100">3 (15.5.2025)</span>
+                          </Link>
+                          <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
+                            <span className="font-medium text-gray-300">Höchste Anzahl Matsche bekommen:</span>
+                            <span className="text-gray-100">2 (15.5.2025)</span>
+                          </Link>
+                          <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
+                            <span className="font-medium text-gray-300">Meiste Weispunkte erhalten:</span>
+                            <span className="text-gray-100">80 (8.5.2025)</span>
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </TabsContent>
+                <TabsContent value="partner" className="w-full bg-gray-800/50 rounded-lg p-4 space-y-6">
+                  {/* Rangliste: Strichdifferenz (mit Partner) */}
+                  <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                    <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                      <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                      <h3 className="text-base font-semibold text-white">Rangliste: Strichdifferenz (mit Partner)</h3>
+                    </div>
+                    <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      {Array.from({ length: 12 }).map((_, index) => (
+                        <div key={`partner-strichdiff-${index}`} className="flex items-center justify-between bg-gray-700/30 px-2 py-1.5 rounded-md hover:bg-gray-700/60 transition-colors">
+                          <div className="flex items-center">
+                            <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                            <div className="flex -space-x-2 mr-3">
+                              <Avatar className="h-6 w-6 border-2 border-gray-800">
+                                <AvatarFallback className="bg-pink-500/30 text-xs">P1</AvatarFallback>
+                              </Avatar>
+                              <Avatar className="h-6 w-6 border-2 border-gray-800">
+                                <AvatarFallback className="bg-teal-500/30 text-xs">P2</AvatarFallback>
+                              </Avatar>
+                            </div>
+                            <span className="text-gray-300">Partner A & Partner B</span>
+                          </div>
+                          <span className="text-white font-medium">+{120 - index * 10}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
 
-                  {/* Divider */}
-                  <div className="pt-2 pb-1">
-                    <hr className="border-gray-600/50" />
+                  {/* Rangliste: Siegquote Partien (mit Partner) */}
+                  <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                    <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                      <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                      <h3 className="text-base font-semibold text-white">Rangliste: Siegquote Partien (mit Partner)</h3>
+                    </div>
+                    <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      {Array.from({ length: 8 }).map((_, index) => (
+                        <div key={`partner-siegquote-partie-${index}`} className="flex items-center justify-between bg-gray-700/30 px-2 py-1.5 rounded-md hover:bg-gray-700/60 transition-colors">
+                          <div className="flex items-center">
+                            <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                            <div className="flex -space-x-2 mr-3">
+                              <Avatar className="h-6 w-6 border-2 border-gray-800">
+                                <AvatarFallback className="bg-indigo-500/30 text-xs">P3</AvatarFallback>
+                              </Avatar>
+                              <Avatar className="h-6 w-6 border-2 border-gray-800">
+                                <AvatarFallback className="bg-lime-500/30 text-xs">P4</AvatarFallback>
+                              </Avatar>
+                            </div>
+                            <span className="text-gray-300">Partner C & Partner D</span>
+                          </div>
+                          <span className="text-white font-medium">{75 - index * 5}%</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-
-                  {/* Block 2: Persönliche Spiel-Leistung */}
-                  <div>
-                    <h3 className="text-base font-semibold text-white mb-2">Deine Spielleistung</h3>
-                    <div className="space-y-1">
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Partien gewonnen:</span>
-                        <span className="text-gray-100">{playerStats?.sessionsWon || 0} von {playerStats?.totalSessions || 0}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Partien unentschieden:</span>
-                        <span className="text-gray-100">{playerStats?.sessionsTied || 0}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Partien verloren:</span>
-                        <span className="text-gray-100">{playerStats?.sessionsLost || 0}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Spiele gewonnen:</span>
-                        <span className="text-gray-100">{playerStats?.gamesWon || 0} von {playerStats?.totalGames || 0}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Siegquote Partien:</span>
-                        <span className="text-gray-100">
-                          {playerStats?.sessionWinRate ? `${(playerStats.sessionWinRate * 100).toFixed(1)}%` : '0%'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Siegquote Spiele:</span>
-                        <span className="text-gray-100">
-                          {playerStats?.gameWinRate ? `${(playerStats.gameWinRate * 100).toFixed(1)}%` : '0%'}
-                        </span>
-                      </div>
+                  
+                  {/* Rangliste: Siegquote Spiele (mit Partner) */}
+                  <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                    <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                      <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                      <h3 className="text-base font-semibold text-white">Rangliste: Siegquote Spiele (mit Partner)</h3>
+                    </div>
+                    <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      {Array.from({ length: 5 }).map((_, index) => (
+                        <div key={`partner-siegquote-spiel-${index}`} className="flex items-center justify-between bg-gray-700/30 px-2 py-1.5 rounded-md hover:bg-gray-700/60 transition-colors">
+                          <div className="flex items-center">
+                            <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                            <div className="flex -space-x-2 mr-3">
+                              <Avatar className="h-6 w-6 border-2 border-gray-800">
+                                <AvatarFallback className="bg-rose-500/30 text-xs">P5</AvatarFallback>
+                              </Avatar>
+                              <Avatar className="h-6 w-6 border-2 border-gray-800">
+                                <AvatarFallback className="bg-cyan-500/30 text-xs">P6</AvatarFallback>
+                              </Avatar>
+                            </div>
+                            <span className="text-gray-300">Partner E & Partner F</span>
+                          </div>
+                          <span className="text-white font-medium">{80 - index * 6}%</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
 
-                  {/* Divider */}
-                  <div className="pt-2 pb-1">
-                    <hr className="border-gray-600/50" />
-                  </div>
-
-                  {/* Block 3: Persönliche Durchschnittswerte */}
-                  <div>
-                    <h3 className="text-base font-semibold text-white mb-2">Deine Durchschnittswerte</h3>
-                    <div className="space-y-1">
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Ø Punkte pro Spiel:</span>
-                        <span className="text-gray-100">{playerStats?.avgPointsPerGame || 0}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Ø Striche pro Spiel:</span>
-                        <span className="text-gray-100">{playerStats?.avgStrichePerGame || 0}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Ø Weispunkte pro Spiel:</span>
-                        <span className="text-gray-100">{playerStats?.avgWeisPointsPerGame || 0}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Ø Matsch pro Spiel:</span>
-                        <span className="text-gray-100">{playerStats?.avgMatschPerGame || 0}</span>
-                      </div>
+                  {/* Rangliste: Punkte (mit Partner) */}
+                  <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                    <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                      <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                      <h3 className="text-base font-semibold text-white">Rangliste: Punkte (mit Partner)</h3>
+                    </div>
+                    <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      {Array.from({ length: 15 }).map((_, index) => (
+                        <div key={`partner-punkte-${index}`} className="flex items-center justify-between bg-gray-700/30 px-2 py-1.5 rounded-md hover:bg-gray-700/60 transition-colors">
+                          <div className="flex items-center">
+                            <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                            <div className="flex -space-x-2 mr-3">
+                              <Avatar className="h-6 w-6 border-2 border-gray-800">
+                                <AvatarFallback className="bg-fuchsia-500/30 text-xs">P7</AvatarFallback>
+                              </Avatar>
+                              <Avatar className="h-6 w-6 border-2 border-gray-800">
+                                <AvatarFallback className="bg-sky-500/30 text-xs">P8</AvatarFallback>
+                              </Avatar>
+                            </div>
+                            <span className="text-gray-300">Partner G & Partner H</span>
+                          </div>
+                          <span className="text-white font-medium">{2500 - index * 150}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
 
-                  {/* Divider */}
-                  <div className="pt-2 pb-1">
-                    <hr className="border-gray-600/50" />
-                  </div>
-
-                  {/* Block 4: Persönliche Highlights */}
-                  <div>
-                    <h3 className="text-base font-semibold text-white mb-2">Deine Highlights</h3>
-                    <div className="space-y-1">
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Höchste Punktzahl (Spiel):</span>
-                        <span className="text-gray-100">
-                          {playerStats?.highestPoints && playerStats.highestPoints.value > 0 
-                            ? `${playerStats.highestPoints.value} (${playerStats.highestPoints.date || '-'})` 
-                            : '-'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Höchste Weispunkte (Spiel):</span>
-                        <span className="text-gray-100">
-                          {playerStats?.highestWeisPoints && playerStats.highestWeisPoints.value > 0 
-                            ? `${playerStats.highestWeisPoints.value} (${playerStats.highestWeisPoints.date || '-'})` 
-                            : '-'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Höchste Striche (Spiel):</span>
-                        <span className="text-gray-100">
-                          {playerStats?.highestStriche && playerStats.highestStriche.value > 0 
-                            ? `${playerStats.highestStriche.value} (${playerStats.highestStriche.date || '-'})` 
-                            : '-'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium text-gray-300">Längste Partie:</span>
-                        <span className="text-gray-100">
-                          {playerStats?.longestSession && playerStats.longestSession.value !== '-' 
-                            ? `${playerStats.longestSession.value} (${playerStats.longestSession.date || '-'})` 
-                            : '-'}
-                        </span>
-                      </div>
+                  {/* Rangliste: Matsch-Quote Spiel (mit Partner) */}
+                  <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                    <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                      <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                      <h3 className="text-base font-semibold text-white">Rangliste: Matsch-Quote Spiel (mit Partner)</h3>
+                    </div>
+                    <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      {Array.from({ length: 7 }).map((_, index) => (
+                        <div key={`partner-matsch-${index}`} className="flex items-center justify-between bg-gray-700/30 px-2 py-1.5 rounded-md hover:bg-gray-700/60 transition-colors">
+                          <div className="flex items-center">
+                            <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                            <div className="flex -space-x-2 mr-3">
+                              <Avatar className="h-6 w-6 border-2 border-gray-800">
+                                <AvatarFallback className="bg-violet-500/30 text-xs">P9</AvatarFallback>
+                              </Avatar>
+                              <Avatar className="h-6 w-6 border-2 border-gray-800">
+                                <AvatarFallback className="bg-amber-500/30 text-xs">P10</AvatarFallback>
+                              </Avatar>
+                            </div>
+                            <span className="text-gray-300">Partner I & Partner J</span>
+                          </div>
+                          <span className="text-white font-medium">{(0.75 - index * 0.05).toFixed(2)}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                </div>
-              )}
+                  
+                  {/* Rangliste: Schneider-Quote Spiel (mit Partner) */}
+                  <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                    <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                      <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                      <h3 className="text-base font-semibold text-white">Rangliste: Schneider-Quote Spiel (mit Partner)</h3>
+                    </div>
+                    <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      {Array.from({ length: 3 }).map((_, index) => (
+                        <div key={`partner-schneider-${index}`} className="flex items-center justify-between bg-gray-700/30 px-2 py-1.5 rounded-md hover:bg-gray-700/60 transition-colors">
+                          <div className="flex items-center">
+                            <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                            <div className="flex -space-x-2 mr-3">
+                              <Avatar className="h-6 w-6 border-2 border-gray-800">
+                                <AvatarFallback className="bg-orange-500/30 text-xs">P11</AvatarFallback>
+                              </Avatar>
+                              <Avatar className="h-6 w-6 border-2 border-gray-800">
+                                <AvatarFallback className="bg-emerald-500/30 text-xs">P12</AvatarFallback>
+                              </Avatar>
+                            </div>
+                            <span className="text-gray-300">Partner K & Partner L</span>
+                          </div>
+                          <span className="text-white font-medium">{(0.30 - index * 0.07).toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </TabsContent>
+                <TabsContent value="opponent" className="w-full bg-gray-800/50 rounded-lg p-4 space-y-6">
+                  {/* Rangliste: Strichdifferenz (gegen Gegner) */}
+                  <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                    <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                      <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                      <h3 className="text-base font-semibold text-white">Rangliste: Strichdifferenz (gegen Gegner)</h3>
+                    </div>
+                    <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      {Array.from({ length: 10 }).map((_, index) => (
+                        <div key={`opponent-strichdiff-${index}`} className="flex items-center justify-between bg-gray-700/30 px-2 py-1.5 rounded-md hover:bg-gray-700/60 transition-colors">
+                          <div className="flex items-center">
+                            <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                            <Avatar className="h-6 w-6 border-2 border-gray-800 mr-3">
+                              <AvatarFallback className="bg-red-500/30 text-xs">G{index+1}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-gray-300">Gegner {String.fromCharCode(65 + index)}</span>
+                          </div>
+                          <span className="text-white font-medium">{100 - index * 12}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Rangliste: Siegquote Partien (gegen Gegner) */}
+                  <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                    <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                      <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                      <h3 className="text-base font-semibold text-white">Rangliste: Siegquote Partien (gegen Gegner)</h3>
+                    </div>
+                    <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      {Array.from({ length: 12 }).map((_, index) => (
+                        <div key={`opponent-siegquote-partie-${index}`} className="flex items-center justify-between bg-gray-700/30 px-2 py-1.5 rounded-md hover:bg-gray-700/60 transition-colors">
+                          <div className="flex items-center">
+                            <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                            <Avatar className="h-6 w-6 border-2 border-gray-800 mr-3">
+                              <AvatarFallback className="bg-yellow-500/30 text-xs">G{index+1}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-gray-300">Gegner {String.fromCharCode(65 + index + 2)}</span>
+                          </div>
+                          <span className="text-white font-medium">{65 - index * 4}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Rangliste: Siegquote Spiele (gegen Gegner) */}
+                  <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                    <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                      <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                      <h3 className="text-base font-semibold text-white">Rangliste: Siegquote Spiele (gegen Gegner)</h3>
+                    </div>
+                    <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      {Array.from({ length: 4 }).map((_, index) => (
+                        <div key={`opponent-siegquote-spiel-${index}`} className="flex items-center justify-between bg-gray-700/30 px-2 py-1.5 rounded-md hover:bg-gray-700/60 transition-colors">
+                          <div className="flex items-center">
+                            <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                            <Avatar className="h-6 w-6 border-2 border-gray-800 mr-3">
+                              <AvatarFallback className="bg-green-500/30 text-xs">G{index+1}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-gray-300">Gegner {String.fromCharCode(65 + index + 4)}</span>
+                          </div>
+                          <span className="text-white font-medium">{90 - index * 7}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Rangliste: Punkte (gegen Gegner) */}
+                  <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                    <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                      <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                      <h3 className="text-base font-semibold text-white">Rangliste: Punkte (gegen Gegner)</h3>
+                    </div>
+                    <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      {Array.from({ length: 11 }).map((_, index) => (
+                        <div key={`opponent-punkte-${index}`} className="flex items-center justify-between bg-gray-700/30 px-2 py-1.5 rounded-md hover:bg-gray-700/60 transition-colors">
+                          <div className="flex items-center">
+                            <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                            <Avatar className="h-6 w-6 border-2 border-gray-800 mr-3">
+                              <AvatarFallback className="bg-purple-500/30 text-xs">G{index+1}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-gray-300">Gegner {String.fromCharCode(65 + index + 6)}</span>
+                          </div>
+                          <span className="text-white font-medium">{1800 - index * 120}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Rangliste: Matsch-Quote Spiel (gegen Gegner) */}
+                  <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                    <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                      <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                      <h3 className="text-base font-semibold text-white">Rangliste: Matsch-Quote Spiel (gegen Gegner)</h3>
+                    </div>
+                    <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      {Array.from({ length: 6 }).map((_, index) => (
+                        <div key={`opponent-matsch-${index}`} className="flex items-center justify-between bg-gray-700/30 px-2 py-1.5 rounded-md hover:bg-gray-700/60 transition-colors">
+                          <div className="flex items-center">
+                            <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                            <Avatar className="h-6 w-6 border-2 border-gray-800 mr-3">
+                              <AvatarFallback className="bg-blue-500/30 text-xs">G{index+1}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-gray-300">Gegner {String.fromCharCode(65 + index + 8)}</span>
+                          </div>
+                          <span className="text-white font-medium">{(0.65 - index * 0.04).toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Rangliste: Schneider-Quote Spiel (gegen Gegner) */}
+                  <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                    <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                      <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                      <h3 className="text-base font-semibold text-white">Rangliste: Schneider-Quote Spiel (gegen Gegner)</h3>
+                    </div>
+                    <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      {Array.from({ length: 14 }).map((_, index) => (
+                        <div key={`opponent-schneider-${index}`} className="flex items-center justify-between bg-gray-700/30 px-2 py-1.5 rounded-md hover:bg-gray-700/60 transition-colors">
+                          <div className="flex items-center">
+                            <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                            <Avatar className="h-6 w-6 border-2 border-gray-800 mr-3">
+                              <AvatarFallback className="bg-pink-700/30 text-xs">G{index+1}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-gray-300">Gegner {String.fromCharCode(65 + index + 10)}</span>
+                          </div>
+                          <span className="text-white font-medium">{(0.25 - index * 0.01).toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
             </TabsContent> 
 
             {/* Aktualisierter Inhalt für den Archiv-Tab */}

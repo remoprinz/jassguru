@@ -64,7 +64,7 @@ const Calculator: React.FC<CalculatorProps> = ({
   // WICHTIG: Hole Kontext-Stores
   const {currentGroup} = useGroupStore();
   const { currentTournamentInstance } = useTournamentStore();
-  
+
   // NEUE robuste Settings-Hierarchie - bestimmt die korrekten Settings basierend auf Kontext
   const getCorrectSettings = useCallback(() => {
     console.log('[Calculator] getCorrectSettings aufgerufen. Kontext:', {
@@ -167,7 +167,7 @@ const Calculator: React.FC<CalculatorProps> = ({
     if (!isOpen) return; // Nur aktualisieren, wenn Calculator geöffnet ist
 
     const correctSettings = getCorrectSettings();
-    
+
     console.log('[Calculator] Settings-Update Effekt. Neue Settings:', {
       source: correctSettings.source,
       farbeCardStyle: correctSettings.farbeSettings.cardStyle,
@@ -181,7 +181,7 @@ const Calculator: React.FC<CalculatorProps> = ({
     setActiveStrokeSettings(correctSettings.strokeSettings);
 
   }, [
-    isOpen,
+    isOpen, 
     getCorrectSettings // Alles was getCorrectSettings beeinflusst, triggert Update
   ]);
 
