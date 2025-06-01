@@ -1,0 +1,1 @@
+export const LOCAL_STORAGE_PENDING_INVITE_TOKEN_KEY = 'pendingInviteToken'; 

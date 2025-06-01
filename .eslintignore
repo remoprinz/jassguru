@@ -1,0 +1,29 @@
+# Build-Verzeichnisse
+.next/
+out/
+
+# Node-Module
+node_modules/
+
+# TypeScript-Definitionen
+*.d.ts
+
+# Test-Dateien
+**/__tests__/
+**/*.test.ts
+**/*.test.tsx
+
+# Konfigurationsdateien
+*.config.js
+*.config.ts
+
+# Statische Assets
+public/
+
+# Exclude specific files and directories
+build/
+dist/
+functions/.eslintrc.js
+jest.setup.js
+next.config.js
+.eslintrc.cjs 

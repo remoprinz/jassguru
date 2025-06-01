@@ -1,0 +1,166 @@
+// ACHTUNG: SEHR LASCHE REGELN - NUR ZUM DEBUGGING!
+// UNBEDINGT WIEDER AUF SICHERE VERSION ÄNDERN!
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===== HILFSFUNKTIONEN =====
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isUser(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Prüft, ob der request.auth.uid in einer gegebenen Liste von UIDs enthalten ist.
+    function isUidInList(uidList) {
+      // Stellt sicher, dass uidList eine Liste ist, bevor 'in' verwendet wird.
+      return isSignedIn() && request.auth.uid in (uidList is list ? uidList : []);
+    }
+    
+    // Prüft die Mindestanzahl von Elementen in einer Liste im Dokument.
+    function hasMinCount(docData, listFieldName, minCount) {
+      return docData[listFieldName] is list && docData[listFieldName].size() >= minCount;
+    }
+
+    // ===== BENUTZERPROFILE (`/users/{userId}`) =====
+    // Lesen: Jeder angemeldete Benutzer darf die Profildaten anderer Benutzer lesen.
+    // Schreiben: Nur der authentifizierte Benutzer darf sein eigenes Profil schreiben.
+    // Löschen von User-Dokumenten wird verhindert.
+    match /users/{userId} {
+      allow read: if isSignedIn(); 
+      allow write: if isUser(userId); 
+      allow delete: if false;       
+    }
+
+    // ===== SPIELERPROFILE (`/players/{playerId}`) =====
+    // Öffentlich lesbar.
+    // Erstellen: Angemeldeter Benutzer, dessen UID mit `userId` im neuen Dokument übereinstimmt.
+    // Aktualisieren: Angemeldeter Benutzer, dessen UID mit `userId` im bestehenden Dokument übereinstimmt.
+    // Löschen von Spielerprofilen wird verhindert.
+    match /players/{playerId} {
+      allow read: if true;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // ===== GRUPPEN (`/groups/{groupId}`) =====
+    // Öffentlich lesbar.
+    // Erstellen: Jeder angemeldete Benutzer.
+    // Aktualisieren: Nur Admins der Gruppe (basierend auf `adminIds` im Dokument).
+    // Löschen: Nur Admins der Gruppe UND wenn die Gruppe weniger als 4 Mitglieder hat.
+    match /groups/{groupId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update: if isUidInList(resource.data.adminIds);
+      allow delete: if isUidInList(resource.data.adminIds)
+                     && !hasMinCount(resource.data, "playerIds", 4);
+    }
+
+    // ===== GRUPPENEINLADUNGEN (`/groupInvites/{inviteId}`) =====
+    // Lesen: Jeder angemeldete Benutzer.
+    // Erstellen: Angemeldeter Benutzer, der Admin der Gruppe ist, auf die sich die Einladung bezieht.
+    // Aktualisieren/Löschen: Angemeldeter Benutzer, der Admin der Gruppe ist.
+    match /groupInvites/{inviteId} {
+       allow read: if isSignedIn();
+       allow create: if isSignedIn()
+                      && isUidInList(get(/databases/$(database)/documents/groups/$(request.resource.data.groupId)).data.adminIds);
+       allow update, delete: if isSignedIn()
+                               && isUidInList(get(/databases/$(database)/documents/groups/$(resource.data.groupId)).data.adminIds);
+    }
+
+    // ===== JASS-SESSION-VERWALTUNG (`/jassSessions/{sessionId}`) =====
+    // Lesen: Nur Teilnehmer der Session.
+    // Erstellen: Jeder angemeldete Benutzer (initiale Erstellung durch den Host).
+    // Aktualisieren: Nur Teilnehmer der Session.
+    // Löschen: Verboten.
+    match /jassSessions/{sessionId} {
+      allow read: if isUidInList(resource.data.participantUids);
+      allow create: if isSignedIn(); // Host erstellt die Session
+      allow update: if isUidInList(resource.data.participantUids);
+      allow delete: if false;
+
+      // Subcollection: Abgeschlossene Spiele einer Session (`completedGames/{gameId}`)
+      // Lesen: Nur Teilnehmer der übergeordneten Session.
+      // Erstellen/Aktualisieren: WARNUNG: Temporär vereinfacht zum Debuggen!
+      // Löschen: Verboten.
+      match /completedGames/{gameId} {
+        allow read: if isUidInList(get(/databases/$(database)/documents/jassSessions/$(sessionId)).data.participantUids);
+        allow create, update: if isSignedIn(); // WARNUNG: Temporär vereinfacht! Ursprünglich: isUidInList(get(/databases/$(database)/documents/jassSessions/$(sessionId)).data.participantUids);
+        allow delete: if false;
+
+        // Subcollection: Runden eines abgeschlossenen Spiels (`rounds/{roundId}`)
+        // Lesen: Nur Teilnehmer der übergeordneten Session.
+        // Erstellen/Aktualisieren: WARNUNG: Temporär vereinfacht zum Debuggen!
+        // Löschen: Verboten.
+        match /rounds/{roundId} {
+          allow read: if isUidInList(get(/databases/$(database)/documents/jassSessions/$(sessionId)).data.participantUids);
+          allow create, update: if isSignedIn(); // WARNUNG: Temporär vereinfacht! Ursprünglich: isUidInList(get(/databases/$(database)/documents/jassSessions/$(sessionId)).data.participantUids);
+          allow delete: if false;
+        }
+      }
+    }
+
+    // ===== AKTIVE SPIELE (`/activeGames/{gameId}`) =====
+    // Lesen: Öffentlich (damit z.B. Zuschauer-Links funktionieren könnten, wenn `participantUids` nicht gelesen werden müsste).
+    // Erstellen: Jeder angemeldete Benutzer.
+    // Aktualisieren: Nur Teilnehmer des spezifischen Spiels (basierend auf `participantUids` im Dokument).
+    // Löschen: Durch Clients verhindert.
+    match /activeGames/{gameId} {
+      allow read: if true; 
+      allow create: if isSignedIn() && isUidInList(request.resource.data.participantUids); // Sicherstellen, dass Ersteller auch Teilnehmer ist
+      allow update: if isUidInList(resource.data.participantUids); // Wiederhergestellt
+      allow delete: if false;
+
+      // Subcollection: Runden eines aktiven Spiels (`rounds/{roundId}`)
+      // Lesen: Öffentlich.
+      // Erstellen/Aktualisieren: Nur Teilnehmer des übergeordneten aktiven Spiels.
+      // Löschen: Verboten.
+      match /rounds/{roundId} {
+        allow read: if true;
+        allow create, update: if isUidInList(get(/databases/$(database)/documents/activeGames/$(gameId)).data.participantUids); // Wiederhergestellt
+        allow delete: if false;
+      }
+    }
+    
+    // Globale Spielzusammenfassungen (für Statistiken etc.)
+    match /jassGameSummaries/{userId}/{summaryId} {
+        allow read: if isUser(userId);
+        allow create, update, delete: if isUser(userId);
+    }
+
+    // ===== TURNIERE (`/tournaments/{instanceId}`) =====
+    // Lesen: Öffentlich.
+    // Erstellen: Jeder angemeldete Benutzer.
+    // Aktualisieren: Nur Admins des Turniers (basierend auf `adminIds`).
+    // Löschen: Nur Admins des Turniers.
+    match /tournaments/{instanceId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update: if isUidInList(resource.data.adminIds);
+      allow delete: if isUidInList(resource.data.adminIds);
+
+      // Subcollection: Abgeschlossene Turnier-Passen (`games/{gameId}`)
+      // Lesen: Öffentlich.
+      // Erstellen: Angemeldeter Benutzer, der Teilnehmer dieser spezifischen Passe ist (beim Erstellen der Passe).
+      // Aktualisieren/Löschen: Verboten (Passen sind nach Abschluss unveränderlich).
+      match /games/{gameId} {
+        allow read: if true;
+        allow create: if isSignedIn()
+                       && isUidInList(request.resource.data.participantUidsForPasse);
+        allow update, delete: if false;
+
+        // Subcollection: Runden einer abgeschlossenen Turnier-Passe (`rounds/{roundId}`)
+        // Lesen: Öffentlich.
+        // Schreiben: Verboten (Runden einer abgeschlossenen Passe sind unveränderlich).
+        match /rounds/{roundId} {
+          allow read: if true; 
+          allow write: if false;
+        }
+      }
+    }
+  }
+}
