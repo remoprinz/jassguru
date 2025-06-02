@@ -1,0 +1,222 @@
+import * as admin from "firebase-admin";
+
+// Basis-Typ für Highlight/Lowlight Einträge mit Datum und optionaler Spiel/Session ID
+export interface StatHighlight {
+  type: string; // z.B. "longest_win_streak_games", "highest_striche_session", "tournament_win"
+  value: number | string; // Der numerische oder String-Wert des Highlights
+  stringValue?: string; // Zusätzlicher String-Wert, z.B. Teamname bei Turniersieg
+  date: admin.firestore.Timestamp; // Datum des Highlights als Firestore Timestamp
+  relatedId?: string; // ID des zugehörigen Spiels, der Session oder des Turniers
+  label: string; // Benutzerfreundliche Beschreibung des Highlights
+}
+
+export interface StatHighlightString {
+  value: string;
+  date: admin.firestore.Timestamp | null;
+  relatedId?: string;
+}
+
+export interface StatStreak {
+  value: number;
+  startDate: admin.firestore.Timestamp | null;
+  endDate: admin.firestore.Timestamp | null;
+  // relatedIds?: string[]; // z.B. eine Liste von gameIds oder sessionIds
+}
+
+export interface TournamentPlacement {
+  tournamentId: string;
+  tournamentName: string; // Für die Anzeige hilfreich
+  rank: number;
+  totalParticipants: number;
+  date: admin.firestore.Timestamp | null; // Datum des Turniers
+}
+
+export interface PlayerComputedStats {
+  // === Letzte Aktivität ===
+  lastUpdateTimestamp: admin.firestore.Timestamp; // Wann wurden diese Stats zuletzt berechnet
+  firstJassTimestamp: admin.firestore.Timestamp | null;
+  lastJassTimestamp: admin.firestore.Timestamp | null;
+
+  // === Zählstatistiken Allgemein ===
+  totalSessions: number;          // Anzahl gespielter Partien
+  totalGames: number;             // Anzahl aller gespielten Spiele (Runden) über alle Sessions
+  totalPlayTimeSeconds: number;   // Gesamte Spielzeit in Sekunden
+
+  // === Zählstatistiken Partien (Sessions) ===
+  sessionWins: number;
+  sessionTies: number;
+  sessionLosses: number;
+
+  // === Zählstatistiken Spiele (Runden) ===
+  gameWins: number;
+  gameLosses: number;
+  // Unentschiedene Spiele gibt es im Jass typischerweise nicht auf Stufe einzelner Spiele,
+  // sondern nur auf Stufe Partien.
+
+  // === Ergebnisbasierte Statistiken ===
+  totalStricheMade: number;         // Summe aller gemachten Striche (positiv)
+  totalStricheReceived: number;     // Summe aller erhaltenen Striche (negativ)
+  totalStricheDifference: number;   // totalStricheMade - totalStricheReceived
+
+  totalPointsMade: number;          // Summe aller gemachten Punkte
+  totalPointsReceived: number;      // Summe aller erhaltenen Punkte
+  totalPointsDifference: number;    // totalPointsMade - totalPointsReceived
+
+  playerTotalWeisMade: number;        // NEU: Summe aller Weispunkte des Spielers
+
+  // NEU: Zähler für spezifische Spielereignisse (Basis für Durchschnittswerte)
+  totalMatschGamesMade: number;     // Anzahl der Spiele, in denen der Spieler Matsch gemacht hat
+  totalSchneiderGamesMade: number;  // Anzahl der Spiele, in denen der Spieler Schneider gemacht hat
+
+  // NEU: Zähler für Kontermatsch-Ereignisse (Spiel-Ebene)
+  totalKontermatschGamesMade: number;
+  totalKontermatschGamesReceived: number;
+
+  // NEU: Zähler für aktuelle Spiel-Streaks
+  currentGameWinStreak: number;
+  currentGameLossStreak: number;
+  currentGameWinlessStreak: number;
+
+  // NEU: Zähler für aktuelle Session-Streaks
+  currentSessionWinStreak: number;
+  currentSessionLossStreak: number;
+  currentSessionWinlessStreak: number;
+
+  // === Durchschnittswerte pro Spiel ===
+  avgPointsPerGame: number;         // Durchschnittliche Punkte pro Spiel
+  avgStrichePerGame: number;        // Durchschnittliche Striche pro Spiel (positiv)
+  avgMatschPerGame: number;         // Durchschnittliche Matsch-Striche pro Spiel
+  avgSchneiderPerGame: number;      // Durchschnittliche Schneider-Striche pro Spiel
+  avgWeisPointsPerGame: number;     // Durchschnittliche Weispunkte pro Spiel
+  avgKontermatschPerGame: number;   // NEU
+
+  // === Turnierstatistiken ===
+  totalTournamentsParticipated: number; // Anzahl Teilnahmen an Turnieren
+  totalTournamentGamesPlayed: number;  // Anzahl gespielter Spiele/Passen in Turnieren
+  tournamentWins: number;               // Anzahl gewonnener Turniere
+  bestTournamentPlacement?: TournamentPlacement | null; // Beste erreichte Turnierplatzierung
+  tournamentPlacements: TournamentPlacement[]; // Letzte X Turnierplatzierungen
+
+  // === Highlights Spiele ===
+  highestPointsGame: StatHighlight | null;          // Höchste Punktzahl in einem einzelnen Spiel
+  highestStricheGame: StatHighlight | null;         // Höchste Strichzahl in einem einzelnen Spiel (positiv)
+  mostMatschGame: StatHighlight | null;             // Meiste Matsch-Striche in einem Spiel
+  mostSchneiderGame: StatHighlight | null;          // Meiste Schneider-Striche in einem Spiel
+  mostWeisPointsGame: StatHighlight | null;         // Meiste Weispunkte in einem Spiel
+  mostKontermatschMadeGame: StatHighlight | null; // NEU
+  longestWinStreakGames: StatStreak | null;         // Längste Siegesserie (Spiele)
+
+  // === Lowlights Spiele ===
+  lowestPointsGame: StatHighlight | null;           // Tiefste Punktzahl in einem einzelnen Spiel (kann negativ sein)
+  highestStricheReceivedGame: StatHighlight | null; // Höchste erhaltene Strichzahl in einem Spiel
+  mostMatschReceivedGame: StatHighlight | null;     // Meiste erhaltene Matsch-Striche in einem Spiel
+  mostSchneiderReceivedGame: StatHighlight | null;  // Meiste erhaltene Schneider-Striche in einem Spiel
+  mostKontermatschReceivedGame: StatHighlight | null; // NEU
+  longestLossStreakGames: StatStreak | null;        // Längste Niederlagenserie (Spiele)
+  longestWinlessStreakGames: StatStreak | null;     // Längste Serie ohne Sieg (Spiele)
+
+  // === Highlights Partien (Sessions) ===
+  highestPointsSession: StatHighlight | null;
+  highestStricheSession: StatHighlight | null;
+  longestWinStreakSessions: StatStreak | null;
+
+  // === Lowlights Partien (Sessions) ===
+  lowestPointsSession: StatHighlight | null;
+  highestStricheReceivedSession: StatHighlight | null;
+  longestLossStreakSessions: StatStreak | null;
+  longestWinlessStreakSessions: StatStreak | null;
+
+  // === Zusätzliche Felder für Konsistenz mit Frontend (ggf. anpassen) ===
+  // Diese Felder sind in ExtendedPlayerStats in [playerId].tsx, aber die Quelle/Berechnung muss geklärt werden.
+  // Für die serverseitige Berechnung könnten einige davon redundant sein oder anders abgeleitet werden.
+  // Beispiel: groupCount ist eher eine Eigenschaft des Players-Dokuments, nicht der ComputedStats.
+
+  // avgTimePerRound?: string; // Wurde als "Gesamte Jass-Zeit" / "Anzahl Runden" interpretiert
+  // sessionWinRate?: number; // Kann aus sessionWins / totalSessions berechnet werden
+  // gameWinRate?: number; // Kann aus gameWins / totalGames berechnet werden
+
+  // Hier könnten noch Felder für Partner-/Gegner-Toplisten (z.B. Top 3 Partner nach Siegen)
+  // oder spezifische Zähler (wie oft mit X gespielt) hinzukommen,
+  // aber das ist Teil der späteren Iteration für Partner-/Gegner-Stats.
+
+  // NEU: Sammlung von bemerkenswerten Ereignissen/Highlights
+  highlights: StatHighlight[];
+}
+
+// Initialwerte für PlayerComputedStats
+export const initialPlayerComputedStats: PlayerComputedStats = {
+  lastUpdateTimestamp: admin.firestore.Timestamp.fromMillis(0),
+  firstJassTimestamp: null,
+  lastJassTimestamp: null,
+
+  totalSessions: 0,
+  totalGames: 0,
+  totalPlayTimeSeconds: 0,
+
+  sessionWins: 0,
+  sessionTies: 0,
+  sessionLosses: 0,
+
+  gameWins: 0,
+  gameLosses: 0,
+
+  totalStricheMade: 0,
+  totalStricheReceived: 0,
+  totalStricheDifference: 0,
+
+  totalPointsMade: 0,
+  totalPointsReceived: 0,
+  totalPointsDifference: 0,
+  
+  playerTotalWeisMade: 0,
+  totalMatschGamesMade: 0,
+  totalSchneiderGamesMade: 0,
+  totalKontermatschGamesMade: 0,
+  totalKontermatschGamesReceived: 0,
+  currentGameWinStreak: 0,
+  currentGameLossStreak: 0,
+  currentGameWinlessStreak: 0,
+  currentSessionWinStreak: 0,
+  currentSessionLossStreak: 0,
+  currentSessionWinlessStreak: 0,
+
+  avgPointsPerGame: 0,
+  avgStrichePerGame: 0,
+  avgMatschPerGame: 0,
+  avgSchneiderPerGame: 0,
+  avgWeisPointsPerGame: 0,
+  avgKontermatschPerGame: 0,
+
+  totalTournamentsParticipated: 0,
+  totalTournamentGamesPlayed: 0,
+  tournamentWins: 0,
+  bestTournamentPlacement: null,
+  tournamentPlacements: [],
+
+  highestPointsGame: null,
+  highestStricheGame: null,
+  mostMatschGame: null,
+  mostSchneiderGame: null,
+  mostWeisPointsGame: null,
+  mostKontermatschMadeGame: null,
+  longestWinStreakGames: null,
+
+  lowestPointsGame: null,
+  highestStricheReceivedGame: null,
+  mostMatschReceivedGame: null,
+  mostSchneiderReceivedGame: null,
+  mostKontermatschReceivedGame: null,
+  longestLossStreakGames: null,
+  longestWinlessStreakGames: null,
+
+  highestPointsSession: null,
+  highestStricheSession: null,
+  longestWinStreakSessions: null,
+
+  lowestPointsSession: null,
+  highestStricheReceivedSession: null,
+  longestLossStreakSessions: null,
+  longestWinlessStreakSessions: null,
+
+  highlights: [],
+}; 

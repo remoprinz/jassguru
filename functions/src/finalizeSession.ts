@@ -2,6 +2,7 @@ import { HttpsError, onCall, CallableRequest } from "firebase-functions/v2/https
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import { FieldValue } from "firebase-admin/firestore";
+import { PlayerComputedStats, initialPlayerComputedStats, StatStreak } from "./models/player-stats.model"; // PFAD ANPASSEN, falls models im selben Verzeichnis ist
 
 const db = admin.firestore();
 
@@ -77,6 +78,174 @@ interface InitialSessionData {
     teamA: string;
     teamB: string;
   } | null;
+  winnerTeamKey?: 'teamA' | 'teamB' | 'draw'; // Wer hat die gesamte Session gewonnen?
+}
+
+// NEUE HILFSFUNKTION für Spieler-Session-Statistiken
+async function updatePlayerStatsAfterSession(
+  db: admin.firestore.Firestore,
+  participantUids: string[],
+  // Wir benötigen eine klare Information, wer die Session gewonnen/verloren/unentschieden hat.
+  // Annahme: sessionFinalData enthält Infos, um dies pro Spieler zu bestimmen.
+  sessionFinalData: { 
+    finalScores: TeamScores; 
+    finalStriche?: { top: StricheRecord; bottom: StricheRecord }; 
+    teams?: SessionTeams | null; 
+    sessionId: string; // NEU: Session ID für relatedId in Highlights
+  },
+  sessionTimestamp: admin.firestore.Timestamp
+) {
+  const now = admin.firestore.Timestamp.now();
+
+  for (const userId of participantUids) {
+    const playerStatsRef = db.collection("playerComputedStats").doc(userId);
+    try {
+      await db.runTransaction(async (transaction) => {
+        const playerStatsDoc = await transaction.get(playerStatsRef);
+        let stats: PlayerComputedStats;
+
+        if (!playerStatsDoc.exists) {
+          stats = JSON.parse(JSON.stringify(initialPlayerComputedStats));
+          stats.firstJassTimestamp = sessionTimestamp; // Kann von Spiel überschrieben werden, wenn das früher war
+          stats.lastJassTimestamp = sessionTimestamp;
+          stats.lastUpdateTimestamp = now;
+        } else {
+          stats = playerStatsDoc.data() as PlayerComputedStats;
+          if (!stats.firstJassTimestamp || stats.firstJassTimestamp.toMillis() > sessionTimestamp.toMillis()) {
+            stats.firstJassTimestamp = sessionTimestamp;
+          }
+          if (!stats.lastJassTimestamp || stats.lastJassTimestamp.toMillis() < sessionTimestamp.toMillis()) {
+            stats.lastJassTimestamp = sessionTimestamp;
+          }
+          stats.lastUpdateTimestamp = now;
+        }
+
+        stats.totalSessions = (stats.totalSessions || 0) + 1;
+
+        // Ergebnis der Session für den aktuellen Spieler bestimmen
+        let sessionOutcome: 'win' | 'loss' | 'tie' = 'loss'; // Default
+        let playerTeamKey: 'teamA' | 'teamB' | null = null;
+        let opponentTeamKey: 'teamA' | 'teamB' | null = null; // NEU
+
+        // Bestimme Team des Spielers
+        if (sessionFinalData.teams?.teamA?.players?.find(p => p.playerId === userId)) {
+          playerTeamKey = 'teamA';
+          opponentTeamKey = 'teamB'; // NEU
+        } else if (sessionFinalData.teams?.teamB?.players?.find(p => p.playerId === userId)) {
+          playerTeamKey = 'teamB';
+          opponentTeamKey = 'teamA'; // NEU
+        }
+        
+        // Session-Ergebnis bestimmen (VERBESSERTE LOGIK)
+        // Annahme: finalScores sind { top: score, bottom: score } und teams mappt teamA/B zu top/bottom
+        // ODER initialSessionData.winnerTeamKey wird verwendet, FALLS VORHANDEN
+        // Für diese Implementierung verwenden wir eine vereinfachte Punktlogik, wenn Teams klar sind.
+        // Eine präzisere Logik würde das Erreichen des scoreLimits oder einen expliziten winnerTeamKey benötigen.
+        if (playerTeamKey && sessionFinalData.teams && sessionFinalData.finalScores) {
+            // ANNAHME: teamA ist bottom, teamB ist top (Diese Zuordnung muss aus den tatsächlichen Session-Daten stammen!)
+            // Hier ist es wichtig, dass die Zuordnung von teamA/teamB zu top/bottom konsistent ist.
+            // In InitialSessionData.teams haben wir teamA/teamB. In finalScores haben wir top/bottom.
+            // WIR BRAUCHEN EINE KLARE ZUORDNUNG ODER EINEN EXPLIZITEN GEWINNER.
+            // Provisorische Annahme (muss ggf. angepasst werden!):
+            // Wir nehmen an, dass teamA (aus SessionTeams) dem Score von 'bottom' in finalScores entspricht
+            // und teamB dem Score von 'top'.
+            const scorePlayerTeam = playerTeamKey === 'teamA' ? sessionFinalData.finalScores.bottom : sessionFinalData.finalScores.top;
+            const scoreOpponentTeam = playerTeamKey === 'teamA' ? sessionFinalData.finalScores.top : sessionFinalData.finalScores.bottom;
+
+            if (scorePlayerTeam > scoreOpponentTeam) sessionOutcome = 'win';
+            else if (scorePlayerTeam < scoreOpponentTeam) sessionOutcome = 'loss';
+            else sessionOutcome = 'tie';
+        } else {
+            logger.warn(`[updatePlayerStatsAfterSession] Konnte Session-Ergebnis für Spieler ${userId} nicht eindeutig bestimmen. Teams: ${JSON.stringify(sessionFinalData.teams)}, Scores: ${JSON.stringify(sessionFinalData.finalScores)}`);
+            // Bei Unklarheit wird der Outcome nicht geändert und bleibt 'loss' (default) oder wird ggf. als 'tie' gewertet.
+            sessionOutcome = 'tie'; // Sicherer Fallback bei unklaren Daten
+        }
+
+        if (sessionOutcome === 'win') stats.sessionWins = (stats.sessionWins || 0) + 1;
+        else if (sessionOutcome === 'loss') stats.sessionLosses = (stats.sessionLosses || 0) + 1;
+        else if (sessionOutcome === 'tie') stats.sessionTies = (stats.sessionTies || 0) + 1;
+        
+        // NEU: Session-Streak-Logik
+        if (sessionOutcome === 'win') {
+          stats.currentSessionWinStreak = (stats.currentSessionWinStreak || 0) + 1;
+          stats.currentSessionLossStreak = 0;
+          stats.currentSessionWinlessStreak = 0;
+          if (!stats.longestWinStreakSessions || stats.currentSessionWinStreak > stats.longestWinStreakSessions.value) {
+            stats.longestWinStreakSessions = {
+              value: stats.currentSessionWinStreak,
+              startDate: stats.currentSessionWinStreak === 1 ? sessionTimestamp : stats.longestWinStreakSessions?.startDate || sessionTimestamp,
+              endDate: sessionTimestamp
+            };
+          }
+        } else if (sessionOutcome === 'loss') {
+          stats.currentSessionLossStreak = (stats.currentSessionLossStreak || 0) + 1;
+          stats.currentSessionWinStreak = 0;
+          stats.currentSessionWinlessStreak = (stats.currentSessionWinlessStreak || 0) + 1;
+          if (!stats.longestLossStreakSessions || stats.currentSessionLossStreak > stats.longestLossStreakSessions.value) {
+            stats.longestLossStreakSessions = {
+              value: stats.currentSessionLossStreak,
+              startDate: stats.currentSessionLossStreak === 1 ? sessionTimestamp : stats.longestLossStreakSessions?.startDate || sessionTimestamp,
+              endDate: sessionTimestamp
+            };
+          }
+          if (!stats.longestWinlessStreakSessions || stats.currentSessionWinlessStreak > stats.longestWinlessStreakSessions.value) {
+            stats.longestWinlessStreakSessions = {
+              value: stats.currentSessionWinlessStreak,
+              startDate: stats.currentSessionWinlessStreak === 1 ? sessionTimestamp : stats.longestWinlessStreakSessions?.startDate || sessionTimestamp,
+              endDate: sessionTimestamp
+            };
+          }
+        } else { // 'tie'
+          stats.currentSessionWinStreak = 0;
+          stats.currentSessionLossStreak = 0;
+          stats.currentSessionWinlessStreak = (stats.currentSessionWinlessStreak || 0) + 1;
+          if (!stats.longestWinlessStreakSessions || stats.currentSessionWinlessStreak > stats.longestWinlessStreakSessions.value) {
+            stats.longestWinlessStreakSessions = {
+              value: stats.currentSessionWinlessStreak,
+              startDate: stats.currentSessionWinlessStreak === 1 ? sessionTimestamp : stats.longestWinlessStreakSessions?.startDate || sessionTimestamp,
+              endDate: sessionTimestamp
+            };
+          }
+        }
+
+        // NEU: Session-Highlights/Lowlights aktualisieren
+        if (playerTeamKey && sessionFinalData.finalScores) {
+            const pointsMadeInSession = playerTeamKey === 'teamA' ? sessionFinalData.finalScores.bottom : sessionFinalData.finalScores.top;
+            const pointsReceivedInSession = playerTeamKey === 'teamA' ? sessionFinalData.finalScores.top : sessionFinalData.finalScores.bottom; // Punkte des Gegners
+
+            if (!stats.highestPointsSession || pointsMadeInSession > stats.highestPointsSession.value) {
+                stats.highestPointsSession = { value: pointsMadeInSession, date: sessionTimestamp, relatedId: sessionFinalData.sessionId };
+            }
+            if (!stats.lowestPointsSession || pointsMadeInSession < stats.lowestPointsSession.value) { 
+                stats.lowestPointsSession = { value: pointsMadeInSession, date: sessionTimestamp, relatedId: sessionFinalData.sessionId };
+            }
+
+            if (sessionFinalData.finalStriche) {
+                const stricheMadeRecord = playerTeamKey === 'teamA' ? sessionFinalData.finalStriche.bottom : sessionFinalData.finalStriche.top;
+                const stricheReceivedRecord = playerTeamKey === 'teamA' ? sessionFinalData.finalStriche.top : sessionFinalData.finalStriche.bottom;
+                
+                const calculateTotalStricheValue = (striche: StricheRecord | undefined): number => 
+                    striche ? (striche.berg || 0) + (striche.sieg || 0) + (striche.matsch || 0) + (striche.schneider || 0) + (striche.kontermatsch || 0) : 0;
+
+                const stricheMadeInSession = calculateTotalStricheValue(stricheMadeRecord);
+                const stricheReceivedInSession = calculateTotalStricheValue(stricheReceivedRecord);
+
+                if (!stats.highestStricheSession || stricheMadeInSession > stats.highestStricheSession.value) {
+                    stats.highestStricheSession = { value: stricheMadeInSession, date: sessionTimestamp, relatedId: sessionFinalData.sessionId };
+                }
+                if (!stats.highestStricheReceivedSession || stricheReceivedInSession > stats.highestStricheReceivedSession.value) {
+                    stats.highestStricheReceivedSession = { value: stricheReceivedInSession, date: sessionTimestamp, relatedId: sessionFinalData.sessionId };
+                }
+            }
+        }
+
+        transaction.set(playerStatsRef, stats, { merge: true });
+      });
+      logger.info(`[updatePlayerStatsAfterSession] Player ${userId}: session stats updated.`);
+    } catch (error) {
+      logger.error(`[updatePlayerStatsAfterSession] Player ${userId}: FAILED to update session stats:`, error);
+    }
+  }
 }
 
 export const finalizeSessionSummary = onCall<FinalizeSessionData>(
@@ -84,7 +253,7 @@ export const finalizeSessionSummary = onCall<FinalizeSessionData>(
     region: "europe-west1",
   },
   async (request: CallableRequest<FinalizeSessionData>) => {
-  logger.info("--- finalizeSessionSummary VERY VERBOSE LOGGING START ---");
+  logger.info("--- finalizeSessionSummary V2 (mit Spielerstat-Update) START ---");
 
   let sessionId: string | undefined;
   let expectedGameNumber: number | undefined;
@@ -341,9 +510,49 @@ export const finalizeSessionSummary = onCall<FinalizeSessionData>(
     }); // Ende der Transaktion
 
     logger.info(`Transaction committed successfully for ${sessionId}.`);
-    return { success: true, message: "Session erfolgreich finalisiert." };
+
+    // NACHDEM die Haupttransaktion erfolgreich war:
+    // Extrahieren der notwendigen Daten für die Spielerstatistik-Aktualisierung.
+    // Diese Daten sollten idealerweise aus dem `finalUpdateData`-Objekt stammen,
+    // das in der Transaktion für die Session-Zusammenfassung erstellt wurde.
+    // Oder aus `initialDataFromRequest` und den berechneten Gesamtscores.
+
+    // Erneutes Laden der Session ist nicht ideal, aber sicherer, falls finalUpdateData nicht alle Infos hat.
+    // Besser wäre, die Infos direkt aus dem `finalUpdateData` zu nehmen oder als Rückgabewert der Transaktion.
+    const sessionFinalSnap = await db.collection(JASS_SUMMARIES_COLLECTION).doc(request.data.sessionId).get();
+    if (sessionFinalSnap.exists) {
+        const finalizedSessionData = sessionFinalSnap.data();
+        const participantUidsToUpdate = finalizedSessionData?.participantUids as string[] | undefined;
+        const sessionTimestampForStats = finalizedSessionData?.endedAt as admin.firestore.Timestamp | undefined || admin.firestore.Timestamp.now();
+        const sessionIdForStats = sessionFinalSnap.id; // NEU: Session ID extrahieren
+
+        if (participantUidsToUpdate && participantUidsToUpdate.length > 0) {
+            logger.info(`[finalizeSessionSummary] Nach Session-Commit: Update von Spieler-Session-Statistiken für ${participantUidsToUpdate.join(", ")}`);
+            
+            // Die Daten für die Ergebnisermittlung pro Spieler müssen hier korrekt zusammengestellt werden.
+            // Annahme: initialDataFromRequest.teams und finalizedSessionData.finalScores sind die Quellen.
+            const statsUpdatePayload = {
+                finalScores: finalizedSessionData?.finalScores, 
+                finalStriche: finalizedSessionData?.finalStriche, // NEU: finalStriche übergeben
+                teams: request.data.initialSessionData?.teams ?? null, 
+                sessionId: sessionIdForStats // NEU: sessionId übergeben
+            };
+
+            if (statsUpdatePayload.finalScores && statsUpdatePayload.teams) {
+                 await updatePlayerStatsAfterSession(db, participantUidsToUpdate, statsUpdatePayload, sessionTimestampForStats);
+            } else {
+                logger.warn(`[finalizeSessionSummary] Nicht genügend Daten für Spieler-Session-Statistik-Update. Scores: ${statsUpdatePayload.finalScores}, Teams: ${statsUpdatePayload.teams}`);
+            }
+        } else {
+            logger.warn(`[finalizeSessionSummary] Keine participantUids im finalisierten Session-Dokument gefunden für Spielerstat-Update.`);
+        }
+    } else {
+        logger.warn(`[finalizeSessionSummary] Konnte finalisiertes Session-Dokument nicht erneut laden für Spielerstat-Update.`);
+    }
+
+    return { success: true, message: "Session erfolgreich finalisiert und Spielerstatistiken angestoßen." };
   } catch (error: unknown) {
-    logger.error(`--- finalizeSessionSummary VERY VERBOSE LOGGING CRITICAL ERROR --- SessionId: ${sessionId}`, error);
+    logger.error(`--- finalizeSessionSummary V2 CRITICAL ERROR --- SessionId: ${request.data.sessionId}`, error);
     if (error instanceof HttpsError && (error.details as { customCode?: string })?.customCode === 'GAME_NOT_YET_VISIBLE') {
         logger.info(`Custom Precondition failed detail log: ${error.message}`);
     } else {

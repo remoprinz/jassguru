@@ -3,6 +3,7 @@ import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { onDocumentUpdated, Change, FirestoreEvent, QueryDocumentSnapshot, DocumentOptions } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as crypto from "crypto";
+// GELÖSCHT: Unbenutzter Import von PlayerComputedStats etc.
 // import { FirestoreGroup } from "../../src/types/group"; // <-- Entfernt wegen Modul-Konflikt
 
 // Initialisierung von Firebase Admin (nur einmal pro Instanz)
@@ -13,13 +14,13 @@ try {
 }
 
 // --- NEU: Import für v2 Firestore Trigger ---
-import * as archiveFunctions from './archiveGame';
+import * as archiveLogic from './archiveGame';
 // import * as cleanupFunctions from './cleanupRounds'; // <-- ENTFERNT/AUSKOMMENTIERT
 // --- Import für neue HTTPS Callable Function ---
-import * as finalizeSessionFunctions from './finalizeSession'; // <-- WIEDER AKTIV
+import * as finalizeSessionLogic from './finalizeSession'; // <-- WIEDER AKTIV
 // --- NEUE IMPORTE ---
-import * as userManagementFunctions from './userManagement'; // WIEDER HINZUGEFÜGT
-import * as scheduledTaskFunctions from './scheduledTasks'; // WIEDER HINZUGEFÜGT
+import * as userManagementLogic from './userManagement'; // WIEDER HINZUGEFÜGT
+import * as scheduledTaskLogic from './scheduledTasks'; // WIEDER HINZUGEFÜGT
 // ------------------------------------------
 
 // --- Globale Optionen für Gen 2 setzen --- 
@@ -101,6 +102,9 @@ interface GenerateTournamentTokenData {
 interface AcceptTournamentInviteData {
   token: string;
 }
+
+// Importiere die neue Funktion
+import * as tournamentGameLogic from "./tournamentGameProcessing";
 
 /**
  * Generiert einen sicheren, zeitlich begrenzten Einladungstoken für eine Gruppe.
@@ -518,19 +522,19 @@ export const joinGroupByToken = onCall<JoinGroupByTokenData>(async (request) => 
   });
 
 // --- finalizeSessionSummary (Callable Function wird exportiert) ---
-export const finalizeSessionSummary = finalizeSessionFunctions.finalizeSessionSummary; // <-- WIEDER AKTIV
+export const finalizeSessionSummary = finalizeSessionLogic.finalizeSessionSummary; // <-- WIEDER AKTIV
 
-// --- archivecompletedgame (Trigger wird exportiert) ---
-export const archivecompletedgame = archiveFunctions.archivecompletedgame;
+// --- archivecompletedgame (Trigger wird exportiert) - NUR EINMAL! ---
+export const archivecompletedgame = archiveLogic.archivecompletedgame;
 
 // --- cleanupOldData (Scheduled Function) ---
-export const cleanupOldData = scheduledTaskFunctions.cleanupOldData; 
+export const cleanupOldData = scheduledTaskLogic.cleanupOldData; 
 
 // --- NEU: scheduledFirestoreBackup (Scheduled Function) ---
-export const scheduledFirestoreBackup = scheduledTaskFunctions.scheduledFirestoreBackup;
+export const scheduledFirestoreBackup = scheduledTaskLogic.scheduledFirestoreBackup;
 
 // --- Trigger aus userManagement.ts ---
-export const syncUserNameOnChange = userManagementFunctions.syncUserNameOnChange;
+export const syncUserNameOnChange = userManagementLogic.syncUserNameOnChange;
 
 /**
  * Erstellt eine neue Gruppe in Firestore.
@@ -895,3 +899,11 @@ export const syncUserProfileToPlayer = onDocumentUpdated(
 // ============================================
 // === Andere Funktionen bleiben unverändert ===
 // ============================================ 
+
+// --- Trigger aus tournamentGameProcessing.ts ---
+export const processTournamentGameCompletion = tournamentGameLogic.processTournamentGameCompletion;
+
+// --- NEU: Finalize Tournament (Callable Function) ---
+export { finalizeTournament } from './finalizeTournament';
+
+// ... (restliche Funktionen wie scheduledFirestoreBackup etc.) ... 
