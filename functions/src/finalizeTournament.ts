@@ -11,7 +11,12 @@ interface FinalizeTournamentData {
 }
 
 // Typ für die Rohdaten eines einzelnen Spiels/Passe im Turnier
-interface TournamentGameData {
+// ACHTUNG: Diese Struktur wird hier als TournamentGameDetailData bezeichnet, 
+// um Namenskollisionen zu vermeiden, wenn sie zusammen mit der aus tournamentGameProcessing.ts importiert wird.
+// Für die interne Logik dieser Datei ist `TournamentGameData` okay, aber beim Export umbenennen oder anpassen.
+// Da playerStatsRecalculation.ts bereits `TournamentGameData as TournamentProcessingGameData` importiert,
+// können wir diese hier einfach als `TournamentGameData` belassen und exportieren.
+export interface TournamentGameData { // EXPORTIERT
   id: string; // gameId / passeId
   finalScores: { top: number; bottom: number };
   finalStriche?: { 
@@ -28,22 +33,22 @@ interface TournamentGameData {
 }
 
 // NEU: Interface für die Struktur eines Gruppeneintrags im Turnierdokument
-interface TournamentGroupDefinition {
+export interface TournamentGroupDefinition { // EXPORTIERT (wird von TournamentDocData verwendet)
   id: string;      // Eindeutige ID der Gruppe (könnte die Firestore Document ID sein)
   name: string;    // Anzeigename der Gruppe
   playerUids: string[]; // UIDs der Spieler in dieser Gruppe
 }
 
-interface TournamentDocData {
+export interface TournamentDocData { // EXPORTIERT
   name?: string;
   status?: string;
   tournamentMode?: 'single' | 'doubles' | 'groupVsGroup';
   playerUids?: string[]; 
   teams?: { id: string; playerUids: string[]; name: string }[];
-  groups?: TournamentGroupDefinition[]; // NEU: Für groupVsGroup Modus
+  groups?: TournamentGroupDefinition[]; 
   settings?: {
-    rankingMode?: 'total_points' | 'striche' | 'wins' | 'average_score_per_passe'; // Erweitert um 'striche'
-    scoreSettings?: { // Für Strichzählung relevant
+    rankingMode?: 'total_points' | 'striche' | 'wins' | 'average_score_per_passe';
+    scoreSettings?: {
         enabled?: {
             berg?: boolean;
             sieg?: boolean;
@@ -52,7 +57,7 @@ interface TournamentDocData {
     }
     // Weitere Settings...
   };
-  createdAt?: admin.firestore.Timestamp; // Für TournamentPlacement
+  createdAt?: admin.firestore.Timestamp; 
 }
 
 /**
@@ -86,11 +91,10 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
       const tournamentData = tournamentSnap.data() as TournamentDocData;
       const tournamentMode = tournamentData.tournamentMode;
       const tournamentName = tournamentData.name || "Unbenanntes Turnier";
-      const tournamentDate = tournamentData.createdAt || admin.firestore.Timestamp.now(); // Fallback
-      const rankingMode = tournamentData.settings?.rankingMode || 'total_points'; // Default auf Punkte
+      const rankingModeToStore = tournamentData.settings?.rankingMode || 'total_points';
       const scoreSettingsEnabled = tournamentData.settings?.scoreSettings?.enabled;
 
-      logger.info(`Processing tournament ${tournamentId} (${tournamentName}) with mode: ${tournamentMode}, ranking: ${rankingMode}`);
+      logger.info(`Processing tournament ${tournamentId} (${tournamentName}) with mode: ${tournamentMode}, ranking: ${rankingModeToStore}`);
 
       if (tournamentData.status === 'completed' || tournamentData.status === 'archived') {
         logger.warn(`Tournament ${tournamentId} is already finalized (status: ${tournamentData.status}). Skipping.`);
@@ -120,6 +124,10 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
         return { success: true, message: "Keine abgeschlossenen Spiele im Turnier, Abschluss ohne Ranking." };
       }
 
+      // NEU: Batch für das Schreiben der Player-Rankings
+      const playerRankingBatch = db.batch();
+      const playerRankingsColRef = tournamentRef.collection("playerRankings");
+
       switch (tournamentMode) {
         case 'single':
           logger.info(`Handling 'single' tournament mode for ${tournamentId}.`);
@@ -129,7 +137,6 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
             playerScores[uid] = { score: 0, gamesPlayed: 0, wins: 0 };
           });
 
-          // Funktion zur Berechnung des Strichwerts für ein Spiel
           const calculateStricheForGame = (game: TournamentGameData, playerUid: string): number => {
             let striche = 0;
             const team = game.teams?.top?.playerUids?.includes(playerUid) ? 'top' : 
@@ -137,7 +144,7 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
             if (team && game.finalStriche?.[team]) {
               const teamStriche = game.finalStriche[team];
               if (scoreSettingsEnabled?.berg) striche += (teamStriche.berg || 0);
-              if (scoreSettingsEnabled?.sieg) striche += (teamStriche.sieg || 0); // Sieg zählt normal
+              if (scoreSettingsEnabled?.sieg) striche += (teamStriche.sieg || 0); 
               if (scoreSettingsEnabled?.schneider) striche += (teamStriche.schneider || 0);
               striche += (teamStriche.matsch || 0);
               striche += (teamStriche.kontermatsch || 0);
@@ -156,7 +163,7 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
                                  (game.teams?.bottom?.playerUids?.includes(playerUid) ? 'bottom' : null);
 
               if (playerTeam) {
-                if (rankingMode === 'striche') {
+                if (rankingModeToStore === 'striche') {
                   gameContribution = calculateStricheForGame(game, playerUid);
                   // Sieg-Zählung für Striche-Ranking (optional, hier: Sieg wenn mehr Striche)
                   const opponentTeam = playerTeam === 'top' ? 'bottom' : 'top';
@@ -177,55 +184,64 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
           const rankedPlayers = Object.entries(playerScores)
             .map(([uid, data]) => ({ uid, ...data }))
             .sort((a, b) => {
-              if (b.score !== a.score) return b.score - a.score; // Höchster Score zuerst
-              // Sekundäres Kriterium: Weniger Spiele gespielt ist besser (bei gleichem Score)
-              // oder Anzahl Siege, falls rankingMode 'wins' ist (noch nicht voll implementiert)
+              if (b.score !== a.score) return b.score - a.score;
               return a.gamesPlayed - b.gamesPlayed; 
             });
 
-          // Update PlayerComputedStats for each participant
-          const promises = rankedPlayers.map(async (player, index) => {
+          // PlayerComputedStats aktualisieren UND PlayerRankings speichern
+          const singleModePromises = rankedPlayers.map(async (player, index) => {
             const rank = index + 1;
             const playerStatsRef = db.collection("playerComputedStats").doc(player.uid);
             
+            // Speichere detailliertes Ranking für diesen Spieler
+            const playerRankingDocRef = playerRankingsColRef.doc(player.uid);
+            playerRankingBatch.set(playerRankingDocRef, {
+                uid: player.uid,
+                rank: rank,
+                score: player.score,
+                gamesPlayed: player.gamesPlayed,
+                wins: player.wins, // Direkte Siege aus dem Ranking-Modus
+                tournamentId: tournamentId,
+                tournamentName: tournamentName,
+                totalParticipantsInRanking: rankedPlayers.length,
+                rankingMode: rankingModeToStore,
+                finalizedAt: admin.firestore.FieldValue.serverTimestamp() // Zeitstempel des Rankings
+            });
+
             try {
               await db.runTransaction(async (transaction) => {
                 const playerStatsDoc = await transaction.get(playerStatsRef);
                 let stats: PlayerComputedStats;
-
                 if (!playerStatsDoc.exists) {
                   stats = JSON.parse(JSON.stringify(initialPlayerComputedStats));
                 } else {
                   stats = playerStatsDoc.data() as PlayerComputedStats;
                 }
-
                 stats.lastUpdateTimestamp = admin.firestore.Timestamp.now();
+                stats.totalTournamentsParticipated = (stats.totalTournamentsParticipated || 0) + 1;
                 if (rank === 1) {
                   stats.tournamentWins = (stats.tournamentWins || 0) + 1;
                 }
-
                 const currentPlacement: TournamentPlacement = {
                   tournamentId: tournamentId,
-                  tournamentName: tournamentName,
+                  tournamentName: tournamentName, // Ohne Teamname für Single-Modus
                   rank: rank,
                   totalParticipants: rankedPlayers.length,
-                  date: tournamentDate
+                  date: tournamentData.createdAt || admin.firestore.Timestamp.now()
                 };
-
                 if (!stats.bestTournamentPlacement || rank < stats.bestTournamentPlacement.rank) {
                   stats.bestTournamentPlacement = currentPlacement;
                 }
-                stats.tournamentPlacements = [currentPlacement, ...(stats.tournamentPlacements || [])].slice(0, 20); // Max 20 behalten
-
+                stats.tournamentPlacements = [currentPlacement, ...(stats.tournamentPlacements || [])].slice(0, 20);
+                // Highlight wird hier nicht dupliziert, da recalculateStats dies basierend auf dem TOURNAMENT_END Event macht
                 transaction.set(playerStatsRef, stats, { merge: true });
               });
             } catch (txError) {
               logger.error(`Transaction failed for player ${player.uid} in tournament ${tournamentId}:`, txError);
-              // Fehler hier nicht weiterwerfen, um andere Spieler-Updates nicht zu blockieren
             }
           });
-          await Promise.all(promises);
-          logger.info(`Player stats updated for 'single' tournament ${tournamentId}.`);
+          await Promise.all(singleModePromises);
+          logger.info(`Player stats updated and rankings prepared for 'single' tournament ${tournamentId}.`);
           break;
 
         case 'doubles':
@@ -237,20 +253,15 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
             return { success: true, message: "Keine Teams für Doppelmodus definiert, Abschluss ohne Ranking." };
           }
 
-          const teamScores: { [teamId: string]: { score: number; gamesPlayed: number; wins: number; teamName: string; playerUids: string[] } } = {};
+          const teamScores: { [teamDataId: string]: { id: string; score: number; gamesPlayed: number; wins: number; teamName: string; playerUids: string[] } } = {};
           tournamentData.teams.forEach(team => {
-            teamScores[team.id] = { score: 0, gamesPlayed: 0, wins: 0, teamName: team.name, playerUids: team.playerUids };
+            teamScores[team.id] = { id: team.id, score: 0, gamesPlayed: 0, wins: 0, teamName: team.name, playerUids: team.playerUids };
           });
 
-          // Die Funktion calculateStricheForGame aus dem 'single'-Modus kann hier wiederverwendet oder angepasst werden,
-          // falls Striche pro Team und nicht pro Spieler gezählt werden müssen.
-          // Für Doppel ist es meistens das Team-Ergebnis.
           const calculateStricheForTeamInGame = (game: TournamentGameData, teamPlayerUids: string[]): number => {
             let striche = 0;
-            // Bestimme, ob das Team 'top' oder 'bottom' in diesem Spiel war
             const gameTeamKey = game.teams?.top?.playerUids?.some(uid => teamPlayerUids.includes(uid)) ? 'top' :
                                (game.teams?.bottom?.playerUids?.some(uid => teamPlayerUids.includes(uid)) ? 'bottom' : null);
-            
             if (gameTeamKey && game.finalStriche?.[gameTeamKey]) {
               const teamStricheRecord = game.finalStriche[gameTeamKey];
               if (scoreSettingsEnabled?.berg) striche += (teamStricheRecord.berg || 0);
@@ -293,7 +304,7 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
             let scoreTeamA = 0;
             let scoreTeamB = 0;
 
-            if (rankingMode === 'striche') {
+            if (rankingModeToStore === 'striche') {
               scoreTeamA = calculateStricheForTeamInGame(game, teamA.playerUids);
               scoreTeamB = calculateStricheForTeamInGame(game, teamB.playerUids);
               if (scoreTeamA > scoreTeamB) teamScores[teamA.teamId].wins++;
@@ -314,56 +325,62 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
               return a.gamesPlayed - b.gamesPlayed;
             });
 
-          // Update PlayerComputedStats for each player in the ranked teams
-          const playerStatsUpdatePromises = [];
+          const doublesPlayerStatsUpdatePromises = [];
           for (let i = 0; i < rankedTeams.length; i++) {
             const team = rankedTeams[i];
             const rank = i + 1;
             for (const playerUid of team.playerUids) {
+              const playerRankingDocRef = playerRankingsColRef.doc(playerUid);
+              playerRankingBatch.set(playerRankingDocRef, {
+                  uid: playerUid,
+                  rank: rank,
+                  score: team.score, 
+                  gamesPlayed: team.gamesPlayed, 
+                  wins: team.wins, 
+                  teamId: team.id,
+                  teamName: team.teamName,
+                  tournamentId: tournamentId,
+                  tournamentName: tournamentName,
+                  totalParticipantsInRanking: rankedTeams.length,
+                  rankingMode: rankingModeToStore,
+                  finalizedAt: admin.firestore.FieldValue.serverTimestamp()
+              });
+              
               const playerStatsRef = db.collection("playerComputedStats").doc(playerUid);
-              playerStatsUpdatePromises.push(
+              doublesPlayerStatsUpdatePromises.push(
                 db.runTransaction(async (transaction) => {
                   const playerStatsDoc = await transaction.get(playerStatsRef);
                   let stats: PlayerComputedStats;
-
                   if (!playerStatsDoc.exists) {
-                    stats = JSON.parse(JSON.stringify(initialPlayerComputedStats));
+                      stats = JSON.parse(JSON.stringify(initialPlayerComputedStats));
                   } else {
-                    stats = playerStatsDoc.data() as PlayerComputedStats;
+                      stats = playerStatsDoc.data() as PlayerComputedStats;
                   }
-
                   stats.lastUpdateTimestamp = admin.firestore.Timestamp.now();
                   stats.totalTournamentsParticipated = (stats.totalTournamentsParticipated || 0) + 1;
-
-
                   if (rank === 1) {
-                    stats.tournamentWins = (stats.tournamentWins || 0) + 1;
+                      stats.tournamentWins = (stats.tournamentWins || 0) + 1;
                   }
-
                   const currentPlacement: TournamentPlacement = {
-                    tournamentId: tournamentId,
-                    tournamentName: `${tournamentName} (Team: ${team.teamName})`,
-                    rank: rank,
-                    totalParticipants: rankedTeams.length, // Hier Anzahl Teams statt Spieler
-                    date: tournamentDate
+                      tournamentId: tournamentId,
+                      tournamentName: `${tournamentName} (Team: ${team.teamName})`,
+                      rank: rank,
+                      totalParticipants: rankedTeams.length, 
+                      date: tournamentData.createdAt || admin.firestore.Timestamp.now()
                   };
-
                   if (!stats.bestTournamentPlacement || rank < stats.bestTournamentPlacement.rank) {
-                    stats.bestTournamentPlacement = currentPlacement;
+                      stats.bestTournamentPlacement = currentPlacement;
                   }
                   stats.tournamentPlacements = [currentPlacement, ...(stats.tournamentPlacements || [])].slice(0, 20);
-                  
-                  // Hinzufügen eines Highlights für den Turniersieg oder die Teilnahme
                   const tournamentHighlight: StatHighlight = {
-                    type: rank === 1 ? "tournament_win" : "tournament_participation",
-                    value: rank,
-                    stringValue: team.teamName, // Teamname als stringValue
-                    date: tournamentDate,
-                    relatedId: tournamentId,
-                    label: rank === 1 ? `Turniersieg: ${tournamentName} (Team: ${team.teamName})` : `Turnierteilnahme: ${tournamentName} (Rang ${rank}, Team: ${team.teamName})`,
+                      type: rank === 1 ? "tournament_win" : "tournament_participation",
+                      value: rank,
+                      stringValue: team.teamName,
+                      date: tournamentData.createdAt || admin.firestore.Timestamp.now(),
+                      relatedId: tournamentId,
+                      label: rank === 1 ? `Turniersieg: ${tournamentName} (Team: ${team.teamName})` : `Turnierteilnahme: ${tournamentName} (Rang ${rank}, Team: ${team.teamName})`,
                   };
-                  stats.highlights = [tournamentHighlight, ...(stats.highlights || [])].slice(0, 50); // Max 50 Highlights
-
+                  stats.highlights = [tournamentHighlight, ...(stats.highlights || [])].slice(0, 50);
                   transaction.set(playerStatsRef, stats, { merge: true });
                 }).catch(txError => {
                     logger.error(`Transaction failed for player ${playerUid} (Team: ${team.teamName}) in tournament ${tournamentId}:`, txError);
@@ -371,8 +388,8 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
               );
             }
           }
-          await Promise.all(playerStatsUpdatePromises);
-          logger.info(`Player stats updated for 'doubles' tournament ${tournamentId}.`);
+          await Promise.all(doublesPlayerStatsUpdatePromises);
+          logger.info(`Player stats updated and rankings prepared for 'doubles' tournament ${tournamentId}.`);
           break;
 
         case 'groupVsGroup':
@@ -464,7 +481,7 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
                 continue;
             }
 
-            if (rankingMode === 'striche') {
+            if (rankingModeToStore === 'striche') {
               scoreGroupA = calculateStricheForGroupInGame(game, groupA.playerUids);
               scoreGroupB = calculateStricheForGroupInGame(game, groupB.playerUids);
               // Direkte Zuweisung der Striche als Score der Gruppe in diesem Spiel
@@ -490,54 +507,62 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
               return a.gamesPlayed - b.gamesPlayed; // Weniger Spiele gespielt ist besser
             });
 
-          // Update PlayerComputedStats for each player in the ranked groups
           const groupPlayerStatsUpdatePromises = [];
           for (let i = 0; i < rankedGroups.length; i++) {
             const group = rankedGroups[i];
             const rank = i + 1;
             for (const playerUid of group.playerUids) {
+              const playerRankingDocRef = playerRankingsColRef.doc(playerUid);
+              playerRankingBatch.set(playerRankingDocRef, {
+                  uid: playerUid,
+                  rank: rank,
+                  score: group.score, 
+                  gamesPlayed: group.gamesPlayed, 
+                  wins: group.wins, 
+                  teamId: group.groupId,
+                  teamName: group.groupName,
+                  tournamentId: tournamentId,
+                  tournamentName: tournamentName,
+                  totalParticipantsInRanking: rankedGroups.length,
+                  rankingMode: rankingModeToStore,
+                  finalizedAt: admin.firestore.FieldValue.serverTimestamp()
+              });
+
               const playerStatsRef = db.collection("playerComputedStats").doc(playerUid);
               groupPlayerStatsUpdatePromises.push(
                 db.runTransaction(async (transaction) => {
                   const playerStatsDoc = await transaction.get(playerStatsRef);
                   let stats: PlayerComputedStats;
-
                   if (!playerStatsDoc.exists) {
-                    stats = JSON.parse(JSON.stringify(initialPlayerComputedStats));
+                      stats = JSON.parse(JSON.stringify(initialPlayerComputedStats));
                   } else {
-                    stats = playerStatsDoc.data() as PlayerComputedStats;
+                      stats = playerStatsDoc.data() as PlayerComputedStats;
                   }
-
                   stats.lastUpdateTimestamp = admin.firestore.Timestamp.now();
                   stats.totalTournamentsParticipated = (stats.totalTournamentsParticipated || 0) + 1;
-
                   if (rank === 1) {
-                    stats.tournamentWins = (stats.tournamentWins || 0) + 1;
+                      stats.tournamentWins = (stats.tournamentWins || 0) + 1;
                   }
-
                   const currentPlacement: TournamentPlacement = {
-                    tournamentId: tournamentId,
-                    tournamentName: `${tournamentName} (Gruppe: ${group.groupName})`,
-                    rank: rank,
-                    totalParticipants: rankedGroups.length, // Anzahl Gruppen
-                    date: tournamentDate
+                      tournamentId: tournamentId,
+                      tournamentName: `${tournamentName} (Gruppe: ${group.groupName})`,
+                      rank: rank,
+                      totalParticipants: rankedGroups.length, 
+                      date: tournamentData.createdAt || admin.firestore.Timestamp.now()
                   };
-
                   if (!stats.bestTournamentPlacement || rank < stats.bestTournamentPlacement.rank) {
-                    stats.bestTournamentPlacement = currentPlacement;
+                      stats.bestTournamentPlacement = currentPlacement;
                   }
                   stats.tournamentPlacements = [currentPlacement, ...(stats.tournamentPlacements || [])].slice(0, 20);
-                  
                   const tournamentHighlight: StatHighlight = {
-                    type: rank === 1 ? "tournament_win_group" : "tournament_participation_group",
-                    value: rank,
-                    stringValue: group.groupName,
-                    date: tournamentDate,
-                    relatedId: tournamentId,
-                    label: rank === 1 ? `Turniersieg (Gruppe): ${tournamentName} - ${group.groupName}` : `Turnierteilnahme (Gruppe): ${tournamentName} - ${group.groupName} (Rang ${rank})`,
+                      type: rank === 1 ? "tournament_win_group" : "tournament_participation_group",
+                      value: rank,
+                      stringValue: group.groupName,
+                      date: tournamentData.createdAt || admin.firestore.Timestamp.now(),
+                      relatedId: tournamentId,
+                      label: rank === 1 ? `Turniersieg (Gruppe): ${tournamentName} - ${group.groupName}` : `Turnierteilnahme (Gruppe): ${tournamentName} - ${group.groupName} (Rang ${rank})`,
                   };
                   stats.highlights = [tournamentHighlight, ...(stats.highlights || [])].slice(0, 50);
-
                   transaction.set(playerStatsRef, stats, { merge: true });
                 }).catch(txError => {
                     logger.error(`Transaction failed for player ${playerUid} (Group ${group.groupName}) in tournament ${tournamentId}:`, txError);
@@ -546,22 +571,28 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
             }
           }
           await Promise.all(groupPlayerStatsUpdatePromises);
-          logger.info(`Player stats updated for 'groupVsGroup' tournament ${tournamentId}.`);
+          logger.info(`Player stats updated and rankings prepared for 'groupVsGroup' tournament ${tournamentId}.`);
           break;
 
         default:
           logger.warn(`Unknown or unsupported tournament mode: ${tournamentMode} for tournament ${tournamentId}.`);
+          // Hier keinen Batch Commit, da nichts zu speichern ist oder Fehler auftrat
           throw new HttpsError("unimplemented", `Turniermodus '${tournamentMode || 'nicht definiert'}' wird nicht unterstützt.`);
       }
+
+      // Batch für PlayerRankings committen, NACHDEM alle PlayerStats-Transaktionen (potenziell) durchgelaufen sind
+      // oder zumindest die Promises dafür erstellt wurden. Das Committen des Batches sollte nicht in der Transaktion sein.
+      await playerRankingBatch.commit();
+      logger.info(`Player rankings committed for tournament ${tournamentId}.`);
 
       await tournamentRef.update({ 
         status: 'completed', 
         finalizedAt: admin.firestore.FieldValue.serverTimestamp(),
-        lastError: null // Fehler löschen, wenn erfolgreich
+        lastError: null 
       });
 
       logger.info(`--- finalizeTournament SUCCESS for ${tournamentId} ---`);
-      return { success: true, message: `Turnier ${tournamentId} erfolgreich abgeschlossen.` };
+      return { success: true, message: `Turnier ${tournamentId} erfolgreich abgeschlossen und Rankings gespeichert.` };
 
     } catch (error) {
       logger.error(`--- finalizeTournament CRITICAL ERROR for ${tournamentId} --- `, error);

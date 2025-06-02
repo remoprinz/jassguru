@@ -521,8 +521,8 @@ export const joinGroupByToken = onCall<JoinGroupByTokenData>(async (request) => 
     }
   });
 
-// --- finalizeSessionSummary (Callable Function wird exportiert) ---
-export const finalizeSessionSummary = finalizeSessionLogic.finalizeSessionSummary; // <-- WIEDER AKTIV
+// --- finalizeSession (Callable Function wird exportiert) ---
+export const finalizeSession = finalizeSessionLogic.finalizeSession;
 
 // --- archivecompletedgame (Trigger wird exportiert) - NUR EINMAL! ---
 export const archivecompletedgame = archiveLogic.archivecompletedgame;

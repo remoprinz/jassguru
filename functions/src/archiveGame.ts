@@ -10,12 +10,11 @@ const COMPLETED_GAMES_SUBCOLLECTION = 'completedGames';
 
 const db = admin.firestore();
 
-interface PlayerNames {
+export interface PlayerNames {
   [key: number]: string;
 }
 
-// Interface für RoundEntry definieren, um any zu vermeiden
-interface RoundEntry {
+export interface RoundEntry {
   id: string;
   timestamp: number;
   roundId: number;
@@ -55,7 +54,7 @@ interface RoundEntry {
   isCompleted?: boolean;
 }
 
-interface CompletedGameData {
+export interface CompletedGameData {
   gameNumber: number;
   activeGameId: string;
   timestampCompleted: admin.firestore.Timestamp;

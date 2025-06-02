@@ -8,7 +8,7 @@ const db = admin.firestore();
 // Annahme für die Datenstruktur eines Turnierspiels (tournament game / passe)
 // Diese Struktur sollte die Infos enthalten, die auch completedGames in Sessions haben,
 // plus turnierspezifische Daten falls nötig.
-interface TournamentGameData {
+export interface TournamentGameData {
   id: string; // Eigene ID des Turnierspiels
   tournamentId: string;
   passeNumber: number; // oder gameNumber
@@ -49,6 +49,8 @@ function getPlayerTournamentGameOutcome(userId: string, gameData: TournamentGame
   isKontermatschReceived: boolean;
   playerTeamKey: 'top' | 'bottom' | null;
   opponentTeamKey: 'top' | 'bottom' | null;
+  isMatschGameReceived: boolean;
+  isSchneiderGameReceived: boolean;
 } {
   let playerTeamKey: 'top' | 'bottom' | null = null;
   let opponentTeamKey: 'top' | 'bottom' | null = null;
@@ -56,6 +58,8 @@ function getPlayerTournamentGameOutcome(userId: string, gameData: TournamentGame
   let isSchneiderGame = false;
   let isKontermatschMade = false;
   let isKontermatschReceived = false;
+  let isMatschGameReceived = false;
+  let isSchneiderGameReceived = false;
 
   if (gameData.teams?.bottom?.playerUids?.includes(userId)) {
     playerTeamKey = 'bottom';
@@ -67,7 +71,7 @@ function getPlayerTournamentGameOutcome(userId: string, gameData: TournamentGame
 
   if (!playerTeamKey || !opponentTeamKey) {
     logger.warn(`[getPlayerTournamentGameOutcome] Could not determine team for player ${userId} in tournament game ${gameData.id}.`);
-    return { result: 'unknown', pointsMade: 0, pointsReceived: 0, stricheMade: 0, stricheReceived: 0, weisMade: 0, isMatschGame: false, isSchneiderGame: false, isKontermatschMade: false, isKontermatschReceived: false, playerTeamKey: null, opponentTeamKey: null };
+    return { result: 'unknown', pointsMade: 0, pointsReceived: 0, stricheMade: 0, stricheReceived: 0, weisMade: 0, isMatschGame: false, isSchneiderGame: false, isKontermatschMade: false, isKontermatschReceived: false, playerTeamKey: null, opponentTeamKey: null, isMatschGameReceived: false, isSchneiderGameReceived: false };
   }
 
   const pointsMade = gameData.finalScores[playerTeamKey] || 0;
@@ -85,6 +89,13 @@ function getPlayerTournamentGameOutcome(userId: string, gameData: TournamentGame
   if (gameData.finalStriche[playerTeamKey]?.kontermatsch > 0) {
     isKontermatschMade = true;
   }
+  
+  if (gameData.finalStriche[opponentTeamKey]?.matsch > 0) {
+    isMatschGameReceived = true;
+  }
+  if (gameData.finalStriche[opponentTeamKey]?.schneider > 0) {
+    isSchneiderGameReceived = true;
+  }
   if (gameData.finalStriche[opponentTeamKey]?.kontermatsch > 0) {
     isKontermatschReceived = true;
   }
@@ -98,7 +109,7 @@ function getPlayerTournamentGameOutcome(userId: string, gameData: TournamentGame
     else if (pointsMade < pointsReceived) result = 'loss';
     else result = 'draw';
   }
-  return { result, pointsMade, pointsReceived, stricheMade, stricheReceived, weisMade, isMatschGame, isSchneiderGame, isKontermatschMade, isKontermatschReceived, playerTeamKey, opponentTeamKey };
+  return { result, pointsMade, pointsReceived, stricheMade, stricheReceived, weisMade, isMatschGame, isSchneiderGame, isKontermatschMade, isKontermatschReceived, playerTeamKey, opponentTeamKey, isMatschGameReceived, isSchneiderGameReceived };
 }
 
 // Hauptfunktion zur Aktualisierung der Spielerstatistiken nach einem Turnierspiel
@@ -180,21 +191,133 @@ async function updateUserStatsAfterTournamentGame(
         }
 
         // Highlights (Spiel-Ebene, aber im Kontext eines Turnierspiels)
-        if (!stats.highestPointsGame || outcome.pointsMade > stats.highestPointsGame.value) {
-          stats.highestPointsGame = { value: outcome.pointsMade, date: gameTimestamp, relatedId: tournamentGameDocId };
+        const currentHighestPointsGameValue = typeof stats.highestPointsGame?.value === 'number' ? stats.highestPointsGame.value : -Infinity;
+        if (outcome.pointsMade > currentHighestPointsGameValue) {
+          stats.highestPointsGame = { 
+            value: outcome.pointsMade, 
+            date: gameTimestamp, 
+            relatedId: tournamentGameDocId,
+            type: "highest_points_game_tournament", // Spezifischer Typ für Turnierkontext, falls gewünscht
+            label: `Höchste Punkte in Turnierspiel (${outcome.pointsMade})`
+          };
         }
-        if (!stats.lowestPointsGame || outcome.pointsMade < stats.lowestPointsGame.value) {
-          stats.lowestPointsGame = { value: outcome.pointsMade, date: gameTimestamp, relatedId: tournamentGameDocId };
+
+        const currentLowestPointsGameValue = typeof stats.lowestPointsGame?.value === 'number' ? stats.lowestPointsGame.value : Infinity;
+        if (outcome.pointsMade < currentLowestPointsGameValue) {
+          stats.lowestPointsGame = { 
+            value: outcome.pointsMade, 
+            date: gameTimestamp, 
+            relatedId: tournamentGameDocId,
+            type: "lowest_points_game_tournament",
+            label: `Niedrigste Punkte in Turnierspiel (${outcome.pointsMade})`
+          };
         }
-        // Weitere Highlights analog...
-        // NEU: Kontermatsch Highlights/Lowlights (Spiel-Ebene)
+        
+        // Weitere Highlights/Lowlights für Turnierspiele (analog zu archiveGame.ts, angepasst für Turnier)
+        const currentHighestStricheGameValue = typeof stats.highestStricheGame?.value === 'number' ? stats.highestStricheGame.value : -Infinity;
+        if (outcome.stricheMade > currentHighestStricheGameValue) {
+            stats.highestStricheGame = {
+                value: outcome.stricheMade,
+                date: gameTimestamp,
+                relatedId: tournamentGameDocId,
+                type: "highest_striche_game_tournament",
+                label: `Höchste Striche in Turnierspiel (${outcome.stricheMade})`,
+            };
+        }
+
+        const currentMostMatschGameValue = typeof stats.mostMatschGame?.value === 'number' ? stats.mostMatschGame.value : -Infinity;
+        if (outcome.isMatschGame && outcome.stricheMade > currentMostMatschGameValue) { // Annahme: Matsch zählt als Striche
+            stats.mostMatschGame = {
+                value: outcome.stricheMade, // Wert des Matschspiels (typischerweise Anzahl Striche)
+                date: gameTimestamp,
+                relatedId: tournamentGameDocId,
+                type: "most_matsch_game_tournament",
+                label: `Matsch in Turnierspiel (${outcome.stricheMade} Striche)`,
+            };
+        }
+
+        const currentMostSchneiderGameValue = typeof stats.mostSchneiderGame?.value === 'number' ? stats.mostSchneiderGame.value : -Infinity;
+        if (outcome.isSchneiderGame && outcome.stricheMade > currentMostSchneiderGameValue) { // Annahme: Schneider zählt als Striche
+            stats.mostSchneiderGame = {
+                value: outcome.stricheMade,
+                date: gameTimestamp,
+                relatedId: tournamentGameDocId,
+                type: "most_schneider_game_tournament",
+                label: `Schneider in Turnierspiel (${outcome.stricheMade} Striche)`,
+            };
+        }
+        
+        const currentMostWeisPointsGameValue = typeof stats.mostWeisPointsGame?.value === 'number' ? stats.mostWeisPointsGame.value : -Infinity;
+        if (outcome.weisMade > currentMostWeisPointsGameValue) {
+            stats.mostWeisPointsGame = {
+                value: outcome.weisMade,
+                date: gameTimestamp,
+                relatedId: tournamentGameDocId,
+                type: "most_weis_points_game_tournament",
+                label: `Meiste Weispunkte in Turnierspiel (${outcome.weisMade})`,
+            };
+        }
+
+        // Kontermatsch Highlights/Lowlights (Spiel-Ebene)
         const kontermatschMadeValue = gameData.finalStriche[outcome.playerTeamKey!]?.kontermatsch || 0;
-        if (kontermatschMadeValue > 0 && (!stats.mostKontermatschMadeGame || kontermatschMadeValue > stats.mostKontermatschMadeGame.value)) {
-            stats.mostKontermatschMadeGame = { value: kontermatschMadeValue, date: gameTimestamp, relatedId: tournamentGameDocId };
+        const currentMostKontermatschMadeGameValue = typeof stats.mostKontermatschMadeGame?.value === 'number' ? stats.mostKontermatschMadeGame.value : -Infinity;
+        if (kontermatschMadeValue > 0 && kontermatschMadeValue > currentMostKontermatschMadeGameValue) {
+            stats.mostKontermatschMadeGame = { 
+                value: kontermatschMadeValue, 
+                date: gameTimestamp, 
+                relatedId: tournamentGameDocId,
+                type: "most_kontermatsch_made_game_tournament",
+                label: `Kontermatsch gemacht in Turnierspiel (${kontermatschMadeValue})` 
+            };
         }
+
         const kontermatschReceivedValue = gameData.finalStriche[outcome.opponentTeamKey!]?.kontermatsch || 0;
-        if (kontermatschReceivedValue > 0 && (!stats.mostKontermatschReceivedGame || kontermatschReceivedValue > stats.mostKontermatschReceivedGame.value)) {
-            stats.mostKontermatschReceivedGame = { value: kontermatschReceivedValue, date: gameTimestamp, relatedId: tournamentGameDocId };
+        const currentMostKontermatschReceivedGameValue = typeof stats.mostKontermatschReceivedGame?.value === 'number' ? stats.mostKontermatschReceivedGame.value : -Infinity;
+        if (kontermatschReceivedValue > 0 && kontermatschReceivedValue > currentMostKontermatschReceivedGameValue) {
+            stats.mostKontermatschReceivedGame = { 
+                value: kontermatschReceivedValue, 
+                date: gameTimestamp, 
+                relatedId: tournamentGameDocId,
+                type: "most_kontermatsch_received_game_tournament",
+                label: `Kontermatsch erhalten in Turnierspiel (${kontermatschReceivedValue})`
+            };
+        }
+        
+        // Lowlights (Received)
+        const currentHighestStricheReceivedGameValue = typeof stats.highestStricheReceivedGame?.value === 'number' ? stats.highestStricheReceivedGame.value : -Infinity;
+        if (outcome.stricheReceived > currentHighestStricheReceivedGameValue) {
+            stats.highestStricheReceivedGame = {
+                value: outcome.stricheReceived,
+                date: gameTimestamp,
+                relatedId: tournamentGameDocId,
+                type: "highest_striche_received_game_tournament",
+                label: `Höchste erhaltene Striche in Turnierspiel (${outcome.stricheReceived})`,
+            };
+        }
+
+        // NEU: mostMatschReceivedGame und mostSchneiderReceivedGame
+        const currentMostMatschReceivedGameValue = typeof stats.mostMatschReceivedGame?.value === 'number' ? stats.mostMatschReceivedGame.value : -Infinity;
+        // Annahme: Wert des Matschspiels sind die erhaltenen Striche in diesem Spiel
+        if (outcome.isMatschGameReceived && outcome.stricheReceived > currentMostMatschReceivedGameValue) { 
+            stats.mostMatschReceivedGame = {
+                value: outcome.stricheReceived, 
+                date: gameTimestamp,
+                relatedId: tournamentGameDocId,
+                type: "most_matsch_received_game_tournament",
+                label: `Matsch erhalten in Turnierspiel (${outcome.stricheReceived} Striche)`,
+            };
+        }
+
+        const currentMostSchneiderReceivedGameValue = typeof stats.mostSchneiderReceivedGame?.value === 'number' ? stats.mostSchneiderReceivedGame.value : -Infinity;
+        // Annahme: Wert des Schneiderspiels sind die erhaltenen Striche in diesem Spiel
+        if (outcome.isSchneiderGameReceived && outcome.stricheReceived > currentMostSchneiderReceivedGameValue) { 
+            stats.mostSchneiderReceivedGame = {
+                value: outcome.stricheReceived,
+                date: gameTimestamp,
+                relatedId: tournamentGameDocId,
+                type: "most_schneider_received_game_tournament",
+                label: `Schneider erhalten in Turnierspiel (${outcome.stricheReceived} Striche)`,
+            };
         }
 
         // NEU: Streak-Logik für Spiele (identisch zu archiveGame.ts)
