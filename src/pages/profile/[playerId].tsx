@@ -13,11 +13,10 @@ import Link from 'next/link';
 
 type PlayerWithPlaceholder = FirestorePlayer & { _isPlaceholder?: boolean };
 
-// NEU: Erweiterte Stats-Schnittstelle für die Anzeige
+// NEU: Erweiterte Stats-Schnittstelle für die Anzeige (identisch zu profile/index.tsx)
 interface ExtendedPlayerStats {
-  gamesPlayed?: number;
-  wins?: number;
-  totalScore?: number;
+  // Grundstatistiken
+  groupCount?: number;
   totalSessions?: number;
   totalTournaments?: number;
   totalGames?: number;
@@ -25,6 +24,8 @@ interface ExtendedPlayerStats {
   firstJassDate?: string;
   lastJassDate?: string;
   tournamentWins?: number;
+  
+  // Durchschnittswerte
   avgStrichePerGame?: number;
   sessionWinRate?: number;
   gameWinRate?: number;
@@ -33,6 +34,8 @@ interface ExtendedPlayerStats {
   avgSchneiderPerGame?: number;
   avgWeisPointsPerGame?: number;
   avgTimePerRound?: string;
+  
+  // Spieler-Ergebnisse
   totalStricheDifference?: number;
   totalPointsDifference?: number;
   sessionsWon?: number;
@@ -40,6 +43,8 @@ interface ExtendedPlayerStats {
   sessionsLost?: number;
   gamesWon?: number;
   gamesLost?: number;
+  
+  // Highlights
   highestStrichdifferenzSession?: { value: number; date: string };
   longestWinStreakSessions?: { value: number; date: string };
   longestUnbeatenStreakSessions?: { value: number; dateRange: string };
@@ -50,6 +55,8 @@ interface ExtendedPlayerStats {
   longestUnbeatenStreakGames?: { value: number; date: string };
   mostMatchGames?: { value: number; date: string };
   mostWeisPointsGame?: { value: number; date: string };
+  
+  // Lowlights
   lowestStrichdifferenzSession?: { value: number; date: string };
   longestLossStreakSessions?: { value: number; date: string };
   longestWinlessStreakSessions?: { value: number; dateRange: string };
@@ -312,7 +319,7 @@ const PlayerProfilePage = () => {
                         <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                           <span className="font-medium text-gray-300">Anzahl Gruppen:</span>
                           {/* Annahme: Diese Info ist nicht direkt im player Objekt, daher Platzhalter */}
-                          <span className="text-gray-100">1</span> 
+                          <span className="text-gray-100">{extendedStats?.groupCount || 1}</span> 
                         </div>
                         <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                           <span className="font-medium text-gray-300">Anzahl Partien:</span>
@@ -413,12 +420,18 @@ const PlayerProfilePage = () => {
                         <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                           <span className="font-medium text-gray-300">Strichdifferenz:</span>
                           {/* Annahme: extendedStats.totalStricheDifference existiert */}
-                          <span className="text-gray-100">{extendedStats?.totalStricheDifference && extendedStats.totalStricheDifference > 0 ? '+' : ''}{extendedStats?.totalStricheDifference || 0}</span>
+                          <span className="text-gray-100">
+                            {extendedStats?.totalStricheDifference && extendedStats.totalStricheDifference > 0 ? '+' : ''}
+                            {extendedStats?.totalStricheDifference || 0}
+                          </span>
                         </div>
                         <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                           <span className="font-medium text-gray-300">Punktdifferenz:</span>
                            {/* Annahme: extendedStats.totalPointsDifference existiert */}
-                          <span className="text-gray-100">{extendedStats?.totalPointsDifference && extendedStats.totalPointsDifference > 0 ? '+' : ''}{extendedStats?.totalPointsDifference || 0}</span>
+                          <span className="text-gray-100">
+                            {extendedStats?.totalPointsDifference && extendedStats.totalPointsDifference > 0 ? '+' : ''}
+                            {extendedStats?.totalPointsDifference || 0}
+                          </span>
                         </div>
                         <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                           <span className="font-medium text-gray-300">Partien gewonnen:</span>

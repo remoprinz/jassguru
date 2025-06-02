@@ -24,6 +24,40 @@ import type { TournamentInstance } from '@/types/tournament';
 import { fetchPlayerStatistics, PlayerStatistics } from '@/services/statisticsService';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
+// NEU: Erweiterte PlayerStatistics mit allen Properties, die in den Screenshots zu sehen sind
+interface ExtendedPlayerStatistics extends PlayerStatistics {
+  // Fehlende Properties aus den Screenshots
+  totalTournaments?: number;
+  tournamentWins?: number;
+  avgSchneiderPerGame?: number;
+  avgRoundTime?: string;
+  totalStrichesDifference?: number;
+  totalPointsDifference?: number;
+  
+  // Highlights und Lowlights mit Daten
+  highestStricheSession?: { value: number; date: string | null };
+  longestWinStreakSessions?: { value: number; date: string | null };
+  longestUnbeatenStreakSessions?: { value: number; dateRange: string | null };
+  mostMatchSessions?: { value: number; date: string | null };
+  
+  longestWinStreakGames?: { value: number; date: string | null };
+  longestUnbeatenStreakGames?: { value: number; date: string | null };
+  mostMatchGames?: { value: number; date: string | null };
+  
+  // Lowlights
+  lowestStricheSession?: { value: number; date: string | null };
+  longestLossStreakSessions?: { value: number; date: string | null };
+  longestWinlessStreakSessions?: { value: number; dateRange: string | null };
+  mostMatchReceivedSessions?: { value: number; date: string | null };
+  mostWeisPointsReceivedSessions?: { value: number; date: string | null };
+  
+  lowestStricheGame?: { value: number; date: string | null };
+  longestLossStreakGames?: { value: number; date: string | null };
+  longestWinlessStreakGames?: { value: number; date: string | null };
+  mostMatchReceivedGames?: { value: number; date: string | null };
+  mostWeisPointsReceivedGames?: { value: number; date: string | null };
+}
+
 // NEU: Typ-Guard für Firestore Timestamp (wie in start/index.tsx)
 function isFirestoreTimestamp(value: any): value is Timestamp {
   return value && typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function';
@@ -58,7 +92,7 @@ const ProfilePage: React.FC = () => {
   const [tournamentsError, setTournamentsError] = useState<string | null>(null);
   
   // Spielerstatistik-State hinzufügen
-  const [playerStats, setPlayerStats] = useState<PlayerStatistics | null>(null);
+  const [playerStats, setPlayerStats] = useState<ExtendedPlayerStatistics | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState<string | null>(null);
   
@@ -112,7 +146,7 @@ const ProfilePage: React.FC = () => {
         setStatsLoading(true);
         try {
           const stats = await fetchPlayerStatistics(user.uid);
-          setPlayerStats(stats);
+          setPlayerStats(stats as ExtendedPlayerStatistics);
         } catch (error) {
           console.error("Fehler beim Laden der Spielerstatistiken:", error);
           const message = error instanceof Error ? error.message : "Spielerstatistiken konnten nicht geladen werden.";
@@ -653,7 +687,7 @@ const ProfilePage: React.FC = () => {
                           </div>
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Anzahl Turniere:</span>
-                            <span className="text-gray-100">0</span>
+                            <span className="text-gray-100">{playerStats?.totalTournaments || 0}</span>
                           </div>
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Anzahl Spiele:</span>
@@ -683,7 +717,7 @@ const ProfilePage: React.FC = () => {
                         <div className="p-4 space-y-2">
                           <div className="flex justify-between items-center bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-200">Turniersiege</span>
-                            <span className="text-lg font-bold text-white">0</span>
+                            <span className="text-lg font-bold text-white">{playerStats?.tournamentWins || 0}</span>
                           </div>
                         </div>
                       </div>
@@ -721,7 +755,7 @@ const ProfilePage: React.FC = () => {
                           </div>
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Ø Schneider pro Spiel:</span>
-                            <span className="text-gray-100">0.00</span>
+                            <span className="text-gray-100">{playerStats?.avgSchneiderPerGame?.toFixed(2) || '0.00'}</span>
                           </div>
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Ø Weispunkte pro Spiel:</span>
@@ -729,7 +763,7 @@ const ProfilePage: React.FC = () => {
                           </div>
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Ø Zeit pro Runde:</span>
-                            <span className="text-gray-100">0m 0s</span>
+                            <span className="text-gray-100">{playerStats?.avgRoundTime || '0m 0s'}</span>
                           </div>
                         </div>
                       </div>
@@ -743,11 +777,17 @@ const ProfilePage: React.FC = () => {
                         <div className="p-4 space-y-2">
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Strichdifferenz:</span>
-                            <span className="text-gray-100">+0</span>
+                            <span className="text-gray-100">
+                              {playerStats?.totalStrichesDifference !== undefined && playerStats.totalStrichesDifference > 0 ? '+' : ''}
+                              {playerStats?.totalStrichesDifference || 0}
+                            </span>
                           </div>
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Punktdifferenz:</span>
-                            <span className="text-gray-100">+0</span>
+                            <span className="text-gray-100">
+                              {playerStats?.totalPointsDifference !== undefined && playerStats.totalPointsDifference > 0 ? '+' : ''}
+                              {playerStats?.totalPointsDifference || 0}
+                            </span>
                           </div>
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Partien gewonnen:</span>
@@ -767,7 +807,7 @@ const ProfilePage: React.FC = () => {
                           </div>
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Spiele verloren:</span>
-                            <span className="text-gray-100">0</span>
+                            <span className="text-gray-100">{playerStats?.gamesLost || 0}</span>
                           </div>
                         </div>
                       </div>
@@ -781,23 +821,33 @@ const ProfilePage: React.FC = () => {
                         <div className="p-4 space-y-2">
                           <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
                             <span className="font-medium text-gray-300">Höchste Strichdifferenz:</span>
-                            <span className="text-gray-100">13 (8.5.2025)</span>
+                            <span className="text-gray-100">
+                              {playerStats?.highestStricheSession?.value || 0} ({playerStats?.highestStricheSession?.date || '-'})
+                            </span>
                           </Link>
                           <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
                             <span className="font-medium text-gray-300">Längste Siegesserie:</span>
-                            <span className="text-gray-100">1 (8.5.2025)</span>
+                            <span className="text-gray-100">
+                              {playerStats?.longestWinStreakSessions?.value || 0} ({playerStats?.longestWinStreakSessions?.date || '-'})
+                            </span>
                           </Link>
                           <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
                             <span className="font-medium text-gray-300">Längste Serie ohne Niederlage:</span>
-                            <span className="text-gray-100">2 (22.5.2025 - 29.5.2025)</span>
+                            <span className="text-gray-100">
+                              {playerStats?.longestUnbeatenStreakSessions?.value || 0} ({playerStats?.longestUnbeatenStreakSessions?.dateRange || '-'})
+                            </span>
                           </Link>
                           <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
                             <span className="font-medium text-gray-300">Höchste Anzahl Matsche:</span>
-                            <span className="text-gray-100">4 (8.5.2025)</span>
+                            <span className="text-gray-100">
+                              {playerStats?.mostMatchSessions?.value || 0} ({playerStats?.mostMatchSessions?.date || '-'})
+                            </span>
                           </Link>
                           <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
                             <span className="font-medium text-gray-300">Meiste Weispunkte:</span>
-                            <span className="text-gray-100">140 (8.5.2025)</span>
+                            <span className="text-gray-100">
+                              {playerStats?.highestWeisPoints?.value || 0} ({playerStats?.highestWeisPoints?.date || '-'})
+                            </span>
                           </Link>
                         </div>
                       </div>
@@ -810,23 +860,33 @@ const ProfilePage: React.FC = () => {
                         <div className="p-4 space-y-2">
                           <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
                             <span className="font-medium text-gray-300">Höchste Strichdifferenz:</span>
-                            <span className="text-gray-100">8 (8.5.2025)</span>
+                            <span className="text-gray-100">
+                              {playerStats?.highestStriche?.value || 0} ({playerStats?.highestStriche?.date || '-'})
+                            </span>
                           </Link>
                           <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
                             <span className="font-medium text-gray-300">Längste Siegesserie:</span>
-                            <span className="text-gray-100">3 (8.5.2025)</span>
+                            <span className="text-gray-100">
+                              {playerStats?.longestWinStreakGames?.value || 0} ({playerStats?.longestWinStreakGames?.date || '-'})
+                            </span>
                           </Link>
                           <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
                             <span className="font-medium text-gray-300">Längste Serie ohne Niederlage:</span>
-                            <span className="text-gray-100">3 (8.5.2025)</span>
+                            <span className="text-gray-100">
+                              {playerStats?.longestUnbeatenStreakGames?.value || 0} ({playerStats?.longestUnbeatenStreakGames?.date || '-'})
+                            </span>
                           </Link>
                           <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
                             <span className="font-medium text-gray-300">Höchste Anzahl Matsche:</span>
-                            <span className="text-gray-100">3 (8.5.2025)</span>
+                            <span className="text-gray-100">
+                              {playerStats?.mostMatchGames?.value || 0} ({playerStats?.mostMatchGames?.date || '-'})
+                            </span>
                           </Link>
                           <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
                             <span className="font-medium text-gray-300">Meiste Weispunkte:</span>
-                            <span className="text-gray-100">80 (8.5.2025)</span>
+                            <span className="text-gray-100">
+                              {playerStats?.highestWeisPoints?.value || 0} ({playerStats?.highestWeisPoints?.date || '-'})
+                            </span>
                           </Link>
                         </div>
                       </div>
@@ -839,23 +899,33 @@ const ProfilePage: React.FC = () => {
                         <div className="p-4 space-y-2">
                           <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
                             <span className="font-medium text-gray-300">Höchste erhaltene Strichdifferenz:</span>
-                            <span className="text-gray-100">-14 (15.5.2025)</span>
+                            <span className="text-gray-100">
+                              {playerStats?.lowestStricheSession?.value || 0} ({playerStats?.lowestStricheSession?.date || '-'})
+                            </span>
                           </Link>
                           <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
                             <span className="font-medium text-gray-300">Längste Niederlagenserie:</span>
-                            <span className="text-gray-100">1 (15.5.2025)</span>
+                            <span className="text-gray-100">
+                              {playerStats?.longestLossStreakSessions?.value || 0} ({playerStats?.longestLossStreakSessions?.date || '-'})
+                            </span>
                           </Link>
                           <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
                             <span className="font-medium text-gray-300">Längste Serie ohne Sieg:</span>
-                            <span className="text-gray-100">2 (15.5.2025 - 22.5.2025)</span>
+                            <span className="text-gray-100">
+                              {playerStats?.longestWinlessStreakSessions?.value || 0} ({playerStats?.longestWinlessStreakSessions?.dateRange || '-'})
+                            </span>
                           </Link>
                           <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
                             <span className="font-medium text-gray-300">Höchste Anzahl Matsche bekommen:</span>
-                            <span className="text-gray-100">4 (15.5.2025)</span>
+                            <span className="text-gray-100">
+                              {playerStats?.mostMatchReceivedSessions?.value || 0} ({playerStats?.mostMatchReceivedSessions?.date || '-'})
+                            </span>
                           </Link>
                           <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
                             <span className="font-medium text-gray-300">Meiste Weispunkte erhalten:</span>
-                            <span className="text-gray-100">80 (8.5.2025)</span>
+                            <span className="text-gray-100">
+                              {playerStats?.mostWeisPointsReceivedSessions?.value || 0} ({playerStats?.mostWeisPointsReceivedSessions?.date || '-'})
+                            </span>
                           </Link>
                         </div>
                       </div>
@@ -868,23 +938,33 @@ const ProfilePage: React.FC = () => {
                         <div className="p-4 space-y-2">
                           <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
                             <span className="font-medium text-gray-300">Höchste erhaltene Strichdifferenz:</span>
-                            <span className="text-gray-100">-7 (15.5.2025)</span>
+                            <span className="text-gray-100">
+                              {playerStats?.lowestStricheGame?.value || 0} ({playerStats?.lowestStricheGame?.date || '-'})
+                            </span>
                           </Link>
                           <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
                             <span className="font-medium text-gray-300">Längste Niederlagen:</span>
-                            <span className="text-gray-100">3 (15.5.2025)</span>
+                            <span className="text-gray-100">
+                              {playerStats?.longestLossStreakGames?.value || 0} ({playerStats?.longestLossStreakGames?.date || '-'})
+                            </span>
                           </Link>
                           <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
                             <span className="font-medium text-gray-300">Längste Serie ohne Sieg:</span>
-                            <span className="text-gray-100">3 (15.5.2025)</span>
+                            <span className="text-gray-100">
+                              {playerStats?.longestWinlessStreakGames?.value || 0} ({playerStats?.longestWinlessStreakGames?.date || '-'})
+                            </span>
                           </Link>
                           <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
                             <span className="font-medium text-gray-300">Höchste Anzahl Matsche bekommen:</span>
-                            <span className="text-gray-100">2 (15.5.2025)</span>
+                            <span className="text-gray-100">
+                              {playerStats?.mostMatchReceivedGames?.value || 0} ({playerStats?.mostMatchReceivedGames?.date || '-'})
+                            </span>
                           </Link>
                           <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
                             <span className="font-medium text-gray-300">Meiste Weispunkte erhalten:</span>
-                            <span className="text-gray-100">80 (8.5.2025)</span>
+                            <span className="text-gray-100">
+                              {playerStats?.mostWeisPointsReceivedGames?.value || 0} ({playerStats?.mostWeisPointsReceivedGames?.date || '-'})
+                            </span>
                           </Link>
                         </div>
                       </div>
