@@ -18,17 +18,19 @@ export interface StatHighlightString {
 
 export interface StatStreak {
   value: number;
-  startDate: admin.firestore.Timestamp | null;
-  endDate: admin.firestore.Timestamp | null;
+  startDate?: admin.firestore.Timestamp | null;
+  endDate?: admin.firestore.Timestamp | null;
   // relatedIds?: string[]; // z.B. eine Liste von gameIds oder sessionIds
 }
 
 export interface TournamentPlacement {
   tournamentId: string;
-  tournamentName: string; // Für die Anzeige hilfreich
+  tournamentName: string;
   rank: number;
-  totalParticipants: number;
-  date: admin.firestore.Timestamp | null; // Datum des Turniers
+  totalParticipants: number; // Beibehaltung für generelle Kompatibilität, aber für neue Logik siehe totalRankedEntities
+  totalRankedEntities?: number; // NEU: Genaue Anzahl der im Ranking berücksichtigten Entitäten
+  date: admin.firestore.Timestamp;
+  teamName?: string; // Optional, falls es ein Team-Turnier war
 }
 
 export interface PlayerComputedStats {
@@ -95,7 +97,7 @@ export interface PlayerComputedStats {
   totalTournamentGamesPlayed: number;  // Anzahl gespielter Spiele/Passen in Turnieren
   tournamentWins: number;               // Anzahl gewonnener Turniere
   bestTournamentPlacement?: TournamentPlacement | null; // Beste erreichte Turnierplatzierung
-  tournamentPlacements: TournamentPlacement[]; // Letzte X Turnierplatzierungen
+  tournamentPlacements?: TournamentPlacement[]; // Letzte X Turnierplatzierungen
 
   // === Highlights Spiele ===
   highestPointsGame: StatHighlight | null;          // Höchste Punktzahl in einem einzelnen Spiel
@@ -114,6 +116,8 @@ export interface PlayerComputedStats {
   mostKontermatschReceivedGame: StatHighlight | null; // NEU
   longestLossStreakGames: StatStreak | null;        // Längste Niederlagenserie (Spiele)
   longestWinlessStreakGames: StatStreak | null;     // Längste Serie ohne Sieg (Spiele)
+  lowestStricheGame: StatHighlight | null; // NEU: Wenigste gemachte Striche in einem Spiel
+  lowestStricheReceivedGame: StatHighlight | null; // NEU: Wenigste erhaltene Striche in einem Spiel
 
   // === Highlights Partien (Sessions) ===
   highestPointsSession: StatHighlight | null;
@@ -208,6 +212,8 @@ export const initialPlayerComputedStats: PlayerComputedStats = {
   mostKontermatschReceivedGame: null,
   longestLossStreakGames: null,
   longestWinlessStreakGames: null,
+  lowestStricheGame: null,
+  lowestStricheReceivedGame: null,
 
   highestPointsSession: null,
   highestStricheSession: null,

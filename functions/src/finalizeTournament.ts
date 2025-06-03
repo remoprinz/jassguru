@@ -3,6 +3,7 @@ import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 // Ggf. weitere spezifische Modelle importieren, z.B. PlayerComputedStats, TournamentPlacement
 import { PlayerComputedStats, initialPlayerComputedStats, TournamentPlacement, StatHighlight } from "./models/player-stats.model"; // PlayerComputedStats und TournamentPlacement importiert
+import { TournamentPlayerRankingData } from "./models/tournament-ranking.model"; // NEU: Import für das Ranking-Datenmodell
 
 const db = admin.firestore();
 
@@ -58,6 +59,11 @@ export interface TournamentDocData { // EXPORTIERT
     // Weitere Settings...
   };
   createdAt?: admin.firestore.Timestamp; 
+  finalizedAt?: admin.firestore.Timestamp; // NEU: Explizit hier definiert
+  totalRankedEntities?: number;          // NEU: Anzahl der gerankten Entitäten (Spieler/Teams/Gruppen)
+  rankingSystemUsed?: string;            // NEU: Verwendetes Ranking-System (z.B. 'total_points')
+  rankedPlayerUids?: string[];           // NEU: Liste der Spieler-UIDs, für die ein Ranking erstellt wurde
+  lastError?: string | null;
 }
 
 /**
@@ -105,7 +111,14 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
       const participantUidsInTournament = tournamentData.playerUids || [];
       if (participantUidsInTournament.length === 0) {
         logger.warn(`No participants found in tournament ${tournamentId}. Cannot calculate rankings.`);
-        await tournamentRef.update({ status: 'completed', finalizedAt: admin.firestore.FieldValue.serverTimestamp(), lastError: "Keine Teilnehmer." });
+        await tournamentRef.update({ 
+            status: 'completed', 
+            finalizedAt: admin.firestore.FieldValue.serverTimestamp(), 
+            lastError: "Keine Teilnehmer.",
+            totalRankedEntities: 0,
+            rankedPlayerUids: [],
+            rankingSystemUsed: rankingModeToStore
+        });
         return { success: true, message: "Keine Teilnehmer im Turnier, Abschluss ohne Ranking."};
       }
 
@@ -120,18 +133,26 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
       if (tournamentGames.length === 0) {
         logger.warn(`No completed games found for tournament ${tournamentId}. Cannot calculate rankings.`);
         // Dennoch Turnier als abgeschlossen markieren, ggf. mit Hinweis
-        await tournamentRef.update({ status: 'completed', finalizedAt: admin.firestore.FieldValue.serverTimestamp(), lastError: "Keine abgeschlossenen Spiele." });
+        await tournamentRef.update({ 
+            status: 'completed', 
+            finalizedAt: admin.firestore.FieldValue.serverTimestamp(), 
+            lastError: "Keine abgeschlossenen Spiele.",
+            totalRankedEntities: 0,
+            rankedPlayerUids: [],
+            rankingSystemUsed: rankingModeToStore
+        });
         return { success: true, message: "Keine abgeschlossenen Spiele im Turnier, Abschluss ohne Ranking." };
       }
 
       // NEU: Batch für das Schreiben der Player-Rankings
       const playerRankingBatch = db.batch();
       const playerRankingsColRef = tournamentRef.collection("playerRankings");
+      const allRankedPlayerUidsForTournamentDoc = new Set<string>();
+      let totalRankedEntitiesForTournamentDoc = 0;
 
       switch (tournamentMode) {
-        case 'single':
+        case 'single': {
           logger.info(`Handling 'single' tournament mode for ${tournamentId}.`);
-          
           const playerScores: { [uid: string]: { score: number; gamesPlayed: number; wins: number; } } = {};
           participantUidsInTournament.forEach(uid => {
             playerScores[uid] = { score: 0, gamesPlayed: 0, wins: 0 };
@@ -188,25 +209,29 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
               return a.gamesPlayed - b.gamesPlayed; 
             });
 
+          totalRankedEntitiesForTournamentDoc = rankedPlayers.length;
+
           // PlayerComputedStats aktualisieren UND PlayerRankings speichern
           const singleModePromises = rankedPlayers.map(async (player, index) => {
             const rank = index + 1;
+            allRankedPlayerUidsForTournamentDoc.add(player.uid);
             const playerStatsRef = db.collection("playerComputedStats").doc(player.uid);
             
             // Speichere detailliertes Ranking für diesen Spieler
             const playerRankingDocRef = playerRankingsColRef.doc(player.uid);
-            playerRankingBatch.set(playerRankingDocRef, {
-                uid: player.uid,
+            const rankingData: TournamentPlayerRankingData = {
+                playerId: player.uid,
                 rank: rank,
                 score: player.score,
                 gamesPlayed: player.gamesPlayed,
-                wins: player.wins, // Direkte Siege aus dem Ranking-Modus
+                rawWins: player.wins, // Direkte Siege aus dem Ranking-Modus
                 tournamentId: tournamentId,
                 tournamentName: tournamentName,
-                totalParticipantsInRanking: rankedPlayers.length,
-                rankingMode: rankingModeToStore,
-                finalizedAt: admin.firestore.FieldValue.serverTimestamp() // Zeitstempel des Rankings
-            });
+                totalRankedEntities: rankedPlayers.length,
+                rankingSystemUsed: rankingModeToStore,
+                tournamentFinalizedAt: admin.firestore.Timestamp.now() // Zeitstempel des Rankings
+            };
+            playerRankingBatch.set(playerRankingDocRef, rankingData);
 
             try {
               await db.runTransaction(async (transaction) => {
@@ -226,7 +251,8 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
                   tournamentId: tournamentId,
                   tournamentName: tournamentName, // Ohne Teamname für Single-Modus
                   rank: rank,
-                  totalParticipants: rankedPlayers.length,
+                  totalParticipants: rankedPlayers.length, // Beibehalten für Abwärtskompatibilität
+                  totalRankedEntities: rankedPlayers.length, // NEU
                   date: tournamentData.createdAt || admin.firestore.Timestamp.now()
                 };
                 if (!stats.bestTournamentPlacement || rank < stats.bestTournamentPlacement.rank) {
@@ -243,13 +269,19 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
           await Promise.all(singleModePromises);
           logger.info(`Player stats updated and rankings prepared for 'single' tournament ${tournamentId}.`);
           break;
-
-        case 'doubles':
+        }
+        case 'doubles': {
           logger.info(`Handling 'doubles' tournament mode for ${tournamentId}.`);
-          
           if (!tournamentData.teams || tournamentData.teams.length === 0) {
             logger.warn(`No teams defined for 'doubles' tournament ${tournamentId}. Cannot calculate rankings.`);
-            await tournamentRef.update({ status: 'completed', finalizedAt: admin.firestore.FieldValue.serverTimestamp(), lastError: "Keine Teams für Doppelmodus definiert." });
+            await tournamentRef.update({ 
+                status: 'completed', 
+                finalizedAt: admin.firestore.FieldValue.serverTimestamp(), 
+                lastError: "Keine Teams für Doppelmodus definiert.",
+                totalRankedEntities: 0,
+                rankedPlayerUids: [],
+                rankingSystemUsed: rankingModeToStore
+            });
             return { success: true, message: "Keine Teams für Doppelmodus definiert, Abschluss ohne Ranking." };
           }
 
@@ -325,26 +357,30 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
               return a.gamesPlayed - b.gamesPlayed;
             });
 
-          const doublesPlayerStatsUpdatePromises = [];
+          totalRankedEntitiesForTournamentDoc = rankedTeams.length;
+
+          const doublesPlayerStatsUpdatePromises: Promise<void>[] = [];
           for (let i = 0; i < rankedTeams.length; i++) {
             const team = rankedTeams[i];
             const rank = i + 1;
             for (const playerUid of team.playerUids) {
+              allRankedPlayerUidsForTournamentDoc.add(playerUid);
               const playerRankingDocRef = playerRankingsColRef.doc(playerUid);
-              playerRankingBatch.set(playerRankingDocRef, {
-                  uid: playerUid,
+              const rankingData: TournamentPlayerRankingData = {
+                  playerId: playerUid,
                   rank: rank,
                   score: team.score, 
                   gamesPlayed: team.gamesPlayed, 
-                  wins: team.wins, 
+                  rawWins: team.wins, 
                   teamId: team.id,
                   teamName: team.teamName,
                   tournamentId: tournamentId,
                   tournamentName: tournamentName,
-                  totalParticipantsInRanking: rankedTeams.length,
-                  rankingMode: rankingModeToStore,
-                  finalizedAt: admin.firestore.FieldValue.serverTimestamp()
-              });
+                  totalRankedEntities: rankedTeams.length,
+                  rankingSystemUsed: rankingModeToStore,
+                  tournamentFinalizedAt: admin.firestore.Timestamp.now()
+              };
+              playerRankingBatch.set(playerRankingDocRef, rankingData);
               
               const playerStatsRef = db.collection("playerComputedStats").doc(playerUid);
               doublesPlayerStatsUpdatePromises.push(
@@ -365,7 +401,8 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
                       tournamentId: tournamentId,
                       tournamentName: `${tournamentName} (Team: ${team.teamName})`,
                       rank: rank,
-                      totalParticipants: rankedTeams.length, 
+                      totalParticipants: rankedTeams.length, // Beibehalten
+                      totalRankedEntities: rankedTeams.length, // NEU
                       date: tournamentData.createdAt || admin.firestore.Timestamp.now()
                   };
                   if (!stats.bestTournamentPlacement || rank < stats.bestTournamentPlacement.rank) {
@@ -391,8 +428,8 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
           await Promise.all(doublesPlayerStatsUpdatePromises);
           logger.info(`Player stats updated and rankings prepared for 'doubles' tournament ${tournamentId}.`);
           break;
-
-        case 'groupVsGroup':
+        }
+        case 'groupVsGroup': {
           logger.info(`Handling 'groupVsGroup' tournament mode for ${tournamentId}.`);
 
           // Annahme: tournamentData.groups enthält Infos zu den teilnehmenden Gruppen
@@ -402,7 +439,14 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
 
           if (!tournamentData.groups || tournamentData.groups.length < 2) {
             logger.warn(`Not enough groups defined for 'groupVsGroup' tournament ${tournamentId}. Needs at least 2. Cannot calculate rankings.`);
-            await tournamentRef.update({ status: 'completed', finalizedAt: admin.firestore.FieldValue.serverTimestamp(), lastError: "Nicht genügend Gruppen für groupVsGroup-Modus definiert." });
+            await tournamentRef.update({ 
+                status: 'completed', 
+                finalizedAt: admin.firestore.FieldValue.serverTimestamp(), 
+                lastError: "Nicht genügend Gruppen für groupVsGroup-Modus definiert.",
+                totalRankedEntities: 0,
+                rankedPlayerUids: [],
+                rankingSystemUsed: rankingModeToStore
+            });
             return { success: true, message: "Nicht genügend Gruppen (min. 2) für groupVsGroup-Modus definiert, Abschluss ohne Ranking." };
           }
 
@@ -450,10 +494,12 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
             const gameParticipantUids = new Set(game.participantUids || []);
 
             for (const groupId in groupStats) {
-              const group = groupStats[groupId];
-              // Prüfen, ob mindestens ein Spieler der Gruppe an diesem Spiel teilgenommen hat
-              if (group.playerUids.some(uid => gameParticipantUids.has(uid))) {
-                involvedGroupsInGame.push(group);
+              if (Object.prototype.hasOwnProperty.call(groupStats, groupId)) {
+                const group = groupStats[groupId];
+                // Prüfen, ob mindestens ein Spieler der Gruppe an diesem Spiel teilgenommen hat
+                if (group.playerUids.some(uid => gameParticipantUids.has(uid))) {
+                  involvedGroupsInGame.push(group);
+                }
               }
             }
 
@@ -507,26 +553,28 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
               return a.gamesPlayed - b.gamesPlayed; // Weniger Spiele gespielt ist besser
             });
 
-          const groupPlayerStatsUpdatePromises = [];
+          const groupPlayerStatsUpdatePromises: Promise<void>[] = [];
           for (let i = 0; i < rankedGroups.length; i++) {
             const group = rankedGroups[i];
             const rank = i + 1;
             for (const playerUid of group.playerUids) {
+              allRankedPlayerUidsForTournamentDoc.add(playerUid);
               const playerRankingDocRef = playerRankingsColRef.doc(playerUid);
-              playerRankingBatch.set(playerRankingDocRef, {
-                  uid: playerUid,
+              const rankingData: TournamentPlayerRankingData = {
+                  playerId: playerUid,
                   rank: rank,
                   score: group.score, 
                   gamesPlayed: group.gamesPlayed, 
-                  wins: group.wins, 
+                  rawWins: group.wins, 
                   teamId: group.groupId,
                   teamName: group.groupName,
                   tournamentId: tournamentId,
                   tournamentName: tournamentName,
-                  totalParticipantsInRanking: rankedGroups.length,
-                  rankingMode: rankingModeToStore,
-                  finalizedAt: admin.firestore.FieldValue.serverTimestamp()
-              });
+                  totalRankedEntities: rankedGroups.length,
+                  rankingSystemUsed: rankingModeToStore,
+                  tournamentFinalizedAt: admin.firestore.Timestamp.now()
+              };
+              playerRankingBatch.set(playerRankingDocRef, rankingData);
 
               const playerStatsRef = db.collection("playerComputedStats").doc(playerUid);
               groupPlayerStatsUpdatePromises.push(
@@ -547,7 +595,8 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
                       tournamentId: tournamentId,
                       tournamentName: `${tournamentName} (Gruppe: ${group.groupName})`,
                       rank: rank,
-                      totalParticipants: rankedGroups.length, 
+                      totalParticipants: rankedGroups.length, // Beibehalten
+                      totalRankedEntities: rankedGroups.length, // NEU
                       date: tournamentData.createdAt || admin.firestore.Timestamp.now()
                   };
                   if (!stats.bestTournamentPlacement || rank < stats.bestTournamentPlacement.rank) {
@@ -573,27 +622,29 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
           await Promise.all(groupPlayerStatsUpdatePromises);
           logger.info(`Player stats updated and rankings prepared for 'groupVsGroup' tournament ${tournamentId}.`);
           break;
-
-        default:
+        }
+        default: {
           logger.warn(`Unknown or unsupported tournament mode: ${tournamentMode} for tournament ${tournamentId}.`);
           // Hier keinen Batch Commit, da nichts zu speichern ist oder Fehler auftrat
           throw new HttpsError("unimplemented", `Turniermodus '${tournamentMode || 'nicht definiert'}' wird nicht unterstützt.`);
+        }
       }
 
       // Batch für PlayerRankings committen, NACHDEM alle PlayerStats-Transaktionen (potenziell) durchgelaufen sind
-      // oder zumindest die Promises dafür erstellt wurden. Das Committen des Batches sollte nicht in der Transaktion sein.
       await playerRankingBatch.commit();
       logger.info(`Player rankings committed for tournament ${tournamentId}.`);
 
-      await tournamentRef.update({ 
-        status: 'completed', 
+      await tournamentRef.update({
+        status: 'completed',
         finalizedAt: admin.firestore.FieldValue.serverTimestamp(),
-        lastError: null 
+        lastError: null,
+        totalRankedEntities: totalRankedEntitiesForTournamentDoc,
+        rankingSystemUsed: rankingModeToStore,
+        rankedPlayerUids: Array.from(allRankedPlayerUidsForTournamentDoc)
       });
 
       logger.info(`--- finalizeTournament SUCCESS for ${tournamentId} ---`);
       return { success: true, message: `Turnier ${tournamentId} erfolgreich abgeschlossen und Rankings gespeichert.` };
-
     } catch (error) {
       logger.error(`--- finalizeTournament CRITICAL ERROR for ${tournamentId} --- `, error);
       // Versuche, den Fehler im Turnierdokument zu speichern

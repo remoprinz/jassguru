@@ -11,7 +11,16 @@ import { cn } from '@/lib/utils';
 import { Timestamp } from 'firebase/firestore';
 import Link from 'next/link';
 
+// NEU: Importe für den Store und die Transformation
+import { usePlayerStatsStore } from '@/store/playerStatsStore';
+import { transformComputedStatsToExtended, type TransformedPlayerStats } from '@/utils/statsTransformer';
+import NotableEventsList from "@/components/profile/NotableEventsList";
+
 type PlayerWithPlaceholder = FirestorePlayer & { _isPlaceholder?: boolean };
+
+// NEU: Lokales Interface für die transformierten Stats auf dieser Seite
+// Es sollte identisch sein mit dem in profile/index.tsx, idealerweise in eine gemeinsame Datei auslagern.
+interface PlayerProfilePageStats extends TransformedPlayerStats {}
 
 // NEU: Erweiterte Stats-Schnittstelle für die Anzeige (identisch zu profile/index.tsx)
 interface ExtendedPlayerStats {
@@ -33,10 +42,10 @@ interface ExtendedPlayerStats {
   avgMatschPerGame?: number;
   avgSchneiderPerGame?: number;
   avgWeisPointsPerGame?: number;
-  avgTimePerRound?: string;
+  avgRoundTime?: string;
   
   // Spieler-Ergebnisse
-  totalStricheDifference?: number;
+  totalStrichesDifference?: number;
   totalPointsDifference?: number;
   sessionsWon?: number;
   sessionsTied?: number;
@@ -45,24 +54,24 @@ interface ExtendedPlayerStats {
   gamesLost?: number;
   
   // Highlights
-  highestStrichdifferenzSession?: { value: number; date: string };
+  highestStricheSession?: { value: number; date: string };
   longestWinStreakSessions?: { value: number; date: string };
   longestUnbeatenStreakSessions?: { value: number; dateRange: string };
   mostMatchSessions?: { value: number; date: string };
-  mostWeisPointsSession?: { value: number; date: string };
-  highestStrichdifferenzGame?: { value: number; date: string };
+  highestWeisPoints?: { value: number; date: string };
+  highestStricheGame?: { value: number; date: string };
   longestWinStreakGames?: { value: number; date: string };
   longestUnbeatenStreakGames?: { value: number; date: string };
   mostMatchGames?: { value: number; date: string };
   mostWeisPointsGame?: { value: number; date: string };
   
   // Lowlights
-  lowestStrichdifferenzSession?: { value: number; date: string };
+  lowestStricheSession?: { value: number; date: string };
   longestLossStreakSessions?: { value: number; date: string };
   longestWinlessStreakSessions?: { value: number; dateRange: string };
   mostMatchReceivedSessions?: { value: number; date: string };
   mostWeisPointsReceivedSessions?: { value: number; date: string };
-  lowestStrichdifferenzGame?: { value: number; date: string };
+  lowestStricheGame?: { value: number; date: string };
   longestLossStreakGames?: { value: number; date: string };
   longestWinlessStreakGames?: { value: number; date: string };
   mostMatchReceivedGames?: { value: number; date: string };
@@ -76,6 +85,18 @@ const PlayerProfilePage = () => {
   const [player, setPlayer] = useState<FirestorePlayer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // NEU: State und Actions aus dem playerStatsStore
+  const {
+    stats: rawPlayerStats,
+    isLoading: statsLoading,
+    error: statsError,
+    subscribeToPlayerStats,
+    unsubscribePlayerStats,
+  } = usePlayerStatsStore();
+
+  // Abgeleiteter State für transformierte Statistiken
+  const [extendedStats, setExtendedStats] = useState<PlayerProfilePageStats | null>(null);
 
   // Handler für den Zurück-Button - NEUE LOGIK
   const handleGoBack = () => {
@@ -130,8 +151,28 @@ const PlayerProfilePage = () => {
 
     if (router.isReady) {
       fetchPlayerData();
+      // NEU: Statistiken abonnieren, wenn playerId vorhanden ist
+      if (typeof playerId === 'string') {
+        subscribeToPlayerStats(playerId);
+      }
     }
-  }, [playerId, router.isReady]);
+    // Cleanup für Listener
+    return () => {
+      unsubscribePlayerStats();
+    };
+  }, [playerId, router.isReady, subscribeToPlayerStats, unsubscribePlayerStats]);
+
+  // NEU: useEffect zur Transformation der rohen Statistiken aus dem Store
+  useEffect(() => {
+    if (rawPlayerStats) {
+        // groupCount hier aus player.groupIds ableiten oder default 0
+        const groupCount = player?.groupIds?.length || 0;
+        const transformed = transformComputedStatsToExtended(rawPlayerStats, groupCount);
+        setExtendedStats(transformed as PlayerProfilePageStats);
+    } else {
+        setExtendedStats(null);
+    }
+  }, [rawPlayerStats, player]);
 
   if (isLoading || !router.isReady) {
     return (
@@ -193,14 +234,6 @@ const PlayerProfilePage = () => {
   console.log("Player state before render:", player);
   console.log("Photo URL for Avatar:", player?.photoURL);
   console.log("Jass Spruch for P-Tag (using statusMessage):", jassSpruch);
-
-  // NEU: Hilfsfunktion für erweiterte Stats
-  const getExtendedStats = (player: FirestorePlayer | null): ExtendedPlayerStats => {
-    if (!player?.stats) return {};
-    return player.stats as any; // Type-Assertion für erweiterte Properties
-  };
-
-  const extendedStats = getExtendedStats(player);
 
   return (
     <MainLayout>
@@ -296,18 +329,16 @@ const PlayerProfilePage = () => {
               </div>
               
               <TabsContent value="individual" className="w-full bg-gray-800/50 rounded-lg p-4">
-                {/* Inhalt kopiert von profile/index.tsx, angepasst für [playerId].tsx */}
-                {/* {statsError && !statsLoading && ( // Diese Logik (statsError/statsLoading) ist spezifisch für die Datenladung in index.tsx und wird hier vorerst nicht 1:1 übernommen oder angepasst für player.error/isLoading) */} 
-                {isLoading ? (
+                {statsLoading ? (
                   <div className="flex justify-center items-center py-10">
                     <div className="h-6 w-6 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
                     <span className="ml-3 text-gray-300">Lade Statistiken...</span>
                   </div>
-                ) : error ? (
+                ) : statsError ? (
                   <div className="text-red-400 text-sm text-center p-4 bg-red-900/30 rounded-md mb-4">
-                    Fehler beim Laden der Statistiken: {error}
+                    Fehler beim Laden der Statistiken: {statsError}
                   </div>
-                ) : (
+                ) : extendedStats ? (
                   <div className="space-y-3 text-sm"> 
                     {/* Block 1: Spielerübersicht */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
@@ -318,8 +349,7 @@ const PlayerProfilePage = () => {
                       <div className="p-4 space-y-2">
                         <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                           <span className="font-medium text-gray-300">Anzahl Gruppen:</span>
-                          {/* Annahme: Diese Info ist nicht direkt im player Objekt, daher Platzhalter */}
-                          <span className="text-gray-100">{extendedStats?.groupCount || 1}</span> 
+                          <span className="text-gray-100">{extendedStats?.groupCount || 0}</span> 
                         </div>
                         <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                           <span className="font-medium text-gray-300">Anzahl Partien:</span>
@@ -395,7 +425,6 @@ const PlayerProfilePage = () => {
                         </div>
                         <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                           <span className="font-medium text-gray-300">Ø Schneider pro Spiel:</span>
-                           {/* Annahme: extendedStats.avgSchneiderPerGame existiert */}
                           <span className="text-gray-100">{extendedStats?.avgSchneiderPerGame?.toFixed(2) || '0.00'}</span>
                         </div>
                         <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
@@ -404,8 +433,7 @@ const PlayerProfilePage = () => {
                         </div>
                         <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                           <span className="font-medium text-gray-300">Ø Zeit pro Runde:</span>
-                           {/* Annahme: extendedStats.avgTimePerRound existiert und ist ein String */}
-                          <span className="text-gray-100">{extendedStats?.avgTimePerRound || '0m 0s'}</span>
+                          <span className="text-gray-100">{extendedStats?.avgRoundTime || '0m 0s'}</span>
                         </div>
                       </div>
                     </div>
@@ -419,17 +447,15 @@ const PlayerProfilePage = () => {
                       <div className="p-4 space-y-2">
                         <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                           <span className="font-medium text-gray-300">Strichdifferenz:</span>
-                          {/* Annahme: extendedStats.totalStricheDifference existiert */}
                           <span className="text-gray-100">
-                            {extendedStats?.totalStricheDifference && extendedStats.totalStricheDifference > 0 ? '+' : ''}
-                            {extendedStats?.totalStricheDifference || 0}
+                            {extendedStats?.totalStrichesDifference !== undefined && extendedStats.totalStrichesDifference > 0 ? '+' : ''}
+                            {extendedStats?.totalStrichesDifference || 0}
                           </span>
                         </div>
                         <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                           <span className="font-medium text-gray-300">Punktdifferenz:</span>
-                           {/* Annahme: extendedStats.totalPointsDifference existiert */}
                           <span className="text-gray-100">
-                            {extendedStats?.totalPointsDifference && extendedStats.totalPointsDifference > 0 ? '+' : ''}
+                            {extendedStats?.totalPointsDifference !== undefined && extendedStats.totalPointsDifference > 0 ? '+' : ''}
                             {extendedStats?.totalPointsDifference || 0}
                           </span>
                         </div>
@@ -463,26 +489,76 @@ const PlayerProfilePage = () => {
                         <h3 className="text-base font-semibold text-white">Highlights Partien</h3>
                       </div>
                       <div className="p-4 space-y-2">
-                        <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
-                          <span className="font-medium text-gray-300">Höchste Strichdifferenz:</span>
-                          <span className="text-gray-100">{extendedStats?.highestStrichdifferenzSession?.value ?? '0'} ({extendedStats?.highestStrichdifferenzSession?.date ?? '-'})</span>
-                        </Link>
-                        <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
-                          <span className="font-medium text-gray-300">Längste Siegesserie:</span>
-                          <span className="text-gray-100">{extendedStats?.longestWinStreakSessions?.value ?? '0'} ({extendedStats?.longestWinStreakSessions?.date ?? '-'})</span>
-                        </Link>
-                        <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
-                          <span className="font-medium text-gray-300">Längste Serie ohne Niederlage:</span>
-                          <span className="text-gray-100">{extendedStats?.longestUnbeatenStreakSessions?.value ?? '0'} ({extendedStats?.longestUnbeatenStreakSessions?.dateRange ?? '-'})</span>
-                        </Link>
-                        <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
-                          <span className="font-medium text-gray-300">Höchste Anzahl Matsche:</span>
-                          <span className="text-gray-100">{extendedStats?.mostMatchSessions?.value ?? '0'} ({extendedStats?.mostMatchSessions?.date ?? '-'})</span>
-                        </Link>
-                        <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
-                          <span className="font-medium text-gray-300">Meiste Weispunkte:</span>
-                          <span className="text-gray-100">{extendedStats?.mostWeisPointsSession?.value ?? '0'} ({extendedStats?.mostWeisPointsSession?.date ?? '-'})</span>
-                        </Link>
+                        {extendedStats?.highestStricheSession?.value ? (
+                          <Link 
+                            href={extendedStats.highestStricheSession.relatedId && extendedStats.highestStricheSession.relatedType === 'session' ? `/view/session/${extendedStats.highestStricheSession.relatedId}` : '#'} 
+                            className={`flex justify-between p-1 rounded-md ${extendedStats.highestStricheSession.relatedId ? 'hover:bg-gray-700/50 cursor-pointer' : 'cursor-default'}`}
+                          >
+                            <span className="font-medium text-gray-300">Höchste Strichdifferenz:</span>
+                            <span className="text-gray-100">{extendedStats.highestStricheSession.value} ({extendedStats.highestStricheSession.date ?? '-'})</span>
+                          </Link>
+                        ) : (
+                          <div className="flex justify-between p-1 rounded-md cursor-default">
+                            <span className="font-medium text-gray-300">Höchste Strichdifferenz:</span>
+                            <span className="text-gray-100">-</span>
+                          </div>
+                        )}
+                        {extendedStats?.longestWinStreakSessions?.value ? (
+                          <Link 
+                            href={'#'} // Streaks vorerst nicht verlinkbar
+                            className={`flex justify-between p-1 rounded-md cursor-default`}
+                          >
+                            <span className="font-medium text-gray-300">Längste Siegesserie:</span>
+                            <span className="text-gray-100">{extendedStats.longestWinStreakSessions.value} ({extendedStats.longestWinStreakSessions.date ?? '-'})</span>
+                          </Link>
+                        ) : (
+                          <div className="flex justify-between p-1 rounded-md cursor-default">
+                            <span className="font-medium text-gray-300">Längste Siegesserie:</span>
+                            <span className="text-gray-100">-</span>
+                          </div>
+                        )}
+                        {extendedStats?.longestUnbeatenStreakSessions?.value ? (
+                          <Link 
+                            href={'#'} // Streaks vorerst nicht verlinkbar
+                            className={`flex justify-between p-1 rounded-md cursor-default`}
+                          >
+                            <span className="font-medium text-gray-300">Längste Serie ohne Niederlage:</span>
+                            <span className="text-gray-100">{extendedStats.longestUnbeatenStreakSessions.value} ({extendedStats.longestUnbeatenStreakSessions.dateRange ?? '-'})</span>
+                          </Link>
+                        ) : (
+                          <div className="flex justify-between p-1 rounded-md cursor-default">
+                            <span className="font-medium text-gray-300">Längste Serie ohne Niederlage:</span>
+                            <span className="text-gray-100">-</span>
+                          </div>
+                        )}
+                        {extendedStats?.mostMatchSessions?.value ? (
+                          <Link 
+                            href={extendedStats.mostMatchSessions.relatedId && extendedStats.mostMatchSessions.relatedType === 'session' ? `/view/session/${extendedStats.mostMatchSessions.relatedId}` : '#'} 
+                            className={`flex justify-between p-1 rounded-md ${extendedStats.mostMatchSessions.relatedId ? 'hover:bg-gray-700/50 cursor-pointer' : 'cursor-default'}`}
+                          >
+                            <span className="font-medium text-gray-300">Höchste Anzahl Matsche:</span>
+                            <span className="text-gray-100">{extendedStats.mostMatchSessions.value} ({extendedStats.mostMatchSessions.date ?? '-'})</span>
+                          </Link>
+                        ) : (
+                          <div className="flex justify-between p-1 rounded-md cursor-default">
+                            <span className="font-medium text-gray-300">Höchste Anzahl Matsche:</span>
+                            <span className="text-gray-100">-</span>
+                          </div>
+                        )}
+                        {extendedStats?.highestWeisPoints?.value ? (
+                          <Link 
+                            href={extendedStats.highestWeisPoints.relatedId && extendedStats.highestWeisPoints.relatedType === 'session' ? `/view/session/${extendedStats.highestWeisPoints.relatedId}` : '#'} 
+                            className={`flex justify-between p-1 rounded-md ${extendedStats.highestWeisPoints.relatedId && extendedStats.highestWeisPoints.relatedType === 'session' ? 'hover:bg-gray-700/50 cursor-pointer' : 'cursor-default'}`}
+                          >
+                            <span className="font-medium text-gray-300">Meiste Weispunkte:</span>
+                            <span className="text-gray-100">{extendedStats.highestWeisPoints.value} ({extendedStats.highestWeisPoints.date ?? '-'})</span>
+                          </Link>
+                        ) : (
+                          <div className="flex justify-between p-1 rounded-md cursor-default">
+                            <span className="font-medium text-gray-300">Meiste Weispunkte:</span>
+                            <span className="text-gray-100">-</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -492,38 +568,165 @@ const PlayerProfilePage = () => {
                         <h3 className="text-base font-semibold text-white">Highlights Spiele</h3>
                       </div>
                       <div className="p-4 space-y-2">
-                        <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
-                          <span className="font-medium text-gray-300">Höchste Strichdifferenz:</span>
-                          <span className="text-gray-100">{extendedStats?.highestStrichdifferenzGame?.value ?? '0'} ({extendedStats?.highestStrichdifferenzGame?.date ?? '-'})</span>
-                        </Link>
-                        <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
-                          <span className="font-medium text-gray-300">Längste Siegesserie:</span>
-                          <span className="text-gray-100">{extendedStats?.longestWinStreakGames?.value ?? '0'} ({extendedStats?.longestWinStreakGames?.date ?? '-'})</span>
-                        </Link>
-                        <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
-                          <span className="font-medium text-gray-300">Längste Serie ohne Niederlage:</span>
-                          <span className="text-gray-100">{extendedStats?.longestUnbeatenStreakGames?.value ?? '0'} ({extendedStats?.longestUnbeatenStreakGames?.date ?? '-'})</span>
-                        </Link>
-                        <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
-                          <span className="font-medium text-gray-300">Höchste Anzahl Matsche:</span>
-                          <span className="text-gray-100">{extendedStats?.mostMatchGames?.value ?? '0'} ({extendedStats?.mostMatchGames?.date ?? '-'})</span>
-                        </Link>
-                        <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
-                          <span className="font-medium text-gray-300">Meiste Weispunkte:</span>
-                          <span className="text-gray-100">{extendedStats?.mostWeisPointsGame?.value ?? '0'} ({extendedStats?.mostWeisPointsGame?.date ?? '-'})</span>
-                        </Link>
+                        {extendedStats?.highestStricheGame?.value ? (
+                          <Link 
+                            href={extendedStats.highestStricheGame.relatedId && extendedStats.highestStricheGame.relatedType === 'game' ? `/view/game/${extendedStats.highestStricheGame.relatedId}` : '#'} // TODO: korrekte Route für Einzelspielansicht
+                            className={`flex justify-between p-1 rounded-md ${extendedStats.highestStricheGame.relatedId ? 'hover:bg-gray-700/50 cursor-pointer' : 'cursor-default'}`}
+                          >
+                            <span className="font-medium text-gray-300">Höchste Strichdifferenz:</span>
+                            <span className="text-gray-100">{extendedStats.highestStricheGame.value} ({extendedStats.highestStricheGame.date ?? '-'})</span>
+                          </Link>
+                        ) : (
+                          <div className="flex justify-between p-1 rounded-md cursor-default">
+                            <span className="font-medium text-gray-300">Höchste Strichdifferenz:</span>
+                            <span className="text-gray-100">-</span>
+                          </div>
+                        )}
+                        {extendedStats?.longestWinStreakGames?.value ? (
+                          <Link 
+                            href={'#'} // Streaks vorerst nicht verlinkbar
+                            className={`flex justify-between p-1 rounded-md cursor-default`}
+                          >
+                            <span className="font-medium text-gray-300">Längste Siegesserie:</span>
+                            <span className="text-gray-100">{extendedStats.longestWinStreakGames.value} ({extendedStats.longestWinStreakGames.date ?? '-'})</span>
+                          </Link>
+                        ) : (
+                          <div className="flex justify-between p-1 rounded-md cursor-default">
+                            <span className="font-medium text-gray-300">Längste Siegesserie:</span>
+                            <span className="text-gray-100">-</span>
+                          </div>
+                        )}
+                        {extendedStats?.longestUnbeatenStreakGames?.value ? (
+                          <Link 
+                            href={'#'} // Streaks vorerst nicht verlinkbar
+                            className={`flex justify-between p-1 rounded-md cursor-default`}
+                          >
+                            <span className="font-medium text-gray-300">Längste Serie ohne Niederlage:</span>
+                            <span className="text-gray-100">{extendedStats.longestUnbeatenStreakGames.value} ({extendedStats.longestUnbeatenStreakGames.date ?? '-'})</span>
+                          </Link>
+                        ) : (
+                          <div className="flex justify-between p-1 rounded-md cursor-default">
+                            <span className="font-medium text-gray-300">Längste Serie ohne Niederlage:</span>
+                            <span className="text-gray-100">-</span>
+                          </div>
+                        )}
+                        {extendedStats?.mostMatchGames?.value ? (
+                          <Link 
+                            href={extendedStats.mostMatchGames.relatedId && extendedStats.mostMatchGames.relatedType === 'game' ? `/view/game/${extendedStats.mostMatchGames.relatedId}` : '#'} // TODO: korrekte Route für Einzelspielansicht
+                            className={`flex justify-between p-1 rounded-md ${extendedStats.mostMatchGames.relatedId ? 'hover:bg-gray-700/50 cursor-pointer' : 'cursor-default'}`}
+                          >
+                            <span className="font-medium text-gray-300">Höchste Anzahl Matsche:</span>
+                            <span className="text-gray-100">{extendedStats.mostMatchGames.value} ({extendedStats.mostMatchGames.date ?? '-'})</span>
+                          </Link>
+                        ) : (
+                          <div className="flex justify-between p-1 rounded-md cursor-default">
+                            <span className="font-medium text-gray-300">Höchste Anzahl Matsche:</span>
+                            <span className="text-gray-100">-</span>
+                          </div>
+                        )}
+                        {extendedStats?.highestWeisPointsGame?.value ? (
+                          <Link 
+                            href={extendedStats.highestWeisPointsGame.relatedId && extendedStats.highestWeisPointsGame.relatedType === 'game' ? `/view/game/${extendedStats.highestWeisPointsGame.relatedId}` : '#'} // TODO: korrekte Route für Einzelspielansicht
+                            className={`flex justify-between p-1 rounded-md ${extendedStats.highestWeisPointsGame.relatedId ? 'hover:bg-gray-700/50 cursor-pointer' : 'cursor-default'}`}
+                          >
+                            <span className="font-medium text-gray-300">Meiste Weispunkte:</span>
+                            <span className="text-gray-100">{extendedStats.highestWeisPointsGame.value} ({extendedStats.highestWeisPointsGame.date ?? '-'})</span>
+                          </Link>
+                        ) : (
+                          <div className="flex justify-between p-1 rounded-md cursor-default">
+                            <span className="font-medium text-gray-300">Meiste Weispunkte:</span>
+                            <span className="text-gray-100">-</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
+                    {/* Lowlights Partien */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                         <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
                         <h3 className="text-base font-semibold text-white">Lowlights Partien</h3>
                       </div>
                       <div className="p-4 space-y-2">
+                        {extendedStats?.lowestStricheSession?.value ? (
+                          <Link 
+                            href={extendedStats.lowestStricheSession.relatedId && extendedStats.lowestStricheSession.relatedType === 'session' ? `/view/session/${extendedStats.lowestStricheSession.relatedId}` : '#'} 
+                            className={`flex justify-between p-1 rounded-md ${extendedStats.lowestStricheSession.relatedId ? 'hover:bg-gray-700/50 cursor-pointer' : 'cursor-default'}`}
+                          >
+                            <span className="font-medium text-gray-300">Höchste erhaltene Strichdifferenz:</span>
+                            <span className="text-gray-100">{extendedStats.lowestStricheSession.value} ({extendedStats.lowestStricheSession.date ?? '-'})</span>
+                          </Link>
+                        ) : (
+                          <div className="flex justify-between p-1 rounded-md cursor-default">
+                            <span className="font-medium text-gray-300">Höchste erhaltene Strichdifferenz:</span>
+                            <span className="text-gray-100">-</span>
+                          </div>
+                        )}
+                        {extendedStats?.longestLossStreakSessions?.value ? (
+                          <Link 
+                            href={'#'} // Streaks vorerst nicht verlinkbar
+                            className={`flex justify-between p-1 rounded-md cursor-default`}
+                          >
+                            <span className="font-medium text-gray-300">Längste Niederlagenserie:</span>
+                            <span className="text-gray-100">{extendedStats.longestLossStreakSessions.value} ({extendedStats.longestLossStreakSessions.date ?? '-'})</span>
+                          </Link>
+                        ) : (
+                          <div className="flex justify-between p-1 rounded-md cursor-default">
+                            <span className="font-medium text-gray-300">Längste Niederlagenserie:</span>
+                            <span className="text-gray-100">-</span>
+                          </div>
+                        )}
+                        {extendedStats?.longestWinlessStreakSessions?.value ? (
+                          <Link 
+                            href={'#'} // Streaks vorerst nicht verlinkbar
+                            className={`flex justify-between p-1 rounded-md cursor-default`}
+                          >
+                            <span className="font-medium text-gray-300">Längste Serie ohne Sieg:</span>
+                            <span className="text-gray-100">{extendedStats.longestWinlessStreakSessions.value} ({extendedStats.longestWinlessStreakSessions.dateRange ?? '-'})</span>
+                          </Link>
+                        ) : (
+                          <div className="flex justify-between p-1 rounded-md cursor-default">
+                            <span className="font-medium text-gray-300">Längste Serie ohne Sieg:</span>
+                            <span className="text-gray-100">-</span>
+                          </div>
+                        )}
+                        {extendedStats?.mostMatchReceivedSessions?.value ? (
+                          <Link 
+                            href={extendedStats.mostMatchReceivedSessions.relatedId && extendedStats.mostMatchReceivedSessions.relatedType === 'session' ? `/view/session/${extendedStats.mostMatchReceivedSessions.relatedId}` : '#'} 
+                            className={`flex justify-between p-1 rounded-md ${extendedStats.mostMatchReceivedSessions.relatedId ? 'hover:bg-gray-700/50 cursor-pointer' : 'cursor-default'}`}
+                          >
+                            <span className="font-medium text-gray-300">Höchste Anzahl Matsche bekommen:</span>
+                            <span className="text-gray-100">{extendedStats.mostMatchReceivedSessions.value} ({extendedStats.mostMatchReceivedSessions.date ?? '-'})</span>
+                          </Link>
+                        ) : (
+                          <div className="flex justify-between p-1 rounded-md cursor-default">
+                            <span className="font-medium text-gray-300">Höchste Anzahl Matsche bekommen:</span>
+                            <span className="text-gray-100">-</span>
+                          </div>
+                        )}
+                        {extendedStats?.mostWeisPointsReceivedSessions?.value ? (
+                          <Link 
+                            href={extendedStats.mostWeisPointsReceivedSessions.relatedId && extendedStats.mostWeisPointsReceivedSessions.relatedType === 'session' ? `/view/session/${extendedStats.mostWeisPointsReceivedSessions.relatedId}` : '#'} 
+                            className={`flex justify-between p-1 rounded-md ${extendedStats.mostWeisPointsReceivedSessions.relatedId ? 'hover:bg-gray-700/50 cursor-pointer' : 'cursor-default'}`}
+                          >
+                            <span className="font-medium text-gray-300">Meiste Weispunkte erhalten:</span>
+                            <span className="text-gray-100">{extendedStats.mostWeisPointsReceivedSessions.value} ({extendedStats.mostWeisPointsReceivedSessions.date ?? '-'})</span>
+                          </Link>
+                        ) : (
+                          <div className="flex justify-between p-1 rounded-md cursor-default">
+                            <span className="font-medium text-gray-300">Meiste Weispunkte erhalten:</span>
+                            <span className="text-gray-100">-</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Lowlights Spiele */}
+                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                         <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
                           <span className="font-medium text-gray-300">Höchste erhaltene Strichdifferenz:</span>
-                          <span className="text-gray-100">{extendedStats?.lowestStrichdifferenzSession?.value ?? '0'} ({extendedStats?.lowestStrichdifferenzSession?.date ?? '-'})</span>
+                          <span className="text-gray-100">{extendedStats?.lowestStricheSession?.value ?? '0'} ({extendedStats?.lowestStricheSession?.date ?? '-'})</span>
                         </Link>
                         <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
                           <span className="font-medium text-gray-300">Längste Niederlagenserie:</span>
@@ -552,7 +755,7 @@ const PlayerProfilePage = () => {
                       <div className="p-4 space-y-2">
                         <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
                           <span className="font-medium text-gray-300">Höchste erhaltene Strichdifferenz:</span>
-                          <span className="text-gray-100">{extendedStats?.lowestStrichdifferenzGame?.value ?? '0'} ({extendedStats?.lowestStrichdifferenzGame?.date ?? '-'})</span>
+                          <span className="text-gray-100">{extendedStats?.lowestStricheGame?.value ?? '0'} ({extendedStats?.lowestStricheGame?.date ?? '-'})</span>
                         </Link>
                         <Link href="#" className="flex justify-between hover:bg-gray-700/50 p-1 rounded-md cursor-pointer">
                           <span className="font-medium text-gray-300">Längste Niederlagen:</span>
@@ -572,7 +775,12 @@ const PlayerProfilePage = () => {
                         </Link>
                       </div>
                     </div>
+
+                    {/* NEU: Dynamische Highlights Liste einfügen */}
+                    <NotableEventsList highlights={extendedStats.dynamicHighlights} />
                   </div>
+                ) : (
+                  <div className="text-center text-gray-500 py-10">Keine Statistikdaten verfügbar.</div>
                 )}
               </TabsContent>
               <TabsContent value="partner" className="w-full bg-gray-800/50 rounded-lg p-4 space-y-6">

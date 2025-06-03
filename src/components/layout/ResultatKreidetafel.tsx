@@ -789,13 +789,15 @@ const ResultatKreidetafel = ({
       
       // --- NEU: finalizeSessionSummary aufrufen (nur wenn eine Session ID existiert!) ---
       const currentSessionIdLocal = jassStore.currentSession?.id;
-      const currentGameNumberLocal = jassStore.currentGameId; // Hole die aktuelle Spielnummer
+      // KORREKTUR: Verwende games.length für robustere Spielanzahl-Bestimmung (analog zu Online-Modus)
+      const totalGamesPlayedInSessionLocal = jassStore.games.length;
+      const currentGameNumberLocal = totalGamesPlayedInSessionLocal;
 
       if (currentSessionIdLocal && typeof currentGameNumberLocal === 'number' && currentGameNumberLocal > 0) { // Stelle sicher, dass gameNumber gültig ist
-          console.log(`[ResultatKreidetafel] Calling finalizeSessionSummary for session ${currentSessionIdLocal}, game ${currentGameNumberLocal} (Guest/Offline mode)`);
+          console.log(`[ResultatKreidetafel] Calling finalizeSession for session ${currentSessionIdLocal}, game ${currentGameNumberLocal} (Guest/Offline mode) - JassStore.games.length: ${jassStore.games.length}, JassStore.currentGameId: ${jassStore.currentGameId}`);
           try {
-              const functions = getFunctions(firebaseApp, "europe-west1"); // Region hinzufügen
-              const finalizeFunction = httpsCallable<FinalizeSessionDataClient, { success: boolean; message: string }>(functions, 'finalizeSessionSummary');
+              const functions = getFunctions(firebaseApp, "us-central1"); // Region hier korrigiert
+              const finalizeFunction = httpsCallable<FinalizeSessionDataClient, { success: boolean; message: string }>(functions, 'finalizeSession');
               
               // NEU: SessionTeams und pairingIdentifiers vorbereiten
               const playerNamesLocal = gameStore.playerNames;
@@ -818,13 +820,13 @@ const ResultatKreidetafel = ({
                 expectedGameNumber: currentGameNumberLocal,
                 initialSessionData: initialSessionData 
               }); 
-              console.log("[ResultatKreidetafel] finalizeSessionSummary result (Guest/Offline):", result.data);
+              console.log("[ResultatKreidetafel] finalizeSession result (Guest/Offline):", result.data);
           } catch (error) {
-              console.error("[ResultatKreidetafel] Error calling finalizeSessionSummary (Guest/Offline):", error);
+              console.error("[ResultatKreidetafel] Error calling finalizeSession (Guest/Offline):", error);
               uiStore.showNotification({type: "error", message: "Fehler beim Finalisieren der Session-Statistik."});
           }
       } else {
-           console.warn(`[ResultatKreidetafel] Skipping finalizeSessionSummary call (Guest/Offline): No Session ID or invalid/missing gameNumber. SessionID: ${currentSessionIdLocal}, GameNumber: ${currentGameNumberLocal}`);
+           console.warn(`[ResultatKreidetafel] Skipping finalizeSession call (Guest/Offline): No Session ID or invalid/missing gameNumber. SessionID: ${currentSessionIdLocal}, GameNumber: ${currentGameNumberLocal}`);
       }
       // --- ENDE: finalizeSessionSummary aufrufen ---
 
@@ -1213,7 +1215,11 @@ const ResultatKreidetafel = ({
         if (newState === 'completed') {
             const activeGameId = gameStore.activeGameId;
             const currentSessionIdFromStore = jassStore.currentSession?.id;
-            const currentGameNumber = jassStore.currentGameId;
+            // KORREKTUR: Verwende games.length für robustere Spielanzahl-Bestimmung
+            // Bei Turnieren ist es immer 1 (eine Passe = ein Spiel)
+            const totalGamesPlayedInSession = isTournamentPasse ? 1 : jassStore.games.length;
+            const currentGameNumber = totalGamesPlayedInSession;
+            console.log(`[handleSignatureClick] Session ${currentSessionIdFromStore}: Determined expectedGameNumber=${currentGameNumber} (Tournament: ${isTournamentPasse}, JassStore.games.length: ${jassStore.games.length}, JassStore.currentGameId: ${jassStore.currentGameId})`);
             let statusUpdated = false;
 
             // LOG 2: Direkt vor updateGameStatus
@@ -1364,11 +1370,11 @@ const ResultatKreidetafel = ({
 
             // --- Aufruf der Callable Function finalizeSessionSummary mit Retry --- 
             if (statusUpdated && currentSessionIdFromStore && currentGameNumber > 0) {
-                console.log(`[ResultatKreidetafel] Attempting to call finalizeSessionSummary Cloud Function for session ${currentSessionIdFromStore}, expecting game ${currentGameNumber} (Online mode)`);
+                console.log(`[ResultatKreidetafel] Attempting to call finalizeSession Cloud Function for session ${currentSessionIdFromStore}, expecting game ${currentGameNumber} (Online mode)`);
                 
-                const functions = getFunctions(firebaseApp, "europe-west1");
+                const functions = getFunctions(firebaseApp, "us-central1"); // Region hier korrigiert
                 // Der Typ hier sollte FinalizeSessionDataClient sein, wie im vorherigen Edit-Versuch definiert
-                const finalizeFunction = httpsCallable<FinalizeSessionDataClient, { success: boolean; message: string }>(functions, 'finalizeSessionSummary');
+                const finalizeFunction = httpsCallable<FinalizeSessionDataClient, { success: boolean; message: string }>(functions, 'finalizeSession');
                 
                 let attempts = 0;
                 const maxAttempts = 3;
@@ -1377,7 +1383,7 @@ const ResultatKreidetafel = ({
                 while (attempts < maxAttempts) {
                   attempts++;
                   try {
-                    console.log(`[ResultatKreidetafel] Calling finalizeSessionSummary (Attempt ${attempts})...`);
+                    console.log(`[ResultatKreidetafel] Calling finalizeSession (Attempt ${attempts})...`);
                     
                     let initialPayloadData: InitialSessionDataClient | undefined = undefined;
                     // Direkt auf jassStore und gameStore zugreifen
@@ -1406,16 +1412,16 @@ const ResultatKreidetafel = ({
                       initialSessionData: initialPayloadData 
                     });
                     
-                    console.log(`[ResultatKreidetafel] finalizeSessionSummary SUCCESS (Attempt ${attempts}):`, result.data);
+                    console.log(`[ResultatKreidetafel] finalizeSession SUCCESS (Attempt ${attempts}):`, result.data);
                     break; 
                   } catch (error: any) {
-                    console.warn(`[ResultatKreidetafel] finalizeSessionSummary FAILED (Attempt ${attempts}):`, error);
+                    console.warn(`[ResultatKreidetafel] finalizeSession FAILED (Attempt ${attempts}):`, error);
                     if ((error as any)?.details?.customCode === 'GAME_NOT_YET_VISIBLE' && attempts < maxAttempts) {
                       console.log(`[ResultatKreidetafel] Custom Precondition failed (Game ${currentGameNumber} likely not visible yet). Retrying in ${retryDelay / 1000}s...`);
                       await new Promise(resolve => setTimeout(resolve, retryDelay));
                       continue; 
                     } else { 
-                      console.error(`[ResultatKreidetafel] FINAL Error calling finalizeSessionSummary after ${attempts} attempts:`, error);
+                      console.error(`[ResultatKreidetafel] FINAL Error calling finalizeSession after ${attempts} attempts:`, error);
                       let errorMessage = "Fehler beim Finalisieren der Session-Statistik.";
                       if (error.code && error.message) {
                         errorMessage = `Fehler (${error.code}): ${error.message}`;
@@ -1428,7 +1434,7 @@ const ResultatKreidetafel = ({
                   }
                 } // Ende while loop
             } else {
-                console.warn("[ResultatKreidetafel] Skipping finalizeSessionSummary Cloud Function call (Online): Status not updated, Session ID or Game Number missing.");
+                console.warn("[ResultatKreidetafel] Skipping finalizeSession Cloud Function call (Online): Status not updated, Session ID or Game Number missing.");
             }
             // --- ENDE Aufruf finalizeSessionSummary mit Retry ---
 
