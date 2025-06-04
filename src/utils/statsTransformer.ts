@@ -3,7 +3,7 @@ import { de } from 'date-fns/locale';
 import type { FrontendPlayerComputedStats, FrontendStatHighlight, FrontendStatStreak, FrontendTournamentPlacement } from '../types/computedStats';
 
 // Dieses Interface definiert die Zielstruktur, die von den Profilseiten erwartet wird.
-// Es basiert auf der Kombination von PlayerStatistics (alt) und den Erweiterungen aus ExtendedPlayerStatistics (alt).
+// Namen und Struktur sind an die Verwendung in src/pages/profile/index.tsx angepasst.
 export interface TransformedPlayerStats {
   totalSessions: number;
   totalGames: number;
@@ -22,54 +22,81 @@ export interface TransformedPlayerStats {
   avgStrichePerGame: number;
   avgWeisPointsPerGame: number;
   avgMatschPerGame: number;
-  avgSchneiderPerGame?: number; // Aus altem ExtendedPlayerStatistics
+  avgSchneiderPerGame?: number;
   
-  totalTournaments?: number; // Aus altem ExtendedPlayerStatistics
-  tournamentWins?: number; // Aus altem ExtendedPlayerStatistics
-  avgRoundTime?: string; // Aus altem ExtendedPlayerStatistics
-  totalStrichesDifference?: number; // Aus altem ExtendedPlayerStatistics
-  totalPointsDifference?: number; // Aus altem ExtendedPlayerStatistics
+  totalTournaments?: number;
+  tournamentWins?: number;
+  avgRoundTime?: string;
+  totalStrichesDifference?: number;
+  totalPointsDifference?: number;
 
-  // Highlights und Lowlights - Struktur angepasst für relatedId/relatedType und | null
-  highestPointsGame?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' | 'session' | 'tournament' } | null;
-  highestWeisPointsGame?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' | 'session' | 'tournament' } | null;
-  highestStricheGame?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' | 'session' | 'tournament' } | null;
-  mostMatchGames?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' | 'session' | 'tournament' } | null;
-  longestWinStreakGames?: { value: number; date: string | null } | null;
-  longestUnbeatenStreakGames?: { value: number; date: string | null } | null; // UI erwartet date, nicht dateRange
-
-  highestStricheSession?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' | 'session' | 'tournament' } | null;
-  longestWinStreakSessions?: { value: number; date: string | null } | null;
-  longestUnbeatenStreakSessions?: { value: number; dateRange: string | null } | null;
-  mostMatchSessions?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' | 'session' | 'tournament' } | null;
+  // Highlights Partien - relatedType spezifisch für Session
+  highestStricheSession?: { value: number; date: string | null; relatedId?: string; relatedType?: 'session' } | null;
+  longestWinStreakSessions?: { value: number; date: string | null; dateRange?: string | null } | null;
+  longestUndefeatedStreakSessions?: { value: number; date: string | null; dateRange?: string | null } | null;
+  mostMatschSession?: { value: number; date: string | null; relatedId?: string; relatedType?: 'session' } | null;
+  mostWeisPointsSession?: { value: number; date: string | null; relatedId?: string; relatedType?: 'session' } | null;
   
-  lowestStricheSession?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' | 'session' | 'tournament' } | null;
-  longestLossStreakSessions?: { value: number; date: string | null } | null;
-  longestWinlessStreakSessions?: { value: number; dateRange: string | null } | null;
-  mostMatchReceivedSessions?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' | 'session' | 'tournament' } | null;
-  mostWeisPointsReceivedSessions?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' | 'session' | 'tournament' } | null;
+  // Highlights Spiele - relatedType spezifisch für Game
+  highestStricheGame?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' } | null;
+  longestWinStreakGames?: { value: number; date: string | null; dateRange?: string | null } | null;
+  longestUndefeatedStreakGames?: { value: number; date: string | null; dateRange?: string | null } | null;
+  mostMatschGame?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' } | null;
+  mostWeisPointsGame?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' } | null;
+
+  // Lowlights (Beispiele) - relatedType spezifisch
+  highestStricheReceivedSession?: { value: number; date: string | null; relatedId?: string; relatedType?: 'session' } | null;
+  highestStricheReceivedGame?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' } | null;
   
-  lowestStricheGame?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' | 'session' | 'tournament' } | null;
-  longestLossStreakGames?: { value: number; date: string | null } | null;
-  longestWinlessStreakGames?: { value: number; date: string | null } | null; // UI erwartet date
-  mostMatchReceivedGames?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' | 'session' | 'tournament' } | null;
-  mostWeisPointsReceivedGames?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' | 'session' | 'tournament' } | null;
-
-  // Dieses Feld ist nicht direkt im Backend-Modell, aber UI erwartet es (ggf. aus altem highestWeisPoints)
-  highestWeisPoints?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' | 'session' | 'tournament'} | null;
-  // Dieses Feld ist nicht direkt im Backend-Modell, aber UI erwartet es (ggf. aus altem highestStriche)
-  highestStriche?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' | 'session' | 'tournament' } | null;
-
-  // Für die dynamische Liste, falls wir sie implementieren
-  dynamicHighlights?: Array<{ label: string; value: string | number; date: string | null; relatedId?: string; relatedType?: 'game' | 'session' | 'tournament' }>;
+  // Lowlights (Beispiele) - relatedType spezifisch
+  longestLossStreakSessions?: { value: number; date: string | null; dateRange?: string | null } | null;
+  longestWinlessStreakSessions?: { value: number; date: string | null; dateRange?: string | null } | null;
+  mostMatschReceivedSession?: { value: number; date: string | null; relatedId?: string; relatedType?: 'session' } | null;
+  mostWeisPointsReceivedSession?: { value: number; date: string | null; relatedId?: string; relatedType?: 'session' } | null;
+  
+  longestLossStreakGames?: { value: number; date: string | null; dateRange?: string | null } | null;
+  longestWinlessStreakGames?: { value: number; date: string | null; dateRange?: string | null } | null;
+  mostMatschReceivedGame?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' } | null;
+  mostWeisPointsReceivedGame?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' } | null;
+  
+  // dynamicHighlights erwartet jetzt date als Date | null für NotableEventItem Kompatibilität
+  dynamicHighlights?: Array<Omit<FrontendStatHighlight, 'date'> & { date: Date | null }>; 
 }
 
-const formatDate = (date: Date | null, dateFormat: string = 'dd.MM.yyyy'): string | null => {
-  return date ? format(date, dateFormat, { locale: de }) : null;
+const formatDateSafely = (timestampInput: any): string | null => {
+  if (!timestampInput) return null;
+  try {
+    const date = timestampInput.toDate ? timestampInput.toDate() : 
+                 (timestampInput.seconds ? new Date(timestampInput.seconds * 1000) : 
+                 (timestampInput instanceof Date ? timestampInput : null));
+    if (date && !isNaN(date.getTime())) {
+      return format(date, 'dd.MM.yyyy', { locale: de });
+    }
+    return null;
+  } catch (e) {
+    // console.error("Error formatting date:", timestampInput, e);
+    return null;
+  }
+};
+
+const getRawDate = (timestampInput: any): Date | null => {
+  if (!timestampInput) return null;
+  try {
+    const date = timestampInput.toDate ? timestampInput.toDate() : 
+                 (timestampInput.seconds ? new Date(timestampInput.seconds * 1000) : 
+                 (timestampInput instanceof Date ? timestampInput : null));
+    if (date && !isNaN(date.getTime())) {
+      return date;
+    }
+    return null;
+  } catch (e) {
+    // console.error("Error formatting date:", timestampInput, e);
+    return null;
+  }
 };
 
 const formatTime = (seconds: number): string => {
-  if (seconds <= 0) return '0s'; // Korrigiert für 0 oder negative Werte
+  if (seconds <= 0) return '0s';
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = Math.floor(seconds % 60);
@@ -78,52 +105,76 @@ const formatTime = (seconds: number): string => {
   return `${s}s`;
 };
 
-const getHighlightValueForDisplay = (
-  highlight: FrontendStatHighlight | null
-): { value: number; date: string | null; relatedId?: string; relatedType?: 'game' | 'session' | 'tournament' } | null => {
-  if (!highlight) return null;
+// Angepasste interne Transformationsfunktion für Highlights
+const transformHighlightInternal = (
+  highlight: any, 
+  defaultRelatedType?: 'game' | 'session' | 'tournament',
+  preserveDateObject: boolean = false // Neuer Parameter
+): { value: number; date: string | Date | null; relatedId?: string; relatedType?: 'game' | 'session' | 'tournament' } | null => {
+  if (!highlight || highlight.value === null || highlight.value === undefined) return null;
   const val = typeof highlight.value === 'string' ? parseFloat(highlight.value) : highlight.value;
-  let relatedType: 'game' | 'session' | 'tournament' | undefined = undefined;
-  if (highlight.relatedId) {
-    // Verbesserte Typerkennung basierend auf Konventionen im highlight.type oder label
-    const typeLowerCase = highlight.type.toLowerCase();
-    const labelLowerCase = highlight.label.toLowerCase();
-
-    if (typeLowerCase.includes('game') || labelLowerCase.includes('spiel')) relatedType = 'game';
-    else if (typeLowerCase.includes('session') || labelLowerCase.includes('partie')) relatedType = 'session';
-    else if (typeLowerCase.includes('tournament') || labelLowerCase.includes('turnier')) relatedType = 'tournament';
+  
+  let relatedTypeCalculated: 'game' | 'session' | 'tournament' | undefined = defaultRelatedType;
+  if (highlight.relatedId && highlight.type && !defaultRelatedType) { 
+    const typeLowerCase = String(highlight.type).toLowerCase();
+    if (typeLowerCase.includes('game')) relatedTypeCalculated = 'game';
+    else if (typeLowerCase.includes('session')) relatedTypeCalculated = 'session';
+    else if (typeLowerCase.includes('tournament')) relatedTypeCalculated = 'tournament';
   }
-  return { value: val, date: formatDate(highlight.date), relatedId: highlight.relatedId, relatedType };
+
+  return { 
+    value: val, 
+    date: preserveDateObject ? getRawDate(highlight.date) : formatDateSafely(highlight.date), 
+    relatedId: highlight.relatedId,
+    relatedType: relatedTypeCalculated 
+  };
 };
 
-const getStreakValueForDisplay = (
-  streak: FrontendStatStreak | null, 
-  formatType: 'end_date' | 'date_range' = 'end_date'
-): { value: number; date: string | null } | { value: number; dateRange: string | null } | null => {
-  if (!streak || streak.value === 0) return null;
-  if (formatType === 'date_range') {
-    const startDateStr = formatDate(streak.startDate);
-    const endDateStr = formatDate(streak.endDate);
-    if (startDateStr && endDateStr && startDateStr !== endDateStr) {
-      return { value: streak.value, dateRange: `${startDateStr} - ${endDateStr}` };
-    }
-    return { value: streak.value, dateRange: endDateStr }; // Fallback auf endDate
+// Interne Transformationsfunktion für Streaks
+const transformStreakInternal = (
+  streak: any // Nimmt 'any' wegen potenziell veraltetem FrontendStatStreak Typ
+): { value: number; date: string | null; // End-Datum formatiert
+         startDate: string | null; // Start-Datum formatiert
+         endDate: string | null; // End-Datum formatiert (redundant zu date, aber explizit)
+         dateRange?: string | null // Kombinierter Datumsbereich
+} | null => {
+  if (!streak || streak.value === null || streak.value === undefined || streak.value === 0) return null;
+  
+  const startDateStr = formatDateSafely(streak.startDate);
+  const endDateStr = formatDateSafely(streak.endDate);
+  let dateRangeStr: string | null = endDateStr;
+
+  if (startDateStr && endDateStr && startDateStr !== endDateStr) {
+    dateRangeStr = `${startDateStr} - ${endDateStr}`;
   }
-  return { value: streak.value, date: formatDate(streak.endDate) };
+  
+  return { 
+    value: streak.value, 
+    date: endDateStr, 
+    startDate: startDateStr, 
+    endDate: endDateStr,
+    dateRange: dateRangeStr
+  };
 };
 
 export const transformComputedStatsToExtended = (
-  rawStats: FrontendPlayerComputedStats | null,
+  rawStatsInput: FrontendPlayerComputedStats | null, 
   currentGroupCount: number = 0 
 ): TransformedPlayerStats | null => {
-  if (!rawStats) return null;
+  if (!rawStatsInput) return null;
+
+  // WICHTIG: Type Assertion zu 'any', um auf Felder zuzugreifen, die in FrontendPlayerComputedStats
+  // (aus src/types/computedStats.ts) möglicherweise noch nicht (korrekt) deklariert sind.
+  // Der BENUTZER MUSS src/types/computedStats.ts aktualisieren, um FrontendPlayerComputedStats
+  // mit den Backend-Feldern (aus functions/src/models/player-stats.model.ts) zu synchronisieren.
+  const rawStats = rawStatsInput as any; 
 
   const transformed: TransformedPlayerStats = {
     totalSessions: rawStats.totalSessions || 0,
     totalGames: rawStats.totalGames || 0,
     totalPlayTime: formatTime(rawStats.totalPlayTimeSeconds || 0),
-    firstJassDate: formatDate(rawStats.firstJassTimestamp),
-    lastJassDate: formatDate(rawStats.lastJassTimestamp),
+    firstJassDate: formatDateSafely(rawStats.firstJassTimestamp),
+    lastJassDate: formatDateSafely(rawStats.lastJassTimestamp),
     groupCount: currentGroupCount,
     sessionsWon: rawStats.sessionWins || 0,
     sessionsTied: rawStats.sessionTies || 0,
@@ -139,58 +190,43 @@ export const transformComputedStatsToExtended = (
     avgSchneiderPerGame: rawStats.avgSchneiderPerGame || 0,
     totalTournaments: rawStats.totalTournamentsParticipated || 0,
     tournamentWins: rawStats.tournamentWins || 0,
-    totalStrichesDifference: rawStats.totalStricheMade - rawStats.totalStricheReceived, // Korrigierte Berechnung
-    totalPointsDifference: rawStats.totalPointsMade - rawStats.totalPointsReceived, // Korrigierte Berechnung
-    avgRoundTime: rawStats.totalGames > 0 ? formatTime(Math.round((rawStats.totalPlayTimeSeconds || 0) / rawStats.totalGames)) : '0s',
+    totalStrichesDifference: rawStats.totalStricheDifference,
+    totalPointsDifference: rawStats.totalPointsDifference,
+    avgRoundTime: rawStats.totalGames > 0 && rawStats.totalPlayTimeSeconds > 0 ? formatTime(Math.round(rawStats.totalPlayTimeSeconds / rawStats.totalGames)) : '0s',
 
-    // Highlights und Lowlights spezifisch mappen:
-    highestPointsGame: getHighlightValueForDisplay(rawStats.highestPointsGame),
-    highestWeisPointsGame: getHighlightValueForDisplay(rawStats.mostWeisPointsGame), 
-    highestStricheGame: getHighlightValueForDisplay(rawStats.highestStricheGame),
-    mostMatchGames: getHighlightValueForDisplay(rawStats.mostMatschGame),
-    longestWinStreakGames: getStreakValueForDisplay(rawStats.longestWinStreakGames, 'end_date') as { value: number; date: string | null } | null,
-    longestUnbeatenStreakGames: getStreakValueForDisplay(rawStats.longestWinlessStreakGames, 'end_date') as { value: number; date: string | null } | null, // UI erwartet `date` für unbeatean streaks game
-
-    highestStricheSession: getHighlightValueForDisplay(rawStats.highestStricheSession),
-    longestWinStreakSessions: getStreakValueForDisplay(rawStats.longestWinStreakSessions, 'end_date') as { value: number; date: string | null } | null,
-    longestUnbeatenStreakSessions: getStreakValueForDisplay(rawStats.longestWinlessStreakSessions, 'date_range') as { value: number; dateRange: string | null } | null,
-    mostMatchSessions: getHighlightValueForDisplay(rawStats.highlights.find(h => h.type === 'most_matsch_made_session') || null), 
+    // Highlights Partien - Zugriff auf rawStats mit korrekten Backend-Feldnamen
+    highestStricheSession: transformHighlightInternal(rawStats.highestStricheSession, 'session', false) as TransformedPlayerStats['highestStricheSession'],
+    longestWinStreakSessions: transformStreakInternal(rawStats.longestWinStreakSessions),
+    longestUndefeatedStreakSessions: transformStreakInternal(rawStats.longestUndefeatedStreakSessions),
+    mostMatschSession: transformHighlightInternal(rawStats.mostMatschSession, 'session', false) as TransformedPlayerStats['mostMatschSession'],
+    mostWeisPointsSession: transformHighlightInternal(rawStats.mostWeisPointsSession, 'session', false) as TransformedPlayerStats['mostWeisPointsSession'],
     
-    lowestStricheSession: getHighlightValueForDisplay(rawStats.highestStricheReceivedSession),
-    longestLossStreakSessions: getStreakValueForDisplay(rawStats.longestLossStreakSessions, 'end_date') as { value: number; date: string | null } | null,
-    longestWinlessStreakSessions: getStreakValueForDisplay(rawStats.longestWinlessStreakSessions, 'date_range') as { value: number; dateRange: string | null } | null,
-    mostMatchReceivedSessions: getHighlightValueForDisplay(rawStats.highlights.find(h => h.type === 'most_matsch_received_session') || null),
-    mostWeisPointsReceivedSessions: getHighlightValueForDisplay(rawStats.highlights.find(h => h.type === 'most_weis_points_received_session') || null), 
-    
-    lowestStricheGame: getHighlightValueForDisplay(rawStats.highestStricheReceivedGame),
-    longestLossStreakGames: getStreakValueForDisplay(rawStats.longestLossStreakGames, 'end_date') as { value: number; date: string | null } | null,
-    longestWinlessStreakGames: getStreakValueForDisplay(rawStats.longestWinlessStreakGames, 'end_date') as { value: number; date: string | null } | null, // UI erwartet `date`
-    mostMatchReceivedGames: getHighlightValueForDisplay(rawStats.mostMatschReceivedGame),
-    mostWeisPointsReceivedGames: getHighlightValueForDisplay(rawStats.mostKontermatschReceivedGame), // Beispiel: Mapping auf mostKontermatschReceivedGame, da es im UI so aussieht
+    // Highlights Spiele - Zugriff auf rawStats mit korrekten Backend-Feldnamen
+    highestStricheGame: transformHighlightInternal(rawStats.highestStricheGame, 'game', false) as TransformedPlayerStats['highestStricheGame'],
+    longestWinStreakGames: transformStreakInternal(rawStats.longestWinStreakGames),
+    longestUndefeatedStreakGames: transformStreakInternal(rawStats.longestUndefeatedStreakGames),
+    mostMatschGame: transformHighlightInternal(rawStats.mostMatschGame, 'game', false) as TransformedPlayerStats['mostMatschGame'],
+    mostWeisPointsGame: transformHighlightInternal(rawStats.mostWeisPointsGame, 'game', false) as TransformedPlayerStats['mostWeisPointsGame'],
 
-    // Die Felder `highestWeisPoints` und `highestStriche` sind generischer und könnten aus dem `highlights` Array kommen oder spezifischen Feldern.
-    // Annahme: Wir mappen sie auf die Spiel-Highlights, falls vorhanden.
-    highestWeisPoints: getHighlightValueForDisplay(rawStats.mostWeisPointsGame),
-    highestStriche: getHighlightValueForDisplay(rawStats.highestStricheGame),
+    // Lowlights (Beispiele)
+    highestStricheReceivedSession: transformHighlightInternal(rawStats.highestStricheReceivedSession, 'session', false) as TransformedPlayerStats['highestStricheReceivedSession'],
+    highestStricheReceivedGame: transformHighlightInternal(rawStats.highestStricheReceivedGame, 'game', false) as TransformedPlayerStats['highestStricheReceivedGame'],
+    // -- TRANSFORMATION FÜR NEUE LOWLIGHTS --
+    longestLossStreakSessions: transformStreakInternal(rawStats.longestLossStreakSessions),
+    longestWinlessStreakSessions: transformStreakInternal(rawStats.longestWinlessStreakSessions),
+    mostMatschReceivedSession: transformHighlightInternal(rawStats.mostMatschReceivedSession, 'session', false) as TransformedPlayerStats['mostMatschReceivedSession'],
+    mostWeisPointsReceivedSession: transformHighlightInternal(rawStats.mostWeisPointsReceivedSession, 'session', false) as TransformedPlayerStats['mostWeisPointsReceivedSession'],
 
-    dynamicHighlights: rawStats.highlights.map(h => {
-      let relatedType: 'game' | 'session' | 'tournament' | undefined = undefined;
-      if (h.relatedId) {
-        const typeLowerCase = h.type.toLowerCase();
-        const labelLowerCase = h.label.toLowerCase();
-        if (typeLowerCase.includes('game') || labelLowerCase.includes('spiel')) relatedType = 'game';
-        else if (typeLowerCase.includes('session') || labelLowerCase.includes('partie')) relatedType = 'session';
-        else if (typeLowerCase.includes('tournament') || labelLowerCase.includes('turnier')) relatedType = 'tournament';
-      }
-      return {
-        label: h.label,
-        value: h.value,
-        date: formatDate(h.date),
-        relatedId: h.relatedId,
-        relatedType: relatedType
-      }
-    })
+    longestLossStreakGames: transformStreakInternal(rawStats.longestLossStreakGames),
+    longestWinlessStreakGames: transformStreakInternal(rawStats.longestWinlessStreakGames),
+    mostMatschReceivedGame: transformHighlightInternal(rawStats.mostMatschReceivedGame, 'game', false) as TransformedPlayerStats['mostMatschReceivedGame'],
+    mostWeisPointsReceivedGame: transformHighlightInternal(rawStats.mostWeisPointsReceivedGame, 'game', false) as TransformedPlayerStats['mostWeisPointsReceivedGame'],
+    // -- ENDE TRANSFORMATION FÜR NEUE LOWLIGHTS --
+
+    dynamicHighlights: rawStats.highlights 
+      ? rawStats.highlights.map((h: any) => transformHighlightInternal(h, undefined, true)!)
+      : [],
   };
-
+  
   return transformed;
 }; 

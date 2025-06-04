@@ -253,7 +253,8 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
                   rank: rank,
                   totalParticipants: rankedPlayers.length, // Beibehalten für Abwärtskompatibilität
                   totalRankedEntities: rankedPlayers.length, // NEU
-                  date: tournamentData.createdAt || admin.firestore.Timestamp.now()
+                  date: tournamentData.createdAt || admin.firestore.Timestamp.now(),
+                  highlights: [], // NEU
                 };
                 if (!stats.bestTournamentPlacement || rank < stats.bestTournamentPlacement.rank) {
                   stats.bestTournamentPlacement = currentPlacement;
@@ -403,7 +404,8 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
                       rank: rank,
                       totalParticipants: rankedTeams.length, // Beibehalten
                       totalRankedEntities: rankedTeams.length, // NEU
-                      date: tournamentData.createdAt || admin.firestore.Timestamp.now()
+                      date: tournamentData.createdAt || admin.firestore.Timestamp.now(),
+                      highlights: [], // NEU
                   };
                   if (!stats.bestTournamentPlacement || rank < stats.bestTournamentPlacement.rank) {
                       stats.bestTournamentPlacement = currentPlacement;
@@ -597,7 +599,8 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
                       rank: rank,
                       totalParticipants: rankedGroups.length, // Beibehalten
                       totalRankedEntities: rankedGroups.length, // NEU
-                      date: tournamentData.createdAt || admin.firestore.Timestamp.now()
+                      date: tournamentData.createdAt || admin.firestore.Timestamp.now(),
+                      highlights: [], // NEU
                   };
                   if (!stats.bestTournamentPlacement || rank < stats.bestTournamentPlacement.rank) {
                       stats.bestTournamentPlacement = currentPlacement;

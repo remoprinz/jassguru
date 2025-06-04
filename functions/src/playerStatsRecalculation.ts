@@ -426,7 +426,9 @@ export const recalculateAllPlayerStatistics = onCall(
                                     tournamentName: `${tournamentName}${teamNameSuffix}`,
                                     rank: playerRank,
                                     totalParticipants: totalParticipants,
-                                    date: event.timestamp
+                                    totalRankedEntities: totalParticipants,
+                                    date: event.timestamp,
+                                    highlights: [],
                                 };
                                 if (!stats.bestTournamentPlacement || playerRank < stats.bestTournamentPlacement.rank) {
                                     stats.bestTournamentPlacement = currentPlacement;

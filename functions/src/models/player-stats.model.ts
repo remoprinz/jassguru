@@ -23,6 +23,38 @@ export interface StatStreak {
   // relatedIds?: string[]; // z.B. eine Liste von gameIds oder sessionIds
 }
 
+// NEU: Interface für aggregierte Partnerstatistiken
+export interface PartnerAggregate {
+  partnerId: string;
+  partnerDisplayName: string; // Den Namen speichern wir zur einfacheren Anzeige, könnte aber auch dynamisch geladen werden
+  sessionsPlayedWith: number;
+  sessionsWonWith: number;
+  gamesPlayedWith: number; // Anzahl der einzelnen Spiele zusammen
+  gamesWonWith: number;
+  totalStricheDifferenceWith: number; // Summe der Strichdifferenz aus Sicht des Profil-Spielers, wenn mit diesem Partner gespielt
+  totalPointsWith: number; // Summe der Punkte des Teams, wenn mit diesem Partner gespielt
+  totalPointsDifferenceWith: number; // NEU: Punktdifferenz statt akkumulierte Punkte
+  matschGamesWonWith: number;
+  schneiderGamesWonWith: number;
+  lastPlayedWithTimestamp: admin.firestore.Timestamp;
+}
+
+// NEU: Interface für aggregierte Gegnerstatistiken
+export interface OpponentAggregate {
+  opponentId: string;
+  opponentDisplayName: string; // Den Namen speichern wir zur einfacheren Anzeige
+  sessionsPlayedAgainst: number; // Anzahl Partien, in denen dieser Spieler ein Gegner war
+  sessionsWonAgainst: number;    // Anzahl Partien, die der Profil-Spieler GEGEN diesen Gegner gewonnen hat
+  gamesPlayedAgainst: number;    // Anzahl Spiele, in denen dieser Spieler ein Gegner war
+  gamesWonAgainst: number;       // Anzahl Spiele, die der Profil-Spieler GEGEN diesen Gegner gewonnen hat
+  totalStricheDifferenceAgainst: number; // Summe der Strichdifferenz aus Sicht des Profil-Spielers GEGEN diesen Gegner
+  totalPointsScoredWhenOpponent: number; // Summe der Punkte des Profil-Spielers, wenn dieser Gegner im anderen Team war
+  totalPointsDifferenceAgainst: number; // NEU: Punktdifferenz gegen diesen Gegner
+  matschGamesWonAgainstOpponentTeam: number; // Anzahl Matsch-Spiele, die das Team des Profil-Spielers GEGEN das Team dieses Gegners gewonnen hat
+  schneiderGamesWonAgainstOpponentTeam: number; // Anzahl Schneider-Spiele analog
+  lastPlayedAgainstTimestamp: admin.firestore.Timestamp;
+}
+
 export interface TournamentPlacement {
   tournamentId: string;
   tournamentName: string;
@@ -31,6 +63,13 @@ export interface TournamentPlacement {
   totalRankedEntities?: number; // NEU: Genaue Anzahl der im Ranking berücksichtigten Entitäten
   date: admin.firestore.Timestamp;
   teamName?: string; // Optional, falls es ein Team-Turnier war
+
+  // NEU: Sammlung von bemerkenswerten Ereignissen/Highlights
+  highlights: StatHighlight[];
+
+  // NEU: Aggregierte Statistiken für Partner und Gegner
+  partnerAggregates?: PartnerAggregate[];
+  opponentAggregates?: OpponentAggregate[];
 }
 
 export interface PlayerComputedStats {
@@ -78,11 +117,13 @@ export interface PlayerComputedStats {
   currentGameWinStreak: number;
   currentGameLossStreak: number;
   currentGameWinlessStreak: number;
+  currentUndefeatedStreakGames: number; // NEU
 
   // NEU: Zähler für aktuelle Session-Streaks
   currentSessionWinStreak: number;
   currentSessionLossStreak: number;
   currentSessionWinlessStreak: number;
+  currentUndefeatedStreakSessions: number; // NEU
 
   // === Durchschnittswerte pro Spiel ===
   avgPointsPerGame: number;         // Durchschnittliche Punkte pro Spiel
@@ -107,12 +148,14 @@ export interface PlayerComputedStats {
   mostWeisPointsGame: StatHighlight | null;         // Meiste Weispunkte in einem Spiel
   mostKontermatschMadeGame: StatHighlight | null; // NEU
   longestWinStreakGames: StatStreak | null;         // Längste Siegesserie (Spiele)
+  longestUndefeatedStreakGames: StatStreak | null; // NEU: Längste Serie ohne Niederlage (Spiele)
 
   // === Lowlights Spiele ===
   lowestPointsGame: StatHighlight | null;           // Tiefste Punktzahl in einem einzelnen Spiel (kann negativ sein)
   highestStricheReceivedGame: StatHighlight | null; // Höchste erhaltene Strichzahl in einem Spiel
   mostMatschReceivedGame: StatHighlight | null;     // Meiste erhaltene Matsch-Striche in einem Spiel
   mostSchneiderReceivedGame: StatHighlight | null;  // Meiste erhaltene Schneider-Striche in einem Spiel
+  mostWeisPointsReceivedGame: StatHighlight | null; // NEU: Meiste erhaltene Weispunkte in einem Spiel
   mostKontermatschReceivedGame: StatHighlight | null; // NEU
   longestLossStreakGames: StatStreak | null;        // Längste Niederlagenserie (Spiele)
   longestWinlessStreakGames: StatStreak | null;     // Längste Serie ohne Sieg (Spiele)
@@ -122,11 +165,16 @@ export interface PlayerComputedStats {
   // === Highlights Partien (Sessions) ===
   highestPointsSession: StatHighlight | null;
   highestStricheSession: StatHighlight | null;
+  mostMatschSession: StatHighlight | null;         // NEU: Höchste Anzahl Matsche in einer Partie
+  mostWeisPointsSession: StatHighlight | null;     // NEU: Meiste Weispunkte in einer Partie
   longestWinStreakSessions: StatStreak | null;
+  longestUndefeatedStreakSessions: StatStreak | null; // NEU: Längste Serie ohne Niederlage (Partien)
 
   // === Lowlights Partien (Sessions) ===
   lowestPointsSession: StatHighlight | null;
   highestStricheReceivedSession: StatHighlight | null;
+  mostMatschReceivedSession: StatHighlight | null;           // NEU: Meiste erhaltene Matsch-Striche in einer Partie  
+  mostWeisPointsReceivedSession: StatHighlight | null;       // NEU: Meiste erhaltene Weispunkte in einer Partie
   longestLossStreakSessions: StatStreak | null;
   longestWinlessStreakSessions: StatStreak | null;
 
@@ -145,6 +193,10 @@ export interface PlayerComputedStats {
 
   // NEU: Sammlung von bemerkenswerten Ereignissen/Highlights
   highlights: StatHighlight[];
+
+  // NEU: Initialisierung für Partner- und Gegnerstatistiken
+  partnerAggregates?: PartnerAggregate[];
+  opponentAggregates?: OpponentAggregate[];
 }
 
 // Initialwerte für PlayerComputedStats
@@ -180,9 +232,11 @@ export const initialPlayerComputedStats: PlayerComputedStats = {
   currentGameWinStreak: 0,
   currentGameLossStreak: 0,
   currentGameWinlessStreak: 0,
+  currentUndefeatedStreakGames: 0, // NEU
   currentSessionWinStreak: 0,
   currentSessionLossStreak: 0,
   currentSessionWinlessStreak: 0,
+  currentUndefeatedStreakSessions: 0, // NEU
 
   avgPointsPerGame: 0,
   avgStrichePerGame: 0,
@@ -204,11 +258,13 @@ export const initialPlayerComputedStats: PlayerComputedStats = {
   mostWeisPointsGame: null,
   mostKontermatschMadeGame: null,
   longestWinStreakGames: null,
+  longestUndefeatedStreakGames: null, // NEU
 
   lowestPointsGame: null,
   highestStricheReceivedGame: null,
   mostMatschReceivedGame: null,
   mostSchneiderReceivedGame: null,
+  mostWeisPointsReceivedGame: null,
   mostKontermatschReceivedGame: null,
   longestLossStreakGames: null,
   longestWinlessStreakGames: null,
@@ -217,12 +273,21 @@ export const initialPlayerComputedStats: PlayerComputedStats = {
 
   highestPointsSession: null,
   highestStricheSession: null,
+  mostMatschSession: null,
+  mostWeisPointsSession: null,
   longestWinStreakSessions: null,
+  longestUndefeatedStreakSessions: null, // NEU
 
   lowestPointsSession: null,
   highestStricheReceivedSession: null,
+  mostMatschReceivedSession: null,
+  mostWeisPointsReceivedSession: null,
   longestLossStreakSessions: null,
   longestWinlessStreakSessions: null,
 
   highlights: [],
+
+  // NEU: Initialisierung für Partner- und Gegnerstatistiken
+  partnerAggregates: [],
+  opponentAggregates: [],
 }; 

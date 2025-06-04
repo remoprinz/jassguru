@@ -532,32 +532,36 @@ const calculateTotalStriche = (striche: StricheRecord): number => {
 };
 
 // Hilfsfunktion für die Synchronisation mit dem JassStore
-const syncWithJassStore = (state: GameState) => {
+const syncWithJassStore = (stateOfCompletedRound: GameState) => { // Parameter renamed for clarity
   const jassStore = useJassStore.getState();
   const currentGame = jassStore.getCurrentGame();
   if (!currentGame) return;
 
-  // Wichtig: Aktualisiere das aktuelle Spiel im jassStore
+  // Calculate the Weis points from THIS specific completed round
+  const roundWeisPoints = stateOfCompletedRound.weisPoints; // This is currentRoundWeisSum
+
   jassStore.updateCurrentGame({
     teams: {
       top: {
         ...currentGame.teams.top,
-        striche: state.striche.top,
-        jassPoints: state.scores.top,
-        weisPoints: state.weisPoints.top,
-        total: state.scores.top,
+        striche: stateOfCompletedRound.striche.top,
+        jassPoints: stateOfCompletedRound.scores.top, // This is total score up to this round
+        // Accumulate Weis points
+        weisPoints: (currentGame.teams.top.weisPoints || 0) + (roundWeisPoints?.top || 0),
+        total: stateOfCompletedRound.scores.top,
       },
       bottom: {
         ...currentGame.teams.bottom,
-        striche: state.striche.bottom,
-        jassPoints: state.scores.bottom,
-        weisPoints: state.weisPoints.bottom,
-        total: state.scores.bottom,
+        striche: stateOfCompletedRound.striche.bottom,
+        jassPoints: stateOfCompletedRound.scores.bottom, // Total score up to this round
+        // Accumulate Weis points
+        weisPoints: (currentGame.teams.bottom.weisPoints || 0) + (roundWeisPoints?.bottom || 0),
+        total: stateOfCompletedRound.scores.bottom,
       },
     },
-    roundHistory: state.roundHistory,
-    currentRound: state.currentRound,
-    currentPlayer: state.currentPlayer,
+    roundHistory: stateOfCompletedRound.roundHistory, // The full history up to and including this round
+    currentRound: stateOfCompletedRound.currentRound + 1, // Next round number for jassStore context
+    currentPlayer: stateOfCompletedRound.currentPlayer, // Next player for jassStore context
   });
 };
 
@@ -661,6 +665,7 @@ export const useGameStore = create<GameStore>()(devtools(
 
     let finalState: GameState | null = null;
     let savedRoundEntryForFirestore: RoundEntry | null = null;
+    let stateForJassStoreSyncInternal: GameState | null = null; // Variable für den Sync-State
 
     set((state) => {
       // << NEUES LOGGING 2: Zustand VOR Modifikation im set-Block >> // LOG ENTFERNT
@@ -781,6 +786,17 @@ export const useGameStore = create<GameStore>()(devtools(
         currentHistoryIndex: state.currentHistoryIndex ?? -1,
         historyState: state.historyState || createInitialHistoryState(),
         // strokeSettings etc. bleiben vom state
+        // Wichtig: die restlichen Properties wie playerNames, gamePlayers, activeGameId etc.
+        // werden von ...state übernommen und sollten hier korrekt sein.
+        playerNames: state.playerNames,
+        gamePlayers: state.gamePlayers,
+        activeGameId: state.activeGameId, // initialActiveGameId ist hier eventuell besser, wenn state.activeGameId nicht zuverlässig ist
+        initialStartingPlayer: state.initialStartingPlayer,
+        isGameStarted: state.isGameStarted,
+        isGameCompleted: state.isGameCompleted,
+        scoreSettings: state.scoreSettings,
+        farbeSettings: state.farbeSettings,
+        strokeSettings: state.strokeSettings,
       };
       
       const newEntry = createRoundEntry(
@@ -799,17 +815,47 @@ export const useGameStore = create<GameStore>()(devtools(
       const historyUpdate = truncateFutureAndAddEntry(state, newEntry);
       // console.log("[GameStore] finalizeRound: historyUpdate Ergebnis:", { newHistoryLength: historyUpdate.roundHistory?.length, newIndex: historyUpdate.currentHistoryIndex }); // LOG ENTFERNT
 
-      finalState = {
-          ...state,
-          scores: newTotalScores, // Gesamtpunktzahl über alle Runden
-          striche: newStriche, // Gesamtstriche über alle Runden
-          weisPoints: { top: 0, bottom: 0 }, // Weis für die NÄCHSTE Runde zurücksetzen
-          currentRoundWeis: [], // Weis-Aktionen für die NÄCHSTE Runde zurücksetzen
-          isRoundCompleted: true,
-          currentRound: roundNumberForEntry + 1, // Nächste Runde beginnt mit dieser Nummer
-          currentPlayer: nextCurrentPlayer, // Spieler für die nächste Runde
-          startingPlayer: nextStartingPlayer, // Startspieler für die nächste Runde
-          ...historyUpdate,
+      // Erzeuge den State, wie er am Ende der gerade abgeschlossenen Runde war
+      // Dieser State wird für die Synchronisation mit jassStore verwendet.
+      const stateAtEndOfCompletedRound: GameState = {
+          ...state, // Basis ist der State VOR dieser Runde
+          scores: newTotalScores, // Gesamtscores INKLUSIVE dieser Runde
+          striche: newStriche, // Gesamtstriche INKLUSIVE dieser Runde
+          weisPoints: currentRoundWeisSum, // Weispunkte DIESER Runde
+          currentRoundWeis: state.currentRoundWeis, // Weisaktionen DIESER Runde (für den History-Eintrag)
+          isRoundCompleted: true, // Diese Runde ist abgeschlossen
+          currentRound: roundNumberForEntry, // Die Nummer der gerade abgeschlossenen Runde
+          currentPlayer: nextCurrentPlayer, // Der Spieler, der die nächste Runde beginnen würde
+          startingPlayer: actualStarterOfFinalizedRound, // Wer hat DIESE Runde gestartet
+          jassPoints: currentRoundJassPoints, // Jasspunkte DIESER Runde
+          // History Update enthält bereits den newEntry für diese Runde
+          roundHistory: historyUpdate.roundHistory!, 
+          currentHistoryIndex: historyUpdate.currentHistoryIndex!,
+          historyState: state.historyState || createInitialHistoryState(),
+          // Wichtig: Restliche Felder aus stateForEntryCreation übernehmen, um Konsistenz zu wahren
+          playerNames: stateForEntryCreation.playerNames,
+          gamePlayers: stateForEntryCreation.gamePlayers,
+          activeGameId: initialActiveGameId, // Sicherstellen, dass die korrekte ID verwendet wird
+          initialStartingPlayer: stateForEntryCreation.initialStartingPlayer,
+          isGameStarted: stateForEntryCreation.isGameStarted,
+          isGameCompleted: stateForEntryCreation.isGameCompleted, // Bleibt erstmal false, bis das Spiel ganz fertig ist
+          scoreSettings: stateForEntryCreation.scoreSettings,
+          farbeSettings: stateForEntryCreation.farbeSettings,
+          strokeSettings: stateForEntryCreation.strokeSettings,
+      };
+      stateForJassStoreSyncInternal = stateAtEndOfCompletedRound; // Speichere diesen State für außerhalb
+
+      finalState = { // Dies ist der State für die *nächste* lokale gameStore Runde
+          ...state, // Basis ist der State VOR dieser Runde
+          scores: newTotalScores,
+          striche: newStriche,
+          weisPoints: { top: 0, bottom: 0 }, // Reset für NÄCHSTE Runde
+          currentRoundWeis: [],             // Reset für NÄCHSTE Runde
+          isRoundCompleted: true, // Die gerade gespielte Runde ist abgeschlossen
+          currentRound: roundNumberForEntry + 1, // Nächste Rundennummer
+          currentPlayer: nextCurrentPlayer, 
+          startingPlayer: nextStartingPlayer, 
+          ...historyUpdate, // Enthält newEntry in roundHistory
       } as GameState;
 
       savedRoundEntryForFirestore = newEntry;
@@ -823,62 +869,17 @@ export const useGameStore = create<GameStore>()(devtools(
     }); 
 
     // Firestore Updates NACH set()
-    const finalStateFromSet = get();
-    // console.log(`[GameStore] finalizeRound: Zustand NACH set() (für Firestore):`); // LOG ENTFERNT
-    // console.log(`  - Verwendete ID: ${initialActiveGameId}`); // LOG ENTFERNT
-    // console.log(`  - State ID: ${finalStateFromSet.activeGameId}`); // LOG ENTFERNT
-    // try { // LOG ENTFERNT
-    //   const jassStoreGameId = jassStore.currentSession?.currentActiveGameId; // LOG ENTFERNT
-    //   const isTournament = jassStore.currentSession?.isTournamentSession; // LOG ENTFERNT
-    //   console.log(`  - Session: ${jassStore.currentSession?.id}, isTournament: ${isTournament}`); // LOG ENTFERNT
-    // } catch (error) { // LOG ENTFERNT
-    //   console.warn("[GameStore.finalizeRound] Fehler beim Logging der Session:", error); // LOG ENTFERNT
-    // } // LOG ENTFERNT
+    const finalStateFromSet = get(); // finalStateFromSet ist jetzt der State für die nächste Runde
 
-    if (initialActiveGameId) { 
-        // console.log("[GameStore] finalizeRound: Führe Firestore Updates aus..."); // LOG ENTFERNT
-        if (typeof window !== 'undefined' && window.__FIRESTORE_SYNC_API__?.markLocalUpdate) {
-           window.__FIRESTORE_SYNC_API__.markLocalUpdate();
-           // console.log("[GameStore.finalizeRound] markLocalUpdate API called"); // LOG ENTFERNT
-        } else {
-           console.warn("[GameStore.finalizeRound] markLocalUpdate API not available!");
-        }
-
-        const stateForUpdate: Partial<ActiveGame> = {
-            scores: finalStateFromSet.scores, 
-            striche: finalStateFromSet.striche,
-            currentPlayer: finalStateFromSet.currentPlayer,
-            currentRound: finalStateFromSet.currentRound,
-            lastUpdated: serverTimestamp(), 
-            weisPoints: { top: 0, bottom: 0 }, 
-            currentRoundWeis: [], 
-        };
-        const cleanedStateForUpdate = sanitizeDataForFirestore(stateForUpdate);
-        // console.log("[GameStore.finalizeRound] Firestore Update für activeGame:", { gameId: initialActiveGameId }); // LOG ENTFERNT
-        // console.log("  - Daten:", JSON.stringify(cleanedStateForUpdate).substring(0, 200) + "..."); // LOG ENTFERNT
-        
-        updateActiveGame(initialActiveGameId, cleanedStateForUpdate)
-          // .then(() => console.log(`[GameStore.finalizeRound] Firestore Haupt-Update ERFOLGREICH für gameId: ${initialActiveGameId}`)) // LOG ENTFERNT
-          .catch(error => console.error("[GameStore.finalizeRound] Firestore Haupt-Update fehlgeschlagen.", error));
-          
-        if (savedRoundEntryForFirestore) {
-            const entryToSave: RoundEntry = savedRoundEntryForFirestore;
-            // console.log("[GameStore.finalizeRound] Speichere Rundeneintrag in Firestore, gameId:", initialActiveGameId); // LOG ENTFERNT
-            // console.log("  - Rundeneintrag:", JSON.stringify(entryToSave).substring(0, 200) + "..."); // LOG ENTFERNT
-            
-            import('../services/gameService').then(({ saveRoundToFirestore }) => {
-                saveRoundToFirestore(initialActiveGameId, entryToSave)
-                    // .then((roundDocId) => console.log(`[GameStore.finalizeRound] Rundeneintrag ERFOLGREICH gespeichert, docId: ${roundDocId}`)) // LOG ENTFERNT
-                    .catch((error) => console.error("[GameStore] Error saving round:", error));
-          });
+    // Den zuvor gespeicherten stateForJassStoreSyncInternal verwenden
+    if (stateForJassStoreSyncInternal) {
+      syncWithJassStore(stateForJassStoreSyncInternal); 
     } else {
-             console.warn("[finalizeRound] savedRoundEntryForFirestore war null, keine Runde gespeichert.");
-        }
-    } else {
-         console.error("[finalizeRound] Fehler: initialActiveGameId (übergeben) war nicht vorhanden. State:", finalStateFromSet);
+      // Fallback, sollte nicht passieren, wenn stateForJassStoreSyncInternal immer gesetzt wird
+      console.warn("[GameStore.finalizeRound] stateForJassStoreSyncInternal war nicht gesetzt. Sync mit potenziell falschem State.");
+      syncWithJassStore(finalStateFromSet); 
     }
-
-    syncWithJassStore(finalStateFromSet); 
+    
     timerStore.resetRoundTimer();
     timerStore.startRoundTimer();
     // console.log("[GameStore] finalizeRound abgeschlossen."); // LOG ENTFERNT

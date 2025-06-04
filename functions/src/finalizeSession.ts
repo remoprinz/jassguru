@@ -120,13 +120,13 @@ async function updatePlayerStatsAfterSession(
     teams?: SessionTeams | null; 
     sessionId: string;
     winnerTeamKey?: 'teamA' | 'teamB' | 'draw'; // Expliziter Gewinner-Key
-    // NEU: Übergeben der Score-Zuordnung
     teamScoreMapping?: { teamA: 'top' | 'bottom'; teamB: 'top' | 'bottom' };
+    playerNames: PlayerNames; // NEU: playerNames hier explizit machen
   },
   sessionTimestamp: admin.firestore.Timestamp
 ) {
   const now = admin.firestore.Timestamp.now();
-  
+
   // NEU: Lade completedGames Subcollection für Game-Level-Processing
   const completedGamesColRef = db.collection(JASS_SUMMARIES_COLLECTION).doc(sessionFinalData.sessionId).collection(COMPLETED_GAMES_SUBCOLLECTION);
   const completedGamesSnap = await transaction.get(completedGamesColRef.orderBy("gameNumber"));
@@ -148,214 +148,343 @@ async function updatePlayerStatsAfterSession(
     try {
       // await db.runTransaction(async (transaction) => { // ENTFERNT: Keine neue Transaktion starten
       const playerStatsDoc = await transaction.get(playerStatsRef); // <--- BENUTZE ÜBERGEBENE TRANSAKTION
-      let stats: PlayerComputedStats;
+        let stats: PlayerComputedStats;
 
-      if (!playerStatsDoc.exists) {
+        if (!playerStatsDoc.exists) {
         logger.info(`[updatePlayerStatsAfterSession] Player ${userId}: No existing stats doc. Initializing with initialPlayerComputedStats.`); // NEUES LOG
-        stats = JSON.parse(JSON.stringify(initialPlayerComputedStats));
-        stats.firstJassTimestamp = sessionTimestamp;
-        stats.lastJassTimestamp = sessionTimestamp;
-        stats.lastUpdateTimestamp = now;
-      } else {
-        stats = playerStatsDoc.data() as PlayerComputedStats;
-        if (!stats.firstJassTimestamp || stats.firstJassTimestamp.toMillis() > sessionTimestamp.toMillis()) {
+          stats = JSON.parse(JSON.stringify(initialPlayerComputedStats));
           stats.firstJassTimestamp = sessionTimestamp;
-        }
-        if (!stats.lastJassTimestamp || stats.lastJassTimestamp.toMillis() < sessionTimestamp.toMillis()) {
           stats.lastJassTimestamp = sessionTimestamp;
-        }
-        stats.lastUpdateTimestamp = now;
-      }
-
-      stats.totalSessions = (stats.totalSessions || 0) + 1;
-
-      let sessionOutcome: 'win' | 'loss' | 'tie' = 'loss'; // Default
-      let playerTeamKey: 'teamA' | 'teamB' | null = null;
-
-      if (sessionFinalData.teams?.teamA?.players?.find(p => p.playerId === userId)) {
-        playerTeamKey = 'teamA';
-      } else if (sessionFinalData.teams?.teamB?.players?.find(p => p.playerId === userId)) {
-        playerTeamKey = 'teamB';
-      }
-      
-      if (sessionFinalData.winnerTeamKey && playerTeamKey) {
-        if (sessionFinalData.winnerTeamKey === 'draw') {
-          sessionOutcome = 'tie';
-        } else if (sessionFinalData.winnerTeamKey === playerTeamKey) {
-          sessionOutcome = 'win';
+          stats.lastUpdateTimestamp = now;
         } else {
-          sessionOutcome = 'loss';
+          stats = playerStatsDoc.data() as PlayerComputedStats;
+          if (!stats.firstJassTimestamp || stats.firstJassTimestamp.toMillis() > sessionTimestamp.toMillis()) {
+            stats.firstJassTimestamp = sessionTimestamp;
+          }
+          if (!stats.lastJassTimestamp || stats.lastJassTimestamp.toMillis() < sessionTimestamp.toMillis()) {
+            stats.lastJassTimestamp = sessionTimestamp;
+          }
+          stats.lastUpdateTimestamp = now;
         }
-      } else if (playerTeamKey && sessionFinalData.teams && sessionFinalData.finalScores) {
-        let scorePlayerTeam: number;
-        let scoreOpponentTeam: number;
 
-        const mapping = sessionFinalData.teamScoreMapping;
-        let playerTeamPosition: 'top' | 'bottom' | undefined;
-        let opponentTeamPosition: 'top' | 'bottom' | undefined;
+        stats.totalSessions = (stats.totalSessions || 0) + 1;
 
-        if (mapping) {
-          if (playerTeamKey === 'teamA') {
-            playerTeamPosition = mapping.teamA;
-            opponentTeamPosition = mapping.teamB;
-          } else { // playerTeamKey === 'teamB'
-            playerTeamPosition = mapping.teamB;
-            opponentTeamPosition = mapping.teamA;
-          }
-        } else {
-          // Fallback-Annahme, wenn keine explizite Zuordnung vorhanden ist
-          logger.warn(`[updatePlayerStatsAfterSession] Keine explizite teamScoreMapping für Session ${sessionFinalData.sessionId} gefunden. Verwende Fallback-Annahme: teamA=bottom, teamB=top.`);
-          if (playerTeamKey === 'teamA') {
-            playerTeamPosition = 'bottom';
-            opponentTeamPosition = 'top';
-          } else { // playerTeamKey === 'teamB'
-            playerTeamPosition = 'top';
-            opponentTeamPosition = 'bottom';
-          }
+      // --- Start: Partner- und Gegner-Aggregation Initialisierung ---
+      if (!stats.partnerAggregates) {
+        stats.partnerAggregates = [];
+      }
+      if (!stats.opponentAggregates) {
+        stats.opponentAggregates = [];
+      }
+      // --- Ende: Partner- und Gegner-Aggregation Initialisierung ---
+
+        let sessionOutcome: 'win' | 'loss' | 'tie' = 'loss'; // Default
+        let playerTeamKey: 'teamA' | 'teamB' | null = null;
+
+        if (sessionFinalData.teams?.teamA?.players?.find(p => p.playerId === userId)) {
+          playerTeamKey = 'teamA';
+        } else if (sessionFinalData.teams?.teamB?.players?.find(p => p.playerId === userId)) {
+          playerTeamKey = 'teamB';
         }
         
-        if (!playerTeamPosition || !opponentTeamPosition || playerTeamPosition === opponentTeamPosition) {
-          logger.error(`[updatePlayerStatsAfterSession] Ungültige oder fehlende Team-Score-Zuordnung für Session ${sessionFinalData.sessionId}. Spieler ${userId}. Mapping: ${JSON.stringify(mapping)}`);
-          sessionOutcome = 'tie'; // Sicherer Fallback
-        } else {
-          scorePlayerTeam = sessionFinalData.finalScores[playerTeamPosition];
-          scoreOpponentTeam = sessionFinalData.finalScores[opponentTeamPosition];
-
-          if (scorePlayerTeam > scoreOpponentTeam) sessionOutcome = 'win';
-          else if (scorePlayerTeam < scoreOpponentTeam) sessionOutcome = 'loss';
-          else sessionOutcome = 'tie';
-        }
-      } else {
-          logger.warn(`[updatePlayerStatsAfterSession] Konnte Session-Ergebnis für Spieler ${userId} in Session ${sessionFinalData.sessionId} nicht bestimmen. Fallback auf 'tie'. PlayerTeamKey: ${playerTeamKey}, Teams: ${JSON.stringify(sessionFinalData.teams)}, Scores: ${JSON.stringify(sessionFinalData.finalScores)}, WinnerKey: ${sessionFinalData.winnerTeamKey}`);
-          sessionOutcome = 'tie';
-      }
-
-      if (sessionOutcome === 'win') stats.sessionWins = (stats.sessionWins || 0) + 1;
-      else if (sessionOutcome === 'loss') stats.sessionLosses = (stats.sessionLosses || 0) + 1;
-      else if (sessionOutcome === 'tie') stats.sessionTies = (stats.sessionTies || 0) + 1;
-      
-      // NEU: Session-Streak-Logik
-      if (sessionOutcome === 'win') {
-        stats.currentSessionWinStreak = (stats.currentSessionWinStreak || 0) + 1;
-        stats.currentSessionLossStreak = 0;
-        stats.currentSessionWinlessStreak = 0;
-        if (!stats.longestWinStreakSessions || stats.currentSessionWinStreak > stats.longestWinStreakSessions.value) {
-          stats.longestWinStreakSessions = {
-            value: stats.currentSessionWinStreak,
-            startDate: stats.currentSessionWinStreak === 1 ? sessionTimestamp : stats.longestWinStreakSessions?.startDate || sessionTimestamp,
-            endDate: sessionTimestamp
-          };
-        }
-      } else if (sessionOutcome === 'loss') {
-        stats.currentSessionLossStreak = (stats.currentSessionLossStreak || 0) + 1;
-        stats.currentSessionWinStreak = 0;
-        stats.currentSessionWinlessStreak = (stats.currentSessionWinlessStreak || 0) + 1;
-        if (!stats.longestLossStreakSessions || stats.currentSessionLossStreak > stats.longestLossStreakSessions.value) {
-          stats.longestLossStreakSessions = {
-            value: stats.currentSessionLossStreak,
-            startDate: stats.currentSessionLossStreak === 1 ? sessionTimestamp : stats.longestLossStreakSessions?.startDate || sessionTimestamp,
-            endDate: sessionTimestamp
-          };
-        }
-        if (!stats.longestWinlessStreakSessions || stats.currentSessionWinlessStreak > stats.longestWinlessStreakSessions.value) {
-          stats.longestWinlessStreakSessions = {
-            value: stats.currentSessionWinlessStreak,
-            startDate: stats.currentSessionWinlessStreak === 1 ? sessionTimestamp : stats.longestWinlessStreakSessions?.startDate || sessionTimestamp,
-            endDate: sessionTimestamp
-          };
-        }
-      } else { // 'tie'
-        stats.currentSessionWinStreak = 0;
-        stats.currentSessionLossStreak = 0;
-        stats.currentSessionWinlessStreak = (stats.currentSessionWinlessStreak || 0) + 1;
-        if (!stats.longestWinlessStreakSessions || stats.currentSessionWinlessStreak > stats.longestWinlessStreakSessions.value) {
-          stats.longestWinlessStreakSessions = {
-            value: stats.currentSessionWinlessStreak,
-            startDate: stats.currentSessionWinlessStreak === 1 ? sessionTimestamp : stats.longestWinlessStreakSessions?.startDate || sessionTimestamp,
-            endDate: sessionTimestamp
-          };
-        }
-      }
-
-      // NEU: Session-Highlights/Lowlights aktualisieren
-      if (playerTeamKey && sessionFinalData.finalScores) {
-          let pointsMadeInSession: number;
-
-          if (sessionFinalData.teamScoreMapping) {
-              const playerTeamPos = playerTeamKey === 'teamA' ? sessionFinalData.teamScoreMapping.teamA : sessionFinalData.teamScoreMapping.teamB;
-              pointsMadeInSession = sessionFinalData.finalScores[playerTeamPos];
+        if (sessionFinalData.winnerTeamKey && playerTeamKey) {
+          if (sessionFinalData.winnerTeamKey === 'draw') {
+            sessionOutcome = 'tie';
+          } else if (sessionFinalData.winnerTeamKey === playerTeamKey) {
+            sessionOutcome = 'win';
           } else {
-              pointsMadeInSession = playerTeamKey === 'teamA' ? sessionFinalData.finalScores.bottom : sessionFinalData.finalScores.top;
+            sessionOutcome = 'loss';
           }
+        } else if (playerTeamKey && sessionFinalData.teams && sessionFinalData.finalScores) {
+          let scorePlayerTeam: number;
+          let scoreOpponentTeam: number;
 
-          const currentHighestPointsSessionValue = typeof stats.highestPointsSession?.value === 'number' ? stats.highestPointsSession.value : -Infinity;
-          if (pointsMadeInSession > currentHighestPointsSessionValue) { 
-              stats.highestPointsSession = { 
-                  value: pointsMadeInSession, 
-                  date: sessionTimestamp, 
-                  relatedId: sessionFinalData.sessionId,
-                  type: "highest_points_session",
-                  label: `Höchste Punkte in Partie (${pointsMadeInSession})`
-              };
+          const mapping = sessionFinalData.teamScoreMapping;
+          let playerTeamPosition: 'top' | 'bottom' | undefined;
+          let opponentTeamPosition: 'top' | 'bottom' | undefined;
+
+          if (mapping) {
+            if (playerTeamKey === 'teamA') {
+              playerTeamPosition = mapping.teamA;
+              opponentTeamPosition = mapping.teamB;
+            } else { // playerTeamKey === 'teamB'
+              playerTeamPosition = mapping.teamB;
+              opponentTeamPosition = mapping.teamA;
+            }
+          } else {
+            // Fallback-Annahme, wenn keine explizite Zuordnung vorhanden ist
+            logger.warn(`[updatePlayerStatsAfterSession] Keine explizite teamScoreMapping für Session ${sessionFinalData.sessionId} gefunden. Verwende Fallback-Annahme: teamA=bottom, teamB=top.`);
+            if (playerTeamKey === 'teamA') {
+              playerTeamPosition = 'bottom';
+              opponentTeamPosition = 'top';
+            } else { // playerTeamKey === 'teamB'
+              playerTeamPosition = 'top';
+              opponentTeamPosition = 'bottom';
+            }
           }
           
-          // Für lowestPointsSession: Hier ist die Logik etwas anders. Es ist nicht unbedingt ein "Lowlight",
-          // sondern eher der niedrigste Punktestand, den ein Spieler in einer (möglicherweise gewonnenen) Partie hatte.
-          // Wir initialisieren oder aktualisieren, wenn es niedriger ist als der bisherige Wert (oder wenn noch kein Wert existiert).
-          const currentLowestPointsSessionValue = typeof stats.lowestPointsSession?.value === 'number' ? stats.lowestPointsSession.value : Infinity;
-          if (pointsMadeInSession < currentLowestPointsSessionValue) { 
-              stats.lowestPointsSession = { 
-                  value: pointsMadeInSession, 
-                  date: sessionTimestamp, 
-                  relatedId: sessionFinalData.sessionId,
-                  type: "lowest_points_session", // Bezeichnet die niedrigste erreichte Punktzahl in einer Session
-                  label: `Niedrigste Punkte in Partie (${pointsMadeInSession})` 
-              };
+          if (!playerTeamPosition || !opponentTeamPosition || playerTeamPosition === opponentTeamPosition) {
+            logger.error(`[updatePlayerStatsAfterSession] Ungültige oder fehlende Team-Score-Zuordnung für Session ${sessionFinalData.sessionId}. Spieler ${userId}. Mapping: ${JSON.stringify(mapping)}`);
+            sessionOutcome = 'tie'; // Sicherer Fallback
+          } else {
+            scorePlayerTeam = sessionFinalData.finalScores[playerTeamPosition];
+            scoreOpponentTeam = sessionFinalData.finalScores[opponentTeamPosition];
+
+            if (scorePlayerTeam > scoreOpponentTeam) sessionOutcome = 'win';
+            else if (scorePlayerTeam < scoreOpponentTeam) sessionOutcome = 'loss';
+            else sessionOutcome = 'tie';
           }
+        } else {
+            logger.warn(`[updatePlayerStatsAfterSession] Konnte Session-Ergebnis für Spieler ${userId} in Session ${sessionFinalData.sessionId} nicht bestimmen. Fallback auf 'tie'. PlayerTeamKey: ${playerTeamKey}, Teams: ${JSON.stringify(sessionFinalData.teams)}, Scores: ${JSON.stringify(sessionFinalData.finalScores)}, WinnerKey: ${sessionFinalData.winnerTeamKey}`);
+            sessionOutcome = 'tie';
+        }
 
-          if (sessionFinalData.finalStriche) {
-              let stricheMadeRecord: StricheRecord | undefined;
-              let stricheReceivedRecord: StricheRecord | undefined;
-
-              if (sessionFinalData.teamScoreMapping) {
-                  const playerTeamPos = playerTeamKey === 'teamA' ? sessionFinalData.teamScoreMapping.teamA : sessionFinalData.teamScoreMapping.teamB;
-                  const opponentTeamPos = playerTeamKey === 'teamA' ? sessionFinalData.teamScoreMapping.teamB : sessionFinalData.teamScoreMapping.teamA;
-                  stricheMadeRecord = sessionFinalData.finalStriche[playerTeamPos];
-                  stricheReceivedRecord = sessionFinalData.finalStriche[opponentTeamPos];
-              } else {
-                  stricheMadeRecord = playerTeamKey === 'teamA' ? sessionFinalData.finalStriche.bottom : sessionFinalData.finalStriche.top;
-                  stricheReceivedRecord = playerTeamKey === 'teamA' ? sessionFinalData.finalStriche.top : sessionFinalData.finalStriche.bottom;
-              }
-              
-              const calculateTotalStricheValue = (striche: StricheRecord | undefined): number => 
-                  striche ? (striche.berg || 0) + (striche.sieg || 0) + (striche.matsch || 0) + (striche.schneider || 0) + (striche.kontermatsch || 0) : 0;
-
-              const stricheMadeInSession = calculateTotalStricheValue(stricheMadeRecord);
-              const stricheReceivedInSession = calculateTotalStricheValue(stricheReceivedRecord);
-
-              const currentHighestStricheSessionValue = typeof stats.highestStricheSession?.value === 'number' ? stats.highestStricheSession.value : -Infinity;
-              if (stricheMadeInSession > currentHighestStricheSessionValue) {
-                  stats.highestStricheSession = { 
-                      value: stricheMadeInSession, 
-                      date: sessionTimestamp, 
-                      relatedId: sessionFinalData.sessionId,
-                      type: "highest_striche_session",
-                      label: `Höchste Striche in Partie (${stricheMadeInSession})`
-                  };
-              }
-
-              const currentHighestStricheReceivedSessionValue = typeof stats.highestStricheReceivedSession?.value === 'number' ? stats.highestStricheReceivedSession.value : -Infinity;
-              if (stricheReceivedInSession > currentHighestStricheReceivedSessionValue) {
-                  stats.highestStricheReceivedSession = { 
-                      value: stricheReceivedInSession, 
-                      date: sessionTimestamp, 
-                      relatedId: sessionFinalData.sessionId,
-                      type: "highest_striche_received_session",
-                      label: `Höchste erhaltene Striche in Partie (${stricheReceivedInSession})`
-                  };
-              }
+        if (sessionOutcome === 'win') stats.sessionWins = (stats.sessionWins || 0) + 1;
+        else if (sessionOutcome === 'loss') stats.sessionLosses = (stats.sessionLosses || 0) + 1;
+        else if (sessionOutcome === 'tie') stats.sessionTies = (stats.sessionTies || 0) + 1;
+        
+        // NEU: Session-Streak-Logik
+        if (sessionOutcome === 'win') {
+          stats.currentSessionWinStreak = (stats.currentSessionWinStreak || 0) + 1;
+          stats.currentSessionLossStreak = 0;
+          stats.currentSessionWinlessStreak = 0;
+          stats.currentUndefeatedStreakSessions = (stats.currentUndefeatedStreakSessions || 0) + 1;
+          if (!stats.longestWinStreakSessions || stats.currentSessionWinStreak > stats.longestWinStreakSessions.value) {
+            stats.longestWinStreakSessions = {
+              value: stats.currentSessionWinStreak,
+              startDate: stats.currentSessionWinStreak === 1 ? sessionTimestamp : stats.longestWinStreakSessions?.startDate || sessionTimestamp,
+              endDate: sessionTimestamp
+            };
           }
-      }
+        } else if (sessionOutcome === 'loss') {
+          stats.currentSessionLossStreak = (stats.currentSessionLossStreak || 0) + 1;
+          stats.currentSessionWinStreak = 0;
+          stats.currentSessionWinlessStreak = (stats.currentSessionWinlessStreak || 0) + 1;
+          stats.currentUndefeatedStreakSessions = 0;
+          if (!stats.longestLossStreakSessions || stats.currentSessionLossStreak > stats.longestLossStreakSessions.value) {
+            stats.longestLossStreakSessions = {
+              value: stats.currentSessionLossStreak,
+              startDate: stats.currentSessionLossStreak === 1 ? sessionTimestamp : stats.longestLossStreakSessions?.startDate || sessionTimestamp,
+              endDate: sessionTimestamp
+            };
+          }
+        } else { // 'tie'
+          stats.currentSessionWinStreak = 0;
+          stats.currentSessionLossStreak = 0;
+          stats.currentSessionWinlessStreak = (stats.currentSessionWinlessStreak || 0) + 1;
+          stats.currentUndefeatedStreakSessions = (stats.currentUndefeatedStreakSessions || 0) + 1;
+          if (!stats.longestWinlessStreakSessions || stats.currentSessionWinlessStreak > stats.longestWinlessStreakSessions.value) {
+            stats.longestWinlessStreakSessions = {
+              value: stats.currentSessionWinlessStreak,
+              startDate: stats.currentSessionWinlessStreak === 1 ? sessionTimestamp : stats.longestWinlessStreakSessions?.startDate || sessionTimestamp,
+              endDate: sessionTimestamp
+            };
+          }
+        }
+
+        // NEU: Logik für longestUndefeatedStreakSessions (nachdem currentUndefeatedStreakSessions aktualisiert wurde)
+        if (sessionOutcome === 'win' || sessionOutcome === 'tie') {
+          // Nur erhöhen, wenn nicht schon durch 'tie' oben geschehen
+          if (sessionOutcome === 'win') {
+            stats.currentUndefeatedStreakSessions = (stats.currentUndefeatedStreakSessions || 0) + 1;
+          }
+          if (!stats.longestUndefeatedStreakSessions || stats.currentUndefeatedStreakSessions > stats.longestUndefeatedStreakSessions.value) {
+            stats.longestUndefeatedStreakSessions = {
+              value: stats.currentUndefeatedStreakSessions,
+              startDate: stats.currentUndefeatedStreakSessions === 1 ? sessionTimestamp : stats.longestUndefeatedStreakSessions?.startDate || sessionTimestamp,
+              endDate: sessionTimestamp
+            };
+          }
+        }
+
+        // NEU: Session-Highlights/Lowlights aktualisieren
+        if (playerTeamKey && sessionFinalData.finalScores) {
+            let pointsMadeInSession: number;
+
+            if (sessionFinalData.teamScoreMapping) {
+                const playerTeamPos = playerTeamKey === 'teamA' ? sessionFinalData.teamScoreMapping.teamA : sessionFinalData.teamScoreMapping.teamB;
+                pointsMadeInSession = sessionFinalData.finalScores[playerTeamPos];
+            } else {
+                pointsMadeInSession = playerTeamKey === 'teamA' ? sessionFinalData.finalScores.bottom : sessionFinalData.finalScores.top;
+            }
+
+            const currentHighestPointsSessionValue = typeof stats.highestPointsSession?.value === 'number' ? stats.highestPointsSession.value : -Infinity;
+            if (pointsMadeInSession > currentHighestPointsSessionValue) { 
+                stats.highestPointsSession = { 
+                    value: pointsMadeInSession, 
+                    date: sessionTimestamp, 
+                    relatedId: sessionFinalData.sessionId,
+                    type: "highest_points_session",
+                    label: `Höchste Punkte in Partie (${pointsMadeInSession})`
+                };
+            }
+            
+            // Für lowestPointsSession: Hier ist die Logik etwas anders. Es ist nicht unbedingt ein "Lowlight",
+            // sondern eher der niedrigste Punktestand, den ein Spieler in einer (möglicherweise gewonnenen) Partie hatte.
+            // Wir initialisieren oder aktualisieren, wenn es niedriger ist als der bisherige Wert (oder wenn noch kein Wert existiert).
+            const currentLowestPointsSessionValue = typeof stats.lowestPointsSession?.value === 'number' ? stats.lowestPointsSession.value : Infinity;
+            if (pointsMadeInSession < currentLowestPointsSessionValue) { 
+                stats.lowestPointsSession = { 
+                    value: pointsMadeInSession, 
+                    date: sessionTimestamp, 
+                    relatedId: sessionFinalData.sessionId,
+                    type: "lowest_points_session", // Bezeichnet die niedrigste erreichte Punktzahl in einer Session
+                    label: `Niedrigste Punkte in Partie (${pointsMadeInSession})` 
+                };
+            }
+
+            if (sessionFinalData.finalStriche) {
+                let stricheMadeRecord: StricheRecord | undefined;
+                let stricheReceivedRecord: StricheRecord | undefined;
+
+                if (sessionFinalData.teamScoreMapping) {
+                    const playerTeamPos = playerTeamKey === 'teamA' ? sessionFinalData.teamScoreMapping.teamA : sessionFinalData.teamScoreMapping.teamB;
+                    const opponentTeamPos = playerTeamKey === 'teamA' ? sessionFinalData.teamScoreMapping.teamB : sessionFinalData.teamScoreMapping.teamA;
+                    stricheMadeRecord = sessionFinalData.finalStriche[playerTeamPos];
+                    stricheReceivedRecord = sessionFinalData.finalStriche[opponentTeamPos];
+                } else {
+                    stricheMadeRecord = playerTeamKey === 'teamA' ? sessionFinalData.finalStriche.bottom : sessionFinalData.finalStriche.top;
+                    stricheReceivedRecord = playerTeamKey === 'teamA' ? sessionFinalData.finalStriche.top : sessionFinalData.finalStriche.bottom;
+                }
+                
+                const calculateTotalStricheValue = (striche: StricheRecord | undefined): number => 
+                    striche ? (striche.berg || 0) + (striche.sieg || 0) + (striche.matsch || 0) + (striche.schneider || 0) + (striche.kontermatsch || 0) : 0;
+
+                const stricheMadeInSession = calculateTotalStricheValue(stricheMadeRecord);
+                const stricheReceivedInSession = calculateTotalStricheValue(stricheReceivedRecord);
+
+                const currentHighestStricheSessionValue = typeof stats.highestStricheSession?.value === 'number' ? stats.highestStricheSession.value : -Infinity;
+                if (stricheMadeInSession > currentHighestStricheSessionValue) {
+                    stats.highestStricheSession = { 
+                        value: stricheMadeInSession, 
+                        date: sessionTimestamp, 
+                        relatedId: sessionFinalData.sessionId,
+                        type: "highest_striche_session",
+                        label: `Höchste Striche in Partie (${stricheMadeInSession})`
+                    };
+                }
+
+                const currentHighestStricheReceivedSessionValue = typeof stats.highestStricheReceivedSession?.value === 'number' ? stats.highestStricheReceivedSession.value : -Infinity;
+                if (stricheReceivedInSession > currentHighestStricheReceivedSessionValue) {
+                    stats.highestStricheReceivedSession = { 
+                        value: stricheReceivedInSession, 
+                        date: sessionTimestamp, 
+                        relatedId: sessionFinalData.sessionId,
+                        type: "highest_striche_received_session",
+                        label: `Höchste erhaltene Striche in Partie (${stricheReceivedInSession})`
+                    };
+                }
+
+                // NEU: mostMatschSession - Höchste Anzahl Matsche in einer Partie
+                const matschMadeInSession = stricheMadeRecord?.matsch || 0;
+                const currentMostMatschSessionValue = typeof stats.mostMatschSession?.value === 'number' ? stats.mostMatschSession.value : 0;
+                if (matschMadeInSession > currentMostMatschSessionValue) {
+                    stats.mostMatschSession = {
+                        value: matschMadeInSession,
+                        date: sessionTimestamp,
+                        relatedId: sessionFinalData.sessionId,
+                        type: "most_matsch_session",
+                        label: `Höchste Anzahl Matsche in Partie (${matschMadeInSession})`
+                    };
+                }
+            }
+        }
+
+        // NEU: mostWeisPointsSession - Meiste Weispunkte in einer Partie
+        // Berechne die Gesamtweispunkte des Spielers in dieser Session aus den completedGames
+        let totalWeisPointsInSession = 0;
+        completedGames.forEach(game => {
+            if (!game.participantUids?.includes(userId)) return;
+            
+            // Bestimme das Team des Spielers in diesem Spiel (analog zur Game-Level-Logik)
+            let gamePlayerTeamPosition: 'top' | 'bottom' | undefined;
+            const gameMapping = game.teamScoreMapping || sessionFinalData.teamScoreMapping;
+            
+            if (gameMapping && playerTeamKey) {
+                gamePlayerTeamPosition = playerTeamKey === 'teamA' ? gameMapping.teamA : gameMapping.teamB;
+            } else {
+                // Fallback
+                if (playerTeamKey === 'teamA') {
+                    gamePlayerTeamPosition = 'bottom';
+                } else if (playerTeamKey === 'teamB') {
+                    gamePlayerTeamPosition = 'top';
+                }
+            }
+            
+            if (game.weisPoints && gamePlayerTeamPosition) {
+                totalWeisPointsInSession += game.weisPoints[gamePlayerTeamPosition] || 0;
+            }
+        });
+
+        const currentMostWeisSessionValue = typeof stats.mostWeisPointsSession?.value === 'number' ? stats.mostWeisPointsSession.value : 0;
+        if (totalWeisPointsInSession > currentMostWeisSessionValue) {
+            stats.mostWeisPointsSession = {
+                value: totalWeisPointsInSession,
+                date: sessionTimestamp,
+                relatedId: sessionFinalData.sessionId,
+                type: "most_weis_points_session",
+                label: `Meiste Weispunkte in Partie (${totalWeisPointsInSession})`
+            };
+        }
+
+        // NEU: Session-Level Lowlights - mostMatschReceivedSession und mostWeisPointsReceivedSession
+        let maxMatschReceivedInSession = 0;
+        let maxWeisPointsReceivedInSession = 0;
+        
+        completedGames.forEach(game => {
+            if (!game.participantUids?.includes(userId)) return;
+            
+            // Bestimme das Team des Gegners in diesem Spiel
+            let gameOpponentTeamPosition: 'top' | 'bottom' | undefined;
+            const gameMapping = game.teamScoreMapping || sessionFinalData.teamScoreMapping;
+            
+            if (gameMapping && playerTeamKey) {
+                gameOpponentTeamPosition = playerTeamKey === 'teamA' ? gameMapping.teamB : gameMapping.teamA;
+            } else {
+                // Fallback
+                if (playerTeamKey === 'teamA') {
+                    gameOpponentTeamPosition = 'top';
+                } else if (playerTeamKey === 'teamB') {
+                    gameOpponentTeamPosition = 'bottom';
+                }
+            }
+            
+            // Matsch erhalten in diesem Spiel
+            if (game.finalStriche && gameOpponentTeamPosition) {
+                const matschReceivedThisGame = game.finalStriche[gameOpponentTeamPosition]?.matsch || 0;
+                maxMatschReceivedInSession = Math.max(maxMatschReceivedInSession, matschReceivedThisGame);
+            }
+            
+            // Weispunkte erhalten in diesem Spiel
+            if (game.weisPoints && gameOpponentTeamPosition) {
+                const weisPointsReceivedThisGame = game.weisPoints[gameOpponentTeamPosition] || 0;
+                maxWeisPointsReceivedInSession = Math.max(maxWeisPointsReceivedInSession, weisPointsReceivedThisGame);
+            }
+        });
+
+        // Update mostMatschReceivedSession falls neuer Höchstwert
+        const currentMostMatschReceivedSessionValue = typeof stats.mostMatschReceivedSession?.value === 'number' ? stats.mostMatschReceivedSession.value : 0;
+        if (maxMatschReceivedInSession > currentMostMatschReceivedSessionValue) {
+            stats.mostMatschReceivedSession = {
+                value: maxMatschReceivedInSession,
+                date: sessionTimestamp,
+                relatedId: sessionFinalData.sessionId,
+                type: "most_matsch_received_session",
+                label: `Meiste Matsch erhalten in Partie (${maxMatschReceivedInSession})`
+            };
+        }
+
+        // Update mostWeisPointsReceivedSession falls neuer Höchstwert
+        const currentMostWeisReceivedSessionValue = typeof stats.mostWeisPointsReceivedSession?.value === 'number' ? stats.mostWeisPointsReceivedSession.value : 0;
+        if (maxWeisPointsReceivedInSession > currentMostWeisReceivedSessionValue) {
+            stats.mostWeisPointsReceivedSession = {
+                value: maxWeisPointsReceivedInSession,
+                date: sessionTimestamp,
+                relatedId: sessionFinalData.sessionId,
+                type: "most_weis_points_received_session",
+                label: `Meiste Weispunkte erhalten in Partie (${maxWeisPointsReceivedInSession})`
+            };
+        }
 
       // NEU: Game-Level-Processing für diesen Spieler
       let gamesWonThisSession = 0;
@@ -380,6 +509,7 @@ async function updatePlayerStatsAfterSession(
       stats.currentGameWinStreak = stats.currentGameWinStreak || 0;
       stats.currentGameLossStreak = stats.currentGameLossStreak || 0;
       stats.currentGameWinlessStreak = stats.currentGameWinlessStreak || 0;
+      stats.currentUndefeatedStreakGames = stats.currentUndefeatedStreakGames || 0;
 
       for (const game of completedGames) {
         if (!game.participantUids?.includes(userId)) {
@@ -434,6 +564,7 @@ async function updatePlayerStatsAfterSession(
             stats.currentGameWinStreak = (stats.currentGameWinStreak || 0) + 1;
             stats.currentGameLossStreak = 0;
             stats.currentGameWinlessStreak = 0;
+            stats.currentUndefeatedStreakGames = (stats.currentUndefeatedStreakGames || 0) + 1;
             if (!stats.longestWinStreakGames || stats.currentGameWinStreak > stats.longestWinStreakGames.value) {
               stats.longestWinStreakGames = {
                 value: stats.currentGameWinStreak,
@@ -444,7 +575,8 @@ async function updatePlayerStatsAfterSession(
           } else if (gameOutcomeForStreak === 'loss') {
             stats.currentGameLossStreak = (stats.currentGameLossStreak || 0) + 1;
             stats.currentGameWinStreak = 0;
-            stats.currentGameWinlessStreak = (stats.currentGameWinlessStreak || 0) + 1;
+            stats.currentGameWinlessStreak = (stats.currentUndefeatedStreakGames || 0) + 1;
+            stats.currentUndefeatedStreakGames = 0;
             if (!stats.longestLossStreakGames || stats.currentGameLossStreak > stats.longestLossStreakGames.value) {
               stats.longestLossStreakGames = {
                 value: stats.currentGameLossStreak,
@@ -463,11 +595,25 @@ async function updatePlayerStatsAfterSession(
           } else { // 'tie' (Unentschieden im Spiel)
             stats.currentGameWinStreak = 0;
             stats.currentGameLossStreak = 0;
-            stats.currentGameWinlessStreak = (stats.currentGameWinlessStreak || 0) + 1;
+            stats.currentGameWinlessStreak = (stats.currentUndefeatedStreakGames || 0) + 1;
+            stats.currentUndefeatedStreakGames = (stats.currentUndefeatedStreakGames || 0) + 1;
              if (!stats.longestWinlessStreakGames || stats.currentGameWinlessStreak > stats.longestWinlessStreakGames.value) {
               stats.longestWinlessStreakGames = {
                 value: stats.currentGameWinlessStreak,
                 startDate: stats.currentGameWinlessStreak === 1 ? (game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp) : stats.longestWinlessStreakGames?.startDate || (game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp),
+                endDate: game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp
+              };
+            }
+          }
+
+          // NEU: Logik für longestUndefeatedStreakGames (nachdem currentUndefeatedStreakGames aktualisiert wurde)
+          if (gameOutcomeForStreak === 'win' || gameOutcomeForStreak === 'tie') {
+            // Die Erhöhung von currentUndefeatedStreakGames geschieht bereits oben für win/tie.
+            // Hier nur prüfen, ob es die längste Serie ist.
+            if (!stats.longestUndefeatedStreakGames || stats.currentUndefeatedStreakGames > stats.longestUndefeatedStreakGames.value) {
+              stats.longestUndefeatedStreakGames = {
+                value: stats.currentUndefeatedStreakGames,
+                startDate: stats.currentUndefeatedStreakGames === 1 ? (game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp) : stats.longestUndefeatedStreakGames?.startDate || (game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp),
                 endDate: game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp
               };
             }
@@ -583,6 +729,45 @@ async function updatePlayerStatsAfterSession(
                   label: `Meiste Kontermatsch erhalten (${kontermatschReceivedThisGameValue})` 
                 };
               }
+
+              // NEU: Logik für mostMatschReceivedGame
+              const matschReceivedThisGameValue = opponentStricheRecord.matsch || 0;
+              if (matschReceivedThisGameValue > (typeof stats.mostMatschReceivedGame?.value === 'number' ? stats.mostMatschReceivedGame.value : 0)) {
+                stats.mostMatschReceivedGame = {
+                  value: matschReceivedThisGameValue,
+                  date: game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp,
+                  relatedId: game.activeGameId || sessionFinalData.sessionId,
+                  type: "most_matsch_received_game",
+                  label: `Meiste Matsch erhalten (${matschReceivedThisGameValue})`
+                };
+              }
+
+              // NEU: Logik für mostSchneiderReceivedGame
+              const schneiderReceivedThisGameValue = opponentStricheRecord.schneider || 0;
+              if (schneiderReceivedThisGameValue > (typeof stats.mostSchneiderReceivedGame?.value === 'number' ? stats.mostSchneiderReceivedGame.value : 0)) {
+                stats.mostSchneiderReceivedGame = {
+                  value: schneiderReceivedThisGameValue,
+                  date: game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp,
+                  relatedId: game.activeGameId || sessionFinalData.sessionId,
+                  type: "most_schneider_received_game",
+                  label: `Meiste Schneider erhalten (${schneiderReceivedThisGameValue})`
+                };
+              }
+
+              // NEU: Logik für mostWeisPointsReceivedGame
+              if (game.weisPoints && gameOpponentTeamPosition) {
+                const weisPointsReceivedThisGame = game.weisPoints[gameOpponentTeamPosition] || 0;
+                const currentMostWeisReceivedGameValue = typeof stats.mostWeisPointsReceivedGame?.value === 'number' ? stats.mostWeisPointsReceivedGame.value : 0;
+                if (weisPointsReceivedThisGame > currentMostWeisReceivedGameValue) {
+                  stats.mostWeisPointsReceivedGame = {
+                    value: weisPointsReceivedThisGame,
+                    date: game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp,
+                    relatedId: game.activeGameId || sessionFinalData.sessionId,
+                    type: "most_weis_points_received_game",
+                    label: `Meiste Weispunkte erhalten (${weisPointsReceivedThisGame})`
+                  };
+                }
+              }
             }
           }
 
@@ -640,6 +825,163 @@ async function updatePlayerStatsAfterSession(
         stats.avgKontermatschPerGame = Math.round(((stats.totalKontermatschGamesMade || 0) / stats.totalGames) * 100) / 100;
         stats.avgWeisPointsPerGame = Math.round(((stats.playerTotalWeisMade || 0) / stats.totalGames) * 100) / 100;
       }
+
+      // --- Start: Partner- und Gegner-Statistiken aktualisieren ---
+      if (sessionFinalData.teams && playerTeamKey) {
+        const currentPlayerId = userId;
+        const playerTeamDetails = sessionFinalData.teams[playerTeamKey];
+        const opponentTeamKey = playerTeamKey === 'teamA' ? 'teamB' : 'teamA';
+        const opponentTeamDetails = sessionFinalData.teams[opponentTeamKey];
+
+        // NEU: Fallback für teamScoreMapping, falls nicht vom Client bereitgestellt
+        // oder falls es aus irgendeinem Grund nicht die erwartete Struktur hat.
+        let effectiveTeamScoreMapping = sessionFinalData.teamScoreMapping;
+        if (!effectiveTeamScoreMapping || typeof effectiveTeamScoreMapping.teamA === 'undefined' || typeof effectiveTeamScoreMapping.teamB === 'undefined') {
+          logger.warn(`[updatePlayerStatsAfterSession] sessionFinalData.teamScoreMapping for session ${sessionFinalData.sessionId} is missing or incomplete. Player ${userId}. Original: ${JSON.stringify(sessionFinalData.teamScoreMapping)}. Applying default: teamA=bottom, teamB=top for partner/opponent game stats reconstruction.`);
+          effectiveTeamScoreMapping = { teamA: 'bottom', teamB: 'top' };
+        }
+
+        // Partner-Aggregation
+        playerTeamDetails.players.forEach(p => {
+          if (p.playerId !== currentPlayerId) { // p is the partner
+            let partnerAggregate = stats.partnerAggregates?.find(pa => pa.partnerId === p.playerId);
+            if (!partnerAggregate) {
+              partnerAggregate = { partnerId: p.playerId, partnerDisplayName: p.displayName, sessionsPlayedWith: 0, sessionsWonWith: 0, gamesPlayedWith: 0, gamesWonWith: 0, totalStricheDifferenceWith: 0, totalPointsWith: 0, totalPointsDifferenceWith: 0, matschGamesWonWith: 0, schneiderGamesWonWith: 0, lastPlayedWithTimestamp: sessionTimestamp };
+              stats.partnerAggregates?.push(partnerAggregate);
+            }
+            partnerAggregate.sessionsPlayedWith += 1;
+            if (sessionOutcome === 'win') partnerAggregate.sessionsWonWith += 1;
+            partnerAggregate.lastPlayedWithTimestamp = sessionTimestamp;
+    
+            completedGames.forEach(game => {
+              if (!game.participantUids?.includes(currentPlayerId) || !game.participantUids?.includes(p.playerId)) return;
+    
+              // Erneute Rekonstruktion pro Partner-Iteration (redundant, aber zur Verdeutlichung des Konzepts hier belassen und später optimieren)
+              const gameSpecificUidsInTop: string[] = [];
+              const gameSpecificUidsInBottom: string[] = [];
+              // Verwende effectiveTeamScoreMapping
+              sessionFinalData.teams?.teamA?.players.forEach(player => {
+                if (game.participantUids?.includes(player.playerId)) {
+                  if (effectiveTeamScoreMapping.teamA === 'top') { // HIER effectiveTeamScoreMapping verwenden
+                    gameSpecificUidsInTop.push(player.playerId);
+                  } else {
+                    gameSpecificUidsInBottom.push(player.playerId);
+                  }
+                }
+              });
+              sessionFinalData.teams?.teamB?.players.forEach(player => {
+                if (game.participantUids?.includes(player.playerId)) {
+                  if (effectiveTeamScoreMapping.teamB === 'top') { // HIER effectiveTeamScoreMapping verwenden
+                    gameSpecificUidsInTop.push(player.playerId);
+                  } else {
+                    gameSpecificUidsInBottom.push(player.playerId);
+                  }
+                }
+              });
+
+              let inSameTeamInGame = false;
+              let partnerGameTeamPos: 'top' | 'bottom' | undefined;
+
+              if (gameSpecificUidsInTop.includes(currentPlayerId) && gameSpecificUidsInTop.includes(p.playerId)) {
+                inSameTeamInGame = true;
+                partnerGameTeamPos = 'top';
+                logger.info(`[Player ${userId}, Partner ${p.playerId}, Game ${game.gameNumber}] Method R (Rekonstruiert): Both in reconstructed TOP team.`);
+              } else if (gameSpecificUidsInBottom.includes(currentPlayerId) && gameSpecificUidsInBottom.includes(p.playerId)) {
+                inSameTeamInGame = true;
+                partnerGameTeamPos = 'bottom';
+                logger.info(`[Player ${userId}, Partner ${p.playerId}, Game ${game.gameNumber}] Method R (Rekonstruiert): Both in reconstructed BOTTOM team.`);
+              }
+    
+              if (inSameTeamInGame && partnerGameTeamPos && game.finalScores) {
+                logger.info(`[Player ${userId}, Partner ${p.playerId}, Game ${game.gameNumber}] SUCCESS: In same team '${partnerGameTeamPos}'. Aggregating game stats for partner.`);
+                partnerAggregate.gamesPlayedWith += 1;
+                const opponentGameTeamPosForPartner = partnerGameTeamPos === 'top' ? 'bottom' : 'top';
+                const pointsMadeWithPartner = game.finalScores[partnerGameTeamPos] || 0;
+                const pointsReceivedWithPartner = game.finalScores[opponentGameTeamPosForPartner] || 0;
+                if (pointsMadeWithPartner > pointsReceivedWithPartner) partnerAggregate.gamesWonWith += 1;
+                
+                const stricheTeam = game.finalStriche?.[partnerGameTeamPos];
+                const stricheOpponent = game.finalStriche?.[opponentGameTeamPosForPartner];
+                const calcStriche = (s: StricheRecord | undefined) => (s?.berg || 0) + (s?.sieg || 0) + (s?.matsch || 0) + (s?.schneider || 0) + (s?.kontermatsch || 0);
+                partnerAggregate.totalStricheDifferenceWith += (calcStriche(stricheTeam) - calcStriche(stricheOpponent));
+                partnerAggregate.totalPointsWith += pointsMadeWithPartner;
+                partnerAggregate.totalPointsDifferenceWith += (pointsMadeWithPartner - pointsReceivedWithPartner);
+                if (stricheTeam?.matsch && stricheTeam.matsch > 0) partnerAggregate.matschGamesWonWith += (stricheTeam.matsch);
+                if (stricheTeam?.schneider && stricheTeam.schneider > 0) partnerAggregate.schneiderGamesWonWith += (stricheTeam.schneider);
+              } else if (game.finalScores) { 
+                 logger.warn(`[Player ${userId}, Partner ${p.playerId}, Game ${game.gameNumber}] SKIPPED or FAILED to find in same reconstructed game team. TopUIDs: ${JSON.stringify(gameSpecificUidsInTop)}, BottomUIDs: ${JSON.stringify(gameSpecificUidsInBottom)}`);
+              }
+            });
+          }
+        });
+    
+        // Gegner-Aggregation
+        opponentTeamDetails.players.forEach(opponent => {
+          let opponentAggregate = stats.opponentAggregates?.find(oa => oa.opponentId === opponent.playerId);
+          if (!opponentAggregate) {
+            opponentAggregate = { opponentId: opponent.playerId, opponentDisplayName: opponent.displayName, sessionsPlayedAgainst: 0, sessionsWonAgainst: 0, gamesPlayedAgainst: 0, gamesWonAgainst: 0, totalStricheDifferenceAgainst: 0, totalPointsScoredWhenOpponent: 0, totalPointsDifferenceAgainst: 0, matschGamesWonAgainstOpponentTeam: 0, schneiderGamesWonAgainstOpponentTeam: 0, lastPlayedAgainstTimestamp: sessionTimestamp };
+            stats.opponentAggregates?.push(opponentAggregate);
+          }
+          opponentAggregate.sessionsPlayedAgainst += 1;
+          if (sessionOutcome === 'win') opponentAggregate.sessionsWonAgainst += 1; 
+          opponentAggregate.lastPlayedAgainstTimestamp = sessionTimestamp;
+    
+          completedGames.forEach(game => {
+            if (!game.participantUids?.includes(currentPlayerId) || !game.participantUids?.includes(opponent.playerId)) return;
+            
+            const gameSpecificUidsInTop: string[] = [];
+            const gameSpecificUidsInBottom: string[] = [];
+            // Verwende effectiveTeamScoreMapping
+            sessionFinalData.teams?.teamA?.players.forEach(player => {
+              if (game.participantUids?.includes(player.playerId)) {
+                if (effectiveTeamScoreMapping.teamA === 'top') { // HIER effectiveTeamScoreMapping verwenden
+                  gameSpecificUidsInTop.push(player.playerId);
+                } else {
+                  gameSpecificUidsInBottom.push(player.playerId);
+                }
+              }
+            });
+            sessionFinalData.teams?.teamB?.players.forEach(player => {
+              if (game.participantUids?.includes(player.playerId)) {
+                if (effectiveTeamScoreMapping.teamB === 'top') { // HIER effectiveTeamScoreMapping verwenden
+                  gameSpecificUidsInTop.push(player.playerId);
+                } else {
+                  gameSpecificUidsInBottom.push(player.playerId);
+                }
+              }
+            });
+    
+            let playerPosInThisGame: 'top' | 'bottom' | undefined;
+            let opponentPosInThisGame: 'top' | 'bottom' | undefined;
+    
+            if (gameSpecificUidsInTop.includes(currentPlayerId)) playerPosInThisGame = 'top';
+            else if (gameSpecificUidsInBottom.includes(currentPlayerId)) playerPosInThisGame = 'bottom';
+    
+            if (gameSpecificUidsInTop.includes(opponent.playerId)) opponentPosInThisGame = 'top';
+            else if (gameSpecificUidsInBottom.includes(opponent.playerId)) opponentPosInThisGame = 'bottom';
+    
+            if (playerPosInThisGame && opponentPosInThisGame && playerPosInThisGame !== opponentPosInThisGame && game.finalScores) {
+              logger.info(`[Player ${userId}, Opponent ${opponent.playerId}, Game ${game.gameNumber}] SUCCESS (Rekonstruiert): Player in '${playerPosInThisGame}', Opponent in '${opponentPosInThisGame}'. Aggregating game stats for opponent.`);
+              opponentAggregate.gamesPlayedAgainst += 1;
+              const pointsPlayerTeam = game.finalScores[playerPosInThisGame] || 0;
+              const pointsOpponentTeamAgainst = game.finalScores[opponentPosInThisGame] || 0;
+              if (pointsPlayerTeam > pointsOpponentTeamAgainst) opponentAggregate.gamesWonAgainst += 1;
+              
+              const strichePlayerTeam = game.finalStriche?.[playerPosInThisGame];
+              const stricheOpponentActualTeam = game.finalStriche?.[opponentPosInThisGame];
+              const calcStriche = (s: StricheRecord | undefined) => (s?.berg || 0) + (s?.sieg || 0) + (s?.matsch || 0) + (s?.schneider || 0) + (s?.kontermatsch || 0);
+              opponentAggregate.totalStricheDifferenceAgainst += (calcStriche(strichePlayerTeam) - calcStriche(stricheOpponentActualTeam));
+              opponentAggregate.totalPointsScoredWhenOpponent += pointsPlayerTeam;
+              opponentAggregate.totalPointsDifferenceAgainst += (pointsPlayerTeam - pointsOpponentTeamAgainst);
+              if (strichePlayerTeam?.matsch && strichePlayerTeam.matsch > 0) opponentAggregate.matschGamesWonAgainstOpponentTeam += (strichePlayerTeam.matsch);
+              if (strichePlayerTeam?.schneider && strichePlayerTeam.schneider > 0) opponentAggregate.schneiderGamesWonAgainstOpponentTeam += (strichePlayerTeam.schneider);
+            } else if (game.finalScores) {
+              logger.warn(`[Player ${userId}, Opponent ${opponent.playerId}, Game ${game.gameNumber}] SKIPPED or FAILED (Rekonstruiert) to find as opponents. PlayerPos: ${playerPosInThisGame}, OpponentPos: ${opponentPosInThisGame}. TopUIDs: ${JSON.stringify(gameSpecificUidsInTop)}, BottomUIDs: ${JSON.stringify(gameSpecificUidsInBottom)}`);
+            }
+          });
+        });
+      }
+      // --- Ende: Partner- und Gegner-Statistiken aktualisieren ---
 
       logger.info(`[updatePlayerStatsAfterSession] Player ${userId}: Stats object prepared before push:`, JSON.stringify(stats)); 
       statsToUpdate.push({ ref: playerStatsRef, data: stats });
@@ -715,8 +1057,8 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
 
       if (completedGames.length < expectedGameNumber) {
         logger.error(`Session ${sessionId}: Game count mismatch. Expected ${expectedGameNumber}, found ${completedGames.length}.`);
-        throw new HttpsError(
-          "failed-precondition",
+      throw new HttpsError(
+        "failed-precondition",
           `Session ${sessionId}: Game count mismatch. Expected ${expectedGameNumber}, found ${completedGames.length}. Cannot finalize.`
         );
       }
@@ -735,8 +1077,8 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
       
       const createdAtTimestamp = existingSummaryData?.createdAt || now; // Nur setzen, wenn Dokument neu ist oder noch kein createdAt hat
 
-      let totalPointsTeamTop = 0;
-      let totalPointsTeamBottom = 0;
+    let totalPointsTeamTop = 0;
+    let totalPointsTeamBottom = 0;
       const totalStricheTopRecord: StricheRecord = { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 };
       const totalStricheBottomRecord: StricheRecord = { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 };
       const sessionTotalWeisPoints: TeamScores = { top: 0, bottom: 0 };
@@ -767,10 +1109,10 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
         let pointsTeamA = 0;
         let pointsTeamB = 0;
 
-        if (teamScoreMapping) {
+      if (teamScoreMapping) {
           pointsTeamA = teamScoreMapping.teamA === 'bottom' ? totalPointsTeamBottom : totalPointsTeamTop;
           pointsTeamB = teamScoreMapping.teamB === 'bottom' ? totalPointsTeamBottom : totalPointsTeamTop;
-        } else {
+      } else {
           // Fallback-Annahme: teamA ist bottom, teamB ist top
           pointsTeamA = totalPointsTeamBottom;
           pointsTeamB = totalPointsTeamTop;
@@ -792,11 +1134,11 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
         gamesPlayed: completedGames.length,
         durationSeconds: sessionDurationSeconds > 0 ? sessionDurationSeconds : 0,
 
-        finalScores: { 
-            top: totalPointsTeamTop,
-            bottom: totalPointsTeamBottom,
-        },
-        finalStriche: { 
+      finalScores: { 
+          top: totalPointsTeamTop,
+          bottom: totalPointsTeamBottom,
+      },
+      finalStriche: { 
             top: totalStricheTopRecord, 
             bottom: totalStricheBottomRecord,
         },
@@ -829,6 +1171,7 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
               sessionId: sessionId,
               winnerTeamKey: determinedWinnerTeamKey,
               teamScoreMapping: initialDataFromClient.teamScoreMapping,
+              playerNames: initialDataFromClient.playerNames,
             },
             now
           );
@@ -844,7 +1187,7 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
   } catch (error: unknown) {
     logger.error(`--- finalizeSession CRITICAL ERROR --- SessionId: ${sessionId}`, error);
     if (error instanceof HttpsError) {
-      throw error;
+    throw error;
     }
     const errorMessage = error instanceof Error ? error.message : String(error);
     throw new HttpsError("internal", `Failed to finalize session ${sessionId}.`, errorMessage);

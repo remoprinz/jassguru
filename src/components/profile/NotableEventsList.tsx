@@ -1,12 +1,14 @@
 import React from 'react';
 import Link from 'next/link';
+import { format } from 'date-fns';
+import { de } from 'date-fns/locale';
 // import type { FrontendStatHighlight } from '@/types/computedStats'; // Nicht mehr direkt diesen Typ verwenden
 
 // Angepasste Props basierend auf der Struktur von `dynamicHighlights` aus dem Transformer
 interface NotableEventItem {
   label: string;
   value: string | number;
-  date: string | null; // Ist bereits ein String vom Transformer
+  date: Date | null;
   relatedId?: string;
   relatedType?: 'game' | 'session' | 'tournament';
   // type?: string; // Original-Typ, falls für den Key benötigt, aktuell nicht im dynamicHighlights-Objekt
@@ -62,7 +64,7 @@ const NotableEventsList: React.FC<NotableEventsListProps> = ({ highlights }) => 
           >
             <div className="flex-1">
               <span className="font-medium text-gray-300">{item.label}</span>
-              {item.date && <span className="text-xs text-gray-500 ml-2">({item.date})</span>} {/* item.date ist jetzt string | null */}
+              {item.date && <span className="text-xs text-gray-500 ml-2">({format(item.date, 'dd.MM.yyyy', { locale: de })})</span>} {/* Formatiere das Datum */}
             </div>
             <span className="text-gray-100 font-semibold ml-2 text-right">{typeof item.value === 'number' ? item.value.toLocaleString('de-CH') : item.value}</span>
           </Link>

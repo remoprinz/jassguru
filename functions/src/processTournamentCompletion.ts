@@ -101,6 +101,7 @@ export const processTournamentCompletion = onDocumentUpdated(
           rank: playerRank,
           totalParticipants: totalTournamentParticipants,
           date: tournamentEndDate,
+          highlights: [],
         };
 
         // tournamentPlacements aktualisieren (z.B. die letzten 20, neueste zuerst)

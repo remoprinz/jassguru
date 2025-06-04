@@ -7,6 +7,7 @@ export interface FrontendStatHighlight {
   stringValue?: string; // Zusätzlicher String-Wert, z.B. Teamname bei Turniersieg
   date: Date | null; // Datum des Highlights
   relatedId?: string; // ID des zugehörigen Spiels, der Session oder des Turniers
+  relatedType?: 'game' | 'session' | 'tournament'; // NEU: Typ der Verknüpfung
   label: string; // Benutzerfreundliche Beschreibung des Highlights
 }
 
@@ -103,6 +104,7 @@ export interface FrontendPlayerComputedStats {
   mostMatschReceivedGame: FrontendStatHighlight | null;
   mostSchneiderReceivedGame: FrontendStatHighlight | null;
   mostKontermatschReceivedGame: FrontendStatHighlight | null;
+  mostWeisPointsReceivedGame: FrontendStatHighlight | null;
   longestLossStreakGames: FrontendStatStreak | null;
   longestWinlessStreakGames: FrontendStatStreak | null;
 
@@ -114,6 +116,8 @@ export interface FrontendPlayerComputedStats {
   // === Lowlights Partien (Sessions) ===
   lowestPointsSession: FrontendStatHighlight | null;
   highestStricheReceivedSession: FrontendStatHighlight | null;
+  mostMatschReceivedSession: FrontendStatHighlight | null;
+  mostWeisPointsReceivedSession: FrontendStatHighlight | null;
   longestLossStreakSessions: FrontendStatStreak | null;
   longestWinlessStreakSessions: FrontendStatStreak | null;
 
@@ -174,6 +178,7 @@ export const initialFrontendPlayerComputedStats: FrontendPlayerComputedStats = {
   mostMatschReceivedGame: null,
   mostSchneiderReceivedGame: null,
   mostKontermatschReceivedGame: null,
+  mostWeisPointsReceivedGame: null,
   longestLossStreakGames: null,
   longestWinlessStreakGames: null,
   highestPointsSession: null,
@@ -181,6 +186,8 @@ export const initialFrontendPlayerComputedStats: FrontendPlayerComputedStats = {
   longestWinStreakSessions: null,
   lowestPointsSession: null,
   highestStricheReceivedSession: null,
+  mostMatschReceivedSession: null,
+  mostWeisPointsReceivedSession: null,
   longestLossStreakSessions: null,
   longestWinlessStreakSessions: null,
   highlights: [],

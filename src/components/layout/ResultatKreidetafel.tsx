@@ -1250,78 +1250,105 @@ const ResultatKreidetafel = ({
                 
                 // Daten aus den Stores sammeln (VOR dem Reset!)
                 const finalStriche = gameStore.striche;
-                const finalScores = gameStore.scores;
+                // finalScores sind die Gesamtpunkte des Spiels (Jass-Punkte + Weis der LETZTEN Runde aus gameStore.scores)
+                // Dies ist NICHT die Summe aller Rundenpunkte.
+                // Die korrekten Endpunkte des Spiels (inkl. aller Weispunkte) sind in jassStore.getCurrentGame().teams.X.total
+                const jassStoreCurrentGame = jassStore.getCurrentGame();
+                const finalScoresCorrected = {
+                  top: jassStoreCurrentGame?.teams.top.total || 0,
+                  bottom: jassStoreCurrentGame?.teams.bottom.total || 0,
+                };
+
                 const finalPlayerNames = gameStore.playerNames;
                 const finalDuration = timerStore.getGameDuration(currentGameNumber);
-                const finalWeisPoints = gameStore.weisPoints;
+                
+                // Korrekte Quelle für die Gesamt-Weispunkte der Partie aus dem jassStore
+                const accumulatedWeisPointsForGame = {
+                  top: jassStoreCurrentGame?.teams.top.weisPoints || 0,
+                  bottom: jassStoreCurrentGame?.teams.bottom.weisPoints || 0,
+                };
+                                
                 const finalStartingPlayer = gameStore.startingPlayer;
                 const finalInitialStartingPlayer = gameStore.initialStartingPlayer;
+                // WICHTIG: roundHistory direkt aus dem gameStore nehmen.
+                // Diese SOLLTE die korrekten runden-spezifischen weisPoints enthalten,
+                // da gameStore.createRoundEntry diese aus currentRoundWeisSum setzt.
                 const finalRoundHistory = [...gameStore.roundHistory]; 
                 const finalParticipantUids = (jassStore.currentSession?.participantUids ?? []) as string[];
                 const finalGroupId = jassStore.currentSession?.gruppeId ?? null;
 
-                // Log entfernt -> ersetzt durch LOG 4 & 5
-
                 const filteredRoundHistory = finalRoundHistory.filter(entry => entry.isActive === undefined || entry.isActive === true);
                 const trumpColorsPlayedSet = new Set<string>();
-                filteredRoundHistory.forEach(entry => {
-                  if (isJassRoundEntry(entry) && entry.farbe) {
-                     trumpColorsPlayedSet.add(entry.farbe);
+                
+                const cleanedRoundHistory = filteredRoundHistory.map(entry => {
+                  const cleanedEntry = { ...entry };
+                  // Das Feld _savedWeisPoints ist nicht Teil von RoundEntry und sollte entfernt werden, falls es existiert
+                  if ('_savedWeisPoints' in cleanedEntry) {
+                    delete (cleanedEntry as any)._savedWeisPoints;
                   }
+
+                  if (isJassRoundEntry(cleanedEntry)) {
+                    if (cleanedEntry.farbe) {
+                       trumpColorsPlayedSet.add(cleanedEntry.farbe);
+                    }
+                    if (cleanedEntry.strichInfo === undefined) {
+                      delete cleanedEntry.strichInfo;
+                    }
+                    // Die weisPoints in JassRoundEntry sollten hier bereits die Summe der Weis DIESER Runde sein,
+                    // gesetzt durch createRoundEntry(stateForEntryCreation) in gameStore.finalizeRound.
+                    // Wir müssen sicherstellen, dass sie nicht {0,0} sind, falls die Runde Weis hatte.
+                    // Die `weisActions` sind der Ground Truth für die Weispunkte dieser Runde.
+                    // Wenn `cleanedEntry.weisPoints` nicht die Summe der `weisActions` ist, gibt es ein Problem in `createRoundEntry`.
+                    // Für die Korrektur hier, stellen wir sicher, dass es konsistent ist, falls createRoundEntry fehlschlägt:
+                    let roundSpecificWeisSum = { top: 0, bottom: 0 };
+                    (cleanedEntry.weisActions || []).forEach(wa => {
+                      roundSpecificWeisSum[wa.position] = (roundSpecificWeisSum[wa.position] || 0) + wa.points;
+                    });
+                    cleanedEntry.weisPoints = roundSpecificWeisSum;
+
+                  }
+                  if (cleanedEntry.ansager === undefined) delete cleanedEntry.ansager;
+                  if (cleanedEntry.startTime === undefined) delete cleanedEntry.startTime;
+                  if (cleanedEntry.endTime === undefined) delete cleanedEntry.endTime;
+                  if (cleanedEntry.playerTurns === undefined) delete cleanedEntry.playerTurns;
+                  if (cleanedEntry.timerSnapshot === undefined) delete cleanedEntry.timerSnapshot;
+                  if (cleanedEntry.previousRoundId === undefined) delete cleanedEntry.previousRoundId;
+                  if (cleanedEntry.nextRoundId === undefined) delete cleanedEntry.nextRoundId;
+
+                  if (cleanedEntry.scores?.weisPoints === undefined) { // Dieses 'weisPoints' in 'scores' ist meist {0,0}
+                    if (cleanedEntry.scores) cleanedEntry.scores.weisPoints = {top: 0, bottom: 0};
+                  }
+                  if (cleanedEntry.visualStriche?.top === undefined) {
+                    if (cleanedEntry.visualStriche) cleanedEntry.visualStriche.top = {stricheCounts: { 20: 0, 50: 0, 100: 0 }, restZahl: 0}; 
+                  }
+                  if (cleanedEntry.visualStriche?.bottom === undefined) {
+                    if (cleanedEntry.visualStriche) cleanedEntry.visualStriche.bottom = {stricheCounts: { 20: 0, 50: 0, 100: 0 }, restZahl: 0};
+                  }
+                  return cleanedEntry;
                 });
-                const finalTrumpColorsPlayed = Array.from(trumpColorsPlayedSet);
+                const finalTrumpColorsPlayed = Array.from(trumpColorsPlayedSet) as string[];
 
                 const summaryToSave: CompletedGameSummary = {
                   gameNumber: currentGameNumber, 
-                  finalScores: finalScores, 
+                  finalScores: finalScoresCorrected, // Korrigierte Gesamtpunkte des Spiels
                   finalStriche: finalStriche, 
                   playerNames: finalPlayerNames, 
                   timestampCompleted: Timestamp.now(), 
-                  weisPoints: finalWeisPoints, 
+                  weisPoints: accumulatedWeisPointsForGame, // Verwende die akkumulierten Gesamt-Weispunkte für das SPIEL
                   startingPlayer: finalStartingPlayer, 
                   initialStartingPlayer: finalInitialStartingPlayer, 
                   trumpColorsPlayed: finalTrumpColorsPlayed,
-                  roundHistory: filteredRoundHistory, 
+                  roundHistory: cleanedRoundHistory, // History mit korrigierten/validierten runden-spezifischen weisPoints
                   participantUids: finalParticipantUids, 
                   groupId: finalGroupId, 
-                  activeGameId: activeGameId, // << HIER HINZUGEFÜGT
+                  activeGameId: activeGameId,
                   completedAt: Timestamp.now(),
                   durationMillis: finalDuration ?? 0,
-                  // Überprüfe, ob es irgendwo ein zweites weisPoints-Feld gibt und entferne es
                 };
-
-                // DEBUGGING: Prüfe auf doppelte weisPoints-Felder
-                // Ein doppeltes weisPoints-Feld könnte zur Laufzeit durch JSON-Serialisierung/Deserialisierung entstehen
-                // obwohl es im Code nicht sichtbar ist
-                // console.log("[handleSignatureClick] DEBUG summaryToSave:", JSON.stringify(Object.keys(summaryToSave))); 
-                const weisPointsMatches = JSON.stringify(summaryToSave).match(/weisPoints/g);
-                const matchCount = weisPointsMatches ? weisPointsMatches.length : 0;
-                if (matchCount > 2) {
-                  console.warn(`[handleSignatureClick] ACHTUNG: weisPoints scheint ${matchCount}x im summaryToSave-Objekt vorzukommen!`);
-                  
-                  // Versuche, doppelte weisPoints-Felder zu entfernen
-                  // (Dieses Problem kann durch die Serialisierung/Deserialisierung zwischen Client und Firebase entstehen)
-                  const summaryString = JSON.stringify(summaryToSave);
-                  // Stelle sicher, dass nur das weisPoints-Feld auf oberster Ebene existiert
-                  const cleanedSummaryJson = summaryString.replace(/,"weisPoints":\{"top":\d+,"bottom":\d+\}/g, '');
-                  // Das erste Vorkommen (in der Hauptstruktur) beibehalten und nur die folgenden entfernen
-                  const finalSummaryJson = cleanedSummaryJson.replace(/,"weisPoints":\{"top":\d+,"bottom":\d+\}/g, '');
-                  
-                  try {
-                    const cleanedSummary = JSON.parse(finalSummaryJson);
-                    console.log("[handleSignatureClick] Successfully cleaned up duplicate weisPoints fields.");
-                    console.log("[ResultatKreidetafel] Attempting to save cleaned completed game summary...", { currentSessionIdFromStore, currentGameNumber }); 
-                    await saveCompletedGameToFirestore(currentSessionIdFromStore, currentGameNumber, cleanedSummary);
-                  } catch (jsonError) {
-                    console.error("[handleSignatureClick] Error cleaning JSON:", jsonError);
-                    // Fallback: Original-Objekt versuchen
-                    console.log("[ResultatKreidetafel] Attempting to save original summary as fallback...");
-                    await saveCompletedGameToFirestore(currentSessionIdFromStore, currentGameNumber, summaryToSave);
-                  }
-                } else {
-                  console.log("[ResultatKreidetafel] Attempting to save completed game summary...", { currentSessionIdFromStore, currentGameNumber }); 
-                  await saveCompletedGameToFirestore(currentSessionIdFromStore, currentGameNumber, summaryToSave);
-                }
+                
+                // Die aggressive Regex-Bereinigung wird entfernt. Das Objekt sollte jetzt korrekt sein.
+                console.log("[ResultatKreidetafel] Attempting to save completed game summary (Struktur überarbeitet)...", { currentSessionIdFromStore, currentGameNumber, summaryToSave: JSON.parse(JSON.stringify(summaryToSave)) }); 
+                await saveCompletedGameToFirestore(currentSessionIdFromStore, currentGameNumber, summaryToSave);
                 
                 console.log("[ResultatKreidetafel] Completed game summary saved successfully."); 
 

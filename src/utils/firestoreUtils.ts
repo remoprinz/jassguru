@@ -99,7 +99,6 @@ export function sanitizeDataForFirestore(
           // das später nicht mit dem obersten weisPoints kollidieren kann
           if ('weisPoints' in entryCopy) {
             entryCopy._savedWeisPoints = entryCopy.weisPoints; // Speichere unter anderem Namen
-            delete entryCopy.weisPoints; // Entferne das originale Feld
           }
           
           return entryCopy;
