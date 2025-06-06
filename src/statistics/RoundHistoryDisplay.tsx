@@ -1,10 +1,12 @@
 import React from 'react';
 import { Timestamp } from 'firebase/firestore';
+import { format } from 'date-fns';
 import type { GameEntry, PlayerNames, CardStyle, RoundEntry, TeamPosition, JassColor, PlayerNumber, JassRoundEntry, TeamStand, StrokeSettings, CompletedGameSummary } from '@/types/jass';
 import { FarbePictogram } from '@/components/settings/FarbePictogram'; // Pfad ggf. anpassen
 import { CARD_SYMBOL_MAPPINGS } from '@/config/CardStyles';
 import { StatisticProps } from '../types/statistikTypes'; // Importiere den Basis-Prop-Typ
 import { useGameStore } from "../store/gameStore"; // Korrekter Pfad
+import { useUIStore } from '@/store/uiStore';
 
 // NEUE ZENTRALE MAPPING-FUNKTION
 const mapDbValueToJassColorType = (dbValue: string | undefined): JassColor | undefined => {
@@ -77,6 +79,7 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
   strokeSettings, // Nicht direkt verwendet
   currentGameId, // ID des aktiven Spiels im JassStore
   onSwipe, // Nicht direkt verwendet
+  gameTypeLabel = 'Spiel', // NEU: Prop für das Label, default "Spiel"
 }) => {
 
   // --- Hole den aktuellen Navigationsindex für das *aktive* Spiel --- 
@@ -126,14 +129,21 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
   allGamesForDisplay = allGamesForDisplay.map((game, index) => {
     // Erstelle eine Kopie des Spiels
     const gameCopy = {...game};
-    // Setze eine neue displayNumber Eigenschaft
-    (gameCopy as any).displayNumber = index + 1;
+    // WICHTIG: Prüfe, ob eine explizite gameNumber (von einer Passe) vorhanden ist.
+    // Wenn ja, verwende diese. Ansonsten zähle hoch.
+    if ('gameNumber' in gameCopy && typeof gameCopy.gameNumber === 'number' && gameCopy.gameNumber > 0) {
+        (gameCopy as any).displayNumber = gameCopy.gameNumber;
+    } else {
+        (gameCopy as any).displayNumber = index + 1;
+    }
     return gameCopy;
   });
   
   if (!allGamesForDisplay || allGamesForDisplay.length === 0) {
     return <div className="text-center text-gray-400 py-8">Keine Spieldaten verfügbar.</div>;
   }
+  
+  let lastDisplayedDate: string | null = null;
 
   return (
     <div className="flex flex-col w-full space-y-1 min-w-max">
@@ -153,6 +163,40 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
           const displayGameNumber = (game as any).displayNumber || (index + 1);
           
           const fullRoundHistory = game.roundHistory ?? [];
+
+          // --- UHRZEIT-LOGIK (ÜBERARBEITET) ---
+          let gameTimestampForFormatting: number | null = null;
+
+          const convertToMillis = (ts: any): number | null => {
+            if (!ts) return null;
+            if (typeof ts === 'number') return ts;
+            // Prüft auf eine toMillis-Funktion, wie sie Firestore Timestamps haben
+            if (typeof ts.toMillis === 'function') return ts.toMillis(); 
+            return null;
+          };
+
+          // Priorität 1: Zeitstempel vom Spiel/Passe-Objekt selbst
+          if ('timestamp' in game && game.timestamp) {
+              gameTimestampForFormatting = convertToMillis(game.timestamp);
+          }
+          
+          // Priorität 2: Fallback auf Zeitstempel der ersten Runde
+          if (!gameTimestampForFormatting) {
+              const firstRound = fullRoundHistory.length > 0 ? fullRoundHistory[0] : null;
+              if (firstRound && firstRound.timestamp) {
+                  gameTimestampForFormatting = convertToMillis(firstRound.timestamp);
+              }
+          }
+          
+          let gameStartTime: string | null = null;
+          if (gameTimestampForFormatting) {
+              try {
+                  gameStartTime = format(new Date(gameTimestampForFormatting), 'HH:mm');
+              } catch (e) {
+                  console.warn("Could not format game start time from timestamp:", gameTimestampForFormatting, e);
+              }
+          }
+          // --- ENDE UHRZEIT-LOGIK ---
           
           // --- DEBUG LOGGING --- 
           // console.log(`[RoundHistoryDisplay MAP TRY] Processing game index ${index}, identifier: ${gameIdForLog}, history length: ${fullRoundHistory.length}`);
@@ -212,12 +256,17 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
           return (
             <div key={itemKey} className={`pt-2 pb-1 ${isCurrent ? 'bg-gray-700/50 rounded' : ''}`}>
               
+              {/* Conditional Time Header */}
+              {gameStartTime && (
+                <div className="text-left text-gray-400 px-3 pt-3 pb-3 text-sm">{gameStartTime} Uhr</div>
+              )}
+
               {/* Spiel-Header */} 
-              <div className="grid grid-cols-[2rem_5fr_5fr] gap-8 items-center px-1 mb-1">
+              <div className="grid grid-cols-[2rem_5fr_5fr] gap-8 items-center px-1 mb-1 pt-1">
                 <div className="text-base font-semibold text-white text-left pl-2 whitespace-nowrap">
-                  S{displayGameNumber} {/* Verwende displayNumber */} 
+                  {gameTypeLabel} {displayGameNumber}
                 </div>
-                <div></div>{/* Leere Spalten */} 
+                <div></div>
                 <div></div>
               </div>
               
@@ -230,9 +279,12 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
                     const prevRound = displayIndex > 0 ? finalizedJassRoundsToShow[displayIndex - 1] : undefined;
                     const roundPoints = getRoundPoints(round, prevRound);
                     
+                    const isMatschRound = round.strichInfo?.type === 'matsch';
+                    const teamThatMadeMatsch = round.strichInfo?.team;
+
                     // --- WIEDER EINGEFÜGTE DEFINITIONEN ---
                     const roundJassPoints = round.jassPoints ?? roundPoints;
-                    const roundWeisPoints = round.weisPoints ?? { top: 0, bottom: 0 };
+                    const roundWeisPoints = (round as any)._savedWeisPoints ?? round.weisPoints ?? { top: 0, bottom: 0 };
                     const hasWeisPoints = roundWeisPoints.top > 0 || roundWeisPoints.bottom > 0;
                     const startingTeam = getStartingTeamPosition(round.startingPlayer);
                     const trumpfFarbeForPictogram = mapDbValueToJassColorType(round.farbe as string | undefined); // Cast zu string, da round.farbe JassColor sein kann
@@ -273,7 +325,7 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
                                       />
                                     ) : null}
                                   </span>
-                                  <span>{roundJassPoints.bottom}</span> 
+                                  <span className={isMatschRound ? 'text-purple-400' : ''}>{roundJassPoints.bottom}</span> 
                                 </div>
                               </div>
                             </div>
@@ -293,7 +345,7 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
                                       />
                                     ) : null}
                                   </span>
-                                  <span>{roundJassPoints.top}</span> 
+                                  <span className={isMatschRound ? 'text-purple-400' : ''}>{roundJassPoints.top}</span> 
                                 </div>
                               </div>
                             </div>
@@ -369,7 +421,7 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
                   {finalScoreData && (
                     <div className="grid grid-cols-[2rem_5fr_5fr] gap-8 items-center py-2 text-yellow-400 border-t-2 border-yellow-400/50 mt-2">
                       <div className="text-sm font-semibold text-left pl-2 whitespace-nowrap">
-                        Total (S{displayGameNumber}):
+                        Total:
                       </div>
                       {/* Team Bottom Total - Ausrichtung wie Rundenpunkte, Textgrösse angepasst */}
                       <div className="grid-cell">
@@ -401,14 +453,14 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
                 <div className="px-1">
                   {/* Hinweis, dass keine Runden vorhanden sind */}
                   <p className="text-sm text-center text-gray-500 py-2">
-                    Keine Rundendetails für Spiel {displayGameNumber} verfügbar.
+                    Keine Rundendetails für {gameTypeLabel} {displayGameNumber} verfügbar.
                   </p>
                 
                   {/* Trotzdem Endstand anzeigen */}
                   {finalScoreData && (
                     <div className="grid grid-cols-[2rem_5fr_5fr] gap-8 items-center py-2 text-yellow-400 border-t-2 border-yellow-400/50 mt-2">
                       <div className="text-sm font-semibold text-left pl-2 whitespace-nowrap">
-                        Total (S{displayGameNumber}):
+                        Total:
                       </div>
                       <div className="grid-cell">
                         <div className="flex justify-center">
