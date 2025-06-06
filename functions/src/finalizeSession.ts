@@ -2,6 +2,7 @@ import { HttpsError, onCall, CallableRequest } from "firebase-functions/v2/https
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import { PlayerComputedStats, initialPlayerComputedStats } from "./models/player-stats.model";
+import { updateGroupComputedStatsAfterSession } from "./groupStatsCalculator";
 
 const db = admin.firestore();
 
@@ -16,6 +17,16 @@ export interface StricheRecord {
   schneider: number;
   kontermatsch: number;
 }
+
+// Hinzufügen einer einfachen Typ-Definition für die Runden-Einträge
+interface Round {
+  actionType?: string;
+  strichInfo?: {
+    team?: 'top' | 'bottom';
+    type?: string;
+  };
+}
+
 export interface TeamScores {
   top: number;
   bottom: number;
@@ -45,13 +56,19 @@ export interface CompletedGameData {
   groupId?: string | null;
   participantUids?: string[];
   playerNames?: PlayerNames;
-  teams?: TeamConfig;
+  teams?: {
+    top: { playerUids: string[]; };
+    bottom: { playerUids: string[]; };
+  };
   weisPoints?: TeamScores;
-  roundHistory?: unknown[]; // Füge roundHistory hinzu für besseres Debugging
+  roundHistory?: Round[];
   teamScoreMapping?: { teamA: 'top' | 'bottom'; teamB: 'top' | 'bottom' };
   completedAt?: admin.firestore.Timestamp;
+  timestampCompleted?: admin.firestore.Timestamp; // Hinzugefügt
   activeGameId?: string;
   durationMillis?: number;
+  sessionId?: string;
+  winnerTeam?: 'top' | 'bottom' | 'draw'; // Hinzugefügt
 }
 
 interface FinalizeSessionData {
@@ -107,6 +124,15 @@ interface FinalSessionUpdateData {
   pairingIdentifiers: { teamA: string; teamB: string; } | null;
   winnerTeamKey: 'teamA' | 'teamB' | 'draw' | undefined;
   teamScoreMapping: { teamA: 'top' | 'bottom'; teamB: 'top' | 'bottom' } | null;
+}
+
+// Hinzufügen einer einfachen Typ-Definition für die Runden-Einträge
+interface Round {
+  actionType?: string;
+  strichInfo?: {
+    team?: 'top' | 'bottom';
+    type?: string;
+  };
 }
 
 // NEUE HILFSFUNKTION für Spieler-Session-Statistiken
@@ -1036,6 +1062,9 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
   const summaryDocRef = db.collection(JASS_SUMMARIES_COLLECTION).doc(sessionId);
   const completedGamesColRef = summaryDocRef.collection(COMPLETED_GAMES_SUBCOLLECTION);
 
+  // Deklariere completedGames hier, damit es außerhalb der Transaktion verfügbar ist
+  const completedGames: CompletedGameData[] = [];
+
   try {
     await db.runTransaction(async (transaction) => {
       logger.info(`--- Transaction START for ${sessionId} ---`);
@@ -1049,8 +1078,8 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
         logger.warn(`Session ${sessionId} is already completed. Skipping finalization.`);
         return;
       }
-
-      const completedGames: CompletedGameData[] = [];
+      
+      // Befülle die außerhalb deklarierte Variable
       gamesSnap.forEach(doc => {
         completedGames.push(doc.data() as CompletedGameData);
       });
@@ -1092,11 +1121,41 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
           sessionTotalWeisPoints.bottom += game.weisPoints.bottom || 0;
         }
 
-        if (game.finalStriche) {
-          for (const key of Object.keys(totalStricheTopRecord) as Array<keyof StricheRecord>) {
-            totalStricheTopRecord[key] += game.finalStriche.top?.[key] || 0;
-            totalStricheBottomRecord[key] += game.finalStriche.bottom?.[key] || 0;
-          }
+        // KORRIGIERTE STRICHE-BERECHNUNG: Aus roundHistory statt finalStriche
+        if (game.roundHistory && Array.isArray(game.roundHistory)) {
+          game.roundHistory.forEach(round => { // Typ-Annotation entfernt, wird jetzt inferiert
+            // Nur Jass-Runden mit strichInfo berücksichtigen
+            if (round.actionType === 'jass' && round.strichInfo && round.strichInfo.team && round.strichInfo.type) {
+              const { team, type } = round.strichInfo;
+              
+              // Sicherstellen, dass team 'top' oder 'bottom' ist
+              if (team === 'top' || team === 'bottom') {
+                switch (type) {
+                  case 'matsch':
+                    totalStricheTopRecord.matsch += team === 'top' ? 1 : 0;
+                    totalStricheBottomRecord.matsch += team === 'bottom' ? 1 : 0;
+                    break;
+                  case 'kontermatsch':
+                    // Kontermatsch hat einen konfigurierbaren Wert (normalerweise 3)
+                    totalStricheTopRecord.kontermatsch += team === 'top' ? 3 : 0;
+                    totalStricheBottomRecord.kontermatsch += team === 'bottom' ? 3 : 0;
+                    break;
+                  case 'sieg':
+                    totalStricheTopRecord.sieg += team === 'top' ? 1 : 0;
+                    totalStricheBottomRecord.sieg += team === 'bottom' ? 1 : 0;
+                    break;
+                  case 'schneider':
+                    totalStricheTopRecord.schneider += team === 'top' ? 1 : 0;
+                    totalStricheBottomRecord.schneider += team === 'bottom' ? 1 : 0;
+                    break;
+                  case 'berg':
+                    totalStricheTopRecord.berg += team === 'top' ? 1 : 0;
+                    totalStricheBottomRecord.berg += team === 'bottom' ? 1 : 0;
+                    break;
+                }
+              }
+            }
+          });
         }
       });
       
@@ -1182,7 +1241,41 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
       logger.info(`--- Transaction END for ${sessionId} (document set/merged) ---`);
     });
 
-    logger.info(`Session ${sessionId} finalized successfully and player stats updated (trigger initiated).`);
+    // NEU: Aktualisiere die Gruppenstatistiken nach der erfolgreichen Finalisierung der Session
+    if (initialDataFromClient.gruppeId) {
+      try {
+        logger.info(`[finalizeSession] Starting group stats update for groupId: ${initialDataFromClient.gruppeId}`);
+        await updateGroupComputedStatsAfterSession(initialDataFromClient.gruppeId);
+        logger.info(`[finalizeSession] Group stats successfully updated for groupId: ${initialDataFromClient.gruppeId}`);
+      } catch (groupStatsError) {
+        logger.error(`[finalizeSession] Failed to update group stats for groupId ${initialDataFromClient.gruppeId}:`, groupStatsError);
+        // Gruppenfehler sollten die Session-Finalisierung nicht zum Scheitern bringen
+        // Daher wird hier nur geloggt, aber kein Error geworfen
+      }
+    } else {
+      logger.info(`[finalizeSession] No groupId provided, skipping group stats update for session ${sessionId}.`);
+    }
+
+    // NEU: Aufräumen der activeGame-Dokumente (Funktionalität von archiveGame.ts)
+    logger.info(`[finalizeSession] Starting cleanup of activeGame documents for session ${sessionId}.`);
+    const activeGameIdsToDelete = completedGames
+      .map(game => game.activeGameId)
+      .filter((id): id is string => !!id); // Type guard, um sicherzustellen, dass nur strings im Array sind
+
+    if (activeGameIdsToDelete.length > 0) {
+      const batch = db.batch();
+      activeGameIdsToDelete.forEach(id => {
+        const activeGameRef = db.collection('activeGames').doc(id);
+        batch.delete(activeGameRef);
+        logger.info(`[finalizeSession] Queued deletion for active game ${id}.`);
+      });
+      await batch.commit();
+      logger.info(`[finalizeSession] Cleanup of ${activeGameIdsToDelete.length} activeGame documents completed for session ${sessionId}.`);
+    } else {
+      logger.info(`[finalizeSession] No activeGame documents to clean up for session ${sessionId}.`);
+    }
+
+    logger.info(`Session ${sessionId} finalized successfully and player stats updated.`);
     return { success: true, message: `Session ${sessionId} finalized.` };
   } catch (error: unknown) {
     logger.error(`--- finalizeSession CRITICAL ERROR --- SessionId: ${sessionId}`, error);

@@ -353,8 +353,8 @@ const PlayerProfilePage = () => {
                       </div>
                       <div className="p-4 space-y-2">
                         <div className="flex justify-between items-center bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-200">Turniersiege</span>
-                          <span className="text-lg font-bold text-white">{extendedStats?.tournamentWins ?? 0}</span>
+                        <span className="font-medium text-gray-200">Turniersiege</span>
+                        <span className="text-lg font-bold text-white">{extendedStats?.tournamentWins ?? 0}</span>
                         </div>
                       </div>
                     </div>
@@ -404,7 +404,7 @@ const PlayerProfilePage = () => {
                         </div>
                       </div>
                     </div>
-
+                    
                     {/* Block Spieler-Ergebnisse */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
@@ -534,7 +534,7 @@ const PlayerProfilePage = () => {
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                         <div className="w-1 h-6 bg-red-500 rounded-r-md mr-3"></div>
                         <h3 className="text-base font-semibold text-white">Lowlights Partien</h3>
-                      </div>
+                    </div>
                       <div className="p-4 space-y-2">
                         <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                           <span className="font-medium text-gray-300">Höchste erhaltene Strichdifferenz:</span>
@@ -603,7 +603,7 @@ const PlayerProfilePage = () => {
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                         <div className="w-1 h-6 bg-red-500 rounded-r-md mr-3"></div>
                         <h3 className="text-base font-semibold text-white">Lowlights Spiele</h3>
-                      </div>
+                    </div>
                       <div className="p-4 space-y-2">
                         <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                           <span className="font-medium text-gray-300">Höchste erhaltene Strichdifferenz:</span>
@@ -664,8 +664,8 @@ const PlayerProfilePage = () => {
                             <span className="text-gray-100">-</span>
                           )}
                   </div>
-                  </div>
-                </div>
+                      </div>
+                    </div>
 
                     {/* NEU: Dynamische Highlights Liste einfügen */}
                     <NotableEventsList highlights={extendedStats.dynamicHighlights} />

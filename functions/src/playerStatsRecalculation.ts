@@ -2,10 +2,9 @@ import { HttpsError, onCall, CallableRequest } from "firebase-functions/v2/https
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import { PlayerComputedStats, initialPlayerComputedStats, TournamentPlacement, StatHighlight } from "./models/player-stats.model";
-import { SessionTeams as RecalcSessionTeams, StricheRecord as RecalcStricheRecord, TeamScores as RecalcTeamScores, InitialSessionData as RecalcInitialSessionData } from "./finalizeSession";
+import { SessionTeams as RecalcSessionTeams, StricheRecord as RecalcStricheRecord, TeamScores as RecalcTeamScores, InitialSessionData as RecalcInitialSessionData, CompletedGameData as ArchivedCompletedGameDataOriginal } from "./finalizeSession";
 import { TournamentGameData as RecalcTournamentGameDataOriginal } from "./tournamentGameProcessing";
 import { TournamentDocData as RecalcTournamentDocData } from "./finalizeTournament";
-import { CompletedGameData as ArchivedCompletedGameDataOriginal } from "./archiveGame";
 
 const db = admin.firestore();
 
@@ -574,7 +573,7 @@ function updateGameHighlightsForRecalc(
     outcome: ReturnType<typeof getPlayerGameOutcomeForRecalc> | ReturnType<typeof getPlayerTournamentGameOutcomeForRecalc>, 
     timestamp: admin.firestore.Timestamp, 
     gameDocId: string, 
-    isTournament: boolean = false
+    isTournament = false
 ) {
     const typeSuffix = isTournament ? "_tournament" : "";
     const gameTypeLabel = isTournament ? ' (Turnier)' : '';

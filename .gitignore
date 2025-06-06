@@ -43,3 +43,6 @@ jasstafel/Vorlage UI/Examplevideo.mp4
 
 # Jassguru spezifische Dokumentation / Notizen
 docs
+
+# Firebase service account key
+/functions/serviceAccountKey.json

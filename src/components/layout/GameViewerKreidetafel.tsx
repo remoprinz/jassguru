@@ -40,7 +40,9 @@ export interface GameViewerKreidetafelProps {
     cardStyle?: CardStyle; // Make optional or provide default
     strokeSettings?: StrokeSettings; // Make optional or provide default
     scoreSettings?: ScoreSettings; // NEU: Benötigt für korrekte Strich-Total-Berechnung
+    startedAt?: number | Timestamp | FieldValue;
   };
+  gameTypeLabel?: string; // NEU: Prop für das Label
 }
 
 // Reusable PlayerName Component (copied from ResultatKreidetafel for now)
@@ -53,7 +55,7 @@ const PlayerNameDisplay: React.FC<{ name: string, isStarter: boolean }> = ({ nam
   </div>
 );
 
-const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData }) => {
+const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData, gameTypeLabel = 'Spiel' }) => {
   const [currentStatistic, setCurrentStatistic] = useState<string>(STATISTIC_MODULES[0]?.id ?? 'striche'); // Default to first module
 
   // Determine current game being viewed (assuming the last game in the array is the most current)
@@ -70,16 +72,40 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData 
 
   // Handle different timestamp fields
   const currentDate = useMemo(() => {
+    // Hilfsfunktion zum Parsen verschiedener Timestamp-Formate
+    const parseTimestamp = (timestamp: any): number => {
+        if (!timestamp) return Date.now();
+        if (timestamp instanceof Timestamp) {
+            return timestamp.toMillis();
+        }
+        if (typeof timestamp.toDate === 'function') { // Kompatibilität mit älteren Firebase-Versionen
+            return timestamp.toDate().getTime();
+        }
+        if (typeof timestamp === 'object' && 'seconds' in timestamp && 'nanoseconds' in timestamp) {
+            return new Timestamp(timestamp.seconds, timestamp.nanoseconds).toMillis();
+        }
+        if (typeof timestamp === 'number') {
+            return timestamp;
+        }
+        return Date.now(); // Fallback
+    };
+
     let ts: number | Timestamp | FieldValue | undefined;
-    if (currentGame && 'timestamp' in currentGame) {
-      ts = currentGame.timestamp; // GameEntry
+
+    // Priorisiere das Startdatum der Session, wenn vorhanden
+    if (gameData.startedAt) {
+      ts = gameData.startedAt;
+    } else if (currentGame && 'timestamp' in currentGame) {
+      // Fallback: Startzeit des aktuellen Spiels
+      ts = currentGame.timestamp; 
     } else if (currentGame && 'timestampCompleted' in currentGame) {
-      ts = currentGame.timestampCompleted; // CompletedGameSummary
+      // Fallback: Endzeit des aktuellen Spiels
+      ts = currentGame.timestampCompleted; 
     }
-    // Convert Timestamp to number, handle FieldValue/undefined with fallback
-    const dateSource = ts instanceof Timestamp ? ts.toMillis() : typeof ts === 'number' ? ts : Date.now();
+    
+    const dateSource = parseTimestamp(ts);
     return format(new Date(dateSource), 'd.M.yyyy');
-  }, [currentGame]);
+  }, [currentGame, gameData.startedAt]);
 
   // Use settings from props or fallback to defaults
   const activeStrokeSettings = gameData.strokeSettings ?? DEFAULT_STROKE_SETTINGS;
@@ -321,11 +347,13 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData 
                 // Pass necessary props derived from gameData
                 games: gameData.games,
                 teams: constructedTeamsProp,
-                currentGameId: currentGameIdNumber,
                 playerNames: gameData.playerNames,
                 cardStyle: activeCardStyle,
                 strokeSettings: activeStrokeSettings,
-                onSwipe: handleStatisticChange
+                scoreSettings: activeScoreSettings, // Pass score settings
+                currentGameId: currentGame?.id, // Pass the current game ID
+                onSwipe: handleStatisticChange, // Pass the swipe handler
+                gameTypeLabel: gameTypeLabel, // Pass das Label weiter
               })}
             </animated.div>
           </div>

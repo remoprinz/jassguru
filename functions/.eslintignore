@@ -1,0 +1,7 @@
+/lib/
+/dist/
+/node_modules/
+/coverage/
+
+# Skripte ignorieren, die nicht Teil des TS-Projekts sind
+/scripts/*.js 

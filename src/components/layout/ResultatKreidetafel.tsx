@@ -75,6 +75,7 @@ import { getFunctions, httpsCallable } from "firebase/functions"; // HttpsError 
 // --- Auth Store & Typen ---
 import { useAuthStore } from '@/store/authStore';
 import type { AuthUser } from '@/types/auth'; // AuthUser als Typ
+import FullscreenLoader from "@/components/ui/FullscreenLoader"; // KORREKTER IMPORT HIER
 
 // --- NEU: Interface für Callable Function Daten (wie in der Function definiert) ---
 interface InitialSessionDataClient {
@@ -286,6 +287,14 @@ const ResultatKreidetafel = ({
   const currentStep = getCurrentStep();
   const { user, status: authStatus, isAuthenticated } = useAuthStore();
   const router = useRouter();
+
+  // --- State für Ladezustände und UI-Logik (hier einfügen) ---
+  const [isScreenshotting, setIsScreenshotting] = useState(false); // Wiederherstellen/Sicherstellen
+  const [showBackButton, setShowBackButton] = useState(false); // Wiederherstellen/Sicherstellen
+  const [showNextButton, setShowNextButton] = useState(false); // Wiederherstellen/Sicherstellen
+  const [isCompletingPasse, setIsCompletingPasse] = useState(false); // Wiederherstellen der Deklaration
+  const [isFinalizingSession, setIsFinalizingSession] = useState(false); // Hinzufügen/Korrigieren
+  const [showConfetti, setShowConfetti] = useState(false); // HINZUGEFÜGT
 
   // NEU: Turnierkontext-Erkennung
   const { currentSession } = useJassStore();
@@ -1290,7 +1299,7 @@ const ResultatKreidetafel = ({
                   if (isJassRoundEntry(cleanedEntry)) {
                     if (cleanedEntry.farbe) {
                        trumpColorsPlayedSet.add(cleanedEntry.farbe);
-                    }
+                  }
                     if (cleanedEntry.strichInfo === undefined) {
                       delete cleanedEntry.strichInfo;
                     }
@@ -1345,10 +1354,10 @@ const ResultatKreidetafel = ({
                   completedAt: Timestamp.now(),
                   durationMillis: finalDuration ?? 0,
                 };
-                
+
                 // Die aggressive Regex-Bereinigung wird entfernt. Das Objekt sollte jetzt korrekt sein.
                 console.log("[ResultatKreidetafel] Attempting to save completed game summary (Struktur überarbeitet)...", { currentSessionIdFromStore, currentGameNumber, summaryToSave: JSON.parse(JSON.stringify(summaryToSave)) }); 
-                await saveCompletedGameToFirestore(currentSessionIdFromStore, currentGameNumber, summaryToSave);
+                    await saveCompletedGameToFirestore(currentSessionIdFromStore, currentGameNumber, summaryToSave);
                 
                 console.log("[ResultatKreidetafel] Completed game summary saved successfully."); 
 
@@ -1398,68 +1407,77 @@ const ResultatKreidetafel = ({
             // --- Aufruf der Callable Function finalizeSessionSummary mit Retry --- 
             if (statusUpdated && currentSessionIdFromStore && currentGameNumber > 0) {
                 console.log(`[ResultatKreidetafel] Attempting to call finalizeSession Cloud Function for session ${currentSessionIdFromStore}, expecting game ${currentGameNumber} (Online mode)`);
-                
-                const functions = getFunctions(firebaseApp, "us-central1"); // Region hier korrigiert
-                // Der Typ hier sollte FinalizeSessionDataClient sein, wie im vorherigen Edit-Versuch definiert
-                const finalizeFunction = httpsCallable<FinalizeSessionDataClient, { success: boolean; message: string }>(functions, 'finalizeSession');
-                
-                let attempts = 0;
-                const maxAttempts = 3;
-                const retryDelay = 2000;
 
-                while (attempts < maxAttempts) {
-                  attempts++;
+                if (isFinalizingSession) {
+                  console.warn("[ResultatKreidetafel] finalizeSession is already in progress. Skipping duplicate call.");
+                  // Optional: return hier, wenn die gesamte handleSignatureClick nicht weiterlaufen soll
+                  // Oder spezifische UI-Rückmeldung geben
+                } else {
+                  setIsFinalizingSession(true); // Setze den Flag, bevor der Prozess beginnt
+
+                  const functions = getFunctions(firebaseApp, "us-central1");
+                  const finalizeFunction = httpsCallable<FinalizeSessionDataClient, { success: boolean; message: string }>(functions, 'finalizeSession');
+
+                  let attempts = 0;
+                  const maxAttempts = 3;
+                  const retryDelay = 2000;
+
                   try {
-                    console.log(`[ResultatKreidetafel] Calling finalizeSession (Attempt ${attempts})...`);
-                    
-                    let initialPayloadData: InitialSessionDataClient | undefined = undefined;
-                    // Direkt auf jassStore und gameStore zugreifen
-                    if (jassStore.currentSession) {
-                      // NEU: SessionTeams und pairingIdentifiers vorbereiten
-                      const playerNamesLocal = gameStore.playerNames;
-                      const participantUidsLocal = jassStore.currentSession.participantUids || [];
-                      const sessionTeamsData = prepareSessionTeamsData(participantUidsLocal, playerNamesLocal);
-                      
-                      initialPayloadData = {
-                        participantUids: participantUidsLocal,
-                        playerNames: playerNamesLocal,
-                        gruppeId: jassStore.currentSession.gruppeId || null,
-                        startedAt: jassStore.currentSession?.startedAt,
-                        teams: sessionTeamsData.teams,
-                        pairingIdentifiers: sessionTeamsData.pairingIdentifiers
-                      };
-                      console.log("[ResultatKreidetafel] initialSessionData prepared:", JSON.stringify(initialPayloadData));
-                    } else {
-                      console.warn("[ResultatKreidetafel] currentSession in jassStore is null, cannot send full initialSessionData.");
-                    }
+                    while (attempts < maxAttempts) {
+                      attempts++;
+                      try {
+                        console.log(`[ResultatKreidetafel] Calling finalizeSession (Attempt ${attempts})...`);
 
-                    const result = await finalizeFunction({
-                      sessionId: currentSessionIdFromStore!, 
-                      expectedGameNumber: currentGameNumber!, 
-                      initialSessionData: initialPayloadData 
-                    });
-                    
-                    console.log(`[ResultatKreidetafel] finalizeSession SUCCESS (Attempt ${attempts}):`, result.data);
-                    break; 
-                  } catch (error: any) {
-                    console.warn(`[ResultatKreidetafel] finalizeSession FAILED (Attempt ${attempts}):`, error);
-                    if ((error as any)?.details?.customCode === 'GAME_NOT_YET_VISIBLE' && attempts < maxAttempts) {
-                      console.log(`[ResultatKreidetafel] Custom Precondition failed (Game ${currentGameNumber} likely not visible yet). Retrying in ${retryDelay / 1000}s...`);
-                      await new Promise(resolve => setTimeout(resolve, retryDelay));
-                      continue; 
-                    } else { 
-                      console.error(`[ResultatKreidetafel] FINAL Error calling finalizeSession after ${attempts} attempts:`, error);
-                      let errorMessage = "Fehler beim Finalisieren der Session-Statistik.";
-                      if (error.code && error.message) {
-                        errorMessage = `Fehler (${error.code}): ${error.message}`;
-                      } else if (error instanceof Error) {
-                        errorMessage = error.message;
+                        let initialPayloadData: InitialSessionDataClient | undefined = undefined;
+                        if (jassStore.currentSession) {
+                          const playerNamesLocal = gameStore.playerNames;
+                          const participantUidsLocal = jassStore.currentSession.participantUids || [];
+                          const sessionTeamsData = prepareSessionTeamsData(participantUidsLocal, playerNamesLocal);
+
+                          initialPayloadData = {
+                            participantUids: participantUidsLocal,
+                            playerNames: playerNamesLocal,
+                            gruppeId: jassStore.currentSession.gruppeId || null,
+                            startedAt: jassStore.currentSession?.startedAt,
+                            teams: sessionTeamsData.teams,
+                            pairingIdentifiers: sessionTeamsData.pairingIdentifiers
+                          };
+                          console.log("[ResultatKreidetafel] initialSessionData prepared:", JSON.stringify(initialPayloadData));
+                        } else {
+                          console.warn("[ResultatKreidetafel] currentSession in jassStore is null, cannot send full initialSessionData.");
+                        }
+
+                        const result = await finalizeFunction({
+                          sessionId: currentSessionIdFromStore!,
+                          expectedGameNumber: currentGameNumber!,
+                          initialSessionData: initialPayloadData
+                        });
+
+                        console.log(`[ResultatKreidetafel] finalizeSession SUCCESS (Attempt ${attempts}):`, result.data);
+                        break;
+                      } catch (error: any) {
+                        console.warn(`[ResultatKreidetafel] finalizeSession FAILED (Attempt ${attempts}):`, error);
+                        if ((error as any)?.details?.customCode === 'GAME_NOT_YET_VISIBLE' && attempts < maxAttempts) {
+                          console.log(`[ResultatKreidetafel] Custom Precondition failed (Game ${currentGameNumber} likely not visible yet). Retrying in ${retryDelay / 1000}s...`);
+                          await new Promise(resolve => setTimeout(resolve, retryDelay));
+                          continue;
+                        } else {
+                          console.error(`[ResultatKreidetafel] FINAL Error calling finalizeSession after ${attempts} attempts:`, error);
+                          let errorMessage = "Fehler beim Finalisieren der Session-Statistik.";
+                          if (error.code && error.message) {
+                            errorMessage = `Fehler (${error.code}): ${error.message}`;
+                          } else if (error instanceof Error) {
+                            errorMessage = error.message;
+                          }
+                          uiStore.showNotification({type: "error", message: errorMessage });
+                          break;
+                        }
                       }
-                      uiStore.showNotification({type: "error", message: errorMessage });
-                      break; 
-                    } 
+                    } // Ende while loop
+                  } finally {
+                    setIsFinalizingSession(false); // Setze den Flag zurück, egal ob erfolgreich oder nicht
                   }
-                } // Ende while loop
+                } // Ende if (!isFinalizingSession)
             } else {
                 console.warn("[ResultatKreidetafel] Skipping finalizeSession Cloud Function call (Online): Status not updated, Session ID or Game Number missing.");
             }
@@ -1748,8 +1766,6 @@ const ResultatKreidetafel = ({
   const ModuleComponent = currentModule ? currentModule.component : FallbackModuleComponent;
   const moduleTitle = currentModule ? currentModule.title : 'Jassergebnis';
 
-  const [isCompletingPasse, setIsCompletingPasse] = useState(false); // NEU: Ladezustand
-
   // NEU: Handler für den Abschluss einer Turnierpasse (Implementierung)
   const handleCompletePasseClick = useCallback(async () => {
     if (!isTournamentPasse || !gameStoreActiveGameId || !tournamentInstanceId) {
@@ -1770,7 +1786,7 @@ const ResultatKreidetafel = ({
       return;
     }
 
-    setIsCompletingPasse(true); 
+    setIsCompletingPasse(true); // Korrigiert: Zurück zu setIsCompletingPasse
     try {
       const success = await completeAndRecordTournamentPasse(gameStoreActiveGameId, tournamentInstanceId);
       
@@ -1796,7 +1812,7 @@ const ResultatKreidetafel = ({
       console.error("[ResultatKreidetafel] Unexpected error completing passe:", error);
       useUIStore.getState().showNotification({ type: 'error', message: 'Unerwarteter Fehler beim Abschließen der Passe.' });
     } finally {
-      setIsCompletingPasse(false); // Ladezustand beenden
+      setIsCompletingPasse(false); // Korrigiert: Zurück zu setIsCompletingPasse
     }
   }, [isTournamentPasse, gameStoreActiveGameId, tournamentInstanceId, closeResultatKreidetafel, router, canStartNewGame, swipePosition]); // NEU: canStartNewGame und swipePosition als Abhängigkeiten hinzugefügt
 
@@ -1804,287 +1820,295 @@ const ResultatKreidetafel = ({
   if (!isOpen) return null;
 
   return (
-    <div 
-      className={`fixed inset-0 flex items-center justify-center z-50 ${isOpen ? '' : 'pointer-events-none'}`}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          closeResultatKreidetafel();
-        }
-      }}
-      // Touch-Handler bleiben hier für potenzielles Schließen durch Swipe nach unten (optional)
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      {/* Swipe-Handler für Statistik-Navigation hier auf dieses Div anwenden */}
-      <animated.div 
-        {...swipeHandlers} // Swipe-Handler hier hinzugefügt
-        style={springProps}
-        className="relative w-11/12 max-w-md bg-gray-800 bg-opacity-95 rounded-xl p-6 shadow-lg select-none"
-        onClick={(e) => e.stopPropagation()} // Verhindert Schließen bei Klick innen
+    <>
+      {isFinalizingSession && <FullscreenLoader text="Jass wird gespeichert. Bitte warten..." />}
+      {showConfetti && (
+        <div className="fixed inset-0 bg-white bg-opacity-70 z-50">
+          {/* Add your confetti animation or image here */}
+        </div>
+      )}
+      <div 
+        className={`fixed inset-0 flex items-center justify-center z-50 ${isOpen ? '' : 'pointer-events-none'}`}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            closeResultatKreidetafel();
+          }
+        }}
+        // Touch-Handler bleiben hier für potenzielles Schließen durch Swipe nach unten (optional)
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
-        {/* Header */}
-        <div className="text-center mb-4">
-          <h2 className="text-2xl font-bold text-white">
-            {moduleTitle} 
-          </h2>
-          <p className="text-gray-400">{currentDate}</p>
-        </div>
-
-        {/* Dreh-Button */}
-        <button
-          onClick={() => useUIStore.setState(state => ({
-            resultatKreidetafel: {
-              ...state.resultatKreidetafel,
-              swipePosition: isFlipped ? 'bottom' : 'top'
-            }
-          }))}
-          className={`absolute bottom-full mb-[-10px] left-1/2 transform -translate-x-1/2 
-            text-white hover:text-gray-300 transition-all duration-1000
-            w-24 h-24 flex items-center justify-center
-            rounded-full
-            ${isFlipped ? 'rotate-180' : 'rotate-0'}`}
-          aria-label="Umdrehen"
+        {/* Swipe-Handler für Statistik-Navigation hier auf dieses Div anwenden */}
+        <animated.div 
+          {...swipeHandlers} // Swipe-Handler hier hinzugefügt
+          style={springProps}
+          className="relative w-11/12 max-w-md bg-gray-800 bg-opacity-95 rounded-xl p-6 shadow-lg select-none"
+          onClick={(e) => e.stopPropagation()} // Verhindert Schließen bei Klick innen
         >
-          <FiRotateCcw className="w-8 h-8" />
-        </button>
+          {/* Header */}
+          <div className="text-center mb-4">
+            <h2 className="text-2xl font-bold text-white">
+              {moduleTitle} 
+            </h2>
+            <p className="text-gray-400">{currentDate}</p>
+          </div>
 
-        {/* Close Button */}
-        <button 
-          onClick={closeResultatKreidetafel}
-          className="absolute right-2 top-2 p-2 text-gray-400 hover:text-white"
-        >
-          <FiX size={24} />
-        </button>
-
-        {/* Neuer Back-Button oben links, nur wenn canNavigateBack UND NICHT im Navigations-Modus */}
-        {!isReadOnly && canNavigateBack && !canNavigateForward && (
-          <button 
-            onClick={handleBack}
-            className={`
-              absolute left-2 top-2
-              w-10 h-10 rounded-full 
-              flex items-center justify-center
-              bg-gray-600 hover:bg-gray-500
-              text-white hover:text-white
-              transition-all duration-150
-              shadow-md hover:shadow-lg
-            `}
-            aria-label="Zurück"
+          {/* Dreh-Button */}
+          <button
+            onClick={() => useUIStore.setState(state => ({
+              resultatKreidetafel: {
+                ...state.resultatKreidetafel,
+                swipePosition: isFlipped ? 'bottom' : 'top'
+              }
+            }))}
+            className={`absolute bottom-full mb-[-10px] left-1/2 transform -translate-x-1/2 
+              text-white hover:text-gray-300 transition-all duration-1000
+              w-24 h-24 flex items-center justify-center
+              rounded-full
+              ${isFlipped ? 'rotate-180' : 'rotate-0'}`}
+            aria-label="Umdrehen"
           >
-            <FiSkipBack className="w-5 h-5" />
+            <FiRotateCcw className="w-8 h-8" />
           </button>
-        )}
 
-        {/* Teams Header - neue Spaltenbreiten */}
-        <div className="grid grid-cols-[1fr_4fr_4fr] gap-4 mb-2">
-          <div></div>
-          <div className="text-center text-white">Team 1</div>
-          <div className="text-center text-white">Team 2</div>
-        </div>
-
-        {/* Spielernamen mit manueller Kürzung und Blumensymbol */}
-        <div className="grid grid-cols-[1fr_4fr_4fr] gap-4 mb-4">
-          <div></div>
-          <div className="grid grid-cols-2 gap-2">
-            <PlayerName 
-              name={playerNames[1]} 
-              isStarter={gamesToDisplay && gamesToDisplay.length > 0 && gamesToDisplay[0]?.initialStartingPlayer === 1} 
-            />
-            <PlayerName 
-              name={playerNames[3]} 
-              isStarter={gamesToDisplay && gamesToDisplay.length > 0 && gamesToDisplay[0]?.initialStartingPlayer === 3} 
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <PlayerName 
-              name={playerNames[2]} 
-              isStarter={gamesToDisplay && gamesToDisplay.length > 0 && gamesToDisplay[0]?.initialStartingPlayer === 2} 
-            />
-            <PlayerName 
-              name={playerNames[4]} 
-              isStarter={gamesToDisplay && gamesToDisplay.length > 0 && gamesToDisplay[0]?.initialStartingPlayer === 4} 
-            />
-          </div>
-        </div>
-
-        {/* Statistik-Container mit Scroll und Swipe-Animation */}
-        <div className="border-t border-b border-gray-700">
-          <div 
-            ref={kreidetafelRef}
-            className="statistik-container max-h-[280px] overflow-y-auto overflow-x-auto"
+          {/* Close Button */}
+          <button 
+            onClick={closeResultatKreidetafel}
+            className="absolute right-2 top-2 p-2 text-gray-400 hover:text-white"
           >
-            {/* Swipe-Handler hier ENTFERNEN */}
-            <animated.div style={swipeAnimation} className="py-2 min-w-max">
-              <ModuleComponent
-                  teams={teams}
-                games={gamesForStatistik}
-                  currentGameId={currentGameId}
-                  playerNames={playerNames}
-                  cardStyle={activeFarbeSettings.cardStyle}
-                  strokeSettings={activeStrokeSettings}
-                  onSwipe={handleStatisticChange}
-                />
-            </animated.div>
-          </div>
-        </div>
+            <FiX size={24} />
+          </button>
 
-        {/* Totals - verwenden bereits currentTotals, das angepasst wurde */}
-        <div className="grid grid-cols-[0.5fr_5fr_5fr] gap-4 mt-4">
-          <div className="text-gray-400 text-center pr-4">Total:</div>
-          <div className="flex justify-center -ml-[30px]">
-            <div className="text-2xl font-bold text-white w-[100px] text-center">
-              {currentStatisticId === 'striche' 
-                ? currentTotals.striche.bottom 
-                : currentTotals.punkte.bottom}
-            </div>
-          </div>
-          <div className="flex justify-center -ml-[12px]">
-            <div className="text-2xl font-bold text-white w-[100px] text-center">
-              {currentStatisticId === 'striche' 
-                ? currentTotals.striche.top 
-                : currentTotals.punkte.top}
-            </div>
-          </div>
-        </div>
+          {/* Neuer Back-Button oben links, nur wenn canNavigateBack UND NICHT im Navigations-Modus */}
+          {!isReadOnly && canNavigateBack && !canNavigateForward && (
+            <button 
+              onClick={handleBack}
+              className={`
+                absolute left-2 top-2
+                w-10 h-10 rounded-full 
+                flex items-center justify-center
+                bg-gray-600 hover:bg-gray-500
+                text-white hover:text-white
+                transition-all duration-150
+                shadow-md hover:shadow-lg
+              `}
+              aria-label="Zurück"
+            >
+              <FiSkipBack className="w-5 h-5" />
+            </button>
+          )}
 
-        {/* Statistik Navigation Dots */}
-        <div className="flex justify-center mt-4 mb-2">
-          <div className="flex justify-center items-center space-x-2 bg-gray-700/50 px-1.5 py-1 rounded-full">
-            {STATISTIC_MODULES.map(mod => (
-              <div
-                key={mod.id}
-                className={`w-2 h-2 rounded-full transition-all duration-200 ${
-                  currentStatisticId === mod.id 
-                    ? 'bg-white/80 shadow-sm' 
-                    : 'bg-gray-500/50'
-                }`}
+          {/* Teams Header - neue Spaltenbreiten */}
+          <div className="grid grid-cols-[1fr_4fr_4fr] gap-4 mb-2">
+            <div></div>
+            <div className="text-center text-white">Team 1</div>
+            <div className="text-center text-white">Team 2</div>
+          </div>
+
+          {/* Spielernamen mit manueller Kürzung und Blumensymbol */}
+          <div className="grid grid-cols-[1fr_4fr_4fr] gap-4 mb-4">
+            <div></div>
+            <div className="grid grid-cols-2 gap-2">
+              <PlayerName 
+                name={playerNames[1]} 
+                isStarter={gamesToDisplay && gamesToDisplay.length > 0 && gamesToDisplay[0]?.initialStartingPlayer === 1} 
               />
-            ))}
+              <PlayerName 
+                name={playerNames[3]} 
+                isStarter={gamesToDisplay && gamesToDisplay.length > 0 && gamesToDisplay[0]?.initialStartingPlayer === 3} 
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <PlayerName 
+                name={playerNames[2]} 
+                isStarter={gamesToDisplay && gamesToDisplay.length > 0 && gamesToDisplay[0]?.initialStartingPlayer === 2} 
+              />
+              <PlayerName 
+                name={playerNames[4]} 
+                isStarter={gamesToDisplay && gamesToDisplay.length > 0 && gamesToDisplay[0]?.initialStartingPlayer === 4} 
+              />
+            </div>
           </div>
-        </div>
 
-        {/* === NEU: Wrapper Div für Aktionsbuttons === */}
-        <div id="resultat-action-area">
-          {!isReadOnly ? (
-            // --- NEUE BEDINGUNG: Unterscheidung Turnier / Normal ---
-            isTournamentPasse ? (
-              // --- TURNIERMODUS --- 
-              <div className="mt-4">
-                <button 
-                  onClick={handleCompletePasseClick} // NEUER HANDLER
-                  className={`
-                    w-full py-3 px-6 text-white rounded-lg font-medium text-base
-                    transition-all duration-150
-                    bg-blue-600 hover:bg-blue-700
-                    flex items-center justify-center gap-2
-                    leading-tight
-                    ${shareButton.buttonClasses} // Wiederverwende Button-Stil?
-                    ${isCompletingPasse ? 'opacity-70 cursor-wait' : ''} // NEU: Ladezustand-Styling
-                  `}
-                  disabled={isCompletingPasse} // NEU: Button während Laden deaktivieren
-                >
-                  {isCompletingPasse ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Schließe Passe ab...
-                    </>
-                  ) : (
-                    'Passe abschließen'
-                  )}
-                </button>
+          {/* Statistik-Container mit Scroll und Swipe-Animation */}
+          <div className="border-t border-b border-gray-700">
+            <div 
+              ref={kreidetafelRef}
+              className="statistik-container max-h-[280px] overflow-y-auto overflow-x-auto"
+            >
+              {/* Swipe-Handler hier ENTFERNEN */}
+              <animated.div style={swipeAnimation} className="py-2 min-w-max">
+                <ModuleComponent
+                    teams={teams}
+                  games={gamesForStatistik}
+                    currentGameId={currentGameId}
+                    playerNames={playerNames}
+                    cardStyle={activeFarbeSettings.cardStyle}
+                    strokeSettings={activeStrokeSettings}
+                    onSwipe={handleStatisticChange}
+                  />
+              </animated.div>
+            </div>
+          </div>
+
+          {/* Totals - verwenden bereits currentTotals, das angepasst wurde */}
+          <div className="grid grid-cols-[0.5fr_5fr_5fr] gap-4 mt-4">
+            <div className="text-gray-400 text-center pr-4">Total:</div>
+            <div className="flex justify-center -ml-[30px]">
+              <div className="text-2xl font-bold text-white w-[100px] text-center">
+                {currentStatisticId === 'striche' 
+                  ? currentTotals.striche.bottom 
+                  : currentTotals.punkte.bottom}
               </div>
-            ) : signingState === 'idle' ? (
-              // --- NORMALER MODUS (IDLE STATE) ---
-              <div 
-                // id="resultat-buttons-container" // Alte ID nicht mehr unbedingt nötig
-                className={`
-                  grid gap-4 mt-4 
-                  ${canNavigateForward && canNavigateBack
-                    ? 'grid-cols-3' 
-                    : 'grid-cols-2 justify-between' 
-                  }
-                `}>
-                {/* Navigation Mode Buttons (wenn aktiv) */}
-                {canNavigateBack && canNavigateForward && (
+            </div>
+            <div className="flex justify-center -ml-[12px]">
+              <div className="text-2xl font-bold text-white w-[100px] text-center">
+                {currentStatisticId === 'striche' 
+                  ? currentTotals.striche.top 
+                  : currentTotals.punkte.top}
+              </div>
+            </div>
+          </div>
+
+          {/* Statistik Navigation Dots */}
+          <div className="flex justify-center mt-4 mb-2">
+            <div className="flex justify-center items-center space-x-2 bg-gray-700/50 px-1.5 py-1 rounded-full">
+              {STATISTIC_MODULES.map(mod => (
+                <div
+                  key={mod.id}
+                  className={`w-2 h-2 rounded-full transition-all duration-200 ${
+                    currentStatisticId === mod.id 
+                      ? 'bg-white/80 shadow-sm' 
+                      : 'bg-gray-500/50'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* === NEU: Wrapper Div für Aktionsbuttons === */}
+          <div id="resultat-action-area">
+            {!isReadOnly ? (
+              // --- NEUE BEDINGUNG: Unterscheidung Turnier / Normal ---
+              isTournamentPasse ? (
+                // --- TURNIERMODUS --- 
+                <div className="mt-4">
                   <button 
-                    {...backButton.handlers}
-                    disabled={!canNavigateBack}
+                    onClick={handleCompletePasseClick} // NEUER HANDLER
+                    className={`
+                      w-full py-3 px-6 text-white rounded-lg font-medium text-base
+                      transition-all duration-150
+                      bg-blue-600 hover:bg-blue-700
+                      flex items-center justify-center gap-2
+                      leading-tight
+                      ${shareButton.buttonClasses} // Wiederverwende Button-Stil?
+                      ${isFinalizingSession ? 'opacity-70 cursor-wait' : ''} // NEU: Ladezustand-Styling
+                    `}
+                    disabled={isFinalizingSession} // NEU: Button während Laden deaktivieren
+                  >
+                    {isFinalizingSession ? (
+                      <>
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        Schließe Passe ab...
+                      </>
+                    ) : (
+                      'Passe abschließen'
+                    )}
+                  </button>
+                </div>
+              ) : signingState === 'idle' ? (
+                // --- NORMALER MODUS (IDLE STATE) ---
+                <div 
+                  // id="resultat-buttons-container" // Alte ID nicht mehr unbedingt nötig
+                  className={`
+                    grid gap-4 mt-4 
+                    ${canNavigateForward && canNavigateBack
+                      ? 'grid-cols-3' 
+                      : 'grid-cols-2 justify-between' 
+                    }
+                  `}>
+                  {/* Navigation Mode Buttons (wenn aktiv) */}
+                  {canNavigateBack && canNavigateForward && (
+                    <button 
+                      {...backButton.handlers}
+                      disabled={!canNavigateBack}
+                      className={`
+                        py-2 px-4 text-white rounded-lg font-medium text-base
+                        transition-all duration-150
+                        ${canNavigateBack ? 'bg-gray-600' : 'bg-gray-500/50 cursor-not-allowed'}
+                        hover:bg-gray-700
+                        leading-tight
+                        ${backButton.buttonClasses}
+                      `}
+                    >
+                      {["1 Spiel", "zurück"].map((line, i) => (<React.Fragment key={i}>{line}{i === 0 && <br />}</React.Fragment>))}
+                    </button>
+                  )}
+                  {/* Immer sichtbare Buttons */}
+                  <button 
+                    onClick={handleBeendenClick}
                     className={`
                       py-2 px-4 text-white rounded-lg font-medium text-base
                       transition-all duration-150
-                      ${canNavigateBack ? 'bg-gray-600' : 'bg-gray-500/50 cursor-not-allowed'}
-                      hover:bg-gray-700
+                      bg-yellow-600 hover:bg-yellow-700
+                      flex items-center justify-center gap-2
                       leading-tight
-                      ${backButton.buttonClasses}
+                      ${shareButton.buttonClasses}
                     `}
                   >
-                    {["1 Spiel", "zurück"].map((line, i) => (<React.Fragment key={i}>{line}{i === 0 && <br />}</React.Fragment>))}
+                    {["Jass", "beenden"].map((line, i) => (<React.Fragment key={i}>{line}{i === 0 && <br />}</React.Fragment>))}
                   </button>
-                )}
-                {/* Immer sichtbare Buttons */}
-                <button 
-                  onClick={handleBeendenClick}
-                  className={`
-                    py-2 px-4 text-white rounded-lg font-medium text-base
-                    transition-all duration-150
-                    bg-yellow-600 hover:bg-yellow-700
-                    flex items-center justify-center gap-2
-                    leading-tight
-                    ${shareButton.buttonClasses}
-                  `}
-                >
-                  {["Jass", "beenden"].map((line, i) => (<React.Fragment key={i}>{line}{i === 0 && <br />}</React.Fragment>))}
-                </button>
-                <button 
-                  onClick={handleNextGameClick}
-                  className={`
-                    py-2 px-4 text-white rounded-lg font-medium text-base
-                    transition-all duration-150
-                    ${canNavigateForward 
-                      ? 'bg-gray-600 hover:bg-gray-700' 
-                      : 'bg-green-600 hover:bg-green-700'
+                  <button 
+                    onClick={handleNextGameClick}
+                    className={`
+                      py-2 px-4 text-white rounded-lg font-medium text-base
+                      transition-all duration-150
+                      ${canNavigateForward 
+                        ? 'bg-gray-600 hover:bg-gray-700' 
+                        : 'bg-green-600 hover:bg-green-700'
+                      }
+                      leading-tight
+                      ${nextButton.buttonClasses}
+                    `}
+                  >
+                    {nextGameButtonText.split('\n').map((line, i) => (<React.Fragment key={i}>{line}{i === 0 && nextGameButtonText.includes('\n') && <br />}</React.Fragment>))}
+                  </button>
+                </div>
+              ) : (
+                // --- Signatur-Modus Button --- 
+                <div /* id="resultat-signing-container" // Alte ID nicht mehr unbedingt nötig */ className="mt-4">
+                  <button
+                    onClick={handleSignatureClick}
+                    className={`w-full bg-amber-400 text-white text-lg font-bold py-4 px-8 rounded-xl shadow-lg hover:bg-amber-500 transition-colors border-b-4 border-amber-600 active:scale-[0.98] active:border-b-2 disabled:opacity-50 disabled:cursor-not-allowed
+                               ${(swipePosition === 'bottom' && team1Signed) || (swipePosition === 'top' && team2Signed) ? 'opacity-70 cursor-default' : ''}`}
+                    disabled={ 
+                      (signingState === 'waitingTeam1' && swipePosition === 'top') || // Warten auf T1, aber T2 sichtbar
+                      (signingState === 'waitingTeam2' && swipePosition === 'bottom') || // Warten auf T2, aber T1 sichtbar
+                      (swipePosition === 'bottom' && team1Signed) || // Team 1 (unten) hat bereits signiert
+                      (swipePosition === 'top' && team2Signed)    // Team 2 (oben) hat bereits signiert
                     }
-                    leading-tight
-                    ${nextButton.buttonClasses}
-                  `}
-                >
-                  {nextGameButtonText.split('\n').map((line, i) => (<React.Fragment key={i}>{line}{i === 0 && nextGameButtonText.includes('\n') && <br />}</React.Fragment>))}
-                </button>
-              </div>
+                  >
+                    {(swipePosition === 'bottom' && team1Signed) || (swipePosition === 'top' && team2Signed)
+                      ? 'SIGNIERT'
+                      : `Signieren Team ${swipePosition === 'bottom' ? '1' : '2'}`
+                    }
+                  </button>
+                </div>
+              )
             ) : (
-              // --- Signatur-Modus Button --- 
-              <div /* id="resultat-signing-container" // Alte ID nicht mehr unbedingt nötig */ className="mt-4">
-                <button
-                  onClick={handleSignatureClick}
-                  className={`w-full bg-amber-400 text-white text-lg font-bold py-4 px-8 rounded-xl shadow-lg hover:bg-amber-500 transition-colors border-b-4 border-amber-600 active:scale-[0.98] active:border-b-2 disabled:opacity-50 disabled:cursor-not-allowed
-                             ${(swipePosition === 'bottom' && team1Signed) || (swipePosition === 'top' && team2Signed) ? 'opacity-70 cursor-default' : ''}`}
-                  disabled={ 
-                    (signingState === 'waitingTeam1' && swipePosition === 'top') || // Warten auf T1, aber T2 sichtbar
-                    (signingState === 'waitingTeam2' && swipePosition === 'bottom') || // Warten auf T2, aber T1 sichtbar
-                    (swipePosition === 'bottom' && team1Signed) || // Team 1 (unten) hat bereits signiert
-                    (swipePosition === 'top' && team2Signed)    // Team 2 (oben) hat bereits signiert
-                  }
-                >
-                  {(swipePosition === 'bottom' && team1Signed) || (swipePosition === 'top' && team2Signed)
-                    ? 'SIGNIERT'
-                    : `Signieren Team ${swipePosition === 'bottom' ? '1' : '2'}`
-                  }
-                </button>
-              </div>
-            )
-          ) : (
-             // --- ReadOnly Modus: Keine Buttons oder nur Schliessen? ---
-             <div className="h-16">{/* Platzhalter oder Schliessen-Button */}</div>
-          )}
-        </div>
-        {/* === ENDE Wrapper Div === */}
+               // --- ReadOnly Modus: Keine Buttons oder nur Schliessen? ---
+               <div className="h-16">{/* Platzhalter oder Schliessen-Button */}</div>
+            )}
+          </div>
+          {/* === ENDE Wrapper Div === */}
 
-      </animated.div>
+        </animated.div>
 
-      {/* JassFinishNotification einbinden */}
-      <JassFinishNotification />
-    </div>
+        {/* JassFinishNotification einbinden */}
+        <JassFinishNotification />
+      </div>
+    </>
   );
 };
 

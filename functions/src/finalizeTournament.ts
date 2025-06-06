@@ -497,10 +497,10 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
 
             for (const groupId in groupStats) {
               if (Object.prototype.hasOwnProperty.call(groupStats, groupId)) {
-                const group = groupStats[groupId];
-                // Prüfen, ob mindestens ein Spieler der Gruppe an diesem Spiel teilgenommen hat
-                if (group.playerUids.some(uid => gameParticipantUids.has(uid))) {
-                  involvedGroupsInGame.push(group);
+              const group = groupStats[groupId];
+              // Prüfen, ob mindestens ein Spieler der Gruppe an diesem Spiel teilgenommen hat
+              if (group.playerUids.some(uid => gameParticipantUids.has(uid))) {
+                involvedGroupsInGame.push(group);
                 }
               }
             }
@@ -637,8 +637,8 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
       await playerRankingBatch.commit();
       logger.info(`Player rankings committed for tournament ${tournamentId}.`);
 
-      await tournamentRef.update({
-        status: 'completed',
+      await tournamentRef.update({ 
+        status: 'completed', 
         finalizedAt: admin.firestore.FieldValue.serverTimestamp(),
         lastError: null,
         totalRankedEntities: totalRankedEntitiesForTournamentDoc,

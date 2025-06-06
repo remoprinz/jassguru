@@ -107,5 +107,17 @@
     "uglify-js": "^3.19.3",
     "vite": "^5.4.14",
     "vitest": "^3.0.4"
-  }
+  },
+  "description": "Dieses Projekt ist eine digitale Jass-Kreidetafel, entwickelt mit Next.js, TypeScript und Tailwind CSS.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/remoprinz/jassguru.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/remoprinz/jassguru/issues"
+  },
+  "homepage": "https://github.com/remoprinz/jassguru#readme"
 }

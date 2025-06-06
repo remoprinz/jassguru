@@ -266,28 +266,19 @@ async function updateUserStatsAfterTournamentGame(
                 };
             }
 
-            const kontermatschMadeValue = gameData.finalStriche[outcome.playerTeamKey!]?.kontermatsch || 0;
-            const currentMostKontermatschMadeGameValue = typeof stats.mostKontermatschMadeGame?.value === 'number' ? stats.mostKontermatschMadeGame.value : -Infinity;
-            if (kontermatschMadeValue > 0 && kontermatschMadeValue > currentMostKontermatschMadeGameValue) {
-                stats.mostKontermatschMadeGame = { 
-                    value: kontermatschMadeValue, 
-                    date: gameTimestamp, 
-                    relatedId: tournamentGameDocId,
-                    type: "most_kontermatsch_made_game_tournament",
-                    label: `Kontermatsch gemacht in Turnierspiel (${kontermatschMadeValue})` 
-                };
+            // NEU: Kontermatsch Highlights/Lowlights (Spiel-Ebene)
+            if (outcome.playerTeamKey) {
+                const kontermatschMadeValue = gameData.finalStriche[outcome.playerTeamKey]?.kontermatsch || 0;
+                if (kontermatschMadeValue > 0 && (!stats.mostKontermatschMadeGame || kontermatschMadeValue > (stats.mostKontermatschMadeGame.value as number))) {
+                    stats.mostKontermatschMadeGame = { type: "most_kontermatsch_made_game_tournament", label: `Meiste Kontermatsch gemacht in Turnierspiel (${kontermatschMadeValue})`, value: kontermatschMadeValue, date: gameTimestamp, relatedId: tournamentGameDocId };
+                }
             }
-
-            const kontermatschReceivedValue = gameData.finalStriche[outcome.opponentTeamKey!]?.kontermatsch || 0;
-            const currentMostKontermatschReceivedGameValue = typeof stats.mostKontermatschReceivedGame?.value === 'number' ? stats.mostKontermatschReceivedGame.value : -Infinity;
-            if (kontermatschReceivedValue > 0 && kontermatschReceivedValue > currentMostKontermatschReceivedGameValue) {
-                stats.mostKontermatschReceivedGame = { 
-                    value: kontermatschReceivedValue, 
-                    date: gameTimestamp, 
-                    relatedId: tournamentGameDocId,
-                    type: "most_kontermatsch_received_game_tournament",
-                    label: `Kontermatsch erhalten in Turnierspiel (${kontermatschReceivedValue})`
-                };
+            
+            if (outcome.opponentTeamKey) {
+                const kontermatschReceivedValue = gameData.finalStriche[outcome.opponentTeamKey]?.kontermatsch || 0;
+                if (kontermatschReceivedValue > 0 && (!stats.mostKontermatschReceivedGame || kontermatschReceivedValue > (stats.mostKontermatschReceivedGame.value as number))) {
+                    stats.mostKontermatschReceivedGame = { type: "most_kontermatsch_received_game_tournament", label: `Meiste Kontermatsch erhalten in Turnierspiel (${kontermatschReceivedValue})`, value: kontermatschReceivedValue, date: gameTimestamp, relatedId: tournamentGameDocId };
+                }
             }
             
             const currentHighestStricheReceivedGameValue = typeof stats.highestStricheReceivedGame?.value === 'number' ? stats.highestStricheReceivedGame.value : -Infinity;

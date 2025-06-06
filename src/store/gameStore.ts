@@ -718,48 +718,40 @@ export const useGameStore = create<GameStore>()(devtools(
           actualStrichType = "kontermatsch";
         }
 
-        let strichValueToSet = 0;
+        // KORRIGIERTE LOGIK: Striche werden korrekt erhöht/gesetzt
+        const teamStriche = { ...newStriche[strichTeam] }; // Start mit bestehenden Strichen
 
         switch (actualStrichType) {
           case "kontermatsch":
-            strichValueToSet = activeStrokeSettings.kontermatsch;
-            break;
-          case "matsch":
-            // Annahme: Matsch hat einen festen Wert oder konfigurierbaren Wert
-            strichValueToSet = STRICH_WERTE.matsch; // KORREKTUR: Matsch-Wert aus STRICH_WERTE
-            break;
-          // Fälle für sieg, schneider, berg werden typischerweise nicht direkt über strichInfoInput von finalizeRound gesetzt,
-          // sondern durch dedizierte Methoden wie addSieg. Falls doch, hier Werte aus activeStrokeSettings holen.
-          // Beispiel:
-          // case "sieg": strichValueToSet = activeStrokeSettings.sieg; break;
-          // case "schneider": strichValueToSet = activeStrokeSettings.schneider; break;
-          default:
-            // Für andere Typen oder wenn kein Wert definiert ist, bleibt es 0 oder wird nicht geändert.
-            // Hier könnte man noch spezifischer werden, falls andere StrichTypen via strichInfoInput kommen.
-            break;
-        }
-
-        if (strichValueToSet > 0) {
-          const teamStriche = { ...initialStricheRecord, ...newStriche[strichTeam] }; // Start mit initial oder bestehenden Strichen
-
-          teamStriche[actualStrichType] = strichValueToSet; // Zuweisung
-
-          // Aufräumen anderer Striche bei Kontermatsch oder Matsch
-          if (actualStrichType === "kontermatsch") {
+            // Kontermatsch wird auf den konfigurierten Wert gesetzt
+            teamStriche.kontermatsch = activeStrokeSettings.kontermatsch;
+            // Aufräumen anderer Striche bei Kontermatsch
             teamStriche.sieg = 0;
             teamStriche.schneider = 0;
             teamStriche.matsch = 0; // Kontermatsch schlägt Matsch
             teamStriche.berg = 0; // Kontermatsch schlägt auch Berg
-          } else if (actualStrichType === "matsch") {
+            break;
+          case "matsch":
+            // Matsch wird um 1 erhöht
+            teamStriche.matsch = (teamStriche.matsch || 0) + 1;
+            // Aufräumen anderer Striche bei Matsch
             teamStriche.sieg = 0;
             teamStriche.schneider = 0;
             teamStriche.berg = 0; // Matsch schlägt Berg
-          }
-          
-          newStriche[strichTeam] = teamStriche;
-          // Striche des anderen Teams ggf. auch anpassen (z.B. bei Kontermatsch den Matsch des Gegners entfernen)
-          // Diese Logik ist hier nicht implementiert, da strichInfoInput sich auf ein Team bezieht.
+            break;
+          case "sieg":
+            teamStriche.sieg = (teamStriche.sieg || 0) + 1;
+            break;
+          case "schneider":
+            teamStriche.schneider = (teamStriche.schneider || 0) + 1;
+            break;
+          case "berg":
+            teamStriche.berg = (teamStriche.berg || 0) + 1;
+            break;
+          // Weitere Strich-Typen falls nötig
         }
+        
+        newStriche[strichTeam] = teamStriche;
         finalStrichInfoForEntryScoped = { team: strichTeam, type: actualStrichType };
       }
 

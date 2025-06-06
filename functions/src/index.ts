@@ -14,7 +14,7 @@ try {
 }
 
 // --- NEU: Import für v2 Firestore Trigger ---
-import * as archiveLogic from './archiveGame';
+// import * as archiveLogic from './archiveGame'; // ENTFERNT
 // import * as cleanupFunctions from './cleanupRounds'; // <-- ENTFERNT/AUSKOMMENTIERT
 // --- Import für neue HTTPS Callable Function ---
 import * as finalizeSessionLogic from './finalizeSession'; // <-- WIEDER AKTIV
@@ -273,259 +273,213 @@ export const invalidateActiveGroupInvites = onCall<InvalidateInvitesData>(async 
  * FIX V2: Stellt sicher, dass alle Reads vor Writes in der Transaktion erfolgen.
  */
 export const joinGroupByToken = onCall<JoinGroupByTokenData>(async (request) => {
-    console.log("--- joinGroupByToken V9 START --- (Gen 2)"); 
-    // 1. Authentifizierung prüfen (context.auth -> request.auth)
+    console.log("--- joinGroupByToken V11 START --- (Gen 2 mit manueller Korrektur)");
+
     if (!request.auth) {
-      throw new HttpsError(
-        "unauthenticated",
-        "Der Nutzer muss angemeldet sein, um einer Gruppe beizutreten."
-      );
+        console.error("[joinGroupByToken LOG] Fehler: Nicht authentifiziert.");
+        throw new HttpsError("unauthenticated", "Der Nutzer muss angemeldet sein, um einer Gruppe beizutreten.");
     }
 
     const userId = request.auth.uid;
-    // request.auth.token enthält die dekodierten Token-Claims
-    const userDisplayName = request.auth.token.name || "Unbekannter Jasser";
-    const userEmail = request.auth.token.email; // Kann undefined sein
-    const token = request.data.token; // data.token -> request.data.token
+    const userDisplayNameFromToken = request.auth.token.name || "Unbekannter Jasser (aus Token)";
+    const userEmailFromToken = request.auth.token.email;
+    const token = request.data.token;
 
-    // 2. Input validieren
     if (!token || typeof token !== "string") {
-      throw new HttpsError(
-        "invalid-argument",
-        "Der Einladungscode fehlt oder hat ein ungültiges Format."
-      );
+        console.error(`[joinGroupByToken LOG] Fehler: Ungültiger Token-Input: ${token}`);
+        throw new HttpsError("invalid-argument", "Der Einladungscode fehlt oder hat ein ungültiges Format.");
     }
 
-    console.info(`User ${userId} attempts to join group with token ${token}`);
-    
-    let groupId: string | null = null; 
+    let groupIdFromToken: string | null = null;
 
     try {
-      // 3. Token-Dokument finden (Logik bleibt gleich)
-      const tokenQuery = db.collection("groupInvites").where("token", "==", token);
-      const tokenQuerySnapshot = await tokenQuery.get();
+        const tokenQuery = db.collection("groupInvites").where("token", "==", token);
+        const tokenQuerySnapshot = await tokenQuery.get();
 
-      if (tokenQuerySnapshot.empty) {
-        throw new HttpsError("not-found", "Einladungscode nicht gefunden oder ungültig.");
-      }
-
-      const tokenDocSnapshot = tokenQuerySnapshot.docs[0];
-      const tokenDataOutside = tokenDocSnapshot.data();
-      const tokenDocId = tokenDocSnapshot.id;
-
-      // 4. Token validieren (Logik bleibt gleich)
-      if (!tokenDataOutside) {
-        console.error(`T3.E1: tokenDoc exists but tokenData is undefined! Token: ${token}`);
-        throw new HttpsError("internal", "Fehler beim Lesen der Token-Daten.");
-      }
-
-      if (!tokenDataOutside.isValid) {
-        throw new HttpsError("permission-denied", "Dieser Einladungscode ist nicht mehr gültig.");
-      }
-
-      const now = admin.firestore.Timestamp.now();
-      if (tokenDataOutside.expiresAt.toMillis() < now.toMillis()) {
-        await tokenDocSnapshot.ref.update({isValid: false});
-        throw new HttpsError("permission-denied", "Dieser Einladungscode ist abgelaufen.");
-      }
-
-      groupId = tokenDataOutside.groupId;
-      if (!groupId) {
-          console.error(`Initial Error: groupId missing in token data for ${tokenDocId}`);
-          throw new HttpsError("internal", "Gruppen-ID im Token nicht gefunden.");
-      }
-
-      // --- Transaktion starten (Logik innen bleibt weitgehend gleich) --- 
-      try {
-        console.info(`Starting transaction for user ${userId} joining group ${groupId}`);
-        const joinResult = await db.runTransaction(async (transaction: admin.firestore.Transaction) => {
-          // --- SCHRITT 1: PRELIMINARY READS --- 
-          const userRef = db.collection("users").doc(userId);
-          const userSnap = await transaction.get(userRef);
-          const tokenRef = db.collection("groupInvites").doc(tokenDocId);
-          const tokenDoc = await transaction.get(tokenRef);
-
-          // --- SCHRITT 2: VALIDATE TOKEN & GET GROUP ID (within Tx) --- 
-          if (!tokenDoc.exists) {
-            console.error(`Transaction Error: Token document ${tokenDocId} disappeared!`);
-            throw new Error("Einladungscode konnte nicht erneut gelesen werden.");
-          }
-          const tokenData = tokenDoc.data();
-          if (!tokenData || !tokenData.isValid || tokenData.expiresAt.toMillis() < admin.firestore.Timestamp.now().toMillis()) {
-            console.warn(`Transaction Warning: Token ${tokenDocId} became invalid or expired during transaction.`);
-            throw new Error("Einladungscode wurde während des Vorgangs ungültig oder ist abgelaufen.");
-          }
-          const currentGroupId = tokenData.groupId;
-          if (!currentGroupId || typeof currentGroupId !== 'string') { 
-            console.error("Transaction Error: groupId missing or invalid in token data during transaction.");
-            throw new Error("Gruppen-ID im Token nicht gefunden oder ungültig.");
-          }
-
-          // --- SCHRITT 3: REMAINING READS (using validated currentGroupId) --- 
-          const groupRef = db.collection("groups").doc(currentGroupId);
-          const groupSnap = await transaction.get(groupRef);
-          let playerVerifySnap: admin.firestore.DocumentSnapshot | null = null;
-          let playerQuerySnapshot: admin.firestore.QuerySnapshot | null = null;
-          let initialPlayerId: string | null = null;
-          if (userSnap.exists && userSnap.data()?.playerId) {
-            initialPlayerId = userSnap.data()?.playerId;
-            const playerVerifyRef = db.collection("players").doc(initialPlayerId!);
-            playerVerifySnap = await transaction.get(playerVerifyRef);
-          } else {
-            const playerQuery = db.collection("players").where("userId", "==", userId);
-            playerQuerySnapshot = await transaction.get(playerQuery);
-          }
-
-          // --- SCHRITT 4: VALIDIERUNG & LOGIK (basierend auf Reads) --- 
-          if (!groupSnap.exists) {
-            console.error(`Transaction Error: Group ${currentGroupId} not found.`);
-            throw new Error("Die zugehörige Gruppe wurde nicht gefunden.");
-          }
-          const groupData = groupSnap.data()!;
-          if (!groupData) {
-            console.error(`Transaction Error: Could not read data for group ${currentGroupId}.`);
-            throw new Error("Fehler beim Lesen der Gruppendaten.");
-          }
-          if (groupData.playerIds?.includes(userId)) {
-            console.log(`Transaction: User ${userId} is already a member of group ${currentGroupId}.`);
-            const existingGroupData = { id: groupSnap.id, ...groupData } as FirestoreGroup;
-            return {success: true, alreadyMember: true, group: existingGroupData };
-          }
-          let finalPlayerId: string | null = null;
-          let createNewPlayer = false;
-          if (initialPlayerId && playerVerifySnap?.exists) {
-            finalPlayerId = initialPlayerId;
-            console.log(`TxLogic: Confirmed existing player ${finalPlayerId} from user doc.`);
-          } else if (playerQuerySnapshot && !playerQuerySnapshot.empty) {
-            if (playerQuerySnapshot.size > 1) {
-              console.warn(`TxLogic: Found MULTIPLE (${playerQuerySnapshot.size}) player docs for userId ${userId}! Using first one.`);
-            }
-            finalPlayerId = playerQuerySnapshot.docs[0].id;
-            console.log(`TxLogic: Found existing player ${finalPlayerId} via query.`);
-          } else {
-            finalPlayerId = crypto.randomBytes(12).toString('hex');
-            createNewPlayer = true;
-            console.log(`TxLogic: Will create new player with ID ${finalPlayerId}.`);
-          }
-          if (!finalPlayerId) {
-             console.error("TxLogic: CRITICAL - Could not determine finalPlayerId!");
-             throw new Error("Konnte die Spieler-ID nicht bestimmen.");
-          }
-          let newPlayerData: unknown = null;
-          if (createNewPlayer) {
-             newPlayerData = {
-                userId: userId,
-                nickname: userDisplayName || `Spieler_${userId.substring(0, 6)}`,
-                isGuest: false,
-                stats: { gamesPlayed: 0, wins: 0, totalScore: 0 },
-                groupIds: [],
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-             };
-          }
-          let userUpdateData: unknown = {
-             playerId: finalPlayerId,
-             lastActiveGroupId: currentGroupId,
-             lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-          };
-          if (!userSnap.exists) {
-             userUpdateData = {
-                ...(userUpdateData as object),
-                displayName: userDisplayName,
-                email: userEmail,
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                lastLogin: admin.firestore.FieldValue.serverTimestamp(), 
-             };
-          }
-
-          // --- SCHRITT 5: ALLE WRITES --- 
-          if (createNewPlayer) {
-            const newPlayerRef = db.collection("players").doc(finalPlayerId);
-            transaction.set(newPlayerRef, newPlayerData);
-          }
-          if (!userSnap.exists) {
-            const completeUserData = {
-              ...(userUpdateData as object),
-              lastActiveGroupId: currentGroupId,
-            };
-            transaction.set(userRef, completeUserData);
-          } else {
-            const currentUserData = userSnap.data();
-            if (currentUserData?.playerId !== finalPlayerId || currentUserData?.lastActiveGroupId !== currentGroupId) {
-               transaction.update(userRef, {
-                  playerId: finalPlayerId,
-                  lastActiveGroupId: currentGroupId,
-                  lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-               });
-            } else {
-              // Kein Update nötig
-            }
-          }
-          const playerRef = db.collection("players").doc(finalPlayerId);
-          transaction.update(playerRef, {
-             groupIds: admin.firestore.FieldValue.arrayUnion(currentGroupId),
-             updatedAt: admin.firestore.FieldValue.serverTimestamp()
-          });
-          const groupPlayerEntry = {
-             displayName: userDisplayName,
-             email: userEmail,
-             joinedAt: admin.firestore.Timestamp.now(),
-          };
-          console.log(`[Tx Detail] Updating group ${currentGroupId}: Adding playerId=${finalPlayerId} to playerIds array and metadata to players.${userId}`);
-          transaction.update(groupRef, {
-             playerIds: admin.firestore.FieldValue.arrayUnion(finalPlayerId),
-             [`players.${userId}`]: groupPlayerEntry,
-             updatedAt: admin.firestore.FieldValue.serverTimestamp()
-          });
-          const resultingGroupData = {
-            id: groupSnap.id, 
-            ...groupData, 
-            playerIds: [...(groupData.playerIds || []), finalPlayerId], 
-            players: {
-              ...(groupData.players || {}),
-              [userId]: groupPlayerEntry
-            }
-          } as FirestoreGroup;
-          return {success: true, alreadyMember: false, group: resultingGroupData };
-        }).catch((transactionError: Error) => {
-          console.error(`Error during transaction V9 execution for user ${userId}, group ${groupId || 'UNKNOWN'}:`, transactionError);
-          throw new HttpsError(
-            "internal",
-            `Interner Fehler beim Beitritt zur Gruppe: ${transactionError.message}`
-          );
-        });
-        
-        console.info(`Transaction V9 completed successfully for user ${userId} joining group ${groupId}.`); 
-        return joinResult;
-      } catch (error) {
-        console.error(`Outer error joining group ${groupId || '(groupId not determined yet)'} for user ${userId}:`, error);
-        if (error instanceof HttpsError) {
-          throw error; 
-        } else {
-          throw new HttpsError(
-            "internal",
-            "Ein äußerer Fehler ist beim Beitreten zur Gruppe aufgetreten."
-          );
+        if (tokenQuerySnapshot.empty) {
+            console.error(`[joinGroupByToken LOG] Fehler: Token ${token} nicht in groupInvites gefunden.`);
+            throw new HttpsError("not-found", "Einladungscode nicht gefunden oder ungültig.");
         }
-      }
+
+        const tokenDocSnapshot = tokenQuerySnapshot.docs[0];
+        const tokenDataOutside = tokenDocSnapshot.data();
+        const tokenDocId = tokenDocSnapshot.id;
+
+        if (!tokenDataOutside) {
+            throw new HttpsError("internal", "Fehler beim Lesen der Token-Daten.");
+        }
+
+        if (!tokenDataOutside.isValid) {
+            throw new HttpsError("permission-denied", "Dieser Einladungscode ist nicht mehr gültig.");
+        }
+
+        const now = admin.firestore.Timestamp.now();
+        if (tokenDataOutside.expiresAt.toMillis() < now.toMillis()) {
+            await tokenDocSnapshot.ref.update({ isValid: false });
+            throw new HttpsError("permission-denied", "Dieser Einladungscode ist abgelaufen.");
+        }
+
+        groupIdFromToken = tokenDataOutside.groupId;
+        if (!groupIdFromToken) {
+            throw new HttpsError("internal", "Gruppen-ID im Token nicht gefunden.");
+        }
+
+        const joinResult = await db.runTransaction(async (transaction: admin.firestore.Transaction) => {
+            const userRef = db.collection("users").doc(userId);
+            const userSnap = await transaction.get(userRef);
+
+            const tokenRef = db.collection("groupInvites").doc(tokenDocId);
+            const tokenDoc = await transaction.get(tokenRef);
+
+            if (!tokenDoc.exists) {
+                throw new Error("Einladungscode konnte nicht erneut gelesen werden.");
+            }
+            const tokenDataInTx = tokenDoc.data();
+            if (!tokenDataInTx || !tokenDataInTx.isValid || tokenDataInTx.expiresAt.toMillis() < admin.firestore.Timestamp.now().toMillis()) {
+                throw new Error("Einladungscode wurde während des Vorgangs ungültig oder ist abgelaufen.");
+            }
+            const currentGroupIdInTx = tokenDataInTx.groupId;
+            if (!currentGroupIdInTx || typeof currentGroupIdInTx !== 'string') {
+                throw new Error("Gruppen-ID im Token nicht gefunden oder ungültig.");
+            }
+
+            const groupRef = db.collection("groups").doc(currentGroupIdInTx);
+            const groupSnap = await transaction.get(groupRef);
+
+            if (!groupSnap.exists) {
+                throw new Error("Die zugehörige Gruppe wurde nicht gefunden.");
+            }
+            const groupData = groupSnap.data();
+            if (!groupData) {
+                throw new Error("Fehler beim Lesen der Gruppendaten.");
+            }
+
+            let playerVerifySnap: admin.firestore.DocumentSnapshot | null = null;
+            let playerQuerySnapshot: admin.firestore.QuerySnapshot | null = null;
+            let initialPlayerIdFromUserDoc: string | null = null;
+
+            if (userSnap.exists && userSnap.data()?.playerId) {
+                initialPlayerIdFromUserDoc = userSnap.data()?.playerId;
+                if (initialPlayerIdFromUserDoc) { // Sichere Prüfung
+                    const playerVerifyRef = db.collection("players").doc(initialPlayerIdFromUserDoc);
+                    playerVerifySnap = await transaction.get(playerVerifyRef);
+                }
+            } else {
+                const playerQuery = db.collection("players").where("userId", "==", userId).limit(1);
+                playerQuerySnapshot = await transaction.get(playerQuery);
+            }
+
+            const finalUserDisplayName = userSnap.exists && userSnap.data()?.displayName ? userSnap.data()?.displayName : userDisplayNameFromToken;
+            const finalUserEmail = userSnap.exists && userSnap.data()?.email ? userSnap.data()?.email : userEmailFromToken;
+
+            let finalPlayerId: string | null = null;
+            let createNewPlayerDoc = false;
+
+            if (initialPlayerIdFromUserDoc && playerVerifySnap?.exists) {
+                finalPlayerId = initialPlayerIdFromUserDoc;
+            } else if (playerQuerySnapshot && !playerQuerySnapshot.empty) {
+                finalPlayerId = playerQuerySnapshot.docs[0].id;
+                if (userSnap.exists && userSnap.data()?.playerId !== finalPlayerId) {
+                    transaction.update(userRef, { playerId: finalPlayerId, lastUpdated: admin.firestore.FieldValue.serverTimestamp() });
+                }
+            } else {
+                finalPlayerId = crypto.randomBytes(12).toString('hex');
+                createNewPlayerDoc = true;
+            }
+
+            if (!finalPlayerId) {
+                throw new Error("Konnte die Spieler-ID nicht bestimmen.");
+            }
+
+            if (groupData.playerIds?.includes(finalPlayerId)) {
+                if (!groupData.players || !groupData.players[finalPlayerId]) {
+                    const missingPlayerEntry = {
+                        displayName: finalUserDisplayName,
+                        email: finalUserEmail ?? null,
+                        joinedAt: admin.firestore.Timestamp.now(),
+                    };
+                    transaction.update(groupRef, {
+                        [`players.${finalPlayerId}`]: missingPlayerEntry,
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                    });
+                    if (!groupData.players) groupData.players = {};
+                    groupData.players[finalPlayerId] = missingPlayerEntry;
+                }
+                return { success: true, alreadyMember: true, group: { id: groupSnap.id, ...groupData } };
+            }
+
+            if (createNewPlayerDoc) {
+                const newPlayerRef = db.collection("players").doc(finalPlayerId);
+                transaction.set(newPlayerRef, {
+                    userId: userId,
+                    nickname: finalUserDisplayName || `Spieler_${userId.substring(0, 6)}`,
+                    displayName: finalUserDisplayName,
+                    email: finalUserEmail ?? null,
+                    isGuest: false,
+                    stats: { gamesPlayed: 0, wins: 0, totalScore: 0 },
+                    groupIds: [currentGroupIdInTx],
+                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                });
+            } else {
+                const existingPlayerRef = db.collection("players").doc(finalPlayerId);
+                transaction.update(existingPlayerRef, {
+                    groupIds: admin.firestore.FieldValue.arrayUnion(currentGroupIdInTx),
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+            }
+
+            const userUpdateData = {
+                playerId: finalPlayerId,
+                lastActiveGroupId: currentGroupIdInTx,
+                lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+            };
+            if (!userSnap.exists) {
+                transaction.set(userRef, { ...userUpdateData, displayName: finalUserDisplayName, email: finalUserEmail ?? null, createdAt: admin.firestore.FieldValue.serverTimestamp(), lastLogin: admin.firestore.FieldValue.serverTimestamp() });
+            } else {
+                transaction.update(userRef, userUpdateData);
+            }
+
+            const groupPlayerEntry = {
+                displayName: finalUserDisplayName,
+                email: finalUserEmail ?? null,
+                joinedAt: admin.firestore.Timestamp.now(),
+            };
+
+            transaction.update(groupRef, {
+                playerIds: admin.firestore.FieldValue.arrayUnion(finalPlayerId),
+                [`players.${finalPlayerId}`]: groupPlayerEntry,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            
+            const resultingGroupData = {
+              id: groupSnap.id, 
+              ...groupData,
+              playerIds: [...(groupData.playerIds || []), finalPlayerId].filter((id, index, self) => self.indexOf(id) === index),
+              players: { ...(groupData.players || {}), [finalPlayerId]: groupPlayerEntry }
+            };
+
+            return { success: true, alreadyMember: false, group: resultingGroupData };
+        });
+
+        return joinResult;
     } catch (error) {
-      console.error(`Outer error joining group ${groupId || '(groupId not determined yet)'} for user ${userId}:`, error);
-      if (error instanceof HttpsError) {
-        throw error;
-      } else {
-        throw new HttpsError(
-          "internal",
-          "Ein äußerer Fehler ist beim Beitreten zur Gruppe aufgetreten."
-        );
-      }
+        console.error(`[joinGroupByToken LOG] Fehler beim Beitritt:`, error);
+        if (error instanceof HttpsError) {
+            throw error;
+        } else if (error instanceof Error) {
+            throw new HttpsError("internal", `Interner Fehler: ${error.message}`);
+        } else {
+            throw new HttpsError("internal", "Ein unbekannter interner Fehler ist aufgetreten.");
+        }
     }
-  });
+});
 
 // --- finalizeSession (Callable Function wird exportiert) ---
 export const finalizeSession = finalizeSessionLogic.finalizeSession;
 
 // --- archivecompletedgame (Trigger wird exportiert) - NUR EINMAL! ---
-export const archivecompletedgame = archiveLogic.archivecompletedgame;
+// export const archivecompletedgame = archiveLogic.archivecompletedgame; // ENTFERNT
 
 // --- cleanupOldData (Scheduled Function) ---
 export const cleanupOldData = scheduledTaskLogic.cleanupOldData; 
@@ -544,6 +498,9 @@ export const createNewGroup = onCall(async (request) => {
     throw new HttpsError("unauthenticated", "Authentifizierung erforderlich.");
   }
   const userId = request.auth.uid;
+  const userDisplayName = request.auth.token.name || "Unbekannter Jasser";
+  const userEmail = request.auth.token.email;
+
   // Expliziter Typ für die erwarteten Daten
   const data = request.data as { name?: string; description?: string; isPublic?: boolean };
 
@@ -553,22 +510,140 @@ export const createNewGroup = onCall(async (request) => {
 
   const newGroupRef = db.collection("groups").doc(); // Automatisch generierte ID
 
-  // Verwende das lokale FirestoreGroup-Interface für Strukturklarheit
-  const newGroupData: Partial<FirestoreGroup> = {
-    name: data.name.trim(),
-    description: typeof data.description === "string" ? data.description.trim() : "",
-    isPublic: typeof data.isPublic === "boolean" ? data.isPublic : false,
-    createdAt: admin.firestore.Timestamp.now(),
-    createdBy: userId,
-    playerIds: [userId],
-    adminIds: [userId], // Der Ersteller ist automatisch Admin
-    // players Subcollection wird später gefüllt oder bleibt leer
-  };
-
   try {
+    // --- Ermittle playerDocId für den Ersteller ---
+    let playerDocId: string | null = null;
+    const userRef = db.collection("users").doc(userId);
+    const userSnap = await userRef.get();
+
+    if (userSnap.exists && userSnap.data()?.playerId) {
+      // Überprüfe, ob dieser Player-Datensatz auch wirklich existiert
+      const playerCheckRef = db.collection("players").doc(userSnap.data()?.playerId);
+      const playerCheckSnap = await playerCheckRef.get();
+      if (playerCheckSnap.exists) {
+        playerDocId = userSnap.data()?.playerId;
+        console.log(`[createNewGroup] Found existing playerDocId ${playerDocId} from user doc for creator ${userId}.`);
+      } else {
+        console.warn(`[createNewGroup] playerDocId ${userSnap.data()?.playerId} from user doc for ${userId} does not exist in players collection. Will create new.`);
+        // Fallback, falls der Player-Eintrag fehlt
+      }
+    }
+
+    if (!playerDocId) {
+      // Versuche, den Spieler über die userId in der players Collection zu finden
+      const playerQuery = db.collection("players").where("userId", "==", userId).limit(1);
+      const playerQuerySnapshot = await playerQuery.get();
+      if (!playerQuerySnapshot.empty) {
+        playerDocId = playerQuerySnapshot.docs[0].id;
+        console.log(`[createNewGroup] Found existing playerDocId ${playerDocId} via query for creator ${userId}.`);
+        // Stelle sicher, dass der User-Doc auch diesen PlayerId hat
+        if (userSnap.exists && userSnap.data()?.playerId !== playerDocId) {
+          await userRef.update({ playerId: playerDocId, lastUpdated: admin.firestore.FieldValue.serverTimestamp() });
+          console.log(`[createNewGroup] Updated user doc for ${userId} with correct playerDocId ${playerDocId}.`);
+        } else if (!userSnap.exists) {
+          // Erstelle User-Dokument, falls es nicht existiert (sollte selten sein für eingeloggte User)
+          await userRef.set({
+            displayName: userDisplayName,
+            email: userEmail,
+            playerId: playerDocId,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            lastLogin: admin.firestore.FieldValue.serverTimestamp(),
+            lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+          });
+          console.log(`[createNewGroup] Created new user doc for ${userId} with playerDocId ${playerDocId}.`);
+        }
+      }
+    }
+
+    let newPlayerCreated = false;
+    if (!playerDocId) {
+      // Wenn immer noch kein playerDocId, erstelle einen neuen Player-Datensatz
+      playerDocId = crypto.randomBytes(12).toString('hex');
+      const newPlayerRef = db.collection("players").doc(playerDocId);
+      const newPlayerData = {
+        userId: userId,
+        nickname: userDisplayName || `Spieler_${userId.substring(0, 6)}`,
+        isGuest: false,
+        stats: { gamesPlayed: 0, wins: 0, totalScore: 0 },
+        groupIds: [newGroupRef.id], // Die neue Gruppe direkt hinzufügen
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        displayName: userDisplayName, // displayName vom Auth-Token
+        email: userEmail, // email vom Auth-Token
+      };
+      await newPlayerRef.set(newPlayerData);
+      newPlayerCreated = true;
+      console.log(`[createNewGroup] Created new player entry with playerDocId ${playerDocId} for creator ${userId}.`);
+
+      // Aktualisiere oder erstelle User-Dokument mit neuem playerDocId
+      if (userSnap.exists) {
+        await userRef.update({ playerId: playerDocId, lastActiveGroupId: newGroupRef.id, lastUpdated: admin.firestore.FieldValue.serverTimestamp() });
+      } else {
+        await userRef.set({
+            displayName: userDisplayName,
+            email: userEmail,
+            playerId: playerDocId,
+            lastActiveGroupId: newGroupRef.id,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            lastLogin: admin.firestore.FieldValue.serverTimestamp(),
+            lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+        });
+      }
+    } else {
+        // Wenn PlayerDocId existiert, stelle sicher, dass die neue groupID in groupIds-Array ist
+        const playerRefToUpdate = db.collection("players").doc(playerDocId);
+        await playerRefToUpdate.update({
+            groupIds: admin.firestore.FieldValue.arrayUnion(newGroupRef.id),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+         console.log(`[createNewGroup] Ensured group ${newGroupRef.id} is in playerDoc ${playerDocId} groupIds.`);
+    }
+    // --- Ende Ermittlung playerDocId ---
+
+    // Verwende das lokale FirestoreGroup-Interface für Strukturklarheit
+    const newGroupData: Omit<FirestoreGroup, 'id'> & { players: Record<string, FirestorePlayerInGroup> } = {
+      name: data.name.trim(),
+      description: typeof data.description === "string" ? data.description.trim() : "",
+      isPublic: typeof data.isPublic === "boolean" ? data.isPublic : false,
+      createdAt: admin.firestore.Timestamp.now(),
+      createdBy: userId, // authUid des Erstellers
+      playerIds: [playerDocId], // playerDocId des Erstellers
+      adminIds: [userId], // authUid des Erstellers bleibt Admin
+      players: {
+        [playerDocId]: { // playerDocId als Schlüssel
+          displayName: userDisplayName,
+          email: userEmail ?? null,
+          joinedAt: admin.firestore.Timestamp.now(),
+        }
+      },
+      updatedAt: admin.firestore.Timestamp.now(),
+    };
+
     await newGroupRef.set(newGroupData);
-    console.log(`Group ${newGroupRef.id} created by user ${userId}`);
-    return { success: true, groupId: newGroupRef.id };
+
+    // Update user document with lastActiveGroupId
+    if (!newPlayerCreated) { // Nur wenn nicht schon oben beim Erstellen des Players passiert
+        if (userSnap.exists) {
+            const userData = userSnap.data();
+            if (userData?.lastActiveGroupId !== newGroupRef.id) {
+                 await userRef.update({ lastActiveGroupId: newGroupRef.id, lastUpdated: admin.firestore.FieldValue.serverTimestamp() });
+            }
+        } else {
+            // Sollte nicht passieren, da userSnap oben geholt wird, aber zur Sicherheit
+             await userRef.set({
+                displayName: userDisplayName,
+                email: userEmail,
+                playerId: playerDocId,
+                lastActiveGroupId: newGroupRef.id,
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                lastLogin: admin.firestore.FieldValue.serverTimestamp(),
+                lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+            }, { merge: true }); // merge falls doch Race Condition
+        }
+    }
+
+    console.log(`Group ${newGroupRef.id} created by user ${userId} (playerDocId: ${playerDocId}). Initial players object:`, newGroupData.players);
+    return { success: true, groupId: newGroupRef.id, playerDocId: playerDocId };
   } catch (error) {
     console.error(`Error creating group for user ${userId}:`, error);
     throw new HttpsError("internal", "Gruppe konnte nicht erstellt werden.");
@@ -583,17 +658,68 @@ export const addPlayerToGroup = onCall(async (request) => {
     throw new HttpsError("unauthenticated", "Authentifizierung erforderlich.");
   }
   const adminUserId = request.auth.uid;
-  // Expliziter Typ für die erwarteten Daten
-  const data = request.data as { groupId?: string; playerToAddUid?: string };
+  const data = request.data as { groupId?: string; playerToAddAuthUid?: string }; // Umbenannt zur Klarheit
 
-  if (!data || typeof data.groupId !== "string" || typeof data.playerToAddUid !== "string") {
-    throw new HttpsError("invalid-argument", "Gruppen-ID oder Spieler-ID fehlt.");
+  if (!data || typeof data.groupId !== "string" || typeof data.playerToAddAuthUid !== "string") {
+    throw new HttpsError("invalid-argument", "Gruppen-ID oder Spieler-Authentifizierungs-ID fehlt.");
   }
-  const { groupId, playerToAddUid } = data;
+  const { groupId, playerToAddAuthUid } = data;
 
   const groupRef = db.collection("groups").doc(groupId);
 
   try {
+    let playerDocIdToAdd: string | null = null;
+    let playerDisplayName = "Unbekannter Jasser";
+    let playerEmail: string | null = null;
+
+    // Schritt 1: Finde den User und seinen playerDocId
+    const userToAddRef = db.collection("users").doc(playerToAddAuthUid);
+    const userToAddSnap = await userToAddRef.get();
+
+    if (userToAddSnap.exists) {
+      const userToAddData = userToAddSnap.data();
+      playerDisplayName = userToAddData?.displayName || playerDisplayName;
+      playerEmail = userToAddData?.email || null;
+      if (userToAddData?.playerId) {
+        // Überprüfe, ob dieser Player-Datensatz auch wirklich existiert
+        const playerCheckRef = db.collection("players").doc(userToAddData.playerId);
+        const playerCheckSnap = await playerCheckRef.get();
+        if (playerCheckSnap.exists) {
+          playerDocIdToAdd = userToAddData.playerId;
+          console.log(`[addPlayerToGroup] Found existing playerDocId ${playerDocIdToAdd} from user doc for user ${playerToAddAuthUid}.`);
+        } else {
+          console.warn(`[addPlayerToGroup] playerDocId ${userToAddData.playerId} from user doc for ${playerToAddAuthUid} does not exist in players collection.`);
+          // playerDocIdToAdd bleibt null, wird unten behandelt
+        }
+      }
+    }
+
+    // Schritt 2: Falls playerDocId nicht im User-Dokument, suche in der "players"-Collection
+    if (!playerDocIdToAdd) {
+      const playerQuery = db.collection("players").where("userId", "==", playerToAddAuthUid).limit(1);
+      const playerQuerySnapshot = await playerQuery.get();
+      if (!playerQuerySnapshot.empty) {
+        playerDocIdToAdd = playerQuerySnapshot.docs[0].id;
+        const playerData = playerQuerySnapshot.docs[0].data();
+        playerDisplayName = playerData?.displayName || playerData?.nickname || playerDisplayName;
+        // playerEmail könnte hier auch aus playerDaten kommen, falls vorhanden
+        console.log(`[addPlayerToGroup] Found existing playerDocId ${playerDocIdToAdd} via query for user ${playerToAddAuthUid}.`);
+        // Stelle sicher, dass der User-Doc auch diesen PlayerId hat (falls userDoc existiert)
+        if (userToAddSnap.exists && userToAddSnap.data()?.playerId !== playerDocIdToAdd) {
+          await userToAddRef.update({ playerId: playerDocIdToAdd, lastUpdated: admin.firestore.FieldValue.serverTimestamp() });
+        }
+      } else {
+        // Optional: Wenn der Spieler gar nicht existiert, könnte man hier einen Fehler werfen oder einen neuen erstellen.
+        // Fürs Erste werfen wir einen Fehler, da "addPlayerToGroup" impliziert, dass der Spieler existiert.
+        throw new HttpsError("not-found", `Spieler mit authUid ${playerToAddAuthUid} konnte nicht in der Players-Collection gefunden werden und hat keinen PlayerId im User-Dokument.`);
+      }
+    }
+
+    if (!playerDocIdToAdd) {
+        // Sollte durch die Logik oben eigentlich nicht erreicht werden, aber als Sicherheitsnetz
+        throw new HttpsError("internal", `Konnte playerDocId für ${playerToAddAuthUid} nicht ermitteln.`);
+    }
+
     await db.runTransaction(async (transaction) => {
       const groupSnap = await transaction.get(groupRef);
       if (!groupSnap.exists) {
@@ -605,33 +731,51 @@ export const addPlayerToGroup = onCall(async (request) => {
         throw new HttpsError("permission-denied", "Nur Admins dürfen Spieler hinzufügen.");
       }
 
-      if (groupData.playerIds?.includes(playerToAddUid)) {
-        console.log(`Player ${playerToAddUid} is already in group ${groupId}.`);
-        return; // Nichts zu tun
+      // Verwende playerDocIdToAdd statt playerToAddAuthUid für die Überprüfung und das Hinzufügen
+      if (groupData.playerIds?.includes(playerDocIdToAdd)) {
+        console.log(`Player (docId: ${playerDocIdToAdd}) is already in group ${groupId}.`);
+        // Prüfe, ob der Eintrag im players-Objekt fehlt oder aktualisiert werden muss
+        if (!groupData.players?.[playerDocIdToAdd]) {
+            console.log(`Player (docId: ${playerDocIdToAdd}) is in playerIds but missing in players object. Adding now.`);
+            transaction.update(groupRef, {
+                [`players.${playerDocIdToAdd}`]: {
+                    displayName: playerDisplayName,
+                    email: playerEmail,
+                    joinedAt: admin.firestore.Timestamp.now(),
+                },
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+        }
+        return; // Nichts weiter zu tun, wenn schon Mitglied und Eintrag vorhanden
       }
 
-      // Spieler-Daten abrufen (optional, für players-Subcollection)
-      // const playerProfileRef = db.collection("users").doc(playerToAddUid);
-      // const playerProfileSnap = await transaction.get(playerProfileRef);
-      // const playerData = playerProfileSnap.data();
-
-      // Update playerIds array
+      // Spieler zum playerIds Array hinzufügen
       transaction.update(groupRef, {
-        playerIds: admin.firestore.FieldValue.arrayUnion(playerToAddUid),
-        // Optional: Update players Subcollection
-        // [`players.${playerToAddUid}.displayName`]: playerData?.displayName ?? "Unknown",
-        // [`players.${playerToAddUid}.joinedAt`]: admin.firestore.Timestamp.now(),
+        playerIds: admin.firestore.FieldValue.arrayUnion(playerDocIdToAdd),
+        [`players.${playerDocIdToAdd}`]: {
+          displayName: playerDisplayName,
+          email: playerEmail,
+          joinedAt: admin.firestore.Timestamp.now(),
+        },
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      // Füge die groupId zum groupIds Array des Spielers hinzu
+      const playerRef = db.collection("players").doc(playerDocIdToAdd);
+      transaction.update(playerRef, {
+        groupIds: admin.firestore.FieldValue.arrayUnion(groupId),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
       });
     });
 
-    console.log(`Player ${playerToAddUid} added to group ${groupId} by admin ${adminUserId}`);
-    return { success: true };
+    console.log(`Player (docId: ${playerDocIdToAdd}, authUid: ${playerToAddAuthUid}) added to group ${groupId} by admin ${adminUserId}`);
+    return { success: true, playerDocIdAdded: playerDocIdToAdd };
   } catch (error) {
-    console.error(`Error adding player ${playerToAddUid} to group ${groupId}:`, error);
+    console.error(`Error adding player (authUid: ${playerToAddAuthUid}) to group ${groupId}:`, error);
     if (error instanceof HttpsError) {
       throw error;
     } else {
-      throw new HttpsError("internal", "Spieler konnte nicht hinzugefügt werden.");
+      throw new HttpsError("internal", "Spieler konnte nicht hinzugefügt werden." + (error instanceof Error ? ` (${error.message})` : ""));
     }
   }
 });
@@ -764,7 +908,11 @@ export const acceptTournamentInviteFunction = onCall<AcceptTournamentInviteData>
 
     // 3. Turnierbeitritt in einer Transaktion
     const joinResult = await db.runTransaction(async (transaction) => {
-      const tournamentRef = db.collection("tournaments").doc(tournamentIdToJoin!);
+      // Type Guard um TypeScript zu versichern, dass tournamentIdToJoin ein string ist
+      if (!tournamentIdToJoin) {
+        throw new Error("Turnier-ID ist ungültig");
+      }
+      const tournamentRef = db.collection("tournaments").doc(tournamentIdToJoin);
       const tournamentSnap = await transaction.get(tournamentRef);
 
       if (!tournamentSnap.exists) {
@@ -905,5 +1053,8 @@ export const processTournamentGameCompletion = tournamentGameLogic.processTourna
 
 // --- NEU: Finalize Tournament (Callable Function) ---
 export { finalizeTournament } from './finalizeTournament';
+
+// --- Session Merge Functions ---
+export { mergeSessions } from './mergeSessions';
 
 // ... (restliche Funktionen wie scheduledFirestoreBackup etc.) ... 
