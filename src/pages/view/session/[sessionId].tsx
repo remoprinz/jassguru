@@ -286,6 +286,7 @@ const SessionViewerPage: React.FC = () => {
       strokeSettings: activeStrokeSettings,
       cardStyle: activeCardStyle,
       scoreSettings: activeScoreSettings,
+      startedAt: sessionData.startedAt,
     };
   }, [sessionData, completedGames, activeStrokeSettings, activeCardStyle, activeScoreSettings]);
 

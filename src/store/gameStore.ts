@@ -874,10 +874,10 @@ export const useGameStore = create<GameStore>()(devtools(
     // Den zuvor gespeicherten stateForJassStoreSyncInternal verwenden
     if (stateForJassStoreSyncInternal) {
       syncWithJassStore(stateForJassStoreSyncInternal); 
-    } else {
+        } else {
       // Fallback, sollte nicht passieren, wenn stateForJassStoreSyncInternal immer gesetzt wird
       console.warn("[GameStore.finalizeRound] stateForJassStoreSyncInternal war nicht gesetzt. Sync mit potenziell falschem State.");
-      syncWithJassStore(finalStateFromSet); 
+    syncWithJassStore(finalStateFromSet); 
     }
     
     timerStore.resetRoundTimer();

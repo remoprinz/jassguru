@@ -59,6 +59,7 @@ function formatMillisecondsToHumanReadable(ms: number): string {
 
 // Hilfsfunktion zum Finden des Spieler-Profilbilds anhand des Namens
 function findPlayerPhotoByName(playerName: string, membersList: FirestorePlayer[]): string | undefined {
+  if (!playerName) return undefined; // <-- HIER DIE NEUE PRÜFUNG
   if (!membersList?.length) return undefined;
   
   const player = membersList.find(
@@ -1417,36 +1418,45 @@ const StartPage = () => {
                           <h3 className="text-base font-semibold text-white">Spieler mit meisten Spielen</h3>
                       </div>
                         <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {groupStats?.playerWithMostGames && groupStats.playerWithMostGames.length > 0 ? (
-                            groupStats.playerWithMostGames.map((playerStat, index) => {
-                              const playerData = findPlayerByName(playerStat.name, members);
-                              const playerId = playerData?.id || playerData?.userId;
-                              return (
-                                <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=overview` : '#'} key={`mostGames-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
-                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                    <div className="flex items-center">
-                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                      <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
-                                        {playerData?.photoURL ? (
-                                          <Image src={playerData.photoURL} alt={playerStat.name} width={24} height={24} className="rounded-full object-cover" />
-                                        ) : (
-                                          <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">{playerStat.name.charAt(0).toUpperCase()}</AvatarFallback>
-                                        )}
-                                      </Avatar>
-                                      <span className="text-gray-300">{playerStat.name}</span>
+                          {(() => {
+                            const filteredPlayers = groupStats?.playerWithMostGames?.filter(playerStat => {
+                              if (!playerStat.lastPlayedTimestamp) return true; // Fallback: Anzeigen, wenn kein Datum vorhanden
+                              const twelveMonthsAgo = new Date();
+                              twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
+                              return playerStat.lastPlayedTimestamp > twelveMonthsAgo;
+                            });
+
+                            if (filteredPlayers && filteredPlayers.length > 0) {
+                              return filteredPlayers.map((playerStat, index) => {
+                                const playerData = findPlayerByName(playerStat.name, members);
+                                const playerId = playerData?.id || playerData?.userId;
+                                return (
+                                  <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=overview` : '#'} key={`mostGames-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
+                                    <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                      <div className="flex items-center">
+                                        <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                        <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
+                                          {playerData?.photoURL ? (
+                                            <Image src={playerData.photoURL} alt={playerStat.name} width={24} height={24} className="rounded-full object-cover" />
+                                          ) : (
+                                            <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">{playerStat.name.charAt(0).toUpperCase()}</AvatarFallback>
+                                          )}
+                                        </Avatar>
+                                        <span className="text-gray-300">{playerStat.name}</span>
+                                      </div>
+                                      <div className="flex items-center">
+                                        <span className="text-white font-medium mr-2">{playerStat.value}</span>
+                                      </div>
                                     </div>
-                                    <div className="flex items-center">
-                                      <span className="text-white font-medium mr-2">{playerStat.value}</span>
-                                    </div>
-                                  </div>
-                                </Link>
-                              );
-                            })
-                          ) : (
-                            <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div>
-                          )}
-                    </div>
-                  </div>
+                                  </Link>
+                                );
+                              });
+                            } else {
+                              return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
+                            }
+                          })()}
+                        </div>
+                      </div>
 
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
@@ -1486,30 +1496,40 @@ const StartPage = () => {
                           <h3 className="text-base font-semibold text-white">Strichedifferenz</h3>
                       </div>
                         <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {groupStats?.playerWithHighestStricheDiff && groupStats.playerWithHighestStricheDiff.length > 0 ? (
-                            groupStats.playerWithHighestStricheDiff.map((playerStat, index) => {
-                              const playerData = findPlayerByName(playerStat.name, members);
-                              const playerId = playerData?.id || playerData?.userId;
-                              return (
-                               <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`stricheDiff-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
-                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                  <div className="flex items-center">
-                                    <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                    <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
-                                      {playerData?.photoURL ? (
-                                        <Image src={playerData.photoURL} alt={playerStat.name} width={24} height={24} className="rounded-full object-cover" />
-                                      ) : (<AvatarFallback className="bg-gray-700 text-gray-300 text-xs">{playerStat.name.charAt(0).toUpperCase()}</AvatarFallback>)}
-                                    </Avatar>
-                                    <span className="text-gray-300">{playerStat.name}</span>
+                          {(() => {
+                            const filteredPlayers = groupStats?.playerWithHighestStricheDiff?.filter(playerStat => {
+                              if (!playerStat.lastPlayedTimestamp) return true;
+                              const twelveMonthsAgo = new Date();
+                              twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
+                              return playerStat.lastPlayedTimestamp > twelveMonthsAgo;
+                            });
+                            if (filteredPlayers && filteredPlayers.length > 0) {
+                              return filteredPlayers.map((playerStat, index) => {
+                                const playerData = findPlayerByName(playerStat.name, members);
+                                const playerId = playerData?.id || playerData?.userId;
+                                return (
+                                 <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`stricheDiff-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
+                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                    <div className="flex items-center">
+                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
+                                        {playerData?.photoURL ? (
+                                          <Image src={playerData.photoURL} alt={playerStat.name} width={24} height={24} className="rounded-full object-cover" />
+                                        ) : (<AvatarFallback className="bg-gray-700 text-gray-300 text-xs">{playerStat.name.charAt(0).toUpperCase()}</AvatarFallback>)}
+                                      </Avatar>
+                                      <span className="text-gray-300">{playerStat.name}</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <span className="text-white font-medium mr-2">{playerStat.value > 0 ? '+' : ''}{Math.trunc(playerStat.value)}</span>
+                                    </div>
                                   </div>
-                                  <div className="flex items-center">
-                                    <span className="text-white font-medium mr-2">{playerStat.value > 0 ? '+' : ''}{Math.trunc(playerStat.value)}</span>
-                                  </div>
-                                </div>
-                              </Link>
-                            );
-                          })
-                        ) : (  <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div> )}
+                                </Link>
+                              );
+                            });
+                          } else {
+                            return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
+                          }
+                        })()}
                       </div>
 
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
@@ -1518,28 +1538,38 @@ const StartPage = () => {
                           <h3 className="text-base font-semibold text-white">Ø Siegquote (Partie)</h3>
                         </div>
                         <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {groupStats?.playerWithHighestWinRateSession && groupStats.playerWithHighestWinRateSession.length > 0 ? (
-                            groupStats.playerWithHighestWinRateSession.map((playerStat, index) => {
-                              const playerData = findPlayerByName(playerStat.name, members);
-                              const playerId = playerData?.id || playerData?.userId;
-                              return (
-                                <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`winRateSession-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
-                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                    <div className="flex items-center">
-                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                      <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
-                                        {playerData?.photoURL ? (<Image src={playerData.photoURL} alt={playerStat.name} width={24} height={24} className="rounded-full object-cover" />) : (<AvatarFallback className="bg-gray-700 text-gray-300 text-xs">{playerStat.name.charAt(0).toUpperCase()}</AvatarFallback>)}
-                                      </Avatar>
-                                      <span className="text-gray-300">{playerStat.name}</span>
+                          {(() => {
+                            const filteredPlayers = groupStats?.playerWithHighestWinRateSession?.filter(playerStat => {
+                              if (!playerStat.lastPlayedTimestamp) return true;
+                              const twelveMonthsAgo = new Date();
+                              twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
+                              return playerStat.lastPlayedTimestamp > twelveMonthsAgo;
+                            });
+                            if (filteredPlayers && filteredPlayers.length > 0) {
+                              return filteredPlayers.map((playerStat, index) => {
+                                const playerData = findPlayerByName(playerStat.name, members);
+                                const playerId = playerData?.id || playerData?.userId;
+                                return (
+                                  <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`winRateSession-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
+                                    <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                      <div className="flex items-center">
+                                        <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                        <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
+                                          {playerData?.photoURL ? (<Image src={playerData.photoURL} alt={playerStat.name} width={24} height={24} className="rounded-full object-cover" />) : (<AvatarFallback className="bg-gray-700 text-gray-300 text-xs">{playerStat.name.charAt(0).toUpperCase()}</AvatarFallback>)}
+                                        </Avatar>
+                                        <span className="text-gray-300">{playerStat.name}</span>
+                                      </div>
+                                      <div className="flex items-center">
+                                        <span className="text-white font-medium mr-2">{(playerStat.value * 100).toFixed(1)}%</span>
+                                      </div>
                                     </div>
-                                    <div className="flex items-center">
-                                      <span className="text-white font-medium mr-2">{(playerStat.value * 100).toFixed(1)}%</span>
-                                    </div>
-                                  </div>
-                                </Link>
-                              );
-                            })
-                          ) : ( <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div> )}
+                                  </Link>
+                                );
+                              });
+                            } else {
+                              return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
+                            }
+                          })()}
                         </div>
                       </div>
 
@@ -1549,28 +1579,38 @@ const StartPage = () => {
                           <h3 className="text-base font-semibold text-white">Ø Siegquote (Spiel)</h3>
                         </div>
                         <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {groupStats?.playerWithHighestWinRateGame && groupStats.playerWithHighestWinRateGame.length > 0 ? (
-                            groupStats.playerWithHighestWinRateGame.map((playerStat, index) => {
-                              const playerData = findPlayerByName(playerStat.name, members);
-                              const playerId = playerData?.id || playerData?.userId;
-                              return (
-                                <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`winRateGame-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
-                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                    <div className="flex items-center">
-                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                      <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
-                                        {playerData?.photoURL ? (<Image src={playerData.photoURL} alt={playerStat.name} width={24} height={24} className="rounded-full object-cover" />) : (<AvatarFallback className="bg-gray-700 text-gray-300 text-xs">{playerStat.name.charAt(0).toUpperCase()}</AvatarFallback>)}
-                                      </Avatar>
-                                      <span className="text-gray-300">{playerStat.name}</span>
+                          {(() => {
+                            const filteredPlayers = groupStats?.playerWithHighestWinRateGame?.filter(playerStat => {
+                              if (!playerStat.lastPlayedTimestamp) return true;
+                              const twelveMonthsAgo = new Date();
+                              twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
+                              return playerStat.lastPlayedTimestamp > twelveMonthsAgo;
+                            });
+                            if (filteredPlayers && filteredPlayers.length > 0) {
+                              return filteredPlayers.map((playerStat, index) => {
+                                const playerData = findPlayerByName(playerStat.name, members);
+                                const playerId = playerData?.id || playerData?.userId;
+                                return (
+                                  <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`winRateGame-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
+                                    <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                      <div className="flex items-center">
+                                        <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                        <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
+                                          {playerData?.photoURL ? (<Image src={playerData.photoURL} alt={playerStat.name} width={24} height={24} className="rounded-full object-cover" />) : (<AvatarFallback className="bg-gray-700 text-gray-300 text-xs">{playerStat.name.charAt(0).toUpperCase()}</AvatarFallback>)}
+                                        </Avatar>
+                                        <span className="text-gray-300">{playerStat.name}</span>
+                                      </div>
+                                      <div className="flex items-center">
+                                        <span className="text-white font-medium mr-2">{(playerStat.value * 100).toFixed(1)}%</span>
+                                      </div>
                                     </div>
-                                    <div className="flex items-center">
-                                      <span className="text-white font-medium mr-2">{(playerStat.value * 100).toFixed(1)}%</span>
-                                    </div>
-                                  </div>
-                                </Link>
-                              );
-                            })
-                          ) : ( <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div> )}
+                                  </Link>
+                                );
+                              });
+                            } else {
+                              return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
+                            }
+                          })()}
                         </div>
                       </div>
 
@@ -1580,28 +1620,38 @@ const StartPage = () => {
                           <h3 className="text-base font-semibold text-white">Ø Matschquote (Spiel)</h3>
                         </div>
                         <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {groupStats?.playerWithHighestMatschRate && groupStats.playerWithHighestMatschRate.length > 0 ? (
-                            groupStats.playerWithHighestMatschRate.map((playerStat, index) => {
-                              const playerData = findPlayerByName(playerStat.name, members);
-                              const playerId = playerData?.id || playerData?.userId;
-                              return (
-                                <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`matschRate-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
-                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                    <div className="flex items-center">
-                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                      <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
-                                        {playerData?.photoURL ? (<Image src={playerData.photoURL} alt={playerStat.name} width={24} height={24} className="rounded-full object-cover" />) : (<AvatarFallback className="bg-gray-700 text-gray-300 text-xs">{playerStat.name.charAt(0).toUpperCase()}</AvatarFallback>)}
-                                      </Avatar>
-                                      <span className="text-gray-300">{playerStat.name}</span>
+                          {(() => {
+                            const filteredPlayers = groupStats?.playerWithHighestMatschRate?.filter(playerStat => {
+                              if (!playerStat.lastPlayedTimestamp) return true;
+                              const twelveMonthsAgo = new Date();
+                              twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
+                              return playerStat.lastPlayedTimestamp > twelveMonthsAgo;
+                            });
+                            if (filteredPlayers && filteredPlayers.length > 0) {
+                              return filteredPlayers.map((playerStat, index) => {
+                                const playerData = findPlayerByName(playerStat.name, members);
+                                const playerId = playerData?.id || playerData?.userId;
+                                return (
+                                  <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`matschRate-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
+                                    <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                      <div className="flex items-center">
+                                        <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                        <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
+                                          {playerData?.photoURL ? (<Image src={playerData.photoURL} alt={playerStat.name} width={24} height={24} className="rounded-full object-cover" />) : (<AvatarFallback className="bg-gray-700 text-gray-300 text-xs">{playerStat.name.charAt(0).toUpperCase()}</AvatarFallback>)}
+                                        </Avatar>
+                                        <span className="text-gray-300">{playerStat.name}</span>
+                                      </div>
+                                      <div className="flex items-center">
+                                        <span className="text-white font-medium mr-2">{playerStat.value.toFixed(2)}</span>
+                                      </div>
                                     </div>
-                                    <div className="flex items-center">
-                                      <span className="text-white font-medium mr-2">{playerStat.value.toFixed(2)}</span>
-                                    </div>
-                                  </div>
-                                </Link>
-                              );
-                            })
-                          ) : ( <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div> )}
+                                  </Link>
+                                );
+                              });
+                            } else {
+                              return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
+                            }
+                          })()}
                         </div>
                       </div>
 
@@ -1611,28 +1661,38 @@ const StartPage = () => {
                           <h3 className="text-base font-semibold text-white">Ø Weispunkte (Spiel)</h3>
                         </div>
                         <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {groupStats?.playerWithMostWeisPointsAvg && groupStats.playerWithMostWeisPointsAvg.length > 0 ? (
-                            groupStats.playerWithMostWeisPointsAvg.map((playerStat, index) => {
-                              const playerData = findPlayerByName(playerStat.name, members);
-                              const playerId = playerData?.id || playerData?.userId;
-                              return (
-                                <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`weisPoints-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
-                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                    <div className="flex items-center">
-                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                      <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
-                                        {playerData?.photoURL ? (<Image src={playerData.photoURL} alt={playerStat.name} width={24} height={24} className="rounded-full object-cover" />) : (<AvatarFallback className="bg-gray-700 text-gray-300 text-xs">{playerStat.name.charAt(0).toUpperCase()}</AvatarFallback>)}
-                                      </Avatar>
-                                      <span className="text-gray-300">{playerStat.name}</span>
+                          {(() => {
+                            const filteredPlayers = groupStats?.playerWithMostWeisPointsAvg?.filter(playerStat => {
+                              if (!playerStat.lastPlayedTimestamp) return true;
+                              const twelveMonthsAgo = new Date();
+                              twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
+                              return playerStat.lastPlayedTimestamp > twelveMonthsAgo;
+                            });
+                            if (filteredPlayers && filteredPlayers.length > 0) {
+                              return filteredPlayers.map((playerStat, index) => {
+                                const playerData = findPlayerByName(playerStat.name, members);
+                                const playerId = playerData?.id || playerData?.userId;
+                                return (
+                                  <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`weisPoints-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
+                                    <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                      <div className="flex items-center">
+                                        <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                        <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
+                                          {playerData?.photoURL ? (<Image src={playerData.photoURL} alt={playerStat.name} width={24} height={24} className="rounded-full object-cover" />) : (<AvatarFallback className="bg-gray-700 text-gray-300 text-xs">{playerStat.name.charAt(0).toUpperCase()}</AvatarFallback>)}
+                                        </Avatar>
+                                        <span className="text-gray-300">{playerStat.name}</span>
+                                      </div>
+                                      <div className="flex items-center">
+                                        <span className="text-white font-medium mr-2">{playerStat.value}</span>
+                                      </div>
                                     </div>
-                                    <div className="flex items-center">
-                                      <span className="text-white font-medium mr-2">{playerStat.value}</span>
-                                    </div>
-                                  </div>
-                                </Link>
-                              );
-                            })
-                          ) : ( <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div> )}
+                                  </Link>
+                                );
+                              });
+                            } else {
+                              return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
+                            }
+                          })()}
                         </div>
                       </div>
                       
@@ -1642,28 +1702,38 @@ const StartPage = () => {
                           <h3 className="text-base font-semibold text-white">Ø Rundenzeit</h3>
                         </div>
                         <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {groupStats?.playerAllRoundTimes && groupStats.playerAllRoundTimes.length > 0 ? (
-                            groupStats.playerAllRoundTimes.map((playerStat, index) => {
-                              const playerData = findPlayerByName(playerStat.name, members);
-                              const playerId = playerData?.id || playerData?.userId;
-                              return (
-                                <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`roundTime-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
-                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                    <div className="flex items-center">
-                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                      <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
-                                        {playerData?.photoURL ? (<Image src={playerData.photoURL} alt={playerStat.name} width={24} height={24} className="rounded-full object-cover" />) : (<AvatarFallback className="bg-gray-700 text-gray-300 text-xs">{playerStat.name.charAt(0).toUpperCase()}</AvatarFallback>)}
-                                      </Avatar>
-                                      <span className="text-gray-300">{playerStat.name}</span>
+                          {(() => {
+                            const filteredPlayers = groupStats?.playerAllRoundTimes?.filter(playerStat => {
+                              if (!playerStat.lastPlayedTimestamp) return true;
+                              const twelveMonthsAgo = new Date();
+                              twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
+                              return playerStat.lastPlayedTimestamp > twelveMonthsAgo;
+                            });
+                            if (filteredPlayers && filteredPlayers.length > 0) {
+                              return filteredPlayers.map((playerStat, index) => {
+                                const playerData = findPlayerByName(playerStat.name, members);
+                                const playerId = playerData?.id || playerData?.userId;
+                                return (
+                                  <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`roundTime-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
+                                    <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                      <div className="flex items-center">
+                                        <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                        <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
+                                          {playerData?.photoURL ? (<Image src={playerData.photoURL} alt={playerStat.name} width={24} height={24} className="rounded-full object-cover" />) : (<AvatarFallback className="bg-gray-700 text-gray-300 text-xs">{playerStat.name.charAt(0).toUpperCase()}</AvatarFallback>)}
+                                        </Avatar>
+                                        <span className="text-gray-300">{playerStat.name}</span>
+                                      </div>
+                                      <div className="flex items-center">
+                                        <span className="text-white font-medium mr-2">{formatMillisecondsToHumanReadable(playerStat.value)}</span>
+                                      </div>
                                     </div>
-                                    <div className="flex items-center">
-                                      <span className="text-white font-medium mr-2">{formatMillisecondsToHumanReadable(playerStat.value)}</span>
-                                    </div>
-                                  </div>
-                                </Link>
-                              );
-                            })
-                          ) : ( <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div> )}
+                                  </Link>
+                                );
+                              });
+                            } else {
+                              return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
+                            }
+                          })()}
                         </div>
                       </div>
                     </div>
@@ -1711,7 +1781,7 @@ const StartPage = () => {
                                         />
                                       ) : (
                                       <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                        {team.names[1].charAt(0).toUpperCase()}
+                                        {team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
                                       </AvatarFallback>
                                       )}
                                     </Avatar>
@@ -1765,7 +1835,7 @@ const StartPage = () => {
                                         />
                                       ) : (
                                       <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                        {team.names[1].charAt(0).toUpperCase()}
+                                        {team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
                                       </AvatarFallback>
                                       )}
                                     </Avatar>
@@ -1819,7 +1889,7 @@ const StartPage = () => {
                                         />
                                       ) : (
                                       <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                        {team.names[1].charAt(0).toUpperCase()}
+                                        {team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
                                       </AvatarFallback>
                                       )}
                                     </Avatar>
@@ -1873,7 +1943,7 @@ const StartPage = () => {
                                         />
                                       ) : (
                                       <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                        {team.names[1].charAt(0).toUpperCase()}
+                                        {team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
                                       </AvatarFallback>
                                       )}
                                     </Avatar>

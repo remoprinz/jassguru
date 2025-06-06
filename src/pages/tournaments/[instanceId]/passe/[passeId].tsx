@@ -67,7 +67,7 @@ const transformTournamentGameToViewerData = (
         playerStats: {1: null, 2: null, 3: null, 4: null} as any, bergActive: false, bedankenActive: false, isSigned: false,
       },
     },
-    timestamp: passe.completedAt instanceof Timestamp ? passe.completedAt.toMillis() : Date.now(),
+    timestamp: passe.startedAt instanceof Timestamp ? passe.startedAt.toMillis() : Date.now(),
     sessionId: passe.tournamentInstanceId,
     currentRound: passe.roundHistory ? passe.roundHistory.length + 1 : 1,
     startingPlayer: passe.startingPlayer,
@@ -209,7 +209,7 @@ const PasseDetailPage: React.FC = () => {
         </div>
 
         <div className="flex-shrink-0 px-4 md:px-0"> {/* Optional: Horizontales Padding für die Kreidetafel, falls nötig */}
-          <GameViewerKreidetafel gameData={viewerData} />
+          <GameViewerKreidetafel gameData={viewerData} gameTypeLabel="Passe" />
         </div>
       </div>
     </MainLayout>
