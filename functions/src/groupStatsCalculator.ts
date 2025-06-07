@@ -1,8 +1,8 @@
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import { GroupComputedStats, initialGroupComputedStats, GroupStatHighlightPlayer, GroupStatHighlightTeam } from "./models/group-stats.model";
-import { StricheRecord, TeamScores, CompletedGameData, SessionTeams, InitialSessionData, TeamConfig } from "./finalizeSession"; // Importiere benötigte Typen
-import { DEFAULT_SCORE_SETTINGS, StrokeSettings, ScoreSettingsEnabled } from "./models/game-settings.model"; // Importiere benötigte Einstellungen
+import { StricheRecord, TeamScores, CompletedGameData, SessionTeams, InitialSessionData, TeamConfig, Round } from "./finalizeSession";
+import { DEFAULT_SCORE_SETTINGS, StrokeSettings, ScoreSettingsEnabled } from "./models/game-settings.model";
 
 const db = admin.firestore();
 
@@ -10,6 +10,15 @@ const JASS_SUMMARIES_COLLECTION = 'jassGameSummaries';
 const COMPLETED_GAMES_SUBCOLLECTION = 'completedGames';
 const GROUPS_COLLECTION = 'groups';
 const USERS_COLLECTION = 'users'; // Hinzugefügt für Klarheit
+
+// --- LOKALE TYPEN-ERWEITERUNG für diese Funktion ---
+// ----------------------------------------------------
+
+// Eine saubere, lokale Schnittstelle, die genau die Daten beschreibt, mit denen wir arbeiten.
+interface ProcessableGameData extends CompletedGameData {
+    id: string;
+    sessionId: string;
+}
 
 // Interface für die Struktur der Spielerinformationen innerhalb des Group-Dokuments
 interface GroupPlayerEntry {
@@ -45,8 +54,8 @@ interface MinimalFirestoreGroup {
     id: string;
     name?: string;
     mainLocationZip?: string | null;
-    // playerIds: string[]; // Veraltet zugunsten von players Objekt mit playerDocId als Key
-    players: { [playerDocId: string]: GroupPlayerEntry }; // playerDocId als Schlüssel
+    players: { [playerDocId: string]: GroupPlayerEntry };
+    adminIds?: string[];
     strokeSettings?: Partial<StrokeSettings>;
     scoreSettings?: { enabled?: Partial<ScoreSettingsEnabled> };
     // Weitere Felder wie description, logoUrl etc. sind für die Statistikberechnung nicht direkt nötig
@@ -82,33 +91,10 @@ function determineWinningTeam(scores: TeamScores | undefined): 'top' | 'bottom' 
 }
 
 function extractWeisPointsFromGameData(teamPosition: 'top' | 'bottom', game: CompletedGameData): number {
-    let weisFromGameObject = 0;
-    let weisFromSavedPoints = 0;
-
-    if (game.weisPoints) {
-        const weisValue = game.weisPoints[teamPosition];
-        if (typeof weisValue === 'number') {
-            weisFromGameObject = weisValue;
-        } else if (typeof weisValue === 'string') {
-            const parsed = parseInt(weisValue, 10);
-            if (!isNaN(parsed)) weisFromGameObject = parsed;
+    if (!game.weisPoints) {
+        return 0;
         }
-    }
-
-    if (game.roundHistory && game.roundHistory.length > 0) {
-        const firstRound = game.roundHistory[0] as Record<string, unknown>; 
-        if (firstRound && firstRound._savedWeisPoints && typeof firstRound._savedWeisPoints === 'object') {
-            const savedWeis = firstRound._savedWeisPoints as Record<string, unknown>;
-            const savedValue = savedWeis[teamPosition];
-            if (typeof savedValue === 'number') {
-                weisFromSavedPoints = savedValue;
-            } else if (typeof savedValue === 'string') {
-                const parsed = parseInt(savedValue, 10);
-                if (!isNaN(parsed)) weisFromSavedPoints = parsed;
-            }
-        }
-    }
-    return Math.max(weisFromGameObject, weisFromSavedPoints);
+    return game.weisPoints[teamPosition] || 0;
 }
 
 function getPlayerTeamInGame(
@@ -180,25 +166,6 @@ function getPlayerTeamInGame(
     }
     
     logger.warn(`[calculateGroupStatisticsInternal:getPlayerTeamInGame] Konnte Team für Spieler ${playerDocId} in Spiel ${game.activeGameId || game.gameNumber} nicht eindeutig bestimmen.`);
-    return null;
-}
-
-function getPlayerTeamInSession(
-    playerDocId: string, // Logisch ist es playerDocId
-    sessionData: InitialSessionData & { id: string, participantUids?: string[] } // participantPlayerDocIds -> participantUids
-): 'teamA' | 'teamB' | null {
-    // Muss angepasst werden, um playerDocId zu verwenden
-    if (sessionData.teams?.teamA?.players.find(p => p.playerId === playerDocId)) return 'teamA'; // p.playerDocId -> p.playerId
-    if (sessionData.teams?.teamB?.players.find(p => p.playerId === playerDocId)) return 'teamB'; // p.playerDocId -> p.playerId
-
-    // Fallback basierend auf Index in participantUids
-    if (sessionData.participantUids) { // participantPlayerDocIds -> participantUids
-        const playerIndex = sessionData.participantUids.indexOf(playerDocId);
-        if (playerIndex === -1) return null;
-        // Standardannahme: Spieler 0&2 -> Team A, Spieler 1&3 -> Team B
-        if (playerIndex === 0 || playerIndex === 2) return 'teamA';
-        if (playerIndex === 1 || playerIndex === 3) return 'teamB';
-    }
     return null;
 }
 
@@ -300,8 +267,11 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         const groupData = groupDoc.data() as MinimalFirestoreGroup;
         groupData.id = groupDoc.id;
 
-        // Annahme: groupData.players enthält { playerDocId: GroupPlayerEntry }
-        const groupMemberPlayerDocIds = new Set<string>(Object.keys(groupData.players || {}));
+        // KORREKTUR: Berücksichtige Admins und Spieler als Gruppenmitglieder
+        const playerKeys = Object.keys(groupData.players || {});
+        const adminIds = groupData.adminIds || [];
+        const groupMemberPlayerDocIds = new Set<string>([...playerKeys, ...adminIds]);
+        
         calculatedStats.memberCount = groupMemberPlayerDocIds.size;
         calculatedStats.hauptspielortName = groupData.mainLocationZip ? (getOrtNameByPlz(groupData.mainLocationZip) || groupData.mainLocationZip) : null;
 
@@ -324,13 +294,13 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         let lastJassTimestampMs: number | null = null;
 
         const actualParticipantPlayerDocIds = new Set<string>(); // Logisch PlayerDocIds
-        const allGamesFlat: CompletedGameData[] = [];
-        const gamesBySessionIdMap = new Map<string, CompletedGameData[]>();
+        const allGamesFlat: ProcessableGameData[] = [];
+        const gamesBySessionIdMap = new Map<string, ProcessableGameData[]>();
         const sessionDataCache = new Map<string, InitialSessionData & { id: string, endedAt?: admin.firestore.Timestamp | number, startedAt?: admin.firestore.Timestamp | number, participantUids?: string[] }>(); // participantPlayerDocIds -> participantUids
         
         // Erste Schleife: Sammle alle PlayerDocIds aus allen Spielen und Basis-Zeitstempel
         for (const sessionDoc of sessionsSnap.docs) {
-            const sessionData = sessionDoc.data() as InitialSessionData & { id: string, endedAt?: admin.firestore.Timestamp | number, startedAt?: admin.firestore.Timestamp | number, participantUids?: string[] }; // participantPlayerDocIds -> participantUids
+            const sessionData = sessionDoc.data() as InitialSessionData & { id: string, endedAt?: admin.firestore.Timestamp | number, startedAt?: admin.firestore.Timestamp | number, participantUids?: string[] };
             sessionData.id = sessionDoc.id;
             sessionDataCache.set(sessionDoc.id, sessionData);
 
@@ -348,22 +318,35 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
             
             const gamesSnap = await db.collection(JASS_SUMMARIES_COLLECTION).doc(sessionDoc.id)
                                      .collection(COMPLETED_GAMES_SUBCOLLECTION).orderBy("gameNumber").get();
-            const gamesOfThisSession: CompletedGameData[] = [];
+            const gamesOfThisSession: ProcessableGameData[] = [];
             gamesSnap.forEach(gameDoc => {
-                const game = gameDoc.data() as CompletedGameData; // Enthält participantUids
-                if (game.participantUids && Array.isArray(game.participantUids)) { // participantPlayerDocIds -> participantUids
-                    game.participantUids.forEach(pId => { // pDocId -> pId (behandeln als PlayerDocID)
-                        actualParticipantPlayerDocIds.add(pId); 
+                const gameData = gameDoc.data() as CompletedGameData;
+                
+                const gameWithMetadata: ProcessableGameData = {
+                    ...gameData,
+                    id: gameDoc.id,
+                    sessionId: sessionDoc.id
+                };
+
+                if (gameWithMetadata.participantUids && Array.isArray(gameWithMetadata.participantUids)) {
+                    gameWithMetadata.participantUids.forEach((pId: string) => {
+                        actualParticipantPlayerDocIds.add(pId);
                     });
                 }
-                (game as CompletedGameData & { sessionId?: string }).sessionId = sessionDoc.id;
-                totalPlayTimeMillis += game.durationMillis || 0;
-                allGamesFlat.push(game);
-                gamesOfThisSession.push(game);
+                
+                totalPlayTimeMillis += gameWithMetadata.durationMillis || 0;
+                allGamesFlat.push(gameWithMetadata);
+                gamesOfThisSession.push(gameWithMetadata);
             });
             gamesBySessionIdMap.set(sessionDoc.id, gamesOfThisSession);
         }
         
+        // Vereinfacht: Da wir Trumpfstatistiken aus playerComputedStats aggregieren, brauchen wir roundHistory nicht mehr
+        const allGamesWithRoundHistory: (ProcessableGameData & { roundHistory: Round[] })[] = allGamesFlat.map(game => ({
+            ...game,
+            roundHistory: game.roundHistory || []
+        }));
+
         // NEU: Lade Spielernamen und Infos basierend auf PlayerDocIDs
         const playerInfoCache = await resolvePlayerInfos(actualParticipantPlayerDocIds, groupData.players || {});
         logger.info(`[calculateGroupStatisticsInternal] actualParticipantPlayerDocIds (from games, size ${actualParticipantPlayerDocIds.size}): ${Array.from(actualParticipantPlayerDocIds).join(', ')}`);
@@ -405,7 +388,6 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         if (firstJassTimestampMs) calculatedStats.firstJassTimestamp = admin.firestore.Timestamp.fromMillis(firstJassTimestampMs);
         if (lastJassTimestampMs) calculatedStats.lastJassTimestamp = admin.firestore.Timestamp.fromMillis(lastJassTimestampMs);
         
-        // Hier beginnt die Portierung der komplexeren Logik aus statisticsService.ts
         // Durchschnittswerte:
         if (calculatedStats.sessionCount > 0 && totalPlayTimeMillis > 0) {
             calculatedStats.avgSessionDurationSeconds = Math.round((totalPlayTimeMillis / calculatedStats.sessionCount) / 1000);
@@ -418,8 +400,8 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         }
         
         let totalRounds = 0;
-        allGamesFlat.forEach(game => {
-            totalRounds += (game.roundHistory?.length || 0) -1; // -1, da History Index 0-basiert ist für Anzahl Runden
+        allGamesWithRoundHistory.forEach(game => {
+            totalRounds += (game.roundHistory?.length || 0); 
         });
         if (calculatedStats.gameCount > 0 && totalRounds > 0) {
             calculatedStats.avgRoundsPerGame = parseFloat((totalRounds / calculatedStats.gameCount).toFixed(1));
@@ -427,28 +409,11 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         }
 
         let totalMatschStiche = 0;
-        allGamesFlat.forEach(game => {
+        allGamesWithRoundHistory.forEach(game => {
             totalMatschStiche += (game.finalStriche?.top?.matsch || 0) + (game.finalStriche?.bottom?.matsch || 0);
         });
         if (calculatedStats.gameCount > 0) {
             calculatedStats.avgMatschPerGame = parseFloat((totalMatschStiche / calculatedStats.gameCount).toFixed(2));
-        }
-
-        // Trumpffarben-Statistik (Beispiel, muss detailliert implementiert werden)
-        // TODO: Trumpf-Logik aus statisticsService.ts portieren (game.trumpf)
-        const trumpfCounts: { [key: string]: number } = {};
-        allGamesFlat.forEach(game => {
-            const gameData = game as CompletedGameData & { trumpf?: string }; // Für Zugriff auf dynamische Felder wie trumpf
-            if (gameData.trumpf) {
-                trumpfCounts[gameData.trumpf] = (trumpfCounts[gameData.trumpf] || 0) + 1;
-            }
-        });
-        if (allGamesFlat.length > 0) {
-            calculatedStats.trumpfFarbenStatistik = Object.entries(trumpfCounts).map(([farbe, anzahl]) => ({
-                farbe,
-                anzahl,
-                anteil: parseFloat((anzahl / allGamesFlat.length).toFixed(3)) // Anteil berechnen und auf 3 Dezimalstellen runden
-            })).sort((a, b) => b.anzahl - a.anzahl);
         }
 
         // Spieler-Highlights und Team-Highlights
@@ -459,26 +424,20 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         // Temporäre Platzhalter für noch nicht portierte Highlight-Listen:
         // calculatedStats.playerWithMostGames = null; // Wird jetzt implementiert
 
-        const playerGameCounts = new Map<string, number>(); // Key: playerDocId
-        allGamesFlat.forEach(game => {
-            if (game.participantUids && Array.isArray(game.participantUids)) { // participantPlayerDocIds -> participantUids
-                game.participantUids.forEach(pDocIdFromGame => {  // authUidFromGame -> pDocIdFromGame, behandeln als PlayerDocID
-                    if (groupMemberPlayerDocIds.has(pDocIdFromGame)) {  // groupMemberAuthUIDs -> groupMemberPlayerDocIds
-                        const currentCount = playerGameCounts.get(pDocIdFromGame) || 0;
-                        playerGameCounts.set(pDocIdFromGame, currentCount + 1);
-                    } else {
-                        logger.warn(`[calculateGroupStatisticsInternal] Spieler ${pDocIdFromGame} aus Spiel ist KEIN Mitglied der Gruppe und wird für Spielanzahl nicht gezählt.`);
-                    }
-                });
-            }
+        const playerGameCounts = new Map<string, number>();
+        allGamesWithRoundHistory.forEach(game => {
+            const participants = game.participantUids || [];
+            participants.forEach((uid: string) => {
+                playerGameCounts.set(uid, (playerGameCounts.get(uid) || 0) + 1);
+            });
         });
 
         const playerMostGamesList: GroupStatHighlightPlayer[] = [];
-        playerGameCounts.forEach((count, pDocId) => { // authUID -> pDocId
+        playerGameCounts.forEach((count, pDocId) => {
             const lastMs = playerLastActivityMs.get(pDocId);
             const playerInfo = playerInfoCache.get(pDocId);
             playerMostGamesList.push({
-                playerId: pDocId, // playerDocId
+                playerId: pDocId,
                 playerName: playerInfo?.finalPlayerName || "Unbekannter Jasser",
                 value: count,
                 lastPlayedTimestamp: lastMs ? admin.firestore.Timestamp.fromMillis(lastMs) : null,
@@ -550,96 +509,65 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         playerStricheDiffList.sort((a, b) => b.value - a.value);
         calculatedStats.playerWithHighestStricheDiff = playerStricheDiffList;
 
-        // calculatedStats.playerWithHighestWinRateSession = null; // Wird jetzt implementiert
-        const playerSessionWinStats = new Map<string, { played: number, won: number }>(); // Key: playerDocId
-        actualParticipantPlayerDocIds.forEach(pDocId => { // authUID -> pDocId
-            if (groupMemberPlayerDocIds.has(pDocId)) { 
-                playerSessionWinStats.set(pDocId, { played: 0, won: 0 });
-            }
-        });
+        // NEU: teamWithHighestWinRateSession Logik überarbeiten
+        const teamSessionWinStats = new Map<string, { playerDocIds: string[], playerNames: string[], played: number, won: number }>();
 
         for (const sessionDoc of sessionsSnap.docs) {
-            const sessionData = sessionDataCache.get(sessionDoc.id) as InitialSessionData & { id: string, status?: string, finalScores?: { teamA: number, teamB: number }, teams?: SessionTeams, participantUids?: string[] }; // participantPlayerDocIds -> participantUids
-            if (!sessionData) continue; // Überspringen, falls nicht im Cache
-
-            logger.info(`[calculateGroupStatisticsInternal] Processing session ID: ${sessionData.id}`); // LOGGING START
-            logger.info(`[calculateGroupStatisticsInternal] Session Data for ${sessionData.id}:`, {
-                status: sessionData.status,
-                finalScores: sessionData.finalScores,
-                teams: JSON.stringify(sessionData.teams), // Stringify für bessere Log-Ausgabe von Objekten
-                participantUids: sessionData.participantUids,
-            }); // LOGGING END
-
-            if (sessionData.status !== 'completed' || 
-                !sessionData.finalScores || 
-                !sessionData.participantUids || 
-                sessionData.participantUids.length === 0 || 
-                !sessionData.teams) { 
-                logger.warn(`[calculateGroupStatisticsInternal] Session ${sessionData.id} wird für WinRate übersprungen: Status nicht completed, keine finalScores, keine Teilnehmer oder keine Teamdaten.`); // Erweiterte Log-Nachricht
+            const sessionData = sessionDataCache.get(sessionDoc.id) as InitialSessionData & { id: string, status?: string, teams?: SessionTeams, winnerTeamKey?: 'teamA' | 'teamB' | 'draw' };
+            
+            if (sessionData?.status !== 'completed' || !sessionData.teams || !sessionData.winnerTeamKey) {
                 continue; 
             }
 
-            let sessionWinnerTeamLabel: 'teamA' | 'teamB' | 'draw' = 'draw';
-            if (sessionData.finalScores.teamA > sessionData.finalScores.teamB) {
-                sessionWinnerTeamLabel = 'teamA';
-            } else if (sessionData.finalScores.teamB > sessionData.finalScores.teamA) {
-                sessionWinnerTeamLabel = 'teamB';
+            const teamAPlayers = sessionData.teams.teamA.players.map(p => p.playerId).sort();
+            const teamBPlayers = sessionData.teams.teamB.players.map(p => p.playerId).sort();
+
+            if (teamAPlayers.length === 0 || teamBPlayers.length === 0) continue;
+
+            const teamAKey = teamAPlayers.join('_');
+            const teamBKey = teamBPlayers.join('_');
+
+            if (!teamSessionWinStats.has(teamAKey)) {
+                const teamANames = teamAPlayers.map(pId => playerInfoCache.get(pId)?.finalPlayerName || 'N/A');
+                teamSessionWinStats.set(teamAKey, { playerDocIds: teamAPlayers, playerNames: teamANames, played: 0, won: 0 });
             }
-            logger.info(`[calculateGroupStatisticsInternal] Session ${sessionData.id}: Determined winnerTeamLabel: ${sessionWinnerTeamLabel}`); // LOGGING
+            const teamAStats = teamSessionWinStats.get(teamAKey);
+            if (teamAStats) teamAStats.played++;
 
-            sessionData.participantUids.forEach(pDocIdFromSession => { 
-                logger.info(`[calculateGroupStatisticsInternal] Session ${sessionData.id}, Processing player: ${pDocIdFromSession}`); // LOGGING
-
-                if (groupMemberPlayerDocIds.has(pDocIdFromSession)) { 
-                    const stats = playerSessionWinStats.get(pDocIdFromSession);
-                    if (stats) { 
-                        stats.played++;
-                        logger.info(`[calculateGroupStatisticsInternal] Player ${pDocIdFromSession} in Session ${sessionData.id}: stats.played incremented to ${stats.played}`); // LOGGING
-
-                        if (sessionWinnerTeamLabel !== 'draw') {
-                            const playerActualTeamInSession = getPlayerTeamInSession(pDocIdFromSession, sessionData);
-                            logger.info(`[calculateGroupStatisticsInternal] Player ${pDocIdFromSession} in Session ${sessionData.id}: playerActualTeamInSession = ${playerActualTeamInSession}`); // LOGGING
-
-                            if (playerActualTeamInSession === sessionWinnerTeamLabel) {
-                                stats.won++;
-                                logger.info(`[calculateGroupStatisticsInternal] Player ${pDocIdFromSession} in Session ${sessionData.id}: WIN! stats.won incremented to ${stats.won}. (playerTeam: ${playerActualTeamInSession}, winnerLabel: ${sessionWinnerTeamLabel})`); // LOGGING
-                            } else {
-                                logger.info(`[calculateGroupStatisticsInternal] Player ${pDocIdFromSession} in Session ${sessionData.id}: NO WIN. (playerTeam: ${playerActualTeamInSession}, winnerLabel: ${sessionWinnerTeamLabel})`); // LOGGING
-                            }
-                        } else {
-                            logger.info(`[calculateGroupStatisticsInternal] Player ${pDocIdFromSession} in Session ${sessionData.id}: DRAW. No win counted.`); // LOGGING
-                        }
-                    } else {
-                        logger.warn(`[calculateGroupStatisticsInternal] Session ${sessionData.id}: Keine Win-Stats für Spieler ${pDocIdFromSession} gefunden, obwohl er Gruppenmitglied ist.`); // Erweiterte Log-Nachricht
-                    }
-                } else {
-                    logger.info(`[calculateGroupStatisticsInternal] Session ${sessionData.id}: Spieler ${pDocIdFromSession} ist kein Gruppenmitglied, wird für WinRate ignoriert.`); // Erweiterte Log-Nachricht
-                }
-            });
+            if (!teamSessionWinStats.has(teamBKey)) {
+                const teamBNames = teamBPlayers.map(pId => playerInfoCache.get(pId)?.finalPlayerName || 'N/A');
+                teamSessionWinStats.set(teamBKey, { playerDocIds: teamBPlayers, playerNames: teamBNames, played: 0, won: 0 });
+            }
+            const teamBStats = teamSessionWinStats.get(teamBKey);
+            if (teamBStats) teamBStats.played++;
+            
+            if (sessionData.winnerTeamKey === 'teamA' && teamAStats) {
+                teamAStats.won++;
+            } else if (sessionData.winnerTeamKey === 'teamB' && teamBStats) {
+                teamBStats.won++;
+            }
         }
 
-        const playerSessionWinRateList: GroupStatHighlightPlayer[] = [];
-        playerSessionWinStats.forEach((stats, pDocId) => { // authUID -> pDocId
+        const teamSessionWinRateList: GroupStatHighlightTeam[] = [];
+        teamSessionWinStats.forEach((stats) => {
             if (stats.played > 0) {
-                const lastMs = playerLastActivityMs.get(pDocId);
-                const playerInfo = playerInfoCache.get(pDocId);
-                playerSessionWinRateList.push({
-                    playerId: pDocId, // playerDocId
-                    playerName: playerInfo?.finalPlayerName || "Unbekannter Jasser",
-                    value: stats.won / stats.played,
+                teamSessionWinRateList.push({
+                    names: stats.playerNames,
+                    value: parseFloat((stats.won / stats.played).toFixed(2)),
                     eventsPlayed: stats.played,
-                    lastPlayedTimestamp: lastMs ? admin.firestore.Timestamp.fromMillis(lastMs) : null,
                 });
             }
         });
 
-        playerSessionWinRateList.sort((a, b) => {
-            if (b.value !== a.value) {
-                return b.value - a.value; // Höchste WinRate zuerst
+        teamSessionWinRateList.sort((a, b) => {
+            const valA = typeof a.value === 'number' ? a.value : 0;
+            const valB = typeof b.value === 'number' ? b.value : 0;
+            if (valB !== valA) {
+                return valB - valA;
             }
-            return (b.eventsPlayed || 0) - (a.eventsPlayed || 0); // Bei gleicher Rate, mehr Sessions zuerst
+            return (b.eventsPlayed || 0) - (a.eventsPlayed || 0);
         });
-        calculatedStats.playerWithHighestWinRateSession = playerSessionWinRateList;
+        calculatedStats.teamWithHighestWinRateSession = teamSessionWinRateList;
 
         // calculatedStats.playerWithHighestWinRateGame = null; // Wird jetzt implementiert
         const playerGameWinStats = new Map<string, { played: number, won: number }>(); // Key: playerDocId
@@ -649,7 +577,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
             }
         });
 
-        for (const game of allGamesFlat) {
+        for (const game of allGamesWithRoundHistory) {
             if (!game.finalScores || !game.participantUids) { // participantPlayerDocIds -> participantUids
                 continue; // Nur Spiele mit Scores und Teilnehmern
             }
@@ -700,7 +628,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         // calculatedStats.playerWithHighestMatschRate = null; // Wird jetzt implementiert
         const teamMatschStats = new Map<string, { playerDocIds: [string, string], playerNames: [string, string], played: number, matschWon: number }>(); // Key: teamKey
 
-        for (const game of allGamesFlat) {
+        for (const game of allGamesWithRoundHistory) {
             if (!game.finalStriche || !game.participantUids || game.participantUids.length !== 4) { // participantPlayerDocIds -> participantUids (twice)
                 continue; // Nur Spiele mit finalStriche und Teilnehmern
             }
@@ -776,7 +704,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         // calculatedStats.teamWithMostWeisPointsAvg = null; // Wird jetzt implementiert
         const teamWeisStats = new Map<string, { playerDocIds: [string, string], playerNames: string[], totalWeis: number, gamesPlayed: number }>(); // playerIds -> playerDocIds, playerNames zu string[] geändert
 
-        for (const game of allGamesFlat) {
+        for (const game of allGamesWithRoundHistory) {
             if (!game.participantUids || game.participantUids.length !== 4) { // participantPlayerDocIds -> participantUids
                 continue; 
             }
@@ -836,115 +764,46 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         });
         calculatedStats.teamWithMostWeisPointsAvg = teamAvgWeisList;
 
-        // NEU: teamWithHighestWinRateSession Logik überarbeiten
-        const teamSessionWinStats = new Map<string, { playerDocIds: string[], playerNames: string[], played: number, won: number }>();
+        // NEU: Trumpfstatistiken für die Gruppe aus Spielerstatistiken aggregieren
+        const gruppeTrumpfStatistik: { [farbe: string]: number } = {};
+        let gruppeTotalTrumpfCount = 0;
 
-        for (const sessionDoc of sessionsSnap.docs) {
-            const sessionData = sessionDataCache.get(sessionDoc.id) as InitialSessionData & { id: string, status?: string, finalScores?: { teamA: number, teamB: number }, teams?: SessionTeams, participantUids?: string[] };
+        // Aggregiere Trumpfstatistiken aus allen playerComputedStats der Gruppenmitglieder
+        try {
+            const playerStatsPromises = Array.from(groupMemberPlayerDocIds).map(async (playerDocId) => {
+                try {
+                    const playerStatsDoc = await db.collection('playerComputedStats').doc(playerDocId).get();
+                    if (playerStatsDoc.exists) {
+                        const playerStats = playerStatsDoc.data();
+                        return {
+                            playerId: playerDocId,
+                            trumpfStatistik: playerStats?.trumpfStatistik || {},
+                            totalTrumpfCount: playerStats?.totalTrumpfCount || 0
+                        };
+                    }
+                } catch (error) {
+                    logger.warn(`[calculateGroupStatisticsInternal] Error loading player stats for ${playerDocId}: ${error}`);
+                }
+                return null;
+            });
+
+            const playerStatsResults = await Promise.all(playerStatsPromises);
             
-            logger.info(`[calculateGroupStatisticsInternal] Processing session ID: ${sessionData.id}`); // LOGGING START
-            logger.info(`[calculateGroupStatisticsInternal] Session Data for ${sessionData.id}:`, {
-                status: sessionData.status,
-                finalScores: sessionData.finalScores,
-                teams: JSON.stringify(sessionData.teams), // Stringify für bessere Log-Ausgabe von Objekten
-                participantUids: sessionData.participantUids,
-            }); // LOGGING END
-
-            if (sessionData.status !== 'completed' || 
-                !sessionData.finalScores || 
-                !sessionData.participantUids || 
-                sessionData.participantUids.length === 0 || 
-                !sessionData.teams) { 
-                logger.warn(`[calculateGroupStatisticsInternal] Session ${sessionData.id} wird für Team-WinRate übersprungen: unvollständige Daten (Status, Scores, Teilnehmer, Teams).`);
-                continue;
-            }
-
-            const teamAPlayers = sessionData.teams.teamA.players.map(p => p.playerId).filter(pId => groupMemberPlayerDocIds.has(pId)).sort();
-            const teamBPlayers = sessionData.teams.teamB.players.map(p => p.playerId).filter(pId => groupMemberPlayerDocIds.has(pId)).sort();
-
-            logger.info(`[calculateGroupStatisticsInternal] Session ${sessionData.id}: Filtered teamAPlayers (must be group members): [${teamAPlayers.join(', ')}], Filtered teamBPlayers: [${teamBPlayers.join(', ')}]`);
-
-            if (teamAPlayers.length === 0 && teamBPlayers.length === 0) { // Geändert: erlaubt, dass ein Team leer ist, wenn das andere Spieler hat
-                 logger.warn(`[calculateGroupStatisticsInternal] Session ${sessionData.id} hat KEINE Spieler in Team A UND Team B nach Filterung auf Gruppenmitglieder. Überspringe für Team-WinRate.`);
-                 continue;
-            }
-            
-            const teamAKey = teamAPlayers.join('_');
-            const teamBKey = teamBPlayers.join('_');
-
-            if (teamAKey === teamBKey && teamAPlayers.length > 0) { 
-                logger.warn(`[calculateGroupStatisticsInternal] Session ${sessionData.id}: Team A und Team B sind identisch nach Spielerfilterung (${teamAKey}). Überspringe für Team-WinRate.`);
-                continue;
-            }
-
-            const teamANames = teamAPlayers.map(pId => playerInfoCache.get(pId)?.finalPlayerName || 'N/A');
-            const teamBNames = teamBPlayers.map(pId => playerInfoCache.get(pId)?.finalPlayerName || 'N/A');
-
-            logger.info(`[calculateGroupStatisticsInternal] Session ${sessionData.id}: Team A Key: '${teamAKey}', Names: [${teamANames.join(', ')}]. Team B Key: '${teamBKey}', Names: [${teamBNames.join(', ')}]`);
-
-            // Team A Stats
-            if (teamAPlayers.length > 0) { 
-                if (!teamSessionWinStats.has(teamAKey)) {
-                    teamSessionWinStats.set(teamAKey, { playerDocIds: teamAPlayers, playerNames: teamANames, played: 0, won: 0 });
+            playerStatsResults.forEach(playerStats => {
+                if (playerStats && playerStats.trumpfStatistik) {
+                    Object.entries(playerStats.trumpfStatistik).forEach(([farbe, count]) => {
+                        const countNum = typeof count === 'number' ? count : 0;
+                        gruppeTrumpfStatistik[farbe] = (gruppeTrumpfStatistik[farbe] || 0) + countNum;
+                    });
+                    gruppeTotalTrumpfCount += playerStats.totalTrumpfCount;
                 }
-                const teamAStats = teamSessionWinStats.get(teamAKey);
-                if (teamAStats) teamAStats.played++;
-                logger.info(`[calculateGroupStatisticsInternal] Session ${sessionData.id}, Team A (${teamAKey}): stats.played incremented to ${teamAStats?.played}`);
-            }
-
-            // Team B Stats
-            if (teamBPlayers.length > 0) { 
-                if (!teamSessionWinStats.has(teamBKey)) {
-                    teamSessionWinStats.set(teamBKey, { playerDocIds: teamBPlayers, playerNames: teamBNames, played: 0, won: 0 });
-                }
-                const teamBStats = teamSessionWinStats.get(teamBKey);
-                if (teamBStats) teamBStats.played++;
-                 logger.info(`[calculateGroupStatisticsInternal] Session ${sessionData.id}, Team B (${teamBKey}): stats.played incremented to ${teamBStats?.played}`);
-            }
-            
-            // Gewinner ermitteln
-            const finalScores = sessionData.finalScores as { teamA: number, teamB: number }; // Type assertion
-            if (finalScores.teamA > finalScores.teamB) {
-                const teamAStats = teamSessionWinStats.get(teamAKey);
-                if (teamAPlayers.length > 0 && teamAStats) {
-                    teamAStats.won++;
-                    logger.info(`[calculateGroupStatisticsInternal] Session ${sessionData.id}, Team A (${teamAKey}): WIN! stats.won incremented to ${teamAStats.won}. (Score A: ${finalScores.teamA}, Score B: ${finalScores.teamB})`);
-                } else if (teamAPlayers.length === 0) {
-                    logger.info(`[calculateGroupStatisticsInternal] Session ${sessionData.id}: Team A hat gewonnen, aber Team A Key ('${teamAKey}') hatte keine Spieler nach Filterung. Kein Gewinn für Team A verbucht.`);
-                }
-            } else if (finalScores.teamB > finalScores.teamA) {
-                const teamBStats = teamSessionWinStats.get(teamBKey);
-                if (teamBPlayers.length > 0 && teamBStats) {
-                    teamBStats.won++;
-                     logger.info(`[calculateGroupStatisticsInternal] Session ${sessionData.id}, Team B (${teamBKey}): WIN! stats.won incremented to ${teamBStats.won}. (Score A: ${finalScores.teamA}, Score B: ${finalScores.teamB})`);
-                } else if (teamBPlayers.length === 0) {
-                     logger.info(`[calculateGroupStatisticsInternal] Session ${sessionData.id}: Team B hat gewonnen, aber Team B Key ('${teamBKey}') hatte keine Spieler nach Filterung. Kein Gewinn für Team B verbucht.`);
-                }
-            } else {
-                 logger.info(`[calculateGroupStatisticsInternal] Session ${sessionData.id}: DRAW. No win counted for teams. (Score A: ${finalScores.teamA}, Score B: ${finalScores.teamB})`);
-            }
+            });
+        } catch (error) {
+            logger.error(`[calculateGroupStatisticsInternal] Error aggregating trumpf statistics: ${error}`);
         }
 
-        const teamSessionWinRateList: GroupStatHighlightTeam[] = [];
-        teamSessionWinStats.forEach((stats) => {
-            if (stats.played > 0) {
-                teamSessionWinRateList.push({
-                    names: stats.playerNames,
-                    value: parseFloat((stats.won / stats.played).toFixed(2)),
-                    eventsPlayed: stats.played,
-                });
-            }
-        });
-
-        teamSessionWinRateList.sort((a, b) => {
-            const valA = typeof a.value === 'number' ? a.value : 0;
-            const valB = typeof b.value === 'number' ? b.value : 0;
-            if (valB !== valA) {
-                return valB - valA;
-            }
-            return (b.eventsPlayed || 0) - (a.eventsPlayed || 0);
-        });
-        calculatedStats.teamWithHighestWinRateSession = teamSessionWinRateList; // Hier zuweisen
+        calculatedStats.trumpfStatistik = gruppeTrumpfStatistik;
+        calculatedStats.totalTrumpfCount = gruppeTotalTrumpfCount;
 
         logger.info(`[calculateGroupStatisticsInternal] Successfully calculated team statistics for groupId: ${groupId}`);
         return calculatedStats;

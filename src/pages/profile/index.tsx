@@ -27,6 +27,8 @@ import { transformComputedStatsToExtended, type TransformedPlayerStats } from '@
 import { useGroupStore } from "@/store/groupStore";
 import NotableEventsList from "@/components/profile/NotableEventsList";
 import AggregateRankingList, { FrontendPartnerAggregate, FrontendOpponentAggregate } from "@/components/profile/AggregateRankingList";
+import { FarbePictogram } from '@/components/settings/FarbePictogram';
+import { JassColor } from "@/types/jass";
 
 interface ExpectedPlayerStatsWithAggregates {
   [key: string]: any;
@@ -35,6 +37,24 @@ interface ExpectedPlayerStatsWithAggregates {
 }
 
 interface ProfilePagePlayerStats extends TransformedPlayerStats {}
+
+// Hilfsfunktion zum Normalisieren der Trumpffarben-Namen für die JassColor Typ-Kompatibilität
+const normalizeJassColor = (farbe: string): JassColor => {
+  const mappings: Record<string, JassColor> = {
+    "eichel": "Eicheln",
+    "unde": "Une",
+    "obe": "Obe"
+    // Weitere Mappings hier, falls nötig
+  };
+  
+  // Normalisiere den Input zu Kleinbuchstaben für einen zuverlässigen Vergleich
+  const lowerCaseFarbe = farbe.toLowerCase();
+  
+  // Prüfe, ob ein Mapping existiert, andernfalls den Originalstring als JassColor casten
+  // (mit der Annahme, dass er bereits kompatibel ist, z.B. "Rosen")
+  // Wichtig: Die Gross- und Kleinschreibung im Mapping beachten.
+  return (mappings[lowerCaseFarbe] ?? farbe) as JassColor;
+};
 
 function isFirestoreTimestamp(value: any): value is Timestamp {
   return value && typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function';
@@ -203,6 +223,20 @@ const ProfilePage: React.FC = () => {
   }, {});
 
   const sortedYearsSessions = Object.keys(groupedSessionsByYear).sort((a, b) => parseInt(b) - parseInt(a));
+
+  // NEU: Trumpfstatistik-Array für die Anzeige
+  const trumpfStatistikArray = useMemo(() => {
+    if (!playerStats?.trumpfStatistik || !playerStats.totalTrumpfCount || playerStats.totalTrumpfCount === 0) {
+      return [];
+    }
+    return Object.entries(playerStats.trumpfStatistik)
+      .map(([farbe, anzahl]) => ({
+        farbe,
+        anzahl,
+        anteil: anzahl / (playerStats.totalTrumpfCount ?? 1), // Fallback für totalTrumpfCount
+      }))
+      .sort((a, b) => b.anzahl - a.anzahl);
+  }, [playerStats]);
 
   useEffect(() => {
     if (!isAuthenticated() || status === "unauthenticated") {
@@ -872,7 +906,7 @@ const ProfilePage: React.FC = () => {
                             <span className="font-medium text-gray-300">Meiste Weispunkte erhalten:</span>
                             {playerStats?.mostWeisPointsReceivedSession && typeof playerStats.mostWeisPointsReceivedSession.value === 'number' ? (
                               <Link 
-                                href={playerStats.mostWeisPointsReceivedSession.relatedId && playerStats.mostWeisPointsReceivedSession.relatedType === 'session' ? `/view/session/${playerStats.mostWeisPointsReceivedSession.relatedId}` : '#'}
+                                href={playerStats.mostWeisPointsReceivedSession.relatedId && playerStats.mostWeisPointsReceivedSession.relatedType === 'session' ? `/view/session/${playerStats.mostWeisPointsReceivedSession.relatedId}` : '#'} 
                                 className={`text-gray-100 ${playerStats.mostWeisPointsReceivedSession.relatedId ? 'hover:underline cursor-pointer' : 'cursor-default'}`}
                               >
                                 {playerStats.mostWeisPointsReceivedSession.value} ({playerStats.mostWeisPointsReceivedSession.date || '-'}) 
@@ -881,6 +915,29 @@ const ProfilePage: React.FC = () => {
                               <span className="text-gray-100">-</span>
                             )}
                           </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                          <h3 className="text-base font-semibold text-white">Trumpffarben</h3>
+                        </div>
+                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                          {trumpfStatistikArray.length > 0 ? (
+                            trumpfStatistikArray.map((item, index) => (
+                              <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
+                                <div className="flex items-center">
+                                  <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                  <FarbePictogram farbe={normalizeJassColor(item.farbe)} mode="svg" className="h-6 w-6 mr-2" />
+                                  <span className="text-gray-300 capitalize">{item.farbe}</span>
+                                </div>
+                                <span className="text-white font-medium">{(item.anteil * 100).toFixed(1)}%</span>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-gray-400 text-center py-2">Keine Trumpfstatistik verfügbar</div>
+                          )}
                         </div>
                       </div>
 
@@ -1022,6 +1079,30 @@ const ProfilePage: React.FC = () => {
                   </div>
 
                       <NotableEventsList highlights={playerStats.dynamicHighlights} />
+
+                      {/* Trumpf Statistik */}
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                          <h3 className="text-base font-semibold text-white">Trumpffarben</h3>
+                        </div>
+                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                          {trumpfStatistikArray.length > 0 ? (
+                            trumpfStatistikArray.map((item, index) => (
+                              <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
+                                <div className="flex items-center">
+                                  <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                  <FarbePictogram farbe={normalizeJassColor(item.farbe)} mode="svg" className="h-6 w-6 mr-2" />
+                                  <span className="text-gray-300 capitalize">{item.farbe}</span>
+                                </div>
+                                <span className="text-white font-medium">{(item.anteil * 100).toFixed(1)}%</span>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-gray-400 text-center py-2">Keine Trumpfstatistik verfügbar</div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ) : (
                     <div className="text-center text-gray-500 py-10">Keine Statistikdaten verfügbar.</div>

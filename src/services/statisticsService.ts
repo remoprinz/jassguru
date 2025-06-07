@@ -182,8 +182,9 @@ export interface GroupStatistics {
   avgMatschPerGame: number;
   avgRoundDuration: string; // NEU: Durchschnittliche Rundendauer
   
-  // Trumpffarben-Statistik
-  trumpfFarbenStatistik: { farbe: string; anteil: number }[]; // NEU: Verteilung der Trumpffarben
+  // NEU: Trumpffarben-Statistik als Map und Gesamtzahl
+  trumpfStatistik: { [key: string]: number };
+  totalTrumpfCount: number;
   
   // Spieler-Highlights - jetzt potenziell Arrays
   playerWithMostGames: HighlightPlayer[] | null;
@@ -258,7 +259,8 @@ export function createEmptyStatistics(): GroupStatistics {
     avgRoundsPerGame: 0,
     avgMatschPerGame: 0,
     avgRoundDuration: '-',
-    trumpfFarbenStatistik: [],
+    trumpfStatistik: {},
+    totalTrumpfCount: 0,
     playerWithMostGames: null,
     playerWithHighestStricheDiff: null,
     playerWithHighestWinRateSession: null,
@@ -330,10 +332,9 @@ export const fetchGroupStatistics = async (groupId: string, groupMainLocationZip
       avgMatschPerGame: backendData.avgMatschPerGame,
       avgRoundDuration: formatDurationForStats(backendData.avgRoundDurationSeconds * 1000),
       
-      trumpfFarbenStatistik: backendData.trumpfFarbenStatistik.map(t => ({
-        farbe: t.farbe,
-        anteil: (t as any).anteil || 0 // Annahme: Backend liefert 'anteil', Fallback auf 0
-      })),
+      // NEU: Übernehme die neue Map-Struktur direkt
+      trumpfStatistik: backendData.trumpfStatistik || {},
+      totalTrumpfCount: backendData.totalTrumpfCount || 0,
       
       playerWithMostGames: transformPlayerHighlights(backendData.playerWithMostGames),
       playerWithHighestStricheDiff: transformPlayerHighlights(backendData.playerWithHighestStricheDiff),

@@ -194,6 +194,10 @@ export interface PlayerComputedStats {
   // NEU: Sammlung von bemerkenswerten Ereignissen/Highlights
   highlights: StatHighlight[];
 
+  // NEU: Trumpffarben-Statistik
+  trumpfStatistik: { [key: string]: number };
+  totalTrumpfCount: number;
+
   // NEU: Initialisierung für Partner- und Gegnerstatistiken
   partnerAggregates?: PartnerAggregate[];
   opponentAggregates?: OpponentAggregate[];
@@ -286,6 +290,10 @@ export const initialPlayerComputedStats: PlayerComputedStats = {
   longestWinlessStreakSessions: null,
 
   highlights: [],
+
+  // NEU: Initialisierung für Trumpffarben
+  trumpfStatistik: {},
+  totalTrumpfCount: 0,
 
   // NEU: Initialisierung für Partner- und Gegnerstatistiken
   partnerAggregates: [],

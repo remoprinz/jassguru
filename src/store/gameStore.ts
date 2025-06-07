@@ -38,6 +38,7 @@ import {CARD_SYMBOL_MAPPINGS} from "../config/CardStyles";
 import {DEFAULT_FARBE_SETTINGS} from "../config/FarbeSettings";
 import {DEFAULT_SCORE_SETTINGS} from "../config/ScoreSettings";
 import {useGroupStore} from "./groupStore";
+import { useTournamentStore } from './tournamentStore'; // NEU
 import { firebaseApp } from '@/services/firebaseInit';
 import { getFirestore, doc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { updateActiveGame } from "../services/gameService";
@@ -1082,50 +1083,65 @@ export const useGameStore = create<GameStore>()(devtools(
       strokeSettings?: StrokeSettings;
     }
   ) => { 
-    const jassStore = useJassStore.getState();
-    console.log(`[GameStore] resetGame CALLED. nextStarter: ${nextStarter}, newActiveGameId: ${newActiveGameId}`);
-    if (initialSettings) {
-      console.log("[GameStore] resetGame mit initialSettings:", JSON.stringify(initialSettings).substring(0, 100) + "...");
+    console.log(`[gameStore] resetGame aufgerufen. Nächster Starter: ${nextStarter}, Neue Game ID: ${newActiveGameId}`);
+    
+    // --- NEU: Kontextabhängige Settings ermitteln ---
+    const { currentTournamentInstance } = useTournamentStore.getState();
+    const { currentGroup } = useGroupStore.getState();
+    const uiSettings = useUIStore.getState();
+
+    let correctSettings: { scoreSettings: ScoreSettings, strokeSettings: StrokeSettings, farbeSettings: FarbeSettings, source: string };
+
+    if (currentTournamentInstance?.settings) {
+      correctSettings = {
+        scoreSettings: currentTournamentInstance.settings.scoreSettings || DEFAULT_SCORE_SETTINGS,
+        strokeSettings: currentTournamentInstance.settings.strokeSettings || DEFAULT_STROKE_SETTINGS,
+        farbeSettings: currentTournamentInstance.settings.farbeSettings || DEFAULT_FARBE_SETTINGS,
+        source: 'tournament'
+      };
+    } else if (currentGroup) {
+      correctSettings = {
+        scoreSettings: currentGroup.scoreSettings || DEFAULT_SCORE_SETTINGS,
+        strokeSettings: currentGroup.strokeSettings || DEFAULT_STROKE_SETTINGS,
+        farbeSettings: currentGroup.farbeSettings || DEFAULT_FARBE_SETTINGS,
+        source: 'group'
+      };
+    } else {
+      correctSettings = {
+        scoreSettings: uiSettings.scoreSettings,
+        strokeSettings: uiSettings.strokeSettings,
+        farbeSettings: uiSettings.farbeSettings,
+        source: 'uiStore'
+      };
     }
 
-    set((prevState) => { 
-      // Behalte die PlayerNames und gamePlayers aus dem vorherigen Zustand, falls vorhanden und sinnvoll
-      const playerNamesToKeep = prevState.playerNames && Object.values(prevState.playerNames).some(name => name !== "") 
-                                ? prevState.playerNames 
-                                : jassStore.currentSession?.playerNames || initialPlayerNames;
-      const gamePlayersToKeep = prevState.gamePlayers;
+    console.log(`[gameStore] resetGame verwendet Settings aus Quelle: '${correctSettings.source}'`);
+    // --- ENDE NEUE LOGIK ---
 
-      // Erzeuge den Basis-Initialzustand mit dem Startspieler
-      // Die Einstellungen werden unten explizit gesetzt
+    set((prevState) => {
+      const playerNamesToKeep = prevState.playerNames;
+      const gamePlayersToKeep = prevState.gamePlayers;
+      
       const baseInitialState = createInitialStateLocal(nextStarter);
       
       const resetState: GameState = {
         ...baseInitialState,
-        // Überschreibe Einstellungen nur, wenn initialSettings explizit übergeben wurden
-        // Ansonsten behalte die Einstellungen aus baseInitialState (welche Defaults sein können oder von einer vorherigen Logik stammen)
-        scoreSettings: initialSettings?.scoreSettings ?? baseInitialState.scoreSettings,
-        farbeSettings: initialSettings?.farbeSettings ?? baseInitialState.farbeSettings,
-        strokeSettings: initialSettings?.strokeSettings ?? baseInitialState.strokeSettings,
+        // --- NEU: korrekte, kontextabhängige Settings setzen ---
+        scoreSettings: correctSettings.scoreSettings,
+        strokeSettings: correctSettings.strokeSettings,
+        farbeSettings: correctSettings.farbeSettings,
+        // --- Beibehaltene Werte ---
         playerNames: playerNamesToKeep, 
         gamePlayers: gamePlayersToKeep,
         activeGameId: newActiveGameId, 
+        // --- Harter Reset für den Spielverlauf ---
         roundHistory: [], 
         currentHistoryIndex: -1,
         isGameStarted: !!newActiveGameId, 
       };
       
-      // Korrigiertes Logging
-      console.log("[GameStore] State NACH resetGame (innerhalb set):",
-        "activeGameId:", resetState.activeGameId,
-        "Farbe CardStyle:", resetState.farbeSettings.cardStyle,
-        "Score Sieg:", resetState.scoreSettings.values.sieg,
-        "Stroke Schneider:", resetState.strokeSettings.schneider
-      );
       return resetState;
     });
-    // Ggf. Timer resetten, wenn ein Spiel wirklich komplett neu gestartet wird
-    // useTimerStore.getState().resetAllTimers(); 
-    // useTimerStore.getState().startJassTimer(); // Jass-Timer neu starten?
   },
 
   resetGamePoints: () => {

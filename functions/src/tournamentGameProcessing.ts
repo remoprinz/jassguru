@@ -26,6 +26,7 @@ export interface TournamentGameData {
   };
   weisPoints: { top: number; bottom: number };
   winnerTeam?: 'top' | 'bottom'; // Explizit kein 'draw' mehr hier, da Spiele nicht unentschieden enden
+  roundHistory?: { farbe?: string; actionType?: string; playerName?: string; }[]; // NEU: für Trumpf-Statistik & Zuweisung
   // Weitere turnierspezifische Felder...
 }
 
@@ -157,6 +158,15 @@ async function updateUserStatsAfterTournamentGame(
         stats.totalPlayTimeSeconds = (stats.totalPlayTimeSeconds || 0) + (gameData.durationMillis ? gameData.durationMillis / 1000 : 0);
 
         const outcome = getPlayerTournamentGameOutcome(userId, gameData);
+
+        // NEU: Initialisiere Trumpf-Statistiken, falls sie nicht existieren
+        stats.trumpfStatistik = stats.trumpfStatistik || {};
+        stats.totalTrumpfCount = stats.totalTrumpfCount || 0;
+
+        // NEU: Trumpf-Statistik-Verarbeitung entfernt
+        // HINWEIS: Diese Logik wird jetzt von der neuen updatePlayerTrumpfStatsOnGameEnd Function übernommen
+        // und läuft bei jedem einzelnen Spielabschluss (auch für Turnierspiele). 
+        // Daher entfernen wir sie hier, um Duplikate zu vermeiden.
 
         if (outcome.result === 'win') {
             stats.gameWins = (stats.gameWins || 0) + 1;

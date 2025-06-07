@@ -2,25 +2,18 @@ import React, { useEffect } from "react";
 import { GameEntry, CompletedGameSummary, StricheRecord, StrokeSettings } from '@/types/jass';
 import ResultatZeile from "@/components/game/ResultatZeile";
 import {useGameStore} from "../store/gameStore";
-import type { CardStyle } from '@/types/jass';
+import type { StatisticProps } from "@/types/statistikTypes";
 
 // Standard-Striche für den Fall, dass keine Daten vorhanden sind (sollte nicht passieren, aber sicher ist sicher)
 const defaultStriche: StricheRecord = { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 };
 
-interface StricheStatistikProps {
-  teams: any; // Typ präzisieren, falls möglich
-  games: (GameEntry | CompletedGameSummary)[]; // Union Type für das Array
-  currentGameId: number;
-  cardStyle: CardStyle;
-  strokeSettings: StrokeSettings;
-  onSwipe?: (direction: 'left' | 'right') => void; // Optional gemacht mit ?
-}
-
-// StricheStatistik verwendet jetzt wieder die 'games' Prop
-export const StricheStatistik: React.FC<StricheStatistikProps> = ({
+// StricheStatistik verwendet jetzt die zentralen StatisticProps
+export const StricheStatistik: React.FC<StatisticProps> = ({
   games,
   currentGameId,
   strokeSettings,
+  scoreSettings,
+  gameTypeLabel,
 }) => {
   const gameStore = useGameStore();
 
@@ -104,7 +97,9 @@ export const StricheStatistik: React.FC<StricheStatistikProps> = ({
               bottomTeam={bottomTeamData}
               showJassPoints={false} // Nur Striche anzeigen
               strokeSettings={strokeSettings}
+              scoreSettings={scoreSettings}
               isCurrentGameRow={false} // Immer false, um konsistenten Hintergrund zu gewährleisten
+              gameTypeLabel={gameTypeLabel}
             />
           );
         })}

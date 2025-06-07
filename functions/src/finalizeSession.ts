@@ -19,12 +19,16 @@ export interface StricheRecord {
 }
 
 // Hinzufügen einer einfachen Typ-Definition für die Runden-Einträge
-interface Round {
+export interface Round {
   actionType?: string;
   strichInfo?: {
     team?: 'top' | 'bottom';
     type?: string;
   };
+  // Optional, da nicht in allen Runden-Typen vorhanden
+  farbe?: string; 
+  currentPlayer?: 1 | 2 | 3 | 4; // HINZUGEFÜGT: Spieler, der Trumpf gewählt hat
+  _savedWeisPoints?: TeamScores;
 }
 
 export interface TeamScores {
@@ -126,15 +130,6 @@ interface FinalSessionUpdateData {
   teamScoreMapping: { teamA: 'top' | 'bottom'; teamB: 'top' | 'bottom' } | null;
 }
 
-// Hinzufügen einer einfachen Typ-Definition für die Runden-Einträge
-interface Round {
-  actionType?: string;
-  strichInfo?: {
-    team?: 'top' | 'bottom';
-    type?: string;
-  };
-}
-
 // NEUE HILFSFUNKTION für Spieler-Session-Statistiken
 async function updatePlayerStatsAfterSession(
   db: admin.firestore.Firestore,
@@ -193,7 +188,7 @@ async function updatePlayerStatsAfterSession(
           stats.lastUpdateTimestamp = now;
         }
 
-        stats.totalSessions = (stats.totalSessions || 0) + 1;
+        stats.currentUndefeatedStreakSessions = stats.currentUndefeatedStreakSessions || 0;
 
       // --- Start: Partner- und Gegner-Aggregation Initialisierung ---
       if (!stats.partnerAggregates) {
@@ -203,6 +198,8 @@ async function updatePlayerStatsAfterSession(
         stats.opponentAggregates = [];
       }
       // --- Ende: Partner- und Gegner-Aggregation Initialisierung ---
+
+        stats.totalSessions = (stats.totalSessions || 0) + 1;
 
         let sessionOutcome: 'win' | 'loss' | 'tie' = 'loss'; // Default
         let playerTeamKey: 'teamA' | 'teamB' | null = null;
@@ -512,15 +509,8 @@ async function updatePlayerStatsAfterSession(
             };
         }
 
-      // NEU: Game-Level-Processing für diesen Spieler
-      let gamesWonThisSession = 0;
-      let gamesLostThisSession = 0;
-      // let totalPointsMadeInGames = 0; // Nicht mehr global für die Funktion benötigt, da direkt in stats geschrieben
-      // let totalPointsReceivedInGames = 0;
-      // let totalStricheMadeInGames = 0;
-      // let totalStricheReceivedInGames = 0;
-
-      // Stelle sicher, dass die Felder initialisiert sind, falls sie fehlen
+      // --- GAME-LEVEL STATS PROCESSING (NEU & KOMPLETT) ---
+      // Initialisiere alle Game-Level Felder
       stats.totalGames = stats.totalGames || 0;
       stats.gameWins = stats.gameWins || 0;
       stats.gameLosses = stats.gameLosses || 0;
@@ -528,6 +518,7 @@ async function updatePlayerStatsAfterSession(
       stats.totalPointsReceived = stats.totalPointsReceived || 0;
       stats.totalStricheMade = stats.totalStricheMade || 0;
       stats.totalStricheReceived = stats.totalStricheReceived || 0;
+      stats.playerTotalWeisMade = stats.playerTotalWeisMade || 0;
       stats.totalMatschGamesMade = stats.totalMatschGamesMade || 0;
       stats.totalSchneiderGamesMade = stats.totalSchneiderGamesMade || 0;
       stats.totalKontermatschGamesMade = stats.totalKontermatschGamesMade || 0;
@@ -537,319 +528,222 @@ async function updatePlayerStatsAfterSession(
       stats.currentGameWinlessStreak = stats.currentGameWinlessStreak || 0;
       stats.currentUndefeatedStreakGames = stats.currentUndefeatedStreakGames || 0;
 
-      for (const game of completedGames) {
-        if (!game.participantUids?.includes(userId)) {
-          continue; // Spieler war nicht in diesem Spiel
-        }
-
-        stats.totalGames++; // Kumulatives Zählen aller Spiele
-
-        // Bestimme Team des Spielers in diesem Spiel
-        let gamePlayerTeamPosition: 'top' | 'bottom' | undefined;
-        let gameOpponentTeamPosition: 'top' | 'bottom' | undefined;
-
-        // Verwende teamScoreMapping aus dem Spiel, falls vorhanden, sonst aus Session
-        const gameMapping = game.teamScoreMapping || sessionFinalData.teamScoreMapping;
-        
-        if (gameMapping && playerTeamKey) {
-          gamePlayerTeamPosition = playerTeamKey === 'teamA' ? gameMapping.teamA : gameMapping.teamB;
-          gameOpponentTeamPosition = playerTeamKey === 'teamA' ? gameMapping.teamB : gameMapping.teamA;
-        } else {
-          // Fallback basierend auf teams-Struktur oder Default-Annahme
-          if (playerTeamKey === 'teamA') {
-            gamePlayerTeamPosition = 'bottom';
-            gameOpponentTeamPosition = 'top';
-          } else if (playerTeamKey === 'teamB') {
-            gamePlayerTeamPosition = 'top';
-            gameOpponentTeamPosition = 'bottom';
-          }
-        }
-
-        if (gamePlayerTeamPosition && gameOpponentTeamPosition && game.finalScores) {
-          const pointsMadeThisGame = game.finalScores[gamePlayerTeamPosition] || 0;
-          const pointsReceivedThisGame = game.finalScores[gameOpponentTeamPosition] || 0;
-
-          stats.totalPointsMade += pointsMadeThisGame;
-          stats.totalPointsReceived += pointsReceivedThisGame;
-          // totalPointsDifference wird am Ende einmal für alles berechnet
-
-          // Game Win/Loss bestimmen und kumulieren
-          let gameOutcomeForStreak: 'win' | 'loss' | 'tie' = 'tie';
-          if (pointsMadeThisGame > pointsReceivedThisGame) {
-            stats.gameWins++;
-            gamesWonThisSession++; // Für Session-interne Zählung (ggf. nicht mehr nötig)
-            gameOutcomeForStreak = 'win';
-          } else if (pointsMadeThisGame < pointsReceivedThisGame) {
-            stats.gameLosses++;
-            gamesLostThisSession++; // Für Session-interne Zählung
-            gameOutcomeForStreak = 'loss';
-          }
-          
-          // Game-Streaks (sessionübergreifend)
-          if (gameOutcomeForStreak === 'win') {
-            stats.currentGameWinStreak = (stats.currentGameWinStreak || 0) + 1;
-            stats.currentGameLossStreak = 0;
-            stats.currentGameWinlessStreak = 0;
-            stats.currentUndefeatedStreakGames = (stats.currentUndefeatedStreakGames || 0) + 1;
-            if (!stats.longestWinStreakGames || stats.currentGameWinStreak > stats.longestWinStreakGames.value) {
-              stats.longestWinStreakGames = {
-                value: stats.currentGameWinStreak,
-                startDate: stats.currentGameWinStreak === 1 ? (game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp) : stats.longestWinStreakGames?.startDate || (game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp),
-                endDate: game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp
-              };
-            }
-          } else if (gameOutcomeForStreak === 'loss') {
-            stats.currentGameLossStreak = (stats.currentGameLossStreak || 0) + 1;
-            stats.currentGameWinStreak = 0;
-            stats.currentGameWinlessStreak = (stats.currentUndefeatedStreakGames || 0) + 1;
-            stats.currentUndefeatedStreakGames = 0;
-            if (!stats.longestLossStreakGames || stats.currentGameLossStreak > stats.longestLossStreakGames.value) {
-              stats.longestLossStreakGames = {
-                value: stats.currentGameLossStreak,
-                startDate: stats.currentGameLossStreak === 1 ? (game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp) : stats.longestLossStreakGames?.startDate || (game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp),
-                endDate: game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp
-              };
-            }
-            // Update longestWinlessStreakGames auch bei einer Niederlage
-            if (!stats.longestWinlessStreakGames || stats.currentGameWinlessStreak > stats.longestWinlessStreakGames.value) {
-              stats.longestWinlessStreakGames = {
-                value: stats.currentGameWinlessStreak,
-                startDate: stats.currentGameWinlessStreak === 1 ? (game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp) : stats.longestWinlessStreakGames?.startDate || (game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp),
-                endDate: game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp
-              };
-            }
-          } else { // 'tie' (Unentschieden im Spiel)
-            stats.currentGameWinStreak = 0;
-            stats.currentGameLossStreak = 0;
-            stats.currentGameWinlessStreak = (stats.currentUndefeatedStreakGames || 0) + 1;
-            stats.currentUndefeatedStreakGames = (stats.currentUndefeatedStreakGames || 0) + 1;
-             if (!stats.longestWinlessStreakGames || stats.currentGameWinlessStreak > stats.longestWinlessStreakGames.value) {
-              stats.longestWinlessStreakGames = {
-                value: stats.currentGameWinlessStreak,
-                startDate: stats.currentGameWinlessStreak === 1 ? (game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp) : stats.longestWinlessStreakGames?.startDate || (game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp),
-                endDate: game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp
-              };
-            }
-          }
-
-          // NEU: Logik für longestUndefeatedStreakGames (nachdem currentUndefeatedStreakGames aktualisiert wurde)
-          if (gameOutcomeForStreak === 'win' || gameOutcomeForStreak === 'tie') {
-            // Die Erhöhung von currentUndefeatedStreakGames geschieht bereits oben für win/tie.
-            // Hier nur prüfen, ob es die längste Serie ist.
-            if (!stats.longestUndefeatedStreakGames || stats.currentUndefeatedStreakGames > stats.longestUndefeatedStreakGames.value) {
-              stats.longestUndefeatedStreakGames = {
-                value: stats.currentUndefeatedStreakGames,
-                startDate: stats.currentUndefeatedStreakGames === 1 ? (game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp) : stats.longestUndefeatedStreakGames?.startDate || (game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp),
-                endDate: game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp
-              };
-            }
-          }
-
-          // Game-Level Highlights prüfen (kumulativ)
-          const currentHighestPointsGameValue = typeof stats.highestPointsGame?.value === 'number' ? stats.highestPointsGame.value : -Infinity;
-          if (pointsMadeThisGame > currentHighestPointsGameValue) {
-            stats.highestPointsGame = {
-              value: pointsMadeThisGame,
-              date: game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp, 
-              relatedId: game.activeGameId || sessionFinalData.sessionId,
-              type: "highest_points_game",
-              label: `Höchste Punkte in Einzelspiel (${pointsMadeThisGame})`
-            };
-          }
-          const currentLowestPointsGameValue = typeof stats.lowestPointsGame?.value === 'number' ? stats.lowestPointsGame.value : Infinity;
-          if (pointsMadeThisGame < currentLowestPointsGameValue) {
-            stats.lowestPointsGame = {
-              value: pointsMadeThisGame,
-              date: game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp, 
-              relatedId: game.activeGameId || sessionFinalData.sessionId, 
-              type: "lowest_points_game",
-              label: `Niedrigste Punkte in Einzelspiel (${pointsMadeThisGame})` 
-            };
-          }
-
-          // Striche-Processing für Games
-          if (game.finalStriche) {
-            const calculateTotalStricheValue = (striche: StricheRecord | undefined): number => 
-                striche ? (striche.berg || 0) + (striche.sieg || 0) + (striche.matsch || 0) + (striche.schneider || 0) + (striche.kontermatsch || 0) : 0;
-
-            const stricheMadeThisGame = calculateTotalStricheValue(game.finalStriche[gamePlayerTeamPosition]);
-            const stricheReceivedThisGame = calculateTotalStricheValue(game.finalStriche[gameOpponentTeamPosition]);
-
-            stats.totalStricheMade += stricheMadeThisGame;
-            stats.totalStricheReceived += stricheReceivedThisGame;
-
-            const currentHighestStricheGameValue = typeof stats.highestStricheGame?.value === 'number' ? stats.highestStricheGame.value : -Infinity;
-            if (stricheMadeThisGame > currentHighestStricheGameValue) {
-              stats.highestStricheGame = {
-                value: stricheMadeThisGame,
-                date: game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp,
-                relatedId: game.activeGameId || sessionFinalData.sessionId,
-                type: "highest_striche_game",
-                label: `Höchste Striche in Einzelspiel (${stricheMadeThisGame})`
-              };
-            }
-            // NEU: lowestStricheGame
-            const currentLowestStricheGameValue = typeof stats.lowestStricheGame?.value === 'number' ? stats.lowestStricheGame.value : Infinity;
-            if (stricheMadeThisGame < currentLowestStricheGameValue) {
-              stats.lowestStricheGame = {
-                value: stricheMadeThisGame,
-                date: game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp,
-                relatedId: game.activeGameId || sessionFinalData.sessionId,
-                type: "lowest_striche_game",
-                label: `Wenigste Striche in Einzelspiel (${stricheMadeThisGame})`
-              };
-            }
-
-            const currentHighestStricheReceivedGameValue = typeof stats.highestStricheReceivedGame?.value === 'number' ? stats.highestStricheReceivedGame.value : -Infinity;
-            if (stricheReceivedThisGame > currentHighestStricheReceivedGameValue) {
-              stats.highestStricheReceivedGame = {
-                value: stricheReceivedThisGame,
-                date: game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp,
-                relatedId: game.activeGameId || sessionFinalData.sessionId,
-                type: "highest_striche_received_game",
-                label: `Höchste erhaltene Striche in Einzelspiel (${stricheReceivedThisGame})`
-              };
-            }
-            // NEU: lowestStricheReceivedGame
-            const currentLowestStricheReceivedGameValue = typeof stats.lowestStricheReceivedGame?.value === 'number' ? stats.lowestStricheReceivedGame.value : Infinity;
-            if (stricheReceivedThisGame < currentLowestStricheReceivedGameValue) {
-              stats.lowestStricheReceivedGame = {
-                value: stricheReceivedThisGame,
-                date: game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp,
-                relatedId: game.activeGameId || sessionFinalData.sessionId,
-                type: "lowest_striche_received_game",
-                label: `Wenigste erhaltene Striche in Einzelspiel (${stricheReceivedThisGame})`
-              };
-            }
-
-            const playerStricheRecord = game.finalStriche[gamePlayerTeamPosition];
-            if (playerStricheRecord) {
-              stats.totalMatschGamesMade += (playerStricheRecord.matsch || 0);
-              stats.totalSchneiderGamesMade += (playerStricheRecord.schneider || 0);
-              stats.totalKontermatschGamesMade += (playerStricheRecord.kontermatsch || 0);
-              
-              const matschMadeThisGameValue = playerStricheRecord.matsch || 0;
-              if (matschMadeThisGameValue > (typeof stats.mostMatschGame?.value === 'number' ? stats.mostMatschGame.value : 0)) {
-                stats.mostMatschGame = { value: matschMadeThisGameValue, date: game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp, relatedId: game.activeGameId || sessionFinalData.sessionId, type: "most_matsch_game", label: `Meiste Matsch in Spiel (${matschMadeThisGameValue})` };
-              }
-              const schneiderMadeThisGameValue = playerStricheRecord.schneider || 0;
-              if (schneiderMadeThisGameValue > (typeof stats.mostSchneiderGame?.value === 'number' ? stats.mostSchneiderGame.value : 0)) {
-                stats.mostSchneiderGame = { value: schneiderMadeThisGameValue, date: game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp, relatedId: game.activeGameId || sessionFinalData.sessionId, type: "most_schneider_game", label: `Meiste Schneider in Spiel (${schneiderMadeThisGameValue})` };
-              }
-              const kontermatschMadeThisGameValue = playerStricheRecord.kontermatsch || 0;
-              if (kontermatschMadeThisGameValue > (typeof stats.mostKontermatschMadeGame?.value === 'number' ? stats.mostKontermatschMadeGame.value : 0)) {
-                stats.mostKontermatschMadeGame = { value: kontermatschMadeThisGameValue, date: game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp, relatedId: game.activeGameId || sessionFinalData.sessionId, type: "most_kontermatsch_made_game", label: `Meiste Kontermatsch in Spiel (${kontermatschMadeThisGameValue})` };
-              }
-            }
-
-            const opponentStricheRecord = game.finalStriche[gameOpponentTeamPosition];
-            if (opponentStricheRecord) {
-              stats.totalKontermatschGamesReceived += (opponentStricheRecord.kontermatsch || 0);
-              const kontermatschReceivedThisGameValue = opponentStricheRecord.kontermatsch || 0;
-              if (kontermatschReceivedThisGameValue > (typeof stats.mostKontermatschReceivedGame?.value === 'number' ? stats.mostKontermatschReceivedGame.value : 0)) {
-                stats.mostKontermatschReceivedGame = { 
-                  value: kontermatschReceivedThisGameValue, 
-                  date: game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp, 
-                  relatedId: game.activeGameId || sessionFinalData.sessionId, 
-                  type: "most_kontermatsch_received_game", 
-                  label: `Meiste Kontermatsch erhalten (${kontermatschReceivedThisGameValue})` 
-                };
-              }
-
-              // NEU: Logik für mostMatschReceivedGame
-              const matschReceivedThisGameValue = opponentStricheRecord.matsch || 0;
-              if (matschReceivedThisGameValue > (typeof stats.mostMatschReceivedGame?.value === 'number' ? stats.mostMatschReceivedGame.value : 0)) {
-                stats.mostMatschReceivedGame = {
-                  value: matschReceivedThisGameValue,
-                  date: game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp,
-                  relatedId: game.activeGameId || sessionFinalData.sessionId,
-                  type: "most_matsch_received_game",
-                  label: `Meiste Matsch erhalten (${matschReceivedThisGameValue})`
-                };
-              }
-
-              // NEU: Logik für mostSchneiderReceivedGame
-              const schneiderReceivedThisGameValue = opponentStricheRecord.schneider || 0;
-              if (schneiderReceivedThisGameValue > (typeof stats.mostSchneiderReceivedGame?.value === 'number' ? stats.mostSchneiderReceivedGame.value : 0)) {
-                stats.mostSchneiderReceivedGame = {
-                  value: schneiderReceivedThisGameValue,
-                  date: game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp,
-                  relatedId: game.activeGameId || sessionFinalData.sessionId,
-                  type: "most_schneider_received_game",
-                  label: `Meiste Schneider erhalten (${schneiderReceivedThisGameValue})`
-                };
-              }
-
-              // NEU: Logik für mostWeisPointsReceivedGame
-              if (game.weisPoints && gameOpponentTeamPosition) {
-                const weisPointsReceivedThisGame = game.weisPoints[gameOpponentTeamPosition] || 0;
-                const currentMostWeisReceivedGameValue = typeof stats.mostWeisPointsReceivedGame?.value === 'number' ? stats.mostWeisPointsReceivedGame.value : 0;
-                if (weisPointsReceivedThisGame > currentMostWeisReceivedGameValue) {
-                  stats.mostWeisPointsReceivedGame = {
-                    value: weisPointsReceivedThisGame,
-                    date: game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp,
-                    relatedId: game.activeGameId || sessionFinalData.sessionId,
-                    type: "most_weis_points_received_game",
-                    label: `Meiste Weispunkte erhalten (${weisPointsReceivedThisGame})`
-                  };
-                }
-              }
-            }
-          }
-
-          if (game.weisPoints && gamePlayerTeamPosition) {
-            const weisMadeThisGame = game.weisPoints[gamePlayerTeamPosition] || 0;
-            stats.playerTotalWeisMade = (stats.playerTotalWeisMade || 0) + weisMadeThisGame;
-
-            const currentMostWeisGameValue = typeof stats.mostWeisPointsGame?.value === 'number' ? stats.mostWeisPointsGame.value : 0;
-            if (weisMadeThisGame > currentMostWeisGameValue) {
-              stats.mostWeisPointsGame = {
-                value: weisMadeThisGame,
-                date: game.completedAt instanceof admin.firestore.Timestamp ? game.completedAt : sessionTimestamp,
-                relatedId: game.activeGameId || sessionFinalData.sessionId,
-                type: "most_weis_points_game",
-                label: `Meiste Weispunkte in Spiel (${weisMadeThisGame})`
-              };
-            }
-          }
-        }
-      }
-
-      // Addiere die Dauer der aktuellen Session zur Gesamtspielzeit des Spielers
-      // Diese Information kommt aus dem finalUpdateData der Session, nicht aus den einzelnen Spielen.
-      // Die Berechnung von sessionDurationSeconds erfolgt in finalizeSession vor dem Aufruf von updatePlayerStatsAfterSession.
-      // Daher müssen wir es hier nicht neu berechnen, sondern könnten es übergeben bekommen, wenn es relevant wäre.
-      // Fürs Erste lassen wir totalPlayTimeSeconds so, da es auf Session-Dauer basiert, die wir NICHT direkt hier haben.
-      // Stattdessen wird initialPlayerComputedStats.totalPlayTimeSeconds verwendet und bleibt 0, wenn nicht extern geändert.
-      // KORREKTUR: Wir haben sessionFinalData.durationSeconds NICHT direkt in sessionFinalData von updatePlayerStatsAfterSession.
-      // Stattdessen verwenden wir die Differenz von sessionTimestamp und firstJassTimestamp des Spielers
-      // Das ist aber nicht die reine Spielzeit. Wir müssen sessionDurationSeconds in updatePlayerStatsAfterSession verfügbar machen.
-      // Fürs erste: Workaround, wenn wir die Session Dauer hier approximieren müssten (nicht ideal)
-      // Für totalPlayTimeSeconds: Dieses Feld wird im Moment NICHT serverseitig akkumuliert.
-      // Es müsste entweder vom Client pro Session gemeldet oder hier aus den Game-Timestamps abgeleitet werden.
-      // Da die Spieldauer pro Spiel (game.durationMillis) in deinen Daten für completedGames vorhanden ist:
       if (completedGames.length > 0) {
         let sessionPlayTimeMillis = 0;
-        completedGames.forEach(g => {
-          if (g.participantUids?.includes(userId) && typeof g.durationMillis === 'number') {
-            sessionPlayTimeMillis += g.durationMillis;
+        
+        for (const game of completedGames) {
+          if (!game.participantUids?.includes(userId)) continue;
+
+          // 1. Grundlegende Spiel-Zählung
+          stats.totalGames += 1;
+          if (typeof game.durationMillis === 'number') {
+            sessionPlayTimeMillis += game.durationMillis;
           }
-        });
+
+          // 2. Team-Positionen bestimmen
+          let gamePlayerTeamPos: 'top' | 'bottom' | null = null;
+          let gameOpponentTeamPos: 'top' | 'bottom' | null = null;
+
+          const gameMapping = game.teamScoreMapping || sessionFinalData.teamScoreMapping;
+          if (gameMapping && playerTeamKey) {
+            gamePlayerTeamPos = playerTeamKey === 'teamA' ? gameMapping.teamA : gameMapping.teamB;
+            gameOpponentTeamPos = playerTeamKey === 'teamA' ? gameMapping.teamB : gameMapping.teamA;
+          } else {
+            // Fallback
+            if (playerTeamKey === 'teamA') {
+              gamePlayerTeamPos = 'bottom';
+              gameOpponentTeamPos = 'top';
+            } else if (playerTeamKey === 'teamB') {
+              gamePlayerTeamPos = 'top';
+              gameOpponentTeamPos = 'bottom';
+            }
+          }
+          
+          if (!gamePlayerTeamPos || !gameOpponentTeamPos || !game.finalScores || !game.finalStriche) {
+             logger.warn(`[updatePlayerStatsAfterSession] Skipping game ${game.gameNumber} for player ${userId} due to missing data (teamPos, scores, striche).`);
+             continue;
+          }
+
+          // 3. Punkte und Spielergebnis
+          const pointsMade = game.finalScores[gamePlayerTeamPos] || 0;
+          const pointsReceived = game.finalScores[gameOpponentTeamPos] || 0;
+          
+          let gameResult: 'win' | 'loss' | 'draw' = 'draw';
+          if (pointsMade > pointsReceived) gameResult = 'win';
+          else if (pointsMade < pointsReceived) gameResult = 'loss';
+
+          stats.totalPointsMade += pointsMade;
+          stats.totalPointsReceived += pointsReceived;
+
+                     // 4. Weispunkte
+           stats.playerTotalWeisMade += game.weisPoints?.[gamePlayerTeamPos] || 0;
+
+           // 4.5. Trumpf-Statistiken aus Runden-History (FINALE KORREKTUR V2)
+           if (game.roundHistory && Array.isArray(game.roundHistory)) {
+             if (!stats.trumpfStatistik) stats.trumpfStatistik = {};
+             
+             game.roundHistory.forEach(round => {
+               if (round.farbe && typeof round.farbe === 'string' && round.currentPlayer) {
+                 const trumpfWaehlerUid = game.participantUids?.[round.currentPlayer - 1];
+                 if (!trumpfWaehlerUid) return;
+
+                 // Bestimme das Team des RUNDEN-spezifischen Trumpf-Wählers
+                 const trumpfWaehlerTeamPosition = (round.currentPlayer === 1 || round.currentPlayer === 3) ? 'bottom' : 'top';
+                 
+                 // Zähle nur, wenn der aktuelle Spieler (für den die Stats berechnet werden)
+                 // im selben Team ist wie der RUNDEN-spezifische Trumpf-Wähler.
+                 if (gamePlayerTeamPos === trumpfWaehlerTeamPosition) {
+                   const farbeKey = round.farbe.toLowerCase();
+                   stats.totalTrumpfCount = (stats.totalTrumpfCount || 0) + 1;
+                   stats.trumpfStatistik[farbeKey] = (stats.trumpfStatistik[farbeKey] || 0) + 1;
+                 }
+               }
+             });
+           }
+
+          // 5. Striche-Verarbeitung
+          const stricheMadeRecord = game.finalStriche[gamePlayerTeamPos];
+          const stricheReceivedRecord = game.finalStriche[gameOpponentTeamPos];
+          const calcStriche = (r: StricheRecord) => (r.berg||0) + (r.sieg||0) + (r.matsch||0) + (r.schneider||0) + (r.kontermatsch||0);
+          const stricheMade = calcStriche(stricheMadeRecord);
+          const stricheReceived = calcStriche(stricheReceivedRecord);
+          
+          stats.totalStricheMade += stricheMade;
+          stats.totalStricheReceived += stricheReceived;
+          
+          if (stricheMadeRecord.matsch > 0) stats.totalMatschGamesMade += stricheMadeRecord.matsch;
+          if (stricheMadeRecord.schneider > 0) stats.totalSchneiderGamesMade += stricheMadeRecord.schneider;
+          if (stricheMadeRecord.kontermatsch > 0) stats.totalKontermatschGamesMade += stricheMadeRecord.kontermatsch;
+          if (stricheReceivedRecord.kontermatsch > 0) stats.totalKontermatschGamesReceived += stricheReceivedRecord.kontermatsch;
+
+          // 6. Spiel-Siege/-Niederlagen und Serien
+          if (gameResult === 'win') {
+            stats.gameWins += 1;
+            stats.currentGameWinStreak += 1;
+            stats.currentGameLossStreak = 0;
+            stats.currentGameWinlessStreak = 0;
+            stats.currentUndefeatedStreakGames += 1;
+          } else if (gameResult === 'loss') {
+            stats.gameLosses += 1;
+            stats.currentGameLossStreak += 1;
+            stats.currentGameWinStreak = 0;
+            stats.currentGameWinlessStreak += 1;
+            stats.currentUndefeatedStreakGames = 0;
+          } else { // draw
+            stats.currentGameWinStreak = 0;
+            stats.currentGameLossStreak = 0;
+            stats.currentGameWinlessStreak += 1;
+            stats.currentUndefeatedStreakGames += 1;
+          }
+
+                     // 7. Längste Serien prüfen
+           const gameTimestamp = game.timestampCompleted || sessionTimestamp;
+           if (!stats.longestWinStreakGames || stats.currentGameWinStreak > stats.longestWinStreakGames.value) {
+               stats.longestWinStreakGames = { 
+                 value: stats.currentGameWinStreak, 
+                 startDate: gameTimestamp, 
+                 endDate: gameTimestamp
+               };
+           }
+           if (!stats.longestLossStreakGames || stats.currentGameLossStreak > stats.longestLossStreakGames.value) {
+               stats.longestLossStreakGames = { 
+                 value: stats.currentGameLossStreak, 
+                 startDate: gameTimestamp, 
+                 endDate: gameTimestamp
+               };
+           }
+           if (!stats.longestWinlessStreakGames || stats.currentGameWinlessStreak > stats.longestWinlessStreakGames.value) {
+               stats.longestWinlessStreakGames = { 
+                 value: stats.currentGameWinlessStreak, 
+                 startDate: gameTimestamp, 
+                 endDate: gameTimestamp
+               };
+           }
+           if (!stats.longestUndefeatedStreakGames || stats.currentUndefeatedStreakGames > stats.longestUndefeatedStreakGames.value) {
+               stats.longestUndefeatedStreakGames = { 
+                 value: stats.currentUndefeatedStreakGames, 
+                 startDate: gameTimestamp, 
+                 endDate: gameTimestamp
+               };
+           }
+
+          // 8. Game-Level Highlights
+          const gameIdForHighlight = game.activeGameId || `game_${game.gameNumber}`;
+          const weisMade = game.weisPoints?.[gamePlayerTeamPos] || 0;
+
+                     if (!stats.highestPointsGame || pointsMade > (typeof stats.highestPointsGame.value === 'number' ? stats.highestPointsGame.value : 0)) {
+               stats.highestPointsGame = { 
+                 value: pointsMade, 
+                 date: gameTimestamp, 
+                 relatedId: gameIdForHighlight, 
+                 type: "highest_points_game", 
+                 label: `Höchste Punkte in Einzelspiel (${pointsMade})` 
+               };
+           }
+           if (!stats.lowestPointsGame || pointsMade < (typeof stats.lowestPointsGame.value === 'number' ? stats.lowestPointsGame.value : Infinity)) {
+               stats.lowestPointsGame = { 
+                 value: pointsMade, 
+                 date: gameTimestamp, 
+                 relatedId: gameIdForHighlight, 
+                 type: "lowest_points_game", 
+                 label: `Niedrigste Punkte in Einzelspiel (${pointsMade})` 
+               };
+           }
+           if (!stats.highestStricheGame || stricheMade > (typeof stats.highestStricheGame.value === 'number' ? stats.highestStricheGame.value : 0)) {
+               stats.highestStricheGame = { 
+                 value: stricheMade, 
+                 date: gameTimestamp, 
+                 relatedId: gameIdForHighlight, 
+                 type: "highest_striche_game", 
+                 label: `Höchste Striche in Einzelspiel (${stricheMade})` 
+               };
+           }
+           if (!stats.mostWeisPointsGame || weisMade > (typeof stats.mostWeisPointsGame.value === 'number' ? stats.mostWeisPointsGame.value : 0)) {
+               stats.mostWeisPointsGame = { 
+                 value: weisMade, 
+                 date: gameTimestamp, 
+                 relatedId: gameIdForHighlight, 
+                 type: "most_weis_points_game", 
+                 label: `Meiste Weispunkte in Einzelspiel (${weisMade})` 
+               };
+           }
+           
+           // Weitere Game-Level Highlights für Matsch etc.
+           if (stricheMadeRecord.matsch > 0 && (!stats.mostMatschGame || stricheMadeRecord.matsch > (typeof stats.mostMatschGame.value === 'number' ? stats.mostMatschGame.value : 0))) {
+               stats.mostMatschGame = {
+                 value: stricheMadeRecord.matsch,
+                 date: gameTimestamp,
+                 relatedId: gameIdForHighlight,
+                 type: "most_matsch_game",
+                 label: `Meiste Matsch in Einzelspiel (${stricheMadeRecord.matsch})`
+               };
+           }
+           if (stricheReceivedRecord.matsch > 0 && (!stats.mostMatschReceivedGame || stricheReceivedRecord.matsch > (typeof stats.mostMatschReceivedGame.value === 'number' ? stats.mostMatschReceivedGame.value : 0))) {
+               stats.mostMatschReceivedGame = {
+                 value: stricheReceivedRecord.matsch,
+                 date: gameTimestamp,
+                 relatedId: gameIdForHighlight,
+                 type: "most_matsch_received_game",
+                 label: `Meiste Matsch erhalten in Einzelspiel (${stricheReceivedRecord.matsch})`
+               };
+           }
+        }
+        
+        // 9. Spielzeit und berechnete Felder nach allen Spielen
         stats.totalPlayTimeSeconds = (stats.totalPlayTimeSeconds || 0) + Math.round(sessionPlayTimeMillis / 1000);
-      }
 
-      // Gesamt-Differenzen am Ende berechnen
-      stats.totalPointsDifference = (stats.totalPointsMade || 0) - (stats.totalPointsReceived || 0);
-      stats.totalStricheDifference = (stats.totalStricheMade || 0) - (stats.totalStricheReceived || 0);
-
-      // Durchschnittswerte berechnen (basierend auf kumulativen totalGames)
-      if (stats.totalGames && stats.totalGames > 0) {
-        stats.avgPointsPerGame = Math.round(((stats.totalPointsMade || 0) / stats.totalGames) * 100) / 100;
-        stats.avgStrichePerGame = Math.round(((stats.totalStricheMade || 0) / stats.totalGames) * 100) / 100;
-        stats.avgMatschPerGame = Math.round(((stats.totalMatschGamesMade || 0) / stats.totalGames) * 100) / 100;
-        stats.avgSchneiderPerGame = Math.round(((stats.totalSchneiderGamesMade || 0) / stats.totalGames) * 100) / 100;
-        stats.avgKontermatschPerGame = Math.round(((stats.totalKontermatschGamesMade || 0) / stats.totalGames) * 100) / 100;
-        stats.avgWeisPointsPerGame = Math.round(((stats.playerTotalWeisMade || 0) / stats.totalGames) * 100) / 100;
+        // Berechnete Differenzen und Durchschnitte
+        stats.totalPointsDifference = (stats.totalPointsMade || 0) - (stats.totalPointsReceived || 0);
+        stats.totalStricheDifference = (stats.totalStricheMade || 0) - (stats.totalStricheReceived || 0);
+        
+        if (stats.totalGames > 0) {
+          stats.avgPointsPerGame = (stats.totalPointsMade || 0) / stats.totalGames;
+          stats.avgStrichePerGame = (stats.totalStricheMade || 0) / stats.totalGames;
+          stats.avgWeisPointsPerGame = (stats.playerTotalWeisMade || 0) / stats.totalGames;
+          stats.avgMatschPerGame = (stats.totalMatschGamesMade || 0) / stats.totalGames;
+          stats.avgSchneiderPerGame = (stats.totalSchneiderGamesMade || 0) / stats.totalGames;
+          stats.avgKontermatschPerGame = (stats.totalKontermatschGamesMade || 0) / stats.totalGames;
+        }
       }
 
       // --- Start: Partner- und Gegner-Statistiken aktualisieren ---
@@ -1242,16 +1136,14 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
     });
 
     // NEU: Aktualisiere die Gruppenstatistiken nach der erfolgreichen Finalisierung der Session
-    if (initialDataFromClient.gruppeId) {
-      try {
-        logger.info(`[finalizeSession] Starting group stats update for groupId: ${initialDataFromClient.gruppeId}`);
-        await updateGroupComputedStatsAfterSession(initialDataFromClient.gruppeId);
-        logger.info(`[finalizeSession] Group stats successfully updated for groupId: ${initialDataFromClient.gruppeId}`);
-      } catch (groupStatsError) {
-        logger.error(`[finalizeSession] Failed to update group stats for groupId ${initialDataFromClient.gruppeId}:`, groupStatsError);
-        // Gruppenfehler sollten die Session-Finalisierung nicht zum Scheitern bringen
-        // Daher wird hier nur geloggt, aber kein Error geworfen
-      }
+    const groupId = initialDataFromClient.gruppeId;
+    if (groupId) {
+      // TODO: Die Neuberechnung der Gruppenstatistiken nach jeder Session ist ineffizient.
+      // Die neue Funktion `updateTrumpfStatsOnGameEnd` übernimmt bereits die atomare Aktualisierung der Trumpf-Statistiken.
+      // Der Aufruf wird vorübergehend deaktiviert, um Datenüberschreibungen zu verhindern.
+      // logger.info(`[finalizeSession] Starting group stats update for groupId: ${groupId}`);
+      await updateGroupComputedStatsAfterSession(groupId);
+      // logger.info(`[finalizeSession] Group stats successfully updated for groupId: ${groupId}`);
     } else {
       logger.info(`[finalizeSession] No groupId provided, skipping group stats update for session ${sessionId}.`);
     }

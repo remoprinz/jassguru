@@ -525,7 +525,8 @@ export type JassStore = JassState & JassActions;
 // Funktion anpassen: strokeSettings als Argument hinzufügen
 export const convertToDisplayStriche = (
   striche: StricheRecord,
-  strokeSettings: StrokeSettings = DEFAULT_STROKE_SETTINGS // Standardwert hinzufügen
+  strokeSettings: StrokeSettings = DEFAULT_STROKE_SETTINGS,
+  scoreSettings: ScoreSettings = DEFAULT_SCORE_SETTINGS
 ) => {
   // MATSCH ist immer horizontal (Wert 1)
   const matschHorizontal = striche.matsch || 0;

@@ -17,6 +17,12 @@ const TUTORIAL_STORAGE_KEY = isDev ? "dev-tutorial-storage" : "jass-tutorial-sto
 
 // Direct access functions for LocalStorage to bypass persist middleware
 const directlyGetHasCompletedTutorial = (): boolean => {
+  // Check if we're in the browser (localStorage is available)
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+    console.log("[TutorialStore] directlyGetHasCompletedTutorial: localStorage nicht verfügbar (SSR)");
+    return false;
+  }
+  
   try {
     const storageData = localStorage.getItem(TUTORIAL_STORAGE_KEY);
     if (!storageData) {
@@ -35,6 +41,12 @@ const directlyGetHasCompletedTutorial = (): boolean => {
 
 // Hilfsfunktion zum direkten Speichern des hasCompletedTutorial-Status
 const saveCompletedStatus = (completed: boolean): void => {
+  // Check if we're in the browser (localStorage is available)
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+    console.log("[TutorialStore] saveCompletedStatus: localStorage nicht verfügbar (SSR)");
+    return;
+  }
+  
   try {
     const storageData = localStorage.getItem(TUTORIAL_STORAGE_KEY);
     const data = storageData ? JSON.parse(storageData) : {};

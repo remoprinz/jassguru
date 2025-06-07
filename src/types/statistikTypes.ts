@@ -1,5 +1,5 @@
 // src/statistics/types.ts
-import {TeamStand, GameEntry, JassState, PlayerNames, CardStyle, StrokeSettings, CompletedGameSummary} from "./jass";
+import {TeamStand, GameEntry, JassState, PlayerNames, CardStyle, StrokeSettings, CompletedGameSummary, ScoreSettings} from "./jass";
 
 export type StatisticId = "striche" | "jasspunkte" | "rundenverlauf";
 
@@ -26,7 +26,9 @@ export interface StatisticProps {
   playerNames: PlayerNames;
   cardStyle: CardStyle;
   strokeSettings: StrokeSettings;
+  scoreSettings: ScoreSettings;
   onSwipe?: (direction: "left" | "right") => void;
+  gameTypeLabel?: string;
 }
 
 export interface StatisticModule {

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from "react";
 import StrichDisplay from "./StrichDisplay";
-import {StricheRecord, convertToDisplayStriche, StrokeSettings} from "../../types/jass";
+import {StricheRecord, convertToDisplayStriche, StrokeSettings, ScoreSettings} from "../../types/jass";
 
 interface ResultatZeileProps {
   spielNummer: number;
@@ -16,7 +16,9 @@ interface ResultatZeileProps {
   gameId: number;
   isCurrentGameRow?: boolean;
   strokeSettings: StrokeSettings;
+  scoreSettings: ScoreSettings;
   onNavigate?: (gameId: number) => void;
+  gameTypeLabel?: string;
 }
 
 const ResultatZeile: React.FC<ResultatZeileProps> = ({
@@ -27,14 +29,16 @@ const ResultatZeile: React.FC<ResultatZeileProps> = ({
   gameId,
   isCurrentGameRow,
   strokeSettings,
+  scoreSettings,
   onNavigate,
+  gameTypeLabel,
 }) => {
   const finalTopTeam = topTeam;
   const finalBottomTeam = bottomTeam;
 
   // Berechne die anzuzeigenden Striche basierend auf den Eingabedaten
-  const topStriche = useMemo(() => convertToDisplayStriche(finalTopTeam.striche, strokeSettings), [finalTopTeam.striche, strokeSettings]);
-  const bottomStriche = useMemo(() => convertToDisplayStriche(finalBottomTeam.striche, strokeSettings), [finalBottomTeam.striche, strokeSettings]);
+  const topStriche = useMemo(() => convertToDisplayStriche(finalTopTeam.striche, strokeSettings, scoreSettings), [finalTopTeam.striche, strokeSettings, scoreSettings]);
+  const bottomStriche = useMemo(() => convertToDisplayStriche(finalBottomTeam.striche, strokeSettings, scoreSettings), [finalBottomTeam.striche, strokeSettings, scoreSettings]);
 
   // Zurück zum Layout, das für Striche/History funktioniert
   const rowClassName = `grid grid-cols-[2rem_5fr_5fr] gap-8 items-center py-3 last:border-b-0 border-b border-gray-700`;
@@ -48,7 +52,7 @@ const ResultatZeile: React.FC<ResultatZeileProps> = ({
   return (
     <div className={rowClassName}>
       <div className="text-gray-400 text-left pl-3">
-        {spielNummer}
+        {gameTypeLabel || spielNummer}
       </div>
 
       {/* --- Spalte für Team Unten (Team 1 / links im UI) --- */}

@@ -61,6 +61,10 @@ export interface TransformedPlayerStats {
   
   // dynamicHighlights erwartet jetzt date als Date | null für NotableEventItem Kompatibilität
   dynamicHighlights?: Array<Omit<FrontendStatHighlight, 'date'> & { date: Date | null }>; 
+  
+  // NEU: Trumpffarben-Statistik
+  trumpfStatistik: { [key: string]: number };
+  totalTrumpfCount: number;
 }
 
 const formatDateSafely = (timestampInput: any): string | null => {
@@ -226,6 +230,10 @@ export const transformComputedStatsToExtended = (
     dynamicHighlights: rawStats.highlights 
       ? rawStats.highlights.map((h: any) => transformHighlightInternal(h, undefined, true)!)
       : [],
+      
+    // NEU: Trumpfstatistiken durchreichen
+    trumpfStatistik: rawStats.trumpfStatistik || {},
+    totalTrumpfCount: rawStats.totalTrumpfCount || 0,
   };
   
   return transformed;

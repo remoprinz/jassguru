@@ -122,6 +122,7 @@ interface ResultatKreidetafelViewerData {
 interface ResultatKreidetafelProps {
   isReadOnly?: boolean;                 // Für den Zuschauermodus
   viewerData?: ResultatKreidetafelViewerData; // Optionale Daten für Viewer
+  gameTypeLabel?: string; // NEU: Optionales Label
 }
 
 const PlayerName: React.FC<{ 
@@ -256,7 +257,8 @@ const prepareSessionTeamsData = (participantUids: string[], playerNames: PlayerN
 
 const ResultatKreidetafel = ({ 
   isReadOnly = false, 
-  viewerData 
+  viewerData,
+  gameTypeLabel // NEU
 }: ResultatKreidetafelProps): React.ReactElement | null => {
   // 1. Basis Store-Zugriffe & Zustände
   const isOpen = useUIStore(state => state.resultatKreidetafel.isOpen);
@@ -312,6 +314,7 @@ const ResultatKreidetafel = ({
   const activeStrokeSettings = currentGroup?.strokeSettings ?? uiStoreStrokeSettings ?? DEFAULT_STROKE_SETTINGS;
   const activeScoreSettings = currentGroup?.scoreSettings ?? useUIStore.getState().scoreSettings;
   const activeFarbeSettings = currentGroup?.farbeSettings ?? DEFAULT_FARBE_SETTINGS;
+  const cardStyle = activeFarbeSettings.cardStyle; // cardStyle extrahieren
 
   // 3. JassStore Zugriffe (Session, Navigation, Spiele)
   const jassStoreSetState = useJassStore.setState;
@@ -1940,14 +1943,16 @@ const ResultatKreidetafel = ({
               {/* Swipe-Handler hier ENTFERNEN */}
               <animated.div style={swipeAnimation} className="py-2 min-w-max">
                 <ModuleComponent
-                    teams={teams}
+                  teams={teams}
                   games={gamesForStatistik}
-                    currentGameId={currentGameId}
-                    playerNames={playerNames}
-                    cardStyle={activeFarbeSettings.cardStyle}
-                    strokeSettings={activeStrokeSettings}
-                    onSwipe={handleStatisticChange}
-                  />
+                  currentGameId={currentGameId}
+                  playerNames={playerNames}
+                  cardStyle={cardStyle}
+                  strokeSettings={activeStrokeSettings}
+                  scoreSettings={activeScoreSettings} // KORREKTUR: Die verfügbare Variable verwenden
+                  onSwipe={handleStatisticChange}
+                  gameTypeLabel={gameTypeLabel} // KORREKTUR: Die verfügbare Variable verwenden
+                />
               </animated.div>
             </div>
           </div>

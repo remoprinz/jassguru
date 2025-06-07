@@ -104,7 +104,7 @@ interface AcceptTournamentInviteData {
 }
 
 // Importiere die neue Funktion
-import * as tournamentGameLogic from "./tournamentGameProcessing";
+// import * as tournamentGameLogic from "./tournamentGameProcessing";
 
 /**
  * Generiert einen sicheren, zeitlich begrenzten Einladungstoken für eine Gruppe.
@@ -1044,17 +1044,12 @@ export const syncUserProfileToPlayer = onDocumentUpdated(
   }
 );
 
-// ============================================
-// === Andere Funktionen bleiben unverändert ===
-// ============================================ 
+// =================================================================================================
+// NEUE, ZENTRALE STATISTIK-FUNKTION
+// =================================================================================================
 
-// --- Trigger aus tournamentGameProcessing.ts ---
-export const processTournamentGameCompletion = tournamentGameLogic.processTournamentGameCompletion;
 
-// --- NEU: Finalize Tournament (Callable Function) ---
-export { finalizeTournament } from './finalizeTournament';
-
-// --- Session Merge Functions ---
-export { mergeSessions } from './mergeSessions';
-
-// ... (restliche Funktionen wie scheduledFirestoreBackup etc.) ... 
+// =================================================================================================
+// AUTH & USER MANAGEMENT
+// =================================================================================================
+// ... existing code ... 

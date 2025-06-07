@@ -84,11 +84,15 @@ const isLoadingOrIdle = (status: string | undefined): boolean => status === "loa
 // Hilfsfunktion zum Normalisieren der Trumpffarben-Namen für die JassColor Typ-Kompatibilität
 const normalizeJassColor = (farbe: string): JassColor => {
   const mappings: Record<string, JassColor> = {
-    "Eichel": "Eicheln",
-    "Unde": "Une"
+    "eichel": "Eicheln",
+    "rosen": "Rosen",
+    "schilten": "Schilten",
+    "schellen": "Schellen",
+    "unde": "Une",
+    "obe": "Obe"
   };
   
-  return (mappings[farbe] ?? farbe) as JassColor;
+  return (mappings[farbe.toLowerCase()] ?? farbe) as JassColor;
 };
 
 // Hilfsfunktion zum Finden des Spieler-Profilbilds UND der ID anhand des Namens
@@ -157,6 +161,19 @@ const StartPage = () => {
   const [statsForceUpdate, setStatsForceUpdate] = useState(0);
   
   const [isProcessingInvite, setIsProcessingInvite] = useState(false);
+
+  const trumpfStatistikArray = useMemo(() => {
+    if (!groupStats?.trumpfStatistik || !groupStats.totalTrumpfCount || groupStats.totalTrumpfCount === 0) {
+      return [];
+    }
+    return Object.entries(groupStats.trumpfStatistik)
+      .map(([farbe, anzahl]) => ({
+        farbe,
+        anzahl,
+        anteil: anzahl / groupStats.totalTrumpfCount,
+      }))
+      .sort((a, b) => b.anzahl - a.anzahl);
+  }, [groupStats]);
 
   // Statistiken laden, wenn sich die Gruppe ändert oder die Seite fokussiert wird
   useEffect(() => {
@@ -1462,21 +1479,21 @@ const StartPage = () => {
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                           <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
                           <h3 className="text-base font-semibold text-white">Trumpffarben</h3>
-                  </div>
+                        </div>
                         <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {groupStats?.trumpfFarbenStatistik && groupStats.trumpfFarbenStatistik.length > 0 ? (
-                            groupStats.trumpfFarbenStatistik.map((farbe, index) => (
+                          {trumpfStatistikArray.length > 0 ? (
+                            trumpfStatistikArray.map((item, index) => (
                               <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
                                 <div className="flex items-center">
                                   <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                   <FarbePictogram 
-                                    farbe={normalizeJassColor(farbe.farbe)} 
+                                    farbe={normalizeJassColor(item.farbe)} 
                                     mode="svg" 
                                     className="h-6 w-6 mr-2"
                                   />
-                                  <span className="text-gray-300">{farbe.farbe}</span>
+                                  <span className="text-gray-300 capitalize">{item.farbe}</span>
                                 </div>
-                                <span className="text-white font-medium">{(farbe.anteil * 100).toFixed(1)}%</span>
+                                <span className="text-white font-medium">{(item.anteil * 100).toFixed(1)}%</span>
                               </div>
                             ))
                           ) : (

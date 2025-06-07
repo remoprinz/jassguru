@@ -90,6 +90,19 @@ const GroupView: React.FC = () => {
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState<string | null>(null);
 
+  const trumpfStatistikArray = useMemo(() => {
+    if (!groupStats?.trumpfStatistik || !groupStats.totalTrumpfCount || groupStats.totalTrumpfCount === 0) {
+      return [];
+    }
+    return Object.entries(groupStats.trumpfStatistik)
+      .map(([farbe, anzahl]) => ({
+        farbe,
+        anzahl,
+        anteil: anzahl / groupStats.totalTrumpfCount,
+      }))
+      .sort((a, b) => b.anzahl - a.anzahl);
+  }, [groupStats]);
+
   useEffect(() => {
     const loadGroup = async () => {
       if (!groupId || typeof groupId !== "string") return;
@@ -545,8 +558,8 @@ const GroupView: React.FC = () => {
                         <h3 className="text-base font-semibold text-white">Trumpffarben</h3>
                       </div>
                       <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                        {groupStats?.trumpfFarbenStatistik && groupStats.trumpfFarbenStatistik.length > 0 ? (
-                          groupStats.trumpfFarbenStatistik.map((farbe, index) => (
+                        {trumpfStatistikArray.length > 0 ? (
+                          trumpfStatistikArray.map((farbe, index) => (
                             <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
                               <div className="flex items-center">
                                 <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>

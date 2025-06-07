@@ -41,8 +41,9 @@ export interface GroupComputedStats {
   avgMatschPerGame: number;
   avgRoundDurationSeconds: number;
 
-  // Trumpffarben-Statistik (Anzahl speichern, Anteil im Frontend berechnen)
-  trumpfFarbenStatistik: { farbe: string; anzahl: number }[];
+  // NEU: Trumpffarben-Statistik als Map für atomare Updates
+  trumpfStatistik: { [key: string]: number };
+  totalTrumpfCount: number;
 
   // Spieler-Highlights - Direkte Speicherung der Top-Listen
   playerWithMostGames: GroupStatHighlightPlayer[] | null;
@@ -82,7 +83,8 @@ export const initialGroupComputedStats: GroupComputedStats = {
   avgRoundsPerGame: 0,
   avgMatschPerGame: 0,
   avgRoundDurationSeconds: 0,
-  trumpfFarbenStatistik: [],
+  trumpfStatistik: {},
+  totalTrumpfCount: 0,
   playerWithMostGames: null,
   playerWithHighestStricheDiff: null,
   playerWithHighestWinRateSession: null,

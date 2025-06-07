@@ -351,7 +351,7 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
                 cardStyle: activeCardStyle,
                 strokeSettings: activeStrokeSettings,
                 scoreSettings: activeScoreSettings, // Pass score settings
-                currentGameId: currentGame?.id, // Pass the current game ID
+                currentGameId: currentGame?.gameNumber ?? 0, // KORREKTUR: Fallback für undefined
                 onSwipe: handleStatisticChange, // Pass the swipe handler
                 gameTypeLabel: gameTypeLabel, // Pass das Label weiter
               })}
