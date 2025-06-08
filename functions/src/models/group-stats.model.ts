@@ -39,6 +39,7 @@ export interface GroupComputedStats {
   // --- Statistiken zu den Spielern ---
   playerWithMostGames: GroupStatHighlightPlayer[] | null;
   playerWithHighestStricheDiff: GroupStatHighlightPlayer[] | null;
+  playerWithHighestPointsDiff: GroupStatHighlightPlayer[] | null;
   playerWithHighestWinRateSession: GroupStatHighlightPlayer[] | null;
   playerWithHighestWinRateGame: GroupStatHighlightPlayer[] | null;
   playerWithHighestMatschRate: GroupStatHighlightPlayer[] | null;
@@ -52,10 +53,13 @@ export interface GroupComputedStats {
   // --- Statistiken zu den Teams ---
   teamWithHighestWinRateSession: GroupStatHighlightTeam[] | null;
   teamWithHighestWinRateGame: GroupStatHighlightTeam[] | null;
+  teamWithHighestPointsDiff: GroupStatHighlightTeam[] | null;
+  teamWithHighestStricheDiff: GroupStatHighlightTeam[] | null;
   teamWithHighestMatschRate: GroupStatHighlightTeam[] | null;
   teamWithHighestSchneiderRate: GroupStatHighlightTeam[] | null;
   teamWithHighestKontermatschRate: GroupStatHighlightTeam[] | null;
   teamWithMostWeisPointsAvg: GroupStatHighlightTeam[] | null;
+  teamWithFastestRounds: GroupStatHighlightTeam[] | null;
 
   // --- Trumpf-Statistiken ---
   trumpfStatistik: { [key: string]: number } | null;
@@ -80,6 +84,7 @@ export const initialGroupComputedStats: GroupComputedStats = {
   hauptspielortName: null,
   playerWithMostGames: null,
   playerWithHighestStricheDiff: null,
+  playerWithHighestPointsDiff: null,
   playerWithHighestWinRateSession: null,
   playerWithHighestWinRateGame: null,
   playerWithHighestMatschRate: null,
@@ -91,10 +96,13 @@ export const initialGroupComputedStats: GroupComputedStats = {
   playerAllRoundTimes: null,
   teamWithHighestWinRateSession: null,
   teamWithHighestWinRateGame: null,
+  teamWithHighestPointsDiff: null,
+  teamWithHighestStricheDiff: null,
   teamWithHighestMatschRate: null,
   teamWithHighestSchneiderRate: null,
   teamWithHighestKontermatschRate: null,
   teamWithMostWeisPointsAvg: null,
+  teamWithFastestRounds: null,
   trumpfStatistik: null,
   totalTrumpfCount: 0,
 }; 

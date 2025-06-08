@@ -26,7 +26,12 @@ export interface TournamentGameData {
   };
   weisPoints: { top: number; bottom: number };
   winnerTeam?: 'top' | 'bottom'; // Explizit kein 'draw' mehr hier, da Spiele nicht unentschieden enden
-  roundHistory?: { farbe?: string; actionType?: string; playerName?: string; }[]; // NEU: für Trumpf-Statistik & Zuweisung
+  roundHistory?: { 
+    farbe?: string; 
+    actionType?: string; 
+    playerName?: string;
+    strichInfo?: { team?: 'top' | 'bottom'; type?: string; };
+  }[]; // NEU: für Trumpf-Statistik & Zuweisung
   // Weitere turnierspezifische Felder...
 }
 
@@ -155,7 +160,7 @@ async function updateUserStatsAfterTournamentGame(
 
         stats.totalTournamentGamesPlayed = (stats.totalTournamentGamesPlayed || 0) + 1;
         stats.totalGames = (stats.totalGames || 0) + 1;
-        stats.totalPlayTimeSeconds = (stats.totalPlayTimeSeconds || 0) + (gameData.durationMillis ? gameData.durationMillis / 1000 : 0);
+        stats.totalPlayTimeSeconds = (stats.totalPlayTimeSeconds || 0) + Math.round((gameData.durationMillis || 0) / 1000);
 
         const outcome = getPlayerTournamentGameOutcome(userId, gameData);
 
@@ -181,31 +186,54 @@ async function updateUserStatsAfterTournamentGame(
 
         stats.totalStricheMade = (stats.totalStricheMade || 0) + outcome.stricheMade;
         stats.totalStricheReceived = (stats.totalStricheReceived || 0) + outcome.stricheReceived;
-        stats.totalStricheDifference = stats.totalStricheMade - stats.totalStricheReceived;
+        stats.totalStricheDifference = (stats.totalStricheMade || 0) - (stats.totalStricheReceived || 0);
 
         stats.playerTotalWeisMade = (stats.playerTotalWeisMade || 0) + outcome.weisMade;
         
         if (outcome.isMatschGame) {
-          stats.totalMatschGamesMade = (stats.totalMatschGamesMade || 0) + 1;
+          stats.totalMatschEventsMade = (stats.totalMatschEventsMade || 0) + 1;
         }
         if (outcome.isSchneiderGame) {
-          stats.totalSchneiderGamesMade = (stats.totalSchneiderGamesMade || 0) + 1;
+          stats.totalSchneiderEventsMade = (stats.totalSchneiderEventsMade || 0) + 1;
         }
         if (outcome.isKontermatschMade) {
-          stats.totalKontermatschGamesMade = (stats.totalKontermatschGamesMade || 0) + 1;
+          stats.totalKontermatschEventsMade = (stats.totalKontermatschEventsMade || 0) + 1;
         }
         if (outcome.isKontermatschReceived) {
-          stats.totalKontermatschGamesReceived = (stats.totalKontermatschGamesReceived || 0) + 1;
+          stats.totalKontermatschEventsReceived = (stats.totalKontermatschEventsReceived || 0) + 1;
+        }
+
+        // BEREINIGTE EVENT-ZÄHLUNG
+        const playerTeamInGame = outcome.playerTeamKey;
+        if (playerTeamInGame && gameData.roundHistory && Array.isArray(gameData.roundHistory)) {
+            gameData.roundHistory.forEach(round => {
+                if (round.strichInfo?.type && round.strichInfo.team) {
+                    const eventType = round.strichInfo.type;
+                    const eventTeam = round.strichInfo.team;
+                    const isReceiver = playerTeamInGame === eventTeam;
+                    switch (eventType) {
+                        case 'matsch':
+                            if (isReceiver) stats.totalMatschEventsReceived = (stats.totalMatschEventsReceived || 0) + 1; else stats.totalMatschEventsMade = (stats.totalMatschEventsMade || 0) + 1;
+                            break;
+                        case 'schneider':
+                            if (isReceiver) stats.totalSchneiderEventsReceived = (stats.totalSchneiderEventsReceived || 0) + 1; else stats.totalSchneiderEventsMade = (stats.totalSchneiderEventsMade || 0) + 1;
+                            break;
+                        case 'kontermatsch':
+                            if (isReceiver) stats.totalKontermatschEventsReceived = (stats.totalKontermatschEventsReceived || 0) + 1; else stats.totalKontermatschEventsMade = (stats.totalKontermatschEventsMade || 0) + 1;
+                            break;
+                    }
+                }
+            });
         }
 
         // Durchschnittswerte neu berechnen
         if (stats.totalGames > 0) {
-          stats.avgPointsPerGame = stats.totalPointsMade / stats.totalGames;
-          stats.avgStrichePerGame = stats.totalStricheMade / stats.totalGames;
-          stats.avgWeisPointsPerGame = stats.playerTotalWeisMade / stats.totalGames;
-          stats.avgMatschPerGame = (stats.totalMatschGamesMade || 0) / stats.totalGames;
-          stats.avgSchneiderPerGame = (stats.totalSchneiderGamesMade || 0) / stats.totalGames;
-          stats.avgKontermatschPerGame = (stats.totalKontermatschGamesMade || 0) / stats.totalGames;
+          stats.avgPointsPerGame = (stats.totalPointsMade || 0) / stats.totalGames;
+          stats.avgStrichePerGame = (stats.totalStricheMade || 0) / stats.totalGames;
+          stats.avgWeisPointsPerGame = (stats.playerTotalWeisMade || 0) / stats.totalGames;
+          stats.avgMatschPerGame = (stats.totalMatschEventsMade || 0) / stats.totalGames;
+          stats.avgSchneiderPerGame = (stats.totalSchneiderEventsMade || 0) / stats.totalGames;
+          stats.avgKontermatschPerGame = (stats.totalKontermatschEventsMade || 0) / stats.totalGames;
         }
 
         // Highlights und Lowlights aktualisieren

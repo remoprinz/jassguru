@@ -59,6 +59,7 @@ export interface CompletedGameData {
   finalStriche: { top: StricheRecord; bottom: StricheRecord };
   groupId?: string | null;
   participantUids?: string[];
+  participantPlayerIds?: string[];
   playerNames?: PlayerNames;
   teams?: {
     top: { playerUids: string[]; };
@@ -73,6 +74,8 @@ export interface CompletedGameData {
   durationMillis?: number;
   sessionId?: string;
   winnerTeam?: 'top' | 'bottom' | 'draw'; // Hinzugefügt
+  gameType?: string;
+  trumpf?: string;
 }
 
 interface FinalizeSessionData {
@@ -519,10 +522,12 @@ async function updatePlayerStatsAfterSession(
       stats.totalStricheMade = stats.totalStricheMade || 0;
       stats.totalStricheReceived = stats.totalStricheReceived || 0;
       stats.playerTotalWeisMade = stats.playerTotalWeisMade || 0;
-      stats.totalMatschGamesMade = stats.totalMatschGamesMade || 0;
-      stats.totalSchneiderGamesMade = stats.totalSchneiderGamesMade || 0;
-      stats.totalKontermatschGamesMade = stats.totalKontermatschGamesMade || 0;
-      stats.totalKontermatschGamesReceived = stats.totalKontermatschGamesReceived || 0;
+      stats.totalMatschEventsMade = stats.totalMatschEventsMade || 0;
+      stats.totalMatschEventsReceived = stats.totalMatschEventsReceived || 0;
+      stats.totalSchneiderEventsMade = stats.totalSchneiderEventsMade || 0;
+      stats.totalSchneiderEventsReceived = stats.totalSchneiderEventsReceived || 0;
+      stats.totalKontermatschEventsMade = stats.totalKontermatschEventsMade || 0;
+      stats.totalKontermatschEventsReceived = stats.totalKontermatschEventsReceived || 0;
       stats.currentGameWinStreak = stats.currentGameWinStreak || 0;
       stats.currentGameLossStreak = stats.currentGameLossStreak || 0;
       stats.currentGameWinlessStreak = stats.currentGameWinlessStreak || 0;
@@ -611,10 +616,29 @@ async function updatePlayerStatsAfterSession(
           stats.totalStricheMade += stricheMade;
           stats.totalStricheReceived += stricheReceived;
           
-          if (stricheMadeRecord.matsch > 0) stats.totalMatschGamesMade += stricheMadeRecord.matsch;
-          if (stricheMadeRecord.schneider > 0) stats.totalSchneiderGamesMade += stricheMadeRecord.schneider;
-          if (stricheMadeRecord.kontermatsch > 0) stats.totalKontermatschGamesMade += stricheMadeRecord.kontermatsch;
-          if (stricheReceivedRecord.kontermatsch > 0) stats.totalKontermatschGamesReceived += stricheReceivedRecord.kontermatsch;
+          // NEUE, BEREINIGTE LOGIK: Zähle alle Events aus der roundHistory
+          if (game.roundHistory && Array.isArray(game.roundHistory)) {
+            game.roundHistory.forEach(round => {
+              if (round.strichInfo?.type && round.strichInfo.team) {
+                const eventType = round.strichInfo.type;
+                const eventTeam = round.strichInfo.team;
+                
+                // Prüfen, ob das Event-Team das Team des Spielers ist
+                if (eventTeam === gamePlayerTeamPos) { // Eigenes Team hat das Ereignis bekommen (received)
+                    if (eventType === 'schneider') stats.totalSchneiderEventsReceived = (stats.totalSchneiderEventsReceived || 0) + 1;
+                    if (eventType === 'matsch') stats.totalMatschEventsReceived = (stats.totalMatschEventsReceived || 0) + 1;
+                    if (eventType === 'kontermatsch') stats.totalKontermatschEventsReceived = (stats.totalKontermatschEventsReceived || 0) + 1;
+                } else { // Gegnerisches Team hat das Ereignis bekommen (made)
+                    if (eventType === 'schneider') stats.totalSchneiderEventsMade = (stats.totalSchneiderEventsMade || 0) + 1;
+                    if (eventType === 'matsch') stats.totalMatschEventsMade = (stats.totalMatschEventsMade || 0) + 1;
+                    if (eventType === 'kontermatsch') stats.totalKontermatschEventsMade = (stats.totalKontermatschEventsMade || 0) + 1;
+                }
+              }
+            });
+          }
+
+          if (stricheMadeRecord.matsch > 0) stats.totalMatschEventsMade += stricheMadeRecord.matsch;
+          if (stricheMadeRecord.schneider > 0) stats.totalSchneiderEventsMade += stricheMadeRecord.schneider;
 
           // 6. Spiel-Siege/-Niederlagen und Serien
           if (gameResult === 'win') {
@@ -727,6 +751,27 @@ async function updatePlayerStatsAfterSession(
                  label: `Meiste Matsch erhalten in Einzelspiel (${stricheReceivedRecord.matsch})`
                };
            }
+
+            // NEU: Game-Level Lowlights für erhaltene Striche und Weispunkte
+            const weisReceived = game.weisPoints?.[gameOpponentTeamPos] || 0;
+            if (!stats.highestStricheReceivedGame || stricheReceived > (typeof stats.highestStricheReceivedGame.value === 'number' ? stats.highestStricheReceivedGame.value : 0)) {
+                stats.highestStricheReceivedGame = {
+                    value: stricheReceived,
+                    date: gameTimestamp,
+                    relatedId: gameIdForHighlight,
+                    type: "highest_striche_received_game",
+                    label: `Höchste erhaltene Striche in Einzelspiel (${stricheReceived})`
+                };
+            }
+            if (!stats.mostWeisPointsReceivedGame || weisReceived > (typeof stats.mostWeisPointsReceivedGame.value === 'number' ? stats.mostWeisPointsReceivedGame.value : 0)) {
+                stats.mostWeisPointsReceivedGame = {
+                    value: weisReceived,
+                    date: gameTimestamp,
+                    relatedId: gameIdForHighlight,
+                    type: "most_weis_points_received_game",
+                    label: `Meiste Weispunkte erhalten in Einzelspiel (${weisReceived})`
+                };
+            }
         }
         
         // 9. Spielzeit und berechnete Felder nach allen Spielen
@@ -740,9 +785,9 @@ async function updatePlayerStatsAfterSession(
           stats.avgPointsPerGame = (stats.totalPointsMade || 0) / stats.totalGames;
           stats.avgStrichePerGame = (stats.totalStricheMade || 0) / stats.totalGames;
           stats.avgWeisPointsPerGame = (stats.playerTotalWeisMade || 0) / stats.totalGames;
-          stats.avgMatschPerGame = (stats.totalMatschGamesMade || 0) / stats.totalGames;
-          stats.avgSchneiderPerGame = (stats.totalSchneiderGamesMade || 0) / stats.totalGames;
-          stats.avgKontermatschPerGame = (stats.totalKontermatschGamesMade || 0) / stats.totalGames;
+          stats.avgMatschPerGame = (stats.totalMatschEventsMade || 0) / stats.totalGames;
+          stats.avgSchneiderPerGame = (stats.totalSchneiderEventsMade || 0) / stats.totalGames;
+          stats.avgKontermatschPerGame = (stats.totalKontermatschEventsMade || 0) / stats.totalGames;
         }
       }
 

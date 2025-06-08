@@ -29,6 +29,11 @@ import { DEFAULT_FARBE_SETTINGS, FARBE_MODES } from '@/config/FarbeSettings';
 import { DEFAULT_SCORE_SETTINGS, SCORE_MODES } from '@/config/ScoreSettings';
 import { DEFAULT_STROKE_SETTINGS } from '@/config/GameSettings';
 
+// NEUE IMPORTE FÜR KARTENSYMBOL-MAPPING
+import { CARD_SYMBOL_MAPPINGS } from '@/config/CardStyles';
+import { toTitleCase } from '@/utils/formatUtils';
+// ENDE NEUE IMPORTE
+
 import type { ScoreSettings, StrokeSettings, FarbeSettings, ScoreMode, StrokeMode, FarbeModeKey, JassColor, CardStyle } from '@/types/jass';
  
 
@@ -764,12 +769,16 @@ ${linkText}`;
             {FARBE_MODES.map((mode) => {
                 const multiplier = tempFarbeSettings.values[mode.id as FarbeModeKey] ?? 1;
                 const isInactive = multiplier === 0;
+                // KORREKTUR: Logik aus den Turnier-Einstellungen übernehmen für Konsistenz
+                const mappedColorKey = toTitleCase(mode.id);
+                const displayName = CARD_SYMBOL_MAPPINGS[mappedColorKey as JassColor]?.[tempFarbeSettings.cardStyle] ?? mappedColorKey;
+
                 return (
                     <div key={mode.id}
                         className={`flex items-center justify-between space-x-4 p-2 rounded-md transition-opacity duration-200 ${isInactive ? 'opacity-60 hover:bg-gray-700/30' : 'hover:bg-gray-700/50'}`}>
                          <div className="flex items-center space-x-2 flex-1">
                             <FarbePictogram farbe={mode.name as JassColor} mode="svg" cardStyle={tempFarbeSettings.cardStyle} className="w-5 h-5 flex-shrink-0" />
-                            <Label htmlFor={`farbe-${mode.id}`} className="font-medium text-gray-200">{mode.name}</Label>
+                            <Label htmlFor={`farbe-${mode.id}`} className="font-medium text-gray-200">{displayName}</Label>
                         </div>
                         <Input id={`farbe-${mode.id}`} type="number" min="0" max="12"
                             className={`w-20 bg-gray-700 border-gray-600 text-white text-right ${isInactive ? 'text-gray-400' : ''}`}

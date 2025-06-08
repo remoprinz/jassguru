@@ -7,6 +7,22 @@ import { DEFAULT_STROKE_SETTINGS } from '@/config/ScoreSettings'; // Importiere 
 import { DEFAULT_SCORE_SETTINGS } from '@/config/ScoreSettings'; // Importiere die Standard-Konfiguration
 import type { GroupComputedStats, GroupStatHighlightPlayer as BackendHighlightPlayer, GroupStatHighlightTeam as BackendHighlightTeam } from '@/../../functions/src/models/group-stats.model'; // NEU: Backend-Typen importieren
 
+// NEUE, SAUBERE FRONTEND-TYPEN
+export interface FrontendHighlightPlayer {
+  playerId: string;
+  name: string;
+  value: number;
+  eventsPlayed: number;
+  lastPlayedTimestamp?: Date | null;
+  displayValue?: string;
+}
+
+export interface FrontendHighlightTeam {
+  names: string[];
+  value: number;
+  eventsPlayed: number;
+}
+
 // Füge diese Hilfsfunktion am Anfang der Datei nach den Imports hinzu
 // Diese Funktion kann verschiedene Timestamp-Formate in ein Date-Objekt konvertieren
 function getDateFromTimestamp(timestamp: any): Date | null {
@@ -148,67 +164,86 @@ const TEAM_GAMES_FULL_WEIGHT_THRESHOLD = 30;
 const TEAM_SESSIONS_FULL_WEIGHT_THRESHOLD = 5;
 const MIN_EVENTS_FOR_QUOTIENT_HIGHLIGHT = 1;
 
-// Typen für die Statistik-Ergebnisse
-export interface HighlightPlayer {
-  playerId: string; // NEU
-  name: string;
-  value: number; // Der Rohwert der Statistik (z.B. Siegquote, Matsch-Anzahl)
-  eventsPlayed: number; // Anzahl der zugrundeliegenden Spiele/Partien
-  lastPlayedTimestamp?: Date | null; // NEU (als JS Date)
-  displayValue?: string; // Bereits für playerAllRoundTimes benötigt
-}
-
-export interface HighlightTeam {
-  names: string[];
-  value: number; // Der Rohwert der Statistik
-  eventsPlayed: number; // Anzahl der zugrundeliegenden Spiele/Partien
-}
-
+// Typen für die Statistik-Ergebnisse (ANGEPASST)
 export interface GroupStatistics {
-  // Gruppenübersicht
+  groupId: string;
   memberCount: number;
   sessionCount: number;
   gameCount: number;
-  totalPlayTime: string; 
-  firstJassDate: string | null; 
-  lastJassDate: string | null; 
-  hauptspielortName: string | null; 
-  
-  // Durchschnittswerte
+  totalPlayTime: string;
+  firstJassDate: string;
+  lastJassDate: string;
+  hauptspielortName: string | null;
   avgSessionDuration: string;
   avgGameDuration: string;
   avgGamesPerSession: number;
   avgRoundsPerGame: number;
   avgMatschPerGame: number;
-  avgRoundDuration: string; // NEU: Durchschnittliche Rundendauer
-  
-  // NEU: Trumpffarben-Statistik als Map und Gesamtzahl
+  avgRoundDuration: string;
+  playerWithMostGames: FrontendHighlightPlayer[];
+  playerWithHighestStricheDiff: FrontendHighlightPlayer[];
+  playerWithHighestPointsDiff: FrontendHighlightPlayer[];
+  playerWithHighestWinRateSession: FrontendHighlightPlayer[];
+  playerWithHighestWinRateGame: FrontendHighlightPlayer[];
+  playerWithHighestMatschRate: FrontendHighlightPlayer[];
+  playerWithHighestSchneiderRate: FrontendHighlightPlayer[];
+  playerWithHighestKontermatschRate: FrontendHighlightPlayer[];
+  playerWithMostWeisPointsAvg: FrontendHighlightPlayer[];
+  playerAllRoundTimes: (FrontendHighlightPlayer & { displayValue?: string })[];
+  playerWithFastestRounds: FrontendHighlightPlayer[];
+  playerWithSlowestRounds: FrontendHighlightPlayer[];
+  teamWithHighestWinRateSession: FrontendHighlightTeam[];
+  teamWithHighestWinRateGame: FrontendHighlightTeam[];
+  teamWithHighestPointsDiff: FrontendHighlightTeam[];
+  teamWithHighestStricheDiff: FrontendHighlightTeam[];
+  teamWithHighestMatschRate: FrontendHighlightTeam[];
+  teamWithHighestSchneiderRate: FrontendHighlightTeam[];
+  teamWithHighestKontermatschRate: FrontendHighlightTeam[];
+  teamWithMostWeisPointsAvg: FrontendHighlightTeam[];
+  teamWithFastestRounds: FrontendHighlightTeam[];
   trumpfStatistik: { [key: string]: number };
   totalTrumpfCount: number;
-  
-  // Spieler-Highlights - jetzt potenziell Arrays
-  playerWithMostGames: HighlightPlayer[] | null;
-  playerWithHighestStricheDiff: HighlightPlayer[] | null; // Bleibt erstmal so, da absoluter Wert
-  playerWithHighestWinRateGame: HighlightPlayer[] | null;
-  playerWithHighestMatschRate: HighlightPlayer[] | null;
-  playerWithHighestSchneiderRate: HighlightPlayer[] | null;
-  playerWithHighestKontermatschRate: HighlightPlayer[] | null;
-  playerWithHighestWinRateSession: HighlightPlayer[] | null;
-  playerWithMostWeisPointsAvg: HighlightPlayer[] | null;
-  playerWithFastestRounds: HighlightPlayer[] | null; // NEU: Spieler mit schnellsten Runden
-  playerWithSlowestRounds: HighlightPlayer[] | null; // NEU: Spieler mit langsamsten Runden
-  
-  // NEU: Vollständige Rangliste aller Spieler nach Rundenzeit
-  playerAllRoundTimes: (HighlightPlayer & { displayValue?: string })[] | null;
-  
-  // Team-Highlights - jetzt potenziell Arrays
-  teamWithHighestWinRateSession: HighlightTeam[] | null;
-  teamWithHighestWinRateGame: HighlightTeam[] | null;
-  teamWithHighestMatschRate: HighlightTeam[] | null;
-  teamWithHighestSchneiderRate: HighlightTeam[] | null;
-  teamWithHighestKontermatschRate: HighlightTeam[] | null;
-  teamWithMostWeisPointsAvg: HighlightTeam[] | null;
 }
+
+export const initialGroupStatistics: GroupStatistics = {
+  groupId: "",
+  memberCount: 0,
+  sessionCount: 0,
+  gameCount: 0,
+  totalPlayTime: "-",
+  firstJassDate: "-",
+  lastJassDate: "-",
+  hauptspielortName: null,
+  avgSessionDuration: "-",
+  avgGameDuration: "-",
+  avgGamesPerSession: 0,
+  avgRoundsPerGame: 0,
+  avgMatschPerGame: 0,
+  avgRoundDuration: "-",
+  playerWithMostGames: [],
+  playerWithHighestStricheDiff: [],
+  playerWithHighestPointsDiff: [],
+  playerWithHighestWinRateSession: [],
+  playerWithHighestWinRateGame: [],
+  playerWithHighestMatschRate: [],
+  playerWithHighestSchneiderRate: [],
+  playerWithHighestKontermatschRate: [],
+  playerWithMostWeisPointsAvg: [],
+  playerAllRoundTimes: [],
+  playerWithFastestRounds: [],
+  playerWithSlowestRounds: [],
+  teamWithHighestWinRateSession: [],
+  teamWithHighestWinRateGame: [],
+  teamWithHighestPointsDiff: [],
+  teamWithHighestStricheDiff: [],
+  teamWithHighestMatschRate: [],
+  teamWithHighestSchneiderRate: [],
+  teamWithHighestKontermatschRate: [],
+  teamWithMostWeisPointsAvg: [],
+  teamWithFastestRounds: [],
+  trumpfStatistik: {},
+  totalTrumpfCount: 0,
+};
 
 // Hilfsfunktion zum Berechnen der Strich-Summe
 const sumStriche = (striche: StricheRecord): number => {
@@ -249,44 +284,11 @@ import { generatePairingId } from '@/utils/jassUtils'; // Für Team-Paarungs-IDs
 
 // Hilfsfunktion für leere Statistiken (angepasst an neue Feldnamen und Array-Typen in Highlights)
 export function createEmptyStatistics(): GroupStatistics {
-  return {
-    memberCount: 0,
-    sessionCount: 0,
-    gameCount: 0,
-    totalPlayTime: '-',
-    firstJassDate: null,
-    lastJassDate: null,
-    hauptspielortName: null,
-    avgSessionDuration: '-',
-    avgGameDuration: '-',
-    avgGamesPerSession: 0,
-    avgRoundsPerGame: 0,
-    avgMatschPerGame: 0,
-    avgRoundDuration: '-',
-    trumpfStatistik: {},
-    totalTrumpfCount: 0,
-    playerWithMostGames: null,
-    playerWithHighestStricheDiff: null,
-    playerWithHighestWinRateGame: null,
-    playerWithHighestMatschRate: null,
-    playerWithHighestSchneiderRate: null,
-    playerWithHighestKontermatschRate: null,
-    playerWithHighestWinRateSession: null,
-    playerWithMostWeisPointsAvg: null,
-    playerWithFastestRounds: null,
-    playerWithSlowestRounds: null,
-    playerAllRoundTimes: null,
-    teamWithHighestWinRateSession: null,
-    teamWithHighestWinRateGame: null,
-    teamWithHighestMatschRate: null,
-    teamWithHighestSchneiderRate: null,
-    teamWithHighestKontermatschRate: null,
-    teamWithMostWeisPointsAvg: null,
-  };
+  return JSON.parse(JSON.stringify(initialGroupStatistics));
 }
 
-// Hauptfunktion zum Abrufen der Gruppenstatistiken (neu implementiert)
-export const fetchGroupStatistics = async (groupId: string, groupMainLocationZip: string | null | undefined): Promise<GroupStatistics | null> => {
+// Hauptfunktion zum Abrufen der Gruppenstatistiken (ANGEPASST)
+export const fetchGroupStatistics = async (groupId: string, groupMainLocationZip: string | null | undefined): Promise<GroupStatistics> => {
   try {
     const groupStatsRef = doc(db, "groupComputedStats", groupId);
     const groupStatsSnap = await getDoc(groupStatsRef);
@@ -298,25 +300,23 @@ export const fetchGroupStatistics = async (groupId: string, groupMainLocationZip
 
     const backendData = groupStatsSnap.data() as GroupComputedStats;
 
-    // Hilfsfunktion zur Transformation der Spieler-Highlights
-    const transformPlayerHighlights = (backendHighlights: BackendHighlightPlayer[] | null): HighlightPlayer[] | null => {
-      if (!backendHighlights) return null;
+    const transformPlayerHighlights = (backendHighlights: BackendHighlightPlayer[] | undefined | null): FrontendHighlightPlayer[] => {
+      if (!backendHighlights) return [];
       return backendHighlights.map(p => ({
         playerId: p.playerId,
         name: p.playerName,
         value: p.value,
         eventsPlayed: p.eventsPlayed || 0,
         lastPlayedTimestamp: p.lastPlayedTimestamp ? getDateFromTimestamp(p.lastPlayedTimestamp) : null,
-        displayValue: p.displayValue, // Wird für playerAllRoundTimes verwendet
+        displayValue: p.displayValue,
       }));
     };
 
-    // Hilfsfunktion zur Transformation der Team-Highlights
-    const transformTeamHighlights = (backendHighlights: BackendHighlightTeam[] | null): HighlightTeam[] | null => {
-      if (!backendHighlights) return null;
+    const transformTeamHighlights = (backendHighlights: BackendHighlightTeam[] | undefined | null): FrontendHighlightTeam[] => {
+      if (!backendHighlights) return [];
       return backendHighlights.map(t => ({
-          names: t.names,
-        value: typeof t.value === 'number' ? t.value : parseFloat(t.value as string), // Sicherstellen, dass value eine Zahl ist
+        names: t.names,
+        value: typeof t.value === 'number' ? t.value : parseFloat(t.value as string),
         eventsPlayed: t.eventsPlayed || 0,
       }));
     };
@@ -325,12 +325,13 @@ export const fetchGroupStatistics = async (groupId: string, groupMainLocationZip
     const ermittelterHauptspielortName = backendData.hauptspielortName;
 
     return {
+      groupId,
       memberCount: backendData.memberCount,
       sessionCount: backendData.sessionCount,
       gameCount: backendData.gameCount,
       totalPlayTime: formatDurationForStats(backendData.totalPlayTimeSeconds * 1000),
-      firstJassDate: backendData.firstJassTimestamp ? getDateFromTimestamp(backendData.firstJassTimestamp)?.toLocaleDateString('de-CH') || null : null,
-      lastJassDate: backendData.lastJassTimestamp ? getDateFromTimestamp(backendData.lastJassTimestamp)?.toLocaleDateString('de-CH') || null : null,
+      firstJassDate: backendData.firstJassTimestamp ? getDateFromTimestamp(backendData.firstJassTimestamp)?.toLocaleDateString('de-CH') || "-" : "-",
+      lastJassDate: backendData.lastJassTimestamp ? getDateFromTimestamp(backendData.lastJassTimestamp)?.toLocaleDateString('de-CH') || "-" : "-",
       hauptspielortName: ermittelterHauptspielortName,
       
       avgSessionDuration: formatDurationForStats(backendData.avgSessionDurationSeconds * 1000),
@@ -338,7 +339,9 @@ export const fetchGroupStatistics = async (groupId: string, groupMainLocationZip
       avgGamesPerSession: backendData.avgGamesPerSession,
       avgRoundsPerGame: backendData.avgRoundsPerGame,
       avgMatschPerGame: backendData.avgMatschPerGame,
-      avgRoundDuration: formatDurationForStats(backendData.avgRoundDurationSeconds * 1000),
+      avgRoundDuration: backendData.avgRoundDurationSeconds
+        ? formatDurationForStats(backendData.avgRoundDurationSeconds * 1000)
+        : "-",
       
       // NEU: Übernehme die neue Map-Struktur direkt
       trumpfStatistik: backendData.trumpfStatistik || {},
@@ -346,22 +349,26 @@ export const fetchGroupStatistics = async (groupId: string, groupMainLocationZip
       
       playerWithMostGames: transformPlayerHighlights(backendData.playerWithMostGames),
       playerWithHighestStricheDiff: transformPlayerHighlights(backendData.playerWithHighestStricheDiff),
+      playerWithHighestPointsDiff: transformPlayerHighlights(backendData.playerWithHighestPointsDiff),
+      playerWithHighestWinRateSession: transformPlayerHighlights(backendData.playerWithHighestWinRateSession),
       playerWithHighestWinRateGame: transformPlayerHighlights(backendData.playerWithHighestWinRateGame),
       playerWithHighestMatschRate: transformPlayerHighlights(backendData.playerWithHighestMatschRate),
       playerWithHighestSchneiderRate: transformPlayerHighlights(backendData.playerWithHighestSchneiderRate),
       playerWithHighestKontermatschRate: transformPlayerHighlights(backendData.playerWithHighestKontermatschRate),
-      playerWithHighestWinRateSession: transformPlayerHighlights(backendData.playerWithHighestWinRateSession),
       playerWithMostWeisPointsAvg: transformPlayerHighlights(backendData.playerWithMostWeisPointsAvg),
+      playerAllRoundTimes: transformPlayerHighlights(backendData.playerAllRoundTimes),
       playerWithFastestRounds: transformPlayerHighlights(backendData.playerWithFastestRounds),
       playerWithSlowestRounds: transformPlayerHighlights(backendData.playerWithSlowestRounds),
-      playerAllRoundTimes: transformPlayerHighlights(backendData.playerAllRoundTimes as unknown as BackendHighlightPlayer[]),
       
       teamWithHighestWinRateSession: transformTeamHighlights(backendData.teamWithHighestWinRateSession),
       teamWithHighestWinRateGame: transformTeamHighlights(backendData.teamWithHighestWinRateGame),
+      teamWithHighestPointsDiff: transformTeamHighlights(backendData.teamWithHighestPointsDiff),
+      teamWithHighestStricheDiff: transformTeamHighlights(backendData.teamWithHighestStricheDiff),
       teamWithHighestMatschRate: transformTeamHighlights(backendData.teamWithHighestMatschRate),
       teamWithHighestSchneiderRate: transformTeamHighlights(backendData.teamWithHighestSchneiderRate),
       teamWithHighestKontermatschRate: transformTeamHighlights(backendData.teamWithHighestKontermatschRate),
       teamWithMostWeisPointsAvg: transformTeamHighlights(backendData.teamWithMostWeisPointsAvg),
+      teamWithFastestRounds: transformTeamHighlights(backendData.teamWithFastestRounds),
     };
 
   } catch (error) {

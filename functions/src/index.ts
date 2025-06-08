@@ -1030,7 +1030,9 @@ export const syncUserProfileToPlayer = onDocumentUpdated(
     if (photoChanged) {
         playerUpdateData.photoURL = afterData.photoURL ?? null; 
     }
-    // if (statusChanged) { ... }
+    if (statusChanged) {
+        playerUpdateData.statusMessage = afterData.statusMessage ?? null;
+    }
 
     const playerRef = admin.firestore().collection("players").doc(playerId);
     try {

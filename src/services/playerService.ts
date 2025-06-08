@@ -507,13 +507,16 @@ export const getGroupMembersSortedByGames = async (groupId: string): Promise<Fir
         }
 
         const groupData = groupSnap.data();
-        const playerIds = groupData?.playerIds as string[] | undefined;
+        // KORREKTUR: Lese die Player-IDs aus den Schlüsseln des `players`-Objekts
+        const playerIds = groupData?.players ? Object.keys(groupData.players) : [];
 
-        if (!playerIds || playerIds.length === 0) {
+        if (playerIds.length === 0) {
+            console.log(`[getGroupMembersSortedByGames] No players found in group object for group ${groupId}.`);
             return []; // Keine Mitglieder in der Gruppe
         }
 
         // Stelle sicher, dass alle Spieler existieren und lade ihre Daten
+        // Diese Funktion muss robust genug sein, um mit den IDs umzugehen.
         const members = await ensurePlayersExist(playerIds, groupId);
 
         // Sortiere die Mitglieder nach gamesPlayed absteigend

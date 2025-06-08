@@ -272,8 +272,15 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         }));
 
         // NEU: Lade Spielernamen und Infos basierend auf PlayerDocIDs
-        const playerInfoCache = await resolvePlayerInfos(actualParticipantPlayerDocIds);
-        logger.info(`[calculateGroupStatisticsInternal] actualParticipantPlayerDocIds (from games, size ${actualParticipantPlayerDocIds.size}): ${Array.from(actualParticipantPlayerDocIds).join(', ')}`);
+        const allPlayerIdsFromGames = new Set<string>();
+        allGamesFlat.forEach(game => {
+            if (game.participantPlayerIds) {
+                game.participantPlayerIds.forEach(id => allPlayerIdsFromGames.add(id));
+            }
+        });
+
+        const playerInfoCache = await resolvePlayerInfos(allPlayerIdsFromGames);
+        logger.info(`[calculateGroupStatisticsInternal] Total unique players from all games: ${allPlayerIdsFromGames.size}`);
         logger.info(`[calculateGroupStatisticsInternal] playerInfoCache (size ${playerInfoCache.size}) populated.`);
         
         // groupMemberPlayerDocIds wurde bereits oben aus groupData.players geholt.
@@ -314,6 +321,17 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
                 });
             }
         }
+
+        // NEU: Globaler Einjahresfilter
+        const oneYearAgo = Date.now() - (365 * 24 * 60 * 60 * 1000); // 1 Jahr in Millisekunden
+        const activePlayerDocIds = new Set<string>();
+        actualParticipantPlayerDocIds.forEach(pDocId => {
+            const lastMs = playerLastActivityMs.get(pDocId);
+            if (lastMs && lastMs >= oneYearAgo) {
+                activePlayerDocIds.add(pDocId);
+            }
+        });
+        logger.info(`[Global-Filter] Von ${actualParticipantPlayerDocIds.size} Teilnehmern sind ${activePlayerDocIds.size} im letzten Jahr aktiv.`);
 
         calculatedStats.gameCount = allGamesFlat.length;
         calculatedStats.totalPlayTimeSeconds = Math.round(totalPlayTimeMillis / 1000);
@@ -364,17 +382,13 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
             });
         });
 
-        const oneYearAgo = Date.now() - (365 * 24 * 60 * 60 * 1000); // 1 Jahr in Millisekunden
-        
         const playerMostGamesList: GroupStatHighlightPlayer[] = [];
         playerGameCounts.forEach((count, pDocId) => {
             const lastMs = playerLastActivityMs.get(pDocId);
             const playerInfo = playerInfoCache.get(pDocId);
             
-            // Nur Spieler einschließen, die in den letzten 12 Monaten gespielt haben
-            if (!lastMs || lastMs < oneYearAgo) {
-                return; // Spieler überspringen
-            }
+            // Nur Spieler einschließen, die im letzten Jahr gespielt haben (NEUER globaler Filter)
+            if (!activePlayerDocIds.has(pDocId)) return;
             
             playerMostGamesList.push({
                 playerId: pDocId,
@@ -433,9 +447,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
                 const lastMs = playerLastActivityMs.get(pDocId);
                 const playerInfo = playerInfoCache.get(pDocId);
                 
-                if (!lastMs || lastMs < oneYearAgo) {
-                    return; 
-                }
+                // Filter ist nicht mehr nötig, da nur aktive Spieler in der Liste sind
                 
                 playerStricheDiffList.push({
                     playerId: pDocId, 
@@ -450,9 +462,57 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         playerStricheDiffList.sort((a, b) => b.value - a.value);
         calculatedStats.playerWithHighestStricheDiff = playerStricheDiffList;
 
+        // NEU: Punktedifferenz für Spieler
+        const playerPointsStats = new Map<string, { diff: number, games: number }>();
+        activePlayerDocIds.forEach(pDocId => { // KORREKTUR: Nur aktive Spieler initialisieren
+            playerPointsStats.set(pDocId, { diff: 0, games: 0 });
+        });
+
+        for (const game of allGamesWithRoundHistory) {
+            if (game.finalScores && game.participantPlayerIds) {
+                const pointsTopTeam = game.finalScores.top || 0;
+                const pointsBottomTeam = game.finalScores.bottom || 0;
+
+                game.participantPlayerIds.forEach(pDocIdFromGame => {
+                    const playerCurrentStats = playerPointsStats.get(pDocIdFromGame);
+                    if (playerCurrentStats) {
+                        playerCurrentStats.games++;
+                        const playerTeamPosition = getPlayerTeamInGame(pDocIdFromGame, game);
+
+                        if (playerTeamPosition === 'top') {
+                            playerCurrentStats.diff += (pointsTopTeam - pointsBottomTeam);
+                        } else if (playerTeamPosition === 'bottom') {
+                            playerCurrentStats.diff += (pointsBottomTeam - pointsTopTeam);
+                        }
+                    }
+                });
+            }
+        }
+
+        const playerPointsDiffList: GroupStatHighlightPlayer[] = [];
+        playerPointsStats.forEach((stats, pDocId) => {
+            if (stats.games > 0) {
+                const lastMs = playerLastActivityMs.get(pDocId);
+                const playerInfo = playerInfoCache.get(pDocId);
+                
+                // Filter ist nicht mehr nötig, da nur aktive Spieler in der Liste sind
+                
+                playerPointsDiffList.push({
+                    playerId: pDocId, 
+                    playerName: playerInfo?.finalPlayerName || "Unbekannter Jasser",
+                    value: stats.diff,
+                    eventsPlayed: stats.games,
+                    lastPlayedTimestamp: lastMs ? admin.firestore.Timestamp.fromMillis(lastMs) : null,
+                });
+            }
+        });
+
+        playerPointsDiffList.sort((a, b) => b.value - a.value);
+        calculatedStats.playerWithHighestPointsDiff = playerPointsDiffList;
+
         // NEU: playerWithHighestWinRateSession Logik
         const playerSessionWinStats = new Map<string, { played: number, won: number }>();
-        actualParticipantPlayerDocIds.forEach(pDocId => {
+        activePlayerDocIds.forEach(pDocId => {
             playerSessionWinStats.set(pDocId, { played: 0, won: 0 });
         });
 
@@ -533,8 +593,8 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
 
             if (teamAPlayers.length === 0 || teamBPlayers.length === 0) continue;
 
-            const teamAKey = teamAPlayers.join('_');
-            const teamBKey = teamBPlayers.join('_');
+            const teamAKey = teamAPlayers.join('|');
+            const teamBKey = teamBPlayers.join('|');
 
             // Verwende nur winnerTeamKey - dies ist das autoritative Feld
             const actualWinnerTeamKey: 'teamA' | 'teamB' | 'draw' | undefined = sessionData.winnerTeamKey || sessionDocData.winnerTeamKey;
@@ -577,16 +637,14 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         teamSessionWinRateList.sort((a, b) => {
             const valA = typeof a.value === 'number' ? a.value : 0;
             const valB = typeof b.value === 'number' ? b.value : 0;
-            if (valB !== valA) {
-                return valB - valA;
-            }
+            if (valB !== valA) return valB - valA;
             return (b.eventsPlayed || 0) - (a.eventsPlayed || 0);
         });
         calculatedStats.teamWithHighestWinRateSession = teamSessionWinRateList;
 
         // calculatedStats.playerWithHighestWinRateGame = null; // Wird jetzt implementiert
         const playerGameWinStats = new Map<string, { played: number, won: number }>(); // Key: playerDocId
-        actualParticipantPlayerDocIds.forEach(pDocId => { // authUID -> pDocId
+        activePlayerDocIds.forEach(pDocId => { // KORREKTUR: Nur aktive Spieler initialisieren
             playerGameWinStats.set(pDocId, { played: 0, won: 0 });
         });
 
@@ -619,10 +677,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
                 const lastMs = playerLastActivityMs.get(pDocId);
                 const playerInfo = playerInfoCache.get(pDocId);
                 
-                // Nur Spieler einschließen, die in den letzten 12 Monaten gespielt haben
-                if (!lastMs || lastMs < oneYearAgo) {
-                    return; // Spieler überspringen
-                }
+                // Filter nicht mehr nötig
                 
                 playerGameWinRateList.push({
                     playerId: pDocId, // playerDocId
@@ -644,7 +699,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
 
         // BEREINIGTE EVENT-ZÄHLUNG FÜR MATSCH, SCHNEIDER, KONTERMATSCH (SPIELER)
         const playerEventStats = new Map<string, { played: number, matschMade: number, matschReceived: number, schneiderMade: number, schneiderReceived: number, kontermatschMade: number, kontermatschReceived: number }>();
-        actualParticipantPlayerDocIds.forEach(pDocId => {
+        activePlayerDocIds.forEach(pDocId => { // KORREKTUR: Nur aktive Spieler
             playerEventStats.set(pDocId, { played: 0, matschMade: 0, matschReceived: 0, schneiderMade: 0, schneiderReceived: 0, kontermatschMade: 0, kontermatschReceived: 0 });
         });
 
@@ -783,8 +838,8 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
             const pids = game.participantPlayerIds;
             const teamAPidsSorted = [pids[0], pids[2]].sort() as [string, string];
             const teamBPidsSorted = [pids[1], pids[3]].sort() as [string, string];
-            const teamAKey = `${teamAPidsSorted[0]}_${teamAPidsSorted[1]}`;
-            const teamBKey = `${teamBPidsSorted[0]}_${teamBPidsSorted[1]}`;
+            const teamAKey = `${teamAPidsSorted[0]}|${teamAPidsSorted[1]}`;
+            const teamBKey = `${teamBPidsSorted[0]}|${teamBPidsSorted[1]}`;
             
             if (!teamEventStats.has(teamAKey)) {
                 const teamANames: [string, string] = [playerInfoCache.get(teamAPidsSorted[0])?.finalPlayerName || 'Sp X', playerInfoCache.get(teamAPidsSorted[1])?.finalPlayerName || 'Sp Y'];
@@ -874,8 +929,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
 
         // 3. playerWithMostWeisPointsAvg - Spieler-Weispunkte-Durchschnitt
         const playerWeisStats = new Map<string, { totalWeis: number, gamesPlayed: number }>();
-        actualParticipantPlayerDocIds.forEach(pDocId => {
-            // KORREKTUR: Initialisiere für JEDEN Spieler, der je gespielt hat
+        activePlayerDocIds.forEach(pDocId => { // KORREKTUR: Nur aktive Spieler
             playerWeisStats.set(pDocId, { totalWeis: 0, gamesPlayed: 0 });
         });
 
@@ -901,10 +955,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
                 const lastMs = playerLastActivityMs.get(pDocId);
                 const playerInfo = playerInfoCache.get(pDocId);
                 
-                // Nur Spieler einschließen, die in den letzten 12 Monaten gespielt haben
-                if (!lastMs || lastMs < oneYearAgo) {
-                    return; // Spieler überspringen
-                }
+                // Filter nicht mehr nötig
                 
                 playerWeisAvgList.push({
                     playerId: pDocId,
@@ -923,8 +974,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
 
         // 4. Rundenzeiten-Statistiken
         const playerRoundTimeStats = new Map<string, number[]>(); // Speichert alle Rundenzeiten
-        actualParticipantPlayerDocIds.forEach(pDocId => {
-            // KORREKTUR: Initialisiere für JEDEN Spieler, der je gespielt hat
+        activePlayerDocIds.forEach(pDocId => { // KORREKTUR: Nur aktive Spieler
             playerRoundTimeStats.set(pDocId, []);
         });
 
@@ -957,10 +1007,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
                 const lastMs = playerLastActivityMs.get(pDocId);
                 const playerInfo = playerInfoCache.get(pDocId);
                 
-                // Nur Spieler einschließen, die in den letzten 12 Monaten gespielt haben
-                if (!lastMs || lastMs < oneYearAgo) {
-                    return; // Spieler überspringen
-                }
+                // Filter nicht mehr nötig
                 
                 const displayValue = `${Math.round(avgTime / 1000)}s`;
 
@@ -997,8 +1044,8 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
 
             const teamAPidsSorted = [pids[0], pids[2]].sort() as [string, string];
             const teamBPidsSorted = [pids[1], pids[3]].sort() as [string, string];
-            const teamAKey = `${teamAPidsSorted[0]}_${teamAPidsSorted[1]}`;
-            const teamBKey = `${teamBPidsSorted[0]}_${teamBPidsSorted[1]}`;
+            const teamAKey = `${teamAPidsSorted[0]}|${teamAPidsSorted[1]}`;
+            const teamBKey = `${teamBPidsSorted[0]}|${teamBPidsSorted[1]}`;
 
             const teamANames: [string, string] = [
                 playerInfoCache.get(teamAPidsSorted[0])?.finalPlayerName || 'Sp X',
@@ -1050,6 +1097,176 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
             return (b.eventsPlayed || 0) - (a.eventsPlayed || 0);
         });
         calculatedStats.teamWithHighestWinRateGame = teamGameWinRateList;
+
+        // NEU: teamWithHighestPointsDiff Logik
+        const teamPointsStats = new Map<string, { playerDocIds: [string, string], playerNames: [string, string], diff: number, games: number }>();
+
+        for (const game of allGamesWithRoundHistory) {
+            if (!game.finalScores || !game.participantPlayerIds || game.participantPlayerIds.length !== 4) continue;
+            
+            const pids = game.participantPlayerIds;
+            const teamAPidsSorted = [pids[0], pids[2]].sort() as [string, string];
+            const teamBPidsSorted = [pids[1], pids[3]].sort() as [string, string];
+            const teamAKey = `${teamAPidsSorted[0]}|${teamAPidsSorted[1]}`;
+            const teamBKey = `${teamBPidsSorted[0]}|${teamBPidsSorted[1]}`;
+            
+            if (!teamPointsStats.has(teamAKey)) {
+                const teamANames: [string, string] = [playerInfoCache.get(teamAPidsSorted[0])?.finalPlayerName || 'Sp X', playerInfoCache.get(teamAPidsSorted[1])?.finalPlayerName || 'Sp Y'];
+                teamPointsStats.set(teamAKey, { playerDocIds: teamAPidsSorted, playerNames: teamANames, diff: 0, games: 0 });
+            }
+            if (!teamPointsStats.has(teamBKey)) {
+                const teamBNames: [string, string] = [playerInfoCache.get(teamBPidsSorted[0])?.finalPlayerName || 'Sp Z', playerInfoCache.get(teamBPidsSorted[1])?.finalPlayerName || 'Sp W'];
+                teamPointsStats.set(teamBKey, { playerDocIds: teamBPidsSorted, playerNames: teamBNames, diff: 0, games: 0 });
+            }
+            
+            const teamAStats = teamPointsStats.get(teamAKey)!;
+            const teamBStats = teamPointsStats.get(teamBKey)!;
+            teamAStats.games++;
+            teamBStats.games++;
+            
+            const pointsTopTeam = game.finalScores.top || 0;
+            const pointsBottomTeam = game.finalScores.bottom || 0;
+            
+            // Team A (pids 0 & 2) ist 'bottom', Team B (pids 1 & 3) ist 'top'
+            teamAStats.diff += (pointsBottomTeam - pointsTopTeam);
+            teamBStats.diff += (pointsTopTeam - pointsBottomTeam);
+        }
+
+        const teamPointsDiffList: GroupStatHighlightTeam[] = [];
+        teamPointsStats.forEach((stats) => {
+            if (stats.games > 0) {
+                teamPointsDiffList.push({
+                    names: stats.playerNames,
+                    value: stats.diff,
+                    eventsPlayed: stats.games,
+                });
+            }
+        });
+
+        teamPointsDiffList.sort((a, b) => (b.value as number) - (a.value as number));
+        calculatedStats.teamWithHighestPointsDiff = teamPointsDiffList;
+
+        // NEU: teamWithHighestStricheDiff Logik
+        const teamStricheStats = new Map<string, { playerDocIds: [string, string], playerNames: [string, string], diff: number, games: number }>();
+
+        for (const game of allGamesWithRoundHistory) {
+            if (!game.finalStriche || !game.participantPlayerIds || game.participantPlayerIds.length !== 4) continue;
+            
+            const pids = game.participantPlayerIds;
+            const teamAPidsSorted = [pids[0], pids[2]].sort() as [string, string];
+            const teamBPidsSorted = [pids[1], pids[3]].sort() as [string, string];
+            const teamAKey = `${teamAPidsSorted[0]}|${teamAPidsSorted[1]}`;
+            const teamBKey = `${teamBPidsSorted[0]}|${teamBPidsSorted[1]}`;
+            
+            if (!teamStricheStats.has(teamAKey)) {
+                const teamANames: [string, string] = [playerInfoCache.get(teamAPidsSorted[0])?.finalPlayerName || 'Sp X', playerInfoCache.get(teamAPidsSorted[1])?.finalPlayerName || 'Sp Y'];
+                teamStricheStats.set(teamAKey, { playerDocIds: teamAPidsSorted, playerNames: teamANames, diff: 0, games: 0 });
+            }
+            if (!teamStricheStats.has(teamBKey)) {
+                const teamBNames: [string, string] = [playerInfoCache.get(teamBPidsSorted[0])?.finalPlayerName || 'Sp Z', playerInfoCache.get(teamBPidsSorted[1])?.finalPlayerName || 'Sp W'];
+                teamStricheStats.set(teamBKey, { playerDocIds: teamBPidsSorted, playerNames: teamBNames, diff: 0, games: 0 });
+            }
+            
+            const teamAStats = teamStricheStats.get(teamAKey)!;
+            const teamBStats = teamStricheStats.get(teamBKey)!;
+            teamAStats.games++;
+            teamBStats.games++;
+            
+            const stricheTopTeam = calculateTotalStriche(game.finalStriche.top, groupData.strokeSettings, groupData.scoreSettings?.enabled);
+            const stricheBottomTeam = calculateTotalStriche(game.finalStriche.bottom, groupData.strokeSettings, groupData.scoreSettings?.enabled);
+            
+            // Team A (pids 0 & 2) ist 'bottom', Team B (pids 1 & 3) ist 'top'
+            teamAStats.diff += (stricheBottomTeam - stricheTopTeam);
+            teamBStats.diff += (stricheTopTeam - stricheBottomTeam);
+        }
+
+        const teamStricheDiffList: GroupStatHighlightTeam[] = [];
+        teamStricheStats.forEach((stats) => {
+            if (stats.games > 0) {
+                teamStricheDiffList.push({
+                    names: stats.playerNames,
+                    value: stats.diff,
+                    eventsPlayed: stats.games,
+                });
+            }
+        });
+
+        teamStricheDiffList.sort((a, b) => (b.value as number) - (a.value as number));
+        calculatedStats.teamWithHighestStricheDiff = teamStricheDiffList;
+
+        // NEU: teamWithMostWeisPointsAvg und teamWithFastestRounds
+        const teamWeisStats = new Map<string, { totalWeis: number, gamesPlayed: number }>();
+        const teamRoundTimeStats = new Map<string, number[]>();
+
+        for (const game of allGamesWithRoundHistory) {
+            if (!game.participantPlayerIds || game.participantPlayerIds.length !== 4) continue;
+
+            const pids = game.participantPlayerIds;
+            const teamAPidsSorted = [pids[0], pids[2]].sort() as [string, string];
+            const teamBPidsSorted = [pids[1], pids[3]].sort() as [string, string];
+            const teamAKey = `${teamAPidsSorted[0]}|${teamAPidsSorted[1]}`;
+            const teamBKey = `${teamBPidsSorted[0]}|${teamBPidsSorted[1]}`;
+
+            // Initialisiere die Maps, falls nötig
+            if (!teamWeisStats.has(teamAKey)) teamWeisStats.set(teamAKey, { totalWeis: 0, gamesPlayed: 0 });
+            if (!teamWeisStats.has(teamBKey)) teamWeisStats.set(teamBKey, { totalWeis: 0, gamesPlayed: 0 });
+            if (!teamRoundTimeStats.has(teamAKey)) teamRoundTimeStats.set(teamAKey, []);
+            if (!teamRoundTimeStats.has(teamBKey)) teamRoundTimeStats.set(teamBKey, []);
+
+            const teamAWeisStats = teamWeisStats.get(teamAKey)!;
+            const teamBWeisStats = teamWeisStats.get(teamBKey)!;
+            teamAWeisStats.gamesPlayed++;
+            teamBWeisStats.gamesPlayed++;
+            
+            // Weispunkte
+            teamAWeisStats.totalWeis += extractWeisPointsFromGameData('bottom', game);
+            teamBWeisStats.totalWeis += extractWeisPointsFromGameData('top', game);
+
+            // Rundenzeit
+            if (game.durationMillis && game.roundHistory && game.roundHistory.length > 0) {
+                const avgRoundTime = game.durationMillis / game.roundHistory.length;
+                teamRoundTimeStats.get(teamAKey)?.push(avgRoundTime);
+                teamRoundTimeStats.get(teamBKey)?.push(avgRoundTime);
+            }
+        }
+
+        const teamWeisAvgList: GroupStatHighlightTeam[] = [];
+        teamWeisStats.forEach((stats, key) => {
+            if (stats.gamesPlayed > 0) {
+                const pids = key.split('|');
+                const names: [string, string] = [
+                    playerInfoCache.get(pids[0])?.finalPlayerName || '?',
+                    playerInfoCache.get(pids[1])?.finalPlayerName || '?'
+                ];
+                teamWeisAvgList.push({
+                    names,
+                    value: parseFloat((stats.totalWeis / stats.gamesPlayed).toFixed(1)),
+                    eventsPlayed: stats.gamesPlayed,
+                });
+            }
+        });
+        teamWeisAvgList.sort((a, b) => (b.value as number) - (a.value as number));
+        calculatedStats.teamWithMostWeisPointsAvg = teamWeisAvgList;
+
+        const teamFastestRoundsList: GroupStatHighlightTeam[] = [];
+        teamRoundTimeStats.forEach((times, key) => {
+            if (times.length > 0) {
+                const avgTime = times.reduce((sum, time) => sum + time, 0) / times.length;
+                const pids = key.split('|');
+                const names: [string, string] = [
+                    playerInfoCache.get(pids[0])?.finalPlayerName || '?',
+                    playerInfoCache.get(pids[1])?.finalPlayerName || '?'
+                ];
+                teamFastestRoundsList.push({
+                    names,
+                    value: avgTime, // Wert als Millisekunden speichern
+                    eventsPlayed: times.length,
+                });
+            }
+        });
+        teamFastestRoundsList.sort((a, b) => (a.value as number) - (b.value as number)); // Aufsteigend für schnellste Zeit
+        calculatedStats.teamWithFastestRounds = teamFastestRoundsList;
+
 
         // --- FINALE, KORREKTE TRUMPF-BERECHNUNG AUS ROHDATEN ---
         const gruppeTrumpfStatistik: { [farbe: string]: number } = {};

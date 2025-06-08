@@ -2,9 +2,17 @@ import { HttpsError, onCall, CallableRequest } from "firebase-functions/v2/https
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import { PlayerComputedStats, initialPlayerComputedStats, TournamentPlacement, StatHighlight } from "./models/player-stats.model";
-import { SessionTeams as RecalcSessionTeams, StricheRecord as RecalcStricheRecord, TeamScores as RecalcTeamScores, InitialSessionData as RecalcInitialSessionData, CompletedGameData as ArchivedCompletedGameDataOriginal } from "./finalizeSession";
+import { SessionTeams as RecalcSessionTeams, StricheRecord as RecalcStricheRecord, TeamScores as RecalcTeamScores, InitialSessionData as RecalcInitialSessionData, CompletedGameData as ArchivedCompletedGameDataOriginal, Round as OriginalRound } from "./finalizeSession";
 import { TournamentGameData as RecalcTournamentGameDataOriginal } from "./tournamentGameProcessing";
 import { TournamentDocData as RecalcTournamentDocData } from "./finalizeTournament";
+
+// Erweitertes Round-Interface für die Neuberechnung
+interface RecalcRound extends OriginalRound {
+    strichInfo?: {
+      team?: 'top' | 'bottom';
+      type?: string;
+    };
+}
 
 const db = admin.firestore();
 
@@ -24,7 +32,7 @@ interface RecalcTournamentGameData extends RecalcTournamentGameDataOriginal {
 
 // Dieses Interface wird für die Logik der Neuberechnung von regulären Spielen verwendet.
 // Es stellt sicher, dass winnerTeam nur 'top' oder 'bottom' sein kann.
-interface RecalcCompletedGameDataForRecalcLogic extends Omit<ArchivedCompletedGameDataOriginal, 'winnerTeam'> {
+interface RecalcCompletedGameDataForRecalcLogic extends Omit<ArchivedCompletedGameDataOriginal, 'winnerTeam' | 'roundHistory'> {
     gameDocId: string; 
     participantUids: string[]; 
     teams: { 
@@ -33,6 +41,7 @@ interface RecalcCompletedGameDataForRecalcLogic extends Omit<ArchivedCompletedGa
     };
     winnerTeam?: 'top' | 'bottom'; // Explizit typisiert ohne 'draw'
     timestampCompleted: admin.firestore.Timestamp; 
+    roundHistory?: RecalcRound[]; // Verwende das erweiterte Interface
 }
 
 // Datenstruktur für eine abgeschlossene Session, angepasst für die Neuberechnung
@@ -231,6 +240,7 @@ export const recalculateAllPlayerStatistics = onCall(
                                     teams: teamsForRecalc,
                                     winnerTeam: validatedWinnerTeam,
                                     timestampCompleted: gameDataOriginal.timestampCompleted,
+                                    roundHistory: gameDataOriginal.roundHistory as RecalcRound[],
                                 };
                                 playerEvents.push({
                                     type: 'REGULAR_GAME',
@@ -345,10 +355,27 @@ export const recalculateAllPlayerStatistics = onCall(
 
                             stats.playerTotalWeisMade = (stats.playerTotalWeisMade || 0) + rgOutcome.weisMade;
 
-                            if (rgOutcome.isMatschGame) stats.totalMatschGamesMade = (stats.totalMatschGamesMade || 0) + 1;
-                            if (rgOutcome.isSchneiderGame) stats.totalSchneiderGamesMade = (stats.totalSchneiderGamesMade || 0) + 1;
-                            if (rgOutcome.isKontermatschMade) stats.totalKontermatschGamesMade = (stats.totalKontermatschGamesMade || 0) + 1;
-                            if (rgOutcome.isKontermatschReceived) stats.totalKontermatschGamesReceived = (stats.totalKontermatschGamesReceived || 0) + 1;
+                            // BEREINIGTE EVENT-ZÄHLUNG
+                            if (rgOutcome.playerTeamKey && rgData.roundHistory && Array.isArray(rgData.roundHistory)) {
+                                rgData.roundHistory.forEach(round => {
+                                    if (round.strichInfo?.type && round.strichInfo.team) {
+                                        const eventType = round.strichInfo.type;
+                                        const eventTeam = round.strichInfo.team;
+                                        const isReceiver = rgOutcome.playerTeamKey === eventTeam;
+                                        switch (eventType) {
+                                            case 'matsch':
+                                                if (isReceiver) stats.totalMatschEventsReceived = (stats.totalMatschEventsReceived || 0) + 1; else stats.totalMatschEventsMade = (stats.totalMatschEventsMade || 0) + 1;
+                                                break;
+                                            case 'schneider':
+                                                if (isReceiver) stats.totalSchneiderEventsReceived = (stats.totalSchneiderEventsReceived || 0) + 1; else stats.totalSchneiderEventsMade = (stats.totalSchneiderEventsMade || 0) + 1;
+                                                break;
+                                            case 'kontermatsch':
+                                                if (isReceiver) stats.totalKontermatschEventsReceived = (stats.totalKontermatschEventsReceived || 0) + 1; else stats.totalKontermatschEventsMade = (stats.totalKontermatschEventsMade || 0) + 1;
+                                                break;
+                                        }
+                                    }
+                                });
+                            }
 
                             // Spiel-Highlights (Highest/Lowest Points, Striche, Weis, etc.)
                             updateGameHighlightsForRecalc(stats, rgOutcome, rgData.timestampCompleted, rgData.gameDocId);
@@ -392,11 +419,27 @@ export const recalculateAllPlayerStatistics = onCall(
                             stats.totalStricheReceived = (stats.totalStricheReceived || 0) + tgOutcome.stricheReceived;
                             stats.playerTotalWeisMade = (stats.playerTotalWeisMade || 0) + tgOutcome.weisMade;
 
-                            if (tgOutcome.isMatschGame) stats.totalMatschGamesMade = (stats.totalMatschGamesMade || 0) + 1;
-                            if (tgOutcome.isSchneiderGame) stats.totalSchneiderGamesMade = (stats.totalSchneiderGamesMade || 0) + 1;
-                            if (tgOutcome.isKontermatschMade) stats.totalKontermatschGamesMade = (stats.totalKontermatschGamesMade || 0) + 1;
-                            if (tgOutcome.isKontermatschReceived) stats.totalKontermatschGamesReceived = (stats.totalKontermatschGamesReceived || 0) + 1;
-                            // Hier auch isMatschGameReceived, isSchneiderGameReceived berücksichtigen für Lowlights
+                            // BEREINIGTE EVENT-ZÄHLUNG
+                            if (tgOutcome.playerTeamKey && tgData.roundHistory && Array.isArray(tgData.roundHistory)) {
+                                tgData.roundHistory.forEach(round => {
+                                    if (round.strichInfo?.type && round.strichInfo.team) {
+                                        const eventType = round.strichInfo.type;
+                                        const eventTeam = round.strichInfo.team;
+                                        const isReceiver = tgOutcome.playerTeamKey === eventTeam;
+                                        switch (eventType) {
+                                            case 'matsch':
+                                                if (isReceiver) stats.totalMatschEventsReceived = (stats.totalMatschEventsReceived || 0) + 1; else stats.totalMatschEventsMade = (stats.totalMatschEventsMade || 0) + 1;
+                                                break;
+                                            case 'schneider':
+                                                if (isReceiver) stats.totalSchneiderEventsReceived = (stats.totalSchneiderEventsReceived || 0) + 1; else stats.totalSchneiderEventsMade = (stats.totalSchneiderEventsMade || 0) + 1;
+                                                break;
+                                            case 'kontermatsch':
+                                                if (isReceiver) stats.totalKontermatschEventsReceived = (stats.totalKontermatschEventsReceived || 0) + 1; else stats.totalKontermatschEventsMade = (stats.totalKontermatschEventsMade || 0) + 1;
+                                                break;
+                                        }
+                                    }
+                                });
+                            }
                             
                             updateGameHighlightsForRecalc(stats, tgOutcome, tgData.timestampCompleted, tgData.id, true /* isTournamentGame */);
                             updateGameStreaksForRecalc(stats, tgOutcome.result, tgData.timestampCompleted);
@@ -463,16 +506,16 @@ export const recalculateAllPlayerStatistics = onCall(
                 if (stats.totalGames > 0) {
                     stats.avgPointsPerGame = (stats.totalPointsMade || 0) / stats.totalGames;
                     stats.avgStrichePerGame = (stats.totalStricheMade || 0) / stats.totalGames;
-                    stats.avgMatschPerGame = (stats.totalMatschGamesMade || 0) / stats.totalGames;
-                    stats.avgSchneiderPerGame = (stats.totalSchneiderGamesMade || 0) / stats.totalGames;
                     stats.avgWeisPointsPerGame = (stats.playerTotalWeisMade || 0) / stats.totalGames;
-                    stats.avgKontermatschPerGame = (stats.totalKontermatschGamesMade || 0) / stats.totalGames;
+                    stats.avgMatschPerGame = (stats.totalMatschEventsMade || 0) / stats.totalGames;
+                    stats.avgSchneiderPerGame = (stats.totalSchneiderEventsMade || 0) / stats.totalGames;
+                    stats.avgKontermatschPerGame = (stats.totalKontermatschEventsMade || 0) / stats.totalGames;
                 } else {
                     stats.avgPointsPerGame = 0;
                     stats.avgStrichePerGame = 0;
+                    stats.avgWeisPointsPerGame = 0;
                     stats.avgMatschPerGame = 0;
                     stats.avgSchneiderPerGame = 0;
-                    stats.avgWeisPointsPerGame = 0;
                     stats.avgKontermatschPerGame = 0;
                 }
                 

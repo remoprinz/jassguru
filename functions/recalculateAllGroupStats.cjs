@@ -16,14 +16,14 @@ const db = admin.firestore();
 
 async function recalculateAllGroupStats() {
     console.log("Starte die Neuberechnung der Statistiken für ALLE Gruppen...");
-    
+
     const groupsSnap = await db.collection('groups').get();
     
     if (groupsSnap.empty) {
         console.log("Keine Gruppen in der Datenbank gefunden.");
-        return;
+      return;
     }
-    
+
     console.log(`Found ${groupsSnap.docs.length} groups. Processing each...`);
 
     for (const groupDoc of groupsSnap.docs) {
@@ -42,9 +42,9 @@ async function recalculateAllGroupStats() {
             
             console.log(`✅ Erfolgreich neue Statistiken für Gruppe "${groupName}" berechnet und gespeichert.`);
         
-        } catch (error) {
+      } catch (error) {
             console.error(`❌ Fehler bei der Neuberechnung für Gruppe "${groupName}" (ID: ${groupId}):`, error);
-        }
+      }
     }
 }
 

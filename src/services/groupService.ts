@@ -90,11 +90,10 @@ export const createGroup = async (
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       createdBy: userId,
-      playerIds: [playerId],
       adminIds: [userId],
       isPublic: true,
       players: {
-        [userId]: {
+        [playerId]: {
           displayName: userDisplayName || "Unbekannt",
           email: auth.currentUser?.email || "",
           joinedAt: serverTimestamp() as unknown as Timestamp,

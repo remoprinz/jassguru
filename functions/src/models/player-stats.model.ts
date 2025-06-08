@@ -105,13 +105,13 @@ export interface PlayerComputedStats {
 
   playerTotalWeisMade: number;        // NEU: Summe aller Weispunkte des Spielers
 
-  // NEU: Zähler für spezifische Spielereignisse (Basis für Durchschnittswerte)
-  totalMatschGamesMade: number;     // Anzahl der Spiele, in denen der Spieler Matsch gemacht hat
-  totalSchneiderGamesMade: number;  // Anzahl der Spiele, in denen der Spieler Schneider gemacht hat
-
-  // NEU: Zähler für Kontermatsch-Ereignisse (Spiel-Ebene)
-  totalKontermatschGamesMade: number;
-  totalKontermatschGamesReceived: number;
+  // NEU & BEREINIGT: Zähler für spezifische Spielereignisse
+  totalMatschEventsMade: number;
+  totalMatschEventsReceived: number;
+  totalSchneiderEventsMade: number;
+  totalSchneiderEventsReceived: number;
+  totalKontermatschEventsMade: number;
+  totalKontermatschEventsReceived: number;
 
   // NEU: Zähler für aktuelle Spiel-Streaks
   currentGameWinStreak: number;
@@ -229,10 +229,12 @@ export const initialPlayerComputedStats: PlayerComputedStats = {
   totalPointsDifference: 0,
   
   playerTotalWeisMade: 0,
-  totalMatschGamesMade: 0,
-  totalSchneiderGamesMade: 0,
-  totalKontermatschGamesMade: 0,
-  totalKontermatschGamesReceived: 0,
+  totalMatschEventsMade: 0,
+  totalMatschEventsReceived: 0,
+  totalSchneiderEventsMade: 0,
+  totalSchneiderEventsReceived: 0,
+  totalKontermatschEventsMade: 0,
+  totalKontermatschEventsReceived: 0,
   currentGameWinStreak: 0,
   currentGameLossStreak: 0,
   currentGameWinlessStreak: 0,

@@ -82,9 +82,9 @@ export const syncUserNameOnChange = onDocumentUpdated({
             if (typeof groupId === 'string' && groupId.trim() !== '') {
                 const groupRef = db.collection('groups').doc(groupId);
                 const updateData = {
-                    [`players.${userId}.displayName`]: newDisplayName,
+                    [`players.${playerId}.displayName`]: newDisplayName,
                 };
-                logger.debug(`Preparing update for group ${groupId}: players.${userId}.displayName = ${newDisplayName}`);
+                logger.debug(`Preparing update for group ${groupId}: players.${playerId}.displayName = ${newDisplayName}`);
                 batch.update(groupRef, updateData);
                 groupsToUpdateCount++;
             } else {
