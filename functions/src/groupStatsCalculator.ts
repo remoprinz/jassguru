@@ -1,7 +1,7 @@
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import { GroupComputedStats, initialGroupComputedStats, GroupStatHighlightPlayer, GroupStatHighlightTeam } from "./models/group-stats.model";
-import { StricheRecord, TeamScores, CompletedGameData, SessionTeams, InitialSessionData, TeamConfig, Round } from "./finalizeSession";
+import { StricheRecord, TeamScores, CompletedGameData, SessionTeams, InitialSessionData, Round } from "./finalizeSession";
 import { DEFAULT_SCORE_SETTINGS, StrokeSettings, ScoreSettingsEnabled } from "./models/game-settings.model";
 
 const db = admin.firestore();
@@ -9,7 +9,6 @@ const db = admin.firestore();
 const JASS_SUMMARIES_COLLECTION = 'jassGameSummaries';
 const COMPLETED_GAMES_SUBCOLLECTION = 'completedGames';
 const GROUPS_COLLECTION = 'groups';
-const USERS_COLLECTION = 'users'; // Hinzugefügt für Klarheit
 
 // --- LOKALE TYPEN-ERWEITERUNG für diese Funktion ---
 // ----------------------------------------------------
@@ -18,6 +17,7 @@ const USERS_COLLECTION = 'users'; // Hinzugefügt für Klarheit
 interface ProcessableGameData extends CompletedGameData {
     id: string;
     sessionId: string;
+    jassTyp?: string; // NEU: Hinzufügen, um den Jass-Typ für die Schneider-Berechnung zu kennen
 }
 
 // Interface für die Struktur der Spielerinformationen innerhalb des Group-Dokuments
@@ -99,150 +99,75 @@ function extractWeisPointsFromGameData(teamPosition: 'top' | 'bottom', game: Com
 
 function getPlayerTeamInGame(
     playerDocId: string, // Logisch ist es playerDocId
-    game: CompletedGameData, // Enthält game.participantUids, die wir als playerDocIds behandeln
-    sessionTeams?: SessionTeams, 
-    sessionTeamScoreMapping?: { teamA: 'top' | 'bottom'; teamB: 'top' | 'bottom' }
+    game: CompletedGameData // Enthält jetzt game.participantPlayerIds
 ): 'top' | 'bottom' | null {
-    // Diese Funktion muss grundlegend überarbeitet werden, um mit playerDocId zu arbeiten
-    // und die Teamzugehörigkeit aus game.teams (das player numbers enthält, die zu playerDocIds gemappt werden müssen)
-    // oder game.teamScoreMapping (das teamA/teamB zu top/bottom mappt) zu bestimmen.
-
-    // Annahme: game.participantUids enthält die PlayerDocIDs in der Reihenfolge der Spieler 1-4
-    // Annahme: game.teams enthält { top: [spielernummer1, spielernummer2], bottom: [spielernummer3, spielernummer4] }
-    // Wobei spielernummer X (1-4) dem Index in participantUids entspricht (0-3)
-    
-    const participants = game.participantUids as string[]; // Behandle UIDs als PlayerDocIDs
-    if (participants && participants.length === 4) {
-        const playerIndex = participants.indexOf(playerDocId);
-        if (playerIndex === -1) {
-            logger.warn(`[calculateGroupStatisticsInternal:getPlayerTeamInGame] PlayerDocId ${playerDocId} nicht in game.participantUids ${game.activeGameId || game.gameNumber} gefunden.`);
-            return null;
-        }
-
-        if (game.teams) { // Explizite Teamzuordnung im Spiel
-            // Prüfe, ob game.teams die erwartete Struktur hat
-            if (typeof game.teams === 'object' && 'top' in game.teams && 'bottom' in game.teams) {
-                // Wenn teams Struktur { top: { playerUids: string[] }, bottom: { playerUids: string[] } } hat
-                if ('playerUids' in game.teams.top && Array.isArray(game.teams.top.playerUids)) {
-                    if (game.teams.bottom.playerUids?.includes(playerDocId)) return 'bottom';
-                    if (game.teams.top.playerUids?.includes(playerDocId)) return 'top';
-                } else {
-                    // Wenn teams Struktur { top: [number, number], bottom: [number, number] } hat (TeamConfig)
-                    // Prüfe explizit, ob es sich um ein TeamConfig handelt
-                    const teamsAsAny = game.teams as unknown;
-                    if (Array.isArray((teamsAsAny as TeamConfig).top) && Array.isArray((teamsAsAny as TeamConfig).bottom)) {
-                        const playerNumberBasedOnIndex = playerIndex + 1; // Spielernummern sind oft 1-basiert
-                        if ((teamsAsAny as TeamConfig).bottom.includes(playerNumberBasedOnIndex)) return 'bottom';
-                        if ((teamsAsAny as TeamConfig).top.includes(playerNumberBasedOnIndex)) return 'top';
-                    }
-                }
-            }
-        }
-        
-        // Fallback oder Standardzuordnung basierend auf Index, wenn game.teams nicht vorhanden/eindeutig
-        // Team Bottom: Spieler 0 und 2 (Index)
-        // Team Top: Spieler 1 und 3 (Index)
-        if (playerIndex === 0 || playerIndex === 2) return (game.teamScoreMapping?.teamA === 'bottom' || game.teamScoreMapping?.teamB === 'bottom') ? 'bottom' : 'top'; // Hängt von teamScoreMapping ab
-        if (playerIndex === 1 || playerIndex === 3) return (game.teamScoreMapping?.teamA === 'top' || game.teamScoreMapping?.teamB === 'top') ? 'top' : 'bottom';
-
-
-        // Fallback: Standard Jass-Paarung, wenn keine spezifischen Infos
-        // Spieler an Index 0 und 2 sind ein Team, Spieler an Index 1 und 3 sind das andere.
-        // Welches Team 'top' oder 'bottom' ist, könnte von game.teamScoreMapping abhängen oder Default sein.
-        // Für eine einfache Annahme:
-        if (game.teamScoreMapping) {
-            if (sessionTeams) { // Wenn SessionTeams UND teamScoreMapping existiert
-                 if (sessionTeams.teamA.players.some(p => p.playerId === playerDocId)) return game.teamScoreMapping.teamA; // p.playerDocId -> p.playerId
-                 if (sessionTeams.teamB.players.some(p => p.playerId === playerDocId)) return game.teamScoreMapping.teamB; // p.playerDocId -> p.playerId
-            }
-        }
-        // Standardzuordnung, wenn nichts anderes greift (Potenzial für Fehler, wenn teamScoreMapping fehlt/anders ist)
-        // Diese Logik muss ggf. genauer an die tatsächliche Datenstruktur von `teams` und `teamScoreMapping` im Spiel angepasst werden.
-        // Für eine robustere Lösung braucht man die genaue Semantik von game.teams und game.teamScoreMapping.
-        // Die ursprüngliche Logik hier war sehr komplex und scheint authUids mit DisplayNames zu mischen.
-        // Ich gehe von einer Standardzuordnung aus, wenn game.teams nicht klar ist:
-        if (playerIndex === 0 || playerIndex === 2) return 'bottom'; 
-        if (playerIndex === 1 || playerIndex === 3) return 'top';  
+    const participants = game.participantPlayerIds as string[];
+    if (!participants || participants.length !== 4) {
+        logger.warn(`[getPlayerTeamInGame] Ungültige Teilnehmerliste für Spiel ${game.activeGameId}`);
+        return null;
     }
-    
-    logger.warn(`[calculateGroupStatisticsInternal:getPlayerTeamInGame] Konnte Team für Spieler ${playerDocId} in Spiel ${game.activeGameId || game.gameNumber} nicht eindeutig bestimmen.`);
-    return null;
+
+    const playerIndex = participants.indexOf(playerDocId);
+    if (playerIndex === -1) {
+        logger.warn(`[getPlayerTeamInGame] PlayerDocId ${playerDocId} nicht in Teilnehmerliste gefunden für Spiel ${game.activeGameId}.`);
+        return null;
+    }
+
+    // Die einfachste und robusteste Annahme für eine Standard-4er-Jass-Partie:
+    // Spieler an Index 0 und 2 sind ein Team.
+    // Spieler an Index 1 und 3 sind das andere Team.
+    // Die Zuordnung zu 'top' oder 'bottom' ist konsistent, solange die Teilnehmerliste ihre Reihenfolge beibehält.
+    // Wir definieren Team (0, 2) als 'bottom' und Team (1, 3) als 'top'.
+    // Diese Zuordnung ist willkürlich, aber intern konsistent und das ist alles, was zählt.
+    if (playerIndex === 0 || playerIndex === 2) {
+        return 'bottom';
+    } else { // playerIndex is 1 or 3
+        return 'top';
+    }
 }
 
 // Hilfsfunktion zur Namensauflösung
 async function resolvePlayerInfos(
-    playerDocIds: Set<string>,
-    groupPlayers: { [playerDocId: string]: GroupPlayerEntry }
+    playerDocIds: Set<string>
 ): Promise<Map<string, ResolvedPlayerInfo>> {
     const resolvedInfos = new Map<string, ResolvedPlayerInfo>();
-    const authUidsToFetch = new Set<string>();
-
-    // Schritt 1: Infos aus groupPlayers holen
-    for (const pDocId of playerDocIds) {
-        const groupEntry = groupPlayers[pDocId];
-        let name = "Unbekannter Spieler";
-        let authUid: string | undefined = undefined;
-
-        if (groupEntry) {
-            name = groupEntry.name || name;
-            authUid = groupEntry.authUid;
-            if (!groupEntry.isGuest && authUid && (!groupEntry.name || groupEntry.name.trim() === "")) {
-                authUidsToFetch.add(authUid); // Name aus User-Profil holen, wenn Gruppenname leer
-            }
-        }
-        resolvedInfos.set(pDocId, {
-            finalPlayerName: name,
-            finalPlayerIdForStats: pDocId,
-            authUid: authUid
-        });
+    
+    if (playerDocIds.size === 0) {
+        return resolvedInfos;
     }
 
-    // Schritt 2: Fehlende Namen für registrierte User aus Users-Collection holen
-    if (authUidsToFetch.size > 0) {
-        const userProfilePromises = Array.from(authUidsToFetch).map(async (uid) => {
-            try {
-                const userDoc = await db.collection(USERS_COLLECTION).doc(uid).get();
-                if (userDoc.exists) {
-                    const userData = userDoc.data();
-                    if (userData && userData.displayName) {
-                        return { authUid: uid, displayName: userData.displayName };
-                    }
-                }
-                return { authUid: uid, displayName: null };
-            } catch (error) {
-                logger.error(`[resolvePlayerInfos] Error fetching user profile for ${uid}:`, error);
-                return { authUid: uid, displayName: null };
-            }
-        });
-        const userProfiles = await Promise.all(userProfilePromises);
-        const usersCache = new Map<string, string>();
-        userProfiles.forEach(p => {
-            if (p.displayName) usersCache.set(p.authUid, p.displayName);
-        });
+    // Schritt 1: Erstelle Referenzen zu allen benötigten Player-Dokumenten
+    const playerRefs = Array.from(playerDocIds).map(pId => db.collection('players').doc(pId));
 
-        // Namen in resolvedInfos aktualisieren
-        for (const pDocId of playerDocIds) {
-            const currentInfo = resolvedInfos.get(pDocId);
-            if (currentInfo && currentInfo.authUid && (!currentInfo.finalPlayerName || currentInfo.finalPlayerName === "Unbekannter Spieler" || currentInfo.finalPlayerName.trim() === "")) {
-                 if (usersCache.has(currentInfo.authUid)) {
-                    const cachedName = usersCache.get(currentInfo.authUid);
-                    if (cachedName) {
-                        currentInfo.finalPlayerName = cachedName;
-                    }
-                 }
-            }
-            if (currentInfo && (!currentInfo.finalPlayerName || currentInfo.finalPlayerName.trim() === "")) {
-                currentInfo.finalPlayerName = "Unbekannter Jasser"; // Endgültiger Fallback
+    // Schritt 2: Lese alle Player-Dokumente in einem einzigen, effizienten Batch-Aufruf
+    const playerSnapshots = await db.getAll(...playerRefs);
+
+    // Schritt 3: Verarbeite die Ergebnisse und fülle den Cache
+    for (const playerSnap of playerSnapshots) {
+        if (playerSnap.exists) {
+            const playerData = playerSnap.data();
+            const pDocId = playerSnap.id;
+            
+            if (playerData) { // Zusätzliche Sicherheitsprüfung für TypeScript
+                resolvedInfos.set(pDocId, {
+                    finalPlayerName: playerData.displayName || "Unbekannter Jasser",
+                    finalPlayerIdForStats: pDocId,
+                    authUid: playerData.userId
+                });
             }
         }
     }
-     // Sicherstellen, dass jeder einen Namen hat
-    resolvedInfos.forEach(info => {
-        if (!info.finalPlayerName || info.finalPlayerName.trim() === "") {
-            info.finalPlayerName = "Unbekannter Jasser";
+    
+    // Schritt 4: Fallback für IDs, die in der Collection nicht gefunden wurden (sollte nicht passieren)
+    playerDocIds.forEach(pId => {
+        if (!resolvedInfos.has(pId)) {
+             resolvedInfos.set(pId, {
+                finalPlayerName: "Unbekannter Jasser",
+                finalPlayerIdForStats: pId,
+                authUid: undefined
+            });
         }
     });
-
 
     return resolvedInfos;
 }
@@ -267,10 +192,9 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         const groupData = groupDoc.data() as MinimalFirestoreGroup;
         groupData.id = groupDoc.id;
 
-        // KORREKTUR: Berücksichtige Admins und Spieler als Gruppenmitglieder
+        // Gruppenmitglieder: Nur die Spieler in der players Map zählen
         const playerKeys = Object.keys(groupData.players || {});
-        const adminIds = groupData.adminIds || [];
-        const groupMemberPlayerDocIds = new Set<string>([...playerKeys, ...adminIds]);
+        const groupMemberPlayerDocIds = new Set<string>(playerKeys);
         
         calculatedStats.memberCount = groupMemberPlayerDocIds.size;
         calculatedStats.hauptspielortName = groupData.mainLocationZip ? (getOrtNameByPlz(groupData.mainLocationZip) || groupData.mainLocationZip) : null;
@@ -296,11 +220,11 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         const actualParticipantPlayerDocIds = new Set<string>(); // Logisch PlayerDocIds
         const allGamesFlat: ProcessableGameData[] = [];
         const gamesBySessionIdMap = new Map<string, ProcessableGameData[]>();
-        const sessionDataCache = new Map<string, InitialSessionData & { id: string, endedAt?: admin.firestore.Timestamp | number, startedAt?: admin.firestore.Timestamp | number, participantUids?: string[] }>(); // participantPlayerDocIds -> participantUids
+        const sessionDataCache = new Map<string, InitialSessionData & { id: string, status?: string, endedAt?: admin.firestore.Timestamp | number, startedAt?: admin.firestore.Timestamp | number, participantPlayerIds?: string[] }>(); // participantPlayerDocIds -> participantPlayerIds
         
         // Erste Schleife: Sammle alle PlayerDocIds aus allen Spielen und Basis-Zeitstempel
         for (const sessionDoc of sessionsSnap.docs) {
-            const sessionData = sessionDoc.data() as InitialSessionData & { id: string, endedAt?: admin.firestore.Timestamp | number, startedAt?: admin.firestore.Timestamp | number, participantUids?: string[] };
+            const sessionData = sessionDoc.data() as InitialSessionData & { id: string, status?: string, endedAt?: admin.firestore.Timestamp | number, startedAt?: admin.firestore.Timestamp | number, participantPlayerIds?: string[] };
             sessionData.id = sessionDoc.id;
             sessionDataCache.set(sessionDoc.id, sessionData);
 
@@ -328,8 +252,8 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
                     sessionId: sessionDoc.id
                 };
 
-                if (gameWithMetadata.participantUids && Array.isArray(gameWithMetadata.participantUids)) {
-                    gameWithMetadata.participantUids.forEach((pId: string) => {
+                if (gameWithMetadata.participantPlayerIds && Array.isArray(gameWithMetadata.participantPlayerIds)) {
+                    gameWithMetadata.participantPlayerIds.forEach((pId: string) => {
                         actualParticipantPlayerDocIds.add(pId);
                     });
                 }
@@ -348,13 +272,21 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         }));
 
         // NEU: Lade Spielernamen und Infos basierend auf PlayerDocIDs
-        const playerInfoCache = await resolvePlayerInfos(actualParticipantPlayerDocIds, groupData.players || {});
+        const playerInfoCache = await resolvePlayerInfos(actualParticipantPlayerDocIds);
         logger.info(`[calculateGroupStatisticsInternal] actualParticipantPlayerDocIds (from games, size ${actualParticipantPlayerDocIds.size}): ${Array.from(actualParticipantPlayerDocIds).join(', ')}`);
         logger.info(`[calculateGroupStatisticsInternal] playerInfoCache (size ${playerInfoCache.size}) populated.`);
         
         // groupMemberPlayerDocIds wurde bereits oben aus groupData.players geholt.
 
         const playerLastActivityMs = new Map<string, number>(); // Key ist playerDocId
+
+        // NEU: Map von AuthUID zu PlayerDocId für die Übersetzung in alten Datenstrukturen
+        const authUidToPlayerDocIdMap = new Map<string, string>();
+        playerInfoCache.forEach((info, playerDocId) => {
+            if (info.authUid) {
+                authUidToPlayerDocIdMap.set(info.authUid, playerDocId);
+            }
+        });
 
         // Schritt 3: Sessions iterieren und Timestamp-Daten sammeln (Games bereits geladen)
         for (const sessionDoc of sessionsSnap.docs) {
@@ -373,12 +305,12 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
                 sessionEndMs = sessionEndTimestamp;
             }
 
-            if (sessionData.participantUids && sessionEndMs > 0) { // participantPlayerDocIds -> participantUids
-                sessionData.participantUids.forEach(pDocId => { // pid -> pDocId, behandeln als PlayerDocID
-                    if (groupMemberPlayerDocIds.has(pDocId)) { // Prüfe gegen groupMemberPlayerDocIds
-                        const currentLastMs = playerLastActivityMs.get(pDocId) || 0;
-                        playerLastActivityMs.set(pDocId, Math.max(currentLastMs, sessionEndMs));
-                    }
+            if (sessionData.participantPlayerIds && sessionEndMs > 0) { // KORREKTUR: participantPlayerIds
+                sessionData.participantPlayerIds.forEach(pDocId => { // pid -> pDocId, behandeln als PlayerDocID
+                    // KORREKTUR: Der Check gegen groupMemberPlayerDocIds wird entfernt.
+                    // Die letzte Aktivität muss für jeden Spieler erfasst werden, der je teilgenommen hat.
+                    const currentLastMs = playerLastActivityMs.get(pDocId) || 0;
+                    playerLastActivityMs.set(pDocId, Math.max(currentLastMs, sessionEndMs));
                 });
             }
         }
@@ -426,16 +358,24 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
 
         const playerGameCounts = new Map<string, number>();
         allGamesWithRoundHistory.forEach(game => {
-            const participants = game.participantUids || [];
+            const participants = game.participantPlayerIds || [];
             participants.forEach((uid: string) => {
                 playerGameCounts.set(uid, (playerGameCounts.get(uid) || 0) + 1);
             });
         });
 
+        const oneYearAgo = Date.now() - (365 * 24 * 60 * 60 * 1000); // 1 Jahr in Millisekunden
+        
         const playerMostGamesList: GroupStatHighlightPlayer[] = [];
         playerGameCounts.forEach((count, pDocId) => {
             const lastMs = playerLastActivityMs.get(pDocId);
             const playerInfo = playerInfoCache.get(pDocId);
+            
+            // Nur Spieler einschließen, die in den letzten 12 Monaten gespielt haben
+            if (!lastMs || lastMs < oneYearAgo) {
+                return; // Spieler überspringen
+            }
+            
             playerMostGamesList.push({
                 playerId: pDocId,
                 playerName: playerInfo?.finalPlayerName || "Unbekannter Jasser",
@@ -448,42 +388,38 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         playerMostGamesList.sort((a, b) => b.value - a.value);
         calculatedStats.playerWithMostGames = playerMostGamesList;
         
-        const playerStricheStats = new Map<string, { for: number, against: number, games: number }>(); // Key: playerDocId
+        const playerStricheStats = new Map<string, { made: number, received: number, games: number }>(); // Key: playerDocId
 
-        actualParticipantPlayerDocIds.forEach(pDocId => { // authUID -> pDocId
-            if (groupMemberPlayerDocIds.has(pDocId)) { // Initialisiere nur für Gruppenmitglieder
-                playerStricheStats.set(pDocId, { for: 0, against: 0, games: 0 });
-            }
+        actualParticipantPlayerDocIds.forEach(pDocId => {
+            playerStricheStats.set(pDocId, { made: 0, received: 0, games: 0 });
         });
 
         for (const sessionDoc of sessionsSnap.docs) {
             const sessionData = sessionDataCache.get(sessionDoc.id);
-            if (!sessionData) continue; // Überspringen, falls nicht im Cache
+            if (!sessionData) continue; 
 
             const gamesOfThisSession = gamesBySessionIdMap.get(sessionDoc.id) || [];
 
             for (const game of gamesOfThisSession) {
-                if (game.finalStriche && game.participantUids) { // participantPlayerDocIds -> participantUids
+                if (game.finalStriche && game.participantPlayerIds) {
                     const stricheTopTeam = calculateTotalStriche(game.finalStriche.top, groupData.strokeSettings, groupData.scoreSettings?.enabled);
                     const stricheBottomTeam = calculateTotalStriche(game.finalStriche.bottom, groupData.strokeSettings, groupData.scoreSettings?.enabled);
 
-                    game.participantUids.forEach(pDocIdFromGame => { // authUidFromGame -> pDocIdFromGame, behandeln als PlayerDocID
-                        if (groupMemberPlayerDocIds.has(pDocIdFromGame)) { 
-                            const playerCurrentStats = playerStricheStats.get(pDocIdFromGame); 
-                            if (playerCurrentStats) { 
-                                playerCurrentStats.games++; 
+                    game.participantPlayerIds.forEach(pDocIdFromGame => {
+                        const playerCurrentStats = playerStricheStats.get(pDocIdFromGame); 
+                        if (playerCurrentStats) { 
+                            playerCurrentStats.games++; 
 
-                                const playerTeamPosition = getPlayerTeamInGame(pDocIdFromGame, game, sessionData.teams ?? undefined, sessionData.teamScoreMapping);
+                            const playerTeamPosition = getPlayerTeamInGame(pDocIdFromGame, game);
 
-                                if (playerTeamPosition === 'top') {
-                                    playerCurrentStats.for += stricheTopTeam;
-                                    playerCurrentStats.against += stricheBottomTeam;
-                                } else if (playerTeamPosition === 'bottom') {
-                                    playerCurrentStats.for += stricheBottomTeam;
-                                    playerCurrentStats.against += stricheTopTeam;
-                                } else {
-                                    logger.warn(`[calculateGroupStatisticsInternal] Spieler ${pDocIdFromGame} in Spiel ${game.activeGameId || game.gameNumber} (Session ${sessionData.id}) keinem Team zugeordnet für Striche.`);
-                                }
+                            if (playerTeamPosition === 'top') {
+                                playerCurrentStats.made += stricheTopTeam;
+                                playerCurrentStats.received += stricheBottomTeam;
+                            } else if (playerTeamPosition === 'bottom') {
+                                playerCurrentStats.made += stricheBottomTeam;
+                                playerCurrentStats.received += stricheTopTeam;
+                            } else {
+                                logger.warn(`[calculateGroupStatisticsInternal] Spieler ${pDocIdFromGame} in Spiel ${game.activeGameId || game.gameNumber} (Session ${sessionData.id}) keinem Team zugeordnet für Striche.`);
                             }
                         }
                     });
@@ -492,14 +428,19 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         }
 
         const playerStricheDiffList: GroupStatHighlightPlayer[] = [];
-        playerStricheStats.forEach((stats, pDocId) => { // authUID -> pDocId
+        playerStricheStats.forEach((stats, pDocId) => {
             if (stats.games > 0) {
                 const lastMs = playerLastActivityMs.get(pDocId);
                 const playerInfo = playerInfoCache.get(pDocId);
+                
+                if (!lastMs || lastMs < oneYearAgo) {
+                    return; 
+                }
+                
                 playerStricheDiffList.push({
-                    playerId: pDocId, // playerDocId
+                    playerId: pDocId, 
                     playerName: playerInfo?.finalPlayerName || "Unbekannter Jasser",
-                    value: stats.for - stats.against,
+                    value: stats.made - stats.received,
                     eventsPlayed: stats.games,
                     lastPlayedTimestamp: lastMs ? admin.firestore.Timestamp.fromMillis(lastMs) : null,
                 });
@@ -509,42 +450,116 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         playerStricheDiffList.sort((a, b) => b.value - a.value);
         calculatedStats.playerWithHighestStricheDiff = playerStricheDiffList;
 
+        // NEU: playerWithHighestWinRateSession Logik
+        const playerSessionWinStats = new Map<string, { played: number, won: number }>();
+        actualParticipantPlayerDocIds.forEach(pDocId => {
+            playerSessionWinStats.set(pDocId, { played: 0, won: 0 });
+        });
+
+        for (const sessionDoc of sessionsSnap.docs) {
+            const sessionData = sessionDataCache.get(sessionDoc.id);
+            if (!sessionData || sessionData.status !== 'completed' || !sessionData.teams || !sessionData.participantPlayerIds) {
+                continue;
+            }
+
+            const winnerTeamKey = sessionData.winnerTeamKey;
+
+            if (winnerTeamKey && winnerTeamKey !== 'draw') {
+                const sessionParticipants = sessionData.participantPlayerIds;
+                
+                sessionParticipants.forEach(pId => {
+                    const stats = playerSessionWinStats.get(pId);
+                    if(stats) stats.played++;
+                });
+
+                const finalTeamAPlayerDocIds = sessionData.teams.teamA.players.map(p => authUidToPlayerDocIdMap.get(p.playerId) || p.playerId);
+                const finalTeamBPlayerDocIds = sessionData.teams.teamB.players.map(p => authUidToPlayerDocIdMap.get(p.playerId) || p.playerId);
+
+                let winningPlayerDocIds: string[] = [];
+                if (winnerTeamKey === 'teamA') winningPlayerDocIds = finalTeamAPlayerDocIds;
+                if (winnerTeamKey === 'teamB') winningPlayerDocIds = finalTeamBPlayerDocIds;
+                
+                winningPlayerDocIds.forEach(pDocId => {
+                    if (pDocId && playerSessionWinStats.has(pDocId)) {
+                        const stats = playerSessionWinStats.get(pDocId)!;
+                        stats.won++;
+                    }
+                });
+            }
+        }
+
+        const playerSessionWinRateList: GroupStatHighlightPlayer[] = [];
+        playerSessionWinStats.forEach((stats, pDocId) => {
+            if (stats.played > 0) {
+                const lastMs = playerLastActivityMs.get(pDocId);
+                const playerInfo = playerInfoCache.get(pDocId);
+
+                if (!lastMs || lastMs < oneYearAgo) return;
+
+                playerSessionWinRateList.push({
+                    playerId: pDocId,
+                    playerName: playerInfo?.finalPlayerName || "Unbekannter Jasser",
+                    value: stats.won / stats.played,
+                    eventsPlayed: stats.played,
+                    lastPlayedTimestamp: lastMs ? admin.firestore.Timestamp.fromMillis(lastMs) : null,
+                });
+            }
+        });
+
+        playerSessionWinRateList.sort((a, b) => {
+            if (b.value !== a.value) return b.value - a.value;
+            return (b.eventsPlayed || 0) - (a.eventsPlayed || 0);
+        });
+        calculatedStats.playerWithHighestWinRateSession = playerSessionWinRateList;
+
         // NEU: teamWithHighestWinRateSession Logik überarbeiten
         const teamSessionWinStats = new Map<string, { playerDocIds: string[], playerNames: string[], played: number, won: number }>();
 
         for (const sessionDoc of sessionsSnap.docs) {
             const sessionData = sessionDataCache.get(sessionDoc.id) as InitialSessionData & { id: string, status?: string, teams?: SessionTeams, winnerTeamKey?: 'teamA' | 'teamB' | 'draw' };
+            const sessionDocData = sessionDoc.data();
             
-            if (sessionData?.status !== 'completed' || !sessionData.teams || !sessionData.winnerTeamKey) {
+            if (sessionData?.status !== 'completed' || !sessionData.teams) {
                 continue; 
             }
 
-            const teamAPlayers = sessionData.teams.teamA.players.map(p => p.playerId).sort();
-            const teamBPlayers = sessionData.teams.teamB.players.map(p => p.playerId).sort();
+            // KORREKTUR: Übersetze AuthUIDs aus der Session in PlayerDocIDs, falls nötig.
+            const teamAPlayers = sessionData.teams.teamA.players
+                .map(p => authUidToPlayerDocIdMap.get(p.playerId) || p.playerId)
+                .sort();
+            const teamBPlayers = sessionData.teams.teamB.players
+                .map(p => authUidToPlayerDocIdMap.get(p.playerId) || p.playerId)
+                .sort();
 
             if (teamAPlayers.length === 0 || teamBPlayers.length === 0) continue;
 
             const teamAKey = teamAPlayers.join('_');
             const teamBKey = teamBPlayers.join('_');
 
-            if (!teamSessionWinStats.has(teamAKey)) {
-                const teamANames = teamAPlayers.map(pId => playerInfoCache.get(pId)?.finalPlayerName || 'N/A');
-                teamSessionWinStats.set(teamAKey, { playerDocIds: teamAPlayers, playerNames: teamANames, played: 0, won: 0 });
-            }
-            const teamAStats = teamSessionWinStats.get(teamAKey);
-            if (teamAStats) teamAStats.played++;
-
-            if (!teamSessionWinStats.has(teamBKey)) {
-                const teamBNames = teamBPlayers.map(pId => playerInfoCache.get(pId)?.finalPlayerName || 'N/A');
-                teamSessionWinStats.set(teamBKey, { playerDocIds: teamBPlayers, playerNames: teamBNames, played: 0, won: 0 });
-            }
-            const teamBStats = teamSessionWinStats.get(teamBKey);
-            if (teamBStats) teamBStats.played++;
+            // Verwende nur winnerTeamKey - dies ist das autoritative Feld
+            const actualWinnerTeamKey: 'teamA' | 'teamB' | 'draw' | undefined = sessionData.winnerTeamKey || sessionDocData.winnerTeamKey;
             
-            if (sessionData.winnerTeamKey === 'teamA' && teamAStats) {
-                teamAStats.won++;
-            } else if (sessionData.winnerTeamKey === 'teamB' && teamBStats) {
-                teamBStats.won++;
+            // KORREKTUR: "played" und "won" nur zählen, wenn die Partie NICHT unentschieden ist.
+            if (actualWinnerTeamKey && actualWinnerTeamKey !== 'draw') {
+                if (!teamSessionWinStats.has(teamAKey)) {
+                    const teamANames = teamAPlayers.map(pId => playerInfoCache.get(pId)?.finalPlayerName || 'Unbekannter Spieler');
+                    teamSessionWinStats.set(teamAKey, { playerDocIds: teamAPlayers, playerNames: teamANames, played: 0, won: 0 });
+                }
+                const teamAStats = teamSessionWinStats.get(teamAKey)!;
+                teamAStats.played++;
+
+                if (!teamSessionWinStats.has(teamBKey)) {
+                    const teamBNames = teamBPlayers.map(pId => playerInfoCache.get(pId)?.finalPlayerName || 'Unbekannter Spieler');
+                    teamSessionWinStats.set(teamBKey, { playerDocIds: teamBPlayers, playerNames: teamBNames, played: 0, won: 0 });
+                }
+                const teamBStats = teamSessionWinStats.get(teamBKey)!;
+                teamBStats.played++;
+                
+                if (actualWinnerTeamKey === 'teamA') {
+                    teamAStats.won++;
+                } else if (actualWinnerTeamKey === 'teamB') {
+                    teamBStats.won++;
+                }
             }
         }
 
@@ -572,30 +587,25 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         // calculatedStats.playerWithHighestWinRateGame = null; // Wird jetzt implementiert
         const playerGameWinStats = new Map<string, { played: number, won: number }>(); // Key: playerDocId
         actualParticipantPlayerDocIds.forEach(pDocId => { // authUID -> pDocId
-            if (groupMemberPlayerDocIds.has(pDocId)) { 
-                playerGameWinStats.set(pDocId, { played: 0, won: 0 });
-            }
+            playerGameWinStats.set(pDocId, { played: 0, won: 0 });
         });
 
         for (const game of allGamesWithRoundHistory) {
-            if (!game.finalScores || !game.participantUids) { // participantPlayerDocIds -> participantUids
+            if (!game.finalScores || !game.participantPlayerIds) { // KORREKTUR
                 continue; // Nur Spiele mit Scores und Teilnehmern
             }
-            const currentGameSessionData = game.sessionId ? sessionDataCache.get(game.sessionId) : undefined;
 
             const winningTeamPosition = determineWinningTeam(game.finalScores);
 
-            game.participantUids.forEach(pDocIdFromGame => { // authUidFromGame -> pDocIdFromGame, behandeln als PlayerDocID
-                if (groupMemberPlayerDocIds.has(pDocIdFromGame)) { 
-                    const stats = playerGameWinStats.get(pDocIdFromGame);
-                    if (stats) { 
-                        stats.played++;
+            game.participantPlayerIds.forEach(pDocIdFromGame => { // KORREKTUR
+                const stats = playerGameWinStats.get(pDocIdFromGame);
+                if (stats) { 
+                    stats.played++;
 
-                        if (winningTeamPosition !== 'draw') {
-                            const playerTeam = getPlayerTeamInGame(pDocIdFromGame, game, currentGameSessionData?.teams ?? undefined, currentGameSessionData?.teamScoreMapping);
-                            if (playerTeam === winningTeamPosition) {
-                                stats.won++;
-                            }
+                    if (winningTeamPosition !== 'draw') {
+                        const playerTeam = getPlayerTeamInGame(pDocIdFromGame, game);
+                        if (playerTeam === winningTeamPosition) {
+                            stats.won++;
                         }
                     }
                 }
@@ -603,10 +613,17 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         }
 
         const playerGameWinRateList: GroupStatHighlightPlayer[] = [];
+        
         playerGameWinStats.forEach((stats, pDocId) => { // authUID -> pDocId
             if (stats.played > 0) {
                 const lastMs = playerLastActivityMs.get(pDocId);
                 const playerInfo = playerInfoCache.get(pDocId);
+                
+                // Nur Spieler einschließen, die in den letzten 12 Monaten gespielt haben
+                if (!lastMs || lastMs < oneYearAgo) {
+                    return; // Spieler überspringen
+                }
+                
                 playerGameWinRateList.push({
                     playerId: pDocId, // playerDocId
                     playerName: playerInfo?.finalPlayerName || "Unbekannter Jasser",
@@ -625,186 +642,436 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         });
         calculatedStats.playerWithHighestWinRateGame = playerGameWinRateList;
 
-        // calculatedStats.playerWithHighestMatschRate = null; // Wird jetzt implementiert
-        const teamMatschStats = new Map<string, { playerDocIds: [string, string], playerNames: [string, string], played: number, matschWon: number }>(); // Key: teamKey
+        // BEREINIGTE EVENT-ZÄHLUNG FÜR MATSCH, SCHNEIDER, KONTERMATSCH (SPIELER)
+        const playerEventStats = new Map<string, { played: number, matschMade: number, matschReceived: number, schneiderMade: number, schneiderReceived: number, kontermatschMade: number, kontermatschReceived: number }>();
+        actualParticipantPlayerDocIds.forEach(pDocId => {
+            playerEventStats.set(pDocId, { played: 0, matschMade: 0, matschReceived: 0, schneiderMade: 0, schneiderReceived: 0, kontermatschMade: 0, kontermatschReceived: 0 });
+        });
 
         for (const game of allGamesWithRoundHistory) {
-            if (!game.finalStriche || !game.participantUids || game.participantUids.length !== 4) { // participantPlayerDocIds -> participantUids (twice)
-                continue; // Nur Spiele mit finalStriche und Teilnehmern
-            }
-            const currentGameSessionData = game.sessionId ? sessionDataCache.get(game.sessionId) : undefined;
-            const pids = game.participantUids; // participantPlayerDocIds -> participantUids
+            if (!game.participantPlayerIds) continue;
 
+            game.participantPlayerIds.forEach(pDocId => {
+                playerEventStats.get(pDocId)!.played++;
+            });
+
+            // KORREKTUR: Matsch/Kontermatsch aus roundHistory, Schneider aus finalStriche
+            if (game.roundHistory && Array.isArray(game.roundHistory)) {
+                game.roundHistory.forEach(round => {
+                    if (round.strichInfo?.type && round.strichInfo.team) {
+                        const eventType = round.strichInfo.type;
+                        const eventTeam = round.strichInfo.team;
+
+                        game.participantPlayerIds?.forEach(pDocId => {
+                            const stats = playerEventStats.get(pDocId);
+                            if (stats) {
+                                const playerTeam = getPlayerTeamInGame(pDocId, game);
+                                if (playerTeam) {
+                                    const isReceiver = playerTeam === eventTeam;
+                                    switch (eventType) {
+                                        case 'matsch':
+                                            if (isReceiver) stats.matschMade++; else stats.matschReceived++;
+                                            break;
+                                        // 'schneider' wird hier entfernt, da es ein Game-End-Event ist
+                                        case 'kontermatsch':
+                                            if (isReceiver) stats.kontermatschMade++; else stats.kontermatschReceived++;
+                                            break;
+                                    }
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+
+            // NEU: Korrekte Zählung für Schneider-Events auf Spiel-Ebene basierend auf den Endpunkten
+            if (game.finalScores) { // KORREKTUR: Die Prüfung auf jassTyp wird entfernt
+                const { top: topScore, bottom: bottomScore } = game.finalScores;
+                
+                // Da die Scores variieren, ist die EINZIG sichere Annahme, dass das Verlierer-Team weniger als die Hälfte des Gewinner-Teams hat.
+                const schneiderLimitRatio = 0.5;
+
+                let schneiderReceivedBy: 'top' | 'bottom' | null = null;
+                if (topScore > bottomScore && (bottomScore / topScore) < schneiderLimitRatio) {
+                    schneiderReceivedBy = 'bottom';
+                } else if (bottomScore > topScore && (topScore / bottomScore) < schneiderLimitRatio) {
+                    schneiderReceivedBy = 'top';
+                }
+
+                if (schneiderReceivedBy) {
+                     game.participantPlayerIds?.forEach(pDocId => {
+                        const stats = playerEventStats.get(pDocId);
+                        if (stats) {
+                            const playerTeam = getPlayerTeamInGame(pDocId, game);
+                            if (playerTeam === schneiderReceivedBy) {
+                                stats.schneiderReceived++;
+                            } else {
+                                stats.schneiderMade++;
+                            }
+                        }
+                    });
+                } else {
+                    logger.info(`[Schneider-Check] GameID: ${game.id} SKIPPED (JassTyp: ${game.jassTyp}, HasFinalScores: ${!!game.finalScores})`);
+                }
+            }
+        }
+
+        // --- Matschquote Spieler ---
+        const playerMatschRateList: GroupStatHighlightPlayer[] = [];
+        playerEventStats.forEach((stats, pDocId) => {
+            if (stats.played > 0) {
+                const lastMs = playerLastActivityMs.get(pDocId);
+                const playerInfo = playerInfoCache.get(pDocId);
+                if (!lastMs || lastMs < oneYearAgo) return;
+                playerMatschRateList.push({
+                    playerId: pDocId,
+                    playerName: playerInfo?.finalPlayerName || "Unbekannter Jasser",
+                    value: (stats.matschMade - stats.matschReceived) / stats.played,
+                    eventsPlayed: stats.played,
+                    lastPlayedTimestamp: lastMs ? admin.firestore.Timestamp.fromMillis(lastMs) : null,
+                });
+            }
+        });
+        playerMatschRateList.sort((a, b) => (b.value - a.value) || ((b.eventsPlayed || 0) - (a.eventsPlayed || 0)));
+        calculatedStats.playerWithHighestMatschRate = playerMatschRateList;
+
+        // --- Schneiderquote Spieler ---
+        const playerSchneiderRateList: GroupStatHighlightPlayer[] = [];
+        playerEventStats.forEach((stats, pDocId) => {
+            if (stats.played > 0) {
+                const lastMs = playerLastActivityMs.get(pDocId);
+                const playerInfo = playerInfoCache.get(pDocId);
+                if (!lastMs || lastMs < oneYearAgo) return;
+                playerSchneiderRateList.push({
+                    playerId: pDocId,
+                    playerName: playerInfo?.finalPlayerName || "Unbekannter Jasser",
+                    value: (stats.schneiderMade - stats.schneiderReceived) / stats.played,
+                    eventsPlayed: stats.played,
+                    lastPlayedTimestamp: lastMs ? admin.firestore.Timestamp.fromMillis(lastMs) : null,
+                });
+            }
+        });
+        playerSchneiderRateList.sort((a, b) => (b.value - a.value) || ((b.eventsPlayed || 0) - (a.eventsPlayed || 0)));
+        calculatedStats.playerWithHighestSchneiderRate = playerSchneiderRateList;
+
+        // --- Kontermatschquote Spieler ---
+        const playerKontermatschRateList: GroupStatHighlightPlayer[] = [];
+        playerEventStats.forEach((stats, pDocId) => {
+            if (stats.played > 0) {
+                const lastMs = playerLastActivityMs.get(pDocId);
+                const playerInfo = playerInfoCache.get(pDocId);
+                if (!lastMs || lastMs < oneYearAgo) return;
+                playerKontermatschRateList.push({
+                    playerId: pDocId,
+                    playerName: playerInfo?.finalPlayerName || "Unbekannter Jasser",
+                    value: (stats.kontermatschMade - stats.kontermatschReceived) / stats.played,
+                    eventsPlayed: stats.played,
+                    lastPlayedTimestamp: lastMs ? admin.firestore.Timestamp.fromMillis(lastMs) : null,
+                });
+            }
+        });
+        playerKontermatschRateList.sort((a, b) => (b.value - a.value) || ((b.eventsPlayed || 0) - (a.eventsPlayed || 0)));
+        calculatedStats.playerWithHighestKontermatschRate = playerKontermatschRateList;
+
+
+        // BEREINIGTE EVENT-ZÄHLUNG FÜR MATSCH, SCHNEIDER, KONTERMATSCH (TEAMS)
+        const teamEventStats = new Map<string, { playerDocIds: [string, string], playerNames: [string, string], played: number, matschMade: number, matschReceived: number, schneiderMade: number, schneiderReceived: number, kontermatschMade: number, kontermatschReceived: number }>();
+
+        for (const game of allGamesWithRoundHistory) {
+            if (!game.participantPlayerIds || game.participantPlayerIds.length !== 4) continue;
+            
+            const pids = game.participantPlayerIds;
             const teamAPidsSorted = [pids[0], pids[2]].sort() as [string, string];
             const teamBPidsSorted = [pids[1], pids[3]].sort() as [string, string];
             const teamAKey = `${teamAPidsSorted[0]}_${teamAPidsSorted[1]}`;
             const teamBKey = `${teamBPidsSorted[0]}_${teamBPidsSorted[1]}`;
-            const teamANames: [string, string] = [playerInfoCache.get(teamAPidsSorted[0])?.finalPlayerName || 'Sp X', playerInfoCache.get(teamAPidsSorted[1])?.finalPlayerName || 'Sp Y']; // livePlayerNamesMap -> playerInfoCache
-            const teamBNames: [string, string] = [playerInfoCache.get(teamBPidsSorted[0])?.finalPlayerName || 'Sp Z', playerInfoCache.get(teamBPidsSorted[1])?.finalPlayerName || 'Sp W']; // livePlayerNamesMap -> playerInfoCache
-
-            if (!teamMatschStats.has(teamAKey)) {
-                teamMatschStats.set(teamAKey, { playerDocIds: teamAPidsSorted, playerNames: teamANames, played: 0, matschWon: 0 }); // playerIds -> playerDocIds
+            
+            if (!teamEventStats.has(teamAKey)) {
+                const teamANames: [string, string] = [playerInfoCache.get(teamAPidsSorted[0])?.finalPlayerName || 'Sp X', playerInfoCache.get(teamAPidsSorted[1])?.finalPlayerName || 'Sp Y'];
+                teamEventStats.set(teamAKey, { playerDocIds: teamAPidsSorted, playerNames: teamANames, played: 0, matschMade: 0, matschReceived: 0, schneiderMade: 0, schneiderReceived: 0, kontermatschMade: 0, kontermatschReceived: 0 });
             }
-            const teamAStats = teamMatschStats.get(teamAKey);
-            if (teamAStats) teamAStats.played++;
-
-            if (!teamMatschStats.has(teamBKey)) {
-                teamMatschStats.set(teamBKey, { playerDocIds: teamBPidsSorted, playerNames: teamBNames, played: 0, matschWon: 0 }); // playerIds -> playerDocIds
+            if (!teamEventStats.has(teamBKey)) {
+                const teamBNames: [string, string] = [playerInfoCache.get(teamBPidsSorted[0])?.finalPlayerName || 'Sp Z', playerInfoCache.get(teamBPidsSorted[1])?.finalPlayerName || 'Sp W'];
+                teamEventStats.set(teamBKey, { playerDocIds: teamBPidsSorted, playerNames: teamBNames, played: 0, matschMade: 0, matschReceived: 0, schneiderMade: 0, schneiderReceived: 0, kontermatschMade: 0, kontermatschReceived: 0 });
             }
-            const teamBStats = teamMatschStats.get(teamBKey);
-            if (teamBStats) teamBStats.played++;
 
-            const topTeamScoredMatsch = (game.finalStriche.top?.matsch || 0) > 0;
-            const bottomTeamScoredMatsch = (game.finalStriche.bottom?.matsch || 0) > 0;
-
-            if (topTeamScoredMatsch || bottomTeamScoredMatsch) {
-                const teamAPosition = getPlayerTeamInGame(pids[0], game, currentGameSessionData?.teams ?? undefined, currentGameSessionData?.teamScoreMapping);
-                const teamBPosition = getPlayerTeamInGame(pids[1], game, currentGameSessionData?.teams ?? undefined, currentGameSessionData?.teamScoreMapping);
-
-                if (teamAStats) {
-                    if (teamAPosition === 'top' && topTeamScoredMatsch) {
-                        teamAStats.matschWon++;
-                    } else if (teamAPosition === 'bottom' && bottomTeamScoredMatsch) {
-                        teamAStats.matschWon++;
+            const teamAStats = teamEventStats.get(teamAKey)!;
+            const teamBStats = teamEventStats.get(teamBKey)!;
+            teamAStats.played++;
+            teamBStats.played++;
+            
+            // KORREKTUR: Matsch/Kontermatsch aus roundHistory, Schneider aus finalStriche
+            if (game.roundHistory && Array.isArray(game.roundHistory)) {
+                const teamAPosition = getPlayerTeamInGame(pids[0], game);
+                
+                game.roundHistory.forEach(round => {
+                    if (round.strichInfo?.type && round.strichInfo.team) {
+                        const eventType = round.strichInfo.type;
+                        const eventTeam = round.strichInfo.team;
+                        
+                        if (teamAPosition) {
+                            const isTeamAEventReceiver = teamAPosition === eventTeam;
+                            switch (eventType) {
+                                case 'matsch':
+                                    if(isTeamAEventReceiver) { teamAStats.matschMade++; teamBStats.matschReceived++; } else { teamAStats.matschReceived++; teamBStats.matschMade++; }
+                                    break;
+                                // 'schneider' wird hier entfernt
+                                case 'kontermatsch':
+                                     if(isTeamAEventReceiver) { teamAStats.kontermatschMade++; teamBStats.kontermatschReceived++; } else { teamAStats.kontermatschReceived++; teamBStats.kontermatschMade++; }
+                                    break;
+                            }
+                        }
                     }
+                });
+            }
+
+            // NEU: Korrekte Zählung für Schneider-Events für Teams auf Spiel-Ebene basierend auf den Endpunkten
+            if (game.finalScores) { // KORREKTUR: Die Prüfung auf jassTyp wird entfernt
+                const { top: topScore, bottom: bottomScore } = game.finalScores;
+                const schneiderLimitRatio = 0.5;
+
+                let schneiderReceiver: 'top' | 'bottom' | null = null;
+                if (topScore > bottomScore && (bottomScore / topScore) < schneiderLimitRatio) {
+                    schneiderReceiver = 'bottom';
+                } else if (bottomScore > topScore && (topScore / bottomScore) < schneiderLimitRatio) {
+                    schneiderReceiver = 'top';
                 }
 
-                // Prüfe Team B separat, da Teams nicht unbedingt komplementär sind, falls getPlayerTeamInGame für einen Spieler null liefert
-                if (teamBStats) {
-                    if (teamBPosition === 'top' && topTeamScoredMatsch) {
-                        teamBStats.matschWon++;
-                    } else if (teamBPosition === 'bottom' && bottomTeamScoredMatsch) {
-                        teamBStats.matschWon++;
+                if (schneiderReceiver) {
+                    const teamAPosition = getPlayerTeamInGame(pids[0], game);
+                    if (teamAPosition === schneiderReceiver) {
+                        teamAStats.schneiderReceived++;
+                        teamBStats.schneiderMade++;
+                    } else {
+                        teamAStats.schneiderMade++;
+                        teamBStats.schneiderReceived++;
                     }
                 }
             }
         }
 
+        // --- Team-Quoten ---
         const teamMatschRateList: GroupStatHighlightTeam[] = [];
-        teamMatschStats.forEach((stats) => {
+        const teamSchneiderRateList: GroupStatHighlightTeam[] = [];
+        const teamKontermatschRateList: GroupStatHighlightTeam[] = [];
+
+        teamEventStats.forEach((stats) => {
             if (stats.played > 0) {
-                teamMatschRateList.push({
+                teamMatschRateList.push({ names: stats.playerNames, value: (stats.matschMade - stats.matschReceived) / stats.played, eventsPlayed: stats.played });
+                teamSchneiderRateList.push({ names: stats.playerNames, value: (stats.schneiderMade - stats.schneiderReceived) / stats.played, eventsPlayed: stats.played });
+                teamKontermatschRateList.push({ names: stats.playerNames, value: (stats.kontermatschMade - stats.kontermatschReceived) / stats.played, eventsPlayed: stats.played });
+            }
+        });
+
+        const sortTeamList = (a: GroupStatHighlightTeam, b: GroupStatHighlightTeam) => (b.value as number - (a.value as number)) || ((b.eventsPlayed || 0) - (a.eventsPlayed || 0));
+        teamMatschRateList.sort(sortTeamList);
+        teamSchneiderRateList.sort(sortTeamList);
+        teamKontermatschRateList.sort(sortTeamList);
+
+        calculatedStats.teamWithHighestMatschRate = teamMatschRateList;
+        calculatedStats.teamWithHighestSchneiderRate = teamSchneiderRateList;
+        calculatedStats.teamWithHighestKontermatschRate = teamKontermatschRateList;
+
+        // 3. playerWithMostWeisPointsAvg - Spieler-Weispunkte-Durchschnitt
+        const playerWeisStats = new Map<string, { totalWeis: number, gamesPlayed: number }>();
+        actualParticipantPlayerDocIds.forEach(pDocId => {
+            // KORREKTUR: Initialisiere für JEDEN Spieler, der je gespielt hat
+            playerWeisStats.set(pDocId, { totalWeis: 0, gamesPlayed: 0 });
+        });
+
+        for (const game of allGamesWithRoundHistory) {
+            if (!game.participantPlayerIds) continue;
+
+            game.participantPlayerIds.forEach(pDocId => {
+                // Logik ist hier bereits korrekt, da sie nicht auf groupMemberPlayerDocIds prüft
+                const stats = playerWeisStats.get(pDocId);
+                if (stats) {
+                    stats.gamesPlayed++;
+                    const playerTeam = getPlayerTeamInGame(pDocId, game);
+                    if (playerTeam) {
+                        stats.totalWeis += extractWeisPointsFromGameData(playerTeam, game);
+                    }
+                }
+            });
+        }
+
+        const playerWeisAvgList: GroupStatHighlightPlayer[] = [];
+        playerWeisStats.forEach((stats, pDocId) => {
+            if (stats.gamesPlayed > 0) {
+                const lastMs = playerLastActivityMs.get(pDocId);
+                const playerInfo = playerInfoCache.get(pDocId);
+                
+                // Nur Spieler einschließen, die in den letzten 12 Monaten gespielt haben
+                if (!lastMs || lastMs < oneYearAgo) {
+                    return; // Spieler überspringen
+                }
+                
+                playerWeisAvgList.push({
+                    playerId: pDocId,
+                    playerName: playerInfo?.finalPlayerName || "Unbekannter Jasser",
+                    value: parseFloat((stats.totalWeis / stats.gamesPlayed).toFixed(1)),
+                    eventsPlayed: stats.gamesPlayed,
+                    lastPlayedTimestamp: lastMs ? admin.firestore.Timestamp.fromMillis(lastMs) : null,
+                });
+            }
+        });
+        playerWeisAvgList.sort((a, b) => {
+            if (b.value !== a.value) return b.value - a.value;
+            return (b.eventsPlayed || 0) - (a.eventsPlayed || 0);
+        });
+        calculatedStats.playerWithMostWeisPointsAvg = playerWeisAvgList;
+
+        // 4. Rundenzeiten-Statistiken
+        const playerRoundTimeStats = new Map<string, number[]>(); // Speichert alle Rundenzeiten
+        actualParticipantPlayerDocIds.forEach(pDocId => {
+            // KORREKTUR: Initialisiere für JEDEN Spieler, der je gespielt hat
+            playerRoundTimeStats.set(pDocId, []);
+        });
+
+        for (const game of allGamesWithRoundHistory) {
+            if (!game.roundHistory || !game.participantPlayerIds) continue;
+            
+            game.roundHistory.forEach(round => {
+                if (round.actionType === 'jass' && typeof round.currentPlayer === 'number' && game.participantPlayerIds) {
+                    const playerIndex = round.currentPlayer - 1; // 1-based zu 0-based
+                    if (playerIndex >= 0 && playerIndex < game.participantPlayerIds.length) {
+                        const pDocId = game.participantPlayerIds[playerIndex];
+                        // Logik ist hier bereits korrekt, da sie nicht auf groupMemberPlayerDocIds prüft
+                        if (game.durationMillis) {
+                            // Vereinfachte Rundenzeitberechnung: Gesamtzeit / Anzahl Runden
+                            const avgRoundTime = game.durationMillis / game.roundHistory.length;
+                            playerRoundTimeStats.get(pDocId)?.push(avgRoundTime);
+                        }
+                    }
+                }
+            });
+        }
+
+        const playerAllRoundTimesList: (GroupStatHighlightPlayer & { displayValue?: string })[] = [];
+        const fastestList: GroupStatHighlightPlayer[] = [];
+        const slowestList: GroupStatHighlightPlayer[] = [];
+
+        playerRoundTimeStats.forEach((times, pDocId) => {
+            if (times.length > 0) {
+                const avgTime = times.reduce((sum, time) => sum + time, 0) / times.length;
+                const lastMs = playerLastActivityMs.get(pDocId);
+                const playerInfo = playerInfoCache.get(pDocId);
+                
+                // Nur Spieler einschließen, die in den letzten 12 Monaten gespielt haben
+                if (!lastMs || lastMs < oneYearAgo) {
+                    return; // Spieler überspringen
+                }
+                
+                const displayValue = `${Math.round(avgTime / 1000)}s`;
+
+                const player = {
+                    playerId: pDocId,
+                    playerName: playerInfo?.finalPlayerName || "Unbekannter Jasser",
+                    value: avgTime,
+                    eventsPlayed: times.length,
+                    lastPlayedTimestamp: lastMs ? admin.firestore.Timestamp.fromMillis(lastMs) : null,
+                    displayValue: displayValue
+                };
+
+                playerAllRoundTimesList.push(player);
+                fastestList.push({ ...player });
+                slowestList.push({ ...player });
+            }
+        });
+
+        // Sortierungen
+        playerAllRoundTimesList.sort((a, b) => a.value - b.value);
+        fastestList.sort((a, b) => a.value - b.value);
+        slowestList.sort((a, b) => b.value - a.value);
+
+        calculatedStats.playerAllRoundTimes = playerAllRoundTimesList;
+        calculatedStats.playerWithFastestRounds = fastestList;
+        calculatedStats.playerWithSlowestRounds = slowestList;
+
+        // 5. teamWithHighestWinRateGame - Team-Spiel-Siegquote
+        const teamGameWinStats = new Map<string, { playerDocIds: [string, string], playerNames: [string, string], played: number, won: number }>();
+
+        for (const game of allGamesWithRoundHistory) {
+            if (!game.finalScores || !game.participantPlayerIds || game.participantPlayerIds.length !== 4) continue;
+            const pids = game.participantPlayerIds;
+
+            const teamAPidsSorted = [pids[0], pids[2]].sort() as [string, string];
+            const teamBPidsSorted = [pids[1], pids[3]].sort() as [string, string];
+            const teamAKey = `${teamAPidsSorted[0]}_${teamAPidsSorted[1]}`;
+            const teamBKey = `${teamBPidsSorted[0]}_${teamBPidsSorted[1]}`;
+
+            const teamANames: [string, string] = [
+                playerInfoCache.get(teamAPidsSorted[0])?.finalPlayerName || 'Sp X',
+                playerInfoCache.get(teamAPidsSorted[1])?.finalPlayerName || 'Sp Y'
+            ];
+            const teamBNames: [string, string] = [
+                playerInfoCache.get(teamBPidsSorted[0])?.finalPlayerName || 'Sp Z',
+                playerInfoCache.get(teamBPidsSorted[1])?.finalPlayerName || 'Sp W'
+            ];
+
+            // Initialisiere Teams
+            if (!teamGameWinStats.has(teamAKey)) {
+                teamGameWinStats.set(teamAKey, { playerDocIds: teamAPidsSorted, playerNames: teamANames, played: 0, won: 0 });
+            }
+            if (!teamGameWinStats.has(teamBKey)) {
+                teamGameWinStats.set(teamBKey, { playerDocIds: teamBPidsSorted, playerNames: teamBNames, played: 0, won: 0 });
+            }
+
+            const teamAStats = teamGameWinStats.get(teamAKey);
+            const teamBStats = teamGameWinStats.get(teamBKey);
+            if (teamAStats) teamAStats.played++;
+            if (teamBStats) teamBStats.played++;
+
+            // Gewinner bestimmen
+            const winningTeam = determineWinningTeam(game.finalScores);
+            if (winningTeam !== 'draw') {
+                const teamAPosition = getPlayerTeamInGame(pids[0], game);
+                const teamBPosition = getPlayerTeamInGame(pids[1], game);
+
+                if (teamAStats && teamAPosition === winningTeam) teamAStats.won++;
+                if (teamBStats && teamBPosition === winningTeam) teamBStats.won++;
+            }
+        }
+
+        const teamGameWinRateList: GroupStatHighlightTeam[] = [];
+        teamGameWinStats.forEach((stats) => {
+            if (stats.played > 0) {
+                teamGameWinRateList.push({
                     names: stats.playerNames,
-                    value: parseFloat((stats.matschWon / stats.played).toFixed(2)),
+                    value: parseFloat((stats.won / stats.played).toFixed(2)),
                     eventsPlayed: stats.played,
                 });
             }
         });
-
-        teamMatschRateList.sort((a, b) => {
+        teamGameWinRateList.sort((a, b) => {
             const valA = typeof a.value === 'number' ? a.value : 0;
             const valB = typeof b.value === 'number' ? b.value : 0;
-            if (valB !== valA) {
-                return valB - valA;
-            }
+            if (valB !== valA) return valB - valA;
             return (b.eventsPlayed || 0) - (a.eventsPlayed || 0);
         });
-        calculatedStats.teamWithHighestMatschRate = teamMatschRateList;
+        calculatedStats.teamWithHighestWinRateGame = teamGameWinRateList;
 
-        // calculatedStats.teamWithMostWeisPointsAvg = null; // Wird jetzt implementiert
-        const teamWeisStats = new Map<string, { playerDocIds: [string, string], playerNames: string[], totalWeis: number, gamesPlayed: number }>(); // playerIds -> playerDocIds, playerNames zu string[] geändert
-
-        for (const game of allGamesWithRoundHistory) {
-            if (!game.participantUids || game.participantUids.length !== 4) { // participantPlayerDocIds -> participantUids
-                continue; 
-            }
-            const currentGameSessionData = game.sessionId ? sessionDataCache.get(game.sessionId) : undefined;
-            const pids = game.participantUids; // participantPlayerDocIds -> participantUids
-
-            const teamAPidsSorted = [pids[0], pids[2]].sort() as [string, string];
-            const teamBPidsSorted = [pids[1], pids[3]].sort() as [string, string];
-            const teamAKey = `${teamAPidsSorted[0]}_${teamAPidsSorted[1]}`;
-            const teamBKey = `${teamBPidsSorted[0]}_${teamBPidsSorted[1]}`;
-            const teamANames: string[] = [playerInfoCache.get(teamAPidsSorted[0])?.finalPlayerName || 'Sp X', playerInfoCache.get(teamAPidsSorted[1])?.finalPlayerName || 'Sp Y']; // livePlayerNamesMap -> playerInfoCache, Typ zu string[]
-            const teamBNames: string[] = [playerInfoCache.get(teamBPidsSorted[0])?.finalPlayerName || 'Sp Z', playerInfoCache.get(teamBPidsSorted[1])?.finalPlayerName || 'Sp W']; // livePlayerNamesMap -> playerInfoCache, Typ zu string[]
-
-            if (!teamWeisStats.has(teamAKey)) {
-                teamWeisStats.set(teamAKey, { playerDocIds: teamAPidsSorted, playerNames: teamANames, totalWeis: 0, gamesPlayed: 0 }); // playerIds -> playerDocIds
-            }
-            const teamAWeisStats = teamWeisStats.get(teamAKey);
-            if (teamAWeisStats) teamAWeisStats.gamesPlayed++;
-
-            if (!teamWeisStats.has(teamBKey)) {
-                teamWeisStats.set(teamBKey, { playerDocIds: teamBPidsSorted, playerNames: teamBNames, totalWeis: 0, gamesPlayed: 0 }); // playerIds -> playerDocIds
-            }
-            const teamBWeisStats = teamWeisStats.get(teamBKey);
-            if (teamBWeisStats) teamBWeisStats.gamesPlayed++;
-
-            const teamAPosition = getPlayerTeamInGame(pids[0], game, currentGameSessionData?.teams ?? undefined, currentGameSessionData?.teamScoreMapping);
-            const teamBPosition = getPlayerTeamInGame(pids[1], game, currentGameSessionData?.teams ?? undefined, currentGameSessionData?.teamScoreMapping);
-
-            if (teamAPosition && teamAWeisStats) {
-                const weisTeamA = extractWeisPointsFromGameData(teamAPosition, game);
-                teamAWeisStats.totalWeis += weisTeamA;
-            }
-            if (teamBPosition && teamBWeisStats) {
-                const weisTeamB = extractWeisPointsFromGameData(teamBPosition, game);
-                teamBWeisStats.totalWeis += weisTeamB;
-            }
-        }
-
-        const teamAvgWeisList: GroupStatHighlightTeam[] = [];
-        teamWeisStats.forEach((stats) => {
-            if (stats.gamesPlayed > 0) {
-                teamAvgWeisList.push({
-                    names: stats.playerNames,
-                    value: parseFloat((stats.totalWeis / stats.gamesPlayed).toFixed(1)),
-                    eventsPlayed: stats.gamesPlayed,
-                });
-            }
-        });
-
-        teamAvgWeisList.sort((a, b) => {
-            const valA = typeof a.value === 'number' ? a.value : 0;
-            const valB = typeof b.value === 'number' ? b.value : 0;
-            if (valB !== valA) {
-                return valB - valA;
-            }
-            return (b.eventsPlayed || 0) - (a.eventsPlayed || 0);
-        });
-        calculatedStats.teamWithMostWeisPointsAvg = teamAvgWeisList;
-
-        // NEU: Trumpfstatistiken für die Gruppe aus Spielerstatistiken aggregieren
+        // --- FINALE, KORREKTE TRUMPF-BERECHNUNG AUS ROHDATEN ---
         const gruppeTrumpfStatistik: { [farbe: string]: number } = {};
         let gruppeTotalTrumpfCount = 0;
 
-        // Aggregiere Trumpfstatistiken aus allen playerComputedStats der Gruppenmitglieder
-        try {
-            const playerStatsPromises = Array.from(groupMemberPlayerDocIds).map(async (playerDocId) => {
-                try {
-                    const playerStatsDoc = await db.collection('playerComputedStats').doc(playerDocId).get();
-                    if (playerStatsDoc.exists) {
-                        const playerStats = playerStatsDoc.data();
-                        return {
-                            playerId: playerDocId,
-                            trumpfStatistik: playerStats?.trumpfStatistik || {},
-                            totalTrumpfCount: playerStats?.totalTrumpfCount || 0
-                        };
+        for (const game of allGamesWithRoundHistory) {
+            // Analysiere die roundHistory für jedes Spiel
+            if (game.roundHistory && Array.isArray(game.roundHistory)) {
+                game.roundHistory.forEach(round => {
+                    // Zähle nur Runden vom Typ 'jass' mit einer gültigen Trumpffarbe
+                    if (round.actionType === 'jass' && round.farbe && typeof round.farbe === 'string') {
+                        const farbe = round.farbe.toLowerCase();
+                        gruppeTrumpfStatistik[farbe] = (gruppeTrumpfStatistik[farbe] || 0) + 1;
+                        gruppeTotalTrumpfCount++;
                     }
-                } catch (error) {
-                    logger.warn(`[calculateGroupStatisticsInternal] Error loading player stats for ${playerDocId}: ${error}`);
-                }
-                return null;
-            });
-
-            const playerStatsResults = await Promise.all(playerStatsPromises);
-            
-            playerStatsResults.forEach(playerStats => {
-                if (playerStats && playerStats.trumpfStatistik) {
-                    Object.entries(playerStats.trumpfStatistik).forEach(([farbe, count]) => {
-                        const countNum = typeof count === 'number' ? count : 0;
-                        gruppeTrumpfStatistik[farbe] = (gruppeTrumpfStatistik[farbe] || 0) + countNum;
-                    });
-                    gruppeTotalTrumpfCount += playerStats.totalTrumpfCount;
-                }
-            });
-        } catch (error) {
-            logger.error(`[calculateGroupStatisticsInternal] Error aggregating trumpf statistics: ${error}`);
+                });
+            }
         }
 
         calculatedStats.trumpfStatistik = gruppeTrumpfStatistik;
         calculatedStats.totalTrumpfCount = gruppeTotalTrumpfCount;
-
+        
         logger.info(`[calculateGroupStatisticsInternal] Successfully calculated team statistics for groupId: ${groupId}`);
         return calculatedStats;
     } catch (error) {

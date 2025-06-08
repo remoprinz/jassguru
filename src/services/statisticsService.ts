@@ -189,9 +189,11 @@ export interface GroupStatistics {
   // Spieler-Highlights - jetzt potenziell Arrays
   playerWithMostGames: HighlightPlayer[] | null;
   playerWithHighestStricheDiff: HighlightPlayer[] | null; // Bleibt erstmal so, da absoluter Wert
-  playerWithHighestWinRateSession: HighlightPlayer[] | null;
   playerWithHighestWinRateGame: HighlightPlayer[] | null;
   playerWithHighestMatschRate: HighlightPlayer[] | null;
+  playerWithHighestSchneiderRate: HighlightPlayer[] | null;
+  playerWithHighestKontermatschRate: HighlightPlayer[] | null;
+  playerWithHighestWinRateSession: HighlightPlayer[] | null;
   playerWithMostWeisPointsAvg: HighlightPlayer[] | null;
   playerWithFastestRounds: HighlightPlayer[] | null; // NEU: Spieler mit schnellsten Runden
   playerWithSlowestRounds: HighlightPlayer[] | null; // NEU: Spieler mit langsamsten Runden
@@ -203,6 +205,8 @@ export interface GroupStatistics {
   teamWithHighestWinRateSession: HighlightTeam[] | null;
   teamWithHighestWinRateGame: HighlightTeam[] | null;
   teamWithHighestMatschRate: HighlightTeam[] | null;
+  teamWithHighestSchneiderRate: HighlightTeam[] | null;
+  teamWithHighestKontermatschRate: HighlightTeam[] | null;
   teamWithMostWeisPointsAvg: HighlightTeam[] | null;
 }
 
@@ -263,9 +267,11 @@ export function createEmptyStatistics(): GroupStatistics {
     totalTrumpfCount: 0,
     playerWithMostGames: null,
     playerWithHighestStricheDiff: null,
-    playerWithHighestWinRateSession: null,
     playerWithHighestWinRateGame: null,
     playerWithHighestMatschRate: null,
+    playerWithHighestSchneiderRate: null,
+    playerWithHighestKontermatschRate: null,
+    playerWithHighestWinRateSession: null,
     playerWithMostWeisPointsAvg: null,
     playerWithFastestRounds: null,
     playerWithSlowestRounds: null,
@@ -273,6 +279,8 @@ export function createEmptyStatistics(): GroupStatistics {
     teamWithHighestWinRateSession: null,
     teamWithHighestWinRateGame: null,
     teamWithHighestMatschRate: null,
+    teamWithHighestSchneiderRate: null,
+    teamWithHighestKontermatschRate: null,
     teamWithMostWeisPointsAvg: null,
   };
 }
@@ -338,17 +346,21 @@ export const fetchGroupStatistics = async (groupId: string, groupMainLocationZip
       
       playerWithMostGames: transformPlayerHighlights(backendData.playerWithMostGames),
       playerWithHighestStricheDiff: transformPlayerHighlights(backendData.playerWithHighestStricheDiff),
-      playerWithHighestWinRateSession: transformPlayerHighlights(backendData.playerWithHighestWinRateSession),
       playerWithHighestWinRateGame: transformPlayerHighlights(backendData.playerWithHighestWinRateGame),
       playerWithHighestMatschRate: transformPlayerHighlights(backendData.playerWithHighestMatschRate),
+      playerWithHighestSchneiderRate: transformPlayerHighlights(backendData.playerWithHighestSchneiderRate),
+      playerWithHighestKontermatschRate: transformPlayerHighlights(backendData.playerWithHighestKontermatschRate),
+      playerWithHighestWinRateSession: transformPlayerHighlights(backendData.playerWithHighestWinRateSession),
       playerWithMostWeisPointsAvg: transformPlayerHighlights(backendData.playerWithMostWeisPointsAvg),
-      playerWithFastestRounds: transformPlayerHighlights(backendData.playerWithFastestRounds), // Bleibt null, falls im Backend null
-      playerWithSlowestRounds: transformPlayerHighlights(backendData.playerWithSlowestRounds), // Bleibt null, falls im Backend null
-      playerAllRoundTimes: transformPlayerHighlights(backendData.playerAllRoundTimes),
+      playerWithFastestRounds: transformPlayerHighlights(backendData.playerWithFastestRounds),
+      playerWithSlowestRounds: transformPlayerHighlights(backendData.playerWithSlowestRounds),
+      playerAllRoundTimes: transformPlayerHighlights(backendData.playerAllRoundTimes as unknown as BackendHighlightPlayer[]),
       
       teamWithHighestWinRateSession: transformTeamHighlights(backendData.teamWithHighestWinRateSession),
       teamWithHighestWinRateGame: transformTeamHighlights(backendData.teamWithHighestWinRateGame),
       teamWithHighestMatschRate: transformTeamHighlights(backendData.teamWithHighestMatschRate),
+      teamWithHighestSchneiderRate: transformTeamHighlights(backendData.teamWithHighestSchneiderRate),
+      teamWithHighestKontermatschRate: transformTeamHighlights(backendData.teamWithHighestKontermatschRate),
       teamWithMostWeisPointsAvg: transformTeamHighlights(backendData.teamWithMostWeisPointsAvg),
     };
 
@@ -433,7 +445,7 @@ export function createEmptyPlayerStatistics(): PlayerStatistics {
 
 // Hilfsfunktion zum Bestimmen des Teams eines Spielers in einer Session
 function getPlayerTeamInSession(playerId: string, session: SessionSummary): 'top' | 'bottom' | null {
-  // Prüfe zuerst, ob wir die Team-Struktur aus dem teams-Objekt lesen können - höchste Priorität
+  // Prüfe zuerst, ob wir die Team-Struktur aus dem teams-objekt lesen können - höchste Priorität
   if (session.teams && typeof session.teams === 'object') {
     const teamsData = session.teams as any;
     

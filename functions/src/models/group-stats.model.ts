@@ -20,76 +20,71 @@ export interface GroupStatHighlightTeam {
 }
 
 export interface GroupComputedStats {
-  // Metadaten
-  lastUpdateTimestamp: admin.firestore.Timestamp;
-  groupId: string;
-
-  // Gruppenübersicht
+  groupId: string | null;
+  lastUpdateTimestamp: admin.firestore.Timestamp | null;
   memberCount: number;
   sessionCount: number;
   gameCount: number;
-  totalPlayTimeSeconds: number; // Im Backend als Sekunden speichern
-  firstJassTimestamp: admin.firestore.Timestamp | null;
-  lastJassTimestamp: admin.firestore.Timestamp | null;
-  hauptspielortName: string | null;
-
-  // Durchschnittswerte (als Zahlen speichern, Formatierung im Frontend)
+  totalPlayTimeSeconds: number;
   avgSessionDurationSeconds: number;
   avgGameDurationSeconds: number;
   avgGamesPerSession: number;
   avgRoundsPerGame: number;
-  avgMatschPerGame: number;
   avgRoundDurationSeconds: number;
+  avgMatschPerGame: number;
+  firstJassTimestamp: admin.firestore.Timestamp | null;
+  lastJassTimestamp: admin.firestore.Timestamp | null;
+  hauptspielortName: string | null;
 
-  // NEU: Trumpffarben-Statistik als Map für atomare Updates
-  trumpfStatistik: { [key: string]: number };
-  totalTrumpfCount: number;
-
-  // Spieler-Highlights - Direkte Speicherung der Top-Listen
+  // --- Statistiken zu den Spielern ---
   playerWithMostGames: GroupStatHighlightPlayer[] | null;
   playerWithHighestStricheDiff: GroupStatHighlightPlayer[] | null;
   playerWithHighestWinRateSession: GroupStatHighlightPlayer[] | null;
   playerWithHighestWinRateGame: GroupStatHighlightPlayer[] | null;
   playerWithHighestMatschRate: GroupStatHighlightPlayer[] | null;
+  playerWithHighestSchneiderRate: GroupStatHighlightPlayer[] | null;
+  playerWithHighestKontermatschRate: GroupStatHighlightPlayer[] | null;
   playerWithMostWeisPointsAvg: GroupStatHighlightPlayer[] | null;
-  playerWithFastestRounds: GroupStatHighlightPlayer[] | null; // Speichert { name, value: milliseconds, displayValue: string }
-  playerWithSlowestRounds: GroupStatHighlightPlayer[] | null; // Speichert { name, value: milliseconds, displayValue: string }
-  playerAllRoundTimes: (GroupStatHighlightPlayer & { displayValue?: string })[] | null; // value als Millisekunden
-
-  // Team-Highlights - Direkte Speicherung der Top-Listen
+  playerWithFastestRounds: GroupStatHighlightPlayer[] | null;
+  playerWithSlowestRounds: GroupStatHighlightPlayer[] | null;
+  playerAllRoundTimes: GroupStatHighlightPlayer[] | null;
+  
+  // --- Statistiken zu den Teams ---
   teamWithHighestWinRateSession: GroupStatHighlightTeam[] | null;
   teamWithHighestWinRateGame: GroupStatHighlightTeam[] | null;
   teamWithHighestMatschRate: GroupStatHighlightTeam[] | null;
+  teamWithHighestSchneiderRate: GroupStatHighlightTeam[] | null;
+  teamWithHighestKontermatschRate: GroupStatHighlightTeam[] | null;
   teamWithMostWeisPointsAvg: GroupStatHighlightTeam[] | null;
 
-  // TODO: Basisdaten für eventuelle clientseitige Ad-hoc-Analysen oder Filter, falls die festen Highlights nicht reichen
-  // Evtl. eine Map von playerAggregates und teamAggregates ähnlich wie in PlayerComputedStats,
-  // aber für den Moment fokussieren wir uns auf die Reproduktion der bestehenden Frontend-Statistiken.
+  // --- Trumpf-Statistiken ---
+  trumpfStatistik: { [key: string]: number } | null;
+  totalTrumpfCount: number;
 }
 
 export const initialGroupComputedStats: GroupComputedStats = {
-  lastUpdateTimestamp: admin.firestore.Timestamp.now(),
-  groupId: "",
+  groupId: null,
+  lastUpdateTimestamp: null,
   memberCount: 0,
   sessionCount: 0,
   gameCount: 0,
   totalPlayTimeSeconds: 0,
-  firstJassTimestamp: null,
-  lastJassTimestamp: null,
-  hauptspielortName: null,
   avgSessionDurationSeconds: 0,
   avgGameDurationSeconds: 0,
   avgGamesPerSession: 0,
   avgRoundsPerGame: 0,
-  avgMatschPerGame: 0,
   avgRoundDurationSeconds: 0,
-  trumpfStatistik: {},
-  totalTrumpfCount: 0,
+  avgMatschPerGame: 0,
+  firstJassTimestamp: null,
+  lastJassTimestamp: null,
+  hauptspielortName: null,
   playerWithMostGames: null,
   playerWithHighestStricheDiff: null,
   playerWithHighestWinRateSession: null,
   playerWithHighestWinRateGame: null,
   playerWithHighestMatschRate: null,
+  playerWithHighestSchneiderRate: null,
+  playerWithHighestKontermatschRate: null,
   playerWithMostWeisPointsAvg: null,
   playerWithFastestRounds: null,
   playerWithSlowestRounds: null,
@@ -97,5 +92,9 @@ export const initialGroupComputedStats: GroupComputedStats = {
   teamWithHighestWinRateSession: null,
   teamWithHighestWinRateGame: null,
   teamWithHighestMatschRate: null,
+  teamWithHighestSchneiderRate: null,
+  teamWithHighestKontermatschRate: null,
   teamWithMostWeisPointsAvg: null,
+  trumpfStatistik: null,
+  totalTrumpfCount: 0,
 }; 
