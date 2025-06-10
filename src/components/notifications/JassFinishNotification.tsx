@@ -1,10 +1,12 @@
-import React, {useCallback, useMemo, useEffect} from "react";
+import React, {useCallback, useMemo, useEffect, useState} from "react";
 import {useUIStore} from "../../store/uiStore";
 import {motion, AnimatePresence} from "framer-motion";
 import {usePressableButton} from "../../hooks/usePressableButton";
+import { FiLoader } from "react-icons/fi";
 
 const JassFinishNotification: React.FC = () => {
   const notification = useUIStore((state) => state.jassFinishNotification);
+  const [isSharing, setIsSharing] = useState(false);
 
   const {
     jassFinishNotification: {
@@ -19,7 +21,7 @@ const JassFinishNotification: React.FC = () => {
     closeJassFinishNotification,
   } = useUIStore();
 
-  const isFlipped = useUIStore((state) => state.resultatKreidetafel.swipePosition === "top");
+  const isFlipped = false;
 
   const displayIcons = useMemo(() => {
     if (typeof message !== "string" && message.icon) {
@@ -88,6 +90,7 @@ const JassFinishNotification: React.FC = () => {
   }, [mode, displayIcons]);
 
   const handleShare = useCallback(async () => {
+    setIsSharing(true);
     try {
       if (onShare) {
         await onShare();
@@ -118,6 +121,8 @@ const JassFinishNotification: React.FC = () => {
       closeJassFinishNotification();
     } catch (error) {
       console.error("Share error:", error);
+    } finally {
+      setIsSharing(false);
     }
   }, [onShare, message, closeJassFinishNotification]);
 
@@ -160,7 +165,6 @@ const JassFinishNotification: React.FC = () => {
         >
           <div
             className="fixed inset-0 bg-black bg-opacity-50"
-            onClick={handleBack}
           />
           <motion.div
             initial={{scale: 0.95}}
@@ -184,6 +188,7 @@ const JassFinishNotification: React.FC = () => {
                   hover:bg-gray-700 transition-colors text-lg font-semibold
                   ${backButton.buttonClasses}
                 `}
+                disabled={isSharing}
               >
                 {onBackLabel || 'Zurück'}
               </button>
@@ -193,10 +198,17 @@ const JassFinishNotification: React.FC = () => {
                   className={`
                     flex-1 bg-yellow-600 text-white px-6 py-2 rounded-full 
                     hover:bg-yellow-700 transition-colors text-lg font-semibold
+                    flex items-center justify-center
                     ${actionButton.buttonClasses}
+                    ${isSharing ? 'opacity-50 cursor-not-allowed' : ''}
                   `}
+                  disabled={isSharing}
                 >
-                  Teilen
+                  {isSharing ? (
+                    <FiLoader className="animate-spin w-6 h-6" />
+                  ) : (
+                    'Teilen'
+                  )}
                 </button>
               ) : (
                 <button
