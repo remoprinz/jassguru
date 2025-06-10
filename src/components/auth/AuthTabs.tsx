@@ -29,7 +29,7 @@ const AuthTabs: React.FC<AuthTabsProps> = ({defaultTab = "login"}) => {
   };
 
   return (
-    <div className="w-full max-w-md bg-gray-800 rounded-xl p-6 shadow-2xl relative">
+    <div className="w-full">
       {origin !== 'offline' && (
         <Button
           variant="ghost"
