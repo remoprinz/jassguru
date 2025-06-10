@@ -17,6 +17,7 @@ import {getPictogram} from "../../utils/pictogramUtils";
 import {usePressableButton} from "../../hooks/usePressableButton";
 import {useTutorialStore} from "../../store/tutorialStore";
 import {useDeviceScale} from "../../hooks/useDeviceScale";
+import {useVerticalScale} from "../../hooks/useVerticalScale";
 import {DEFAULT_FARBE_SETTINGS} from "@/config/FarbeSettings";
 import { DEFAULT_SCORE_SETTINGS } from "@/config/ScoreSettings";
 import { DEFAULT_STROKE_SETTINGS } from "@/config/GameSettings";
@@ -65,7 +66,7 @@ const Calculator: React.FC<CalculatorProps> = ({
   const {currentGroup} = useGroupStore();
   const { currentTournamentInstance } = useTournamentStore();
 
-  // NEUE robuste Settings-Hierarchie - bestimmt die korrekten Settings basierend auf Kontext
+  // KORRIGIERTE Settings-Hierarchie - explizit UIStore für Gästemodus priorisieren
   const getCorrectSettings = useCallback(() => {
     console.log('[Calculator] getCorrectSettings aufgerufen. Kontext:', {
       isOpen,
@@ -77,7 +78,26 @@ const Calculator: React.FC<CalculatorProps> = ({
       hasGameStoreStrokeSettings: !!gameStrokeSettings
     });
 
-    // HIERARCHIE (Höchste Priorität zuerst):
+    // KRITISCHE KORREKTUR: Gästemodus ZUERST prüfen (höchste Priorität für lokale Settings)
+    const uiStoreState = useUIStore.getState();
+    const isGuestMode = !gameStoreActiveGameId; // Kein aktives Online-Spiel = Gästemodus
+    
+    if (isGuestMode) {
+      console.log('[Calculator] 🎯 GÄSTEMODUS erkannt - Verwende UISTORE-Settings (persistiert):', {
+        farbeCardStyle: uiStoreState.farbeSettings.cardStyle,
+        farbeValues: uiStoreState.farbeSettings.values,
+        scoreWerte: uiStoreState.scoreSettings.values,
+        strokeSchneider: uiStoreState.strokeSettings.schneider
+      });
+      return {
+        farbeSettings: uiStoreState.farbeSettings,
+        scoreSettings: uiStoreState.scoreSettings,
+        strokeSettings: uiStoreState.strokeSettings,
+        source: 'uiStore-guest'
+      };
+    }
+
+    // NUR wenn Online-Modus: Hierarchie für Online-Settings
     // 1. TURNIER-SETTINGS (wenn Turnier aktiv)
     if (currentTournamentInstance?.settings) {
       console.log('[Calculator] Verwende TURNIER-Settings:', {
@@ -123,23 +143,7 @@ const Calculator: React.FC<CalculatorProps> = ({
       };
     }
 
-    // 4. UISTORE-SETTINGS (Gästemodus - KRITISCH für Problem 1!)
-    const uiStoreState = useUIStore.getState();
-    if (!gameStoreActiveGameId) { // Gästemodus = kein aktives Online-Spiel
-      console.log('[Calculator] Verwende UISTORE-Settings (Gästemodus):', {
-        farbeCardStyle: uiStoreState.farbeSettings.cardStyle,
-        scoreWerte: uiStoreState.scoreSettings.values,
-        strokeSchneider: uiStoreState.strokeSettings.schneider
-      });
-      return {
-        farbeSettings: uiStoreState.farbeSettings,
-        scoreSettings: uiStoreState.scoreSettings,
-        strokeSettings: uiStoreState.strokeSettings,
-        source: 'uiStore'
-      };
-    }
-
-    // 5. FALLBACK: DEFAULT-SETTINGS (sollte nie auftreten)
+    // 4. FALLBACK: DEFAULT-SETTINGS (sollte nie auftreten)
     console.warn('[Calculator] FALLBACK auf DEFAULT-Settings! Das sollte nicht passieren.');
     return {
       farbeSettings: DEFAULT_FARBE_SETTINGS,
@@ -220,9 +224,18 @@ const Calculator: React.FC<CalculatorProps> = ({
 
   const {scale, overlayScale} = useDeviceScale();
 
+  const calculatorWrapperRef = React.useRef<HTMLDivElement>(null);
+  const verticalScale = useVerticalScale(calculatorWrapperRef);
+
+  // Vertikale Verschiebung von der Mittelachse.
+  // Ein negativer Wert verschiebt nach oben. Da die Verschiebung NACH der Rotation
+  // angewendet wird, bewirkt derselbe negative Wert im gedrehten Zustand eine
+  // Verschiebung nach unten, was eine perfekte Spiegelung ergibt.
+  const offsetY = -3; // vh
+
   const springProps = useSpring({
     opacity: isOpen ? 1 : 0,
-    transform: `scale(${isOpen ? overlayScale : 0.95}) rotate(${calculator.isFlipped ? "180deg" : "0deg"})`,
+    transform: `scale(${isOpen ? overlayScale * verticalScale : 0.95}) rotate(${calculator.isFlipped ? "180deg" : "0deg"}) translateY(${offsetY}vh)`,
     config: {mass: 1, tension: 300, friction: 20},
   });
 
@@ -721,45 +734,47 @@ const Calculator: React.FC<CalculatorProps> = ({
 
   return (
     <div
-      className={`fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 transition-opacity duration-300 prevent-interactions ${
+      className={`fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 transition-opacity duration-300 prevent-interactions pb-2 ${
         isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
       }`}
       onClick={onClose}
       onContextMenu={(e) => e.preventDefault()}
     >
       <animated.div
+        ref={calculatorWrapperRef}
         style={springProps}
-        className="relative w-11/12 max-w-md"
+        className="flex flex-col items-center w-11/12 max-w-md"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Drehbutton als Teil des Layout-Flows */}
         <button
           onClick={(e) => {
             e.stopPropagation();
             handleFlip();
           }}
-          className={`absolute bottom-full mb-[-10px] left-1/2 transform -translate-x-1/2 
-            text-white hover:text-gray-300 transition-all duration-1000
-            w-24 h-24 flex items-center justify-center
-            rounded-full
+          className={`text-white hover:text-gray-300 transition-all duration-1000
+            w-24 h-24 flex items-center justify-center rounded-full
+            mb-[-10px] z-10
             ${calculator.isFlipped ? "rotate-180" : "rotate-0"}`}
           aria-label="Umdrehen"
         >
           <FiRotateCcw className="w-8 h-8" />
         </button>
 
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onClose();
-          }}
-          className="absolute right-2 top-2 p-2 text-gray-400 hover:text-white transition-colors z-10"
-        >
-          <FiX size={24} />
-        </button>
-        <div
-          className="bg-gray-800 p-6 rounded-lg transition-all duration-700 flex flex-col items-center"
+        {/* Calculator Container */}
+        <div 
+          className="relative bg-gray-800 p-6 rounded-lg transition-all duration-700 flex flex-col items-center w-full"
           onClick={(e) => e.stopPropagation()}
         >
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
+            className="absolute right-2 top-2 p-2 text-gray-400 hover:text-white transition-colors z-10"
+          >
+            <FiX size={24} />
+          </button>
           <h2 className="text-white text-xl mb-4 text-center select-none">
             Runde schreiben
           </h2>
