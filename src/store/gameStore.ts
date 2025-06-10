@@ -719,32 +719,25 @@ export const useGameStore = create<GameStore>()(devtools(
           actualStrichType = "kontermatsch";
         }
 
-        // KORRIGIERTE LOGIK: Striche werden korrekt erhöht/gesetzt
+        // KORRIGIERTE LOGIK: Striche werden korrekt erhöht/gesetzt OHNE automatisches Löschen
         const teamStriche = { ...newStriche[strichTeam] }; // Start mit bestehenden Strichen
 
         switch (actualStrichType) {
           case "kontermatsch":
             // Kontermatsch wird auf den konfigurierten Wert gesetzt
             teamStriche.kontermatsch = activeStrokeSettings.kontermatsch;
-            // Aufräumen anderer Striche bei Kontermatsch
-            teamStriche.sieg = 0;
-            teamStriche.schneider = 0;
-            teamStriche.matsch = 0; // Kontermatsch schlägt Matsch
-            teamStriche.berg = 0; // Kontermatsch schlägt auch Berg
+            // KORREKTUR: Entferne automatisches "Aufräumen" - Striche sollen sich addieren
             break;
           case "matsch":
             // Matsch wird um 1 erhöht
             teamStriche.matsch = (teamStriche.matsch || 0) + 1;
-            // Aufräumen anderer Striche bei Matsch
-            teamStriche.sieg = 0;
-            teamStriche.schneider = 0;
-            teamStriche.berg = 0; // Matsch schlägt Berg
+            // KORREKTUR: Entferne automatisches "Aufräumen" - andere Striche bleiben bestehen
             break;
           case "sieg":
-            teamStriche.sieg = (teamStriche.sieg || 0) + 1;
+            teamStriche.sieg = (teamStriche.sieg || 0) + 2; // KORREKTUR: Sieg ist immer 1 Punkt
             break;
           case "schneider":
-            teamStriche.schneider = (teamStriche.schneider || 0) + 1;
+            teamStriche.schneider = activeStrokeSettings.schneider; // KORREKTUR: Verwende konfigurierten Wert
             break;
           case "berg":
             teamStriche.berg = (teamStriche.berg || 0) + 1;
@@ -2281,43 +2274,38 @@ export const useGameStore = create<GameStore>()(devtools(
     });
   },
 
-  setPlayers: (newPlayers: PlayerNames) => {
-    console.warn("setPlayers not fully implemented");
-    set({playerNames: newPlayers});
-    // Sollte ggf. auch gamePlayers beeinflussen?
-  },
+  setPlayers: (newPlayers: PlayerNames) => set({ playerNames: newPlayers }),
 
   setGameSettings: (settings) => {
-    set((prevState) => {
-      console.log("[GameStore setGameSettings] Aufgerufen mit:", JSON.parse(JSON.stringify(settings)));
-      console.log("[GameStore setGameSettings] prevState Settings:", JSON.parse(JSON.stringify({
-        farbe: prevState.farbeSettings.cardStyle,
-        scoreSieg: prevState.scoreSettings.values.sieg,
-        strokeSchneider: prevState.strokeSettings.schneider
-      })));
+    set((state) => {
+      const { farbeSettings, scoreSettings, strokeSettings } = state;
 
-      const newSettings = {
-        // Verwende die übergebenen Einstellungen oder falle auf die aktuellen im Store zurück,
-        // und erst dann auf die globalen Defaults, falls die im Store auch nicht gesetzt sind.
-        farbeSettings: settings.farbeSettings ?? prevState.farbeSettings ?? DEFAULT_FARBE_SETTINGS,
-        scoreSettings: settings.scoreSettings ?? prevState.scoreSettings ?? DEFAULT_SCORE_SETTINGS,
-        strokeSettings: settings.strokeSettings ?? prevState.strokeSettings ?? DEFAULT_STROKE_SETTINGS,
-      };
-      console.log("[GameStore] setGameSettings angewendet. Resultierende newSettings:", 
-        {
-          activeGameId: prevState.activeGameId, // Logge auch die ID, für die es gilt
-          farbeCardStyle: newSettings.farbeSettings.cardStyle,
-          farbeValuesDefined: !!newSettings.farbeSettings.values,
-          scoreSieg: newSettings.scoreSettings.values.sieg,
-          scoreEnabledDefined: !!newSettings.scoreSettings.enabled,
-          strokeSchneider: newSettings.strokeSettings.schneider
-        }
-      );
-      // Gib das Objekt zurück, das in den Zustand gemerged werden soll
+      // Eine einfache Vergleichsfunktion, um zu prüfen, ob sich Objekte geändert haben.
+      const haveSettingsChanged = (
+        current: any,
+        next: any
+      ) => JSON.stringify(current) !== JSON.stringify(next);
+
+      const newFarbeSettings = settings.farbeSettings || farbeSettings;
+      const newScoreSettings = settings.scoreSettings || scoreSettings;
+      const newStrokeSettings = settings.strokeSettings || strokeSettings;
+
+      const changed =
+        haveSettingsChanged(farbeSettings, newFarbeSettings) ||
+        haveSettingsChanged(scoreSettings, newScoreSettings) ||
+        haveSettingsChanged(strokeSettings, newStrokeSettings);
+
+      if (!changed) {
+        console.log("[GameStore setGameSettings] No changes detected. Skipping update.");
+        return state; // Keine Änderungen, gib den aktuellen State zurück
+      }
+
+      console.log("[GameStore setGameSettings] Settings have changed. Applying update.");
       return {
-        farbeSettings: newSettings.farbeSettings,
-        scoreSettings: newSettings.scoreSettings,
-        strokeSettings: newSettings.strokeSettings,
+        ...state,
+        farbeSettings: newFarbeSettings,
+        scoreSettings: newScoreSettings,
+        strokeSettings: newStrokeSettings,
       };
     });
   },
