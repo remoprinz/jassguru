@@ -17,6 +17,7 @@ const AuthTabs: React.FC<AuthTabsProps> = ({defaultTab = "login"}) => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<string>(defaultTab);
   const {continueAsGuest} = useAuthStore();
+  const { origin } = router.query;
 
   const handleGuestPlay = () => {
     continueAsGuest();
@@ -29,13 +30,15 @@ const AuthTabs: React.FC<AuthTabsProps> = ({defaultTab = "login"}) => {
 
   return (
     <div className="w-full max-w-md bg-gray-800 rounded-xl p-6 shadow-2xl relative">
-      <Button
-        variant="ghost"
-        className="absolute left-4 top-4 p-2 text-gray-400 hover:text-white"
-        onClick={handleBack}
-      >
-        <FiArrowLeft className="w-5 h-5" />
-      </Button>
+      {origin !== 'offline' && (
+        <Button
+          variant="ghost"
+          className="absolute left-4 top-4 p-2 text-gray-400 hover:text-white"
+          onClick={handleBack}
+        >
+          <FiArrowLeft className="w-5 h-5" />
+        </Button>
+      )}
 
       <div className="mb-6 text-center">
         <h1 className="text-2xl font-bold text-white">

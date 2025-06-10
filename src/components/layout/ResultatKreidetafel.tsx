@@ -336,6 +336,18 @@ const ResultatKreidetafel = ({
   const weisPoints = viewerData?.weisPoints ?? useGameStore(state => state.weisPoints);
   const storeStriche = viewerData?.currentStriche ?? useGameStore(state => state.striche);
 
+  // NEU: Helper-Funktion zur Identifikation echter Online-Sessions
+  const isRealOnlineSession = useMemo(() => {
+    const authStore = useAuthStore.getState();
+    const gameStore = useGameStore.getState();
+    const jassStore = useJassStore.getState();
+    
+    return authStore.isAuthenticated() && // Benutzer ist eingeloggt
+           !!gameStore.activeGameId && // Es gibt eine aktive Game ID
+           !!jassStore.currentSession?.id && // Es gibt eine Session ID
+           !authStore.isGuest; // Benutzer ist kein Gast
+  }, []);
+
   // 5. Abgeleitete Werte & Zustände
   const gamesToDisplay = isOnlineMode ? onlineCompletedGames : localGames; 
   const currentDate = format(new Date(), 'd.M.yyyy');
@@ -798,25 +810,22 @@ const ResultatKreidetafel = ({
     // Logik zum Finalisieren und Resetten (wird von beiden Buttons verwendet)
     const finalizeAndResetLocal = async () => {
       console.log("[ResultatKreidetafel] Finalizing and resetting (Guest/Offline)");
-      
-      // --- NEU: finalizeSessionSummary aufrufen (nur wenn eine Session ID existiert!) ---
-      const currentSessionIdLocal = jassStore.currentSession?.id;
-      // KORREKTUR: Verwende games.length für robustere Spielanzahl-Bestimmung (analog zu Online-Modus)
-      const totalGamesPlayedInSessionLocal = jassStore.games.length;
-      const currentGameNumberLocal = totalGamesPlayedInSessionLocal;
 
-      if (currentSessionIdLocal && typeof currentGameNumberLocal === 'number' && currentGameNumberLocal > 0) { // Stelle sicher, dass gameNumber gültig ist
-          console.log(`[ResultatKreidetafel] Calling finalizeSession for session ${currentSessionIdLocal}, game ${currentGameNumberLocal} (Guest/Offline mode) - JassStore.games.length: ${jassStore.games.length}, JassStore.currentGameId: ${jassStore.currentGameId}`);
+      // --- KORRIGIERTE LOGIK: Nur für echte Online-Sessions Firebase aufrufen ---
+      if (isRealOnlineSession) {
+          const currentSessionIdLocal = jassStore.currentSession?.id;
+          const totalGamesPlayedInSessionLocal = jassStore.games.length;
+          const currentGameNumberLocal = totalGamesPlayedInSessionLocal;
+
+          console.log(`[ResultatKreidetafel] Calling finalizeSession for REAL online session ${currentSessionIdLocal}, game ${currentGameNumberLocal} - JassStore.games.length: ${jassStore.games.length}, JassStore.currentGameId: ${jassStore.currentGameId}`);
           try {
-              const functions = getFunctions(firebaseApp, "us-central1"); // Region hier korrigiert
+              const functions = getFunctions(firebaseApp, "us-central1");
               const finalizeFunction = httpsCallable<FinalizeSessionDataClient, { success: boolean; message: string }>(functions, 'finalizeSession');
               
-              // NEU: SessionTeams und pairingIdentifiers vorbereiten
               const playerNamesLocal = gameStore.playerNames;
               const participantUidsLocal = jassStore.currentSession?.participantUids || [];
               const sessionTeamsData = prepareSessionTeamsData(participantUidsLocal, playerNamesLocal);
               
-              // Neues initialSessionData mit teams und pairingIdentifiers
               const initialSessionData = {
                 participantUids: participantUidsLocal,
                 playerNames: playerNamesLocal,
@@ -826,19 +835,18 @@ const ResultatKreidetafel = ({
                 pairingIdentifiers: sessionTeamsData.pairingIdentifiers
               };
               
-              // Übergebe sowohl sessionId, expectedGameNumber als auch initialSessionData
               const result = await finalizeFunction({ 
                 sessionId: currentSessionIdLocal, 
                 expectedGameNumber: currentGameNumberLocal,
                 initialSessionData: initialSessionData 
               }); 
-              console.log("[ResultatKreidetafel] finalizeSession result (Guest/Offline):", result.data);
+              console.log("[ResultatKreidetafel] finalizeSession result (Real Online Session):", result.data);
           } catch (error) {
-              console.error("[ResultatKreidetafel] Error calling finalizeSession (Guest/Offline):", error);
+              console.error("[ResultatKreidetafel] Error calling finalizeSession (Real Online Session):", error);
               uiStore.showNotification({type: "error", message: "Fehler beim Finalisieren der Session-Statistik."});
           }
       } else {
-           console.warn(`[ResultatKreidetafel] Skipping finalizeSession call (Guest/Offline): No Session ID or invalid/missing gameNumber. SessionID: ${currentSessionIdLocal}, GameNumber: ${currentGameNumberLocal}`);
+           console.log(`[ResultatKreidetafel] Skipping finalizeSession call: Not a real online session. IsRealOnlineSession: ${isRealOnlineSession}`);
       }
       // --- ENDE: finalizeSessionSummary aufrufen ---
 
@@ -849,7 +857,10 @@ const ResultatKreidetafel = ({
       uiStore.resetSigningProcess();
       uiStore.closeJassFinishNotification();
       closeResultatKreidetafel();
-      await debouncedRouterPush(router, '/');
+      
+      // Weiterleitung für alle (Gäste zur Registrierung, eingeloggte Benutzer zur Startseite)
+      const authStore = useAuthStore.getState();
+      await debouncedRouterPush(router, authStore.isAuthenticated() ? '/start' : '/auth/register?origin=offline', undefined, true);
     };
 
     // Teilen-Dialog für Gäste/Offline
@@ -1167,8 +1178,8 @@ const ResultatKreidetafel = ({
             label: 'OK', 
             onClick: () => {
               closeResultatKreidetafel();
-              // router.push('/') ersetzen durch debouncedRouterPush
-              debouncedRouterPush(router, '/', undefined, true);
+              // KORREKTUR: Direkt zur Registrierung weiterleiten, nicht zur Startseite
+              debouncedRouterPush(router, '/auth/register?origin=offline', undefined, true);
             }
           }
         ]
@@ -1364,6 +1375,14 @@ const ResultatKreidetafel = ({
                 
                 console.log("[ResultatKreidetafel] Completed game summary saved successfully."); 
 
+                // NEU: Sofort nach dem Speichern das aktive Spiel als "completed" markieren
+                // Dies verhindert Duplizierung in gamesForStatistik zwischen Speichern und Reset
+                useGameStore.setState(state => ({
+                  ...state,
+                  isGameCompleted: true
+                }));
+                console.log("[ResultatKreidetafel] Marked active game as completed to prevent duplication.");
+
                 // LOG 5: Nach saveCompletedGameToFirestore
                 // console.log(`[handleSignatureClick - LOG 5] Nach saveCompletedGameToFirestore. Spiel: ${currentGameNumber}, History Length: ${useGameStore.getState().roundHistory.length}`);
 
@@ -1407,9 +1426,9 @@ const ResultatKreidetafel = ({
             // LOG 7: Vor Aufruf finalizeSessionSummary
             // console.log(`[handleSignatureClick - LOG 7] Vor Aufruf finalizeSessionSummary. Spiel: ${currentGameNumber}, History Length: ${useGameStore.getState().roundHistory.length}`);
 
-            // --- Aufruf der Callable Function finalizeSessionSummary mit Retry --- 
-            if (statusUpdated && currentSessionIdFromStore && currentGameNumber > 0) {
-                console.log(`[ResultatKreidetafel] Attempting to call finalizeSession Cloud Function for session ${currentSessionIdFromStore}, expecting game ${currentGameNumber} (Online mode)`);
+            // --- KORRIGIERTER Aufruf der Callable Function finalizeSession mit Retry --- 
+            if (statusUpdated && currentSessionIdFromStore && currentGameNumber > 0 && isRealOnlineSession) {
+                console.log(`[ResultatKreidetafel] Attempting to call finalizeSession Cloud Function for REAL online session ${currentSessionIdFromStore}, expecting game ${currentGameNumber}`);
 
                 if (isFinalizingSession) {
                   console.warn("[ResultatKreidetafel] finalizeSession is already in progress. Skipping duplicate call.");
@@ -1482,7 +1501,7 @@ const ResultatKreidetafel = ({
                   }
                 } // Ende if (!isFinalizingSession)
             } else {
-                console.warn("[ResultatKreidetafel] Skipping finalizeSession Cloud Function call (Online): Status not updated, Session ID or Game Number missing.");
+                console.warn(`[ResultatKreidetafel] Skipping finalizeSession Cloud Function call: Not a real online session or missing data. IsRealOnlineSession: ${isRealOnlineSession}, StatusUpdated: ${statusUpdated}, SessionID: ${!!currentSessionIdFromStore}, GameNumber: ${currentGameNumber}`);
             }
             // --- ENDE Aufruf finalizeSessionSummary mit Retry ---
 
@@ -1555,7 +1574,8 @@ const ResultatKreidetafel = ({
       teamStats,
       uiStriche,
       handleNextGameClick, // Bleibt wichtig für Spruch-Berechnung via teamStats
-      handleShareAndComplete // Wichtig für onShare
+      handleShareAndComplete, // Wichtig für onShare
+      isRealOnlineSession // NEU: Wichtig für Firebase-Aufrufe
       // Stores (gameStore, jassStore, timerStore, uiStore, authStore) werden über getState geholt
   ]);
 

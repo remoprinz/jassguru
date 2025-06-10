@@ -280,6 +280,7 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
                     const roundPoints = getRoundPoints(round, prevRound);
                     
                     const isMatschRound = round.strichInfo?.type === 'matsch';
+                    const isKontermatschRound = round.strichInfo?.type === 'kontermatsch';
                     const teamThatMadeMatsch = round.strichInfo?.team;
 
                     // --- WIEDER EINGEFÜGTE DEFINITIONEN ---
@@ -292,12 +293,8 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
                     const cumulativeScoreBottom = round.scores?.bottom ?? 0;
                     // --- ENDE WIEDER EINGEFÜGTE DEFINITIONEN ---
 
-                    // KORREKTUR: Verwende die logische Rundennummer aus dem Rundenobjekt
-                    const displayRoundNumber = round.roundState.roundNumber; 
-                    // DEBUG LOG:
-                    // if (displayIndex === 0) {
-                    //     console.log(`[RoundHistoryDisplay DEBUG] Rendering first round for game ${gameIdentifier}: displayIndex=${displayIndex}, displayRoundNumber=${displayRoundNumber}, roundId (timestamp)=${round.roundId}`);
-                    // }
+                    // KORREKTUR: Verwende displayIndex + 1 für die Anzeige statt roundState.roundNumber
+                    const displayRoundNumber = displayIndex + 1;
 
                     // console.log(`[RoundHistoryDisplay] Runde ${displayRoundNumber}: ID=${round.id}, startingPlayer=${round.startingPlayer}, isActive=${round.isActive}`);
                     const startingTeamDetermined = getStartingTeamPosition(round.startingPlayer);
@@ -325,7 +322,7 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
                                       />
                                     ) : null}
                                   </span>
-                                  <span className={isMatschRound ? 'text-purple-400' : ''}>{roundJassPoints.bottom}</span> 
+                                  <span className={isMatschRound ? 'text-purple-400' : isKontermatschRound ? 'text-red-400' : ''}>{roundJassPoints.bottom}</span>
                                 </div>
                               </div>
                             </div>
@@ -345,7 +342,7 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
                                       />
                                     ) : null}
                                   </span>
-                                  <span className={isMatschRound ? 'text-purple-400' : ''}>{roundJassPoints.top}</span> 
+                                  <span className={isMatschRound ? 'text-purple-400' : isKontermatschRound ? 'text-red-400' : ''}>{roundJassPoints.top}</span>
                                 </div>
                               </div>
                             </div>
