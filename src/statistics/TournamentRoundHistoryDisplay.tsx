@@ -144,7 +144,11 @@ const PasseDetails: React.FC<PasseDetailsProps> = ({ passe, globalPlayerNames, c
             const hasWeisPoints = roundWeisPoints.top > 0 || roundWeisPoints.bottom > 0;
             const startingTeam = getStartingTeamPosition(round.startingPlayer);
             const trumpfFarbeForPictogram = mapDbValueToJassColorType(round.farbe as string | undefined);
-            const displayRoundNumber = round.roundState.roundNumber; 
+            const displayRoundNumber = displayIndex + 1;
+            
+            // NEU: Matsch/Kontermatsch-Erkennung für Farbkodierung
+            const isMatschRound = round.strichInfo?.type === 'matsch';
+            const isKontermatschRound = round.strichInfo?.type === 'kontermatsch';
 
             // Hervorhebung, wenn der focusedPlayer im startenden Team ist
             const isFocusedPlayerStartingTeam = focusedPlayerId && playerTeam === startingTeam;
@@ -155,13 +159,13 @@ const PasseDetails: React.FC<PasseDetailsProps> = ({ passe, globalPlayerNames, c
                 <div className={`text-left ${startingTeam === 'bottom' ? 'font-bold text-white' : 'text-gray-400'} ${isFocusedPlayerStartingTeam && startingTeam === 'bottom' ? 'ring-1 ring-purple-400 rounded px-0.5' : ''} truncate`}>
                   <span className="inline-flex items-center">
                     {startingTeam === 'bottom' && trumpfFarbeForPictogram && <FarbePictogram farbe={trumpfFarbeForPictogram} cardStyle={cardStyle} className="w-3 h-3 mr-1" />}
-                    {roundJassPoints.bottom} {hasWeisPoints && <span className="text-orange-400 ml-1">({roundWeisPoints.bottom})</span>}
+                    <span className={isMatschRound ? 'text-purple-400' : isKontermatschRound ? 'text-red-400' : ''}>{roundJassPoints.bottom}</span>
                   </span>
                 </div>
                 <div className={`text-right ${startingTeam === 'top' ? 'font-bold text-white' : 'text-gray-400'} ${isFocusedPlayerStartingTeam && startingTeam === 'top' ? 'ring-1 ring-purple-400 rounded px-0.5' : ''} truncate`}>
-                  <span className="inline-flex items-center">
-                    {startingTeam === 'top' && trumpfFarbeForPictogram && <FarbePictogram farbe={trumpfFarbeForPictogram} cardStyle={cardStyle} className="w-3 h-3 mr-1" />}
-                    {roundJassPoints.top} {hasWeisPoints && <span className="text-orange-400 ml-1">({roundWeisPoints.top})</span>}
+                  <span className="inline-flex items-center justify-end">
+                    <span className={isMatschRound ? 'text-purple-400' : isKontermatschRound ? 'text-red-400' : ''}>{roundJassPoints.top}</span>
+                    {startingTeam === 'top' && trumpfFarbeForPictogram && <FarbePictogram farbe={trumpfFarbeForPictogram} cardStyle={cardStyle} className="w-3 h-3 ml-1" />}
                   </span>
                 </div>
               </div>

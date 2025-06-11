@@ -287,14 +287,27 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
     { "icon": FaTrashAlt, "color": "bg-red-500", "id": "trash", "data-tutorial": "new-game-button" },
     { icon: FaInfoCircle, color: "bg-yellow-500", id: "info" },
     { icon: FaHome, color: "bg-blue-500", id: "home" },
-    { icon: FaCog, color: "bg-orange-500", id: "farbe", className: "settings-button" }, 
+    { icon: FaCog, color: "bg-blue-500", id: "farbe", className: "settings-button" }, 
     { icon: TbClipboardText, color: "bg-green-500", id: "resultat" },
   ];
 
-  // Filter den Settings-Button raus, wenn ECHT eingeloggt (nicht Gast) ODER im ReadOnly-Modus
-  const filteredButtonDefs = (authStore.status === 'authenticated' || isReadOnlyMode) 
-    ? allButtonsBase.filter(b => b.id !== 'farbe')
-    : allButtonsBase;
+  // Bestimme Gästemodus
+  const isGuestMode = authStore.isGuest || authStore.status !== 'authenticated';
+  
+  // Filter Buttons basierend auf Benutzertyp
+  const filteredButtonDefs = allButtonsBase.filter(button => {
+    // Entferne Settings-Button für authentifizierte Benutzer oder im ReadOnly-Modus
+    if ((authStore.status === 'authenticated' || isReadOnlyMode) && button.id === 'farbe') {
+      return false;
+    }
+    
+    // Entferne Home-Button für Gäste
+    if (isGuestMode && button.id === 'home') {
+      return false;
+    }
+    
+    return true;
+  });
 
   // Füge die onClick Handler hinzu
   const getClickHandler = (id: string): (() => void) => {

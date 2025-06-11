@@ -2,7 +2,31 @@ import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import { GroupComputedStats, initialGroupComputedStats, GroupStatHighlightPlayer, GroupStatHighlightTeam } from "./models/group-stats.model";
 import { StricheRecord, TeamScores, CompletedGameData, SessionTeams, InitialSessionData, Round } from "./finalizeSession";
-import { DEFAULT_SCORE_SETTINGS, StrokeSettings, ScoreSettingsEnabled } from "./models/game-settings.model";
+
+// Importiere die benötigten Typen aus der korrekten Quelle
+interface StrokeSettings {
+  schneider: 0 | 1 | 2;
+  kontermatsch: 0 | 1 | 2;
+}
+
+interface ScoreSettingsEnabled {
+  sieg: boolean;
+  berg: boolean;
+  schneider: boolean;
+  matsch?: boolean;
+  kontermatsch?: boolean;
+}
+
+// Default Settings definieren
+const DEFAULT_SCORE_SETTINGS = {
+  enabled: {
+    sieg: true,
+    berg: true,
+    schneider: true,
+    matsch: true,
+    kontermatsch: true,
+  } as ScoreSettingsEnabled
+};
 
 const db = admin.firestore();
 
@@ -107,11 +131,11 @@ function getPlayerTeamInGame(
         return null;
     }
 
-    const playerIndex = participants.indexOf(playerDocId);
-    if (playerIndex === -1) {
+        const playerIndex = participants.indexOf(playerDocId);
+        if (playerIndex === -1) {
         logger.warn(`[getPlayerTeamInGame] PlayerDocId ${playerDocId} nicht in Teilnehmerliste gefunden für Spiel ${game.activeGameId}.`);
-        return null;
-    }
+            return null;
+        }
 
     // Die einfachste und robusteste Annahme für eine Standard-4er-Jass-Partie:
     // Spieler an Index 0 und 2 sind ein Team.
@@ -279,8 +303,16 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
             }
         });
 
-        const playerInfoCache = await resolvePlayerInfos(allPlayerIdsFromGames);
-        logger.info(`[calculateGroupStatisticsInternal] Total unique players from all games: ${allPlayerIdsFromGames.size}`);
+        // KORREKTUR: Berücksichtige auch die Spieler aus der Gruppendefinition selbst,
+        // damit die Namen von inaktiven Mitgliedern nicht verloren gehen.
+        const allPlayerIdsFromGroupDef = new Set(Object.keys(groupData.players || {}));
+
+        // Kombiniere beide Quellen für eine vollständige Spielerliste
+        const allKnownPlayerDocIds = new Set([...allPlayerIdsFromGames, ...allPlayerIdsFromGroupDef]);
+        
+        logger.info(`[calculateGroupStatisticsInternal] Resolving player info. From games: ${allPlayerIdsFromGames.size}, from group members: ${allPlayerIdsFromGroupDef.size}. Total unique: ${allKnownPlayerDocIds.size}.`);
+
+        const playerInfoCache = await resolvePlayerInfos(allKnownPlayerDocIds);
         logger.info(`[calculateGroupStatisticsInternal] playerInfoCache (size ${playerInfoCache.size}) populated.`);
         
         // groupMemberPlayerDocIds wurde bereits oben aus groupData.players geholt.
@@ -316,8 +348,8 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
                 sessionData.participantPlayerIds.forEach(pDocId => { // pid -> pDocId, behandeln als PlayerDocID
                     // KORREKTUR: Der Check gegen groupMemberPlayerDocIds wird entfernt.
                     // Die letzte Aktivität muss für jeden Spieler erfasst werden, der je teilgenommen hat.
-                    const currentLastMs = playerLastActivityMs.get(pDocId) || 0;
-                    playerLastActivityMs.set(pDocId, Math.max(currentLastMs, sessionEndMs));
+                        const currentLastMs = playerLastActivityMs.get(pDocId) || 0;
+                        playerLastActivityMs.set(pDocId, Math.max(currentLastMs, sessionEndMs));
                 });
             }
         }
@@ -529,7 +561,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
                 
                 sessionParticipants.forEach(pId => {
                     const stats = playerSessionWinStats.get(pId);
-                    if(stats) stats.played++;
+                    if (stats) stats.played++;
                 });
 
                 const finalTeamAPlayerDocIds = sessionData.teams.teamA.players.map(p => authUidToPlayerDocIdMap.get(p.playerId) || p.playerId);
@@ -601,24 +633,24 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
             
             // KORREKTUR: "played" und "won" nur zählen, wenn die Partie NICHT unentschieden ist.
             if (actualWinnerTeamKey && actualWinnerTeamKey !== 'draw') {
-                if (!teamSessionWinStats.has(teamAKey)) {
-                    const teamANames = teamAPlayers.map(pId => playerInfoCache.get(pId)?.finalPlayerName || 'Unbekannter Spieler');
-                    teamSessionWinStats.set(teamAKey, { playerDocIds: teamAPlayers, playerNames: teamANames, played: 0, won: 0 });
-                }
+            if (!teamSessionWinStats.has(teamAKey)) {
+                const teamANames = teamAPlayers.map(pId => playerInfoCache.get(pId)?.finalPlayerName || 'Unbekannter Spieler');
+                teamSessionWinStats.set(teamAKey, { playerDocIds: teamAPlayers, playerNames: teamANames, played: 0, won: 0 });
+            }
                 const teamAStats = teamSessionWinStats.get(teamAKey)!;
                 teamAStats.played++;
 
-                if (!teamSessionWinStats.has(teamBKey)) {
-                    const teamBNames = teamBPlayers.map(pId => playerInfoCache.get(pId)?.finalPlayerName || 'Unbekannter Spieler');
-                    teamSessionWinStats.set(teamBKey, { playerDocIds: teamBPlayers, playerNames: teamBNames, played: 0, won: 0 });
-                }
+            if (!teamSessionWinStats.has(teamBKey)) {
+                const teamBNames = teamBPlayers.map(pId => playerInfoCache.get(pId)?.finalPlayerName || 'Unbekannter Spieler');
+                teamSessionWinStats.set(teamBKey, { playerDocIds: teamBPlayers, playerNames: teamBNames, played: 0, won: 0 });
+            }
                 const teamBStats = teamSessionWinStats.get(teamBKey)!;
                 teamBStats.played++;
-                
+            
                 if (actualWinnerTeamKey === 'teamA') {
-                    teamAStats.won++;
+                teamAStats.won++;
                 } else if (actualWinnerTeamKey === 'teamB') {
-                    teamBStats.won++;
+                teamBStats.won++;
                 }
             }
         }
@@ -645,7 +677,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         // calculatedStats.playerWithHighestWinRateGame = null; // Wird jetzt implementiert
         const playerGameWinStats = new Map<string, { played: number, won: number }>(); // Key: playerDocId
         activePlayerDocIds.forEach(pDocId => { // KORREKTUR: Nur aktive Spieler initialisieren
-            playerGameWinStats.set(pDocId, { played: 0, won: 0 });
+                playerGameWinStats.set(pDocId, { played: 0, won: 0 });
         });
 
         for (const game of allGamesWithRoundHistory) {
@@ -656,14 +688,14 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
             const winningTeamPosition = determineWinningTeam(game.finalScores);
 
             game.participantPlayerIds.forEach(pDocIdFromGame => { // KORREKTUR
-                const stats = playerGameWinStats.get(pDocIdFromGame);
-                if (stats) { 
-                    stats.played++;
+                    const stats = playerGameWinStats.get(pDocIdFromGame);
+                    if (stats) { 
+                        stats.played++;
 
-                    if (winningTeamPosition !== 'draw') {
+                        if (winningTeamPosition !== 'draw') {
                         const playerTeam = getPlayerTeamInGame(pDocIdFromGame, game);
-                        if (playerTeam === winningTeamPosition) {
-                            stats.won++;
+                            if (playerTeam === winningTeamPosition) {
+                                stats.won++;
                         }
                     }
                 }
@@ -751,7 +783,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
                     schneiderReceivedBy = 'bottom';
                 } else if (bottomScore > topScore && (topScore / bottomScore) < schneiderLimitRatio) {
                     schneiderReceivedBy = 'top';
-                }
+                    }
 
                 if (schneiderReceivedBy) {
                      game.participantPlayerIds?.forEach(pDocId => {
@@ -767,9 +799,9 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
                     });
                 } else {
                     logger.info(`[Schneider-Check] GameID: ${game.id} SKIPPED (JassTyp: ${game.jassTyp}, HasFinalScores: ${!!game.finalScores})`);
+                    }
                 }
             }
-        }
 
         // --- Matschquote Spieler ---
         const playerMatschRateList: GroupStatHighlightPlayer[] = [];
@@ -863,16 +895,24 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
                     if (round.strichInfo?.type && round.strichInfo.team) {
                         const eventType = round.strichInfo.type;
                         const eventTeam = round.strichInfo.team;
-                        
+
                         if (teamAPosition) {
                             const isTeamAEventReceiver = teamAPosition === eventTeam;
                             switch (eventType) {
                                 case 'matsch':
-                                    if(isTeamAEventReceiver) { teamAStats.matschMade++; teamBStats.matschReceived++; } else { teamAStats.matschReceived++; teamBStats.matschMade++; }
+                                    if (isTeamAEventReceiver) {
+ teamAStats.matschMade++; teamBStats.matschReceived++;
+} else {
+ teamAStats.matschReceived++; teamBStats.matschMade++;
+}
                                     break;
                                 // 'schneider' wird hier entfernt
                                 case 'kontermatsch':
-                                     if(isTeamAEventReceiver) { teamAStats.kontermatschMade++; teamBStats.kontermatschReceived++; } else { teamAStats.kontermatschReceived++; teamBStats.kontermatschMade++; }
+                                     if (isTeamAEventReceiver) {
+ teamAStats.kontermatschMade++; teamBStats.kontermatschReceived++;
+} else {
+ teamAStats.kontermatschReceived++; teamBStats.kontermatschMade++;
+}
                                     break;
                             }
                         }

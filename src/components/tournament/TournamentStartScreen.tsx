@@ -211,7 +211,7 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
   };
 
   if (!isVisible) return null;
-  if (isLoading) return <GlobalLoader />;
+  if (isLoading) return <GlobalLoader message="Passe wird gestartet..." />;
 
   return (
     <AnimatePresence>

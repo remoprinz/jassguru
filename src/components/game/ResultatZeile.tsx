@@ -52,7 +52,7 @@ const ResultatZeile: React.FC<ResultatZeileProps> = ({
   return (
     <div className={rowClassName}>
       <div className="text-gray-400 text-left pl-3">
-        {gameTypeLabel || spielNummer}
+        {spielNummer}
       </div>
 
       {/* --- Spalte für Team Unten (Team 1 / links im UI) --- */}

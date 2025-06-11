@@ -12,7 +12,7 @@ import {
   FaInfoCircle,
 } from "react-icons/fa";
 
-const AUTO_HIDE_TIMEOUT = 3000; // 3 Sekunden bis die Notification automatisch verschwindet
+const AUTO_HIDE_TIMEOUT = 5000; // 5 Sekunden bis die Notification automatisch verschwindet
 
 const GlobalNotificationContainer: React.FC = () => {
   const notifications = useUIStore((state) => state.notifications);
@@ -26,17 +26,21 @@ const GlobalNotificationContainer: React.FC = () => {
 
   // Füge einen Effekt hinzu, der Notifications automatisch nach einer Verzögerung entfernt
   useEffect(() => {
+    const timers: { [notificationId: string]: NodeJS.Timeout } = {};
+    
     // Für jede Notification, die nicht preventClose hat und keine benutzerdefinierten Aktionen enthält
     notifications.forEach(notification => {
       if (!notification.preventClose && !notification.actions?.length) {
-        const timer = setTimeout(() => {
+        timers[notification.id] = setTimeout(() => {
           removeNotification(notification.id);
         }, AUTO_HIDE_TIMEOUT);
-        
-        // Räume Timer beim Unmount auf
-        return () => clearTimeout(timer);
       }
     });
+    
+    // Cleanup: Alle Timer beim Unmount oder Re-Render aufräumen
+    return () => {
+      Object.values(timers).forEach(timer => clearTimeout(timer));
+    };
   }, [notifications, removeNotification]);
 
   const renderIcon = (notification: Notification): JSX.Element => {

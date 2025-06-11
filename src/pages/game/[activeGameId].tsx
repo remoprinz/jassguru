@@ -379,9 +379,9 @@ const LiveGamePage: React.FC = () => {
         unsubscribeRounds();
     };
 
-  // Abhängigkeiten: Füge setCurrentGroup hinzu
+  // Abhängigkeiten: Verwende currentUser?.uid statt currentUser, um instabile Objekt-Referenzen zu vermeiden
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeGameId, router.isReady, setCurrentGroup, currentUser]);
+  }, [activeGameId, router.isReady, currentUser?.uid]);
 
   // Ladezustand anzeigen
   if (isLoading || !isInitialized) {

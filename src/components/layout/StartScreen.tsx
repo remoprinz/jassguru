@@ -17,6 +17,7 @@ import { firebaseApp } from "@/services/firebaseInit";
 import { createActiveGame, createSessionDocument, updateSessionActiveGameId } from "@/services/gameService";
 import { nanoid } from "nanoid";
 import { toast } from "sonner";
+import GlobalLoader from "./GlobalLoader";
 
 // Importiere die Default-Einstellungen
 import { DEFAULT_FARBE_SETTINGS } from '@/config/FarbeSettings';
@@ -29,7 +30,11 @@ const screenVariants = {
   exit: {opacity: 0, scale: 0.95},
 };
 
-const StartScreen: React.FC = () => {
+interface StartScreenProps {
+  onCancel?: () => void;
+}
+
+const StartScreen: React.FC<StartScreenProps> = ({ onCancel }) => {
   const {setStartScreenState, showNotification} = useUIStore();
   const jassStore = useJassStore();
   const tutorialStore = useTutorialStore();
@@ -43,6 +48,7 @@ const StartScreen: React.FC = () => {
   const [names, setNames] = useState<PlayerNames>({ 1: '', 2: '', 3: '', 4: '' });
   const [teamConfig] = useState<TeamConfig>(DEFAULT_TEAM_CONFIG);
   const [startingPlayer, setStartingPlayer] = useState<PlayerNumber>(1);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (status === 'authenticated' && user) {
@@ -122,20 +128,24 @@ const StartScreen: React.FC = () => {
   };
 
   const handleCancel = () => {
-    // Prüfen, ob der Benutzer im Gastmodus ist und diesen ggf. zurücksetzen
+    // Wenn eine benutzerdefinierte onCancel-Funktion übergeben wird, rufe diese auf.
+    // Dies wird für den Online-Flow unter /game/new verwendet.
+    if (onCancel) {
+      onCancel();
+      return;
+    }
+
+    // Andernfalls führe die Standard-Logik für Gäste/Offline aus.
     if (useAuthStore.getState().isGuest) {
-      // Vorher den Gaststatus zurücksetzen
       useAuthStore.getState().clearGuestStatus();
       console.log("[StartScreen] Gastmodus zurückgesetzt vor der Navigation");
     }
     
     try {
-      // Direkt zur Register-Seite statt zur Login-Seite navigieren
-      console.log("[StartScreen] Navigiere zur Register-Seite");
+      console.log("[StartScreen] Navigiere zur Register-Seite (Standard-Aktion)");
       router.push('/auth/register');
     } catch (err) {
       console.error("[StartScreen] Navigationsfehler:", err);
-      // Absolute Navigation als letzter Ausweg
       window.location.href = '/auth/register';
     }
   };
@@ -193,6 +203,9 @@ const StartScreen: React.FC = () => {
 
   const startGameFlow = async (playerNames: PlayerNames, finalGamePlayers?: Required<GamePlayers>) => {
     // console.log(`[StartScreen startGameFlow] STARTING - Initial values: startingPlayer=${startingPlayer}`);
+    
+    // NEU: Loading-State setzen
+    setIsLoading(true);
     
     const auth = useAuthStore.getState();
     const uiStoreSettingsState = useUIStore.getState().settings; // Globale UI-Einstellungen aus dem UIStore holen
@@ -303,6 +316,7 @@ const StartScreen: React.FC = () => {
       } catch (error) {
         // console.error("[StartScreen startGameFlow] Error creating session or active game: ", error);
         toast.error("Online-Spiel konnte nicht erstellt werden.");
+        setIsLoading(false); // NEU: Loading-State zurücksetzen bei Fehler
         return;
       } finally {
         // console.log("[StartScreen startGameFlow] Firestore operations finished.");
@@ -332,6 +346,9 @@ const StartScreen: React.FC = () => {
     // console.log("[StartScreen startGameFlow] Navigating to /jass...");
     router.push('/jass');
     // console.log("[StartScreen startGameFlow] COMPLETED.");
+    
+    // NEU: Loading-State wird automatisch nach Navigation zurückgesetzt
+    // Das passiert, wenn die StartScreen-Komponente unmounted wird
   };
 
   const getPlayerFieldClass = (playerNumber: PlayerNumber, isInput: boolean = false) => {
@@ -377,6 +394,9 @@ const StartScreen: React.FC = () => {
 
   return (
     <AnimatePresence>
+      {/* NEU: GlobalLoader wenn isLoading true ist */}
+      {isLoading && <GlobalLoader message="Jasstafel wird geladen..." />}
+      
       <motion.div className="fixed inset-0 flex flex-col items-center justify-center bg-gray-900 bg-opacity-90 z-50 p-4">
         <div className="relative bg-gray-800 bg-opacity-95 rounded-xl p-6 w-full max-w-xs space-y-6 shadow-lg text-center">
           <button

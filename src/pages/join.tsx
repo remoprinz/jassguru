@@ -16,6 +16,7 @@ import { Loader2, AlertTriangle, CheckCircle } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import { redeemTournamentInvite } from '@/services/tournamentService';
 import { getGroupToken, getTournamentToken, clearGroupToken, clearTournamentToken } from '@/utils/tokenStorage';
+import GlobalLoader from "@/components/layout/GlobalLoader";
 
 type JoinPageStatus = "idle" | "processing" | "success" | "error";
 
@@ -193,11 +194,11 @@ const JoinGroupPage: React.FC = () => {
             setErrorDetails(errorMsg);
             setPageStatus("error");
             if (showNotification) {
-showNotification({ 
-              message: `Fehler: ${errorMsg.substring(0, 100)}${errorMsg.length > 100 ? '...' : ''}`, 
-              type: "error" 
-            });
-}
+              showNotification({ 
+                message: `Fehler: ${errorMsg.substring(0, 100)}${errorMsg.length > 100 ? '...' : ''}`, 
+                type: "error" 
+              });
+            }
             finalStatus = "error";
           }
         } 
@@ -223,34 +224,21 @@ showNotification({
   }, [router.isReady, queryTournamentTokenFromRouter, queryGroupTokenFromRouter, genericToken, authStatus, isAuthenticated, user, showNotification, setLoading, router.asPath, setCurrentGroup]);
 
   if (authStatus === "loading" || authStatus === "idle") {
-    return (
-      <MainLayout>
-         <div className="flex items-center justify-center h-full">
-            <Loader2 className="h-8 w-8 text-white animate-spin" />
-            <p className="ml-4">Authentifizierung wird geprüft...</p>
-         </div>
-      </MainLayout>
-    );
+    return <GlobalLoader message="Authentifizierung wird geprüft..." />;
   }
 
   if (pageStatus === "processing") {
-    return (
-      <MainLayout>
-         <div className="flex items-center justify-center h-full">
-            <Loader2 className="h-8 w-8 text-white animate-spin" />
-            <p className="ml-4">{message || "Einladung wird verarbeitet..."}</p>
-         </div>
-      </MainLayout>
-    );
+    return <GlobalLoader message={message || "Einladung wird verarbeitet..."} />;
   }
 
   if (pageStatus === "error") {
     return (
       <MainLayout>
          <div className="flex flex-col items-center justify-center h-full text-center p-4">
+            <AlertTriangle className="h-12 w-12 text-red-500 mb-4" />
             <p className="text-red-500 text-xl font-semibold">Fehler beim Beitritt</p>
             <p className="mt-2 text-gray-300">{message}</p>
-            {errorDetails && <p className="text-xs text-gray-400 mt-1">Detail: {errorDetails}</p>} {/* errorDetails Anzeige hinzugefügt */}
+            {errorDetails && <p className="text-xs text-gray-400 mt-1">Detail: {errorDetails}</p>}
             <Button onClick={() => router.push("/start")} variant="default" className="mt-4 bg-blue-600 hover:bg-blue-700 text-white">Zur Startseite</Button>
          </div>
       </MainLayout>
@@ -261,7 +249,7 @@ showNotification({
     return (
       <MainLayout>
         <div className="flex flex-col items-center justify-center h-full text-center p-4">
-          <CheckCircle className="h-12 w-12 text-green-500 mb-4" /> {/* Icon für Erfolg hinzugefügt */}
+          <CheckCircle className="h-12 w-12 text-green-500 mb-4" />
           <p className="text-green-500 text-xl font-semibold">{message}</p>
           <p className="mt-2 text-gray-300">Du wirst weitergeleitet...</p>
            <div className="mt-4">
@@ -273,14 +261,7 @@ showNotification({
   }
 
   // Fallback, sollte idealerweise nicht erreicht werden, wenn pageStatus immer gesetzt wird
-  return (
-    <MainLayout>
-       <div className="flex items-center justify-center h-full">
-         <Loader2 className="h-8 w-8 text-white animate-spin" />
-         <p className="ml-4">Status wird ermittelt...</p>
-       </div>
-    </MainLayout>
-  );
+  return <GlobalLoader message="Status wird ermittelt..." />;
 };
 
 export default JoinGroupPage;

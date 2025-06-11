@@ -1028,12 +1028,10 @@ export const useUIStore = create<UIState & UIActions>()(
             hasCompletedOnboarding: true,
           },
         })),
-      setCardStyle: (style: CardStyle) => set((state) => ({
-        settings: {
-          ...state.settings,
-          cardStyle: style,
-        },
-      })),
+      setCardStyle: (style: CardStyle) => set((state) => {
+        state.settings.cardStyle = style;
+        state.farbeSettings.cardStyle = style;
+      }),
       updateStrokeSettings: (settings: Partial<StrokeSettings>) => {
         if (!validateStrokeSettings(settings)) return;
 

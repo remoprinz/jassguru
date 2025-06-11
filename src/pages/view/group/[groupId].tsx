@@ -6,7 +6,8 @@ import MainLayout from "@/components/layout/MainLayout";
 import { getFirestore, doc, getDoc, Timestamp } from "firebase/firestore";
 import { firebaseApp } from "@/services/firebaseInit";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import Image from "next/image";
+import ProfileImage from '@/components/ui/ProfileImage';
+import Image from 'next/image';
 import { Users, BarChart, Archive, Award as AwardIcon, BarChart2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getGroupMembersSortedByGames } from "@/services/playerService";
@@ -526,21 +527,14 @@ const GroupView: React.FC = () => {
                             <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
                               <div className="flex items-center">
                                 <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
-                                  {findPlayerPhotoByName(player.name, members) ? (
-                                    <Image
-                                      src={findPlayerPhotoByName(player.name, members)!}
-                                      alt={player.name}
-                                      width={24}
-                                      height={24}
-                                      className="rounded-full object-cover"
-                                    />
-                                  ) : (
-                                    <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                      {player.name.charAt(0).toUpperCase()}
-                                    </AvatarFallback>
-                                  )}
-                                </Avatar>
+                                <ProfileImage 
+                                  src={findPlayerPhotoByName(player.name, members)} 
+                                  alt={player.name} 
+                                  size="xs"
+                                  className="mr-2 bg-yellow-600/20"
+                                  fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                  fallbackText={player.name.charAt(0).toUpperCase()}
+                                />
                                 <span className="text-gray-300">{player.name}</span>
                   </div>
                               <span className="text-white font-medium">{player.value}</span>
@@ -593,21 +587,14 @@ const GroupView: React.FC = () => {
                             <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
                               <div className="flex items-center">
                                 <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
-                                  {findPlayerPhotoByName(player.name, members) ? (
-                                    <Image
-                                      src={findPlayerPhotoByName(player.name, members)!}
-                                      alt={player.name}
-                                      width={24}
-                                      height={24}
-                                      className="rounded-full object-cover"
-                                    />
-                                  ) : (
-                                    <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                      {player.name.charAt(0).toUpperCase()}
-                                    </AvatarFallback>
-                                  )}
-                                </Avatar>
+                                <ProfileImage 
+                                  src={findPlayerPhotoByName(player.name, members)} 
+                                  alt={player.name} 
+                                  size="xs"
+                                  className="mr-2 bg-yellow-600/20"
+                                  fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                  fallbackText={player.name.charAt(0).toUpperCase()}
+                                />
                                 <span className="text-gray-300">{player.name}</span>
                               </div>
                               <span className="text-white font-medium">
@@ -633,21 +620,14 @@ const GroupView: React.FC = () => {
                             <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
                               <div className="flex items-center">
                                 <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
-                                  {findPlayerPhotoByName(player.name, members) ? (
-                                    <Image
-                                      src={findPlayerPhotoByName(player.name, members)!}
-                                      alt={player.name}
-                                      width={24}
-                                      height={24}
-                                      className="rounded-full object-cover"
-                                    />
-                                  ) : (
-                                    <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                      {player.name.charAt(0).toUpperCase()}
-                                    </AvatarFallback>
-                                  )}
-                                </Avatar>
+                                <ProfileImage 
+                                  src={findPlayerPhotoByName(player.name, members)} 
+                                  alt={player.name} 
+                                  size="xs"
+                                  className="mr-2 bg-yellow-600/20"
+                                  fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                  fallbackText={player.name.charAt(0).toUpperCase()}
+                                />
                                 <span className="text-gray-300">{player.name}</span>
                               </div>
                               <span className="text-white font-medium">{(player.value * 100).toFixed(1)}%</span>
@@ -671,21 +651,14 @@ const GroupView: React.FC = () => {
                             <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
                               <div className="flex items-center">
                                 <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
-                                  {findPlayerPhotoByName(player.name, members) ? (
-                                    <Image
-                                      src={findPlayerPhotoByName(player.name, members)!}
-                                      alt={player.name}
-                                      width={24}
-                                      height={24}
-                                      className="rounded-full object-cover"
-                                    />
-                                  ) : (
-                                    <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                      {player.name.charAt(0).toUpperCase()}
-                                    </AvatarFallback>
-                                  )}
-                                </Avatar>
+                                <ProfileImage 
+                                  src={findPlayerPhotoByName(player.name, members)} 
+                                  alt={player.name} 
+                                  size="xs"
+                                  className="mr-2 bg-yellow-600/20"
+                                  fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                  fallbackText={player.name.charAt(0).toUpperCase()}
+                                />
                                 <span className="text-gray-300">{player.name}</span>
                               </div>
                               <span className="text-white font-medium">{player.value.toFixed(2)}</span>
@@ -709,21 +682,14 @@ const GroupView: React.FC = () => {
                             <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
                               <div className="flex items-center">
                                 <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
-                                  {findPlayerPhotoByName(player.name, members) ? (
-                                    <Image
-                                      src={findPlayerPhotoByName(player.name, members)!}
-                                      alt={player.name}
-                                      width={24}
-                                      height={24}
-                                      className="rounded-full object-cover"
-                                    />
-                                  ) : (
-                                    <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                      {player.name.charAt(0).toUpperCase()}
-                                    </AvatarFallback>
-                                  )}
-                                </Avatar>
+                                <ProfileImage 
+                                  src={findPlayerPhotoByName(player.name, members)} 
+                                  alt={player.name} 
+                                  size="xs"
+                                  className="mr-2 bg-yellow-600/20"
+                                  fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                  fallbackText={player.name.charAt(0).toUpperCase()}
+                                />
                                 <span className="text-gray-300">{player.name}</span>
                               </div>
                               <span className="text-white font-medium">{player.value}</span>
@@ -747,21 +713,14 @@ const GroupView: React.FC = () => {
                             <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
                               <div className="flex items-center">
                                 <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
-                                  {findPlayerPhotoByName(player.name, members) ? (
-                                    <Image
-                                      src={findPlayerPhotoByName(player.name, members)!}
-                                      alt={player.name}
-                                      width={24}
-                                      height={24}
-                                      className="rounded-full object-cover"
-                                    />
-                                  ) : (
-                                    <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                      {player.name.charAt(0).toUpperCase()}
-                                    </AvatarFallback>
-                                  )}
-                                </Avatar>
+                                <ProfileImage 
+                                  src={findPlayerPhotoByName(player.name, members)} 
+                                  alt={player.name} 
+                                  size="xs"
+                                  className="mr-2 bg-yellow-600/20"
+                                  fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                  fallbackText={player.name.charAt(0).toUpperCase()}
+                                />
                                 <span className="text-gray-300">{player.name}</span>
                               </div>
                               <span className="text-white font-medium">

@@ -143,7 +143,7 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
     return <div className="text-center text-gray-400 py-8">Keine Spieldaten verfügbar.</div>;
   }
   
-  let lastDisplayedDate: string | null = null;
+  const lastDisplayedDate: string | null = null;
 
   return (
     <div className="flex flex-col w-full space-y-1 min-w-max">

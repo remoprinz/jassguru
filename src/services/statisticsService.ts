@@ -170,10 +170,10 @@ export interface GroupStatistics {
   memberCount: number;
   sessionCount: number;
   gameCount: number;
-  totalPlayTime: string;
+  totalPlayTime: string; 
   firstJassDate: string;
   lastJassDate: string;
-  hauptspielortName: string | null;
+  hauptspielortName: string | null; 
   avgSessionDuration: string;
   avgGameDuration: string;
   avgGamesPerSession: number;
@@ -315,7 +315,7 @@ export const fetchGroupStatistics = async (groupId: string, groupMainLocationZip
     const transformTeamHighlights = (backendHighlights: BackendHighlightTeam[] | undefined | null): FrontendHighlightTeam[] => {
       if (!backendHighlights) return [];
       return backendHighlights.map(t => ({
-        names: t.names,
+          names: t.names,
         value: typeof t.value === 'number' ? t.value : parseFloat(t.value as string),
         eventsPlayed: t.eventsPlayed || 0,
       }));

@@ -8,6 +8,7 @@ import type { FirestorePlayer } from '@/types/jass';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import ProfileImage from '@/components/ui/ProfileImage';
 import { Timestamp } from 'firebase/firestore';
 import Link from 'next/link';
 import { format } from 'date-fns';
@@ -51,6 +52,9 @@ interface ExpectedPlayerStatsWithAggregates {
 const PlayerProfilePage = () => {
   const router = useRouter();
   const { playerId } = router.query;
+
+  const [activeMainTab, setActiveMainTab] = useState("statistics");
+  const [activeStatsSubTab, setActiveStatsSubTab] = useState("individual");
 
   const [player, setPlayer] = useState<FirestorePlayer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -167,6 +171,24 @@ const PlayerProfilePage = () => {
     }
   }, [rawPlayerStats, player]);
 
+  useEffect(() => {
+    if (router.isReady) {
+      const { mainTab, statsSubTab } = router.query;
+      
+      const newMainTab = (typeof mainTab === 'string' && ['statistics', 'archive'].includes(mainTab)) 
+        ? mainTab 
+        : 'statistics';
+      setActiveMainTab(newMainTab);
+      
+      if (newMainTab === 'statistics') {
+        const newStatsSubTab = (typeof statsSubTab === 'string' && ['individual', 'partner', 'opponent'].includes(statsSubTab)) 
+          ? statsSubTab 
+          : 'individual';
+        setActiveStatsSubTab(newStatsSubTab);
+      }
+    }
+  }, [router.isReady, router.query]);
+
   if (isLoading || !router.isReady) {
     return (
       <MainLayout>
@@ -242,17 +264,17 @@ const PlayerProfilePage = () => {
 
         <div className="text-center mt-6 w-full max-w-md space-y-4">
           <div className="flex justify-center items-center mx-auto">
-            <Avatar className="h-32 w-32 flex-shrink-0 border-2 border-gray-700">
-              <AvatarImage src={player.photoURL === null ? undefined : player.photoURL} alt={player.displayName} />
-              <AvatarFallback 
-                className={cn(
-                  "text-4xl font-bold",
-                  isPlaceholder ? 'bg-yellow-700 text-gray-300' : 'bg-blue-600 text-white'
-                )}
-              >
-                {player?.displayName?.charAt(0).toUpperCase() || "?"}
-              </AvatarFallback>
-            </Avatar>
+            <ProfileImage 
+              src={player.photoURL} 
+              alt={player.displayName || "Unbekannter Spieler"} 
+              size="xl"
+              className="flex-shrink-0 border-2 border-gray-700"
+              fallbackClassName={cn(
+                "text-4xl font-bold",
+                isPlaceholder ? 'bg-yellow-700 text-gray-300' : 'bg-blue-600 text-white'
+              )}
+              priority
+            />
           </div>
 
           <h1 className="mt-4 text-3xl font-bold text-center text-white">
@@ -269,7 +291,19 @@ const PlayerProfilePage = () => {
         <div className="h-8"></div>
 
         {/* === TABS für Statistik und Archiv (statt Errungenschaften) === */}
-        <Tabs defaultValue="statistics" className="w-full">
+        <Tabs
+          value={activeMainTab}
+          onValueChange={(value) => {
+            const query: { [key: string]: string | string[] | undefined } = { ...router.query, mainTab: value };
+            if (value !== 'statistics') {
+              delete query.statsSubTab;
+            } else {
+              query.statsSubTab = 'individual';
+            }
+            router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
+          }}
+          className="w-full"
+        >
           <TabsList className="grid w-full grid-cols-2 bg-gray-800 p-1 rounded-lg mb-4 sticky top-0 z-30 backdrop-blur-md">
             <TabsTrigger 
               value="statistics" 
@@ -287,7 +321,16 @@ const PlayerProfilePage = () => {
 
           {/* Inhalt für Statistik-Tab (jetzt mit Sub-Tabs) */}
           <TabsContent value="statistics" className="w-full mb-8">
-            <Tabs defaultValue="individual" className="w-full">
+            <Tabs
+              value={activeStatsSubTab}
+              onValueChange={(value) => {
+                router.replace({
+                  pathname: router.pathname,
+                  query: { ...router.query, mainTab: 'statistics', statsSubTab: value },
+                }, undefined, { shallow: true });
+              }}
+              className="w-full"
+            >
               {/* Kleinerer Abstand (8px statt 16px) */}
               <div className="h-2"></div>
               

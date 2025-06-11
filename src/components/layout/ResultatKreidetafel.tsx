@@ -297,6 +297,12 @@ const ResultatKreidetafel = ({
   const [isCompletingPasse, setIsCompletingPasse] = useState(false); // Wiederherstellen der Deklaration
   const [isFinalizingSession, setIsFinalizingSession] = useState(false); // Hinzufügen/Korrigieren
   const [showConfetti, setShowConfetti] = useState(false); // HINZUGEFÜGT
+  const [isTakingScreenshot, setIsTakingScreenshot] = useState(false);
+  const [screenshotData, setScreenshotData] = useState<{
+    totals: typeof currentTotals;
+    title: string;
+    date: string;
+  } | null>(null);
 
   // NEU: Turnierkontext-Erkennung
   const { currentSession } = useJassStore();
@@ -355,6 +361,12 @@ const ResultatKreidetafel = ({
   const [touchStart, setTouchStart] = React.useState<number | null>(null);
   const [touchEnd, setTouchEnd] = React.useState<number | null>(null);
   const [swipeDirection, setSwipeDirection] = React.useState<'left' | 'right' | null>(null);
+
+  // Modul-Rendering Werte (früh definieren für Verwendung in Callbacks)
+  const currentModule = STATISTIC_MODULES.find(mod => mod.id === currentStatisticId);
+  const FallbackModuleComponent = JasspunkteStatistik;
+  const ModuleComponent = currentModule ? currentModule.component : FallbackModuleComponent;
+  const moduleTitle = currentModule ? currentModule.title : 'Jassergebnis';
 
   // --- LOGGING START ---
   // const onlineCompletedGamesForLog = useJassStore.getState().onlineCompletedGames;
@@ -598,6 +610,17 @@ const ResultatKreidetafel = ({
 
   // Neue Share-Funktion
   const handleShareAndComplete = useCallback(async () => {
+    // Schritt 1: Daten für Screenshot zwischenspeichern und Flag setzen
+    setScreenshotData({
+      totals: currentTotals,
+      title: moduleTitle,
+      date: currentDate,
+    });
+    setIsTakingScreenshot(true);
+
+    // Warten, bis der State aktualisiert und die Komponente neu gerendert wurde
+    await new Promise(resolve => setTimeout(resolve, 100));
+
     // Variablen für Styles und Zustand
     let localStatistikContainer: HTMLElement | null = null;
     let localActionArea: HTMLElement | null = null;
@@ -663,21 +686,51 @@ const ResultatKreidetafel = ({
           : 'Jass Resultat';
         const fullShareText = `${shareText}\n\nGeneriert von:\n👉 https://jassguru.ch`; 
         
-        await navigator.share({ files: [file], text: fullShareText });
-        console.log("✅ Teilen mit Bild erfolgreich!");
+        try {
+          await navigator.share({ files: [file], text: fullShareText });
+          console.log("✅ Teilen mit Bild erfolgreich!");
+        } catch (shareError: any) {
+          // Unterscheide zwischen Benutzer-Abbruch und echtem Fehler
+          if (shareError.name === 'AbortError' || shareError.message?.includes('abort')) {
+            console.log("ℹ️ Benutzer hat das Teilen abgebrochen.");
+            // Kein Fehler anzeigen bei Benutzer-Abbruch
+          } else {
+            console.warn("⚠️ Teilen mit Datei fehlgeschlagen, versuche Text-only:", shareError);
+            // Fallback zu Text-only
+            const textOnlyShare = `${shareText}\n\nGeneriert von:\n👉 https://jassguru.ch`;
+            try {
+              await navigator.share({ text: textOnlyShare });
+              console.log("✅ Teilen nur mit Text erfolgreich!");
+            } catch (textShareError: any) {
+              if (textShareError.name === 'AbortError' || textShareError.message?.includes('abort')) {
+                console.log("ℹ️ Benutzer hat das Text-Teilen abgebrochen.");
+              } else {
+                throw textShareError; // Echter Fehler weiterwerfen
+              }
+            }
+          }
+        }
       } else {
-        console.warn("⚠️ Teilen von Dateien nicht unterstützt oder fehlgeschlagen. Teilen nur mit Text.");
+        console.warn("⚠️ Teilen von Dateien nicht unterstützt. Versuche Text-only.");
         const notification = useUIStore.getState().jassFinishNotification;
         const shareText = notification?.message 
           ? typeof notification.message === 'string' ? notification.message : notification.message.text
           : 'Jass Resultat';
         const fullShareText = `${shareText}\n\nGeneriert von:\n👉 https://jassguru.ch`;
         if (navigator.share) {
+          try {
             await navigator.share({ text: fullShareText });
             console.log("✅ Teilen nur mit Text erfolgreich!");
+          } catch (shareError: any) {
+            if (shareError.name === 'AbortError' || shareError.message?.includes('abort')) {
+              console.log("ℹ️ Benutzer hat das Teilen abgebrochen.");
+            } else {
+              throw shareError; // Echter Fehler weiterwerfen
+            }
+          }
         } else {
-            console.error("❌ navigator.share wird nicht unterstützt.");
-            throw new Error("Teilen nicht unterstützt.");
+          console.warn("⚠️ navigator.share wird nicht unterstützt. Kein Teilen möglich.");
+          // Kein Error werfen, da das eine bekannte Einschränkung ist
         }
       }
 
@@ -701,11 +754,15 @@ const ResultatKreidetafel = ({
       // UI-Zustand wiederherstellen
       useUIStore.setState(state => ({ resultatKreidetafel: { ...state.resultatKreidetafel, ...localOriginalState } }));
       console.log("✅ UI-Zustand und Styles wiederhergestellt");
+
+      // Schritt 4: Screenshot-Modus zurücksetzen
+      setIsTakingScreenshot(false);
+      setScreenshotData(null);
     }
 
     // Das Schließen wird jetzt vom aufrufenden Callback (finalizeAndReset...) übernommen
     // closeResultatKreidetafel(); 
-  }, [closeResultatKreidetafel]); // Abhängigkeit bleibt für alle Fälle?
+  }, [currentTotals, moduleTitle, currentDate, closeResultatKreidetafel]); // Abhängigkeiten hinzufügen
 
   const handleStatisticChange = React.useCallback((direction: 'left' | 'right') => {
     const currentIndex = STATISTIC_MODULES.findIndex(mod => mod.id === currentStatisticId);
@@ -817,6 +874,12 @@ const ResultatKreidetafel = ({
           const totalGamesPlayedInSessionLocal = jassStore.games.length;
           const currentGameNumberLocal = totalGamesPlayedInSessionLocal;
 
+          // TypeScript Guard: Stelle sicher, dass sessionId definiert ist
+          if (!currentSessionIdLocal) {
+            console.error("[ResultatKreidetafel] currentSessionIdLocal is undefined despite isRealOnlineSession being true");
+            return;
+          }
+
           console.log(`[ResultatKreidetafel] Calling finalizeSession for REAL online session ${currentSessionIdLocal}, game ${currentGameNumberLocal} - JassStore.games.length: ${jassStore.games.length}, JassStore.currentGameId: ${jassStore.currentGameId}`);
           try {
               const functions = getFunctions(firebaseApp, "us-central1");
@@ -836,7 +899,7 @@ const ResultatKreidetafel = ({
               };
               
               const result = await finalizeFunction({ 
-                sessionId: currentSessionIdLocal, 
+                sessionId: currentSessionIdLocal, // Jetzt garantiert string 
                 expectedGameNumber: currentGameNumberLocal,
                 initialSessionData: initialSessionData 
               }); 
@@ -1034,6 +1097,10 @@ const ResultatKreidetafel = ({
             groupId: currentSession.gruppeId ?? '', 
             participantUids: currentSession.participantUids ?? [],
             playerNames: initialPlayerNames, // Verwende die Variable
+            // NEU: Jass-Einstellungen aus dem aktuellen Kontext übernehmen
+            farbeSettings: activeFarbeSettings,
+            scoreSettings: activeScoreSettings,
+            strokeSettings: activeStrokeSettings,
             teams: {
               top: { 
                 players: [initialPlayerNames[2] ?? 'Spieler 2', initialPlayerNames[4] ?? 'Spieler 4'], // Verwende die Variable
@@ -1245,6 +1312,21 @@ const ResultatKreidetafel = ({
             console.log(`[handleSignatureClick] Session ${currentSessionIdFromStore}: Determined expectedGameNumber=${currentGameNumber} (Tournament: ${isTournamentPasse}, JassStore.games.length: ${jassStore.games.length}, JassStore.currentGameId: ${jassStore.currentGameId})`);
             let statusUpdated = false;
 
+            // NEU: Kreidetafel zurückdrehen vor dem weiteren Ablauf
+            console.log("[ResultatKreidetafel] Alle Teams haben signiert. Drehe Kreidetafel zurück...");
+            useUIStore.setState(state => ({
+              resultatKreidetafel: {
+                ...state.resultatKreidetafel,
+                swipePosition: 'bottom'
+              }
+            }));
+
+            // NEU: Kurze Verzögerung für die Drehung, dann FullscreenLoader anzeigen
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            console.log("[ResultatKreidetafel] Starte Finalisierung - FullscreenLoader wird angezeigt...");
+            setIsFinalizingSession(true); // Dies zeigt den FullscreenLoader an
+
             // LOG 2: Direkt vor updateGameStatus
             // console.log(`[handleSignatureClick - LOG 2] Vor updateGameStatus. Spiel: ${currentGameNumber}, History Length: ${useGameStore.getState().roundHistory.length}`);
 
@@ -1256,6 +1338,8 @@ const ResultatKreidetafel = ({
                 } catch (err) {
                     console.error("Failed to update game status:", err);
                     uiStore.showNotification({ type: "error", message: "Fehler beim Speichern des Spielstatus." });
+                    // FullscreenLoader ausblenden bei Fehler
+                    setIsFinalizingSession(false);
                     return; // Nicht fortfahren
                 }
             } else {
@@ -1371,7 +1455,7 @@ const ResultatKreidetafel = ({
 
                 // Die aggressive Regex-Bereinigung wird entfernt. Das Objekt sollte jetzt korrekt sein.
                 console.log("[ResultatKreidetafel] Attempting to save completed game summary (Struktur überarbeitet)...", { currentSessionIdFromStore, currentGameNumber, summaryToSave: JSON.parse(JSON.stringify(summaryToSave)) }); 
-                    await saveCompletedGameToFirestore(currentSessionIdFromStore, currentGameNumber, summaryToSave);
+                    await saveCompletedGameToFirestore(currentSessionIdFromStore, currentGameNumber, summaryToSave, false);
                 
                 console.log("[ResultatKreidetafel] Completed game summary saved successfully."); 
 
@@ -1416,8 +1500,20 @@ const ResultatKreidetafel = ({
                 uiStore.clearResumableGameId();
                 uiStore.resetSigningProcess();
                 uiStore.closeJassFinishNotification();
+                
+                // NEU: FullscreenLoader ausblenden vor Navigation
+                setIsFinalizingSession(false);
+                
                 closeResultatKreidetafel();
-                await debouncedRouterPush(router, '/start');
+                
+                // NEU: Intelligente Navigation basierend auf Kontext
+                if (isTournamentPasse && tournamentInstanceId) {
+                    // Für Turniere: zurück zur Turnier-Detailseite
+                    await debouncedRouterPush(router, `/tournaments/${tournamentInstanceId}`);
+                } else {
+                    // Für normale Gruppenspiele: zurück zur Hauptseite
+                    await debouncedRouterPush(router, '/');
+                }
             };
 
             // Timer Analytics holen
@@ -1469,8 +1565,13 @@ const ResultatKreidetafel = ({
                           console.warn("[ResultatKreidetafel] currentSession in jassStore is null, cannot send full initialSessionData.");
                         }
 
+                        // TypeScript Guard: Sicherstellen, dass sessionId definiert ist
+                        if (!currentSessionIdFromStore) {
+                          throw new Error("Session ID is undefined despite isRealOnlineSession check");
+                        }
+
                         const result = await finalizeFunction({
-                          sessionId: currentSessionIdFromStore!,
+                          sessionId: currentSessionIdFromStore, // Jetzt garantiert string
                           expectedGameNumber: currentGameNumber!,
                           initialSessionData: initialPayloadData
                         });
@@ -1497,7 +1598,8 @@ const ResultatKreidetafel = ({
                       }
                     } // Ende while loop
                   } finally {
-                    setIsFinalizingSession(false); // Setze den Flag zurück, egal ob erfolgreich oder nicht
+                    // ENTFERNT: setIsFinalizingSession(false) hier ist zu früh!
+                    // Das wird erst in finalizeAndResetOnline gemacht
                   }
                 } // Ende if (!isFinalizingSession)
             } else {
@@ -1505,7 +1607,8 @@ const ResultatKreidetafel = ({
             }
             // --- ENDE Aufruf finalizeSessionSummary mit Retry ---
 
-            // 4. Spruch berechnen 
+            // 4. Spruch berechnen (FullscreenLoader bleibt an!)
+            console.log("[ResultatKreidetafel] Speichern abgeschlossen. Berechne Spruch...");
             const spruch = getJassSpruch({
                 stricheDifference: Math.abs(currentTotals.striche.top - currentTotals.striche.bottom),
                 pointDifference: Math.abs(currentTotals.punkte.top - currentTotals.punkte.bottom),
@@ -1541,8 +1644,8 @@ const ResultatKreidetafel = ({
                 previousGesamtStand: teamStats.previousGesamtStand
             });
 
-            // 5. JassFinishNotification anzeigen
-            console.log("[ResultatKreidetafel] Attempting to show JassFinishNotification."); 
+            // 5. JassFinishNotification anzeigen (ohne Drehung)
+            console.log("[ResultatKreidetafel] Zeige JassFinishNotification ohne Drehung..."); 
             uiStore.showJassFinishNotification({
                 mode: 'share',
                 message: spruch,
@@ -1551,12 +1654,16 @@ const ResultatKreidetafel = ({
                     await handleShareAndComplete();
                     await finalizeAndResetOnline(); // Reset NACH dem Teilen
                 },
-                onBack: async () => { // Wird jetzt als "Nicht teilen" angezeigt
-                    console.log("[ResultatKreidetafel] Sign-Flow: Nicht teilen button clicked.");
+                onBack: async () => { // Wird jetzt als "Weiter" angezeigt
+                    console.log("[ResultatKreidetafel] Sign-Flow: Weiter button clicked.");
                     await finalizeAndResetOnline(); // Direkter Reset
                 },
                 onBackLabel: "Weiter" // Das Label für den onBack Button
             });
+
+            // 6. FullscreenLoader SOFORT ausblenden nach JassFinishNotification
+            console.log("[ResultatKreidetafel] FullscreenLoader ausblenden nach JassFinishNotification...");
+            setIsFinalizingSession(false);
 
         } else {
             // Noch nicht fertig, automatisch flippen
@@ -1783,11 +1890,7 @@ const ResultatKreidetafel = ({
   const handleTouchMove = (e: React.TouchEvent) => {/* ... */};
   const handleTouchEnd = () => {/* ... */};
 
-  // 11. Modul-Rendering Logik
-  const currentModule = STATISTIC_MODULES.find(mod => mod.id === currentStatisticId);
-  const FallbackModuleComponent = JasspunkteStatistik;
-  const ModuleComponent = currentModule ? currentModule.component : FallbackModuleComponent;
-  const moduleTitle = currentModule ? currentModule.title : 'Jassergebnis';
+  // 11. Modul-Rendering Logik (Variablen bereits oben definiert)
 
   // NEU: Handler für den Abschluss einer Turnierpasse (Implementierung)
   const handleCompletePasseClick = useCallback(async () => {
@@ -1844,7 +1947,7 @@ const ResultatKreidetafel = ({
 
   return (
     <>
-      {isFinalizingSession && <FullscreenLoader text="Jass wird gespeichert. Bitte warten..." />}
+      {isFinalizingSession && <FullscreenLoader text="Daten und Statistiken werden aktualisiert..." />}
       {showConfetti && (
         <div className="fixed inset-0 bg-white bg-opacity-70 z-50">
           {/* Add your confetti animation or image here */}
@@ -1872,9 +1975,11 @@ const ResultatKreidetafel = ({
           {/* Header */}
           <div className="text-center mb-4">
             <h2 className="text-2xl font-bold text-white">
-              {moduleTitle} 
+              {isTakingScreenshot && screenshotData ? screenshotData.title : moduleTitle} 
             </h2>
-            <p className="text-gray-400">{currentDate}</p>
+            <p className="text-gray-400">
+              {isTakingScreenshot && screenshotData ? screenshotData.date : currentDate}
+            </p>
           </div>
 
           {/* Dreh-Button */}
@@ -1982,16 +2087,20 @@ const ResultatKreidetafel = ({
             <div className="text-gray-400 text-center pr-4">Total:</div>
             <div className="flex justify-center -ml-[30px]">
               <div className="text-2xl font-bold text-white w-[100px] text-center">
-                {currentStatisticId === 'striche' 
-                  ? currentTotals.striche.bottom 
-                  : currentTotals.punkte.bottom}
+                {isTakingScreenshot && screenshotData ? (
+                  currentStatisticId === 'striche' ? screenshotData.totals.striche.bottom : screenshotData.totals.punkte.bottom
+                ) : (
+                  currentStatisticId === 'striche' ? currentTotals.striche.bottom : currentTotals.punkte.bottom
+                )}
               </div>
             </div>
             <div className="flex justify-center -ml-[12px]">
               <div className="text-2xl font-bold text-white w-[100px] text-center">
-                {currentStatisticId === 'striche' 
-                  ? currentTotals.striche.top 
-                  : currentTotals.punkte.top}
+                {isTakingScreenshot && screenshotData ? (
+                  currentStatisticId === 'striche' ? screenshotData.totals.striche.top : screenshotData.totals.punkte.top
+                ) : (
+                  currentStatisticId === 'striche' ? currentTotals.striche.top : currentTotals.punkte.top
+                )}
               </div>
             </div>
           </div>

@@ -8,11 +8,10 @@ import {Alert, AlertDescription} from "@/components/ui/alert";
 import Image from "next/image";
 import MainLayout from "@/components/layout/MainLayout";
 import {useUIStore} from "@/store/uiStore";
-import {Camera, Upload, X, UserCog, Users, BarChart3, CheckCircle, XCircle, MinusCircle, Archive, Award as AwardIcon, User, Shield} from "lucide-react";
+import {Camera, Upload, X, UserCog, Users, BarChart3, CheckCircle, XCircle, MinusCircle, Archive, Award as AwardIcon, User, Shield, XCircle as AlertXCircle, Camera as CameraIcon} from "lucide-react";
 import ImageCropModal from "@/components/ui/ImageCropModal";
 import {toast} from "sonner";
 import {compressImage} from "@/utils/imageUtils";
-import {XCircle as AlertXCircle, Camera as CameraIcon} from "lucide-react";
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import {fetchCompletedSessionsForUser, SessionSummary} from '@/services/sessionService';
 import Link from 'next/link';
@@ -22,6 +21,7 @@ import type { StricheRecord } from '@/types/jass';
 import { fetchTournamentsForUser } from '@/services/tournamentService';
 import type { TournamentInstance } from '@/types/tournament';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import ProfileImage from '@/components/ui/ProfileImage';
 import { usePlayerStatsStore } from '@/store/playerStatsStore';
 import { transformComputedStatsToExtended, type TransformedPlayerStats } from '@/utils/statsTransformer';
 import { useGroupStore } from "@/store/groupStore";
@@ -68,6 +68,9 @@ const ProfilePage: React.FC = () => {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [activeMainTab, setActiveMainTab] = useState("stats");
+  const [activeStatsSubTab, setActiveStatsSubTab] = useState("individual");
+
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -95,6 +98,24 @@ const ProfilePage: React.FC = () => {
   const { userGroups } = useGroupStore();
 
   const [playerStats, setPlayerStats] = useState<ProfilePagePlayerStats | null>(null);
+
+  useEffect(() => {
+    if (router.isReady) {
+      const { mainTab, statsSubTab } = router.query;
+      
+      const newMainTab = (typeof mainTab === 'string' && ['stats', 'archive'].includes(mainTab)) 
+        ? mainTab 
+        : 'stats';
+      setActiveMainTab(newMainTab);
+      
+      if (newMainTab === 'stats') {
+        const newStatsSubTab = (typeof statsSubTab === 'string' && ['individual', 'partner', 'opponent'].includes(statsSubTab)) 
+          ? statsSubTab 
+          : 'individual';
+        setActiveStatsSubTab(newStatsSubTab);
+      }
+    }
+  }, [router.isReady, router.query]);
 
   const typedRawPlayerStats = rawPlayerStats as ExpectedPlayerStatsWithAggregates | null;
 
@@ -481,24 +502,18 @@ const ProfilePage: React.FC = () => {
 
           <div className="text-center mt-6">
             <div className="flex justify-center items-center mx-auto">
-              <div className="relative h-32 w-32 overflow-hidden rounded-full bg-gray-800 border-2 border-gray-700 group">
-                {user?.photoURL ? (
-                  <Image
-                    src={user.photoURL}
-                    alt="Profilbild"
-                    width={128}
-                    height={128}
-                    className="object-cover h-full w-full"
-                    key={user.photoURL}
-                    priority
-                  />
-                ) : (
-                  <div className="h-full w-full bg-gray-800"></div>
-                )}
-
+              <div className="relative group">
+                <ProfileImage 
+                  src={user?.photoURL} 
+                  alt="Profilbild" 
+                  size="xl"
+                  className="border-2 border-gray-700"
+                  priority
+                  useNextImage
+                />
                 <button
                   onClick={handleSelectClick}
-                  className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-opacity duration-200"
+                  className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-opacity duration-200 rounded-full"
                   disabled={isUploading || cropModalOpen} 
                   aria-label="Profilbild ändern"
                 >
@@ -573,7 +588,19 @@ const ProfilePage: React.FC = () => {
 
           </div>
 
-          <Tabs defaultValue="stats" className="w-full">
+          <Tabs 
+            value={activeMainTab}
+            onValueChange={(value) => {
+              const query: { [key: string]: string | string[] | undefined } = { ...router.query, mainTab: value };
+              if (value !== 'stats') {
+                delete query.statsSubTab;
+              } else {
+                query.statsSubTab = 'individual';
+              }
+              router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
+            }}
+            className="w-full"
+          >
             <TabsList className="grid w-full grid-cols-2 bg-gray-800 p-1 rounded-lg mb-4 sticky top-0 z-30 backdrop-blur-md">
               <TabsTrigger 
                 value="stats" 
@@ -590,7 +617,16 @@ const ProfilePage: React.FC = () => {
             </TabsList>
 
             <TabsContent value="stats" className="w-full mb-8"> 
-              <Tabs defaultValue="individual" className="w-full">
+              <Tabs
+                value={activeStatsSubTab}
+                onValueChange={(value) => {
+                  router.replace({
+                    pathname: router.pathname,
+                    query: { ...router.query, mainTab: 'stats', statsSubTab: value },
+                  }, undefined, { shallow: true });
+                }}
+                className="w-full"
+              >
                 <div className="h-2"></div>
                 
                 <div className="sticky top-[44px] z-20 bg-gray-900 pt-0 pb-4">
@@ -1061,26 +1097,10 @@ const ProfilePage: React.FC = () => {
                             ) : (
                               <span className="text-gray-100">-</span>
                             )}
-                    </div>
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                            <span className="font-medium text-gray-300">Meiste Weispunkte erhalten:</span>
-                            {playerStats?.mostWeisPointsReceivedGame && typeof playerStats.mostWeisPointsReceivedGame.value === 'number' ? (
-                              <Link 
-                                href={playerStats.mostWeisPointsReceivedGame.relatedId && playerStats.mostWeisPointsReceivedGame.relatedType === 'game' ? `/view/game/${playerStats.mostWeisPointsReceivedGame.relatedId}` : '#'} 
-                                className={`text-gray-100 ${playerStats.mostWeisPointsReceivedGame.relatedId ? 'hover:underline cursor-pointer' : 'cursor-default'}`}
-                              >
-                                {playerStats.mostWeisPointsReceivedGame.value} ({playerStats.mostWeisPointsReceivedGame.date || '-'}) 
-                          </Link>
-                            ) : (
-                              <span className="text-gray-100">-</span>
-                            )}
                   </div>
                     </div>
                   </div>
 
-                      <NotableEventsList highlights={playerStats.dynamicHighlights} />
-
-                      {/* Trumpf Statistik */}
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                           <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>

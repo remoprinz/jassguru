@@ -47,6 +47,7 @@ import { TournamentSelector } from "@/components/tournament/TournamentSelector";
 // NEUE IMPORTE FÜR KARTENSYMBOL-MAPPING
 import { CARD_SYMBOL_MAPPINGS } from '@/config/CardStyles';
 import { toTitleCase } from '@/utils/formatUtils';
+import ProfileImage from '@/components/ui/ProfileImage';
 // ENDE NEUE IMPORTE
 
 // Hilfsfunktion zur Formatierung von Millisekunden in eine lesbare Form
@@ -615,11 +616,10 @@ const StartPage = () => {
         showNotification({ message: "Bitte zuerst eine Gruppe auswählen.", type: "warning" });
         return;
       }
-      if (!currentGroup || useAuthStore.getState().isGuest) {
-        router.push("/jass");
-      } else {
-        router.push("/jass");
-      }
+      // Leitet den Benutzer zur dedizierten Seite für die Erstellung eines neuen
+      // Online-Spiels, anstatt direkt zum Jass-Bildschirm.
+      // Der Offline/Gast-Flow wird dadurch nicht beeinflusst.
+      router.push("/game/new");
     }
   }, [resumableGameId, router, handleResumeGame, currentGroup, userGroups, showNotification]);
 
@@ -1045,19 +1045,26 @@ const StartPage = () => {
   const [activeStatsSubTab, setActiveStatsSubTab] = useState("overview");
 
   useEffect(() => {
+    // Synchronisiert den Zustand der Tabs mit den URL-Query-Parametern.
+    // Dies stellt sicher, dass die Tabs korrekt angezeigt werden, wenn die Seite
+    // geladen wird oder der Benutzer die Browser-Navigation (Vor/Zurück) verwendet.
     if (router.isReady) {
       const { mainTab, statsSubTab } = router.query;
-      if (typeof mainTab === 'string' && ['statistics', 'archive', 'members'].includes(mainTab)) {
-        setActiveMainTab(mainTab);
-      }
-      // Nur den Sub-Tab setzen, wenn der Haupt-Tab "statistics" ist (oder wird)
-      if (mainTab === 'statistics' || (mainTab === undefined && activeMainTab === 'statistics')) {
-        if (typeof statsSubTab === 'string' && ['overview', 'players', 'teams'].includes(statsSubTab)) {
-          setActiveStatsSubTab(statsSubTab);
-        }
+      
+      const newMainTab = (typeof mainTab === 'string' && ['statistics', 'archive', 'members'].includes(mainTab)) 
+        ? mainTab 
+        : 'statistics'; // Standard-Tab
+      setActiveMainTab(newMainTab);
+      
+      // Setze den Sub-Tab nur, wenn der Haupt-Tab "statistics" ist.
+      if (newMainTab === 'statistics') {
+          const newStatsSubTab = (typeof statsSubTab === 'string' && ['overview', 'players', 'teams'].includes(statsSubTab)) 
+            ? statsSubTab 
+            : 'overview'; // Standard-Sub-Tab
+          setActiveStatsSubTab(newStatsSubTab);
       }
     }
-  }, [router.isReady, router.query, activeMainTab]); // activeMainTab hinzugefügt, um SubTab korrekt zu setzen, falls mainTab nicht in Query
+  }, [router.isReady, router.query]);
 
   // NEUE Funktion für Einladungsverarbeitung
   const handleProcessInviteInput = useCallback(async (inputValue: string, inviteUiType: 'group' | 'tournament') => {
@@ -1290,7 +1297,17 @@ const StartPage = () => {
           )}
         </div>
 
-        <Tabs value={activeMainTab} onValueChange={setActiveMainTab} className="w-full">
+        <Tabs 
+          value={activeMainTab} 
+          onValueChange={(value) => {
+            const query: { [key: string]: string | string[] | undefined } = { ...router.query, mainTab: value };
+            if (value !== 'statistics') {
+              delete query.statsSubTab;
+            }
+            router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
+          }} 
+          className="w-full"
+        >
           <TabsList className="grid w-full grid-cols-3 bg-gray-800 p-1 rounded-lg mb-4 sticky top-0 z-30 backdrop-blur-md">
             <TabsTrigger 
               value="statistics" 
@@ -1324,7 +1341,16 @@ const StartPage = () => {
                 <span className="ml-3 text-gray-300">Lade Statistiken...</span>
               </div>
             ) : (
-                <Tabs value={activeStatsSubTab} onValueChange={setActiveStatsSubTab} className="w-full">
+                <Tabs 
+                  value={activeStatsSubTab} 
+                  onValueChange={(value) => {
+                    router.replace({
+                      pathname: router.pathname,
+                      query: { ...router.query, mainTab: 'statistics', statsSubTab: value },
+                    }, undefined, { shallow: true });
+                  }} 
+                  className="w-full"
+                >
                   {/* Kleinerer Abstand (8px statt 16px) */}
                   <div className="h-2"></div>
                   
@@ -1444,13 +1470,13 @@ const StartPage = () => {
                                     <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                       <div className="flex items-center">
                                         <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                        <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
-                                          {playerData?.photoURL ? (
-                                            <Image src={playerData.photoURL} alt={playerStat.name} width={24} height={24} className="rounded-full object-cover" />
-                                          ) : (
-                                            <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">{playerStat.name.charAt(0).toUpperCase()}</AvatarFallback>
-                                          )}
-                                        </Avatar>
+                                        <ProfileImage 
+                                          src={playerData?.photoURL} 
+                                          alt={playerStat.name} 
+                                          size="xs"
+                                          className="mr-2 bg-yellow-600/20 flex items-center justify-center"
+                                          fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                        />
                                         <span className="text-gray-300">{playerStat.name}</span>
                                       </div>
                                       <div className="flex items-center">
@@ -1560,9 +1586,14 @@ const StartPage = () => {
                                     <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                       <div className="flex items-center">
                                         <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                        <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
-                                          {playerData?.photoURL ? (<Image src={playerData.photoURL} alt={playerStat.name} width={24} height={24} className="rounded-full object-cover" />) : (<AvatarFallback className="bg-gray-700 text-gray-300 text-xs">{playerStat.name.charAt(0).toUpperCase()}</AvatarFallback>)}
-                                        </Avatar>
+                                        <ProfileImage 
+                                          src={playerData?.photoURL} 
+                                          alt={playerStat.name} 
+                                          size="xs"
+                                          className="mr-2 bg-yellow-600/20"
+                                          fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                          fallbackText={playerStat.name.charAt(0).toUpperCase()}
+                                        />
                                         <span className="text-gray-300">{playerStat.name}</span>
                                       </div>
                                       <div className="flex items-center">
@@ -1596,9 +1627,14 @@ const StartPage = () => {
                                     <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                       <div className="flex items-center">
                                         <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                        <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
-                                          {playerData?.photoURL ? (<Image src={playerData.photoURL} alt={playerStat.name} width={24} height={24} className="rounded-full object-cover" />) : (<AvatarFallback className="bg-gray-700 text-gray-300 text-xs">{playerStat.name.charAt(0).toUpperCase()}</AvatarFallback>)}
-                                        </Avatar>
+                                        <ProfileImage 
+                                          src={playerData?.photoURL} 
+                                          alt={playerStat.name} 
+                                          size="xs"
+                                          className="mr-2 bg-yellow-600/20"
+                                          fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                          fallbackText={playerStat.name.charAt(0).toUpperCase()}
+                                        />
                                         <span className="text-gray-300">{playerStat.name}</span>
                                       </div>
                                       <div className="flex items-center">
@@ -1632,9 +1668,14 @@ const StartPage = () => {
                                     <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                       <div className="flex items-center">
                                         <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                        <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
-                                          {playerData?.photoURL ? (<Image src={playerData.photoURL} alt={playerStat.name} width={24} height={24} className="rounded-full object-cover" />) : (<AvatarFallback className="bg-gray-700 text-gray-300 text-xs">{playerStat.name.charAt(0).toUpperCase()}</AvatarFallback>)}
-                                        </Avatar>
+                                        <ProfileImage 
+                                          src={playerData?.photoURL} 
+                                          alt={playerStat.name} 
+                                          size="xs"
+                                          className="mr-2 bg-yellow-600/20"
+                                          fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                          fallbackText={playerStat.name.charAt(0).toUpperCase()}
+                                        />
                                         <span className="text-gray-300">{playerStat.name}</span>
                                       </div>
                                       <div className="flex items-center">
@@ -1667,9 +1708,14 @@ const StartPage = () => {
                                     <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                       <div className="flex items-center">
                                         <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                        <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
-                                          {playerData?.photoURL ? (<Image src={playerData.photoURL} alt={playerStat.name} width={24} height={24} className="rounded-full object-cover" />) : (<AvatarFallback className="bg-gray-700 text-gray-300 text-xs">{playerStat.name.charAt(0).toUpperCase()}</AvatarFallback>)}
-                                        </Avatar>
+                                        <ProfileImage 
+                                          src={playerData?.photoURL} 
+                                          alt={playerStat.name} 
+                                          size="xs"
+                                          className="mr-2 bg-yellow-600/20"
+                                          fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                          fallbackText={playerStat.name.charAt(0).toUpperCase()}
+                                        />
                                         <span className="text-gray-300">{playerStat.name}</span>
                                       </div>
                                       <div className="flex items-center">
@@ -1702,9 +1748,14 @@ const StartPage = () => {
                                     <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                       <div className="flex items-center">
                                         <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                        <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
-                                          {playerData?.photoURL ? (<Image src={playerData.photoURL} alt={playerStat.name} width={24} height={24} className="rounded-full object-cover" />) : (<AvatarFallback className="bg-gray-700 text-gray-300 text-xs">{playerStat.name.charAt(0).toUpperCase()}</AvatarFallback>)}
-                                        </Avatar>
+                                        <ProfileImage 
+                                          src={playerData?.photoURL} 
+                                          alt={playerStat.name} 
+                                          size="xs"
+                                          className="mr-2 bg-yellow-600/20"
+                                          fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                          fallbackText={playerStat.name.charAt(0).toUpperCase()}
+                                        />
                                         <span className="text-gray-300">{playerStat.name}</span>
                                       </div>
                                       <div className="flex items-center">
@@ -1737,9 +1788,14 @@ const StartPage = () => {
                                     <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                       <div className="flex items-center">
                                         <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                        <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
-                                          {playerData?.photoURL ? (<Image src={playerData.photoURL} alt={playerStat.name} width={24} height={24} className="rounded-full object-cover" />) : (<AvatarFallback className="bg-gray-700 text-gray-300 text-xs">{playerStat.name.charAt(0).toUpperCase()}</AvatarFallback>)}
-                                        </Avatar>
+                                        <ProfileImage 
+                                          src={playerData?.photoURL} 
+                                          alt={playerStat.name} 
+                                          size="xs"
+                                          className="mr-2 bg-yellow-600/20"
+                                          fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                          fallbackText={playerStat.name.charAt(0).toUpperCase()}
+                                        />
                                         <span className="text-gray-300">{playerStat.name}</span>
                                       </div>
                                       <div className="flex items-center">
@@ -1772,9 +1828,14 @@ const StartPage = () => {
                                     <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                       <div className="flex items-center">
                                         <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                        <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
-                                          {playerData?.photoURL ? (<Image src={playerData.photoURL} alt={playerStat.name} width={24} height={24} className="rounded-full object-cover" />) : (<AvatarFallback className="bg-gray-700 text-gray-300 text-xs">{playerStat.name.charAt(0).toUpperCase()}</AvatarFallback>)}
-                                        </Avatar>
+                                        <ProfileImage 
+                                          src={playerData?.photoURL} 
+                                          alt={playerStat.name} 
+                                          size="xs"
+                                          className="mr-2 bg-yellow-600/20"
+                                          fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                          fallbackText={playerStat.name.charAt(0).toUpperCase()}
+                                        />
                                         <span className="text-gray-300">{playerStat.name}</span>
                                       </div>
                                       <div className="flex items-center">
@@ -1811,21 +1872,14 @@ const StartPage = () => {
                                 <div className="flex items-center">
                                   <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                   <div className="flex -space-x-2 mr-2">
-                                    <Avatar className="h-6 w-6 border-2 border-gray-800 bg-yellow-600/20 flex items-center justify-center">
-                                      {findPlayerPhotoByName(team.names[0], members) ? (
-                                        <Image
-                                          src={findPlayerPhotoByName(team.names[0], members)!}
-                                          alt={team.names[0]}
-                                          width={24}
-                                          height={24}
-                                          className="rounded-full object-cover"
-                                        />
-                                      ) : (
-                                      <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                        {team.names[0].charAt(0).toUpperCase()}
-                                      </AvatarFallback>
-                                      )}
-                                    </Avatar>
+                                    <ProfileImage 
+                                      src={findPlayerPhotoByName(team.names[0], members)} 
+                                      alt={team.names[0]} 
+                                      size="xs"
+                                      className="border-2 border-gray-800 bg-yellow-600/20"
+                                      fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                      fallbackText={team.names[0].charAt(0).toUpperCase()}
+                                    />
                                     <Avatar className="h-6 w-6 border-2 border-gray-800 bg-yellow-600/20 flex items-center justify-center">
                                       {findPlayerPhotoByName(team.names[1], members) ? (
                                         <Image
@@ -1865,21 +1919,14 @@ const StartPage = () => {
                                 <div className="flex items-center">
                                   <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                   <div className="flex -space-x-2 mr-2">
-                                    <Avatar className="h-6 w-6 border-2 border-gray-800 bg-yellow-600/20 flex items-center justify-center">
-                                      {findPlayerPhotoByName(team.names[0], members) ? (
-                                        <Image
-                                          src={findPlayerPhotoByName(team.names[0], members)!}
-                                          alt={team.names[0]}
-                                          width={24}
-                                          height={24}
-                                          className="rounded-full object-cover"
-                                        />
-                                      ) : (
-                                      <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                        {team.names[0].charAt(0).toUpperCase()}
-                                      </AvatarFallback>
-                                      )}
-                                    </Avatar>
+                                    <ProfileImage 
+                                      src={findPlayerPhotoByName(team.names[0], members)} 
+                                      alt={team.names[0]} 
+                                      size="xs"
+                                      className="border-2 border-gray-800 bg-yellow-600/20"
+                                      fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                      fallbackText={team.names[0].charAt(0).toUpperCase()}
+                                    />
                                     <Avatar className="h-6 w-6 border-2 border-gray-800 bg-yellow-600/20 flex items-center justify-center">
                                       {findPlayerPhotoByName(team.names[1], members) ? (
                                         <Image
@@ -1919,21 +1966,14 @@ const StartPage = () => {
                                 <div className="flex items-center">
                                   <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                   <div className="flex -space-x-2 mr-2">
-                                    <Avatar className="h-6 w-6 border-2 border-gray-800 bg-yellow-600/20 flex items-center justify-center">
-                                      {findPlayerPhotoByName(team.names[0], members) ? (
-                                        <Image
-                                          src={findPlayerPhotoByName(team.names[0], members)!}
-                                          alt={team.names[0]}
-                                          width={24}
-                                          height={24}
-                                          className="rounded-full object-cover"
-                                        />
-                                      ) : (
-                                      <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                        {team.names[0].charAt(0).toUpperCase()}
-                                      </AvatarFallback>
-                                      )}
-                                    </Avatar>
+                                    <ProfileImage 
+                                      src={findPlayerPhotoByName(team.names[0], members)} 
+                                      alt={team.names[0]} 
+                                      size="xs"
+                                      className="border-2 border-gray-800 bg-yellow-600/20"
+                                      fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                      fallbackText={team.names[0].charAt(0).toUpperCase()}
+                                    />
                                     <Avatar className="h-6 w-6 border-2 border-gray-800 bg-yellow-600/20 flex items-center justify-center">
                                       {findPlayerPhotoByName(team.names[1], members) ? (
                                         <Image
@@ -1973,21 +2013,14 @@ const StartPage = () => {
                                 <div className="flex items-center">
                                   <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                   <div className="flex -space-x-2 mr-2">
-                                    <Avatar className="h-6 w-6 border-2 border-gray-800 bg-yellow-600/20 flex items-center justify-center">
-                                      {findPlayerPhotoByName(team.names[0], members) ? (
-                                        <Image
-                                          src={findPlayerPhotoByName(team.names[0], members)!}
-                                          alt={team.names[0]}
-                                          width={24}
-                                          height={24}
-                                          className="rounded-full object-cover"
-                                        />
-                                      ) : (
-                                      <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                        {team.names[0].charAt(0).toUpperCase()}
-                                      </AvatarFallback>
-                                      )}
-                                    </Avatar>
+                                    <ProfileImage 
+                                      src={findPlayerPhotoByName(team.names[0], members)} 
+                                      alt={team.names[0]} 
+                                      size="xs"
+                                      className="border-2 border-gray-800 bg-yellow-600/20"
+                                      fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                      fallbackText={team.names[0].charAt(0).toUpperCase()}
+                                    />
                                     <Avatar className="h-6 w-6 border-2 border-gray-800 bg-yellow-600/20 flex items-center justify-center">
                                       {findPlayerPhotoByName(team.names[1], members) ? (
                                         <Image
@@ -2027,21 +2060,14 @@ const StartPage = () => {
                                 <div className="flex items-center">
                                   <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                   <div className="flex -space-x-2 mr-2">
-                                    <Avatar className="h-6 w-6 border-2 border-gray-800 bg-yellow-600/20 flex items-center justify-center">
-                                      {findPlayerPhotoByName(team.names[0], members) ? (
-                                        <Image
-                                          src={findPlayerPhotoByName(team.names[0], members)!}
-                                          alt={team.names[0]}
-                                          width={24}
-                                          height={24}
-                                          className="rounded-full object-cover"
-                                        />
-                                      ) : (
-                                      <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                        {team.names[0].charAt(0).toUpperCase()}
-                                      </AvatarFallback>
-                                      )}
-                                    </Avatar>
+                                    <ProfileImage 
+                                      src={findPlayerPhotoByName(team.names[0], members)} 
+                                      alt={team.names[0]} 
+                                      size="xs"
+                                      className="border-2 border-gray-800 bg-yellow-600/20"
+                                      fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                      fallbackText={team.names[0].charAt(0).toUpperCase()}
+                                    />
                                     <Avatar className="h-6 w-6 border-2 border-gray-800 bg-yellow-600/20 flex items-center justify-center">
                                       {findPlayerPhotoByName(team.names[1], members) ? (
                                         <Image
@@ -2081,21 +2107,14 @@ const StartPage = () => {
                                 <div className="flex items-center">
                                   <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                   <div className="flex -space-x-2 mr-2">
-                                    <Avatar className="h-6 w-6 border-2 border-gray-800 bg-yellow-600/20 flex items-center justify-center">
-                                      {findPlayerPhotoByName(team.names[0], members) ? (
-                                        <Image
-                                          src={findPlayerPhotoByName(team.names[0], members)!}
-                                          alt={team.names[0]}
-                                          width={24}
-                                          height={24}
-                                          className="rounded-full object-cover"
-                                        />
-                                      ) : (
-                                      <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                        {team.names[0].charAt(0).toUpperCase()}
-                                      </AvatarFallback>
-                                      )}
-                                    </Avatar>
+                                    <ProfileImage 
+                                      src={findPlayerPhotoByName(team.names[0], members)} 
+                                      alt={team.names[0]} 
+                                      size="xs"
+                                      className="border-2 border-gray-800 bg-yellow-600/20"
+                                      fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                      fallbackText={team.names[0].charAt(0).toUpperCase()}
+                                    />
                                     <Avatar className="h-6 w-6 border-2 border-gray-800 bg-yellow-600/20 flex items-center justify-center">
                                       {findPlayerPhotoByName(team.names[1], members) ? (
                                         <Image
@@ -2135,21 +2154,14 @@ const StartPage = () => {
                                 <div className="flex items-center">
                                   <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                   <div className="flex -space-x-2 mr-2">
-                                    <Avatar className="h-6 w-6 border-2 border-gray-800 bg-yellow-600/20 flex items-center justify-center">
-                                      {findPlayerPhotoByName(team.names[0], members) ? (
-                                        <Image
-                                          src={findPlayerPhotoByName(team.names[0], members)!}
-                                          alt={team.names[0]}
-                                          width={24}
-                                          height={24}
-                                          className="rounded-full object-cover"
-                                        />
-                                      ) : (
-                                      <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                        {team.names[0].charAt(0).toUpperCase()}
-                                      </AvatarFallback>
-                                      )}
-                                    </Avatar>
+                                    <ProfileImage 
+                                      src={findPlayerPhotoByName(team.names[0], members)} 
+                                      alt={team.names[0]} 
+                                      size="xs"
+                                      className="border-2 border-gray-800 bg-yellow-600/20"
+                                      fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                      fallbackText={team.names[0].charAt(0).toUpperCase()}
+                                    />
                                     <Avatar className="h-6 w-6 border-2 border-gray-800 bg-yellow-600/20 flex items-center justify-center">
                                       {findPlayerPhotoByName(team.names[1], members) ? (
                                         <Image
@@ -2189,21 +2201,14 @@ const StartPage = () => {
                                 <div className="flex items-center">
                                   <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                   <div className="flex -space-x-2 mr-2">
-                                    <Avatar className="h-6 w-6 border-2 border-gray-800 bg-yellow-600/20 flex items-center justify-center">
-                                      {findPlayerPhotoByName(team.names[0], members) ? (
-                                        <Image
-                                          src={findPlayerPhotoByName(team.names[0], members)!}
-                                          alt={team.names[0]}
-                                          width={24}
-                                          height={24}
-                                          className="rounded-full object-cover"
-                                        />
-                                      ) : (
-                                      <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                        {team.names[0].charAt(0).toUpperCase()}
-                                      </AvatarFallback>
-                                      )}
-                                    </Avatar>
+                                    <ProfileImage 
+                                      src={findPlayerPhotoByName(team.names[0], members)} 
+                                      alt={team.names[0]} 
+                                      size="xs"
+                                      className="border-2 border-gray-800 bg-yellow-600/20"
+                                      fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                      fallbackText={team.names[0].charAt(0).toUpperCase()}
+                                    />
                                     <Avatar className="h-6 w-6 border-2 border-gray-800 bg-yellow-600/20 flex items-center justify-center">
                                       {findPlayerPhotoByName(team.names[1], members) ? (
                                         <Image

@@ -78,8 +78,8 @@ export const BROWSER_ONBOARDING = {
   iOS: {
     WELCOME_SCREEN: {
       title: "Jetzt App installieren",
-      message: "Installiere jetzt die digitale Jasstafel, die sich alles merkt und alles kann. Nie mehr Diskussionen ums Zählen, keine Zeitverschwendung für Rechnereien, tschüss zerknitterte Zettel.",
-      secondaryMessage: "Du machst die Stiche, ich schreib die Striche.",
+      message: "Installiere jetzt die digitale Jasstafel, die sich alles merkt und alles kann. Nie mehr Diskussionen ums Zählen, keine Zeitverschwendung für Rechnereien, keine zerknitterte Zettel.",
+      secondaryMessage: "Ihr macht die Stiche – ich schreib die Striche.",
       image: "/welcome-guru.png",
     },
     INSTALL_WELCOME: {
@@ -118,8 +118,8 @@ export const BROWSER_ONBOARDING = {
   },
   Android: {
     WELCOME_SCREEN: {
-      title: "Jassguru-App installieren",
-      message: "Keine Diskussionen ums Zählen, keine Zeitverschwendung für Rechnereien, keine zerknitterten Zettel – hier kommt die digitale Jasstafel, die sich alles merkt und alles kann!",
+      title: "Jetzt App installieren",
+      message: "Installiere jetzt die digitale Jasstafel, die sich alles merkt und alles kann. Nie mehr Diskussionen ums Zählen, keine Zeitverschwendung für Rechnereien, keine zerknitterte Zettel.",
       secondaryMessage: "Ihr macht die Stiche – ich schreib die Striche.",
       image: "/welcome-guru.png",
     },

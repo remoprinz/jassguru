@@ -54,17 +54,18 @@ export function RegisterForm() {
       const tournamentToken = getTournamentToken();
       const groupToken = getGroupToken();
       
-      let successMessage = "Registrierung erfolgreich! Bitte prüfe dein Postfach (auch Spam) und klicke auf den Bestätigungslink.";
+      let successMessage = "Registrierung erfolgreich! Prüfe deine Email (auch Spam-Ordner), um die Registrierung abzuschliessen.";
       
       if (tournamentToken) {
-        successMessage += " Nach der E-Mail-Bestätigung kannst du am Turnier teilnehmen.";
+        successMessage = "Registrierung erfolgreich! Prüfe deine Email (auch Spam-Ordner), um die Registrierung abzuschliessen.";
       } else if (groupToken) {
-        successMessage += " Nach der E-Mail-Bestätigung kannst du der Gruppe beitreten.";
+        successMessage = "Registrierung erfolgreich! Prüfe deine Email (auch Spam-Ordner), um die Gruppen-Einladung abzuschliessen.";
       }
 
       showNotification({
         type: "success",
         message: successMessage,
+        preventClose: true,
       });
 
       form.reset();

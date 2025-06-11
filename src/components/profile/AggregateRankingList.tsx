@@ -67,8 +67,8 @@ const AggregateRankingList: React.FC<AggregateRankingListProps> = ({
 
     // Handle Win Rates (higher is better, but ensure numbers for proper sort)
     if (title.toLowerCase().includes('siegquote') || title.toLowerCase().includes('quote')) {
-        const numA = typeof valA === 'string' ? parseFloat(valA.replace('%','')) : valA as number;
-        const numB = typeof valB === 'string' ? parseFloat(valB.replace('%','')) : valB as number;
+        const numA = typeof valA === 'string' ? parseFloat(valA.replace('%', '')) : valA as number;
+        const numB = typeof valB === 'string' ? parseFloat(valB.replace('%', '')) : valB as number;
         return numB - numA; 
     }
 

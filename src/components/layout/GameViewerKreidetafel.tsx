@@ -7,9 +7,7 @@ import type {
   PlayerNames, 
   TeamScores, 
   StricheRecord, 
-  JassColor,
   CardStyle,
-  TeamPosition,
   PlayerNumber,
   StrokeSettings,
   TeamStand,
@@ -23,7 +21,8 @@ import { useSwipeable } from 'react-swipeable';
 import { DEFAULT_STROKE_SETTINGS } from '@/config/GameSettings'; // Default fallback
 import { DEFAULT_FARBE_SETTINGS } from '@/config/FarbeSettings'; // Default fallback
 import { DEFAULT_SCORE_SETTINGS } from '@/config/ScoreSettings';
-import { getNormalStricheCount } from '@/utils/stricheCalculations';
+import { useScreenshot } from '@/hooks/useScreenshot'; // NEU: Importiere den Hook
+import { FiShare2, FiLoader } from 'react-icons/fi'; // NEU: Importiere Icons
 
 // Props Interface mirroring viewerData structure from [gameId].tsx
 export interface GameViewerKreidetafelProps {
@@ -57,6 +56,7 @@ const PlayerNameDisplay: React.FC<{ name: string, isStarter: boolean }> = ({ nam
 
 const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData, gameTypeLabel = 'Spiel' }) => {
   const [currentStatistic, setCurrentStatistic] = useState<string>(STATISTIC_MODULES[0]?.id ?? 'striche'); // Default to first module
+  const { isSharing, handleShare } = useScreenshot(); // NEU: Hook verwenden
 
   // Determine current game being viewed (assuming the last game in the array is the most current)
   // In a multi-game session context, this might need adjustment based on viewerData structure.
@@ -289,10 +289,39 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
     return 1; // Default fallback
   }, [gameData.games]);
 
+  const onShareClick = () => {
+    const shareText = '\n\nGeneriert von:\n👉 https://jassguru.ch'; // ZURÜCKGEÄNDERT
+    const elementsToHide = ['#screenshot-hide-totals', '#screenshot-hide-dots']; // NEU: IDs zum Ausblenden
+    // Die Query für das Wurzelelement und den scrollbaren Inhalt
+    // NEU: Das `splitLongImage`-Flag auf `true` setzen und die auszublendenden Elemente übergeben
+    handleShare(
+      '#game-viewer-kreidetafel', 
+      '.scrollable-content', 
+      elementsToHide, 
+      shareText, 
+      'jass-session.png', 
+      true
+    );
+  };
+
   return (
     // 1. Swipe-Handler am äußersten Div, h-full und touch-action-pan-x hinzufügen
-    <div {...swipeHandlers} className="flex flex-col bg-gradient-radial from-gray-800 to-gray-900 text-white p-4 md:p-6 max-w-md mx-auto h-full touch-action-pan-x">
+    <div id="game-viewer-kreidetafel" {...swipeHandlers} className="relative flex flex-col bg-gradient-radial from-gray-800 to-gray-900 text-white p-4 md:p-6 max-w-md mx-auto h-full touch-action-pan-x">
       
+      {/* NEU: Share-Button oben rechts */}
+      <button 
+        onClick={onShareClick}
+        disabled={isSharing}
+        className="absolute -top-8 right-4 z-10 p-2 text-gray-300 hover:text-white transition-colors duration-200 rounded-full bg-gray-700/50 hover:bg-gray-600/70 disabled:opacity-50 disabled:cursor-wait"
+        aria-label="Ergebnis teilen"
+      >
+        {isSharing ? (
+          <FiLoader className="w-5 h-5 animate-spin" />
+        ) : (
+          <FiShare2 className="w-5 h-5" />
+        )}
+      </button>
+
       {/* Header Section (flex-shrink-0) */}
       <div className="text-center mb-4 flex-shrink-0">
         <h2 className="text-2xl font-bold text-white">
@@ -334,7 +363,7 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
       </div>
 
       {/* --- Mittlerer Bereich: Scrollbar, flex-grow und touch-action-pan-y --- */}
-      <div className="flex-grow overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800 touch-action-pan-y">
+      <div className="scrollable-content flex-grow overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800 touch-action-pan-y">
         {/* Container mit Border */}
         <div className="border-t border-b border-gray-700">
           {/* 3. Swipe-Handler hier ENTFERNEN */}
@@ -362,7 +391,7 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
       {/* --- ENDE: Mittlerer scrollbarer Bereich --- */}
 
       {/* --- Totals Section --- (flex-shrink-0) */}
-        <div className="flex-shrink-0 pt-4">
+        <div id="screenshot-hide-totals" className="flex-shrink-0 pt-4">
           <div className="grid grid-cols-[1fr_4fr_4fr] gap-4">
             <div className="text-gray-400 text-center pr-4">Total:</div>
             <div className="flex justify-center -ml-[30px]">
@@ -384,7 +413,7 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
         </div>
 
       {/* --- Pagination Dots --- (flex-shrink-0) */}
-        <div className="flex justify-center mt-4 mb-2 flex-shrink-0">
+        <div id="screenshot-hide-dots" className="flex justify-center mt-4 mb-2 flex-shrink-0">
           <div className="flex justify-center items-center space-x-2 bg-gray-700/50 px-1.5 py-1 rounded-full">
             {STATISTIC_MODULES.map(mod => (
               <div

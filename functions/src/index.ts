@@ -1050,8 +1050,23 @@ export const syncUserProfileToPlayer = onDocumentUpdated(
 // NEUE, ZENTRALE STATISTIK-FUNKTION
 // =================================================================================================
 
+// export { onPlayerRegistered } from './onPlayerRegistered';
+// export { onPlayerDeleted } from './onPlayerDeleted';
 
-// =================================================================================================
-// AUTH & USER MANAGEMENT
-// =================================================================================================
+// Schedule für die Neuberechnung der Gruppenstatistiken
+// export { scheduledGroupStatsRecalculation } from './scheduledTasks';
+
+// Schedule für die Neuberechnung der Gruppenstatistiken
+// ... existing code ... 
+
+// export { onUserImageUpload } from './imageProcessing';
+
+// ================================================================================================
+// USER & PLAYER LIFECYCLE TRIGGERS
+// ================================================================================================
+
+// export { onPlayerRegistered } from './onPlayerRegistered';
+// export { onPlayerDeleted } from './onPlayerDeleted';
+
+// Schedule für die Neuberechnung der Gruppenstatistiken
 // ... existing code ... 

@@ -208,7 +208,7 @@ const NewTournamentPage: React.FC = () => {
         currentGroup.id,
         user.uid,
         tournamentName.trim(),
-        [user.uid],
+        [],
         tournamentSpecificSettings
       );
       

@@ -988,14 +988,7 @@ export const createSessionDocument = async (
       startedAt: serverTimestamp(),
       lastUpdated: serverTimestamp(),
       currentActiveGameId: null, // Beginnt ohne aktives Spiel
-      // Weitere Standardwerte für eine Session hier
-      statistics: {
-        gamesPlayed: 0,
-        scores: { top: 0, bottom: 0 },
-        weisCount: 0,
-        stricheCount: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
-      },
-      metadata: { notes: "" }
+      notes: "" // Nur noch dieses eine optionale Feld für Notizen
     });
     await setDoc(sessionDocRef, fullData);
     console.log(`[GameService] Session document ${sessionId} created successfully.`);

@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react';
 import type { FirestorePlayer } from '@/types/jass';
 import { cn } from '@/lib/utils'; // Für bedingte Klassen
 import { Award } from 'lucide-react'; // Award Icon importieren
-import Image from 'next/image'; // Wichtig: Füge diesen Import hinzu
+import ProfileImage from '@/components/ui/ProfileImage';
 
 interface GroupMemberListProps {
   members: FirestorePlayer[];
@@ -69,21 +69,17 @@ export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, isLoa
               )}
             >
               {/* Avatar */}
-              <Avatar className="h-12 w-12 mr-3 flex-shrink-0">
-                {player.photoURL ? (
-                  <Image
-                    src={player.photoURL}
-                    alt={player.displayName || 'Mitglied'}
-                    width={48}
-                    height={48}
-                    className="rounded-full object-cover"
-                  />
-                ) : (
-                  <AvatarFallback className="bg-gray-700 text-gray-300">
-                    {player.displayName?.charAt(0).toUpperCase() || '?'}
-                </AvatarFallback>
+              <ProfileImage 
+                src={player.photoURL} 
+                alt={player.displayName || 'Mitglied'} 
+                size="lg"
+                className="mr-3 flex-shrink-0"
+                fallbackClassName={cn(
+                  "bg-gray-700 text-gray-300",
+                  isPlaceholder && "bg-yellow-700"
                 )}
-              </Avatar>
+                fallbackText={player.displayName?.charAt(0).toUpperCase() || '?'}
+              />
 
               {/* Nickname & Placeholder Info */}
               <div className="flex-1 min-w-0">
