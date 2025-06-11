@@ -624,6 +624,7 @@ export const useGameStore = create<GameStore>()(devtools(
       isRoundCompleted: false,
       farbe: undefined,
       currentRoundWeis: [],
+      weisPoints: { top: 0, bottom: 0 }, // NEU: Weispunkte beim Rundenstart zurücksetzen
     }));
   },
 
@@ -864,6 +865,47 @@ export const useGameStore = create<GameStore>()(devtools(
       // Fallback, sollte nicht passieren, wenn stateForJassStoreSyncInternal immer gesetzt wird
       console.warn("[GameStore.finalizeRound] stateForJassStoreSyncInternal war nicht gesetzt. Sync mit potenziell falschem State.");
     syncWithJassStore(finalStateFromSet); 
+    }
+    
+    // NEU: Firestore-Update für das Hauptdokument activeGames/{gameId}
+    if (initialActiveGameId) {
+      setTimeout(() => {
+        // MARK LOCAL UPDATE *BEFORE* WRITING TO FIRESTORE
+        if (typeof window !== 'undefined' && window.__FIRESTORE_SYNC_API__?.markLocalUpdate) {
+          window.__FIRESTORE_SYNC_API__.markLocalUpdate();
+        }
+        
+        const currentState = get(); // Hole den aktuellen State nach allen Updates
+        const updateData: Partial<ActiveGame> = {
+          scores: currentState.scores,
+          weisPoints: currentState.weisPoints,
+          currentRound: currentState.currentRound,
+          currentPlayer: currentState.currentPlayer,
+          startingPlayer: currentState.startingPlayer,
+          striche: currentState.striche,
+          isRoundCompleted: currentState.isRoundCompleted,
+          currentJassPoints: currentState.jassPoints,
+          currentRoundWeis: currentState.currentRoundWeis,
+          lastUpdated: serverTimestamp(),
+        };
+        
+        const cleanedUpdateData = sanitizeDataForFirestore(updateData);
+        console.log("[GameStore.finalizeRound] Updating Firestore main document with:", cleanedUpdateData);
+        
+        updateActiveGame(initialActiveGameId, cleanedUpdateData)
+          .catch(error => console.error("[GameStore.finalizeRound] Firestore update failed:", error));
+        
+        // Speichere auch den Rundeneintrag
+        if (savedRoundEntryForFirestore) {
+          import('../services/gameService').then(({ saveRoundToFirestore }) => {
+            // Zusätzliche Null-Prüfung innerhalb des async Callbacks
+            if (savedRoundEntryForFirestore) {
+              saveRoundToFirestore(initialActiveGameId, savedRoundEntryForFirestore)
+                .catch(error => console.error("[GameStore.finalizeRound] Round save failed:", error));
+            }
+          });
+        }
+      }, 0);
     }
     
     timerStore.resetRoundTimer();

@@ -1700,11 +1700,86 @@ const ResultatKreidetafel = ({
   const swipeAnimation = useSpring({ /* ... Animation ... */ });
 
   // 9. useEffect Hooks (NACH allen anderen Hook-Definitionen)
-  useEffect(() => { // Firestore Listener
-    const unsubscribe: Unsubscribe | null = null;
-    if (isOnlineMode && currentSessionId) {/* ... Listener Logik ... */} else {/* ... Aufräumen ... */}
-    return () => {/* ... unsubscribe ... */};
-  }, [isOnlineMode, currentSessionId, jassStoreSetState]);
+  useEffect(() => { // Firestore Listener - VOLLSTÄNDIGE IMPLEMENTIERUNG
+    let mainDocUnsubscribe: Unsubscribe | null = null;
+    let roundsUnsubscribe: Unsubscribe | null = null;
+
+    if (isOnlineMode && activeGameId) {
+      const db = getFirestore(firebaseApp);
+      
+      console.log(`[ResultatKreidetafel] Setting up Firestore listeners for activeGameId: ${activeGameId}`);
+
+      // 1. Listener für das Hauptdokument activeGames/{gameId}
+      const mainDocRef = doc(db, 'activeGames', activeGameId);
+      mainDocUnsubscribe = onSnapshot(mainDocRef, (docSnapshot) => {
+        if (docSnapshot.exists()) {
+          const data = docSnapshot.data();
+          console.log(`[ResultatKreidetafel] Main document update received:`, data);
+          
+          // GameStore mit Firestore-Daten synchronisieren
+          useGameStore.setState(state => ({
+            ...state,
+            scores: data.scores || state.scores,
+            striche: data.striche || state.striche,
+            weisPoints: data.weisPoints || state.weisPoints,
+            currentRound: data.currentRound || state.currentRound,
+            currentPlayer: data.currentPlayer || state.currentPlayer,
+            startingPlayer: data.startingPlayer || state.startingPlayer,
+            playerNames: data.playerNames || state.playerNames,
+            isRoundCompleted: data.isRoundCompleted ?? state.isRoundCompleted,
+            // lastUpdated wird für Optimistic UI verwendet
+            lastFirestoreUpdate: Date.now()
+          }));
+        }
+      }, (error) => {
+        console.error(`[ResultatKreidetafel] Error listening to main document:`, error);
+      });
+
+      // 2. Listener für die Rounds-Subkollektion activeGames/{gameId}/rounds
+      const roundsCollectionRef = collection(db, 'activeGames', activeGameId, 'rounds');
+      const roundsQuery = query(roundsCollectionRef, orderBy('timestamp', 'asc'));
+      
+      roundsUnsubscribe = onSnapshot(roundsQuery, (querySnapshot) => {
+        const roundsFromFirestore = querySnapshot.docs.map(doc => ({
+          ...doc.data(),
+          id: doc.id
+        })) as RoundEntry[];
+        
+        console.log(`[ResultatKreidetafel] Rounds update received: ${roundsFromFirestore.length} rounds`);
+        
+        // Nur aktive Runden berücksichtigen
+        const activeRounds = roundsFromFirestore.filter(round => 
+          round.isActive === undefined || round.isActive === true
+        );
+        
+        // GameStore roundHistory aktualisieren
+        useGameStore.setState(state => ({
+          ...state,
+          roundHistory: activeRounds,
+          // Stelle sicher, dass currentHistoryIndex nicht über die Anzahl der Runden hinausgeht
+          currentHistoryIndex: Math.min(state.currentHistoryIndex, activeRounds.length - 1)
+        }));
+        
+      }, (error) => {
+        console.error(`[ResultatKreidetafel] Error listening to rounds collection:`, error);
+      });
+
+    } else {
+      console.log(`[ResultatKreidetafel] No active listeners needed. IsOnlineMode: ${isOnlineMode}, ActiveGameId: ${activeGameId}`);
+    }
+
+    // Cleanup function
+    return () => {
+      if (mainDocUnsubscribe) {
+        console.log(`[ResultatKreidetafel] Unsubscribing from main document listener`);
+        mainDocUnsubscribe();
+      }
+      if (roundsUnsubscribe) {
+        console.log(`[ResultatKreidetafel] Unsubscribing from rounds collection listener`);
+        roundsUnsubscribe();
+      }
+    };
+  }, [isOnlineMode, activeGameId]); // Abhängigkeiten: isOnlineMode und activeGameId
 
   useEffect(() => { // Scroll Effekt
     if (kreidetafelRef.current && isOpen) {/* ... Scroll Logik ... */}
@@ -1886,9 +1961,22 @@ const ResultatKreidetafel = ({
   // --- ENDE Hook für automatisches Scrollen ---
 
   // 10. Touch-Handler (verwenden Callbacks)
-  const handleTouchStart = (e: React.TouchEvent) => {/* ... */};
-  const handleTouchMove = (e: React.TouchEvent) => {/* ... */};
-  const handleTouchEnd = () => {/* ... */};
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientY);
+  };
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientY);
+  };
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isDownSwipe = distance > 50;
+    if (isDownSwipe) {
+      closeResultatKreidetafel();
+    }
+    setTouchStart(null);
+    setTouchEnd(null);
+  };
 
   // 11. Modul-Rendering Logik (Variablen bereits oben definiert)
 
