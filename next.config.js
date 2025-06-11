@@ -52,8 +52,11 @@ const withPWA = withPWAInit({
       options: {
         cacheName: 'google-fonts',
         expiration: {
-          maxEntries: 4,
+          maxEntries: 10,
           maxAgeSeconds: 365 * 24 * 60 * 60, // 1 Jahr
+        },
+        cacheableResponse: {
+          statuses: [0, 200],
         },
       },
     },
@@ -63,19 +66,25 @@ const withPWA = withPWAInit({
       options: {
         cacheName: 'static-font-assets',
         expiration: {
-          maxEntries: 4,
-          maxAgeSeconds: 7 * 24 * 60 * 60, // 1 Woche
+          maxEntries: 10,
+          maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Tage
+        },
+        cacheableResponse: {
+          statuses: [0, 200],
         },
       },
     },
     {
-      urlPattern: /\.(?:jpg|jpeg|gif|png|svg|ico|webp)$/i,
+      urlPattern: /\.(?:jpg|jpeg|gif|png|svg|ico|webp|avif)$/i,
       handler: 'StaleWhileRevalidate',
       options: {
         cacheName: 'static-image-assets',
         expiration: {
-          maxEntries: 64,
-          maxAgeSeconds: 24 * 60 * 60, // 24 Stunden
+          maxEntries: 100,
+          maxAgeSeconds: 7 * 24 * 60 * 60, // 7 Tage (reduziert für häufigere Updates)
+        },
+        cacheableResponse: {
+          statuses: [0, 200],
         },
       },
     },
@@ -85,20 +94,51 @@ const withPWA = withPWAInit({
       options: {
         cacheName: 'next-image',
         expiration: {
-          maxEntries: 64,
-          maxAgeSeconds: 24 * 60 * 60, // 24 Stunden
+          maxEntries: 100,
+          maxAgeSeconds: 7 * 24 * 60 * 60, // 7 Tage
+        },
+        cacheableResponse: {
+          statuses: [0, 200],
         },
       },
     },
     {
       urlPattern: /\.(?:js|css)$/i,
-      handler: 'StaleWhileRevalidate',
+      handler: 'NetworkFirst',
       options: {
-        cacheName: 'static-js-assets',
+        cacheName: 'static-js-css-assets',
         expiration: {
-          maxEntries: 32,
+          maxEntries: 50,
           maxAgeSeconds: 24 * 60 * 60, // 24 Stunden
         },
+        networkTimeoutSeconds: 3,
+        cacheableResponse: {
+          statuses: [0, 200],
+        },
+      },
+    },
+    {
+      urlPattern: /^https:\/\/.*\.googleapis\.com\/.*/i,
+      handler: 'NetworkFirst',
+      options: {
+        cacheName: 'google-apis-cache',
+        expiration: {
+          maxEntries: 30,
+          maxAgeSeconds: 5 * 60, // 5 Minuten
+        },
+        networkTimeoutSeconds: 5,
+      },
+    },
+    {
+      urlPattern: /^https:\/\/.*\.firebaseapp\.com\/.*/i,
+      handler: 'NetworkFirst',
+      options: {
+        cacheName: 'firebase-cache',
+        expiration: {
+          maxEntries: 50,
+          maxAgeSeconds: 5 * 60, // 5 Minuten
+        },
+        networkTimeoutSeconds: 3,
       },
     },
     {
@@ -108,12 +148,26 @@ const withPWA = withPWAInit({
         cacheName: 'offlineCache',
         expiration: {
           maxEntries: 200,
-          maxAgeSeconds: 24 * 60 * 60, // 24 Stunden
+          maxAgeSeconds: 60 * 60, // 1 Stunde (reduziert für häufigere Updates)
+        },
+        networkTimeoutSeconds: 3,
+        cacheableResponse: {
+          statuses: [0, 200],
         },
       },
     },
   ],
-  buildExcludes: [/middleware-manifest\.json$/],
+  buildExcludes: [
+    /middleware-manifest\.json$/,
+    /build-manifest\.json$/,
+    /_buildManifest\.js$/,
+  ],
+  publicExcludes: [
+    '!noprecache/**/*'
+  ],
+  fallbacks: {
+    image: '/static/images/fallback.png',
+  },
 });
 
 export default withPWA(nextConfig);
