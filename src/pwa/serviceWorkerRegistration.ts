@@ -3,7 +3,7 @@
 // KEIN Store-Import mehr hier!
 
 // Version, die bei jedem Build inkrementiert werden sollte
-const SW_VERSION = 'v1.2.8'; // Muss zur Version im sw.js passen
+const SW_VERSION = 'v1.3.0'; // Muss zur Version im sw.js passen
 
 // Globale Variable zur Speicherung der aktuellen Registrierung
 let activeRegistration: ServiceWorkerRegistration | null = null;

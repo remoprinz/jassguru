@@ -3,145 +3,287 @@
 import { useEffect, useCallback, useState } from 'react';
 import { useUIStore } from '@/store/uiStore';
 import { getActiveRegistration } from '@/pwa/serviceWorkerRegistration';
-import type { NotificationConfig, NotificationVariant, Notification } from '@/types/notification';
+import type { NotificationConfig } from '@/types/notification';
 
-// Diese Komponente ist unsichtbar und nur für die Logik zuständig.
+// Verbesserte Update-Strategien
+interface UpdateState {
+  isUpdateAvailable: boolean;
+  isUpdateReady: boolean;
+  isUpdating: boolean;
+  updateError: boolean;
+  lastUpdateCheck: number;
+}
+
 const PwaUpdateHandler: React.FC = () => {
   const showNotification = useUIStore((state) => state.showNotification);
   const removeNotification = useUIStore((state) => state.removeNotification);
   const [updateNotificationId, setUpdateNotificationId] = useState<string | null>(null);
+  const [updateState, setUpdateState] = useState<UpdateState>({
+    isUpdateAvailable: false,
+    isUpdateReady: false,
+    isUpdating: false,
+    updateError: false,
+    lastUpdateCheck: 0,
+  });
 
-  // Zusätzliches Debugging beim Mounten der Komponente
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Debugging beim Mounten
   useEffect(() => {
-    // console.log('[PwaUpdateHandler] Component mounted.');
+    console.log('[PwaUpdateHandler] Component mounted - Enhanced Version');
     if (typeof navigator !== 'undefined') {
-        // console.log('[PwaUpdateHandler] Checking navigator.serviceWorker availability...');
-        const swAvailable = 'serviceWorker' in navigator;
-        // console.log('[PwaUpdateHandler] \'serviceWorker\' in navigator:', swAvailable);
-        if (!swAvailable) {
-            try {
-                // console.log('[PwaUpdateHandler] Properties in navigator:', Object.keys(navigator));
-            } catch (e) {
-                console.error('[PwaUpdateHandler] Error getting navigator keys:', e);
-            }
-        }
-    } else {
-        // console.log('[PwaUpdateHandler] Navigator object is not available here either.');
+      const swAvailable = 'serviceWorker' in navigator;
+      console.log('[PwaUpdateHandler] Service Worker available:', swAvailable);
+      
+      // Prüfe aktuelle Service Worker Registration
+      if (swAvailable) {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          console.log('[PwaUpdateHandler] Current registrations:', registrations.length);
+          registrations.forEach((reg, index) => {
+            console.log(`[PwaUpdateHandler] Registration ${index}:`, {
+              scope: reg.scope,
+              active: !!reg.active,
+              waiting: !!reg.waiting,
+              installing: !!reg.installing,
+            });
+          });
+        });
+      }
     }
   }, []);
 
-  useEffect(() => {
-    // Nur im Browser ausführen
-    if (typeof window === 'undefined' || typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
-      // console.log('[PwaUpdateHandler] Service Worker API not available or not in browser.');
+  // Improved update check function
+  const checkForUpdates = useCallback(async () => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
       return;
     }
 
-    const handleUpdateReady = (event: Event) => {
-      // console.log('[PwaUpdateHandler] handleUpdateReady called. Update is available.');
+    try {
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (registration) {
+        console.log('[PwaUpdateHandler] Checking for updates...');
+        await registration.update();
+        setUpdateState(prev => ({ ...prev, lastUpdateCheck: Date.now() }));
+      }
+    } catch (error) {
+      console.error('[PwaUpdateHandler] Error checking for updates:', error);
+      setUpdateState(prev => ({ ...prev, updateError: true }));
+    }
+  }, []);
 
-      const registration = getActiveRegistration();
+  // Cache cleanup function
+  const cleanupOldCaches = useCallback(async () => {
+    if (typeof window === 'undefined' || !('caches' in window)) {
+      return;
+    }
 
-      const UPDATE_MESSAGE = 'Eine neue Version ist verfügbar. Möchtest du die App jetzt aktualisieren?';
+    try {
+      const cacheNames = await caches.keys();
+      console.log('[PwaUpdateHandler] Found caches:', cacheNames);
 
-      const updateAction = () => {
-        console.log('[PwaUpdateHandler] updateAction called.');
+      // Cache-Namen die älter als 7 Tage sind oder nicht mehr verwendet werden
+      const oldCachePattern = /-(v\d+\.\d+\.\d+)|-(\d{8})/;
+      
+      for (const cacheName of cacheNames) {
+        // Prüfe ob Cache veraltet ist
+        if (oldCachePattern.test(cacheName)) {
+          const match = cacheName.match(oldCachePattern);
+          if (match) {
+            // Lösche veraltete Caches
+            try {
+              await caches.delete(cacheName);
+              console.log('[PwaUpdateHandler] Deleted old cache:', cacheName);
+            } catch (error) {
+              console.warn('[PwaUpdateHandler] Could not delete cache:', cacheName, error);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[PwaUpdateHandler] Error cleaning up caches:', error);
+    }
+  }, []);
+
+  // Enhanced update ready handler
+  const handleUpdateReady = useCallback((event: Event) => {
+    console.log('[PwaUpdateHandler] Update ready event received');
+    
+    const registration = getActiveRegistration();
+    if (!registration) {
+      console.error('[PwaUpdateHandler] No active registration found');
+      return;
+    }
+
+    setUpdateState(prev => ({ 
+      ...prev, 
+      isUpdateAvailable: true, 
+      isUpdateReady: true 
+    }));
+
+    const UPDATE_MESSAGE = 'Eine neue Version von Jassguru ist verfügbar! 🚀';
+
+    const updateAction = async () => {
+      console.log('[PwaUpdateHandler] Starting update process...');
+      setUpdateState(prev => ({ ...prev, isUpdating: true }));
+
+      try {
+        // Cleanup old caches first
+        await cleanupOldCaches();
+
         const sw = navigator.serviceWorker;
         if (!sw) {
-            console.error('[PwaUpdateHandler] navigator.serviceWorker is not available!');
-            window.location.reload();
-            return;
+          throw new Error('Service Worker API nicht verfügbar');
         }
 
         const currentController = sw.controller;
-        console.log('[PwaUpdateHandler] Current controller:', currentController);
 
-        if (registration && registration.waiting) {
-          console.log('[PwaUpdateHandler] Found waiting worker. Sending SKIP_WAITING...');
+        if (registration.waiting) {
+          console.log('[PwaUpdateHandler] Sending SKIP_WAITING to waiting worker');
           registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-          console.log('[PwaUpdateHandler] SKIP_WAITING message sent.');
 
+          // Warte auf Controller-Wechsel mit Timeout
           let checks = 0;
-          const maxChecks = 15;
-          const intervalId = setInterval(() => {
-            checks++;
-            console.log(`[PwaUpdateHandler] Checking controller... Attempt ${checks}/${maxChecks}`);
-            const newController = sw.controller;
-            console.log('[PwaUpdateHandler] Polling - new controller:', newController);
-      
-            if (newController && newController !== currentController) {
-              console.log('[PwaUpdateHandler] New controller detected! Reloading page.');
-              clearInterval(intervalId);
-              window.location.reload();
-            } else if (checks >= maxChecks) {
-              console.warn('[PwaUpdateHandler] Timeout reached waiting for new controller. Forcing reload.');
-              clearInterval(intervalId);
-              window.location.reload();
-            }
-          }, 200);
-      
+          const maxChecks = 20;
+          const checkInterval = 250;
+
+          const waitForNewController = new Promise<void>((resolve, reject) => {
+            const intervalId = setInterval(() => {
+              checks++;
+              const newController = sw.controller;
+              
+              if (newController && newController !== currentController) {
+                console.log('[PwaUpdateHandler] New controller detected, reloading...');
+                clearInterval(intervalId);
+                resolve();
+              } else if (checks >= maxChecks) {
+                console.warn('[PwaUpdateHandler] Timeout waiting for new controller');
+                clearInterval(intervalId);
+                reject(new Error('Update timeout'));
+              }
+            }, checkInterval);
+          });
+
+          await waitForNewController;
+          
+          // Zeige kurze Erfolgsmeldung vor Reload
+          const successConfig: NotificationConfig = {
+            message: 'Update erfolgreich! Seite wird neu geladen...',
+            type: 'success',
+            preventClose: false,
+          };
+          showNotification(successConfig);
+
+          // Kurz warten damit User die Meldung sieht
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
+
         } else {
-           console.warn('[PwaUpdateHandler] No waiting worker found in updateAction. Reloading as fallback.');
-           window.location.reload();
+          console.warn('[PwaUpdateHandler] No waiting worker found, forcing reload');
+          window.location.reload();
         }
-      };
 
-      // Definiere die laterAction neu: Holt sich den *aktuellen* State beim Klick
-      const laterAction = () => {
-        // console.log(`[PwaUpdateHandler] Later clicked.`);
-        
-        // Hole den aktuellsten Notification-State direkt vom Store
-        const currentNotificationId = updateNotificationId; // Verwende lokalen State
-        
-        if (currentNotificationId) {
-            removeNotification(currentNotificationId);
-        } else {
-            // console.warn(`[PwaUpdateHandler] Could not find the PWA update notification to remove in the latest state.`);
-        }
-      };
+      } catch (error) {
+        console.error('[PwaUpdateHandler] Update failed:', error);
+        setUpdateState(prev => ({ 
+          ...prev, 
+          isUpdating: false, 
+          updateError: true 
+        }));
 
-      // Erstelle die Konfiguration
-      const notificationConfig: NotificationConfig = {
-        message: UPDATE_MESSAGE,
-        type: 'info',
-        actions: [
-          {
-            label: 'Später',
-            onClick: laterAction, // Verwendet die neu definierte laterAction
-            className: 'bg-gray-500 hover:bg-gray-600 text-white',
-          },
-          {
-            label: 'Aktualisieren',
-            onClick: updateAction,
-            className: 'bg-blue-500 hover:bg-blue-600 text-white',
-          },
-        ],
-        preventClose: true,
-      };
-
-      // console.log('[PwaUpdateHandler] Showing update notification:', notificationConfig);
-      showNotification(notificationConfig);
+        const errorConfig: NotificationConfig = {
+          message: 'Update fehlgeschlagen. Versuche es später erneut.',
+          type: 'error',
+          preventClose: false,
+        };
+        showNotification(errorConfig);
+      }
     };
 
-    // Event-Listener hinzufügen
-    // console.log('[PwaUpdateHandler] Adding event listener for swUpdateReady.');
+    const laterAction = () => {
+      console.log('[PwaUpdateHandler] Update postponed by user');
+      if (updateNotificationId) {
+        removeNotification(updateNotificationId);
+        setUpdateNotificationId(null);
+      }
+      setUpdateState(prev => ({ ...prev, isUpdateReady: false }));
+
+      // Plane nächste Update-Prüfung in 30 Minuten
+      setTimeout(checkForUpdates, 30 * 60 * 1000);
+    };
+
+    // Erstelle die Update-Benachrichtigung
+    const notificationConfig: NotificationConfig = {
+      message: UPDATE_MESSAGE,
+      type: 'info',
+      actions: [
+        {
+          label: 'Später',
+          onClick: laterAction,
+          className: 'bg-gray-500 hover:bg-gray-600 text-white',
+        },
+        {
+          label: updateState.isUpdating ? 'Wird aktualisiert...' : 'Jetzt aktualisieren',
+          onClick: updateState.isUpdating ? () => {} : updateAction,
+          className: updateState.isUpdating 
+            ? 'bg-gray-500 cursor-not-allowed text-white' 
+            : 'bg-green-600 hover:bg-green-700 text-white',
+        },
+      ],
+      preventClose: true,
+    };
+
+    const notificationId = showNotification(notificationConfig);
+    setUpdateNotificationId(notificationId);
+  }, [showNotification, removeNotification, updateNotificationId, updateState.isUpdating, cleanupOldCaches, checkForUpdates]);
+
+  // Service Worker event listener setup
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+      console.log('[PwaUpdateHandler] Service Worker not available');
+      return;
+    }
+
+    // Listen for update ready events
     window.addEventListener('swUpdateReady', handleUpdateReady);
 
-    // Cleanup-Funktion
-    return () => {
-      // console.log('[PwaUpdateHandler] Removing event listener for swUpdateReady.');
-      window.removeEventListener('swUpdateReady', handleUpdateReady);
-    };
-  }, [showNotification, removeNotification]);
+    // Check for updates periodically (every 30 minutes)
+    const updateCheckInterval = setInterval(checkForUpdates, 30 * 60 * 1000);
 
-  const showUpdateNotification = useCallback((config: NotificationConfig) => {
-    // Rufe die Store-Funktion auf, die die ID zurückgibt
-    const notificationId = showNotification(config);
-    // Speichere die zurückgegebene ID im lokalen State
-    setUpdateNotificationId(notificationId);
-    // console.log('[PwaUpdateHandler] Showing update notification with ID:', notificationId, config);
-  }, [showNotification]);
+    // Check for updates on visibility change (when user returns to tab)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // User returned to tab, check for updates if last check was > 5 minutes ago
+        const now = Date.now();
+        const timeSinceLastCheck = now - updateState.lastUpdateCheck;
+        if (timeSinceLastCheck > 5 * 60 * 1000) {
+          checkForUpdates();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Initial update check after 10 seconds
+    const initialCheckTimeout = setTimeout(checkForUpdates, 10000);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('swUpdateReady', handleUpdateReady);
+      clearInterval(updateCheckInterval);
+      clearTimeout(initialCheckTimeout);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [handleUpdateReady, checkForUpdates, updateState.lastUpdateCheck]);
+
+  // Performance monitoring
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'navigator' in window && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'CACHE_UPDATED') {
+          console.log('[PwaUpdateHandler] Cache updated:', event.data.cacheName);
+        }
+      });
+    }
+  }, []);
 
   return null; // Diese Komponente rendert nichts
 };

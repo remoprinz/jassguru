@@ -290,8 +290,8 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
   }, [gameData.games]);
 
   const onShareClick = () => {
-    const shareText = '\n\nGeneriert von:\n👉 https://jassguru.ch'; // ZURÜCKGEÄNDERT
-    const elementsToHide = ['#screenshot-hide-totals', '#screenshot-hide-dots']; // NEU: IDs zum Ausblenden
+    const shareText = '\n\👉 https://jassguru.ch'; 
+    const elementsToHide = ['#screenshot-hide-dots']; // NEU: Nur noch Dots ausblenden, Total-Zeile soll mit
     // Die Query für das Wurzelelement und den scrollbaren Inhalt
     // NEU: Das `splitLongImage`-Flag auf `true` setzen und die auszublendenden Elemente übergeben
     handleShare(
@@ -391,7 +391,7 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
       {/* --- ENDE: Mittlerer scrollbarer Bereich --- */}
 
       {/* --- Totals Section --- (flex-shrink-0) */}
-        <div id="screenshot-hide-totals" className="flex-shrink-0 pt-4">
+        <div id="screenshot-hide-totals" className="flex-shrink-0 pt-4 pb-8">
           <div className="grid grid-cols-[1fr_4fr_4fr] gap-4">
             <div className="text-gray-400 text-center pr-4">Total:</div>
             <div className="flex justify-center -ml-[30px]">
