@@ -171,10 +171,7 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
             });
             console.log(`[MenuOverlay] Successfully aborted game ${activeGameId}`);
             
-            uiStore.showNotification({
-                type: 'success',
-                message: 'Spiel erfolgreich abgebrochen.',
-            });
+            // SUCCESS NOTIFICATION ENTFERNT - cleanupAbortedSession zeigt bereits eine Meldung
         } catch (error) {
             console.error(`[MenuOverlay] Error aborting game ${activeGameId}:`, error);
             uiStore.showNotification({

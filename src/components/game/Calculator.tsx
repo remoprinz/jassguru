@@ -334,8 +334,15 @@ const Calculator: React.FC<CalculatorProps> = ({
     calculateValues(value, mult);
   };
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback((e?: React.MouseEvent) => {
     console.log("[Calculator] handleSubmit aufgerufen.");
+    
+    // BUGFIX: Event-Propagation stoppen, um Konflikt mit HistoryWarning zu vermeiden
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.nativeEvent?.stopImmediatePropagation?.();
+    }
     
     // WICHTIG: Immer den AKTUELLEN Wert direkt aus dem Store holen
     const currentGameStore = useGameStore.getState();
@@ -418,19 +425,23 @@ const Calculator: React.FC<CalculatorProps> = ({
 
     if (!historyActionValid) {
       console.log("[Calculator] History-Warnung wird angezeigt.");
-      showHistoryWarning(
-        HISTORY_WARNING_MESSAGE,
-        () => {
-          console.log("[Calculator] History-Warnung bestätigt. Rufe finalizeRound (überschreibend)...");
-          // NEU: Setze die Farbe vor dem Aufruf
-          setFarbe(selectedColor);
-          
-          // Korrigierter Aufruf mit korrekter strichInfo
-          finalizeRound(scores, strichInfo);
-          onClose();
-        },
-        () => jumpToLatest()
-      );
+      
+      // BUGFIX: Verzögerung einbauen, um Event-Propagation-Konflikt zu vermeiden
+      setTimeout(() => {
+        showHistoryWarning(
+          HISTORY_WARNING_MESSAGE,
+          () => {
+            console.log("[Calculator] History-Warnung bestätigt. Rufe finalizeRound (überschreibend)...");
+            // NEU: Setze die Farbe vor dem Aufruf
+            setFarbe(selectedColor);
+            
+            // Korrigierter Aufruf mit korrekter strichInfo
+            finalizeRound(scores, strichInfo);
+            onClose();
+          },
+          () => jumpToLatest()
+        );
+      }, 100);
       return;
     }
 
@@ -702,7 +713,7 @@ const Calculator: React.FC<CalculatorProps> = ({
   const {handlers: clearHandlers, buttonClasses: clearClasses} = usePressableButton(handleClear);
 
   // OK-Button anpassen
-  const {handlers: okHandlers, buttonClasses: okClasses} = usePressableButton(handleSubmit);
+  const {handlers: okHandlers, buttonClasses: okClasses} = usePressableButton((e?: React.MouseEvent) => handleSubmit(e));
 
   // Prüfen ob Calculator geöffnet werden darf
   useEffect(() => {

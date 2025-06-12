@@ -988,7 +988,7 @@ export const useGameStore = create<GameStore>()(devtools(
       const {showHistoryWarning} = useUIStore.getState();
       showHistoryWarning({
         // Korrigierter Text
-        message: "Möchtest du wirklich einen Weis in der Vergangenheit hinzufügen?", 
+        message: "Weis wirklich korrigieren? Spätere Einträge werden überschrieben.", 
         onConfirm: () => {
           // --- START Kernlogik (History überschreiben) ---
           console.log("[GameStore.addWeisPoints] Executing action after history warning confirmation (overwrite)");

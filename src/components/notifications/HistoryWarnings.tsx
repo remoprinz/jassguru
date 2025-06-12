@@ -1,9 +1,9 @@
-import React, {useCallback} from "react";
+import React, {useCallback, useRef, useEffect} from "react";
 import {FaExclamationTriangle} from "react-icons/fa";
 import {useUIStore} from "../../store/uiStore";
 import {motion, AnimatePresence} from "framer-motion";
 
-export const HISTORY_WARNING_MESSAGE = "Willst du wirklich die Vergangenheit ändern? Dies wird alle nachfolgenden Einträge löschen!";
+export const HISTORY_WARNING_MESSAGE = "Resultat wirklich korrigieren? Folgerunden werden gelöscht.";
 
 interface HistoryWarningProps {
   message: string;
@@ -21,6 +21,15 @@ const HistoryWarning: React.FC<HistoryWarningProps> = ({
   swipePosition = "bottom",
 }) => {
   const {closeHistoryWarning} = useUIStore();
+  const mountTimeRef = useRef<number>(0);
+
+  // Speichere den Mount-Zeitpunkt, wenn die Komponente angezeigt wird
+  useEffect(() => {
+    if (show) {
+      mountTimeRef.current = Date.now();
+      console.log("[HistoryWarning] Mounted at:", mountTimeRef.current);
+    }
+  }, [show]);
 
   const handleConfirm = useCallback(() => {
     closeHistoryWarning();
@@ -31,6 +40,23 @@ const HistoryWarning: React.FC<HistoryWarningProps> = ({
     closeHistoryWarning();
     onDismiss();
   }, [onDismiss, closeHistoryWarning]);
+
+  // BUGFIX: Verhindere Event-Propagation-Konflikt mit Calculator-OK-Button
+  const handleOverlayClick = useCallback((e: React.MouseEvent) => {
+    const timeSinceMount = Date.now() - mountTimeRef.current;
+    
+    // Ignoriere Clicks in den ersten 200ms nach dem Erscheinen
+    if (timeSinceMount < 200) {
+      console.log(`[HistoryWarning] Ignoring overlay click: only ${timeSinceMount}ms since mount`);
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    
+    // Normale Behandlung: Modal schließen
+    console.log(`[HistoryWarning] Valid overlay click after ${timeSinceMount}ms`);
+    handleDismiss();
+  }, [handleDismiss]);
 
   return (
     <AnimatePresence>
@@ -43,7 +69,7 @@ const HistoryWarning: React.FC<HistoryWarningProps> = ({
         >
           <div
             className="fixed inset-0 bg-black bg-opacity-50"
-            onClick={handleDismiss}
+            onClick={handleOverlayClick}
           />
           <motion.div
             initial={{scale: 0.95}}
@@ -54,7 +80,7 @@ const HistoryWarning: React.FC<HistoryWarningProps> = ({
           >
             <div className={`${swipePosition === "top" ? "rotate-180" : ""}`}>
               <div className="flex flex-col items-center justify-center mb-4">
-                <FaExclamationTriangle className="w-12 h-12 text-yellow-600 mb-2" />
+                <FaExclamationTriangle className="w-12 h-12 text-red-600 mb-6" />
                 <p className="text-center mb-6">{message}</p>
               </div>
               <div className="flex justify-between gap-4">

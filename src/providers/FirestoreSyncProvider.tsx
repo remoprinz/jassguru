@@ -141,8 +141,9 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
       gameStoreReset(1, undefined); // Reset ohne ID
               useUIStore.getState().clearResumableGameId();
               useUIStore.getState().resetAll();
-      const message = "Die Partie wurde abgebrochen. Die Daten wurden nicht gespeichert.";
-      useUIStore.getState().showNotification({ type: "warning", message });
+      // WARNING NOTIFICATION ENTFERNT - Redundant mit anderen Abbruch-Meldungen
+      // const message = "Die Partie wurde abgebrochen. Die Daten wurden nicht gespeichert.";
+      // useUIStore.getState().showNotification({ type: "warning", message });
               const isAuthenticated = !!user;
               const targetRoute = isAuthenticated ? "/start" : "/";
       console.log(`[FirestoreSyncProvider] Navigating to ${targetRoute} after remote abort.`);
