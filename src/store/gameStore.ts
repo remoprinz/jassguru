@@ -648,7 +648,15 @@ export const useGameStore = create<GameStore>()(devtools(
       useUIStore.getState().showNotification({
         type: 'warning',
         message: 'Session-Inkonsistenz erkannt. Falls Probleme auftreten, laden Sie die Seite neu.',
-        duration: 10000,
+        preventClose: true, // Verhindert automatisches Schließen
+        actions: [
+          {
+            label: 'Verstanden',
+            onClick: () => {
+              // Notification wird automatisch geschlossen durch den Button-Handler
+            }
+          }
+        ]
       });
       // NICHT mehr return - Operation wird fortgesetzt
     }
