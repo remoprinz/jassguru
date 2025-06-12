@@ -39,12 +39,12 @@ const nextConfig = {
 
 const withPWA = withPWAInit({
   dest: 'public',
-  register: true,
+  register: false, // Custom Registration
   skipWaiting: true,
   clientsClaim: true,
   scope: '/',
   disable: process.env.NODE_ENV === "development",
-  sw: 'sw.js',
+  sw: 'sw-custom.js',
   runtimeCaching: [
     {
       urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,

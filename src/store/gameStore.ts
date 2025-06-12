@@ -70,11 +70,8 @@ export type GameStore = GameState & {
   startGame: (gamePlayers: GamePlayers | null, initialStartingPlayer: PlayerNumber) => void;
   startRound: () => void;
   finalizeRound: (
-    activeGameId: string, // NEU: activeGameId als erster Parameter
-    farbe: JassColor,
-    topScore: number,
-    bottomScore: number,
-    strichInfoInput?: { team: TeamPosition; type: StrichTyp }
+    punkte: { top: number; bottom: number },
+    strichInfo?: { type: 'matsch' | 'kontermatsch'; team: TeamPosition }
   ) => void;
   updateScore: (team: TeamPosition, score: number, opponentScore: number) => void;
   addStrich: (team: TeamPosition, type: StrichTyp) => void;
@@ -130,6 +127,8 @@ export type GameStore = GameState & {
   }) => void;
   showHistoryWarning: (message: string, onConfirm: () => void, onCancel?: () => void) => void;
   validateHistoryAction: () => boolean;
+  // NEU: Funktion zum Setzen der aktuellen Spielfarbe
+  setFarbe: (farbe: JassColor | undefined) => void;
 };
 
 
@@ -207,6 +206,8 @@ const createInitialStateLocal = (
   gamePlayers: null,
   currentHistoryIndex: -1,
   historyState: createInitialHistoryState(),
+  // NEU: Aktuelle Spielfarbe hinzufügen
+  farbe: undefined,
 });
 
 // Hilfsfunktionen für die History
@@ -629,38 +630,35 @@ export const useGameStore = create<GameStore>()(devtools(
   },
 
   finalizeRound: (
-    activeGameId: string, // NEU: activeGameId als erster Parameter
-    farbe: JassColor,
-    topScore: number,
-    bottomScore: number,
-    strichInfoInput?: { 
-      team: TeamPosition,
-      type: StrichTyp
-    }
+    punkte: { top: number; bottom: number },
+    strichInfo?: { type: 'matsch' | 'kontermatsch'; team: TeamPosition }
   ) => {
-    const initialActiveGameId = activeGameId; // Verwende die übergebene ID
-    
-    const jassStore = useJassStore.getState();
-    
-    try {
-      // @ts-ignore - Ignoriere TypeScript-Fehler für diesen Debug-Zugriff
-      const jassStoreGameId = jassStore.currentSession?.currentActiveGameId;
-      // @ts-ignore - Ignoriere TypeScript-Fehler für diesen Debug-Zugriff
-      const isTournament = jassStore.currentSession?.isTournamentSession;
-      // console.log(`[GameStore] JassStore-Kontext: isTournament=${isTournament}, sessionGameId=${jassStoreGameId}`); // LOG ENTFERNT
-      
-      if (jassStoreGameId !== initialActiveGameId) {
-        console.warn(`[GameStore.finalizeRound] WARNUNG: Diskrepanz zwischen JassStore (${jassStoreGameId}) und GameStore (${initialActiveGameId}) activeGameId!`);
-      }
-    } catch (error) {
-      console.warn("[GameStore.finalizeRound] Fehler beim Zugriff auf JassStore-Properties:", error);
+    // =================================================================
+    // ABGEMILDERTE GUARD CLAUSE: Warnt bei State-Inkonsistenz, blockiert aber nicht mehr
+    const { activeGameId: gameStoreId } = get();
+    const { currentSession } = useJassStore.getState();
+    const jassStoreId = currentSession?.currentActiveGameId;
+
+    if (gameStoreId && jassStoreId !== gameStoreId) {
+      console.warn(`[GameStore.finalizeRound] WARNUNG: State-Diskrepanz erkannt! 
+        gameStore.activeGameId=${gameStoreId}, 
+        jassStore.activeGameId=${jassStoreId}. 
+        Operation wird fortgesetzt, aber bitte prüfen Sie die Konsistenz.`);
+        
+      useUIStore.getState().showNotification({
+        type: 'warning',
+        message: 'Session-Inkonsistenz erkannt. Falls Probleme auftreten, laden Sie die Seite neu.',
+        duration: 10000,
+      });
+      // NICHT mehr return - Operation wird fortgesetzt
     }
+    // =================================================================
 
     const timerStore = useTimerStore.getState();
-    // const {settings} = useUIStore.getState(); // UIStore Settings für CardStyle etc. bleiben
+    const initialActiveGameId = get().activeGameId; // Hole ID vor dem 'set'
+
     const settingsFromUIStore = useUIStore.getState().settings; // Expliziter Name für Klarheit
     const isFinalizingLatest = get().validateHistoryAction();
-    // console.log(`[GameStore] finalizeRound: isFinalizingLatest=${isFinalizingLatest}`); // LOG ENTFERNT
 
     timerStore.resetRoundTimer();
     timerStore.startRoundTimer();
@@ -694,7 +692,7 @@ export const useGameStore = create<GameStore>()(devtools(
       const roundNumberForEntry = state.currentRound + 1;
       // console.log(`[GameStore] finalizeRound: roundNumberForEntry=${roundNumberForEntry}`); // LOG ENTFERNT
 
-      const currentRoundJassPoints = {top: topScore, bottom: bottomScore};
+      const currentRoundJassPoints = punkte;
 
       const currentRoundWeisSum = (state.currentRoundWeis ?? []).reduce((acc, weis) => {
         acc[weis.position] = (acc[weis.position] || 0) + weis.points;
@@ -704,52 +702,66 @@ export const useGameStore = create<GameStore>()(devtools(
       const newStriche = {...state.striche};
       let finalStrichInfoForEntryScoped: { team: TeamPosition; type: StrichTyp } | undefined = undefined; // Scoped Variable
       
-      if (strichInfoInput) {
-        const { team: strichTeam, type: strichTypeFromInput } = strichInfoInput;
-        let actualStrichType = strichTypeFromInput;
+      if (strichInfo) {
+        const { team: strichTeam, type: strichTypeFromInput } = strichInfo;
         
-        // Spezifische Logik, falls Calculator nur "matsch" liefert und wir es zu "kontermatsch" umwandeln müssen
-        // Diese Logik basiert auf der Annahme, dass currentPlayer die Runde gestartet hat
-        // und strichInfoInput.team das Team ist, das den Matsch/Kontermatsch erzielt hat.
-        // Wenn das Team des aktuellen Spielers NICHT das strichTeam ist, ist es ein Kontermatsch.
-        const isCurrentPlayerTeamStrichTeam = 
-          (state.currentPlayer === 1 || state.currentPlayer === 3) && strichTeam === 'bottom' || // Spieler 1/3 sind Team Bottom
-          (state.currentPlayer === 2 || state.currentPlayer === 4) && strichTeam === 'top';   // Spieler 2/4 sind Team Top
-
-        if (strichTypeFromInput === "matsch" && !isCurrentPlayerTeamStrichTeam) {
-          actualStrichType = "kontermatsch";
-        }
-
-        // KORRIGIERTE LOGIK: Striche werden korrekt erhöht/gesetzt OHNE automatisches Löschen
-        const teamStriche = { ...newStriche[strichTeam] }; // Start mit bestehenden Strichen
-
-        switch (actualStrichType) {
-          case "kontermatsch":
-            // Kontermatsch wird auf den konfigurierten Wert gesetzt
-            teamStriche.kontermatsch = activeStrokeSettings.kontermatsch;
-            // KORREKTUR: Entferne automatisches "Aufräumen" - Striche sollen sich addieren
-            break;
-          case "matsch":
-            // Matsch wird um 1 erhöht
-            teamStriche.matsch = (teamStriche.matsch || 0) + 1;
-            // KORREKTUR: Entferne automatisches "Aufräumen" - andere Striche bleiben bestehen
-            break;
-          case "sieg":
-            teamStriche.sieg = (teamStriche.sieg || 0) + 2; // KORREKTUR: Sieg ist immer 1 Punkt
-            break;
-          case "schneider":
-            teamStriche.schneider = activeStrokeSettings.schneider; // KORREKTUR: Verwende konfigurierten Wert
-            break;
-          case "berg":
-            teamStriche.berg = (teamStriche.berg || 0) + 1;
-            break;
-          // Weitere Strich-Typen falls nötig
-        }
+        // KORRIGIERTE LOGIK: Die Entscheidung zwischen Matsch/Kontermatsch wird bereits im Calculator 
+        // basierend auf currentPlayer und Team-Zuordnung getroffen. Hier übernehmen wir nur noch das Ergebnis.
+        const actualStrichType: StrichTyp = strichTypeFromInput;
         
-        newStriche[strichTeam] = teamStriche;
         finalStrichInfoForEntryScoped = { team: strichTeam, type: actualStrichType };
+        
+        // --- KORREKTUR: Verwende die korrekten Stroke-Settings für die Anzahl Striche ---
+        if (actualStrichType === 'matsch') {
+            // Matsch ist immer 1 Strich (fest definiert)
+            newStriche[strichTeam] = {
+                ...newStriche[strichTeam],
+                matsch: newStriche[strichTeam].matsch + 1,
+            };
+        } else if (actualStrichType === 'kontermatsch') {
+            // Kontermatsch: Verwende den Wert aus den aktiven Stroke-Settings
+            // Hole die aktiven Stroke-Settings (gleiche Logik wie in addKontermatsch)
+            const { currentGroup } = useGroupStore.getState();
+            const uiStoreSettings = useUIStore.getState();
+            const activeStrokeSettings = (currentGroup && currentGroup.strokeSettings !== null && currentGroup.strokeSettings !== undefined) 
+                                           ? currentGroup.strokeSettings 
+                                           : uiStoreSettings.strokeSettings;
+            
+            console.log("[GameStore.finalizeRound] Kontermatsch mit Stroke-Settings:", {
+                team: strichTeam,
+                kontermatschValue: activeStrokeSettings.kontermatsch,
+                currentValue: newStriche[strichTeam].kontermatsch,
+                newTotal: newStriche[strichTeam].kontermatsch + activeStrokeSettings.kontermatsch,
+                source: currentGroup ? 'group' : 'uiStore'
+            });
+            
+            newStriche[strichTeam] = {
+                ...newStriche[strichTeam],
+                kontermatsch: newStriche[strichTeam].kontermatsch + activeStrokeSettings.kontermatsch, // ADDIERE zu bestehenden Strichen
+            };
+        } else if (actualStrichType === 'schneider') {
+            // Schneider: Verwende den Wert aus den aktiven Stroke-Settings
+            // Hole die aktiven Stroke-Settings (gleiche Logik wie in addSchneider)
+            const { currentGroup } = useGroupStore.getState();
+            const uiStoreSettings = useUIStore.getState();
+            const activeStrokeSettings = (currentGroup && currentGroup.strokeSettings !== null && currentGroup.strokeSettings !== undefined) 
+                                           ? currentGroup.strokeSettings 
+                                           : uiStoreSettings.strokeSettings;
+            
+            console.log("[GameStore.finalizeRound] Schneider mit Stroke-Settings:", {
+                team: strichTeam,
+                schneiderValue: activeStrokeSettings.schneider,
+                currentValue: newStriche[strichTeam].schneider,
+                newTotal: newStriche[strichTeam].schneider + activeStrokeSettings.schneider,
+                source: currentGroup ? 'group' : 'uiStore'
+            });
+            
+            newStriche[strichTeam] = {
+                ...newStriche[strichTeam],
+                schneider: newStriche[strichTeam].schneider + activeStrokeSettings.schneider, // ADDIERE zu bestehenden Strichen
+            };
+        }
       }
-
 
       const newTotalScores: TeamScores = {
         top: previousScores.top + currentRoundJassPoints.top + currentRoundWeisSum.top,
@@ -792,7 +804,7 @@ export const useGameStore = create<GameStore>()(devtools(
           "jass", 
           actualStarterOfFinalizedRound, // Wer hat DIESE Runde gestartet
           {
-              farbe,
+              farbe: state.farbe,
               strichInfo: finalStrichInfoForEntryScoped,
               cardStyle: settingsFromUIStore.cardStyle, // UI Store für CardStyle
           }
@@ -2379,6 +2391,13 @@ export const useGameStore = create<GameStore>()(devtools(
     const state = get();
     // Gibt true zurück, wenn die Aktion erlaubt ist (d.h. wir sind am aktuellen Ende der History)
     return state.currentHistoryIndex >= state.roundHistory.length - 1;
+  },
+  // NEU: Funktion zum Setzen der aktuellen Spielfarbe
+  setFarbe: (farbe: JassColor | undefined) => {
+    set((state) => {
+      const newState = { ...state, farbe };
+      return newState;
+    });
   },
   })
 , { name: "gameStore" }));

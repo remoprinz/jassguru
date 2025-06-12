@@ -194,11 +194,11 @@ const JoinGroupPage: React.FC = () => {
             setErrorDetails(errorMsg);
             setPageStatus("error");
             if (showNotification) {
-              showNotification({ 
-                message: `Fehler: ${errorMsg.substring(0, 100)}${errorMsg.length > 100 ? '...' : ''}`, 
-                type: "error" 
-              });
-            }
+showNotification({ 
+              message: `Fehler: ${errorMsg.substring(0, 100)}${errorMsg.length > 100 ? '...' : ''}`, 
+              type: "error" 
+            });
+}
             finalStatus = "error";
           }
         } 

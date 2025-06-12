@@ -3,7 +3,7 @@
 // KEIN Store-Import mehr hier!
 
 // Version, die bei jedem Build inkrementiert werden sollte
-const SW_VERSION = 'v1.3.0'; // Muss zur Version im sw.js passen
+const SW_VERSION = 'v1.3.1'; // Muss zur Version im sw-custom.js passen
 
 // Globale Variable zur Speicherung der aktuellen Registrierung
 let activeRegistration: ServiceWorkerRegistration | null = null;
@@ -107,7 +107,7 @@ export function register() {
   // ===== NEU =====
   // Funktion zur Registrierung des Service Workers
   const registerServiceWorker = () => {
-    const swUrl = `/sw.js?v=${SW_VERSION}`;
+    const swUrl = `/sw-custom.js?v=${SW_VERSION}`;
     console.log(`[ServiceWorkerRegistration] Attempting to register Service Worker: ${swUrl}`);
     
     navigator.serviceWorker

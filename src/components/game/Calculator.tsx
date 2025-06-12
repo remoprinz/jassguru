@@ -56,6 +56,7 @@ const Calculator: React.FC<CalculatorProps> = ({
     farbeSettings: gameFarbeSettings, 
     scoreSettings: gameScoreSettings,
     strokeSettings: gameStrokeSettings,
+    setFarbe, // NEU: Füge setFarbe hinzu
   } = useGameStore();
 
   const {calculator, setCalculatorFlipped, settings: {pictogramConfig}, isReadOnlyMode} = useUIStore();
@@ -387,6 +388,31 @@ const Calculator: React.FC<CalculatorProps> = ({
       bottom: clickedPosition === "bottom" ? finalScore : finalOpponentScore,
     };
 
+    // NEUE KORREKTE MATSCH/KONTERMATSCH-LOGIK
+    let strichInfo: { team: TeamPosition; type: "matsch" | "kontermatsch" } | undefined = undefined;
+    
+    if (isMatschActive) {
+      // Hole den aktuellen Spieler aus dem gameStore
+      const currentPlayer = useGameStore.getState().currentPlayer;
+      
+      // Team-Zuordnung: Bottom Team (Spieler 1, 3), Top Team (Spieler 2, 4)
+      const currentPlayerTeam = (currentPlayer === 1 || currentPlayer === 3) ? "bottom" : "top";
+      
+      // Entscheidungslogik:
+      // Matsch: Das Team, das an der Reihe ist (currentPlayer), macht Matsch
+      // Kontermatsch: Das Team, das NICHT an der Reihe ist, macht Matsch
+      const strichType = (clickedPosition === currentPlayerTeam) ? "matsch" : "kontermatsch";
+      
+      strichInfo = { team: clickedPosition, type: strichType };
+      
+      console.log("[Calculator] Matsch/Kontermatsch-Logik:", {
+        currentPlayer,
+        currentPlayerTeam,
+        clickedPosition,
+        resultingStrichType: strichType
+      });
+    }
+
     const historyActionValid = validateHistoryAction();
     console.log(`[Calculator] Prüfung: validateHistoryAction=${historyActionValid}`);
 
@@ -396,26 +422,11 @@ const Calculator: React.FC<CalculatorProps> = ({
         HISTORY_WARNING_MESSAGE,
         () => {
           console.log("[Calculator] History-Warnung bestätigt. Rufe finalizeRound (überschreibend)...");
-          // NEU: Angepasster Aufruf basierend auf dem Modus
-          if (isOfflineMode) {
-            // Gastmodus (Offline): Ohne activeGameId aufrufen
-            finalizeRound(
-              "", // Leerer String anstelle von undefined für TypeScript
-              selectedColor,
-              scores.top,
-              scores.bottom,
-              isMatschActive ? { team: clickedPosition, type: "matsch" as StrichTyp } : undefined
-            );
-          } else {
-            // Online-Modus: Mit activeGameId aufrufen
-            finalizeRound(
-              currentActiveGameId,
-              selectedColor,
-              scores.top,
-              scores.bottom,
-              isMatschActive ? { team: clickedPosition, type: "matsch" as StrichTyp } : undefined
-            );
-          }
+          // NEU: Setze die Farbe vor dem Aufruf
+          setFarbe(selectedColor);
+          
+          // Korrigierter Aufruf mit korrekter strichInfo
+          finalizeRound(scores, strichInfo);
           onClose();
         },
         () => jumpToLatest()
@@ -429,30 +440,15 @@ const Calculator: React.FC<CalculatorProps> = ({
         farbe: selectedColor,
         topScore: scores.top,
         bottomScore: scores.bottom,
-        strichInfo: isMatschActive ? { team: clickedPosition, type: "matsch" as StrichTyp } : undefined
+        strichInfo
     });
     
     try {
-        // NEU: Angepasster Aufruf basierend auf dem Modus
-        if (isOfflineMode) {
-          // Gastmodus (Offline): Ohne activeGameId aufrufen
-          finalizeRound(
-            "", // Leerer String anstelle von undefined für TypeScript
-            selectedColor,
-            scores.top,
-            scores.bottom,
-            isMatschActive ? { team: clickedPosition, type: "matsch" as StrichTyp } : undefined
-          );
-        } else {
-          // Online-Modus: Mit activeGameId aufrufen
-          finalizeRound(
-            currentActiveGameId,
-            selectedColor,
-            scores.top,
-            scores.bottom,
-            isMatschActive ? { team: clickedPosition, type: "matsch" as StrichTyp } : undefined
-          );
-        }
+        // NEU: Setze die Farbe vor dem Aufruf
+        setFarbe(selectedColor);
+        
+        // Korrigierter Aufruf mit korrekter strichInfo
+        finalizeRound(scores, strichInfo);
         console.log("[Calculator] finalizeRound erfolgreich aufgerufen (normal).");
     } catch (error) {
         console.error("[Calculator] Fehler beim Aufruf von finalizeRound:", error);
@@ -475,6 +471,7 @@ const Calculator: React.FC<CalculatorProps> = ({
     onClose,
     validateHistoryAction,
     isReadOnlyMode,
+    setFarbe,
   ]);
 
   const handleClear = () => {

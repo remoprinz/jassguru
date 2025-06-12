@@ -34,6 +34,8 @@ import {
   DocumentData,
   initializeFirestore,
   CACHE_SIZE_UNLIMITED,
+  persistentLocalCache,
+  persistentMultipleTabManager,
 } from "firebase/firestore";
 import {getStorage, /* connectStorageEmulator,*/ FirebaseStorage} from "firebase/storage";
 
@@ -138,10 +140,25 @@ try {
   }
 
   // Firestore initialisieren
-  db = initializeFirestore(app, {
-    cacheSizeBytes: CACHE_SIZE_UNLIMITED
-  });
-  // console.log("✅ Firestore initialisiert mit unlimitiertem Cache.");
+  try {
+    if (typeof window !== "undefined") {
+      db = initializeFirestore(app, {
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager(),
+          cacheSizeBytes: CACHE_SIZE_UNLIMITED,
+        }),
+      });
+      // console.log("✅ Firestore initialisiert mit Multi-Tab Offline-Persistenz und unlimitiertem Cache.");
+    } else {
+      // Fallback für Server-Kontext (z.B. während des Builds), wo keine Persistenz möglich ist
+      db = getFirestore(app);
+      // console.log("✅ Firestore initialisiert für Server-Kontext (ohne Persistenz).");
+    }
+  } catch (error) {
+    console.error("Fehler bei der Firestore-Initialisierung:", error);
+    // Fallback auf eine nicht-persistente Instanz, falls die Initialisierung fehlschlägt
+    db = getFirestore(app);
+  }
 
   // Storage initialisieren
   storage = getStorage(app);

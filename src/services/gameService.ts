@@ -1,4 +1,4 @@
-import { getFirestore, doc, updateDoc, setDoc, serverTimestamp, collection, query, where, orderBy, limit, getDocs, FieldValue, Timestamp, addDoc, onSnapshot, Unsubscribe, writeBatch, runTransaction, getDoc, increment } from 'firebase/firestore';
+import { getFirestore, doc, updateDoc, setDoc, serverTimestamp, collection, query, where, orderBy, limit, getDocs, FieldValue, Timestamp, addDoc, onSnapshot, Unsubscribe, writeBatch, runTransaction, getDoc, increment, deleteDoc } from 'firebase/firestore';
 import { firebaseApp } from './firebaseInit';
 import type { ActiveGame, RoundEntry, JassRoundEntry, CompletedGameSummary, PlayerNames } from '../types/jass';
 import { useUIStore } from '../store/uiStore';
@@ -7,6 +7,7 @@ import { CARD_SYMBOL_MAPPINGS } from '../config/CardStyles'; // NEU: Import hinz
 import { sanitizeDataForFirestore } from '../utils/firestoreUtils'; // NEU: Import der Bereinigungsfunktion
 import { useJassStore } from '../store/jassStore'; // Import jassStore
 import { useGameStore } from '../store/gameStore'; // Import gameStore
+import { getFunctions, httpsCallable } from 'firebase/functions'; // NEU: Import für Cloud Functions
 
 const db = getFirestore(firebaseApp);
 
@@ -995,5 +996,224 @@ export const createSessionDocument = async (
   } catch (error) {
     console.error(`[GameService] Error creating session document ${sessionId}:`, error);
     throw error; // Fehler weiterleiten
+  }
+};
+
+/**
+ * Bricht ein aktives Spiel vollständig ab und bereinigt alle Referenzen.
+ * Diese Funktion führt folgende Aktionen durch:
+ * 1. Setzt den Status des activeGames-Dokuments auf 'aborted'
+ * 2. Löscht das activeGames-Dokument nach einer kurzen Verzögerung
+ * 3. Bereinigt die currentActiveGameId in der entsprechenden Session
+ * 4. Für Turnierspiele: Bereinigt auch die Tournament-Referenzen
+ *
+ * @param activeGameId Die ID des abzubrechenden Spiels
+ * @param options Zusätzliche Optionen für spezielle Fälle
+ */
+export const abortActiveGame = async (
+  activeGameId: string,
+  options?: {
+    tournamentInstanceId?: string;
+    skipSessionCleanup?: boolean;
+  }
+): Promise<void> => {
+  if (!activeGameId) {
+    console.warn("[GameService] abortActiveGame called without activeGameId.");
+    return;
+  }
+
+  console.log(`[GameService] Starting abort process for game ${activeGameId}`);
+
+  try {
+    // SCHRITT 1: Spiel-Dokument laden, um Session-ID zu ermitteln
+    const gameDocRef = doc(db, 'activeGames', activeGameId);
+    const gameSnap = await getDoc(gameDocRef);
+    
+    if (!gameSnap.exists()) {
+      console.log(`[GameService] Game ${activeGameId} does not exist, cleanup not needed.`);
+      return;
+    }
+
+    const gameData = gameSnap.data() as ActiveGame;
+    const sessionId = gameData.sessionId;
+    const tournamentInstanceId = gameData.tournamentInstanceId || options?.tournamentInstanceId;
+
+    console.log(`[GameService] Game ${activeGameId} found with sessionId: ${sessionId}, tournamentInstanceId: ${tournamentInstanceId || 'none'}`);
+
+    // SCHRITT 2: Status auf 'aborted' setzen (für andere Clients sichtbar)
+    await updateDoc(gameDocRef, {
+      status: 'aborted',
+      lastUpdated: serverTimestamp(),
+    });
+    console.log(`[GameService] Game ${activeGameId} status set to 'aborted'`);
+
+    // SCHRITT 3: Session-Referenz bereinigen (falls nicht übersprungen)
+    if (!options?.skipSessionCleanup && sessionId) {
+      try {
+        // Prüfe, ob es eine Tournament-Session oder reguläre Session ist
+        if (tournamentInstanceId) {
+          // Tournament-Session: Verwende sessions/{tournamentInstanceId}
+          const sessionDocRef = doc(db, 'sessions', tournamentInstanceId);
+          await updateDoc(sessionDocRef, {
+            currentActiveGameId: null,
+            lastUpdated: serverTimestamp(),
+          });
+          console.log(`[GameService] Tournament session ${tournamentInstanceId} cleared of activeGameId`);
+        } else {
+          // Reguläre Session: Prüfe beide mögliche Collections
+          // Zuerst in sessions/{sessionId} suchen
+          const sessionsDocRef = doc(db, 'sessions', sessionId);
+          const sessionsSnap = await getDoc(sessionsDocRef);
+          
+          if (sessionsSnap.exists()) {
+            await updateDoc(sessionsDocRef, {
+              currentActiveGameId: null,
+              lastUpdated: serverTimestamp(),
+            });
+            console.log(`[GameService] Regular session ${sessionId} in sessions collection cleared of activeGameId`);
+          } else {
+            // Falls nicht in sessions, dann in jassGameSummaries suchen
+            const summariesDocRef = doc(db, 'jassGameSummaries', sessionId);
+            const summariesSnap = await getDoc(summariesDocRef);
+            
+            if (summariesSnap.exists()) {
+              await updateDoc(summariesDocRef, {
+                currentActiveGameId: null,
+                lastUpdated: serverTimestamp(),
+              });
+              console.log(`[GameService] Regular session ${sessionId} in jassGameSummaries collection cleared of activeGameId`);
+            } else {
+              console.log(`[GameService] Session ${sessionId} does not exist in either collection, no cleanup needed`);
+            }
+          }
+        }
+      } catch (sessionError) {
+        console.error(`[GameService] Error clearing session reference:`, sessionError);
+        // Session-Fehler nicht fatal - Spiel kann trotzdem gelöscht werden
+      }
+    }
+
+    // SCHRITT 4: Tournament-Referenz bereinigen (falls vorhanden)
+    if (tournamentInstanceId) {
+      try {
+        const tournamentDocRef = doc(db, 'tournaments', tournamentInstanceId);
+        const tournamentSnap = await getDoc(tournamentDocRef);
+        
+        if (tournamentSnap.exists()) {
+          const tournamentData = tournamentSnap.data();
+          // Nur bereinigen, wenn das aktuelle Spiel das aktive Spiel im Tournament ist
+          if (tournamentData.currentActiveGameId === activeGameId) {
+            await updateDoc(tournamentDocRef, {
+              currentActiveGameId: null,
+              updatedAt: serverTimestamp(),
+              lastActivity: serverTimestamp(),
+            });
+            console.log(`[GameService] Tournament ${tournamentInstanceId} cleared of activeGameId`);
+          }
+        }
+      } catch (tournamentError) {
+        console.error(`[GameService] Error clearing tournament reference:`, tournamentError);
+        // Tournament-Fehler nicht fatal
+      }
+    }
+
+    // SCHRITT 5: Session-Bereinigung VOR der Dokument-Löschung
+    // Dies verhindert, dass Fehler in der Session-Bereinigung die Dokument-Löschung blockieren
+    if (sessionId && !tournamentInstanceId) {
+      // Nur für reguläre Sessions (nicht Tournament-Sessions)
+      console.log(`[GameService] Calling cleanupAbortedSession for session ${sessionId} BEFORE deleting game document`);
+      try {
+        await cleanupAbortedSession(sessionId);
+        console.log(`[GameService] Session ${sessionId} cleanup completed successfully`);
+      } catch (cleanupError) {
+        console.error(`[GameService] Error during session cleanup for ${sessionId}:`, cleanupError);
+        // Session-Cleanup-Fehler sind nicht fatal - wir löschen das Spiel trotzdem
+        console.log(`[GameService] Continuing with game document deletion despite session cleanup error`);
+      }
+    }
+
+    // SCHRITT 6: Kurze Verzögerung, dann Dokument löschen
+    // Dies gibt anderen Clients Zeit, den 'aborted' Status zu sehen
+    setTimeout(async () => {
+      try {
+        console.log(`[GameService] Attempting to delete game document ${activeGameId} after 2 second delay...`);
+        await deleteDoc(gameDocRef);
+        console.log(`[GameService] Game document ${activeGameId} deleted successfully`);
+        
+      } catch (deleteError) {
+        console.error(`[GameService] CRITICAL ERROR: Failed to delete game document ${activeGameId}:`, deleteError);
+        
+        // Zeige Benutzer-Notification bei kritischem Fehler
+        useUIStore.getState().showNotification({
+          type: 'error',
+          message: `Fehler beim Löschen des Spiel-Dokuments. Bitte manuell bereinigen.`,
+          duration: 8000
+        });
+      }
+    }, 2000); // 2 Sekunden Verzögerung
+
+    console.log(`[GameService] Abort process completed for game ${activeGameId}`);
+
+  } catch (error) {
+    console.error(`[GameService] Error aborting game ${activeGameId}:`, error);
+    throw new Error(`Fehler beim Abbrechen des Spiels: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`);
+  }
+};
+
+// *** NEUE FUNKTION: Löscht eine abgebrochene Session und alle zugehörigen activeGames-Einträge ***
+export const cleanupAbortedSession = async (sessionId: string): Promise<void> => {
+  if (!sessionId) {
+    console.warn("[GameService] cleanupAbortedSession ohne sessionId aufgerufen.");
+    return;
+  }
+
+  console.log(`[GameService] Starte Bereinigung für Session ${sessionId}...`);
+
+  try {
+    // Cloud Function aufrufen
+    const functions = getFunctions(firebaseApp, 'europe-west1');
+    const cleanupFunction = httpsCallable(functions, 'cleanupAbortedSession');
+    
+    const result = await cleanupFunction({ sessionId });
+    const responseData = result.data as { 
+      success: boolean; 
+      deletedSession: string; 
+      deletedGamesCount: number; 
+      message: string; 
+    };
+
+    if (responseData.success) {
+      console.log(`[GameService] Session ${sessionId} erfolgreich bereinigt: ${responseData.deletedGamesCount} Spiele gelöscht.`);
+      
+      useUIStore.getState().showNotification({
+        type: 'success',
+        message: responseData.message,
+        duration: 4000
+      });
+    } else {
+      throw new Error('Cloud Function gab Fehler zurück');
+    }
+
+  } catch (error) {
+    console.error(`[GameService] Fehler beim Bereinigen der Session ${sessionId}:`, error);
+    
+    let errorMessage = 'Fehler beim Löschen der Session.';
+    if (error instanceof Error) {
+      if (error.message.includes('permission-denied')) {
+        errorMessage = 'Keine Berechtigung zum Löschen dieser Session.';
+      } else if (error.message.includes('not-found')) {
+        errorMessage = 'Session nicht gefunden.';
+      } else {
+        errorMessage = `Fehler beim Löschen: ${error.message}`;
+      }
+    }
+    
+    useUIStore.getState().showNotification({
+      type: 'error',
+      message: errorMessage,
+      duration: 5000
+    });
+    
+    throw error; // Fehler weiterleiten für weitere Behandlung
   }
 }; 

@@ -411,7 +411,6 @@ async function updatePlayerStats(gameData: GameData, sessionId: string, gameId: 
       if (playerTrumpfIncrements.size > 0) {
         logger.info(`[updatePlayerStats] Updated trumpf stats for ${playerTrumpfIncrements.size} players in game ${gameId}`);
       }
-
   } else if (rounds.length > 0) {
       logger.warn(`[updatePlayerStats] Game ${gameId} has ${rounds.length} rounds, but player mapping from session ${sessionId} is missing (size: ${playerNumberToUidMap.size}). Cannot attribute trumpf choices.`);
   }

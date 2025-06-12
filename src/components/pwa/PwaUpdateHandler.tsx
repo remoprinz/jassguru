@@ -181,7 +181,7 @@ const PwaUpdateHandler: React.FC = () => {
           window.location.reload();
         }
 
-      } catch (error) {
+              } catch (error) {
         console.error('[PwaUpdateHandler] Update failed:', error);
         setUpdateState(prev => ({ 
           ...prev, 
@@ -190,11 +190,16 @@ const PwaUpdateHandler: React.FC = () => {
         }));
 
         const errorConfig: NotificationConfig = {
-          message: 'Update fehlgeschlagen. Versuche es später erneut.',
-          type: 'error',
+          message: 'Update fehlgeschlagen. Erzwinge Hard-Reload...',
+          type: 'warning',
           preventClose: false,
         };
         showNotification(errorConfig);
+        
+        // Fallback: Force reload after 2 seconds if update fails
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
       }
     };
 
@@ -274,14 +279,34 @@ const PwaUpdateHandler: React.FC = () => {
     };
   }, [handleUpdateReady, checkForUpdates, updateState.lastUpdateCheck]);
 
-  // Performance monitoring
+  // Performance monitoring and SW message handling
   useEffect(() => {
     if (typeof window !== 'undefined' && 'navigator' in window && 'serviceWorker' in navigator) {
-      navigator.serviceWorker.addEventListener('message', (event) => {
+      const handleSWMessage = (event: MessageEvent) => {
+        console.log('[PwaUpdateHandler] SW Message received:', event.data);
+        
+        if (event.data && event.data.type === 'SW_UPDATED') {
+          console.log('[PwaUpdateHandler] SW Updated, version:', event.data.version);
+          // Trigger page reload after short delay
+          setTimeout(() => {
+            window.location.reload();
+          }, 500);
+        }
+        
+        if (event.data && event.data.type === 'SW_ACTIVATED') {
+          console.log('[PwaUpdateHandler] SW Activated, version:', event.data.version);
+        }
+        
         if (event.data && event.data.type === 'CACHE_UPDATED') {
           console.log('[PwaUpdateHandler] Cache updated:', event.data.cacheName);
         }
-      });
+      };
+      
+      navigator.serviceWorker.addEventListener('message', handleSWMessage);
+      
+      return () => {
+        navigator.serviceWorker.removeEventListener('message', handleSWMessage);
+      };
     }
   }, []);
 

@@ -70,9 +70,9 @@ export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, isLoa
             >
               {/* Avatar */}
               <ProfileImage 
-                src={player.photoURL} 
-                alt={player.displayName || 'Mitglied'} 
-                size="lg"
+                    src={player.photoURL}
+                    alt={player.displayName || 'Mitglied'}
+                size="md"
                 className="mr-3 flex-shrink-0"
                 fallbackClassName={cn(
                   "bg-gray-700 text-gray-300",

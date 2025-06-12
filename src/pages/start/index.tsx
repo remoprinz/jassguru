@@ -2277,7 +2277,7 @@ const StartPage = () => {
               <div className="space-y-4">
                 {sortedYears.map(year => (
                   <div key={year}>
-                    <h3 className="text-lg font-semibold text-white mb-2 sticky top-[44px] bg-gray-850 py-1 z-10 text-center">{year}</h3>
+                    <h3 className="text-lg font-semibold text-white mb-3 text-center">{year}</h3>
                     <div className="space-y-2">
                       {groupedArchiveByYear[year].map(renderArchiveItem)}
                     </div>

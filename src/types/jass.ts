@@ -596,6 +596,8 @@ export interface GameState {
   currentHistoryIndex: number;
   historyState: HistoryState;
   strokeSettings: StrokeSettings;
+  // NEU: Aktuelle Spielfarbe der Runde
+  farbe?: JassColor;
 }
 
 // Erweitern der GameActions

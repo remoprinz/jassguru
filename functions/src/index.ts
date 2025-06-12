@@ -478,6 +478,153 @@ export const joinGroupByToken = onCall<JoinGroupByTokenData>(async (request) => 
 // --- finalizeSession (Callable Function wird exportiert) ---
 export const finalizeSession = finalizeSessionLogic.finalizeSession;
 
+// --- NEU: cleanupAbortedSession (Callable Function) ---
+/**
+ * Löscht eine abgebrochene Session und alle zugehörigen activeGames-Einträge.
+ * Kann nur vom Ersteller der Session oder einem Admin aufgerufen werden.
+ */
+export const cleanupAbortedSession = onCall(async (request) => {
+  // 1. Authentifizierung prüfen
+  if (!request.auth) {
+    throw new HttpsError(
+      "unauthenticated",
+      "Der Nutzer muss angemeldet sein, um eine Session zu löschen."
+    );
+  }
+
+  const userId = request.auth.uid;
+  const sessionId = request.data?.sessionId;
+
+  // 2. Input validieren
+  if (!sessionId || typeof sessionId !== "string") {
+    throw new HttpsError(
+      "invalid-argument",
+      "Die Session-ID fehlt oder hat ein ungültiges Format."
+    );
+  }
+
+  console.info(`User ${userId} requests cleanup of session ${sessionId}`);
+
+  try {
+    // 3. Session-Dokument prüfen und Berechtigung validieren
+    const sessionRef = db.collection("sessions").doc(sessionId);
+    const sessionSnap = await sessionRef.get();
+
+    // NEU: Auch in jassGameSummaries suchen, falls nicht in sessions gefunden
+    const jassSessionRef = db.collection("jassGameSummaries").doc(sessionId);
+    const jassSessionSnap = await jassSessionRef.get();
+
+    // Prüfe, welche Session existiert
+    let sessionData: any = null;
+    let sessionDocToDelete: admin.firestore.DocumentReference | null = null;
+    let additionalSessionDocToDelete: admin.firestore.DocumentReference | null = null;
+
+    if (sessionSnap.exists) {
+      sessionData = sessionSnap.data();
+      sessionDocToDelete = sessionRef;
+      console.info(`Found session in 'sessions' collection: ${sessionId}`);
+      
+      // Prüfe auch, ob es eine entsprechende jassGameSummaries gibt
+      if (jassSessionSnap.exists) {
+        additionalSessionDocToDelete = jassSessionRef;
+        console.info(`Also found corresponding session in 'jassGameSummaries' collection: ${sessionId}`);
+      }
+    } else if (jassSessionSnap.exists) {
+      sessionData = jassSessionSnap.data();
+      sessionDocToDelete = jassSessionRef;
+      console.info(`Found session in 'jassGameSummaries' collection: ${sessionId}`);
+    } else {
+      throw new HttpsError("not-found", "Session nicht gefunden.");
+    }
+
+    // Berechtigung prüfen: Nur der Ersteller oder ein Admin der zugehörigen Gruppe kann löschen
+    if (sessionData?.createdBy !== userId) {
+      // Zusätzliche Prüfung: Ist der User Admin der zugehörigen Gruppe?
+      if (sessionData?.groupId) {
+        const groupRef = db.collection("groups").doc(sessionData.groupId);
+        const groupSnap = await groupRef.get();
+        const groupData = groupSnap.data();
+        
+        if (!groupData?.adminIds?.includes(userId)) {
+          throw new HttpsError(
+            "permission-denied",
+            "Nur der Ersteller der Session oder ein Gruppen-Admin kann diese löschen."
+          );
+        }
+      } else {
+        throw new HttpsError(
+          "permission-denied",
+          "Nur der Ersteller der Session kann diese löschen."
+        );
+      }
+    }
+
+    // 4. Alle activeGames der Session finden
+    const activeGamesQuery = db.collection("activeGames")
+      .where("sessionId", "==", sessionId);
+    
+    const activeGamesSnapshot = await activeGamesQuery.get();
+    
+    console.info(`Found ${activeGamesSnapshot.size} active games to delete for session ${sessionId}`);
+
+    // 5. Batch-Operation für das Löschen aller Daten
+    const batch = db.batch();
+    
+    // Session-Dokument(e) löschen
+    if (sessionDocToDelete) {
+      batch.delete(sessionDocToDelete);
+      console.info(`Marked main session document for deletion: ${sessionDocToDelete.path}`);
+    }
+    if (additionalSessionDocToDelete) {
+      batch.delete(additionalSessionDocToDelete);
+      console.info(`Marked additional session document for deletion: ${additionalSessionDocToDelete.path}`);
+    }
+    
+    // Alle activeGames-Dokumente und ihre Subkollektionen löschen
+    for (const gameDoc of activeGamesSnapshot.docs) {
+      const gameId = gameDoc.id;
+      
+      // Haupt-activeGame-Dokument löschen
+      batch.delete(gameDoc.ref);
+      
+      // Rounds-Subkollektion löschen
+      const roundsQuery = db.collection("activeGames").doc(gameId).collection("rounds");
+      const roundsSnapshot = await roundsQuery.get();
+      
+      for (const roundDoc of roundsSnapshot.docs) {
+        batch.delete(roundDoc.ref);
+      }
+      
+      console.info(`Marked game ${gameId} and ${roundsSnapshot.size} rounds for deletion`);
+    }
+
+    // 6. Batch ausführen
+    await batch.commit();
+    
+    const deletedGamesCount = activeGamesSnapshot.size;
+    const deletedSessionsCount = (sessionDocToDelete ? 1 : 0) + (additionalSessionDocToDelete ? 1 : 0);
+
+    console.info(`Successfully cleaned up session ${sessionId}: deleted ${deletedSessionsCount} session document(s), ${deletedGamesCount} games, and their rounds`);
+
+    return {
+      success: true,
+      deletedSession: sessionId,
+      deletedGamesCount: deletedGamesCount,
+      message: `Session und ${deletedGamesCount} zugehörige Spiele wurden erfolgreich gelöscht.`
+    };
+  } catch (error) {
+    console.error(`Error cleaning up session ${sessionId} by user ${userId}:`, error);
+    if (error instanceof HttpsError) {
+      throw error;
+    } else {
+      throw new HttpsError(
+        "internal",
+        "Ein interner Fehler ist beim Löschen der Session aufgetreten."
+      );
+    }
+  }
+});
+
 // --- archivecompletedgame (Trigger wird exportiert) - NUR EINMAL! ---
 // export const archivecompletedgame = archiveLogic.archivecompletedgame; // ENTFERNT
 

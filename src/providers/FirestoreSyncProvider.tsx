@@ -230,99 +230,39 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
     }
 
       // --- KORREKTUR: Server-Daten HIER bereinigen ---
-      // Bereinige Server-Daten (undefined -> null etc.)
       const sanitizedServerData = sanitizeDataForFirestore(serverData);
-      // console.log('[FirestoreSync applyServerUpdate] Regular update data sanitized:', sanitizedServerData);
+      
+      // === NEU: Brutales Überschreiben des Kern-Spielzustands ===
+      console.log('[FirestoreSync applyServerUpdate] Overwriting local state with authoritative server data.');
+      
+      // KRITISCHER FIX: weisPoints auf Null setzen, wenn Runde abgeschlossen ist
+      const shouldResetWeisPoints = sanitizedServerData.isRoundCompleted === true;
+      const finalWeisPoints = shouldResetWeisPoints 
+        ? { top: 0, bottom: 0 } 
+        : (sanitizedServerData.weisPoints ?? { top: 0, bottom: 0 });
+      
+      console.log(`[FirestoreSync applyServerUpdate] WeisPoints handling: isRoundCompleted=${sanitizedServerData.isRoundCompleted}, shouldReset=${shouldResetWeisPoints}, finalWeisPoints=${JSON.stringify(finalWeisPoints)}`);
+      
+      gameStoreSetState({
+          scores: sanitizedServerData.scores,
+          weisPoints: finalWeisPoints, // FIX: Verwende berechnete weisPoints statt direkte Server-Daten
+          striche: sanitizedServerData.striche,
+          jassPoints: sanitizedServerData.currentJassPoints ?? { top: 0, bottom: 0 },
+          currentRound: sanitizedServerData.currentRound,
+          currentPlayer: sanitizedServerData.currentPlayer,
+          startingPlayer: sanitizedServerData.startingPlayer,
+          isRoundCompleted: sanitizedServerData.isRoundCompleted,
+          currentRoundWeis: sanitizedServerData.currentRoundWeis,
+          gamePlayers: sanitizedServerData.gamePlayers,
+          playerNames: sanitizedServerData.playerNames,
+          // Die Runden-History wird durch ihren eigenen Listener aktualisiert, daher hier nicht anfassen.
+      });
 
-      // Selektives Update des lokalen Stores mit BEREINIGTEN Server-Daten
-      const updatePayload: Partial<typeof localState> = {};
-      let stateChanged = false;
-
-      // WICHTIG: Die Punkteaktualisierung (scores und weisPoints) immer zusammen durchführen
-      // Weis-Punkte dürfen nicht getrennt von Gesamtpunkten aktualisiert werden
-      const scoreChanged = JSON.stringify(sanitizedServerData.scores) !== JSON.stringify(localState.scores);
-      const weisPointsChanged = JSON.stringify(sanitizedServerData.weisPoints) !== JSON.stringify(localState.weisPoints);
-      
-      // Wenn einer der Punktestände sich ändert, beide zusammen aktualisieren
-      if (scoreChanged || weisPointsChanged) {
-          updatePayload.scores = sanitizedServerData.scores;
-          updatePayload.weisPoints = sanitizedServerData.weisPoints;
-          stateChanged = true;
-          console.log('[FirestoreSync applyServerUpdate] Updating scores and weisPoints atomically.');
-      }
-
-      // Restliche Felder separat prüfen und aktualisieren
-      if (JSON.stringify(sanitizedServerData.striche) !== JSON.stringify(localState.striche)) {
-          updatePayload.striche = sanitizedServerData.striche;
-          stateChanged = true;
-      }
-      
-      // jassPoints auch aktualisieren
-      if (JSON.stringify(sanitizedServerData.jassPoints) !== JSON.stringify(localState.jassPoints)) {
-          updatePayload.jassPoints = sanitizedServerData.jassPoints;
-          stateChanged = true;
-      }
-      
-      if (sanitizedServerData.currentPlayer !== localState.currentPlayer) {
-          updatePayload.currentPlayer = sanitizedServerData.currentPlayer;
-        stateChanged = true;
-      }
-      
-      if (sanitizedServerData.startingPlayer !== localState.startingPlayer) {
-          updatePayload.startingPlayer = sanitizedServerData.startingPlayer;
-          stateChanged = true;
-      }
-      
-      if (sanitizedServerData.currentRound !== localState.currentRound) {
-          updatePayload.currentRound = sanitizedServerData.currentRound;
-        stateChanged = true;
-      }
-      
-      if (JSON.stringify(sanitizedServerData.currentRoundWeis) !== JSON.stringify(localState.currentRoundWeis)) {
-          updatePayload.currentRoundWeis = sanitizedServerData.currentRoundWeis;
-          stateChanged = true;
-      }
-      
-      if (sanitizedServerData.isRoundCompleted !== localState.isRoundCompleted) {
-          updatePayload.isRoundCompleted = sanitizedServerData.isRoundCompleted;
-        stateChanged = true;
-      }
-      
-      // Update gamePlayers if different
-      if (JSON.stringify(sanitizedServerData.gamePlayers) !== JSON.stringify(localState.gamePlayers)) {
-          updatePayload.gamePlayers = sanitizedServerData.gamePlayers;
-          updatePayload.playerNames = sanitizedServerData.playerNames ?? localState.playerNames; // PlayerNames mit aktualisieren
-        stateChanged = true;
-      }
-
-       // Rundenhistorie nur aktualisieren, wenn sie übergeben wurde und sich unterscheidet
-       if (serverRounds && JSON.stringify(serverRounds) !== JSON.stringify(localState.roundHistory)) {
-           console.log("[FirestoreSync applyServerUpdate] Applying server round history update.");
-           updatePayload.roundHistory = serverRounds;
-           // Setze den Index auf das Ende der neuen History, wenn wir nicht navigieren
-           if (!useUIStore.getState().isNavigatingHistory) {
-               updatePayload.currentHistoryIndex = serverRounds.length - 1;
-               console.log(`[FirestoreSync applyServerUpdate] Setting currentHistoryIndex to ${serverRounds.length - 1}`);
-           }
-        stateChanged = true;
-       }
-
-      // Status prüfen (abgebrochen/beendet)
-      // --- KORREKTUR: Verwende BEREINIGTE Daten --- 
+      // Status prüfen (abgebrochen/beendet) - diese Logik bleibt wichtig
       if (sanitizedServerData.status === 'aborted' || sanitizedServerData.status === 'completed') {
-        // --- FIX: Rufe die dedizierte Funktion auf ---
         handleRemoteGameEndOrAbort(sanitizedServerData.status);
       }
-
-      // Wende das Update nur an, wenn sich etwas geändert hat
-      if (stateChanged) { 
-          // console.log('[FirestoreSync applyServerUpdate] Applying selective update:', updatePayload);
-          gameStoreSetState(updatePayload);
-      } else {
-          // console.log('[FirestoreSync applyServerUpdate] No state changes detected, skipping update.');
-      }
-
-  }, [gameStoreSetState, activeGameIdFromJassStore]);
+  }, [gameStoreSetState, activeGameIdFromJassStore, handleRemoteGameEndOrAbort]); // handleRemoteGameEndOrAbort als Abhängigkeit hinzugefügt
 
   // Hilfsfunktion: Konvertiere Firestore-Dokument in RoundEntry
   const convertDocToRoundEntry = useCallback((doc: QueryDocumentSnapshot<DocumentData>): RoundEntry | null => {
@@ -564,12 +504,21 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
         const lastActiveIndex = roundsData.findLastIndex(r => r.isActive === undefined || r.isActive === true);
         
         console.log(`[FirestoreSyncProvider LOAD] Preparing to set initial gameStore state. Target gameId: ${newGameId}, Rounds count: ${roundsData.length}, Target history index: ${lastActiveIndex}`); // LOG 7
+        
+        // KRITISCHER FIX: weisPoints auch beim initialen Load korrekt handhaben
+        const shouldResetWeisPointsInitial = gameData.isRoundCompleted === true;
+        const finalWeisPointsInitial = shouldResetWeisPointsInitial 
+          ? { top: 0, bottom: 0 } 
+          : (gameData.weisPoints ?? { top: 0, bottom: 0 });
+        
+        console.log(`[FirestoreSyncProvider LOAD] WeisPoints handling: isRoundCompleted=${gameData.isRoundCompleted}, shouldReset=${shouldResetWeisPointsInitial}, finalWeisPoints=${JSON.stringify(finalWeisPointsInitial)}`);
+        
         gameStoreSetState({
           activeGameId: newGameId, // Die neue ID setzen
           // ... (restliche Felder kopiert) ...
           scores: gameData.scores ?? { top: 0, bottom: 0 },
           striche: gameData.striche ?? { top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }, bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 } },
-          weisPoints: gameData.weisPoints ?? { top: 0, bottom: 0 },
+          weisPoints: finalWeisPointsInitial, // FIX: Verwende berechnete weisPoints statt direkte Server-Daten
           jassPoints: gameData.currentJassPoints ?? { top: 0, bottom: 0 },
           currentRound: gameData.currentRound ?? 1,
           currentPlayer: currentPlayer,
@@ -705,7 +654,7 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
   useEffect(() => {
     // KORREKTUR: Abhängigkeit von jassSessionId statt activeGameId
     if (!jassSessionId || syncStatus.isPaused) { 
-        // console.log(`[SyncProvider] Skipping completedGames listener setup (jassSessionId: ${jassSessionId}, user: ${!!user} <- check removed, paused: ${syncStatus.isPaused})`);
+        console.log(`[SyncProvider] Skipping completedGames listener setup (jassSessionId: ${jassSessionId}, paused: ${syncStatus.isPaused})`);
         return; // Frühzeitig beenden, wenn keine Session-ID oder Sync pausiert
     }
 
@@ -719,7 +668,7 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
       // Verwende die STABILE jassSessionId 
       const sessionId = jassSessionId;
       
-      // console.log(`[FirestoreSyncProvider] Setting up listener for completed games using sessionId: ${sessionId}`);
+      console.log(`[FirestoreSyncProvider] Setting up listener for completed games using sessionId: ${sessionId}`);
       
       const completedGamesCollectionRef = collection(db, 'jassGameSummaries', sessionId, 'completedGames');
       const completedGamesQuery = query(completedGamesCollectionRef, orderBy('gameNumber'));
@@ -729,7 +678,7 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
         (querySnapshot) => {
           // --- LOGGING START ---
           const timestamp = new Date().toISOString();
-          // console.log(`[FirestoreSync COMPLETED_GAMES ${timestamp}] Listener received update for session ${sessionId}: ${querySnapshot.size} documents.`);
+          console.log(`[FirestoreSync COMPLETED_GAMES ${timestamp}] Listener received update for session ${sessionId}: ${querySnapshot.size} documents.`);
           // --- LOGGING END ---
           
           // Konvertiere alle Dokumente in CompletedGameSummary-Objekte
@@ -738,7 +687,7 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
             .filter(game => game !== null) as CompletedGameSummary[];
           
           // --- LOGGING START ---
-          // console.log(`[FirestoreSync COMPLETED_GAMES ${timestamp}] Parsed ${completedGames.length} completed games from snapshot.`);
+          console.log(`[FirestoreSync COMPLETED_GAMES ${timestamp}] Parsed ${completedGames.length} completed games from snapshot.`);
           // --- LOGGING END ---
 
           // Aktualisiere den jassStore mit den CompletedGameSummary-Objekten
@@ -748,12 +697,12 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
 
             if (oldGamesJson !== newGamesJson) {
                 // --- LOGGING START ---
-                // console.log(`[FirestoreSync COMPLETED_GAMES ${timestamp}] State changed! Attempting to update jassStore.onlineCompletedGames. Old count: ${state.onlineCompletedGames.length}, New count: ${completedGames.length}`);
+                console.log(`[FirestoreSync COMPLETED_GAMES ${timestamp}] State changed! Attempting to update jassStore.onlineCompletedGames. Old count: ${state.onlineCompletedGames.length}, New count: ${completedGames.length}`);
                 // --- LOGGING END ---
                 return { ...state, onlineCompletedGames: completedGames };
             } else {
                 // --- LOGGING START ---
-                // console.log(`[FirestoreSync COMPLETED_GAMES ${timestamp}] State unchanged. No update to jassStore needed.`);
+                console.log(`[FirestoreSync COMPLETED_GAMES ${timestamp}] State unchanged. No update to jassStore needed.`);
                 // --- LOGGING END ---
                 return state; // Keine Änderung nötig
             }

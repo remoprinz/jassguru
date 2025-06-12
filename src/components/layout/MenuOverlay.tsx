@@ -15,11 +15,9 @@ import dynamic from "next/dynamic";
 import {IconType} from "react-icons";
 import {useAuthStore} from "../../store/authStore";
 import {useRouter} from "next/router";
-import { updateGameStatus } from "@/services/gameService";
-import { clearActiveGameInSession } from "@/services/sessionService";
+import { abortActiveGame } from "@/services/gameService";
 import { debouncedRouterPush } from '../../utils/routerUtils';
 import { useTournamentStore } from "@/store/tournamentStore";
-import { clearActivePasseInTournament } from "@/services/tournamentService";
 
 interface MenuOverlayProps {
   isOpen: boolean;
@@ -151,9 +149,9 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
     const uiStore = useUIStore.getState();
     
     const activeGameId = gameIdToAbort;
-    const currentJassSessionId = jassStore.jassSessionId; // Für Gruppen-Fallback
+    const currentJassSessionId = jassStore.jassSessionId;
 
-    // Ermittle, ob es eine Turnierpasse war, basierend auf der übergebenen tournamentIdForService
+    // Ermittle, ob es eine Turnierpasse war
     const isTournamentPasse = !!tournamentIdForService;
     const tournamentInstanceIdForAbort = tournamentIdForService;
 
@@ -163,61 +161,33 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
         console.log(`[MenuOverlay] Gruppenpasse (oder kein Spiel aktiv) erkannt. Game ID to abort: ${activeGameId}`);
     }
 
-    let gameStatusSuccessfullySetToAborted = false;
-
-    if (isTournamentPasse && tournamentInstanceIdForAbort) {
-        // Bei Turnierpassen: Die Funktion clearActivePasseInTournament holt selbst die aktive GameID
-        // und setzt deren Status auf 'aborted', wir müssen nichts mit activeGameId machen
+    // Verwende die neue, zentrale abortActiveGame-Funktion
+    if (activeGameId && gameStore.isGameStarted && !gameStore.isGameCompleted) {
         try {
-            console.log(`[MenuOverlay] Calling clearActivePasseInTournament for tournament ${tournamentInstanceIdForAbort}`);
-            await clearActivePasseInTournament(tournamentInstanceIdForAbort);
-            console.log(`[MenuOverlay] Successfully cleared active passe in tournament ${tournamentInstanceIdForAbort}`);
-            gameStatusSuccessfullySetToAborted = true; // Direkt auf true setzen, da die Funktion die Arbeit erledigt hat
-        } catch (error) {
-            console.error(`[MenuOverlay] Error clearing active passe in tournament ${tournamentInstanceIdForAbort}:`, error);
-            uiStore.showNotification({
-              type: 'error',
-              message: 'Fehler beim Abbrechen der Turnierpasse.',
+            console.log(`[MenuOverlay] Calling abortActiveGame for ${activeGameId}`);
+            await abortActiveGame(activeGameId, {
+                tournamentInstanceId: tournamentInstanceIdForAbort || undefined,
+                skipSessionCleanup: false
             });
-        }
-    } else if (activeGameId && gameStore.isGameStarted && !gameStore.isGameCompleted) {
-        // Bei Gruppenpassen: Wir müssen den Status der activeGameId direkt setzen
-        try {
-            console.log(`[MenuOverlay] Setting game status of ${activeGameId} to 'aborted'`);
-            await updateGameStatus(activeGameId, 'aborted');
-            console.log(`[MenuOverlay] Game status of ${activeGameId} updated successfully to 'aborted'`);
-            gameStatusSuccessfullySetToAborted = true; 
-        } catch (error) {
-            console.error(`[MenuOverlay] Error updating game status of ${activeGameId} to 'aborted':`, error);
+            console.log(`[MenuOverlay] Successfully aborted game ${activeGameId}`);
+            
             uiStore.showNotification({
-              type: 'error',
-              message: 'Fehler beim Abbrechen des Online-Spiels.',
+                type: 'success',
+                message: 'Spiel erfolgreich abgebrochen.',
             });
+        } catch (error) {
+            console.error(`[MenuOverlay] Error aborting game ${activeGameId}:`, error);
+            uiStore.showNotification({
+                type: 'error',
+                message: 'Fehler beim Abbrechen des Spiels.',
+            });
+            return; // Beende die Funktion bei Fehler
         }
     } else {
         console.log(`[MenuOverlay] Kein aktives Spiel zum Abbrechen gefunden (ID: ${activeGameId}) oder Spiel bereits beendet/nicht gestartet.`);
-        gameStatusSuccessfullySetToAborted = true; 
     }
 
-    if (gameStatusSuccessfullySetToAborted) {
-        // Nur für Gruppenpassen: clearActiveGameInSession aufrufen
-        if (!isTournamentPasse && currentJassSessionId) {
-            try {
-                console.log(`[MenuOverlay] Clearing active game ID in group session ${currentJassSessionId}`);
-                await clearActiveGameInSession(currentJassSessionId);
-                console.log(`[MenuOverlay] Active game ID cleared successfully in group session ${currentJassSessionId}`);
-            } catch (error) {
-                console.error(`[MenuOverlay] Error clearing active game ID in group session ${currentJassSessionId}:`, error);
-                uiStore.showNotification({
-                  type: 'error',
-                  message: 'Fehler beim Bereinigen der Gruppen-Session.',
-                });
-            }
-        } else if (!isTournamentPasse) {
-            console.warn("[MenuOverlay] No specific group session context for server-side clearing found.");
-        }
-    }
-
+    // Lokale Stores zurücksetzen
     console.log("[MenuOverlay] Resetting local stores (Game, Jass, Timer)");
     useGameStore.getState().resetGameState({ newActiveGameId: null }); 
     useJassStore.getState().resetJass(); 
@@ -225,22 +195,15 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
     
     onClose();
 
-    // Angepasste Navigation für Gastmodus vs. echte Benutzer
+    // Navigation
     const isGuestMode = authStore.isGuest;
     const isTrulyAuthenticated = authStore.status === 'authenticated' && !isGuestMode;
     
     if (isGuestMode) {
-      // Im Gastmodus: Direkt zum StartScreen innerhalb der Jasstafel (Spielerauswahl) navigieren
-      // NICHT zu /start, das ist die Dashboard-Seite für angemeldete Benutzer
       console.log("[MenuOverlay] Gastmodus erkannt: Aufsetzen eines neuen Spiels in der Jasstafel");
-      
-      // UI-Store zurücksetzen, um neues Spiel zu erlauben
       useUIStore.getState().resetStartScreen();
-      
-      // Stelle sicher, dass die Jasstafel in den initialen Zustand geht
       await debouncedRouterPush(router, "/jass");
     } else {
-      // Echte authentifizierte Benutzer oder nicht eingeloggte Benutzer
       const targetRoute = isTrulyAuthenticated ? "/start" : "/auth/register";
       console.log(`[MenuOverlay] Navigating to ${targetRoute} (isTrulyAuthenticated: ${isTrulyAuthenticated})`);
       await debouncedRouterPush(router, targetRoute);
