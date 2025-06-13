@@ -75,7 +75,7 @@ import { getFunctions, httpsCallable } from "firebase/functions"; // HttpsError 
 // --- Auth Store & Typen ---
 import { useAuthStore } from '@/store/authStore';
 import type { AuthUser } from '@/types/auth'; // AuthUser als Typ
-import FullscreenLoader from "@/components/ui/FullscreenLoader"; // KORREKTER IMPORT HIER
+import FullscreenLoader from "@/components/ui/FullscreenLoader"; // Verwende FullscreenLoader für bessere Sichtbarkeit
 
 // --- NEU: Interface für Callable Function Daten (wie in der Function definiert) ---
 interface InitialSessionDataClient {
@@ -296,6 +296,7 @@ const ResultatKreidetafel = ({
   const [showNextButton, setShowNextButton] = useState(false); // Wiederherstellen/Sicherstellen
   const [isCompletingPasse, setIsCompletingPasse] = useState(false); // Wiederherstellen der Deklaration
   const [isFinalizingSession, setIsFinalizingSession] = useState(false); // Hinzufügen/Korrigieren
+  const [isLoadingNewGame, setIsLoadingNewGame] = useState(false); // NEU für Ladezustand
   const [showConfetti, setShowConfetti] = useState(false); // HINZUGEFÜGT
   const [isTakingScreenshot, setIsTakingScreenshot] = useState(false);
   const [screenshotData, setScreenshotData] = useState<{
@@ -358,8 +359,6 @@ const ResultatKreidetafel = ({
   const gamesToDisplay = isOnlineMode ? onlineCompletedGames : localGames; 
   const currentDate = format(new Date(), 'd.M.yyyy');
   const nextGameButtonText = canNavigateForward ? "1 Spiel\nvorwärts" : "Neues\nSpiel";
-  const [touchStart, setTouchStart] = React.useState<number | null>(null);
-  const [touchEnd, setTouchEnd] = React.useState<number | null>(null);
   const [swipeDirection, setSwipeDirection] = React.useState<'left' | 'right' | null>(null);
 
   // Modul-Rendering Werte (früh definieren für Verwendung in Callbacks)
@@ -1266,8 +1265,15 @@ const ResultatKreidetafel = ({
         onBack: closeResultatKreidetafel,
         // Rufe startNewGameSequence ohne Argument auf
         onContinue: async () => {
-          closeResultatKreidetafel();
-          await startNewGameSequence(); // Kein Argument mehr übergeben
+          closeResultatKreidetafel(); // Kreidetafel sofort schließen
+          console.log("[ResultatKreidetafel] Starte neues Spiel - Loader wird angezeigt...");
+          setIsLoadingNewGame(true); // NEU: Ladezustand starten
+          try {
+            await startNewGameSequence(); // Kein Argument mehr übergeben
+          } finally {
+            console.log("[ResultatKreidetafel] Neues Spiel abgeschlossen - Loader wird ausgeblendet...");
+            setIsLoadingNewGame(false); // NEU: Ladezustand beenden
+          }
         }
       }
     });
@@ -1493,6 +1499,9 @@ const ResultatKreidetafel = ({
             // 3. Logik zum Finalisieren und Resetten definieren
             const finalizeAndResetOnline = async () => {
                 console.log("[ResultatKreidetafel] Finalizing and resetting (Online after Sign/Share)");
+
+                const sessionIdToView = jassStore.currentSession?.id; // NEU: ID vor dem Reset sichern
+
                 jassStore.finalizeGame(); 
                 timerStore.finalizeJassEnd();
                 gameStore.resetGame(1);
@@ -1510,8 +1519,12 @@ const ResultatKreidetafel = ({
                 if (isTournamentPasse && tournamentInstanceId) {
                     // Für Turniere: zurück zur Turnier-Detailseite
                     await debouncedRouterPush(router, `/tournaments/${tournamentInstanceId}`);
+                } else if (sessionIdToView) {
+                    // NEU: Für normale Spiele zur neuen Session-Ansicht
+                    await debouncedRouterPush(router, `/view/session/${sessionIdToView}`);
                 } else {
-                    // Für normale Gruppenspiele: zurück zur Hauptseite
+                    // Fallback
+                    console.warn("[ResultatKreidetafel] Konnte nicht zur Session-Ansicht weiterleiten, da keine Session-ID gefunden wurde.");
                     await debouncedRouterPush(router, '/');
                 }
             };
@@ -1879,23 +1892,8 @@ const ResultatKreidetafel = ({
   }, [isOpen, currentStatisticId, gamesForStatistik]); 
   // --- ENDE Hook für automatisches Scrollen ---
 
-  // 10. Touch-Handler (verwenden Callbacks)
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStart(e.targetTouches[0].clientY);
-  };
-  const handleTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientY);
-  };
-  const handleTouchEnd = () => {
-    if (!touchStart || !touchEnd) return;
-    const distance = touchStart - touchEnd;
-    const isDownSwipe = distance > 50;
-    if (isDownSwipe) {
-      closeResultatKreidetafel();
-    }
-    setTouchStart(null);
-    setTouchEnd(null);
-  };
+  // ENTFERNT: Problematische Touch-Handler, die mit internen swipbaren Containern interferieren
+  // Diese verursachten das Schließen der Komponente beim "nach oben swipe"
 
   // 11. Modul-Rendering Logik (Variablen bereits oben definiert)
 
@@ -1950,28 +1948,28 @@ const ResultatKreidetafel = ({
   }, [isTournamentPasse, gameStoreActiveGameId, tournamentInstanceId, closeResultatKreidetafel, router, canStartNewGame, swipePosition]); // NEU: canStartNewGame und swipePosition als Abhängigkeiten hinzugefügt
 
   // --- Component Return --- 
-  if (!isOpen) return null;
+  // KORREKTUR: Loader auch anzeigen wenn Komponente geschlossen ist
+  if (!isOpen && !isLoadingNewGame && !isFinalizingSession) return null;
 
   return (
     <>
+      {isLoadingNewGame && <FullscreenLoader text="Nächstes Spiel wird vorbereitet..." />}
       {isFinalizingSession && <FullscreenLoader text="Daten und Statistiken werden aktualisiert..." />}
       {showConfetti && (
         <div className="fixed inset-0 bg-white bg-opacity-70 z-50">
           {/* Add your confetti animation or image here */}
         </div>
       )}
-      <div 
-        className={`fixed inset-0 flex items-center justify-center z-50 ${isOpen ? '' : 'pointer-events-none'}`}
-        onClick={(e) => {
-          if (e.target === e.currentTarget) {
-            closeResultatKreidetafel();
-          }
-        }}
-        // Touch-Handler bleiben hier für potenzielles Schließen durch Swipe nach unten (optional)
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
+      {isOpen && (
+        <div 
+          className="fixed inset-0 flex items-center justify-center z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              closeResultatKreidetafel();
+            }
+          }}
+          // ENTFERNT: Problematische Touch-Handler, die mit internen swipbaren Containern interferieren
+        >
         {/* Swipe-Handler für Statistik-Navigation hier auf dieses Div anwenden */}
         <animated.div 
           {...swipeHandlers} // Swipe-Handler hier hinzugefügt
@@ -2248,7 +2246,8 @@ const ResultatKreidetafel = ({
 
         {/* JassFinishNotification einbinden */}
         <JassFinishNotification />
-      </div>
+        </div>
+      )}
     </>
   );
 };
