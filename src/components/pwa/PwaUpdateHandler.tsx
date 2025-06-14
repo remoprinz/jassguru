@@ -181,7 +181,7 @@ const PwaUpdateHandler: React.FC = () => {
           window.location.reload();
         }
 
-              } catch (error) {
+      } catch (error) {
         console.error('[PwaUpdateHandler] Update failed:', error);
         setUpdateState(prev => ({ 
           ...prev, 

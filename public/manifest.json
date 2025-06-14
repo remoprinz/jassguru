@@ -1,6 +1,7 @@
 {
   "name": "Jassguru - Die Jass-Community in deiner Tasche",
   "short_name": "Jassguru",
+  "version": "2.1.0",
   "description": "Schneller, smarter, vernetzter Jassen",
   "theme_color": "#000000",
   "background_color": "#000000",
