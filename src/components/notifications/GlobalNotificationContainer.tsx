@@ -103,19 +103,18 @@ const GlobalNotificationContainer: React.FC = () => {
     <AnimatePresence>
       {notifications.map((notification) => (
         <motion.div
-          id="global-notification-container-wrapper"
           key={notification.id}
           initial={{opacity: 0}}
           animate={{opacity: 1}}
           exit={{opacity: 0}}
           className={`
-            fixed inset-0 flex items-center justify-center z-[2147483647] pointer-events-auto
+            fixed inset-0 flex items-center justify-center z-[9999]
             ${notification.isFlipped ? "rotate-180" : ""}
             ${notification.type === "bedanken" ? "items-end pb-4" : ""}
           `}
         >
           <div
-            className="fixed inset-0 bg-black bg-opacity-50 pointer-events-auto"
+            className="fixed inset-0 bg-black bg-opacity-50"
             onClick={() => {
               if (!notification.preventClose) {
                 removeNotification(notification.id);
@@ -126,7 +125,7 @@ const GlobalNotificationContainer: React.FC = () => {
             initial={{scale: 0.95}}
             animate={{scale: 1}}
             exit={{scale: 0.95}}
-            className="bg-gray-800 p-6 rounded-lg shadow-lg max-w-xs w-full relative text-white z-10 pointer-events-auto"
+            className="bg-gray-800 p-6 rounded-lg shadow-lg max-w-xs w-full relative text-white z-10"
           >
             <div className="flex flex-col items-center justify-center mb-4">
               {renderIcon(notification)}

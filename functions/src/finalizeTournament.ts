@@ -646,6 +646,65 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
         rankedPlayerUids: Array.from(allRankedPlayerUidsForTournamentDoc)
       });
 
+      // 🚀 INTELLIGENTE GRUPPENSTATISTIK-AKTUALISIERUNG FÜR ALLE TEILNEHMER-GRUPPEN
+      const participantGroups = new Set<string>();
+      
+      // Sammle alle Gruppen der Turnier-Teilnehmer
+      for (const playerUid of participantUidsInTournament) {
+        try {
+          const playerGroupsSnap = await db.collection('groups')
+            .where(`players.${playerUid}`, '!=', null)
+            .limit(10) // Begrenze auf 10 Gruppen pro Spieler
+            .get();
+          
+          playerGroupsSnap.docs.forEach(groupDoc => {
+            participantGroups.add(groupDoc.id);
+          });
+        } catch (groupQueryError) {
+          logger.warn(`Error querying groups for player ${playerUid}:`, groupQueryError);
+        }
+      }
+
+      // Aktualisiere Statistiken für alle betroffenen Gruppen
+      const groupStatsUpdatePromises = Array.from(participantGroups).map(async (groupId) => {
+        try {
+          logger.info(`[finalizeTournament] Updating group stats for ${groupId} after tournament completion`);
+          
+          const groupRef = db.collection('groups').doc(groupId);
+          const groupSnapshot = await groupRef.get();
+          
+          if (groupSnapshot.exists) {
+            const groupData = groupSnapshot.data();
+            const totalGames = groupData?.totalGames || 0;
+            
+            if (totalGames < 1000) {
+              // Unter 1000 Spiele: Vollständige Neuberechnung
+              logger.info(`[finalizeTournament] Group ${groupId} has ${totalGames} games (<1000), triggering full recalculation`);
+              
+              const groupStatsModule = await import('./groupStatsCalculator');
+              await groupStatsModule.updateGroupComputedStatsAfterSession(groupId);
+              
+              logger.info(`[finalizeTournament] Group stats updated for ${groupId}`);
+            } else {
+              // Über 1000 Spiele: Markiere für Batch-Verarbeitung
+              logger.info(`[finalizeTournament] Group ${groupId} has ${totalGames} games (≥1000), marking for batch update`);
+              
+              await groupRef.update({
+                needsStatsRecalculation: true,
+                lastTournamentFinalized: admin.firestore.Timestamp.now()
+              });
+            }
+          }
+        } catch (groupStatsError) {
+          logger.error(`[finalizeTournament] Error updating group stats for ${groupId}:`, groupStatsError);
+          // Fehler bei einzelner Gruppe soll Turnier-Finalisierung nicht blockieren
+        }
+      });
+
+      // Warte auf alle Gruppen-Updates (parallel)
+      await Promise.allSettled(groupStatsUpdatePromises);
+      logger.info(`[finalizeTournament] Group stats update completed for ${participantGroups.size} groups`);
+
       logger.info(`--- finalizeTournament SUCCESS for ${tournamentId} ---`);
       return { success: true, message: `Turnier ${tournamentId} erfolgreich abgeschlossen und Rankings gespeichert.` };
     } catch (error) {
