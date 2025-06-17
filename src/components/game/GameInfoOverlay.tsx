@@ -434,6 +434,18 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
     }));
   };
 
+  // Sichere Fallback-Behandlung für currentPlayer
+  const safeCurrentPlayer = currentPlayer || 1;
+  const safePlayerNames = playerNames || {
+    1: "Spieler 1",
+    2: "Spieler 2", 
+    3: "Spieler 3",
+    4: "Spieler 4"
+  };
+  
+  // Sichere Fallback-Behandlung für scores
+  const safeScores = scores || { top: 0, bottom: 0 };
+
   return (
     <div
       className={`fixed inset-0 flex items-center justify-center z-50 ${isOpen ? "" : "pointer-events-none"}`}
@@ -525,12 +537,12 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
                 className="w-full text-3xl font-bold p-2 bg-gray-700 hover:bg-gray-600
                           bg-opacity-50 rounded-xl mt-1 transition-colors"
               >
-                {playerNames[currentPlayer as PlayerNumber] || `Spieler ${currentPlayer}`}
+                {safePlayerNames[safeCurrentPlayer as PlayerNumber] || `Spieler ${safeCurrentPlayer}`}
               </button>
 
               {isPlayerSelectOpen && (
                 <div className="absolute left-0 right-0 mt-1 bg-gray-700 rounded-xl overflow-hidden shadow-lg z-50">
-                  {Object.entries(playerNames).map(([num, name]) => (
+                  {Object.entries(safePlayerNames).map(([num, name]) => (
                     <button
                       key={num}
                       onClick={() => {
@@ -557,12 +569,12 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
           <div className="text-center text-white mt-3">
             <MultiplierCalculator
               mainTitle="Punkte bis"
-              subTitle={getRemainingPoints(isCalculatorFlipped ? "top" : "bottom", scores).title}
-              points={getRemainingPoints(isCalculatorFlipped ? "top" : "bottom", scores).remaining}
+              subTitle={getRemainingPoints(isCalculatorFlipped ? "top" : "bottom", safeScores).title}
+              points={getRemainingPoints(isCalculatorFlipped ? "top" : "bottom", safeScores).remaining}
               team={isCalculatorFlipped ? "top" : "bottom"}
               numberSize="text-3xl"
               scoreSettings={activeScoreSettings}
-              scores={scores}
+              scores={safeScores}
             />
           </div>
 
@@ -572,10 +584,10 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
               <div className="grid grid-cols-3 gap-2 -mt-10">
                 <div className="text-center">
                   <span className="text-gray-400 text-xs">
-                    {getRemainingPoints(isCalculatorFlipped ? "bottom" : "top", scores).title}
+                    {getRemainingPoints(isCalculatorFlipped ? "bottom" : "top", safeScores).title}
                   </span>
                   <div className="text-xl font-bold mt-0">
-                    {getRemainingPoints(isCalculatorFlipped ? "bottom" : "top", scores).remaining}
+                    {getRemainingPoints(isCalculatorFlipped ? "bottom" : "top", safeScores).remaining}
                   </div>
                 </div>
                 <div className="invisible">
@@ -584,7 +596,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
                 <div className="text-center">
                   <span className="text-gray-400 text-xs">{currentMultiplier}-fach</span>
                   <div className="text-xl font-bold mt-0">
-                    {getDividedPoints(getRemainingPoints(isCalculatorFlipped ? "bottom" : "top", scores).remaining)}
+                    {getDividedPoints(getRemainingPoints(isCalculatorFlipped ? "bottom" : "top", safeScores).remaining)}
                   </div>
                 </div>
               </div>
@@ -593,19 +605,35 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
         </div>
 
         <div className="space-y-4 max-w-md mx-auto mt-12 mb-4">
-          <div className="grid grid-cols-2 gap-4">
-            <ChargeButton
-              onAction={handleBergClick}
-              isButtonActive={isBergActive(activeTeam)}
-              isActiveGlobal={isBergActive("top") || isBergActive("bottom")}
-              color="yellow"
-              disabled={isPaused}
-              type="berg"
-              team={activeTeam}
-            >
-              <span className="text-2xl">Berg</span>
-            </ChargeButton>
+          {activeScoreSettings?.enabled?.berg ? (
+            // Berg aktiviert: 2 Buttons nebeneinander
+            <div className="grid grid-cols-2 gap-4">
+              <ChargeButton
+                onAction={handleBergClick}
+                isButtonActive={isBergActive(activeTeam)}
+                isActiveGlobal={isBergActive("top") || isBergActive("bottom")}
+                color="yellow"
+                disabled={isPaused}
+                type="berg"
+                team={activeTeam}
+              >
+                <span className="text-2xl">Berg</span>
+              </ChargeButton>
 
+              <ChargeButton
+                onAction={handleSiegClick}
+                isButtonActive={isSiegActive(activeTeam)}
+                isActiveGlobal={isSiegActive("top") || isSiegActive("bottom")}
+                color="yellow"
+                disabled={isPaused || !canActivateSieg()}
+                type="sieg"
+                team={activeTeam}
+              >
+                <span className="text-2xl">Bedanken</span>
+              </ChargeButton>
+            </div>
+          ) : (
+            // Berg deaktiviert: Nur Bedanken-Button über ganze Breite
             <ChargeButton
               onAction={handleSiegClick}
               isButtonActive={isSiegActive(activeTeam)}
@@ -617,7 +645,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
             >
               <span className="text-2xl">Bedanken</span>
             </ChargeButton>
-          </div>
+          )}
         </div>
       </animated.div>
     </div>

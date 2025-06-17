@@ -380,6 +380,12 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
                 cardStyle: activeCardStyle,
                 strokeSettings: activeStrokeSettings,
                 scoreSettings: activeScoreSettings, // Pass score settings
+                // NEU: activeGameScores direkt aus dem letzten Spiel der History übergeben
+                activeGameScores: ('finalScores' in currentGame && currentGame.finalScores) 
+                                ? currentGame.finalScores 
+                                : ('teams' in currentGame && currentGame.teams && 'total' in currentGame.teams.top && 'total' in currentGame.teams.bottom) // Typsicherheit hier hinzufügen
+                                    ? { top: currentGame.teams.top.total, bottom: currentGame.teams.bottom.total }
+                                    : { top: 0, bottom: 0 },
                 currentGameId: currentGame?.gameNumber ?? 0, // KORREKTUR: Fallback für undefined
                 onSwipe: handleStatisticChange, // Pass the swipe handler
                 gameTypeLabel: gameTypeLabel, // Pass das Label weiter

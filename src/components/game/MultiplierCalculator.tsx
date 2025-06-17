@@ -21,12 +21,19 @@ export const useMultiplierStore = create<MultiplierState>((set, get) => ({
   setMultiplier: (value: Multiplier) => set({currentMultiplier: value}),
   getDividedPoints: (points) => Math.ceil(points / get().currentMultiplier),
   getRemainingPoints: (team: TeamPosition, scores: TeamScores) => {
+    if (!scores || typeof scores !== 'object') {
+      return {
+        title: "SIEG",
+        remaining: 0,
+      };
+    }
+
     const currentGroup = useGroupStore.getState().currentGroup;
     const scoreSettings = currentGroup?.scoreSettings || useUIStore.getState().scoreSettings;
 
-    const teamScore = scores[team];
+    const teamScore = scores[team] || 0;
     const oppositeTeam = team === "top" ? "bottom" : "top";
-    const oppositeScore = scores[oppositeTeam];
+    const oppositeScore = scores[oppositeTeam] || 0;
 
     const siegScore = scoreSettings.values.sieg;
     const bergScore = scoreSettings.values.berg;
@@ -100,6 +107,9 @@ const MultiplierCalculator: React.FC<MultiplierCalculatorProps> = ({
   const currentGroup = useGroupStore((state) => state.currentGroup);
   const uiFarbeSettings = useUIStore((state) => state.farbeSettings);
   const [pressedButton, setPressedButton] = useState(false);
+
+  // Sichere Fallback-Struktur für scores
+  const safeScores = scores || { top: 0, bottom: 0 };
 
   useEffect(() => {
     const settingsSource = currentGroup?.farbeSettings?.values ?? uiFarbeSettings.values;
@@ -176,7 +186,7 @@ const MultiplierCalculator: React.FC<MultiplierCalculatorProps> = ({
         <div className="text-center">
           <span className="text-gray-400 text-xs">{currentMultiplier}-fach</span>
           <div className={`${numberSize} font-bold mt-0`}>
-            {getDividedPoints(getRemainingPoints(team, scores).remaining)}
+            {getDividedPoints(getRemainingPoints(team, safeScores).remaining)}
           </div>
         </div>
       </div>

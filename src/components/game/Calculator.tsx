@@ -21,6 +21,7 @@ import {useVerticalScale} from "../../hooks/useVerticalScale";
 import {DEFAULT_FARBE_SETTINGS} from "@/config/FarbeSettings";
 import { DEFAULT_SCORE_SETTINGS } from "@/config/ScoreSettings";
 import { DEFAULT_STROKE_SETTINGS } from "@/config/GameSettings";
+import { useJassStore } from "@/store/jassStore";
 
 interface CalculatorProps {
   isOpen: boolean;
@@ -57,9 +58,12 @@ const Calculator: React.FC<CalculatorProps> = ({
     scoreSettings: gameScoreSettings,
     strokeSettings: gameStrokeSettings,
     setFarbe, // NEU: Füge setFarbe hinzu
+    currentPlayer,
+    striche,
+    scores,
   } = useGameStore();
 
-  const {calculator, setCalculatorFlipped, settings: {pictogramConfig}, isReadOnlyMode} = useUIStore();
+  const {calculator, setCalculatorFlipped, settings: {pictogramConfig}, isReadOnlyMode, setGlobalClickDisabled} = useUIStore();
   const {isActive: isTutorialActive, getCurrentStep} = useTutorialStore();
   const currentStep = getCurrentStep();
 
@@ -67,45 +71,43 @@ const Calculator: React.FC<CalculatorProps> = ({
   const {currentGroup} = useGroupStore();
   const { currentTournamentInstance } = useTournamentStore();
 
+  const { currentSession } = useJassStore();
+
   // KORRIGIERTE Settings-Hierarchie - explizit UIStore für Gästemodus priorisieren
   const getCorrectSettings = useCallback(() => {
-    console.log('[Calculator] getCorrectSettings aufgerufen. Kontext:', {
-      isOpen,
-      currentTournamentInstance: !!currentTournamentInstance,
-      currentGroup: !!currentGroup,
-      gameStoreActiveGameId,
-      hasGameStoreFarbeSettings: !!gameFarbeSettings,
-      hasGameStoreScoreSettings: !!gameScoreSettings,
-      hasGameStoreStrokeSettings: !!gameStrokeSettings
-    });
-
-    // KRITISCHE KORREKTUR: Gästemodus ZUERST prüfen (höchste Priorität für lokale Settings)
+    // Hole die neuesten States direkt hier, um Aktualität zu garantieren
+    const { 
+        activeGameId, 
+        farbeSettings: gameFarbeSettings, 
+        scoreSettings: gameScoreSettings,
+        strokeSettings: gameStrokeSettings
+    } = useGameStore.getState();
+    const { currentTournamentInstance } = useTournamentStore.getState();
+    const { currentGroup } = useGroupStore.getState();
     const uiStoreState = useUIStore.getState();
-    const isGuestMode = !gameStoreActiveGameId; // Kein aktives Online-Spiel = Gästemodus
-    
-    if (isGuestMode) {
-      console.log('[Calculator] 🎯 GÄSTEMODUS erkannt - Verwende UISTORE-Settings (persistiert):', {
-        farbeCardStyle: uiStoreState.farbeSettings.cardStyle,
-        farbeValues: uiStoreState.farbeSettings.values,
-        scoreWerte: uiStoreState.scoreSettings.values,
-        strokeSchneider: uiStoreState.strokeSettings.schneider
+
+    // 1. ABSOLUTE PRIORITÄT: Ein aktives Online-Spiel
+    // Der gameStore ist die EINZIGE Wahrheit für ein laufendes Spiel.
+    if (activeGameId && gameFarbeSettings && gameScoreSettings && gameStrokeSettings) {
+      console.log('[Calculator] 🎯 PRIORITÄT 1: Aktives Online-Spiel. Verwende GAMESTORE-Settings.', {
+        source: 'gameStore-active',
+        cardStyle: gameFarbeSettings.cardStyle,
+        siegPunkte: gameScoreSettings.values.sieg,
+        schneiderStriche: gameStrokeSettings.schneider
       });
       return {
-        farbeSettings: uiStoreState.farbeSettings,
-        scoreSettings: uiStoreState.scoreSettings,
-        strokeSettings: uiStoreState.strokeSettings,
-        source: 'uiStore-guest'
+        farbeSettings: gameFarbeSettings,
+        scoreSettings: gameScoreSettings,
+        strokeSettings: gameStrokeSettings,
+        source: 'gameStore-active'
       };
     }
+    
+    // --- FALLBACK-HIERARCHIE (NUR WENN KEIN SPIEL AKTIV IST) ---
 
-    // NUR wenn Online-Modus: Hierarchie für Online-Settings
-    // 1. TURNIER-SETTINGS (wenn Turnier aktiv)
+    // 2. Turniereinstellungen (falls ein Turnier-Kontext besteht, aber das Spiel noch nicht gestartet ist)
     if (currentTournamentInstance?.settings) {
-      console.log('[Calculator] Verwende TURNIER-Settings:', {
-        farbeCardStyle: currentTournamentInstance.settings.farbeSettings?.cardStyle,
-        scoreWerte: currentTournamentInstance.settings.scoreSettings?.values,
-        strokeSchneider: currentTournamentInstance.settings.strokeSettings?.schneider
-      });
+       console.log('[Calculator] PRIORITÄT 2: Turnier-Kontext. Verwende TURNIER-Settings.');
       return {
         farbeSettings: currentTournamentInstance.settings.farbeSettings || DEFAULT_FARBE_SETTINGS,
         scoreSettings: currentTournamentInstance.settings.scoreSettings || DEFAULT_SCORE_SETTINGS,
@@ -114,13 +116,9 @@ const Calculator: React.FC<CalculatorProps> = ({
       };
     }
 
-    // 2. GRUPPEN-SETTINGS (wenn Gruppe aktiv und kein Turnier)
+    // 3. Gruppeneinstellungen (falls Gruppen-Kontext)
     if (currentGroup) {
-      console.log('[Calculator] Verwende GRUPPEN-Settings:', {
-        farbeCardStyle: currentGroup.farbeSettings?.cardStyle,
-        scoreWerte: currentGroup.scoreSettings?.values,
-        strokeSchneider: currentGroup.strokeSettings?.schneider
-      });
+       console.log('[Calculator] PRIORITÄT 3: Gruppen-Kontext. Verwende GRUPPEN-Settings.');
       return {
         farbeSettings: currentGroup.farbeSettings || DEFAULT_FARBE_SETTINGS,
         scoreSettings: currentGroup.scoreSettings || DEFAULT_SCORE_SETTINGS,
@@ -129,38 +127,16 @@ const Calculator: React.FC<CalculatorProps> = ({
       };
     }
 
-    // 3. GAMESTORE-SETTINGS (Online-Spiel ohne explizite Gruppe/Turnier)
-    if (gameStoreActiveGameId && gameFarbeSettings && gameScoreSettings && gameStrokeSettings) {
-      console.log('[Calculator] Verwende GAMESTORE-Settings:', {
-        farbeCardStyle: gameFarbeSettings.cardStyle,
-        scoreWerte: gameScoreSettings.values,
-        strokeSchneider: gameStrokeSettings.schneider
-      });
-      return {
-        farbeSettings: gameFarbeSettings,
-        scoreSettings: gameScoreSettings,
-        strokeSettings: gameStrokeSettings,
-        source: 'gameStore'
-      };
-    }
-
-    // 4. FALLBACK: DEFAULT-SETTINGS (sollte nie auftreten)
-    console.warn('[Calculator] FALLBACK auf DEFAULT-Settings! Das sollte nicht passieren.');
+    // 4. UI Store Einstellungen (für Gastmodus/Offline)
+    console.log('[Calculator] PRIORITÄT 4: Kein Online-Kontext. Verwende UI-STORE-Settings (Gastmodus).');
     return {
-      farbeSettings: DEFAULT_FARBE_SETTINGS,
-      scoreSettings: DEFAULT_SCORE_SETTINGS,
-      strokeSettings: DEFAULT_STROKE_SETTINGS,
-      source: 'defaults'
+        farbeSettings: uiStoreState.farbeSettings,
+        scoreSettings: uiStoreState.scoreSettings,
+        strokeSettings: uiStoreState.strokeSettings,
+        source: 'uiStore-guest'
     };
-  }, [
-    isOpen,
-    currentTournamentInstance,
-    currentGroup,
-    gameStoreActiveGameId,
-    gameFarbeSettings,
-    gameScoreSettings,
-    gameStrokeSettings
-  ]);
+    
+  }, []); // Keine Abhängigkeiten mehr, da der State frisch geholt wird.
 
   // State für die aktiven Einstellungen - jetzt OHNE Default-Initialisierung
   const [activeFarbeSettings, setActiveFarbeSettings] = useState<FarbeSettings | null>(null);
@@ -420,10 +396,14 @@ const Calculator: React.FC<CalculatorProps> = ({
       });
     }
 
-    const historyActionValid = validateHistoryAction();
-    console.log(`[Calculator] Prüfung: validateHistoryAction=${historyActionValid}`);
+    // NEU: Globale Klicksperre für 3 Sekunden aktivieren
+    console.log("⚡️ Globale Klicksperre für 3s aktiviert.");
+    setGlobalClickDisabled(true, 3000);
 
-    if (!historyActionValid) {
+    const isHistoryValid = validateHistoryAction();
+    console.log(`[Calculator] Prüfung: validateHistoryAction=${isHistoryValid}`);
+
+    if (!isHistoryValid) {
       console.log("[Calculator] History-Warnung wird angezeigt.");
       
       // BUGFIX: Verzögerung einbauen, um Event-Propagation-Konflikt zu vermeiden
@@ -483,6 +463,7 @@ const Calculator: React.FC<CalculatorProps> = ({
     validateHistoryAction,
     isReadOnlyMode,
     setFarbe,
+    setGlobalClickDisabled,
   ]);
 
   const handleClear = () => {

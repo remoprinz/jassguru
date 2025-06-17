@@ -32,7 +32,7 @@ import type {
 } from '@/types/jass';
 
 // --- Import für generatePairingId ---
-import { generatePairingId } from '@/utils/jassUtils';
+import { generatePairingId, calculateEventCounts, calculateGameAggregations } from '@/utils/jassUtils';
 
 // --- Wert aus @/utils/stricheCalculations ---
 import { getNormalStricheCount } from '@/utils/stricheCalculations'; 
@@ -56,6 +56,7 @@ import { useSwipeable } from 'react-swipeable';
 import { useGroupStore } from '@/store/groupStore';
 import { DEFAULT_STROKE_SETTINGS } from '@/config/GameSettings';
 import { DEFAULT_FARBE_SETTINGS } from '@/config/FarbeSettings';
+import { DEFAULT_SCORE_SETTINGS } from '@/config/ScoreSettings';
 
 // --- Werte aus firebase/firestore ---
 import { getFirestore, doc, updateDoc, increment, serverTimestamp, Timestamp, collection, query, orderBy, onSnapshot, Unsubscribe, writeBatch, runTransaction, getDoc } from 'firebase/firestore';
@@ -80,16 +81,17 @@ import FullscreenLoader from "@/components/ui/FullscreenLoader"; // Verwende Ful
 // --- NEU: Interface für Callable Function Daten (wie in der Function definiert) ---
 interface InitialSessionDataClient {
   participantUids: string[];
+  participantPlayerIds: string[]; // ✅ NEU: Explizites Feld für Player-Doc-IDs
   playerNames: PlayerNames;
   // GEÄNDERT: teams ist jetzt vom Typ SessionTeams oder null, nicht mehr TeamConfig
   teams?: SessionTeams | null;
   // NEU: Paarungs-IDs hinzufügen
   pairingIdentifiers?: {
-    teamA: string;
-    teamB: string;
+    top: string;    // ✅ GEÄNDERT: Konsistente Benennung
+    bottom: string; // ✅ GEÄNDERT: Konsistente Benennung
   } | null;
   gruppeId: string | null;
-  // NEU: startedAt hinzufügen
+  // NEU: startedAt hinzufügen - ohne FieldValue für Client-Side Kompatibilität
   startedAt?: number | Timestamp;
 }
 
@@ -215,38 +217,40 @@ import { debouncedRouterPush } from '../../utils/routerUtils';
 /**
  * Bereitet die SessionTeams und pairingIdentifiers für den finalizeSessionSummary-Aufruf vor.
  * 
- * @param participantUids Array mit User-IDs der Teilnehmer (Auth-UIDs)
+ * @param participantPlayerIds Array mit Player-Document-IDs der Teilnehmer
  * @param playerNames Objekt mit Spielernamen (Position -> Name)
  * @returns Objekt mit teams und pairingIdentifiers
  */
-const prepareSessionTeamsData = (participantUids: string[], playerNames: PlayerNames) => {
+const prepareSessionTeamsData = (
+  participantPlayerIds: string[], 
+  playerNames: PlayerNames
+) => {
   // Mindestens 4 Spieler nötig - füllen wir Lücken mit Platzhaltern
-  const uids = [...participantUids];
-  while (uids.length < 4) {
-    uids.push(`placeholder_${uids.length + 1}`);
-  }
+  const playerIds = [...participantPlayerIds];
+  while (playerIds.length < 4) { playerIds.push(`placeholder_playerid_${playerIds.length + 1}`); }
   
   // Team-Zuordnung: Standard-Konvention in der App
   // Spieler 1+3 = Team A/Bottom, Spieler 2+4 = Team B/Top
+  // Die `teams`-Struktur verwendet die Player-Document-IDs
   const teamAPlayers: SessionTeamPlayer[] = [
-    { playerId: uids[0], displayName: playerNames[1] || 'Spieler 1' },
-    { playerId: uids[2], displayName: playerNames[3] || 'Spieler 3' }
+    { playerId: playerIds[0], displayName: playerNames[1] || 'Spieler 1' },
+    { playerId: playerIds[2], displayName: playerNames[3] || 'Spieler 3' }
   ];
   
   const teamBPlayers: SessionTeamPlayer[] = [
-    { playerId: uids[1], displayName: playerNames[2] || 'Spieler 2' },
-    { playerId: uids[3], displayName: playerNames[4] || 'Spieler 4' }
+    { playerId: playerIds[1], displayName: playerNames[2] || 'Spieler 2' },
+    { playerId: playerIds[3], displayName: playerNames[4] || 'Spieler 4' }
   ];
   
   const sessionTeams: SessionTeams = {
-    teamA: { players: teamAPlayers },
-    teamB: { players: teamBPlayers }
+    bottom: { players: teamAPlayers }, // ✅ GEÄNDERT: teamA -> bottom
+    top: { players: teamBPlayers }     // ✅ GEÄNDERT: teamB -> top
   };
   
-  // Paarungs-IDs erzeugen (kanonische IDs unabhängig von Reihenfolge)
+  // Paarungs-IDs basieren jetzt auch auf den Player-Document-IDs für Konsistenz
   const pairingIdentifiers = {
-    teamA: generatePairingId(uids[0], uids[2]),
-    teamB: generatePairingId(uids[1], uids[3])
+    bottom: generatePairingId(playerIds[0], playerIds[2]), // ✅ GEÄNDERT: teamA -> bottom
+    top: generatePairingId(playerIds[1], playerIds[3])     // ✅ GEÄNDERT: teamB -> top
   };
   
   return { 
@@ -309,10 +313,23 @@ const ResultatKreidetafel = ({
   const { currentSession } = useJassStore();
   const gameStoreActiveGameId = useGameStore((state) => state.activeGameId);
   const isTournamentPasse = useMemo(() => {
-    return !!(currentSession?.isTournamentSession && currentSession?.tournamentInstanceId && gameStoreActiveGameId);
+    // Verwende die Session-ID als Indikator für eine Turnierpasse
+    // Turnier-Session-IDs haben typischerweise das Format 'tournament_xyz_passe_123'
+    const isTournamentSession = currentSession?.isTournamentSession ?? false;
+    const hasActiveGame = !!gameStoreActiveGameId;
+    const sessionId = currentSession?.id ?? '';
+    const isTournamentSessionId = sessionId.includes('tournament_');
+    
+    return !!(isTournamentSession && hasActiveGame && isTournamentSessionId);
   }, [currentSession, gameStoreActiveGameId]);
   const tournamentInstanceId = useMemo(() => {
-    return currentSession?.isTournamentSession ? currentSession?.tournamentInstanceId : undefined;
+    if (!currentSession?.isTournamentSession) return undefined;
+    
+    // Extrahiere Tournament Instance ID aus der Session-ID
+    // Format: 'tournament_INSTANCE_ID_passe_NUMBER'
+    const sessionId = currentSession.id ?? '';
+    const tournamentMatch = sessionId.match(/^tournament_(.+)_passe_\d+$/);
+    return tournamentMatch ? tournamentMatch[1] : undefined;
   }, [currentSession]);
 
   // 2. Gruppen & Settings
@@ -336,12 +353,20 @@ const ResultatKreidetafel = ({
   // 4. GameStore Zugriffe (Aktives Spiel)
   const activeGameId = useGameStore((state) => state.activeGameId);
   const isOnlineMode = !!activeGameId;
-  const playerNames = viewerData?.playerNames ?? useGameStore(state => state.playerNames);
+  const playerNames = viewerData?.playerNames ?? useGameStore(state => state.playerNames) ?? {
+    1: "Spieler 1",
+    2: "Spieler 2", 
+    3: "Spieler 3",
+    4: "Spieler 4"
+  };
   const currentScores = viewerData?.currentScores ?? useGameStore(state => state.scores);
   const topScore = currentScores?.top ?? 0;
   const bottomScore = currentScores?.bottom ?? 0;
   const weisPoints = viewerData?.weisPoints ?? useGameStore(state => state.weisPoints);
-  const storeStriche = viewerData?.currentStriche ?? useGameStore(state => state.striche);
+  const storeStriche = viewerData?.currentStriche ?? useGameStore(state => state.striche) ?? {
+    top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
+    bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }
+  };
 
   // NEU: Helper-Funktion zur Identifikation echter Online-Sessions
   const isRealOnlineSession = useMemo(() => {
@@ -519,7 +544,7 @@ const ResultatKreidetafel = ({
   }, [gamesToDisplay.length, isReadOnly]);
 
   const teamStats = useMemo(() => calculateTeamStats({
-    playerNames: Object.values(playerNames).filter(Boolean),
+    playerNames: playerNames, // playerNames direkt als Objekt übergeben
     currentStatistic: currentStatisticId === 'jasspunkte' ? 'punkte' : currentStatisticId,
     totals: {
       striche: {
@@ -886,13 +911,22 @@ const ResultatKreidetafel = ({
               
               const playerNamesLocal = gameStore.playerNames;
               const participantUidsLocal = jassStore.currentSession?.participantUids || [];
-              const sessionTeamsData = prepareSessionTeamsData(participantUidsLocal, playerNamesLocal);
+              const participantPlayerIdsLocal = jassStore.currentSession?.participantPlayerIds || [];
+              // WICHTIG: pairingIdentifiers und teams werden jetzt beide aus den Player-IDs gebaut.
+              const sessionTeamsData = prepareSessionTeamsData(participantPlayerIdsLocal, playerNamesLocal);
               
               const initialSessionData = {
                 participantUids: participantUidsLocal,
+                participantPlayerIds: participantPlayerIdsLocal,
                 playerNames: playerNamesLocal,
                 gruppeId: jassStore.currentSession?.gruppeId || null,
-                startedAt: jassStore.currentSession?.startedAt,
+                // KORREKTUR: FieldValue wird zu number/Timestamp konvertiert
+                startedAt: (() => {
+                  const startedAtValue = jassStore.currentSession?.startedAt;
+                  if (startedAtValue instanceof Timestamp) return startedAtValue;
+                  if (typeof startedAtValue === 'number') return startedAtValue;
+                  return Date.now(); // Fallback für FieldValue oder undefined
+                })(),
                 teams: sessionTeamsData.teams,
                 pairingIdentifiers: sessionTeamsData.pairingIdentifiers
               };
@@ -973,106 +1007,20 @@ const ResultatKreidetafel = ({
 
     const startNewGameSequence = async () => {
       // Hole aktive Game ID *bevor* weitere Aktionen
-      const currentActiveGameId = gameStore.activeGameId;
-      const currentSession = jassStore.currentSession;
+      const currentActiveGameId = useGameStore.getState().activeGameId;
+      const currentSession = useJassStore.getState().currentSession;
 
-      // --- NEU: Spielzusammenfassung speichern (nur im Online-Modus) ---
-      if (currentActiveGameId && currentSession) {
-        // Preparing to save summary for game ${jassStore.currentGameId} in session ${currentSession.id}
-        const sessionId = currentSession.id;
-        const gameNumber = jassStore.currentGameId;
-        
-        // Daten extrahieren (aus gameStore VOR dem Reset)
-        const finalScores = { ...gameStore.scores };
-        const finalStriche = { 
-          top: { ...gameStore.striche.top }, 
-          bottom: { ...gameStore.striche.bottom }
-        };
-        const finalWeisPoints = { ...gameStore.weisPoints };
-        const finalRoundHistory = [...gameStore.roundHistory];
-        const finalStartingPlayer = gameStore.startingPlayer;
-        const finalInitialStartingPlayer = gameStore.initialStartingPlayer;
-        const finalPlayerNames = { ...gameStore.playerNames };
-        const durationMillis = timerStore.getGameDuration(gameNumber);
-        const participantUids = currentSession.participantUids ?? [];
-        const groupId = currentSession.gruppeId ?? null;
-
-        // Trumpffarben extrahieren
-        const trumpColorsPlayedSet = new Set<string>();
-
-        // NEU: RoundHistory bereinigen (undefined -> null) und dabei Trumpffarben sammeln
-        const filteredRoundHistory = finalRoundHistory.filter(entry => entry.isActive === undefined || entry.isActive === true);
-        const cleanedRoundHistory = filteredRoundHistory.map(entry => {
-          const cleanedEntry = { ...entry }; // Kopie erstellen
-          if (isJassRoundEntry(cleanedEntry)) {
-            if (cleanedEntry.farbe) {
-              trumpColorsPlayedSet.add(cleanedEntry.farbe); // Trumpf hier sammeln
-            }
-            if (cleanedEntry.strichInfo === undefined) {
-              delete cleanedEntry.strichInfo; // Optionales Feld entfernen statt null?
-            }
-          }
-          // Weitere optionale Felder aus BaseRoundEntry prüfen und ggf. null setzen oder entfernen
-          if (cleanedEntry.ansager === undefined) delete cleanedEntry.ansager;
-          if (cleanedEntry.startTime === undefined) delete cleanedEntry.startTime;
-          if (cleanedEntry.endTime === undefined) delete cleanedEntry.endTime;
-          if (cleanedEntry.playerTurns === undefined) delete cleanedEntry.playerTurns;
-          if (cleanedEntry.timerSnapshot === undefined) delete cleanedEntry.timerSnapshot;
-          if (cleanedEntry.previousRoundId === undefined) delete cleanedEntry.previousRoundId;
-          if (cleanedEntry.nextRoundId === undefined) delete cleanedEntry.nextRoundId;
-
-          // Sicherstellen, dass verschachtelte Objekte keine undefined Werte haben (vereinfachte Prüfung)
-          if (cleanedEntry.scores?.weisPoints === undefined) {
-            if (cleanedEntry.scores) cleanedEntry.scores.weisPoints = {top: 0, bottom: 0}; // Default
-          }
-          // Korrigierte Defaults für visualStriche
-          if (cleanedEntry.visualStriche?.top === undefined) {
-            if (cleanedEntry.visualStriche) cleanedEntry.visualStriche.top = {stricheCounts: { 20: 0, 50: 0, 100: 0 }, restZahl: 0}; 
-          }
-          if (cleanedEntry.visualStriche?.bottom === undefined) {
-            if (cleanedEntry.visualStriche) cleanedEntry.visualStriche.bottom = {stricheCounts: { 20: 0, 50: 0, 100: 0 }, restZahl: 0};
-          }
-
-          return cleanedEntry;
-        });
-        const trumpColorsPlayed = Array.from(trumpColorsPlayedSet) as string[]; // Expliziter Type Cast
-
-        // Summary Objekt erstellen - verwende cleanedRoundHistory
-        const summaryData: CompletedGameSummary = {
-          gameNumber: gameNumber,
-          timestampCompleted: serverTimestamp(),
-          durationMillis: durationMillis ?? 0,
-          finalScores: finalScores,
-          finalStriche: finalStriche,
-          weisPoints: finalWeisPoints,
-          startingPlayer: finalStartingPlayer,
-          initialStartingPlayer: finalInitialStartingPlayer,
-          playerNames: finalPlayerNames,
-          trumpColorsPlayed: trumpColorsPlayed,
-          roundHistory: cleanedRoundHistory, // Bereinigte History verwenden
-          participantUids: participantUids,
-          groupId: groupId,
-          activeGameId: String(gameStore.activeGameId || ''), // Explizite Konvertierung und Fallback
-        };
-
-        // Speichern mit Fehlerbehandlung
-        try {
-          // Korrigierter Funktionsaufruf:
-          // NEUES LOGGING HINZUFÜGEN
-          console.log("[ResultatKreidetafel -> startNewGameSequence] Daten VOR saveCompletedGameToFirestore:", { sessionId, gameNumber, summaryData: JSON.parse(JSON.stringify(summaryData)) }); 
-          await saveCompletedGameToFirestore(sessionId, gameNumber, summaryData, false);
-        } catch (error) {
-          // Fehler wurde bereits in saveCompletedGameToFirestore geloggt und Notification gezeigt
-          console.error("[ResultatKreidetafel -> startNewGameSequence] Fehler beim Aufruf von saveCompletedGameToFirestore, lokaler Ablauf geht weiter.");
-        }
-      }
-      // --- ENDE Spielzusammenfassung speichern ---
+      // --- ENTFERNT: Redundanter Block zur Speicherung der Zusammenfassung ---
+      // Dieser Block hat die Daten zwar in jassGameSummaries gespeichert, aber
+      // das zugehörige activeGame nicht als 'completed' markiert.
+      // Die gesamte Logik wird nun von dem nachfolgenden `jassStore.finalizeGame()`
+      // korrekt und vollständig übernommen.
 
       // Nächsten Starter bestimmen
-      const currentGameEntryForNextStart = jassStore.getCurrentGame();
+      const currentGameEntryForNextStart = useJassStore.getState().getCurrentGame();
       
       // Ermittle den Spieler, der als NÄCHSTES dran gewesen wäre
-      const playerWhoWouldBeNext = gameStore.currentPlayer;
+      const playerWhoWouldBeNext = useGameStore.getState().currentPlayer;
       // Berechne daraus den Spieler, der die letzte Aktion TATSÄCHLICH ausgeführt hat
       // Formel: ((Nächster - 2 + 4) % 4) + 1
       const lastRoundFinishingPlayer = (((playerWhoWouldBeNext - 2 + 4) % 4) + 1) as PlayerNumber;
@@ -1082,7 +1030,10 @@ const ResultatKreidetafel = ({
         currentGameEntryForNextStart ?? null,
         lastRoundFinishingPlayer
       );
-      // startNewGameSequence starting player: ${initialStartingPlayerForNextGame}
+      
+      // --- KRITISCH: Altes Spiel ZUERST finalisieren ---
+      await useJassStore.getState().finalizeGame(); // Markiert altes Spiel als fertig BEVOR neues erstellt wird
+      console.log("[ResultatKreidetafel] Altes Spiel finalisiert, erstelle nun neues Spiel...");
 
       // --- Firestore Update VOR lokalen Store-Änderungen (geändert) ---
       let newActiveGameId: string | null = null; // Variable für die neue ID
@@ -1090,16 +1041,17 @@ const ResultatKreidetafel = ({
         try {
           // 1. Initialen Zustand für das neue Spiel vorbereiten
           // KORREKTUR: playerNames zuerst holen
-          const initialPlayerNames = { ...gameStore.playerNames }; 
+          const initialPlayerNames = { ...useGameStore.getState().playerNames }; 
           const initialStateForNewGame = {
             sessionId: currentSession.id,
             groupId: currentSession.gruppeId ?? '', 
             participantUids: currentSession.participantUids ?? [],
+            participantPlayerIds: currentSession.participantPlayerIds || [], // ✅ NEU: Explizites Feld für Player-Doc-IDs
             playerNames: initialPlayerNames, // Verwende die Variable
             // NEU: Jass-Einstellungen aus dem aktuellen Kontext übernehmen
-            farbeSettings: activeFarbeSettings,
-            scoreSettings: activeScoreSettings,
-            strokeSettings: activeStrokeSettings,
+            activeFarbeSettings,
+            activeScoreSettings,
+            activeStrokeSettings,
             teams: {
               top: { 
                 players: [initialPlayerNames[2] ?? 'Spieler 2', initialPlayerNames[4] ?? 'Spieler 4'], // Verwende die Variable
@@ -1114,7 +1066,7 @@ const ResultatKreidetafel = ({
                 bergActive: false, bedankenActive: false, isSigned: false, playerStats: {}
               }
             }, 
-            currentGameNumber: (jassStore.currentGameId ?? 0) + 1, 
+            currentGameNumber: (useJassStore.getState().currentGameId ?? 0) + 1, 
             scores: { top: 0, bottom: 0 },
             striche: { // Dieses Feld wird im ActiveGame-Typ erwartet, initialisieren wir es auch hier
               top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
@@ -1124,18 +1076,11 @@ const ResultatKreidetafel = ({
             currentRound: 1,
             currentPlayer: initialStartingPlayerForNextGame,
             startingPlayer: initialStartingPlayerForNextGame,
-            initialStartingPlayer: initialStartingPlayerForNextGame, // Auch initial setzen
-            // Fügen Sie hier weitere notwendige Felder hinzu, die ActiveGame erfordert
+            initialStartingPlayer: initialStartingPlayerForNextGame,
           };
 
           // 2. Neues activeGames Dokument erstellen
           console.log("[ResultatKreidetafel] Attempting to create NEW active game document...");
-          // !!! NEUES LOGGING HINZUGEFÜGT !!!
-          // console.log("!!! DEBUG !!! initialStateForNewGame direkt VOR createNewActiveGame:", JSON.stringify(initialStateForNewGame, null, 2));
-          // ZUSÄTZLICHES LOGGING für participantUids aus der Session:
-          // if (currentSession) {
-          //   console.log("!!! DEBUG !!! currentSession.participantUids VOR createNewActiveGame:", JSON.stringify(currentSession.participantUids, null, 2));
-          // }
           newActiveGameId = await createNewActiveGame(initialStateForNewGame as any); // `as any` zur Vereinfachung, Typ sollte genauer sein
           console.log(`[ResultatKreidetafel] NEW active game document created with ID: ${newActiveGameId}`);
 
@@ -1159,13 +1104,18 @@ const ResultatKreidetafel = ({
       // --- ENDE Firestore Update ---
 
       // Lokale Store-Updates für "Neues Spiel" (angepasst)
-      jassStore.finalizeGame(); // Markiert altes Spiel als fertig
-      // KORREKTUR: Temporär nur ein Argument für jassStore.startNextGame
-      jassStore.startNextGame(initialStartingPlayerForNextGame); // TODO: Muss ggf. angepasst werden, um ID zu akzeptieren
+      // ENTFERNT: await jassStore.finalizeGame() - Wurde bereits VORHER aufgerufen!
+      useJassStore.getState().startNextGame(initialStartingPlayerForNextGame, newActiveGameId);
       
-      // KORREKTUR: Hole die resetGame Action frisch aus dem Store
+      // KORREKTUR: Hole die resetGame Action frisch aus dem Store UND die korrekten Settings
       const resetGameAction = useGameStore.getState().resetGame;
-      resetGameAction(initialStartingPlayerForNextGame, newActiveGameId ?? undefined); // Übergibt neue ID an gameStore für Reset
+      const sessionForSettings = useJassStore.getState().currentSession;
+      const settingsForNewGame = {
+        farbeSettings: sessionForSettings?.currentFarbeSettings ?? DEFAULT_FARBE_SETTINGS,
+        scoreSettings: sessionForSettings?.currentScoreSettings ?? DEFAULT_SCORE_SETTINGS,
+        strokeSettings: sessionForSettings?.currentStrokeSettings ?? DEFAULT_STROKE_SETTINGS,
+      };
+      resetGameAction(initialStartingPlayerForNextGame, newActiveGameId ?? undefined, settingsForNewGame); // Übergibt neue ID UND Settings an gameStore für Reset
       
       // Explizites Setzen von isGameStarted etc. (könnte Teil von resetGame sein)
       useGameStore.setState(state => ({
@@ -1175,6 +1125,10 @@ const ResultatKreidetafel = ({
         isGameCompleted: false,
         isRoundCompleted: false
       }));
+
+      // NEU: Navigation zu /jass nach erfolgreichem Setup
+      console.log("[ResultatKreidetafel] Neues Spiel erfolgreich erstellt - Weiterleitung zu /jass");
+      await debouncedRouterPush(router, '/jass');
     };
 
     // Fallunterscheidung: Navigation oder Neues Spiel (unverändert)
@@ -1184,7 +1138,23 @@ const ResultatKreidetafel = ({
           const nextGame = jassStore.getCurrentGame();
           if (nextGame) {
               const defaultStriche: StricheRecord = { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 };
-              gameStore.resetGame(nextGame.initialStartingPlayer);
+              
+              // KRITISCHE KORREKTUR: Hole die korrekten Settings aus der Session!
+              const sessionForNavigation = jassStore.currentSession;
+              const settingsForNavigation = {
+                farbeSettings: sessionForNavigation?.currentFarbeSettings ?? DEFAULT_FARBE_SETTINGS,
+                scoreSettings: sessionForNavigation?.currentScoreSettings ?? DEFAULT_SCORE_SETTINGS,
+                strokeSettings: sessionForNavigation?.currentStrokeSettings ?? DEFAULT_STROKE_SETTINGS,
+              };
+              
+              console.log('[ResultatKreidetafel] Navigation-Pfad: Übergebe Settings an resetGame:', {
+                source: sessionForNavigation?.currentFarbeSettings ? 'Session' : 'Default',
+                cardStyle: settingsForNavigation.farbeSettings.cardStyle,
+                siegPunkte: settingsForNavigation.scoreSettings.values.sieg,
+                schneiderStriche: settingsForNavigation.strokeSettings.schneider
+              });
+              
+              gameStore.resetGame(nextGame.initialStartingPlayer, undefined, settingsForNavigation);
               useGameStore.setState(state => ({
                 ...state,
                 isGameStarted: true,
@@ -1269,7 +1239,7 @@ const ResultatKreidetafel = ({
           console.log("[ResultatKreidetafel] Starte neues Spiel - Loader wird angezeigt...");
           setIsLoadingNewGame(true); // NEU: Ladezustand starten
           try {
-            await startNewGameSequence(); // Kein Argument mehr übergeben
+          await startNewGameSequence(); // Kein Argument mehr übergeben
           } finally {
             console.log("[ResultatKreidetafel] Neues Spiel abgeschlossen - Loader wird ausgeblendet...");
             setIsLoadingNewGame(false); // NEU: Ladezustand beenden
@@ -1311,11 +1281,12 @@ const ResultatKreidetafel = ({
         if (newState === 'completed') {
             const activeGameId = gameStore.activeGameId;
             const currentSessionIdFromStore = jassStore.currentSession?.id;
-            // KORREKTUR: Verwende games.length für robustere Spielanzahl-Bestimmung
-            // Bei Turnieren ist es immer 1 (eine Passe = ein Spiel)
-            const totalGamesPlayedInSession = isTournamentPasse ? 1 : jassStore.games.length;
-            const currentGameNumber = totalGamesPlayedInSession;
-            console.log(`[handleSignatureClick] Session ${currentSessionIdFromStore}: Determined expectedGameNumber=${currentGameNumber} (Tournament: ${isTournamentPasse}, JassStore.games.length: ${jassStore.games.length}, JassStore.currentGameId: ${jassStore.currentGameId})`);
+            
+            // KORREKTUR: Die Spielnummer ist IMMER jassStore.currentGameId. 
+            // Die Berechnung über die Array-Länge war der ursprüngliche Fehler.
+            const gameNumberToSave = jassStore.currentGameId;
+
+            console.log(`[handleSignatureClick] Session ${currentSessionIdFromStore}: Determined expectedGameNumber=${gameNumberToSave} from jassStore.currentGameId`);
             let statusUpdated = false;
 
             // NEU: Kreidetafel zurückdrehen vor dem weiteren Ablauf
@@ -1356,10 +1327,10 @@ const ResultatKreidetafel = ({
             // console.log(`[handleSignatureClick - LOG 3] Nach updateGameStatus. Spiel: ${currentGameNumber}, History Length: ${useGameStore.getState().roundHistory.length}`);
 
             // 2. CompletedGameSummary erstellen und speichern (nur wenn Status OK und online)
-            if (statusUpdated && currentSessionIdFromStore && currentGameNumber !== null && activeGameId) {
+            if (statusUpdated && currentSessionIdFromStore && gameNumberToSave !== null && activeGameId) {
               try {
                 // LOG 4: Direkt vor dem Auslesen der History für summaryToSave
-                // console.log(`[handleSignatureClick - LOG 4] Im try-Block, vor History-Extraktion. Spiel: ${currentGameNumber}, History Length: ${useGameStore.getState().roundHistory.length}`);
+                // console.log(`[handleSignatureClick - LOG 4] Im try-Block, vor History-Extraktion. Spiel: ${gameNumberToSave}, History Length: ${useGameStore.getState().roundHistory.length}`);
                 
                 // Daten aus den Stores sammeln (VOR dem Reset!)
                 const finalStriche = gameStore.striche;
@@ -1373,7 +1344,7 @@ const ResultatKreidetafel = ({
                 };
 
                 const finalPlayerNames = gameStore.playerNames;
-                const finalDuration = timerStore.getGameDuration(currentGameNumber);
+                const finalDuration = timerStore.getGameDuration(gameNumberToSave);
                 
                 // Korrekte Quelle für die Gesamt-Weispunkte der Partie aus dem jassStore
                 const accumulatedWeisPointsForGame = {
@@ -1441,10 +1412,37 @@ const ResultatKreidetafel = ({
                 });
                 const finalTrumpColorsPlayed = Array.from(trumpColorsPlayedSet) as string[];
 
+                // ✅ NEU: Aggregierte Spiel-Daten einmal berechnen für maximale Effizienz
+                const gameAggregations = calculateGameAggregations(cleanedRoundHistory);
+                
+                // ✅ KORRIGIERT: Verwende die URSPRÜNGLICHE roundHistory für eventCounts-Berechnung
+                // Die cleanedRoundHistory kann modifizierte Strukturen haben, die calculateEventCounts nicht lesen kann
+                const originalRoundHistory = [...gameStore.roundHistory]; // Ursprüngliche History aus dem GameStore
+                
+                // Temporäres Objekt für Event-Berechnung mit der ursprünglichen roundHistory
+                const gameDataForEventCalculation = {
+                  gameNumber: gameNumberToSave,
+                  finalScores: finalScoresCorrected,
+                  finalStriche: finalStriche,
+                  roundHistory: originalRoundHistory, // ✅ WICHTIG: Ursprüngliche History verwenden!
+                  timestampCompleted: Timestamp.now(),
+                  durationMillis: finalDuration ?? 0,
+                  weisPoints: accumulatedWeisPointsForGame,
+                  startingPlayer: finalStartingPlayer,
+                  initialStartingPlayer: finalInitialStartingPlayer,
+                  playerNames: finalPlayerNames,
+                  trumpColorsPlayed: finalTrumpColorsPlayed,
+                  participantUids: finalParticipantUids,
+                  groupId: finalGroupId,
+                  activeGameId: activeGameId,
+                  eventCounts: { bottom: { sieg: 0, berg: 0, matsch: 0, kontermatsch: 0, schneider: 0 }, top: { sieg: 0, berg: 0, matsch: 0, kontermatsch: 0, schneider: 0 } } // Dummy für Typsicherheit
+                } as CompletedGameSummary;
+
                 const summaryToSave: CompletedGameSummary = {
-                  gameNumber: currentGameNumber, 
+                  gameNumber: gameNumberToSave, 
                   finalScores: finalScoresCorrected, // Korrigierte Gesamtpunkte des Spiels
                   finalStriche: finalStriche, 
+                  eventCounts: calculateEventCounts(gameDataForEventCalculation), // ✅ NEU: Event-Zähler berechnen
                   playerNames: finalPlayerNames, 
                   timestampCompleted: Timestamp.now(), 
                   weisPoints: accumulatedWeisPointsForGame, // Verwende die akkumulierten Gesamt-Weispunkte für das SPIEL
@@ -1457,11 +1455,17 @@ const ResultatKreidetafel = ({
                   activeGameId: activeGameId,
                   completedAt: Timestamp.now(),
                   durationMillis: finalDuration ?? 0,
+                  
+                  // ✅ NEU: Aggregierte Spiel-Daten einbeziehen
+                  totalRoundDurationMillis: gameAggregations.totalRoundDurationMillis,
+                  trumpfCountsByPlayer: gameAggregations.trumpfCountsByPlayer,
+                  roundDurationsByPlayer: gameAggregations.roundDurationsByPlayer,
+                  Rosen10player: gameAggregations.Rosen10player // Wird später zur Player Doc ID konvertiert
                 };
 
                 // Die aggressive Regex-Bereinigung wird entfernt. Das Objekt sollte jetzt korrekt sein.
-                console.log("[ResultatKreidetafel] Attempting to save completed game summary (Struktur überarbeitet)...", { currentSessionIdFromStore, currentGameNumber, summaryToSave: JSON.parse(JSON.stringify(summaryToSave)) }); 
-                    await saveCompletedGameToFirestore(currentSessionIdFromStore, currentGameNumber, summaryToSave, false);
+                console.log("[ResultatKreidetafel] Attempting to save completed game summary (Struktur überarbeitet)...", { currentSessionIdFromStore, gameNumberToSave, summaryToSave: JSON.parse(JSON.stringify(summaryToSave)) }); 
+                    await saveCompletedGameToFirestore(currentSessionIdFromStore, gameNumberToSave, summaryToSave, false);
                 
                 console.log("[ResultatKreidetafel] Completed game summary saved successfully."); 
 
@@ -1489,8 +1493,20 @@ const ResultatKreidetafel = ({
                  console.log("[ResultatKreidetafel] Skipping summary save because no activeGameId (Offline/Guest).");
             } else if (!statusUpdated) {
                 console.warn("[ResultatKreidetafel] Skipping summary save because status update failed.");
-            } else if (!currentSessionIdFromStore || !(currentGameNumber > 0)) {
-                console.warn("[ResultatKreidetafel] Skipping summary save due to missing sessionId or gameNumber.", { currentSessionIdFromStore, currentGameNumber });
+            } else if (!currentSessionIdFromStore || !(gameNumberToSave > 0)) {
+                console.warn("[ResultatKreidetafel] Skipping summary save due to missing sessionId or gameNumber.", { currentSessionIdFromStore, gameNumberToSave });
+            }
+
+            // --- NEU: Session-Dokument aufräumen BEVOR Cloud Function aufgerufen wird ---
+            if (currentSessionIdFromStore) {
+                try {
+                    console.log(`[ResultatKreidetafel] Clearing active game ID from session ${currentSessionIdFromStore}...`);
+                    await updateSessionActiveGameId(currentSessionIdFromStore, null);
+                    console.log(`[ResultatKreidetafel] Session active game ID cleared successfully.`);
+                } catch (error) {
+                    console.error("Fehler beim Leeren der activeGameId in der Session:", error);
+                    // Optional: Fehlerbehandlung, aber der Prozess sollte trotzdem weiterlaufen
+                }
             }
 
             // LOG 6: Vor Definition finalizeAndResetOnline
@@ -1502,7 +1518,7 @@ const ResultatKreidetafel = ({
 
                 const sessionIdToView = jassStore.currentSession?.id; // NEU: ID vor dem Reset sichern
 
-                jassStore.finalizeGame(); 
+                await jassStore.finalizeGame(); 
                 timerStore.finalizeJassEnd();
                 gameStore.resetGame(1);
                 timerStore.resetAllTimers();
@@ -1533,11 +1549,11 @@ const ResultatKreidetafel = ({
             const timerAnalytics = timerStore.getAnalytics();
 
             // LOG 7: Vor Aufruf finalizeSessionSummary
-            // console.log(`[handleSignatureClick - LOG 7] Vor Aufruf finalizeSessionSummary. Spiel: ${currentGameNumber}, History Length: ${useGameStore.getState().roundHistory.length}`);
+            // console.log(`[handleSignatureClick - LOG 7] Vor Aufruf finalizeSessionSummary. Spiel: ${gameNumberToSave}, History Length: ${useGameStore.getState().roundHistory.length}`);
 
             // --- KORRIGIERTER Aufruf der Callable Function finalizeSession mit Retry --- 
-            if (statusUpdated && currentSessionIdFromStore && currentGameNumber > 0 && isRealOnlineSession) {
-                console.log(`[ResultatKreidetafel] Attempting to call finalizeSession Cloud Function for REAL online session ${currentSessionIdFromStore}, expecting game ${currentGameNumber}`);
+            if (statusUpdated && currentSessionIdFromStore && gameNumberToSave > 0 && isRealOnlineSession) {
+                console.log(`[ResultatKreidetafel] Attempting to call finalizeSession Cloud Function for REAL online session ${currentSessionIdFromStore}, expecting game ${gameNumberToSave}`);
 
                 if (isFinalizingSession) {
                   console.warn("[ResultatKreidetafel] finalizeSession is already in progress. Skipping duplicate call.");
@@ -1563,13 +1579,21 @@ const ResultatKreidetafel = ({
                         if (jassStore.currentSession) {
                           const playerNamesLocal = gameStore.playerNames;
                           const participantUidsLocal = jassStore.currentSession.participantUids || [];
-                          const sessionTeamsData = prepareSessionTeamsData(participantUidsLocal, playerNamesLocal);
+                          const participantPlayerIdsLocal = jassStore.currentSession.participantPlayerIds || [];
+                          const sessionTeamsData = prepareSessionTeamsData(participantPlayerIdsLocal, playerNamesLocal);
 
                           initialPayloadData = {
                             participantUids: participantUidsLocal,
+                            participantPlayerIds: participantPlayerIdsLocal,
                             playerNames: playerNamesLocal,
-                            gruppeId: jassStore.currentSession.gruppeId || null,
-                            startedAt: jassStore.currentSession?.startedAt,
+                            gruppeId: jassStore.currentSession?.gruppeId || null,
+                            // KORREKTUR: FieldValue wird zu number/Timestamp konvertiert
+                            startedAt: (() => {
+                              const startedAtValue = jassStore.currentSession?.startedAt;
+                              if (startedAtValue instanceof Timestamp) return startedAtValue;
+                              if (typeof startedAtValue === 'number') return startedAtValue;
+                              return Date.now(); // Fallback für FieldValue oder undefined
+                            })(),
                             teams: sessionTeamsData.teams,
                             pairingIdentifiers: sessionTeamsData.pairingIdentifiers
                           };
@@ -1585,7 +1609,7 @@ const ResultatKreidetafel = ({
 
                         const result = await finalizeFunction({
                           sessionId: currentSessionIdFromStore, // Jetzt garantiert string
-                          expectedGameNumber: currentGameNumber!,
+                          expectedGameNumber: gameNumberToSave!,
                           initialSessionData: initialPayloadData
                         });
 
@@ -1594,7 +1618,7 @@ const ResultatKreidetafel = ({
                       } catch (error: any) {
                         console.warn(`[ResultatKreidetafel] finalizeSession FAILED (Attempt ${attempts}):`, error);
                         if ((error as any)?.details?.customCode === 'GAME_NOT_YET_VISIBLE' && attempts < maxAttempts) {
-                          console.log(`[ResultatKreidetafel] Custom Precondition failed (Game ${currentGameNumber} likely not visible yet). Retrying in ${retryDelay / 1000}s...`);
+                          console.log(`[ResultatKreidetafel] Custom Precondition failed (Game ${gameNumberToSave} likely not visible yet). Retrying in ${retryDelay / 1000}s...`);
                           await new Promise(resolve => setTimeout(resolve, retryDelay));
                           continue;
                         } else {
@@ -1616,7 +1640,7 @@ const ResultatKreidetafel = ({
                   }
                 } // Ende if (!isFinalizingSession)
             } else {
-                console.warn(`[ResultatKreidetafel] Skipping finalizeSession Cloud Function call: Not a real online session or missing data. IsRealOnlineSession: ${isRealOnlineSession}, StatusUpdated: ${statusUpdated}, SessionID: ${!!currentSessionIdFromStore}, GameNumber: ${currentGameNumber}`);
+                console.warn(`[ResultatKreidetafel] Skipping finalizeSession Cloud Function call: Not a real online session or missing data. IsRealOnlineSession: ${isRealOnlineSession}, StatusUpdated: ${statusUpdated}, SessionID: ${!!currentSessionIdFromStore}, GameNumber: ${gameNumberToSave}`);
             }
             // --- ENDE Aufruf finalizeSessionSummary mit Retry ---
 
@@ -1961,15 +1985,15 @@ const ResultatKreidetafel = ({
         </div>
       )}
       {isOpen && (
-        <div 
+      <div 
           className="fixed inset-0 flex items-center justify-center z-50"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              closeResultatKreidetafel();
-            }
-          }}
-          // ENTFERNT: Problematische Touch-Handler, die mit internen swipbaren Containern interferieren
-        >
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            closeResultatKreidetafel();
+          }
+        }}
+        // ENTFERNT: Problematische Touch-Handler, die mit internen swipbaren Containern interferieren
+      >
         {/* Swipe-Handler für Statistik-Navigation hier auf dieses Div anwenden */}
         <animated.div 
           {...swipeHandlers} // Swipe-Handler hier hinzugefügt
@@ -2075,6 +2099,7 @@ const ResultatKreidetafel = ({
                 <ModuleComponent
                   teams={teams}
                   games={gamesForStatistik}
+                  activeGameScores={currentScores}
                   currentGameId={currentGameId}
                   playerNames={playerNames}
                   cardStyle={cardStyle}
@@ -2132,112 +2157,175 @@ const ResultatKreidetafel = ({
               // --- NEUE BEDINGUNG: Unterscheidung Turnier / Normal ---
               isTournamentPasse ? (
                 // --- TURNIERMODUS --- 
-                <div className="mt-4">
-                  <button 
-                    onClick={handleCompletePasseClick} // NEUER HANDLER
-                    className={`
-                      w-full py-3 px-6 text-white rounded-lg font-medium text-base
-                      transition-all duration-150
-                      bg-blue-600 hover:bg-blue-700
-                      flex items-center justify-center gap-2
-                      leading-tight
-                      ${shareButton.buttonClasses} // Wiederverwende Button-Stil?
-                      ${isFinalizingSession ? 'opacity-70 cursor-wait' : ''} // NEU: Ladezustand-Styling
-                    `}
-                    disabled={isFinalizingSession} // NEU: Button während Laden deaktivieren
-                  >
-                    {isFinalizingSession ? (
-                      <>
-                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        Schließe Passe ab...
-                      </>
-                    ) : (
-                      'Passe abschließen'
-                    )}
-                  </button>
-                </div>
+                <>
+                  <div className="mt-4">
+                    <button 
+                      onClick={handleCompletePasseClick} // NEUER HANDLER
+                      className={`
+                        w-full py-3 px-6 text-white rounded-lg font-medium text-base
+                        transition-all duration-150
+                        bg-blue-600 hover:bg-blue-700
+                        flex items-center justify-center gap-2
+                        leading-tight
+                        ${shareButton.buttonClasses} // Wiederverwende Button-Stil?
+                        ${isFinalizingSession ? 'opacity-70 cursor-wait' : ''} // NEU: Ladezustand-Styling
+                      `}
+                      disabled={isFinalizingSession} // NEU: Button während Laden deaktivieren
+                    >
+                      {isFinalizingSession ? (
+                        <>
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          Schließe Passe ab...
+                        </>
+                      ) : (
+                        'Passe abschließen'
+                      )}
+                    </button>
+                  </div>
+                  
+                  {/* Schliessen-Button für Turniermodus */}
+                  <div className="mt-4">
+                    <button 
+                      onClick={closeResultatKreidetafel}
+                      className="
+                        w-full py-1.5 px-4 text-white rounded-lg font-medium text-sm
+                        transition-all duration-150
+                        bg-gray-600 hover:bg-gray-700
+                        leading-tight
+                      "
+                    >
+                      Schliessen
+                    </button>
+                  </div>
+                </>
               ) : signingState === 'idle' ? (
                 // --- NORMALER MODUS (IDLE STATE) ---
-                <div 
-                  // id="resultat-buttons-container" // Alte ID nicht mehr unbedingt nötig
-                  className={`
-                    grid gap-4 mt-4 
-                    ${canNavigateForward && canNavigateBack
-                      ? 'grid-cols-3' 
-                      : 'grid-cols-2 justify-between' 
-                    }
-                  `}>
-                  {/* Navigation Mode Buttons (wenn aktiv) */}
-                  {canNavigateBack && canNavigateForward && (
+                <>
+                  <div 
+                    // id="resultat-buttons-container" // Alte ID nicht mehr unbedingt nötig
+                    className={`
+                      grid gap-4 mt-4 
+                      ${canNavigateForward && canNavigateBack
+                        ? 'grid-cols-3' 
+                        : 'grid-cols-2 justify-between' 
+                      }
+                    `}>
+                    {/* Navigation Mode Buttons (wenn aktiv) */}
+                    {canNavigateBack && canNavigateForward && (
+                      <button 
+                        {...backButton.handlers}
+                        disabled={!canNavigateBack}
+                        className={`
+                          py-2 px-4 text-white rounded-lg font-medium text-base
+                          transition-all duration-150
+                          ${canNavigateBack ? 'bg-gray-600' : 'bg-gray-500/50 cursor-not-allowed'}
+                          hover:bg-gray-700
+                          leading-tight
+                          ${backButton.buttonClasses}
+                        `}
+                      >
+                        {["1 Spiel", "zurück"].map((line, i) => (<React.Fragment key={i}>{line}{i === 0 && <br />}</React.Fragment>))}
+                      </button>
+                    )}
+                    {/* Immer sichtbare Buttons */}
                     <button 
-                      {...backButton.handlers}
-                      disabled={!canNavigateBack}
+                      onClick={handleBeendenClick}
                       className={`
                         py-2 px-4 text-white rounded-lg font-medium text-base
                         transition-all duration-150
-                        ${canNavigateBack ? 'bg-gray-600' : 'bg-gray-500/50 cursor-not-allowed'}
-                        hover:bg-gray-700
+                        bg-blue-600 hover:bg-yellow-700
+                        flex items-center justify-center gap-2
                         leading-tight
-                        ${backButton.buttonClasses}
+                        ${shareButton.buttonClasses}
                       `}
                     >
-                      {["1 Spiel", "zurück"].map((line, i) => (<React.Fragment key={i}>{line}{i === 0 && <br />}</React.Fragment>))}
+                      {["Jass", "beenden"].map((line, i) => (<React.Fragment key={i}>{line}{i === 0 && <br />}</React.Fragment>))}
                     </button>
-                  )}
-                  {/* Immer sichtbare Buttons */}
-                  <button 
-                    onClick={handleBeendenClick}
-                    className={`
-                      py-2 px-4 text-white rounded-lg font-medium text-base
-                      transition-all duration-150
-                      bg-yellow-600 hover:bg-yellow-700
-                      flex items-center justify-center gap-2
-                      leading-tight
-                      ${shareButton.buttonClasses}
-                    `}
-                  >
-                    {["Jass", "beenden"].map((line, i) => (<React.Fragment key={i}>{line}{i === 0 && <br />}</React.Fragment>))}
-                  </button>
-                  <button 
-                    onClick={handleNextGameClick}
-                    className={`
-                      py-2 px-4 text-white rounded-lg font-medium text-base
-                      transition-all duration-150
-                      ${canNavigateForward 
-                        ? 'bg-gray-600 hover:bg-gray-700' 
-                        : 'bg-green-600 hover:bg-green-700'
-                      }
-                      leading-tight
-                      ${nextButton.buttonClasses}
-                    `}
-                  >
-                    {nextGameButtonText.split('\n').map((line, i) => (<React.Fragment key={i}>{line}{i === 0 && nextGameButtonText.includes('\n') && <br />}</React.Fragment>))}
-                  </button>
-                </div>
+                    <button 
+                      onClick={handleNextGameClick}
+                      className={`
+                        py-2 px-4 text-white rounded-lg font-medium text-base
+                        transition-all duration-150
+                        ${canNavigateForward 
+                          ? 'bg-gray-600 hover:bg-gray-700' 
+                          : 'bg-green-600 hover:bg-green-700'
+                        }
+                        leading-tight
+                        ${nextButton.buttonClasses}
+                      `}
+                    >
+                      {nextGameButtonText.split('\n').map((line, i) => (<React.Fragment key={i}>{line}{i === 0 && nextGameButtonText.includes('\n') && <br />}</React.Fragment>))}
+                    </button>
+                  </div>
+                  
+                  {/* Schliessen-Button für normalen Modus */}
+                  <div className="mt-4">
+                    <button 
+                      onClick={closeResultatKreidetafel}
+                      className="
+                        w-full py-1.5 px-4 text-white rounded-lg font-medium text-sm
+                        transition-all duration-150
+                        bg-gray-600 hover:bg-gray-700
+                        leading-tight
+                      "
+                    >
+                      Schliessen
+                    </button>
+                  </div>
+                </>
               ) : (
                 // --- Signatur-Modus Button --- 
-                <div /* id="resultat-signing-container" // Alte ID nicht mehr unbedingt nötig */ className="mt-4">
-                  <button
-                    onClick={handleSignatureClick}
-                    className={`w-full bg-amber-400 text-white text-lg font-bold py-4 px-8 rounded-xl shadow-lg hover:bg-amber-500 transition-colors border-b-4 border-amber-600 active:scale-[0.98] active:border-b-2 disabled:opacity-50 disabled:cursor-not-allowed
-                               ${(swipePosition === 'bottom' && team1Signed) || (swipePosition === 'top' && team2Signed) ? 'opacity-70 cursor-default' : ''}`}
-                    disabled={ 
-                      (signingState === 'waitingTeam1' && swipePosition === 'top') || // Warten auf T1, aber T2 sichtbar
-                      (signingState === 'waitingTeam2' && swipePosition === 'bottom') || // Warten auf T2, aber T1 sichtbar
-                      (swipePosition === 'bottom' && team1Signed) || // Team 1 (unten) hat bereits signiert
-                      (swipePosition === 'top' && team2Signed)    // Team 2 (oben) hat bereits signiert
-                    }
-                  >
-                    {(swipePosition === 'bottom' && team1Signed) || (swipePosition === 'top' && team2Signed)
-                      ? 'SIGNIERT'
-                      : `Signieren Team ${swipePosition === 'bottom' ? '1' : '2'}`
-                    }
-                  </button>
-                </div>
+                <>
+                  <div /* id="resultat-signing-container" // Alte ID nicht mehr unbedingt nötig */ className="mt-4">
+                    <button
+                      onClick={handleSignatureClick}
+                      className={`w-full bg-amber-400 text-white text-lg font-bold py-4 px-8 rounded-xl shadow-lg hover:bg-amber-500 transition-colors border-b-4 border-amber-600 active:scale-[0.98] active:border-b-2 disabled:opacity-50 disabled:cursor-not-allowed
+                                 ${(swipePosition === 'bottom' && team1Signed) || (swipePosition === 'top' && team2Signed) ? 'opacity-70 cursor-default' : ''}`}
+                      disabled={ 
+                        (signingState === 'waitingTeam1' && swipePosition === 'top') || // Warten auf T1, aber T2 sichtbar
+                        (signingState === 'waitingTeam2' && swipePosition === 'bottom') || // Warten auf T2, aber T1 sichtbar
+                        (swipePosition === 'bottom' && team1Signed) || // Team 1 (unten) hat bereits signiert
+                        (swipePosition === 'top' && team2Signed)    // Team 2 (oben) hat bereits signiert
+                      }
+                    >
+                      {(swipePosition === 'bottom' && team1Signed) || (swipePosition === 'top' && team2Signed)
+                        ? 'SIGNIERT'
+                        : `Signieren Team ${swipePosition === 'bottom' ? '1' : '2'}`
+                      }
+                    </button>
+                  </div>
+                  
+                  {/* Schliessen-Button für Signatur-Modus */}
+                  <div className="mt-4">
+                    <button 
+                      onClick={closeResultatKreidetafel}
+                      className="
+                        w-full py-1.5 px-4 text-white rounded-lg font-medium text-sm
+                        transition-all duration-150
+                        bg-gray-600 hover:bg-gray-700
+                        leading-tight
+                      "
+                    >
+                      Schliessen
+                    </button>
+                  </div>
+                </>
               )
             ) : (
-               // --- ReadOnly Modus: Keine Buttons oder nur Schliessen? ---
-               <div className="h-16">{/* Platzhalter oder Schliessen-Button */}</div>
+               // --- ReadOnly Modus: Nur Schliessen-Button ---
+               <div className="mt-4">
+                 <button 
+                   onClick={closeResultatKreidetafel}
+                   className="
+                     w-full py-1.5 px-4 text-white rounded-lg font-medium text-sm
+                     transition-all duration-150
+                     bg-gray-600 hover:bg-gray-700
+                     leading-tight
+                   "
+                 >
+                   Schliessen
+                 </button>
+               </div>
             )}
           </div>
           {/* === ENDE Wrapper Div === */}
@@ -2246,7 +2334,7 @@ const ResultatKreidetafel = ({
 
         {/* JassFinishNotification einbinden */}
         <JassFinishNotification />
-        </div>
+      </div>
       )}
     </>
   );

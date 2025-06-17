@@ -121,8 +121,12 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
     const currentActiveGameId = useGameStore.getState().activeGameId; // Kann string | null | undefined sein
     let currentTournamentInstanceId: string | null = null;
     const currentJassStoreSession = useJassStore.getState().currentSession;
-    if (currentJassStoreSession?.isTournamentSession && currentJassStoreSession?.tournamentInstanceId) {
-      currentTournamentInstanceId = currentJassStoreSession.tournamentInstanceId;
+    if (currentJassStoreSession?.isTournamentSession) {
+      // Prüfe verschiedene mögliche Properties für Tournament ID
+      const sessionData = currentJassStoreSession as any;
+      currentTournamentInstanceId = sessionData.tournamentInstanceId || 
+                                  sessionData.instanceId || 
+                                  (sessionData.id?.includes('tournament_') ? sessionData.id : null);
     }
     
     useUIStore.getState().showNotification({

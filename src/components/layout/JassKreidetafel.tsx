@@ -98,6 +98,8 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
 
   const [mounted, setMounted] = useState(false);
   const [activeContainer, setActiveContainer] = useState<"top" | "bottom" | null>(null);
+  const justSwipedRef = useRef(false); // NEU: Ref, um eine kürzliche Wischgeste zu verfolgen
+  const lastWeisClickRef = useRef<{ team: TeamPosition; time: number } | null>(null); // NEU für Debounce
 
   const router = useRouter();
   const pathname = router.pathname;
@@ -105,12 +107,15 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
   const {
     isGameStarted,
     isGameCompleted,
-    scores: {top: topScore, bottom: bottomScore},
+    scores,
     addWeisPoints,
     weisPoints,
     activeGameId,
     isRoundCompleted,
   } = useGameStore();
+  
+  // Sichere Destrukturierung der scores mit Fallback
+  const { top: topScore = 0, bottom: bottomScore = 0 } = scores || { top: 0, bottom: 0 };
   
   const isOnlineMode = !!activeGameId; // Definition von isOnlineMode
 
@@ -281,6 +286,12 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
 
       // Up/Down Swipe Logik (Menü öffnen/schliessen) - KEINE Blockade hier, da Menü selbst das Overlay ist
       if (direction === "up" || direction === "down") {
+        // NEU: Setze ein Flag, dass eine Wischgeste stattgefunden hat, um LongPress zu verhindern
+        justSwipedRef.current = true;
+        setTimeout(() => {
+          justSwipedRef.current = false;
+        }, 500); // 500ms Verzögerung, um Konflikte zu vermeiden
+
         const shouldOpen = (pos === "top" && direction === "up") || (pos === "bottom" && direction === "down");
         const shouldClose = (pos === "top" && direction === "down") || (pos === "bottom" && direction === "up");
 
@@ -312,6 +323,11 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
   // LongPress → Kalkulator - JETZT MIT isOverlayActive Prüfung
   const handleLongPress = useCallback(
     (position: TeamPosition) => {
+      // NEU: Verhindere LongPress, wenn gerade eine Wischgeste stattgefunden hat
+      if (justSwipedRef.current) {
+        return;
+      }
+      
       // Blockiere LongPress, wenn ein Overlay aktiv ist
       if (isOverlayActive) {
         return;
@@ -335,19 +351,27 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
   // "Einzelklick" vs. "Doppelklick" in useGlobalClick - JETZT MIT isOverlayActive Prüfung
   const {handleGlobalClick} = useGlobalClick({
     onSingleClick: (position, boxType) => {
-      // Blockiere Klick, wenn ein Overlay aktiv ist
-      if (isOverlayActive) {
+      // NEU: Debounce-Check für Weispunkte
+      const now = Date.now();
+      if (
+        lastWeisClickRef.current &&
+        lastWeisClickRef.current.team === position &&
+        now - lastWeisClickRef.current.time < 300 // 300ms Cooldown
+      ) {
+        console.log("⏱️ Weispunkt-Click zu schnell, wird ignoriert (Debounced).");
         return;
       }
 
       setActiveContainer(position);
 
-      // Verwende addWeisPoints direkt
+      // Hier die Logik für die Restzahl-Box hinzufügen
       if (boxType === "restzahl") {
-        addWeisPoints(position, 1); 
+        lastWeisClickRef.current = {team: position, time: now};
+        addWeisPoints(position, 1); // Genau 1 Punkt für Restzahl-Weis
       } else {
         const numeric = parseInt(boxType, 10) || 20;
-        addWeisPoints(position, numeric); 
+        lastWeisClickRef.current = {team: position, time: now};
+        addWeisPoints(position, numeric); // addWeisPoints statt updateScoreByStrich
       }
 
       // Blend-Effekt auslösen

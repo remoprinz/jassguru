@@ -18,6 +18,8 @@ import { createActiveGame, createSessionDocument, updateSessionActiveGameId } fr
 import { nanoid } from "nanoid";
 import { toast } from "sonner";
 import GlobalLoader from "./GlobalLoader";
+import { Button } from "../ui/button";
+import { getPlayerIdForUser } from "@/services/playerService";
 
 // Importiere die Default-Einstellungen
 import { DEFAULT_FARBE_SETTINGS } from '@/config/FarbeSettings';
@@ -47,8 +49,9 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel }) => {
   const [guestTargetSlot, setGuestTargetSlot] = useState<PlayerNumber | null>(null);
   const [names, setNames] = useState<PlayerNames>({ 1: '', 2: '', 3: '', 4: '' });
   const [teamConfig] = useState<TeamConfig>(DEFAULT_TEAM_CONFIG);
-  const [startingPlayer, setStartingPlayer] = useState<PlayerNumber>(1);
+  const [startingPlayer, setStartingPlayer] = useState<PlayerNumber | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasSelectedStartingPlayer, setHasSelectedStartingPlayer] = useState(false);
 
   useEffect(() => {
     if (status === 'authenticated' && user) {
@@ -71,14 +74,6 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel }) => {
     }
   }, []);
 
-  const getNextPlayer = (current: PlayerNumber): PlayerNumber => {
-    return ((current % 4) + 1) as PlayerNumber;
-  };
-
-  const handleRotateClick = () => {
-    setStartingPlayer((current) => getNextPlayer(current));
-  };
-
   const areAllSlotsFilled = (players: GamePlayers): boolean => {
     return Object.values(players).every((player) => player !== null);
   };
@@ -91,6 +86,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel }) => {
     if (status === 'authenticated') {
       if (areAllSlotsFilled(gamePlayers)) {
         setStartingPlayer(playerNumber);
+        setHasSelectedStartingPlayer(true);
       }
     } else {
       if (areAllNamesEntered(names)) {
@@ -100,15 +96,30 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel }) => {
   };
 
   const handleSelectPlayerClick = (slotNumber: PlayerNumber) => {
-    if (slotNumber === 1) return;
+    // Diese Funktion ist nun obsolet durch die Popover-Logik, kann aber für spätere Zwecke bleiben.
     console.log(`TODO: Auswahl für Slot ${slotNumber} öffnen`);
   };
 
   const handleMemberSelected = (slot: PlayerNumber, member: MemberInfo) => {
+    const isAlreadySelected = Object.values(gamePlayers).some(p => p?.type === 'member' && p.uid === member.uid);
+
+    if (isAlreadySelected) {
+        showNotification({ type: 'warning', message: 'Dieser Spieler ist bereits einem anderen Slot zugewiesen.' });
+        return;
+    }
+
     setGamePlayers((prev) => ({
       ...prev,
       [slot]: member,
     }));
+  };
+
+  const handleRemovePlayer = (slot: PlayerNumber) => {
+    setGamePlayers((prev) => ({ ...prev, [slot]: null }));
+    if (startingPlayer === slot) {
+        setStartingPlayer(null);
+        setHasSelectedStartingPlayer(false);
+    }
   };
 
   const handleOpenGuestModal = (slot: PlayerNumber) => {
@@ -159,6 +170,10 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel }) => {
         });
         return;
       }
+      if (!hasSelectedStartingPlayer || startingPlayer === null) {
+        showNotification({ type: 'warning', message: 'Bitte wähle einen Startspieler aus (auf einen Spieler klicken).' });
+        return;
+      }
       const playerNamesForStore: PlayerNames = {
         1: gamePlayers[1]?.name ?? 'Spieler 1', 
         2: gamePlayers[2]?.name ?? 'Spieler 2',
@@ -202,6 +217,11 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel }) => {
   };
 
   const startGameFlow = async (playerNames: PlayerNames, finalGamePlayers?: Required<GamePlayers>) => {
+    if (startingPlayer === null) {
+      toast.error("Bitte wähle einen Startspieler aus.");
+      setIsLoading(false);
+      return;
+    }
     // console.log(`[StartScreen startGameFlow] STARTING - Initial values: startingPlayer=${startingPlayer}`);
     
     // NEU: Loading-State setzen
@@ -246,6 +266,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel }) => {
     let newSessionId: string | null = null;
     let groupId: string | null = null;
     let participantUids: string[] = [];
+    let participantPlayerIds: string[] = [];
 
     if (status === 'authenticated' && user && finalGamePlayers) {
       // console.log("[StartScreen startGameFlow] Authenticated user detected. Preparing to create session and active game...");
@@ -313,6 +334,17 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel }) => {
         await updateSessionActiveGameId(newSessionId, activeGameId);
         // console.log(`[StartScreen startGameFlow] Session ${newSessionId} updated.`);
 
+        // 6. **NEU:** Teilnehmer-Player IDs sammeln
+        const playerIdPromises = Object.values(finalGamePlayers)
+                               .map(async (p) => {
+                                 if (p?.type === 'member') {
+                                   return await getPlayerIdForUser(p.uid, p.name);
+                                 }
+                                 return null;
+                               });
+        const resolvedPlayerIds = await Promise.all(playerIdPromises);
+        participantPlayerIds = resolvedPlayerIds.filter((id): id is string => !!id);
+
       } catch (error) {
         // console.error("[StartScreen startGameFlow] Error creating session or active game: ", error);
         toast.error("Online-Spiel konnte nicht erstellt werden.");
@@ -333,6 +365,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel }) => {
       sessionId: newSessionId ?? `local_${Date.now()}`, // Use newSessionId or generate local
       groupId: groupId,
       participantUids: participantUids,
+      participantPlayerIds: participantPlayerIds,
       initialSettings: initialSettingsForJassStore, // NEU: Übergabe der Einstellungen
     });
     // console.log("[StartScreen startGameFlow] jassStore.startJass called.");
@@ -352,18 +385,42 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel }) => {
   };
 
   const getPlayerFieldClass = (playerNumber: PlayerNumber, isInput: boolean = false) => {
-    const isActiveModeFilled = status === 'authenticated' ? areAllSlotsFilled(gamePlayers) : areAllNamesEntered(names);
-    const isStarting = startingPlayer === playerNumber;
-    const canSelectStartingViaClick = isActiveModeFilled;
-    const baseBg = teamConfig.bottom.includes(playerNumber) ? "bg-gray-500" : (status === 'authenticated' ? "bg-gray-700" : "bg-gray-600");
-    const hoverBg = status === 'authenticated' ? "hover:bg-gray-700" : "hover:bg-gray-700";
-    const focusRing = areAllNamesEntered(names) ? "focus:ring-yellow-500 focus:border-yellow-500" : "focus:ring-green-500 focus:border-green-500";
+    const isAuth = status === 'authenticated';
+    const allFilled = isAuth ? areAllSlotsFilled(gamePlayers) : areAllNamesEntered(names);
+    
+    // Logik für Startspieler-Auswahl
+    const isSelectedAsStartingPlayer = allFilled && startingPlayer === playerNumber;
+
+    if (isAuth) {
+        const player = gamePlayers[playerNumber];
+        const isTeamBottom = teamConfig.bottom.includes(playerNumber);
+        const baseBg = isTeamBottom ? "bg-gray-500" : "bg-gray-700";
+        const hoverBg = isTeamBottom ? "hover:bg-gray-600" : "hover:bg-gray-800";
+        const teamBorderColor = isTeamBottom ? "border-l-yellow-400" : "border-l-blue-400";
+        
+        let classes = `relative w-full p-3 pl-4 pr-10 outline-none border-l-4 transition-all duration-150 rounded-xl text-white text-left ${baseBg} ${teamBorderColor}`;
+
+        if (isSelectedAsStartingPlayer) {
+          classes += ' border-yellow-500 ring-2 ring-yellow-500';
+        } else {
+          classes += ' border-gray-600';
+        }
+        
+        if (allFilled) {
+          classes += ` ${hoverBg} cursor-pointer`;
+        } else if (!player) {
+           classes += ' text-gray-400 italic cursor-pointer';
+        }
+        return classes;
+
+    } else { // Bestehende Logik für Gastmodus
+        const isStarting = allFilled && startingPlayer === playerNumber;
+        const baseBg = "bg-gray-600";
+        const hoverBg = "hover:bg-gray-700";
+        const focusRing = "focus:ring-green-500 focus:border-green-500";
 
     let classes = `w-full p-3 outline-none ${baseBg} border transition-all duration-150 rounded-xl text-white`;
-
-    if (isInput) {
        classes += " placeholder-gray-300";
-    }
 
     if (isStarting) {
       classes += " border-yellow-500 ring-2 ring-yellow-500";
@@ -371,7 +428,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel }) => {
       classes += " border-gray-600";
     }
 
-    if (canSelectStartingViaClick) {
+        if (allFilled) {
        if (!isStarting) {
           classes += ` ${hoverBg} cursor-pointer`;
        }
@@ -379,17 +436,8 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel }) => {
     } else if (isInput) {
        classes += ` ${focusRing}`; 
     }
-    
-    if (status === 'authenticated' && !gamePlayers[playerNumber] && playerNumber !== 1) {
-       classes += " text-gray-400 italic cursor-pointer hover:bg-gray-600";
-    }
-    if (status === 'authenticated' && !gamePlayers[playerNumber] && playerNumber !== 1) {
-      // Klick wird durch Popover behandelt
-    } else if (status !== 'authenticated' && !names[playerNumber]) {
-      // Keine spezielle Klasse für leere Inputs nötig
-    }
-
     return classes;
+    }
   };
 
   return (
@@ -407,7 +455,12 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel }) => {
             <X size={24} />
           </button>
 
-          <h2 className="text-2xl font-bold text-white text-center mb-4">
+          <h2 className={`text-2xl font-bold text-center mb-4 ${
+            (status === 'authenticated' && areAllSlotsFilled(gamePlayers)) || (status !== 'authenticated' && areAllNamesEntered(names))
+              ? "text-yellow-400"
+              : "text-white"
+            }`}
+          >
             {status === 'authenticated' ?
               (areAllSlotsFilled(gamePlayers) ? "Startspieler wählen" : "Spieler erfassen") :
               (areAllNamesEntered(names) ? "Startspieler wählen" : "Spielernamen eingeben")
@@ -421,41 +474,65 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel }) => {
           <div className="space-y-4">
             {status === 'authenticated' ? (
               <>
-                <div
-                  data-player="1"
-                  onClick={() => handlePlayerFieldClick(1)}
-                  className={getPlayerFieldClass(1)}
-                >
-                  {gamePlayers[1]?.name || "Ich"}
-                </div>
-
-                {[2, 3, 4].map((slotNum) => {
+                {[1, 2, 3, 4].map((slotNum) => {
                   const playerNumber = slotNum as PlayerNumber;
                   const player = gamePlayers[playerNumber];
-                  const triggerElement = (
+
+                  const isTeamBottom = teamConfig.bottom.includes(playerNumber);
+                  const teamName = isTeamBottom ? "Team 1" : "Team 2";
+                  const teamColor = isTeamBottom ? 'text-yellow-400' : 'text-blue-400';
+                  const placeholderText = `Spieler (${teamName}) wählen...`;
+
+                  const playerDisplayOrSelector = (
                     <div
-                      key={`trigger-${slotNum}`}
-                      data-player={slotNum}
-                      onClick={() => player && areAllSlotsFilled(gamePlayers) ? handlePlayerFieldClick(playerNumber) : undefined}
+                      key={`slotdisplay-${slotNum}`}
+                      onClick={() => handlePlayerFieldClick(playerNumber)}
                       className={getPlayerFieldClass(playerNumber)}
                     >
-                      {player ? player.name : 
-                       (playerNumber === 2 ? "Gegner 1 wählen..." :
-                       (playerNumber === 3 ? "Partner wählen..." :
-                       "Gegner 2 wählen..."))}
+                      {player ? (
+                        <>
+                          <span className='text-white font-medium'>
+                            {player.name}{' '}
+                            <span className={`text-sm font-bold ${teamColor}`}>
+                              ({teamName})
+                            </span>
+                          </span>
+                          <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={(e) => { 
+                                  e.stopPropagation();
+                                  handleRemovePlayer(playerNumber); 
+                              }}
+                              className="absolute top-1/2 right-2 transform -translate-y-1/2 text-gray-400 hover:text-white flex-shrink-0 p-1 h-8 w-8"
+                              aria-label="Spieler entfernen"
+                          >
+                              <X size={18}/>
+                          </Button>
+                        </>
+                      ) : (
+                        <span className='text-gray-400 italic'>
+                          {placeholderText}
+                        </span>
+                      )}
                     </div>
                   );
 
                   return (
+                    <div key={slotNum}>
+                      {!player ? (
                     <PlayerSelectPopover
-                      key={slotNum}
-                      trigger={triggerElement}
+                          trigger={playerDisplayOrSelector}
                       group={currentGroup}
                       currentSelection={gamePlayers}
                       targetSlot={playerNumber}
                       onSelectMember={handleMemberSelected}
                       onAddGuest={handleOpenGuestModal}
                     />
+                      ) : (
+                        playerDisplayOrSelector
+                      )}
+                    </div>
                   );
                 })}
               </>
@@ -486,22 +563,16 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel }) => {
           </div>
 
           <motion.button
-            onClick={handleRotateClick}
-            className="w-full p-2 bg-yellow-600 text-white rounded-xl
-              transition-colors border-b-4 border-yellow-900"
-            whileTap={{scale: 0.95}}
-            animate={{opacity: 1}}
-            transition={{duration: 0}}
-          >
-            Rosen 10 (Startspieler)
-          </motion.button>
-
-          <motion.button
             initial={{scale: 0.9}}
             animate={{scale: 1}}
             whileTap={{scale: 0.95}}
             onClick={handleStart}
-            className="w-full bg-green-600 text-white text-lg font-bold py-4 px-8 rounded-xl shadow-lg hover:bg-green-700 transition-colors border-b-4 border-green-900"
+            className={`w-full text-white text-lg font-bold py-4 px-8 rounded-xl shadow-lg transition-colors border-b-4 min-h-[56px] flex items-center justify-center ${
+              (status === 'authenticated' ? areAllSlotsFilled(gamePlayers) && hasSelectedStartingPlayer : areAllNamesEntered(names) && startingPlayer) 
+                ? "bg-green-600 hover:bg-green-700 border-green-900 cursor-pointer" 
+                : "bg-gray-500 border-gray-700 cursor-not-allowed opacity-70"
+            }`}
+            disabled={status === 'authenticated' ? !areAllSlotsFilled(gamePlayers) || !hasSelectedStartingPlayer : !areAllNamesEntered(names) || !startingPlayer}
           >
             START
           </motion.button>
