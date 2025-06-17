@@ -4,4 +4,21 @@
 /coverage/
 
 # Skripte ignorieren, die nicht Teil des TS-Projekts sind
-/scripts/*.js 
+/scripts/*.js
+
+# Ignoriert die kompilierten JavaScript-Dateien
+/lib/
+
+# Temporäre Analyse- und Fix-Skripte
+/analyze-frank-stats.js
+/find-group-id.js
+/fix-missing-participant-player-ids.js
+/test-finalize-fix.js
+/test-stats-recalculation.js
+
+# Ignore compiled output
+/lib
+
+# Ignore standalone scripts. These are not part of the TS project.
+migrate-teams-to-player-doc-ids.js
+trigger-stats-recalculation.js 
