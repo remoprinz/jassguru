@@ -168,6 +168,7 @@ export interface CompletedGameSummary {
     top: StricheRecord;
     bottom: StricheRecord;
   };
+  eventCounts: EventCounts; // ✅ NEU: Explizite Event-Zähler für performante Statistiken
   weisPoints: TeamScores;
   startingPlayer: PlayerNumber;
   initialStartingPlayer: PlayerNumber; // Spieler, der das *erste* Spiel der Session begann
@@ -180,6 +181,12 @@ export interface CompletedGameSummary {
   completedAt?: Timestamp; // NEU: Optionales Feld für den Abschlusszeitpunkt
   teams?: TeamConfig; // Behält die alte TeamConfig für Spiel-spezifische Layouts bei, falls nötig
                       // Nicht zu verwechseln mit SessionTeams für die gesamte Session
+  
+  // ✅ NEU: Aggregierte Daten auf Spiel-Ebene (optional für Rückwärtskompatibilität)
+  totalRoundDurationMillis?: number;
+  trumpfCountsByPlayer?: TrumpfCountsByPlayer;
+  roundDurationsByPlayer?: RoundDurationsByPlayer;
+  Rosen10player?: string | null; // ✅ NEU: Der erste Trumpf-Ansager dieses Spiels (Player Document ID)
 }
 // === ENDE NEU ===
 
@@ -691,28 +698,42 @@ export interface JassGruppe {
 
 export interface JassSession {
   id: string;
-  gruppeId?: string;
-  startedAt: number;
-  endedAt?: number;
+  gruppeId: string;
+  startedAt: number | Timestamp | FieldValue;
+  endedAt?: number | Timestamp | FieldValue;
   playerNames: PlayerNames;
-  games: number[]; // IDs der GameEntries
+  games: (number | string)[];
+  metadata: Record<string, any>;
+  statistics: JassSessionStatistics;
   currentScoreLimit: number;
-  currentActiveGameId?: string | null; // ID des aktuell laufenden Spiels in Firebase
-  lastActivity?: Timestamp; // Firebase Timestamp, optional
-  status?: 'active' | 'completed' | 'archived';
-  participantUids?: string[]; // UIDs der eingeladenen/teilnehmenden Benutzer
   completedGamesCount: number;
-  // NEU: Optionale Felder für die aktuellen Jass-Einstellungen der Session
-  // Diese könnten von der Gruppe oder einem Turnier stammen.
+  isTournamentSession?: boolean;
+  tournamentInstanceId?: string;
+  participantUids?: string[];
+  participantPlayerIds?: string[]; // ✅ Player Document IDs
   currentFarbeSettings?: FarbeSettings;
   currentScoreSettings?: ScoreSettings;
   currentStrokeSettings?: StrokeSettings;
-  currentCardStyle?: CardStyle; // Beibehalten, falls es separat von farbeSettings genutzt wird
-  // NEU: Turnier-spezifische Informationen, falls es eine Turnier-Session ist
-  isTournamentSession?: boolean;
-  tournamentInstanceId?: string; // Wenn es eine Turnier-Session ist
-  metadata?: Record<string, any>; // Für zusätzliche Infos wie Ort etc.
-  statistics?: JassSessionStatistics; // Aggregierte Statistiken für die Session
+  teams?: SessionTeams; // ✅ top/bottom structure
+  sessionTotalWeisPoints?: TeamScores;
+  status?: 'active' | 'completed' | 'completed_empty' | 'aborted';
+  groupId?: string;
+  finalScores?: TeamScores;
+  finalStriche?: { top: StricheRecord; bottom: StricheRecord };
+  winnerTeamKey?: 'top' | 'bottom' | 'draw';
+  gamesPlayed?: number;
+  durationSeconds?: number;
+  eventCounts?: EventCounts; // ✅ Bereits vorhanden
+  notes?: string[];
+  pairingIdentifiers?: { top: string; bottom: string };
+  
+  // ✅ NEU: Der erste Trumpf-Ansager der Session  
+  Rosen10player?: string | null;
+  
+  // ✅ NEU: Session-Level Aggregationen (optional für Rückwärtskompatibilität)
+  totalRounds?: number;
+  aggregatedTrumpfCountsByPlayer?: TrumpfCountsByPlayer;
+  aggregatedRoundDurationsByPlayer?: RoundDurationsByPlayer;
 }
 
 export interface JassSessionStatistics {
@@ -1035,8 +1056,8 @@ export interface SessionTeamDetails {
 }
 
 export interface SessionTeams {
-  teamA: SessionTeamDetails; // Konvention: Team A ist oft "Bottom" (Spieler 1 & 3)
-  teamB: SessionTeamDetails; // Konvention: Team B ist oft "Top" (Spieler 2 & 4)
+  top: SessionTeamDetails;    // ✅ GEÄNDERT: Konsistente Benennung mit dem Rest der App
+  bottom: SessionTeamDetails; // ✅ GEÄNDERT: Konsistente Benennung mit dem Rest der App
 }
 // ENDE NEUE Typen für detaillierte Team-Informationen
 
@@ -1068,8 +1089,8 @@ export interface FinalizeSessionCallableData {
     teams?: SessionTeams | null;
     // NEU: Eindeutige Bezeichner für die Paarungen in dieser Session
     pairingIdentifiers?: {
-      teamA: string; // z.B. "playerId1_playerId2" (kanonisch sortiert)
-      teamB: string; // z.B. "playerId3_playerId4" (kanonisch sortiert)
+      top: string;    // ✅ GEÄNDERT: Konsistente Benennung
+      bottom: string; // ✅ GEÄNDERT: Konsistente Benennung
     } | null;
   };
 }
@@ -1079,9 +1100,10 @@ export interface SessionSummary {
   playerNames: PlayerNames; // Behält die Zuordnung Position -> Name
   teams?: SessionTeams | null; // NEU: Detaillierte Team-Zusammensetzung für die gesamte Session
   pairingIdentifiers?: { // NEU: Eindeutige Paarungs-IDs
-    teamA: string;
-    teamB: string;
+    top: string;    // ✅ GEÄNDERT: Konsistente Benennung
+    bottom: string; // ✅ GEÄNDERT: Konsistente Benennung
   } | null;
+  eventCounts?: EventCounts; // ✅ NEU: Aggregierte Event-Zähler
   // Optional: Sicherstellen, dass alle Felder aus Firestore hier abgebildet sind
   // z.B. sessionId, createdAt, endedAt, finalScores, finalStriche, gamesPlayed, groupId, lastActivity, participantUids, status
 }
@@ -1090,13 +1112,31 @@ export interface SessionSummary {
 // und InitialSessionData in der CF (Empfangsstruktur) konsistent sind
 // bezüglich der neuen Felder teams und pairingIdentifiers.
 
-// Das bestehende PlayerNames Interface
-// export interface PlayerNames {
-//   [key: number]: string; // Position (1-4) -> Spielername
-// }
+// === NEU: Event Count Record für Spiel-Events ===
+export interface EventCountRecord {
+  sieg: number;        // Nur 1 team kann das haben
+  berg: number;        // Nur 1 team kann das haben
+  matsch: number;      // Jedes team kann x haben
+  kontermatsch: number; // Jedes team kann x haben
+  schneider: number;   // Nur gewinnerteam kann das haben
+}
 
-// Das bestehende TeamConfig Interface (für Spiel-internes Layout, wer ist oben/unten)
-// export interface TeamConfig {
-//   top: [number, number];    // Positionen der Spieler im oberen Team
-//   bottom: [number, number]; // Positionen der Spieler im unteren Team
-// }
+export interface EventCounts {
+  bottom: EventCountRecord;
+  top: EventCountRecord;
+}
+// === ENDE NEU ===
+
+// Neue Typdefinitionen für die Datenoptimierung
+export interface TrumpfCountsByPlayer {
+  [playerId: string]: {
+    [farbe: string]: number;
+  };
+}
+
+export interface RoundDurationsByPlayer {
+  [playerId: string]: {
+    totalDuration: number;
+    roundCount: number;
+  };
+}

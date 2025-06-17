@@ -1,6 +1,7 @@
 import {useUIStore} from "@/store/uiStore";
 import type {
   StrichTyp,
+  PlayerNames,
 } from "@/types/jass";
 
 // Types
@@ -44,7 +45,7 @@ export interface TeamCalculationResult {
 }
 
 export interface CalculateTeamStatsParams {
-  playerNames: string[];
+  playerNames: PlayerNames;
   currentStatistic: "striche" | "punkte";
   totals: {
     striche: TeamScores;
@@ -73,17 +74,25 @@ export function calculateTeamStats(params: CalculateTeamStatsParams): TeamCalcul
   const scoreSettings = useUIStore.getState().scoreSettings;
   const schneiderPoints = scoreSettings.values.schneider;
 
+  // Sichere Fallback-Struktur für playerNames
+  const safePlayerNames = playerNames || {
+    1: "Spieler 1",
+    2: "Spieler 2", 
+    3: "Spieler 3",
+    4: "Spieler 4"
+  };
+
   const teamNames: TeamNames = {
-    team1: [playerNames[1], playerNames[3]],
-    team2: [playerNames[2], playerNames[4]],
+    team1: [safePlayerNames[1], safePlayerNames[3]],
+    team2: [safePlayerNames[2], safePlayerNames[4]],
   };
 
   const relevantScores = currentStatistic === "striche" ? totals.striche : totals.punkte;
   const isTeam2Winner = relevantScores.team2 > relevantScores.team1;
   const isDraw = relevantScores.team1 === relevantScores.team2;
 
-  const winnerNames = isTeam2Winner ? teamNames.team2 : teamNames.team1;
-  const loserNames = isTeam2Winner ? teamNames.team1 : teamNames.team2;
+  const winnerNames = isTeam2Winner ? teamNames.team2.filter(Boolean) : teamNames.team1.filter(Boolean);
+  const loserNames = isTeam2Winner ? teamNames.team1.filter(Boolean) : teamNames.team2.filter(Boolean);
 
   const stricheDifference = Math.abs(totals.striche.team1 - totals.striche.team2);
   const pointDifference = Math.abs(totals.punkte.team1 - totals.punkte.team2);
@@ -127,7 +136,7 @@ export function calculateTeamStats(params: CalculateTeamStatsParams): TeamCalcul
   return {
     winnerNames,
     loserNames,
-    playerNames,
+    playerNames: Object.values(safePlayerNames).filter(Boolean),
     pointDifference,
     stricheDifference,
     totalMatsche,

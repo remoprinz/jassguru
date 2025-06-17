@@ -22,6 +22,7 @@ export interface StatisticProps {
     bottom: TeamStand;
   };
   games: Array<GameEntry | CompletedGameSummary>;
+  activeGameScores: { top: number; bottom: number; };
   currentGameId: number;
   playerNames: PlayerNames;
   cardStyle: CardStyle;
