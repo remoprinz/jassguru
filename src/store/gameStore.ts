@@ -633,35 +633,6 @@ export const useGameStore = create<GameStore>()(devtools(
     punkte: { top: number; bottom: number },
     strichInfo?: { type: 'matsch' | 'kontermatsch'; team: TeamPosition }
   ) => {
-    // =================================================================
-    // ABGEMILDERTE GUARD CLAUSE: Warnt bei State-Inkonsistenz, blockiert aber nicht mehr
-    const { activeGameId: gameStoreId } = get();
-    const { currentSession } = useJassStore.getState();
-    const jassStoreId = currentSession?.currentActiveGameId;
-
-    if (gameStoreId && jassStoreId !== gameStoreId) {
-      console.warn(`[GameStore.finalizeRound] WARNUNG: State-Diskrepanz erkannt! 
-        gameStore.activeGameId=${gameStoreId}, 
-        jassStore.activeGameId=${jassStoreId}. 
-        Operation wird fortgesetzt, aber bitte prüfen Sie die Konsistenz.`);
-        
-      useUIStore.getState().showNotification({
-        type: 'warning',
-        message: 'Session-Inkonsistenz erkannt. Falls Probleme auftreten, laden Sie die Seite neu.',
-        preventClose: true, // Verhindert automatisches Schließen
-        actions: [
-          {
-            label: 'Verstanden',
-            onClick: () => {
-              // Notification wird automatisch geschlossen durch den Button-Handler
-            }
-          }
-        ]
-      });
-      // NICHT mehr return - Operation wird fortgesetzt
-    }
-    // =================================================================
-
     const timerStore = useTimerStore.getState();
     const initialActiveGameId = get().activeGameId; // Hole ID vor dem 'set'
 
@@ -2246,7 +2217,7 @@ export const useGameStore = create<GameStore>()(devtools(
       strokeSettings?: StrokeSettings;
     }
   }) => {
-    set((prevState: GameState): Partial<GameState> => { // Explizit den Rückgabetyp Partial<GameState> angeben
+    set((prevState: GameState): GameState => { // Ändere von Partial<GameState> zu GameState
       const initialPlayer = options?.nextStarter || prevState.initialStartingPlayer || 1;
 
       // Einstellungen aus Optionen oder prevState oder Defaults
@@ -2289,9 +2260,8 @@ export const useGameStore = create<GameStore>()(devtools(
         newIsGameStarted = !!prevState.activeGameId;
       }
       
-      const newState: Partial<GameState> = {
+      const newState: GameState = { // Ändere von Partial<GameState> zu GameState
         ...baseResetState, // Startet mit Defaults für die meisten Dinge
-        playerNames: playerNamesToKeep, 
         gamePlayers: gamePlayersToKeep, 
         activeGameId: newActiveGameIdToSet,
         isGameStarted: newIsGameStarted,
@@ -2301,6 +2271,22 @@ export const useGameStore = create<GameStore>()(devtools(
         strokeSettings: newStrokeSettings,
         roundHistory: [], 
         currentHistoryIndex: -1,
+        // Explizit sicherstellen, dass scores definiert ist
+        scores: baseResetState.scores || { top: 0, bottom: 0 },
+        // Explizit sicherstellen, dass striche definiert ist
+        striche: baseResetState.striche || {
+          top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
+          bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }
+        },
+        // Explizit sicherstellen, dass playerNames definiert ist
+        playerNames: playerNamesToKeep || baseResetState.playerNames || {
+          1: "Spieler 1",
+          2: "Spieler 2", 
+          3: "Spieler 3",
+          4: "Spieler 4"
+        },
+        // Explizit sicherstellen, dass currentPlayer definiert ist
+        currentPlayer: baseResetState.currentPlayer || 1,
       };
 
       console.log(`[GameStore] resetGameState durchgeführt. activeGameId: ${newState.activeGameId}, isGameStarted: ${newState.isGameStarted}, playerNames: ${JSON.stringify(newState.playerNames).substring(0, 50)}...`,

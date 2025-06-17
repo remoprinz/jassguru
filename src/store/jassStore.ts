@@ -13,21 +13,16 @@ import {
   GameTotals,
   StricheRecord,
   PlayerNumber,
-  determineNextStartingPlayer,
-  determineWinningTeam,
   GameUpdate,
   JassColor,
-  ActiveGame,
   CompletedGameSummary,
-  RoundEntry,
-  isJassRoundEntry,
   FarbeSettings,
   ScoreSettings,
   StrokeSettings
 } from "../types/jass";
 import {useTimerStore} from "./timerStore";
 import {aggregateStricheForTeam} from "../utils/stricheCalculations";
-import { updateActiveGame } from "../services/gameService";
+import { calculateEventCounts } from "@/utils/jassUtils";
 import { Timestamp, serverTimestamp, getFirestore, doc, setDoc, onSnapshot, Unsubscribe, getDoc } from "firebase/firestore";
 import { firebaseApp } from "@/services/firebaseInit";
 import { sanitizeDataForFirestore } from "@/utils/firestoreUtils";
@@ -35,6 +30,7 @@ import { DEFAULT_FARBE_SETTINGS } from '@/config/FarbeSettings';
 import { DEFAULT_SCORE_SETTINGS } from '@/config/ScoreSettings';
 import { DEFAULT_STROKE_SETTINGS } from '@/config/GameSettings';
 import { useUIStore } from "@/store/uiStore";
+import { loadCompletedGamesFromFirestore } from "@/services/gameService";
 
 // --- 1. Interface für State --- 
 
@@ -54,6 +50,7 @@ export interface JassState {
   games: GameEntry[]; // Für lokale/Gast-Spiele
   onlineCompletedGames: CompletedGameSummary[]; // NEU
   currentGameCache: GameEntry | null;
+  completedGamesUnsubscribe: Unsubscribe | null;
 }
 
 // --- 2. Interface für Actions --- 
@@ -68,6 +65,7 @@ export interface JassActions {
     sessionId: string;
     groupId: string | null;
     participantUids: string[];
+    participantPlayerIds: string[]; // ✅ NEU: Player Document IDs
     initialSettings?: {
       farbeSettings?: FarbeSettings;
       scoreSettings?: ScoreSettings;
@@ -80,7 +78,7 @@ export interface JassActions {
     }
   }) => Promise<void>;
   startNextGame: (initialStartingPlayer: PlayerNumber, newActiveGameId?: string) => void;
-  finalizeGame: () => void;
+  finalizeGame: () => Promise<void>;
   resetJass: () => void;
   undoNewGame: () => void;
   navigateToGame: (gameId: number) => void;
@@ -99,6 +97,7 @@ export interface JassActions {
   startGame: () => void; // Beibehalten, falls verwendet
   subscribeToSession: (sessionId: string) => void;
   clearActiveGameForSession: (sessionId: string) => void;
+  syncCompletedGamesForSession: (sessionId: string) => void;
 }
 
 // --- 3. Kombinierter Store-Typ --- 
@@ -217,6 +216,7 @@ const initialJassState: JassState = {
   games: [], 
   onlineCompletedGames: [], 
   currentGameCache: null,
+  completedGamesUnsubscribe: null,
 };
 
 // --- Store Implementation --- 
@@ -303,6 +303,7 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
       sessionId,
       groupId,
       participantUids,
+      participantPlayerIds, // ✅ NEU: Player Document IDs
       initialSettings, // Vom StartScreen übergebene Settings (basierend auf UIStore)
       tournamentSettings
     } = config;
@@ -368,6 +369,49 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
 
     const initialGame = createGameEntry(1, initialStartingPlayer, sessionId, activeGameId, initialStartingPlayer);
 
+    // *** VEREINFACHTE SICHERHEIT - NUR SESSIONS COLLECTION ***
+    const db = getFirestore(firebaseApp);
+    const settingsPayload = {
+      currentFarbeSettings: finalSettingsForGameStore.farbeSettings,
+      currentScoreSettings: finalSettingsForGameStore.scoreSettings,
+      currentStrokeSettings: finalSettingsForGameStore.strokeSettings,
+      playerNames: playerNames,
+      participantUids: participantUids ?? [],
+      participantPlayerIds: participantPlayerIds ?? [], // ✅ NEU: Player Document IDs
+      groupId: groupId ?? null,
+      startedAt: serverTimestamp(),
+    };
+
+    // ERSTE SICHERHEIT: sessions Dokument (HAUPTQUELLE)
+    try {
+      const sessionDocRef = doc(db, 'sessions', sessionId);
+      await setDoc(sessionDocRef, {
+        ...settingsPayload,
+        currentActiveGameId: activeGameId ?? null,
+        lastUpdated: serverTimestamp(),
+      }, { merge: true });
+      console.log("[JassStore.startJass] ✅ ERSTE SICHERHEIT: Einstellungen in sessions gespeichert");
+    } catch (error) {
+      console.error("[JassStore.startJass] ❌ ERSTE SICHERHEIT FEHLGESCHLAGEN:", error);
+    }
+
+    // ZWEITE SICHERHEIT: activeGame Dokument (falls vorhanden)
+    if (activeGameId) {
+      try {
+        const activeGameDocRef = doc(db, 'activeGames', activeGameId);
+        await setDoc(activeGameDocRef, {
+          activeFarbeSettings: finalSettingsForGameStore.farbeSettings,
+          activeScoreSettings: finalSettingsForGameStore.scoreSettings,
+          activeStrokeSettings: finalSettingsForGameStore.strokeSettings,
+        }, { merge: true });
+        console.log("[JassStore.startJass] ✅ ZWEITE SICHERHEIT: Einstellungen in activeGame gespeichert");
+      } catch (error) {
+        console.error("[JassStore.startJass] ❌ ZWEITE SICHERHEIT FEHLGESCHLAGEN:", error);
+      }
+    }
+
+    console.log("[JassStore.startJass] 🛡️ DOPPELTE SICHERHEIT IMPLEMENTIERT - Settings in sessions + activeGame!");
+
     set({
       isJassStarted: true,
       currentSession: { 
@@ -379,8 +423,14 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
         currentScoreLimit: 5000,
         completedGamesCount: 0,
         participantUids: participantUids ?? [],
+        participantPlayerIds: participantPlayerIds ?? [], // ✅ NEU: Player Document IDs
         metadata: {},
-        statistics: undefined,
+        statistics: {
+          gamesPlayed: 0,
+          scores: { top: 0, bottom: 0 },
+          weisCount: 0,
+          stricheCount: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
+        },
         // Verwende die final ermittelten Einstellungen
         currentFarbeSettings: finalSettingsForGameStore.farbeSettings,
         currentScoreSettings: finalSettingsForGameStore.scoreSettings,
@@ -470,20 +520,38 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
 
     timerStore.reactivateGameTimer(nextGameId);
 
-    // KORREKTUR: Übergebe die aktuellen Session-Einstellungen an resetGame
+    // KORREKTUR: Hole den *aktuellsten* State direkt vor der Verwendung!
+    const latestState = get();
+    if (!latestState.currentSession) {
+      console.error("[JassStore.startNextGame] Kritischer Fehler: Keine currentSession gefunden. Breche ab.");
+      return;
+    }
+
     const settingsForNextGame = {
-      farbeSettings: state.currentSession?.currentFarbeSettings,
-      scoreSettings: state.currentSession?.currentScoreSettings,
-      strokeSettings: state.currentSession?.currentStrokeSettings,
+      farbeSettings: latestState.currentSession.currentFarbeSettings ?? DEFAULT_FARBE_SETTINGS,
+      scoreSettings: latestState.currentSession.currentScoreSettings ?? DEFAULT_SCORE_SETTINGS,
+      strokeSettings: latestState.currentSession.currentStrokeSettings ?? DEFAULT_STROKE_SETTINGS,
     };
 
+    console.log('[JassStore.startNextGame] Übergebe folgende Settings an resetGame:', {
+      source: latestState.currentSession.currentFarbeSettings ? 'Session' : 'Default',
+      cardStyle: settingsForNextGame.farbeSettings.cardStyle,
+      siegPunkte: settingsForNextGame.scoreSettings.values.sieg,
+      schneiderStriche: settingsForNextGame.strokeSettings.schneider
+    });
+
     gameStore.resetGame(initialStartingPlayer, newActiveGameId, settingsForNextGame);
-    useGameStore.setState({ playerNames: state.currentSession.playerNames });
+    useGameStore.setState({ playerNames: latestState.currentSession.playerNames });
+
+    // NEU: Re-synchronisiere die abgeschlossenen Spiele, wenn ein neues Spiel gestartet wird.
+    if (state.currentSession?.id) {
+      get().syncCompletedGamesForSession(state.currentSession.id);
+    }
 
     console.log(`[JassStore.startNextGame] Started game ${nextGameId}. New Active Game ID: ${newActiveGameId || 'none'}`);
   },
 
-  finalizeGame: () => {
+  finalizeGame: async () => {
     const state = get();
     const gameStore = useGameStore.getState();
     const currentGame = state.games.find((game) => game.id === state.currentGameId);
@@ -520,7 +588,7 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
       isGameCompleted: true,
 
       metadata: {
-        duration: finalDuration,
+        duration: typeof finalDuration === 'number' ? finalDuration : 0,
         completedAt: Date.now(),
         roundStats: currentGame.metadata?.roundStats ?? {
           weisCount: 0,
@@ -529,6 +597,64 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
       },
     };
 
+    // KRITISCHE ERGÄNZUNG: Firestore-Updates für Online-Spiele
+    if (currentGame.activeGameId && state.currentSession?.id) {
+      try {
+        const db = getFirestore(firebaseApp);
+        
+        // 1. ActiveGame als "completed" markieren
+        const activeGameRef = doc(db, 'activeGames', currentGame.activeGameId);
+        await setDoc(activeGameRef, {
+          status: 'completed',
+          lastUpdated: serverTimestamp(),
+        }, { merge: true });
+        console.log(`[JassStore.finalizeGame] ✅ ActiveGame ${currentGame.activeGameId} als completed markiert`);
+
+        // 2. Spiel in completedGames Collection speichern
+        const completedGameData: CompletedGameSummary = {
+          gameNumber: typeof currentGame.id === 'number' ? currentGame.id : parseInt(String(currentGame.id), 10),
+          activeGameId: currentGame.activeGameId,
+          timestampCompleted: serverTimestamp(),
+          durationMillis: typeof finalDuration === 'number' ? finalDuration : 0,
+          finalScores: gameStore.scores,
+          finalStriche: gameStore.striche,
+          // ✅ ELEGANT: Temporärer Dummy-Wert für eventCounts
+          eventCounts: { top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }, bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 } },
+          weisPoints: gameStore.weisPoints,
+          startingPlayer: currentGame.startingPlayer,
+          initialStartingPlayer: currentGame.initialStartingPlayer,
+          playerNames: gameStore.playerNames,
+          trumpColorsPlayed: [],
+          roundHistory: gameStore.roundHistory,
+          participantUids: state.currentSession.participantUids || [],
+          groupId: state.currentSession.gruppeId || null,
+        };
+
+        // ✅ ROBUST: Echte eventCounts berechnen und zuweisen
+        completedGameData.eventCounts = calculateEventCounts(completedGameData);
+
+        const completedGameRef = doc(db, 'jassGameSummaries', state.currentSession.id, 'completedGames', String(currentGame.id));
+        await setDoc(completedGameRef, sanitizeDataForFirestore(completedGameData));
+        console.log(`[JassStore.finalizeGame] ✅ Spiel ${currentGame.id} in completedGames gespeichert`);
+
+        // 3. Session currentActiveGameId auf null setzen
+        const sessionRef = doc(db, 'sessions', state.currentSession.id);
+        await setDoc(sessionRef, {
+          currentActiveGameId: null,
+          lastUpdated: serverTimestamp(),
+        }, { merge: true });
+        console.log(`[JassStore.finalizeGame] ✅ Session currentActiveGameId auf null gesetzt`);
+
+      } catch (error) {
+        console.error("[JassStore.finalizeGame] ❌ Firestore-Update fehlgeschlagen:", error);
+        useUIStore.getState().showNotification({
+          type: "error",
+          message: "Fehler beim Abschließen des Spiels. Bitte versuchen Sie es erneut.",
+        });
+      }
+    }
+
+    // Lokaler State-Update
     set((state) => ({
       games: state.games.map((game) =>
         game.id === currentGame.id ? updatedGame : game
@@ -546,61 +672,78 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
   },
 
   subscribeToSession: (sessionId: string) => {
-    const state = get();
-    if (state.sessionUnsubscribe) {
-      console.log("[JassStore] Unsubscribing from previous session listener.");
-      state.sessionUnsubscribe();
+    const existingUnsubscribe = get().sessionUnsubscribe;
+    if (existingUnsubscribe) {
+      existingUnsubscribe();
     }
-
-    console.log(`[JassStore] Setting up NEW snapshot listener for session: sessions/${sessionId}`);
+    
     const db = getFirestore(firebaseApp);
     const sessionDocRef = doc(db, 'sessions', sessionId);
 
     const unsubscribe = onSnapshot(sessionDocRef, (docSnap) => {
-      console.log(`[JassStore Session Listener] RAW snapshot received for session ${sessionId}. Exists: ${docSnap.exists()}`);
       if (docSnap.exists()) {
-        const sessionData = docSnap.data() as JassSession;
-
-        const gamesArray = Array.isArray(sessionData.games) ? sessionData.games : [];
-
-        set(state => {
-          const currentState = state ?? {}; 
-          const currentSessionBase = currentState.currentSession ?? {};
-
-          return {
-            ...currentState,
-            currentSession: {
-              ...currentSessionBase,
-              ...sessionData,
-              id: docSnap.id,
-              games: gamesArray, 
-            },
-            jassSessionId: docSnap.id,
-            activeGameId: sessionData.currentActiveGameId ?? null,
-            isJassStarted: true,
-            isJassCompleted: sessionData.status === 'completed' || sessionData.status === 'archived'
-          };
-        });
-      } else {
-        console.warn(`[JassStore Session Listener] Session ${sessionId} not found in snapshot.`);
+        const sessionData = docSnap.data();
         
-        // BEHOBEN: Prüfe, ob es sich um eine lokale Session handelt (beginnt mit "local_")
-        // Für lokale Sessions NICHT den State zurücksetzen, da dies ein normaler Zustand ist
-        if (sessionId.startsWith("local_")) {
-          console.log(`[JassStore Session Listener] Lokale Session '${sessionId}' erkannt. Der Zustand wird beibehalten, da lokale Sessions nicht in Firestore existieren müssen.`);
-          // Keine State-Änderung für lokale Sessions!
+        // KRITISCH: Wenn Session-Einstellungen vorhanden sind, aktualisiere SOFORT den gameStore
+        if (sessionData.currentFarbeSettings && sessionData.currentScoreSettings && sessionData.currentStrokeSettings) {
+          const gameStore = useGameStore.getState();
+          
+          // SOFORTIGE Aktualisierung der gameStore-Settings
+          gameStore.setGameSettings({
+            farbeSettings: sessionData.currentFarbeSettings,
+            scoreSettings: sessionData.currentScoreSettings,
+            strokeSettings: sessionData.currentStrokeSettings,
+          });
+          
+          console.log("[jassStore] ✅ KRITISCH: Session-Einstellungen SOFORT an gameStore übertragen:", {
+            farbeCardStyle: sessionData.currentFarbeSettings.cardStyle,
+            scoreWerte: sessionData.currentScoreSettings.values,
+            strokeSchneider: sessionData.currentStrokeSettings.schneider
+          });
         } else {
-          // Nur für ONLINE-Sessions, die in Firestore existieren sollten, den State zurücksetzen
-          console.warn(`[JassStore Session Listener] Nicht-lokale Session '${sessionId}' nicht gefunden. Zustand wird zurückgesetzt.`);
-          set({ currentSession: null, isJassStarted: false, isJassCompleted: true, jassSessionId: null, activeGameId: null });
+          console.warn("[jassStore] ⚠️ Session-Dokument hat unvollständige Settings:", {
+            hasFarbeSettings: !!sessionData.currentFarbeSettings,
+            hasScoreSettings: !!sessionData.currentScoreSettings,
+            hasStrokeSettings: !!sessionData.currentStrokeSettings
+          });
         }
+        
+        // Aktualisiere auch die currentSession im jassStore
+        set(state => ({
+          ...state,
+          currentSession: { 
+            ...state.currentSession, 
+            ...sessionData,
+            // Stelle sicher, dass die Settings auch in der currentSession sind
+            currentFarbeSettings: sessionData.currentFarbeSettings,
+            currentScoreSettings: sessionData.currentScoreSettings,
+            currentStrokeSettings: sessionData.currentStrokeSettings,
+          } as JassSession
+        }));
+      } else {
+        console.warn(`[jassStore] Session-Dokument ${sessionId} nicht gefunden.`);
       }
     }, (error) => {
-      console.error(`[JassStore Session Listener] Error in snapshot listener for session ${sessionId}:`, error);
+       console.error(`[jassStore] Fehler im Session-Listener für ${sessionId}:`, error);
+    });
+    
+    set({ sessionUnsubscribe: unsubscribe });
+
+    // Lade abgeschlossene Spiele, wenn eine Session abonniert wird.
+    get().syncCompletedGamesForSession(sessionId);
+  },
+
+  syncCompletedGamesForSession: (sessionId: string) => {
+    const { completedGamesUnsubscribe } = get();
+    if (completedGamesUnsubscribe) {
+      completedGamesUnsubscribe();
+    }
+
+    const unsubscribe = loadCompletedGamesFromFirestore(sessionId, (games) => {
+      set({ onlineCompletedGames: games });
     });
 
-    set({ sessionUnsubscribe: unsubscribe });
-    console.log(`[JassStore] Subscription setup COMPLETE for session ${sessionId}`);
+    set({ completedGamesUnsubscribe: unsubscribe });
   },
 
   clearActiveGameForSession: (sessionId: string) => {

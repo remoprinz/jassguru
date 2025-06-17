@@ -172,6 +172,7 @@ export type NotificationType = "info" | "success" | "warning" | "error";
 export interface NotificationAction {
   label: string;
   onClick: () => void;
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
 }
 
 export type StartScreenState = "idle" | "starting" | "complete";
@@ -298,6 +299,9 @@ export interface UIState {
 
   // NEU: Flag für erfolgte Weiterleitung zum aktiven Turnier
   hasBeenRedirectedToActiveTournament: boolean;
+
+  // NEU: State für globale Klicksperre
+  isGlobalClickDisabled: boolean;
 }
 
 interface UIActions {
@@ -351,7 +355,7 @@ interface UIActions {
   closeJassFinishNotification: () => void;
   setOnboardingStep: (step: OnboardingStep) => void;
   completeOnboarding: () => void;
-  showOnboarding: (canBeDismissed: boolean, isPWA: boolean) => void;
+  showOnboarding: (canBeDismissed: boolean) => void;
   hideOnboarding: () => void;
   setCardStyle: (style: CardStyle) => void;
   resetStartScreen: () => void;
@@ -399,6 +403,9 @@ interface UIActions {
 
   // NEU: Action für Flag der erfolgten Weiterleitung
   setHasBeenRedirectedToActiveTournament: (value: boolean) => void;
+
+  // NEU: Action für globale Klicksperre
+  setGlobalClickDisabled: (isDisabled: boolean, duration?: number) => void;
 }
 
 export type UIStore = UIState & UIActions;
@@ -574,6 +581,9 @@ const initialState: UIState = {
 
   // NEU: Initialwert für Weiterleitungs-Flag
   hasBeenRedirectedToActiveTournament: false,
+
+  // NEU: Initialwert für globale Klicksperre
+  isGlobalClickDisabled: false,
 };
 
 // Load-Funktionen für jeden Settings-Typ
@@ -1011,13 +1021,12 @@ export const useUIStore = create<UIState & UIActions>()(
             hasCompletedOnboarding: true,
           },
         })),
-      showOnboarding: (canBeDismissed: boolean = false, isPWA: boolean = false) =>
+      showOnboarding: (canBeDismissed: boolean) =>
         set((state) => ({
           onboarding: {
             ...state.onboarding,
             show: true,
             canBeDismissed,
-            isPWA,
           },
         })),
       hideOnboarding: () =>
@@ -1122,7 +1131,17 @@ export const useUIStore = create<UIState & UIActions>()(
       },
       removeNotification: (id: string) => {
         set((state) => {
+          // BUGFIX: Robuste Behandlung von removeNotification - vermeide Race Conditions
+          const initialLength = state.notifications.length;
           state.notifications = state.notifications.filter((n: Notification) => n.id !== id);
+          
+          // Debug-Log für bessere Fehlerdiagnose
+          const finalLength = state.notifications.length;
+          if (initialLength === finalLength) {
+            console.warn(`[UIStore] Attempted to remove notification ${id} but it was not found in the list`);
+          } else {
+            console.log(`[UIStore] Successfully removed notification ${id}. Count: ${initialLength} -> ${finalLength}`);
+          }
         });
       },
       setResultatPosition: (position: TeamPosition) =>
@@ -1285,6 +1304,17 @@ export const useUIStore = create<UIState & UIActions>()(
 
       // NEU: Implementierung für Weiterleitungs-Flag
       setHasBeenRedirectedToActiveTournament: (value: boolean) => set({ hasBeenRedirectedToActiveTournament: value }),
+
+      // NEU: Implementierung für globale Klicksperre
+      setGlobalClickDisabled: (isDisabled: boolean, duration?: number) => {
+        set({ isGlobalClickDisabled: isDisabled });
+        if (isDisabled && duration) {
+          setTimeout(() => {
+            console.log("⏱️ Globale Klicksperre aufgehoben.");
+            set({ isGlobalClickDisabled: false });
+          }, duration);
+        }
+      },
     })),
     {
       name: "jass-ui-storage",
