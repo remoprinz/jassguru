@@ -508,14 +508,26 @@ function getPlayerTeamInSession(playerId: string, session: SessionSummary): 'top
     }
   }
   
-  // Fallback auf die Position im Array
-  if (!session.participantUids) return null;
+  // ✅ KORRIGIERT: Fallback mit Player Document ID Mapping
+  const sessionAny = session as any;
+  if (sessionAny.participantPlayerIds && Array.isArray(sessionAny.participantPlayerIds)) {
+    const playerIndex = sessionAny.participantPlayerIds.indexOf(playerId);
+    if (playerIndex !== -1) {
+      // Konvention: Spieler 1 & 3 (Index 0 & 2) sind Team "bottom", Spieler 2 & 4 (Index 1 & 3) sind Team "top"
+      return (playerIndex === 0 || playerIndex === 2) ? 'bottom' : 'top';
+    }
+  }
   
-  const playerIndex = session.participantUids.indexOf(playerId);
-  if (playerIndex === -1) return null;
-  
+  // Letzter Fallback: participantUids (falls Player Doc ID nicht verfügbar)
+  if (sessionAny.participantUids && Array.isArray(sessionAny.participantUids)) {
+    const playerIndex = sessionAny.participantUids.indexOf(playerId);
+    if (playerIndex !== -1) {
   // Konvention: Spieler 1 & 3 (Index 0 & 2) sind Team "bottom", Spieler 2 & 4 (Index 1 & 3) sind Team "top"
   return (playerIndex === 0 || playerIndex === 2) ? 'bottom' : 'top';
+    }
+  }
+  
+  return null;
 }
 
 // Hilfsfunktion zum Bestimmen des Teams eines Spielers in einem Spiel - VERBESSERT
@@ -597,14 +609,25 @@ function getPlayerTeamInGame(playerId: string, game: CompletedGameSummary): 'top
     }
   }
   
-  // Letzter Fallback: Positionen im participantUids-Array
-  if (!game.participantUids) return null;
+  // ✅ KORRIGIERT: Fallback mit Player Document ID Mapping
+  if (gameAny.participantPlayerIds && Array.isArray(gameAny.participantPlayerIds)) {
+    const playerIndex = gameAny.participantPlayerIds.indexOf(playerId);
+    if (playerIndex !== -1) {
+      // Konvention: Spieler 1 & 3 (Index 0 & 2) sind Team "bottom", Spieler 2 & 4 (Index 1 & 3) sind Team "top"
+      return (playerIndex === 0 || playerIndex === 2) ? 'bottom' : 'top';
+    }
+  }
   
+  // Letzter Fallback: participantUids (falls Player Doc ID nicht verfügbar)
+  if (game.participantUids && Array.isArray(game.participantUids)) {
   const playerIndex = game.participantUids.indexOf(playerId);
-  if (playerIndex === -1) return null;
-  
+    if (playerIndex !== -1) {
   // Konvention: Spieler 1 & 3 (Index 0 & 2) sind Team "bottom", Spieler 2 & 4 (Index 1 & 3) sind Team "top"
   return (playerIndex === 0 || playerIndex === 2) ? 'bottom' : 'top';
+    }
+  }
+  
+  return null;
 }
 
 interface GameWithId extends CompletedGameSummary {
@@ -618,9 +641,10 @@ export const fetchPlayerStatistics = async (playerId: string): Promise<PlayerSta
     // Alle Sessions abrufen, an denen der Spieler teilgenommen hat
     const db = getFirestore(firebaseApp);
     const sessionsCollection = collection(db, 'jassSessions');
+    // ✅ KORRIGIERT: Suche nach Player Document IDs statt Auth UIDs
     const sessionsQuery = query(
       sessionsCollection,
-      where('participantUids', 'array-contains', playerId),
+      where('participantPlayerIds', 'array-contains', playerId),
       // Nur abgeschlossene Sessions berücksichtigen
       where('status', 'in', ['completed']),
       orderBy('startedAt', 'desc')

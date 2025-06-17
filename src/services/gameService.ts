@@ -559,51 +559,75 @@ export const saveCompletedGameToFirestore = async (
 };
 
 /**
- * Lädt alle abgeschlossenen Spiele für eine Session aus Firestore.
+ * Lädt alle abgeschlossenen Spiele für eine Session aus Firestore EINMALIG.
  * 
  * @param sessionId Die ID der Jass-Session
  * @returns Ein Promise mit einem Array von CompletedGameSummary-Objekten
  */
-export const loadCompletedGamesFromFirestore = async (
+export const fetchCompletedGamesFromFirestore = async (
   sessionId: string
 ): Promise<CompletedGameSummary[]> => {
   if (!sessionId) {
-    console.warn("[GameService] loadCompletedGamesFromFirestore called without sessionId.");
+    console.warn("[GameService] fetchCompletedGamesFromFirestore called without sessionId.");
     return [];
   }
-
+  const db = getFirestore(firebaseApp);
   try {
-    // Referenz zur completedGames-Subkollektion der Session
     const completedGamesRef = collection(db, 'jassGameSummaries', sessionId, 'completedGames');
-    
-    // Query: Sortiere nach gameNumber
     const q = query(completedGamesRef, orderBy('gameNumber', 'asc'));
     const querySnapshot = await getDocs(q);
     
     if (querySnapshot.empty) {
-      console.log(`[GameService] No completed games found for session ${sessionId}`);
       return [];
     }
     
-    // Konvertiere Firestore-Dokumente in CompletedGameSummary-Objekte
     const completedGames: CompletedGameSummary[] = [];
-    
     querySnapshot.forEach((doc) => {
-      const data = doc.data() as CompletedGameSummary;
-      completedGames.push(data);
+      completedGames.push(doc.data() as CompletedGameSummary);
     });
     
-    console.log(`[GameService] Successfully loaded ${completedGames.length} completed games for session ${sessionId}`);
     return completedGames;
-    
   } catch (error) {
-    console.error(`[GameService] Error loading completed games for session ${sessionId}:`, error);
+    console.error(`[GameService] Error fetching completed games for session ${sessionId}:`, error);
     useUIStore.getState().showNotification({
       type: "error",
       message: "Fehler beim Laden der abgeschlossenen Spiele.",
     });
     return [];
   }
+};
+
+/**
+ * Lädt die abgeschlossenen Spiele einer Session aus Firestore und abonniert auf Änderungen.
+ * @param sessionId Die ID der Jass-Session.
+ * @param onUpdate Eine Callback-Funktion, die mit der Liste der Spiele aufgerufen wird.
+ * @returns Eine `Unsubscribe`-Funktion, um den Listener zu entfernen.
+ */
+export const loadCompletedGamesFromFirestore = (
+  sessionId: string,
+  onUpdate: (games: CompletedGameSummary[]) => void
+): Unsubscribe => {
+  if (!sessionId) {
+    console.error("[GameService] loadCompletedGamesFromFirestore aufgerufen ohne sessionId.");
+    return () => {}; // Leere Unsubscribe-Funktion zurückgeben
+  }
+  const db = getFirestore(firebaseApp);
+  const gamesRef = collection(db, 'jassGameSummaries', sessionId, 'completedGames');
+  const q = query(gamesRef, orderBy('gameNumber', 'asc'));
+
+  const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const games: CompletedGameSummary[] = [];
+    querySnapshot.forEach((doc) => {
+      games.push({ ...doc.data() } as CompletedGameSummary);
+    });
+    onUpdate(games);
+  }, (error) => {
+    console.error(`[GameService] Fehler beim Laden der abgeschlossenen Spiele für Session ${sessionId}:`, error);
+    // Bei einem Fehler eine leere Liste an den Callback übergeben, um den State zu leeren
+    onUpdate([]);
+  });
+
+  return unsubscribe;
 };
 
 /**
@@ -1188,7 +1212,6 @@ export const cleanupAbortedSession = async (sessionId: string): Promise<void> =>
       useUIStore.getState().showNotification({
         type: 'success',
         message: responseData.message,
-        duration: 4000
       });
     } else {
       throw new Error('Cloud Function gab Fehler zurück');
