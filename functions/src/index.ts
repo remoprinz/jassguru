@@ -1,6 +1,6 @@
 import { setGlobalOptions } from "firebase-functions/v2";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
-import { onDocumentUpdated, Change, FirestoreEvent, QueryDocumentSnapshot, DocumentOptions } from "firebase-functions/v2/firestore";
+import { onDocumentUpdated, onDocumentWritten, Change, FirestoreEvent, QueryDocumentSnapshot, DocumentSnapshot, DocumentOptions } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as crypto from "crypto";
 // GELÖSCHT: Unbenutzter Import von PlayerComputedStats etc.
@@ -18,9 +18,12 @@ try {
 // import * as cleanupFunctions from './cleanupRounds'; // <-- ENTFERNT/AUSKOMMENTIERT
 // --- Import für neue HTTPS Callable Function ---
 import * as finalizeSessionLogic from './finalizeSession'; // <-- WIEDER AKTIV
+// import * as finalizeSessionLogicV2 from "./finalizeSession_v2"; // <-- ENTFERNT
 // --- NEUE IMPORTE ---
 import * as userManagementLogic from './userManagement'; // WIEDER HINZUGEFÜGT
 import * as scheduledTaskLogic from './scheduledTasks'; // WIEDER HINZUGEFÜGT
+import * as batchUpdateLogic from './batchUpdateGroupStats'; // NEU: Batch-Update für Gruppenstatistiken
+import * as updateGroupStatsLogic from './updateGroupStats'; // NEU: Manuelle Gruppenstatistik-Aktualisierung
 // ------------------------------------------
 
 // --- Globale Optionen für Gen 2 setzen --- 
@@ -76,6 +79,42 @@ interface FirestoreTournamentInstance {
 }
 // NEU: Lokale Typdefinitionen für Turniere ENDE
 
+// --- NEU: Lokale Typdefinitionen für Jass-Export ---
+interface JassGameSummary {
+  id: string;
+  groupId: string;
+  startedAt: admin.firestore.Timestamp;
+  playerNames: { [key: string]: string };
+  participantUids: string[]; // User-IDs der Teilnehmer
+  teams: {
+    teamA: { players: { displayName: string }[] };
+    teamB: { players: { displayName: string }[] };
+  };
+  finalStriche: {
+    top: { sieg: number };
+    bottom: { sieg: number };
+  };
+  winnerTeamKey: 'teamA' | 'teamB';
+}
+
+interface StrichData {
+  berg?: number;
+  sieg?: number;
+  matsch?: number;
+  schneider?: number;
+  kontermatsch?: number;
+}
+
+interface CompletedGame {
+  id: string;
+  gameNumber: number;
+  initialStartingPlayer: number;
+  finalStriche?: {
+    top?: StrichData;
+    bottom?: StrichData;
+  };
+}
+
 const db = admin.firestore();
 
 // Interface für die erwarteten Eingabedaten
@@ -105,6 +144,36 @@ interface AcceptTournamentInviteData {
 
 // Importiere die neue Funktion
 // import * as tournamentGameLogic from "./tournamentGameProcessing";
+
+// NEU: Import für Google Sheets API
+import { google } from "googleapis";
+
+// --- Konfiguration für Google Sheets Export ---
+const SPREADSHEET_ID = "1wffL-mZRMVoXjVL3WPMiRJ_AsC5ALZXn1Jx6GYxKqKA";
+const SHEET_NAME = "Rohdaten"; // Name des Tabellenblatts, in das geschrieben werden soll
+
+// Name Converter für Spreadsheet basierend auf User-IDs
+const USER_ID_TO_SPREADSHEET_NAME: { [key: string]: string } = {
+  "JmluPJeG6wbQzLkoJjlU7uVVYyw1": "Marc W.",
+  "R16Pv2RKBwaYtSGyL7UMThIyALg1": "Michi", 
+  "i4ij3QCqKSbjPbx2hetwWlaQhlw2": "Schmudi",
+};
+
+function convertUserIdToSpreadsheetName(userId: string, fallbackName: string): string {
+  return USER_ID_TO_SPREADSHEET_NAME[userId] || fallbackName;
+}
+
+function getSpreadsheetNameFromSession(session: JassGameSummary, playerDisplayName: string): string {
+  // Finde die User-ID basierend auf dem Display-Namen
+  const playerIndex = Object.values(session.playerNames).indexOf(playerDisplayName);
+  if (playerIndex !== -1) {
+    const userId = session.participantUids[playerIndex];
+    if (userId) {
+      return convertUserIdToSpreadsheetName(userId, playerDisplayName);
+    }
+  }
+  return playerDisplayName; // Fallback auf ursprünglichen Namen
+}
 
 /**
  * Generiert einen sicheren, zeitlich begrenzten Einladungstoken für eine Gruppe.
@@ -1193,27 +1262,199 @@ export const syncUserProfileToPlayer = onDocumentUpdated(
   }
 );
 
-// =================================================================================================
-// NEUE, ZENTRALE STATISTIK-FUNKTION
-// =================================================================================================
+/**
+ * **MASTER-FUNKTION:** Reagiert auf alle Schreib-Änderungen an Jass-Sessions.
+ * Fall 1: Status wechselt zu "completed" -> Exportiert die Session ins Google Sheet.
+ * Fall 2: Status wechselt von "completed" weg -> Löscht die Session aus dem Google Sheet.
+ * Fall 3: Alle anderen Änderungen werden ignoriert.
+ * 
+ * Diese Funktion ersetzt die alten `exportCompletedSessionToSheet` und `removeSessionOnStatusChange`.
+ */
+export const handleSessionUpdate = onDocumentWritten(
+  "jassGameSummaries/{sessionId}",
+  async (event: FirestoreEvent<Change<DocumentSnapshot> | undefined>) => {
+    const sessionId = event.params.sessionId;
+    const beforeData = event.data?.before.data();
+    const afterData = event.data?.after.data();
 
-// export { onPlayerRegistered } from './onPlayerRegistered';
-// export { onPlayerDeleted } from './onPlayerDeleted';
+    const beforeStatus = beforeData?.status;
+    const afterStatus = afterData?.status;
 
-// Schedule für die Neuberechnung der Gruppenstatistiken
-// export { scheduledGroupStatsRecalculation } from './scheduledTasks';
+    // --- Fall 1: EXPORTIEREN ---
+    // Wird ausgelöst, wenn eine Session den Status "completed" erhält (egal von welchem Status vorher).
+    if (afterStatus === "completed" && beforeStatus !== "completed") {
+      console.log(`[handleSessionUpdate] EXPORT: Session ${sessionId} wurde abgeschlossen. Starte Export...`);
+      const session = afterData as JassGameSummary;
+      session.id = sessionId;
 
-// Schedule für die Neuberechnung der Gruppenstatistiken
-// ... existing code ... 
+      // NEUE PRÜFUNG: Nur Daten der spezifischen Gruppe ins Spreadsheet schreiben
+      if (session.groupId !== "Tz0wgIHMTlhvTtFastiJ") {
+        console.log(`[handleSessionUpdate] EXPORT-SKIP: Session ${sessionId} gehört nicht zur Zielgruppe (groupId: ${session.groupId}). Export übersprungen.`);
+        return;
+      }
 
-// export { onUserImageUpload } from './imageProcessing';
+      try {
+        const auth = new google.auth.GoogleAuth({
+          keyFile: "./serviceAccountKey.json",
+          scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+        });
+        const sheets = google.sheets({ version: "v4", auth });
+        
+        const completedGamesSnapshot = await db.collection("jassGameSummaries").doc(session.id).collection("completedGames").orderBy("gameNumber").get();
 
-// ================================================================================================
-// USER & PLAYER LIFECYCLE TRIGGERS
-// ================================================================================================
+        if (completedGamesSnapshot.empty) {
+          console.log(`[handleSessionUpdate] EXPORT-WARN: Session ${session.id} hat keine abgeschlossenen Spiele. Kein Export.`);
+          return;
+        }
 
-// export { onPlayerRegistered } from './onPlayerRegistered';
-// export { onPlayerDeleted } from './onPlayerDeleted';
+        const bottomIsWinner = (session.finalStriche.bottom?.sieg || 0) > (session.finalStriche.top?.sieg || 0);
+        const winnerIsTeamA = session.winnerTeamKey === 'teamA';
+        const teamBottomKey = (bottomIsWinner === winnerIsTeamA) ? 'teamA' : 'teamB';
+        const teamTopKey = (bottomIsWinner === winnerIsTeamA) ? 'teamB' : 'teamA';
+        
+        const team1Player1 = getSpreadsheetNameFromSession(session, session.teams[teamBottomKey]?.players[0]?.displayName || "");
+        const team1Player2 = getSpreadsheetNameFromSession(session, session.teams[teamBottomKey]?.players[1]?.displayName || "");
+        const team2Player1 = getSpreadsheetNameFromSession(session, session.teams[teamTopKey]?.players[0]?.displayName || "");
+        const team2Player2 = getSpreadsheetNameFromSession(session, session.teams[teamTopKey]?.players[1]?.displayName || "");
 
-// Schedule für die Neuberechnung der Gruppenstatistiken
-// ... existing code ... 
+        const rowsToAppend: (string | number)[][] = [];
+
+        for (const gameDoc of completedGamesSnapshot.docs) {
+          const game = gameDoc.data() as CompletedGame;
+          const datum = session.startedAt ? new Date(session.startedAt.seconds * 1000).toLocaleDateString("de-CH") : "";
+          const spielNr = game.gameNumber || "";
+          const rosen10 = game.gameNumber === 1 ? getSpreadsheetNameFromSession(session, session.playerNames?.[game.initialStartingPlayer] || "") : "";
+          
+          const stricheBottom = game.finalStriche?.bottom || {};
+          const stricheTop = game.finalStriche?.top || {};
+          const siegBottom = stricheBottom.sieg || 0;
+          const siegTop = stricheTop.sieg || 0;
+
+          let berg: number | string = ""; if ((stricheBottom.berg || 0) > 0) berg = 1; else if ((stricheTop.berg || 0) > 0) berg = 2;
+          let sieg: number | string = ""; if (siegBottom > 0) sieg = 1; else if (siegTop > 0) sieg = 2;
+          let schneider: number | string = "";
+          if ((stricheBottom.schneider || 0) + (stricheTop.schneider || 0) > 0) {
+            if (siegBottom > siegTop) schneider = 1; else if (siegTop > siegBottom) schneider = 2;
+          }
+
+          const t1Matsch = stricheBottom.matsch ?? "";
+          const t2Matsch = stricheTop.matsch ?? "";
+          const t1Kontermatsch = (stricheBottom.kontermatsch || 0) > 0 ? 1 : "";
+          const t2Kontermatsch = (stricheTop.kontermatsch || 0) > 0 ? 1 : "";
+          
+          rowsToAppend.push([
+            datum, spielNr, rosen10,
+            team1Player1, team1Player2, team2Player1, team2Player2,
+            berg, sieg, t1Matsch, t2Matsch, schneider,
+            t1Kontermatsch, t2Kontermatsch,
+          ]);
+        }
+
+        if (rowsToAppend.length > 0) {
+          await sheets.spreadsheets.values.append({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `${SHEET_NAME}!A1`,
+            valueInputOption: "USER_ENTERED",
+            requestBody: { values: rowsToAppend },
+          });
+          console.log(`[handleSessionUpdate] EXPORT-OK: Erfolgreich ${rowsToAppend.length} Spiele von Session ${session.id} exportiert.`);
+        }
+      } catch (error) {
+        console.error(`[handleSessionUpdate] EXPORT-FEHLER bei Session ${session.id}:`, error);
+      }
+      return; // Wichtig: Ausführung hier beenden
+    }
+
+    // --- Fall 2: LÖSCHEN ---
+    // Wird ausgelöst, wenn eine "completed" Session ihren Status verliert (in der App gelöscht wird).
+    if (beforeStatus === "completed" && afterStatus !== "completed") {
+      console.log(`[handleSessionUpdate] LÖSCHEN: Session ${sessionId} wurde entfernt (Status: ${beforeStatus} -> ${afterStatus}). Starte Löschung...`);
+      const session = beforeData as JassGameSummary;
+      session.id = sessionId;
+
+      // NEUE PRÜFUNG: Nur Daten der spezifischen Gruppe aus dem Spreadsheet löschen
+      if (session.groupId !== "Tz0wgIHMTlhvTtFastiJ") {
+        console.log(`[handleSessionUpdate] LÖSCH-SKIP: Session ${sessionId} gehört nicht zur Zielgruppe (groupId: ${session.groupId}). Löschung übersprungen.`);
+        return;
+      }
+
+      try {
+        const auth = new google.auth.GoogleAuth({
+          keyFile: "./serviceAccountKey.json",
+          scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+        });
+        const sheets = google.sheets({ version: "v4", auth });
+
+        // --- NEU: Feste, stabile GID verwenden, die sich nie ändert ---
+        const sheetId = 1173362828;
+
+        const response = await sheets.spreadsheets.values.get({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `${SHEET_NAME}!A:N`,
+        });
+
+        const rows = response.data.values || [];
+        if (rows.length <= 1) {
+          console.log("[handleSessionUpdate] LÖSCH-INFO: Keine Daten im Sheet zum Löschen gefunden.");
+          return;
+        }
+        
+        const sessionDate = session.startedAt ? new Date(session.startedAt.seconds * 1000).toLocaleDateString("de-CH") : "";
+        const bottomIsWinner = (session.finalStriche.bottom?.sieg || 0) > (session.finalStriche.top?.sieg || 0);
+        const winnerIsTeamA = session.winnerTeamKey === 'teamA';
+        const teamBottomKey = (bottomIsWinner === winnerIsTeamA) ? 'teamA' : 'teamB';
+        const team1Player1 = getSpreadsheetNameFromSession(session, session.teams[teamBottomKey]?.players[0]?.displayName || "");
+        const team1Player2 = getSpreadsheetNameFromSession(session, session.teams[teamBottomKey]?.players[1]?.displayName || "");
+
+        const requests: any[] = [];
+        for (let i = rows.length - 1; i >= 1; i--) { // Rückwärts iterieren
+          const row = rows[i];
+          const rowDate = row[0];
+          const rowPlayer1 = row[3];
+          const rowPlayer2 = row[4];
+          
+          if (rowDate === sessionDate && rowPlayer1 === team1Player1 && rowPlayer2 === team1Player2) {
+            requests.push({
+              deleteDimension: {
+                range: {
+                  sheetId: sheetId,
+                  dimension: "ROWS",
+                  startIndex: i,
+                  endIndex: i + 1,
+                },
+              },
+            });
+          }
+        }
+
+        if (requests.length > 0) {
+          await sheets.spreadsheets.batchUpdate({
+            spreadsheetId: SPREADSHEET_ID,
+            requestBody: { requests },
+          });
+          console.log(`[handleSessionUpdate] LÖSCH-OK: Erfolgreich ${requests.length} Zeilen für Session ${session.id} gelöscht.`);
+        } else {
+          console.log(`[handleSessionUpdate] LÖSCH-INFO: Keine passenden Zeilen für Session ${session.id} im Sheet gefunden.`);
+        }
+      } catch (error) {
+        console.error(`[handleSessionUpdate] LÖSCH-FEHLER bei Session ${session.id}:`, error);
+      }
+      return; // Wichtig: Ausführung hier beenden
+    }
+
+    // --- Fall 3: IGNORIEREN ---
+    // Alle anderen Fälle (z.B. completed -> completed, active -> active etc.)
+    console.log(`[handleSessionUpdate] IGNORIEREN: Statuswechsel von "${beforeStatus}" zu "${afterStatus}" für Session ${sessionId} ist nicht relevant. Überspringe.`);
+  }
+);
+
+// ============================================
+// === EXPORT BATCH UPDATE FUNCTIONS ===
+// ============================================
+
+// Batch Update Functions für Gruppenstatistiken
+export const batchUpdateGroupStats = batchUpdateLogic.batchUpdateGroupStats;
+export const triggerBatchUpdateGroupStats = batchUpdateLogic.triggerBatchUpdateGroupStats;
+
+// Manuelle Gruppenstatistik-Aktualisierung
+export const updateGroupStats = updateGroupStatsLogic.updateGroupStats;
