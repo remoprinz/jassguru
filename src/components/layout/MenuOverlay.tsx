@@ -13,6 +13,7 @@ import {useTutorialStore} from "../../store/tutorialStore";
 import {TUTORIAL_STEPS, TutorialCategory} from "../../types/tutorial";
 import dynamic from "next/dynamic";
 import {IconType} from "react-icons";
+import GlobalLoader from "./GlobalLoader";
 import {useAuthStore} from "../../store/authStore";
 import {useRouter} from "next/router";
 import { abortActiveGame } from "@/services/gameService";
@@ -48,6 +49,7 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
   const {openResultatKreidetafel, openSettings, isReadOnlyMode} = useUIStore();
   const [pressedButton, setPressedButton] = useState<string | null>(null);
   const [showResetWarning, setShowResetWarning] = useState(false);
+  const [isAborting, setIsAborting] = useState(false);
   const currentStep = useTutorialStore((state) => state.getCurrentStep());
   const {isCategoryCompleted} = useTutorialStore();
   const authStore = useAuthStore();
@@ -164,6 +166,7 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
     // Verwende die neue, zentrale abortActiveGame-Funktion
     if (activeGameId && gameStore.isGameStarted && !gameStore.isGameCompleted) {
         try {
+            setIsAborting(true);
             console.log(`[MenuOverlay] Calling abortActiveGame for ${activeGameId}`);
             await abortActiveGame(activeGameId, {
                 tournamentInstanceId: tournamentInstanceIdForAbort || undefined,
@@ -179,6 +182,8 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
                 message: 'Fehler beim Abbrechen des Spiels.',
             });
             return; // Beende die Funktion bei Fehler
+        } finally {
+            setIsAborting(false);
         }
     } else {
         console.log(`[MenuOverlay] Kein aktives Spiel zum Abbrechen gefunden (ID: ${activeGameId}) oder Spiel bereits beendet/nicht gestartet.`);
@@ -301,6 +306,13 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
 
   return (
     <>
+      {isAborting && (
+        <GlobalLoader 
+          message="Spiel wird abgebrochen..." 
+          color="white"
+        />
+      )}
+      
       <motion.div
         className={`absolute inset-x-0 top-1/2 transform -translate-y-1/2 flex justify-center items-center h-16 z-10 ${
           isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
