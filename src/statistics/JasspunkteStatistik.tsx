@@ -17,8 +17,8 @@ export const JasspunkteStatistik: React.FC<StatisticProps> = ({
   strokeSettings,
   onSwipe,
 }) => {
-  const activeGameScores = useGameStore((state) => state.scores);
-  const activeGameWeisPoints = useGameStore((state) => state.weisPoints);
+  const activeGameScores = useGameStore((state) => state.scores) || { top: 0, bottom: 0 };
+  const activeGameWeisPoints = useGameStore((state) => state.weisPoints) || { top: 0, bottom: 0 };
   const isGameStoreActive = useGameStore((state) => state.isGameStarted && !state.isGameCompleted);
 
   // Animation für neue Punkte

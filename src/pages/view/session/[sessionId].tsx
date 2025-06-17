@@ -133,6 +133,7 @@ type SessionMetadata = {
     participantUids: string[];
     playerNames: PlayerNames; // KORRIGIERTER TYP
     status?: string;
+    notes?: string[]; // NEU: Für Warnungen
     // ... weitere Metadaten ...
 } | null;
 type CompletedGamesData = CompletedGameSummary[];
@@ -182,15 +183,33 @@ const SessionViewerPage: React.FC = () => {
 
         try {
           const db = getFirestore(firebaseApp);
-          const sessionDocRef = doc(db, 'jassGameSummaries', sessionId);
-          const gamesCollectionRef = collection(db, 'jassGameSummaries', sessionId, 'completedGames');
+          
+          // --- KORREKTUR: Zweistufiger Lade-Mechanismus ---
+          let sessionSnap;
+          let sessionOrigin: 'jassGameSummaries' | 'sessions' = 'jassGameSummaries';
+
+          // 1. Primärer Versuch: Lade aus jassGameSummaries (für abgeschlossene Sessions)
+          console.log(`[SessionViewerPage] Attempting to fetch from 'jassGameSummaries' for ID: ${sessionId}`);
+          const summaryDocRef = doc(db, 'jassGameSummaries', sessionId);
+          sessionSnap = await getDoc(summaryDocRef);
+
+          // 2. Fallback-Versuch: Wenn nicht gefunden, lade aus sessions (für gerade laufende/abgeschlossene Sessions)
+          if (!sessionSnap.exists()) {
+            console.warn(`[SessionViewerPage] Session not found in 'jassGameSummaries'. Falling back to 'sessions' collection.`);
+            sessionOrigin = 'sessions';
+            const sessionDocRef = doc(db, 'sessions', sessionId);
+            sessionSnap = await getDoc(sessionDocRef);
+          }
+          // --- ENDE KORREKTUR ---
+
+          // Ab hier verwenden wir die gefundene sessionSnap
+          const gamesCollectionRef = collection(db, sessionOrigin, sessionId, 'completedGames');
 
           // 1. Session-Metadaten laden
-          console.log(`[SessionViewerPage] Fetching session metadata for: ${sessionId}`);
-          const sessionSnap = await getDoc(sessionDocRef);
+          console.log(`[SessionViewerPage] Fetching session metadata for: ${sessionId} from '${sessionOrigin}'`);
 
           if (!sessionSnap.exists()) {
-            throw new Error(`Session mit ID ${sessionId} nicht gefunden.`);
+            throw new Error(`Session mit ID ${sessionId} konnte in keiner der erwarteten Collections ('jassGameSummaries', 'sessions') gefunden werden.`);
           }
           loadedSessionData = sessionSnap.data() as SessionMetadata;
           setSessionData(loadedSessionData); // Session-Daten setzen, auch wenn Gruppe/Spiele fehlschlagen
@@ -328,6 +347,18 @@ const SessionViewerPage: React.FC = () => {
         >
           <ArrowLeft size={20} />
         </button>
+
+        {/* NEU: Warnhinweis für Finalisierungs-Notizen */}
+        {sessionData?.notes && sessionData.notes.length > 0 && (
+          <div className="container mx-auto -mt-4 mb-4 p-3 bg-yellow-900/50 border border-yellow-700 rounded-lg text-sm text-yellow-200">
+            <p className="font-bold mb-1">Hinweis zur Sitzung</p>
+            <ul className="list-disc list-inside">
+              {sessionData.notes.map((note, index) => (
+                <li key={index}>{note}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
       {/* Hier wird GameViewerKreidetafel gerendert, wenn Daten vorhanden */}
       {gameDataForViewer ? (

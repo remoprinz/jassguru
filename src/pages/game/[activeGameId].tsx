@@ -150,28 +150,34 @@ const LiveGamePage: React.FC = () => {
             // Konvertiere lastUpdated (number | null) zu einem ClientTimestamp oder undefined
             const lastActivityTimestamp = lastUpdated ? ClientTimestamp.fromMillis(lastUpdated) : undefined;
 
-            return {
-                isJassStarted: true,
-                currentGameId: gameData.currentGameNumber,
-                currentSession: {
-                    ...baseSession,
+            // Erstelle eine neue Session mit nur gültigen JassSession Properties
+            const newSession: JassSession = {
                     id: gameData.sessionId, 
-                    gruppeId: gameData.groupId ?? undefined,
+                gruppeId: gameData.groupId || 'default',
                     startedAt: createdAt ?? baseSession?.startedAt ?? Date.now(),
                     playerNames: gameData.playerNames,
                     games: baseSession?.games ?? [],
                     currentScoreLimit: baseSession?.currentScoreLimit ?? 0,
                     metadata: baseSession?.metadata ?? {},
                     participantUids: gameData.participantUids,
-                    statistics: baseSession?.statistics ?? undefined,
-                    completedGamesCount: baseSession?.completedGamesCount ?? 0,
-                    currentCardStyle: baseSession?.currentCardStyle,
-                    currentActiveGameId: gameData.activeGameId, 
-                    lastActivity: lastActivityTimestamp, // Verwende den konvertierten Timestamp
-                    status: baseSession?.status, 
-                    isTournamentSession: isTournamentPasse,
-                    tournamentInstanceId: isTournamentPasse ? gameData.tournamentInstanceId : undefined
+                statistics: baseSession?.statistics ?? {
+                    gamesPlayed: 0,
+                    scores: { top: 0, bottom: 0 },
+                    weisCount: 0,
+                    stricheCount: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
                 },
+                    completedGamesCount: baseSession?.completedGamesCount ?? 0,
+                isTournamentSession: isTournamentPasse,
+                // Nur Tournament ID hinzufügen wenn es ein Tournament ist
+                ...(isTournamentPasse && gameData.tournamentInstanceId ? { 
+                    tournamentInstanceId: gameData.tournamentInstanceId 
+                } : {})
+            };
+
+            return {
+                isJassStarted: true,
+                currentGameId: gameData.currentGameNumber,
+                currentSession: newSession,
                 isJassCompleted: gameData.status !== 'live',
                 currentRound: gameData.currentRound,
                 teams: {

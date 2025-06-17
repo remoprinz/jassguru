@@ -21,7 +21,7 @@ import {getFunctions, httpsCallable} from "firebase/functions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GroupMemberList } from "@/components/group/GroupMemberList";
 import { getGroupMembersSortedByGames } from "@/services/playerService";
-import type { FirestorePlayer, ActiveGame, RoundDataFirebase, GameEntry, RoundEntry, CompletedGameSummary, StricheRecord, JassColor } from "@/types/jass";
+import type { FirestorePlayer, ActiveGame, RoundDataFirebase, GameEntry, RoundEntry, CompletedGameSummary, StricheRecord, JassColor, FarbeSettings, ScoreSettings } from "@/types/jass";
 import { getFirestore, doc, getDoc, collection, getDocs, query, where, orderBy, limit, onSnapshot, Unsubscribe, Timestamp, FieldValue } from "firebase/firestore";
 import { firebaseApp } from "@/services/firebaseInit";
 import { useTimerStore } from "@/store/timerStore";
@@ -31,6 +31,8 @@ import { format } from 'date-fns';
 import { fetchTournamentInstancesForGroup } from '@/services/tournamentService';
 import type { TournamentInstance } from '@/types/tournament';
 import { DEFAULT_SCORE_SETTINGS } from '@/config/ScoreSettings';
+import { DEFAULT_FARBE_SETTINGS } from '@/config/FarbeSettings';
+import { DEFAULT_STROKE_SETTINGS } from '@/config/GameSettings';
 import {
   GroupStatistics,
   fetchGroupStatistics,
@@ -38,7 +40,6 @@ import {
 import { FormattedDescription } from '@/components/ui/FormattedDescription';
 import { StatRow } from '@/components/statistics/StatRow';
 import { FarbePictogram } from '@/components/settings/FarbePictogram';
-import { DEFAULT_STROKE_SETTINGS } from '@/config/GameSettings'; 
 import { StrokeSettings } from '@/types/jass';
 import JoinByInviteUI from "@/components/ui/JoinByInviteUI";
 import { extractAndValidateToken } from "@/utils/tokenUtils";
@@ -481,8 +482,8 @@ const StartPage = () => {
         // Lade zuerst alle abgeschlossenen Spiele
         let completedGames: CompletedGameSummary[] = [];
         try {
-          const { loadCompletedGamesFromFirestore } = await import('@/services/gameService');
-          completedGames = await loadCompletedGamesFromFirestore(sessionId);
+          const { fetchCompletedGamesFromFirestore } = await import('@/services/gameService');
+          completedGames = await fetchCompletedGamesFromFirestore(sessionId);
           // console.log(`[StartPage] ${completedGames.length} abgeschlossene Spiele aus jassGameSummaries/${sessionId}/completedGames geladen.`);
         } catch (loadCompletedError) {
           console.error(`[StartPage] Fehler beim Laden abgeschlossener Spiele aus jassGameSummaries/${sessionId}/completedGames:`, loadCompletedError);
@@ -508,6 +509,71 @@ const StartPage = () => {
         const createdAtMillis = activeGameData.createdAt instanceof Timestamp
             ? activeGameData.createdAt.toMillis()
             : Date.now();
+
+        // VEREINFACHTE FALLBACK-HIERARCHIE: sessions → activeGame → defaults
+        let settingsFromActiveGame: {
+          farbeSettings: FarbeSettings;
+          scoreSettings: ScoreSettings;
+          strokeSettings: StrokeSettings;
+        } | null = null;
+
+        console.log("[StartPage] 🛡️ VEREINFACHTE FALLBACK-HIERARCHIE für Settings wird gestartet...");
+
+        // ERSTE PRIORITÄT: sessions Dokument (HAUPTQUELLE)
+        try {
+          const sessionDocRef = doc(db, 'sessions', sessionId);
+          const sessionDocSnap = await getDoc(sessionDocRef);
+          
+          if (sessionDocSnap.exists()) {
+            const sessionData = sessionDocSnap.data();
+            if (sessionData.currentFarbeSettings && sessionData.currentScoreSettings && sessionData.currentStrokeSettings) {
+              settingsFromActiveGame = {
+                farbeSettings: sessionData.currentFarbeSettings,
+                scoreSettings: sessionData.currentScoreSettings,
+                strokeSettings: sessionData.currentStrokeSettings,
+              };
+              console.log("[StartPage] ✅ ERSTE PRIORITÄT: Einstellungen aus sessions-Dokument geladen:", {
+                farbeCardStyle: settingsFromActiveGame.farbeSettings.cardStyle,
+                scoreWerte: settingsFromActiveGame.scoreSettings.values,
+                strokeSchneider: settingsFromActiveGame.strokeSettings.schneider
+              });
+            } else {
+              throw new Error("Einstellungen in sessions unvollständig");
+            }
+          } else {
+            throw new Error("sessions-Dokument nicht gefunden");
+          }
+        } catch (error) {
+          console.warn("[StartPage] ❌ ERSTE PRIORITÄT fehlgeschlagen:", error);
+          
+          // ZWEITE PRIORITÄT: activeGame Dokument
+          try {
+            if (activeGameData.activeFarbeSettings && activeGameData.activeScoreSettings && activeGameData.activeStrokeSettings) {
+              settingsFromActiveGame = {
+                farbeSettings: activeGameData.activeFarbeSettings,
+                scoreSettings: activeGameData.activeScoreSettings,
+                strokeSettings: activeGameData.activeStrokeSettings,
+              };
+              console.log("[StartPage] ✅ ZWEITE PRIORITÄT: Einstellungen aus activeGame-Dokument geladen:", {
+                farbeCardStyle: settingsFromActiveGame.farbeSettings.cardStyle,
+                scoreWerte: settingsFromActiveGame.scoreSettings.values,
+                strokeSchneider: settingsFromActiveGame.strokeSettings.schneider
+              });
+            } else {
+              throw new Error("Einstellungen in activeGame unvollständig");
+            }
+          } catch (error2) {
+            console.warn("[StartPage] ❌ ZWEITE PRIORITÄT fehlgeschlagen:", error2);
+            
+            // LETZTE RETTUNG: Default-Einstellungen
+            settingsFromActiveGame = {
+              farbeSettings: DEFAULT_FARBE_SETTINGS,
+              scoreSettings: DEFAULT_SCORE_SETTINGS,
+              strokeSettings: DEFAULT_STROKE_SETTINGS,
+            };
+            console.log("[StartPage] ⚠️ LETZTE RETTUNG: Default-Einstellungen werden verwendet");
+          }
+        }
 
         const reconstructedGameEntry: GameEntry = {
             id: activeGameData.currentGameNumber,
@@ -549,7 +615,11 @@ const StartPage = () => {
                 scores: { top: 0, bottom: 0 },
                 weisCount: 0,
                 stricheCount: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }
-              }
+              },
+              // PHASE 1 KORREKTUR: Setze die Session-Einstellungen aus dem activeGame-Dokument
+              currentFarbeSettings: settingsFromActiveGame.farbeSettings,
+              currentScoreSettings: settingsFromActiveGame.scoreSettings,
+              currentStrokeSettings: settingsFromActiveGame.strokeSettings,
           },
           isJassCompleted: false,
           currentRound: activeGameData.currentRound,
@@ -578,6 +648,10 @@ const StartPage = () => {
           gamePlayers: activeGameData.gamePlayers ?? null,
           currentHistoryIndex: loadedRounds.length - 1,
           historyState: { lastNavigationTimestamp: Date.now() },
+          // KRITISCH: Setze die korrekten Einstellungen aus dem activeGame-Dokument
+          farbeSettings: settingsFromActiveGame.farbeSettings,
+          scoreSettings: settingsFromActiveGame.scoreSettings,
+          strokeSettings: settingsFromActiveGame.strokeSettings,
       });
 
       const jassStartMillis = activeGameData.jassStartTime instanceof Timestamp
@@ -1040,31 +1114,14 @@ const StartPage = () => {
     }
   };
 
-  // State für die Tabs
-  const [activeMainTab, setActiveMainTab] = useState("statistics");
-  const [activeStatsSubTab, setActiveStatsSubTab] = useState("overview");
-
-  useEffect(() => {
-    // Synchronisiert den Zustand der Tabs mit den URL-Query-Parametern.
-    // Dies stellt sicher, dass die Tabs korrekt angezeigt werden, wenn die Seite
-    // geladen wird oder der Benutzer die Browser-Navigation (Vor/Zurück) verwendet.
-    if (router.isReady) {
-      const { mainTab, statsSubTab } = router.query;
-      
-      const newMainTab = (typeof mainTab === 'string' && ['statistics', 'archive', 'members'].includes(mainTab)) 
-        ? mainTab 
-        : 'statistics'; // Standard-Tab
-      setActiveMainTab(newMainTab);
-      
-      // Setze den Sub-Tab nur, wenn der Haupt-Tab "statistics" ist.
-      if (newMainTab === 'statistics') {
-          const newStatsSubTab = (typeof statsSubTab === 'string' && ['overview', 'players', 'teams'].includes(statsSubTab)) 
-            ? statsSubTab 
-            : 'overview'; // Standard-Sub-Tab
-          setActiveStatsSubTab(newStatsSubTab);
-      }
-    }
-  }, [router.isReady, router.query]);
+  // NEU: Leite den aktiven Tab direkt aus dem Router ab
+  const { mainTab, statsSubTab } = router.query;
+  const activeMainTab = (typeof mainTab === 'string' && ['statistics', 'archive', 'members'].includes(mainTab)) 
+    ? mainTab 
+    : 'statistics';
+  const activeStatsSubTab = (typeof statsSubTab === 'string' && ['overview', 'players', 'teams'].includes(statsSubTab)) 
+    ? statsSubTab 
+    : 'overview';
 
   // NEUE Funktion für Einladungsverarbeitung
   const handleProcessInviteInput = useCallback(async (inputValue: string, inviteUiType: 'group' | 'tournament') => {
@@ -1103,7 +1160,8 @@ const StartPage = () => {
     setIsProcessingInvite(false);
   }, [router, showNotification]);
 
-  if (showGlobalLoader) {
+  // Der Gatekeeper: Zeige den Loader, bis die Daten UND der Router bereit sind.
+  if (!isDataLoadDetermined || !router.isReady) {
     return (
       <MainLayout>
         <div className="flex flex-1 flex-col items-center justify-center min-h-[calc(100vh-112px)]">
@@ -1303,6 +1361,9 @@ const StartPage = () => {
             const query: { [key: string]: string | string[] | undefined } = { ...router.query, mainTab: value };
             if (value !== 'statistics') {
               delete query.statsSubTab;
+            } else {
+              // Beim Wechsel zum Statistik-Tab, setze den Sub-Tab auf 'overview', falls nicht vorhanden
+              query.statsSubTab = query.statsSubTab || 'overview';
             }
             router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
           }} 

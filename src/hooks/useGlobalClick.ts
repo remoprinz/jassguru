@@ -30,7 +30,7 @@ export function useGlobalClick({
   const lockUntilRef = useRef(0);
   // isDoubleClickRef wird nicht mehr benötigt, isProcessingDoubleClickRef reicht
 
-  const {canOpenGameInfo, setGameInfoOpen, setLastDoubleClickPosition, isReadOnlyMode} = useUIStore();
+  const {canOpenGameInfo, setGameInfoOpen, setLastDoubleClickPosition, isReadOnlyMode, isGlobalClickDisabled} = useUIStore();
 
   // Cleanup-Funktion für den Timer
   useEffect(() => {
@@ -43,6 +43,22 @@ export function useGlobalClick({
   }, []);
 
   const handleGlobalClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    // NEU: Globale Sperre prüfen
+    if (isGlobalClickDisabled) {
+      console.log("🚫 Klick ignoriert: Globale Sperre ist aktiv.");
+      return;
+    }
+
+    // NEU: Validiere, dass es sich um einen echten User-Click handelt
+    if (!e.isTrusted) {
+      console.warn("🚫 Synthetischer Click ignoriert - kein echter User-Click", {
+        type: e.type,
+        timeStamp: e.timeStamp,
+        target: (e.target as HTMLElement)?.tagName,
+      });
+      return;
+    }
+
     const now = Date.now();
 
     // Lock prüfen

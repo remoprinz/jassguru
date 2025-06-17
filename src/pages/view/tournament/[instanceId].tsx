@@ -120,7 +120,6 @@ const TournamentViewPage: React.FC = () => {
 
   const [resumablePasseId, setResumablePasseId] = useState<string | null>(null);
   const [isCheckingForResumablePasse, setIsCheckingForResumablePasse] = useState<boolean>(true);
-  const activeGameIdFromJassStore = useJassStore((state) => state.activeGameId);
   const activePasseListener = useRef<Unsubscribe | null>(null);
 
   const logoFileInputRef = useRef<HTMLInputElement>(null);
@@ -218,7 +217,7 @@ const TournamentViewPage: React.FC = () => {
       setIsCheckingForResumablePasse(true);
 
       // 1. Schritt: Prüfe, ob im jassStore eine aktive Passe existiert
-      const activeGameIdFromJassStore = useJassStore.getState().currentSession?.currentActiveGameId;
+      const activeGameIdFromJassStore = useJassStore.getState().activeGameId;
       
       try {
         let foundPasseIdInJassStore: string | null = null;

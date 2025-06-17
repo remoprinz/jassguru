@@ -137,7 +137,7 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
     if (status === 'aborted') {
       console.log(`[FirestoreSyncProvider] Status is 'aborted' for ${currentActiveGameId}. Resetting state and showing notification.`);
               useTimerStore.getState().resetAllTimers();
-              useJassStore.getState().resetJass();
+              // ENTFERNT: useJassStore.getState().resetJass() - Das würde sessionId auf "initial" setzen!
       gameStoreReset(1, undefined); // Reset ohne ID
               useUIStore.getState().clearResumableGameId();
               useUIStore.getState().resetAll();
@@ -151,7 +151,7 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
     } else { 
         console.log(`[FirestoreSyncProvider] True remote game completion detected for ${currentActiveGameId}. Resetting state for this client.`);
         useTimerStore.getState().resetAllTimers();
-      useJassStore.getState().resetJass(); 
+        // ENTFERNT: useJassStore.getState().resetJass() - Das würde sessionId auf "initial" setzen!
       gameStoreReset(1, undefined); // Reset ohne ID
       useUIStore.getState().clearResumableGameId(); 
       useUIStore.getState().resetAll(); 
@@ -166,6 +166,13 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
   const applyServerUpdate = useCallback((serverData: ActiveGame, serverRounds: RoundEntry[] | null = null) => {
       // console.log('[FirestoreSync applyServerUpdate] Received server data:', serverData);
       // console.log('[FirestoreSync applyServerUpdate] Received server rounds:', serverRounds?.length);
+      
+      // NEU: Prüfe, ob das Spiel bereits als beendet behandelt wurde
+      const currentActiveGameId = useGameStore.getState().activeGameId;
+      if (currentActiveGameId && terminationHandledForGameId.current === currentActiveGameId) {
+        console.log(`[FirestoreSync applyServerUpdate] Skipping update for game ${currentActiveGameId} - termination already handled.`);
+        return;
+      }
       
       // --- NEU: Initialen Sync erkennen ---
       if (isInitialSyncRef.current) {
@@ -245,17 +252,25 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
       console.log(`[FirestoreSync applyServerUpdate] WeisPoints handling: isRoundCompleted=${sanitizedServerData.isRoundCompleted}, shouldReset=${shouldResetWeisPoints}, finalWeisPoints=${JSON.stringify(finalWeisPoints)}`);
       
       gameStoreSetState({
-          scores: sanitizedServerData.scores,
+          scores: sanitizedServerData.scores ?? { top: 0, bottom: 0 },
           weisPoints: finalWeisPoints, // FIX: Verwende berechnete weisPoints statt direkte Server-Daten
-          striche: sanitizedServerData.striche,
+          striche: sanitizedServerData.striche ?? { 
+            top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }, 
+            bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 } 
+          },
           jassPoints: sanitizedServerData.currentJassPoints ?? { top: 0, bottom: 0 },
-          currentRound: sanitizedServerData.currentRound,
-          currentPlayer: sanitizedServerData.currentPlayer,
-          startingPlayer: sanitizedServerData.startingPlayer,
-          isRoundCompleted: sanitizedServerData.isRoundCompleted,
-          currentRoundWeis: sanitizedServerData.currentRoundWeis,
-          gamePlayers: sanitizedServerData.gamePlayers,
-          playerNames: sanitizedServerData.playerNames,
+          currentRound: sanitizedServerData.currentRound ?? 1,
+          currentPlayer: sanitizedServerData.currentPlayer ?? 1,
+          startingPlayer: sanitizedServerData.startingPlayer ?? 1,
+          isRoundCompleted: sanitizedServerData.isRoundCompleted ?? false,
+          currentRoundWeis: sanitizedServerData.currentRoundWeis ?? [],
+          gamePlayers: sanitizedServerData.gamePlayers ?? null,
+          playerNames: sanitizedServerData.playerNames ?? {
+            1: "Spieler 1",
+            2: "Spieler 2", 
+            3: "Spieler 3",
+            4: "Spieler 4"
+          },
           // Die Runden-History wird durch ihren eigenen Listener aktualisiert, daher hier nicht anfassen.
       });
 
@@ -567,12 +582,10 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
         console.log(`[FirestoreSyncProvider EFFECT] ID change detected! Target: ${currentJassStoreId}, Previous: ${currentListenerId}. Initiating reload...`); 
         clearListeners(); 
         
-        // ALT: Dieser Reset überschreibt die korrekten Settings von jassStore.startJass mit Defaults
-        // gameStoreReset(1, currentJassStoreId); 
-        // NEU: Den gameStore NICHT resetten, da jassStore.startJass (oder tournamentStore.startNewPasse)
-        // den gameStore bereits korrekt mit den spezifischen Einstellungen initialisiert haben sollte.
+        // ENTFERNT: gameStoreReset() - Das würde die korrekten Settings überschreiben
+        // ENTFERNT: jassStore.resetJass() - Das würde sessionId auf "initial" setzen!
         // Der FirestoreSyncProvider soll nur die dynamischen Daten synchronisieren.
-        console.log(`[FirestoreSyncProvider EFFECT] GameStore NICHT zurückgesetzt. Erwarte korrekte Settings von vorheriger Initialisierung.`);
+        console.log(`[FirestoreSyncProvider EFFECT] Stores NICHT zurückgesetzt. Erwarte korrekte Settings von vorheriger Initialisierung.`);
         
         performInitialLoadAndSetupListeners(currentJassStoreId);
         
@@ -584,7 +597,7 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
       if (currentListenerId) {
         // console.log(`[FirestoreSyncProvider EFFECT] No active game ID in jassStore. Stopping listeners and resetting state.`); // LOG G
         clearListeners();
-        gameStoreReset(1, undefined);
+        // ENTFERNT: gameStoreReset() - Das würde die korrekten Settings überschreiben
         terminationHandledForGameId.current = null;
               } else {
          // console.log(`[FirestoreSyncProvider EFFECT] No active game ID in jassStore and no active listeners. Doing nothing.`); // LOG H
