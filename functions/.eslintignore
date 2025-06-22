@@ -21,4 +21,12 @@
 
 # Ignore standalone scripts. These are not part of the TS project.
 migrate-teams-to-player-doc-ids.js
-trigger-stats-recalculation.js 
+trigger-stats-recalculation.js
+manualStatsRecalc.js
+
+# Ignore all .js files in root (they are standalone scripts)
+*.js
+*.cjs
+
+# Ignore markdown files
+*.md 

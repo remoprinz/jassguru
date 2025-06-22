@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import type { FrontendPlayerComputedStats, FrontendStatHighlight, FrontendStatStreak, FrontendTournamentPlacement } from '../types/computedStats';
+import { formatDuration, formatMillisecondsDuration } from '@/utils/formatUtils';
 
 // Dieses Interface definiert die Zielstruktur, die von den Profilseiten erwartet wird.
 // Namen und Struktur sind an die Verwendung in src/pages/profile/index.tsx angepasst.
@@ -18,29 +19,63 @@ export interface TransformedPlayerStats {
   gamesLost: number;
   sessionWinRate: number;
   gameWinRate: number;
+  
+  // === NEU: Strukturierte Win-Rate Informationen mit Bruch-Anzeige ===
+  sessionWinRateInfo?: { wins: number; total: number; rate: number; displayText: string } | null;
+  gameWinRateInfo?: { wins: number; total: number; rate: number; displayText: string } | null;
+  
   avgPointsPerGame: number;
   avgStrichePerGame: number;
   avgWeisPointsPerGame: number;
   avgMatschPerGame: number;
-  avgSchneiderPerGame?: number;
+  avgSchneiderPerGame: number;
   
-  totalTournaments?: number;
-  tournamentWins?: number;
+  totalTournaments: number;
+  tournamentWins: number;
   avgRoundTime?: string;
-  totalStrichesDifference?: number;
-  totalPointsDifference?: number;
+  totalStrichesDifference: number;
+  totalPointsDifference: number;
+
+  // Partner- und Gegner-Aggregate mit erweiterten WinRateInfo
+  partnerAggregates?: Array<{
+    partnerId: string;
+    partnerDisplayName: string;
+    sessionsPlayedWith: number;
+    sessionsWonWith: number;
+    gamesPlayedWith: number;
+    gamesWonWith: number;
+    sessionWinRate?: number;
+    gameWinRate?: number;
+    sessionWinRateInfo?: { wins: number; total: number; rate: number; displayText: string };
+    gameWinRateInfo?: { wins: number; total: number; rate: number; displayText: string };
+    [key: string]: any; // Für weitere Felder
+  }>;
+  
+  opponentAggregates?: Array<{
+    opponentId: string;
+    opponentDisplayName: string;
+    sessionsPlayedAgainst: number;
+    sessionsWonAgainst: number;
+    gamesPlayedAgainst: number;
+    gamesWonAgainst: number;
+    sessionWinRate?: number;
+    gameWinRate?: number;
+    sessionWinRateInfo?: { wins: number; total: number; rate: number; displayText: string };
+    gameWinRateInfo?: { wins: number; total: number; rate: number; displayText: string };
+    [key: string]: any; // Für weitere Felder
+  }>;
 
   // Highlights Partien - relatedType spezifisch für Session
   highestStricheSession?: { value: number; date: string | null; relatedId?: string; relatedType?: 'session' } | null;
-  longestWinStreakSessions?: { value: number; date: string | null; dateRange?: string | null } | null;
-  longestUndefeatedStreakSessions?: { value: number; date: string | null; dateRange?: string | null } | null;
+  longestWinStreakSessions?: { value: number; date: string | null; dateRange?: string | null; startSessionId?: string; endSessionId?: string } | null;
+  longestUndefeatedStreakSessions?: { value: number; date: string | null; dateRange?: string | null; startSessionId?: string; endSessionId?: string } | null;
   mostMatschSession?: { value: number; date: string | null; relatedId?: string; relatedType?: 'session' } | null;
   mostWeisPointsSession?: { value: number; date: string | null; relatedId?: string; relatedType?: 'session' } | null;
   
   // Highlights Spiele - relatedType spezifisch für Game
   highestStricheGame?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' } | null;
-  longestWinStreakGames?: { value: number; date: string | null; dateRange?: string | null } | null;
-  longestUndefeatedStreakGames?: { value: number; date: string | null; dateRange?: string | null } | null;
+  longestWinStreakGames?: { value: number; date: string | null; dateRange?: string | null; startSessionId?: string; endSessionId?: string } | null;
+  longestUndefeatedStreakGames?: { value: number; date: string | null; dateRange?: string | null; startSessionId?: string; endSessionId?: string } | null;
   mostMatschGame?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' } | null;
   mostWeisPointsGame?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' } | null;
 
@@ -49,13 +84,13 @@ export interface TransformedPlayerStats {
   highestStricheReceivedGame?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' } | null;
   
   // Lowlights (Beispiele) - relatedType spezifisch
-  longestLossStreakSessions?: { value: number; date: string | null; dateRange?: string | null } | null;
-  longestWinlessStreakSessions?: { value: number; date: string | null; dateRange?: string | null } | null;
+  longestLossStreakSessions?: { value: number; date: string | null; dateRange?: string | null; startSessionId?: string; endSessionId?: string } | null;
+  longestWinlessStreakSessions?: { value: number; date: string | null; dateRange?: string | null; startSessionId?: string; endSessionId?: string } | null;
   mostMatschReceivedSession?: { value: number; date: string | null; relatedId?: string; relatedType?: 'session' } | null;
   mostWeisPointsReceivedSession?: { value: number; date: string | null; relatedId?: string; relatedType?: 'session' } | null;
   
-  longestLossStreakGames?: { value: number; date: string | null; dateRange?: string | null } | null;
-  longestWinlessStreakGames?: { value: number; date: string | null; dateRange?: string | null } | null;
+  longestLossStreakGames?: { value: number; date: string | null; dateRange?: string | null; startSessionId?: string; endSessionId?: string } | null;
+  longestWinlessStreakGames?: { value: number; date: string | null; dateRange?: string | null; startSessionId?: string; endSessionId?: string } | null;
   mostMatschReceivedGame?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' } | null;
   mostWeisPointsReceivedGame?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' } | null;
   
@@ -140,7 +175,9 @@ const transformStreakInternal = (
 ): { value: number; date: string | null; // End-Datum formatiert
          startDate: string | null; // Start-Datum formatiert
          endDate: string | null; // End-Datum formatiert (redundant zu date, aber explizit)
-         dateRange?: string | null // Kombinierter Datumsbereich
+         dateRange?: string | null; // Kombinierter Datumsbereich
+         startSessionId?: string; // NEU: Session-ID der ersten Session
+         endSessionId?: string;   // NEU: Session-ID der letzten Session
 } | null => {
   if (!streak || streak.value === null || streak.value === undefined || streak.value === 0) return null;
   
@@ -157,7 +194,9 @@ const transformStreakInternal = (
     date: endDateStr, 
     startDate: startDateStr, 
     endDate: endDateStr,
-    dateRange: dateRangeStr
+    dateRange: dateRangeStr,
+    startSessionId: streak.startSessionId,
+    endSessionId: streak.endSessionId
   };
 };
 
@@ -176,7 +215,7 @@ export const transformComputedStatsToExtended = (
   const transformed: TransformedPlayerStats = {
     totalSessions: rawStats.totalSessions || 0,
     totalGames: rawStats.totalGames || 0,
-    totalPlayTime: formatTime(rawStats.totalPlayTimeSeconds || 0),
+    totalPlayTime: formatDuration(rawStats.totalPlayTimeSeconds || 0),
     firstJassDate: formatDateSafely(rawStats.firstJassTimestamp),
     lastJassDate: formatDateSafely(rawStats.lastJassTimestamp),
     groupCount: currentGroupCount,
@@ -187,16 +226,28 @@ export const transformComputedStatsToExtended = (
     gamesLost: rawStats.gameLosses || 0,
     sessionWinRate: rawStats.totalSessions > 0 ? (rawStats.sessionWins || 0) / rawStats.totalSessions : 0,
     gameWinRate: rawStats.totalGames > 0 ? (rawStats.gameWins || 0) / rawStats.totalGames : 0,
+    
+    // === NEU: Strukturierte Win-Rate Informationen transformieren ===
+    sessionWinRateInfo: rawStats.sessionWinRateInfo || null,
+    gameWinRateInfo: rawStats.gameWinRateInfo || null,
+    
     avgPointsPerGame: rawStats.avgPointsPerGame || 0,
     avgStrichePerGame: rawStats.avgStrichePerGame || 0,
     avgWeisPointsPerGame: rawStats.avgWeisPointsPerGame || 0,
     avgMatschPerGame: rawStats.avgMatschPerGame || 0,
     avgSchneiderPerGame: rawStats.avgSchneiderPerGame || 0,
+    
     totalTournaments: rawStats.totalTournamentsParticipated || 0,
     tournamentWins: rawStats.tournamentWins || 0,
-    totalStrichesDifference: rawStats.totalStricheDifference,
-    totalPointsDifference: rawStats.totalPointsDifference,
-    avgRoundTime: rawStats.totalGames > 0 && rawStats.totalPlayTimeSeconds > 0 ? formatTime(Math.round(rawStats.totalPlayTimeSeconds / rawStats.totalGames)) : '0s',
+    totalStrichesDifference: rawStats.totalStricheDifference || 0,
+    totalPointsDifference: rawStats.totalPointsDifference || 0,
+    avgRoundTime: rawStats.avgRoundDurationMilliseconds 
+      ? formatMillisecondsDuration(rawStats.avgRoundDurationMilliseconds)
+      : undefined,
+
+    // Partner- und Gegner-Aggregate mit erweiterten WinRateInfo
+    partnerAggregates: rawStats.partnerAggregates || [],
+    opponentAggregates: rawStats.opponentAggregates || [],
 
     // Highlights Partien - Zugriff auf rawStats mit korrekten Backend-Feldnamen
     highestStricheSession: transformHighlightInternal(rawStats.highestStricheSession, 'session', false) as TransformedPlayerStats['highestStricheSession'],

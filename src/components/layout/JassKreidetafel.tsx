@@ -689,7 +689,7 @@ Generiert von:
       })()}
 
       {showStartScreenCondition ? (
-        <StartScreen />
+        <StartScreen members={[]} />
       ) : (
         <>
           {/* TOP */}

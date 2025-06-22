@@ -13,6 +13,7 @@ import { Loader2, AlertTriangle, User } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { TournamentGame, TournamentSettings } from '@/types/tournament';
 import type { FirestorePlayer } from '@/types/jass';
+import ProfileImage from '@/components/ui/ProfileImage';
 
 interface TournamentKreidetafelProps {
   instanceId: string;
@@ -117,10 +118,14 @@ const TournamentKreidetafel: React.FC<TournamentKreidetafelProps> = ({ instanceI
           <div className="text-center text-xs font-medium text-gray-400 flex items-end justify-center pb-1">Passe</div>
           {tournamentParticipants.map((participant, index) => (
             <div key={participant?.uid || index} className="text-center text-sm font-medium text-white flex flex-col items-center space-y-1">
-              <Avatar className="h-8 w-8 mb-1">
-                <AvatarImage src={participant?.photoURL || undefined} alt={participant?.displayName || 'Spieler'} />
-                <AvatarFallback className="bg-gray-600 text-xs">{participant?.displayName?.charAt(0) || 'P'}</AvatarFallback>
-              </Avatar>
+              <ProfileImage 
+                src={participant?.photoURL || undefined} 
+                alt={participant?.displayName || 'Spieler'} 
+                size="sm"
+                className="mb-1"
+                fallbackClassName="bg-gray-600 text-xs"
+                fallbackText={participant?.displayName?.charAt(0) || 'P'}
+              />
               <span className="text-xs truncate w-full">{participant?.displayName || `Spieler ${index + 1}`}</span>
             </div>
           ))}

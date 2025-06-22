@@ -10,6 +10,8 @@ import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
 import { PlayerSelectTournamentPopover } from './PlayerSelectTournamentPopover';
 import GlobalLoader from '@/components/layout/GlobalLoader';
+import { DEFAULT_STROKE_SETTINGS } from '@/config/GameSettings';
+import ProfileImage from '@/components/ui/ProfileImage';
 
 const screenVariants = {
   initial: { opacity: 0, scale: 0.95 },
@@ -31,6 +33,7 @@ interface TournamentStartScreenProps {
   tournamentParticipants: ParticipantWithProgress[];
   currentPasseNumber: number;
   onPasseStarted: (activeGameId: string) => void;
+  members?: FirestorePlayer[];
 }
 
 const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
@@ -40,6 +43,7 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
   tournamentParticipants,
   currentPasseNumber,
   onPasseStarted,
+  members = [],
 }) => {
   const { user } = useAuthStore();
   const startNewPasseAction = useTournamentStore((state) => state.startNewPasse);
@@ -253,28 +257,45 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
                     className={getPlayerFieldClass(slotNumber)}
                   >
                     {player ? (
-                      <span className='text-white font-medium'>
-                        {player.name} <span className={`text-sm font-bold ${(slotNumber === 1 || slotNumber === 3) ? 'text-yellow-400' : 'text-blue-400'}`}>({(slotNumber === 1 || slotNumber === 3) ? "Team 1" : "Team 2"})</span>
-                      </span>
+                      <>
+                        <div className="flex items-center">
+                          <ProfileImage 
+                            src={(() => {
+                              if (player.type === 'member') {
+                                // Finde das FirestorePlayer-Objekt basierend auf dem Namen
+                                const firestorePlayer = members.find(m => m.displayName === player.name);
+                                return firestorePlayer?.photoURL;
+                              }
+                              return undefined;
+                            })()}
+                            alt={player.name} 
+                            size="sm"
+                            className="mr-3 flex-shrink-0"
+                            fallbackClassName="bg-gray-600 text-gray-300 text-sm"
+                            fallbackText={player.name.charAt(0).toUpperCase()}
+                          />
+                          <span className='text-white font-medium'>
+                            {player.name}{' '}
+                            <span className={`text-sm font-bold ${(slotNumber === 1 || slotNumber === 3) ? 'text-yellow-400' : 'text-blue-400'}`}>({(slotNumber === 1 || slotNumber === 3) ? "Team 1" : "Team 2"})</span>
+                          </span>
+                        </div>
+                        <Button 
+                           variant="ghost" 
+                           size="icon" 
+                           onClick={(e) => { 
+                               e.stopPropagation();
+                               handleRemovePlayer(slotNumber); 
+                           }}
+                           className="absolute top-1/2 right-2 transform -translate-y-1/2 text-gray-400 hover:text-white flex-shrink-0 p-1 h-8 w-8"
+                           aria-label="Spieler entfernen"
+                        >
+                           <X size={18}/>
+                        </Button>
+                      </>
                     ) : (
                       <span className='text-gray-400 italic'>
                         {placeholderText}
                       </span>
-                    )}
-                    
-                    {player && ( 
-                         <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={(e) => { 
-                                e.stopPropagation();
-                                handleRemovePlayer(slotNumber); 
-                            }}
-                            className="absolute top-1/2 right-2 transform -translate-y-1/2 text-gray-400 hover:text-white flex-shrink-0 p-1 h-8 w-8"
-                            aria-label="Spieler entfernen"
-                         >
-                            <X size={18}/>
-                         </Button>
                     )}
                   </div>
                 );

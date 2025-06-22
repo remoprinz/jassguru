@@ -37,49 +37,37 @@ function extractTeamsWithPlayerDocIds(sessionData: any): { top: string[], bottom
   const top: string[] = [];
   const bottom: string[] = [];
   
-  const sessionDocIdForLogging = sessionData.id || 'unknown';
-
-  // Extrahiere direkt aus teams-Struktur mit top/bottom
-  if (sessionData.teams?.top?.players) {
+  // ✅ KORRIGIERT: Tournament-Sessions haben KEINE Session-Level teams, nur gameResults
+  if (sessionData.tournamentId) {
+    // Für Tournament-Sessions: Teams sind nur in gameResults verfügbar
+    logger.info(`[groupStatsCalculator] Tournament session ${sessionData.id || 'unknown'} - teams only available in gameResults`);
+    return { top, bottom };
+  }
+  
+  // Für Regular Sessions: Verwende Session-Level teams
+  if (sessionData.teams?.top?.players && sessionData.teams?.bottom?.players) {
     sessionData.teams.top.players.forEach((player: any) => {
-      if (player.playerId && typeof player.playerId === 'string') {
-        top.push(player.playerId);
-      } else {
-        logger.warn(`Invalid or missing playerId in top team for session ${sessionDocIdForLogging}`);
-      }
+      if (player.playerId) top.push(player.playerId);
     });
-  }
-  
-  if (sessionData.teams?.bottom?.players) {
     sessionData.teams.bottom.players.forEach((player: any) => {
-      if (player.playerId && typeof player.playerId === 'string') {
-        bottom.push(player.playerId);
-      } else {
-        logger.warn(`Invalid or missing playerId in bottom team for session ${sessionDocIdForLogging}`);
-      }
+      if (player.playerId) bottom.push(player.playerId);
     });
+  } else {
+    logger.warn(`[groupStatsCalculator] Regular session ${sessionData.id || 'unknown'} hat keine gültige teams.top/bottom Struktur`);
   }
   
-  // Strikte Validierung: Sicherstellen, dass die extrahierten IDs gültige Teilnehmer sind.
-  const allTeamPlayerIds = [...top, ...bottom];
-  const validParticipantPlayerIds = sessionData.participantPlayerIds || [];
-  for (const id of allTeamPlayerIds) {
-    if (!validParticipantPlayerIds.includes(id)) {
-      logger.error(`[groupStatsCalculator] FATAL DATA INCONSISTENCY in session ${sessionDocIdForLogging}: Team structure contains an ID '${id}' which is not in participantPlayerIds. This must be fixed in the database.`, {
-        participantPlayerIds: validParticipantPlayerIds,
-        teams: sessionData.teams
-      });
-    }
-  }
-  
-  return { 
-    top: top.sort(), 
-    bottom: bottom.sort() 
-  };
+  return { top, bottom };
 }
-  
-// ✅ VEREINFACHT: Bestimme Team eines Player Doc ID als top/bottom
+
+// ✅ KORRIGIERT: Bestimme Team eines Player Doc ID - für Tournaments über gameResults
 function getPlayerTeamAssignment(playerDocId: string, sessionData: any): 'top' | 'bottom' | null {
+  // ✅ WICHTIG: Tournament-Sessions haben keine Session-Level Teams
+  if (sessionData.tournamentId) {
+    // Für Tournament-Sessions: Teams ändern sich pro Spiel, daher keine Session-Level Zuordnung möglich
+    return null;
+  }
+  
+  // Für Regular Sessions: Verwende Session-Level teams
   const teams = extractTeamsWithPlayerDocIds(sessionData);
   
   if (teams.top.includes(playerDocId)) {
@@ -118,12 +106,8 @@ function validateCalculatedStats(stats: GroupComputedStats): boolean {
   if (stats.totalPlayTimeSeconds < 0) errors.push('Negative totalPlayTimeSeconds');
   
   // Logische Validierungen
-  if (stats.gameCount > 0 && stats.sessionCount === 0) {
-    errors.push('Games exist but no sessions');
-  }
-  
-  if (stats.sessionCount > 0 && stats.gameCount === 0) {
-    errors.push('Sessions exist but no games');
+  if (stats.gameCount > 0 && stats.sessionCount === 0 && (stats.tournamentCount || 0) === 0) {
+    errors.push('Games exist but no sessions or tournaments');
   }
   
   // Durchschnittswerte
@@ -146,9 +130,11 @@ function validateCalculatedStats(stats: GroupComputedStats): boolean {
 function logStatisticsCalculation(groupId: string, stats: GroupComputedStats, rawDataSummary: any) {
   logger.info(`[STATS_CALCULATION] Group ${groupId} Summary:`, {
     sessionsFound: rawDataSummary.sessionsCount,
+    tournamentsFound: rawDataSummary.tournamentsCount,
     gamesFound: rawDataSummary.gamesCount,
     roundsFound: rawDataSummary.roundsCount,
     calculatedSessions: stats.sessionCount,
+    calculatedTournaments: stats.tournamentCount || 0,
     calculatedGames: stats.gameCount,
     calculatedMembers: stats.memberCount,
     calculatedPlayTime: stats.totalPlayTimeSeconds,
@@ -157,6 +143,14 @@ function logStatisticsCalculation(groupId: string, stats: GroupComputedStats, ra
     trumpfStatsCount: Object.keys(stats.trumpfStatistik || {}).length,
     dataQualityIssues: rawDataSummary.dataErrors || 0
   });
+}
+
+// ✅ ELEGANTE LÖSUNG: Kanonische Team-Schlüssel für konsistente Team-Identifikation
+function createCanonicalTeamKey(playerIds: string[]): string {
+  // Sortiere die Spieler-IDs alphabetisch für konsistente Team-Identifikation
+  // Dadurch wird sichergestellt, dass ["id_A", "id_B"] und ["id_B", "id_A"] 
+  // immer denselben Schlüssel "id_A_id_B" ergeben
+  return [...playerIds].sort().join('_');
 }
 
 export async function calculateGroupStatisticsInternal(groupId: string): Promise<GroupComputedStats> {
@@ -194,7 +188,24 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
             return calculatedStats;
         }
 
-        calculatedStats.sessionCount = sessionsSnap.docs.length;
+        // ✅ KRITISCH: Separiere Tournament Sessions von Regular Sessions
+        const regularSessions: admin.firestore.QueryDocumentSnapshot[] = [];
+        const tournamentSessions: admin.firestore.QueryDocumentSnapshot[] = [];
+        
+        sessionsSnap.docs.forEach(doc => {
+            const sessionData = doc.data();
+            if (sessionData.tournamentId) {
+                tournamentSessions.push(doc);
+            } else {
+                regularSessions.push(doc);
+            }
+        });
+
+        // ✅ KORRIGIERT: Nur Regular Sessions zählen als Sessions, Tournaments separat
+        calculatedStats.sessionCount = regularSessions.length;
+        calculatedStats.tournamentCount = tournamentSessions.length;
+        
+        logger.info(`[calculateGroupStatisticsInternal] Found ${regularSessions.length} regular sessions and ${tournamentSessions.length} tournaments for group ${groupId}.`);
 
     // Initialisiere Variablen für Aggregationen
         let totalPlayTimeMillis = 0;
@@ -227,8 +238,13 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
     });
 
     // Schritt 3: Alle Sessions und Spiele verarbeiten
-        for (const sessionDoc of sessionsSnap.docs) {
+    // ✅ KORRIGIERT: Verarbeite ALLE Sessions (Regular + Tournament) für Spiel-Statistiken,
+    // aber unterscheide für Session-basierte Statistiken
+    const allSessions = [...regularSessions, ...tournamentSessions];
+    
+        for (const sessionDoc of allSessions) {
       const sessionData = sessionDoc.data();
+      const isTournamentSession = Boolean(sessionData.tournamentId);
       
       if (!validateSessionDataEnhanced(sessionData)) {
         logger.warn(`Invalid session data structure for ${sessionDoc.id}, skipping.`);
@@ -238,7 +254,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
       // VEREINFACHT: Verwende nur participantPlayerIds
       const sessionPlayerDocIds = extractPlayerDocIdsFromSessionSimple(sessionData);
       
-      logger.info(`[calculateGroupStatisticsInternal] Session ${sessionDoc.id} players:`, {
+      logger.debug(`[calculateGroupStatisticsInternal] Session ${sessionDoc.id} (tournament: ${isTournamentSession}) players:`, {
         participantPlayerIds: sessionData.participantPlayerIds,
         extractedPlayerIds: sessionPlayerDocIds
       });
@@ -253,7 +269,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         });
       }
 
-      // Zeitstempel aktualisieren
+      // Zeitstempel aktualisieren (für ALLE Sessions)
       if (sessionData.startedAt) {
         let startedAtTimestamp: admin.firestore.Timestamp;
         if (sessionData.startedAt instanceof admin.firestore.Timestamp) {
@@ -294,7 +310,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         }
       }
 
-      // Spieler-Aktivität aktualisieren
+      // Spieler-Aktivität aktualisieren (für ALLE Sessions)
       sessionPlayerDocIds.forEach((playerId: string) => {
         if (sessionData.endedAt) {
           let endedAtForActivity: admin.firestore.Timestamp;
@@ -316,168 +332,281 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
 
       // ✅ KORRIGIERT: Session-Level Statistiken mit Player Doc IDs
       sessionPlayerDocIds.forEach((playerId: string) => {
-        // Session-Gewinnraten
-        if (!playerSessionStats.has(playerId)) {
-          playerSessionStats.set(playerId, { wins: 0, losses: 0, ties: 0, sessions: 0 });
-        }
-        
-        const sessionStats = playerSessionStats.get(playerId)!;
-        sessionStats.sessions++;
-        
-        // ✅ KORRIGIERT: Verwende neue Player Doc ID basierte Team-Zuordnung
-        const playerTeam = getPlayerTeamAssignment(playerId, sessionData);
-        
-        if (!playerTeam) {
-          logger.warn(`Player ${playerId} not found in teams structure for session ${sessionDoc.id}`);
-          return;
-        }
-        
-        // ✅ KORRIGIERT: Session-Ergebnis auswerten
-        const winnerTeamKey = sessionData.winnerTeamKey;
-        if (winnerTeamKey === 'draw' || winnerTeamKey === 'tie') {
-          sessionStats.ties++;
-        } else if (winnerTeamKey === playerTeam) {
-          sessionStats.wins++;
-        } else {
-          sessionStats.losses++;
-        }
-        
-        // KORRIGIERT: Punkte-Statistiken mit korrekter Team-Zuordnung
-        if (sessionData.finalScores) {
-          if (!playerPointsStats.has(playerId)) {
-            playerPointsStats.set(playerId, { made: 0, received: 0, games: 0 });
+        // ✅ KRITISCH: Session-Gewinnraten NUR für Regular Sessions zählen
+        if (!isTournamentSession) {
+          if (!playerSessionStats.has(playerId)) {
+            playerSessionStats.set(playerId, { wins: 0, losses: 0, ties: 0, sessions: 0 });
           }
           
-          const pointsStats = playerPointsStats.get(playerId)!;
-          pointsStats.games += sessionData.gamesPlayed || 0; // Anzahl Spiele dieser Session
+          const sessionStats = playerSessionStats.get(playerId)!;
+          sessionStats.sessions++;
           
-          // VEREINFACHT: Direkte top/bottom Zuordnung ohne teamScoreMapping
-          if (playerTeam === 'top') {
-            pointsStats.made += sessionData.finalScores.top || 0;
-            pointsStats.received += sessionData.finalScores.bottom || 0;
+          // ✅ KORRIGIERT: Verwende neue Player Doc ID basierte Team-Zuordnung
+          const playerTeam = getPlayerTeamAssignment(playerId, sessionData);
+          
+          if (!playerTeam) {
+            logger.warn(`Player ${playerId} not found in teams structure for regular session ${sessionDoc.id}`);
+            return;
+          }
+          
+          // ✅ KORRIGIERT: Session-Ergebnis auswerten
+          const winnerTeamKey = sessionData.winnerTeamKey;
+          if (winnerTeamKey === 'draw' || winnerTeamKey === 'tie') {
+            sessionStats.ties++;
+          } else if (winnerTeamKey === playerTeam) {
+            sessionStats.wins++;
           } else {
-            pointsStats.made += sessionData.finalScores.bottom || 0;
-            pointsStats.received += sessionData.finalScores.top || 0;
+            sessionStats.losses++;
           }
         }
         
-        // KORRIGIERT: Striche-Statistiken mit korrekter Team-Zuordnung
-        if (sessionData.finalStriche) {
-          if (!playerStricheStats.has(playerId)) {
-            playerStricheStats.set(playerId, { made: 0, received: 0, games: 0 });
-          }
-          
-          const stricheStats = playerStricheStats.get(playerId)!;
-          stricheStats.games += sessionData.gamesPlayed || 0; // Anzahl Spiele dieser Session
-          
-          // VEREINFACHT: Direkte top/bottom Zuordnung
-          const playerStriche = sessionData.finalStriche[playerTeam] || {};
-          const opponentStriche = sessionData.finalStriche[playerTeam === 'top' ? 'bottom' : 'top'] || {};
-          
-          const playerTotal = (playerStriche.berg || 0) + (playerStriche.sieg || 0) + (playerStriche.matsch || 0) + (playerStriche.schneider || 0) + (playerStriche.kontermatsch || 0);
-          const opponentTotal = (opponentStriche.berg || 0) + (opponentStriche.sieg || 0) + (opponentStriche.matsch || 0) + (opponentStriche.schneider || 0) + (opponentStriche.kontermatsch || 0);
-          
-          stricheStats.made += playerTotal;
-          stricheStats.received += opponentTotal;
-        }
+        // ✅ WICHTIG: Spiel-Level Statistiken für ALLE Sessions (Regular + Tournament)
+        // ✅ KORRIGIERT: Tournament-Sessions verwenden gameResults für Team-Zuordnung
+        let playerTeamForGameStats: 'top' | 'bottom' | null = null;
         
-        // Spiel-Zählung für Player-Game-Counts
-        playerGameCounts.set(playerId, (playerGameCounts.get(playerId) || 0) + (sessionData.gamesPlayed || 0));
-            
-        // ✅ OPTIMIERT: Spiel-Gewinnraten aus Session-Level Daten
-            if (!playerGameStats.has(playerId)) {
-              playerGameStats.set(playerId, { wins: 0, losses: 0, games: 0 });
-            }
-            
-            const gameStats = playerGameStats.get(playerId)!;
-        gameStats.games += sessionData.gamesPlayed || 0;
-        
-        // Session-Gewinner bestimmt die Spiel-Gewinnrate (vereinfacht)
-        if (winnerTeamKey && winnerTeamKey !== 'draw' && winnerTeamKey !== 'tie') {
-          // Wenn Spieler-Team die Session gewonnen hat, werden mehr Spiele als gewonnen gezählt
-          const teamWonSession = (playerTeam === 'top' && winnerTeamKey === 'top') || 
-                               (playerTeam === 'bottom' && winnerTeamKey === 'bottom');
-          if (teamWonSession) {
-            // Schätze Spiel-Gewinne basierend auf Session-Sieg (vereinfacht)
-            const estimatedGameWins = Math.ceil((sessionData.gamesPlayed || 0) * 0.6); // 60% Gewinnrate für Session-Gewinner
-            gameStats.wins += estimatedGameWins;
-            gameStats.losses += (sessionData.gamesPlayed || 0) - estimatedGameWins;
-          } else {
-            // Verlierer-Team
-            const estimatedGameWins = Math.floor((sessionData.gamesPlayed || 0) * 0.4); // 40% Gewinnrate für Session-Verlierer
-            gameStats.wins += estimatedGameWins;
-            gameStats.losses += (sessionData.gamesPlayed || 0) - estimatedGameWins;
+        if (isTournamentSession) {
+          // ✅ NEU: Für Tournament-Sessions verwende gameResults für Spiel-Statistiken
+          // Da Teams pro Spiel wechseln, müssen wir über gameResults iterieren
+          if (sessionData.gameResults && Array.isArray(sessionData.gameResults)) {
+            // Verarbeite jedes Spiel einzeln für Tournament-Sessions
+            sessionData.gameResults.forEach((game: any, gameIndex: number) => {
+              if (game.teams?.top?.players && game.teams?.bottom?.players) {
+                const gameTopPlayerIds = game.teams.top.players.map((p: any) => p.playerId).filter(Boolean);
+                const gameBottomPlayerIds = game.teams.bottom.players.map((p: any) => p.playerId).filter(Boolean);
+                
+                let gamePlayerTeam: 'top' | 'bottom' | null = null;
+                if (gameTopPlayerIds.includes(playerId)) {
+                  gamePlayerTeam = 'top';
+                } else if (gameBottomPlayerIds.includes(playerId)) {
+                  gamePlayerTeam = 'bottom';
                 }
+                
+                if (gamePlayerTeam) {
+                  // ✅ KORRIGIERT: Punkte-Statistiken pro Spiel für Tournaments
+                  if (game.topScore !== undefined && game.bottomScore !== undefined) {
+                    if (!playerPointsStats.has(playerId)) {
+                      playerPointsStats.set(playerId, { made: 0, received: 0, games: 0 });
+                    }
+                    
+                    const pointsStats = playerPointsStats.get(playerId)!;
+                    pointsStats.games += 1; // Ein Spiel
+                    
+                    if (gamePlayerTeam === 'top') {
+                      pointsStats.made += game.topScore || 0;
+                      pointsStats.received += game.bottomScore || 0;
+                    } else {
+                      pointsStats.made += game.bottomScore || 0;
+                      pointsStats.received += game.topScore || 0;
+                    }
+                  }
+                  
+                  // ✅ KORRIGIERT: Striche-Statistiken pro Spiel für Tournaments
+                  if (game.finalStriche) {
+                    if (!playerStricheStats.has(playerId)) {
+                      playerStricheStats.set(playerId, { made: 0, received: 0, games: 0 });
+                    }
+                    
+                    const stricheStats = playerStricheStats.get(playerId)!;
+                    stricheStats.games += 1; // Ein Spiel
+                    
+                    const playerStriche = game.finalStriche[gamePlayerTeam] || {};
+                    const opponentStriche = game.finalStriche[gamePlayerTeam === 'top' ? 'bottom' : 'top'] || {};
+                    
+                    const playerTotal = (playerStriche.berg || 0) + (playerStriche.sieg || 0) + (playerStriche.matsch || 0) + (playerStriche.schneider || 0) + (playerStriche.kontermatsch || 0);
+                    const opponentTotal = (opponentStriche.berg || 0) + (opponentStriche.sieg || 0) + (opponentStriche.matsch || 0) + (opponentStriche.schneider || 0) + (opponentStriche.kontermatsch || 0);
+                      
+                    stricheStats.made += playerTotal;
+                    stricheStats.received += opponentTotal;
+                    
+                    // ✅ KORRIGIERT: Event-Statistiken pro Spiel für Tournaments
+                    if (!playerMatschStats.has(playerId)) {
+                      playerMatschStats.set(playerId, { made: 0, received: 0, games: 0 });
+                    }
+                    if (!playerSchneiderStats.has(playerId)) {
+                      playerSchneiderStats.set(playerId, { made: 0, received: 0, games: 0 });
+                    }
+                    if (!playerKontermatschStats.has(playerId)) {
+                      playerKontermatschStats.set(playerId, { made: 0, received: 0, games: 0 });
+                    }
+                    
+                    const matschStats = playerMatschStats.get(playerId)!;
+                    const schneiderStats = playerSchneiderStats.get(playerId)!;
+                    const kontermatschStats = playerKontermatschStats.get(playerId)!;
+                    
+                    matschStats.games += 1;
+                    schneiderStats.games += 1;
+                    kontermatschStats.games += 1;
+                    
+                    matschStats.made += playerStriche.matsch || 0;
+                    matschStats.received += opponentStriche.matsch || 0;
+                    
+                    schneiderStats.made += playerStriche.schneider || 0;
+                    schneiderStats.received += opponentStriche.schneider || 0;
+                    
+                    kontermatschStats.made += playerStriche.kontermatsch || 0;
+                    kontermatschStats.received += opponentStriche.kontermatsch || 0;
+                  }
+                  
+                  // ✅ KORRIGIERT: Spiel-Gewinnraten für Tournament-Sessions
+                  if (!playerGameStats.has(playerId)) {
+                    playerGameStats.set(playerId, { wins: 0, losses: 0, games: 0 });
+                  }
+                  
+                  const gameStats = playerGameStats.get(playerId)!;
+                  gameStats.games += 1; // Ein Spiel
+                  
+                  if (game.winnerTeam === gamePlayerTeam) {
+                    gameStats.wins += 1;
+                  } else if (game.winnerTeam && game.winnerTeam !== 'tie') {
+                    gameStats.losses += 1;
+                  }
+                }
+              }
+            });
+          }
+          
+          // ✅ WICHTIG: Spiel-Zählung für Tournament-Sessions
+          playerGameCounts.set(playerId, (playerGameCounts.get(playerId) || 0) + (sessionData.gamesPlayed || 0));
         } else {
-          // Unentschieden: 50/50 Verteilung
-          const estimatedGameWins = Math.round((sessionData.gamesPlayed || 0) * 0.5);
-          gameStats.wins += estimatedGameWins;
-          gameStats.losses += (sessionData.gamesPlayed || 0) - estimatedGameWins;
-                }
-
-        // ✅ OPTIMIERT: Event-Statistiken direkt aus eventCounts verwenden (DRASTISCHE PERFORMANCE-VERBESSERUNG)
-        if (sessionData.eventCounts) {
-          // VEREINFACHT: Direkte top/bottom Zuordnung
-          const playerEventCounts = sessionData.eventCounts[playerTeam] || {};
-          const opponentEventCounts = sessionData.eventCounts[playerTeam === 'top' ? 'bottom' : 'top'] || {};
-
-          // ✅ OPTIMIERT: Matsch-Statistiken direkt aus eventCounts
-              if (!playerMatschStats.has(playerId)) {
-                playerMatschStats.set(playerId, { made: 0, received: 0, games: 0 });
-              }
-              const matschStats = playerMatschStats.get(playerId)!;
-          matschStats.games += sessionData.gamesPlayed || 0; // Anzahl Spiele der Session
-          matschStats.made += playerEventCounts.matsch || 0;
-          matschStats.received += opponentEventCounts.matsch || 0;
-
-          // ✅ OPTIMIERT: Schneider-Statistiken direkt aus eventCounts
-              if (!playerSchneiderStats.has(playerId)) {
-                playerSchneiderStats.set(playerId, { made: 0, received: 0, games: 0 });
-              }
-              const schneiderStats = playerSchneiderStats.get(playerId)!;
-          schneiderStats.games += sessionData.gamesPlayed || 0;
-          schneiderStats.made += playerEventCounts.schneider || 0;
-          schneiderStats.received += opponentEventCounts.schneider || 0;
-
-          // ✅ OPTIMIERT: Kontermatsch-Statistiken direkt aus eventCounts
-              if (!playerKontermatschStats.has(playerId)) {
-                playerKontermatschStats.set(playerId, { made: 0, received: 0, games: 0 });
-              }
-              const kontermatschStats = playerKontermatschStats.get(playerId)!;
-          kontermatschStats.games += sessionData.gamesPlayed || 0;
-          kontermatschStats.made += playerEventCounts.kontermatsch || 0;
-          kontermatschStats.received += opponentEventCounts.kontermatsch || 0;
-            }
-
-        // ✅ OPTIMIERT: Verwende Session-Level Weis-Aggregation wenn verfügbar
-        if (sessionData.sessionTotalWeisPoints) {
-              if (!playerWeisStats.has(playerId)) {
-                playerWeisStats.set(playerId, { made: 0, games: 0 });
-              }
-              const weisStats = playerWeisStats.get(playerId)!;
-          weisStats.games += sessionData.gamesPlayed || 0; // Anzahl Spiele der Session
-              
-          // VEREINFACHT: Direkte top/bottom Zuordnung
-          weisStats.made += sessionData.sessionTotalWeisPoints[playerTeam] || 0;
-            }
-
-        // ✅ OPTIMIERT: Verwende Session-Level Rundendauer-Aggregation wenn verfügbar
-        if (sessionData.aggregatedRoundDurationsByPlayer && sessionData.aggregatedRoundDurationsByPlayer[playerId]) {
-          if (!playerRoundTimes.has(playerId)) {
-            playerRoundTimes.set(playerId, []);
+          // ✅ EXISTING: Regular Session Logik (unverändert)
+          playerTeamForGameStats = getPlayerTeamAssignment(playerId, sessionData);
+          
+          if (!playerTeamForGameStats) {
+            logger.warn(`Player ${playerId} not found in teams structure for regular session ${sessionDoc.id}`);
+            return;
           }
           
-          const playerRoundDurations = sessionData.aggregatedRoundDurationsByPlayer[playerId];
-          const avgRoundDuration = playerRoundDurations.roundCount > 0 
-            ? playerRoundDurations.totalDuration / playerRoundDurations.roundCount 
-            : 0;
+          // KORRIGIERT: Punkte-Statistiken mit korrekter Team-Zuordnung
+          if (sessionData.finalScores) {
+            if (!playerPointsStats.has(playerId)) {
+              playerPointsStats.set(playerId, { made: 0, received: 0, games: 0 });
+            }
+            
+            const pointsStats = playerPointsStats.get(playerId)!;
+            pointsStats.games += sessionData.gamesPlayed || 0; // Anzahl Spiele dieser Session
+            
+            // VEREINFACHT: Direkte top/bottom Zuordnung ohne teamScoreMapping
+            if (playerTeamForGameStats === 'top') {
+              pointsStats.made += sessionData.finalScores.top || 0;
+              pointsStats.received += sessionData.finalScores.bottom || 0;
+            } else {
+              pointsStats.made += sessionData.finalScores.bottom || 0;
+              pointsStats.received += sessionData.finalScores.top || 0;
+            }
+          }
           
-          // Addiere zur Session-Total-Rundendauer
-          totalRoundDurationMillis += playerRoundDurations.totalDuration;
+          // KORRIGIERT: Striche-Statistiken mit korrekter Team-Zuordnung
+          if (sessionData.finalStriche) {
+            if (!playerStricheStats.has(playerId)) {
+              playerStricheStats.set(playerId, { made: 0, received: 0, games: 0 });
+            }
+            
+            const stricheStats = playerStricheStats.get(playerId)!;
+            stricheStats.games += sessionData.gamesPlayed || 0; // Anzahl Spiele dieser Session
+            
+            // VEREINFACHT: Direkte top/bottom Zuordnung
+            const playerStriche = sessionData.finalStriche[playerTeamForGameStats] || {};
+            const opponentStriche = sessionData.finalStriche[playerTeamForGameStats === 'top' ? 'bottom' : 'top'] || {};
+            
+            const playerTotal = (playerStriche.berg || 0) + (playerStriche.sieg || 0) + (playerStriche.matsch || 0) + (playerStriche.schneider || 0) + (playerStriche.kontermatsch || 0);
+            const opponentTotal = (opponentStriche.berg || 0) + (opponentStriche.sieg || 0) + (opponentStriche.matsch || 0) + (opponentStriche.schneider || 0) + (opponentStriche.kontermatsch || 0);
               
-          // Füge die durchschnittliche Rundendauer für alle Runden dieser Session hinzu
-          for (let i = 0; i < playerRoundDurations.roundCount; i++) {
-            playerRoundTimes.get(playerId)!.push(avgRoundDuration);
+            stricheStats.made += playerTotal;
+            stricheStats.received += opponentTotal;
+          }
+          
+          // Spiel-Zählung für Player-Game-Counts
+          playerGameCounts.set(playerId, (playerGameCounts.get(playerId) || 0) + (sessionData.gamesPlayed || 0));
+              
+          // ✅ OPTIMIERT: Spiel-Gewinnraten aus Session-Level Daten
+          if (!playerGameStats.has(playerId)) {
+            playerGameStats.set(playerId, { wins: 0, losses: 0, games: 0 });
+          }
+          
+          const gameStats = playerGameStats.get(playerId)!;
+          
+          // Zähle die Spiele der Session IMMER zur Gesamtzahl hinzu
+          gameStats.games += sessionData.gamesPlayed || 0;
+          
+          // ✅ NEU & KORRIGIERT: Verwende exakte gameWinsByPlayer-Daten.
+          // Die Logik hier muss exakt sein, da wir jetzt wissen, dass die Daten da sind.
+          if (sessionData.gameWinsByPlayer && sessionData.gameWinsByPlayer[playerId]) {
+            const playerWinData = sessionData.gameWinsByPlayer[playerId];
+            if (typeof playerWinData.wins === 'number') {
+              gameStats.wins += playerWinData.wins;
+            }
+            if (typeof playerWinData.losses === 'number') {
+              gameStats.losses += playerWinData.losses;
+            }
+          } else {
+            // Dieser Fall sollte nach unserer Verifizierung nicht mehr eintreten, aber wir loggen ihn sicherheitshalber.
+            logger.warn(`[groupStatsCalculator] No 'gameWinsByPlayer' data found for player ${playerId} in session ${sessionDoc.id}. Wins/losses for this session will be 0.`);
+          }
+          
+          // ✅ OPTIMIERT: Event-Statistiken direkt aus eventCounts verwenden (DRASTISCHE PERFORMANCE-VERBESSERUNG)
+          if (sessionData.eventCounts) {
+            // VEREINFACHT: Direkte top/bottom Zuordnung
+            const playerEventCounts = sessionData.eventCounts[playerTeamForGameStats] || {};
+            const opponentEventCounts = sessionData.eventCounts[playerTeamForGameStats === 'top' ? 'bottom' : 'top'] || {};
+
+            // ✅ OPTIMIERT: Matsch-Statistiken direkt aus eventCounts
+            if (!playerMatschStats.has(playerId)) {
+              playerMatschStats.set(playerId, { made: 0, received: 0, games: 0 });
+            }
+            const matschStats = playerMatschStats.get(playerId)!;
+            matschStats.games += sessionData.gamesPlayed || 0; // Anzahl Spiele der Session
+            matschStats.made += playerEventCounts.matsch || 0;
+            matschStats.received += opponentEventCounts.matsch || 0;
+
+            // ✅ OPTIMIERT: Schneider-Statistiken direkt aus eventCounts
+            if (!playerSchneiderStats.has(playerId)) {
+              playerSchneiderStats.set(playerId, { made: 0, received: 0, games: 0 });
+            }
+            const schneiderStats = playerSchneiderStats.get(playerId)!;
+            schneiderStats.games += sessionData.gamesPlayed || 0;
+            schneiderStats.made += playerEventCounts.schneider || 0;
+            schneiderStats.received += opponentEventCounts.schneider || 0;
+
+            // ✅ OPTIMIERT: Kontermatsch-Statistiken direkt aus eventCounts
+            if (!playerKontermatschStats.has(playerId)) {
+              playerKontermatschStats.set(playerId, { made: 0, received: 0, games: 0 });
+            }
+            const kontermatschStats = playerKontermatschStats.get(playerId)!;
+            kontermatschStats.games += sessionData.gamesPlayed || 0;
+            kontermatschStats.made += playerEventCounts.kontermatsch || 0;
+            kontermatschStats.received += opponentEventCounts.kontermatsch || 0;
+          }
+
+          // ✅ OPTIMIERT: Verwende Session-Level Weis-Aggregation wenn verfügbar
+          if (sessionData.sessionTotalWeisPoints) {
+            if (!playerWeisStats.has(playerId)) {
+              playerWeisStats.set(playerId, { made: 0, games: 0 });
+            }
+            const weisStats = playerWeisStats.get(playerId)!;
+            weisStats.games += sessionData.gamesPlayed || 0; // Anzahl Spiele der Session
+                
+            // VEREINFACHT: Direkte top/bottom Zuordnung
+            weisStats.made += sessionData.sessionTotalWeisPoints[playerTeamForGameStats] || 0;
+          }
+
+          // ✅ OPTIMIERT: Verwende Session-Level Rundendauer-Aggregation wenn verfügbar
+          if (sessionData.aggregatedRoundDurationsByPlayer && sessionData.aggregatedRoundDurationsByPlayer[playerId]) {
+            if (!playerRoundTimes.has(playerId)) {
+              playerRoundTimes.set(playerId, []);
+            }
+            
+            const playerRoundDurations = sessionData.aggregatedRoundDurationsByPlayer[playerId];
+            const avgRoundDuration = playerRoundDurations.roundCount > 0 
+              ? playerRoundDurations.totalDuration / playerRoundDurations.roundCount 
+              : 0;
+            
+            // Addiere zur Session-Total-Rundendauer
+            totalRoundDurationMillis += playerRoundDurations.totalDuration;
+                
+            // Füge die durchschnittliche Rundendauer für alle Runden dieser Session hinzu
+            for (let i = 0; i < playerRoundDurations.roundCount; i++) {
+              playerRoundTimes.get(playerId)!.push(avgRoundDuration);
+            }
           }
         }
       });
@@ -501,15 +630,15 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
             logger.warn(`Error loading game ${gameNumber} for round count from session ${sessionDoc.id}:`, error);
           }
         }
-      }
-
-      // ✅ OPTIMIERT: Verwende Session-Level eventCounts für Matsch-Totals
+              }
+              
+      // ✅ OPTIMIERT: Verwende Session-Level eventCounts für Matsch-Totals (wenn verfügbar)
       if (sessionData.eventCounts) {
         const topMatsch = sessionData.eventCounts.top?.matsch || 0;
         const bottomMatsch = sessionData.eventCounts.bottom?.matsch || 0;
         totalMatschCount += topMatsch + bottomMatsch;
-      } else {
-        // Fallback: Einzelspiel-Berechnung
+      } else if (!isTournamentSession) {
+        // Fallback: Einzelspiel-Berechnung nur für Regular Sessions
         const gamesPlayed = sessionData.gamesPlayed || 0;
         for (let gameNumber = 1; gameNumber <= gamesPlayed; gameNumber++) {
           try {
@@ -540,8 +669,8 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
                 });
             }
         });
-      } else {
-        // Fallback: Einzelspiel-Trumpf-Zählung
+      } else if (!isTournamentSession) {
+        // Fallback: Einzelspiel-Trumpf-Zählung nur für Regular Sessions
         const gamesPlayed = sessionData.gamesPlayed || 0;
         for (let gameNumber = 1; gameNumber <= gamesPlayed; gameNumber++) {
           try {
@@ -563,7 +692,8 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
       }
       }
 
-      // ✅ OPTIMIERT: Session-Dauer und Spiel-Dauer aus Session-Level Daten
+      // ✅ OPTIMIERT: Session-Dauer aus Session-Level Daten
+      // ✅ KRITISCH: Alle Sessions (Regular + Tournament) zählen zur Gesamtspielzeit
       totalPlayTimeMillis += sessionData.durationSeconds ? sessionData.durationSeconds * 1000 : 0;
 
       // ✅ OPTIMIERT: Verwende vorkalkulierte Spiel-Anzahl
@@ -575,29 +705,57 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
     calculatedStats.firstJassTimestamp = firstJassTimestamp;
     calculatedStats.lastJassTimestamp = lastJassTimestamp;
         
+    // ✅ KORRIGIERT: Durchschnittswerte mit separater Session/Tournament-Logik
+    // ✅ KRITISCH: Berechne Session-Dauer nur für Regular Sessions
+    let totalRegularSessionPlayTimeMillis = 0;
+    for (const sessionDoc of regularSessions) {
+      const sessionData = sessionDoc.data();
+      totalRegularSessionPlayTimeMillis += sessionData.durationSeconds ? sessionData.durationSeconds * 1000 : 0;
+    }
+    
     // Durchschnittswerte
-        if (calculatedStats.sessionCount > 0 && totalPlayTimeMillis > 0) {
-            calculatedStats.avgSessionDurationSeconds = Math.round((totalPlayTimeMillis / calculatedStats.sessionCount) / 1000);
+    if (calculatedStats.sessionCount > 0 && totalRegularSessionPlayTimeMillis > 0) {
+        calculatedStats.avgSessionDurationSeconds = Math.round((totalRegularSessionPlayTimeMillis / calculatedStats.sessionCount) / 1000);
+    }
+
+    if (calculatedStats.gameCount > 0 && totalPlayTimeMillis > 0) {
+        calculatedStats.avgGameDurationSeconds = Math.round((totalPlayTimeMillis / calculatedStats.gameCount) / 1000);
+    }
+
+    // ✅ KRITISCH: avgGamesPerSession nur für Regular Sessions berechnen
+    if (calculatedStats.gameCount > 0 && calculatedStats.sessionCount > 0) {
+        // Berechne Spiele nur aus Regular Sessions für diesen Durchschnitt
+        let regularSessionGameCount = 0;
+        for (const sessionDoc of regularSessions) {
+          const sessionData = sessionDoc.data();
+          regularSessionGameCount += sessionData.gamesPlayed || 0;
         }
+        calculatedStats.avgGamesPerSession = parseFloat((regularSessionGameCount / calculatedStats.sessionCount).toFixed(2));
+    }
     
-        if (calculatedStats.gameCount > 0 && totalPlayTimeMillis > 0) {
-            calculatedStats.avgGameDurationSeconds = Math.round((totalPlayTimeMillis / calculatedStats.gameCount) / 1000);
+    // ✅ KORREKTUR: avgRoundsPerGame nur für Regular Sessions berechnen (Turniere ausschließen)
+    if (totalRounds > 0) {
+        // Berechne Spiele nur aus Regular Sessions für korrekte Rundendurchschnitte
+        let regularSessionGameCount = 0;
+        for (const sessionDoc of regularSessions) {
+          const sessionData = sessionDoc.data();
+          regularSessionGameCount += sessionData.gamesPlayed || 0;
         }
-    
-        if (calculatedStats.gameCount > 0) {
-            calculatedStats.avgGamesPerSession = parseFloat((calculatedStats.gameCount / calculatedStats.sessionCount).toFixed(2));
+        
+        if (regularSessionGameCount > 0) {
+            calculatedStats.avgRoundsPerGame = parseFloat((totalRounds / regularSessionGameCount).toFixed(2));
+            logger.info(`[calculateGroupStatisticsInternal] Runden-Berechnung: ${totalRounds} Runden aus ${regularSessionGameCount} Regular-Session-Spielen = ${calculatedStats.avgRoundsPerGame} avg`);
+        } else {
+            calculatedStats.avgRoundsPerGame = 0;
         }
-    
-        if (totalRounds > 0) {
-            calculatedStats.avgRoundsPerGame = parseFloat((totalRounds / calculatedStats.gameCount).toFixed(2));
-            
-            if (totalRoundDurationMillis > 0) {
-                calculatedStats.avgRoundDurationSeconds = Math.round(totalRoundDurationMillis / totalRounds / 1000);
-                logger.info(`[calculateGroupStatisticsInternal] Rundendauer-Berechnung: ${totalRoundDurationMillis}ms total, ${totalRounds} Runden, Durchschnitt: ${calculatedStats.avgRoundDurationSeconds}s`);
-            } else {
-                logger.warn(`[calculateGroupStatisticsInternal] WARNUNG: Keine Rundendauer-Daten gefunden! totalRoundDurationMillis = ${totalRoundDurationMillis}`);
-            }
+        
+        if (totalRoundDurationMillis > 0) {
+            calculatedStats.avgRoundDurationSeconds = Math.round(totalRoundDurationMillis / totalRounds / 1000);
+            logger.info(`[calculateGroupStatisticsInternal] Rundendauer-Berechnung: ${totalRoundDurationMillis}ms total, ${totalRounds} Runden, Durchschnitt: ${calculatedStats.avgRoundDurationSeconds}s`);
+        } else {
+            logger.warn(`[calculateGroupStatisticsInternal] WARNUNG: Keine Rundendauer-Daten gefunden! totalRoundDurationMillis = ${totalRoundDurationMillis}`);
         }
+    }
     
         if (calculatedStats.gameCount > 0) {
             calculatedStats.avgMatschPerGame = parseFloat((totalMatschCount / calculatedStats.gameCount).toFixed(2));
@@ -705,65 +863,11 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
     playerGameWinRateList.sort((a, b) => b.value - a.value);
     calculatedStats.playerWithHighestWinRateGame = playerGameWinRateList;
 
-    // Spieler mit höchster Matsch-Rate
-        const playerMatschRateList: GroupStatHighlightPlayer[] = [];
-        playerMatschStats.forEach((stats, playerId) => {
-      const lastActivity = playerLastActivity.get(playerId);
-      const totalGames = playerGameCounts.get(playerId) || 0;
-      if (lastActivity && lastActivity.toMillis() >= oneYearAgo && totalGames >= 1) {
-        const matschRate = stats.made / totalGames;
-        const playerName = playerIdToNameMap.get(playerId) || groupData.players[playerId]?.displayName || "Unbekannter Jasser";
-                playerMatschRateList.push({
-          playerId,
-          playerName: playerName,
-          value: parseFloat(matschRate.toFixed(2)),
-          eventsPlayed: totalGames,
-          lastPlayedTimestamp: lastActivity,
-                });
-            }
-        });
-    playerMatschRateList.sort((a, b) => b.value - a.value);
-        calculatedStats.playerWithHighestMatschRate = playerMatschRateList;
+    // ✅ ENTFERNT: Alte Matsch-Rate Berechnung wurde durch Bilanz ersetzt (siehe oben)
 
-    // Spieler mit höchster Schneider-Rate
-        const playerSchneiderRateList: GroupStatHighlightPlayer[] = [];
-        playerSchneiderStats.forEach((stats, playerId) => {
-      const lastActivity = playerLastActivity.get(playerId);
-      const totalGames = playerGameCounts.get(playerId) || 0;
-      if (lastActivity && lastActivity.toMillis() >= oneYearAgo && totalGames >= 1) {
-        const schneiderRate = stats.made / totalGames;
-        const playerName = playerIdToNameMap.get(playerId) || groupData.players[playerId]?.displayName || "Unbekannter Jasser";
-                playerSchneiderRateList.push({
-          playerId,
-          playerName: playerName,
-          value: parseFloat(schneiderRate.toFixed(2)),
-          eventsPlayed: totalGames,
-          lastPlayedTimestamp: lastActivity,
-                });
-            }
-        });
-    playerSchneiderRateList.sort((a, b) => b.value - a.value);
-        calculatedStats.playerWithHighestSchneiderRate = playerSchneiderRateList;
+    // ✅ ENTFERNT: Alte Schneider-Rate Berechnung wurde durch Bilanz ersetzt
 
-    // Spieler mit höchster Kontermatsch-Rate
-        const playerKontermatschRateList: GroupStatHighlightPlayer[] = [];
-        playerKontermatschStats.forEach((stats, playerId) => {
-      const lastActivity = playerLastActivity.get(playerId);
-      const totalGames = playerGameCounts.get(playerId) || 0;
-      if (lastActivity && lastActivity.toMillis() >= oneYearAgo && totalGames >= 1) {
-        const kontermatschRate = stats.made / totalGames;
-        const playerName = playerIdToNameMap.get(playerId) || groupData.players[playerId]?.displayName || "Unbekannter Jasser";
-                playerKontermatschRateList.push({
-          playerId,
-          playerName: playerName,
-          value: parseFloat(kontermatschRate.toFixed(2)),
-          eventsPlayed: totalGames,
-          lastPlayedTimestamp: lastActivity,
-                });
-            }
-        });
-    playerKontermatschRateList.sort((a, b) => b.value - a.value);
-        calculatedStats.playerWithHighestKontermatschRate = playerKontermatschRateList;
+    // ✅ ENTFERNT: Alte Kontermatsch-Rate Berechnung wurde durch Bilanz ersetzt
 
     // Spieler mit meisten Weis-Punkten im Durchschnitt
     const playerWeisAvgList: GroupStatHighlightPlayer[] = [];
@@ -821,35 +925,41 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
       stricheMade: number;
       stricheReceived: number;
       matschMade: number;
+      matschReceived: number;
       schneiderMade: number;
+      schneiderReceived: number;
       kontermatschMade: number;
+      kontermatschReceived: number;
       weisMade: number;
       roundTimes: number[];
       playerNames: string[];
     }>();
 
-    // ✅ OPTIMIERT: Session-basierte Team-Statistiken mit allen notwendigen Daten
-    sessionsSnap.docs.forEach(sessionDoc => {
+    // ✅ KORRIGIERT: Session-basierte Team-Statistiken mit Tournament-Awareness
+    // ✅ KRITISCH: Regular Sessions vs Tournament Sessions unterschiedlich behandeln
+    
+    // ✅ SCHRITT 1: Regular Sessions - verwende Session-Level Teams
+    regularSessions.forEach(sessionDoc => {
       const sessionData = sessionDoc.data();
       if (!validateSessionDataEnhanced(sessionData)) return;
       
-      // Extrahiere Team-Zuordnungen
+      // Extrahiere Team-Zuordnungen für Regular Sessions
       const teams = extractTeamsWithPlayerDocIds(sessionData);
       if (teams.top.length !== 2 || teams.bottom.length !== 2) {
-        logger.warn(`Session ${sessionDoc.id} hat ungültige Team-Struktur, überspringe Team-Statistiken`);
+        logger.warn(`Regular session ${sessionDoc.id} hat ungültige Team-Struktur, überspringe Team-Statistiken`);
         return;
       }
 
       const topPlayerIds = teams.top;
       const bottomPlayerIds = teams.bottom;
-      
-      const topNames = topPlayerIds.map(id => playerIdToNameMap.get(id) || 'Unbekannt');
-      const bottomNames = bottomPlayerIds.map(id => playerIdToNameMap.get(id) || 'Unbekannt');
-      
-      const topKey = topPlayerIds.join('_');
-      const bottomKey = bottomPlayerIds.join('_');
-
-      // ✅ OPTIMIERT: Top Team - Session-Level Aggregation
+        
+      const topNames = topPlayerIds.map((id: string) => playerIdToNameMap.get(id) || 'Unbekannt');
+      const bottomNames = bottomPlayerIds.map((id: string) => playerIdToNameMap.get(id) || 'Unbekannt');
+        
+      const topKey = createCanonicalTeamKey(topPlayerIds);
+      const bottomKey = createCanonicalTeamKey(bottomPlayerIds);
+        
+      // ✅ OPTIMIERT: Top Team - Session-Level Aggregation für Regular Sessions
       if (!teamPairings.has(topKey)) {
         teamPairings.set(topKey, { 
           playerIds: topPlayerIds,
@@ -862,35 +972,35 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
           stricheMade: 0,
           stricheReceived: 0,
           matschMade: 0,
+          matschReceived: 0,
           schneiderMade: 0,
+          schneiderReceived: 0,
           kontermatschMade: 0,
+          kontermatschReceived: 0,
           weisMade: 0,
           roundTimes: [],
           playerNames: topNames
         });
       }
-      
+        
       const topStats = teamPairings.get(topKey)!;
       
-      // Session- und Spiel-Counts
+      // ✅ KORRIGIERT: Session-Counts für Regular Sessions
       topStats.sessions++;
-      topStats.games += sessionData.gamesPlayed || 0;
       
-      // Session-Gewinn
+      // Session-Gewinn für Regular Sessions
       if (sessionData.winnerTeamKey === 'top') {
         topStats.sessionWins++;
-        
-        // Schätze Spiel-Gewinne für Session-Gewinner (60% Gewinnrate)
-        const estimatedGameWins = Math.ceil((sessionData.gamesPlayed || 0) * 0.6);
-        topStats.wins += estimatedGameWins;
-      } else if (sessionData.winnerTeamKey === 'bottom') {
-        // Schätze Spiel-Gewinne für Session-Verlierer (40% Gewinnrate)
-        const estimatedGameWins = Math.floor((sessionData.gamesPlayed || 0) * 0.4);
-        topStats.wins += estimatedGameWins;
+      }
+      
+      // ✅ WICHTIG: Spiel-Counts für Regular Sessions
+      topStats.games += sessionData.gamesPlayed || 0;
+      
+      // ✅ KORRIGIERT: Spielgewinne für das Team aus Session-Level Daten
+      if (sessionData.gameWinsByTeam && typeof sessionData.gameWinsByTeam.top === 'number') {
+        topStats.wins += sessionData.gameWinsByTeam.top;
       } else {
-        // Unentschieden: 50/50 Verteilung
-        const estimatedGameWins = Math.round((sessionData.gamesPlayed || 0) * 0.5);
-        topStats.wins += estimatedGameWins;
+        logger.warn(`[groupStatsCalculator] No gameWinsByTeam data for top team in regular session ${sessionDoc.id}.`);
       }
 
       // ✅ OPTIMIERT: Punkte aus Session-Level finalScores
@@ -903,10 +1013,10 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
       if (sessionData.finalStriche) {
         const topStriche = sessionData.finalStriche.top || {};
         const bottomStriche = sessionData.finalStriche.bottom || {};
-        
+          
         const topStricheTotal = (topStriche.berg || 0) + (topStriche.sieg || 0) + (topStriche.matsch || 0) + (topStriche.schneider || 0) + (topStriche.kontermatsch || 0);
         const bottomStricheTotal = (bottomStriche.berg || 0) + (bottomStriche.sieg || 0) + (bottomStriche.matsch || 0) + (bottomStriche.schneider || 0) + (bottomStriche.kontermatsch || 0);
-        
+          
         topStats.stricheMade += topStricheTotal;
         topStats.stricheReceived += bottomStricheTotal;
       }
@@ -914,10 +1024,16 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
       // ✅ OPTIMIERT: Event-Statistiken direkt aus eventCounts (MASSIVE PERFORMANCE-VERBESSERUNG)
       if (sessionData.eventCounts) {
         const topEventCounts = sessionData.eventCounts.top || {};
+        const bottomEventCounts = sessionData.eventCounts.bottom || {};
         
         topStats.matschMade += topEventCounts.matsch || 0;
         topStats.schneiderMade += topEventCounts.schneider || 0;
         topStats.kontermatschMade += topEventCounts.kontermatsch || 0;
+        
+        // Füge "received" Statistiken hinzu (von opponent team)
+        topStats.matschReceived += bottomEventCounts.matsch || 0;
+        topStats.schneiderReceived += bottomEventCounts.schneider || 0;
+        topStats.kontermatschReceived += bottomEventCounts.kontermatsch || 0;
       }
 
       // ✅ OPTIMIERT: Weis aus Session-Level sessionTotalWeisPoints
@@ -953,35 +1069,35 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
           stricheMade: 0,
           stricheReceived: 0,
           matschMade: 0,
+          matschReceived: 0,
           schneiderMade: 0,
+          schneiderReceived: 0,
           kontermatschMade: 0,
+          kontermatschReceived: 0,
           weisMade: 0,
           roundTimes: [],
           playerNames: bottomNames
         });
       }
-      
+        
       const bottomStats = teamPairings.get(bottomKey)!;
       
-      // Session- und Spiel-Counts
+      // ✅ KORRIGIERT: Session-Counts für Regular Sessions
       bottomStats.sessions++;
-      bottomStats.games += sessionData.gamesPlayed || 0;
       
-      // Session-Gewinn
+      // Session-Gewinn für Regular Sessions
       if (sessionData.winnerTeamKey === 'bottom') {
         bottomStats.sessionWins++;
-        
-        // Schätze Spiel-Gewinne für Session-Gewinner (60% Gewinnrate)
-        const estimatedGameWins = Math.ceil((sessionData.gamesPlayed || 0) * 0.6);
-        bottomStats.wins += estimatedGameWins;
-      } else if (sessionData.winnerTeamKey === 'top') {
-        // Schätze Spiel-Gewinne für Session-Verlierer (40% Gewinnrate)
-        const estimatedGameWins = Math.floor((sessionData.gamesPlayed || 0) * 0.4);
-        bottomStats.wins += estimatedGameWins;
+      }
+      
+      // ✅ WICHTIG: Spiel-Counts für Regular Sessions
+      bottomStats.games += sessionData.gamesPlayed || 0;
+
+      // ✅ KORRIGIERT: Spielgewinne für das Team
+      if (sessionData.gameWinsByTeam && typeof sessionData.gameWinsByTeam.bottom === 'number') {
+        bottomStats.wins += sessionData.gameWinsByTeam.bottom;
       } else {
-        // Unentschieden: 50/50 Verteilung
-        const estimatedGameWins = Math.round((sessionData.gamesPlayed || 0) * 0.5);
-        bottomStats.wins += estimatedGameWins;
+        logger.warn(`[groupStatsCalculator] No gameWinsByTeam data for bottom team in regular session ${sessionDoc.id}.`);
       }
 
       // Punkte aus Session-Level finalScores
@@ -994,10 +1110,10 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
       if (sessionData.finalStriche) {
         const topStriche = sessionData.finalStriche.top || {};
         const bottomStriche = sessionData.finalStriche.bottom || {};
-        
+          
         const topStricheTotal = (topStriche.berg || 0) + (topStriche.sieg || 0) + (topStriche.matsch || 0) + (topStriche.schneider || 0) + (topStriche.kontermatsch || 0);
         const bottomStricheTotal = (bottomStriche.berg || 0) + (bottomStriche.sieg || 0) + (bottomStriche.matsch || 0) + (bottomStriche.schneider || 0) + (bottomStriche.kontermatsch || 0);
-        
+          
         bottomStats.stricheMade += bottomStricheTotal;
         bottomStats.stricheReceived += topStricheTotal;
       }
@@ -1005,10 +1121,16 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
       // Event-Statistiken direkt aus eventCounts
       if (sessionData.eventCounts) {
         const bottomEventCounts = sessionData.eventCounts.bottom || {};
+        const topEventCounts = sessionData.eventCounts.top || {};
         
         bottomStats.matschMade += bottomEventCounts.matsch || 0;
         bottomStats.schneiderMade += bottomEventCounts.schneider || 0;
         bottomStats.kontermatschMade += bottomEventCounts.kontermatsch || 0;
+        
+        // Füge "received" Statistiken hinzu (von opponent team)
+        bottomStats.matschReceived += topEventCounts.matsch || 0;
+        bottomStats.schneiderReceived += topEventCounts.schneider || 0;
+        bottomStats.kontermatschReceived += topEventCounts.kontermatsch || 0;
       }
 
       // Weis aus Session-Level sessionTotalWeisPoints
@@ -1026,6 +1148,157 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
             // Füge durchschnittliche Rundendauer für alle Runden dieser Session hinzu
             for (let i = 0; i < playerRoundData.roundCount; i++) {
               bottomStats.roundTimes.push(avgRoundDuration);
+            }
+          }
+        });
+      }
+    });
+
+    // ✅ SCHRITT 2: Tournament Sessions - verwende gameResults für Team-Zuordnungen
+    tournamentSessions.forEach(sessionDoc => {
+      const sessionData = sessionDoc.data();
+      if (!validateSessionDataEnhanced(sessionData)) return;
+      
+      // ✅ NEU: Tournament-Sessions verwenden gameResults für Team-Statistiken
+      if (sessionData.gameResults && Array.isArray(sessionData.gameResults)) {
+        sessionData.gameResults.forEach((game: any, gameIndex: number) => {
+          if (game.teams?.top?.players && game.teams?.bottom?.players) {
+            const gameTopPlayerIds = game.teams.top.players.map((p: any) => p.playerId).filter(Boolean);
+            const gameBottomPlayerIds = game.teams.bottom.players.map((p: any) => p.playerId).filter(Boolean);
+            
+            if (gameTopPlayerIds.length !== 2 || gameBottomPlayerIds.length !== 2) {
+              logger.warn(`Tournament session ${sessionDoc.id} game ${gameIndex + 1} hat ungültige Team-Struktur, überspringe`);
+              return;
+            }
+            
+            const topNames = gameTopPlayerIds.map((id: string) => playerIdToNameMap.get(id) || 'Unbekannt');
+            const bottomNames = gameBottomPlayerIds.map((id: string) => playerIdToNameMap.get(id) || 'Unbekannt');
+              
+            const topKey = createCanonicalTeamKey(gameTopPlayerIds);
+            const bottomKey = createCanonicalTeamKey(gameBottomPlayerIds);
+            
+            // ✅ NEU: Top Team für Tournament-Spiel
+            if (!teamPairings.has(topKey)) {
+              teamPairings.set(topKey, { 
+                playerIds: gameTopPlayerIds,
+                games: 0, 
+                wins: 0,
+                sessions: 0,
+                sessionWins: 0,
+                pointsMade: 0, 
+                pointsReceived: 0,
+                stricheMade: 0,
+                stricheReceived: 0,
+                matschMade: 0,
+                matschReceived: 0,
+                schneiderMade: 0,
+                schneiderReceived: 0,
+                kontermatschMade: 0,
+                kontermatschReceived: 0,
+                weisMade: 0,
+                roundTimes: [],
+                playerNames: topNames
+              });
+            }
+            
+            const topStats = teamPairings.get(topKey)!;
+            
+            // ✅ WICHTIG: Spiel-Counts für Tournament-Sessions (Sessions werden NICHT gezählt)
+            topStats.games += 1; // Ein Spiel
+            
+            // ✅ KORRIGIERT: Spielgewinne für Tournament-Sessions
+            if (game.winnerTeam === 'top') {
+              topStats.wins += 1;
+            }
+
+            // ✅ KORRIGIERT: Punkte aus Game-Level Daten
+            if (game.topScore !== undefined && game.bottomScore !== undefined) {
+              topStats.pointsMade += game.topScore || 0;
+              topStats.pointsReceived += game.bottomScore || 0;
+            }
+
+            // ✅ KORRIGIERT: Striche aus Game-Level finalStriche
+            if (game.finalStriche) {
+              const topStriche = game.finalStriche.top || {};
+              const bottomStriche = game.finalStriche.bottom || {};
+                
+              const topStricheTotal = (topStriche.berg || 0) + (topStriche.sieg || 0) + (topStriche.matsch || 0) + (topStriche.schneider || 0) + (topStriche.kontermatsch || 0);
+              const bottomStricheTotal = (bottomStriche.berg || 0) + (bottomStriche.sieg || 0) + (bottomStriche.matsch || 0) + (bottomStriche.schneider || 0) + (bottomStriche.kontermatsch || 0);
+                
+              topStats.stricheMade += topStricheTotal;
+              topStats.stricheReceived += bottomStricheTotal;
+              
+              // ✅ KORRIGIERT: Event-Statistiken aus Game-Level finalStriche
+              topStats.matschMade += topStriche.matsch || 0;
+              topStats.schneiderMade += topStriche.schneider || 0;
+              topStats.kontermatschMade += topStriche.kontermatsch || 0;
+              
+              // Füge "received" Statistiken hinzu (von opponent team)
+              topStats.matschReceived += bottomStriche.matsch || 0;
+              topStats.schneiderReceived += bottomStriche.schneider || 0;
+              topStats.kontermatschReceived += bottomStriche.kontermatsch || 0;
+            }
+
+            // ✅ NEU: Bottom Team für Tournament-Spiel (identische Logik)
+            if (!teamPairings.has(bottomKey)) {
+              teamPairings.set(bottomKey, { 
+                playerIds: gameBottomPlayerIds,
+                games: 0, 
+                wins: 0,
+                sessions: 0,
+                sessionWins: 0,
+                pointsMade: 0, 
+                pointsReceived: 0,
+                stricheMade: 0,
+                stricheReceived: 0,
+                matschMade: 0,
+                matschReceived: 0,
+                schneiderMade: 0,
+                schneiderReceived: 0,
+                kontermatschMade: 0,
+                kontermatschReceived: 0,
+                weisMade: 0,
+                roundTimes: [],
+                playerNames: bottomNames
+              });
+            }
+              
+            const bottomStats = teamPairings.get(bottomKey)!;
+            
+            // ✅ WICHTIG: Spiel-Counts für Tournament-Sessions
+            bottomStats.games += 1; // Ein Spiel
+
+            // ✅ KORRIGIERT: Spielgewinne für Tournament-Sessions
+            if (game.winnerTeam === 'bottom') {
+              bottomStats.wins += 1;
+            }
+
+            // Punkte aus Game-Level Daten
+            if (game.topScore !== undefined && game.bottomScore !== undefined) {
+              bottomStats.pointsMade += game.bottomScore || 0;
+              bottomStats.pointsReceived += game.topScore || 0;
+            }
+
+            // Striche aus Game-Level finalStriche
+            if (game.finalStriche) {
+              const topStriche = game.finalStriche.top || {};
+              const bottomStriche = game.finalStriche.bottom || {};
+                
+              const topStricheTotal = (topStriche.berg || 0) + (topStriche.sieg || 0) + (topStriche.matsch || 0) + (topStriche.schneider || 0) + (topStriche.kontermatsch || 0);
+              const bottomStricheTotal = (bottomStriche.berg || 0) + (bottomStriche.sieg || 0) + (bottomStriche.matsch || 0) + (bottomStriche.schneider || 0) + (bottomStriche.kontermatsch || 0);
+                
+              bottomStats.stricheMade += bottomStricheTotal;
+              bottomStats.stricheReceived += topStricheTotal;
+              
+              // Event-Statistiken aus Game-Level finalStriche
+              bottomStats.matschMade += bottomStriche.matsch || 0;
+              bottomStats.schneiderMade += bottomStriche.schneider || 0;
+              bottomStats.kontermatschMade += bottomStriche.kontermatsch || 0;
+              
+              // Füge "received" Statistiken hinzu (von opponent team)
+              bottomStats.matschReceived += topStriche.matsch || 0;
+              bottomStats.schneiderReceived += topStriche.schneider || 0;
+              bottomStats.kontermatschReceived += topStriche.kontermatsch || 0;
             }
           }
         });
@@ -1127,7 +1400,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
     });
         calculatedStats.teamWithHighestStricheDiff = teamStricheDiffList;
 
-    // Team mit höchster Matsch-Rate
+    // Team mit höchster Matsch-Bilanz (normalisierte Differenz pro Spiel)
     const teamMatschRateList: GroupStatHighlightTeam[] = [];
     teamPairings.forEach((stats, teamKey) => {
       const isTeamActive = stats.playerIds.some(pid => {
@@ -1135,11 +1408,14 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         return lastActivity ? lastActivity.toMillis() >= oneYearAgo : false;
       });
       if (stats.games >= 1 && isTeamActive) {
-        const matschRate = stats.games > 0 ? stats.matschMade / stats.games : 0;
+        // Normalisierte Differenz-Rate: (gemacht - erhalten) / anzahl_spiele
+        const matschBilanz = stats.matschMade - stats.matschReceived;
         teamMatschRateList.push({
           names: stats.playerNames,
-          value: parseFloat(matschRate.toFixed(2)),
+          value: matschBilanz,
           eventsPlayed: stats.games,
+          eventsMade: stats.matschMade,
+          eventsReceived: stats.matschReceived,
         });
       }
     });
@@ -1148,9 +1424,9 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
       const valB = typeof b.value === 'number' ? b.value : 0;
       return valB - valA;
     });
-    calculatedStats.teamWithHighestMatschRate = teamMatschRateList;
+    calculatedStats.teamWithHighestMatschBilanz = teamMatschRateList;
 
-    // Team mit höchster Schneider-Rate
+    // Team mit höchster Schneider-Bilanz (normalisierte Differenz pro Spiel)
     const teamSchneiderRateList: GroupStatHighlightTeam[] = [];
     teamPairings.forEach((stats, teamKey) => {
       const isTeamActive = stats.playerIds.some(pid => {
@@ -1158,11 +1434,14 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         return lastActivity ? lastActivity.toMillis() >= oneYearAgo : false;
       });
       if (stats.games >= 1 && isTeamActive) {
-        const schneiderRate = stats.games > 0 ? stats.schneiderMade / stats.games : 0;
+        // Normalisierte Differenz-Rate: (gemacht - erhalten) / anzahl_spiele
+        const schneiderBilanz = stats.schneiderMade - stats.schneiderReceived;
         teamSchneiderRateList.push({
           names: stats.playerNames,
-          value: parseFloat(schneiderRate.toFixed(2)),
+          value: schneiderBilanz,
           eventsPlayed: stats.games,
+          eventsMade: stats.schneiderMade,
+          eventsReceived: stats.schneiderReceived,
         });
       }
     });
@@ -1171,9 +1450,9 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
       const valB = typeof b.value === 'number' ? b.value : 0;
       return valB - valA;
     });
-    calculatedStats.teamWithHighestSchneiderRate = teamSchneiderRateList;
+    calculatedStats.teamWithHighestSchneiderBilanz = teamSchneiderRateList;
 
-    // Team mit höchster Kontermatsch-Rate
+    // Team mit höchster Kontermatsch-Bilanz (normalisierte Differenz pro Spiel)
     const teamKontermatschRateList: GroupStatHighlightTeam[] = [];
     teamPairings.forEach((stats, teamKey) => {
       const isTeamActive = stats.playerIds.some(pid => {
@@ -1181,10 +1460,11 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         return lastActivity ? lastActivity.toMillis() >= oneYearAgo : false;
       });
       if (stats.games >= 1 && isTeamActive) {
-        const kontermatschRate = stats.games > 0 ? stats.kontermatschMade / stats.games : 0;
+        // Normalisierte Differenz-Rate: (gemacht - erhalten) / anzahl_spiele
+        const kontermatschBilanz = stats.kontermatschMade - stats.kontermatschReceived;
         teamKontermatschRateList.push({
           names: stats.playerNames,
-          value: parseFloat(kontermatschRate.toFixed(2)),
+          value: kontermatschBilanz, // 3 Dezimalstellen für seltene Events
           eventsPlayed: stats.games,
         });
       }
@@ -1194,7 +1474,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
       const valB = typeof b.value === 'number' ? b.value : 0;
       return valB - valA;
     });
-    calculatedStats.teamWithHighestKontermatschRate = teamKontermatschRateList;
+    calculatedStats.teamWithHighestKontermatschBilanz = teamKontermatschRateList;
 
     // Team mit meisten Weis-Punkten im Durchschnitt
         const teamWeisAvgList: GroupStatHighlightTeam[] = [];
@@ -1247,7 +1527,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
       teamPairingsCount: teamPairings.size,
       teamWithHighestWinRateGameCount: calculatedStats.teamWithHighestWinRateGame?.length || 0,
       teamWithHighestWinRateSessionCount: calculatedStats.teamWithHighestWinRateSession?.length || 0,
-      teamWithHighestMatschRateCount: calculatedStats.teamWithHighestMatschRate?.length || 0,
+      teamWithHighestMatschBilanzCount: calculatedStats.teamWithHighestMatschBilanz?.length || 0,
       teamWithFastestRoundsCount: calculatedStats.teamWithFastestRounds?.length || 0,
       sampleTeamPairings: Array.from(teamPairings.entries()).slice(0, 2).map(([key, stats]) => ({
         key,
@@ -1258,6 +1538,70 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         playerNames: stats.playerNames
       }))
     });
+
+    // ✅ GEÄNDERT: Spieler mit höchster Matsch-Bilanz (absolute Zahlen statt Rate)
+    const playerMatschBilanzList: GroupStatHighlightPlayer[] = [];
+    playerMatschStats.forEach((stats, playerId) => {
+      const lastActivity = playerLastActivity.get(playerId);
+      if (lastActivity && lastActivity.toMillis() >= oneYearAgo && stats.games >= 1) {
+        const matschBilanz = stats.made - stats.received;
+        const playerName = playerIdToNameMap.get(playerId) || groupData.players[playerId]?.displayName || "Unbekannter Jasser";
+        playerMatschBilanzList.push({
+          playerId,
+          playerName: playerName,
+          value: matschBilanz, // ✅ Absolute Differenz statt Rate
+          eventsPlayed: stats.games,
+          eventsMade: stats.made, // ✅ NEU: Für Bilanz-Details
+          eventsReceived: stats.received, // ✅ NEU: Für Bilanz-Details
+          lastPlayedTimestamp: lastActivity,
+        });
+      }
+    });
+    playerMatschBilanzList.sort((a, b) => b.value - a.value);
+    calculatedStats.playerWithHighestMatschBilanz = playerMatschBilanzList;
+
+    // ✅ GEÄNDERT: Spieler mit höchster Schneider-Bilanz (absolute Zahlen statt Rate)
+    const playerSchneiderBilanzList: GroupStatHighlightPlayer[] = [];
+    playerSchneiderStats.forEach((stats, playerId) => {
+      const lastActivity = playerLastActivity.get(playerId);
+      if (lastActivity && lastActivity.toMillis() >= oneYearAgo && stats.games >= 1) {
+        const schneiderBilanz = stats.made - stats.received;
+        const playerName = playerIdToNameMap.get(playerId) || groupData.players[playerId]?.displayName || "Unbekannter Jasser";
+        playerSchneiderBilanzList.push({
+          playerId,
+          playerName: playerName,
+          value: schneiderBilanz, // ✅ Absolute Differenz statt Rate
+          eventsPlayed: stats.games,
+          eventsMade: stats.made, // ✅ NEU: Für Bilanz-Details
+          eventsReceived: stats.received, // ✅ NEU: Für Bilanz-Details
+          lastPlayedTimestamp: lastActivity,
+        });
+      }
+    });
+    playerSchneiderBilanzList.sort((a, b) => b.value - a.value);
+    calculatedStats.playerWithHighestSchneiderBilanz = playerSchneiderBilanzList;
+
+    // ✅ GEÄNDERT: Spieler mit höchster Kontermatsch-Bilanz (absolute Zahlen + Filterung)
+    const playerKontermatschBilanzList: GroupStatHighlightPlayer[] = [];
+    playerKontermatschStats.forEach((stats, playerId) => {
+      const lastActivity = playerLastActivity.get(playerId);
+      // ✅ SMART: Nur Spieler mit Kontermatsch-Erfahrung anzeigen
+      if (lastActivity && lastActivity.toMillis() >= oneYearAgo && (stats.made > 0 || stats.received > 0)) {
+        const kontermatschBilanz = stats.made - stats.received;
+        const playerName = playerIdToNameMap.get(playerId) || groupData.players[playerId]?.displayName || "Unbekannter Jasser";
+        playerKontermatschBilanzList.push({
+          playerId,
+          playerName: playerName,
+          value: kontermatschBilanz, // ✅ Absolute Differenz statt Rate
+          eventsPlayed: stats.games,
+          eventsMade: stats.made, // ✅ NEU: Für Bilanz-Details
+          eventsReceived: stats.received, // ✅ NEU: Für Bilanz-Details
+          lastPlayedTimestamp: lastActivity,
+        });
+      }
+    });
+    playerKontermatschBilanzList.sort((a, b) => b.value - a.value);
+    calculatedStats.playerWithHighestKontermatschBilanz = playerKontermatschBilanzList;
 
     logger.info(`[calculateGroupStatisticsInternal] Calculation completed for groupId: ${groupId}`);
     return calculatedStats;
@@ -1325,15 +1669,27 @@ export async function updateGroupComputedStatsAfterSession(groupId: string): Pro
  */
 async function collectRawDataSummary(groupId: string): Promise<any> {
   try {
-    // Sessions zählen
+    // Sessions zählen und separieren
     const sessionsSnap = await db.collection(JASS_SUMMARIES_COLLECTION)
       .where("groupId", "==", groupId)
       .where("status", "==", "completed")
       .get();
     
+    let regularSessionsCount = 0;
+    let tournamentSessionsCount = 0;
     let totalGames = 0;
     let totalRounds = 0;
     let dataErrors = 0;
+    
+    // Sessions separieren und zählen
+    sessionsSnap.docs.forEach(doc => {
+      const sessionData = doc.data();
+      if (sessionData.tournamentId) {
+        tournamentSessionsCount++;
+      } else {
+        regularSessionsCount++;
+      }
+    });
     
     // Spiele und Runden zählen
     for (const sessionDoc of sessionsSnap.docs) {
@@ -1364,7 +1720,8 @@ async function collectRawDataSummary(groupId: string): Promise<any> {
     }
     
     return {
-      sessionsCount: sessionsSnap.docs.length,
+      sessionsCount: regularSessionsCount,
+      tournamentsCount: tournamentSessionsCount,
       gamesCount: totalGames,
       roundsCount: totalRounds,
       dataErrors: dataErrors
@@ -1373,6 +1730,7 @@ async function collectRawDataSummary(groupId: string): Promise<any> {
     logger.warn(`Error collecting raw data summary for group ${groupId}:`, error);
     return {
       sessionsCount: 0,
+      tournamentsCount: 0,
       gamesCount: 0,
       roundsCount: 0,
       dataErrors: 1

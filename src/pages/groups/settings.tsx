@@ -21,6 +21,7 @@ import {FirestorePlayer, STROKE_MODES } from "@/types/jass";
 import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
 import {Badge} from "@/components/ui/badge";
 import {db} from "@/services/firebaseInit";
+import ProfileImage from '@/components/ui/ProfileImage';
 import {doc, getDoc, updateDoc, arrayRemove, arrayUnion, Timestamp} from "firebase/firestore";
 import { FarbePictogram } from '@/components/settings/FarbePictogram';
 
@@ -948,12 +949,14 @@ ${linkText}`;
                         return (
                           <li key={member.id} className="flex items-center justify-between space-x-3 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                             <div className="flex items-center space-x-3 flex-1 min-w-0">
-                               <Avatar className="h-8 w-8 flex-shrink-0">
-                                 <AvatarImage src={member.photoURL || undefined} alt={member.displayName || 'Avatar'} />
-                                 <AvatarFallback className={`text-gray-300 ${(member as PlayerWithPlaceholder)._isPlaceholder ? 'bg-yellow-800' : 'bg-gray-600'}`}>
-                                   {member.displayName?.charAt(0).toUpperCase() || "?"}
-                                 </AvatarFallback>
-                               </Avatar>
+                               <ProfileImage 
+                                 src={member.photoURL || undefined} 
+                                 alt={member.displayName || 'Avatar'} 
+                                 size="sm"
+                                 className="flex-shrink-0"
+                                 fallbackClassName={`text-gray-300 ${(member as PlayerWithPlaceholder)._isPlaceholder ? 'bg-yellow-800' : 'bg-gray-600'}`}
+                                 fallbackText={member.displayName?.charAt(0).toUpperCase() || "?"}
+                               />
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium text-white truncate">
                                   {member.displayName || "Unbekannt"}

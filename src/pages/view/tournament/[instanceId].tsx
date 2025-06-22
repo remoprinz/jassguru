@@ -52,6 +52,8 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { DEFAULT_STROKE_SETTINGS } from '@/config/GameSettings';
 import { DEFAULT_FARBE_SETTINGS } from '@/config/FarbeSettings';
+import { getGroupMembersSortedByGames } from "@/services/playerService";
+import GlobalLoader from '@/components/layout/GlobalLoader';
 
 import type { PlayerNumber, PlayerNames, StrokeSettings, ScoreSettings, FirestorePlayer } from '@/types/jass';
 import type { TournamentGame } from '@/types/tournament';
@@ -131,6 +133,9 @@ const TournamentViewPage: React.FC = () => {
 
   // Komponenten- und Datenladeverwaltung mit memoisierter instanceId
   const memoizedInstanceId = useMemo(() => instanceId, [instanceId]);
+
+  const [isLoadingMembersForPasse, setIsLoadingMembersForPasse] = useState(false);
+  const [membersForPasse, setMembersForPasse] = useState<FirestorePlayer[]>([]);
 
   useEffect(() => {
     if (!memoizedInstanceId || typeof memoizedInstanceId !== 'string') return;
@@ -368,9 +373,25 @@ const TournamentViewPage: React.FC = () => {
     }
   };
   
-  const handleStartNextPasse = () => {
-    console.log("Nächste Passe starten geklickt");
-    setShowStartPasseScreen(true);
+  const handleStartNextPasse = async () => {
+    if (!tournament?.groupId) {
+      showNotification({ type: 'error', message: 'Turnier-Gruppe nicht gefunden. Passe kann nicht gestartet werden.' });
+      return;
+    }
+
+    // Lade Gruppenmitglieder bevor der StartScreen angezeigt wird
+    setIsLoadingMembersForPasse(true);
+    try {
+      const fetchedMembers = await getGroupMembersSortedByGames(tournament.groupId);
+      setMembersForPasse(fetchedMembers);
+      setShowStartPasseScreen(true);
+    } catch (error) {
+      console.error("Fehler beim Laden der Gruppenmitglieder für Passe:", error);
+      const message = error instanceof Error ? error.message : "Gruppenmitglieder konnten nicht geladen werden.";
+      showNotification({ message, type: "error" });
+    } finally {
+      setIsLoadingMembersForPasse(false);
+    }
   };
 
   const isLoading = detailsStatus === 'loading';
@@ -586,6 +607,15 @@ const TournamentViewPage: React.FC = () => {
               <div className="flex min-h-screen items-center justify-center">Keine Turnierdaten verfügbar.</div>
           </MainLayout>
       );
+  }
+
+  // Zeige GlobalLoader beim Laden der Mitglieder für eine neue Passe
+  if (isLoadingMembersForPasse) {
+    return (
+      <MainLayout>
+        <GlobalLoader message="Lade Spieler für neue Passe..." />
+      </MainLayout>
+    );
   }
 
   return ( 
@@ -851,6 +881,7 @@ const TournamentViewPage: React.FC = () => {
                 tournamentParticipants={tournamentParticipants}
                 currentPasseNumber={nextPasseNumber}
                 onPasseStarted={handlePasseSuccessfullyStarted}
+                members={membersForPasse}
           />
         )}
 

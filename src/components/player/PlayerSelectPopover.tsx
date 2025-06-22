@@ -19,6 +19,7 @@ import { UserPlus} from "lucide-react";
 import type {FirestoreGroup, FirestorePlayer, MemberInfo, PlayerInfo, PlayerNumber} from "@/types/jass";
 // Importiere die Funktion, um einen Player per ID zu laden
 import {getPlayerDocument} from "@/services/playerService";
+import ProfileImage from '@/components/ui/ProfileImage';
 
 interface PlayerSelectPopoverProps {
   trigger: React.ReactNode;
@@ -142,22 +143,37 @@ export const PlayerSelectPopover: React.FC<PlayerSelectPopoverProps> = ({
               <>
                 <CommandEmpty>Keine Mitglieder gefunden.</CommandEmpty>
                 <CommandGroup heading="Mitglieder auswählen">
-                  {availableMembers.map((member) => (
-                    <CommandItem
-                      key={member.uid}
-                      value={member.name}
-                      onSelect={(currentValue: string) => {
-                        const selected = availableMembers.find((m) => m.name.toLowerCase() === currentValue.toLowerCase());
-                        if (selected) {
-                          onSelectMember(targetSlot, selected);
-                        }
-                        setOpen(false);
-                      }}
-                      className="hover:bg-gray-700 aria-selected:bg-blue-900/50"
-                    >
-                      {member.name}
-                    </CommandItem>
-                  ))}
+                  {availableMembers.map((member) => {
+                    // Finde das entsprechende FirestorePlayer-Objekt für das Profilbild
+                    const playerDoc = Object.values(playerDocs).find(p => p.userId === member.uid || p.id === member.uid);
+                    
+                    return (
+                      <CommandItem
+                        key={member.uid}
+                        value={member.name}
+                        onSelect={(currentValue: string) => {
+                          const selected = availableMembers.find((m) => m.name.toLowerCase() === currentValue.toLowerCase());
+                          if (selected) {
+                            onSelectMember(targetSlot, selected);
+                          }
+                          setOpen(false);
+                        }}
+                        className="hover:bg-gray-700 aria-selected:bg-blue-900/50"
+                      >
+                        <div className="flex items-center">
+                          <ProfileImage 
+                            src={playerDoc?.photoURL}
+                            alt={member.name} 
+                            size="sm"
+                            className="mr-2 flex-shrink-0"
+                            fallbackClassName="bg-gray-600 text-gray-300 text-xs"
+                            fallbackText={member.name.charAt(0).toUpperCase()}
+                          />
+                          <span>{member.name}</span>
+                        </div>
+                      </CommandItem>
+                    );
+                  })}
                 </CommandGroup>
                 {/* Gast-Option */}
                 <CommandSeparator className="bg-gray-700 my-1" />

@@ -7,6 +7,7 @@ import Image from 'next/image'; // Wichtig: Füge diesen Import hinzu
 import type { TournamentGame, PassePlayerDetail } from '@/types/tournament';
 import { Award } from "lucide-react"; // Icon für Rangliste
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"; // Importiere Avatar und AvatarFallback
+import ProfileImage from '@/components/ui/ProfileImage';
 
 // Hilfsfunktion, um eine Standard-PlayerPasseResult zu erstellen
 // const defaultPlayerPasseResult = (): PlayerPasseResult => ({ score: 0, striche: 0, weis: 0 });
@@ -117,11 +118,14 @@ export const TournamentStricheStatistik: React.FC<TournamentStricheStatistikProp
               <span className={`text-sm font-medium w-6 text-center ${index === 0 ? 'text-yellow-400' : (index === 1 ? 'text-gray-300' : (index === 2 ? 'text-orange-400' : 'text-gray-400'))}`}>
                 {index + 1}.
               </span>
-              <Avatar className="h-8 w-8 mr-2">
-                <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                  {playerStat.displayName ? playerStat.displayName.charAt(0).toUpperCase() : '?'}
-                </AvatarFallback>
-              </Avatar>
+              <ProfileImage 
+                src={undefined} 
+                alt={playerStat.displayName} 
+                size="sm"
+                className="mr-2"
+                fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                fallbackText={playerStat.displayName ? playerStat.displayName.charAt(0).toUpperCase() : '?'}
+              />
               <span className="text-sm text-white truncate ml-2" title={playerStat.displayName}>
                 {playerStat.displayName}
               </span>

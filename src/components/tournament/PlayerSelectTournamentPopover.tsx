@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { GamePlayers, PlayerNumber } from "@/types/jass";
 import { cn } from "@/lib/utils";
 import { ParticipantWithProgress } from '@/store/tournamentStore';
+import ProfileImage from '@/components/ui/ProfileImage';
 
 interface PlayerSelectTournamentPopoverProps {
   trigger: React.ReactNode;
@@ -74,10 +75,14 @@ export const PlayerSelectTournamentPopover: React.FC<PlayerSelectTournamentPopov
                     "flex items-center px-2 py-2 rounded-md hover:bg-gray-100 cursor-pointer",
                   )}
                 >
-                  <Avatar className="h-8 w-8 mr-2">
-                    <AvatarImage src={participant.photoURL || ''} alt={participant.displayName || ''} />
-                    <AvatarFallback>{participant.displayName?.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
-                  </Avatar>
+                  <ProfileImage 
+                    src={participant.photoURL || undefined}
+                    alt={participant.displayName || ''}
+                    size="sm"
+                    className="mr-2 flex-shrink-0"
+                    fallbackClassName="bg-gray-600 text-gray-300 text-xs"
+                    fallbackText={participant.displayName?.substring(0, 2).toUpperCase() || '??'}
+                  />
                   <div className="flex-grow">
                     <p className="text-sm">{participant.displayName || 'Unbekannt'}</p>
                   </div>

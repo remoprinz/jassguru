@@ -9,7 +9,6 @@ import {useJassStore, createInitialTeamStand} from "@/store/jassStore";
 import {useUIStore} from "@/store/uiStore";
 import {Button} from "@/components/ui/button";
 import Image from "next/image";
-import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
 import MainLayout from "@/components/layout/MainLayout";
 import {GroupSelector} from "@/components/group/GroupSelector";
 import {Users, Settings, UserPlus, Camera, Upload, X, Loader2, BarChart, Archive, CheckCircle, XCircle, MinusCircle, Award as AwardIcon, BarChart2, BarChart3, AlertTriangle, ArrowLeft, DownloadCloud, Smartphone, Monitor, Laptop, LayoutGrid, Columns, Mail, Copy } from "lucide-react";
@@ -35,7 +34,7 @@ import { DEFAULT_FARBE_SETTINGS } from '@/config/FarbeSettings';
 import { DEFAULT_STROKE_SETTINGS } from '@/config/GameSettings';
 import {
   GroupStatistics,
-  fetchGroupStatistics,
+  subscribeToGroupStatistics,
 } from "@/services/statisticsService";
 import { FormattedDescription } from '@/components/ui/FormattedDescription';
 import { StatRow } from '@/components/statistics/StatRow';
@@ -50,19 +49,8 @@ import { CARD_SYMBOL_MAPPINGS } from '@/config/CardStyles';
 import { toTitleCase } from '@/utils/formatUtils';
 import ProfileImage from '@/components/ui/ProfileImage';
 // ENDE NEUE IMPORTE
-
-// Hilfsfunktion zur Formatierung von Millisekunden in eine lesbare Form
-function formatMillisecondsToHumanReadable(ms: number): string {
-  const seconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  
-  if (minutes === 0) {
-    return `${seconds}s`;
-  }
-  
-  return `${minutes}m ${remainingSeconds}s`;
-}
+import { useNestedScrollFix } from '@/hooks/useNestedScrollFix';
+import { formatMillisecondsDuration } from '@/utils/formatUtils';
 
 // Hilfsfunktion zum Finden des Spieler-Profilbilds anhand des Namens
 function findPlayerPhotoByName(playerName: string, membersList: FirestorePlayer[]): string | undefined {
@@ -164,16 +152,75 @@ const StartPage = () => {
 
   const [isResuming, setIsResuming] = useState(false);
   
-  // Für die erzwungene Aktualisierung der Statistiken
-  const [statsForceUpdate, setStatsForceUpdate] = useState(0);
-  
   const [isProcessingInvite, setIsProcessingInvite] = useState(false);
 
+  // Refs für die scrollbaren Statistik-Container
+  // Übersicht
+  const overviewMostGamesRef = useRef<HTMLDivElement>(null);
+  const overviewTrumpfRef = useRef<HTMLDivElement>(null);
+  // Spieler
+  const playerStricheDiffRef = useRef<HTMLDivElement>(null);
+  const playerPointsDiffRef = useRef<HTMLDivElement>(null);
+  const playerWinRateSessionRef = useRef<HTMLDivElement>(null);
+  const playerWinRateGameRef = useRef<HTMLDivElement>(null);
+  const playerMatschRateRef = useRef<HTMLDivElement>(null);
+  const playerSchneiderRateRef = useRef<HTMLDivElement>(null);
+  const playerWeisAvgRef = useRef<HTMLDivElement>(null);
+  const playerRoundTimeRef = useRef<HTMLDivElement>(null);
+  // Teams
+  const teamStricheDiffRef = useRef<HTMLDivElement>(null);
+  const teamPointsDiffRef = useRef<HTMLDivElement>(null);
+  const teamWinRateSessionRef = useRef<HTMLDivElement>(null);
+  const teamWinRateGameRef = useRef<HTMLDivElement>(null);
+  const teamMatschRateRef = useRef<HTMLDivElement>(null);
+  const teamSchneiderRateRef = useRef<HTMLDivElement>(null);
+  const teamWeisAvgRef = useRef<HTMLDivElement>(null);
+  const teamRoundTimeRef = useRef<HTMLDivElement>(null);
+
+  // Wende den Scroll-Fix-Hook auf alle Refs an
+  useNestedScrollFix(overviewMostGamesRef);
+  useNestedScrollFix(overviewTrumpfRef);
+  useNestedScrollFix(playerStricheDiffRef);
+  useNestedScrollFix(playerPointsDiffRef);
+  useNestedScrollFix(playerWinRateSessionRef);
+  useNestedScrollFix(playerWinRateGameRef);
+  useNestedScrollFix(playerMatschRateRef);
+  useNestedScrollFix(playerSchneiderRateRef);
+  useNestedScrollFix(playerWeisAvgRef);
+  useNestedScrollFix(playerRoundTimeRef);
+  useNestedScrollFix(teamStricheDiffRef);
+  useNestedScrollFix(teamPointsDiffRef);
+  useNestedScrollFix(teamWinRateSessionRef);
+  useNestedScrollFix(teamWinRateGameRef);
+  useNestedScrollFix(teamMatschRateRef);
+  useNestedScrollFix(teamSchneiderRateRef);
+  useNestedScrollFix(teamWeisAvgRef);
+  useNestedScrollFix(teamRoundTimeRef);
+
   const trumpfStatistikArray = useMemo(() => {
-    if (!groupStats?.trumpfStatistik || !groupStats.totalTrumpfCount || groupStats.totalTrumpfCount === 0) {
+    if (!groupStats?.trumpfStatistik || groupStats.totalTrumpfCount === 0) {
       return [];
     }
-    return Object.entries(groupStats.trumpfStatistik)
+    
+    // KORREKTUR: Duplikate zusammenfassen (eichel+eicheln, unde+une)
+    const consolidatedStats: Record<string, number> = {};
+    
+    Object.entries(groupStats.trumpfStatistik).forEach(([farbe, anzahl]) => {
+      const normalizedFarbe = farbe.toLowerCase();
+      
+      // Mapping für Duplikate
+      let mappedFarbe = normalizedFarbe;
+      if (normalizedFarbe === 'eicheln') {
+        mappedFarbe = 'eichel';
+      } else if (normalizedFarbe === 'une') {
+        mappedFarbe = 'unde';
+      }
+      
+      // Zusammenfassen
+      consolidatedStats[mappedFarbe] = (consolidatedStats[mappedFarbe] || 0) + anzahl;
+    });
+    
+    return Object.entries(consolidatedStats)
       .map(([farbe, anzahl]) => ({
         farbe,
         anzahl,
@@ -182,45 +229,27 @@ const StartPage = () => {
       .sort((a, b) => b.anzahl - a.anzahl);
   }, [groupStats]);
 
-  // Statistiken laden, wenn sich die Gruppe ändert oder die Seite fokussiert wird
+  // Statistiken laden, wenn sich die Gruppe ändert
   useEffect(() => {
     if (currentGroup?.id) {
-      // Gruppenstatistiken laden
       setStatsLoading(true);
       setStatsError(null);
-      try {
-        const loadStats = async () => {
-          // console.log(`[StartPage] Lade Statistiken für Gruppe ${currentGroup.id} (Force-Update: ${statsForceUpdate}, MainLocationZip aus Store: ${currentGroup?.mainLocationZip}, Timestamp: ${lastSettingsUpdateTimestamp})`);
-          const statistics = await fetchGroupStatistics(currentGroup.id, currentGroup?.mainLocationZip);
+
+      const unsubscribe = subscribeToGroupStatistics(
+        currentGroup.id,
+        (statistics) => {
           setGroupStats(statistics);
-        };
-        loadStats();
-      } catch (error) {
-        console.error("Fehler beim Laden der Gruppenstatistiken:", error);
-        const message = error instanceof Error ? error.message : "Statistiken konnten nicht geladen werden.";
-        setStatsError(message);
-      } finally {
-        setStatsLoading(false);
-      }
+          // ENTFERNT: Irreführende Fehlermeldung wenn noch keine Statistiken existieren
+          // Das ist ein normaler Zustand wenn noch keine Spiele gespielt wurden
+          setStatsLoading(false);
+        },
+        currentGroup?.mainLocationZip
+      );
+
+      // Bereinigungsfunktion, die beim Unmounten der Komponente aufgerufen wird
+      return () => unsubscribe();
     }
-  }, [currentGroup, statsForceUpdate, lastSettingsUpdateTimestamp]);
-
-  // Erzwinge Aktualisierung der Statistiken, wenn die Seite fokussiert wird
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        // Erhöhe den Zähler, um eine Neuberechnung auszulösen
-        setStatsForceUpdate(prev => prev + 1);
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    // Bereinigungsfunktion
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, []);
+  }, [currentGroup]);
 
   useEffect(() => {
     if (status === "loading" || status === "idle") {
@@ -310,20 +339,6 @@ const StartPage = () => {
             setTournamentsError(message);
           } finally {
             setTournamentsLoading(false);
-          }
-          
-          // Gruppenstatistiken laden
-          setStatsLoading(true);
-          setStatsError(null);
-          try {
-            const statistics = await fetchGroupStatistics(currentGroup.id, currentGroup?.mainLocationZip);
-            setGroupStats(statistics);
-          } catch (error) {
-            console.error("Fehler beim Laden der Gruppenstatistiken:", error);
-            const message = error instanceof Error ? error.message : "Statistiken konnten nicht geladen werden.";
-            setStatsError(message);
-          } finally {
-            setStatsLoading(false);
           }
         }
       }
@@ -897,7 +912,8 @@ const StartPage = () => {
     const filteredUserSessions = currentGroup
       ? completedSessions.filter(session => 
           session.groupId === currentGroup.id && 
-          (session.status === 'completed' || session.status === 'completed_empty')
+          (session.status === 'completed' || session.status === 'completed_empty') &&
+          !session.tournamentId // KRITISCH: Filtere Turnier-Sessions heraus, da sie bereits als separate Turniere angezeigt werden
         )
       : [];
 
@@ -1052,13 +1068,13 @@ const StartPage = () => {
               </div>
             </div>
             <div className="space-y-1">
-              <div className="flex justify-between items-center text-xs text-gray-400">
+              <div className="flex justify-between items-center text-sm text-gray-400">
                 <div>
                   <span className="block">Team 1:&nbsp;<span className="text-white">{playerNames['1'] || '?'} + {playerNames['3'] || '?'}</span></span>
                 </div>
                 <span className="text-sm font-semibold text-white pl-2">{totalStricheBottom !== null ? totalStricheBottom : '-'}</span>
               </div>
-              <div className="flex justify-between items-center text-xs text-gray-400">
+              <div className="flex justify-between items-center text-sm text-gray-400">
                 <div>
                   <span className="block">Team 2:&nbsp;<span className="text-white">{playerNames['2'] || '?'} + {playerNames['4'] || '?'}</span></span>
                 </div>
@@ -1083,11 +1099,11 @@ const StartPage = () => {
                 <div className="flex flex-col">
                   <span className="text-sm font-medium text-white">{name}</span>
                   {formattedDate && (
-                    <span className="text-xs text-gray-400">{formattedDate}</span>
+                    <span className="text-sm text-gray-400">{formattedDate}</span>
                   )}
                 </div>
               </div>
-              <span className={`text-xs px-2 py-0.5 rounded-full ${tournamentStatus === 'completed' ? 'bg-gray-600 text-gray-300' : (tournamentStatus === 'active' ? 'bg-green-600 text-white' : 'bg-blue-500 text-white')}`}>
+              <span className={`text-sm px-2 py-0.5 rounded-full ${tournamentStatus === 'completed' ? 'bg-gray-600 text-gray-300' : (tournamentStatus === 'active' ? 'bg-green-600 text-white' : 'bg-blue-500 text-white')}`}>
                 {tournamentStatus === 'completed' ? 'Abgeschlossen' : (tournamentStatus === 'active' ? 'Aktiv' : 'Anstehend')}
               </span>
             </div>
@@ -1398,7 +1414,7 @@ const StartPage = () => {
             )}
             {statsLoading ? (
               <div className="flex justify-center items-center py-10">
-                <div className="h-6 w-6 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
+                <div className="h-8 w-8 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
                 <span className="ml-3 text-gray-300">Lade Statistiken...</span>
               </div>
             ) : (
@@ -1446,6 +1462,11 @@ const StartPage = () => {
                           <StatRow 
                             label="Anzahl Partien:" 
                             value={groupStats?.sessionCount || 0} 
+                            className="bg-gray-700/30 px-2 py-1.5 rounded-md"
+                          />
+                          <StatRow 
+                            label="Anzahl Turniere:" 
+                            value={groupStats?.tournamentCount || 0} 
                             className="bg-gray-700/30 px-2 py-1.5 rounded-md"
                           />
                           <StatRow 
@@ -1508,7 +1529,7 @@ const StartPage = () => {
                             className="bg-gray-700/30 px-2 py-1.5 rounded-md"
                           />
                           <StatRow
-                            label="Ø Rundenzeit:"
+                            label="Ø Rundentempo:"
                             value={groupStats?.avgRoundDuration || '-'}
                             className="bg-gray-700/30 px-2 py-1.5 rounded-md"
                           />
@@ -1520,11 +1541,11 @@ const StartPage = () => {
                           <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
                           <h3 className="text-base font-semibold text-white">Anzahl Spiele</h3>
                       </div>
-                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                        <div ref={overviewMostGamesRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                           {(() => {
                             if (groupStats?.playerWithMostGames && groupStats.playerWithMostGames.length > 0) {
                               return groupStats.playerWithMostGames.map((playerStat, index) => {
-                                const playerData = findPlayerByName(playerStat.name, members);
+                                const playerData = findPlayerByName(playerStat.playerName, members);
                                 const playerId = playerData?.id || playerData?.userId;
                                 return (
                                   <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=overview` : '#'} key={`mostGames-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
@@ -1533,12 +1554,13 @@ const StartPage = () => {
                                         <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                         <ProfileImage 
                                           src={playerData?.photoURL} 
-                                          alt={playerStat.name} 
-                                          size="xs"
+                                          alt={playerStat.playerName} 
+                                          size="sm"
                                           className="mr-2 bg-yellow-600/20 flex items-center justify-center"
-                                          fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                          fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                          fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
                                         />
-                                        <span className="text-gray-300">{playerStat.name}</span>
+                                        <span className="text-gray-300">{playerStat.playerName}</span>
                                       </div>
                                       <div className="flex items-center">
                                         <span className="text-white font-medium mr-2">{playerStat.value}</span>
@@ -1557,9 +1579,49 @@ const StartPage = () => {
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                           <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
+                          <h3 className="text-base font-semibold text-white">Rundentempo</h3>
+                        </div>
+                        <div ref={playerRoundTimeRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                          {(() => {
+                            if (groupStats?.playerAllRoundTimes && groupStats.playerAllRoundTimes.length > 0) {
+                              return groupStats.playerAllRoundTimes.map((playerStat, index) => {
+                                const playerData = findPlayerByName(playerStat.playerName, members);
+                                const playerId = playerData?.id || playerStat.playerId;
+                                return (
+                                  <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=overview` : '#'} key={`roundTime-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
+                                    <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                      <div className="flex items-center">
+                                        <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                        <ProfileImage 
+                                          src={playerData?.photoURL} 
+                                          alt={playerStat.playerName} 
+                                          size="sm"
+                                          className="mr-2 bg-yellow-600/20"
+                                          fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                          fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
+                                        />
+                                        <span className="text-gray-300">{playerStat.playerName}</span>
+                                      </div>
+                                      <div className="flex items-center">
+                                        <span className="text-white font-medium text-right whitespace-nowrap">{formatMillisecondsDuration(playerStat.value)}</span>
+                                      </div>
+                                    </div>
+                                  </Link>
+                                );
+                              });
+                            } else {
+                              return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
+                            }
+                          })()}
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
                           <h3 className="text-base font-semibold text-white">% Trumpffarben</h3>
                         </div>
-                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                        <div ref={overviewTrumpfRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                           {trumpfStatistikArray.length > 0 ? (
                             trumpfStatistikArray.map((item, index) => {
                               // NEU: Logik für dynamische Anzeige
@@ -1575,7 +1637,7 @@ const StartPage = () => {
                                       farbe={normalizeJassColor(item.farbe)} 
                                       mode="svg" 
                                       cardStyle={cardStyle} // cardStyle übergeben
-                                      className="h-6 w-6 mr-2"
+                                      className="h-8 w-8 mr-2"
                                     />
                                     <span className="text-gray-300 capitalize">{displayName}</span>
                                   </div>
@@ -1599,23 +1661,26 @@ const StartPage = () => {
                           <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
                           <h3 className="text-base font-semibold text-white">Strichdifferenz</h3>
                       </div>
-                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                        <div ref={playerStricheDiffRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                           {(() => {
                             if (groupStats?.playerWithHighestStricheDiff && groupStats.playerWithHighestStricheDiff.length > 0) {
                               return groupStats.playerWithHighestStricheDiff.map((playerStat, index) => {
-                                const playerData = findPlayerByName(playerStat.name, members);
+                                const playerData = findPlayerByName(playerStat.playerName, members);
                                 const playerId = playerData?.id || playerData?.userId;
                                 return (
                                  <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`stricheDiff-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
                                   <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                     <div className="flex items-center">
                                       <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                      <Avatar className="h-6 w-6 mr-2 bg-yellow-600/20 flex items-center justify-center">
-                                        {playerData?.photoURL ? (
-                                          <Image src={playerData.photoURL} alt={playerStat.name} width={24} height={24} className="rounded-full object-cover" />
-                                        ) : (<AvatarFallback className="bg-gray-700 text-gray-300 text-xs">{playerStat.name.charAt(0).toUpperCase()}</AvatarFallback>)}
-                                      </Avatar>
-                                      <span className="text-gray-300">{playerStat.name}</span>
+                                                                              <ProfileImage 
+                                          src={playerData?.photoURL} 
+                                          alt={playerStat.playerName} 
+                                          size="sm"
+                                          className="mr-2 bg-yellow-600/20"
+                                          fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                          fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
+                                        />
+                                      <span className="text-gray-300">{playerStat.playerName}</span>
                                     </div>
                                     <div className="flex items-center">
                                       <span className="text-white font-medium mr-2">{playerStat.value > 0 ? '+' : ''}{Math.trunc(playerStat.value)}</span>
@@ -1636,11 +1701,11 @@ const StartPage = () => {
                           <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
                           <h3 className="text-base font-semibold text-white">Punktedifferenz</h3>
                         </div>
-                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                        <div ref={playerPointsDiffRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                           {(() => {
                             if (groupStats?.playerWithHighestPointsDiff && groupStats.playerWithHighestPointsDiff.length > 0) {
                               return groupStats.playerWithHighestPointsDiff.map((playerStat, index) => {
-                                const playerData = findPlayerByName(playerStat.name, members);
+                                const playerData = findPlayerByName(playerStat.playerName, members);
                                 const playerId = playerData?.id || playerStat.playerId;
                                 return (
                                   <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`pointsDiff-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
@@ -1649,13 +1714,13 @@ const StartPage = () => {
                                         <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                         <ProfileImage 
                                           src={playerData?.photoURL} 
-                                          alt={playerStat.name} 
-                                          size="xs"
+                                          alt={playerStat.playerName} 
+                                          size="sm"
                                           className="mr-2 bg-yellow-600/20"
-                                          fallbackClassName="bg-gray-700 text-gray-300 text-xs"
-                                          fallbackText={playerStat.name.charAt(0).toUpperCase()}
+                                          fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                          fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
                                         />
-                                        <span className="text-gray-300">{playerStat.name}</span>
+                                        <span className="text-gray-300">{playerStat.playerName}</span>
                                       </div>
                                       <div className="flex items-center">
                                         <span className="text-white font-medium mr-2">{playerStat.value > 0 ? '+' : ''}{Math.trunc(playerStat.value)}</span>
@@ -1674,13 +1739,13 @@ const StartPage = () => {
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                           <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Ø Siegquote pro Partie</h3>
+                          <h3 className="text-base font-semibold text-white">Siegquote Partie</h3>
                         </div>
-                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                        <div ref={playerWinRateSessionRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                           {(() => {
                             if (groupStats?.playerWithHighestWinRateSession && groupStats.playerWithHighestWinRateSession.length > 0) {
                               return groupStats.playerWithHighestWinRateSession.map((playerStat, index) => {
-                                const playerData = findPlayerByName(playerStat.name, members);
+                                const playerData = findPlayerByName(playerStat.playerName, members);
                                 // KORREKTUR: Verwende die playerId aus der Statistik als Fallback
                                 const playerId = playerData?.id || playerStat.playerId;
                                 return (
@@ -1690,13 +1755,13 @@ const StartPage = () => {
                                         <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                         <ProfileImage 
                                           src={playerData?.photoURL} 
-                                          alt={playerStat.name} 
-                                          size="xs"
+                                          alt={playerStat.playerName} 
+                                          size="sm"
                                           className="mr-2 bg-yellow-600/20"
-                                          fallbackClassName="bg-gray-700 text-gray-300 text-xs"
-                                          fallbackText={playerStat.name.charAt(0).toUpperCase()}
+                                          fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                          fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
                                         />
-                                        <span className="text-gray-300">{playerStat.name}</span>
+                                        <span className="text-gray-300">{playerStat.playerName}</span>
                                       </div>
                                       <div className="flex items-center">
                                         {/* KORREKTUR: Stelle sicher, dass der Wert eine Zahl ist, bevor toFixed aufgerufen wird. Zeige 0.0% für ungültige Werte. */}
@@ -1716,13 +1781,13 @@ const StartPage = () => {
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                           <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Ø Siegquote pro Spiel</h3>
+                          <h3 className="text-base font-semibold text-white">Siegquote Spiel</h3>
                         </div>
-                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                        <div ref={playerWinRateGameRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                           {(() => {
                             if (groupStats?.playerWithHighestWinRateGame && groupStats.playerWithHighestWinRateGame.length > 0) {
                               return groupStats.playerWithHighestWinRateGame.map((playerStat, index) => {
-                                const playerData = findPlayerByName(playerStat.name, members);
+                                const playerData = findPlayerByName(playerStat.playerName, members);
                                 const playerId = playerData?.id || playerStat.playerId;
                                 return (
                                   <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`winRateGame-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
@@ -1731,13 +1796,13 @@ const StartPage = () => {
                                         <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                         <ProfileImage 
                                           src={playerData?.photoURL} 
-                                          alt={playerStat.name} 
-                                          size="xs"
+                                          alt={playerStat.playerName} 
+                                          size="sm"
                                           className="mr-2 bg-yellow-600/20"
-                                          fallbackClassName="bg-gray-700 text-gray-300 text-xs"
-                                          fallbackText={playerStat.name.charAt(0).toUpperCase()}
+                                          fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                          fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
                                         />
-                                        <span className="text-gray-300">{playerStat.name}</span>
+                                        <span className="text-gray-300">{playerStat.playerName}</span>
                                       </div>
                                       <div className="flex items-center">
                                         <span className="text-white font-medium mr-2">{(typeof playerStat.value === 'number' ? playerStat.value * 100 : 0).toFixed(1)}%</span>
@@ -1756,31 +1821,31 @@ const StartPage = () => {
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                           <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Matschquote pro Spiel</h3>
+                          <h3 className="text-base font-semibold text-white">Matsch-Bilanz</h3>
                         </div>
-                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                        <div ref={playerMatschRateRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                           {(() => {
-                            if (groupStats?.playerWithHighestMatschRate && groupStats.playerWithHighestMatschRate.length > 0) {
-                              return groupStats.playerWithHighestMatschRate.map((playerStat, index) => {
-                                const playerData = findPlayerByName(playerStat.name, members);
+                            if (groupStats?.playerWithHighestMatschBilanz && groupStats.playerWithHighestMatschBilanz.length > 0) {
+                              return groupStats.playerWithHighestMatschBilanz.map((playerStat, index) => {
+                                const playerData = findPlayerByName(playerStat.playerName, members);
                                 const playerId = playerData?.id || playerStat.playerId;
                                 return (
-                                  <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`matschRate-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
+                                  <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`matschBilanz-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
                                     <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                       <div className="flex items-center">
                                         <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                         <ProfileImage 
                                           src={playerData?.photoURL} 
-                                          alt={playerStat.name} 
-                                          size="xs"
+                                          alt={playerStat.playerName} 
+                                          size="sm"
                                           className="mr-2 bg-yellow-600/20"
-                                          fallbackClassName="bg-gray-700 text-gray-300 text-xs"
-                                          fallbackText={playerStat.name.charAt(0).toUpperCase()}
+                                          fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                          fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
                                         />
-                                        <span className="text-gray-300">{playerStat.name}</span>
+                                        <span className="text-gray-300">{playerStat.playerName}</span>
                                       </div>
                                       <div className="flex items-center">
-                                        <span className="text-white font-medium mr-2">{(typeof playerStat.value === 'number' ? playerStat.value : 0).toFixed(2)}</span>
+                                        <span className="text-white font-medium mr-2">{playerStat.value > 0 ? '+' : ''}{playerStat.value} ({playerStat.eventsMade || 0}/{playerStat.eventsReceived || 0})</span>
                                       </div>
                                     </div>
                                   </Link>
@@ -1796,31 +1861,31 @@ const StartPage = () => {
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                           <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Schneiderquote pro Spiel</h3>
+                          <h3 className="text-base font-semibold text-white">Schneider-Bilanz</h3>
                         </div>
-                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                        <div ref={playerSchneiderRateRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                           {(() => {
-                            if (groupStats?.playerWithHighestSchneiderRate && groupStats.playerWithHighestSchneiderRate.length > 0) {
-                              return groupStats.playerWithHighestSchneiderRate.map((playerStat, index) => {
-                                const playerData = findPlayerByName(playerStat.name, members);
+                            if (groupStats?.playerWithHighestSchneiderBilanz && groupStats.playerWithHighestSchneiderBilanz.length > 0) {
+                              return groupStats.playerWithHighestSchneiderBilanz.map((playerStat, index) => {
+                                const playerData = findPlayerByName(playerStat.playerName, members);
                                 const playerId = playerData?.id || playerStat.playerId;
                                 return (
-                                  <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`schneiderRate-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
+                                  <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`schneiderBilanz-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
                                     <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                       <div className="flex items-center">
                                         <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                         <ProfileImage 
                                           src={playerData?.photoURL} 
-                                          alt={playerStat.name} 
-                                          size="xs"
+                                          alt={playerStat.playerName} 
+                                          size="sm"
                                           className="mr-2 bg-yellow-600/20"
-                                          fallbackClassName="bg-gray-700 text-gray-300 text-xs"
-                                          fallbackText={playerStat.name.charAt(0).toUpperCase()}
+                                          fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                          fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
                                         />
-                                        <span className="text-gray-300">{playerStat.name}</span>
+                                        <span className="text-gray-300">{playerStat.playerName}</span>
                                       </div>
                                       <div className="flex items-center">
-                                        <span className="text-white font-medium mr-2">{(typeof playerStat.value === 'number' ? playerStat.value : 0).toFixed(2)}</span>
+                                        <span className="text-white font-medium mr-2">{playerStat.value > 0 ? '+' : ''}{playerStat.value} ({playerStat.eventsMade || 0}/{playerStat.eventsReceived || 0})</span>
                                       </div>
                                     </div>
                                   </Link>
@@ -1836,13 +1901,62 @@ const StartPage = () => {
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                           <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Ø Weispunkte pro Spiel</h3>
+                          <h3 className="text-base font-semibold text-white">Kontermatsch-Bilanz</h3>
                         </div>
-                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                        <div ref={playerSchneiderRateRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                          {(() => {
+                            if (groupStats?.playerWithHighestKontermatschBilanz && groupStats.playerWithHighestKontermatschBilanz.length > 0) {
+                              // Filtere nur Spieler mit Kontermatsch-Erfahrung (eventsMade > 0 oder eventsReceived > 0)
+                              const playersWithKontermatsch = groupStats.playerWithHighestKontermatschBilanz.filter(playerStat => 
+                                (playerStat.eventsMade || 0) > 0 || (playerStat.eventsReceived || 0) > 0
+                              );
+                              
+                              if (playersWithKontermatsch.length > 0) {
+                                return playersWithKontermatsch.map((playerStat, index) => {
+                                  const playerData = findPlayerByName(playerStat.playerName, members);
+                                  const playerId = playerData?.id || playerStat.playerId;
+                                  return (
+                                    <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`kontermatschBilanz-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
+                                      <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                        <div className="flex items-center">
+                                          <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                          <ProfileImage 
+                                            src={playerData?.photoURL} 
+                                            alt={playerStat.playerName} 
+                                            size="sm"
+                                            className="mr-2 bg-yellow-600/20"
+                                            fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                            fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
+                                          />
+                                          <span className="text-gray-300">{playerStat.playerName}</span>
+                                        </div>
+                                        <div className="flex items-center">
+                                          <span className="text-white font-medium mr-2">{playerStat.value > 0 ? '+' : ''}{playerStat.value} ({playerStat.eventsMade || 0}/{playerStat.eventsReceived || 0})</span>
+                                        </div>
+                                      </div>
+                                    </Link>
+                                  );
+                                });
+                              } else {
+                                return <div className="text-gray-400 text-center py-2">Keine Kontermatsch-Erfahrung vorhanden</div>;
+                              }
+                            } else {
+                              return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
+                            }
+                          })()}
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
+                          <h3 className="text-base font-semibold text-white">Weis-Durchschnitt</h3>
+                        </div>
+                        <div ref={playerWeisAvgRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                           {(() => {
                             if (groupStats?.playerWithMostWeisPointsAvg && groupStats.playerWithMostWeisPointsAvg.length > 0) {
                               return groupStats.playerWithMostWeisPointsAvg.map((playerStat, index) => {
-                                const playerData = findPlayerByName(playerStat.name, members);
+                                const playerData = findPlayerByName(playerStat.playerName, members);
                                 const playerId = playerData?.id || playerStat.playerId;
                                 return (
                                   <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`weisPoints-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
@@ -1851,13 +1965,13 @@ const StartPage = () => {
                                         <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                         <ProfileImage 
                                           src={playerData?.photoURL} 
-                                          alt={playerStat.name} 
-                                          size="xs"
+                                          alt={playerStat.playerName} 
+                                          size="sm"
                                           className="mr-2 bg-yellow-600/20"
-                                          fallbackClassName="bg-gray-700 text-gray-300 text-xs"
-                                          fallbackText={playerStat.name.charAt(0).toUpperCase()}
+                                          fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                          fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
                                         />
-                                        <span className="text-gray-300">{playerStat.name}</span>
+                                        <span className="text-gray-300">{playerStat.playerName}</span>
                                       </div>
                                       <div className="flex items-center">
                                         <span className="text-white font-medium mr-2">{Math.round(Number(playerStat.value))}</span>
@@ -1872,48 +1986,8 @@ const StartPage = () => {
                           })()}
                         </div>
                       </div>
-                      
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Ø Rundenzeit</h3>
-                        </div>
-                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {(() => {
-                            if (groupStats?.playerAllRoundTimes && groupStats.playerAllRoundTimes.length > 0) {
-                              return groupStats.playerAllRoundTimes.map((playerStat, index) => {
-                                const playerData = findPlayerByName(playerStat.name, members);
-                                const playerId = playerData?.id || playerStat.playerId;
-                                return (
-                                  <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`roundTime-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
-                                    <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                      <div className="flex items-center">
-                                        <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                        <ProfileImage 
-                                          src={playerData?.photoURL} 
-                                          alt={playerStat.name} 
-                                          size="xs"
-                                          className="mr-2 bg-yellow-600/20"
-                                          fallbackClassName="bg-gray-700 text-gray-300 text-xs"
-                                          fallbackText={playerStat.name.charAt(0).toUpperCase()}
-                                        />
-                                        <span className="text-gray-300">{playerStat.name}</span>
-                                      </div>
-                                      <div className="flex items-center">
-                                        <span className="text-white font-medium mr-2">{formatMillisecondsToHumanReadable(playerStat.value)}</span>
-                                      </div>
-                                    </div>
-                                  </Link>
-                                );
-                              });
-                            } else {
-                              return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
-                            }
-                          })()}
-                        </div>
-                      </div>
                     </div>
-                    <div className="mt-4 text-center text-xs text-gray-500 px-4">
+                    <div className="mt-4 text-center text-sm text-gray-500 px-4">
                       Hinweis: In den Ranglisten werden nur Spieler berücksichtigt, die innerhalb des letzten Jahres aktiv waren.
                     </div>
                   </TabsContent>
@@ -1926,7 +2000,7 @@ const StartPage = () => {
                           <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
                           <h3 className="text-base font-semibold text-white">Strichdifferenz</h3>
                         </div>
-                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                        <div ref={teamStricheDiffRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                           {groupStats?.teamWithHighestStricheDiff && groupStats.teamWithHighestStricheDiff.length > 0 ? (
                             groupStats.teamWithHighestStricheDiff.map((team, index) => (
                               <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
@@ -1936,26 +2010,19 @@ const StartPage = () => {
                                     <ProfileImage 
                                       src={findPlayerPhotoByName(team.names[0], members)} 
                                       alt={team.names[0]} 
-                                      size="xs"
+                                      size="sm"
                                       className="border-2 border-gray-800 bg-yellow-600/20"
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                       fallbackText={team.names[0].charAt(0).toUpperCase()}
                                     />
-                                    <Avatar className="h-6 w-6 border-2 border-gray-800 bg-yellow-600/20 flex items-center justify-center">
-                                      {findPlayerPhotoByName(team.names[1], members) ? (
-                                        <Image
-                                          src={findPlayerPhotoByName(team.names[1], members)!}
-                                          alt={team.names[1]}
-                                          width={24}
-                                          height={24}
-                                          className="rounded-full object-cover"
-                                        />
-                                      ) : (
-                                      <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                        {team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                      </AvatarFallback>
-                                      )}
-                                    </Avatar>
+                                    <ProfileImage 
+                                      src={findPlayerPhotoByName(team.names[1], members)} 
+                                      alt={team.names[1]} 
+                                      size="sm"
+                                      className="border-2 border-gray-800 bg-yellow-600/20"
+                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                      fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
+                                    />
                                   </div>
                                   <span className="text-gray-300">{team.names.join(' & ')}</span>
                                 </div>
@@ -1973,7 +2040,7 @@ const StartPage = () => {
                           <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
                           <h3 className="text-base font-semibold text-white">Punktedifferenz</h3>
                         </div>
-                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                        <div ref={teamPointsDiffRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                           {groupStats?.teamWithHighestPointsDiff && groupStats.teamWithHighestPointsDiff.length > 0 ? (
                             groupStats.teamWithHighestPointsDiff.map((team, index) => (
                               <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
@@ -1983,26 +2050,19 @@ const StartPage = () => {
                                     <ProfileImage 
                                       src={findPlayerPhotoByName(team.names[0], members)} 
                                       alt={team.names[0]} 
-                                      size="xs"
+                                      size="sm"
                                       className="border-2 border-gray-800 bg-yellow-600/20"
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                       fallbackText={team.names[0].charAt(0).toUpperCase()}
                                     />
-                                    <Avatar className="h-6 w-6 border-2 border-gray-800 bg-yellow-600/20 flex items-center justify-center">
-                                      {findPlayerPhotoByName(team.names[1], members) ? (
-                                        <Image
-                                          src={findPlayerPhotoByName(team.names[1], members)!}
-                                          alt={team.names[1]}
-                                          width={24}
-                                          height={24}
-                                          className="rounded-full object-cover"
-                                        />
-                                      ) : (
-                                      <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                        {team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                      </AvatarFallback>
-                                      )}
-                                    </Avatar>
+                                    <ProfileImage 
+                                      src={findPlayerPhotoByName(team.names[1], members)} 
+                                      alt={team.names[1]} 
+                                      size="sm"
+                                      className="border-2 border-gray-800 bg-yellow-600/20"
+                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                      fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
+                                    />
                                   </div>
                                   <span className="text-gray-300">{team.names.join(' & ')}</span>
                                 </div>
@@ -2018,9 +2078,9 @@ const StartPage = () => {
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                           <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Ø Siegquote pro Partie</h3>
+                          <h3 className="text-base font-semibold text-white">Siegquote (Partien)</h3>
                         </div>
-                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                        <div ref={teamWinRateSessionRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                           {groupStats?.teamWithHighestWinRateSession && groupStats.teamWithHighestWinRateSession.length > 0 ? (
                             groupStats.teamWithHighestWinRateSession.map((team, index) => (
                               <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
@@ -2030,26 +2090,19 @@ const StartPage = () => {
                                     <ProfileImage 
                                       src={findPlayerPhotoByName(team.names[0], members)} 
                                       alt={team.names[0]} 
-                                      size="xs"
+                                      size="sm"
                                       className="border-2 border-gray-800 bg-yellow-600/20"
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                       fallbackText={team.names[0].charAt(0).toUpperCase()}
                                     />
-                                    <Avatar className="h-6 w-6 border-2 border-gray-800 bg-yellow-600/20 flex items-center justify-center">
-                                      {findPlayerPhotoByName(team.names[1], members) ? (
-                                        <Image
-                                          src={findPlayerPhotoByName(team.names[1], members)!}
-                                          alt={team.names[1]}
-                                          width={24}
-                                          height={24}
-                                          className="rounded-full object-cover"
-                                        />
-                                      ) : (
-                                      <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                        {team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                      </AvatarFallback>
-                                      )}
-                                    </Avatar>
+                                    <ProfileImage 
+                                      src={findPlayerPhotoByName(team.names[1], members)} 
+                                      alt={team.names[1]} 
+                                      size="sm"
+                                      className="border-2 border-gray-800 bg-yellow-600/20"
+                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                      fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
+                                    />
                                   </div>
                                   <span className="text-gray-300">{team.names.join(' & ')}</span>
                                 </div>
@@ -2065,9 +2118,9 @@ const StartPage = () => {
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                           <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Ø Siegquote pro Spiel</h3>
+                          <h3 className="text-base font-semibold text-white">Siegquote (Spiele)</h3>
                       </div>
-                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                        <div ref={teamWinRateGameRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                           {groupStats?.teamWithHighestWinRateGame && groupStats.teamWithHighestWinRateGame.length > 0 ? (
                             groupStats.teamWithHighestWinRateGame.map((team, index) => (
                               <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
@@ -2077,26 +2130,19 @@ const StartPage = () => {
                                     <ProfileImage 
                                       src={findPlayerPhotoByName(team.names[0], members)} 
                                       alt={team.names[0]} 
-                                      size="xs"
+                                      size="sm"
                                       className="border-2 border-gray-800 bg-yellow-600/20"
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                       fallbackText={team.names[0].charAt(0).toUpperCase()}
                                     />
-                                    <Avatar className="h-6 w-6 border-2 border-gray-800 bg-yellow-600/20 flex items-center justify-center">
-                                      {findPlayerPhotoByName(team.names[1], members) ? (
-                                        <Image
-                                          src={findPlayerPhotoByName(team.names[1], members)!}
-                                          alt={team.names[1]}
-                                          width={24}
-                                          height={24}
-                                          className="rounded-full object-cover"
-                                        />
-                                      ) : (
-                                      <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                        {team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                      </AvatarFallback>
-                                      )}
-                                    </Avatar>
+                                    <ProfileImage 
+                                      src={findPlayerPhotoByName(team.names[1], members)} 
+                                      alt={team.names[1]} 
+                                      size="sm"
+                                      className="border-2 border-gray-800 bg-yellow-600/20"
+                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                      fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
+                                    />
                                   </div>
                                   <span className="text-gray-300">{team.names.join(' & ')}</span>
                                 </div>
@@ -2112,103 +2158,182 @@ const StartPage = () => {
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                           <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Matschquote pro Spiel</h3>
+                          <h3 className="text-base font-semibold text-white">Matsch-Bilanz</h3>
                         </div>
-                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {groupStats?.teamWithHighestMatschRate && groupStats.teamWithHighestMatschRate.length > 0 ? (
-                            groupStats.teamWithHighestMatschRate.map((team, index) => (
-                              <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
-                                <div className="flex items-center">
-                                  <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                  <div className="flex -space-x-2 mr-2">
-                                    <ProfileImage 
-                                      src={findPlayerPhotoByName(team.names[0], members)} 
-                                      alt={team.names[0]} 
-                                      size="xs"
-                                      className="border-2 border-gray-800 bg-yellow-600/20"
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-xs"
-                                      fallbackText={team.names[0].charAt(0).toUpperCase()}
-                                    />
-                                    <Avatar className="h-6 w-6 border-2 border-gray-800 bg-yellow-600/20 flex items-center justify-center">
-                                      {findPlayerPhotoByName(team.names[1], members) ? (
-                                        <Image
-                                          src={findPlayerPhotoByName(team.names[1], members)!}
-                                          alt={team.names[1]}
-                                          width={24}
-                                          height={24}
-                                          className="rounded-full object-cover"
-                                        />
-                                      ) : (
-                                      <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                        {team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                      </AvatarFallback>
-                                      )}
-                                    </Avatar>
+                        <div ref={teamMatschRateRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                          {(() => {
+                            // ✅ KORRIGIERT: Verwende teamWithHighestMatschBilanz statt teamWithHighestMatschRate
+                            const teamMatschData = groupStats?.teamWithHighestMatschBilanz || groupStats?.teamWithHighestMatschRate;
+                            if (teamMatschData && teamMatschData.length > 0) {
+                              return teamMatschData.map((team, index) => (
+                                <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
+                                  <div className="flex items-center">
+                                    <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                    <div className="flex -space-x-2 mr-2">
+                                      <ProfileImage 
+                                        src={findPlayerPhotoByName(team.names[0], members)} 
+                                        alt={team.names[0]} 
+                                        size="sm"
+                                        className="border-2 border-gray-800 bg-yellow-600/20"
+                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        fallbackText={team.names[0].charAt(0).toUpperCase()}
+                                      />
+                                      <ProfileImage 
+                                        src={findPlayerPhotoByName(team.names[1], members)} 
+                                        alt={team.names[1]} 
+                                        size="sm"
+                                        className="border-2 border-gray-800 bg-yellow-600/20"
+                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
+                                      />
+                                    </div>
+                                    <span className="text-gray-300">{team.names.join(' & ')}</span>
                                   </div>
-                                  <span className="text-gray-300">{team.names.join(' & ')}</span>
+                                  <div className="flex items-center">
+                                    {/* ✅ KORRIGIERT: Zeige absolute Bilanz statt Rate */}
+                                    <span className="text-white font-medium mr-2">
+                                      {team.value > 0 ? '+' : ''}{Math.round(Number(team.value))}
+                                    </span>
+                                    {team.eventsMade !== undefined && team.eventsReceived !== undefined && (
+                                      <span className="text-gray-400 text-xs">
+                                        ({team.eventsMade}/{team.eventsReceived})
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
-                                <span className="text-white font-medium">{Number(team.value).toFixed(2)}</span>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div>
-                          )}
+                              ));
+                            } else {
+                              return <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div>;
+                            }
+                          })()}
                         </div>
                       </div>
 
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                           <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Schneiderquote pro Spiel</h3>
+                          <h3 className="text-base font-semibold text-white">Schneider-Bilanz</h3>
+                        </div>
+                        <div ref={teamSchneiderRateRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                          {(() => {
+                            // ✅ KORRIGIERT: Verwende teamWithHighestSchneiderBilanz statt teamWithHighestSchneiderRate
+                            const teamSchneiderData = groupStats?.teamWithHighestSchneiderBilanz || groupStats?.teamWithHighestSchneiderRate;
+                            if (teamSchneiderData && teamSchneiderData.length > 0) {
+                              return teamSchneiderData.map((team, index) => (
+                                <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
+                                  <div className="flex items-center">
+                                    <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                    <div className="flex -space-x-2 mr-2">
+                                      <ProfileImage 
+                                        src={findPlayerPhotoByName(team.names[0], members)} 
+                                        alt={team.names[0]} 
+                                        size="sm"
+                                        className="border-2 border-gray-800 bg-yellow-600/20"
+                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        fallbackText={team.names[0].charAt(0).toUpperCase()}
+                                      />
+                                      <ProfileImage 
+                                        src={findPlayerPhotoByName(team.names[1], members)} 
+                                        alt={team.names[1]} 
+                                        size="sm"
+                                        className="border-2 border-gray-800 bg-yellow-600/20"
+                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
+                                      />
+                                    </div>
+                                    <span className="text-gray-300">{team.names.join(' & ')}</span>
+                                  </div>
+                                  <div className="flex items-center">
+                                    {/* ✅ KORRIGIERT: Zeige absolute Bilanz statt Rate */}
+                                    <span className="text-white font-medium mr-2">
+                                      {team.value > 0 ? '+' : ''}{Math.round(Number(team.value))}
+                                    </span>
+                                    {team.eventsMade !== undefined && team.eventsReceived !== undefined && (
+                                      <span className="text-gray-400 text-xs">
+                                        ({team.eventsMade}/{team.eventsReceived})
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              ));
+                            } else {
+                              return <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div>;
+                            }
+                          })()}
+                        </div>
+                      </div>
+
+                      {/* ✅ NEU: Kontermatsch-Bilanz für Teams */}
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
+                          <h3 className="text-base font-semibold text-white">Kontermatsch-Bilanz</h3>
                         </div>
                         <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {groupStats?.teamWithHighestSchneiderRate && groupStats.teamWithHighestSchneiderRate.length > 0 ? (
-                            groupStats.teamWithHighestSchneiderRate.map((team, index) => (
-                              <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
-                                <div className="flex items-center">
-                                  <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                  <div className="flex -space-x-2 mr-2">
-                                    <ProfileImage 
-                                      src={findPlayerPhotoByName(team.names[0], members)} 
-                                      alt={team.names[0]} 
-                                      size="xs"
-                                      className="border-2 border-gray-800 bg-yellow-600/20"
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-xs"
-                                      fallbackText={team.names[0].charAt(0).toUpperCase()}
-                                    />
-                                    <Avatar className="h-6 w-6 border-2 border-gray-800 bg-yellow-600/20 flex items-center justify-center">
-                                      {findPlayerPhotoByName(team.names[1], members) ? (
-                                        <Image
-                                          src={findPlayerPhotoByName(team.names[1], members)!}
-                                          alt={team.names[1]}
-                                          width={24}
-                                          height={24}
-                                          className="rounded-full object-cover"
+                          {(() => {
+                            const teamKontermatschData = groupStats?.teamWithHighestKontermatschBilanz || groupStats?.teamWithHighestKontermatschRate;
+                            if (teamKontermatschData && teamKontermatschData.length > 0) {
+                              // ✅ KORRIGIERT: Filtere Teams mit Kontermatsch-Erfahrung basierend auf value statt eventsMade/eventsReceived
+                              const teamsWithKontermatsch = teamKontermatschData.filter(team => 
+                                // Für Teams: Wenn eventsMade/eventsReceived verfügbar, verwende diese, sonst verwende value != 0
+                                (team.eventsMade !== undefined && team.eventsReceived !== undefined) 
+                                  ? ((team.eventsMade && team.eventsMade > 0) || (team.eventsReceived && team.eventsReceived > 0))
+                                  : (team.value !== 0) // Fallback: Zeige Teams mit Bilanz != 0
+                              );
+                              
+                              if (teamsWithKontermatsch.length > 0) {
+                                return teamsWithKontermatsch.map((team, index) => (
+                                  <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
+                                    <div className="flex items-center">
+                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <div className="flex -space-x-2 mr-2">
+                                        <ProfileImage 
+                                          src={findPlayerPhotoByName(team.names[0], members)} 
+                                          alt={team.names[0]} 
+                                          size="sm"
+                                          className="border-2 border-gray-800 bg-yellow-600/20"
+                                          fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                          fallbackText={team.names[0].charAt(0).toUpperCase()}
                                         />
-                                      ) : (
-                                      <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                        {team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                      </AvatarFallback>
+                                        <ProfileImage 
+                                          src={findPlayerPhotoByName(team.names[1], members)} 
+                                          alt={team.names[1]} 
+                                          size="sm"
+                                          className="border-2 border-gray-800 bg-yellow-600/20"
+                                          fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                          fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
+                                        />
+                                      </div>
+                                      <span className="text-gray-300">{team.names.join(' & ')}</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <span className="text-white font-medium mr-2">
+                                        {team.value > 0 ? '+' : ''}{Math.round(Number(team.value))}
+                                      </span>
+                                      {team.eventsMade !== undefined && team.eventsReceived !== undefined && (
+                                        <span className="text-gray-400 text-xs">
+                                          ({team.eventsMade}/{team.eventsReceived})
+                                        </span>
                                       )}
-                                    </Avatar>
+                                    </div>
                                   </div>
-                                  <span className="text-gray-300">{team.names.join(' & ')}</span>
-                                </div>
-                                <span className="text-white font-medium">{Number(team.value).toFixed(2)}</span>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div>
-                          )}
+                                ));
+                              } else {
+                                return <div className="text-gray-400 text-center py-2">Keine Kontermatsch-Erfahrung vorhanden</div>;
+                              }
+                            } else {
+                              return <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div>;
+                            }
+                          })()}
                         </div>
                       </div>
 
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                           <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Ø Weispunkte pro Spiel</h3>
+                          <h3 className="text-base font-semibold text-white">Weis-Durchschnitt</h3>
                       </div>
-                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                        <div ref={teamWeisAvgRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                           {groupStats?.teamWithMostWeisPointsAvg && groupStats.teamWithMostWeisPointsAvg.length > 0 ? (
                             groupStats.teamWithMostWeisPointsAvg.map((team, index) => (
                               <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
@@ -2218,26 +2343,19 @@ const StartPage = () => {
                                     <ProfileImage 
                                       src={findPlayerPhotoByName(team.names[0], members)} 
                                       alt={team.names[0]} 
-                                      size="xs"
+                                      size="sm"
                                       className="border-2 border-gray-800 bg-yellow-600/20"
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                       fallbackText={team.names[0].charAt(0).toUpperCase()}
                                     />
-                                    <Avatar className="h-6 w-6 border-2 border-gray-800 bg-yellow-600/20 flex items-center justify-center">
-                                      {findPlayerPhotoByName(team.names[1], members) ? (
-                                        <Image
-                                          src={findPlayerPhotoByName(team.names[1], members)!}
-                                          alt={team.names[1]}
-                                          width={24}
-                                          height={24}
-                                          className="rounded-full object-cover"
-                                        />
-                                      ) : (
-                                      <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                        {team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                      </AvatarFallback>
-                                      )}
-                                    </Avatar>
+                                    <ProfileImage 
+                                      src={findPlayerPhotoByName(team.names[1], members)} 
+                                      alt={team.names[1]} 
+                                      size="sm"
+                                      className="border-2 border-gray-800 bg-yellow-600/20"
+                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                      fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
+                                    />
                                   </div>
                                   <span className="text-gray-300">{team.names.join(' & ')}</span>
                                 </div>
@@ -2253,9 +2371,9 @@ const StartPage = () => {
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                           <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Ø Rundenzeit</h3>
+                          <h3 className="text-base font-semibold text-white">Rundentempo</h3>
                         </div>
-                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                        <div ref={teamRoundTimeRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                           {groupStats?.teamWithFastestRounds && groupStats.teamWithFastestRounds.length > 0 ? (
                             groupStats.teamWithFastestRounds.map((team, index) => (
                               <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
@@ -2265,30 +2383,23 @@ const StartPage = () => {
                                     <ProfileImage 
                                       src={findPlayerPhotoByName(team.names[0], members)} 
                                       alt={team.names[0]} 
-                                      size="xs"
+                                      size="sm"
                                       className="border-2 border-gray-800 bg-yellow-600/20"
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                       fallbackText={team.names[0].charAt(0).toUpperCase()}
                                     />
-                                    <Avatar className="h-6 w-6 border-2 border-gray-800 bg-yellow-600/20 flex items-center justify-center">
-                                      {findPlayerPhotoByName(team.names[1], members) ? (
-                                        <Image
-                                          src={findPlayerPhotoByName(team.names[1], members)!}
-                                          alt={team.names[1]}
-                                          width={24}
-                                          height={24}
-                                          className="rounded-full object-cover"
-                                        />
-                                      ) : (
-                                      <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                                        {team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                      </AvatarFallback>
-                                      )}
-                                    </Avatar>
+                                    <ProfileImage 
+                                      src={findPlayerPhotoByName(team.names[1], members)} 
+                                      alt={team.names[1]} 
+                                      size="sm"
+                                      className="border-2 border-gray-800 bg-yellow-600/20"
+                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                      fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
+                                    />
                                   </div>
                                   <span className="text-gray-300">{team.names.join(' & ')}</span>
                                 </div>
-                                <span className="text-white font-medium">{formatMillisecondsToHumanReadable(Number(team.value))}</span>
+                                <span className="text-white font-medium text-right whitespace-nowrap">{formatMillisecondsDuration(Number(team.value))}</span>
                               </div>
                             ))
                           ) : (
@@ -2297,7 +2408,7 @@ const StartPage = () => {
                         </div>
                       </div>
                     </div>
-                    <div className="mt-4 text-center text-xs text-gray-500 px-4">
+                    <div className="mt-4 text-center text-sm text-gray-500 px-4">
                       Hinweis: In den Ranglisten werden nur Spieler berücksichtigt, die innerhalb des letzten Jahres aktiv waren.
                     </div>
                   </TabsContent>
@@ -2315,7 +2426,7 @@ const StartPage = () => {
             )}
              {(sessionsLoading || tournamentsLoading) && (!sessionsError && !tournamentsError) && (
               <div className="flex justify-center items-center py-10">
-                <div className="h-6 w-6 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
+                <div className="h-8 w-8 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
                 <span className="ml-3 text-gray-300">Lade Archiv...</span>
               </div>
             )}
@@ -2358,7 +2469,7 @@ const StartPage = () => {
               members={members.map(member => {
                 // Finde die korrekten Spielwerte aus groupStats, falls verfügbar
                 const statsPlayer = groupStats?.playerWithMostGames?.find(p => 
-                  p.name.toLowerCase() === member.displayName?.toLowerCase()
+                  p.playerName.toLowerCase() === member.displayName?.toLowerCase()
                 );
                 
                 // Wenn Spieler in den Statistiken gefunden, setze die korrekte Spielezahl

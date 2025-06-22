@@ -10,6 +10,14 @@ export interface StatHighlight {
   label: string; // Benutzerfreundliche Beschreibung des Highlights
 }
 
+// NEU: Strukturierte Win-Rate Information mit Bruch-Anzeige
+export interface WinRateInfo {
+  wins: number;           // Anzahl Siege
+  total: number;          // Gesamtanzahl entschiedener Spiele/Sessions
+  rate: number;           // Win-Rate als Dezimalzahl (0-1)
+  displayText: string;    // Formatierter Text: "4/6 = 66.7%"
+}
+
 export interface StatHighlightString {
   value: string;
   date: admin.firestore.Timestamp | null;
@@ -20,6 +28,8 @@ export interface StatStreak {
   value: number;
   startDate?: admin.firestore.Timestamp | null;
   endDate?: admin.firestore.Timestamp | null;
+  startSessionId?: string; // NEU: Session-ID der ersten Session der Serie
+  endSessionId?: string;   // NEU: Session-ID der letzten Session der Serie
   // relatedIds?: string[]; // z.B. eine Liste von gameIds oder sessionIds
 }
 
@@ -37,6 +47,11 @@ export interface PartnerAggregate {
   matschGamesWonWith: number;
   schneiderGamesWonWith: number;
   lastPlayedWithTimestamp: admin.firestore.Timestamp;
+  sessionWinRate?: number; // NEU
+  gameWinRate?: number; // NEU
+  // === NEU: Strukturierte Win-Rate Informationen ===
+  sessionWinRateInfo?: WinRateInfo; // Detaillierte Session Win-Rate mit Partner
+  gameWinRateInfo?: WinRateInfo;    // Detaillierte Game Win-Rate mit Partner
 }
 
 // NEU: Interface für aggregierte Gegnerstatistiken
@@ -53,6 +68,11 @@ export interface OpponentAggregate {
   matschGamesWonAgainstOpponentTeam: number; // Anzahl Matsch-Spiele, die das Team des Profil-Spielers GEGEN das Team dieses Gegners gewonnen hat
   schneiderGamesWonAgainstOpponentTeam: number; // Anzahl Schneider-Spiele analog
   lastPlayedAgainstTimestamp: admin.firestore.Timestamp;
+  sessionWinRate?: number; // NEU
+  gameWinRate?: number; // NEU
+  // === NEU: Strukturierte Win-Rate Informationen ===
+  sessionWinRateInfo?: WinRateInfo; // Detaillierte Session Win-Rate gegen Gegner
+  gameWinRateInfo?: WinRateInfo;    // Detaillierte Game Win-Rate gegen Gegner
 }
 
 export interface TournamentPlacement {
@@ -70,6 +90,15 @@ export interface TournamentPlacement {
   // NEU: Aggregierte Statistiken für Partner und Gegner
   partnerAggregates?: PartnerAggregate[];
   opponentAggregates?: OpponentAggregate[];
+}
+
+// ✅ NEU: Exportiert für die Verwendung im Calculator
+export interface StricheRecord {
+  berg: number;
+  sieg: number;
+  matsch: number;
+  schneider: number;
+  kontermatsch: number;
 }
 
 export interface PlayerComputedStats {
@@ -117,13 +146,13 @@ export interface PlayerComputedStats {
   currentGameWinStreak: number;
   currentGameLossStreak: number;
   currentGameWinlessStreak: number;
-  currentUndefeatedStreakGames: number; // NEU
+  currentUndefeatedStreakGames: number;
 
   // NEU: Zähler für aktuelle Session-Streaks
   currentSessionWinStreak: number;
   currentSessionLossStreak: number;
   currentSessionWinlessStreak: number;
-  currentUndefeatedStreakSessions: number; // NEU
+  currentUndefeatedStreakSessions: number;
 
   // === Durchschnittswerte pro Spiel ===
   avgPointsPerGame: number;         // Durchschnittliche Punkte pro Spiel
@@ -140,41 +169,27 @@ export interface PlayerComputedStats {
   bestTournamentPlacement?: TournamentPlacement | null; // Beste erreichte Turnierplatzierung
   tournamentPlacements?: TournamentPlacement[]; // Letzte X Turnierplatzierungen
 
-  // === Highlights Spiele ===
-  highestPointsGame: StatHighlight | null;          // Höchste Punktzahl in einem einzelnen Spiel
-  highestStricheGame: StatHighlight | null;         // Höchste Strichzahl in einem einzelnen Spiel (positiv)
-  mostMatschGame: StatHighlight | null;             // Meiste Matsch-Striche in einem Spiel
-  mostSchneiderGame: StatHighlight | null;          // Meiste Schneider-Striche in einem Spiel
-  mostWeisPointsGame: StatHighlight | null;         // Meiste Weispunkte in einem Spiel
-  mostKontermatschMadeGame: StatHighlight | null; // NEU
-  longestWinStreakGames: StatStreak | null;         // Längste Siegesserie (Spiele)
-  longestUndefeatedStreakGames: StatStreak | null; // NEU: Längste Serie ohne Niederlage (Spiele)
-
-  // === Lowlights Spiele ===
-  lowestPointsGame: StatHighlight | null;           // Tiefste Punktzahl in einem einzelnen Spiel (kann negativ sein)
-  highestStricheReceivedGame: StatHighlight | null; // Höchste erhaltene Strichzahl in einem Spiel
-  mostMatschReceivedGame: StatHighlight | null;     // Meiste erhaltene Matsch-Striche in einem Spiel
-  mostSchneiderReceivedGame: StatHighlight | null;  // Meiste erhaltene Schneider-Striche in einem Spiel
-  mostWeisPointsReceivedGame: StatHighlight | null; // NEU: Meiste erhaltene Weispunkte in einem Spiel
-  mostKontermatschReceivedGame: StatHighlight | null; // NEU
-  longestLossStreakGames: StatStreak | null;        // Längste Niederlagenserie (Spiele)
-  longestWinlessStreakGames: StatStreak | null;     // Längste Serie ohne Sieg (Spiele)
-  lowestStricheGame: StatHighlight | null; // NEU: Wenigste gemachte Striche in einem Spiel
-  lowestStricheReceivedGame: StatHighlight | null; // NEU: Wenigste erhaltene Striche in einem Spiel
-
-  // === Highlights Partien (Sessions) ===
+  // === Highlights & Lowlights - NUR NOCH AUF SESSION-EBENE ===
+  longestWinStreakGames: StatStreak | null;
+  longestUndefeatedStreakGames: StatStreak | null;
+  longestLossStreakGames: StatStreak | null;
+  longestWinlessStreakGames: StatStreak | null;
+  
   highestPointsSession: StatHighlight | null;
   highestStricheSession: StatHighlight | null;
-  mostMatschSession: StatHighlight | null;         // NEU: Höchste Anzahl Matsche in einer Partie
-  mostWeisPointsSession: StatHighlight | null;     // NEU: Meiste Weispunkte in einer Partie
+  mostMatschSession: StatHighlight | null;
+  mostSchneiderSession: StatHighlight | null; // NEU
+  mostKontermatschSession: StatHighlight | null; // NEU
+  mostWeisPointsSession: StatHighlight | null;
   longestWinStreakSessions: StatStreak | null;
-  longestUndefeatedStreakSessions: StatStreak | null; // NEU: Längste Serie ohne Niederlage (Partien)
+  longestUndefeatedStreakSessions: StatStreak | null;
 
-  // === Lowlights Partien (Sessions) ===
   lowestPointsSession: StatHighlight | null;
   highestStricheReceivedSession: StatHighlight | null;
-  mostMatschReceivedSession: StatHighlight | null;           // NEU: Meiste erhaltene Matsch-Striche in einer Partie  
-  mostWeisPointsReceivedSession: StatHighlight | null;       // NEU: Meiste erhaltene Weispunkte in einer Partie
+  mostMatschReceivedSession: StatHighlight | null;
+  mostSchneiderReceivedSession: StatHighlight | null; // NEU
+  mostKontermatschReceivedSession: StatHighlight | null; // NEU
+  mostWeisPointsReceivedSession: StatHighlight | null;
   longestLossStreakSessions: StatStreak | null;
   longestWinlessStreakSessions: StatStreak | null;
 
@@ -187,9 +202,13 @@ export interface PlayerComputedStats {
   // sessionWinRate?: number; // Kann aus sessionWins / totalSessions berechnet werden
   // gameWinRate?: number; // Kann aus gameWins / totalGames berechnet werden
 
-  // Hier könnten noch Felder für Partner-/Gegner-Toplisten (z.B. Top 3 Partner nach Siegen)
-  // oder spezifische Zähler (wie oft mit X gespielt) hinzukommen,
-  // aber das ist Teil der späteren Iteration für Partner-/Gegner-Stats.
+  // === Win-Rates (KRITISCH: Unentschieden werden ausgeschlossen) ===
+  sessionWinRate: number; // sessionWins / (sessionWins + sessionLosses)
+  gameWinRate: number;    // gameWins / totalGames
+
+  // === NEU: Strukturierte Win-Rate Informationen mit Bruch-Anzeige ===
+  sessionWinRateInfo: WinRateInfo; // Detaillierte Session Win-Rate mit "X/Y = Z%" Format
+  gameWinRateInfo: WinRateInfo;    // Detaillierte Game Win-Rate mit "X/Y = Z%" Format
 
   // NEU: Sammlung von bemerkenswerten Ereignissen/Highlights
   highlights: StatHighlight[];
@@ -238,11 +257,11 @@ export const initialPlayerComputedStats: PlayerComputedStats = {
   currentGameWinStreak: 0,
   currentGameLossStreak: 0,
   currentGameWinlessStreak: 0,
-  currentUndefeatedStreakGames: 0, // NEU
+  currentUndefeatedStreakGames: 0,
   currentSessionWinStreak: 0,
   currentSessionLossStreak: 0,
   currentSessionWinlessStreak: 0,
-  currentUndefeatedStreakSessions: 0, // NEU
+  currentUndefeatedStreakSessions: 0,
 
   avgPointsPerGame: 0,
   avgStrichePerGame: 0,
@@ -257,36 +276,25 @@ export const initialPlayerComputedStats: PlayerComputedStats = {
   bestTournamentPlacement: null,
   tournamentPlacements: [],
 
-  highestPointsGame: null,
-  highestStricheGame: null,
-  mostMatschGame: null,
-  mostSchneiderGame: null,
-  mostWeisPointsGame: null,
-  mostKontermatschMadeGame: null,
   longestWinStreakGames: null,
-  longestUndefeatedStreakGames: null, // NEU
-
-  lowestPointsGame: null,
-  highestStricheReceivedGame: null,
-  mostMatschReceivedGame: null,
-  mostSchneiderReceivedGame: null,
-  mostWeisPointsReceivedGame: null,
-  mostKontermatschReceivedGame: null,
+  longestUndefeatedStreakGames: null,
   longestLossStreakGames: null,
   longestWinlessStreakGames: null,
-  lowestStricheGame: null,
-  lowestStricheReceivedGame: null,
 
   highestPointsSession: null,
   highestStricheSession: null,
   mostMatschSession: null,
+  mostSchneiderSession: null,
+  mostKontermatschSession: null,
   mostWeisPointsSession: null,
   longestWinStreakSessions: null,
-  longestUndefeatedStreakSessions: null, // NEU
+  longestUndefeatedStreakSessions: null,
 
   lowestPointsSession: null,
   highestStricheReceivedSession: null,
   mostMatschReceivedSession: null,
+  mostSchneiderReceivedSession: null,
+  mostKontermatschReceivedSession: null,
   mostWeisPointsReceivedSession: null,
   longestLossStreakSessions: null,
   longestWinlessStreakSessions: null,
@@ -300,4 +308,12 @@ export const initialPlayerComputedStats: PlayerComputedStats = {
   // NEU: Initialisierung für Partner- und Gegnerstatistiken
   partnerAggregates: [],
   opponentAggregates: [],
+
+  // === Win-Rates (KRITISCH: Unentschieden werden ausgeschlossen) ===
+  sessionWinRate: 0,
+  gameWinRate: 0,
+
+  // === NEU: Strukturierte Win-Rate Informationen mit Bruch-Anzeige ===
+  sessionWinRateInfo: { wins: 0, total: 0, rate: 0, displayText: "" },
+  gameWinRateInfo: { wins: 0, total: 0, rate: 0, displayText: "" },
 }; 

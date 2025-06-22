@@ -3,6 +3,7 @@ import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { onDocumentUpdated, onDocumentWritten, Change, FirestoreEvent, QueryDocumentSnapshot, DocumentSnapshot, DocumentOptions } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as crypto from "crypto";
+import * as logger from "firebase-functions/logger";
 // GELÖSCHT: Unbenutzter Import von PlayerComputedStats etc.
 // import { FirestoreGroup } from "../../src/types/group"; // <-- Entfernt wegen Modul-Konflikt
 
@@ -24,6 +25,8 @@ import * as userManagementLogic from './userManagement'; // WIEDER HINZUGEFÜGT
 import * as scheduledTaskLogic from './scheduledTasks'; // WIEDER HINZUGEFÜGT
 import * as batchUpdateLogic from './batchUpdateGroupStats'; // NEU: Batch-Update für Gruppenstatistiken
 import * as updateGroupStatsLogic from './updateGroupStats'; // NEU: Manuelle Gruppenstatistik-Aktualisierung
+import * as tournamentCompletionLogic from './processTournamentCompletion'; // NEU: Turnier-Aggregation
+import { updatePlayerStats } from './playerStatsCalculator'; // NEU: Import der zentralen Funktion
 // ------------------------------------------
 
 // --- Globale Optionen für Gen 2 setzen --- 
@@ -85,16 +88,17 @@ interface JassGameSummary {
   groupId: string;
   startedAt: admin.firestore.Timestamp;
   playerNames: { [key: string]: string };
-  participantUids: string[]; // User-IDs der Teilnehmer
+  participantUids?: string[]; // User-IDs der Teilnehmer (optional für Legacy)
+  participantPlayerIds?: string[]; // ✅ NEU: Player-Document-IDs
   teams: {
-    teamA: { players: { displayName: string }[] };
-    teamB: { players: { displayName: string }[] };
+    top: { players: { displayName: string; playerId?: string }[] };
+    bottom: { players: { displayName: string; playerId?: string }[] };
   };
   finalStriche: {
     top: { sieg: number };
     bottom: { sieg: number };
   };
-  winnerTeamKey: 'teamA' | 'teamB';
+  winnerTeamKey: 'top' | 'bottom'; // ✅ NUR top/bottom!
 }
 
 interface StrichData {
@@ -152,27 +156,11 @@ import { google } from "googleapis";
 const SPREADSHEET_ID = "1wffL-mZRMVoXjVL3WPMiRJ_AsC5ALZXn1Jx6GYxKqKA";
 const SHEET_NAME = "Rohdaten"; // Name des Tabellenblatts, in das geschrieben werden soll
 
-// Name Converter für Spreadsheet basierend auf User-IDs
-const USER_ID_TO_SPREADSHEET_NAME: { [key: string]: string } = {
-  "JmluPJeG6wbQzLkoJjlU7uVVYyw1": "Marc W.",
-  "R16Pv2RKBwaYtSGyL7UMThIyALg1": "Michi", 
-  "i4ij3QCqKSbjPbx2hetwWlaQhlw2": "Schmudi",
-};
-
-function convertUserIdToSpreadsheetName(userId: string, fallbackName: string): string {
-  return USER_ID_TO_SPREADSHEET_NAME[userId] || fallbackName;
-}
-
+// ✅ EINFACH & DYNAMISCH: Verwende Namen direkt aus der Session
 function getSpreadsheetNameFromSession(session: JassGameSummary, playerDisplayName: string): string {
-  // Finde die User-ID basierend auf dem Display-Namen
-  const playerIndex = Object.values(session.playerNames).indexOf(playerDisplayName);
-  if (playerIndex !== -1) {
-    const userId = session.participantUids[playerIndex];
-    if (userId) {
-      return convertUserIdToSpreadsheetName(userId, playerDisplayName);
-    }
-  }
-  return playerDisplayName; // Fallback auf ursprünglichen Namen
+  // ✅ DIREKT: Verwende den Display-Namen aus der Session
+  // Das funktioniert für alle Spieler, auch neue, und ist immer aktuell
+  return playerDisplayName || "Unbekannt";
 }
 
 /**
@@ -1307,15 +1295,11 @@ export const handleSessionUpdate = onDocumentWritten(
           return;
         }
 
-        const bottomIsWinner = (session.finalStriche.bottom?.sieg || 0) > (session.finalStriche.top?.sieg || 0);
-        const winnerIsTeamA = session.winnerTeamKey === 'teamA';
-        const teamBottomKey = (bottomIsWinner === winnerIsTeamA) ? 'teamA' : 'teamB';
-        const teamTopKey = (bottomIsWinner === winnerIsTeamA) ? 'teamB' : 'teamA';
-        
-        const team1Player1 = getSpreadsheetNameFromSession(session, session.teams[teamBottomKey]?.players[0]?.displayName || "");
-        const team1Player2 = getSpreadsheetNameFromSession(session, session.teams[teamBottomKey]?.players[1]?.displayName || "");
-        const team2Player1 = getSpreadsheetNameFromSession(session, session.teams[teamTopKey]?.players[0]?.displayName || "");
-        const team2Player2 = getSpreadsheetNameFromSession(session, session.teams[teamTopKey]?.players[1]?.displayName || "");
+        // ✅ KORRIGIERT: Verwende nur noch top/bottom
+        const team1Player1 = getSpreadsheetNameFromSession(session, session.teams.bottom.players[0]?.displayName || "");
+        const team1Player2 = getSpreadsheetNameFromSession(session, session.teams.bottom.players[1]?.displayName || "");
+        const team2Player1 = getSpreadsheetNameFromSession(session, session.teams.top.players[0]?.displayName || "");
+        const team2Player2 = getSpreadsheetNameFromSession(session, session.teams.top.players[1]?.displayName || "");
 
         const rowsToAppend: (string | number)[][] = [];
 
@@ -1400,11 +1384,9 @@ export const handleSessionUpdate = onDocumentWritten(
         }
         
         const sessionDate = session.startedAt ? new Date(session.startedAt.seconds * 1000).toLocaleDateString("de-CH") : "";
-        const bottomIsWinner = (session.finalStriche.bottom?.sieg || 0) > (session.finalStriche.top?.sieg || 0);
-        const winnerIsTeamA = session.winnerTeamKey === 'teamA';
-        const teamBottomKey = (bottomIsWinner === winnerIsTeamA) ? 'teamA' : 'teamB';
-        const team1Player1 = getSpreadsheetNameFromSession(session, session.teams[teamBottomKey]?.players[0]?.displayName || "");
-        const team1Player2 = getSpreadsheetNameFromSession(session, session.teams[teamBottomKey]?.players[1]?.displayName || "");
+        // ✅ KORRIGIERT: Verwende nur noch top/bottom
+        const team1Player1 = getSpreadsheetNameFromSession(session, session.teams.bottom.players[0]?.displayName || "");
+        const team1Player2 = getSpreadsheetNameFromSession(session, session.teams.bottom.players[1]?.displayName || "");
 
         const requests: any[] = [];
         for (let i = rows.length - 1; i >= 1; i--) { // Rückwärts iterieren
@@ -1458,3 +1440,51 @@ export const triggerBatchUpdateGroupStats = batchUpdateLogic.triggerBatchUpdateG
 
 // Manuelle Gruppenstatistik-Aktualisierung
 export const updateGroupStats = updateGroupStatsLogic.updateGroupStats;
+
+// NEU: Turnier-Aggregation
+export const aggregateTournamentIntoSummary = tournamentCompletionLogic.aggregateTournamentIntoSummary;
+
+// NEU: Manuelle Spielerstatistik-Aktualisierung (Callable Function)
+export const updatePlayerStatsFunction = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Authentifizierung erforderlich.");
+  }
+
+  const playerId = request.data?.playerId;
+  if (!playerId || typeof playerId !== 'string') {
+    throw new HttpsError("invalid-argument", "Gültige playerId erforderlich.");
+  }
+
+  try {
+    await updatePlayerStats(playerId);
+    return { success: true, message: `Statistiken für Spieler ${playerId} erfolgreich aktualisiert.` };
+  } catch (error) {
+    logger.error(`[updatePlayerStatsFunction] Error updating stats for player ${playerId}:`, error);
+    throw new HttpsError("internal", `Fehler beim Aktualisieren der Statistiken für Spieler ${playerId}.`);
+  }
+});
+
+// NEU: ZENTRALER TRIGGER FÜR SPIELERSTATISTIKEN
+export const onJassGameSummaryWritten = onDocumentWritten(
+  "jassGameSummaries/{sessionId}",
+  async (event) => {
+    const dataAfter = event.data?.after.data();
+    const participantPlayerIds = dataAfter?.participantPlayerIds || [];
+
+    if (participantPlayerIds.length === 0) {
+      logger.info(`No participants found in summary ${event.params.sessionId}. No stats to update.`);
+      return;
+    }
+    
+    logger.info(`JassGameSummary ${event.params.sessionId} was written. Triggering stats update for ${participantPlayerIds.length} players.`);
+    
+    const updatePromises = participantPlayerIds.map((playerId: string) => {
+      return updatePlayerStats(playerId).catch(err => {
+        logger.error(`[onJassGameSummaryWritten] Failed to update stats for player ${playerId} from session ${event.params.sessionId}`, err);
+      });
+    });
+
+    await Promise.all(updatePromises);
+    logger.info(`All player stats updates triggered for session ${event.params.sessionId} completed.`);
+  }
+);

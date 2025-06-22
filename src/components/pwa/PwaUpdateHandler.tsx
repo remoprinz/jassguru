@@ -256,10 +256,10 @@ const PwaUpdateHandler: React.FC = () => {
     // Check for updates on visibility change (when user returns to tab)
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        // User returned to tab, check for updates if last check was > 5 minutes ago
+        // User returned to tab, check for updates if last check was > 2 minutes ago (reduced from 5)
         const now = Date.now();
         const timeSinceLastCheck = now - updateState.lastUpdateCheck;
-        if (timeSinceLastCheck > 5 * 60 * 1000) {
+        if (timeSinceLastCheck > 2 * 60 * 1000) {
           checkForUpdates();
         }
       }
@@ -267,8 +267,8 @@ const PwaUpdateHandler: React.FC = () => {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // Initial update check after 10 seconds
-    const initialCheckTimeout = setTimeout(checkForUpdates, 10000);
+    // Initial update check after 5 seconds (reduced from 10)
+    const initialCheckTimeout = setTimeout(checkForUpdates, 5000);
 
     // Cleanup
     return () => {

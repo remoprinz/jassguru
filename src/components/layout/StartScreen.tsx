@@ -25,6 +25,8 @@ import { getPlayerIdForUser } from "@/services/playerService";
 import { DEFAULT_FARBE_SETTINGS } from '@/config/FarbeSettings';
 import { DEFAULT_SCORE_SETTINGS } from '@/config/ScoreSettings';
 import { DEFAULT_STROKE_SETTINGS } from '@/config/GameSettings';
+import ProfileImage from '@/components/ui/ProfileImage';
+import type { FirestorePlayer } from '@/types/jass';
 
 const screenVariants = {
   initial: {opacity: 0, scale: 0.95},
@@ -34,9 +36,10 @@ const screenVariants = {
 
 interface StartScreenProps {
   onCancel?: () => void;
+  members?: FirestorePlayer[];
 }
 
-const StartScreen: React.FC<StartScreenProps> = ({ onCancel }) => {
+const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => {
   const {setStartScreenState, showNotification} = useUIStore();
   const jassStore = useJassStore();
   const tutorialStore = useTutorialStore();
@@ -491,12 +494,29 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel }) => {
                     >
                       {player ? (
                         <>
-                          <span className='text-white font-medium'>
-                            {player.name}{' '}
-                            <span className={`text-sm font-bold ${teamColor}`}>
-                              ({teamName})
+                          <div className="flex items-center">
+                            <ProfileImage 
+                              src={(() => {
+                                if (player.type === 'member') {
+                                  // Finde das FirestorePlayer-Objekt basierend auf dem Namen
+                                  const firestorePlayer = members.find(m => m.displayName === player.name);
+                                  return firestorePlayer?.photoURL;
+                                }
+                                return undefined;
+                              })()}
+                              alt={player.name} 
+                              size="sm"
+                              className="mr-3 flex-shrink-0"
+                              fallbackClassName="bg-gray-600 text-gray-300 text-sm"
+                              fallbackText={player.name.charAt(0).toUpperCase()}
+                            />
+                            <span className='text-white font-medium'>
+                              {player.name}{' '}
+                              <span className={`text-sm font-bold ${teamColor}`}>
+                                ({teamName})
+                              </span>
                             </span>
-                          </span>
+                          </div>
                           <Button 
                               variant="ghost" 
                               size="icon" 

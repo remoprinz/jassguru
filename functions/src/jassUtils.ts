@@ -7,7 +7,7 @@
 
 // === TYPE DEFINITIONS ===
 
-interface EventCountRecord {
+export interface EventCountRecord {
   sieg: number;
   berg: number;
   matsch: number;
@@ -53,6 +53,15 @@ interface CompletedGameData {
   trumpfCountsByPlayer?: TrumpfCountsByPlayer;
   roundDurationsByPlayer?: RoundDurationsByPlayer;
   Rosen10player?: string | null;
+}
+
+// NEU: Geteilte Logik zur Berechnung von Spiel-Events, um Konsistenz zu gewährleisten
+export interface GameDataForEventCalc {
+  roundHistory?: Array<{ strichInfo?: { type?: string; team?: 'top' | 'bottom' } }>;
+  finalStriche?: { 
+    top: { sieg: number; berg: number; schneider: number };
+    bottom: { sieg: number; berg: number; schneider: number };
+  };
 }
 
 // === UTILITY FUNCTIONS ===
@@ -189,4 +198,39 @@ export function calculateSessionAggregations(
     aggregatedRoundDurationsByPlayer,
     Rosen10player
   };
+}
+
+export function calculateEventCountsForGame(game: GameDataForEventCalc): EventCounts {
+  const events: EventCounts = {
+    top: { sieg: 0, berg: 0, matsch: 0, kontermatsch: 0, schneider: 0 },
+    bottom: { sieg: 0, berg: 0, matsch: 0, kontermatsch: 0, schneider: 0 },
+  };
+
+  // 1. Matsch/Kontermatsch aus der roundHistory des Spiels
+  if (game.roundHistory && Array.isArray(game.roundHistory)) {
+    game.roundHistory.forEach(round => {
+      if (round.strichInfo?.type && round.strichInfo.team) {
+        const teamKey = round.strichInfo.team;
+        if (round.strichInfo.type === 'matsch') {
+          events[teamKey].matsch++;
+        } else if (round.strichInfo.type === 'kontermatsch') {
+          events[teamKey].kontermatsch++;
+        }
+      }
+    });
+  }
+
+  // 2. Sieg, Berg, Schneider aus finalStriche des Spiels
+  if (game.finalStriche) {
+    if (game.finalStriche.top.sieg > 0) events.top.sieg = 1;
+    if (game.finalStriche.bottom.sieg > 0) events.bottom.sieg = 1;
+    
+    if (game.finalStriche.top.berg > 0) events.top.berg = 1;
+    if (game.finalStriche.bottom.berg > 0) events.bottom.berg = 1;
+    
+    if (game.finalStriche.top.schneider > 0) events.top.schneider = 1;
+    if (game.finalStriche.bottom.schneider > 0) events.bottom.schneider = 1;
+  }
+
+  return events;
 } 

@@ -1,13 +1,15 @@
 "use client";
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuthStore } from '@/store/authStore';
 import { useGroupStore } from '@/store/groupStore';
 import { useUIStore } from '@/store/uiStore';
 import MainLayout from '@/components/layout/MainLayout';
 import StartScreen from '@/components/layout/StartScreen';
-import { Loader2 } from 'lucide-react';
+import GlobalLoader from '@/components/layout/GlobalLoader';
+import { getGroupMembersSortedByGames } from "@/services/playerService";
+import type { FirestorePlayer } from '@/types/jass';
 
 const NewGamePage: React.FC = () => {
   const router = useRouter();
@@ -15,8 +17,39 @@ const NewGamePage: React.FC = () => {
   const { currentGroup } = useGroupStore();
   const showNotification = useUIStore((state) => state.showNotification);
 
+  const [members, setMembers] = useState<FirestorePlayer[]>([]);
+  const [membersLoading, setMembersLoading] = useState(true);
+  const [membersError, setMembersError] = useState<string | null>(null);
+
   const isAuthLoading = status === 'loading';
   const isAuthenticated = status === 'authenticated' && !isGuest;
+
+  // Lade Mitglieder, wenn Gruppe verfügbar ist
+  useEffect(() => {
+    const loadMembers = async () => {
+      if (!currentGroup) {
+        setMembers([]);
+        setMembersLoading(false);
+        return;
+      }
+
+      setMembersLoading(true);
+      setMembersError(null);
+      try {
+        const fetchedMembers = await getGroupMembersSortedByGames(currentGroup.id);
+        setMembers(fetchedMembers);
+      } catch (error) {
+        console.error("Fehler beim Laden der Gruppenmitglieder:", error);
+        const message = error instanceof Error ? error.message : "Mitglieder konnten nicht geladen werden.";
+        setMembersError(message);
+        showNotification({ message, type: "error" });
+      } finally {
+        setMembersLoading(false);
+      }
+    };
+
+    loadMembers();
+  }, [currentGroup?.id, showNotification]);
 
   useEffect(() => {
     // Dieser Effect stellt sicher, dass nur eingeloggte Benutzer
@@ -32,14 +65,17 @@ const NewGamePage: React.FC = () => {
     }
   }, [isAuthLoading, isAuthenticated, currentGroup, router, showNotification]);
 
-  // Zeigt einen Lade-Spinner, während die Authentifizierung geprüft wird.
-  if (isAuthLoading || !isAuthenticated || !currentGroup) {
+  // Zeige GlobalLoader während der Authentifizierung oder beim Laden der Mitglieder
+  if (isAuthLoading || !isAuthenticated || !currentGroup || membersLoading) {
+    const loadingMessage = isAuthLoading 
+      ? "Prüfe Anmeldung..."
+      : !isAuthenticated || !currentGroup
+      ? "Prüfe Spiel-Kontext..."
+      : "Lade Spieler...";
+
     return (
       <MainLayout>
-        <div className="flex flex-1 flex-col items-center justify-center min-h-[calc(100vh-112px)]">
-          <Loader2 className="h-8 w-8 animate-spin text-white" />
-          <p className="mt-2 text-white">Prüfe Spiel-Kontext...</p>
-        </div>
+        <GlobalLoader message={loadingMessage} />
       </MainLayout>
     );
   }
@@ -52,7 +88,7 @@ const NewGamePage: React.FC = () => {
 
   return (
     <MainLayout>
-      <StartScreen onCancel={handleCancel} />
+      <StartScreen onCancel={handleCancel} members={members} />
     </MainLayout>
   );
 };

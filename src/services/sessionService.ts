@@ -28,6 +28,7 @@ export interface SessionSummary {
   lastActivity?: number | null;
   isTournamentSession?: boolean;
   tournamentInstanceId?: string | null;
+  tournamentId?: string | null; // ✅ NEU: Für Turnier-Sessions aus jassGameSummaries
   metadata?: any; // Die genaue Struktur aus jass.ts
 }
 
@@ -96,6 +97,7 @@ export const fetchCompletedSessionsForUser = async (userId: string): Promise<Ses
         lastActivity: data.lastActivity ? parseTimestampToMillis(data.lastActivity) : null,
         isTournamentSession: data.isTournamentSession || false,
         tournamentInstanceId: data.tournamentInstanceId || null,
+        tournamentId: data.tournamentId || null, // ✅ NEU: Für Turnier-Sessions
         metadata: data.metadata || {},
       });
     });
@@ -194,6 +196,7 @@ export const fetchAllGroupSessions = async (groupId: string): Promise<SessionSum
         lastActivity: data.lastActivity ? parseTimestampToMillis(data.lastActivity) : null,
         isTournamentSession: data.isTournamentSession || false,
         tournamentInstanceId: data.tournamentInstanceId || null,
+        tournamentId: data.tournamentId || null, // ✅ NEU: Für Turnier-Sessions
         metadata: data.metadata || {},
       });
     });

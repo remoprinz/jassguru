@@ -332,10 +332,12 @@ const TournamentSettingsPage: React.FC = () => {
     const settingsUpdates: Partial<TournamentSettings> = {};
     let actualSettingsHaveChanged = false;
 
-    if (selectedRankingMode !== tournament.settings?.rankingMode) {
-      settingsUpdates.rankingMode = selectedRankingMode;
-      actualSettingsHaveChanged = true;
+    const finalRankingMode = selectedRankingMode || tournament.settings?.rankingMode || 'total_points';
+    if (finalRankingMode !== tournament.settings?.rankingMode) {
+        settingsUpdates.rankingMode = finalRankingMode;
+        actualSettingsHaveChanged = true;
     }
+    
     if (JSON.stringify(finalScoreSettings) !== JSON.stringify(tournament.settings?.scoreSettings || TOURNAMENT_DEFAULT_SCORE_SETTINGS)) {
       settingsUpdates.scoreSettings = finalScoreSettings;
       actualSettingsHaveChanged = true;

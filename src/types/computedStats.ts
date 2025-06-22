@@ -1,5 +1,46 @@
 import type { Timestamp } from 'firebase/firestore';
 
+// === Frontend-Partner und Gegner-Aggregate ===
+export interface FrontendPartnerAggregate {
+  partnerId: string;
+  partnerDisplayName: string;
+  sessionsPlayedWith: number;
+  sessionsWonWith: number;
+  gamesPlayedWith: number;
+  gamesWonWith: number;
+  totalStricheDifferenceWith: number;
+  totalPointsWith: number;
+  totalPointsDifferenceWith: number;
+  matschGamesWonWith: number;
+  schneiderGamesWonWith: number;
+  lastPlayedWithTimestamp: Date | null;
+  sessionWinRate?: number;
+  gameWinRate?: number;
+  // === NEU: Strukturierte Win-Rate Informationen ===
+  sessionWinRateInfo?: { wins: number; total: number; rate: number; displayText: string };
+  gameWinRateInfo?: { wins: number; total: number; rate: number; displayText: string };
+}
+
+export interface FrontendOpponentAggregate {
+  opponentId: string;
+  opponentDisplayName: string;
+  sessionsPlayedAgainst: number;
+  sessionsWonAgainst: number;
+  gamesPlayedAgainst: number;
+  gamesWonAgainst: number;
+  totalStricheDifferenceAgainst: number;
+  totalPointsScoredWhenOpponent: number;
+  totalPointsDifferenceAgainst: number;
+  matschGamesWonAgainstOpponentTeam: number;
+  schneiderGamesWonAgainstOpponentTeam: number;
+  lastPlayedAgainstTimestamp: Date | null;
+  sessionWinRate?: number;
+  gameWinRate?: number;
+  // === NEU: Strukturierte Win-Rate Informationen ===
+  sessionWinRateInfo?: { wins: number; total: number; rate: number; displayText: string };
+  gameWinRateInfo?: { wins: number; total: number; rate: number; displayText: string };
+}
+
 // Basis-Typ für Highlight/Lowlight Einträge mit Datum und optionaler Spiel/Session ID
 export interface FrontendStatHighlight {
   type: string; // z.B. "longest_win_streak_games", "highest_striche_session", "tournament_win"
@@ -15,6 +56,8 @@ export interface FrontendStatStreak {
   value: number;
   startDate: Date | null;
   endDate: Date | null;
+  startSessionId?: string; // NEU: Session-ID der ersten Session der Serie
+  endSessionId?: string;   // NEU: Session-ID der letzten Session der Serie
 }
 
 export interface FrontendTournamentPlacement {
@@ -123,6 +166,10 @@ export interface FrontendPlayerComputedStats {
 
   // === Sammlung von bemerkenswerten Ereignissen/Highlights ===
   highlights: FrontendStatHighlight[];
+
+  // === NEU: Partner- und Gegner-Aggregate ===
+  partnerAggregates?: FrontendPartnerAggregate[];
+  opponentAggregates?: FrontendOpponentAggregate[];
 }
 
 // Initialwerte für FrontendPlayerComputedStats (optional, aber hilfreich für Tests/Defaults)
@@ -191,4 +238,6 @@ export const initialFrontendPlayerComputedStats: FrontendPlayerComputedStats = {
   longestLossStreakSessions: null,
   longestWinlessStreakSessions: null,
   highlights: [],
+  partnerAggregates: [],
+  opponentAggregates: [],
 }; 

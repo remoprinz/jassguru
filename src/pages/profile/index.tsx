@@ -8,7 +8,7 @@ import {Alert, AlertDescription} from "@/components/ui/alert";
 import Image from "next/image";
 import MainLayout from "@/components/layout/MainLayout";
 import {useUIStore} from "@/store/uiStore";
-import {Camera, Upload, X, UserCog, Users, BarChart3, CheckCircle, XCircle, MinusCircle, Archive, Award as AwardIcon, User, Shield, XCircle as AlertXCircle, Camera as CameraIcon} from "lucide-react";
+import {UserCog, Users, BarChart3, CheckCircle, XCircle, Archive, Award as AwardIcon, User, Shield, XCircle as AlertXCircle, Camera as CameraIcon} from "lucide-react";
 import ImageCropModal from "@/components/ui/ImageCropModal";
 import {toast} from "sonner";
 import {compressImage} from "@/utils/imageUtils";
@@ -20,15 +20,19 @@ import { Timestamp } from 'firebase/firestore';
 import type { StricheRecord } from '@/types/jass';
 import { fetchTournamentsForUser } from '@/services/tournamentService';
 import type { TournamentInstance } from '@/types/tournament';
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import ProfileImage from '@/components/ui/ProfileImage';
 import { usePlayerStatsStore } from '@/store/playerStatsStore';
 import { transformComputedStatsToExtended, type TransformedPlayerStats } from '@/utils/statsTransformer';
 import { useGroupStore } from "@/store/groupStore";
 import NotableEventsList from "@/components/profile/NotableEventsList";
-import AggregateRankingList, { FrontendPartnerAggregate, FrontendOpponentAggregate } from "@/components/profile/AggregateRankingList";
+import type { FrontendPartnerAggregate, FrontendOpponentAggregate } from '@/types/computedStats';
 import { FarbePictogram } from '@/components/settings/FarbePictogram';
 import { JassColor } from "@/types/jass";
+import { useNestedScrollFix } from '@/hooks/useNestedScrollFix';
+import type { FirestorePlayer } from '@/types/jass';
+import { getGroupMembersSortedByGames } from '@/services/playerService';
+import { formatMillisecondsDuration } from '@/utils/formatUtils';
+import { getSessionWinRateDisplay, getWinRateDisplay } from '@/utils/winRateUtils';
 
 interface ExpectedPlayerStatsWithAggregates {
   [key: string]: any;
@@ -67,6 +71,9 @@ const ProfilePage: React.FC = () => {
   const showNotification = useUIStore((state) => state.showNotification);
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const trumpfStatistikRef = useRef<HTMLDivElement>(null);
+
+  useNestedScrollFix(trumpfStatistikRef);
 
   const [activeMainTab, setActiveMainTab] = useState("stats");
   const [activeStatsSubTab, setActiveStatsSubTab] = useState("individual");
@@ -86,18 +93,23 @@ const ProfilePage: React.FC = () => {
   const [tournamentsLoading, setTournamentsLoading] = useState(true);
   const [tournamentsError, setTournamentsError] = useState<string | null>(null);
   
+  // NEU: Members-Liste für Profilbilder in Partner/Gegner-Aggregaten
+  const [members, setMembers] = useState<FirestorePlayer[]>([]);
+  const [membersLoading, setMembersLoading] = useState(true);
+  
   const {
     stats: rawPlayerStats,
     isLoading: statsLoading,
     error: statsError,
     subscribeToPlayerStats,
     unsubscribePlayerStats,
-    clearError: clearStatsError
   } = usePlayerStatsStore();
 
   const { userGroups } = useGroupStore();
 
   const [playerStats, setPlayerStats] = useState<ProfilePagePlayerStats | null>(null);
+
+
 
   useEffect(() => {
     if (router.isReady) {
@@ -121,11 +133,11 @@ const ProfilePage: React.FC = () => {
 
   useEffect(() => {
     const loadArchiveData = async () => {
-      if (status === 'authenticated' && user) {
+      if (status === 'authenticated' && user?.playerId) {
         setSessionsLoading(true);
         setSessionsError(null);
         try {
-          const sessions = await fetchCompletedSessionsForUser(user.uid);
+          const sessions = await fetchCompletedSessionsForUser(user.playerId);
           setCompletedSessions(sessions);
         } catch (error) {
           console.error("Fehler beim Laden der abgeschlossenen Sessions im Profil:", error);
@@ -138,7 +150,7 @@ const ProfilePage: React.FC = () => {
         setTournamentsLoading(true);
         setTournamentsError(null);
         try {
-          const tournaments = await fetchTournamentsForUser(user.uid);
+          const tournaments = await fetchTournamentsForUser(user.playerId);
           setUserTournaments(tournaments);
         } catch (error) {
            console.error("Fehler beim Laden der Turniere im Profil:", error);
@@ -147,6 +159,10 @@ const ProfilePage: React.FC = () => {
         } finally {
            setTournamentsLoading(false);
         }
+      } else if (status === 'authenticated' && !user?.playerId) {
+          // User is authenticated but playerId is not yet available, wait for it.
+          // Or handle the case where it might be missing.
+          console.warn("User authenticated but playerId not available for archive loading yet.");
       } else {
           setSessionsLoading(false);
           setTournamentsLoading(false);
@@ -159,30 +175,65 @@ const ProfilePage: React.FC = () => {
   }, [status, user]);
 
   useEffect(() => {
-    console.log("[ProfilePage Effect Sub] Running. Status:", status, "User:", user);
-    if (status === 'authenticated' && user?.uid) {
-      console.log(`[ProfilePage Effect Sub] Status is authenticated and user.uid is ${user.uid}. Calling subscribeToPlayerStats.`);
-      subscribeToPlayerStats(user.uid);
-    } else {
-      console.warn(`[ProfilePage Effect Sub] Conditions not met OR unsubscribing. Status: ${status}, User UID: ${user?.uid}`);
-      unsubscribePlayerStats();
+    if (status === 'authenticated' && user?.playerId) {
+      subscribeToPlayerStats(user.playerId);
     }
+    
+    // Cleanup für Listener
     return () => {
-      console.log("[ProfilePage Effect Sub] Cleanup. Calling unsubscribePlayerStats.");
       unsubscribePlayerStats();
     };
   }, [status, user, subscribeToPlayerStats, unsubscribePlayerStats]);
 
   useEffect(() => {
     if (rawPlayerStats) {
-      const groupCount = userGroups.length;
-      console.log("[ProfilePage] Raw player stats from store:", JSON.parse(JSON.stringify(rawPlayerStats)));
+        // groupCount hier aus userGroups ableiten oder default 0 
+        const groupCount = userGroups?.length || 0;
       const transformed = transformComputedStatsToExtended(rawPlayerStats, groupCount);
       setPlayerStats(transformed as ProfilePagePlayerStats);
     } else {
       setPlayerStats(null);
         }
   }, [rawPlayerStats, userGroups]);
+
+  // NEU: Members laden für Profilbilder in Partner/Gegner-Aggregaten
+  useEffect(() => {
+    const loadMembers = async () => {
+      if (!userGroups || userGroups.length === 0) {
+        setMembers([]);
+        setMembersLoading(false);
+        return;
+      }
+
+      setMembersLoading(true);
+      try {
+        // Lade Members für alle Gruppen des Users und vereinige sie
+        const allMembers: FirestorePlayer[] = [];
+        const seenPlayerIds = new Set<string>();
+
+        for (const group of userGroups) {
+          const groupMembers = await getGroupMembersSortedByGames(group.id);
+          // Verhindere Duplikate (falls User in mehreren Gruppen mit gleichen Spielern ist)
+          groupMembers.forEach(member => {
+            const playerId = member.id || member.userId;
+            if (playerId && !seenPlayerIds.has(playerId)) {
+              seenPlayerIds.add(playerId);
+              allMembers.push(member);
+            }
+          });
+        }
+        
+        setMembers(allMembers);
+      } catch (error) {
+        console.error("Fehler beim Laden der Gruppenmitglieder für Profilbilder:", error);
+        setMembers([]);
+      } finally {
+        setMembersLoading(false);
+      }
+    };
+
+    loadMembers();
+  }, [userGroups]);
 
   const combinedArchiveItems = useMemo(() => {
     const sessionsWithType: ArchiveItem[] = completedSessions.map(s => ({ ...s, type: 'session' }));
@@ -403,7 +454,7 @@ const ProfilePage: React.FC = () => {
                  </div>
               </div>
               <div className="space-y-1">
-                <div className="flex justify-between items-center text-xs text-gray-400">
+                <div className="flex justify-between items-center text-sm text-gray-400">
                   <div>
                      <span className="block">
                         Team 1:&nbsp; 
@@ -414,7 +465,7 @@ const ProfilePage: React.FC = () => {
                     {totalStricheBottom !== null ? totalStricheBottom : '-'}
                   </span>
                 </div>
-                <div className="flex justify-between items-center text-xs text-gray-400">
+                <div className="flex justify-between items-center text-sm text-gray-400">
                   <div>
                      <span className="block">
                         Team 2:&nbsp; 
@@ -455,11 +506,11 @@ const ProfilePage: React.FC = () => {
                 <div className="flex flex-col">
                   <span className="text-sm font-medium text-white">{name}</span>
                   {formattedDate && (
-                    <span className="text-xs text-gray-400">{formattedDate}</span>
+                    <span className="text-sm text-gray-400">{formattedDate}</span>
                   )}
                 </div>
               </div>
-              <span className={`text-xs px-2 py-0.5 rounded-full ${statusClass}`}>
+              <span className={`text-sm px-2 py-0.5 rounded-full ${statusClass}`}>
                 {statusText}
               </span>
             </div>
@@ -548,7 +599,7 @@ const ProfilePage: React.FC = () => {
           <div className="flex justify-evenly gap-4 mb-6 w-full mt-8">
 
             <div className="flex flex-col items-center">
-              <span className="text-xs text-gray-400 mb-2">Gruppen</span>
+              <span className="text-sm text-gray-400 mb-2">Gruppen</span>
               <Button
                 variant="default"
                 className="h-12 w-12 flex items-center justify-center bg-yellow-600 border-yellow-700 hover:bg-yellow-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
@@ -561,7 +612,7 @@ const ProfilePage: React.FC = () => {
             </div>
 
             <div className="flex flex-col items-center">
-              <span className="text-xs text-gray-400 mb-2">Turniere</span>
+              <span className="text-sm text-gray-400 mb-2">Turniere</span>
               <Button
                 variant="default"
                 className="h-12 w-12 flex items-center justify-center bg-purple-600 border-purple-700 hover:bg-purple-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
@@ -574,7 +625,7 @@ const ProfilePage: React.FC = () => {
             </div>
 
             <div className="flex flex-col items-center">
-              <span className="text-xs text-gray-400 mb-2">Settings</span>
+              <span className="text-sm text-gray-400 mb-2">Settings</span>
               <Button
                 variant="default"
                 className="h-12 w-12 flex items-center justify-center bg-blue-600 border-blue-700 hover:bg-blue-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
@@ -732,13 +783,22 @@ const ProfilePage: React.FC = () => {
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Ø Siegquote Partie:</span>
                             <span className="text-gray-100">
-                              {playerStats?.sessionWinRate ? `${(playerStats.sessionWinRate * 100).toFixed(1)}%` : '0.0%'}
+                              {getSessionWinRateDisplay(
+                                playerStats?.sessionWinRateInfo,
+                                playerStats?.sessionsWon || 0,
+                                playerStats?.sessionsLost || 0,
+                                playerStats?.sessionsTied || 0
+                              )}
                             </span>
                           </div>
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Ø Siegquote Spiel:</span>
                             <span className="text-gray-100">
-                              {playerStats?.gameWinRate ? `${(playerStats.gameWinRate * 100).toFixed(1)}%` : '0.0%'}
+                              {getWinRateDisplay(
+                                playerStats?.gameWinRateInfo,
+                                playerStats?.gamesWon || 0,
+                                playerStats?.totalGames || 0
+                              )}
                             </span>
                           </div>
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
@@ -754,12 +814,12 @@ const ProfilePage: React.FC = () => {
                             <span className="text-gray-100">{playerStats?.avgSchneiderPerGame?.toFixed(2) || '0.00'}</span>
                           </div>
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                            <span className="font-medium text-gray-300">Ø Weispunkte pro Spiel:</span>
+                                                            <span className="font-medium text-gray-300">Weis-Durchschnitt:</span>
                             <span className="text-gray-100">{playerStats?.avgWeisPointsPerGame?.toFixed(1) || '0.0'}</span>
                           </div>
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Ø Zeit pro Runde:</span>
-                            <span className="text-gray-100">{playerStats?.avgRoundTime || '0m 0s'}</span>
+                            <span className="text-gray-100 text-right whitespace-nowrap">{playerStats?.avgRoundTime || '0m 0s'}</span>
                           </div>
                         </div>
                       </div>
@@ -807,295 +867,398 @@ const ProfilePage: React.FC = () => {
                         </div>
                       </div>
 
+                      {/* Highlights Partien */}
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                           <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
                           <h3 className="text-base font-semibold text-white">Highlights Partien</h3>
                         </div>
                         <div className="p-4 space-y-2">
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                            <span className="font-medium text-gray-300">Höchste Strichdifferenz:</span>
-                            {playerStats?.highestStricheSession && typeof playerStats.highestStricheSession.value === 'number' ? (
-                              <Link 
-                                href={playerStats.highestStricheSession.relatedId && playerStats.highestStricheSession.relatedType === 'session' ? `/view/session/${playerStats.highestStricheSession.relatedId}` : '#'}
-                                className={`text-gray-100 ${playerStats.highestStricheSession.relatedId ? 'hover:underline cursor-pointer' : 'cursor-default'}`}
-                              >
-                                {playerStats.highestStricheSession.value} ({playerStats.highestStricheSession.date || '-'})
-                          </Link>
-                            ) : (
-                              <span className="text-gray-100">-</span>
+                                                     <div 
+                             className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                             onClick={() => {
+                               if (playerStats?.highestStricheSession?.relatedId) {
+                                 router.push(`/view/session/${playerStats.highestStricheSession.relatedId}`);
+                               }
+                             }}
+                           >
+                             <div className="flex justify-between items-center">
+                               <span className="font-medium text-gray-300">Höchste Strichdifferenz:</span>
+                               <span className="text-gray-100">{playerStats?.highestStricheSession?.value || '-'}</span>
+                             </div>
+                             {playerStats?.highestStricheSession?.date && (
+                               <div className="mt-1">
+                                 <span className="text-blue-400 text-xs">({playerStats.highestStricheSession.date})</span>
+                               </div>
                             )}
                       </div>
 
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                            <span className="font-medium text-gray-300">Längste Siegesserie:</span>
-                            {playerStats?.longestWinStreakSessions?.value ? (
-                              <Link 
-                                href={'#'}
-                                className={`text-gray-100 cursor-default`}
-                              >
-                                {playerStats.longestWinStreakSessions.value} ({playerStats.longestWinStreakSessions.date || '-'}) 
-                          </Link>
-                            ) : (
-                              <span className="text-gray-100">-</span>
+                                                     <div 
+                             className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                             onClick={() => {
+                               if (playerStats?.longestWinStreakSessions?.startSessionId) {
+                                 router.push(`/view/session/${playerStats.longestWinStreakSessions.startSessionId}`);
+                               }
+                             }}
+                           >
+                             <div className="flex justify-between items-center">
+                               <span className="font-medium text-gray-300">Längste Siegesserie:</span>
+                               <span className="text-gray-100">{playerStats?.longestWinStreakSessions?.value || '-'}</span>
+                             </div>
+                             {playerStats?.longestWinStreakSessions?.dateRange && (
+                               <div className="mt-1">
+                                 <span className="text-blue-400 text-xs">({playerStats.longestWinStreakSessions.dateRange})</span>
+                               </div>
                             )}
                           </div>
 
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                            <span className="font-medium text-gray-300">Längste Serie ohne Niederlage:</span>
-                            {playerStats?.longestUndefeatedStreakSessions?.value ? (
-                              <Link 
-                                href={'#'}
-                                className={`text-gray-100 cursor-default`}
-                              >
-                                {playerStats.longestUndefeatedStreakSessions.value} ({playerStats.longestUndefeatedStreakSessions.dateRange || playerStats.longestUndefeatedStreakSessions.date || '-'}) 
-                          </Link>
-                            ) : (
-                              <span className="text-gray-100">-</span>
+                                                     <div 
+                             className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                             onClick={() => {
+                               if (playerStats?.longestUndefeatedStreakSessions?.startSessionId) {
+                                 router.push(`/view/session/${playerStats.longestUndefeatedStreakSessions.startSessionId}`);
+                               }
+                             }}
+                           >
+                             <div className="flex justify-between items-center">
+                               <span className="font-medium text-gray-300">Längste Serie ohne Niederlage:</span>
+                               <span className="text-gray-100">{playerStats?.longestUndefeatedStreakSessions?.value || '-'}</span>
+                             </div>
+                             {playerStats?.longestUndefeatedStreakSessions?.dateRange && (
+                               <div className="mt-1">
+                                 <span className="text-blue-400 text-xs">({playerStats.longestUndefeatedStreakSessions.dateRange})</span>
+                               </div>
                             )}
                           </div>
 
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                            <span className="font-medium text-gray-300">Höchste Anzahl Matsche:</span>
-                            {playerStats?.mostMatschSession && typeof playerStats.mostMatschSession.value === 'number' ? (
-                              <Link 
-                                href={playerStats.mostMatschSession.relatedId ? `/view/session/${playerStats.mostMatschSession.relatedId}` : '#'}
-                                className={`text-gray-100 ${playerStats.mostMatschSession.relatedId ? 'hover:underline cursor-pointer' : 'cursor-default'}`}
-                              >
-                                {playerStats.mostMatschSession.value} ({playerStats.mostMatschSession.date || '-'}) 
-                          </Link>
-                            ) : (
-                              <span className="text-gray-100">-</span>
+                          <div 
+                             className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                             onClick={() => {
+                               if (playerStats?.mostMatschSession?.relatedId) {
+                                 router.push(`/view/session/${playerStats.mostMatschSession.relatedId}`);
+                               }
+                             }}
+                           >
+                             <div className="flex justify-between items-center">
+                               <span className="font-medium text-gray-300">Höchste Anzahl Matsche:</span>
+                               <span className="text-gray-100">{playerStats?.mostMatschSession?.value || '-'}</span>
+                             </div>
+                             {playerStats?.mostMatschSession?.date && (
+                               <div className="mt-1">
+                                 <span className="text-blue-400 text-xs">({playerStats.mostMatschSession.date})</span>
+                               </div>
                             )}
                           </div>
 
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                            <span className="font-medium text-gray-300">Meiste Weispunkte:</span>
-                            {playerStats?.mostWeisPointsSession && typeof playerStats.mostWeisPointsSession.value === 'number' ? (
-                              <Link 
-                                href={playerStats.mostWeisPointsSession.relatedId ? `/view/session/${playerStats.mostWeisPointsSession.relatedId}` : '#'}
-                                className={`text-gray-100 ${playerStats.mostWeisPointsSession.relatedId ? 'hover:underline cursor-pointer' : 'cursor-default'}`}
-                              >
-                                {playerStats.mostWeisPointsSession.value} ({playerStats.mostWeisPointsSession.date || '-'}) 
-                          </Link>
-                            ) : (
-                              <span className="text-gray-100">-</span>
+                          <div 
+                             className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                             onClick={() => {
+                               if (playerStats?.mostWeisPointsSession?.relatedId) {
+                                 router.push(`/view/session/${playerStats.mostWeisPointsSession.relatedId}`);
+                               }
+                             }}
+                           >
+                             <div className="flex justify-between items-center">
+                               <span className="font-medium text-gray-300">Meiste Weispunkte:</span>
+                               <span className="text-gray-100">{playerStats?.mostWeisPointsSession?.value || '-'}</span>
+                             </div>
+                             {playerStats?.mostWeisPointsSession?.date && (
+                               <div className="mt-1">
+                                 <span className="text-blue-400 text-xs">({playerStats.mostWeisPointsSession.date})</span>
+                               </div>
                             )}
                           </div>
                         </div>
                       </div>
 
-                      {/* KORREKTE Lowlights Partien */}
+                      {/* Lowlights Partien */}
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                           <div className="w-1 h-6 bg-red-500 rounded-r-md mr-3"></div>
                           <h3 className="text-base font-semibold text-white">Lowlights Partien</h3>
                         </div>
                         <div className="p-4 space-y-2">
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                            <span className="font-medium text-gray-300">Höchste erhaltene Strichdifferenz:</span>
-                            {playerStats?.highestStricheReceivedSession && typeof playerStats.highestStricheReceivedSession.value === 'number' ? (
-                              <Link 
-                                href={playerStats.highestStricheReceivedSession.relatedId && playerStats.highestStricheReceivedSession.relatedType === 'session' ? `/view/session/${playerStats.highestStricheReceivedSession.relatedId}` : '#'}
-                                className={`text-gray-100 ${playerStats.highestStricheReceivedSession.relatedId ? 'hover:underline cursor-pointer' : 'cursor-default'}`}
-                              >
-                                {playerStats.highestStricheReceivedSession.value} ({playerStats.highestStricheReceivedSession.date || '-'}) 
-                          </Link>
-                            ) : (
-                              <span className="text-gray-100">-</span>
+                          <div 
+                            className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                            onClick={() => {
+                              if (playerStats?.highestStricheReceivedSession?.relatedId) {
+                                router.push(`/view/session/${playerStats.highestStricheReceivedSession.relatedId}`);
+                              }
+                            }}
+                          >
+                                                         <div className="flex justify-between items-center">
+                               <span className="font-medium text-gray-300">Höchste erhaltene Strichdifferenz:</span>
+                               <span className="text-gray-100">{playerStats?.highestStricheReceivedSession?.value || '-'}</span>
+                             </div>
+                             {playerStats?.highestStricheReceivedSession?.date && (
+                               <div className="mt-1">
+                                 <span className="text-blue-400 text-xs">({playerStats.highestStricheReceivedSession.date})</span>
+                               </div>
                             )}
                           </div>
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+
+                          <div 
+                            className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                            onClick={() => {
+                              if (playerStats?.longestLossStreakSessions?.startSessionId) {
+                                router.push(`/view/session/${playerStats.longestLossStreakSessions.startSessionId}`);
+                              }
+                            }}
+                          >
+                            <div className="flex justify-between items-center">
                             <span className="font-medium text-gray-300">Längste Niederlagenserie:</span>
-                            {playerStats?.longestLossStreakSessions?.value ? (
-                              <span className="text-gray-100 cursor-default">
-                                {playerStats.longestLossStreakSessions.value} ({playerStats.longestLossStreakSessions.dateRange || playerStats.longestLossStreakSessions.date || '-'})
-                            </span>
-                            ) : (
-                              <span className="text-gray-100">-</span>
-                            )}
+                              <span className="text-gray-100">{playerStats?.longestLossStreakSessions?.value || '-'}</span>
                           </div>
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                            <span className="font-medium text-gray-300">Längste Serie ohne Sieg:</span>
-                            {playerStats?.longestWinlessStreakSessions?.value ? (
-                              <span className="text-gray-100 cursor-default">
-                                {playerStats.longestWinlessStreakSessions.value} ({playerStats.longestWinlessStreakSessions.dateRange || playerStats.longestWinlessStreakSessions.date || '-'})
-                            </span>
-                            ) : (
-                              <span className="text-gray-100">-</span>
-                            )}
-                          </div>
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                            <span className="font-medium text-gray-300">Höchste Anzahl Matsche bekommen:</span>
-                            {playerStats?.mostMatschReceivedSession && typeof playerStats.mostMatschReceivedSession.value === 'number' ? (
-                              <Link 
-                                href={playerStats.mostMatschReceivedSession.relatedId && playerStats.mostMatschReceivedSession.relatedType === 'session' ? `/view/session/${playerStats.mostMatschReceivedSession.relatedId}` : '#'}
-                                className={`text-gray-100 ${playerStats.mostMatschReceivedSession.relatedId ? 'hover:underline cursor-pointer' : 'cursor-default'}`}
-                              >
-                                {playerStats.mostMatschReceivedSession.value} ({playerStats.mostMatschReceivedSession.date || '-'}) 
-                          </Link>
-                            ) : (
-                              <span className="text-gray-100">-</span>
-                            )}
-                          </div>
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                            <span className="font-medium text-gray-300">Meiste Weispunkte erhalten:</span>
-                            {playerStats?.mostWeisPointsReceivedSession && typeof playerStats.mostWeisPointsReceivedSession.value === 'number' ? (
-                              <Link 
-                                href={playerStats.mostWeisPointsReceivedSession.relatedId && playerStats.mostWeisPointsReceivedSession.relatedType === 'session' ? `/view/session/${playerStats.mostWeisPointsReceivedSession.relatedId}` : '#'} 
-                                className={`text-gray-100 ${playerStats.mostWeisPointsReceivedSession.relatedId ? 'hover:underline cursor-pointer' : 'cursor-default'}`}
-                              >
-                                {playerStats.mostWeisPointsReceivedSession.value} ({playerStats.mostWeisPointsReceivedSession.date || '-'}) 
-                          </Link>
-                            ) : (
-                              <span className="text-gray-100">-</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Trumpffarben</h3>
-                        </div>
-                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {trumpfStatistikArray.length > 0 ? (
-                            trumpfStatistikArray.map((item, index) => (
-                              <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
-                                <div className="flex items-center">
-                                  <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                  <FarbePictogram farbe={normalizeJassColor(item.farbe)} mode="svg" className="h-6 w-6 mr-2" />
-                                  <span className="text-gray-300 capitalize">{item.farbe}</span>
-                                </div>
-                                <span className="text-white font-medium">{(item.anteil * 100).toFixed(1)}%</span>
+                            {playerStats?.longestLossStreakSessions?.dateRange && (
+                              <div className="mt-1">
+                                <span className="text-blue-400 text-xs">({playerStats.longestLossStreakSessions.dateRange})</span>
                               </div>
-                            ))
-                          ) : (
-                            <div className="text-gray-400 text-center py-2">Keine Trumpfstatistik verfügbar</div>
+                            )}
+                          </div>
+
+                          <div 
+                            className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                            onClick={() => {
+                              if (playerStats?.longestWinlessStreakSessions?.startSessionId) {
+                                router.push(`/view/session/${playerStats.longestWinlessStreakSessions.startSessionId}`);
+                              }
+                            }}
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium text-gray-300">Längste Serie ohne Sieg:</span>
+                              <span className="text-gray-100">{playerStats?.longestWinlessStreakSessions?.value || '-'}</span>
+                            </div>
+                            {playerStats?.longestWinlessStreakSessions?.dateRange && (
+                              <div className="mt-1">
+                                <span className="text-blue-400 text-xs">({playerStats.longestWinlessStreakSessions.dateRange})</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div 
+                            className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                            onClick={() => {
+                              if (playerStats?.mostMatschReceivedSession?.relatedId) {
+                                router.push(`/view/session/${playerStats.mostMatschReceivedSession.relatedId}`);
+                              }
+                            }}
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium text-gray-300">Höchste Anzahl Matsche bekommen:</span>
+                              <span className="text-gray-100">{playerStats?.mostMatschReceivedSession?.value || '-'}</span>
+                          </div>
+                            {playerStats?.mostMatschReceivedSession?.date && (
+                              <div className="mt-1">
+                                <span className="text-blue-400 text-xs">({playerStats.mostMatschReceivedSession.date})</span>
+                        </div>
+                            )}
+                      </div>
+
+                          <div 
+                            className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                            onClick={() => {
+                              if (playerStats?.mostWeisPointsReceivedSession?.relatedId) {
+                                router.push(`/view/session/${playerStats.mostWeisPointsReceivedSession.relatedId}`);
+                              }
+                            }}
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium text-gray-300">Meiste Weispunkte erhalten:</span>
+                              <span className="text-gray-100">{playerStats?.mostWeisPointsReceivedSession?.value || '-'}</span>
+                        </div>
+                            {playerStats?.mostWeisPointsReceivedSession?.date && (
+                              <div className="mt-1">
+                                <span className="text-blue-400 text-xs">({playerStats.mostWeisPointsReceivedSession.date})</span>
+                                </div>
                           )}
+                          </div>
                         </div>
                       </div>
 
+                      {/* Highlights Spiele */}
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                           <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
                           <h3 className="text-base font-semibold text-white">Highlights Spiele</h3>
                         </div>
                         <div className="p-4 space-y-2">
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                            <span className="font-medium text-gray-300">Höchste Strichdifferenz:</span>
-                            {playerStats?.highestStricheGame && typeof playerStats.highestStricheGame.value === 'number' ? (
-                              <Link 
-                                href={playerStats.highestStricheGame.relatedId && playerStats.highestStricheGame.relatedType === 'game' ? `/view/game/${playerStats.highestStricheGame.relatedId}` : '#'} 
-                                className={`text-gray-100 ${playerStats.highestStricheGame.relatedId ? 'hover:underline cursor-pointer' : 'cursor-default'}`}
-                              >
-                                {playerStats.highestStricheGame.value} ({playerStats.highestStricheGame.date || '-'}) 
-                          </Link>
-                            ) : (
-                              <span className="text-gray-100">-</span>
+                          <div 
+                            className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                            onClick={() => {
+                              if (playerStats?.highestStricheGame?.relatedId) {
+                                router.push(`/view/game/${playerStats.highestStricheGame.relatedId}`);
+                              }
+                            }}
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium text-gray-300">Höchste Strichdifferenz:</span>
+                              <span className="text-gray-100">{playerStats?.highestStricheGame?.value || '-'}</span>
+                            </div>
+                            {playerStats?.highestStricheGame?.date && (
+                              <div className="mt-1">
+                                <span className="text-blue-400 text-xs">({playerStats.highestStricheGame.date})</span>
+                              </div>
                             )}
                           </div>
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+
+                          <div 
+                            className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                            onClick={() => {
+                              if (playerStats?.longestWinStreakGames?.startSessionId) {
+                                router.push(`/view/session/${playerStats.longestWinStreakGames.startSessionId}`);
+                              }
+                            }}
+                          >
+                            <div className="flex justify-between items-center">
                             <span className="font-medium text-gray-300">Längste Siegesserie:</span>
-                            {playerStats?.longestWinStreakGames?.value ? (
-                              <span className="text-gray-100 cursor-default">
-                                {playerStats.longestWinStreakGames.value} ({playerStats.longestWinStreakGames.dateRange || playerStats.longestWinStreakGames.date || '-'})
-                            </span>
-                            ) : (
-                              <span className="text-gray-100">-</span>
+                              <span className="text-gray-100">{playerStats?.longestWinStreakGames?.value || '-'}</span>
+                            </div>
+                            {playerStats?.longestWinStreakGames?.dateRange && (
+                              <div className="mt-1">
+                                <span className="text-blue-400 text-xs">({playerStats.longestWinStreakGames.dateRange})</span>
+                              </div>
                             )}
                           </div>
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+
+                          <div 
+                            className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                            onClick={() => {
+                              if (playerStats?.longestUndefeatedStreakGames?.startSessionId) {
+                                router.push(`/view/session/${playerStats.longestUndefeatedStreakGames.startSessionId}`);
+                              }
+                            }}
+                          >
+                            <div className="flex justify-between items-center">
                             <span className="font-medium text-gray-300">Längste Serie ohne Niederlage:</span>
-                            {playerStats?.longestUndefeatedStreakGames?.value ? (
-                              <span className="text-gray-100 cursor-default">
-                                {playerStats.longestUndefeatedStreakGames.value} ({playerStats.longestUndefeatedStreakGames.dateRange || playerStats.longestUndefeatedStreakGames.date || '-'})
-                            </span>
-                            ) : (
-                              <span className="text-gray-100">-</span>
+                              <span className="text-gray-100">{playerStats?.longestUndefeatedStreakGames?.value || '-'}</span>
+                            </div>
+                            {playerStats?.longestUndefeatedStreakGames?.dateRange && (
+                              <div className="mt-1">
+                                <span className="text-blue-400 text-xs">({playerStats.longestUndefeatedStreakGames.dateRange})</span>
+                              </div>
                             )}
                           </div>
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                            <span className="font-medium text-gray-300">Höchste Anzahl Matsche:</span>
-                            {playerStats?.mostMatschGame && typeof playerStats.mostMatschGame.value === 'number' ? (
-                              <Link 
-                                href={playerStats.mostMatschGame.relatedId && playerStats.mostMatschGame.relatedType === 'game' ? `/view/game/${playerStats.mostMatschGame.relatedId}` : '#'} 
-                                className={`text-gray-100 ${playerStats.mostMatschGame.relatedId ? 'hover:underline cursor-pointer' : 'cursor-default'}`}
-                              >
-                                {playerStats.mostMatschGame.value} ({playerStats.mostMatschGame.date || '-'}) 
-                          </Link>
-                            ) : (
-                              <span className="text-gray-100">-</span>
+
+                          <div 
+                            className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                            onClick={() => {
+                              if (playerStats?.mostMatschGame?.relatedId) {
+                                router.push(`/view/game/${playerStats.mostMatschGame.relatedId}`);
+                              }
+                            }}
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium text-gray-300">Höchste Anzahl Matsche:</span>
+                              <span className="text-gray-100">{playerStats?.mostMatschGame?.value || '-'}</span>
+                            </div>
+                            {playerStats?.mostMatschGame?.date && (
+                              <div className="mt-1">
+                                <span className="text-blue-400 text-xs">({playerStats.mostMatschGame.date})</span>
+                              </div>
                             )}
                         </div>
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                            <span className="font-medium text-gray-300">Meiste Weispunkte:</span>
-                            {playerStats?.mostWeisPointsGame && typeof playerStats.mostWeisPointsGame.value === 'number' ? (
-                              <Link 
-                                href={playerStats.mostWeisPointsGame.relatedId && playerStats.mostWeisPointsGame.relatedType === 'game' ? `/view/game/${playerStats.mostWeisPointsGame.relatedId}` : '#'} 
-                                className={`text-gray-100 ${playerStats.mostWeisPointsGame.relatedId ? 'hover:underline cursor-pointer' : 'cursor-default'}`}
-                              >
-                                {playerStats.mostWeisPointsGame.value} ({playerStats.mostWeisPointsGame.date || '-'}) 
-                              </Link>
-                            ) : (
-                              <span className="text-gray-100">-</span>
+
+                          <div 
+                            className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                            onClick={() => {
+                              if (playerStats?.mostWeisPointsGame?.relatedId) {
+                                router.push(`/view/game/${playerStats.mostWeisPointsGame.relatedId}`);
+                              }
+                            }}
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium text-gray-300">Meiste Weispunkte:</span>
+                              <span className="text-gray-100">{playerStats?.mostWeisPointsGame?.value || '-'}</span>
+                            </div>
+                            {playerStats?.mostWeisPointsGame?.date && (
+                              <div className="mt-1">
+                                <span className="text-blue-400 text-xs">({playerStats.mostWeisPointsGame.date})</span>
+                              </div>
                             )}
                     </div>
                     </div>
                   </div>
 
-                      {/* KORREKTE Lowlights Spiele */}
+                      {/* Lowlights Spiele */}
                   <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                     <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                           <div className="w-1 h-6 bg-red-500 rounded-r-md mr-3"></div>
                           <h3 className="text-base font-semibold text-white">Lowlights Spiele</h3>
                     </div>
                         <div className="p-4 space-y-2">
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                            <span className="font-medium text-gray-300">Höchste erhaltene Strichdifferenz:</span>
-                            {playerStats?.highestStricheReceivedGame && typeof playerStats.highestStricheReceivedGame.value === 'number' ? (
-                              <Link 
-                                href={playerStats.highestStricheReceivedGame.relatedId && playerStats.highestStricheReceivedGame.relatedType === 'game' ? `/view/game/${playerStats.highestStricheReceivedGame.relatedId}` : '#'} 
-                                className={`text-gray-100 ${playerStats.highestStricheReceivedGame.relatedId ? 'hover:underline cursor-pointer' : 'cursor-default'}`}
-                              >
-                                {playerStats.highestStricheReceivedGame.value} ({playerStats.highestStricheReceivedGame.date || '-'}) 
-                              </Link>
-                            ) : (
-                              <span className="text-gray-100">-</span>
+                          <div 
+                            className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                            onClick={() => {
+                              if (playerStats?.highestStricheReceivedGame?.relatedId) {
+                                router.push(`/view/game/${playerStats.highestStricheReceivedGame.relatedId}`);
+                              }
+                            }}
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium text-gray-300">Höchste erhaltene Strichdifferenz:</span>
+                              <span className="text-gray-100">{playerStats?.highestStricheReceivedGame?.value || '-'}</span>
+                            </div>
+                            {playerStats?.highestStricheReceivedGame?.date && (
+                              <div className="mt-1">
+                                <span className="text-blue-400 text-xs">({playerStats.highestStricheReceivedGame.date})</span>
+                              </div>
                             )}
                             </div>
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                            <span className="font-medium text-gray-300">Längste Niederlagen:</span>
-                            {playerStats?.longestLossStreakGames?.value ? (
-                              <span className="text-gray-100 cursor-default">
-                                {playerStats.longestLossStreakGames.value} ({playerStats.longestLossStreakGames.dateRange || playerStats.longestLossStreakGames.date || '-'})
-                              </span>
-                            ) : (
-                              <span className="text-gray-100">-</span>
+
+                          <div 
+                            className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                            onClick={() => {
+                              if (playerStats?.longestLossStreakGames?.startSessionId) {
+                                router.push(`/view/session/${playerStats.longestLossStreakGames.startSessionId}`);
+                              }
+                            }}
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium text-gray-300">Längste Niederlagenserie:</span>
+                              <span className="text-gray-100">{playerStats?.longestLossStreakGames?.value || '-'}</span>
+                            </div>
+                            {playerStats?.longestLossStreakGames?.dateRange && (
+                              <div className="mt-1">
+                                <span className="text-blue-400 text-xs">({playerStats.longestLossStreakGames.dateRange})</span>
+                              </div>
                             )}
                           </div>
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+
+                          <div 
+                            className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                            onClick={() => {
+                              if (playerStats?.longestWinlessStreakGames?.startSessionId) {
+                                router.push(`/view/session/${playerStats.longestWinlessStreakGames.startSessionId}`);
+                              }
+                            }}
+                          >
+                            <div className="flex justify-between items-center">
                             <span className="font-medium text-gray-300">Längste Serie ohne Sieg:</span>
-                            {playerStats?.longestWinlessStreakGames?.value ? (
-                              <span className="text-gray-100 cursor-default">
-                                {playerStats.longestWinlessStreakGames.value} ({playerStats.longestWinlessStreakGames.dateRange || playerStats.longestWinlessStreakGames.date || '-'})
-                              </span>
-                            ) : (
-                              <span className="text-gray-100">-</span>
+                              <span className="text-gray-100">{playerStats?.longestWinlessStreakGames?.value || '-'}</span>
+                            </div>
+                            {playerStats?.longestWinlessStreakGames?.dateRange && (
+                              <div className="mt-1">
+                                <span className="text-blue-400 text-xs">({playerStats.longestWinlessStreakGames.dateRange})</span>
+                              </div>
                             )}
                         </div>
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                            <span className="font-medium text-gray-300">Höchste Anzahl Matsche bekommen:</span>
-                            {playerStats?.mostMatschReceivedGame && typeof playerStats.mostMatschReceivedGame.value === 'number' ? (
-                              <Link 
-                                href={playerStats.mostMatschReceivedGame.relatedId && playerStats.mostMatschReceivedGame.relatedType === 'game' ? `/view/game/${playerStats.mostMatschReceivedGame.relatedId}` : '#'} 
-                                className={`text-gray-100 ${playerStats.mostMatschReceivedGame.relatedId ? 'hover:underline cursor-pointer' : 'cursor-default'}`}
-                              >
-                                {playerStats.mostMatschReceivedGame.value} ({playerStats.mostMatschReceivedGame.date || '-'}) 
-                              </Link>
-                            ) : (
-                              <span className="text-gray-100">-</span>
+
+                          <div 
+                            className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                            onClick={() => {
+                              if (playerStats?.mostMatschReceivedGame?.relatedId) {
+                                router.push(`/view/game/${playerStats.mostMatschReceivedGame.relatedId}`);
+                              }
+                            }}
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium text-gray-300">Höchste Anzahl Matsche bekommen:</span>
+                              <span className="text-gray-100">{playerStats?.mostMatschReceivedGame?.value || '-'}</span>
+                            </div>
+                            {playerStats?.mostMatschReceivedGame?.date && (
+                              <div className="mt-1">
+                                <span className="text-blue-400 text-xs">({playerStats.mostMatschReceivedGame.date})</span>
+                              </div>
                             )}
                   </div>
                     </div>
@@ -1106,7 +1269,7 @@ const ProfilePage: React.FC = () => {
                           <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
                           <h3 className="text-base font-semibold text-white">Trumpffarben</h3>
                         </div>
-                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                        <div ref={trumpfStatistikRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                           {trumpfStatistikArray.length > 0 ? (
                             trumpfStatistikArray.map((item, index) => (
                               <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
@@ -1131,62 +1294,195 @@ const ProfilePage: React.FC = () => {
                 <TabsContent value="partner" className="w-full bg-gray-800/50 rounded-lg p-4 space-y-6">
                   {typedRawPlayerStats?.partnerAggregates && typedRawPlayerStats.partnerAggregates.length > 0 ? (
                     <>
-                      <AggregateRankingList
-                        title="Rangliste: Strichdifferenz"
-                        items={typedRawPlayerStats.partnerAggregates}
-                        valueSelector={(item) => (item as FrontendPartnerAggregate).totalStricheDifferenceWith}
-                        valueFormatter={(val) => {
-                            const numVal = Number(val);
-                            return `${numVal > 0 ? '+' : ''}${numVal}`;
-                        }}
-                        identifierKey="partnerId"
+                      {/* Rangliste: Siegquote Partien */}
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                          <h3 className="text-base font-semibold text-white">Rangliste: Siegquote Partien</h3>
+                        </div>
+                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                          {typedRawPlayerStats.partnerAggregates
+                            .filter(partner => partner.sessionsPlayedWith >= 1)
+                            .sort((a, b) => (b.sessionWinRate || 0) - (a.sessionWinRate || 0))
+                            .slice(0, 10)
+                            .map((partner, index) => {
+                              const playerData = members.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
+                              return (
+                                <Link 
+                                  href={partner.partnerId ? `/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner` : '#'} 
+                                  key={`partner-session-${index}`} 
+                                  className={`block rounded-md ${partner.partnerId ? 'cursor-pointer' : 'cursor-default'}`}
+                                >
+                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                    <div className="flex items-center">
+                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <ProfileImage 
+                                        src={playerData?.photoURL || undefined} 
+                                        alt={partner.partnerDisplayName} 
+                                        size="sm"
+                                        className="mr-2 bg-blue-600/20"
+                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
+                                      />
+                                      <span className="text-gray-300">{partner.partnerDisplayName}</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <span className="text-white font-medium mr-2">
+                                        {getWinRateDisplay(
+                                          partner.sessionWinRateInfo,
+                                          partner.sessionsWonWith,
+                                          partner.sessionsPlayedWith
+                                        )}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </Link>
+                              );
+                            })}
+                          {typedRawPlayerStats.partnerAggregates.filter(p => p.sessionsPlayedWith >= 1).length === 0 && (
+                            <div className="text-gray-400 text-center py-2">Keine Partner mit ausreichend Partien</div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Rangliste: Siegquote Spiele */}
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                          <h3 className="text-base font-semibold text-white">Rangliste: Siegquote Spiele</h3>
+                        </div>
+                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                          {typedRawPlayerStats.partnerAggregates
+                            .filter(partner => partner.gamesPlayedWith >= 1)
+                            .sort((a, b) => (b.gameWinRate || 0) - (a.gameWinRate || 0))
+                            .slice(0, 10)
+                            .map((partner, index) => {
+                              const playerData = members.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
+                              return (
+                                <Link 
+                                  href={partner.partnerId ? `/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner` : '#'} 
+                                  key={`partner-game-${index}`} 
+                                  className={`block rounded-md ${partner.partnerId ? 'cursor-pointer' : 'cursor-default'}`}
+                                >
+                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                    <div className="flex items-center">
+                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <ProfileImage 
+                                        src={playerData?.photoURL || undefined} 
+                                        alt={partner.partnerDisplayName} 
+                                        size="sm"
+                                        className="mr-2 bg-blue-600/20"
+                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
                       />
-                      <AggregateRankingList
-                        title="Rangliste: Siegquote Partien"
-                        items={typedRawPlayerStats.partnerAggregates}
-                        valueSelector={(item) => {
-                          const pa = item as FrontendPartnerAggregate;
-                          return pa.sessionsPlayedWith > 0 ? (pa.sessionsWonWith / pa.sessionsPlayedWith) : 0;
-                        }}
-                        valueFormatter={(val) => `${((val as number) * 100).toFixed(1)}%`}
-                        identifierKey="partnerId"
-                      />
-                      <AggregateRankingList
-                        title="Rangliste: Siegquote Spiele"
-                        items={typedRawPlayerStats.partnerAggregates}
-                        valueSelector={(item) => {
-                          const pa = item as FrontendPartnerAggregate;
-                          return pa.gamesPlayedWith > 0 ? (pa.gamesWonWith / pa.gamesPlayedWith) : 0;
-                        }}
-                        valueFormatter={(val) => `${((val as number) * 100).toFixed(1)}%`}
-                        identifierKey="partnerId"
-                      />
-                      <AggregateRankingList
-                        title="Rangliste: Punkte"
-                        items={typedRawPlayerStats.partnerAggregates}
-                        valueSelector={(item) => (item as FrontendPartnerAggregate).totalPointsWith}
-                        identifierKey="partnerId"
-                      />
-                      <AggregateRankingList
-                        title="Rangliste: Matsch-Quote Spiel"
-                        items={typedRawPlayerStats.partnerAggregates}
-                        valueSelector={(item) => {
-                          const pa = item as FrontendPartnerAggregate;
-                          return pa.gamesPlayedWith > 0 ? (pa.matschGamesWonWith / pa.gamesPlayedWith) : 0;
-                        }}
-                        valueFormatter={(val) => `${(val as number).toFixed(2)}`}
-                        identifierKey="partnerId"
-                      />
-                      <AggregateRankingList
-                        title="Rangliste: Schneider-Quote Spiel"
-                        items={typedRawPlayerStats.partnerAggregates}
-                        valueSelector={(item) => {
-                          const pa = item as FrontendPartnerAggregate;
-                          return pa.gamesPlayedWith > 0 ? (pa.schneiderGamesWonWith / pa.gamesPlayedWith) : 0;
-                        }}
-                        valueFormatter={(val) => `${(val as number).toFixed(2)}`}
-                        identifierKey="partnerId"
-                      />
+                                      <span className="text-gray-300">{partner.partnerDisplayName}</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <span className="text-white font-medium mr-2">
+                                        {getWinRateDisplay(
+                                          partner.gameWinRateInfo,
+                                          partner.gamesWonWith,
+                                          partner.gamesPlayedWith
+                                        )}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </Link>
+                              );
+                            })}
+                          {typedRawPlayerStats.partnerAggregates.filter(p => p.gamesPlayedWith >= 1).length === 0 && (
+                            <div className="text-gray-400 text-center py-2">Keine Partner mit ausreichend Spielen</div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Rangliste: Strichdifferenz */}
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                          <h3 className="text-base font-semibold text-white">Rangliste: Strichdifferenz</h3>
+                        </div>
+                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                          {typedRawPlayerStats.partnerAggregates
+                            .filter(partner => partner.gamesPlayedWith >= 1)
+                            .sort((a, b) => b.totalStricheDifferenceWith - a.totalStricheDifferenceWith)
+                            .slice(0, 10)
+                            .map((partner, index) => {
+                              const playerData = members.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
+                              return (
+                                <Link 
+                                  href={partner.partnerId ? `/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner` : '#'} 
+                                  key={`partner-striche-${index}`} 
+                                  className={`block rounded-md ${partner.partnerId ? 'cursor-pointer' : 'cursor-default'}`}
+                                >
+                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                    <div className="flex items-center">
+                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <ProfileImage 
+                                        src={playerData?.photoURL || undefined} 
+                                        alt={partner.partnerDisplayName} 
+                                        size="sm"
+                                        className="mr-2 bg-blue-600/20"
+                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
+                                      />
+                                      <span className="text-gray-300">{partner.partnerDisplayName}</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <span className="text-white font-medium mr-2">
+                                        {partner.totalStricheDifferenceWith > 0 ? '+' : ''}{partner.totalStricheDifferenceWith}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </Link>
+                              );
+                            })}
+                        </div>
+                      </div>
+
+                      {/* Rangliste: Punktdifferenz */}
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                          <h3 className="text-base font-semibold text-white">Rangliste: Punktdifferenz</h3>
+                        </div>
+                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                          {typedRawPlayerStats.partnerAggregates
+                            .filter(partner => partner.gamesPlayedWith >= 1)
+                            .sort((a, b) => b.totalPointsDifferenceWith - a.totalPointsDifferenceWith)
+                            .slice(0, 10)
+                            .map((partner, index) => {
+                              const playerData = members.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
+                              return (
+                                <Link 
+                                  href={partner.partnerId ? `/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner` : '#'} 
+                                  key={`partner-points-${index}`} 
+                                  className={`block rounded-md ${partner.partnerId ? 'cursor-pointer' : 'cursor-default'}`}
+                                >
+                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                    <div className="flex items-center">
+                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <ProfileImage 
+                                        src={playerData?.photoURL || undefined} 
+                                        alt={partner.partnerDisplayName} 
+                                        size="sm"
+                                        className="mr-2 bg-blue-600/20"
+                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
+                                      />
+                                      <span className="text-gray-300">{partner.partnerDisplayName}</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <span className="text-white font-medium mr-2">
+                                        {partner.totalPointsDifferenceWith > 0 ? '+' : ''}{partner.totalPointsDifferenceWith}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </Link>
+                              );
+                            })}
+                        </div>
+                      </div>
                     </>
                   ) : (
                     <div className="text-center text-gray-400 py-10">Keine Partnerstatistiken verfügbar.</div>
@@ -1195,62 +1491,195 @@ const ProfilePage: React.FC = () => {
                 <TabsContent value="opponent" className="w-full bg-gray-800/50 rounded-lg p-4 space-y-6">
                   {typedRawPlayerStats?.opponentAggregates && typedRawPlayerStats.opponentAggregates.length > 0 ? (
                     <>
-                      <AggregateRankingList
-                        title="Rangliste: Strichdifferenz"
-                        items={typedRawPlayerStats.opponentAggregates}
-                        valueSelector={(item) => (item as FrontendOpponentAggregate).totalStricheDifferenceAgainst}
-                        valueFormatter={(val) => {
-                            const numVal = Number(val);
-                            return `${numVal > 0 ? '+' : ''}${numVal}`;
-                        }}
-                        identifierKey="opponentId"
+                      {/* Rangliste: Siegquote Partien */}
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                          <h3 className="text-base font-semibold text-white">Rangliste: Siegquote Partien</h3>
+                        </div>
+                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                          {typedRawPlayerStats.opponentAggregates
+                            .filter(opponent => opponent.sessionsPlayedAgainst >= 1)
+                            .sort((a, b) => (b.sessionWinRate || 0) - (a.sessionWinRate || 0))
+                            .slice(0, 10)
+                            .map((opponent, index) => {
+                              const playerData = members.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
+                              return (
+                                <Link 
+                                  href={opponent.opponentId ? `/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent` : '#'} 
+                                  key={`opponent-session-${index}`} 
+                                  className={`block rounded-md ${opponent.opponentId ? 'cursor-pointer' : 'cursor-default'}`}
+                                >
+                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                    <div className="flex items-center">
+                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <ProfileImage 
+                                        src={playerData?.photoURL || undefined} 
+                                        alt={opponent.opponentDisplayName} 
+                                        size="sm"
+                                        className="mr-2 bg-blue-600/20"
+                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
+                                      />
+                                      <span className="text-gray-300">{opponent.opponentDisplayName}</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <span className="text-white font-medium mr-2">
+                                        {getWinRateDisplay(
+                                          opponent.sessionWinRateInfo,
+                                          opponent.sessionsWonAgainst,
+                                          opponent.sessionsPlayedAgainst
+                                        )}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </Link>
+                              );
+                            })}
+                          {typedRawPlayerStats.opponentAggregates.filter(o => o.sessionsPlayedAgainst >= 1).length === 0 && (
+                            <div className="text-gray-400 text-center py-2">Keine Gegner mit ausreichend Partien</div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Rangliste: Siegquote Spiele */}
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                          <h3 className="text-base font-semibold text-white">Rangliste: Siegquote Spiele</h3>
+                        </div>
+                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                          {typedRawPlayerStats.opponentAggregates
+                            .filter(opponent => opponent.gamesPlayedAgainst >= 1)
+                            .sort((a, b) => (b.gameWinRate || 0) - (a.gameWinRate || 0))
+                            .slice(0, 10)
+                            .map((opponent, index) => {
+                              const playerData = members.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
+                              return (
+                                <Link 
+                                  href={opponent.opponentId ? `/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent` : '#'} 
+                                  key={`opponent-game-${index}`} 
+                                  className={`block rounded-md ${opponent.opponentId ? 'cursor-pointer' : 'cursor-default'}`}
+                                >
+                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                    <div className="flex items-center">
+                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <ProfileImage 
+                                        src={playerData?.photoURL || undefined} 
+                                        alt={opponent.opponentDisplayName} 
+                                        size="sm"
+                                        className="mr-2 bg-blue-600/20"
+                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
                       />
-                      <AggregateRankingList
-                        title="Rangliste: Siegquote Partien"
-                        items={typedRawPlayerStats.opponentAggregates}
-                        valueSelector={(item) => {
-                          const oa = item as FrontendOpponentAggregate;
-                          return oa.sessionsPlayedAgainst > 0 ? (oa.sessionsWonAgainst / oa.sessionsPlayedAgainst) : 0;
-                        }}
-                        valueFormatter={(val) => `${((val as number) * 100).toFixed(1)}%`}
-                        identifierKey="opponentId"
-                      />
-                      <AggregateRankingList
-                        title="Rangliste: Siegquote Spiele"
-                        items={typedRawPlayerStats.opponentAggregates}
-                        valueSelector={(item) => {
-                          const oa = item as FrontendOpponentAggregate;
-                          return oa.gamesPlayedAgainst > 0 ? (oa.gamesWonAgainst / oa.gamesPlayedAgainst) : 0;
-                        }}
-                        valueFormatter={(val) => `${((val as number) * 100).toFixed(1)}%`}
-                        identifierKey="opponentId"
-                      />
-                       <AggregateRankingList
-                        title="Rangliste: Punkte erzielt (gegen)"
-                        items={typedRawPlayerStats.opponentAggregates}
-                        valueSelector={(item) => (item as FrontendOpponentAggregate).totalPointsScoredWhenOpponent}
-                        identifierKey="opponentId"
-                      />
-                      <AggregateRankingList
-                        title="Rangliste: Matsch-Siegquote Spiel (gegen)"
-                        items={typedRawPlayerStats.opponentAggregates}
-                        valueSelector={(item) => {
-                          const oa = item as FrontendOpponentAggregate;
-                          return oa.gamesPlayedAgainst > 0 ? (oa.matschGamesWonAgainstOpponentTeam / oa.gamesPlayedAgainst) : 0;
-                        }}
-                        valueFormatter={(val) => `${(val as number).toFixed(2)}`}
-                        identifierKey="opponentId"
-                      />
-                      <AggregateRankingList
-                        title="Rangliste: Schneider-Siegquote Spiel (gegen)"
-                        items={typedRawPlayerStats.opponentAggregates}
-                        valueSelector={(item) => {
-                          const oa = item as FrontendOpponentAggregate;
-                          return oa.gamesPlayedAgainst > 0 ? (oa.schneiderGamesWonAgainstOpponentTeam / oa.gamesPlayedAgainst) : 0;
-                        }}
-                        valueFormatter={(val) => `${(val as number).toFixed(2)}`}
-                        identifierKey="opponentId"
-                      />
+                                      <span className="text-gray-300">{opponent.opponentDisplayName}</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <span className="text-white font-medium mr-2">
+                                        {getWinRateDisplay(
+                                          opponent.gameWinRateInfo,
+                                          opponent.gamesWonAgainst,
+                                          opponent.gamesPlayedAgainst
+                                        )}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </Link>
+                              );
+                            })}
+                          {typedRawPlayerStats.opponentAggregates.filter(o => o.gamesPlayedAgainst >= 1).length === 0 && (
+                            <div className="text-gray-400 text-center py-2">Keine Gegner mit ausreichend Spielen</div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Rangliste: Strichdifferenz */}
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                          <h3 className="text-base font-semibold text-white">Rangliste: Strichdifferenz</h3>
+                        </div>
+                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                          {typedRawPlayerStats.opponentAggregates
+                            .filter(opponent => opponent.gamesPlayedAgainst >= 1)
+                            .sort((a, b) => b.totalStricheDifferenceAgainst - a.totalStricheDifferenceAgainst)
+                            .slice(0, 10)
+                            .map((opponent, index) => {
+                              const playerData = members.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
+                              return (
+                                <Link 
+                                  href={opponent.opponentId ? `/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent` : '#'} 
+                                  key={`opponent-striche-${index}`} 
+                                  className={`block rounded-md ${opponent.opponentId ? 'cursor-pointer' : 'cursor-default'}`}
+                                >
+                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                    <div className="flex items-center">
+                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <ProfileImage 
+                                        src={playerData?.photoURL || undefined} 
+                                        alt={opponent.opponentDisplayName} 
+                                        size="sm"
+                                        className="mr-2 bg-blue-600/20"
+                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
+                                      />
+                                      <span className="text-gray-300">{opponent.opponentDisplayName}</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <span className="text-white font-medium mr-2">
+                                        {opponent.totalStricheDifferenceAgainst > 0 ? '+' : ''}{opponent.totalStricheDifferenceAgainst}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </Link>
+                              );
+                            })}
+                        </div>
+                      </div>
+
+                      {/* Rangliste: Punktdifferenz */}
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                          <h3 className="text-base font-semibold text-white">Rangliste: Punktdifferenz</h3>
+                        </div>
+                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                          {typedRawPlayerStats.opponentAggregates
+                            .filter(opponent => opponent.gamesPlayedAgainst >= 1)
+                            .sort((a, b) => b.totalPointsDifferenceAgainst - a.totalPointsDifferenceAgainst)
+                            .slice(0, 10)
+                            .map((opponent, index) => {
+                              const playerData = members.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
+                              return (
+                                <Link 
+                                  href={opponent.opponentId ? `/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent` : '#'} 
+                                  key={`opponent-points-${index}`} 
+                                  className={`block rounded-md ${opponent.opponentId ? 'cursor-pointer' : 'cursor-default'}`}
+                                >
+                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                    <div className="flex items-center">
+                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <ProfileImage 
+                                        src={playerData?.photoURL || undefined} 
+                                        alt={opponent.opponentDisplayName} 
+                                        size="sm"
+                                        className="mr-2 bg-blue-600/20"
+                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
+                                      />
+                                      <span className="text-gray-300">{opponent.opponentDisplayName}</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <span className="text-white font-medium mr-2">
+                                        {opponent.totalPointsDifferenceAgainst > 0 ? '+' : ''}{opponent.totalPointsDifferenceAgainst}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </Link>
+                              );
+                            })}
+                        </div>
+                      </div>
                     </>
                   ) : (
                     <div className="text-center text-gray-400 py-10">Keine Gegnerstatistiken verfügbar.</div>

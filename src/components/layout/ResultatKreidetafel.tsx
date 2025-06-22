@@ -43,6 +43,7 @@ import { StricheStatistik } from '@/statistics/StricheStatistik';
 import { JasspunkteStatistik } from '@/statistics/JasspunkteStatistik';
 import { useJassStore } from '@/store/jassStore';
 import { useSpring, animated } from 'react-spring';
+import { motion } from 'framer-motion';
 import html2canvas from 'html2canvas';
 import { useTimerStore, TimerAnalytics } from '@/store/timerStore';
 import { usePressableButton } from '@/hooks/usePressableButton';
@@ -1531,6 +1532,11 @@ const ResultatKreidetafel = ({
                 
                 closeResultatKreidetafel();
                 
+                // ✅ KRITISCH: Stores nach Session-Abschluss zurücksetzen
+                jassStore.resetJass();
+                gameStore.resetGame(1);
+                timerStore.resetAllTimers();
+                
                 // NEU: Intelligente Navigation basierend auf Kontext
                 if (isTournamentPasse && tournamentInstanceId) {
                     // Für Turniere: zurück zur Turnier-Detailseite
@@ -2228,34 +2234,42 @@ const ResultatKreidetafel = ({
                       </button>
                     )}
                     {/* Immer sichtbare Buttons */}
-                    <button 
+                    <motion.button 
                       onClick={handleBeendenClick}
+                      initial={{scale: 0.9}}
+                      animate={{scale: 1}}
+                      whileTap={{scale: 0.95}}
                       className={`
                         py-2 px-4 text-white rounded-lg font-medium text-base
                         transition-all duration-150
-                        bg-blue-600 hover:bg-yellow-700
+                        bg-blue-600 hover:bg-blue-700 border-b-4 border-blue-800
                         flex items-center justify-center gap-2
-                        leading-tight
+                        leading-tight shadow-lg
+                        active:scale-[0.98] active:border-b-2
                         ${shareButton.buttonClasses}
                       `}
                     >
                       {["Jass", "beenden"].map((line, i) => (<React.Fragment key={i}>{line}{i === 0 && <br />}</React.Fragment>))}
-                    </button>
-                    <button 
+                    </motion.button>
+                    <motion.button 
                       onClick={handleNextGameClick}
+                      initial={{scale: 0.9}}
+                      animate={{scale: 1}}
+                      whileTap={{scale: 0.95}}
                       className={`
                         py-2 px-4 text-white rounded-lg font-medium text-base
-                        transition-all duration-150
+                        transition-all duration-150 shadow-lg
+                        active:scale-[0.98] active:border-b-2
                         ${canNavigateForward 
-                          ? 'bg-gray-600 hover:bg-gray-700' 
-                          : 'bg-green-600 hover:bg-green-700'
+                          ? 'bg-gray-600 hover:bg-gray-700 border-b-4 border-gray-800' 
+                          : 'bg-green-600 hover:bg-green-700 border-b-4 border-green-800'
                         }
                         leading-tight
                         ${nextButton.buttonClasses}
                       `}
                     >
                       {nextGameButtonText.split('\n').map((line, i) => (<React.Fragment key={i}>{line}{i === 0 && nextGameButtonText.includes('\n') && <br />}</React.Fragment>))}
-                    </button>
+                    </motion.button>
                   </div>
                   
                   {/* Schliessen-Button für normalen Modus */}
@@ -2277,8 +2291,11 @@ const ResultatKreidetafel = ({
                 // --- Signatur-Modus Button --- 
                 <>
                   <div /* id="resultat-signing-container" // Alte ID nicht mehr unbedingt nötig */ className="mt-4">
-                    <button
+                    <motion.button
                       onClick={handleSignatureClick}
+                      initial={{scale: 0.9}}
+                      animate={{scale: 1}}
+                      whileTap={{scale: 0.95}}
                       className={`w-full bg-amber-400 text-white text-lg font-bold py-4 px-8 rounded-xl shadow-lg hover:bg-amber-500 transition-colors border-b-4 border-amber-600 active:scale-[0.98] active:border-b-2 disabled:opacity-50 disabled:cursor-not-allowed
                                  ${(swipePosition === 'bottom' && team1Signed) || (swipePosition === 'top' && team2Signed) ? 'opacity-70 cursor-default' : ''}`}
                       disabled={ 
@@ -2292,23 +2309,10 @@ const ResultatKreidetafel = ({
                         ? 'SIGNIERT'
                         : `Signieren Team ${swipePosition === 'bottom' ? '1' : '2'}`
                       }
-                    </button>
+                    </motion.button>
                   </div>
                   
-                  {/* Schliessen-Button für Signatur-Modus */}
-                  <div className="mt-4">
-                    <button 
-                      onClick={closeResultatKreidetafel}
-                      className="
-                        w-full py-1.5 px-4 text-white rounded-lg font-medium text-sm
-                        transition-all duration-150
-                        bg-gray-600 hover:bg-gray-700
-                        leading-tight
-                      "
-                    >
-                      Schliessen
-                    </button>
-                  </div>
+                  {/* Schliessen-Button für Signatur-Modus ist ausgeblendet */}
                 </>
               )
             ) : (

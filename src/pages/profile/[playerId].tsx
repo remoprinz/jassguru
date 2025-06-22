@@ -3,9 +3,8 @@ import { useRouter } from 'next/router';
 import MainLayout from '@/components/layout/MainLayout';
 import { Loader2, ArrowLeft, BarChart3, Award, Archive, User, Users, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { getPlayerById } from '@/services/playerService';
+import { getPlayerById, getGroupMembersSortedByGames } from '@/services/playerService';
 import type { FirestorePlayer } from '@/types/jass';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import ProfileImage from '@/components/ui/ProfileImage';
@@ -18,14 +17,21 @@ import { de } from 'date-fns/locale';
 import { usePlayerStatsStore } from '@/store/playerStatsStore';
 import { transformComputedStatsToExtended, type TransformedPlayerStats } from '@/utils/statsTransformer';
 import NotableEventsList from "@/components/profile/NotableEventsList";
-import AggregateRankingList, { FrontendPartnerAggregate, FrontendOpponentAggregate } from "@/components/profile/AggregateRankingList";
+import { formatMillisecondsDuration } from '@/utils/formatUtils';
+import { useAuthStore } from "@/store/authStore";
+import { getSessionWinRateDisplay, getWinRateDisplay } from '@/utils/winRateUtils';
+import type { FrontendPartnerAggregate, FrontendOpponentAggregate } from '@/types/computedStats';
 import { FarbePictogram } from '@/components/settings/FarbePictogram';
 import { JassColor } from '@/types/jass';
+import { useNestedScrollFix } from '@/hooks/useNestedScrollFix';
 
 type PlayerWithPlaceholder = FirestorePlayer & { _isPlaceholder?: boolean };
 
 // PlayerProfilePageStats ist jetzt der primäre Typ für transformierte Statistiken
-interface PlayerProfilePageStats extends TransformedPlayerStats {}
+interface PlayerProfilePageStats extends TransformedPlayerStats {
+  partnerAggregates?: FrontendPartnerAggregate[];
+  opponentAggregates?: FrontendOpponentAggregate[];
+}
 
 // Hilfsfunktion zum Normalisieren der Trumpffarben-Namen für die JassColor Typ-Kompatibilität
 const normalizeJassColor = (farbe: string): JassColor => {
@@ -52,6 +58,8 @@ interface ExpectedPlayerStatsWithAggregates {
 const PlayerProfilePage = () => {
   const router = useRouter();
   const { playerId } = router.query;
+  const trumpfStatistikRef = useRef<HTMLDivElement>(null);
+  useNestedScrollFix(trumpfStatistikRef);
 
   const [activeMainTab, setActiveMainTab] = useState("statistics");
   const [activeStatsSubTab, setActiveStatsSubTab] = useState("individual");
@@ -59,6 +67,10 @@ const PlayerProfilePage = () => {
   const [player, setPlayer] = useState<FirestorePlayer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // NEU: Members-Liste für Profilbilder in Partner/Gegner-Aggregaten
+  const [members, setMembers] = useState<FirestorePlayer[]>([]);
+  const [membersLoading, setMembersLoading] = useState(true);
 
   // NEU: State und Actions aus dem playerStatsStore
   const {
@@ -146,9 +158,10 @@ const PlayerProfilePage = () => {
 
   // NEUER/ANGEPASSTER useEffect Hook für Statistik-Abonnement
   useEffect(() => {
-    if (player && player.userId) {
-      console.log(`[PlayerProfilePage] Subscribing to stats for authUid: ${player.userId}`);
-      subscribeToPlayerStats(player.userId);
+    // Die playerId aus der URL ist die korrekte Dokument-ID
+    if (typeof playerId === 'string' && playerId) {
+      console.log(`[PlayerProfilePage] Subscribing to stats for playerId: ${playerId}`);
+      subscribeToPlayerStats(playerId);
     }
     // Cleanup für Listener
     return () => {
@@ -157,19 +170,55 @@ const PlayerProfilePage = () => {
       console.log(`[PlayerProfilePage] Unsubscribing from player stats.`);
       unsubscribePlayerStats(); 
     };
-  }, [player, subscribeToPlayerStats, unsubscribePlayerStats]); // Abhängig von player Objekt
+  }, [playerId, subscribeToPlayerStats, unsubscribePlayerStats]); // Abhängig von playerId aus der URL
 
   // NEU: useEffect zur Transformation der rohen Statistiken aus dem Store
   useEffect(() => {
     if (rawPlayerStats) {
-        // groupCount hier aus player.groupIds ableiten oder default 0
-        const groupCount = player?.groupIds?.length || 0;
-        const transformed = transformComputedStatsToExtended(rawPlayerStats, groupCount);
-        setExtendedStats(transformed as PlayerProfilePageStats);
-    } else {
+      const transformed = transformComputedStatsToExtended(rawPlayerStats, 0); // groupCount ist hier nicht relevant
+      
+      // WICHTIG: Prüfen, ob die Transformation erfolgreich war
+      if (transformed) {
+        // Füge die Aggregate zum transformierten Objekt hinzu
+        const finalStats: PlayerProfilePageStats = {
+          ...transformed,
+          partnerAggregates: rawPlayerStats.partnerAggregates,
+          opponentAggregates: rawPlayerStats.opponentAggregates,
+        };
+        setExtendedStats(finalStats);
+      } else {
         setExtendedStats(null);
+      }
+    } else {
+      setExtendedStats(null);
     }
-  }, [rawPlayerStats, player]);
+  }, [rawPlayerStats]);
+
+  // NEU: Members laden für Profilbilder in Partner/Gegner-Aggregaten
+  useEffect(() => {
+    const loadMembers = async () => {
+      if (!player?.groupIds || player.groupIds.length === 0) {
+        setMembers([]);
+        setMembersLoading(false);
+        return;
+      }
+
+      setMembersLoading(true);
+      try {
+        // Lade Members für die erste/aktuelle Gruppe des Spielers
+        const primaryGroupId = player.groupIds[0];
+        const fetchedMembers = await getGroupMembersSortedByGames(primaryGroupId);
+        setMembers(fetchedMembers);
+      } catch (error) {
+        console.error("Fehler beim Laden der Gruppenmitglieder für Profilbilder:", error);
+        setMembers([]);
+      } finally {
+        setMembersLoading(false);
+      }
+    };
+
+    loadMembers();
+  }, [player?.groupIds]);
 
   useEffect(() => {
     if (router.isReady) {
@@ -284,7 +333,7 @@ const PlayerProfilePage = () => {
             {String(jassSpruch)}
           </p>
           {isPlaceholder && (
-            <p className="text-xs text-yellow-400 text-center">(Unvollständiger Datensatz)</p>
+            <p className="text-sm text-yellow-400 text-center">(Unvollständiger Datensatz)</p>
           )}
         </div>
 
@@ -442,13 +491,22 @@ const PlayerProfilePage = () => {
                         <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                           <span className="font-medium text-gray-300">Ø Siegquote Partie:</span>
                           <span className="text-gray-100">
-                            {extendedStats?.sessionWinRate ? `${(extendedStats.sessionWinRate * 100).toFixed(1)}%` : '0.0%'}
+                            {getSessionWinRateDisplay(
+                              extendedStats?.sessionWinRateInfo,
+                              extendedStats?.sessionsWon || 0,
+                              extendedStats?.sessionsLost || 0,
+                              extendedStats?.sessionsTied || 0
+                            )}
                           </span>
                         </div>
                         <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                           <span className="font-medium text-gray-300">Ø Siegquote Spiel:</span>
                           <span className="text-gray-100">
-                            {extendedStats?.gameWinRate ? `${(extendedStats.gameWinRate * 100).toFixed(1)}%` : '0.0%'}
+                            {getWinRateDisplay(
+                              extendedStats?.gameWinRateInfo,
+                              extendedStats?.gamesWon || 0,
+                              extendedStats?.totalGames || 0
+                            )}
                           </span>
                         </div>
                         <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
@@ -469,7 +527,7 @@ const PlayerProfilePage = () => {
                         </div>
                         <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                           <span className="font-medium text-gray-300">Ø Zeit pro Runde:</span>
-                          <span className="text-gray-100">{extendedStats?.avgRoundTime || '0m 0s'}</span>
+                          <span className="text-gray-100 text-right whitespace-nowrap">{extendedStats?.avgRoundTime || '0m 0s'}</span>
                         </div>
                       </div>
                     </div>
@@ -745,7 +803,7 @@ const PlayerProfilePage = () => {
                         <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
                         <h3 className="text-base font-semibold text-white">Trumpffarben</h3>
                       </div>
-                      <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div ref={trumpfStatistikRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                         {trumpfStatistikArray.length > 0 ? (
                           trumpfStatistikArray.map((item, index) => (
                             <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
@@ -768,128 +826,176 @@ const PlayerProfilePage = () => {
                 )}
               </TabsContent>
               <TabsContent value="partner" className="w-full bg-gray-800/50 rounded-lg p-4 space-y-6">
-                {typedRawPlayerStats?.partnerAggregates && typedRawPlayerStats.partnerAggregates.length > 0 ? (
+                {extendedStats?.partnerAggregates && extendedStats.partnerAggregates.length > 0 ? (
                   <>
-                    <AggregateRankingList
-                      title="Rangliste: Strichdifferenz"
-                      items={typedRawPlayerStats.partnerAggregates}
-                      valueSelector={(item) => (item as FrontendPartnerAggregate).totalStricheDifferenceWith}
-                      valueFormatter={(val) => {
-                          const numVal = Number(val);
-                          return `${numVal > 0 ? '+' : ''}${numVal}`;
-                      }}
-                      identifierKey="partnerId"
-                    />
-                    <AggregateRankingList
-                      title="Rangliste: Siegquote Partien"
-                      items={typedRawPlayerStats.partnerAggregates}
-                      valueSelector={(item) => {
-                        const pa = item as FrontendPartnerAggregate;
-                        return pa.sessionsPlayedWith > 0 ? (pa.sessionsWonWith / pa.sessionsPlayedWith) : 0;
-                      }}
-                      valueFormatter={(val) => `${((val as number) * 100).toFixed(1)}%`}
-                      identifierKey="partnerId"
-                    />
-                    <AggregateRankingList
-                      title="Rangliste: Siegquote Spiele"
-                      items={typedRawPlayerStats.partnerAggregates}
-                      valueSelector={(item) => {
-                        const pa = item as FrontendPartnerAggregate;
-                        return pa.gamesPlayedWith > 0 ? (pa.gamesWonWith / pa.gamesPlayedWith) : 0;
-                      }}
-                      valueFormatter={(val) => `${((val as number) * 100).toFixed(1)}%`}
-                      identifierKey="partnerId"
-                    />
-                    <AggregateRankingList
-                      title="Rangliste: Punkte"
-                      items={typedRawPlayerStats.partnerAggregates}
-                      valueSelector={(item) => (item as FrontendPartnerAggregate).totalPointsWith}
-                      identifierKey="partnerId"
-                    />
-                    <AggregateRankingList
-                      title="Rangliste: Matsch-Quote Spiel"
-                      items={typedRawPlayerStats.partnerAggregates}
-                      valueSelector={(item) => {
-                        const pa = item as FrontendPartnerAggregate;
-                        return pa.gamesPlayedWith > 0 ? (pa.matschGamesWonWith / pa.gamesPlayedWith) : 0;
-                      }}
-                      valueFormatter={(val) => `${(val as number).toFixed(2)}`}
-                      identifierKey="partnerId"
-                    />
-                    <AggregateRankingList
-                      title="Rangliste: Schneider-Quote Spiel"
-                      items={typedRawPlayerStats.partnerAggregates}
-                      valueSelector={(item) => {
-                        const pa = item as FrontendPartnerAggregate;
-                        return pa.gamesPlayedWith > 0 ? (pa.schneiderGamesWonWith / pa.gamesPlayedWith) : 0;
-                      }}
-                      valueFormatter={(val) => `${(val as number).toFixed(2)}`}
-                      identifierKey="partnerId"
-                    />
+                    {/* Rangliste: Siegquote Partien */}
+                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                        <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                        <h3 className="text-base font-semibold text-white">Rangliste: Siegquote Partien</h3>
+                      </div>
+                      <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                        {extendedStats.partnerAggregates
+                          .filter(partner => (partner.sessionsPlayedWith || 0) >= 1)
+                          .sort((a, b) => (b.sessionWinRate || 0) - (a.sessionWinRate || 0))
+                          .slice(0, 10)
+                          .map((partner, index) => (
+                            <div key={`partner-session-${index}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
+                              <div className="flex items-center">
+                                <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                <ProfileImage 
+                                  src={undefined} 
+                                  alt={partner.partnerDisplayName} 
+                                  size="sm"
+                                  className="mr-2 bg-blue-600/20"
+                                  fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                  fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
+                                />
+                                <span className="text-gray-300">{partner.partnerDisplayName}</span>
+                              </div>
+                              <div className="flex items-center">
+                                <span className="text-white font-medium mr-2">
+                                  {getWinRateDisplay(
+                                    partner.sessionWinRateInfo,
+                                    partner.sessionsWonWith,
+                                    partner.sessionsPlayedWith
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        {extendedStats.partnerAggregates.filter(p => (p.sessionsPlayedWith || 0) >= 1).length === 0 && (
+                          <div className="text-gray-400 text-center py-2">Keine Partner mit ausreichend Partien</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Rangliste: Siegquote Spiele */}
+                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                        <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                        <h3 className="text-base font-semibold text-white">Rangliste: Siegquote Spiele</h3>
+                      </div>
+                      <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                        {extendedStats.partnerAggregates
+                          .filter(partner => (partner.gamesPlayedWith || 0) >= 1)
+                          .sort((a, b) => (b.gameWinRate || 0) - (a.gameWinRate || 0))
+                          .slice(0, 10)
+                          .map((partner, index) => (
+                            <div key={`partner-game-${index}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
+                              <div className="flex items-center">
+                                <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                <ProfileImage 
+                                  src={undefined} 
+                                  alt={partner.partnerDisplayName} 
+                                  size="sm"
+                                  className="mr-2 bg-blue-600/20"
+                                  fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                  fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
+                                />
+                                <span className="text-gray-300">{partner.partnerDisplayName}</span>
+                              </div>
+                              <div className="flex items-center">
+                                <span className="text-white font-medium mr-2">
+                                  {getWinRateDisplay(
+                                    partner.gameWinRateInfo,
+                                    partner.gamesWonWith,
+                                    partner.gamesPlayedWith
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        {extendedStats.partnerAggregates.filter(p => (p.gamesPlayedWith || 0) >= 1).length === 0 && (
+                          <div className="text-gray-400 text-center py-2">Keine Partner mit ausreichend Spielen</div>
+                        )}
+                      </div>
+                    </div>
                   </>
                 ) : (
                   <div className="text-center text-gray-400 py-10">Keine Partnerstatistiken verfügbar.</div>
                 )}
               </TabsContent>
               <TabsContent value="opponent" className="w-full bg-gray-800/50 rounded-lg p-4 space-y-6">
-                {typedRawPlayerStats?.opponentAggregates && typedRawPlayerStats.opponentAggregates.length > 0 ? (
+                {extendedStats?.opponentAggregates && extendedStats.opponentAggregates.length > 0 ? (
                   <>
-                    <AggregateRankingList
-                      title="Rangliste: Strichdifferenz"
-                      items={typedRawPlayerStats.opponentAggregates}
-                      valueSelector={(item) => (item as FrontendOpponentAggregate).totalStricheDifferenceAgainst}
-                      valueFormatter={(val) => {
-                          const numVal = Number(val);
-                          return `${numVal > 0 ? '+' : ''}${numVal}`;
-                      }}
-                      identifierKey="opponentId"
-                    />
-                    <AggregateRankingList
-                      title="Rangliste: Siegquote Partien"
-                      items={typedRawPlayerStats.opponentAggregates}
-                      valueSelector={(item) => {
-                        const oa = item as FrontendOpponentAggregate;
-                        return oa.sessionsPlayedAgainst > 0 ? (oa.sessionsWonAgainst / oa.sessionsPlayedAgainst) : 0;
-                      }}
-                      valueFormatter={(val) => `${((val as number) * 100).toFixed(1)}%`}
-                      identifierKey="opponentId"
-                    />
-                    <AggregateRankingList
-                      title="Rangliste: Siegquote Spiele"
-                      items={typedRawPlayerStats.opponentAggregates}
-                      valueSelector={(item) => {
-                        const oa = item as FrontendOpponentAggregate;
-                        return oa.gamesPlayedAgainst > 0 ? (oa.gamesWonAgainst / oa.gamesPlayedAgainst) : 0;
-                      }}
-                      valueFormatter={(val) => `${((val as number) * 100).toFixed(1)}%`}
-                      identifierKey="opponentId"
-                    />
-                     <AggregateRankingList
-                      title="Rangliste: Punkte erzielt (gegen)"
-                      items={typedRawPlayerStats.opponentAggregates}
-                      valueSelector={(item) => (item as FrontendOpponentAggregate).totalPointsScoredWhenOpponent}
-                      identifierKey="opponentId"
-                    />
-                    <AggregateRankingList
-                      title="Rangliste: Matsch-Siegquote Spiel (gegen)"
-                      items={typedRawPlayerStats.opponentAggregates}
-                      valueSelector={(item) => {
-                        const oa = item as FrontendOpponentAggregate;
-                        return oa.gamesPlayedAgainst > 0 ? (oa.matschGamesWonAgainstOpponentTeam / oa.gamesPlayedAgainst) : 0;
-                      }}
-                      valueFormatter={(val) => `${(val as number).toFixed(2)}`}
-                      identifierKey="opponentId"
-                    />
-                    <AggregateRankingList
-                      title="Rangliste: Schneider-Siegquote Spiel (gegen)"
-                      items={typedRawPlayerStats.opponentAggregates}
-                      valueSelector={(item) => {
-                        const oa = item as FrontendOpponentAggregate;
-                        return oa.gamesPlayedAgainst > 0 ? (oa.schneiderGamesWonAgainstOpponentTeam / oa.gamesPlayedAgainst) : 0;
-                      }}
-                      valueFormatter={(val) => `${(val as number).toFixed(2)}`}
-                      identifierKey="opponentId"
-                    />
+                    {/* Rangliste: Siegquote Partien */}
+                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                        <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                        <h3 className="text-base font-semibold text-white">Rangliste: Siegquote Partien</h3>
+                      </div>
+                      <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                        {extendedStats.opponentAggregates
+                          .filter(opponent => (opponent.sessionsPlayedAgainst || 0) >= 1)
+                          .sort((a, b) => (b.sessionWinRate || 0) - (a.sessionWinRate || 0))
+                          .slice(0, 10)
+                          .map((opponent, index) => (
+                            <div key={`opponent-session-${index}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
+                              <div className="flex items-center">
+                                <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                <ProfileImage 
+                                  src={undefined} 
+                                  alt={opponent.opponentDisplayName} 
+                                  size="sm"
+                                  className="mr-2 bg-blue-600/20"
+                                  fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                  fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
+                                />
+                                <span className="text-gray-300">{opponent.opponentDisplayName}</span>
+                              </div>
+                              <div className="flex items-center">
+                                <span className="text-white font-medium mr-2">
+                                  {opponent.sessionWinRateInfo?.displayText || 
+                                   `${((opponent.sessionWinRate || 0) * 100).toFixed(1)}%`}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        {extendedStats.opponentAggregates.filter(o => (o.sessionsPlayedAgainst || 0) >= 1).length === 0 && (
+                          <div className="text-gray-400 text-center py-2">Keine Gegner mit ausreichend Partien</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Rangliste: Siegquote Spiele */}
+                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                        <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                        <h3 className="text-base font-semibold text-white">Rangliste: Siegquote Spiele</h3>
+                      </div>
+                      <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                        {extendedStats.opponentAggregates
+                          .filter(opponent => (opponent.gamesPlayedAgainst || 0) >= 1)
+                          .sort((a, b) => (b.gameWinRate || 0) - (a.gameWinRate || 0))
+                          .slice(0, 10)
+                          .map((opponent, index) => (
+                            <div key={`opponent-game-${index}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
+                              <div className="flex items-center">
+                                <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                <ProfileImage 
+                                  src={undefined} 
+                                  alt={opponent.opponentDisplayName} 
+                                  size="sm"
+                                  className="mr-2 bg-blue-600/20"
+                                  fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                  fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
+                                />
+                                <span className="text-gray-300">{opponent.opponentDisplayName}</span>
+                              </div>
+                              <div className="flex items-center">
+                                <span className="text-white font-medium mr-2">
+                                  {opponent.gameWinRateInfo?.displayText || 
+                                   `${((opponent.gameWinRate || 0) * 100).toFixed(1)}%`}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        {extendedStats.opponentAggregates.filter(o => (o.gamesPlayedAgainst || 0) >= 1).length === 0 && (
+                          <div className="text-gray-400 text-center py-2">Keine Gegner mit ausreichend Spielen</div>
+                        )}
+                      </div>
+                    </div>
                   </>
                 ) : (
                   <div className="text-center text-gray-400 py-10">Keine Gegnerstatistiken verfügbar.</div>

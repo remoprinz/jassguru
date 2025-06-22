@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import Image from 'next/image';
 import { ParticipantWithProgress } from '@/store/tournamentStore';
 import { cn } from '@/lib/utils';
+import ProfileImage from '@/components/ui/ProfileImage';
 
 interface TournamentRankingListProps {
   instanceId: string;
@@ -180,21 +181,14 @@ const TournamentRankingList: React.FC<TournamentRankingListProps> = ({
               >
                 <td className="py-2 px-1 text-center font-medium text-gray-300">{player.rank}</td>
                 <td className="py-2 px-2 flex items-center space-x-2 truncate">
-                  <Avatar className="h-8 w-8 mr-2">
-                    {player.photoURL ? (
-                      <Image
-                        src={player.photoURL}
-                        alt={player.displayName || 'Spieler'}
-                        width={32}
-                        height={32}
-                        className="rounded-full object-cover"
-                      />
-                    ) : (
-                      <AvatarFallback className="bg-gray-700 text-gray-300 text-xs">
-                        {player.displayName?.charAt(0).toUpperCase() || '?'}
-                    </AvatarFallback>
-                    )}
-                  </Avatar>
+                  <ProfileImage 
+                    src={player.photoURL}
+                    alt={player.displayName || 'Spieler'}
+                    size="sm"
+                    className="mr-2"
+                    fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                    fallbackText={player.displayName?.charAt(0).toUpperCase() || '?'}
+                  />
                   <span className="text-white truncate flex-grow min-w-0" title={player.displayName}>
                     {player.displayName || 'Unbekannt'}
                   </span>

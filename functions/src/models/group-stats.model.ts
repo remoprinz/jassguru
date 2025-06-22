@@ -10,6 +10,8 @@ export interface GroupStatHighlightPlayer {
   displayValue?: string; // Für formatierte Werte wie Zeit
   lastPlayedTimestamp?: admin.firestore.Timestamp | null; // NEU: Für Filterung im Frontend
   // id?: string; // Spieler-ID, falls für Links benötigt
+  eventsMade?: number; // Anzahl gemachte Events (für Bilanz-Details)
+  eventsReceived?: number; // Anzahl erhaltene Events (für Bilanz-Details)
 }
 
 export interface GroupStatHighlightTeam {
@@ -17,6 +19,8 @@ export interface GroupStatHighlightTeam {
   value: number | string; // Kann Zahl oder formatierter String sein, im Backend eher Zahl
   eventsPlayed?: number;
   // playerIds?: string[]; // Spieler-IDs des Teams
+  eventsMade?: number; // Anzahl gemachte Events (für Bilanz-Details)
+  eventsReceived?: number; // Anzahl erhaltene Events (für Bilanz-Details)
 }
 
 export interface GroupComputedStats {
@@ -24,6 +28,7 @@ export interface GroupComputedStats {
   lastUpdateTimestamp: admin.firestore.Timestamp | null;
   memberCount: number;
   sessionCount: number;
+  tournamentCount: number; // NEU: Anzahl Turniere (separate von Sessions)
   gameCount: number;
   totalPlayTimeSeconds: number;
   avgSessionDurationSeconds: number;
@@ -42,9 +47,9 @@ export interface GroupComputedStats {
   playerWithHighestPointsDiff: GroupStatHighlightPlayer[] | null;
   playerWithHighestWinRateSession: GroupStatHighlightPlayer[] | null;
   playerWithHighestWinRateGame: GroupStatHighlightPlayer[] | null;
-  playerWithHighestMatschRate: GroupStatHighlightPlayer[] | null;
-  playerWithHighestSchneiderRate: GroupStatHighlightPlayer[] | null;
-  playerWithHighestKontermatschRate: GroupStatHighlightPlayer[] | null;
+  playerWithHighestMatschBilanz: GroupStatHighlightPlayer[] | null;
+  playerWithHighestSchneiderBilanz: GroupStatHighlightPlayer[] | null;
+  playerWithHighestKontermatschBilanz: GroupStatHighlightPlayer[] | null;
   playerWithMostWeisPointsAvg: GroupStatHighlightPlayer[] | null;
   playerWithFastestRounds: GroupStatHighlightPlayer[] | null;
   playerWithSlowestRounds: GroupStatHighlightPlayer[] | null;
@@ -55,9 +60,9 @@ export interface GroupComputedStats {
   teamWithHighestWinRateGame: GroupStatHighlightTeam[] | null;
   teamWithHighestPointsDiff: GroupStatHighlightTeam[] | null;
   teamWithHighestStricheDiff: GroupStatHighlightTeam[] | null;
-  teamWithHighestMatschRate: GroupStatHighlightTeam[] | null;
-  teamWithHighestSchneiderRate: GroupStatHighlightTeam[] | null;
-  teamWithHighestKontermatschRate: GroupStatHighlightTeam[] | null;
+  teamWithHighestMatschBilanz: GroupStatHighlightTeam[] | null;
+  teamWithHighestSchneiderBilanz: GroupStatHighlightTeam[] | null;
+  teamWithHighestKontermatschBilanz: GroupStatHighlightTeam[] | null;
   teamWithMostWeisPointsAvg: GroupStatHighlightTeam[] | null;
   teamWithFastestRounds: GroupStatHighlightTeam[] | null;
 
@@ -71,6 +76,7 @@ export const initialGroupComputedStats: GroupComputedStats = {
   lastUpdateTimestamp: null,
   memberCount: 0,
   sessionCount: 0,
+  tournamentCount: 0,
   gameCount: 0,
   totalPlayTimeSeconds: 0,
   avgSessionDurationSeconds: 0,
@@ -87,9 +93,9 @@ export const initialGroupComputedStats: GroupComputedStats = {
   playerWithHighestPointsDiff: null,
   playerWithHighestWinRateSession: null,
   playerWithHighestWinRateGame: null,
-  playerWithHighestMatschRate: null,
-  playerWithHighestSchneiderRate: null,
-  playerWithHighestKontermatschRate: null,
+  playerWithHighestMatschBilanz: null,
+  playerWithHighestSchneiderBilanz: null,
+  playerWithHighestKontermatschBilanz: null,
   playerWithMostWeisPointsAvg: null,
   playerWithFastestRounds: null,
   playerWithSlowestRounds: null,
@@ -98,9 +104,9 @@ export const initialGroupComputedStats: GroupComputedStats = {
   teamWithHighestWinRateGame: null,
   teamWithHighestPointsDiff: null,
   teamWithHighestStricheDiff: null,
-  teamWithHighestMatschRate: null,
-  teamWithHighestSchneiderRate: null,
-  teamWithHighestKontermatschRate: null,
+  teamWithHighestMatschBilanz: null,
+  teamWithHighestSchneiderBilanz: null,
+  teamWithHighestKontermatschBilanz: null,
   teamWithMostWeisPointsAvg: null,
   teamWithFastestRounds: null,
   trumpfStatistik: null,

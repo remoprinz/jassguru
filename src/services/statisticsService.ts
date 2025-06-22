@@ -1,11 +1,15 @@
 import { db, firebaseApp } from '@/services/firebaseInit';
-import { collection, query, where, getDocs, orderBy, Timestamp, getFirestore, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, Timestamp, getFirestore, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import type { StricheRecord, CompletedGameSummary, FirestoreGroup, PlayerId, PlayerNames, SessionSummary as GlobalSessionSummary, PlayerNumber } from '@/types/jass';
-import { formatDuration } from '@/utils/timeUtils';
+import { formatDuration } from '@/utils/formatUtils';
 import { getOrtNameByPlz } from '@/utils/locationUtils';
 import { DEFAULT_STROKE_SETTINGS } from '@/config/ScoreSettings'; // Importiere die Standard-Konfiguration
 import { DEFAULT_SCORE_SETTINGS } from '@/config/ScoreSettings'; // Importiere die Standard-Konfiguration
 import type { GroupComputedStats, GroupStatHighlightPlayer as BackendHighlightPlayer, GroupStatHighlightTeam as BackendHighlightTeam } from '@/../../functions/src/models/group-stats.model'; // NEU: Backend-Typen importieren
+import {
+  formatMillisecondsToHumanReadable,
+  formatDate,
+} from "@/utils/formatUtils";
 
 // NEUE, SAUBERE FRONTEND-TYPEN
 export interface FrontendHighlightPlayer {
@@ -167,41 +171,56 @@ const MIN_EVENTS_FOR_QUOTIENT_HIGHLIGHT = 1;
 // Typen für die Statistik-Ergebnisse (ANGEPASST)
 export interface GroupStatistics {
   groupId: string;
+  lastUpdateTimestamp: { seconds: number; nanoseconds: number };
   memberCount: number;
   sessionCount: number;
+  tournamentCount: number; // NEU: Anzahl Turniere (separate von Sessions)
   gameCount: number;
-  totalPlayTime: string; 
-  firstJassDate: string;
-  lastJassDate: string;
-  hauptspielortName: string | null; 
-  avgSessionDuration: string;
-  avgGameDuration: string;
+  totalPlayTimeSeconds: number;
+  avgSessionDurationSeconds: number;
+  avgGameDurationSeconds: number;
   avgGamesPerSession: number;
   avgRoundsPerGame: number;
   avgMatschPerGame: number;
-  avgRoundDuration: string;
-  playerWithMostGames: FrontendHighlightPlayer[];
-  playerWithHighestStricheDiff: FrontendHighlightPlayer[];
-  playerWithHighestPointsDiff: FrontendHighlightPlayer[];
-  playerWithHighestWinRateSession: FrontendHighlightPlayer[];
-  playerWithHighestWinRateGame: FrontendHighlightPlayer[];
-  playerWithHighestMatschRate: FrontendHighlightPlayer[];
-  playerWithHighestSchneiderRate: FrontendHighlightPlayer[];
-  playerWithHighestKontermatschRate: FrontendHighlightPlayer[];
-  playerWithMostWeisPointsAvg: FrontendHighlightPlayer[];
-  playerAllRoundTimes: (FrontendHighlightPlayer & { displayValue?: string })[];
-  playerWithFastestRounds: FrontendHighlightPlayer[];
-  playerWithSlowestRounds: FrontendHighlightPlayer[];
-  teamWithHighestWinRateSession: FrontendHighlightTeam[];
-  teamWithHighestWinRateGame: FrontendHighlightTeam[];
-  teamWithHighestPointsDiff: FrontendHighlightTeam[];
-  teamWithHighestStricheDiff: FrontendHighlightTeam[];
-  teamWithHighestMatschRate: FrontendHighlightTeam[];
-  teamWithHighestSchneiderRate: FrontendHighlightTeam[];
-  teamWithHighestKontermatschRate: FrontendHighlightTeam[];
-  teamWithMostWeisPointsAvg: FrontendHighlightTeam[];
-  teamWithFastestRounds: FrontendHighlightTeam[];
-  trumpfStatistik: { [key: string]: number };
+  firstJassTimestamp: { seconds: number; nanoseconds: number } | null;
+  lastJassTimestamp: { seconds: number; nanoseconds: number } | null;
+  hauptspielortName: string | null;
+  totalPlayTime?: string;
+  firstJassDate?: string;
+  lastJassDate?: string;
+  avgSessionDuration?: string;
+  avgGameDuration?: string;
+  avgRoundDuration?: string;
+  avgRoundDurationSeconds?: number;
+  avgRoundDurationMedianSeconds?: number;
+  playerWithMostGames?: any[];
+  playerWithHighestStricheDiff?: any[];
+  playerWithHighestPointsDiff?: any[];
+  playerWithHighestWinRateSession?: any[];
+  playerWithHighestWinRateGame?: any[];
+  playerWithHighestMatschRate?: any[];
+  playerWithHighestSchneiderRate?: any[];
+  playerWithHighestKontermatschRate?: any[];
+  playerWithHighestMatschBilanz?: any[];
+  playerWithHighestSchneiderBilanz?: any[];
+  playerWithHighestKontermatschBilanz?: any[];
+  playerWithMostWeisPointsAvg?: any[];
+  playerWithFastestRounds?: any[];
+  playerWithSlowestRounds?: any[];
+  playerAllRoundTimes?: any[];
+  teamWithHighestWinRateSession?: any[];
+  teamWithHighestWinRateGame?: any[];
+  teamWithHighestPointsDiff?: any[];
+  teamWithHighestStricheDiff?: any[];
+  teamWithHighestMatschRate?: any[];
+  teamWithHighestSchneiderRate?: any[];
+  teamWithHighestKontermatschRate?: any[];
+  teamWithHighestMatschBilanz?: any[];
+  teamWithHighestSchneiderBilanz?: any[];
+  teamWithHighestKontermatschBilanz?: any[];
+  teamWithMostWeisPointsAvg?: any[];
+  teamWithFastestRounds?: any[];
+  trumpfStatistik?: { [key: string]: number };
   totalTrumpfCount: number;
 }
 
@@ -209,17 +228,24 @@ export const initialGroupStatistics: GroupStatistics = {
   groupId: "",
   memberCount: 0,
   sessionCount: 0,
+  tournamentCount: 0,
   gameCount: 0,
-  totalPlayTime: "-",
-  firstJassDate: "-",
-  lastJassDate: "-",
-  hauptspielortName: null,
-  avgSessionDuration: "-",
-  avgGameDuration: "-",
+  totalPlayTimeSeconds: 0,
+  avgSessionDurationSeconds: 0,
+  avgGameDurationSeconds: 0,
   avgGamesPerSession: 0,
   avgRoundsPerGame: 0,
   avgMatschPerGame: 0,
+  firstJassTimestamp: null,
+  lastJassTimestamp: null,
+  hauptspielortName: null,
+  totalPlayTime: "-",
+  firstJassDate: "-",
+  lastJassDate: "-",
+  avgSessionDuration: "-",
+  avgGameDuration: "-",
   avgRoundDuration: "-",
+  avgRoundDurationSeconds: 0,
   playerWithMostGames: [],
   playerWithHighestStricheDiff: [],
   playerWithHighestPointsDiff: [],
@@ -228,8 +254,10 @@ export const initialGroupStatistics: GroupStatistics = {
   playerWithHighestMatschRate: [],
   playerWithHighestSchneiderRate: [],
   playerWithHighestKontermatschRate: [],
+  playerWithHighestMatschBilanz: [],
+  playerWithHighestSchneiderBilanz: [],
+  playerWithHighestKontermatschBilanz: [],
   playerWithMostWeisPointsAvg: [],
-  playerAllRoundTimes: [],
   playerWithFastestRounds: [],
   playerWithSlowestRounds: [],
   teamWithHighestWinRateSession: [],
@@ -243,6 +271,7 @@ export const initialGroupStatistics: GroupStatistics = {
   teamWithFastestRounds: [],
   trumpfStatistik: {},
   totalTrumpfCount: 0,
+  lastUpdateTimestamp: { seconds: 0, nanoseconds: 0 },
 };
 
 // Hilfsfunktion zum Berechnen der Strich-Summe
@@ -328,20 +357,21 @@ export const fetchGroupStatistics = async (groupId: string, groupMainLocationZip
       groupId,
       memberCount: backendData.memberCount,
       sessionCount: backendData.sessionCount,
+      tournamentCount: backendData.tournamentCount || 0,
       gameCount: backendData.gameCount,
-      totalPlayTime: formatDurationForStats(backendData.totalPlayTimeSeconds * 1000),
-      firstJassDate: backendData.firstJassTimestamp ? getDateFromTimestamp(backendData.firstJassTimestamp)?.toLocaleDateString('de-CH') || "-" : "-",
-      lastJassDate: backendData.lastJassTimestamp ? getDateFromTimestamp(backendData.lastJassTimestamp)?.toLocaleDateString('de-CH') || "-" : "-",
-      hauptspielortName: ermittelterHauptspielortName,
-      
-      avgSessionDuration: formatDurationForStats(backendData.avgSessionDurationSeconds * 1000),
-      avgGameDuration: formatDurationForStats(backendData.avgGameDurationSeconds * 1000),
+      totalPlayTimeSeconds: backendData.totalPlayTimeSeconds,
+      avgSessionDurationSeconds: backendData.avgSessionDurationSeconds,
+      avgGameDurationSeconds: backendData.avgGameDurationSeconds,
       avgGamesPerSession: backendData.avgGamesPerSession,
       avgRoundsPerGame: backendData.avgRoundsPerGame,
       avgMatschPerGame: backendData.avgMatschPerGame,
-      avgRoundDuration: backendData.avgRoundDurationSeconds
-        ? formatDurationForStats(backendData.avgRoundDurationSeconds * 1000)
-        : "-",
+      firstJassTimestamp: backendData.firstJassTimestamp,
+      lastJassTimestamp: backendData.lastJassTimestamp,
+      hauptspielortName: ermittelterHauptspielortName,
+      
+      avgSessionDuration: formatDuration(Math.round(backendData.avgSessionDurationSeconds)),
+      avgGameDuration: formatDuration(Math.round(backendData.avgGameDurationSeconds)),
+      avgRoundDurationSeconds: backendData.avgRoundDurationSeconds,
       
       // NEU: Übernehme die neue Map-Struktur direkt
       trumpfStatistik: backendData.trumpfStatistik || {},
@@ -352,9 +382,12 @@ export const fetchGroupStatistics = async (groupId: string, groupMainLocationZip
       playerWithHighestPointsDiff: transformPlayerHighlights(backendData.playerWithHighestPointsDiff),
       playerWithHighestWinRateSession: transformPlayerHighlights(backendData.playerWithHighestWinRateSession),
       playerWithHighestWinRateGame: transformPlayerHighlights(backendData.playerWithHighestWinRateGame),
-      playerWithHighestMatschRate: transformPlayerHighlights(backendData.playerWithHighestMatschRate),
-      playerWithHighestSchneiderRate: transformPlayerHighlights(backendData.playerWithHighestSchneiderRate),
-      playerWithHighestKontermatschRate: transformPlayerHighlights(backendData.playerWithHighestKontermatschRate),
+      playerWithHighestMatschRate: transformPlayerHighlights(backendData.playerWithHighestMatschBilanz),
+      playerWithHighestSchneiderRate: transformPlayerHighlights(backendData.playerWithHighestSchneiderBilanz),
+      playerWithHighestKontermatschRate: transformPlayerHighlights(backendData.playerWithHighestKontermatschBilanz),
+      playerWithHighestMatschBilanz: transformPlayerHighlights(backendData.playerWithHighestMatschBilanz),
+      playerWithHighestSchneiderBilanz: transformPlayerHighlights(backendData.playerWithHighestSchneiderBilanz),
+      playerWithHighestKontermatschBilanz: transformPlayerHighlights(backendData.playerWithHighestKontermatschBilanz),
       playerWithMostWeisPointsAvg: transformPlayerHighlights(backendData.playerWithMostWeisPointsAvg),
       playerAllRoundTimes: transformPlayerHighlights(backendData.playerAllRoundTimes),
       playerWithFastestRounds: transformPlayerHighlights(backendData.playerWithFastestRounds),
@@ -364,11 +397,15 @@ export const fetchGroupStatistics = async (groupId: string, groupMainLocationZip
       teamWithHighestWinRateGame: transformTeamHighlights(backendData.teamWithHighestWinRateGame),
       teamWithHighestPointsDiff: transformTeamHighlights(backendData.teamWithHighestPointsDiff),
       teamWithHighestStricheDiff: transformTeamHighlights(backendData.teamWithHighestStricheDiff),
-      teamWithHighestMatschRate: transformTeamHighlights(backendData.teamWithHighestMatschRate),
-      teamWithHighestSchneiderRate: transformTeamHighlights(backendData.teamWithHighestSchneiderRate),
-      teamWithHighestKontermatschRate: transformTeamHighlights(backendData.teamWithHighestKontermatschRate),
+      teamWithHighestMatschRate: transformTeamHighlights(backendData.teamWithHighestMatschBilanz),
+      teamWithHighestSchneiderRate: transformTeamHighlights(backendData.teamWithHighestSchneiderBilanz),
+      teamWithHighestKontermatschRate: transformTeamHighlights(backendData.teamWithHighestKontermatschBilanz),
+      teamWithHighestMatschBilanz: transformTeamHighlights(backendData.teamWithHighestMatschBilanz),
+      teamWithHighestSchneiderBilanz: transformTeamHighlights(backendData.teamWithHighestSchneiderBilanz),
+      teamWithHighestKontermatschBilanz: transformTeamHighlights(backendData.teamWithHighestKontermatschBilanz),
       teamWithMostWeisPointsAvg: transformTeamHighlights(backendData.teamWithMostWeisPointsAvg),
       teamWithFastestRounds: transformTeamHighlights(backendData.teamWithFastestRounds),
+      lastUpdateTimestamp: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
     };
 
   } catch (error) {
@@ -790,10 +827,10 @@ export const fetchPlayerStatistics = async (playerId: string): Promise<PlayerSta
     });
     
     // Aktualisiere die Spielzeit-Statistiken
-    stats.totalPlayTime = formatDurationForStats(totalPlayTimeMillis);
+    stats.totalPlayTime = formatDuration(totalPlayTimeMillis);
     if (maxSessionDurationMillis > 0) {
       stats.longestSession = {
-        value: formatDurationForStats(maxSessionDurationMillis),
+        value: formatDuration(maxSessionDurationMillis),
         sessionId: longestSessionId,
         date: longestSessionDate ? getDateFromTimestamp(longestSessionDate)?.toLocaleDateString('de-CH') || null : null
       };
@@ -948,3 +985,52 @@ export const fetchPlayerStatistics = async (playerId: string): Promise<PlayerSta
     return createEmptyPlayerStatistics();
   }
 }; 
+
+export function subscribeToGroupStatistics(
+  groupId: string,
+  callback: (stats: GroupStatistics | null) => void,
+  zipCode?: string | null
+): () => void {
+  const docRef = doc(db, "groupComputedStats", groupId);
+
+  const unsubscribe = onSnapshot(docRef, (docSnap) => {
+    if (docSnap.exists()) {
+      const stats = docSnap.data() as GroupStatistics;
+      stats.hauptspielortName = zipCode || stats.hauptspielortName || 'N/A';
+      callback(transformStatistics(stats));
+    } else {
+      console.log("No such statistics document to subscribe to!");
+      callback(null);
+    }
+  }, (error) => {
+    console.error("Error listening to group statistics:", error);
+    callback(null);
+  });
+
+  return unsubscribe;
+}
+
+function transformStatistics(stats: GroupStatistics): GroupStatistics {
+  if (!stats) return stats;
+  return {
+    ...stats,
+    totalPlayTime: stats.totalPlayTimeSeconds
+      ? formatDuration(stats.totalPlayTimeSeconds)
+      : "-",
+    firstJassDate: stats.firstJassTimestamp
+      ? formatDate(stats.firstJassTimestamp)
+      : "-",
+    lastJassDate: stats.lastJassTimestamp
+      ? formatDate(stats.lastJassTimestamp)
+      : "-",
+    avgSessionDuration: stats.avgSessionDurationSeconds
+      ? formatDuration(Math.round(stats.avgSessionDurationSeconds))
+      : "-",
+    avgGameDuration: stats.avgGameDurationSeconds
+      ? formatDuration(Math.round(stats.avgGameDurationSeconds))
+      : "-",
+    avgRoundDuration: stats.avgRoundDurationSeconds
+      ? formatDuration(Math.round(stats.avgRoundDurationSeconds))
+      : "-",
+  };
+} 

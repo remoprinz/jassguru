@@ -40,6 +40,10 @@ export interface Round {
   farbe?: string; 
   currentPlayer?: 1 | 2 | 3 | 4;
   _savedWeisPoints?: TeamScores;
+  timestamp?: number;
+  durationMillis?: number;
+  startTime?: number;
+  endTime?: number;
 }
 
 export interface TeamScores {
@@ -160,12 +164,34 @@ export interface SessionSummary {
   notes?: string[];
   pairingIdentifiers?: { top: string; bottom: string };
   teamScoreMapping?: { top: 'top' | 'bottom'; bottom: 'top' | 'bottom' };
+  tournamentId?: string; // ✅ NEU: Optionales Feld für die Turnier-Verknüpfung
   
   // ✅ NEU: Session-Level Aggregationen (alle optional)
   Rosen10player?: string | null;
   totalRounds?: number;
   aggregatedTrumpfCountsByPlayer?: TrumpfCountsByPlayer;
   aggregatedRoundDurationsByPlayer?: RoundDurationsByPlayer;
+  
+  // ✅ NEU: Spiel-Ergebnisse für perfekte Statistik-Berechnungen
+  gameResults?: Array<{
+    gameNumber: number;
+    winnerTeam: 'top' | 'bottom';
+    topScore: number;
+    bottomScore: number;
+  }>;
+  
+  // ✅ NEU: Vorberechnete Aggregate für Performance
+  gameWinsByTeam?: {
+    top: number;
+    bottom: number;
+  };
+  
+  gameWinsByPlayer?: {
+    [playerId: string]: {
+      wins: number;
+      losses: number;
+    };
+  };
 }
 
 export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSessionData>) => {
@@ -284,6 +310,7 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
       const aggregatedTrumpfCounts: TrumpfCountsByPlayer = {};
       // ✅ NEU: Aggregierte Rundenzeiten pro Spieler
       const aggregatedRoundDurations: RoundDurationsByPlayer = {};
+      let sessionTotalRounds = 0; // ✅ NEU: Hier initialisieren für die Aggregation
 
       // ✅ WICHTIG: Player-Mapping VOR der Schleife erstellen
       const playerNumberToIdMap = new Map<number, string>();
@@ -291,6 +318,22 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
         playerNumberToIdMap.set(index + 1, playerId); // PlayerNumber ist 1-basiert
         // Initialisiere Rundenzeiten für jeden Spieler
         aggregatedRoundDurations[playerId] = { totalDuration: 0, roundCount: 0 };
+      });
+
+      // ✅ NEU: Arrays für Spiel-Ergebnisse und Aggregate initialisieren
+      const gameResults: Array<{
+        gameNumber: number;
+        winnerTeam: 'top' | 'bottom';
+        topScore: number;
+        bottomScore: number;
+      }> = [];
+      
+      const gameWinsByTeam = { top: 0, bottom: 0 };
+      const gameWinsByPlayer: { [playerId: string]: { wins: number; losses: number } } = {};
+      
+      // Initialisiere Spieler-Statistiken
+      participantPlayerIds.forEach(playerId => {
+        gameWinsByPlayer[playerId] = { wins: 0, losses: 0 };
       });
 
       completedGames.forEach(game => {
@@ -356,10 +399,22 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
         
         // ✅ WICHTIG: Die korrekten eventCounts in das completedGame-Dokument zurückschreiben
         const gameDocRef = completedGamesColRef.doc(String(game.gameNumber));
-        transaction.update(gameDocRef, { 
-          eventCounts: { top: gameTopEvents, bottom: gameBottomEvents } 
-        });
+        const updateData: { [key: string]: any } = {
+          eventCounts: { top: gameTopEvents, bottom: gameBottomEvents }
+        };
+
+        // Das Feld 'Rosen10player' wird aus allen Spieldokumenten entfernt,
+        // da die Information nur noch auf Session-Ebene relevant ist.
+        if ('Rosen10player' in game) {
+          updateData.Rosen10player = admin.firestore.FieldValue.delete();
+        }
+        transaction.update(gameDocRef, updateData);
         
+        // ✅ NEU: Runden für die Session-Statistik direkt hier aufsummieren
+        if (game.roundHistory && Array.isArray(game.roundHistory)) {
+          sessionTotalRounds += game.roundHistory.length;
+        }
+
         // ✅ Trumpf-Aggregation aus roundHistory (bleibt unverändert)
         if (game.roundHistory && Array.isArray(game.roundHistory)) {
           game.roundHistory.forEach((round, roundIndex) => {
@@ -382,23 +437,25 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
                 let roundDuration = 0;
                 
                 // ✅ KORREKT: Berechne Dauer aus aufeinanderfolgenden timestamps
-                if ((round as any).timestamp && typeof (round as any).timestamp === 'number') {
-                  const currentTimestamp = (round as any).timestamp;
+                if (round.timestamp && typeof round.timestamp === 'number') {
+                  const currentTimestamp = round.timestamp;
                   
                   // Versuche den vorherigen Timestamp zu finden
                   let previousTimestamp: number | undefined;
                   
                   if (roundIndex > 0) {
                     // Nutze den Timestamp der vorherigen Runde
-                    const previousRound = game.roundHistory![roundIndex - 1];
-                    if ((previousRound as any).timestamp && typeof (previousRound as any).timestamp === 'number') {
-                      previousTimestamp = (previousRound as any).timestamp;
+                    const previousRound = game.roundHistory?.[roundIndex - 1];
+                    if (previousRound?.timestamp && typeof previousRound.timestamp === 'number') {
+                      previousTimestamp = previousRound.timestamp;
                     }
                   } else {
-                    // Für die erste Runde: nutze game.timestampCompleted oder eine geschätzte Startzeit
-                    // Schätze basierend auf der Spiel-Gesamtdauer
-                    if (game.durationMillis && typeof game.durationMillis === 'number' && game.roundHistory!.length > 1) {
-                      previousTimestamp = currentTimestamp - (game.durationMillis / game.roundHistory!.length);
+                    // ✅ NEU & PRÄZISE: Für die erste Runde die exakte Startzeit des Spiels berechnen
+                    const completionTimestampMs = game.completedAt?.toMillis() || game.timestampCompleted?.toMillis();
+                    if (completionTimestampMs && game.durationMillis && typeof game.durationMillis === 'number' && game.durationMillis > 0) {
+                        previousTimestamp = completionTimestampMs - game.durationMillis;
+                    } else if (game.durationMillis && typeof game.durationMillis === 'number' && game.roundHistory && game.roundHistory.length > 0) {
+                         previousTimestamp = currentTimestamp - (game.durationMillis / game.roundHistory.length);
                     }
                   }
                   
@@ -410,11 +467,11 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
                 
                 // Alternative Quellen (falls die neue Logik nichts findet)
                 if (roundDuration === 0) {
-                  if ((round as any).durationMillis && typeof (round as any).durationMillis === 'number') {
-                    roundDuration = (round as any).durationMillis;
-                  } else if ((round as any).startTime && (round as any).endTime) {
-                    const startTime = (round as any).startTime;
-                    const endTime = (round as any).endTime;
+                  if (round.durationMillis && typeof round.durationMillis === 'number') {
+                    roundDuration = round.durationMillis;
+                  } else if (round.startTime && round.endTime) {
+                    const startTime = round.startTime;
+                    const endTime = round.endTime;
                     if (typeof startTime === 'number' && typeof endTime === 'number') {
                       roundDuration = endTime - startTime;
                     }
@@ -422,7 +479,7 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
                 }
                 
                 // Füge die Rundendauer zum Spieler hinzu (falls > 0 und realistisch)
-                if (roundDuration > 0 && roundDuration < 15 * 60 * 1000) { // Max 15 Minuten pro Runde
+                if (roundDuration >= 120000 && roundDuration < 900000) { // Filter: 2min <= duration < 15min
                   aggregatedRoundDurations[roundPlayerId].totalDuration += roundDuration;
                   aggregatedRoundDurations[roundPlayerId].roundCount += 1;
                 }
@@ -430,13 +487,58 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
             }
           });
         }
+
+        // ✅ NEU: Extrahiere Spiel-Ergebnisse aus completedGames
+        if (game.finalScores && typeof game.gameNumber === 'number') {
+          const topScore = game.finalScores.top || 0;
+          const bottomScore = game.finalScores.bottom || 0;
+          let winnerTeam: 'top' | 'bottom';
+          
+          if (topScore > bottomScore) {
+            winnerTeam = 'top';
+            gameWinsByTeam.top++;
+          } else {
+            winnerTeam = 'bottom';
+            gameWinsByTeam.bottom++;
+          }
+          
+          // Füge Spiel-Ergebnis hinzu
+          gameResults.push({
+            gameNumber: game.gameNumber,
+            winnerTeam,
+            topScore,
+            bottomScore,
+          });
+          
+          // Aktualisiere Spieler-Statistiken basierend auf Team-Zuordnung
+          if (initialDataFromClient.teams) {
+            const topPlayerIds = initialDataFromClient.teams.top.players.map(p => p.playerId);
+            const bottomPlayerIds = initialDataFromClient.teams.bottom.players.map(p => p.playerId);
+            
+            if (winnerTeam === 'top') {
+              topPlayerIds.forEach(playerId => {
+                if (gameWinsByPlayer[playerId]) gameWinsByPlayer[playerId].wins++;
+              });
+              bottomPlayerIds.forEach(playerId => {
+                if (gameWinsByPlayer[playerId]) gameWinsByPlayer[playerId].losses++;
+              });
+            } else {
+              bottomPlayerIds.forEach(playerId => {
+                if (gameWinsByPlayer[playerId]) gameWinsByPlayer[playerId].wins++;
+              });
+              topPlayerIds.forEach(playerId => {
+                if (gameWinsByPlayer[playerId]) gameWinsByPlayer[playerId].losses++;
+              });
+            }
+          }
+        }
       });
       
       const sessionDurationSeconds = Math.round(totalGameDurationMillis / 1000);
 
       // Gewinner bestimmen - VEREINFACHT mit direkter top/bottom Logik
       let determinedWinnerTeamKey: 'top' | 'bottom' | 'draw' | undefined = initialDataFromClient.winnerTeamKey;
-
+      
       if (!determinedWinnerTeamKey) {
         // ✅ KORREKT: Direkter Vergleich der SIEGE für top vs bottom (nicht Punkte!)
         if (totalEventCountsTop.sieg > totalEventCountsBottom.sieg) {
@@ -472,26 +574,36 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
         logger.info(`[finalizeSession] Validated that client-sent teams structure contains correct Player Doc IDs for session ${sessionId}.`);
       }
       
-      // ✅ NEU: Session-Level Aggregationen berechnen (vereinfacht ohne externe Abhängigkeiten)
-      // playerNumberToIdMap ist bereits oben definiert
-      
-      // Session-Level Daten direkt aus vorhandenen Daten ableiten
-      let sessionTotalRounds = 0;
+      // ✅ KORREKT: Rosen10player aus dem ERSTEN Spiel der Session bestimmen.
       let sessionRosen10player: string | null = null;
-      
-      // Einfache Aggregation aus den verfügbaren completedGames Daten
-      completedGames.forEach((game, gameIndex) => {
-        // Runden aus roundHistory zählen (falls vorhanden)
-        if (game.roundHistory && Array.isArray(game.roundHistory)) {
-          sessionTotalRounds += game.roundHistory.length;
+      if (completedGames.length > 0) {
+        // Die Information wird aus dem In-Memory-Spieldokument gelesen, *bevor* die Transaktion sie oben löscht.
+        const firstGame = completedGames[0];
+        const rosen10PlayerValue = (firstGame as any).Rosen10player;
+        let playerNumber: number | undefined;
+
+        if (typeof rosen10PlayerValue === 'string') {
+          const parsedNumber = parseInt(rosen10PlayerValue, 10);
+          if (!isNaN(parsedNumber)) {
+            playerNumber = parsedNumber;
+          }
+        } else if (typeof rosen10PlayerValue === 'number') {
+          playerNumber = rosen10PlayerValue;
         }
-        
-        // Rosen10player aus dem ersten Spiel (falls neue Felder verfügbar sind)
-        // Für jetzt nehmen wir den ersten Spieler als Platzhalter
-        if (gameIndex === 0 && participantPlayerIds.length > 0) {
-          sessionRosen10player = participantPlayerIds[0]; // Erster Spieler als Fallback
+
+        if (playerNumber && playerNumberToIdMap.has(playerNumber)) {
+          const playerId = playerNumberToIdMap.get(playerNumber);
+          if (playerId) {
+            sessionRosen10player = playerId;
+            logger.info(`[finalizeSession] Rosen10player for session ${sessionId} determined from Game 1: Player ${playerNumber} -> ID ${sessionRosen10player}`);
+          }
+        } else {
+          logger.warn(`[finalizeSession] Could not determine valid Rosen10player from Game 1 for session ${sessionId}. Value was: '${rosen10PlayerValue}'.`);
         }
-      });
+      }
+
+      // Sortiere gameResults nach gameNumber für chronologische Reihenfolge
+      gameResults.sort((a, b) => a.gameNumber - b.gameNumber);
 
       // Base update data (ohne undefined Werte)
       const baseUpdateData = {
@@ -522,6 +634,9 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
         Rosen10player?: string;
         aggregatedTrumpfCountsByPlayer?: TrumpfCountsByPlayer;
         aggregatedRoundDurationsByPlayer?: RoundDurationsByPlayer;
+        gameResults?: Array<{ gameNumber: number; winnerTeam: 'top' | 'bottom'; topScore: number; bottomScore: number; }>;
+        gameWinsByTeam?: { top: number; bottom: number; };
+        gameWinsByPlayer?: { [playerId: string]: { wins: number; losses: number; } };
       } = { ...baseUpdateData };
 
       if (sessionRosen10player) {
@@ -543,6 +658,13 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
         if (hasValidRoundTimes) {
           finalUpdateData.aggregatedRoundDurationsByPlayer = aggregatedRoundDurations;
         }
+      }
+      
+      // ✅ NEU: Füge Spiel-Ergebnisse und Aggregate hinzu
+      if (gameResults.length > 0) {
+        finalUpdateData.gameResults = gameResults;
+        finalUpdateData.gameWinsByTeam = gameWinsByTeam;
+        finalUpdateData.gameWinsByPlayer = gameWinsByPlayer;
       }
       
       // SCHREIBVORGANG
@@ -597,22 +719,10 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
       logger.info(`[finalizeSession] No active games to clean up for session ${sessionId}.`);
     }
 
-    // 🚀 INTELLIGENTE GRUPPENSTATISTIK-AKTUALISIERUNG
-    if (initialDataFromClient.gruppeId) {
-      try {
-        logger.info(`[finalizeSession] Triggering group statistics update for group ${initialDataFromClient.gruppeId} after session ${sessionId} completion.`);
-        
-        // Import und Aufruf der updateGroupComputedStatsAfterSession Function
-        const { updateGroupComputedStatsAfterSession } = await import('./groupStatsCalculator');
-        await updateGroupComputedStatsAfterSession(initialDataFromClient.gruppeId);
-        
-        logger.info(`[finalizeSession] Group statistics successfully updated for group ${initialDataFromClient.gruppeId}.`);
-      } catch (error) {
-        logger.error(`[finalizeSession] Fehler beim Aktualisieren der Gruppenstatistik für session ${sessionId}:`, error);
-        // Wir werfen den Fehler nicht weiter, da die Session-Finalisierung erfolgreich war
-        // Die Gruppenstatistik kann später manuell aktualisiert werden
-      }
-    }
+    // 🚀 ENTFERNT: Die Statistik-Aktualisierung wird jetzt durch einen zentralen Trigger gehandhabt.
+    // if (participantPlayerIds && participantPlayerIds.length > 0) {
+    //   // ...
+    // }
 
     logger.info(`[finalizeSession] END for session ${sessionId}`);
     return { success: true };

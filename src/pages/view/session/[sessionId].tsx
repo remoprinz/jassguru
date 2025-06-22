@@ -310,7 +310,17 @@ const SessionViewerPage: React.FC = () => {
   }, [sessionData, completedGames, activeStrokeSettings, activeCardStyle, activeScoreSettings]);
 
   const handleGoBack = () => {
+    // ✅ INTELLIGENTE NAVIGATION: Prüfe ob Session abgeschlossen ist
+    const isCompletedSession = sessionData?.status === 'completed' || 
+                               sessionData?.status === 'completed_empty';
+    
+    if (isCompletedSession) {
+      // Session ist abgeschlossen - gehe direkt zur Startseite
+      router.push('/start');
+    } else {
+      // Session ist noch aktiv - normale Zurück-Navigation
     router.back();
+    }
   };
 
   // Dynamischer Titel

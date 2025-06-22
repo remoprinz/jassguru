@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Label } from '@/components/ui/label';
 import { Timestamp } from 'firebase/firestore'; // NEU: Timestamp importieren
 import { fetchGroupMembers } from '@/services/groupService'; // NEU: Import aktiviert
+import ProfileImage from '@/components/ui/ProfileImage';
 
 interface AddParticipantsFromGroupModalProps {
   isOpen: boolean;
@@ -210,12 +211,13 @@ const AddParticipantsFromGroupModal: React.FC<AddParticipantsFromGroupModalProps
                       className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
                     />
                     <Label htmlFor={`player-${player.id}`} className="flex items-center space-x-3 flex-1 cursor-pointer">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={player.photoURL || undefined} alt={player.displayName || 'Avatar'} />
-                        <AvatarFallback className="bg-gray-600 text-gray-300">
-                          {player.displayName?.charAt(0).toUpperCase() || "P"}
-                        </AvatarFallback>
-                      </Avatar>
+                      <ProfileImage 
+                        src={player.photoURL || undefined} 
+                        alt={player.displayName || 'Avatar'} 
+                        size="sm"
+                        fallbackClassName="bg-gray-600 text-gray-300"
+                        fallbackText={player.displayName?.charAt(0).toUpperCase() || "P"}
+                      />
                       <span className="text-sm font-medium text-gray-200">{player.displayName || "Unbekannter Spieler"}</span>
                     </Label>
                   </div>
