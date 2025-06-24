@@ -66,6 +66,7 @@ export const mapUserToAuthUser = (user: FirebaseAuthUser, firestoreUser?: Partia
     lastActiveGroupId: firestoreUser?.lastActiveGroupId ?? null,
     statusMessage: firestoreUser?.statusMessage ?? null,
     playerId: firestoreUser?.playerId ?? null,
+    profileTheme: firestoreUser?.profileTheme ?? null,
   };
 };
 
@@ -166,6 +167,12 @@ export const updateUserDocument = async (userId: string, dataToUpdate: Partial<F
     // *** LOGGING ERWEITERT ***
     // console.log(`AUTH_SERVICE: User document for ${userId} updated successfully. Fields:`, Object.keys(dataToUpdate).join(", "), "Written data: ", JSON.stringify(dataWithTimestamp));
   } catch (error) {
+    // Stille Behandlung für "No document to update" Fehler
+    if (error instanceof Error && error.message.includes("No document to update")) {
+      console.warn(`AUTH_SERVICE: User document ${userId} does not exist, silently ignoring update. Fields: ${Object.keys(dataToUpdate).join(", ")}`);
+      return;
+    }
+    
     console.error(`Error updating user document for ${userId}:`, dataToUpdate, error);
     throw new Error(`Failed to update user document for ${userId}: ${error instanceof Error ? error.message : String(error)}`);
   }
@@ -486,7 +493,7 @@ export const uploadProfilePicture = async (file: File, userId: string): Promise<
   }
 };
 
-export const updateUserProfile = async (updates: { displayName?: string; statusMessage?: string }): Promise<void> => {
+export const updateUserProfile = async (updates: { displayName?: string; statusMessage?: string; profileTheme?: string }): Promise<void> => {
   const currentUser = auth.currentUser;
   if (!currentUser) {
     throw new Error("Kein angemeldeter Benutzer für die Profilaktualisierung.");
@@ -541,6 +548,35 @@ export const updateUserProfile = async (updates: { displayName?: string; statusM
         // Fehler hier nicht weiterwerfen, da das User-Dokument trotzdem aktualisiert wurde
       }
     } // Ende von if (updates.displayName)
+
+    // NEU: Wenn profileTheme geändert wurde, synchronisiere es auch im Player-Dokument
+    if (updates.profileTheme) {
+      try {
+        // Player-ID für den User holen (falls verfügbar)  
+        const userDocRef = doc(db, "users", userId);
+        const userDocSnap = await getDoc(userDocRef);
+        
+        if (userDocSnap.exists()) {
+          const userData = userDocSnap.data();
+          const playerId = userData?.playerId;
+          
+          if (playerId) {
+            // Aktualisiere auch das Player-Dokument mit dem neuen Theme
+            const playerDocRef = doc(db, "players", playerId);
+            await updateDoc(playerDocRef, { 
+              profileTheme: updates.profileTheme,
+              updatedAt: serverTimestamp()
+            });
+            console.log(`ProfileTheme "${updates.profileTheme}" für User ${userId} / Player ${playerId} erfolgreich synchronisiert.`);
+          } else {
+            console.warn(`Keine Player-ID für User ${userId} gefunden. Theme-Synchronisation nicht möglich.`);
+          }
+        }
+      } catch (syncError) {
+        console.error("Fehler bei der Synchronisation des ProfileTheme:", syncError);
+        // Fehler hier nicht weiterwerfen, da das User-Dokument trotzdem aktualisiert wurde
+      }
+    }
   } catch (error) {
     console.error("Fehler beim Aktualisieren des Benutzerprofils:", error);
     throw new Error("Benutzer-Profil konnte nicht aktualisiert werden.");

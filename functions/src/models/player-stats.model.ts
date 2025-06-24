@@ -46,12 +46,23 @@ export interface PartnerAggregate {
   totalPointsDifferenceWith: number; // NEU: Punktdifferenz statt akkumulierte Punkte
   matschGamesWonWith: number;
   schneiderGamesWonWith: number;
+  kontermatschGamesWonWith: number; // NEU: Anzahl Kontermatsch-Spiele mit diesem Partner gewonnen
+  // NEU: Event-Bilanz-Felder
+  matschEventsMadeWith: number; // Anzahl Matsch-Events, die das Team gemacht hat
+  matschEventsReceivedWith: number; // Anzahl Matsch-Events, die das Team erhalten hat
+  schneiderEventsMadeWith: number; // Anzahl Schneider-Events, die das Team gemacht hat
+  schneiderEventsReceivedWith: number; // Anzahl Schneider-Events, die das Team erhalten hat
+  kontermatschEventsMadeWith: number; // Anzahl Kontermatsch-Events, die das Team gemacht hat
+  kontermatschEventsReceivedWith: number; // Anzahl Kontermatsch-Events, die das Team erhalten hat
   lastPlayedWithTimestamp: admin.firestore.Timestamp;
   sessionWinRate?: number; // NEU
   gameWinRate?: number; // NEU
   // === NEU: Strukturierte Win-Rate Informationen ===
   sessionWinRateInfo?: WinRateInfo; // Detaillierte Session Win-Rate mit Partner
   gameWinRateInfo?: WinRateInfo;    // Detaillierte Game Win-Rate mit Partner
+  matschBilanz: number;
+  schneiderBilanz: number;
+  kontermatschBilanz: number;
 }
 
 // NEU: Interface für aggregierte Gegnerstatistiken
@@ -67,12 +78,23 @@ export interface OpponentAggregate {
   totalPointsDifferenceAgainst: number; // NEU: Punktdifferenz gegen diesen Gegner
   matschGamesWonAgainstOpponentTeam: number; // Anzahl Matsch-Spiele, die das Team des Profil-Spielers GEGEN das Team dieses Gegners gewonnen hat
   schneiderGamesWonAgainstOpponentTeam: number; // Anzahl Schneider-Spiele analog
+  kontermatschGamesWonAgainstOpponentTeam: number; // NEU: Anzahl Kontermatsch-Spiele gegen diesen Gegner gewonnen
+  // NEU: Event-Bilanz-Felder
+  matschEventsMadeAgainst: number; // Anzahl Matsch-Events, die das Team gegen diesen Gegner gemacht hat
+  matschEventsReceivedAgainst: number; // Anzahl Matsch-Events, die das Team gegen diesen Gegner erhalten hat
+  schneiderEventsMadeAgainst: number; // Anzahl Schneider-Events, die das Team gegen diesen Gegner gemacht hat
+  schneiderEventsReceivedAgainst: number; // Anzahl Schneider-Events, die das Team gegen diesen Gegner erhalten hat
+  kontermatschEventsMadeAgainst: number; // Anzahl Kontermatsch-Events, die das Team gegen diesen Gegner gemacht hat
+  kontermatschEventsReceivedAgainst: number; // Anzahl Kontermatsch-Events, die das Team gegen diesen Gegner erhalten hat
   lastPlayedAgainstTimestamp: admin.firestore.Timestamp;
   sessionWinRate?: number; // NEU
   gameWinRate?: number; // NEU
   // === NEU: Strukturierte Win-Rate Informationen ===
   sessionWinRateInfo?: WinRateInfo; // Detaillierte Session Win-Rate gegen Gegner
   gameWinRateInfo?: WinRateInfo;    // Detaillierte Game Win-Rate gegen Gegner
+  matschBilanz: number;
+  schneiderBilanz: number;
+  kontermatschBilanz: number;
 }
 
 export interface TournamentPlacement {
@@ -109,8 +131,9 @@ export interface PlayerComputedStats {
 
   // === Zählstatistiken Allgemein ===
   totalSessions: number;          // Anzahl gespielter Partien
-  totalGames: number;             // Anzahl aller gespielten Spiele (Runden) über alle Sessions
-  totalPlayTimeSeconds: number;   // Gesamte Spielzeit in Sekunden
+  totalTournaments: number;       // ✅ NEU: Anzahl gespielter Turniere (separate Zählung)
+  totalGames: number;             // Anzahl aller gespielten Spiele (Runden) über alle Sessions UND Turniere
+  totalPlayTimeSeconds: number;   // Gesamte Spielzeit in Sekunden (Sessions + Turniere)
 
   // === Zählstatistiken Partien (Sessions) ===
   sessionWins: number;
@@ -134,13 +157,18 @@ export interface PlayerComputedStats {
 
   playerTotalWeisMade: number;        // NEU: Summe aller Weispunkte des Spielers
 
-  // NEU & BEREINIGT: Zähler für spezifische Spielereignisse
+  // ✅ NEU: Bilanz-Felder für absolute Zahlen (analog zu Group-Statistiken)
   totalMatschEventsMade: number;
   totalMatschEventsReceived: number;
+  matschBilanz: number;             // ✅ NEU: totalMatschEventsMade - totalMatschEventsReceived
+  
   totalSchneiderEventsMade: number;
   totalSchneiderEventsReceived: number;
+  schneiderBilanz: number;          // ✅ NEU: totalSchneiderEventsMade - totalSchneiderEventsReceived
+  
   totalKontermatschEventsMade: number;
   totalKontermatschEventsReceived: number;
+  kontermatschBilanz: number;       // ✅ NEU: totalKontermatschEventsMade - totalKontermatschEventsReceived
 
   // NEU: Zähler für aktuelle Spiel-Streaks
   currentGameWinStreak: number;
@@ -161,6 +189,7 @@ export interface PlayerComputedStats {
   avgSchneiderPerGame: number;      // Durchschnittliche Schneider-Striche pro Spiel
   avgWeisPointsPerGame: number;     // Durchschnittliche Weispunkte pro Spiel
   avgKontermatschPerGame: number;   // NEU
+  avgRoundDurationMilliseconds: number; // ✅ NEU: Durchschnittliche Rundendauer in Millisekunden
 
   // === Turnierstatistiken ===
   totalTournamentsParticipated: number; // Anzahl Teilnahmen an Turnieren
@@ -193,14 +222,13 @@ export interface PlayerComputedStats {
   longestLossStreakSessions: StatStreak | null;
   longestWinlessStreakSessions: StatStreak | null;
 
-  // === Zusätzliche Felder für Konsistenz mit Frontend (ggf. anpassen) ===
-  // Diese Felder sind in ExtendedPlayerStats in [playerId].tsx, aber die Quelle/Berechnung muss geklärt werden.
-  // Für die serverseitige Berechnung könnten einige davon redundant sein oder anders abgeleitet werden.
-  // Beispiel: groupCount ist eher eine Eigenschaft des Players-Dokuments, nicht der ComputedStats.
-
-  // avgTimePerRound?: string; // Wurde als "Gesamte Jass-Zeit" / "Anzahl Runden" interpretiert
-  // sessionWinRate?: number; // Kann aus sessionWins / totalSessions berechnet werden
-  // gameWinRate?: number; // Kann aus gameWins / totalGames berechnet werden
+  // === NEU: Zusätzliche Highlight-Felder für Differenzen ===
+  highestPointsDifferenceSession: StatHighlight | null;
+  lowestPointsDifferenceSession: StatHighlight | null;
+  highestMatschDifferenceSession: StatHighlight | null;
+  lowestMatschDifferenceSession: StatHighlight | null;
+  highestStricheDifferenceSession: StatHighlight | null;
+  lowestStricheDifferenceSession: StatHighlight | null;
 
   // === Win-Rates (KRITISCH: Unentschieden werden ausgeschlossen) ===
   sessionWinRate: number; // sessionWins / (sessionWins + sessionLosses)
@@ -229,6 +257,7 @@ export const initialPlayerComputedStats: PlayerComputedStats = {
   lastJassTimestamp: null,
 
   totalSessions: 0,
+  totalTournaments: 0,
   totalGames: 0,
   totalPlayTimeSeconds: 0,
 
@@ -250,10 +279,13 @@ export const initialPlayerComputedStats: PlayerComputedStats = {
   playerTotalWeisMade: 0,
   totalMatschEventsMade: 0,
   totalMatschEventsReceived: 0,
+  matschBilanz: 0,
   totalSchneiderEventsMade: 0,
   totalSchneiderEventsReceived: 0,
+  schneiderBilanz: 0,
   totalKontermatschEventsMade: 0,
   totalKontermatschEventsReceived: 0,
+  kontermatschBilanz: 0,
   currentGameWinStreak: 0,
   currentGameLossStreak: 0,
   currentGameWinlessStreak: 0,
@@ -269,6 +301,7 @@ export const initialPlayerComputedStats: PlayerComputedStats = {
   avgSchneiderPerGame: 0,
   avgWeisPointsPerGame: 0,
   avgKontermatschPerGame: 0,
+  avgRoundDurationMilliseconds: 0,
 
   totalTournamentsParticipated: 0,
   totalTournamentGamesPlayed: 0,
@@ -316,4 +349,12 @@ export const initialPlayerComputedStats: PlayerComputedStats = {
   // === NEU: Strukturierte Win-Rate Informationen mit Bruch-Anzeige ===
   sessionWinRateInfo: { wins: 0, total: 0, rate: 0, displayText: "" },
   gameWinRateInfo: { wins: 0, total: 0, rate: 0, displayText: "" },
+
+  // === NEU: Zusätzliche Highlight-Felder für Differenzen ===
+  highestPointsDifferenceSession: null,
+  lowestPointsDifferenceSession: null,
+  highestMatschDifferenceSession: null,
+  lowestMatschDifferenceSession: null,
+  highestStricheDifferenceSession: null,
+  lowestStricheDifferenceSession: null,
 }; 

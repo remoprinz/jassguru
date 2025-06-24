@@ -310,16 +310,51 @@ const SessionViewerPage: React.FC = () => {
   }, [sessionData, completedGames, activeStrokeSettings, activeCardStyle, activeScoreSettings]);
 
   const handleGoBack = () => {
-    // ✅ INTELLIGENTE NAVIGATION: Prüfe ob Session abgeschlossen ist
+    // ✅ ERWEITERTE INTELLIGENTE NAVIGATION: Prüfe Return-Parameter und Session-Status
+    const { returnTo, returnMainTab, returnStatsSubTab } = router.query;
     const isCompletedSession = sessionData?.status === 'completed' || 
                                sessionData?.status === 'completed_empty';
     
+    // 1. Zuerst prüfen, ob Return-Parameter vorhanden sind
+    if (typeof returnTo === 'string') {
+      if (returnTo === '/profile' && typeof returnMainTab === 'string') {
+        // Zurück zur eigenen Profil-Seite mit spezifischem Tab
+        let path = `/profile?mainTab=${returnMainTab}`;
+        if (returnMainTab === 'stats' && typeof returnStatsSubTab === 'string') {
+          path += `&statsSubTab=${returnStatsSubTab}`;
+        }
+        router.push(path);
+        return;
+      } else if (returnTo.startsWith('/profile/') && typeof returnMainTab === 'string') {
+        // Zurück zu einer anderen Spieler-Profil-Seite mit spezifischem Tab
+        let path = `${returnTo}?mainTab=${returnMainTab}`;
+        if (returnMainTab === 'statistics' && typeof returnStatsSubTab === 'string') {
+          path += `&statsSubTab=${returnStatsSubTab}`;
+        }
+        router.push(path);
+        return;
+      } else if (returnTo === '/start' && typeof returnMainTab === 'string') {
+        // Zurück zur Startseite mit spezifischem Tab
+        let path = `/start?mainTab=${returnMainTab}`;
+        if (returnMainTab === 'statistics' && typeof returnStatsSubTab === 'string') {
+          path += `&statsSubTab=${returnStatsSubTab}`;
+        }
+        router.push(path);
+        return;
+      } else {
+        // Allgemeiner Return-Path ohne zusätzliche Parameter
+        router.push(returnTo);
+        return;
+      }
+    }
+    
+    // 2. Fallback zur bestehenden Logik, wenn keine Return-Parameter vorhanden sind
     if (isCompletedSession) {
       // Session ist abgeschlossen - gehe direkt zur Startseite
       router.push('/start');
     } else {
       // Session ist noch aktiv - normale Zurück-Navigation
-    router.back();
+      router.back();
     }
   };
 

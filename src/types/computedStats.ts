@@ -13,12 +13,22 @@ export interface FrontendPartnerAggregate {
   totalPointsDifferenceWith: number;
   matschGamesWonWith: number;
   schneiderGamesWonWith: number;
-  lastPlayedWithTimestamp: Date | null;
+  kontermatschGamesWonWith: number;
+  matschBilanz: number;
+  schneiderBilanz: number;
+  kontermatschBilanz: number;
+  matschEventsMadeWith: number;
+  matschEventsReceivedWith: number;
+  schneiderEventsMadeWith: number;
+  schneiderEventsReceivedWith: number;
+  kontermatschEventsMadeWith: number;
+  kontermatschEventsReceivedWith: number;
+  lastPlayedWith?: string; // Formatted date string
   sessionWinRate?: number;
   gameWinRate?: number;
   // === NEU: Strukturierte Win-Rate Informationen ===
-  sessionWinRateInfo?: { wins: number; total: number; rate: number; displayText: string };
-  gameWinRateInfo?: { wins: number; total: number; rate: number; displayText: string };
+  sessionWinRateInfo?: any;
+  gameWinRateInfo?: any;
 }
 
 export interface FrontendOpponentAggregate {
@@ -33,12 +43,22 @@ export interface FrontendOpponentAggregate {
   totalPointsDifferenceAgainst: number;
   matschGamesWonAgainstOpponentTeam: number;
   schneiderGamesWonAgainstOpponentTeam: number;
-  lastPlayedAgainstTimestamp: Date | null;
+  kontermatschGamesWonAgainstOpponentTeam: number;
+  matschBilanz: number;
+  schneiderBilanz: number;
+  kontermatschBilanz: number;
+  matschEventsMadeAgainst: number;
+  matschEventsReceivedAgainst: number;
+  schneiderEventsMadeAgainst: number;
+  schneiderEventsReceivedAgainst: number;
+  kontermatschEventsMadeAgainst: number;
+  kontermatschEventsReceivedAgainst: number;
+  lastPlayedAgainst?: string; // Formatted date string
   sessionWinRate?: number;
   gameWinRate?: number;
   // === NEU: Strukturierte Win-Rate Informationen ===
-  sessionWinRateInfo?: { wins: number; total: number; rate: number; displayText: string };
-  gameWinRateInfo?: { wins: number; total: number; rate: number; displayText: string };
+  sessionWinRateInfo?: any;
+  gameWinRateInfo?: any;
 }
 
 // Basis-Typ für Highlight/Lowlight Einträge mit Datum und optionaler Spiel/Session ID

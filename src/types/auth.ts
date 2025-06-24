@@ -15,6 +15,7 @@ export interface AuthUser {
   lastActiveGroupId?: string | null;
   statusMessage?: string | null;
   playerId?: string | null;
+  profileTheme?: string | null; // NEU: Profilfarbe/Theme für die UI
 }
 
 // Hinzugefügt:

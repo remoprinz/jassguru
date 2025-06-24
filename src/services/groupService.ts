@@ -599,11 +599,22 @@ export const uploadGroupLogo = async (groupId: string, file: File): Promise<stri
     console.log("Download URL erhalten:", downloadURL);
 
     // Gruppen-Dokument in Firestore aktualisieren
-    await updateDoc(groupRef, {
-      logoUrl: downloadURL,
-      updatedAt: serverTimestamp(), // Optional: Update-Zeitstempel setzen
-    });
-    console.log(`Firestore Gruppe ${groupId} mit neuer logoUrl aktualisiert.`);
+    try {
+      await updateDoc(groupRef, {
+        logoUrl: downloadURL,
+        updatedAt: serverTimestamp(), // Optional: Update-Zeitstempel setzen
+      });
+      console.log(`Firestore Gruppe ${groupId} mit neuer logoUrl aktualisiert.`);
+    } catch (updateError) {
+      // Stille Behandlung für "No document to update" Fehler
+      if (updateError instanceof Error && updateError.message.includes("No document to update")) {
+        console.warn(`GROUP_SERVICE: Group ${groupId} does not exist, silently ignoring logo URL update.`);
+        // Trotzdem die Download-URL zurückgeben, da der Upload erfolgreich war
+      } else {
+        console.error(`Fehler beim Aktualisieren der logoUrl für Gruppe ${groupId}:`, updateError);
+        throw new Error("Fehler beim Aktualisieren der Gruppe mit neuer Logo-URL.");
+      }
+    }
 
     // NEU: Direkte Aktualisierung des GroupStore
     useGroupStore.getState().updateGroupInList(groupId, {logoUrl: downloadURL});
@@ -805,6 +816,13 @@ export const updateGroupSettings = async (
     console.log(`Gruppe ${groupId} erfolgreich aktualisiert.`);
   } catch (error) {
     console.error(`Fehler beim Aktualisieren der Gruppe ${groupId}:`, error);
+    
+    // Stille Behandlung für "No document to update" Fehler
+    if (error instanceof Error && error.message.includes("No document to update")) {
+      console.warn(`GROUP_SERVICE: Group ${groupId} does not exist, silently ignoring settings update.`);
+      return;
+    }
+    
     throw new Error("Fehler beim Aktualisieren der Gruppeneinstellungen.");
   }
 };

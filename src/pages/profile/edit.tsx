@@ -11,6 +11,7 @@ import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {Textarea} from "@/components/ui/textarea";
 import {Alert, AlertDescription} from "@/components/ui/alert";
+import { CURRENT_PROFILE_THEME, THEME_COLORS, type ThemeColor, getCurrentProfileTheme } from '@/config/theme';
 
 const EditProfilePage: React.FC = () => {
   const {user, status, isAuthenticated, updateProfile} = useAuthStore();
@@ -22,8 +23,26 @@ const EditProfilePage: React.FC = () => {
   // Form state
   const [displayName, setDisplayName] = useState(user?.displayName || "");
   const [statusMessage, setStatusMessage] = useState(user?.statusMessage || "");
+  const [selectedTheme, setSelectedTheme] = useState<ThemeColor>(CURRENT_PROFILE_THEME);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Deutsche Farbnamen und Beschreibungen
+  const themeLabels: Record<ThemeColor, { name: string; description: string }> = {
+    green: { name: "Grün", description: "" },
+    blue: { name: "Blau", description: "" },
+    purple: { name: "Lila", description: "" },
+    red: { name: "Rot", description: "" },
+    yellow: { name: "Gelb", description: "" },
+    indigo: { name: "Indigo", description: "" },
+    pink: { name: "Pink", description: "" },
+    teal: { name: "Türkis", description: "" },
+  };
+
+  // Theme aus localStorage laden
+  useEffect(() => {
+    setSelectedTheme(getCurrentProfileTheme());
+  }, []);
 
   // Redirect wenn nicht eingeloggt
   useEffect(() => {
@@ -48,12 +67,22 @@ const EditProfilePage: React.FC = () => {
     setError(null);
 
     try {
-      await updateProfile({displayName, statusMessage});
+      await updateProfile({displayName, statusMessage, profileTheme: selectedTheme});
 
-      showNotification({
-        message: "Profil erfolgreich aktualisiert.",
-        type: "success",
-      });
+      // Theme-Auswahl in localStorage speichern (für sofortige Anwendung)
+      if (selectedTheme !== CURRENT_PROFILE_THEME) {
+        localStorage.setItem('jasstafel-profile-theme', selectedTheme);
+        
+        showNotification({
+          message: `Profil und Farbe "${themeLabels[selectedTheme].name}" erfolgreich gespeichert.`,
+          type: "success",
+        });
+      } else {
+        showNotification({
+          message: "Profil erfolgreich aktualisiert.",
+          type: "success",
+        });
+      }
 
       router.push("/profile");
     } catch (err) {
@@ -147,6 +176,73 @@ const EditProfilePage: React.FC = () => {
               />
               <p className="text-xs text-gray-400">
                 Der Jasspruch wird in deinem Profil angezeigt. Maximal 150 Zeichen.
+              </p>
+            </div>
+
+            {/* Farbauswahl */}
+            <div className="space-y-4">
+              <label className="text-sm font-medium text-gray-200">
+                Profilfarbe
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                {(Object.keys(THEME_COLORS) as ThemeColor[]).map((themeKey) => {
+                  const theme = THEME_COLORS[themeKey];
+                  const label = themeLabels[themeKey];
+                  const isSelected = selectedTheme === themeKey;
+                  
+                  // Farbkreis-Mapping für CSS
+                  const colorClass = theme.primary.replace('bg-', '');
+                  
+                  return (
+                    <button
+                      key={themeKey}
+                      type="button"
+                      onClick={() => setSelectedTheme(themeKey)}
+                      className={`
+                        relative p-3 rounded-lg border-2 transition-all duration-200 text-left
+                        ${isSelected 
+                          ? `border-${colorClass} bg-${colorClass}/10 shadow-lg` 
+                          : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'
+                        }
+                      `}
+                    >
+                      <div className="flex items-center space-x-3">
+                        {/* Farbkreis */}
+                        <div 
+                          className={`
+                            w-8 h-8 rounded-full border-2 transition-all duration-200
+                            ${theme.primary} border-gray-600
+                            ${isSelected ? 'scale-110 shadow-md' : ''}
+                          `}
+                        >
+                          {/* Aktiv-Indikator */}
+                          {isSelected && (
+                            <div className="w-full h-full rounded-full border-2 border-white/20 flex items-center justify-center">
+                              <div className="w-2 h-2 bg-white rounded-full"></div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Farbname und Beschreibung */}
+                        <div className="flex-1 min-w-0">
+                          <div className={`font-medium text-sm ${isSelected ? 'text-white' : 'text-gray-300'}`}>
+                            {label.name}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Aktiv-Badge */}
+                      {isSelected && (
+                        <div className={`absolute -top-1 -right-1 w-5 h-5 ${theme.primary} rounded-full border-2 border-gray-900 flex items-center justify-center`}>
+                          <div className="w-2 h-2 bg-white rounded-full"></div>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-gray-400">
+                Deine Profilfarbe wird sofort in der Navigation und den Statistiken angezeigt.
               </p>
             </div>
           </form>

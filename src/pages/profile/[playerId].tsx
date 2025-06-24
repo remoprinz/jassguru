@@ -186,9 +186,9 @@ const PlayerProfilePage = () => {
           opponentAggregates: rawPlayerStats.opponentAggregates,
         };
         setExtendedStats(finalStats);
-      } else {
+    } else {
         setExtendedStats(null);
-      }
+    }
     } else {
       setExtendedStats(null);
     }
@@ -532,6 +532,52 @@ const PlayerProfilePage = () => {
                       </div>
                     </div>
                     
+                    {/* ✅ NEU: Bilanz-Statistiken (absolute Zahlen) */}
+                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                        <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
+                        <h3 className="text-base font-semibold text-white">Bilanz-Statistiken</h3>
+                      </div>
+                      <div className="p-4 space-y-2">
+                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                          <span className="font-medium text-gray-300">Matsch-Bilanz:</span>
+                          <span className="text-gray-100">
+                            {extendedStats?.matschBilanz !== undefined && extendedStats.matschBilanz > 0 ? '+' : ''}
+                            {extendedStats?.matschBilanz || 0}
+                            {extendedStats?.totalMatschEventsMade !== undefined && extendedStats?.totalMatschEventsReceived !== undefined && (
+                              <span className="text-gray-400 text-sm ml-1">
+                                ({extendedStats.totalMatschEventsMade}/{extendedStats.totalMatschEventsReceived})
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                          <span className="font-medium text-gray-300">Schneider-Bilanz:</span>
+                          <span className="text-gray-100">
+                            {extendedStats?.schneiderBilanz !== undefined && extendedStats.schneiderBilanz > 0 ? '+' : ''}
+                            {extendedStats?.schneiderBilanz || 0}
+                            {extendedStats?.totalSchneiderEventsMade !== undefined && extendedStats?.totalSchneiderEventsReceived !== undefined && (
+                              <span className="text-gray-400 text-sm ml-1">
+                                ({extendedStats.totalSchneiderEventsMade}/{extendedStats.totalSchneiderEventsReceived})
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                          <span className="font-medium text-gray-300">Kontermatsch-Bilanz:</span>
+                          <span className="text-gray-100">
+                            {extendedStats?.kontermatschBilanz !== undefined && extendedStats.kontermatschBilanz > 0 ? '+' : ''}
+                            {extendedStats?.kontermatschBilanz || 0}
+                            {extendedStats?.totalKontermatschEventsMade !== undefined && extendedStats?.totalKontermatschEventsReceived !== undefined && (
+                              <span className="text-gray-400 text-sm ml-1">
+                                ({extendedStats.totalKontermatschEventsMade}/{extendedStats.totalKontermatschEventsReceived})
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
                     {/* Block Spieler-Ergebnisse */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
@@ -749,7 +795,7 @@ const PlayerProfilePage = () => {
                           <span className="font-medium text-gray-300">Längste Niederlagen:</span>
                           {extendedStats?.longestLossStreakGames?.value ? (
                             <span className="text-gray-100 cursor-default">
-                              {extendedStats.longestLossStreakGames.value} ({extendedStats.longestLossStreakGames.dateRange || extendedStats.longestLossStreakGames.date || '-'})
+                              {extendedStats.longestLossStreakGames.value} ({extendedStats.longestLossStreakGames.dateRange || extendedStats.longestLossStreakGames.startDate || '-'})
                             </span>
                           ) : (
                             <span className="text-gray-100">-</span>
@@ -759,7 +805,7 @@ const PlayerProfilePage = () => {
                           <span className="font-medium text-gray-300">Längste Serie ohne Sieg:</span>
                           {extendedStats?.longestWinlessStreakGames?.value ? (
                             <span className="text-gray-100 cursor-default">
-                              {extendedStats.longestWinlessStreakGames.value} ({extendedStats.longestWinlessStreakGames.dateRange || extendedStats.longestWinlessStreakGames.date || '-'})
+                              {extendedStats.longestWinlessStreakGames.value} ({extendedStats.longestWinlessStreakGames.dateRange || extendedStats.longestWinlessStreakGames.startDate || '-'})
                             </span>
                           ) : (
                             <span className="text-gray-100">-</span>

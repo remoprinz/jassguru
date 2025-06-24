@@ -226,18 +226,8 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
   const completedGamesColRef = summaryDocRef.collection(COMPLETED_GAMES_SUBCOLLECTION);
 
   try {
-    // NEUE PRÜFUNG: Checke ob es noch ein aktives Spiel gibt
-    const sessionDocRef = db.collection('sessions').doc(sessionId);
-    const sessionSnapshot = await sessionDocRef.get();
-    const sessionData = sessionSnapshot.data();
-    
-    if (sessionData?.currentActiveGameId) {
-      logger.warn(`Session ${sessionId} has an active game (${sessionData.currentActiveGameId}). Cannot finalize with active game.`);
-      throw new HttpsError(
-        "failed-precondition",
-        "Die Session kann nicht abgeschlossen werden, da noch ein aktives Spiel läuft. Bitte beenden Sie zuerst das laufende Spiel."
-      );
-    }
+    // Die Prüfung auf ein aktives Spiel wurde entfernt, um eine Race Condition zu verhindern.
+    // Die `currentActiveGameId` wird zuverlässig am Ende des Prozesses aufgeräumt.
 
     // ✅ SAUBERE ZUWEISUNG: Keine Hacks, direkte Verwendung der vom Client gesendeten Daten.
     const participantPlayerIds = initialDataFromClient.participantPlayerIds;

@@ -7,6 +7,7 @@ import { formatDuration, formatMillisecondsDuration } from '@/utils/formatUtils'
 // Namen und Struktur sind an die Verwendung in src/pages/profile/index.tsx angepasst.
 export interface TransformedPlayerStats {
   totalSessions: number;
+  totalTournaments: number;
   totalGames: number;
   totalPlayTime: string;
   firstJassDate: string | null;
@@ -30,11 +31,21 @@ export interface TransformedPlayerStats {
   avgMatschPerGame: number;
   avgSchneiderPerGame: number;
   
-  totalTournaments: number;
   tournamentWins: number;
   avgRoundTime?: string;
   totalStrichesDifference: number;
   totalPointsDifference: number;
+
+  // ✅ NEU: Bilanz-Felder für absolute Zahlen (analog zu Group-Statistiken)
+  matschBilanz?: number;
+  schneiderBilanz?: number;
+  kontermatschBilanz?: number;
+  totalMatschEventsMade?: number;
+  totalMatschEventsReceived?: number;
+  totalSchneiderEventsMade?: number;
+  totalSchneiderEventsReceived?: number;
+  totalKontermatschEventsMade?: number;
+  totalKontermatschEventsReceived?: number;
 
   // Partner- und Gegner-Aggregate mit erweiterten WinRateInfo
   partnerAggregates?: Array<{
@@ -67,6 +78,9 @@ export interface TransformedPlayerStats {
 
   // Highlights Partien - relatedType spezifisch für Session
   highestStricheSession?: { value: number; date: string | null; relatedId?: string; relatedType?: 'session' } | null;
+  highestStricheDifferenceSession?: { value: number; date: string | null; relatedId?: string; relatedType?: 'session' } | null;
+  highestPointsDifferenceSession?: { value: number; date: string | null; relatedId?: string; relatedType?: 'session' } | null;
+  highestMatschDifferenceSession?: { value: number; date: string | null; relatedId?: string; relatedType?: 'session' } | null;
   longestWinStreakSessions?: { value: number; date: string | null; dateRange?: string | null; startSessionId?: string; endSessionId?: string } | null;
   longestUndefeatedStreakSessions?: { value: number; date: string | null; dateRange?: string | null; startSessionId?: string; endSessionId?: string } | null;
   mostMatschSession?: { value: number; date: string | null; relatedId?: string; relatedType?: 'session' } | null;
@@ -74,13 +88,18 @@ export interface TransformedPlayerStats {
   
   // Highlights Spiele - relatedType spezifisch für Game
   highestStricheGame?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' } | null;
-  longestWinStreakGames?: { value: number; date: string | null; dateRange?: string | null; startSessionId?: string; endSessionId?: string } | null;
-  longestUndefeatedStreakGames?: { value: number; date: string | null; dateRange?: string | null; startSessionId?: string; endSessionId?: string } | null;
+  longestWinStreakGames?: { value: number; startSessionId?: string; endSessionId?: string; startDate?: string | null; endDate?: string | null; dateRange?: string | null } | null;
+  longestLossStreakGames?: { value: number; startSessionId?: string; endSessionId?: string; startDate?: string | null; endDate?: string | null; dateRange?: string | null } | null;
+  longestWinlessStreakGames?: { value: number; startSessionId?: string; endSessionId?: string; startDate?: string | null; endDate?: string | null; dateRange?: string | null } | null;
+  longestUndefeatedStreakGames?: { value: number; startSessionId?: string; endSessionId?: string; startDate?: string | null; endDate?: string | null; dateRange?: string | null } | null;
   mostMatschGame?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' } | null;
   mostWeisPointsGame?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' } | null;
 
   // Lowlights (Beispiele) - relatedType spezifisch
   highestStricheReceivedSession?: { value: number; date: string | null; relatedId?: string; relatedType?: 'session' } | null;
+  lowestStricheDifferenceSession?: { value: number; date: string | null; relatedId?: string; relatedType?: 'session' } | null;
+  lowestPointsDifferenceSession?: { value: number; date: string | null; relatedId?: string; relatedType?: 'session' } | null;
+  lowestMatschDifferenceSession?: { value: number; date: string | null; relatedId?: string; relatedType?: 'session' } | null;
   highestStricheReceivedGame?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' } | null;
   
   // Lowlights (Beispiele) - relatedType spezifisch
@@ -89,8 +108,6 @@ export interface TransformedPlayerStats {
   mostMatschReceivedSession?: { value: number; date: string | null; relatedId?: string; relatedType?: 'session' } | null;
   mostWeisPointsReceivedSession?: { value: number; date: string | null; relatedId?: string; relatedType?: 'session' } | null;
   
-  longestLossStreakGames?: { value: number; date: string | null; dateRange?: string | null; startSessionId?: string; endSessionId?: string } | null;
-  longestWinlessStreakGames?: { value: number; date: string | null; dateRange?: string | null; startSessionId?: string; endSessionId?: string } | null;
   mostMatschReceivedGame?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' } | null;
   mostWeisPointsReceivedGame?: { value: number; date: string | null; relatedId?: string; relatedType?: 'game' } | null;
   
@@ -214,6 +231,7 @@ export const transformComputedStatsToExtended = (
 
   const transformed: TransformedPlayerStats = {
     totalSessions: rawStats.totalSessions || 0,
+    totalTournaments: rawStats.totalTournamentsParticipated || 0,
     totalGames: rawStats.totalGames || 0,
     totalPlayTime: formatDuration(rawStats.totalPlayTimeSeconds || 0),
     firstJassDate: formatDateSafely(rawStats.firstJassTimestamp),
@@ -237,7 +255,6 @@ export const transformComputedStatsToExtended = (
     avgMatschPerGame: rawStats.avgMatschPerGame || 0,
     avgSchneiderPerGame: rawStats.avgSchneiderPerGame || 0,
     
-    totalTournaments: rawStats.totalTournamentsParticipated || 0,
     tournamentWins: rawStats.tournamentWins || 0,
     totalStrichesDifference: rawStats.totalStricheDifference || 0,
     totalPointsDifference: rawStats.totalPointsDifference || 0,
@@ -245,12 +262,26 @@ export const transformComputedStatsToExtended = (
       ? formatMillisecondsDuration(rawStats.avgRoundDurationMilliseconds)
       : undefined,
 
+    // ✅ NEU: Bilanz-Felder für absolute Zahlen (analog zu Group-Statistiken)
+    matschBilanz: rawStats.matschBilanz,
+    schneiderBilanz: rawStats.schneiderBilanz,
+    kontermatschBilanz: rawStats.kontermatschBilanz,
+    totalMatschEventsMade: rawStats.totalMatschEventsMade,
+    totalMatschEventsReceived: rawStats.totalMatschEventsReceived,
+    totalSchneiderEventsMade: rawStats.totalSchneiderEventsMade,
+    totalSchneiderEventsReceived: rawStats.totalSchneiderEventsReceived,
+    totalKontermatschEventsMade: rawStats.totalKontermatschEventsMade,
+    totalKontermatschEventsReceived: rawStats.totalKontermatschEventsReceived,
+
     // Partner- und Gegner-Aggregate mit erweiterten WinRateInfo
     partnerAggregates: rawStats.partnerAggregates || [],
     opponentAggregates: rawStats.opponentAggregates || [],
 
     // Highlights Partien - Zugriff auf rawStats mit korrekten Backend-Feldnamen
     highestStricheSession: transformHighlightInternal(rawStats.highestStricheSession, 'session', false) as TransformedPlayerStats['highestStricheSession'],
+    highestStricheDifferenceSession: transformHighlightInternal(rawStats.highestStricheDifferenceSession, 'session', false) as TransformedPlayerStats['highestStricheDifferenceSession'],
+    highestPointsDifferenceSession: transformHighlightInternal(rawStats.highestPointsDifferenceSession, 'session', false) as TransformedPlayerStats['highestPointsDifferenceSession'],
+    highestMatschDifferenceSession: transformHighlightInternal(rawStats.highestMatschDifferenceSession, 'session', false) as TransformedPlayerStats['highestMatschDifferenceSession'],
     longestWinStreakSessions: transformStreakInternal(rawStats.longestWinStreakSessions),
     longestUndefeatedStreakSessions: transformStreakInternal(rawStats.longestUndefeatedStreakSessions),
     mostMatschSession: transformHighlightInternal(rawStats.mostMatschSession, 'session', false) as TransformedPlayerStats['mostMatschSession'],
@@ -259,12 +290,17 @@ export const transformComputedStatsToExtended = (
     // Highlights Spiele - Zugriff auf rawStats mit korrekten Backend-Feldnamen
     highestStricheGame: transformHighlightInternal(rawStats.highestStricheGame, 'game', false) as TransformedPlayerStats['highestStricheGame'],
     longestWinStreakGames: transformStreakInternal(rawStats.longestWinStreakGames),
+    longestLossStreakGames: transformStreakInternal(rawStats.longestLossStreakGames),
+    longestWinlessStreakGames: transformStreakInternal(rawStats.longestWinlessStreakGames),
     longestUndefeatedStreakGames: transformStreakInternal(rawStats.longestUndefeatedStreakGames),
     mostMatschGame: transformHighlightInternal(rawStats.mostMatschGame, 'game', false) as TransformedPlayerStats['mostMatschGame'],
     mostWeisPointsGame: transformHighlightInternal(rawStats.mostWeisPointsGame, 'game', false) as TransformedPlayerStats['mostWeisPointsGame'],
 
     // Lowlights (Beispiele)
     highestStricheReceivedSession: transformHighlightInternal(rawStats.highestStricheReceivedSession, 'session', false) as TransformedPlayerStats['highestStricheReceivedSession'],
+    lowestStricheDifferenceSession: transformHighlightInternal(rawStats.lowestStricheDifferenceSession, 'session', false) as TransformedPlayerStats['lowestStricheDifferenceSession'],
+    lowestPointsDifferenceSession: transformHighlightInternal(rawStats.lowestPointsDifferenceSession, 'session', false) as TransformedPlayerStats['lowestPointsDifferenceSession'],
+    lowestMatschDifferenceSession: transformHighlightInternal(rawStats.lowestMatschDifferenceSession, 'session', false) as TransformedPlayerStats['lowestMatschDifferenceSession'],
     highestStricheReceivedGame: transformHighlightInternal(rawStats.highestStricheReceivedGame, 'game', false) as TransformedPlayerStats['highestStricheReceivedGame'],
     // -- TRANSFORMATION FÜR NEUE LOWLIGHTS --
     longestLossStreakSessions: transformStreakInternal(rawStats.longestLossStreakSessions),
@@ -272,8 +308,6 @@ export const transformComputedStatsToExtended = (
     mostMatschReceivedSession: transformHighlightInternal(rawStats.mostMatschReceivedSession, 'session', false) as TransformedPlayerStats['mostMatschReceivedSession'],
     mostWeisPointsReceivedSession: transformHighlightInternal(rawStats.mostWeisPointsReceivedSession, 'session', false) as TransformedPlayerStats['mostWeisPointsReceivedSession'],
 
-    longestLossStreakGames: transformStreakInternal(rawStats.longestLossStreakGames),
-    longestWinlessStreakGames: transformStreakInternal(rawStats.longestWinlessStreakGames),
     mostMatschReceivedGame: transformHighlightInternal(rawStats.mostMatschReceivedGame, 'game', false) as TransformedPlayerStats['mostMatschReceivedGame'],
     mostWeisPointsReceivedGame: transformHighlightInternal(rawStats.mostWeisPointsReceivedGame, 'game', false) as TransformedPlayerStats['mostWeisPointsReceivedGame'],
     // -- ENDE TRANSFORMATION FÜR NEUE LOWLIGHTS --

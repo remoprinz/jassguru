@@ -48,7 +48,7 @@ interface AuthActions {
   isAuthenticated: () => boolean;
   resendVerificationEmail: () => Promise<void>;
   uploadProfilePicture: (file: File) => Promise<void>;
-  updateProfile: (updates: { displayName?: string; statusMessage?: string }) => Promise<void>;
+  updateProfile: (updates: { displayName?: string; statusMessage?: string; profileTheme?: string }) => Promise<void>;
 }
 
 type AuthStore = AuthState & AuthActions;
@@ -384,7 +384,7 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
 
-      updateProfile: async (updates: { displayName?: string; statusMessage?: string }) => {
+      updateProfile: async (updates: { displayName?: string; statusMessage?: string; profileTheme?: string }) => {
         const currentUser = get().user; // Hole den aktuellen AuthUser aus dem State
         if (!currentUser) {
           throw new Error("Benutzer nicht angemeldet.");
@@ -397,6 +397,7 @@ export const useAuthStore = create<AuthStore>()(
           const updatedFields: Partial<AuthUser> = {};
           if (updates.displayName !== undefined) updatedFields.displayName = updates.displayName;
           if (updates.statusMessage !== undefined) updatedFields.statusMessage = updates.statusMessage;
+          if (updates.profileTheme !== undefined) updatedFields.profileTheme = updates.profileTheme;
           
           set(state => ({
             user: state.user ? { ...state.user, ...updatedFields } : null,

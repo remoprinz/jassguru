@@ -1388,19 +1388,28 @@ const StartPage = () => {
           <TabsList className="grid w-full grid-cols-3 bg-gray-800 p-1 rounded-lg mb-4 sticky top-0 z-30 backdrop-blur-md">
             <TabsTrigger 
               value="statistics" 
-              className="data-[state=active]:bg-yellow-600 data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md py-2.5 text-sm font-medium"
+              className="data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md py-2.5 text-sm font-medium"
+              style={{
+                backgroundColor: activeMainTab === 'statistics' ? '#d97706' : 'transparent'
+              }}
             >
               <BarChart className="w-4 h-4 mr-2" /> Statistik
             </TabsTrigger>
             <TabsTrigger 
               value="archive"
-              className="data-[state=active]:bg-yellow-600 data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md py-2.5 text-sm font-medium"
+              className="data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md py-2.5 text-sm font-medium"
+              style={{
+                backgroundColor: activeMainTab === 'archive' ? '#d97706' : 'transparent'
+              }}
             >
               <Archive className="w-4 h-4 mr-2" /> Archiv
             </TabsTrigger>
             <TabsTrigger
               value="members" 
-              className="data-[state=active]:bg-yellow-600 data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md py-2.5 text-sm font-medium"
+              className="data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md py-2.5 text-sm font-medium"
+              style={{
+                backgroundColor: activeMainTab === 'members' ? '#d97706' : 'transparent'
+              }}
             >
               <Users className="w-4 h-4 mr-2" /> Mitglieder
             </TabsTrigger>

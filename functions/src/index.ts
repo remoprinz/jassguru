@@ -27,6 +27,7 @@ import * as batchUpdateLogic from './batchUpdateGroupStats'; // NEU: Batch-Updat
 import * as updateGroupStatsLogic from './updateGroupStats'; // NEU: Manuelle Gruppenstatistik-Aktualisierung
 import * as tournamentCompletionLogic from './processTournamentCompletion'; // NEU: Turnier-Aggregation
 import { updatePlayerStats } from './playerStatsCalculator'; // NEU: Import der zentralen Funktion
+import { updateGroupComputedStatsAfterSession } from './groupStatsCalculator'; // NEU: Import für Gruppenstatistiken
 // ------------------------------------------
 
 // --- Globale Optionen für Gen 2 setzen --- 
@@ -1180,6 +1181,7 @@ interface FirestoreUser {
   displayName?: string;
   photoURL?: string | null;
   statusMessage?: string;
+  profileTheme?: string | null; // NEU: Profilfarbe/Theme
   playerId?: string;
 }
 
@@ -1212,8 +1214,9 @@ export const syncUserProfileToPlayer = onDocumentUpdated(
     const nameChanged = beforeData?.displayName !== afterData.displayName;
     const photoChanged = beforeData?.photoURL !== afterData.photoURL;
     const statusChanged = beforeData?.statusMessage !== afterData.statusMessage;
+    const themeChanged = beforeData?.profileTheme !== afterData.profileTheme;
 
-    if (!nameChanged && !photoChanged && !statusChanged) {
+    if (!nameChanged && !photoChanged && !statusChanged && !themeChanged) {
       return null;
     }
 
@@ -1236,6 +1239,9 @@ export const syncUserProfileToPlayer = onDocumentUpdated(
     }
     if (statusChanged) {
         playerUpdateData.statusMessage = afterData.statusMessage ?? null;
+    }
+    if (themeChanged) {
+        playerUpdateData.profileTheme = afterData.profileTheme ?? null;
     }
 
     const playerRef = admin.firestore().collection("players").doc(playerId);
@@ -1464,27 +1470,49 @@ export const updatePlayerStatsFunction = onCall(async (request) => {
   }
 });
 
-// NEU: ZENTRALER TRIGGER FÜR SPIELERSTATISTIKEN
+// NEU: ZENTRALER TRIGGER FÜR SPIELER- UND GRUPPENSTATISTIKEN
 export const onJassGameSummaryWritten = onDocumentWritten(
   "jassGameSummaries/{sessionId}",
   async (event) => {
     const dataAfter = event.data?.after.data();
     const participantPlayerIds = dataAfter?.participantPlayerIds || [];
+    const groupId = dataAfter?.groupId;
+    const sessionId = event.params.sessionId;
+    const statusAfter = dataAfter?.status;
 
-    if (participantPlayerIds.length === 0) {
-      logger.info(`No participants found in summary ${event.params.sessionId}. No stats to update.`);
+    // Nur bei completed Sessions Statistiken aktualisieren
+    if (statusAfter !== 'completed') {
+      logger.info(`Session ${sessionId} status is '${statusAfter}', not 'completed'. Skipping stats update.`);
       return;
     }
-    
-    logger.info(`JassGameSummary ${event.params.sessionId} was written. Triggering stats update for ${participantPlayerIds.length} players.`);
-    
-    const updatePromises = participantPlayerIds.map((playerId: string) => {
-      return updatePlayerStats(playerId).catch(err => {
-        logger.error(`[onJassGameSummaryWritten] Failed to update stats for player ${playerId} from session ${event.params.sessionId}`, err);
-      });
-    });
 
-    await Promise.all(updatePromises);
-    logger.info(`All player stats updates triggered for session ${event.params.sessionId} completed.`);
+    // 1. Spielerstatistiken aktualisieren
+    if (participantPlayerIds.length > 0) {
+      logger.info(`JassGameSummary ${sessionId} completed. Triggering stats update for ${participantPlayerIds.length} players.`);
+      
+      const updatePlayerPromises = participantPlayerIds.map((playerId: string) => {
+        return updatePlayerStats(playerId).catch(err => {
+          logger.error(`[onJassGameSummaryWritten] Failed to update stats for player ${playerId} from session ${sessionId}`, err);
+        });
+      });
+
+      await Promise.all(updatePlayerPromises);
+      logger.info(`All player stats updates for session ${sessionId} completed.`);
+    } else {
+      logger.info(`No participants found in summary ${sessionId}. No player stats to update.`);
+    }
+
+    // 2. Gruppenstatistiken aktualisieren
+    if (groupId && typeof groupId === 'string') {
+      try {
+        logger.info(`Triggering group stats update for group ${groupId} after session ${sessionId} completion.`);
+        await updateGroupComputedStatsAfterSession(groupId);
+        logger.info(`Group stats update for group ${groupId} completed successfully.`);
+      } catch (error) {
+        logger.error(`[onJassGameSummaryWritten] Failed to update group stats for group ${groupId} from session ${sessionId}`, error);
+      }
+    } else {
+      logger.warn(`No groupId found in session ${sessionId}. Skipping group stats update.`);
+    }
   }
 );

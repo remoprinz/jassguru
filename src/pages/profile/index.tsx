@@ -33,6 +33,8 @@ import type { FirestorePlayer } from '@/types/jass';
 import { getGroupMembersSortedByGames } from '@/services/playerService';
 import { formatMillisecondsDuration } from '@/utils/formatUtils';
 import { getSessionWinRateDisplay, getWinRateDisplay } from '@/utils/winRateUtils';
+import { CURRENT_PROFILE_THEME, THEME_COLORS, getCurrentProfileTheme } from '@/config/theme';
+import { fetchTournamentInstancesForGroup } from '@/services/tournamentService';
 
 interface ExpectedPlayerStatsWithAggregates {
   [key: string]: any;
@@ -72,6 +74,41 @@ const ProfilePage: React.FC = () => {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const trumpfStatistikRef = useRef<HTMLDivElement>(null);
+
+  // Theme-System: Dynamische Farben mit State für Live-Updates
+  const [currentTheme, setCurrentTheme] = useState<string>(() => {
+    // Bevorzuge Theme aus User-Daten, fallback zu localStorage, dann Standard
+    if (user?.profileTheme) {
+      return user.profileTheme;
+    }
+    return getCurrentProfileTheme();
+  });
+  const theme = THEME_COLORS[currentTheme as keyof typeof THEME_COLORS] || THEME_COLORS[CURRENT_PROFILE_THEME];
+
+  // Aktualisiere Theme wenn User-Daten geladen werden
+  useEffect(() => {
+    if (user?.profileTheme && user.profileTheme !== currentTheme) {
+      setCurrentTheme(user.profileTheme);
+      // Sync mit localStorage für Konsistenz
+      localStorage.setItem('jasstafel-profile-theme', user.profileTheme);
+    }
+  }, [user?.profileTheme, currentTheme]);
+
+  // Lausche auf Theme-Änderungen
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const newTheme = getCurrentProfileTheme();
+      if (newTheme !== currentTheme) {
+        setCurrentTheme(newTheme);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [currentTheme]);
 
   useNestedScrollFix(trumpfStatistikRef);
 
@@ -133,11 +170,11 @@ const ProfilePage: React.FC = () => {
 
   useEffect(() => {
     const loadArchiveData = async () => {
-      if (status === 'authenticated' && user?.playerId) {
+      if (status === 'authenticated' && user) {
         setSessionsLoading(true);
         setSessionsError(null);
         try {
-          const sessions = await fetchCompletedSessionsForUser(user.playerId);
+          const sessions = await fetchCompletedSessionsForUser(user.uid);
           setCompletedSessions(sessions);
         } catch (error) {
           console.error("Fehler beim Laden der abgeschlossenen Sessions im Profil:", error);
@@ -147,11 +184,23 @@ const ProfilePage: React.FC = () => {
           setSessionsLoading(false);
         }
 
+        // Turniere über alle Gruppen des Users laden
         setTournamentsLoading(true);
         setTournamentsError(null);
         try {
-          const tournaments = await fetchTournamentsForUser(user.playerId);
-          setUserTournaments(tournaments);
+          const allTournaments: TournamentInstance[] = [];
+          if (userGroups && userGroups.length > 0) {
+            // Lade Turniere für alle Gruppen des Users
+            for (const group of userGroups) {
+              const groupTournaments = await fetchTournamentInstancesForGroup(group.id);
+              allTournaments.push(...groupTournaments.filter(t => 
+                t.status === 'active' || 
+                t.status === 'upcoming' || 
+                t.status === 'completed'
+              ));
+            }
+          }
+          setUserTournaments(allTournaments);
         } catch (error) {
            console.error("Fehler beim Laden der Turniere im Profil:", error);
            const message = error instanceof Error ? error.message : "Turniere konnten nicht geladen werden.";
@@ -159,10 +208,8 @@ const ProfilePage: React.FC = () => {
         } finally {
            setTournamentsLoading(false);
         }
-      } else if (status === 'authenticated' && !user?.playerId) {
-          // User is authenticated but playerId is not yet available, wait for it.
-          // Or handle the case where it might be missing.
-          console.warn("User authenticated but playerId not available for archive loading yet.");
+      } else if (status === 'authenticated' && !user) {
+          console.warn("User authenticated but user object not available for archive loading yet.");
       } else {
           setSessionsLoading(false);
           setTournamentsLoading(false);
@@ -172,7 +219,7 @@ const ProfilePage: React.FC = () => {
     };
 
     loadArchiveData();
-  }, [status, user]);
+  }, [status, user, userGroups]);
 
   useEffect(() => {
     if (status === 'authenticated' && user?.playerId) {
@@ -301,7 +348,27 @@ const ProfilePage: React.FC = () => {
     if (!playerStats?.trumpfStatistik || !playerStats.totalTrumpfCount || playerStats.totalTrumpfCount === 0) {
       return [];
     }
-    return Object.entries(playerStats.trumpfStatistik)
+    
+    // Normalisiere und merge ähnliche Trumpffarben
+    const normalizedStats: { [key: string]: number } = {};
+    
+    Object.entries(playerStats.trumpfStatistik).forEach(([farbe, anzahl]) => {
+      let normalizedFarbe = farbe;
+      
+      // Merge "Eicheln" mit "Eichel"
+      if (farbe.toLowerCase() === 'eicheln') {
+        normalizedFarbe = 'eichel';
+      }
+      // Merge "Une" mit "Unde"  
+      else if (farbe.toLowerCase() === 'une') {
+        normalizedFarbe = 'unde';
+      }
+      
+      // Akkumuliere die Werte
+      normalizedStats[normalizedFarbe] = (normalizedStats[normalizedFarbe] || 0) + anzahl;
+    });
+    
+    return Object.entries(normalizedStats)
       .map(([farbe, anzahl]) => ({
         farbe,
         anzahl,
@@ -441,7 +508,7 @@ const ProfilePage: React.FC = () => {
       const formattedDate = displayDate ? format(displayDate, 'dd.MM.yy, HH:mm') : 'Unbekannt';
 
       return (
-          <Link href={`/view/session/${id}`} key={`session-${id}`} passHref>
+          <Link href={`/view/session/${id}?returnTo=/profile&returnMainTab=archive`} key={`session-${id}`} passHref>
             <div className="p-3 bg-gray-700/50 rounded-lg hover:bg-gray-600/50 transition-colors duration-150 cursor-pointer mb-2">
               <div className="flex justify-between items-center mb-1.5">
                  <div className="flex items-center flex-grow"> 
@@ -548,7 +615,7 @@ const ProfilePage: React.FC = () => {
             imageSrc={imageToCrop}
             onCropComplete={handleCropComplete}
             confirmButtonLabel="Hochladen"
-            confirmButtonClassName="bg-green-600 hover:bg-green-700"
+            confirmButtonClassName={`${theme.primary} hover:${theme.primary.replace("-600", "-700")}`}
           />
 
           <div className="text-center mt-6">
@@ -628,7 +695,47 @@ const ProfilePage: React.FC = () => {
               <span className="text-sm text-gray-400 mb-2">Settings</span>
               <Button
                 variant="default"
-                className="h-12 w-12 flex items-center justify-center bg-blue-600 border-blue-700 hover:bg-blue-500 text-white active:scale-95 transition-transform duration-100 ease-in-out"
+                className="h-12 w-12 flex items-center justify-center text-white active:scale-95 transition-transform duration-100 ease-in-out"
+                style={{
+                  backgroundColor: theme.primary.includes('pink') ? '#ec4899' :
+                                  theme.primary.includes('green') ? '#059669' :
+                                  theme.primary.includes('blue') ? '#2563eb' :
+                                  theme.primary.includes('purple') ? '#9333ea' :
+                                  theme.primary.includes('red') ? '#dc2626' :
+                                  theme.primary.includes('yellow') ? '#d97706' :
+                                  theme.primary.includes('indigo') ? '#4f46e5' :
+                                  theme.primary.includes('teal') ? '#0d9488' : '#2563eb',
+                  borderColor: theme.primary.includes('pink') ? '#be185d' :
+                              theme.primary.includes('green') ? '#047857' :
+                              theme.primary.includes('blue') ? '#1d4ed8' :
+                              theme.primary.includes('purple') ? '#7c3aed' :
+                              theme.primary.includes('red') ? '#b91c1c' :
+                              theme.primary.includes('yellow') ? '#b45309' :
+                              theme.primary.includes('indigo') ? '#3730a3' :
+                              theme.primary.includes('teal') ? '#0f766e' : '#1d4ed8'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 
+                    theme.primary.includes('pink') ? '#db2777' :
+                    theme.primary.includes('green') ? '#047857' :
+                    theme.primary.includes('blue') ? '#1d4ed8' :
+                    theme.primary.includes('purple') ? '#7c3aed' :
+                    theme.primary.includes('red') ? '#b91c1c' :
+                    theme.primary.includes('yellow') ? '#b45309' :
+                    theme.primary.includes('indigo') ? '#3730a3' :
+                    theme.primary.includes('teal') ? '#0f766e' : '#1d4ed8';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 
+                    theme.primary.includes('pink') ? '#ec4899' :
+                    theme.primary.includes('green') ? '#059669' :
+                    theme.primary.includes('blue') ? '#2563eb' :
+                    theme.primary.includes('purple') ? '#9333ea' :
+                    theme.primary.includes('red') ? '#dc2626' :
+                    theme.primary.includes('yellow') ? '#d97706' :
+                    theme.primary.includes('indigo') ? '#4f46e5' :
+                    theme.primary.includes('teal') ? '#0d9488' : '#2563eb';
+                }}
                 onClick={() => router.push("/profile/edit")}
               >
                 <UserCog
@@ -655,13 +762,37 @@ const ProfilePage: React.FC = () => {
             <TabsList className="grid w-full grid-cols-2 bg-gray-800 p-1 rounded-lg mb-4 sticky top-0 z-30 backdrop-blur-md">
               <TabsTrigger 
                 value="stats" 
-                className="data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:bg-blue-700/80 hover:text-white rounded-md py-1.5 text-sm font-medium" 
+                className="data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md py-2.5 text-sm font-medium"
+                style={{
+                  backgroundColor: activeMainTab === 'stats' ? (
+                    theme.primary.includes('pink') ? '#ec4899' :
+                    theme.primary.includes('green') ? '#059669' :
+                    theme.primary.includes('blue') ? '#2563eb' :
+                    theme.primary.includes('purple') ? '#9333ea' :
+                    theme.primary.includes('red') ? '#dc2626' :
+                    theme.primary.includes('yellow') ? '#d97706' :
+                    theme.primary.includes('indigo') ? '#4f46e5' :
+                    theme.primary.includes('teal') ? '#0d9488' : '#2563eb'
+                  ) : 'transparent'
+                }}
               > 
                 <BarChart3 className="w-4 h-4 mr-2" /> Statistik 
               </TabsTrigger> 
               <TabsTrigger 
                 value="archive" 
-                className="data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:bg-blue-700/80 hover:text-white rounded-md py-1.5 text-sm font-medium" 
+                className="data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md py-2.5 text-sm font-medium"
+                style={{
+                  backgroundColor: activeMainTab === 'archive' ? (
+                    theme.primary.includes('pink') ? '#ec4899' :
+                    theme.primary.includes('green') ? '#059669' :
+                    theme.primary.includes('blue') ? '#2563eb' :
+                    theme.primary.includes('purple') ? '#9333ea' :
+                    theme.primary.includes('red') ? '#dc2626' :
+                    theme.primary.includes('yellow') ? '#d97706' :
+                    theme.primary.includes('indigo') ? '#4f46e5' :
+                    theme.primary.includes('teal') ? '#0d9488' : '#2563eb'
+                  ) : 'transparent'
+                }}
               > 
                 <Archive className="w-4 h-4 mr-2" /> Archiv 
               </TabsTrigger> 
@@ -686,21 +817,57 @@ const ProfilePage: React.FC = () => {
                   <TabsList className="grid w-full grid-cols-3 bg-gray-800 p-1 rounded-lg backdrop-blur-md">
                     <TabsTrigger
                       value="individual"
-                      className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-gray-400 hover:bg-blue-700/80 hover:text-white rounded-md py-1.5 text-sm font-medium"
+                      className="data-[state=active]:text-white text-gray-400 hover:text-white rounded-md py-1.5 text-sm font-medium"
+                      style={{
+                        backgroundColor: activeStatsSubTab === 'individual' ? (
+                          theme.primary.includes('pink') ? '#ec4899' :
+                          theme.primary.includes('green') ? '#059669' :
+                          theme.primary.includes('blue') ? '#2563eb' :
+                          theme.primary.includes('purple') ? '#9333ea' :
+                          theme.primary.includes('red') ? '#dc2626' :
+                          theme.primary.includes('yellow') ? '#d97706' :
+                          theme.primary.includes('indigo') ? '#4f46e5' :
+                          theme.primary.includes('teal') ? '#0d9488' : '#2563eb'
+                        ) : 'transparent'
+                      }}
                     >
                       <User className="w-4 h-4 mr-1.5" />
                       Individuell
                     </TabsTrigger>
                     <TabsTrigger
                       value="partner"
-                      className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-gray-400 hover:bg-blue-700/80 hover:text-white rounded-md py-1.5 text-sm font-medium"
+                      className="data-[state=active]:text-white text-gray-400 hover:text-white rounded-md py-1.5 text-sm font-medium"
+                      style={{
+                        backgroundColor: activeStatsSubTab === 'partner' ? (
+                          theme.primary.includes('pink') ? '#ec4899' :
+                          theme.primary.includes('green') ? '#059669' :
+                          theme.primary.includes('blue') ? '#2563eb' :
+                          theme.primary.includes('purple') ? '#9333ea' :
+                          theme.primary.includes('red') ? '#dc2626' :
+                          theme.primary.includes('yellow') ? '#d97706' :
+                          theme.primary.includes('indigo') ? '#4f46e5' :
+                          theme.primary.includes('teal') ? '#0d9488' : '#2563eb'
+                        ) : 'transparent'
+                      }}
                     >
                       <Users className="w-4 h-4 mr-1.5" />
                       Partner
                     </TabsTrigger>
                     <TabsTrigger
                       value="opponent"
-                      className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-gray-400 hover:bg-blue-700/80 hover:text-white rounded-md py-1.5 text-sm font-medium"
+                      className="data-[state=active]:text-white text-gray-400 hover:text-white rounded-md py-1.5 text-sm font-medium"
+                      style={{
+                        backgroundColor: activeStatsSubTab === 'opponent' ? (
+                          theme.primary.includes('pink') ? '#ec4899' :
+                          theme.primary.includes('green') ? '#059669' :
+                          theme.primary.includes('blue') ? '#2563eb' :
+                          theme.primary.includes('purple') ? '#9333ea' :
+                          theme.primary.includes('red') ? '#dc2626' :
+                          theme.primary.includes('yellow') ? '#d97706' :
+                          theme.primary.includes('indigo') ? '#4f46e5' :
+                          theme.primary.includes('teal') ? '#0d9488' : '#2563eb'
+                        ) : 'transparent'
+                      }}
                     >
                       <Shield className="w-4 h-4 mr-1.5" />
                       Gegner
@@ -722,296 +889,166 @@ const ProfilePage: React.FC = () => {
                     <div className="space-y-3 text-sm"> 
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                          <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
                           <h3 className="text-base font-semibold text-white">Spielerübersicht</h3>
                         </div>
                         <div className="p-4 space-y-2">
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Anzahl Gruppen:</span>
-                            <span className="text-gray-100">{playerStats?.groupCount || 0}</span>
+                            <span className="text-gray-100 text-lg font-medium">{userGroups?.length || 0}</span>
                           </div>
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Anzahl Partien:</span>
-                            <span className="text-gray-100">{playerStats?.totalSessions || 0}</span>
+                            <span className="text-gray-100 text-lg font-medium">{playerStats?.totalSessions || 0}</span>
                           </div>
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Anzahl Turniere:</span>
-                            <span className="text-gray-100">{playerStats?.totalTournaments || 0}</span>
+                            <span className="text-gray-100 text-lg font-medium">{playerStats?.totalTournaments || 0}</span>
                           </div>
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Anzahl Spiele:</span>
-                            <span className="text-gray-100">{playerStats?.totalGames || 0}</span>
+                            <span className="text-gray-100 text-lg font-medium">{playerStats?.totalGames || 0}</span>
                           </div>
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Gesamte Jass-Zeit:</span>
-                            <span className="text-gray-100">{playerStats?.totalPlayTime || '-'}</span>
+                            <span className="text-gray-100 text-lg font-medium">{playerStats?.totalPlayTime || '-'}</span>
                           </div>
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Erster Jass:</span>
-                            <span className="text-gray-100">{playerStats?.firstJassDate || '-'}</span>
+                            <span className="text-gray-100 text-lg font-medium">{playerStats?.firstJassDate || '-'}</span>
                           </div>
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Letzter Jass:</span>
-                            <span className="text-gray-100">{playerStats?.lastJassDate || '-'}</span>
+                            <span className="text-gray-100 text-lg font-medium">{playerStats?.lastJassDate || '-'}</span>
                           </div>
                         </div>
                       </div>
 
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Turniersiege</h3>
-                        </div>
-                        <div className="p-4 space-y-2">
-                          <div className="flex justify-between items-center bg-gray-700/30 px-2 py-1.5 rounded-md">
-                            <span className="font-medium text-gray-200">Turniersiege</span>
-                            <span className="text-lg font-bold text-white">{playerStats?.tournamentWins || 0}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Durchschnittswerte</h3>
-                        </div>
-                        <div className="p-4 space-y-2">
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                            <span className="font-medium text-gray-300">Ø Striche pro Spiel:</span>
-                            <span className="text-gray-100">{playerStats?.avgStrichePerGame?.toFixed(1) || '0.0'}</span>
-                          </div>
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                            <span className="font-medium text-gray-300">Ø Siegquote Partie:</span>
-                            <span className="text-gray-100">
-                              {getSessionWinRateDisplay(
-                                playerStats?.sessionWinRateInfo,
-                                playerStats?.sessionsWon || 0,
-                                playerStats?.sessionsLost || 0,
-                                playerStats?.sessionsTied || 0
-                              )}
-                            </span>
-                          </div>
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                            <span className="font-medium text-gray-300">Ø Siegquote Spiel:</span>
-                            <span className="text-gray-100">
-                              {getWinRateDisplay(
-                                playerStats?.gameWinRateInfo,
-                                playerStats?.gamesWon || 0,
-                                playerStats?.totalGames || 0
-                              )}
-                            </span>
-                          </div>
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                            <span className="font-medium text-gray-300">Ø Punkte pro Spiel:</span>
-                            <span className="text-gray-100">{playerStats?.avgPointsPerGame?.toFixed(1) || '0.0'}</span>
-                          </div>
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                            <span className="font-medium text-gray-300">Ø Matsch pro Spiel:</span>
-                            <span className="text-gray-100">{playerStats?.avgMatschPerGame?.toFixed(2) || '0.00'}</span>
-                          </div>
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                            <span className="font-medium text-gray-300">Ø Schneider pro Spiel:</span>
-                            <span className="text-gray-100">{playerStats?.avgSchneiderPerGame?.toFixed(2) || '0.00'}</span>
-                          </div>
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                                                            <span className="font-medium text-gray-300">Weis-Durchschnitt:</span>
-                            <span className="text-gray-100">{playerStats?.avgWeisPointsPerGame?.toFixed(1) || '0.0'}</span>
-                          </div>
-                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                            <span className="font-medium text-gray-300">Ø Zeit pro Runde:</span>
-                            <span className="text-gray-100 text-right whitespace-nowrap">{playerStats?.avgRoundTime || '0m 0s'}</span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Spieler-Ergebnisse</h3>
+                          <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
+                          <h3 className="text-base font-semibold text-white">Bilanzen</h3>
                         </div>
                         <div className="p-4 space-y-2">
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Strichdifferenz:</span>
-                            <span className="text-gray-100">
+                            <span className="text-gray-100 text-lg font-medium">
                               {playerStats?.totalStrichesDifference !== undefined && playerStats.totalStrichesDifference > 0 ? '+' : ''}
                               {playerStats?.totalStrichesDifference || 0}
                             </span>
                           </div>
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Punktdifferenz:</span>
-                            <span className="text-gray-100">
+                            <span className="text-gray-100 text-lg font-medium">
                               {playerStats?.totalPointsDifference !== undefined && playerStats.totalPointsDifference > 0 ? '+' : ''}
                               {playerStats?.totalPointsDifference || 0}
                             </span>
                           </div>
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Partien gewonnen:</span>
-                            <span className="text-gray-100">{playerStats?.sessionsWon || 0}</span>
+                            <span className="text-gray-100 text-lg font-medium">{playerStats?.sessionsWon || 0}</span>
                           </div>
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Partien unentschieden:</span>
-                            <span className="text-gray-100">{playerStats?.sessionsTied || 0}</span>
+                            <span className="text-gray-100 text-lg font-medium">{playerStats?.sessionsTied || 0}</span>
                           </div>
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Partien verloren:</span>
-                            <span className="text-gray-100">{playerStats?.sessionsLost || 0}</span>
+                            <span className="text-gray-100 text-lg font-medium">{playerStats?.sessionsLost || 0}</span>
                           </div>
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Spiele gewonnen:</span>
-                            <span className="text-gray-100">{playerStats?.gamesWon || 0}</span>
+                            <span className="text-gray-100 text-lg font-medium">{playerStats?.gamesWon || 0}</span>
                           </div>
                           <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                             <span className="font-medium text-gray-300">Spiele verloren:</span>
-                            <span className="text-gray-100">{playerStats?.gamesLost || 0}</span>
+                            <span className="text-gray-100 text-lg font-medium">{playerStats?.gamesLost || 0}</span>
+                          </div>
+                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-300">Matsch-Bilanz:</span>
+                            <span className="text-gray-100">
+                              {playerStats?.totalMatschEventsMade !== undefined && playerStats?.totalMatschEventsReceived !== undefined && (
+                                <span className="text-gray-400 text-sm mr-1">
+                                  ({playerStats.totalMatschEventsMade}/{playerStats.totalMatschEventsReceived})
+                                </span>
+                              )}
+                              <span className="text-lg font-medium">
+                                {playerStats?.matschBilanz !== undefined && playerStats.matschBilanz > 0 ? '+' : ''}
+                                {playerStats?.matschBilanz || 0}
+                              </span>
+                            </span>
+                          </div>
+                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-300">Schneider-Bilanz:</span>
+                            <span className="text-gray-100">
+                              {playerStats?.totalSchneiderEventsMade !== undefined && playerStats?.totalSchneiderEventsReceived !== undefined && (
+                                <span className="text-gray-400 text-sm mr-1">
+                                  ({playerStats.totalSchneiderEventsMade}/{playerStats.totalSchneiderEventsReceived})
+                                </span>
+                              )}
+                              <span className="text-lg font-medium">
+                                {playerStats?.schneiderBilanz !== undefined && playerStats.schneiderBilanz > 0 ? '+' : ''}
+                                {playerStats?.schneiderBilanz || 0}
+                              </span>
+                            </span>
+                          </div>
+                          <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                            <span className="font-medium text-gray-300">Ø Kontermatsch-Bilanz:</span>
+                            <span className="text-gray-100">
+                              {playerStats?.totalKontermatschEventsMade !== undefined && playerStats?.totalKontermatschEventsReceived !== undefined && (
+                                <span className="text-gray-400 text-sm mr-1">
+                                  ({playerStats.totalKontermatschEventsMade}/{playerStats.totalKontermatschEventsReceived})
+                                </span>
+                              )}
+                              <span className="text-lg font-medium">
+                                {playerStats?.kontermatschBilanz !== undefined && playerStats.kontermatschBilanz > 0 ? '+' : ''}
+                                {playerStats?.kontermatschBilanz || 0}
+                              </span>
+                            </span>
                           </div>
                         </div>
                       </div>
 
-                      {/* Highlights Partien */}
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Highlights Partien</h3>
-                        </div>
-                        <div className="p-4 space-y-2">
-                                                     <div 
-                             className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
-                             onClick={() => {
-                               if (playerStats?.highestStricheSession?.relatedId) {
-                                 router.push(`/view/session/${playerStats.highestStricheSession.relatedId}`);
-                               }
-                             }}
-                           >
-                             <div className="flex justify-between items-center">
-                               <span className="font-medium text-gray-300">Höchste Strichdifferenz:</span>
-                               <span className="text-gray-100">{playerStats?.highestStricheSession?.value || '-'}</span>
-                             </div>
-                             {playerStats?.highestStricheSession?.date && (
-                               <div className="mt-1">
-                                 <span className="text-blue-400 text-xs">({playerStats.highestStricheSession.date})</span>
-                               </div>
-                            )}
-                      </div>
-
-                                                     <div 
-                             className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
-                             onClick={() => {
-                               if (playerStats?.longestWinStreakSessions?.startSessionId) {
-                                 router.push(`/view/session/${playerStats.longestWinStreakSessions.startSessionId}`);
-                               }
-                             }}
-                           >
-                             <div className="flex justify-between items-center">
-                               <span className="font-medium text-gray-300">Längste Siegesserie:</span>
-                               <span className="text-gray-100">{playerStats?.longestWinStreakSessions?.value || '-'}</span>
-                             </div>
-                             {playerStats?.longestWinStreakSessions?.dateRange && (
-                               <div className="mt-1">
-                                 <span className="text-blue-400 text-xs">({playerStats.longestWinStreakSessions.dateRange})</span>
-                               </div>
-                            )}
-                          </div>
-
-                                                     <div 
-                             className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
-                             onClick={() => {
-                               if (playerStats?.longestUndefeatedStreakSessions?.startSessionId) {
-                                 router.push(`/view/session/${playerStats.longestUndefeatedStreakSessions.startSessionId}`);
-                               }
-                             }}
-                           >
-                             <div className="flex justify-between items-center">
-                               <span className="font-medium text-gray-300">Längste Serie ohne Niederlage:</span>
-                               <span className="text-gray-100">{playerStats?.longestUndefeatedStreakSessions?.value || '-'}</span>
-                             </div>
-                             {playerStats?.longestUndefeatedStreakSessions?.dateRange && (
-                               <div className="mt-1">
-                                 <span className="text-blue-400 text-xs">({playerStats.longestUndefeatedStreakSessions.dateRange})</span>
-                               </div>
-                            )}
-                          </div>
-
-                          <div 
-                             className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
-                             onClick={() => {
-                               if (playerStats?.mostMatschSession?.relatedId) {
-                                 router.push(`/view/session/${playerStats.mostMatschSession.relatedId}`);
-                               }
-                             }}
-                           >
-                             <div className="flex justify-between items-center">
-                               <span className="font-medium text-gray-300">Höchste Anzahl Matsche:</span>
-                               <span className="text-gray-100">{playerStats?.mostMatschSession?.value || '-'}</span>
-                             </div>
-                             {playerStats?.mostMatschSession?.date && (
-                               <div className="mt-1">
-                                 <span className="text-blue-400 text-xs">({playerStats.mostMatschSession.date})</span>
-                               </div>
-                            )}
-                          </div>
-
-                          <div 
-                             className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
-                             onClick={() => {
-                               if (playerStats?.mostWeisPointsSession?.relatedId) {
-                                 router.push(`/view/session/${playerStats.mostWeisPointsSession.relatedId}`);
-                               }
-                             }}
-                           >
-                             <div className="flex justify-between items-center">
-                               <span className="font-medium text-gray-300">Meiste Weispunkte:</span>
-                               <span className="text-gray-100">{playerStats?.mostWeisPointsSession?.value || '-'}</span>
-                             </div>
-                             {playerStats?.mostWeisPointsSession?.date && (
-                               <div className="mt-1">
-                                 <span className="text-blue-400 text-xs">({playerStats.mostWeisPointsSession.date})</span>
-                               </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Lowlights Partien */}
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-red-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Lowlights Partien</h3>
+                          <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
+                          <h3 className="text-base font-semibold text-white">🏆 Highlights</h3>
                         </div>
                         <div className="p-4 space-y-2">
                           <div 
                             className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
                             onClick={() => {
-                              if (playerStats?.highestStricheReceivedSession?.relatedId) {
-                                router.push(`/view/session/${playerStats.highestStricheReceivedSession.relatedId}`);
-                              }
-                            }}
-                          >
-                                                         <div className="flex justify-between items-center">
-                               <span className="font-medium text-gray-300">Höchste erhaltene Strichdifferenz:</span>
-                               <span className="text-gray-100">{playerStats?.highestStricheReceivedSession?.value || '-'}</span>
-                             </div>
-                             {playerStats?.highestStricheReceivedSession?.date && (
-                               <div className="mt-1">
-                                 <span className="text-blue-400 text-xs">({playerStats.highestStricheReceivedSession.date})</span>
-                               </div>
-                            )}
-                          </div>
-
-                          <div 
-                            className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
-                            onClick={() => {
-                              if (playerStats?.longestLossStreakSessions?.startSessionId) {
-                                router.push(`/view/session/${playerStats.longestLossStreakSessions.startSessionId}`);
+                              if (playerStats?.highestStricheDifferenceSession?.relatedId) {
+                                router.push(`/view/session/${playerStats.highestStricheDifferenceSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
                               }
                             }}
                           >
                             <div className="flex justify-between items-center">
-                            <span className="font-medium text-gray-300">Längste Niederlagenserie:</span>
-                              <span className="text-gray-100">{playerStats?.longestLossStreakSessions?.value || '-'}</span>
-                          </div>
-                            {playerStats?.longestLossStreakSessions?.dateRange && (
+                              <span className="font-medium text-gray-300">Höchste Strichdifferenz (Partie):</span>
+                              <span className="text-gray-100 text-lg font-medium">{playerStats?.highestStricheDifferenceSession?.value || '-'}</span>
+                            </div>
+                            {playerStats?.highestStricheDifferenceSession?.date && (
                               <div className="mt-1">
-                                <span className="text-blue-400 text-xs">({playerStats.longestLossStreakSessions.dateRange})</span>
+                                <span className={`text-${theme.accent.replace("bg-", "").replace("-500", "-400")} text-xs`}>({playerStats.highestStricheDifferenceSession.date})</span>
+                              </div>
+                            )}
+                      </div>
+
+                          <div 
+                            className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                            onClick={() => {
+                              if (playerStats?.highestPointsDifferenceSession?.relatedId) {
+                                router.push(`/view/session/${playerStats.highestPointsDifferenceSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
+                              }
+                            }}
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium text-gray-300">Höchste Punktdifferenz (Partie):</span>
+                              <span className="text-gray-100 text-lg font-medium">{playerStats?.highestPointsDifferenceSession?.value || '-'}</span>
+                            </div>
+                            {playerStats?.highestPointsDifferenceSession?.date && (
+                              <div className="mt-1">
+                                <span className={`text-${theme.accent.replace("bg-", "").replace("-500", "-400")} text-xs`}>({playerStats.highestPointsDifferenceSession.date})</span>
                               </div>
                             )}
                           </div>
@@ -1019,18 +1056,18 @@ const ProfilePage: React.FC = () => {
                           <div 
                             className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
                             onClick={() => {
-                              if (playerStats?.longestWinlessStreakSessions?.startSessionId) {
-                                router.push(`/view/session/${playerStats.longestWinlessStreakSessions.startSessionId}`);
+                              if (playerStats?.longestWinStreakSessions?.startSessionId) {
+                                router.push(`/view/session/${playerStats.longestWinStreakSessions.startSessionId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
                               }
                             }}
                           >
                             <div className="flex justify-between items-center">
-                              <span className="font-medium text-gray-300">Längste Serie ohne Sieg:</span>
-                              <span className="text-gray-100">{playerStats?.longestWinlessStreakSessions?.value || '-'}</span>
+                              <span className="font-medium text-gray-300">Längste Siegesserie (Partien):</span>
+                              <span className="text-gray-100 text-lg font-medium">{playerStats?.longestWinStreakSessions?.value || '-'}</span>
                             </div>
-                            {playerStats?.longestWinlessStreakSessions?.dateRange && (
+                            {playerStats?.longestWinStreakSessions?.dateRange && (
                               <div className="mt-1">
-                                <span className="text-blue-400 text-xs">({playerStats.longestWinlessStreakSessions.dateRange})</span>
+                                <span className={`text-${theme.accent.replace("bg-", "").replace("-500", "-400")} text-xs`}>({playerStats.longestWinStreakSessions.dateRange})</span>
                               </div>
                             )}
                           </div>
@@ -1038,65 +1075,18 @@ const ProfilePage: React.FC = () => {
                           <div 
                             className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
                             onClick={() => {
-                              if (playerStats?.mostMatschReceivedSession?.relatedId) {
-                                router.push(`/view/session/${playerStats.mostMatschReceivedSession.relatedId}`);
+                              if (playerStats?.longestUndefeatedStreakSessions?.startSessionId) {
+                                router.push(`/view/session/${playerStats.longestUndefeatedStreakSessions.startSessionId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
                               }
                             }}
                           >
                             <div className="flex justify-between items-center">
-                              <span className="font-medium text-gray-300">Höchste Anzahl Matsche bekommen:</span>
-                              <span className="text-gray-100">{playerStats?.mostMatschReceivedSession?.value || '-'}</span>
-                          </div>
-                            {playerStats?.mostMatschReceivedSession?.date && (
-                              <div className="mt-1">
-                                <span className="text-blue-400 text-xs">({playerStats.mostMatschReceivedSession.date})</span>
-                        </div>
-                            )}
-                      </div>
-
-                          <div 
-                            className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
-                            onClick={() => {
-                              if (playerStats?.mostWeisPointsReceivedSession?.relatedId) {
-                                router.push(`/view/session/${playerStats.mostWeisPointsReceivedSession.relatedId}`);
-                              }
-                            }}
-                          >
-                            <div className="flex justify-between items-center">
-                              <span className="font-medium text-gray-300">Meiste Weispunkte erhalten:</span>
-                              <span className="text-gray-100">{playerStats?.mostWeisPointsReceivedSession?.value || '-'}</span>
-                        </div>
-                            {playerStats?.mostWeisPointsReceivedSession?.date && (
-                              <div className="mt-1">
-                                <span className="text-blue-400 text-xs">({playerStats.mostWeisPointsReceivedSession.date})</span>
-                                </div>
-                          )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Highlights Spiele */}
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Highlights Spiele</h3>
-                        </div>
-                        <div className="p-4 space-y-2">
-                          <div 
-                            className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
-                            onClick={() => {
-                              if (playerStats?.highestStricheGame?.relatedId) {
-                                router.push(`/view/game/${playerStats.highestStricheGame.relatedId}`);
-                              }
-                            }}
-                          >
-                            <div className="flex justify-between items-center">
-                              <span className="font-medium text-gray-300">Höchste Strichdifferenz:</span>
-                              <span className="text-gray-100">{playerStats?.highestStricheGame?.value || '-'}</span>
+                              <span className="font-medium text-gray-300">Längste Serie ohne Niederlage (Partien):</span>
+                              <span className="text-gray-100 text-lg font-medium">{playerStats?.longestUndefeatedStreakSessions?.value || '-'}</span>
                             </div>
-                            {playerStats?.highestStricheGame?.date && (
+                            {playerStats?.longestUndefeatedStreakSessions?.dateRange && (
                               <div className="mt-1">
-                                <span className="text-blue-400 text-xs">({playerStats.highestStricheGame.date})</span>
+                                <span className={`text-${theme.accent.replace("bg-", "").replace("-500", "-400")} text-xs`}>({playerStats.longestUndefeatedStreakSessions.dateRange})</span>
                               </div>
                             )}
                           </div>
@@ -1105,17 +1095,17 @@ const ProfilePage: React.FC = () => {
                             className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
                             onClick={() => {
                               if (playerStats?.longestWinStreakGames?.startSessionId) {
-                                router.push(`/view/session/${playerStats.longestWinStreakGames.startSessionId}`);
+                                router.push(`/view/session/${playerStats.longestWinStreakGames.startSessionId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
                               }
                             }}
                           >
                             <div className="flex justify-between items-center">
-                            <span className="font-medium text-gray-300">Längste Siegesserie:</span>
-                              <span className="text-gray-100">{playerStats?.longestWinStreakGames?.value || '-'}</span>
+                              <span className="font-medium text-gray-300">Längste Siegesserie (Spiele):</span>
+                              <span className="text-gray-100 text-lg font-medium">{playerStats?.longestWinStreakGames?.value || '-'}</span>
                             </div>
                             {playerStats?.longestWinStreakGames?.dateRange && (
                               <div className="mt-1">
-                                <span className="text-blue-400 text-xs">({playerStats.longestWinStreakGames.dateRange})</span>
+                                <span className={`text-${theme.accent.replace("bg-", "").replace("-500", "-400")} text-xs`}>({playerStats.longestWinStreakGames.dateRange})</span>
                               </div>
                             )}
                           </div>
@@ -1123,103 +1113,141 @@ const ProfilePage: React.FC = () => {
                           <div 
                             className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
                             onClick={() => {
-                              if (playerStats?.longestUndefeatedStreakGames?.startSessionId) {
-                                router.push(`/view/session/${playerStats.longestUndefeatedStreakGames.startSessionId}`);
+                              if (playerStats?.highestMatschDifferenceSession?.relatedId) {
+                                router.push(`/view/session/${playerStats.highestMatschDifferenceSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
                               }
                             }}
                           >
                             <div className="flex justify-between items-center">
-                            <span className="font-medium text-gray-300">Längste Serie ohne Niederlage:</span>
-                              <span className="text-gray-100">{playerStats?.longestUndefeatedStreakGames?.value || '-'}</span>
-                            </div>
-                            {playerStats?.longestUndefeatedStreakGames?.dateRange && (
-                              <div className="mt-1">
-                                <span className="text-blue-400 text-xs">({playerStats.longestUndefeatedStreakGames.dateRange})</span>
-                              </div>
-                            )}
-                          </div>
-
-                          <div 
-                            className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
-                            onClick={() => {
-                              if (playerStats?.mostMatschGame?.relatedId) {
-                                router.push(`/view/game/${playerStats.mostMatschGame.relatedId}`);
-                              }
-                            }}
-                          >
-                            <div className="flex justify-between items-center">
-                              <span className="font-medium text-gray-300">Höchste Anzahl Matsche:</span>
-                              <span className="text-gray-100">{playerStats?.mostMatschGame?.value || '-'}</span>
-                            </div>
-                            {playerStats?.mostMatschGame?.date && (
-                              <div className="mt-1">
-                                <span className="text-blue-400 text-xs">({playerStats.mostMatschGame.date})</span>
-                              </div>
-                            )}
+                              <span className="font-medium text-gray-300">Höchste Matschdifferenz (Partie):</span>
+                              <span className="text-gray-100 text-lg font-medium">{playerStats?.highestMatschDifferenceSession?.value || '-'}</span>
                         </div>
+                            {playerStats?.highestMatschDifferenceSession?.date && (
+                              <div className="mt-1">
+                                <span className={`text-${theme.accent.replace("bg-", "").replace("-500", "-400")} text-xs`}>({playerStats.highestMatschDifferenceSession.date})</span>
+                              </div>
+                            )}
+                      </div>
 
                           <div 
                             className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
                             onClick={() => {
-                              if (playerStats?.mostWeisPointsGame?.relatedId) {
-                                router.push(`/view/game/${playerStats.mostWeisPointsGame.relatedId}`);
+                              if (playerStats?.mostWeisPointsSession?.relatedId) {
+                                router.push(`/view/session/${playerStats.mostWeisPointsSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
                               }
                             }}
                           >
                             <div className="flex justify-between items-center">
-                              <span className="font-medium text-gray-300">Meiste Weispunkte:</span>
-                              <span className="text-gray-100">{playerStats?.mostWeisPointsGame?.value || '-'}</span>
+                              <span className="font-medium text-gray-300">Meiste Weispunkte (Partie):</span>
+                              <span className="text-gray-100 text-lg font-medium">{playerStats?.mostWeisPointsSession?.value || '-'}</span>
                             </div>
-                            {playerStats?.mostWeisPointsGame?.date && (
+                            {playerStats?.mostWeisPointsSession?.date && (
                               <div className="mt-1">
-                                <span className="text-blue-400 text-xs">({playerStats.mostWeisPointsGame.date})</span>
+                                <span className={`text-${theme.accent.replace("bg-", "").replace("-500", "-400")} text-xs`}>({playerStats.mostWeisPointsSession.date})</span>
                               </div>
                             )}
-                    </div>
-                    </div>
-                  </div>
+                          </div>
+                        </div>
+                      </div>
 
-                      {/* Lowlights Spiele */}
-                  <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                    <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-red-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Lowlights Spiele</h3>
-                    </div>
+                      {/* Lowlights */}
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
+                          <h3 className="text-base font-semibold text-white">👎 Lowlights</h3>
+                        </div>
                         <div className="p-4 space-y-2">
                           <div 
                             className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
                             onClick={() => {
-                              if (playerStats?.highestStricheReceivedGame?.relatedId) {
-                                router.push(`/view/game/${playerStats.highestStricheReceivedGame.relatedId}`);
+                              if (playerStats?.lowestStricheDifferenceSession?.relatedId) {
+                                router.push(`/view/session/${playerStats.lowestStricheDifferenceSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
                               }
                             }}
                           >
                             <div className="flex justify-between items-center">
-                              <span className="font-medium text-gray-300">Höchste erhaltene Strichdifferenz:</span>
-                              <span className="text-gray-100">{playerStats?.highestStricheReceivedGame?.value || '-'}</span>
+                              <span className="font-medium text-gray-300">Niedrigste Strichdifferenz (Partie):</span>
+                              <span className="text-gray-100 text-lg font-medium">{playerStats?.lowestStricheDifferenceSession?.value || '-'}</span>
                             </div>
-                            {playerStats?.highestStricheReceivedGame?.date && (
+                            {playerStats?.lowestStricheDifferenceSession?.date && (
                               <div className="mt-1">
-                                <span className="text-blue-400 text-xs">({playerStats.highestStricheReceivedGame.date})</span>
+                                <span className={`text-${theme.accent.replace("bg-", "").replace("-500", "-400")} text-xs`}>({playerStats.lowestStricheDifferenceSession.date})</span>
                               </div>
                             )}
+                          </div>
+
+                          <div 
+                            className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                            onClick={() => {
+                              if (playerStats?.lowestPointsDifferenceSession?.relatedId) {
+                                router.push(`/view/session/${playerStats.lowestPointsDifferenceSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
+                              }
+                            }}
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium text-gray-300">Niedrigste Punktdifferenz (Partie):</span>
+                              <span className="text-gray-100 text-lg font-medium">{playerStats?.lowestPointsDifferenceSession?.value || '-'}</span>
                             </div>
+                            {playerStats?.lowestPointsDifferenceSession?.date && (
+                              <div className="mt-1">
+                                <span className={`text-${theme.accent.replace("bg-", "").replace("-500", "-400")} text-xs`}>({playerStats.lowestPointsDifferenceSession.date})</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div 
+                            className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                            onClick={() => {
+                              if (playerStats?.longestLossStreakSessions?.startSessionId) {
+                                router.push(`/view/session/${playerStats.longestLossStreakSessions.startSessionId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
+                              }
+                            }}
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium text-gray-300">Längste Niederlagenserie (Partien):</span>
+                              <span className="text-gray-100 text-lg font-medium">{playerStats?.longestLossStreakSessions?.value || '-'}</span>
+                            </div>
+                            {playerStats?.longestLossStreakSessions?.dateRange && (
+                              <div className="mt-1">
+                                <span className={`text-${theme.accent.replace("bg-", "").replace("-500", "-400")} text-xs`}>({playerStats.longestLossStreakSessions.dateRange})</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div 
+                            className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                            onClick={() => {
+                              if (playerStats?.longestWinlessStreakSessions?.startSessionId) {
+                                router.push(`/view/session/${playerStats.longestWinlessStreakSessions.startSessionId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
+                              }
+                            }}
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium text-gray-300">Längste Serie ohne Sieg (Partien):</span>
+                              <span className="text-gray-100 text-lg font-medium">{playerStats?.longestWinlessStreakSessions?.value || '-'}</span>
+                            </div>
+                            {playerStats?.longestWinlessStreakSessions?.dateRange && (
+                              <div className="mt-1">
+                                <span className={`text-${theme.accent.replace("bg-", "").replace("-500", "-400")} text-xs`}>({playerStats.longestWinlessStreakSessions.dateRange})</span>
+                              </div>
+                            )}
+                          </div>
 
                           <div 
                             className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
                             onClick={() => {
                               if (playerStats?.longestLossStreakGames?.startSessionId) {
-                                router.push(`/view/session/${playerStats.longestLossStreakGames.startSessionId}`);
+                                router.push(`/view/session/${playerStats.longestLossStreakGames.startSessionId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
                               }
                             }}
                           >
                             <div className="flex justify-between items-center">
-                              <span className="font-medium text-gray-300">Längste Niederlagenserie:</span>
-                              <span className="text-gray-100">{playerStats?.longestLossStreakGames?.value || '-'}</span>
+                              <span className="font-medium text-gray-300">Längste Niederlagenserie (Spiele):</span>
+                              <span className="text-gray-100 text-lg font-medium">{playerStats?.longestLossStreakGames?.value || '-'}</span>
                             </div>
                             {playerStats?.longestLossStreakGames?.dateRange && (
                               <div className="mt-1">
-                                <span className="text-blue-400 text-xs">({playerStats.longestLossStreakGames.dateRange})</span>
+                                <span className={`text-${theme.accent.replace("bg-", "").replace("-500", "-400")} text-xs`}>({playerStats.longestLossStreakGames.dateRange})</span>
                               </div>
                             )}
                           </div>
@@ -1227,46 +1255,46 @@ const ProfilePage: React.FC = () => {
                           <div 
                             className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
                             onClick={() => {
-                              if (playerStats?.longestWinlessStreakGames?.startSessionId) {
-                                router.push(`/view/session/${playerStats.longestWinlessStreakGames.startSessionId}`);
+                              if (playerStats?.lowestMatschDifferenceSession?.relatedId) {
+                                router.push(`/view/session/${playerStats.lowestMatschDifferenceSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
                               }
                             }}
                           >
                             <div className="flex justify-between items-center">
-                            <span className="font-medium text-gray-300">Längste Serie ohne Sieg:</span>
-                              <span className="text-gray-100">{playerStats?.longestWinlessStreakGames?.value || '-'}</span>
+                              <span className="font-medium text-gray-300">Niedrigste Matschdifferenz (Partie):</span>
+                              <span className="text-gray-100 text-lg font-medium">{playerStats?.lowestMatschDifferenceSession?.value || '-'}</span>
                             </div>
-                            {playerStats?.longestWinlessStreakGames?.dateRange && (
+                            {playerStats?.lowestMatschDifferenceSession?.date && (
                               <div className="mt-1">
-                                <span className="text-blue-400 text-xs">({playerStats.longestWinlessStreakGames.dateRange})</span>
+                                <span className={`text-${theme.accent.replace("bg-", "").replace("-500", "-400")} text-xs`}>({playerStats.lowestMatschDifferenceSession.date})</span>
                               </div>
                             )}
-                        </div>
+                          </div>
 
                           <div 
                             className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
                             onClick={() => {
-                              if (playerStats?.mostMatschReceivedGame?.relatedId) {
-                                router.push(`/view/game/${playerStats.mostMatschReceivedGame.relatedId}`);
+                              if (playerStats?.mostWeisPointsReceivedSession?.relatedId) {
+                                router.push(`/view/session/${playerStats.mostWeisPointsReceivedSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
                               }
                             }}
                           >
                             <div className="flex justify-between items-center">
-                              <span className="font-medium text-gray-300">Höchste Anzahl Matsche bekommen:</span>
-                              <span className="text-gray-100">{playerStats?.mostMatschReceivedGame?.value || '-'}</span>
+                              <span className="font-medium text-gray-300">Meiste Weispunkte erhalten (Partie):</span>
+                              <span className="text-gray-100 text-lg font-medium">{playerStats?.mostWeisPointsReceivedSession?.value || '-'}</span>
                             </div>
-                            {playerStats?.mostMatschReceivedGame?.date && (
+                            {playerStats?.mostWeisPointsReceivedSession?.date && (
                               <div className="mt-1">
-                                <span className="text-blue-400 text-xs">({playerStats.mostMatschReceivedGame.date})</span>
+                                <span className={`text-${theme.accent.replace("bg-", "").replace("-500", "-400")} text-xs`}>({playerStats.mostWeisPointsReceivedSession.date})</span>
                               </div>
                             )}
-                  </div>
-                    </div>
-                  </div>
+                          </div>
+                        </div>
+                      </div>
 
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
+                          <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
                           <h3 className="text-base font-semibold text-white">Trumpffarben</h3>
                         </div>
                         <div ref={trumpfStatistikRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
@@ -1278,7 +1306,7 @@ const ProfilePage: React.FC = () => {
                                   <FarbePictogram farbe={normalizeJassColor(item.farbe)} mode="svg" className="h-6 w-6 mr-2" />
                                   <span className="text-gray-300 capitalize">{item.farbe}</span>
                                 </div>
-                                <span className="text-white font-medium">{(item.anteil * 100).toFixed(1)}%</span>
+                                <span className="text-white font-medium text-lg">{(item.anteil * 100).toFixed(1)}%</span>
                               </div>
                             ))
                           ) : (
@@ -1286,6 +1314,9 @@ const ProfilePage: React.FC = () => {
                           )}
                         </div>
                       </div>
+
+
+
                     </div>
                   ) : (
                     <div className="text-center text-gray-500 py-10">Keine Statistikdaten verfügbar.</div>
@@ -1294,11 +1325,11 @@ const ProfilePage: React.FC = () => {
                 <TabsContent value="partner" className="w-full bg-gray-800/50 rounded-lg p-4 space-y-6">
                   {typedRawPlayerStats?.partnerAggregates && typedRawPlayerStats.partnerAggregates.length > 0 ? (
                     <>
-                      {/* Rangliste: Siegquote Partien */}
+                      {/* Siegquote Partien */}
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Rangliste: Siegquote Partien</h3>
+                          <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
+                          <h3 className="text-base font-semibold text-white">Siegquote Partien</h3>
                         </div>
                         <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                           {typedRawPlayerStats.partnerAggregates
@@ -1308,7 +1339,7 @@ const ProfilePage: React.FC = () => {
                             .map((partner, index) => {
                               const playerData = members.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
                               return (
-                                <Link 
+                              <Link 
                                   href={partner.partnerId ? `/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner` : '#'} 
                                   key={`partner-session-${index}`} 
                                   className={`block rounded-md ${partner.partnerId ? 'cursor-pointer' : 'cursor-default'}`}
@@ -1320,20 +1351,25 @@ const ProfilePage: React.FC = () => {
                                         src={playerData?.photoURL || undefined} 
                                         alt={partner.partnerDisplayName} 
                                         size="sm"
-                                        className="mr-2 bg-blue-600/20"
+                                        className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
                                       />
                                       <span className="text-gray-300">{partner.partnerDisplayName}</span>
-                                    </div>
+                          </div>
                                     <div className="flex items-center">
                                       <span className="text-white font-medium mr-2">
+                                        {partner.sessionsPlayedWith > 0 && (
+                                          <span className="text-gray-400 mr-1 text-sm">
+                                            ({partner.sessionsWonWith}/{partner.sessionsPlayedWith})
+                            </span>
+                                        )}
                                         {getWinRateDisplay(
                                           partner.sessionWinRateInfo,
                                           partner.sessionsWonWith,
                                           partner.sessionsPlayedWith
                                         )}
-                                      </span>
+                            </span>
                                     </div>
                                   </div>
                                 </Link>
@@ -1341,15 +1377,15 @@ const ProfilePage: React.FC = () => {
                             })}
                           {typedRawPlayerStats.partnerAggregates.filter(p => p.sessionsPlayedWith >= 1).length === 0 && (
                             <div className="text-gray-400 text-center py-2">Keine Partner mit ausreichend Partien</div>
-                          )}
-                        </div>
+                            )}
+                          </div>
                       </div>
 
-                      {/* Rangliste: Siegquote Spiele */}
+                      {/* Siegquote Spiele */}
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Rangliste: Siegquote Spiele</h3>
+                          <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
+                          <h3 className="text-base font-semibold text-white">Siegquote Spiele</h3>
                         </div>
                         <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                           {typedRawPlayerStats.partnerAggregates
@@ -1359,7 +1395,7 @@ const ProfilePage: React.FC = () => {
                             .map((partner, index) => {
                               const playerData = members.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
                               return (
-                                <Link 
+                              <Link 
                                   href={partner.partnerId ? `/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner` : '#'} 
                                   key={`partner-game-${index}`} 
                                   className={`block rounded-md ${partner.partnerId ? 'cursor-pointer' : 'cursor-default'}`}
@@ -1371,7 +1407,7 @@ const ProfilePage: React.FC = () => {
                                         src={playerData?.photoURL || undefined} 
                                         alt={partner.partnerDisplayName} 
                                         size="sm"
-                                        className="mr-2 bg-blue-600/20"
+                                        className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
                       />
@@ -1379,6 +1415,11 @@ const ProfilePage: React.FC = () => {
                                     </div>
                                     <div className="flex items-center">
                                       <span className="text-white font-medium mr-2">
+                                        {partner.gamesPlayedWith > 0 && (
+                                          <span className="text-gray-400 mr-1 text-sm">
+                                            ({partner.gamesWonWith}/{partner.gamesPlayedWith})
+                                          </span>
+                                        )}
                                         {getWinRateDisplay(
                                           partner.gameWinRateInfo,
                                           partner.gamesWonWith,
@@ -1387,20 +1428,20 @@ const ProfilePage: React.FC = () => {
                                       </span>
                                     </div>
                                   </div>
-                                </Link>
+                          </Link>
                               );
                             })}
                           {typedRawPlayerStats.partnerAggregates.filter(p => p.gamesPlayedWith >= 1).length === 0 && (
                             <div className="text-gray-400 text-center py-2">Keine Partner mit ausreichend Spielen</div>
-                          )}
+                            )}
                         </div>
                       </div>
 
-                      {/* Rangliste: Strichdifferenz */}
+                      {/* Strichdifferenz */}
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Rangliste: Strichdifferenz</h3>
+                          <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
+                          <h3 className="text-base font-semibold text-white">Strichdifferenz</h3>
                         </div>
                         <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                           {typedRawPlayerStats.partnerAggregates
@@ -1410,7 +1451,7 @@ const ProfilePage: React.FC = () => {
                             .map((partner, index) => {
                               const playerData = members.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
                               return (
-                                <Link 
+                              <Link 
                                   href={partner.partnerId ? `/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner` : '#'} 
                                   key={`partner-striche-${index}`} 
                                   className={`block rounded-md ${partner.partnerId ? 'cursor-pointer' : 'cursor-default'}`}
@@ -1422,7 +1463,7 @@ const ProfilePage: React.FC = () => {
                                         src={playerData?.photoURL || undefined} 
                                         alt={partner.partnerDisplayName} 
                                         size="sm"
-                                        className="mr-2 bg-blue-600/20"
+                                        className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
                                       />
@@ -1430,22 +1471,27 @@ const ProfilePage: React.FC = () => {
                                     </div>
                                     <div className="flex items-center">
                                       <span className="text-white font-medium mr-2">
+                                        {partner.gamesPlayedWith > 0 && (
+                                          <span className="text-gray-400 mr-1 text-sm">
+                                            ({partner.gamesPlayedWith})
+                                          </span>
+                                        )}
                                         {partner.totalStricheDifferenceWith > 0 ? '+' : ''}{partner.totalStricheDifferenceWith}
                                       </span>
-                                    </div>
+                    </div>
                                   </div>
                                 </Link>
                               );
                             })}
-                        </div>
-                      </div>
+                    </div>
+                  </div>
 
-                      {/* Rangliste: Punktdifferenz */}
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Rangliste: Punktdifferenz</h3>
-                        </div>
+                      {/* Punktdifferenz */}
+                  <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                    <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
+                          <h3 className="text-base font-semibold text-white">Punktdifferenz</h3>
+                    </div>
                         <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                           {typedRawPlayerStats.partnerAggregates
                             .filter(partner => partner.gamesPlayedWith >= 1)
@@ -1454,7 +1500,7 @@ const ProfilePage: React.FC = () => {
                             .map((partner, index) => {
                               const playerData = members.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
                               return (
-                                <Link 
+                              <Link 
                                   href={partner.partnerId ? `/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner` : '#'} 
                                   key={`partner-points-${index}`} 
                                   className={`block rounded-md ${partner.partnerId ? 'cursor-pointer' : 'cursor-default'}`}
@@ -1466,7 +1512,56 @@ const ProfilePage: React.FC = () => {
                                         src={playerData?.photoURL || undefined} 
                                         alt={partner.partnerDisplayName} 
                                         size="sm"
-                                        className="mr-2 bg-blue-600/20"
+                                        className={`mr-2 ${theme.profileImage}`}
+                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
+                                      />
+                                      <span className="text-gray-300">{partner.partnerDisplayName}</span>
+                            </div>
+                                    <div className="flex items-center">
+                                      <span className="text-white font-medium mr-2">
+                                        {partner.gamesPlayedWith > 0 && (
+                                          <span className="text-gray-400 mr-1 text-sm">
+                                            ({partner.gamesPlayedWith})
+                              </span>
+                                        )}
+                                        {partner.totalPointsDifferenceWith > 0 ? '+' : ''}{partner.totalPointsDifferenceWith}
+                              </span>
+                        </div>
+                                  </div>
+                                </Link>
+                              );
+                            })}
+                        </div>
+                      </div>
+
+                      {/* Matsch-Bilanz */}
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
+                          <h3 className="text-base font-semibold text-white">Matsch-Bilanz</h3>
+                        </div>
+                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                          {typedRawPlayerStats.partnerAggregates
+                            .filter(partner => partner.gamesPlayedWith >= 1 && ((partner.matschEventsMadeWith || 0) > 0 || (partner.matschEventsReceivedWith || 0) > 0))
+                            .sort((a, b) => (b.matschBilanz || 0) - (a.matschBilanz || 0))
+                            .slice(0, 10)
+                            .map((partner, index) => {
+                              const playerData = members.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
+                              return (
+                              <Link 
+                                  href={partner.partnerId ? `/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner` : '#'} 
+                                  key={`partner-matsch-${index}`} 
+                                  className={`block rounded-md ${partner.partnerId ? 'cursor-pointer' : 'cursor-default'}`}
+                                >
+                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                    <div className="flex items-center">
+                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <ProfileImage 
+                                        src={playerData?.photoURL || undefined} 
+                                        alt={partner.partnerDisplayName} 
+                                        size="sm"
+                                        className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
                                       />
@@ -1474,13 +1569,128 @@ const ProfilePage: React.FC = () => {
                                     </div>
                                     <div className="flex items-center">
                                       <span className="text-white font-medium mr-2">
-                                        {partner.totalPointsDifferenceWith > 0 ? '+' : ''}{partner.totalPointsDifferenceWith}
+                                        <span className="text-gray-400 mr-1 text-sm">
+                                          ({partner.matschEventsMadeWith || 0}/{(partner.matschEventsReceivedWith || 0)})
+                                        </span>
+                                        <span className="text-lg font-medium">
+                                          {(partner.matschBilanz || 0) > 0 ? '+' : ''}
+                                          {partner.matschBilanz || 0}
+                                        </span>
+                                      </span>
+                                    </div>
+                                  </div>
+                              </Link>
+                              );
+                            })}
+                          {typedRawPlayerStats.partnerAggregates.filter(p => p.gamesPlayedWith >= 1 && ((p.matschEventsMadeWith || 0) > 0 || (p.matschEventsReceivedWith || 0) > 0)).length === 0 && (
+                            <div className="text-gray-400 text-center py-2">Keine Partner mit Matsch-Ereignissen</div>
+                          )}
+                    </div>
+                  </div>
+
+                      {/* Schneider-Bilanz */}
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
+                          <h3 className="text-base font-semibold text-white">Schneider-Bilanz</h3>
+                        </div>
+                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                          {typedRawPlayerStats.partnerAggregates
+                            .filter(partner => partner.gamesPlayedWith >= 1 && ((partner.schneiderEventsMadeWith || 0) > 0 || (partner.schneiderEventsReceivedWith || 0) > 0))
+                            .sort((a, b) => (b.schneiderBilanz || 0) - (a.schneiderBilanz || 0))
+                            .slice(0, 10)
+                            .map((partner, index) => {
+                              const playerData = members.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
+                              return (
+                                <Link 
+                                  href={partner.partnerId ? `/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner` : '#'} 
+                                  key={`partner-schneider-${index}`} 
+                                  className={`block rounded-md ${partner.partnerId ? 'cursor-pointer' : 'cursor-default'}`}
+                                >
+                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                <div className="flex items-center">
+                                  <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <ProfileImage 
+                                        src={playerData?.photoURL || undefined} 
+                                        alt={partner.partnerDisplayName} 
+                                        size="sm"
+                                        className={`mr-2 ${theme.profileImage}`}
+                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
+                                      />
+                                      <span className="text-gray-300">{partner.partnerDisplayName}</span>
+                                </div>
+                                    <div className="flex items-center">
+                                      <span className="text-white font-medium mr-2">
+                                        <span className="text-gray-400 mr-1 text-sm">
+                                          ({partner.schneiderEventsMadeWith || 0}/{(partner.schneiderEventsReceivedWith || 0)})
+                                        </span>
+                                        <span className="text-lg font-medium">
+                                          {(partner.schneiderBilanz || 0) > 0 ? '+' : ''}
+                                          {partner.schneiderBilanz || 0}
+                                        </span>
+                                      </span>
+                              </div>
+                                  </div>
+                                </Link>
+                              );
+                            })}
+                          {typedRawPlayerStats.partnerAggregates.filter(p => p.gamesPlayedWith >= 1 && ((p.schneiderEventsMadeWith || 0) > 0 || (p.schneiderEventsReceivedWith || 0) > 0)).length === 0 && (
+                            <div className="text-gray-400 text-center py-2">Keine Partner mit Schneider-Ereignissen</div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Kontermatsch-Bilanz */}
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
+                          <h3 className="text-base font-semibold text-white">Kontermatsch-Bilanz</h3>
+                    </div>
+                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                          {typedRawPlayerStats.partnerAggregates
+                            .filter(partner => partner.gamesPlayedWith >= 1 && ((partner.kontermatschEventsMadeWith || 0) > 0 || (partner.kontermatschEventsReceivedWith || 0) > 0))
+                            .sort((a, b) => (b.kontermatschBilanz || 0) - (a.kontermatschBilanz || 0))
+                            .slice(0, 10)
+                            .map((partner, index) => {
+                              const playerData = members.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
+                              return (
+                                <Link 
+                                  href={partner.partnerId ? `/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner` : '#'} 
+                                  key={`partner-kontermatsch-${index}`} 
+                                  className={`block rounded-md ${partner.partnerId ? 'cursor-pointer' : 'cursor-default'}`}
+                                >
+                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                    <div className="flex items-center">
+                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <ProfileImage 
+                                        src={playerData?.photoURL || undefined} 
+                                        alt={partner.partnerDisplayName} 
+                                        size="sm"
+                                        className={`mr-2 ${theme.profileImage}`}
+                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
+                                      />
+                                      <span className="text-gray-300">{partner.partnerDisplayName}</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <span className="text-white font-medium mr-2">
+                                        <span className="text-gray-400 mr-1 text-sm">
+                                          ({partner.kontermatschEventsMadeWith || 0}/{(partner.kontermatschEventsReceivedWith || 0)})
+                                        </span>
+                                        <span className="text-lg font-medium">
+                                          {(partner.kontermatschBilanz || 0) > 0 ? '+' : ''}
+                                          {partner.kontermatschBilanz || 0}
+                                        </span>
                                       </span>
                                     </div>
                                   </div>
                                 </Link>
                               );
                             })}
+                          {typedRawPlayerStats.partnerAggregates.filter(p => p.gamesPlayedWith >= 1 && ((p.kontermatschEventsMadeWith || 0) > 0 || (p.kontermatschEventsReceivedWith || 0) > 0)).length === 0 && (
+                            <div className="text-gray-400 text-center py-2">Keine Partner mit Kontermatsch-Ereignissen</div>
+                          )}
                         </div>
                       </div>
                     </>
@@ -1491,11 +1701,11 @@ const ProfilePage: React.FC = () => {
                 <TabsContent value="opponent" className="w-full bg-gray-800/50 rounded-lg p-4 space-y-6">
                   {typedRawPlayerStats?.opponentAggregates && typedRawPlayerStats.opponentAggregates.length > 0 ? (
                     <>
-                      {/* Rangliste: Siegquote Partien */}
+                      {/* Siegquote Partien */}
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Rangliste: Siegquote Partien</h3>
+                          <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
+                          <h3 className="text-base font-semibold text-white">Siegquote Partien</h3>
                         </div>
                         <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                           {typedRawPlayerStats.opponentAggregates
@@ -1517,7 +1727,7 @@ const ProfilePage: React.FC = () => {
                                         src={playerData?.photoURL || undefined} 
                                         alt={opponent.opponentDisplayName} 
                                         size="sm"
-                                        className="mr-2 bg-blue-600/20"
+                                        className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
                                       />
@@ -1525,6 +1735,11 @@ const ProfilePage: React.FC = () => {
                                     </div>
                                     <div className="flex items-center">
                                       <span className="text-white font-medium mr-2">
+                                        {opponent.sessionsPlayedAgainst > 0 && (
+                                          <span className="text-gray-400 mr-1 text-sm">
+                                            ({opponent.sessionsWonAgainst}/{opponent.sessionsPlayedAgainst})
+                                          </span>
+                                        )}
                                         {getWinRateDisplay(
                                           opponent.sessionWinRateInfo,
                                           opponent.sessionsWonAgainst,
@@ -1542,11 +1757,11 @@ const ProfilePage: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Rangliste: Siegquote Spiele */}
+                      {/* Siegquote Spiele */}
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Rangliste: Siegquote Spiele</h3>
+                          <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
+                          <h3 className="text-base font-semibold text-white">Siegquote Spiele</h3>
                         </div>
                         <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                           {typedRawPlayerStats.opponentAggregates
@@ -1568,7 +1783,7 @@ const ProfilePage: React.FC = () => {
                                         src={playerData?.photoURL || undefined} 
                                         alt={opponent.opponentDisplayName} 
                                         size="sm"
-                                        className="mr-2 bg-blue-600/20"
+                                        className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
                       />
@@ -1576,6 +1791,11 @@ const ProfilePage: React.FC = () => {
                                     </div>
                                     <div className="flex items-center">
                                       <span className="text-white font-medium mr-2">
+                                        {opponent.gamesPlayedAgainst > 0 && (
+                                          <span className="text-gray-400 mr-1 text-sm">
+                                            ({opponent.gamesWonAgainst}/{opponent.gamesPlayedAgainst})
+                                          </span>
+                                        )}
                                         {getWinRateDisplay(
                                           opponent.gameWinRateInfo,
                                           opponent.gamesWonAgainst,
@@ -1593,11 +1813,11 @@ const ProfilePage: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Rangliste: Strichdifferenz */}
+                      {/* Strichdifferenz */}
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Rangliste: Strichdifferenz</h3>
+                          <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
+                          <h3 className="text-base font-semibold text-white">Strichdifferenz</h3>
                         </div>
                         <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                           {typedRawPlayerStats.opponentAggregates
@@ -1619,7 +1839,7 @@ const ProfilePage: React.FC = () => {
                                         src={playerData?.photoURL || undefined} 
                                         alt={opponent.opponentDisplayName} 
                                         size="sm"
-                                        className="mr-2 bg-blue-600/20"
+                                        className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
                                       />
@@ -1627,6 +1847,11 @@ const ProfilePage: React.FC = () => {
                                     </div>
                                     <div className="flex items-center">
                                       <span className="text-white font-medium mr-2">
+                                        {opponent.gamesPlayedAgainst > 0 && (
+                                          <span className="text-gray-400 mr-1 text-sm">
+                                            ({opponent.gamesPlayedAgainst})
+                                          </span>
+                                        )}
                                         {opponent.totalStricheDifferenceAgainst > 0 ? '+' : ''}{opponent.totalStricheDifferenceAgainst}
                                       </span>
                                     </div>
@@ -1637,11 +1862,11 @@ const ProfilePage: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Rangliste: Punktdifferenz */}
+                      {/* Punktdifferenz */}
                       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                         <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Rangliste: Punktdifferenz</h3>
+                          <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
+                          <h3 className="text-base font-semibold text-white">Punktdifferenz</h3>
                         </div>
                         <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                           {typedRawPlayerStats.opponentAggregates
@@ -1663,7 +1888,7 @@ const ProfilePage: React.FC = () => {
                                         src={playerData?.photoURL || undefined} 
                                         alt={opponent.opponentDisplayName} 
                                         size="sm"
-                                        className="mr-2 bg-blue-600/20"
+                                        className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
                                       />
@@ -1671,6 +1896,11 @@ const ProfilePage: React.FC = () => {
                                     </div>
                                     <div className="flex items-center">
                                       <span className="text-white font-medium mr-2">
+                                        {opponent.gamesPlayedAgainst > 0 && (
+                                          <span className="text-gray-400 mr-1 text-sm">
+                                            ({opponent.gamesPlayedAgainst})
+                                          </span>
+                                        )}
                                         {opponent.totalPointsDifferenceAgainst > 0 ? '+' : ''}{opponent.totalPointsDifferenceAgainst}
                                       </span>
                                     </div>
@@ -1678,6 +1908,165 @@ const ProfilePage: React.FC = () => {
                                 </Link>
                               );
                             })}
+                        </div>
+                      </div>
+
+                      {/* Matsch-Bilanz */}
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
+                          <h3 className="text-base font-semibold text-white">Matsch-Bilanz</h3>
+                        </div>
+                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                          {typedRawPlayerStats.opponentAggregates
+                            .filter(opponent => opponent.gamesPlayedAgainst >= 1 && ((opponent.matschEventsMadeAgainst || 0) > 0 || (opponent.matschEventsReceivedAgainst || 0) > 0))
+                            .sort((a, b) => (b.matschBilanz || 0) - (a.matschBilanz || 0))
+                            .slice(0, 10)
+                            .map((opponent, index) => {
+                              const playerData = members.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
+                              return (
+                                <Link 
+                                  href={opponent.opponentId ? `/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent` : '#'} 
+                                  key={`opponent-matsch-${index}`} 
+                                  className={`block rounded-md ${opponent.opponentId ? 'cursor-pointer' : 'cursor-default'}`}
+                                >
+                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                    <div className="flex items-center">
+                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <ProfileImage 
+                                        src={playerData?.photoURL || undefined} 
+                                        alt={opponent.opponentDisplayName} 
+                                        size="sm"
+                                        className={`mr-2 ${theme.profileImage}`}
+                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
+                                      />
+                                      <span className="text-gray-300">{opponent.opponentDisplayName}</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <span className="text-white font-medium mr-2">
+                                        <span className="text-gray-400 mr-1 text-sm">
+                                          ({opponent.matschEventsMadeAgainst || 0}/{(opponent.matschEventsReceivedAgainst || 0)})
+                                        </span>
+                                        <span className="text-lg font-medium">
+                                          {(opponent.matschBilanz || 0) > 0 ? '+' : ''}
+                                          {opponent.matschBilanz || 0}
+                                        </span>
+                                      </span>
+                                    </div>
+                                  </div>
+                                </Link>
+                              );
+                            })}
+                          {typedRawPlayerStats.opponentAggregates.filter(o => o.gamesPlayedAgainst >= 1 && ((o.matschEventsMadeAgainst || 0) > 0 || (o.matschEventsReceivedAgainst || 0) > 0)).length === 0 && (
+                            <div className="text-gray-400 text-center py-2">Keine Gegner mit Matsch-Ereignissen</div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Schneider-Bilanz */}
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
+                          <h3 className="text-base font-semibold text-white">Schneider-Bilanz</h3>
+                        </div>
+                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                          {typedRawPlayerStats.opponentAggregates
+                            .filter(opponent => opponent.gamesPlayedAgainst >= 1 && ((opponent.schneiderEventsMadeAgainst || 0) > 0 || (opponent.schneiderEventsReceivedAgainst || 0) > 0))
+                            .sort((a, b) => (b.schneiderBilanz || 0) - (a.schneiderBilanz || 0))
+                            .slice(0, 10)
+                            .map((opponent, index) => {
+                              const playerData = members.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
+                              return (
+                                <Link 
+                                  href={opponent.opponentId ? `/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent` : '#'} 
+                                  key={`opponent-schneider-${index}`} 
+                                  className={`block rounded-md ${opponent.opponentId ? 'cursor-pointer' : 'cursor-default'}`}
+                                >
+                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                    <div className="flex items-center">
+                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <ProfileImage 
+                                        src={playerData?.photoURL || undefined} 
+                                        alt={opponent.opponentDisplayName} 
+                                        size="sm"
+                                        className={`mr-2 ${theme.profileImage}`}
+                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
+                                      />
+                                      <span className="text-gray-300">{opponent.opponentDisplayName}</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <span className="text-white font-medium mr-2">
+                                        <span className="text-gray-400 mr-1 text-sm">
+                                          ({opponent.schneiderEventsMadeAgainst || 0}/{(opponent.schneiderEventsReceivedAgainst || 0)})
+                                        </span>
+                                        <span className="text-lg font-medium">
+                                          {(opponent.schneiderBilanz || 0) > 0 ? '+' : ''}
+                                          {opponent.schneiderBilanz || 0}
+                                        </span>
+                                      </span>
+                                    </div>
+                                  </div>
+                                </Link>
+                              );
+                            })}
+                          {typedRawPlayerStats.opponentAggregates.filter(o => o.gamesPlayedAgainst >= 1 && ((o.schneiderEventsMadeAgainst || 0) > 0 || (o.schneiderEventsReceivedAgainst || 0) > 0)).length === 0 && (
+                            <div className="text-gray-400 text-center py-2">Keine Gegner mit Schneider-Ereignissen</div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Kontermatsch-Bilanz */}
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
+                          <h3 className="text-base font-semibold text-white">Kontermatsch-Bilanz</h3>
+                        </div>
+                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                          {typedRawPlayerStats.opponentAggregates
+                            .filter(opponent => opponent.gamesPlayedAgainst >= 1 && ((opponent.kontermatschEventsMadeAgainst || 0) > 0 || (opponent.kontermatschEventsReceivedAgainst || 0) > 0))
+                            .sort((a, b) => (b.kontermatschBilanz || 0) - (a.kontermatschBilanz || 0))
+                            .slice(0, 10)
+                            .map((opponent, index) => {
+                              const playerData = members.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
+                              return (
+                                <Link 
+                                  href={opponent.opponentId ? `/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent` : '#'} 
+                                  key={`opponent-kontermatsch-${index}`} 
+                                  className={`block rounded-md ${opponent.opponentId ? 'cursor-pointer' : 'cursor-default'}`}
+                                >
+                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                    <div className="flex items-center">
+                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <ProfileImage 
+                                        src={playerData?.photoURL || undefined} 
+                                        alt={opponent.opponentDisplayName} 
+                                        size="sm"
+                                        className={`mr-2 ${theme.profileImage}`}
+                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
+                                      />
+                                      <span className="text-gray-300">{opponent.opponentDisplayName}</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <span className="text-white font-medium mr-2">
+                                        <span className="text-gray-400 mr-1 text-sm">
+                                          ({opponent.kontermatschEventsMadeAgainst || 0}/{(opponent.kontermatschEventsReceivedAgainst || 0)})
+                                        </span>
+                                        <span className="text-lg font-medium">
+                                          {(opponent.kontermatschBilanz || 0) > 0 ? '+' : ''}
+                                          {opponent.kontermatschBilanz || 0}
+                                        </span>
+                                      </span>
+                                    </div>
+                                  </div>
+                                </Link>
+                              );
+                            })}
+                          {typedRawPlayerStats.opponentAggregates.filter(o => o.gamesPlayedAgainst >= 1 && ((o.kontermatschEventsMadeAgainst || 0) > 0 || (o.kontermatschEventsReceivedAgainst || 0) > 0)).length === 0 && (
+                            <div className="text-gray-400 text-center py-2">Keine Gegner mit Kontermatsch-Ereignissen</div>
+                          )}
                         </div>
                       </div>
                     </>
@@ -1713,7 +2102,7 @@ const ProfilePage: React.FC = () => {
                 <div className="space-y-4">
                    {sortedYears.map(year => (
                      <div key={year}>
-                      <h3 className="text-lg font-semibold text-white mb-2 sticky top-0 bg-gray-900 py-1 z-10">{year}</h3>
+                      <h3 className="text-lg font-semibold text-white mb-3 text-center">{year}</h3>
                       <div className="space-y-2">
                         {groupedArchiveByYear[year].map(item => (
                           renderArchiveItem(item)

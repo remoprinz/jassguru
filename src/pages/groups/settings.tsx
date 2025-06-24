@@ -150,7 +150,14 @@ const GroupSettingsPage = () => {
                   await updateDoc(groupRef, { playerIds: arrayRemove(idToCheck) });
                   await updateDoc(groupRef, { playerIds: arrayUnion(correctPlayerId) });
                   dataWasHealed = true;
-                } catch (updateError) {}
+                } catch (updateError) {
+                  // Stille Behandlung für "No document to update" Fehler
+                  if (updateError instanceof Error && updateError.message.includes("No document to update")) {
+                    console.warn(`GROUP_SETTINGS: Group ${currentGroup.id} does not exist, silently ignoring data healing.`);
+                  } else {
+                    console.error("Fehler beim Heilen der Gruppendaten:", updateError);
+                  }
+                }
                 return correctedPlayerDoc;
               }
             }

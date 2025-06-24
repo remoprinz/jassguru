@@ -1464,19 +1464,19 @@ const ResultatKreidetafel = ({
                   Rosen10player: gameAggregations.Rosen10player // Wird später zur Player Doc ID konvertiert
                 };
 
-                // Die aggressive Regex-Bereinigung wird entfernt. Das Objekt sollte jetzt korrekt sein.
-                console.log("[ResultatKreidetafel] Attempting to save completed game summary (Struktur überarbeitet)...", { currentSessionIdFromStore, gameNumberToSave, summaryToSave: JSON.parse(JSON.stringify(summaryToSave)) }); 
-                    await saveCompletedGameToFirestore(currentSessionIdFromStore, gameNumberToSave, summaryToSave, false);
-                
-                console.log("[ResultatKreidetafel] Completed game summary saved successfully."); 
-
-                // NEU: Sofort nach dem Speichern das aktive Spiel als "completed" markieren
-                // Dies verhindert Duplizierung in gamesForStatistik zwischen Speichern und Reset
+                // ✅ KRITISCH: Spiel VOR dem Speichern als completed markieren
+                // Dies verhindert Race Condition in gamesForStatistik zwischen Speichern und React Re-Render
                 useGameStore.setState(state => ({
                   ...state,
                   isGameCompleted: true
                 }));
-                console.log("[ResultatKreidetafel] Marked active game as completed to prevent duplication.");
+                console.log("[ResultatKreidetafel] Marked active game as completed BEFORE saving to prevent duplication.");
+
+                // Die aggressive Regex-Bereinigung wird entfernt. Das Objekt sollte jetzt korrekt sein.
+                console.log("[ResultatKreidetafel] Attempting to save completed game summary (Struktur überarbeitet)...", { currentSessionIdFromStore, gameNumberToSave, summaryToSave: JSON.parse(JSON.stringify(summaryToSave)) }); 
+                    await saveCompletedGameToFirestore(currentSessionIdFromStore, gameNumberToSave, summaryToSave, false);
+                
+                console.log("[ResultatKreidetafel] Completed game summary saved successfully.");
 
                 // LOG 5: Nach saveCompletedGameToFirestore
                 // console.log(`[handleSignatureClick - LOG 5] Nach saveCompletedGameToFirestore. Spiel: ${currentGameNumber}, History Length: ${useGameStore.getState().roundHistory.length}`);
@@ -1821,11 +1821,15 @@ const ResultatKreidetafel = ({
     if (isOnlineMode) {
         combinedGames = [...onlineGamesFromJassStore]; 
         const localActiveGameId = gameStoreState.activeGameId; 
-        if (gameStoreState.isGameStarted && !gameStoreState.isGameCompleted && localActiveGameId) { 
+        // ✅ KORREKTUR: Zusätzliche Überprüfung auf Finalisierungsstatus hinzugefügt
+        const isCurrentlyFinalizing = useUIStore.getState().signingState !== 'idle';
+        if (gameStoreState.isGameStarted && !gameStoreState.isGameCompleted && localActiveGameId && !isCurrentlyFinalizing) { 
           const gameAlreadyExists = combinedGames.some(game => { 
              const id = 'gameNumber' in game ? game.gameNumber : game.id;
-             // Prüfe gegen die ID aus dem gameStore
-             return String(id) === String(localActiveGameId); 
+             const gameNumber = useJassStore.getState().currentGameId;
+             // ✅ ROBUSTE DUPLIKATS-ÜBERPRÜFUNG: Prüfe sowohl gegen activeGameId als auch gameNumber
+             return String(id) === String(localActiveGameId) || 
+                    ('gameNumber' in game && game.gameNumber === gameNumber);
            });
           if (!gameAlreadyExists) { 
             const activeGameRepresentation: GameEntry = {

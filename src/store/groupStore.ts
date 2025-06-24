@@ -313,6 +313,13 @@ const groupStoreCreator: StateCreator<
       uiStore.showNotification({ message: "Gruppeneinstellungen gespeichert.", type: "success" });
     } catch (error) {
       console.error(`GROUP_STORE: Error updating group ${groupId}:`, error);
+      
+      // Stille Behandlung für "No document to update" Fehler
+      if (error instanceof Error && error.message.includes("No document to update")) {
+        console.warn(`GROUP_STORE: Group ${groupId} does not exist, silently ignoring update.`);
+        return;
+      }
+      
       let message = "Fehler beim Speichern der Gruppeneinstellungen.";
       if (error instanceof Error) {
         message += `: ${error.message}`;
@@ -347,6 +354,14 @@ const groupStoreCreator: StateCreator<
       // console.log(`GROUP_STORE: Successfully updated farbeSettings for group ${groupId}`);
     } catch (error) {
       // console.error(`GROUP_STORE: Failed to update farbeSettings for group ${groupId}:`, error);
+      
+      // Stille Behandlung für "No document to update" Fehler
+      if (error instanceof Error && error.message.includes("No document to update")) {
+        console.warn(`GROUP_STORE: Group ${groupId} does not exist, silently ignoring farbeSettings update.`);
+        set({ status: "idle" }, false, 'updateCurrentGroupFarbeSettingsIgnored');
+        return;
+      }
+      
       set({ status: "error", error: "Fehler beim Speichern der Farbeinstellungen." }, false, 'updateCurrentGroupFarbeSettingsError');
       throw error;
     }
@@ -377,6 +392,14 @@ const groupStoreCreator: StateCreator<
       // console.log(`GROUP_STORE: Successfully updated scoreSettings for group ${groupId}`);
     } catch (error) {
       // console.error(`GROUP_STORE: Failed to update scoreSettings for group ${groupId}:`, error);
+      
+      // Stille Behandlung für "No document to update" Fehler
+      if (error instanceof Error && error.message.includes("No document to update")) {
+        console.warn(`GROUP_STORE: Group ${groupId} does not exist, silently ignoring scoreSettings update.`);
+        set({ status: "idle" }, false, 'updateCurrentGroupScoreSettingsIgnored');
+        return;
+      }
+      
       set({ status: "error", error: "Fehler beim Speichern der Punkteeinstellungen." }, false, 'updateCurrentGroupScoreSettingsError');
       throw error;
     }
@@ -407,6 +430,14 @@ const groupStoreCreator: StateCreator<
        // console.log(`GROUP_STORE: Successfully updated strokeSettings for group ${groupId}`);
     } catch (error) {
       // console.error(`GROUP_STORE: Failed to update strokeSettings for group ${groupId}:`, error);
+       
+      // Stille Behandlung für "No document to update" Fehler
+      if (error instanceof Error && error.message.includes("No document to update")) {
+        console.warn(`GROUP_STORE: Group ${groupId} does not exist, silently ignoring strokeSettings update.`);
+        set({ status: "idle" }, false, 'updateCurrentGroupStrokeSettingsIgnored');
+        return;
+      }
+       
        set({ status: "error", error: "Fehler beim Speichern der Stricheinstellungen." }, false, 'updateCurrentGroupStrokeSettingsError');
       throw error;
     }
@@ -424,6 +455,13 @@ const groupStoreCreator: StateCreator<
       }));
     } catch (error) {
       // console.error("Fehler beim Aktualisieren des Kartensatzes:", error);
+      
+      // Stille Behandlung für "No document to update" Fehler
+      if (error instanceof Error && error.message.includes("No document to update")) {
+        console.warn(`GROUP_STORE: Group ${groupId} does not exist, silently ignoring cardStyle update.`);
+        return;
+      }
+      
       throw error;
     }
   },
@@ -524,6 +562,14 @@ const groupStoreCreator: StateCreator<
 
     } catch (error) {
       console.error(`GROUP_STORE: Failed to update role for playerId ${playerId} to ${role} in group ${groupId}:`, error); // Behalte bestehendes Error-Logging
+      
+      // Stille Behandlung für "No document to update" Fehler
+      if (error instanceof Error && error.message.includes("No document to update")) {
+        console.warn(`GROUP_STORE: Group ${groupId} does not exist, silently ignoring role update for playerId ${playerId}.`);
+        set({ status: "idle", error: null }, false, 'updateMemberRoleIgnored');
+        return;
+      }
+      
       const message = error instanceof Error ? error.message : "Rollenänderung fehlgeschlagen.";
       set({ status: "error", error: message }, false, 'updateMemberRoleError');
       throw new Error(message);
@@ -627,6 +673,13 @@ const groupStoreCreator: StateCreator<
       uiStore.showNotification({ message: "Jass-Einstellungen erfolgreich aktualisiert.", type: "success" });
     } catch (error) {
       console.error("GROUP_STORE: Fehler beim Aktualisieren der Jass-Einstellungen für Gruppe", groupId, error);
+      
+      // Stille Behandlung für "No document to update" Fehler
+      if (error instanceof Error && error.message.includes("No document to update")) {
+        console.warn(`GROUP_STORE: Group ${groupId} does not exist, silently ignoring Jass-Einstellungen update.`);
+        return;
+      }
+      
       let message = "Fehler beim Aktualisieren der Jass-Einstellungen.";
       if (error instanceof Error) {
         message += `: ${error.message}`;

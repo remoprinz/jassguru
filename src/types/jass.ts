@@ -883,6 +883,7 @@ export interface FirestorePlayer extends FirebaseDocument { // Stelle sicher, da
   lastActiveGroupId?: string | null; // Optional, kann null sein
   statusMessage?: string | null;   // Optional, kann null sein
   playerId?: string | null;      // Optional, Verknüpfung zum Spieler-Profil (falls separates Dokument)
+  profileTheme?: string | null;  // NEU: Profilfarbe/Theme für die UI
   preferences?: {              // Optionales Objekt für Einstellungen
     theme?: 'light' | 'dark' | 'system';
     notifications?: boolean;
