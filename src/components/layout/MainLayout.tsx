@@ -89,11 +89,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({children}) => {
     return router === path || router.startsWith(`${path}/`);
   };
 
-  // Dynamisches Padding basierend auf CTA Sichtbarkeit
+  // Dynamisches Padding basierend auf CTA Sichtbarkeit und BottomNav
   // h-24 für BottomNav = 6rem
   // Annahme: h-20 für Action Footer (inkl. Padding) = 5rem
   // Total Padding: 6rem + 5rem = 11rem => pb-44
-  const mainPaddingBottom = isCtaVisible ? "pb-44" : "pb-24";
+  const showBottomNav = isAuthenticated() && !isGuest;
+  const mainPaddingBottom = isCtaVisible ? "pb-44" : (showBottomNav ? "pb-24" : "pb-0");
 
   return (
     <div className="flex flex-col h-screen bg-gray-900 max-w-3xl mx-auto">
@@ -143,8 +144,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({children}) => {
         </div>
       )}
 
-      {/* Bestehende Bottom Navigation (Höhe h-24 -> 6rem) */}
-      <BottomNavigation />
+      {/* Bestehende Bottom Navigation (Höhe h-24 -> 6rem) - nur für eingeloggte User */}
+      {showBottomNav && <BottomNavigation />}
 
       {/* Globale Benachrichtigungen (statt Toaster) */}
       <GlobalNotificationContainer />

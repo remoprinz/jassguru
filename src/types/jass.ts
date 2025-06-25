@@ -916,6 +916,8 @@ export interface FirestoreGroup extends FirebaseDocument {
   // Hinzufügen eines Feldes für Spielerobjekte, falls benötigt
   players?: { [playerId: string]: { displayName: string; photoURL?: string; joinedAt?: Timestamp } };
   gameCount?: number; // Hinzugefügt für die Anzahl der Spiele in der Gruppe
+  theme?: string; // NEU: Theme für Gruppen-Styling
+  lastActivity?: FieldValue;
 }
 
 export type ChargeLevel = "none" | "low" | "medium" | "high" | "super" | "extreme";

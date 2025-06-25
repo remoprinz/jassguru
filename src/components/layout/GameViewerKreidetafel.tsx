@@ -23,6 +23,8 @@ import { DEFAULT_FARBE_SETTINGS } from '@/config/FarbeSettings'; // Default fall
 import { DEFAULT_SCORE_SETTINGS } from '@/config/ScoreSettings';
 import { useScreenshot } from '@/hooks/useScreenshot'; // NEU: Importiere den Hook
 import { FiShare2, FiLoader } from 'react-icons/fi'; // NEU: Importiere Icons
+import { ArrowLeft } from 'lucide-react'; // 🚨 NEU: Icon für Zurück-Pfeil
+import { Button } from '@/components/ui/button'; // 🚨 NEU: Der offizielle Button
 
 // Props Interface mirroring viewerData structure from [gameId].tsx
 export interface GameViewerKreidetafelProps {
@@ -42,6 +44,7 @@ export interface GameViewerKreidetafelProps {
     startedAt?: number | Timestamp | FieldValue;
   };
   gameTypeLabel?: string; // NEU: Prop für das Label
+  onBackClick?: () => void; // 🚨 NEU: Prop für den Zurück-Pfeil
 }
 
 // Reusable PlayerName Component (copied from ResultatKreidetafel for now)
@@ -54,9 +57,10 @@ const PlayerNameDisplay: React.FC<{ name: string, isStarter: boolean }> = ({ nam
   </div>
 );
 
-const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData, gameTypeLabel = 'Spiel' }) => {
+const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData, gameTypeLabel = 'Spiel', onBackClick }) => {
   const [currentStatistic, setCurrentStatistic] = useState<string>(STATISTIC_MODULES[0]?.id ?? 'striche'); // Default to first module
   const { isSharing, handleShare } = useScreenshot(); // NEU: Hook verwenden
+  const [activeTab, setActiveTab] = useState<'points' | 'chart'>('points');
 
   // Determine current game being viewed (assuming the last game in the array is the most current)
   // In a multi-game session context, this might need adjustment based on viewerData structure.
@@ -306,13 +310,25 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
 
   return (
     // 1. Swipe-Handler am äußersten Div, h-full und touch-action-pan-x hinzufügen
-    <div id="game-viewer-kreidetafel" {...swipeHandlers} className="relative flex flex-col bg-gradient-radial from-gray-800 to-gray-900 text-white p-4 md:p-6 max-w-md mx-auto h-full touch-action-pan-x">
+    <div id="game-viewer-kreidetafel" {...swipeHandlers} className="relative flex flex-col bg-gradient-radial from-gray-800 to-gray-900 text-white p-4 md:p-6 max-w-md mx-auto h-full touch-action-pan-x pt-8">
       
-      {/* NEU: Share-Button oben rechts */}
+      {/* 🚨 ZURÜCK-PFEIL: Exakt wie in [playerId].tsx */}
+      {onBackClick && (
+        <Button 
+          variant="ghost" 
+          className="absolute top-8 left-4 text-white hover:bg-gray-700 p-3"
+          aria-label="Zurück"
+          onClick={onBackClick}
+        >
+          <ArrowLeft size={28} />
+        </Button>
+      )}
+
+      {/* TEILEN-BUTTON: Auf derselben Höhe wie der Zurück-Pfeil */}
       <button 
         onClick={onShareClick}
         disabled={isSharing}
-        className="absolute -top-8 right-4 z-10 p-2 text-gray-300 hover:text-white transition-colors duration-200 rounded-full bg-gray-700/50 hover:bg-gray-600/70 disabled:opacity-50 disabled:cursor-wait"
+        className="absolute top-8 right-4 z-10 p-2 text-gray-300 hover:text-white transition-colors duration-200 rounded-full bg-gray-700/50 hover:bg-gray-600/70 disabled:opacity-50 disabled:cursor-wait"
         aria-label="Ergebnis teilen"
       >
         {isSharing ? (

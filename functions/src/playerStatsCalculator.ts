@@ -193,11 +193,11 @@ async function calculatePlayerStatisticsInternal(
 
     // --- Session-Level Team Assignment ---
     const playerTeam = getPlayerTeam(playerId, session);
-    if (!playerTeam) {
+  if (!playerTeam) {
       logger.warn(`Player ${playerId} not found in teams for session ${sessionId}. Skipping.`);
       continue;
-    }
-    const opponentTeam = playerTeam === 'top' ? 'bottom' : 'top';
+  }
+  const opponentTeam = playerTeam === 'top' ? 'bottom' : 'top';
 
     // === NEU: Partner/Opponent Aggregation Logic ===
     

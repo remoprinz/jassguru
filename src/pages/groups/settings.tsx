@@ -24,6 +24,7 @@ import {db} from "@/services/firebaseInit";
 import ProfileImage from '@/components/ui/ProfileImage';
 import {doc, getDoc, updateDoc, arrayRemove, arrayUnion, Timestamp} from "firebase/firestore";
 import { FarbePictogram } from '@/components/settings/FarbePictogram';
+import { CURRENT_PROFILE_THEME, THEME_COLORS, type ThemeColor } from '@/config/theme';
 
 // Füge korrekte Imports hinzu
 import { DEFAULT_FARBE_SETTINGS, FARBE_MODES } from '@/config/FarbeSettings';
@@ -86,6 +87,7 @@ const GroupSettingsPage = () => {
   const [tempScoreSettings, setTempScoreSettings] = useState<ScoreSettings>(DEFAULT_SCORE_SETTINGS);
   const [tempStrokeSettings, setTempStrokeSettings] = useState<StrokeSettings>(DEFAULT_STROKE_SETTINGS);
   const [tempFarbeSettings, setTempFarbeSettings] = useState<FarbeSettings>(DEFAULT_FARBE_SETTINGS);
+  const [tempTheme, setTempTheme] = useState<ThemeColor>('indigo'); // NEU: State für Theme
 
   // === STATE für Input Buffer ===
   const [tempInput, setTempInput] = useState<{[key in ScoreMode]?: string}>({});
@@ -218,6 +220,7 @@ const GroupSettingsPage = () => {
        setTempScoreSettings(scoreSettings);
        setTempStrokeSettings(strokeSettings);
        setTempFarbeSettings(farbeSettings);
+       setTempTheme((currentGroup.theme as ThemeColor) || 'indigo'); // NEU: Theme laden oder Default
  
        // Reset Input-Buffer
       setTempInput({}); 
@@ -233,6 +236,7 @@ const GroupSettingsPage = () => {
        setTempScoreSettings(DEFAULT_SCORE_SETTINGS);
        setTempStrokeSettings(DEFAULT_STROKE_SETTINGS);
        setTempFarbeSettings(DEFAULT_FARBE_SETTINGS);
+       setTempTheme('indigo'); // NEU: Theme zurücksetzen
      }
   }, [currentGroup]);
 
@@ -346,10 +350,13 @@ const GroupSettingsPage = () => {
                                 JSON.stringify(finalFarbeSettings.values) !== JSON.stringify(currentFarbeValues) ||
                                 finalFarbeSettings.cardStyle !== currentCardStyle;
 
+    // NEU: Theme-Änderung prüfen
+    const themeChanged = tempTheme !== ((currentGroup.theme as ThemeColor) || 'indigo');
+
     let success = true;
     let errorMsg = "";
 
-    if (!baseInfoChanged && !jassSettingsChanged) {
+    if (!baseInfoChanged && !jassSettingsChanged && !themeChanged) {
         console.log("Keine Änderungen zum Speichern.");
         setIsSubmitting(false);
         showNotification({ message: "Keine Änderungen vorgenommen.", type: "info" });
@@ -373,6 +380,12 @@ const GroupSettingsPage = () => {
           cardStyle: finalFarbeSettings.cardStyle,
         };
         await updateCurrentGroupJassSettings(groupId, jassSettingsUpdates);
+      }
+
+      // NEU: Speichere Theme, falls geändert
+      if (themeChanged) {
+        console.log("Speichere Gruppen-Theme...");
+        await updateGroup(groupId, { theme: tempTheme });
       }
 
       // 5. Erfolgsmeldung
@@ -428,8 +441,8 @@ const GroupSettingsPage = () => {
                                Object.keys(tempStrokeInput).length > 0 ||
                                Object.keys(tempFarbeInput).length > 0;
 
-    // Kombinierte Prüfung: Basis ODER Jass ODER Buffer geändert
-    const hasAnyChanges = hasBasicChanges || hasJassChanges || hasBufferedChanges;
+    // Kombinierte Prüfung: Basis ODER Jass ODER Buffer ODER Theme geändert
+    const hasAnyChanges = hasBasicChanges || hasJassChanges || hasBufferedChanges || (tempTheme !== ((currentGroup.theme as ThemeColor) || 'indigo'));
 
     setPageCta({
       isVisible: true,
@@ -446,7 +459,7 @@ const GroupSettingsPage = () => {
     };
   }, [
       setPageCta, resetPageCta, isSubmitting, name, description, mainLocationZip, isPublic, currentGroup, // PLZ als Abhängigkeit
-      tempScoreSettings, tempStrokeSettings, tempFarbeSettings,
+      tempScoreSettings, tempStrokeSettings, tempFarbeSettings, tempTheme, // NEU: tempTheme
       tempInput, tempStrokeInput, tempFarbeInput
   ]);
 
@@ -805,6 +818,78 @@ ${linkText}`;
     );
   };
 
+  // NEU: Render-Funktion für Theme-Auswahl
+  const renderThemeSettings = () => {
+    const themeLabels: Record<ThemeColor, { name: string; description: string }> = {
+      green: { name: "Grün", description: "" },
+      blue: { name: "Blau", description: "" },
+      purple: { name: "Lila", description: "" },
+      red: { name: "Rot", description: "" },
+      yellow: { name: "Gelb", description: "" },
+      indigo: { name: "Indigo", description: "" },
+      pink: { name: "Pink", description: "" },
+      teal: { name: "Türkis", description: "" },
+    };
+
+    return (
+      <Card className="bg-gray-800 border-gray-700">
+        <CardHeader>
+          <CardTitle className="text-white flex items-center gap-2"><Palette className="w-5 h-5" />Gruppenfarbe</CardTitle>
+          <CardDescription className="text-gray-400">Wähle eine Farbe für die Statistiken dieser Gruppe.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-3">
+            {(Object.keys(THEME_COLORS) as ThemeColor[]).map((themeKey) => {
+              const theme = THEME_COLORS[themeKey];
+              const label = themeLabels[themeKey];
+              const isSelected = tempTheme === themeKey;
+              const colorClass = theme.primary.replace('bg-', '');
+              
+              return (
+                <button
+                  key={themeKey}
+                  type="button"
+                  onClick={() => setTempTheme(themeKey)}
+                  className={`
+                    relative p-3 rounded-lg border-2 transition-all duration-200 text-left
+                    ${isSelected 
+                      ? `border-${colorClass} bg-${colorClass}/10 shadow-lg` 
+                      : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'
+                    }
+                  `}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div 
+                      className={`
+                        w-8 h-8 rounded-full border-2 transition-all duration-200
+                        ${theme.primary} border-gray-600
+                        ${isSelected ? 'scale-110 shadow-md' : ''}
+                      `}
+                    >
+                      {isSelected && (
+                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className={`font-medium text-sm ${isSelected ? 'text-white' : 'text-gray-300'}`}>
+                        {label.name}
+                      </div>
+                    </div>
+                  </div>
+                  {isSelected && (
+                    <div className={`absolute -top-1 -right-1 w-5 h-5 ${theme.primary} rounded-full border-2 border-gray-900 flex items-center justify-center`}>
+                      <div className="w-2 h-2 bg-white rounded-full"></div>
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   // Zeige Ladescreen während Auth-Status geprüft wird oder Gruppe noch nicht geladen
   if (status === "loading" || (routeGroupId && !currentGroup)) {
     return (
@@ -1043,6 +1128,9 @@ ${linkText}`;
                 </div>
               </CardContent>
             </Card>
+
+            {/* NEU: Theme-Einstellungen */}
+            {isCurrentUserAdmin && renderThemeSettings()}
 
             {/* Gefahrenzone */}
             {isCurrentUserAdmin && (

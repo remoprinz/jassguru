@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import type { CompletedGameSummary, JassSession, RoundEntry } from '@/types/jass'; // RoundEntry hinzugefügt
 import FullscreenLoader from '@/components/ui/FullscreenLoader';
@@ -21,6 +21,8 @@ import { format } from 'date-fns'; // Für Datumsformatierung im Titel
 import type { StrokeSettings, CardStyle, PlayerNames, TeamScores, StricheRecord, ScoreSettings } from '@/types/jass';
 // Entferne den Import von FirestoreGroup, definiere es lokal
 // import type { FirestoreGroup } from '@/store/groupStore';
+import { ClipLoader } from 'react-spinners';
+import { fetchAllGamesForSession } from '@/services/sessionService'; // 🚨 NEU: Import für Spieldaten
 
 // --- HILFSFUNKTIONEN FÜR TIMESTAMPS (ähnlich wie in [activeGameId].tsx) ---
 function parseFirebaseTimestamp(timestamp: any): number | null {
@@ -151,280 +153,173 @@ interface FirestoreGroup {
   // ... andere Felder der Gruppe, die wir hier nicht brauchen ...
 }
 
-const SessionViewerPage: React.FC = () => {
+const PublicSessionPage = () => {
   const router = useRouter();
   const { sessionId } = router.query;
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [sessionData, setSessionData] = useState<any>(null);
+  const [completedGames, setCompletedGames] = useState<CompletedGameSummary[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Verwende den präziseren Typ SessionMetadata
-  const [sessionData, setSessionData] = useState<SessionMetadata>(null);
-  const [completedGames, setCompletedGames] = useState<CompletedGamesData>([]);
-  // Zustand für Einstellungen bleibt
-  const [activeStrokeSettings, setActiveStrokeSettings] = useState<StrokeSettings>(DEFAULT_STROKE_SETTINGS);
-  const [activeCardStyle, setActiveCardStyle] = useState<CardStyle>(DEFAULT_FARBE_SETTINGS.cardStyle);
-  // NEU: Zustand für Score Settings
-  const [activeScoreSettings, setActiveScoreSettings] = useState<ScoreSettings>(DEFAULT_SCORE_SETTINGS);
+
+  // 🚨 INTELLIGENTE ZURÜCK-NAVIGATION (an den Anfang verschoben)
+  const handleBackClick = useCallback(() => {
+    const referrer = document.referrer;
+    console.log('[SessionPage] Zurück-Navigation von Referrer:', referrer);
+    
+    // Fall 1: Wir kommen von einer öffentlichen Gruppenseite (der häufigste Fall)
+    const publicGroupMatch = referrer.match(/\/view\/group\/([^/?]+)/);
+    if (publicGroupMatch) {
+      const groupIdFromReferrer = publicGroupMatch[1];
+      console.log('[SessionPage] Erkenne öffentliche Gruppenseite, navigiere zurück zu:', `/view/group/${groupIdFromReferrer}`);
+      router.push(`/view/group/${groupIdFromReferrer}`);
+      return;
+    }
+    
+    // Fall 2: Wir kommen von der Jass-Seite (eingeloggter Flow)
+    const isFromJass = referrer.includes('/jass');
+    if (isFromJass) {
+      console.log('[SessionPage] Von Jass-Seite kommend, navigiere zu /start');
+      router.push('/start');
+      return;
+    }
+    
+    // Fall 3: Der Referrer ist leer oder extern (z.B. neuer Tab), ABER wir haben die Gruppendaten
+    if ((!referrer || !referrer.startsWith(window.location.origin)) && sessionData?.groupId) {
+      console.log(`[SessionPage] Kein interner Referrer, aber groupId (${sessionData.groupId}) vorhanden. Navigiere zur Gruppe.`);
+      router.push(`/view/group/${sessionData.groupId}`);
+      return;
+    }
+
+    // Fall 4: Standard-Browser-History als Fallback
+    if (window.history.length > 1) {
+      console.log('[SessionPage] Interne History vorhanden, navigiere zurück');
+      router.back();
+    } else {
+      // Fall 5: Absoluter Notfall-Fallback
+      console.log('[SessionPage] Keine History, kein Referrer, keine groupId. Navigiere zu /start');
+      router.push('/start');
+    }
+  }, [router, sessionData?.groupId]); // sessionData.groupId als Abhängigkeit hinzufügen
 
   useEffect(() => {
-    if (sessionId && typeof sessionId === 'string' && router.isReady) {
-      const loadSessionData = async () => {
-        setIsLoading(true);
-        setError(null);
-        setSessionData(null);
-        setCompletedGames([]);
-        // Setze Einstellungen auf Default zurück bei Neuladen
-        setActiveStrokeSettings(DEFAULT_STROKE_SETTINGS);
-        setActiveCardStyle(DEFAULT_FARBE_SETTINGS.cardStyle);
-        setActiveScoreSettings(DEFAULT_SCORE_SETTINGS);
+    if (typeof sessionId !== 'string') return;
 
-        let loadedSessionData: SessionMetadata = null;
-        let loadedGamesData: CompletedGamesData = [];
+    const loadSession = async () => {
+      setLoading(true);
+      setError(null);
+      setCompletedGames([]);
+      
+      try {
+        console.log('🔄 Lade Session:', sessionId);
+        const db = getFirestore(firebaseApp);
+        
+        let sessionSnap;
+        const summaryRef = doc(db, 'jassGameSummaries', sessionId);
+        sessionSnap = await getDoc(summaryRef);
 
-        try {
-          const db = getFirestore(firebaseApp);
-          
-          // --- KORREKTUR: Zweistufiger Lade-Mechanismus ---
-          let sessionSnap;
-          let sessionOrigin: 'jassGameSummaries' | 'sessions' = 'jassGameSummaries';
-
-          // 1. Primärer Versuch: Lade aus jassGameSummaries (für abgeschlossene Sessions)
-          console.log(`[SessionViewerPage] Attempting to fetch from 'jassGameSummaries' for ID: ${sessionId}`);
-          const summaryDocRef = doc(db, 'jassGameSummaries', sessionId);
-          sessionSnap = await getDoc(summaryDocRef);
-
-          // 2. Fallback-Versuch: Wenn nicht gefunden, lade aus sessions (für gerade laufende/abgeschlossene Sessions)
-          if (!sessionSnap.exists()) {
-            console.warn(`[SessionViewerPage] Session not found in 'jassGameSummaries'. Falling back to 'sessions' collection.`);
-            sessionOrigin = 'sessions';
-            const sessionDocRef = doc(db, 'sessions', sessionId);
-            sessionSnap = await getDoc(sessionDocRef);
-          }
-          // --- ENDE KORREKTUR ---
-
-          // Ab hier verwenden wir die gefundene sessionSnap
-          const gamesCollectionRef = collection(db, sessionOrigin, sessionId, 'completedGames');
-
-          // 1. Session-Metadaten laden
-          console.log(`[SessionViewerPage] Fetching session metadata for: ${sessionId} from '${sessionOrigin}'`);
-
-          if (!sessionSnap.exists()) {
-            throw new Error(`Session mit ID ${sessionId} konnte in keiner der erwarteten Collections ('jassGameSummaries', 'sessions') gefunden werden.`);
-          }
-          loadedSessionData = sessionSnap.data() as SessionMetadata;
-          setSessionData(loadedSessionData); // Session-Daten setzen, auch wenn Gruppe/Spiele fehlschlagen
-          console.log("[SessionViewerPage] Session metadata loaded:", loadedSessionData);
-
-          // --- Gruppeneinstellungen laden (in eigenem try/catch) --- 
-          if (loadedSessionData?.groupId) {
-            console.log(`[SessionViewerPage] Fetching group settings for group: ${loadedSessionData.groupId}`);
-            const groupDocRef = doc(db, 'groups', loadedSessionData.groupId);
-            try {
-              const groupSnap = await getDoc(groupDocRef);
-              if (groupSnap.exists()) {
-                const groupData = groupSnap.data() as FirestoreGroup;
-                setActiveStrokeSettings(groupData.strokeSettings ?? DEFAULT_STROKE_SETTINGS);
-                setActiveCardStyle(groupData.farbeSettings?.cardStyle ?? DEFAULT_FARBE_SETTINGS.cardStyle);
-                setActiveScoreSettings(groupData.scoreSettings ?? DEFAULT_SCORE_SETTINGS);
-                console.log("[SessionViewerPage] Group settings applied:", { 
-                  stroke: groupData.strokeSettings, 
-                  farbe: groupData.farbeSettings, 
-                  score: groupData.scoreSettings 
-                });
-              } else {
-                console.warn(`[SessionViewerPage] Group ${loadedSessionData.groupId} not found. Using default settings.`);
-                // Defaults sind bereits gesetzt
-              }
-            } catch (groupError) {
-              console.error(`[SessionViewerPage] Error fetching group settings for ${loadedSessionData.groupId}:`, groupError);
-              // Fehler loggen, aber weitermachen und Defaults verwenden
-              useUIStore.getState().showNotification({type: 'warning', message: 'Fehler beim Laden der Gruppeneinstellungen. Standardeinstellungen werden verwendet.'});
-            }
-          } else {
-             console.log("[SessionViewerPage] No groupId found in session data. Using default settings.");
-             // Defaults sind bereits gesetzt
-          }
-          // --- ENDE: Gruppeneinstellungen laden ---
-
-          // 2. Abgeschlossene Spiele laden (in eigenem try/catch)
-          console.log(`[SessionViewerPage] Fetching completed games for: ${sessionId}`);
-          try {
-            const gamesQuery = query(gamesCollectionRef, orderBy('gameNumber'));
-            const gamesSnap = await getDocs(gamesQuery);
-            
-            loadedGamesData = gamesSnap.docs.map(doc =>
-              parseCompletedGameSummaryTimestamps(doc.data())
-            );
-            setCompletedGames(loadedGamesData);
-            console.log(`[SessionViewerPage] ${loadedGamesData.length} completed games loaded successfully.`);
-          } catch (gamesError) {
-            console.error(`[SessionViewerPage] Error fetching completed games for ${sessionId}:`, gamesError);
-            setError("Fehler beim Laden der Spieldetails."); // Setze Fehler für den Benutzer
-            // Setze leere Spieleliste
-            setCompletedGames([]);
-          }
-
-        } catch (sessionErr) { // Fehler beim Laden der Session-Metadaten
-          console.error(`[SessionViewerPage] Critical error loading session metadata for ${sessionId}:`, sessionErr);
-          setError(sessionErr instanceof Error ? sessionErr.message : "Ein kritischer Fehler ist aufgetreten.");
-        } finally {
-          setIsLoading(false);
-          console.log("[SessionViewerPage] loadSessionData finished."); // Log am Ende
+        if (!sessionSnap.exists()) {
+          console.warn(`[PublicSessionPage] Session nicht in 'jassGameSummaries' gefunden. Versuche 'sessions'...`);
+          const sessionRef = doc(db, 'sessions', sessionId);
+          sessionSnap = await getDoc(sessionRef);
         }
-      };
 
-      loadSessionData();
-
-    } else if (router.isReady && !sessionId) {
-        setError("Keine Session-ID in der URL gefunden.");
-        setIsLoading(false);
-    }
-  }, [sessionId, router.isReady]);
-
-  // Bereite Props für GameViewerKreidetafel vor, erst wenn Daten geladen sind
-  const gameDataForViewer = useMemo(() => {
-    if (!sessionData || completedGames.length === 0) {
-      return null;
-    }
-    const lastGame = completedGames[completedGames.length - 1];
-    
-    // Standardwerte definieren
-    const defaultTeamScores: TeamScores = { top: 0, bottom: 0 };
-    const defaultStricheRecord: StricheRecord = { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 };
-    const defaultCurrentStriche: { top: StricheRecord; bottom: StricheRecord } = {
-      top: defaultStricheRecord,
-      bottom: defaultStricheRecord,
-    };
-
-    return {
-      games: completedGames, // Verwende die geladenen/gesetzten Spiele
-      playerNames: sessionData.playerNames,
-      currentScores: lastGame?.finalScores ?? defaultTeamScores,
-      currentStriche: lastGame?.finalStriche ?? defaultCurrentStriche,
-      weisPoints: lastGame?.weisPoints ?? defaultTeamScores,
-      strokeSettings: activeStrokeSettings,
-      cardStyle: activeCardStyle,
-      scoreSettings: activeScoreSettings,
-      startedAt: sessionData.startedAt,
-    };
-  }, [sessionData, completedGames, activeStrokeSettings, activeCardStyle, activeScoreSettings]);
-
-  const handleGoBack = () => {
-    // ✅ ERWEITERTE INTELLIGENTE NAVIGATION: Prüfe Return-Parameter und Session-Status
-    const { returnTo, returnMainTab, returnStatsSubTab } = router.query;
-    const isCompletedSession = sessionData?.status === 'completed' || 
-                               sessionData?.status === 'completed_empty';
-    
-    // 1. Zuerst prüfen, ob Return-Parameter vorhanden sind
-    if (typeof returnTo === 'string') {
-      if (returnTo === '/profile' && typeof returnMainTab === 'string') {
-        // Zurück zur eigenen Profil-Seite mit spezifischem Tab
-        let path = `/profile?mainTab=${returnMainTab}`;
-        if (returnMainTab === 'stats' && typeof returnStatsSubTab === 'string') {
-          path += `&statsSubTab=${returnStatsSubTab}`;
+        if (!sessionSnap.exists()) {
+          throw new Error('Jass-Session nicht gefunden.');
         }
-        router.push(path);
-        return;
-      } else if (returnTo.startsWith('/profile/') && typeof returnMainTab === 'string') {
-        // Zurück zu einer anderen Spieler-Profil-Seite mit spezifischem Tab
-        let path = `${returnTo}?mainTab=${returnMainTab}`;
-        if (returnMainTab === 'statistics' && typeof returnStatsSubTab === 'string') {
-          path += `&statsSubTab=${returnStatsSubTab}`;
+
+        const data = { id: sessionId, ...sessionSnap.data() } as any;
+        console.log('✅ Session-Zusammenfassung geladen:', data);
+        setSessionData(data);
+        
+        // 🚨 NEU: Lade die einzelnen Spiele der Session nach
+        console.log('🔄 Lade einzelne Spiele für Session:', sessionId);
+        const games = await fetchAllGamesForSession(sessionId);
+        if (games.length === 0) {
+            // Fallback: Wenn keine Spiele in der Subcollection sind, aber das Hauptdokument da ist (z.B. alte Daten),
+            // dann erstelle ein "Pseudo-Spiel" aus dem Hauptdokument selbst.
+            console.warn(`[PublicSessionPage] Keine Spiele in 'completedGames' gefunden. Erstelle Fallback-Spiel aus Hauptdokument.`);
+            setCompletedGames([data as CompletedGameSummary]);
+        } else {
+            console.log(`✅ ${games.length} Spiele geladen.`);
+            setCompletedGames(games);
         }
-        router.push(path);
-        return;
-      } else if (returnTo === '/start' && typeof returnMainTab === 'string') {
-        // Zurück zur Startseite mit spezifischem Tab
-        let path = `/start?mainTab=${returnMainTab}`;
-        if (returnMainTab === 'statistics' && typeof returnStatsSubTab === 'string') {
-          path += `&statsSubTab=${returnStatsSubTab}`;
-        }
-        router.push(path);
-        return;
-      } else {
-        // Allgemeiner Return-Path ohne zusätzliche Parameter
-        router.push(returnTo);
-        return;
+
+      } catch (err) {
+        console.error('❌ Fehler beim Laden der Session:', err);
+        setError(err instanceof Error ? err.message : 'Unbekannter Fehler beim Laden der Session.');
+      } finally {
+        setLoading(false);
       }
-    }
-    
-    // 2. Fallback zur bestehenden Logik, wenn keine Return-Parameter vorhanden sind
-    if (isCompletedSession) {
-      // Session ist abgeschlossen - gehe direkt zur Startseite
-      router.push('/start');
-    } else {
-      // Session ist noch aktiv - normale Zurück-Navigation
-      router.back();
-    }
-  };
+    };
 
-  // Dynamischer Titel
-  const pageTitle = sessionData
-    ? `Partie vom ${format(parseFirebaseTimestamp(sessionData.startedAt) ?? Date.now(), 'dd.MM.yyyy')}`
-    : `Session Details (ID: ${sessionId})`;
+    loadSession();
+  }, [sessionId]);
 
-  if (isLoading) {
-    return <FullscreenLoader text="Session wird geladen..." />;
-  }
-
-  if (error) {
+  if (loading) {
     return (
       <MainLayout>
-        <div className="flex flex-col items-center justify-center min-h-screen p-4">
-          <h1 className="text-2xl font-bold text-red-500 mb-4">Fehler</h1>
-          <p className="text-gray-300 text-center">{error}</p>
-          {/* Optional: Link zurück zur Startseite oder Profil */}
+        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">
+          <ClipLoader color="#ffffff" size={40} />
+          <p className="mt-4 text-lg">Lade Jass-Session...</p>
+          <p className="mt-2 text-sm text-gray-400">ID: {sessionId}</p>
         </div>
       </MainLayout>
     );
   }
 
-  // Angepasste Rückgabe mit GameViewerKreidetafel
+  if (error) {
+    return (
+      <MainLayout>
+        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
+          <div className="text-red-400 bg-red-900/30 p-6 rounded-md max-w-md text-center">
+            <h1 className="text-xl font-bold mb-2">Fehler</h1>
+            <p>{error}</p>
+            <p className="mt-2 text-sm text-gray-500">ID: {sessionId}</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+  
+  if (!sessionData) {
+    return (
+      <MainLayout>
+        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">
+          <p>Keine Session-Daten verfügbar.</p>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Die GameViewerKreidetafel erwartet eine bestimmte Datenstruktur.
+  // Wir müssen die geladenen Session-Daten in dieses Format umwandeln.
+  const gameDataForViewer = {
+    games: completedGames, // 🚨 KORREKTUR: Verwende das Array der geladenen Spiele
+    playerNames: sessionData.playerNames || { 1: 'Spieler 1', 2: 'Spieler 2', 3: 'Spieler 3', 4: 'Spieler 4' },
+    currentScores: sessionData.finalScores || { top: 0, bottom: 0 },
+    currentStriche: sessionData.finalStriche || { 
+      top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }, 
+      bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 } 
+    },
+    weisPoints: sessionData.weisPoints || { top: 0, bottom: 0 },
+    cardStyle: sessionData.cardStyle || DEFAULT_FARBE_SETTINGS.cardStyle,
+    strokeSettings: sessionData.strokeSettings || DEFAULT_STROKE_SETTINGS,
+    scoreSettings: sessionData.scoreSettings || DEFAULT_SCORE_SETTINGS,
+    startedAt: sessionData.startedAt || Date.now(),
+  };
+
   return (
     <MainLayout>
-      {/* Container für Zurück-Pfeil und Inhalt */}
-      <div className="relative pt-12"> {/* Padding-Top für den Pfeil */} 
-        {/* Zurück-Pfeil (absolut positioniert) */}
-        <button 
-          onClick={handleGoBack} 
-          className="absolute top-4 left-4 text-white p-2 rounded-full hover:bg-gray-700 transition-colors z-10"
-          aria-label="Zurück"
-        >
-          <ArrowLeft size={20} />
-        </button>
-
-        {/* NEU: Warnhinweis für Finalisierungs-Notizen */}
-        {sessionData?.notes && sessionData.notes.length > 0 && (
-          <div className="container mx-auto -mt-4 mb-4 p-3 bg-yellow-900/50 border border-yellow-700 rounded-lg text-sm text-yellow-200">
-            <p className="font-bold mb-1">Hinweis zur Sitzung</p>
-            <ul className="list-disc list-inside">
-              {sessionData.notes.map((note, index) => (
-                <li key={index}>{note}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-      {/* Hier wird GameViewerKreidetafel gerendert, wenn Daten vorhanden */}
-      {gameDataForViewer ? (
-        <GameViewerKreidetafel gameData={gameDataForViewer} />
-      ) : (
-        // Fallback oder spezifischere Nachricht, falls nur Session aber keine Spiele geladen?
-        <div className="container mx-auto p-4">
-          <h1 className="text-2xl font-bold mb-4 text-white">
-             {pageTitle}
-          </h1>
-          <p className="text-gray-400">Keine abgeschlossenen Spieldaten gefunden oder Daten werden noch aufbereitet...</p>
-          {/* Optional: Debug-Infos anzeigen */}
-          <pre className="text-xs text-gray-500 mt-4 bg-gray-800 p-2 rounded max-h-96 overflow-auto">
-            Session-Daten: {JSON.stringify(sessionData, null, 2)}
-            \nSpiele: {JSON.stringify(completedGames, null, 2)}
-          </pre>
-        </div>
-      )}
+      <div className="h-full-minus-header">
+        <GameViewerKreidetafel 
+          gameData={gameDataForViewer} 
+          gameTypeLabel="Session" 
+          onBackClick={handleBackClick} // 🚨 HIER: Intelligente Funktion übergeben
+        />
       </div>
     </MainLayout>
   );
 };
 
-export default SessionViewerPage; 
+export default PublicSessionPage; 

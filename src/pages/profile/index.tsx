@@ -35,6 +35,8 @@ import { formatMillisecondsDuration } from '@/utils/formatUtils';
 import { getSessionWinRateDisplay, getWinRateDisplay } from '@/utils/winRateUtils';
 import { CURRENT_PROFILE_THEME, THEME_COLORS, getCurrentProfileTheme } from '@/config/theme';
 import { fetchTournamentInstancesForGroup } from '@/services/tournamentService';
+import { useClickAndScrollHandler } from '@/hooks/useClickAndScrollHandler';
+import { StatLink } from '@/components/statistics/StatLink';
 
 interface ExpectedPlayerStatsWithAggregates {
   [key: string]: any;
@@ -75,41 +77,6 @@ const ProfilePage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const trumpfStatistikRef = useRef<HTMLDivElement>(null);
 
-  // Theme-System: Dynamische Farben mit State für Live-Updates
-  const [currentTheme, setCurrentTheme] = useState<string>(() => {
-    // Bevorzuge Theme aus User-Daten, fallback zu localStorage, dann Standard
-    if (user?.profileTheme) {
-      return user.profileTheme;
-    }
-    return getCurrentProfileTheme();
-  });
-  const theme = THEME_COLORS[currentTheme as keyof typeof THEME_COLORS] || THEME_COLORS[CURRENT_PROFILE_THEME];
-
-  // Aktualisiere Theme wenn User-Daten geladen werden
-  useEffect(() => {
-    if (user?.profileTheme && user.profileTheme !== currentTheme) {
-      setCurrentTheme(user.profileTheme);
-      // Sync mit localStorage für Konsistenz
-      localStorage.setItem('jasstafel-profile-theme', user.profileTheme);
-    }
-  }, [user?.profileTheme, currentTheme]);
-
-  // Lausche auf Theme-Änderungen
-  useEffect(() => {
-    const handleStorageChange = () => {
-      const newTheme = getCurrentProfileTheme();
-      if (newTheme !== currentTheme) {
-        setCurrentTheme(newTheme);
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, [currentTheme]);
-
   useNestedScrollFix(trumpfStatistikRef);
 
   const [activeMainTab, setActiveMainTab] = useState("stats");
@@ -142,7 +109,26 @@ const ProfilePage: React.FC = () => {
     unsubscribePlayerStats,
   } = usePlayerStatsStore();
 
-  const { userGroups } = useGroupStore();
+  const { userGroups, currentGroup } = useGroupStore();
+
+  // Theme-System: Verwende PERSÖNLICHES Profil-Theme (UNABHÄNGIG vom Gruppen-Theme!)
+  const profileTheme = getCurrentProfileTheme(); // Persönliches Theme aus localStorage
+  const theme = THEME_COLORS[profileTheme as keyof typeof THEME_COLORS] || THEME_COLORS.yellow;
+
+  // Hilfsfunktion zur Umwandlung von Theme-Namen zu Standard-Tailwind-600-Farben für Tab-Styling
+  const getTabActiveColor = (themeKey: string): string => {
+    const colorMap: Record<string, string> = {
+      'pink': '#ec4899',     // pink-600 (Standard Tailwind)
+      'green': '#059669',    // emerald-600 (Standard Tailwind)
+      'blue': '#2563eb',     // blue-600 (Standard Tailwind)
+      'purple': '#9333ea',   // purple-600 (Standard Tailwind)
+      'red': '#dc2626',      // red-600 (Standard Tailwind)
+      'yellow': '#ca8a04',   // yellow-600 (Standard Tailwind, konsistent mit Theme)
+      'indigo': '#4f46e5',   // indigo-600 (Standard Tailwind)
+      'teal': '#0d9488'      // teal-600 (Standard Tailwind)
+    };
+    return colorMap[themeKey] || '#ca8a04'; // Fallback zu Standard-Gelb (yellow-600)
+  };
 
   const [playerStats, setPlayerStats] = useState<ProfilePagePlayerStats | null>(null);
 
@@ -702,7 +688,7 @@ const ProfilePage: React.FC = () => {
                                   theme.primary.includes('blue') ? '#2563eb' :
                                   theme.primary.includes('purple') ? '#9333ea' :
                                   theme.primary.includes('red') ? '#dc2626' :
-                                  theme.primary.includes('yellow') ? '#d97706' :
+                                  theme.primary.includes('yellow') ? '#ca8a04' :
                                   theme.primary.includes('indigo') ? '#4f46e5' :
                                   theme.primary.includes('teal') ? '#0d9488' : '#2563eb',
                   borderColor: theme.primary.includes('pink') ? '#be185d' :
@@ -710,7 +696,7 @@ const ProfilePage: React.FC = () => {
                               theme.primary.includes('blue') ? '#1d4ed8' :
                               theme.primary.includes('purple') ? '#7c3aed' :
                               theme.primary.includes('red') ? '#b91c1c' :
-                              theme.primary.includes('yellow') ? '#b45309' :
+                              theme.primary.includes('yellow') ? '#ca8a04' :
                               theme.primary.includes('indigo') ? '#3730a3' :
                               theme.primary.includes('teal') ? '#0f766e' : '#1d4ed8'
                 }}
@@ -721,7 +707,7 @@ const ProfilePage: React.FC = () => {
                     theme.primary.includes('blue') ? '#1d4ed8' :
                     theme.primary.includes('purple') ? '#7c3aed' :
                     theme.primary.includes('red') ? '#b91c1c' :
-                    theme.primary.includes('yellow') ? '#b45309' :
+                    theme.primary.includes('yellow') ? '#ca8a04' :
                     theme.primary.includes('indigo') ? '#3730a3' :
                     theme.primary.includes('teal') ? '#0f766e' : '#1d4ed8';
                 }}
@@ -732,7 +718,7 @@ const ProfilePage: React.FC = () => {
                     theme.primary.includes('blue') ? '#2563eb' :
                     theme.primary.includes('purple') ? '#9333ea' :
                     theme.primary.includes('red') ? '#dc2626' :
-                    theme.primary.includes('yellow') ? '#d97706' :
+                    theme.primary.includes('yellow') ? '#ca8a04' :
                     theme.primary.includes('indigo') ? '#4f46e5' :
                     theme.primary.includes('teal') ? '#0d9488' : '#2563eb';
                 }}
@@ -764,16 +750,7 @@ const ProfilePage: React.FC = () => {
                 value="stats" 
                 className="data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md py-2.5 text-sm font-medium"
                 style={{
-                  backgroundColor: activeMainTab === 'stats' ? (
-                    theme.primary.includes('pink') ? '#ec4899' :
-                    theme.primary.includes('green') ? '#059669' :
-                    theme.primary.includes('blue') ? '#2563eb' :
-                    theme.primary.includes('purple') ? '#9333ea' :
-                    theme.primary.includes('red') ? '#dc2626' :
-                    theme.primary.includes('yellow') ? '#d97706' :
-                    theme.primary.includes('indigo') ? '#4f46e5' :
-                    theme.primary.includes('teal') ? '#0d9488' : '#2563eb'
-                  ) : 'transparent'
+                  backgroundColor: activeMainTab === 'stats' ? getTabActiveColor(profileTheme) : 'transparent'
                 }}
               > 
                 <BarChart3 className="w-4 h-4 mr-2" /> Statistik 
@@ -782,16 +759,7 @@ const ProfilePage: React.FC = () => {
                 value="archive" 
                 className="data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md py-2.5 text-sm font-medium"
                 style={{
-                  backgroundColor: activeMainTab === 'archive' ? (
-                    theme.primary.includes('pink') ? '#ec4899' :
-                    theme.primary.includes('green') ? '#059669' :
-                    theme.primary.includes('blue') ? '#2563eb' :
-                    theme.primary.includes('purple') ? '#9333ea' :
-                    theme.primary.includes('red') ? '#dc2626' :
-                    theme.primary.includes('yellow') ? '#d97706' :
-                    theme.primary.includes('indigo') ? '#4f46e5' :
-                    theme.primary.includes('teal') ? '#0d9488' : '#2563eb'
-                  ) : 'transparent'
+                  backgroundColor: activeMainTab === 'archive' ? getTabActiveColor(profileTheme) : 'transparent'
                 }}
               > 
                 <Archive className="w-4 h-4 mr-2" /> Archiv 
@@ -819,16 +787,7 @@ const ProfilePage: React.FC = () => {
                       value="individual"
                       className="data-[state=active]:text-white text-gray-400 hover:text-white rounded-md py-1.5 text-sm font-medium"
                       style={{
-                        backgroundColor: activeStatsSubTab === 'individual' ? (
-                          theme.primary.includes('pink') ? '#ec4899' :
-                          theme.primary.includes('green') ? '#059669' :
-                          theme.primary.includes('blue') ? '#2563eb' :
-                          theme.primary.includes('purple') ? '#9333ea' :
-                          theme.primary.includes('red') ? '#dc2626' :
-                          theme.primary.includes('yellow') ? '#d97706' :
-                          theme.primary.includes('indigo') ? '#4f46e5' :
-                          theme.primary.includes('teal') ? '#0d9488' : '#2563eb'
-                        ) : 'transparent'
+                        backgroundColor: activeStatsSubTab === 'individual' ? getTabActiveColor(profileTheme) : 'transparent'
                       }}
                     >
                       <User className="w-4 h-4 mr-1.5" />
@@ -838,16 +797,7 @@ const ProfilePage: React.FC = () => {
                       value="partner"
                       className="data-[state=active]:text-white text-gray-400 hover:text-white rounded-md py-1.5 text-sm font-medium"
                       style={{
-                        backgroundColor: activeStatsSubTab === 'partner' ? (
-                          theme.primary.includes('pink') ? '#ec4899' :
-                          theme.primary.includes('green') ? '#059669' :
-                          theme.primary.includes('blue') ? '#2563eb' :
-                          theme.primary.includes('purple') ? '#9333ea' :
-                          theme.primary.includes('red') ? '#dc2626' :
-                          theme.primary.includes('yellow') ? '#d97706' :
-                          theme.primary.includes('indigo') ? '#4f46e5' :
-                          theme.primary.includes('teal') ? '#0d9488' : '#2563eb'
-                        ) : 'transparent'
+                        backgroundColor: activeStatsSubTab === 'partner' ? getTabActiveColor(profileTheme) : 'transparent'
                       }}
                     >
                       <Users className="w-4 h-4 mr-1.5" />
@@ -857,16 +807,7 @@ const ProfilePage: React.FC = () => {
                       value="opponent"
                       className="data-[state=active]:text-white text-gray-400 hover:text-white rounded-md py-1.5 text-sm font-medium"
                       style={{
-                        backgroundColor: activeStatsSubTab === 'opponent' ? (
-                          theme.primary.includes('pink') ? '#ec4899' :
-                          theme.primary.includes('green') ? '#059669' :
-                          theme.primary.includes('blue') ? '#2563eb' :
-                          theme.primary.includes('purple') ? '#9333ea' :
-                          theme.primary.includes('red') ? '#dc2626' :
-                          theme.primary.includes('yellow') ? '#d97706' :
-                          theme.primary.includes('indigo') ? '#4f46e5' :
-                          theme.primary.includes('teal') ? '#0d9488' : '#2563eb'
-                        ) : 'transparent'
+                        backgroundColor: activeStatsSubTab === 'opponent' ? getTabActiveColor(profileTheme) : 'transparent'
                       }}
                     >
                       <Shield className="w-4 h-4 mr-1.5" />
@@ -1306,7 +1247,7 @@ const ProfilePage: React.FC = () => {
                                   <FarbePictogram farbe={normalizeJassColor(item.farbe)} mode="svg" className="h-6 w-6 mr-2" />
                                   <span className="text-gray-300 capitalize">{item.farbe}</span>
                                 </div>
-                                <span className="text-white font-medium text-lg">{(item.anteil * 100).toFixed(1)}%</span>
+                                <span className="text-white text-lg font-medium">{(item.anteil * 100).toFixed(1)}%</span>
                               </div>
                             ))
                           ) : (
@@ -1339,10 +1280,11 @@ const ProfilePage: React.FC = () => {
                             .map((partner, index) => {
                               const playerData = members.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
                               return (
-                              <Link 
-                                  href={partner.partnerId ? `/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner` : '#'} 
-                                  key={`partner-session-${index}`} 
-                                  className={`block rounded-md ${partner.partnerId ? 'cursor-pointer' : 'cursor-default'}`}
+                              <StatLink
+                                  key={`partner-session-${index}`}
+                                  href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`}
+                                  isClickable={!!partner.partnerId}
+                                  className="block rounded-md"
                                 >
                                   <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                     <div className="flex items-center">
@@ -1364,15 +1306,17 @@ const ProfilePage: React.FC = () => {
                                             ({partner.sessionsWonWith}/{partner.sessionsPlayedWith})
                             </span>
                                         )}
-                                        {getWinRateDisplay(
-                                          partner.sessionWinRateInfo,
-                                          partner.sessionsWonWith,
-                                          partner.sessionsPlayedWith
-                                        )}
+                                        <span className="text-lg font-medium">
+                                          {getWinRateDisplay(
+                                            partner.sessionWinRateInfo,
+                                            partner.sessionsWonWith,
+                                            partner.sessionsPlayedWith
+                                          )}
+                                        </span>
                             </span>
                                     </div>
                                   </div>
-                                </Link>
+                                </StatLink>
                               );
                             })}
                           {typedRawPlayerStats.partnerAggregates.filter(p => p.sessionsPlayedWith >= 1).length === 0 && (
@@ -1395,10 +1339,11 @@ const ProfilePage: React.FC = () => {
                             .map((partner, index) => {
                               const playerData = members.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
                               return (
-                              <Link 
-                                  href={partner.partnerId ? `/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner` : '#'} 
+                              <StatLink 
                                   key={`partner-game-${index}`} 
-                                  className={`block rounded-md ${partner.partnerId ? 'cursor-pointer' : 'cursor-default'}`}
+                                  href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`} 
+                                  isClickable={!!partner.partnerId}
+                                  className="block rounded-md"
                                 >
                                   <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                     <div className="flex items-center">
@@ -1420,15 +1365,17 @@ const ProfilePage: React.FC = () => {
                                             ({partner.gamesWonWith}/{partner.gamesPlayedWith})
                                           </span>
                                         )}
-                                        {getWinRateDisplay(
-                                          partner.gameWinRateInfo,
-                                          partner.gamesWonWith,
-                                          partner.gamesPlayedWith
-                                        )}
+                                        <span className="text-lg font-medium">
+                                          {getWinRateDisplay(
+                                            partner.gameWinRateInfo,
+                                            partner.gamesWonWith,
+                                            partner.gamesPlayedWith
+                                          )}
+                                        </span>
                                       </span>
                                     </div>
                                   </div>
-                          </Link>
+                          </StatLink>
                               );
                             })}
                           {typedRawPlayerStats.partnerAggregates.filter(p => p.gamesPlayedWith >= 1).length === 0 && (
@@ -1451,10 +1398,11 @@ const ProfilePage: React.FC = () => {
                             .map((partner, index) => {
                               const playerData = members.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
                               return (
-                              <Link 
-                                  href={partner.partnerId ? `/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner` : '#'} 
+                              <StatLink 
                                   key={`partner-striche-${index}`} 
-                                  className={`block rounded-md ${partner.partnerId ? 'cursor-pointer' : 'cursor-default'}`}
+                                  href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`} 
+                                  isClickable={!!partner.partnerId}
+                                  className="block rounded-md"
                                 >
                                   <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                     <div className="flex items-center">
@@ -1480,7 +1428,7 @@ const ProfilePage: React.FC = () => {
                                       </span>
                     </div>
                                   </div>
-                                </Link>
+                                </StatLink>
                               );
                             })}
                     </div>
@@ -1500,10 +1448,11 @@ const ProfilePage: React.FC = () => {
                             .map((partner, index) => {
                               const playerData = members.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
                               return (
-                              <Link 
-                                  href={partner.partnerId ? `/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner` : '#'} 
+                              <StatLink 
                                   key={`partner-points-${index}`} 
-                                  className={`block rounded-md ${partner.partnerId ? 'cursor-pointer' : 'cursor-default'}`}
+                                  href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`} 
+                                  isClickable={!!partner.partnerId}
+                                  className="block rounded-md"
                                 >
                                   <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                     <div className="flex items-center">
@@ -1529,7 +1478,7 @@ const ProfilePage: React.FC = () => {
                               </span>
                         </div>
                                   </div>
-                                </Link>
+                                </StatLink>
                               );
                             })}
                         </div>
@@ -1549,10 +1498,11 @@ const ProfilePage: React.FC = () => {
                             .map((partner, index) => {
                               const playerData = members.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
                               return (
-                              <Link 
-                                  href={partner.partnerId ? `/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner` : '#'} 
+                              <StatLink 
                                   key={`partner-matsch-${index}`} 
-                                  className={`block rounded-md ${partner.partnerId ? 'cursor-pointer' : 'cursor-default'}`}
+                                  href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`} 
+                                  isClickable={!!partner.partnerId}
+                                  className="block rounded-md"
                                 >
                                   <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                     <div className="flex items-center">
@@ -1579,7 +1529,7 @@ const ProfilePage: React.FC = () => {
                                       </span>
                                     </div>
                                   </div>
-                              </Link>
+                              </StatLink>
                               );
                             })}
                           {typedRawPlayerStats.partnerAggregates.filter(p => p.gamesPlayedWith >= 1 && ((p.matschEventsMadeWith || 0) > 0 || (p.matschEventsReceivedWith || 0) > 0)).length === 0 && (
@@ -1602,10 +1552,11 @@ const ProfilePage: React.FC = () => {
                             .map((partner, index) => {
                               const playerData = members.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
                               return (
-                                <Link 
-                                  href={partner.partnerId ? `/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner` : '#'} 
+                                <StatLink 
                                   key={`partner-schneider-${index}`} 
-                                  className={`block rounded-md ${partner.partnerId ? 'cursor-pointer' : 'cursor-default'}`}
+                                  href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`} 
+                                  isClickable={!!partner.partnerId}
+                                  className="block rounded-md"
                                 >
                                   <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                 <div className="flex items-center">
@@ -1632,7 +1583,7 @@ const ProfilePage: React.FC = () => {
                                       </span>
                               </div>
                                   </div>
-                                </Link>
+                                </StatLink>
                               );
                             })}
                           {typedRawPlayerStats.partnerAggregates.filter(p => p.gamesPlayedWith >= 1 && ((p.schneiderEventsMadeWith || 0) > 0 || (p.schneiderEventsReceivedWith || 0) > 0)).length === 0 && (
@@ -1655,10 +1606,11 @@ const ProfilePage: React.FC = () => {
                             .map((partner, index) => {
                               const playerData = members.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
                               return (
-                                <Link 
-                                  href={partner.partnerId ? `/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner` : '#'} 
+                                <StatLink 
                                   key={`partner-kontermatsch-${index}`} 
-                                  className={`block rounded-md ${partner.partnerId ? 'cursor-pointer' : 'cursor-default'}`}
+                                  href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`} 
+                                  isClickable={!!partner.partnerId}
+                                  className="block rounded-md"
                                 >
                                   <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                     <div className="flex items-center">
@@ -1685,7 +1637,7 @@ const ProfilePage: React.FC = () => {
                                       </span>
                                     </div>
                                   </div>
-                                </Link>
+                                </StatLink>
                               );
                             })}
                           {typedRawPlayerStats.partnerAggregates.filter(p => p.gamesPlayedWith >= 1 && ((p.kontermatschEventsMadeWith || 0) > 0 || (p.kontermatschEventsReceivedWith || 0) > 0)).length === 0 && (
@@ -1715,10 +1667,11 @@ const ProfilePage: React.FC = () => {
                             .map((opponent, index) => {
                               const playerData = members.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
                               return (
-                                <Link 
-                                  href={opponent.opponentId ? `/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent` : '#'} 
+                                <StatLink 
                                   key={`opponent-session-${index}`} 
-                                  className={`block rounded-md ${opponent.opponentId ? 'cursor-pointer' : 'cursor-default'}`}
+                                  href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
+                                  isClickable={!!opponent.opponentId}
+                                  className="block rounded-md"
                                 >
                                   <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                     <div className="flex items-center">
@@ -1740,15 +1693,17 @@ const ProfilePage: React.FC = () => {
                                             ({opponent.sessionsWonAgainst}/{opponent.sessionsPlayedAgainst})
                                           </span>
                                         )}
-                                        {getWinRateDisplay(
-                                          opponent.sessionWinRateInfo,
-                                          opponent.sessionsWonAgainst,
-                                          opponent.sessionsPlayedAgainst
-                                        )}
+                                        <span className="text-lg font-medium">
+                                          {getWinRateDisplay(
+                                            opponent.sessionWinRateInfo,
+                                            opponent.sessionsWonAgainst,
+                                            opponent.sessionsPlayedAgainst
+                                          )}
+                                        </span>
                                       </span>
                                     </div>
                                   </div>
-                                </Link>
+                                </StatLink>
                               );
                             })}
                           {typedRawPlayerStats.opponentAggregates.filter(o => o.sessionsPlayedAgainst >= 1).length === 0 && (
@@ -1771,10 +1726,11 @@ const ProfilePage: React.FC = () => {
                             .map((opponent, index) => {
                               const playerData = members.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
                               return (
-                                <Link 
-                                  href={opponent.opponentId ? `/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent` : '#'} 
+                                <StatLink 
                                   key={`opponent-game-${index}`} 
-                                  className={`block rounded-md ${opponent.opponentId ? 'cursor-pointer' : 'cursor-default'}`}
+                                  href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
+                                  isClickable={!!opponent.opponentId}
+                                  className="block rounded-md"
                                 >
                                   <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                     <div className="flex items-center">
@@ -1796,15 +1752,17 @@ const ProfilePage: React.FC = () => {
                                             ({opponent.gamesWonAgainst}/{opponent.gamesPlayedAgainst})
                                           </span>
                                         )}
-                                        {getWinRateDisplay(
-                                          opponent.gameWinRateInfo,
-                                          opponent.gamesWonAgainst,
-                                          opponent.gamesPlayedAgainst
-                                        )}
+                                        <span className="text-lg font-medium">
+                                          {getWinRateDisplay(
+                                            opponent.gameWinRateInfo,
+                                            opponent.gamesWonAgainst,
+                                            opponent.gamesPlayedAgainst
+                                          )}
+                                        </span>
                                       </span>
                                     </div>
                                   </div>
-                                </Link>
+                                </StatLink>
                               );
                             })}
                           {typedRawPlayerStats.opponentAggregates.filter(o => o.gamesPlayedAgainst >= 1).length === 0 && (
@@ -1827,10 +1785,11 @@ const ProfilePage: React.FC = () => {
                             .map((opponent, index) => {
                               const playerData = members.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
                               return (
-                                <Link 
-                                  href={opponent.opponentId ? `/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent` : '#'} 
+                                <StatLink 
                                   key={`opponent-striche-${index}`} 
-                                  className={`block rounded-md ${opponent.opponentId ? 'cursor-pointer' : 'cursor-default'}`}
+                                  href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
+                                  isClickable={!!opponent.opponentId}
+                                  className="block rounded-md"
                                 >
                                   <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                     <div className="flex items-center">
@@ -1856,7 +1815,7 @@ const ProfilePage: React.FC = () => {
                                       </span>
                                     </div>
                                   </div>
-                                </Link>
+                                </StatLink>
                               );
                             })}
                         </div>
@@ -1876,10 +1835,11 @@ const ProfilePage: React.FC = () => {
                             .map((opponent, index) => {
                               const playerData = members.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
                               return (
-                                <Link 
-                                  href={opponent.opponentId ? `/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent` : '#'} 
+                                <StatLink 
                                   key={`opponent-points-${index}`} 
-                                  className={`block rounded-md ${opponent.opponentId ? 'cursor-pointer' : 'cursor-default'}`}
+                                  href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
+                                  isClickable={!!opponent.opponentId}
+                                  className="block rounded-md"
                                 >
                                   <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                     <div className="flex items-center">
@@ -1905,7 +1865,7 @@ const ProfilePage: React.FC = () => {
                                       </span>
                                     </div>
                                   </div>
-                                </Link>
+                                </StatLink>
                               );
                             })}
                         </div>
@@ -1925,10 +1885,11 @@ const ProfilePage: React.FC = () => {
                             .map((opponent, index) => {
                               const playerData = members.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
                               return (
-                                <Link 
-                                  href={opponent.opponentId ? `/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent` : '#'} 
+                                <StatLink 
                                   key={`opponent-matsch-${index}`} 
-                                  className={`block rounded-md ${opponent.opponentId ? 'cursor-pointer' : 'cursor-default'}`}
+                                  href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
+                                  isClickable={!!opponent.opponentId}
+                                  className="block rounded-md"
                                 >
                                   <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                     <div className="flex items-center">
@@ -1955,7 +1916,7 @@ const ProfilePage: React.FC = () => {
                                       </span>
                                     </div>
                                   </div>
-                                </Link>
+                                </StatLink>
                               );
                             })}
                           {typedRawPlayerStats.opponentAggregates.filter(o => o.gamesPlayedAgainst >= 1 && ((o.matschEventsMadeAgainst || 0) > 0 || (o.matschEventsReceivedAgainst || 0) > 0)).length === 0 && (
@@ -1978,10 +1939,11 @@ const ProfilePage: React.FC = () => {
                             .map((opponent, index) => {
                               const playerData = members.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
                               return (
-                                <Link 
-                                  href={opponent.opponentId ? `/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent` : '#'} 
+                                <StatLink 
                                   key={`opponent-schneider-${index}`} 
-                                  className={`block rounded-md ${opponent.opponentId ? 'cursor-pointer' : 'cursor-default'}`}
+                                  href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
+                                  isClickable={!!opponent.opponentId}
+                                  className="block rounded-md"
                                 >
                                   <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                     <div className="flex items-center">
@@ -2008,7 +1970,7 @@ const ProfilePage: React.FC = () => {
                                       </span>
                                     </div>
                                   </div>
-                                </Link>
+                                </StatLink>
                               );
                             })}
                           {typedRawPlayerStats.opponentAggregates.filter(o => o.gamesPlayedAgainst >= 1 && ((o.schneiderEventsMadeAgainst || 0) > 0 || (o.schneiderEventsReceivedAgainst || 0) > 0)).length === 0 && (
@@ -2031,10 +1993,11 @@ const ProfilePage: React.FC = () => {
                             .map((opponent, index) => {
                               const playerData = members.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
                               return (
-                                <Link 
-                                  href={opponent.opponentId ? `/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent` : '#'} 
+                                <StatLink 
                                   key={`opponent-kontermatsch-${index}`} 
-                                  className={`block rounded-md ${opponent.opponentId ? 'cursor-pointer' : 'cursor-default'}`}
+                                  href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
+                                  isClickable={!!opponent.opponentId}
+                                  className="block rounded-md"
                                 >
                                   <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                     <div className="flex items-center">
@@ -2061,7 +2024,7 @@ const ProfilePage: React.FC = () => {
                                       </span>
                                     </div>
                                   </div>
-                                </Link>
+                                </StatLink>
                               );
                             })}
                           {typedRawPlayerStats.opponentAggregates.filter(o => o.gamesPlayedAgainst >= 1 && ((o.kontermatschEventsMadeAgainst || 0) > 0 || (o.kontermatschEventsReceivedAgainst || 0) > 0)).length === 0 && (

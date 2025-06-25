@@ -171,7 +171,11 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
             if (!ts) return null;
             if (typeof ts === 'number') return ts;
             // Prüft auf eine toMillis-Funktion, wie sie Firestore Timestamps haben
-            if (typeof ts.toMillis === 'function') return ts.toMillis(); 
+            if (typeof ts.toMillis === 'function') return ts.toMillis();
+            // 🚨 NEU: Sicherer Check für serialisierte Timestamps
+            if (typeof ts === 'object' && 'seconds' in ts && typeof ts.seconds === 'number') {
+              return new Timestamp(ts.seconds, ts.nanoseconds ?? 0).toMillis();
+            }
             return null;
           };
 

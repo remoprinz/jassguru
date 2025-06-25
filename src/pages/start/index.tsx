@@ -48,9 +48,14 @@ import { TournamentSelector } from "@/components/tournament/TournamentSelector";
 import { CARD_SYMBOL_MAPPINGS } from '@/config/CardStyles';
 import { toTitleCase } from '@/utils/formatUtils';
 import ProfileImage from '@/components/ui/ProfileImage';
+// THEME-SYSTEM IMPORTE
+import { THEME_COLORS, getCurrentProfileTheme } from '@/config/theme';
 // ENDE NEUE IMPORTE
 import { useNestedScrollFix } from '@/hooks/useNestedScrollFix';
 import { formatMillisecondsDuration } from '@/utils/formatUtils';
+import { useClickAndScrollHandler } from '@/hooks/useClickAndScrollHandler';
+import { StatLink } from '@/components/statistics/StatLink';
+import { GroupView } from '@/components/group/GroupView'; // ✅ NEUE IMPORT
 
 // Hilfsfunktion zum Finden des Spieler-Profilbilds anhand des Namens
 function findPlayerPhotoByName(playerName: string, membersList: FirestorePlayer[]): string | undefined {
@@ -99,6 +104,10 @@ function findPlayerByName(playerName: string, membersList: FirestorePlayer[]): F
 }
 
 const StartPage = () => {
+  // ===== FEATURE FLAG FÜR SICHERE MIGRATION =====
+  const USE_GROUP_VIEW_COMPONENT = true; // 🚨 SICHERHEITS-FLAG: false = original, true = neue Komponente
+  // ===============================================
+  
   const {user, status, isAuthenticated, isGuest} = useAuthStore();
   const {currentGroup, userGroups, status: groupStatus, error: groupError, clearError: clearGroupError, setCurrentGroupId, setError: setGroupError, lastSettingsUpdateTimestamp} = useGroupStore();
   const gameStore = useGameStore();
@@ -153,6 +162,25 @@ const StartPage = () => {
   const [isResuming, setIsResuming] = useState(false);
   
   const [isProcessingInvite, setIsProcessingInvite] = useState(false);
+
+  // Theme-System: Verwende Gruppen-Theme mit Fallback zu 'yellow'
+  const groupTheme = currentGroup?.theme || 'yellow';
+  const theme = THEME_COLORS[groupTheme as keyof typeof THEME_COLORS] || THEME_COLORS.yellow;
+
+  // Hilfsfunktion zur Umwandlung von Theme-Namen zu Standard-Tailwind-600-Farben für Tab-Styling
+  const getTabActiveColor = (themeKey: string): string => {
+    const colorMap: Record<string, string> = {
+      'pink': '#ec4899',     // pink-600 (Standard Tailwind)
+      'green': '#059669',    // emerald-600 (Standard Tailwind)
+      'blue': '#2563eb',     // blue-600 (Standard Tailwind)
+      'purple': '#9333ea',   // purple-600 (Standard Tailwind)
+      'red': '#dc2626',      // red-600 (Standard Tailwind)
+      'yellow': '#ca8a04',   // yellow-600 (Standard Tailwind, konsistent mit Theme)
+      'indigo': '#4f46e5',   // indigo-600 (Standard Tailwind)
+      'teal': '#0d9488'      // teal-600 (Standard Tailwind)
+    };
+    return colorMap[themeKey] || '#ca8a04'; // Fallback zu Standard-Gelb (yellow-600)
+  };
 
   // Refs für die scrollbaren Statistik-Container
   // Übersicht
@@ -1190,1346 +1218,98 @@ const StartPage = () => {
     );
   }
 
-  if (isAuthenticated() && !isGuest && userGroups.length === 0 && !currentGroup) {
+  // ===== FEATURE FLAG SWITCH =====
+  if (USE_GROUP_VIEW_COMPONENT) {
     return (
-      <MainLayout>
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
-          <Image src="/welcome-guru.png" alt="Jassguru Logo" width={150} height={150} className="mb-8"/>
-          <h1 className="text-3xl font-bold mb-3 text-center">Willkommen bei Jassguru!</h1>
-          <p className="text-gray-400 mb-6 text-center max-w-md">
-            Du bist noch keiner Gruppe beigetreten. Erstelle eine neue Gruppe oder gib hier einen Einladungscode ein, um loszulegen.
-          </p>
-          <div className="w-full max-w-sm">
-            <JoinByInviteUI 
-              inviteType="group" 
-              onProcessInput={(inputValue) => handleProcessInviteInput(inputValue, "group")} 
-              isLoading={isProcessingInvite} 
+      <GroupView 
+        currentGroup={currentGroup}
+        user={user}
+        isGuest={isGuest}
+        userGroups={userGroups}
+        isAuthenticated={isAuthenticated}
+        isPublicView={false} // 🚨 Standard-Verhalten für eingeloggte/Gast-Ansicht
+        handleProcessInviteInput={handleProcessInviteInput}
+        isProcessingInvite={isProcessingInvite}
               showNotification={showNotification}
-            />
-          </div>
-        </div>
-      </MainLayout>
-    );
-  }
-
-  if (isAuthenticated() && !isGuest && userGroups.length > 0 && !currentGroup) {
-    return (
-      <MainLayout>
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
-          <Image src="/welcome-guru.png" alt="Jassguru Logo" width={150} height={150} className="mb-8"/>
-          <h1 className="text-2xl font-bold mb-4">Wähle deine Jassgruppe</h1>
-          <p className="text-gray-400 mb-6">Du bist Mitglied in mehreren Gruppen. Wähle eine aus oder tritt einer neuen bei.</p>
-          <div className="w-full max-w-sm mb-6">
-            <GroupSelector />
-          </div>
-          <div className="w-full max-w-sm">
-            <JoinByInviteUI 
-              inviteType="group" 
-              onProcessInput={(inputValue) => handleProcessInviteInput(inputValue, "group")} 
-              isLoading={isProcessingInvite} 
-              showNotification={showNotification}
-            />
-          </div>
-        </div>
-      </MainLayout>
+        groupStatus={groupStatus}
+        groupError={groupError}
+        // SCHRITT 2: Header & Upload Props
+        isAdmin={isAdmin}
+        selectedFile={selectedFile}
+        previewUrl={previewUrl}
+        isUploading={isUploading}
+        handleSelectClick={handleSelectClick}
+        handleUpload={handleUpload}
+        handleCancelSelection={handleCancelSelection}
+        handleInviteClick={handleInviteClick}
+        router={router}
+        // 🚨 NEU: FILE INPUT & CROP MODAL UI PROPS (FÜR 1000% PARITÄT)
+        fileInputRef={fileInputRef}
+        handleFileChange={handleFileChange}
+        cropModalOpen={cropModalOpen}
+        imageToCrop={imageToCrop}
+        handleCropComplete={handleCropComplete}
+        // SCHRITT 3: Tab-System Props
+        activeMainTab={activeMainTab}
+        activeStatsSubTab={activeStatsSubTab}
+        groupTheme={groupTheme}
+        statsLoading={statsLoading}
+        statsError={statsError}
+        members={members}
+        membersLoading={membersLoading}
+        membersError={membersError}
+        completedSessions={completedSessions}
+        groupTournaments={groupTournaments}
+        combinedArchiveItems={combinedArchiveItems}
+        groupedArchiveByYear={groupedArchiveByYear}
+        sortedYears={sortedYears}
+        renderArchiveItem={renderArchiveItem}
+        // NEU: Archiv Loading/Error States
+        sessionsLoading={sessionsLoading}
+        sessionsError={sessionsError}
+        tournamentsLoading={tournamentsLoading}
+        tournamentsError={tournamentsError}
+        // SCHRITT 4: Statistik-Daten Props
+        groupStats={groupStats}
+        theme={theme}
+        findPlayerByName={findPlayerByName}
+        findPlayerPhotoByName={findPlayerPhotoByName}
+        // SCHRITT 5: InviteModal Props (FEHLTEN!)
+        isInviteModalOpen={isInviteModalOpen}
+        onCloseInviteModal={handleCloseInviteModal}
+        inviteLoading={isGeneratingInvite}
+        inviteError={inviteError}
+        inviteToken={inviteToken}
+        onGenerateNewInvite={handleGenerateNewInvite}
+        // 🚨 NEUE MODAL HANDLER PROPS (FÜR EXAKTE ORIGINAL-KOMPATIBILITÄT)
+        handleCloseInviteModal={handleCloseInviteModal}
+        isGeneratingInvite={isGeneratingInvite}
+        handleGenerateNewInvite={handleGenerateNewInvite}
+      />
     );
   }
   
-  if (isGuest || (groupStatus === 'error' && !currentGroup)) {
-    // Für Gäste oder wenn Gruppen nicht geladen werden konnten, zeige nur Basis-UI ohne Gruppenspezifika
-    // ODER eine Fehlermeldung. Hier erstmal vereinfacht:
-    // Wenn Gast, zeige die normale Startseitenansicht für Gäste (ohne Gruppenauswahl/Einladung)
-    // Wenn Fehler, zeige Fehlermeldung.
-    // Dieser Teil muss ggf. noch verfeinert werden, je nachdem, was Gäste sehen sollen.
-    if (isGuest) {
-        return (
-            <MainLayout>
-                 <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
-                    <h1 className="text-3xl font-bold mb-4 text-center">Gastmodus</h1>
-                    <p className="text-gray-400 mb-6 text-center max-w-sm">
-                        Im Gastmodus kannst du die App erkunden. Für vollen Funktionsumfang bitte anmelden.
-                    </p>
-                    {/* Ggf. CTA zum Anmelden/Registrieren */}
-                </div>
-            </MainLayout>
-        );
-    }
-    if (groupStatus === 'error') {
-         return (
-            <MainLayout>
-                <div className="text-center py-10">
-                    <p className="text-red-500">Fehler beim Laden der Gruppe: {groupError}</p>
-                </div>
-            </MainLayout>
-        );
-    }
-  }
+  // ✅ LEGACY FALLBACK: Nur für den Fall dass Feature Flag auf false gesetzt wird
+  // TODO: Entfernen nach erfolgreicher Production-Migration
+  throw new Error("Legacy UI wurde entfernt. Setze USE_GROUP_VIEW_COMPONENT = true");
+  // ================================
 
-  return (
-    <MainLayout>
-      <div className="flex flex-col items-center justify-start min-h-screen bg-gray-900 text-white p-4 relative pt-8 pb-20">
-        <div className="relative mb-4 mt-6">
-          <div className={`relative w-32 h-32 rounded-full overflow-hidden border-2 ${selectedFile && previewUrl ? 'border-purple-500' : 'border-gray-700'} flex items-center justify-center bg-gray-800`}>
-            {previewUrl ? (
-              <Image
-                src={previewUrl}
-                alt="Vorschau Gruppenlogo"
-                layout="fill"
-                objectFit="cover"
-              />
-            ) : currentGroup?.logoUrl ? (
-              <Image
-                src={currentGroup.logoUrl}
-                alt={`Logo ${currentGroup?.name ?? 'Gruppe'}`}
-                layout="fill"
-                objectFit="cover"
-                priority
-                sizes="(max-width: 768px) 128px, 128px" // Beispiel: Passt die Grösse an (128px Breite)
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = "/placeholder-logo.png";
-                }}
-              />
-            ) : (
-              <span className="text-4xl font-bold text-gray-500">
-                {(currentGroup?.name ?? '?').charAt(0).toUpperCase()}
-              </span>
-            )}
+  // 🚨 PHASE 1 LEGACY CLEANUP: Early Returns jetzt über GroupView abgehandelt
+  // Diese Cases werden jetzt alle in der GroupView-Komponente behandelt
+  
+  // ❌ LEGACY REMOVED: Alle Early Return Cases sind nun in GroupView integriert
+  //   - Welcome Screen für neue Benutzer
+  //   - Group Selection Screen  
+  //   - Guest Mode Screen
+  //   - Error Handling Screens
 
-            {isAdmin && (
-              <button
-                onClick={handleSelectClick}
-                className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-60 transition-all duration-200"
-                disabled={isUploading}
-                aria-label="Gruppenlogo ändern"
-              >
-                <Camera className="text-white opacity-0 hover:opacity-100 transition-opacity duration-200" size={32} />
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="w-full text-center mb-6 px-4">
-          <h1 className="text-3xl font-bold mb-1 text-white break-words">{currentGroup?.name ?? 'Keine Gruppe ausgewählt'}</h1>
-          <div className="text-sm text-gray-400 mx-auto max-w-xl break-words">
-            <FormattedDescription 
-              description={currentGroup?.description} 
-              className="mx-auto" 
-            />
-          </div>
-        </div>
-
-        {selectedFile && previewUrl && (
-          <div className="flex gap-2 justify-center mb-4">
-            <Button
-              onClick={handleUpload}
-              className="bg-green-600 hover:bg-green-700 flex items-center gap-1"
-              disabled={!selectedFile || isUploading}
-            >
-              {isUploading ? (
-                <>
-                  <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-1"></div>
-                  Hochladen...
-                </>
-              ) : (
-                <>
-                  <Upload size={16} /> Hochladen
-                </>
-              )}
-            </Button>
-            <Button
-              onClick={handleCancelSelection}
-              className="bg-gray-600 hover:bg-gray-700 flex items-center gap-1"
-              disabled={isUploading}
-            >
-              <X size={16} /> Abbrechen
-            </Button>
-          </div>
-        )}
-
-        <div className="flex justify-center items-center gap-3 mb-6 px-4">
-          {isAdmin && (
-              <Button
-              variant="ghost" 
-              size="sm" 
-                onClick={handleInviteClick}
-              className="hover:bg-gray-700/30 text-gray-300 hover:text-white"
-              title="Teilnehmer einladen"
-              >
-              <UserPlus className="h-4 w-4 mr-1.5" /> Einladen
-              </Button>
-          )}
-          {isAdmin && (
-              <Button
-              variant="ghost" 
-              size="sm" 
-                onClick={() => router.push("/groups/settings")}
-              className="hover:bg-gray-700/30 text-gray-300 hover:text-white"
-              title="Einstellungen"
-              >
-              <Settings className="h-4 w-4 mr-1.5" /> Einstellungen
-              </Button>
-          )}
-        </div>
-
-        <Tabs 
-          value={activeMainTab} 
-          onValueChange={(value) => {
-            const query: { [key: string]: string | string[] | undefined } = { ...router.query, mainTab: value };
-            if (value !== 'statistics') {
-              delete query.statsSubTab;
-            } else {
-              // Beim Wechsel zum Statistik-Tab, setze den Sub-Tab auf 'overview', falls nicht vorhanden
-              query.statsSubTab = query.statsSubTab || 'overview';
-            }
-            router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
-          }} 
-          className="w-full"
-        >
-          <TabsList className="grid w-full grid-cols-3 bg-gray-800 p-1 rounded-lg mb-4 sticky top-0 z-30 backdrop-blur-md">
-            <TabsTrigger 
-              value="statistics" 
-              className="data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md py-2.5 text-sm font-medium"
-              style={{
-                backgroundColor: activeMainTab === 'statistics' ? '#d97706' : 'transparent'
-              }}
-            >
-              <BarChart className="w-4 h-4 mr-2" /> Statistik
-            </TabsTrigger>
-            <TabsTrigger 
-              value="archive"
-              className="data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md py-2.5 text-sm font-medium"
-              style={{
-                backgroundColor: activeMainTab === 'archive' ? '#d97706' : 'transparent'
-              }}
-            >
-              <Archive className="w-4 h-4 mr-2" /> Archiv
-            </TabsTrigger>
-            <TabsTrigger
-              value="members" 
-              className="data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md py-2.5 text-sm font-medium"
-              style={{
-                backgroundColor: activeMainTab === 'members' ? '#d97706' : 'transparent'
-              }}
-            >
-              <Users className="w-4 h-4 mr-2" /> Mitglieder
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="statistics" className="w-full mb-8">
-            {statsError && !statsLoading && (
-              <div className="text-red-400 text-sm text-center p-4 bg-red-900/30 rounded-md mb-4">
-                Fehler beim Laden der Statistiken: {statsError}
-              </div>
-            )}
-            {statsLoading ? (
-              <div className="flex justify-center items-center py-10">
-                <div className="h-8 w-8 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
-                <span className="ml-3 text-gray-300">Lade Statistiken...</span>
-              </div>
-            ) : (
-                <Tabs 
-                  value={activeStatsSubTab} 
-                  onValueChange={(value) => {
-                    router.replace({
-                      pathname: router.pathname,
-                      query: { ...router.query, mainTab: 'statistics', statsSubTab: value },
-                    }, undefined, { shallow: true });
-                  }} 
-                  className="w-full"
-                >
-                  {/* Kleinerer Abstand (8px statt 16px) */}
-                  <div className="h-2"></div>
-                  
-                  {/* Sticky Container für Sub-Tabs */}
-                  <div className="sticky top-[44px] z-20 bg-gray-900 pt-0 pb-4">
-                    <TabsList className="grid w-full grid-cols-3 bg-gray-800 p-1 rounded-lg backdrop-blur-md">
-                      <TabsTrigger value="overview" className="data-[state=active]:bg-gray-600 data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md py-1.5 text-sm font-medium">
-                        <BarChart2 className="w-4 h-5 mr-1.5"/> Übersicht
-                      </TabsTrigger>
-                      <TabsTrigger value="players" className="data-[state=active]:bg-gray-600 data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md py-1.5 text-sm font-medium">
-                        <Users className="w-4 h-5 mr-1.5"/> Spieler
-                      </TabsTrigger>
-                      <TabsTrigger value="teams" className="data-[state=active]:bg-gray-600 data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md py-1.5 text-sm font-medium">
-                        <Users className="w-4 h-5 mr-1.5"/> Teams
-                      </TabsTrigger>
-                    </TabsList>
-                  </div>
-                  
-                  <TabsContent value="overview" className="w-full bg-gray-800/50 rounded-lg p-4">
-                    <div className="space-y-3 text-sm">
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Gruppenübersicht</h3>
-                      </div>
-                        <div className="p-4 space-y-2">
-                          <StatRow 
-                            label="Mitglieder:" 
-                            value={groupStats?.memberCount || 0} 
-                            className="bg-gray-700/30 px-2 py-1.5 rounded-md"
-                          />
-                          <StatRow 
-                            label="Anzahl Partien:" 
-                            value={groupStats?.sessionCount || 0} 
-                            className="bg-gray-700/30 px-2 py-1.5 rounded-md"
-                          />
-                          <StatRow 
-                            label="Anzahl Turniere:" 
-                            value={groupStats?.tournamentCount || 0} 
-                            className="bg-gray-700/30 px-2 py-1.5 rounded-md"
-                          />
-                          <StatRow 
-                            label="Anzahl Spiele:" 
-                            value={groupStats?.gameCount || 0} 
-                            className="bg-gray-700/30 px-2 py-1.5 rounded-md"
-                          />
-                          <StatRow 
-                            label="Gesamte Jass-Zeit:" 
-                            value={groupStats?.totalPlayTime || '-'} 
-                            className="bg-gray-700/30 px-2 py-1.5 rounded-md"
-                          />
-                          <StatRow 
-                            label="Erster Jass:" 
-                            value={groupStats?.firstJassDate || '-'} 
-                            className="bg-gray-700/30 px-2 py-1.5 rounded-md"
-                          />
-                          <StatRow 
-                            label="Letzter Jass:" 
-                            value={groupStats?.lastJassDate || '-'} 
-                            className="bg-gray-700/30 px-2 py-1.5 rounded-md"
-                          />
-                          <StatRow 
-                            label="Hauptspielort:" 
-                            value={groupStats?.hauptspielortName || 'N/A'} 
-                            className="bg-gray-700/30 px-2 py-1.5 rounded-md"
-                          />
-                      </div>
-                      </div>
-
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Durchschnittswerte & Details</h3>
-                      </div>
-                        <div className="p-4 space-y-2">
-                          <StatRow 
-                            label="Ø Dauer pro Partie:" 
-                            value={groupStats?.avgSessionDuration || '-'} 
-                            className="bg-gray-700/30 px-2 py-1.5 rounded-md"
-                          />
-                          <StatRow 
-                            label="Ø Dauer pro Spiel:" 
-                            value={groupStats?.avgGameDuration || '-'} 
-                            className="bg-gray-700/30 px-2 py-1.5 rounded-md"
-                          />
-                          <StatRow 
-                            label="Ø Spiele pro Partie:" 
-                            value={groupStats?.avgGamesPerSession ? groupStats.avgGamesPerSession.toFixed(1) : '-'} 
-                            className="bg-gray-700/30 px-2 py-1.5 rounded-md"
-                          />
-                          <StatRow 
-                            label="Ø Runden pro Spiel:" 
-                            value={groupStats?.avgRoundsPerGame ? groupStats.avgRoundsPerGame.toFixed(1) : '-'} 
-                            className="bg-gray-700/30 px-2 py-1.5 rounded-md"
-                          />
-                          <StatRow 
-                            label="Ø Matsch pro Spiel:" 
-                            value={groupStats?.avgMatschPerGame ? groupStats.avgMatschPerGame.toFixed(2) : '-'} 
-                            className="bg-gray-700/30 px-2 py-1.5 rounded-md"
-                          />
-                          <StatRow
-                            label="Ø Rundentempo:"
-                            value={groupStats?.avgRoundDuration || '-'}
-                            className="bg-gray-700/30 px-2 py-1.5 rounded-md"
-                          />
-                      </div>
-                      </div>
-                      
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Anzahl Spiele</h3>
-                      </div>
-                        <div ref={overviewMostGamesRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {(() => {
-                            if (groupStats?.playerWithMostGames && groupStats.playerWithMostGames.length > 0) {
-                              return groupStats.playerWithMostGames.map((playerStat, index) => {
-                                const playerData = findPlayerByName(playerStat.playerName, members);
-                                const playerId = playerData?.id || playerData?.userId;
-                                return (
-                                  <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=overview` : '#'} key={`mostGames-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
-                                    <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                      <div className="flex items-center">
-                                        <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                        <ProfileImage 
-                                          src={playerData?.photoURL} 
-                                          alt={playerStat.playerName} 
-                                          size="sm"
-                                          className="mr-2 bg-yellow-600/20 flex items-center justify-center"
-                                          fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                          fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
-                                        />
-                                        <span className="text-gray-300">{playerStat.playerName}</span>
-                                      </div>
-                                      <div className="flex items-center">
-                                        <span className="text-white font-medium mr-2">{playerStat.value}</span>
-                                      </div>
-                                    </div>
-                                  </Link>
-                                );
-                              });
-                            } else {
-                              return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
-                            }
-                          })()}
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Rundentempo</h3>
-                        </div>
-                        <div ref={playerRoundTimeRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {(() => {
-                            if (groupStats?.playerAllRoundTimes && groupStats.playerAllRoundTimes.length > 0) {
-                              return groupStats.playerAllRoundTimes.map((playerStat, index) => {
-                                const playerData = findPlayerByName(playerStat.playerName, members);
-                                const playerId = playerData?.id || playerStat.playerId;
-                                return (
-                                  <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=overview` : '#'} key={`roundTime-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
-                                    <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                      <div className="flex items-center">
-                                        <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                        <ProfileImage 
-                                          src={playerData?.photoURL} 
-                                          alt={playerStat.playerName} 
-                                          size="sm"
-                                          className="mr-2 bg-yellow-600/20"
-                                          fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                          fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
-                                        />
-                                        <span className="text-gray-300">{playerStat.playerName}</span>
-                                      </div>
-                                      <div className="flex items-center">
-                                        <span className="text-white font-medium text-right whitespace-nowrap">{formatMillisecondsDuration(playerStat.value)}</span>
-                                      </div>
-                                    </div>
-                                  </Link>
-                                );
-                              });
-                            } else {
-                              return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
-                            }
-                          })()}
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">% Trumpffarben</h3>
-                        </div>
-                        <div ref={overviewTrumpfRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {trumpfStatistikArray.length > 0 ? (
-                            trumpfStatistikArray.map((item, index) => {
-                              // NEU: Logik für dynamische Anzeige
-                              const cardStyle = currentGroup?.farbeSettings?.cardStyle || 'DE';
-                              const mappedColorKey = toTitleCase(item.farbe);
-                              const displayName = CARD_SYMBOL_MAPPINGS[mappedColorKey as JassColor]?.[cardStyle] ?? mappedColorKey;
-                              
-                              return (
-                                <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
-                                  <div className="flex items-center">
-                                    <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                    <FarbePictogram 
-                                      farbe={normalizeJassColor(item.farbe)} 
-                                      mode="svg" 
-                                      cardStyle={cardStyle} // cardStyle übergeben
-                                      className="h-8 w-8 mr-2"
-                                    />
-                                    <span className="text-gray-300 capitalize">{displayName}</span>
-                                  </div>
-                                  <span className="text-white font-medium">{(item.anteil * 100).toFixed(1)}%</span>
-                                </div>
-                              );
-                            })
-                          ) : (
-                            <div className="text-gray-400 text-center py-2">Keine Trumpfstatistik verfügbar</div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </TabsContent>
-
-                  {/* Spieler Tab */}
-                  <TabsContent value="players" className="w-full bg-gray-800/50 rounded-lg p-4">
-                    <div className="space-y-3 text-sm">
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Strichdifferenz</h3>
-                      </div>
-                        <div ref={playerStricheDiffRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {(() => {
-                            if (groupStats?.playerWithHighestStricheDiff && groupStats.playerWithHighestStricheDiff.length > 0) {
-                              return groupStats.playerWithHighestStricheDiff.map((playerStat, index) => {
-                                const playerData = findPlayerByName(playerStat.playerName, members);
-                                const playerId = playerData?.id || playerData?.userId;
-                                return (
-                                 <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`stricheDiff-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
-                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                    <div className="flex items-center">
-                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                                                              <ProfileImage 
-                                          src={playerData?.photoURL} 
-                                          alt={playerStat.playerName} 
-                                          size="sm"
-                                          className="mr-2 bg-yellow-600/20"
-                                          fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                          fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
-                                        />
-                                      <span className="text-gray-300">{playerStat.playerName}</span>
-                                    </div>
-                                    <div className="flex items-center">
-                                      <span className="text-white font-medium mr-2">{playerStat.value > 0 ? '+' : ''}{Math.trunc(playerStat.value)}</span>
-                                    </div>
-                                  </div>
-                                </Link>
-                              );
-                            });
-                            } else {
-                              return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
-                            }
-                          })()}
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Punktedifferenz</h3>
-                        </div>
-                        <div ref={playerPointsDiffRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {(() => {
-                            if (groupStats?.playerWithHighestPointsDiff && groupStats.playerWithHighestPointsDiff.length > 0) {
-                              return groupStats.playerWithHighestPointsDiff.map((playerStat, index) => {
-                                const playerData = findPlayerByName(playerStat.playerName, members);
-                                const playerId = playerData?.id || playerStat.playerId;
-                                return (
-                                  <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`pointsDiff-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
-                                    <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                      <div className="flex items-center">
-                                        <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                        <ProfileImage 
-                                          src={playerData?.photoURL} 
-                                          alt={playerStat.playerName} 
-                                          size="sm"
-                                          className="mr-2 bg-yellow-600/20"
-                                          fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                          fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
-                                        />
-                                        <span className="text-gray-300">{playerStat.playerName}</span>
-                                      </div>
-                                      <div className="flex items-center">
-                                        <span className="text-white font-medium mr-2">{playerStat.value > 0 ? '+' : ''}{Math.trunc(playerStat.value)}</span>
-                                      </div>
-                                    </div>
-                                  </Link>
-                                );
-                              });
-                            } else {
-                              return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
-                            }
-                          })()}
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Siegquote Partie</h3>
-                        </div>
-                        <div ref={playerWinRateSessionRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {(() => {
-                            if (groupStats?.playerWithHighestWinRateSession && groupStats.playerWithHighestWinRateSession.length > 0) {
-                              return groupStats.playerWithHighestWinRateSession.map((playerStat, index) => {
-                                const playerData = findPlayerByName(playerStat.playerName, members);
-                                // KORREKTUR: Verwende die playerId aus der Statistik als Fallback
-                                const playerId = playerData?.id || playerStat.playerId;
-                                return (
-                                  <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`winRateSession-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
-                                    <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                      <div className="flex items-center">
-                                        <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                        <ProfileImage 
-                                          src={playerData?.photoURL} 
-                                          alt={playerStat.playerName} 
-                                          size="sm"
-                                          className="mr-2 bg-yellow-600/20"
-                                          fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                          fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
-                                        />
-                                        <span className="text-gray-300">{playerStat.playerName}</span>
-                                      </div>
-                                      <div className="flex items-center">
-                                        {/* KORREKTUR: Stelle sicher, dass der Wert eine Zahl ist, bevor toFixed aufgerufen wird. Zeige 0.0% für ungültige Werte. */}
-                                        <span className="text-white font-medium mr-2">{(typeof playerStat.value === 'number' ? playerStat.value * 100 : 0).toFixed(1)}%</span>
-                                      </div>
-                                    </div>
-                                  </Link>
-                                );
-                              });
-                            } else {
-                              return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
-                            }
-                          })()}
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Siegquote Spiel</h3>
-                        </div>
-                        <div ref={playerWinRateGameRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {(() => {
-                            if (groupStats?.playerWithHighestWinRateGame && groupStats.playerWithHighestWinRateGame.length > 0) {
-                              return groupStats.playerWithHighestWinRateGame.map((playerStat, index) => {
-                                const playerData = findPlayerByName(playerStat.playerName, members);
-                                const playerId = playerData?.id || playerStat.playerId;
-                                return (
-                                  <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`winRateGame-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
-                                    <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                      <div className="flex items-center">
-                                        <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                        <ProfileImage 
-                                          src={playerData?.photoURL} 
-                                          alt={playerStat.playerName} 
-                                          size="sm"
-                                          className="mr-2 bg-yellow-600/20"
-                                          fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                          fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
-                                        />
-                                        <span className="text-gray-300">{playerStat.playerName}</span>
-                                      </div>
-                                      <div className="flex items-center">
-                                        <span className="text-white font-medium mr-2">{(typeof playerStat.value === 'number' ? playerStat.value * 100 : 0).toFixed(1)}%</span>
-                                      </div>
-                                    </div>
-                                  </Link>
-                                );
-                              });
-                            } else {
-                              return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
-                            }
-                          })()}
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Matsch-Bilanz</h3>
-                        </div>
-                        <div ref={playerMatschRateRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {(() => {
-                            if (groupStats?.playerWithHighestMatschBilanz && groupStats.playerWithHighestMatschBilanz.length > 0) {
-                              return groupStats.playerWithHighestMatschBilanz.map((playerStat, index) => {
-                                const playerData = findPlayerByName(playerStat.playerName, members);
-                                const playerId = playerData?.id || playerStat.playerId;
-                                return (
-                                  <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`matschBilanz-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
-                                    <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                      <div className="flex items-center">
-                                        <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                        <ProfileImage 
-                                          src={playerData?.photoURL} 
-                                          alt={playerStat.playerName} 
-                                          size="sm"
-                                          className="mr-2 bg-yellow-600/20"
-                                          fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                          fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
-                                        />
-                                        <span className="text-gray-300">{playerStat.playerName}</span>
-                                      </div>
-                                      <div className="flex items-center">
-                                        <span className="text-white font-medium mr-2">{playerStat.value > 0 ? '+' : ''}{playerStat.value} ({playerStat.eventsMade || 0}/{playerStat.eventsReceived || 0})</span>
-                                      </div>
-                                    </div>
-                                  </Link>
-                                );
-                              });
-                            } else {
-                              return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
-                            }
-                          })()}
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Schneider-Bilanz</h3>
-                        </div>
-                        <div ref={playerSchneiderRateRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {(() => {
-                            if (groupStats?.playerWithHighestSchneiderBilanz && groupStats.playerWithHighestSchneiderBilanz.length > 0) {
-                              return groupStats.playerWithHighestSchneiderBilanz.map((playerStat, index) => {
-                                const playerData = findPlayerByName(playerStat.playerName, members);
-                                const playerId = playerData?.id || playerStat.playerId;
-                                return (
-                                  <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`schneiderBilanz-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
-                                    <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                      <div className="flex items-center">
-                                        <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                        <ProfileImage 
-                                          src={playerData?.photoURL} 
-                                          alt={playerStat.playerName} 
-                                          size="sm"
-                                          className="mr-2 bg-yellow-600/20"
-                                          fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                          fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
-                                        />
-                                        <span className="text-gray-300">{playerStat.playerName}</span>
-                                      </div>
-                                      <div className="flex items-center">
-                                        <span className="text-white font-medium mr-2">{playerStat.value > 0 ? '+' : ''}{playerStat.value} ({playerStat.eventsMade || 0}/{playerStat.eventsReceived || 0})</span>
-                                      </div>
-                                    </div>
-                                  </Link>
-                                );
-                              });
-                            } else {
-                              return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
-                            }
-                          })()}
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Kontermatsch-Bilanz</h3>
-                        </div>
-                        <div ref={playerSchneiderRateRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {(() => {
-                            if (groupStats?.playerWithHighestKontermatschBilanz && groupStats.playerWithHighestKontermatschBilanz.length > 0) {
-                              // Filtere nur Spieler mit Kontermatsch-Erfahrung (eventsMade > 0 oder eventsReceived > 0)
-                              const playersWithKontermatsch = groupStats.playerWithHighestKontermatschBilanz.filter(playerStat => 
-                                (playerStat.eventsMade || 0) > 0 || (playerStat.eventsReceived || 0) > 0
-                              );
-                              
-                              if (playersWithKontermatsch.length > 0) {
-                                return playersWithKontermatsch.map((playerStat, index) => {
-                                  const playerData = findPlayerByName(playerStat.playerName, members);
-                                  const playerId = playerData?.id || playerStat.playerId;
-                                  return (
-                                    <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`kontermatschBilanz-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
-                                      <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                        <div className="flex items-center">
-                                          <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                          <ProfileImage 
-                                            src={playerData?.photoURL} 
-                                            alt={playerStat.playerName} 
-                                            size="sm"
-                                            className="mr-2 bg-yellow-600/20"
-                                            fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                            fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
-                                          />
-                                          <span className="text-gray-300">{playerStat.playerName}</span>
-                                        </div>
-                                        <div className="flex items-center">
-                                          <span className="text-white font-medium mr-2">{playerStat.value > 0 ? '+' : ''}{playerStat.value} ({playerStat.eventsMade || 0}/{playerStat.eventsReceived || 0})</span>
-                                        </div>
-                                      </div>
-                                    </Link>
-                                  );
-                                });
-                              } else {
-                                return <div className="text-gray-400 text-center py-2">Keine Kontermatsch-Erfahrung vorhanden</div>;
-                              }
-                            } else {
-                              return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
-                            }
-                          })()}
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Weis-Durchschnitt</h3>
-                        </div>
-                        <div ref={playerWeisAvgRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {(() => {
-                            if (groupStats?.playerWithMostWeisPointsAvg && groupStats.playerWithMostWeisPointsAvg.length > 0) {
-                              return groupStats.playerWithMostWeisPointsAvg.map((playerStat, index) => {
-                                const playerData = findPlayerByName(playerStat.playerName, members);
-                                const playerId = playerData?.id || playerStat.playerId;
-                                return (
-                                  <Link href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`weisPoints-${index}`} className={`block rounded-md ${playerId ? 'cursor-pointer' : 'cursor-default'}`}>
-                                    <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                      <div className="flex items-center">
-                                        <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                        <ProfileImage 
-                                          src={playerData?.photoURL} 
-                                          alt={playerStat.playerName} 
-                                          size="sm"
-                                          className="mr-2 bg-yellow-600/20"
-                                          fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                          fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
-                                        />
-                                        <span className="text-gray-300">{playerStat.playerName}</span>
-                                      </div>
-                                      <div className="flex items-center">
-                                        <span className="text-white font-medium mr-2">{Math.round(Number(playerStat.value))}</span>
-                                      </div>
-                                    </div>
-                                  </Link>
-                                );
-                              });
-                            } else {
-                              return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
-                            }
-                          })()}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-4 text-center text-sm text-gray-500 px-4">
-                      Hinweis: In den Ranglisten werden nur Spieler berücksichtigt, die innerhalb des letzten Jahres aktiv waren.
-                    </div>
-                  </TabsContent>
-
-                  {/* Teams Tab */}
-                  <TabsContent value="teams" className="w-full bg-gray-800/50 rounded-lg p-4">
-                    <div className="space-y-3 text-sm">
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Strichdifferenz</h3>
-                        </div>
-                        <div ref={teamStricheDiffRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {groupStats?.teamWithHighestStricheDiff && groupStats.teamWithHighestStricheDiff.length > 0 ? (
-                            groupStats.teamWithHighestStricheDiff.map((team, index) => (
-                              <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
-                                <div className="flex items-center">
-                                  <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                  <div className="flex -space-x-2 mr-2">
-                                    <ProfileImage 
-                                      src={findPlayerPhotoByName(team.names[0], members)} 
-                                      alt={team.names[0]} 
-                                      size="sm"
-                                      className="border-2 border-gray-800 bg-yellow-600/20"
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                      fallbackText={team.names[0].charAt(0).toUpperCase()}
-                                    />
-                                    <ProfileImage 
-                                      src={findPlayerPhotoByName(team.names[1], members)} 
-                                      alt={team.names[1]} 
-                                      size="sm"
-                                      className="border-2 border-gray-800 bg-yellow-600/20"
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                      fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                    />
-                                  </div>
-                                  <span className="text-gray-300">{team.names.join(' & ')}</span>
-                                </div>
-                                <span className="text-white font-medium">{Math.round(Number(team.value))}</span>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Punktedifferenz</h3>
-                        </div>
-                        <div ref={teamPointsDiffRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {groupStats?.teamWithHighestPointsDiff && groupStats.teamWithHighestPointsDiff.length > 0 ? (
-                            groupStats.teamWithHighestPointsDiff.map((team, index) => (
-                              <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
-                                <div className="flex items-center">
-                                  <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                  <div className="flex -space-x-2 mr-2">
-                                    <ProfileImage 
-                                      src={findPlayerPhotoByName(team.names[0], members)} 
-                                      alt={team.names[0]} 
-                                      size="sm"
-                                      className="border-2 border-gray-800 bg-yellow-600/20"
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                      fallbackText={team.names[0].charAt(0).toUpperCase()}
-                                    />
-                                    <ProfileImage 
-                                      src={findPlayerPhotoByName(team.names[1], members)} 
-                                      alt={team.names[1]} 
-                                      size="sm"
-                                      className="border-2 border-gray-800 bg-yellow-600/20"
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                      fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                    />
-                                  </div>
-                                  <span className="text-gray-300">{team.names.join(' & ')}</span>
-                                </div>
-                                <span className="text-white font-medium">{Math.round(Number(team.value))}</span>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Siegquote (Partien)</h3>
-                        </div>
-                        <div ref={teamWinRateSessionRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {groupStats?.teamWithHighestWinRateSession && groupStats.teamWithHighestWinRateSession.length > 0 ? (
-                            groupStats.teamWithHighestWinRateSession.map((team, index) => (
-                              <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
-                                <div className="flex items-center">
-                                  <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                  <div className="flex -space-x-2 mr-2">
-                                    <ProfileImage 
-                                      src={findPlayerPhotoByName(team.names[0], members)} 
-                                      alt={team.names[0]} 
-                                      size="sm"
-                                      className="border-2 border-gray-800 bg-yellow-600/20"
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                      fallbackText={team.names[0].charAt(0).toUpperCase()}
-                                    />
-                                    <ProfileImage 
-                                      src={findPlayerPhotoByName(team.names[1], members)} 
-                                      alt={team.names[1]} 
-                                      size="sm"
-                                      className="border-2 border-gray-800 bg-yellow-600/20"
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                      fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                    />
-                                  </div>
-                                  <span className="text-gray-300">{team.names.join(' & ')}</span>
-                                </div>
-                                <span className="text-white font-medium">{(Number(team.value) * 100).toFixed(1)}%</span>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Siegquote (Spiele)</h3>
-                      </div>
-                        <div ref={teamWinRateGameRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {groupStats?.teamWithHighestWinRateGame && groupStats.teamWithHighestWinRateGame.length > 0 ? (
-                            groupStats.teamWithHighestWinRateGame.map((team, index) => (
-                              <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
-                                <div className="flex items-center">
-                                  <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                  <div className="flex -space-x-2 mr-2">
-                                    <ProfileImage 
-                                      src={findPlayerPhotoByName(team.names[0], members)} 
-                                      alt={team.names[0]} 
-                                      size="sm"
-                                      className="border-2 border-gray-800 bg-yellow-600/20"
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                      fallbackText={team.names[0].charAt(0).toUpperCase()}
-                                    />
-                                    <ProfileImage 
-                                      src={findPlayerPhotoByName(team.names[1], members)} 
-                                      alt={team.names[1]} 
-                                      size="sm"
-                                      className="border-2 border-gray-800 bg-yellow-600/20"
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                      fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                    />
-                                  </div>
-                                  <span className="text-gray-300">{team.names.join(' & ')}</span>
-                                </div>
-                                <span className="text-white font-medium">{(Number(team.value) * 100).toFixed(1)}%</span>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Matsch-Bilanz</h3>
-                        </div>
-                        <div ref={teamMatschRateRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {(() => {
-                            // ✅ KORRIGIERT: Verwende teamWithHighestMatschBilanz statt teamWithHighestMatschRate
-                            const teamMatschData = groupStats?.teamWithHighestMatschBilanz || groupStats?.teamWithHighestMatschRate;
-                            if (teamMatschData && teamMatschData.length > 0) {
-                              return teamMatschData.map((team, index) => (
-                                <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
-                                  <div className="flex items-center">
-                                    <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                    <div className="flex -space-x-2 mr-2">
-                                      <ProfileImage 
-                                        src={findPlayerPhotoByName(team.names[0], members)} 
-                                        alt={team.names[0]} 
-                                        size="sm"
-                                        className="border-2 border-gray-800 bg-yellow-600/20"
-                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                        fallbackText={team.names[0].charAt(0).toUpperCase()}
-                                      />
-                                      <ProfileImage 
-                                        src={findPlayerPhotoByName(team.names[1], members)} 
-                                        alt={team.names[1]} 
-                                        size="sm"
-                                        className="border-2 border-gray-800 bg-yellow-600/20"
-                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                        fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                      />
-                                    </div>
-                                    <span className="text-gray-300">{team.names.join(' & ')}</span>
-                                  </div>
-                                  <div className="flex items-center">
-                                    {/* ✅ KORRIGIERT: Zeige absolute Bilanz statt Rate */}
-                                    <span className="text-white font-medium mr-2">
-                                      {team.value > 0 ? '+' : ''}{Math.round(Number(team.value))}
-                                    </span>
-                                    {team.eventsMade !== undefined && team.eventsReceived !== undefined && (
-                                      <span className="text-gray-400 text-xs">
-                                        ({team.eventsMade}/{team.eventsReceived})
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              ));
-                            } else {
-                              return <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div>;
-                            }
-                          })()}
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Schneider-Bilanz</h3>
-                        </div>
-                        <div ref={teamSchneiderRateRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {(() => {
-                            // ✅ KORRIGIERT: Verwende teamWithHighestSchneiderBilanz statt teamWithHighestSchneiderRate
-                            const teamSchneiderData = groupStats?.teamWithHighestSchneiderBilanz || groupStats?.teamWithHighestSchneiderRate;
-                            if (teamSchneiderData && teamSchneiderData.length > 0) {
-                              return teamSchneiderData.map((team, index) => (
-                                <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
-                                  <div className="flex items-center">
-                                    <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                    <div className="flex -space-x-2 mr-2">
-                                      <ProfileImage 
-                                        src={findPlayerPhotoByName(team.names[0], members)} 
-                                        alt={team.names[0]} 
-                                        size="sm"
-                                        className="border-2 border-gray-800 bg-yellow-600/20"
-                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                        fallbackText={team.names[0].charAt(0).toUpperCase()}
-                                      />
-                                      <ProfileImage 
-                                        src={findPlayerPhotoByName(team.names[1], members)} 
-                                        alt={team.names[1]} 
-                                        size="sm"
-                                        className="border-2 border-gray-800 bg-yellow-600/20"
-                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                        fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                      />
-                                    </div>
-                                    <span className="text-gray-300">{team.names.join(' & ')}</span>
-                                  </div>
-                                  <div className="flex items-center">
-                                    {/* ✅ KORRIGIERT: Zeige absolute Bilanz statt Rate */}
-                                    <span className="text-white font-medium mr-2">
-                                      {team.value > 0 ? '+' : ''}{Math.round(Number(team.value))}
-                                    </span>
-                                    {team.eventsMade !== undefined && team.eventsReceived !== undefined && (
-                                      <span className="text-gray-400 text-xs">
-                                        ({team.eventsMade}/{team.eventsReceived})
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              ));
-                            } else {
-                              return <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div>;
-                            }
-                          })()}
-                        </div>
-                      </div>
-
-                      {/* ✅ NEU: Kontermatsch-Bilanz für Teams */}
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Kontermatsch-Bilanz</h3>
-                        </div>
-                        <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {(() => {
-                            const teamKontermatschData = groupStats?.teamWithHighestKontermatschBilanz || groupStats?.teamWithHighestKontermatschRate;
-                            if (teamKontermatschData && teamKontermatschData.length > 0) {
-                              // ✅ KORRIGIERT: Filtere Teams mit Kontermatsch-Erfahrung basierend auf value statt eventsMade/eventsReceived
-                              const teamsWithKontermatsch = teamKontermatschData.filter(team => 
-                                // Für Teams: Wenn eventsMade/eventsReceived verfügbar, verwende diese, sonst verwende value != 0
-                                (team.eventsMade !== undefined && team.eventsReceived !== undefined) 
-                                  ? ((team.eventsMade && team.eventsMade > 0) || (team.eventsReceived && team.eventsReceived > 0))
-                                  : (team.value !== 0) // Fallback: Zeige Teams mit Bilanz != 0
-                              );
-                              
-                              if (teamsWithKontermatsch.length > 0) {
-                                return teamsWithKontermatsch.map((team, index) => (
-                                  <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
-                                    <div className="flex items-center">
-                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                      <div className="flex -space-x-2 mr-2">
-                                        <ProfileImage 
-                                          src={findPlayerPhotoByName(team.names[0], members)} 
-                                          alt={team.names[0]} 
-                                          size="sm"
-                                          className="border-2 border-gray-800 bg-yellow-600/20"
-                                          fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                          fallbackText={team.names[0].charAt(0).toUpperCase()}
-                                        />
-                                        <ProfileImage 
-                                          src={findPlayerPhotoByName(team.names[1], members)} 
-                                          alt={team.names[1]} 
-                                          size="sm"
-                                          className="border-2 border-gray-800 bg-yellow-600/20"
-                                          fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                          fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                        />
-                                      </div>
-                                      <span className="text-gray-300">{team.names.join(' & ')}</span>
-                                    </div>
-                                    <div className="flex items-center">
-                                      <span className="text-white font-medium mr-2">
-                                        {team.value > 0 ? '+' : ''}{Math.round(Number(team.value))}
-                                      </span>
-                                      {team.eventsMade !== undefined && team.eventsReceived !== undefined && (
-                                        <span className="text-gray-400 text-xs">
-                                          ({team.eventsMade}/{team.eventsReceived})
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                ));
-                              } else {
-                                return <div className="text-gray-400 text-center py-2">Keine Kontermatsch-Erfahrung vorhanden</div>;
-                              }
-                            } else {
-                              return <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div>;
-                            }
-                          })()}
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Weis-Durchschnitt</h3>
-                      </div>
-                        <div ref={teamWeisAvgRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {groupStats?.teamWithMostWeisPointsAvg && groupStats.teamWithMostWeisPointsAvg.length > 0 ? (
-                            groupStats.teamWithMostWeisPointsAvg.map((team, index) => (
-                              <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
-                                <div className="flex items-center">
-                                  <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                  <div className="flex -space-x-2 mr-2">
-                                    <ProfileImage 
-                                      src={findPlayerPhotoByName(team.names[0], members)} 
-                                      alt={team.names[0]} 
-                                      size="sm"
-                                      className="border-2 border-gray-800 bg-yellow-600/20"
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                      fallbackText={team.names[0].charAt(0).toUpperCase()}
-                                    />
-                                    <ProfileImage 
-                                      src={findPlayerPhotoByName(team.names[1], members)} 
-                                      alt={team.names[1]} 
-                                      size="sm"
-                                      className="border-2 border-gray-800 bg-yellow-600/20"
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                      fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                    />
-                                  </div>
-                                  <span className="text-gray-300">{team.names.join(' & ')}</span>
-                                </div>
-                                <span className="text-white font-medium">{Math.round(Number(team.value))}</span>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                          <div className="w-1 h-6 bg-yellow-500 rounded-r-md mr-3"></div>
-                          <h3 className="text-base font-semibold text-white">Rundentempo</h3>
-                        </div>
-                        <div ref={teamRoundTimeRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                          {groupStats?.teamWithFastestRounds && groupStats.teamWithFastestRounds.length > 0 ? (
-                            groupStats.teamWithFastestRounds.map((team, index) => (
-                              <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
-                                <div className="flex items-center">
-                                  <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                  <div className="flex -space-x-2 mr-2">
-                                    <ProfileImage 
-                                      src={findPlayerPhotoByName(team.names[0], members)} 
-                                      alt={team.names[0]} 
-                                      size="sm"
-                                      className="border-2 border-gray-800 bg-yellow-600/20"
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                      fallbackText={team.names[0].charAt(0).toUpperCase()}
-                                    />
-                                    <ProfileImage 
-                                      src={findPlayerPhotoByName(team.names[1], members)} 
-                                      alt={team.names[1]} 
-                                      size="sm"
-                                      className="border-2 border-gray-800 bg-yellow-600/20"
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                      fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                    />
-                                  </div>
-                                  <span className="text-gray-300">{team.names.join(' & ')}</span>
-                                </div>
-                                <span className="text-white font-medium text-right whitespace-nowrap">{formatMillisecondsDuration(Number(team.value))}</span>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-4 text-center text-sm text-gray-500 px-4">
-                      Hinweis: In den Ranglisten werden nur Spieler berücksichtigt, die innerhalb des letzten Jahres aktiv waren.
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              )}
-          </TabsContent>
-
-            <TabsContent value="archive" className="w-full bg-gray-800/50 rounded-lg p-4 mb-8">
-            {sessionsError && !sessionsLoading && !tournamentsLoading && combinedArchiveItems.length === 0 && (
-                <div className="text-center text-gray-400 py-6 px-4 bg-gray-800/30 rounded-md">
-                    <Archive size={32} className="mx-auto mb-3 text-gray-500" />
-                    <p className="font-semibold text-gray-300">Keine Einträge im Archiv</p>
-                    <p className="text-sm">Abgeschlossene Partien und Turniere werden hier angezeigt.</p>
-                </div>
-            )}
-             {(sessionsLoading || tournamentsLoading) && (!sessionsError && !tournamentsError) && (
-              <div className="flex justify-center items-center py-10">
-                <div className="h-8 w-8 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
-                <span className="ml-3 text-gray-300">Lade Archiv...</span>
-              </div>
-            )}
-            {!sessionsLoading && !tournamentsLoading && combinedArchiveItems.length === 0 && !sessionsError && !tournamentsError && (
-                <div className="text-center text-gray-400 py-6 px-4 bg-gray-800/30 rounded-md">
-                    <Archive size={32} className="mx-auto mb-3 text-gray-500" />
-                    <p className="font-semibold text-gray-300">Keine Einträge im Archiv</p>
-                    <p className="text-sm">Abgeschlossene Partien und Turniere werden hier angezeigt.</p>
-                </div>
-            )}
-            {((sessionsError && completedSessions.length === 0) || (tournamentsError && groupTournaments.length === 0)) && !sessionsLoading && !tournamentsLoading && (
-              <div className="text-center text-red-400 py-6 px-4 bg-red-900/20 rounded-md">
-                <AlertTriangle size={32} className="mx-auto mb-3 text-red-500" />
-                <p className="font-semibold text-red-300">Fehler beim Laden des Archivs</p>
-                {sessionsError && <p className="text-sm">Sessions: {sessionsError}</p>}
-                {tournamentsError && <p className="text-sm">Turniere: {tournamentsError}</p>}
-              </div>
-            )}
-            {!sessionsLoading && !tournamentsLoading && combinedArchiveItems.length > 0 && (
-              <div className="space-y-4">
-                {sortedYears.map(year => (
-                  <div key={year}>
-                    <h3 className="text-lg font-semibold text-white mb-3 text-center">{year}</h3>
-                    <div className="space-y-2">
-                      {groupedArchiveByYear[year].map(renderArchiveItem)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-            <TabsContent value="members" className="w-full bg-gray-800/50 rounded-lg p-4 mb-8">
-            {membersError && !membersLoading && (
-                <div className="text-red-400 text-sm text-center p-4 bg-red-900/30 rounded-md">
-                    Fehler: {membersError}
-                </div>
-            )}
-            <GroupMemberList 
-              members={members.map(member => {
-                // Finde die korrekten Spielwerte aus groupStats, falls verfügbar
-                const statsPlayer = groupStats?.playerWithMostGames?.find(p => 
-                  p.playerName.toLowerCase() === member.displayName?.toLowerCase()
-                );
-                
-                // Wenn Spieler in den Statistiken gefunden, setze die korrekte Spielezahl
-                if (statsPlayer) {
-                  return {
-                    ...member,
-                    stats: {
-                      ...(member.stats || {}),
-                      gamesPlayed: statsPlayer.value
-                    }
-                  } as FirestorePlayer;
-                }
-                return member;
-              }).sort((a, b) => (b.stats?.gamesPlayed || 0) - (a.stats?.gamesPlayed || 0))} 
-              isLoading={membersLoading} 
-            />
-            </TabsContent>
-
-        </Tabs>
-
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          accept="image/jpeg, image/png"
-          className="hidden"
-          disabled={isUploading}
-        />
-
-      </div>
-
-      <InviteModal
-        isOpen={isInviteModalOpen}
-        onClose={handleCloseInviteModal}
-        isLoading={isGeneratingInvite}
-        error={inviteError}
-        inviteToken={inviteToken}
-        groupName={currentGroup?.name || "Gruppe"}
-        onGenerateNew={handleGenerateNewInvite}
-      />
-
-      <ImageCropModal
-        isOpen={cropModalOpen}
-        onClose={() => handleCropComplete(null)}
-        imageSrc={imageToCrop}
-        onCropComplete={handleCropComplete}
-      />
-
-
-    </MainLayout>
-  );
+  // ❌ LEGACY REMOVED: Komplettes MainLayout UI-System (~1500 Zeilen entfernt)
+  //   - Header mit Logo-Upload
+  //   - Tab-System (Statistik/Archiv/Mitglieder)  
+  //   - Alle Statistik-Sub-Tabs
+  //   - File Input und Modals
+  
+  // Die GroupView-Komponente übernimmt jetzt ALLE UI-Verantwortung
 };
 
 export default StartPage;

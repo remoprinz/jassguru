@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useState, useMemo} from "react";
 import "../styles/globals.css";
 import type {AppProps} from "next/app";
 import { useRouter } from "next/router";
@@ -19,6 +19,7 @@ import { FirestoreSyncProvider } from '@/providers/FirestoreSyncProvider'; // Ne
 import { ClipLoader } from "react-spinners"; // Import für einen Spinner
 import { debouncedRouterPush } from '../utils/routerUtils';
 import { resetFirestoreCache } from '@/services/firebaseInit'; // NEU: Cache-Reset-Funktion importieren
+import { isPublicPath } from "@/lib/utils"; // 🚨 NEU: Importiere die zentrale Funktion
 
 // Hilfskomponente für die Ladeanzeige
 const LoadingScreen: React.FC = () => (
@@ -86,6 +87,13 @@ const MyApp = ({Component, pageProps}: AppProps) => {
     
   }, [initAuth]);
 
+  // NEU: Effekt zum Setzen des App-Ladezustands
+  useEffect(() => {
+    if (router.isReady && (authStatus !== 'loading' && authStatus !== 'idle')) {
+      setIsAppLoaded(true);
+    }
+  }, [router.isReady, authStatus]);
+
   useEffect(() => {
     // Doppelklick auf den oberen Rand für Debug-Konsole
     const handleDoubleClick = (e: MouseEvent) => {
@@ -107,12 +115,8 @@ const MyApp = ({Component, pageProps}: AppProps) => {
     }
 
     const currentPath = router.pathname;
-    const isAuthenticatedUser = authStatus === 'authenticated'; // Geändert von isAuthenticated zu isAuthenticatedUser für Klarheit
-    const isGuestUser = useAuthStore.getState().isGuest; // Aktuellen Gaststatus holen
-
-    // Pfade definieren
-    const authPaths = ['/auth/login', '/auth/register'];
-    const publicPaths = ['/', ...authPaths, '/jass', '/join', '/impressum', '/datenschutz', '/view/group', '/view/session', '/view/tournament'];
+    const isAuthenticatedUser = authStatus === 'authenticated';
+    const isGuestUser = useAuthStore.getState().isGuest;
     const authenticatedStartPath = '/start';
     const unauthenticatedLandingPath = '/';
 
@@ -130,40 +134,39 @@ const MyApp = ({Component, pageProps}: AppProps) => {
 
     // --- Logik für eingeloggte Benutzer (NICHT Gäste) ---
     if (isAuthenticatedUser && !isGuestUser) {
-      if (authPaths.some(p => currentPath.startsWith(p)) || currentPath === unauthenticatedLandingPath) {
+      if (currentPath === unauthenticatedLandingPath || currentPath.startsWith('/auth')) {
         if (isDebugMode) console.log(`[_app Effect] Authentifizierter Benutzer auf Auth/Landing-Seite (${currentPath}). Leite weiter zu ${authenticatedStartPath}...`);
         setTimeout(() => {
           debouncedRouterPush(router, authenticatedStartPath, undefined, true);
         }, 100);
-      } else {
-        // if (isDebugMode) console.log(`[_app Effect] Authentifizierter Benutzer auf erlaubtem Pfad (${currentPath}). Keine Weiterleitung nötig.`);
       }
     }
     // --- Logik für NICHT eingeloggte Benutzer (KEINE Gäste) ---
     else if (!isAuthenticatedUser && !isGuestUser) {
-      const isProtectedRoute = !publicPaths.some(p => currentPath.startsWith(p));
-      // if (isDebugMode) console.log(`[DEBUG _app] Path: ${currentPath}, isProtectedRoute: ${isProtectedRoute}, authStatus: ${authStatus}, isGuest: ${isGuestUser}, publicPaths: ${JSON.stringify(publicPaths)}`);
+      const isProtectedRoute = !isPublicPath(currentPath);
+      
       if (isProtectedRoute) {
         if (isDebugMode) console.log(`[DEBUG _app] REDIRECTING user from ${currentPath} to ${unauthenticatedLandingPath}`);
         debouncedRouterPush(router, unauthenticatedLandingPath, undefined, true);
-      } else {
-        // if (isDebugMode) console.log(`[_app Effect] Unauthenticated user on public path (${currentPath}). No redirect needed.`);
       }
     }
     // --- Logik für Gäste --- 
     else if (isGuestUser) {
-        const isProtectedNonAuthRoute = !publicPaths.some(p => currentPath.startsWith(p)) && 
-                                       !authPaths.some(p => currentPath.startsWith(p));
+        const isProtectedNonAuthRoute = !isPublicPath(currentPath) && !currentPath.startsWith('/auth');
         
         if (isProtectedNonAuthRoute) {
             if (isDebugMode) console.log(`[_app Effect] Guest user on protected route (${currentPath}). Redirecting to landing...`);
             debouncedRouterPush(router, unauthenticatedLandingPath, undefined, true);
-        } else {
-            // if (isDebugMode) console.log(`[_app Effect] Guest user on allowed path (${currentPath}). No redirect needed.`);
         }
     }
 
-  }, [authStatus, router.isReady, router.pathname]); // router-Objekt aus Abhängigkeiten entfernt, nur router.pathname und router.isReady
+  }, [authStatus, router.isReady, router.pathname]);
+
+  // NEU: Logik zur Unterscheidung öffentlicher/privater Seiten für das Rendering
+  const isPublicPage = useMemo(() => {
+    // 🚨 KORREKTUR: Verwende die zentrale Funktion
+    return isPublicPath(router.pathname);
+  }, [router.pathname]);
 
   // NEU: useEffect zur Prüfung auf aktives Turnier für den eingeloggten Benutzer
   useEffect(() => {
@@ -253,10 +256,10 @@ const MyApp = ({Component, pageProps}: AppProps) => {
         <UserProvider>
           <FirestoreSyncProvider>
             {/* --- HIER: Bedingtes Rendern von Seite oder Ladeanzeige --- */}
-            {authStatus === 'loading' || authStatus === 'idle' ? (
-              <LoadingScreen />
-            ) : (
+            {isAppLoaded ? (
               <Component {...pageProps} />
+            ) : (
+              <LoadingScreen />
             )}
             {/* --- Ende bedingtes Rendern --- */}
             
