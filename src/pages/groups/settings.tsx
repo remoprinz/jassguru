@@ -364,13 +364,19 @@ const GroupSettingsPage = () => {
     }
 
     try {
-      // 3. Speichere Basis-Infos, falls geändert
+      let updatePromises: Promise<void>[] = [];
+      let updatesPerformed: string[] = [];
+
+      // 3. Füge Basis-Info-Update zum Promise-Array hinzu, falls geändert
       if (baseInfoChanged) {
         console.log("Speichere Basis-Infos...");
-        await updateGroup(groupId, { name, description, mainLocationZip, isPublic }); // PLZ mitspeichern
+        // WICHTIG: Kein 'await' hier, wir sammeln die Promises
+        // showNotification: false verhindert doppelte Benachrichtigungen
+        updatePromises.push(updateGroup(groupId, { name, description, mainLocationZip, isPublic }, false));
+        updatesPerformed.push("Basis-Informationen");
       }
 
-      // 4. Speichere Jass-Einstellungen, falls geändert
+      // 4. Füge Jass-Einstellungs-Update hinzu, falls geändert
       if (jassSettingsChanged) {
         console.log("Speichere Jass-Einstellungen...");
         const jassSettingsUpdates = {
@@ -379,22 +385,28 @@ const GroupSettingsPage = () => {
           farbeSettingsValues: JSON.parse(JSON.stringify(finalFarbeSettings.values)),
           cardStyle: finalFarbeSettings.cardStyle,
         };
-        await updateCurrentGroupJassSettings(groupId, jassSettingsUpdates);
+        updatePromises.push(updateCurrentGroupJassSettings(groupId, jassSettingsUpdates));
+        updatesPerformed.push("Jass-Einstellungen");
       }
 
-      // NEU: Speichere Theme, falls geändert
+      // NEU: Füge Theme-Update hinzu, falls geändert
       if (themeChanged) {
         console.log("Speichere Gruppen-Theme...");
-        await updateGroup(groupId, { theme: tempTheme });
+        // HINWEIS: updateGroup wird hier ggf. zum zweiten Mal aufgerufen, aber für unterschiedliche Felder.
+        // Firestore fasst diese zu einem einzigen Schreibvorgang zusammen.
+        // showNotification: false verhindert doppelte Benachrichtigungen
+        updatePromises.push(updateGroup(groupId, { theme: tempTheme }, false));
+        updatesPerformed.push("Gruppenfarbe");
       }
 
-      // 5. Erfolgsmeldung
+      // 5. Führe alle Updates parallel aus
+      await Promise.all(updatePromises);
+
+      // 6. 🎨 ELEGANTE, EINZIGE ERFOLGSMELDUNG
       showNotification({
         message: "Einstellungen erfolgreich gespeichert.",
         type: "success",
       });
-      // Optional: Zurück zur Startseite navigieren
-      // router.push("/start");
 
     } catch (err) {
       success = false;

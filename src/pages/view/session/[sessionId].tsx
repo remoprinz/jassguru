@@ -314,7 +314,7 @@ const PublicSessionPage = () => {
       <div className="h-full-minus-header">
         <GameViewerKreidetafel 
           gameData={gameDataForViewer} 
-          gameTypeLabel="Session" 
+          gameTypeLabel="Spiel" 
           onBackClick={handleBackClick} // 🚨 HIER: Intelligente Funktion übergeben
         />
       </div>

@@ -57,7 +57,7 @@ interface GroupActions {
   clearError: () => void;
   resetGroupStore: () => void;
   updateGroupInList: (groupId: string, updateData: Partial<FirestoreGroup>) => void; // Verwende den importierten Typ
-  updateGroup: (groupId: string, data: Partial<Omit<FirestoreGroup, 'id' | 'playerIds' | 'adminIds'>>) => Promise<void>; // Verwende den importierten Typ
+  updateGroup: (groupId: string, data: Partial<Omit<FirestoreGroup, 'id' | 'playerIds' | 'adminIds'>>, showNotification?: boolean) => Promise<void>; // Verwende den importierten Typ
   addUserGroup: (group: FirestoreGroup) => void; // Verwende den importierten Typ
   updateMemberRole: (playerId: string, role: 'admin' | 'member') => Promise<void>;
   _cleanupCurrentGroupListener: () => void;
@@ -285,7 +285,7 @@ const groupStoreCreator: StateCreator<
     }
   },
 
-  updateGroup: async (groupId: string, data: Partial<Omit<FirestoreGroup, 'id' | 'playerIds' | 'adminIds'>>) => {
+  updateGroup: async (groupId: string, data: Partial<Omit<FirestoreGroup, 'id' | 'playerIds' | 'adminIds'>>, showNotification: boolean = true) => {
     const uiStore = useUIStore.getState();
     if (!groupId) {
       console.error("GROUP_STORE: updateGroup called without groupId.");
@@ -310,7 +310,10 @@ const groupStoreCreator: StateCreator<
         draft.lastSettingsUpdateTimestamp = Date.now();
       });
       set(nextStateAfterUpdate);
-      uiStore.showNotification({ message: "Gruppeneinstellungen gespeichert.", type: "success" });
+      // 🎨 NEU: Nur Benachrichtigung zeigen, wenn explizit gewünscht
+      if (showNotification) {
+        uiStore.showNotification({ message: "Gruppeneinstellungen gespeichert.", type: "success" });
+      }
     } catch (error) {
       console.error(`GROUP_STORE: Error updating group ${groupId}:`, error);
       

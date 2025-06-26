@@ -174,13 +174,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
     try {
       // Eleganter Share-Text erstellen
       const groupName = currentGroup.name || 'Jass-Gruppe';
-      const shareText = `Schau dir die Jass-Statistiken von "${groupName}" an! 🎯🃏
-
-Hier findest du alle Spielergebnisse, Ranglisten und das komplette Archiv.
-
-👉 https://jassguru.ch/view/group/${currentGroup.id}
-
-Generiert von Jassguru - der Schweizer Jass-App`;
+      const shareText = `Schau dir die Jass-Statistiken von "${groupName}" an! Hier findest du alle Spielergebnisse, Ranglisten und das komplette Archiv.\n\nhttps://jassguru.ch/view/group/${currentGroup.id}\n\ngeneriert von:\n👉 jassguru.ch`;
 
       // Share API verwenden (falls verfügbar)
       if (navigator.share) {
@@ -317,6 +311,113 @@ Generiert von Jassguru - der Schweizer Jass-App`;
     };
     return colorMap[themeKey] || '#ca8a04'; // Fallback zu Standard-Gelb (yellow-600)
   };
+
+  // 🎨 NEU: Theme-basierte Styling-Utilities
+  const getThemeStyles = (themeKey: string) => {
+    const themeColorMap: Record<string, { 
+      primary: string, 
+      primaryRgb: string, 
+      border: string, 
+      glow: string,
+      text: string,
+      accent: string 
+    }> = {
+      green: { 
+        primary: '#059669', 
+        primaryRgb: '5, 150, 105', 
+        border: 'border-emerald-500/60', 
+        glow: 'shadow-emerald-500/20',
+        text: 'text-emerald-400',
+        accent: 'bg-emerald-500/10'
+      },
+      blue: { 
+        primary: '#2563eb', 
+        primaryRgb: '37, 99, 235', 
+        border: 'border-blue-500/60', 
+        glow: 'shadow-blue-500/20',
+        text: 'text-blue-400',
+        accent: 'bg-blue-500/10'
+      },
+      purple: { 
+        primary: '#9333ea', 
+        primaryRgb: '147, 51, 234', 
+        border: 'border-purple-500/60', 
+        glow: 'shadow-purple-500/20',
+        text: 'text-purple-400',
+        accent: 'bg-purple-500/10'
+      },
+      red: { 
+        primary: '#dc2626', 
+        primaryRgb: '220, 38, 38', 
+        border: 'border-red-500/60', 
+        glow: 'shadow-red-500/20',
+        text: 'text-red-400',
+        accent: 'bg-red-500/10'
+      },
+      yellow: { 
+        primary: '#ca8a04', 
+        primaryRgb: '202, 138, 4', 
+        border: 'border-yellow-500/60', 
+        glow: 'shadow-yellow-500/20',
+        text: 'text-yellow-400',
+        accent: 'bg-yellow-500/10'
+      },
+      indigo: { 
+        primary: '#4f46e5', 
+        primaryRgb: '79, 70, 229', 
+        border: 'border-indigo-500/60', 
+        glow: 'shadow-indigo-500/20',
+        text: 'text-indigo-400',
+        accent: 'bg-indigo-500/10'
+      },
+      pink: { 
+        primary: '#ec4899', 
+        primaryRgb: '236, 72, 153', 
+        border: 'border-pink-500/60', 
+        glow: 'shadow-pink-500/20',
+        text: 'text-pink-400',
+        accent: 'bg-pink-500/10'
+      },
+      teal: { 
+        primary: '#0d9488', 
+        primaryRgb: '13, 148, 136', 
+        border: 'border-teal-500/60', 
+        glow: 'shadow-teal-500/20',
+        text: 'text-teal-400',
+        accent: 'bg-teal-500/10'
+      }
+    };
+    
+    return themeColorMap[themeKey] || themeColorMap.indigo; // Fallback zu Indigo
+  };
+
+  const themeStyles = useMemo(() => getThemeStyles(groupTheme), [groupTheme]);
+
+  // 🎨 Utility für Theme-basierte ProfileImage-Styles
+  const getProfileImageThemeStyles = () => ({
+    className: `border border-gray-600/50 hover:scale-105 transition-all duration-200`,
+    style: {
+      borderColor: `rgba(${themeStyles.primaryRgb}, 0.3)`,
+      boxShadow: `0 0 8px rgba(${themeStyles.primaryRgb}, 0.1)`
+    },
+    fallbackStyle: {
+      backgroundColor: `rgba(${themeStyles.primaryRgb}, 0.1)`,
+      borderColor: `rgba(${themeStyles.primaryRgb}, 0.3)`
+    }
+  });
+
+  // 🎨 Berechne Titel-Farbe: Weiß mit 4% Theme-Farbe gemischt
+  const getTitleColor = () => {
+    const [r, g, b] = themeStyles.primaryRgb.split(', ').map(Number);
+    const mixPercent = 0.04; // 4% Theme-Farbe
+    const whitePercent = 1 - mixPercent;
+    
+    const mixedR = Math.round(255 * whitePercent + r * mixPercent);
+    const mixedG = Math.round(255 * whitePercent + g * mixPercent);
+    const mixedB = Math.round(255 * whitePercent + b * mixPercent);
+    
+    return `rgb(${mixedR}, ${mixedG}, ${mixedB})`;
+  };
   
   // ===== FRÜHE RETURN STATEMENTS VOM ORIGINAL =====
   
@@ -399,18 +500,39 @@ Generiert von Jassguru - der Schweizer Jass-App`;
         
         {/* 🚨 NEU: SHARE BUTTON - IMMER SICHTBAR, WENN GRUPPE EXISTIERT */}
         {currentGroup && (
-                  <button 
-          onClick={handleShareClick}
-          className="absolute top-4 right-4 z-10 p-2 text-gray-300 hover:text-white transition-colors duration-200 rounded-full bg-gray-700/50 hover:bg-gray-600/70"
-          aria-label="Gruppenstatistiken teilen"
-        >
-          <FiShare2 className="w-5 h-5" />
-        </button>
+          <button 
+            onClick={handleShareClick}
+            className="absolute top-4 right-4 z-10 p-2 text-gray-300 hover:text-white transition-all duration-200 rounded-full bg-gray-700/50 hover:scale-110"
+            style={{
+              backgroundColor: 'rgba(55, 65, 81, 0.5)',
+              borderColor: 'transparent'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = `rgba(${themeStyles.primaryRgb}, 0.2)`;
+              e.currentTarget.style.borderColor = `rgba(${themeStyles.primaryRgb}, 0.4)`;
+              e.currentTarget.style.boxShadow = `0 0 15px rgba(${themeStyles.primaryRgb}, 0.3)`;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(55, 65, 81, 0.5)';
+              e.currentTarget.style.borderColor = 'transparent';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+            aria-label="Gruppenstatistiken teilen"
+          >
+            <FiShare2 className="w-5 h-5" />
+          </button>
         )}
         
         {/* ✅ SCHRITT 2: HEADER MIT LOGO UND BUTTONS */}
         <div className="relative mb-4 mt-6">
-          <div className={`relative w-32 h-32 rounded-full overflow-hidden border-2 ${selectedFile && previewUrl ? 'border-purple-500' : 'border-gray-700'} flex items-center justify-center bg-gray-800`}>
+          <div 
+            className={`relative w-32 h-32 rounded-full overflow-hidden transition-all duration-300 flex items-center justify-center bg-gray-800 shadow-lg hover:shadow-xl hover:scale-105`}
+            style={{
+              boxShadow: selectedFile && previewUrl 
+                ? '0 0 0 3px rgba(147, 51, 234, 1), 0 0 25px rgba(147, 51, 234, 0.3)'
+                : `0 0 0 3px ${themeStyles.primary}, 0 0 20px rgba(${themeStyles.primaryRgb}, 0.2), 0 4px 20px rgba(0,0,0,0.3)`
+            }}
+          >
             {previewUrl ? (
               <Image
                 src={previewUrl}
@@ -450,8 +572,12 @@ Generiert von Jassguru - der Schweizer Jass-App`;
         </div>
 
         <div className="w-full text-center mb-6 px-4">
-          <h1 className="text-3xl font-bold mb-1 text-white break-words">{currentGroup?.name ?? 'Keine Gruppe ausgewählt'}</h1>
-          <div className="text-sm text-gray-400 mx-auto max-w-xl break-words">
+          <h1 
+            className="text-3xl font-bold mb-1 text-white break-words transition-colors duration-300"
+          >
+            {currentGroup?.name ?? 'Keine Gruppe ausgewählt'}
+          </h1>
+          <div className="text-sm text-gray-400 mx-auto max-w-xl break-words mt-3">
             <FormattedDescription 
               description={currentGroup?.description} 
               className="mx-auto" 
@@ -493,7 +619,19 @@ Generiert von Jassguru - der Schweizer Jass-App`;
               variant="ghost" 
               size="sm" 
               onClick={handleInviteClick}
-              className="hover:bg-gray-700/30 text-gray-300 hover:text-white"
+              className={`text-gray-300 hover:text-white transition-all duration-200 hover:scale-105`}
+              style={{
+                backgroundColor: 'transparent',
+                borderColor: 'transparent'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = `rgba(${themeStyles.primaryRgb}, 0.1)`;
+                e.currentTarget.style.borderColor = `rgba(${themeStyles.primaryRgb}, 0.3)`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.borderColor = 'transparent';
+              }}
               title="Teilnehmer einladen"
             >
               <UserPlus className="h-4 w-4 mr-1.5" /> Einladen
@@ -504,7 +642,19 @@ Generiert von Jassguru - der Schweizer Jass-App`;
               variant="ghost" 
               size="sm" 
               onClick={() => router.push("/groups/settings")}
-              className="hover:bg-gray-700/30 text-gray-300 hover:text-white"
+              className={`text-gray-300 hover:text-white transition-all duration-200 hover:scale-105`}
+              style={{
+                backgroundColor: 'transparent',
+                borderColor: 'transparent'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = `rgba(${themeStyles.primaryRgb}, 0.1)`;
+                e.currentTarget.style.borderColor = `rgba(${themeStyles.primaryRgb}, 0.3)`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.borderColor = 'transparent';
+              }}
               title="Einstellungen"
             >
               <Settings className="h-4 w-4 mr-1.5" /> Einstellungen
