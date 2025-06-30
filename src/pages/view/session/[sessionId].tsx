@@ -167,6 +167,14 @@ const PublicSessionPage = () => {
     const referrer = document.referrer;
     console.log('[SessionPage] Zurück-Navigation von Referrer:', referrer);
     
+    // 🚨 NEU: Fall 0: Spezieller Fall wenn wir von einem abgeschlossenen Jass kommen
+    const fromJassCompletion = router.query.fromJassCompletion === 'true';
+    if (fromJassCompletion) {
+      console.log('[SessionPage] 🎯 SPEZIELLER FALL: Von abgeschlossenem Jass kommend, navigiere zu /start');
+      router.push('/start');
+      return;
+    }
+    
     // Fall 1: Wir kommen von einer öffentlichen Gruppenseite (der häufigste Fall)
     const publicGroupMatch = referrer.match(/\/view\/group\/([^/?]+)/);
     if (publicGroupMatch) {

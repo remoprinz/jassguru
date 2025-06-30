@@ -351,8 +351,8 @@ async function calculatePlayerStatisticsInternal(
       
       const partnerStats = partnerData.get(partnerId)!;
       
-      // ✅ KORREKTUR: Analog zu Individual-Tab - Session-Counts nur für Regular Sessions
-      if (!isSessionTournament) { 
+      // ✅ KORREKTUR: Analog zu Individual-Tab - Session-Counts nur für Regular Sessions und nur entschiedene Sessions
+      if (!isSessionTournament && session.winnerTeamKey !== 'draw') { 
         partnerStats.sessionsPlayedWith++;
         if (sessionWon) partnerStats.sessionsWonWith++;
       }
@@ -399,8 +399,8 @@ async function calculatePlayerStatisticsInternal(
       
       const opponentStats = opponentData.get(opponentId)!;
       
-      // ✅ KORREKTUR: Analog zu Individual-Tab - Session-Counts nur für Regular Sessions  
-      if (!isSessionTournament) { 
+      // ✅ KORREKTUR: Analog zu Individual-Tab - Session-Counts nur für Regular Sessions und nur entschiedene Sessions
+      if (!isSessionTournament && session.winnerTeamKey !== 'draw') { 
         opponentStats.sessionsPlayedAgainst++;
         if (sessionWon) opponentStats.sessionsWonAgainst++;
       }
@@ -421,9 +421,13 @@ async function calculatePlayerStatisticsInternal(
       const sessionWon = session.winnerTeamKey === playerTeam;
       
 
-      if (sessionWon) stats.sessionWins++;
-      else if (session.winnerTeamKey !== 'draw') stats.sessionLosses++;
-      else if (session.winnerTeamKey === 'draw') stats.sessionTies++;
+      if (sessionWon) {
+        stats.sessionWins++;
+      } else if (session.winnerTeamKey === 'draw') {
+        stats.sessionTies++;
+      } else {
+        stats.sessionLosses++;
+      }
 
       sessionResults.push({ won: sessionWon, tied: session.winnerTeamKey === 'draw', date: sessionDate, sessionId: sessionId });
     }
@@ -841,7 +845,10 @@ async function calculatePlayerStatisticsInternal(
   // --- Finalize Aggregates ---
   partnerData.forEach(p => {
     p.gameWinRate = p.gamesPlayedWith > 0 ? p.gamesWonWith / p.gamesPlayedWith : 0;
+    
+    // ✅ KORRIGIERT: Session Win Rate für Partner - alle Sessions sind jetzt entschieden (Unentschieden ausgeschlossen)
     p.sessionWinRate = p.sessionsPlayedWith > 0 ? p.sessionsWonWith / p.sessionsPlayedWith : 0;
+    
     p.gameWinRateInfo = createWinRateInfo(p.gamesWonWith, p.gamesPlayedWith);
     p.sessionWinRateInfo = createWinRateInfo(p.sessionsWonWith, p.sessionsPlayedWith);
     
@@ -852,7 +859,10 @@ async function calculatePlayerStatisticsInternal(
   });
   opponentData.forEach(o => {
     o.gameWinRate = o.gamesPlayedAgainst > 0 ? o.gamesWonAgainst / o.gamesPlayedAgainst : 0;
+    
+    // ✅ KORRIGIERT: Session Win Rate für Gegner - alle Sessions sind jetzt entschieden (Unentschieden ausgeschlossen)
     o.sessionWinRate = o.sessionsPlayedAgainst > 0 ? o.sessionsWonAgainst / o.sessionsPlayedAgainst : 0;
+    
     o.gameWinRateInfo = createWinRateInfo(o.gamesWonAgainst, o.gamesPlayedAgainst);
     o.sessionWinRateInfo = createWinRateInfo(o.sessionsWonAgainst, o.sessionsPlayedAgainst);
     

@@ -276,19 +276,10 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
   const currentModule = STATISTIC_MODULES.find(mod => mod.id === currentStatistic);
 
   // Get initial starting player from the first game in the history
+  // KORREKTUR: Verwende die bewährte direkte Zugriffsmethode aus ResultatKreidetafel.tsx
   const initialStartingPlayer = useMemo(() => {
-    const firstGame = gameData.games[0];
-    if (firstGame) {
-      // Priorisiere initialStartingPlayer, falls vorhanden (auf beiden Typen möglich)
-      if ('initialStartingPlayer' in firstGame && typeof (firstGame as any).initialStartingPlayer === 'number') {
-        return (firstGame as any).initialStartingPlayer;
-      }
-      // Fallback auf startingPlayer, explizit für CompletedGameSummary prüfen
-      if ('startingPlayer' in firstGame && typeof (firstGame as any).startingPlayer === 'number') {
-        // Hier wissen wir, es könnte ein CompletedGameSummary sein, oder ein GameEntry, das unerwartet startingPlayer hat.
-        // Da CompletedGameSummary startingPlayer hat, ist der Zugriff hier sicherer, wenn der Guard greift.
-        return (firstGame as CompletedGameSummary).startingPlayer;
-      }
+    if (gameData.games && gameData.games.length > 0) {
+      return gameData.games[0]?.initialStartingPlayer ?? 1;
     }
     return 1; // Default fallback
   }, [gameData.games]);

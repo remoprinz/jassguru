@@ -22,7 +22,8 @@ export function isPublicPath(path: string): boolean {
     '/join',
     '/impressum',
     '/datenschutz',
-    '/view'
+    '/view',
+    '/profile'
   ];
 
   return publicPathBases.some(base => path.startsWith(base));

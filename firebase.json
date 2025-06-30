@@ -17,6 +17,10 @@
         "destination": "/view/group/[groupId].html"
       },
       {
+        "source": "/profile/**",
+        "destination": "/profile/[playerId].html"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

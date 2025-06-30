@@ -1542,8 +1542,8 @@ const ResultatKreidetafel = ({
                     // Für Turniere: zurück zur Turnier-Detailseite
                     await debouncedRouterPush(router, `/tournaments/${tournamentInstanceId}`);
                 } else if (sessionIdToView) {
-                    // NEU: Für normale Spiele zur neuen Session-Ansicht
-                    await debouncedRouterPush(router, `/view/session/${sessionIdToView}`);
+                    // NEU: Für normale Spiele zur neuen Session-Ansicht mit speziellem Flag
+                    await debouncedRouterPush(router, `/view/session/${sessionIdToView}?fromJassCompletion=true`);
                 } else {
                     // Fallback
                     console.warn("[ResultatKreidetafel] Konnte nicht zur Session-Ansicht weiterleiten, da keine Session-ID gefunden wurde.");
@@ -2079,21 +2079,21 @@ const ResultatKreidetafel = ({
             <div className="grid grid-cols-2 gap-2">
               <PlayerName 
                 name={playerNames[1]} 
-                isStarter={gamesToDisplay && gamesToDisplay.length > 0 && gamesToDisplay[0]?.initialStartingPlayer === 1} 
+                isStarter={gamesForStatistik && gamesForStatistik.length > 0 && gamesForStatistik[0]?.initialStartingPlayer === 1} 
               />
               <PlayerName 
                 name={playerNames[3]} 
-                isStarter={gamesToDisplay && gamesToDisplay.length > 0 && gamesToDisplay[0]?.initialStartingPlayer === 3} 
+                isStarter={gamesForStatistik && gamesForStatistik.length > 0 && gamesForStatistik[0]?.initialStartingPlayer === 3} 
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <PlayerName 
                 name={playerNames[2]} 
-                isStarter={gamesToDisplay && gamesToDisplay.length > 0 && gamesToDisplay[0]?.initialStartingPlayer === 2} 
+                isStarter={gamesForStatistik && gamesForStatistik.length > 0 && gamesForStatistik[0]?.initialStartingPlayer === 2} 
               />
               <PlayerName 
                 name={playerNames[4]} 
-                isStarter={gamesToDisplay && gamesToDisplay.length > 0 && gamesToDisplay[0]?.initialStartingPlayer === 4} 
+                isStarter={gamesForStatistik && gamesForStatistik.length > 0 && gamesForStatistik[0]?.initialStartingPlayer === 4} 
               />
             </div>
           </div>
@@ -2198,7 +2198,7 @@ const ResultatKreidetafel = ({
                     <button 
                       onClick={closeResultatKreidetafel}
                       className="
-                        w-full py-1.5 px-4 text-white rounded-lg font-medium text-sm
+                        w-full py-2 px-4 text-white rounded-lg font-medium text-base
                         transition-all duration-150
                         bg-gray-600 hover:bg-gray-700
                         leading-tight
@@ -2281,7 +2281,7 @@ const ResultatKreidetafel = ({
                     <button 
                       onClick={closeResultatKreidetafel}
                       className="
-                        w-full py-1.5 px-4 text-white rounded-lg font-medium text-sm
+                        w-full py-2 px-4 text-white rounded-lg font-medium text-base
                         transition-all duration-150
                         bg-gray-600 hover:bg-gray-700
                         leading-tight
@@ -2325,7 +2325,7 @@ const ResultatKreidetafel = ({
                  <button 
                    onClick={closeResultatKreidetafel}
                    className="
-                     w-full py-1.5 px-4 text-white rounded-lg font-medium text-sm
+                     w-full py-2 px-4 text-white rounded-lg font-medium text-base
                      transition-all duration-150
                      bg-gray-600 hover:bg-gray-700
                      leading-tight

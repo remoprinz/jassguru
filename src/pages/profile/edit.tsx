@@ -39,10 +39,10 @@ const EditProfilePage: React.FC = () => {
     teal: { name: "Türkis", description: "" },
   };
 
-  // Theme aus localStorage laden
+  // Theme aus Firebase/localStorage laden
   useEffect(() => {
-    setSelectedTheme(getCurrentProfileTheme());
-  }, []);
+    setSelectedTheme(getCurrentProfileTheme(user?.profileTheme));
+  }, [user?.profileTheme]);
 
   // Redirect wenn nicht eingeloggt
   useEffect(() => {
@@ -69,20 +69,10 @@ const EditProfilePage: React.FC = () => {
     try {
       await updateProfile({displayName, statusMessage, profileTheme: selectedTheme});
 
-      // Theme-Auswahl in localStorage speichern (für sofortige Anwendung)
-      if (selectedTheme !== CURRENT_PROFILE_THEME) {
-        localStorage.setItem('jasstafel-profile-theme', selectedTheme);
-        
-        showNotification({
-          message: `Profil und Farbe "${themeLabels[selectedTheme].name}" erfolgreich gespeichert.`,
-          type: "success",
-        });
-      } else {
-        showNotification({
-          message: "Profil erfolgreich aktualisiert.",
-          type: "success",
-        });
-      }
+      showNotification({
+        message: `Profil und Farbe "${themeLabels[selectedTheme].name}" erfolgreich gespeichert.`,
+        type: "success",
+      });
 
       router.push("/profile");
     } catch (err) {

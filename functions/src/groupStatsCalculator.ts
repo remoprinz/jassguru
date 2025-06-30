@@ -829,13 +829,15 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         playerSessionStats.forEach((stats, playerId) => {
       const lastActivity = playerLastActivity.get(playerId);
       if (lastActivity && lastActivity.toMillis() >= oneYearAgo && stats.sessions >= 1) { // KEINE Mindestanforderung mehr!
-        const winRate = stats.sessions > 0 ? stats.wins / stats.sessions : 0;
+        // ✅ KORRIGIERT: Session Win Rate - nur entschiedene Sessions berücksichtigen (Unentschieden ausschließen)
+        const decidedSessions = stats.wins + stats.losses;
+        const winRate = decidedSessions > 0 ? stats.wins / decidedSessions : 0;
         const playerName = playerIdToNameMap.get(playerId) || groupData.players[playerId]?.displayName || "Unbekannter Jasser";
         playerSessionWinRateList.push({
           playerId,
           playerName: playerName,
           value: parseFloat(winRate.toFixed(3)), // KORREKTUR: Keine *100 Multiplikation - Frontend macht das!
-          eventsPlayed: stats.sessions,
+          eventsPlayed: decidedSessions, // ✅ KORRIGIERT: Nur entschiedene Sessions anzeigen
           lastPlayedTimestamp: lastActivity,
         });
       }
@@ -985,12 +987,14 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         
       const topStats = teamPairings.get(topKey)!;
       
-      // ✅ KORRIGIERT: Session-Counts für Regular Sessions
-      topStats.sessions++;
-      
-      // Session-Gewinn für Regular Sessions
-      if (sessionData.winnerTeamKey === 'top') {
-        topStats.sessionWins++;
+      // ✅ KORRIGIERT: Session-Counts nur für entschiedene Sessions (Unentschieden ausschließen)
+      if (sessionData.winnerTeamKey !== 'draw' && sessionData.winnerTeamKey !== 'tie') {
+        topStats.sessions++;
+        
+        // Session-Gewinn für Regular Sessions
+        if (sessionData.winnerTeamKey === 'top') {
+          topStats.sessionWins++;
+        }
       }
       
       // ✅ WICHTIG: Spiel-Counts für Regular Sessions
@@ -1082,12 +1086,14 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         
       const bottomStats = teamPairings.get(bottomKey)!;
       
-      // ✅ KORRIGIERT: Session-Counts für Regular Sessions
-      bottomStats.sessions++;
-      
-      // Session-Gewinn für Regular Sessions
-      if (sessionData.winnerTeamKey === 'bottom') {
-        bottomStats.sessionWins++;
+      // ✅ KORRIGIERT: Session-Counts nur für entschiedene Sessions (Unentschieden ausschließen)
+      if (sessionData.winnerTeamKey !== 'draw' && sessionData.winnerTeamKey !== 'tie') {
+        bottomStats.sessions++;
+        
+        // Session-Gewinn für Regular Sessions
+        if (sessionData.winnerTeamKey === 'bottom') {
+          bottomStats.sessionWins++;
+        }
       }
       
       // ✅ WICHTIG: Spiel-Counts für Regular Sessions

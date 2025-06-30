@@ -14,11 +14,9 @@ import {useTournamentStore} from "@/store/tournamentStore"; // NEU: TournamentSt
 import {useUIStore} from "@/store/uiStore"; // NEU: UIStore importieren
 import GlobalNotificationContainer from "../components/notifications/GlobalNotificationContainer";
 import PwaUpdateHandler from '@/components/pwa/PwaUpdateHandler'; // Wieder einkommentieren
-import { register as registerServiceWorker } from '@/pwa/serviceWorkerRegistration';
 import { FirestoreSyncProvider } from '@/providers/FirestoreSyncProvider'; // Neu importieren
 import { ClipLoader } from "react-spinners"; // Import für einen Spinner
 import { debouncedRouterPush } from '../utils/routerUtils';
-import { resetFirestoreCache } from '@/services/firebaseInit'; // NEU: Cache-Reset-Funktion importieren
 import { isPublicPath } from "@/lib/utils"; // 🚨 NEU: Importiere die zentrale Funktion
 
 // Hilfskomponente für die Ladeanzeige
@@ -87,12 +85,24 @@ const MyApp = ({Component, pageProps}: AppProps) => {
     
   }, [initAuth]);
 
-  // NEU: Effekt zum Setzen des App-Ladezustands
+  // NEU: Effekt zum Setzen des App-Ladezustands - MUSS VOR WEITERLEITUNG KOMMEN!
   useEffect(() => {
-    if (router.isReady && (authStatus !== 'loading' && authStatus !== 'idle')) {
-      setIsAppLoaded(true);
+    // ✅ KORRIGIERT: Öffentliche Seiten können sofort gerendert werden
+    if (router.isReady) {
+      const currentPath = router.pathname;
+      const isCurrentPagePublic = isPublicPath(currentPath);
+      
+      // Öffentliche Seiten können sofort gerendert werden
+      if (isCurrentPagePublic) {
+        setIsAppLoaded(true);
+        return;
+      }
+      // Private Seiten müssen warten, bis Auth-Status definitiv ist
+      else if (authStatus !== 'loading' && authStatus !== 'idle') {
+        setIsAppLoaded(true);
+      }
     }
-  }, [router.isReady, authStatus]);
+  }, [router.isReady, router.pathname, authStatus, isAppLoaded]);
 
   useEffect(() => {
     // Doppelklick auf den oberen Rand für Debug-Konsole
@@ -106,60 +116,48 @@ const MyApp = ({Component, pageProps}: AppProps) => {
     return () => document.removeEventListener("dblclick", handleDoubleClick);
   }, [showDebugLog]);
 
-  // --- NEUER useEffect für Weiterleitung (Überarbeitet) --- 
+  // --- WEITERLEITUNG useEffect (Überarbeitet) - MUSS NACH isAppLoaded KOMMEN!--- 
   useEffect(() => {
-    // Nur ausführen, wenn der Router bereit ist und der Auth-Status nicht mehr lädt
-    if (!router.isReady || authStatus === 'loading' || authStatus === 'idle') {
-      // console.log(\'[_app Effect] Skipping general navigation: Router not ready or auth loading/idle.\');
+    // Nur ausführen, wenn der Router bereit ist
+    if (!router.isReady) {
       return;
     }
 
     const currentPath = router.pathname;
+    const isCurrentlyPublic = isPublicPath(currentPath);
+
+    // 🚨 KRITISCH: Wenn die Seite öffentlich ist, darf unter keinen Umständen eine Weiterleitung stattfinden.
+    // Dies ist die wichtigste Regel und hat Vorrang vor allem anderen.
+    if (isCurrentlyPublic) {
+      return;
+    }
+
+    // Wenn die Seite nicht öffentlich ist, warten wir auf einen definitiven Auth-Status.
+    if (authStatus === 'loading' || authStatus === 'idle') {
+      return;
+    }
+
+    // Ab hier wissen wir: Die Seite ist GESCHÜTZT und der Auth-Status ist DEFINITIV.
     const isAuthenticatedUser = authStatus === 'authenticated';
     const isGuestUser = useAuthStore.getState().isGuest;
     const authenticatedStartPath = '/start';
     const unauthenticatedLandingPath = '/';
 
-    // Minimale Debug-Ausgaben beibehalten oder über isDebugMode steuern
-    const isDebugMode = process.env.NODE_ENV === 'development' && false; 
-    if (isDebugMode) {
-      console.log(`[DEBUG APP] Navigationscheck: Pfad=${currentPath}, AuthStatus=${authStatus}, isAuthenticatedUser=${isAuthenticatedUser}, isGuestUser=${isGuestUser}`);
-      console.log(`[DEBUG APP] Auth Objekt:`, {
-        status: useAuthStore.getState().status,
-        user: useAuthStore.getState().user ? "Benutzer vorhanden" : "Kein Benutzer",
-        isGuest: useAuthStore.getState().isGuest
-      });
+    // Fall 1: Eingeloggter Benutzer auf einer geschützten Seite.
+    // Er sollte hier sein, es sei denn, er ist auf einer Auth-Seite gelandet (sollte nicht passieren).
+    if (isAuthenticatedUser && !isGuestUser) {
+      if (currentPath.startsWith('/auth')) {
+        debouncedRouterPush(router, authenticatedStartPath, undefined, true);
+      }
+      return; // Ansonsten alles ok.
+    }
+
+    // Fall 2: Nicht eingeloggter Benutzer oder Gast auf einer geschützten Seite.
+    // In beiden Fällen muss er zum Landing-Screen weitergeleitet werden.
+    if (!isAuthenticatedUser || isGuestUser) {
+      debouncedRouterPush(router, unauthenticatedLandingPath, undefined, true);
     }
     
-
-    // --- Logik für eingeloggte Benutzer (NICHT Gäste) ---
-    if (isAuthenticatedUser && !isGuestUser) {
-      if (currentPath === unauthenticatedLandingPath || currentPath.startsWith('/auth')) {
-        if (isDebugMode) console.log(`[_app Effect] Authentifizierter Benutzer auf Auth/Landing-Seite (${currentPath}). Leite weiter zu ${authenticatedStartPath}...`);
-        setTimeout(() => {
-          debouncedRouterPush(router, authenticatedStartPath, undefined, true);
-        }, 100);
-      }
-    }
-    // --- Logik für NICHT eingeloggte Benutzer (KEINE Gäste) ---
-    else if (!isAuthenticatedUser && !isGuestUser) {
-      const isProtectedRoute = !isPublicPath(currentPath);
-      
-      if (isProtectedRoute) {
-        if (isDebugMode) console.log(`[DEBUG _app] REDIRECTING user from ${currentPath} to ${unauthenticatedLandingPath}`);
-        debouncedRouterPush(router, unauthenticatedLandingPath, undefined, true);
-      }
-    }
-    // --- Logik für Gäste --- 
-    else if (isGuestUser) {
-        const isProtectedNonAuthRoute = !isPublicPath(currentPath) && !currentPath.startsWith('/auth');
-        
-        if (isProtectedNonAuthRoute) {
-            if (isDebugMode) console.log(`[_app Effect] Guest user on protected route (${currentPath}). Redirecting to landing...`);
-            debouncedRouterPush(router, unauthenticatedLandingPath, undefined, true);
-        }
-    }
-
   }, [authStatus, router.isReady, router.pathname]);
 
   // NEU: Logik zur Unterscheidung öffentlicher/privater Seiten für das Rendering

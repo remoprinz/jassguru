@@ -242,8 +242,8 @@ export const transformComputedStatsToExtended = (
     sessionsLost: rawStats.sessionLosses || 0,
     gamesWon: rawStats.gameWins || 0,
     gamesLost: rawStats.gameLosses || 0,
-    sessionWinRate: rawStats.totalSessions > 0 ? (rawStats.sessionWins || 0) / rawStats.totalSessions : 0,
-    gameWinRate: rawStats.totalGames > 0 ? (rawStats.gameWins || 0) / rawStats.totalGames : 0,
+    sessionWinRate: rawStats.sessionWinRate || 0,
+    gameWinRate: rawStats.gameWinRate || 0,
     
     // === NEU: Strukturierte Win-Rate Informationen transformieren ===
     sessionWinRateInfo: rawStats.sessionWinRateInfo || null,

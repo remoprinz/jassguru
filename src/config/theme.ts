@@ -65,14 +65,33 @@ export const THEME_COLORS: Record<ThemeColor, ProfileThemeConfig> = {
 // Aktuelle Theme-Farbe (Standard)
 export const CURRENT_PROFILE_THEME: ThemeColor = 'indigo';
 
-// Dynamische Theme-Funktion, die localStorage berücksichtigt
-export const getCurrentProfileTheme = (): ThemeColor => {
+// Dynamische Theme-Funktion, die Firebase UND localStorage berücksichtigt
+export const getCurrentProfileTheme = (userProfileTheme?: string | null): ThemeColor => {
+  // PRIORITÄT 1: User-spezifisches Theme aus Firebase (höchste Priorität)
+  if (userProfileTheme && THEME_COLORS[userProfileTheme as ThemeColor]) {
+    return userProfileTheme as ThemeColor;
+  }
+  
+  // PRIORITÄT 2: Lokales Theme aus localStorage (Fallback für nicht-angemeldete)
   if (typeof window !== 'undefined') {
     const savedTheme = localStorage.getItem('jasstafel-profile-theme') as ThemeColor;
     if (savedTheme && THEME_COLORS[savedTheme]) {
       return savedTheme;
     }
   }
+  
+  // PRIORITÄT 3: Standard-Theme (finaler Fallback)
+  return CURRENT_PROFILE_THEME;
+};
+
+// ✅ NEU: Dedizierte Funktion für ÖFFENTLICHE Profile - KEINE localStorage-Fallbacks!
+export const getPublicProfileTheme = (playerProfileTheme?: string | null): ThemeColor => {
+  // PRIORITÄT 1: AUSSCHLIESSLICH das Firebase-Theme des Spielers verwenden
+  if (playerProfileTheme && THEME_COLORS[playerProfileTheme as ThemeColor]) {
+    return playerProfileTheme as ThemeColor;
+  }
+  
+  // PRIORITÄT 2: Nur bei fehlendem/ungültigem Theme → Default-Theme
   return CURRENT_PROFILE_THEME;
 };
 

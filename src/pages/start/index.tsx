@@ -24,7 +24,7 @@ import type { FirestorePlayer, ActiveGame, RoundDataFirebase, GameEntry, RoundEn
 import { getFirestore, doc, getDoc, collection, getDocs, query, where, orderBy, limit, onSnapshot, Unsubscribe, Timestamp, FieldValue } from "firebase/firestore";
 import { firebaseApp } from "@/services/firebaseInit";
 import { useTimerStore } from "@/store/timerStore";
-import { fetchCompletedSessionsForUser, SessionSummary } from '@/services/sessionService';
+import { fetchAllGroupSessions, SessionSummary } from '@/services/sessionService';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { fetchTournamentInstancesForGroup } from '@/services/tournamentService';
@@ -335,45 +335,50 @@ const StartPage = () => {
 
   useEffect(() => {
     const loadArchiveData = async () => {
-      if (status === 'authenticated' && user) {
-        // Sessions laden
+      // Sessions-Laden ist nun gruppenspezifisch
+      if (currentGroup) {
         setSessionsLoading(true);
         setSessionsError(null);
         try {
-          const sessions = await fetchCompletedSessionsForUser(user.uid);
+          // NEU: Verwende fetchAllGroupSessions mit der ID der aktuellen Gruppe
+          const sessions = await fetchAllGroupSessions(currentGroup.id);
           setCompletedSessions(sessions);
         } catch (error) {
-          console.error("Fehler beim Laden der abgeschlossenen Sessions:", error);
+          console.error("Fehler beim Laden der abgeschlossenen Gruppensessions:", error);
           const message = error instanceof Error ? error.message : "Abgeschlossene Partien konnten nicht geladen werden.";
           setSessionsError(message);
         } finally {
           setSessionsLoading(false);
         }
 
-        // Turniere der Gruppe laden
-        if (currentGroup) {
-          setTournamentsLoading(true);
-          setTournamentsError(null);
-          try {
-            const tournaments = await fetchTournamentInstancesForGroup(currentGroup.id);
-            setGroupTournaments(tournaments.filter(t => 
-              t.status === 'active' || 
-              t.status === 'upcoming' || 
-              t.status === 'completed'
-            )); 
-          } catch (error) {
-            console.error("Fehler beim Laden der Gruppen-Turniere:", error);
-            const message = error instanceof Error ? error.message : "Turniere konnten nicht geladen werden.";
-            setTournamentsError(message);
-          } finally {
-            setTournamentsLoading(false);
-          }
+        // Turniere der Gruppe laden (bleibt unverändert)
+        setTournamentsLoading(true);
+        setTournamentsError(null);
+        try {
+          const tournaments = await fetchTournamentInstancesForGroup(currentGroup.id);
+          setGroupTournaments(tournaments.filter(t => 
+            t.status === 'active' || 
+            t.status === 'upcoming' || 
+            t.status === 'completed'
+          )); 
+        } catch (error) {
+          console.error("Fehler beim Laden der Gruppen-Turniere:", error);
+          const message = error instanceof Error ? error.message : "Turniere konnten nicht geladen werden.";
+          setTournamentsError(message);
+        } finally {
+          setTournamentsLoading(false);
         }
+      } else {
+        // Wenn keine Gruppe ausgewählt ist, leere die Listen
+        setCompletedSessions([]);
+        setGroupTournaments([]);
+        setSessionsLoading(false);
+        setTournamentsLoading(false);
       }
     };
 
     loadArchiveData();
-  }, [status, user, currentGroup, showNotification]);
+  }, [currentGroup, showNotification]); // Abhängigkeit von user und status entfernt, da jetzt alles von currentGroup abhängt
 
   useEffect(() => {
     if (status === 'authenticated' && user && currentGroup) {
@@ -937,13 +942,11 @@ const StartPage = () => {
   };
 
   const combinedArchiveItems = useMemo(() => {
-    const filteredUserSessions = currentGroup
-      ? completedSessions.filter(session => 
-          session.groupId === currentGroup.id && 
-          (session.status === 'completed' || session.status === 'completed_empty') &&
-          !session.tournamentId // KRITISCH: Filtere Turnier-Sessions heraus, da sie bereits als separate Turniere angezeigt werden
-        )
-      : [];
+    // Die Filterung ist jetzt einfacher, da fetchAllGroupSessions bereits die richtigen Sessions liefert.
+    const filteredUserSessions = completedSessions.filter(session => 
+      (session.status === 'completed' || session.status === 'completed_empty') &&
+      !session.tournamentId 
+    );
 
     const sessionsWithType: ArchiveItem[] = filteredUserSessions.map(s => ({ ...s, type: 'session' }));
     
@@ -981,7 +984,7 @@ const StartPage = () => {
     });
 
     return combined;
-  }, [completedSessions, groupTournaments, currentGroup]);
+  }, [completedSessions, groupTournaments]); // Abhängigkeit von currentGroup entfernt, da completedSessions bereits korrekt ist
 
   const groupedArchiveByYear = combinedArchiveItems.reduce<Record<string, ArchiveItem[]>>((acc, item) => {
     const dateToSort = item.type === 'session' ? item.startedAt : (item.instanceDate ?? item.createdAt);

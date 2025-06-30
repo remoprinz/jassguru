@@ -70,10 +70,9 @@ export const fetchCompletedSessionsForUser = async (userId: string): Promise<Ses
     const summariesRef = collection(db, 'jassGameSummaries');
     const q = query(
       summariesRef,
-      where('participantUids', 'array-contains', userId)
-      // Filter für Status und Sortierung nach Bedarf wieder einkommentieren
-      // where('status', 'in', ['completed', 'completed_empty']),
-      // orderBy('startedAt', 'desc')
+      where('participantUids', 'array-contains', userId),
+      where('status', 'in', ['completed', 'completed_empty']),
+      orderBy('startedAt', 'desc')
     );
     const querySnapshot = await getDocs(q);
     const sessions: SessionSummary[] = [];

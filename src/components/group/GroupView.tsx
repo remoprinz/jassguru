@@ -526,11 +526,30 @@ export const GroupView: React.FC<GroupViewProps> = ({
         {/* ✅ SCHRITT 2: HEADER MIT LOGO UND BUTTONS */}
         <div className="relative mb-4 mt-6">
           <div 
-            className={`relative w-32 h-32 rounded-full overflow-hidden transition-all duration-300 flex items-center justify-center bg-gray-800 shadow-lg hover:shadow-xl hover:scale-105`}
+            className={`relative w-32 h-32 rounded-full overflow-hidden transition-all duration-300 flex items-center justify-center bg-gray-800 shadow-lg hover:shadow-xl hover:scale-105 border-4`}
             style={{
-              boxShadow: selectedFile && previewUrl 
-                ? '0 0 0 3px rgba(147, 51, 234, 1), 0 0 25px rgba(147, 51, 234, 0.3)'
-                : `0 0 0 3px ${themeStyles.primary}, 0 0 20px rgba(${themeStyles.primaryRgb}, 0.2), 0 4px 20px rgba(0,0,0,0.3)`
+              borderColor: previewUrl ? 'rgba(147, 51, 234, 1)' : (
+                groupTheme === 'green' ? '#059669' :
+                groupTheme === 'blue' ? '#2563eb' :
+                groupTheme === 'purple' ? '#9333ea' :
+                groupTheme === 'red' ? '#dc2626' :
+                groupTheme === 'yellow' ? '#ca8a04' :
+                groupTheme === 'indigo' ? '#4f46e5' :
+                groupTheme === 'pink' ? '#ec4899' :
+                groupTheme === 'teal' ? '#0d9488' : '#6366f1'
+              ),
+              boxShadow: previewUrl 
+                ? '0 0 25px rgba(147, 51, 234, 0.3)'
+                : `0 0 20px ${
+                    groupTheme === 'green' ? 'rgba(5, 150, 105, 0.2)' :
+                    groupTheme === 'blue' ? 'rgba(37, 99, 235, 0.2)' :
+                    groupTheme === 'purple' ? 'rgba(147, 51, 234, 0.2)' :
+                    groupTheme === 'red' ? 'rgba(220, 38, 38, 0.2)' :
+                    groupTheme === 'yellow' ? 'rgba(202, 138, 4, 0.2)' :
+                    groupTheme === 'indigo' ? 'rgba(79, 70, 229, 0.2)' :
+                    groupTheme === 'pink' ? 'rgba(236, 72, 153, 0.2)' :
+                    groupTheme === 'teal' ? 'rgba(13, 148, 136, 0.2)' : 'rgba(99, 102, 241, 0.2)'
+                  }, 0 4px 20px rgba(0,0,0,0.3)`
             }}
           >
             {previewUrl ? (
@@ -1117,7 +1136,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                       <span className="text-gray-300">{playerStat.playerName}</span>
                                     </div>
                                     <div className="flex items-center">
-                                      {/* KORREKTUR: Stelle sicher, dass der Wert eine Zahl ist, bevor toFixed aufgerufen wird. Zeige 0.0% für ungültige Werte. */}
+                                      {/* ✅ KORREKT: Klammerwerte zeigen nur entschiedene Sessions (eventsPlayed wurde im Backend korrigiert) */}
                                       <span className="text-white font-medium mr-2">
                                         {(typeof playerStat.value === 'number' && playerStat.eventsPlayed && playerStat.eventsPlayed > 0) && (
                                           <span className="text-gray-400 mr-1 text-sm">
@@ -1521,7 +1540,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                     </div>
 
-                    {/* 3. Siegquote (Partien) */}
+                    {/* 3. Siegquote (Partien) - ✅ KORREKT: eventsPlayed zeigt nur entschiedene Sessions */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                         <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
