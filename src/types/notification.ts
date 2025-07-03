@@ -22,6 +22,20 @@ export interface NotificationAction {
   className?: string; // Optionale className-Eigenschaft für benutzerdefiniertes Styling
 }
 
+// Checkbox-Option für Notifications
+export interface NotificationCheckbox {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}
+
+// Einfache Checkbox für iOS-Notification
+export interface SimpleCheckbox {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}
+
 // 2. Basis-Notification Interface
 export interface BaseNotification {
   id: string;
@@ -34,6 +48,9 @@ export interface BaseNotification {
   preventClose?: boolean;
   actions?: NotificationAction[];
   image?: string;
+  checkbox?: NotificationCheckbox;
+  simpleCheckbox?: SimpleCheckbox;
+  isIOSNotification?: boolean; // NEU: Spezielle Kennung für iOS-Notifications
 }
 
 // Union Type für Notification-Konfigurationen (ohne id/timestamp)

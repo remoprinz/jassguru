@@ -478,22 +478,21 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     const currentIsActive = storeState.isActive;
     const currentHasCompleted = storeState.hasCompletedTutorial;
 
-    // Definiere die Bedingungen für den Tutorial-Start hier direkt
-    // basierend auf den aktuellsten Store-Werten und anderen reaktiven Props.
-    const conditionsMetForTutorialStart = 
-      !currentHasCompleted &&         // Tutorial ist definitiv NICHT abgeschlossen
-      authStatus !== 'authenticated' && // User ist Gast oder nicht eingeloggt
-      !isGameStarted &&
-      !isJassStarted &&
-      !isTutorialInfoOpen;
+      // Definiere die Bedingungen für den Tutorial-Start hier direkt
+  // basierend auf den aktuellsten Store-Werten und anderen reaktiven Props.
+  const conditionsMetForTutorialStart = 
+    !currentHasCompleted &&         // Tutorial ist definitiv NICHT abgeschlossen
+    authStatus !== 'authenticated' && // User ist Gast oder nicht eingeloggt
+    !isGameStarted &&
+    !isJassStarted &&
+    !isTutorialInfoOpen;
 
-    if (
-      mounted &&
-      !currentIsActive && // Prüfe den aktuellen Aktiv-Status aus dem Store
-      (conditionsMetForTutorialStart || (isDev && FORCE_TUTORIAL))
-    ) {
-      startTutorial();
-    }
+  // 🔥 FIX: FORCE_TUTORIAL nur für NICHT-EINGELOGGTE User im Dev-Modus
+  const devTutorialCondition = isDev && FORCE_TUTORIAL && authStatus !== 'authenticated';
+
+  if (mounted && !currentIsActive && (conditionsMetForTutorialStart || devTutorialCondition)) {
+    startTutorial();
+  }
     // Abhängigkeiten: Dieser Effekt soll neu laufen, wenn sich einer dieser Werte ändert.
     // authStatus, isGameStarted, etc. sind für conditionsMetForTutorialStart relevant.
     // isTutorialActive und hasCompletedTutorial (die reaktiven Pendants zu currentIsActive/currentHasCompleted)

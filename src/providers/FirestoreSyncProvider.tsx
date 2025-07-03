@@ -52,8 +52,8 @@ if (typeof window !== 'undefined') {
   };
 }
 
-// Debounce für lokale Updates
-const LOCAL_UPDATE_WINDOW_MS = 1500; // 1.5 Sekunden Fenster
+// 🔥 KRITISCHER FIX: LOCAL_UPDATE_WINDOW_MS entfernt - blockierte Cross-Client-Sync!
+// const LOCAL_UPDATE_WINDOW_MS = 1500; // ← War das Hauptproblem für fehlende Echtzeit-Synchronisation
 
 export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ children }) => {
   const db = getFirestore(firebaseApp);
@@ -188,6 +188,7 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
           console.log('[FirestoreSync applyServerUpdate] Initial sync data sanitized:', sanitizedData);
           
           // --- KORREKTUR: gameStoreSetState ohne replace=true, nur Datenfelder übergeben ---
+          // 🔥 INITIAL SYNC: Hier ist komplette Überschreibung OK, da es der erste Load ist
           gameStoreSetState({
               activeGameId: activeGameIdFromJassStore ?? undefined, // Die neue ID, null zu undefined konvertieren
               // Direkte Übernahme der wesentlichen Felder vom BEREINIGTEN Server
@@ -225,16 +226,20 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
       const timeSinceLastLocalUpdate = now - lastLocalUpdateTimestamp.current;
       const serverTimestampMillis = getMillisFromTimestamp(serverData.lastUpdated as Timestamp);
 
-      // Schutz: Update ignorieren, wenn gerade eine lokale Aktion stattfand
-      if (timeSinceLastLocalUpdate < LOCAL_UPDATE_WINDOW_MS) {
-          // console.log(`[FirestoreSync applyServerUpdate] Skipping server update, recent local update detected (${timeSinceLastLocalUpdate}ms ago).`);
-          return;
+      // 🔥 KRITISCHER FIX: LOCAL_UPDATE_WINDOW_MS Blockierung entfernt!
+      // Grund: Blockierte Cross-Client-Synchronisation für 1.5s nach jeder lokalen Aktion
+      console.log(`[FirestoreSync applyServerUpdate] Processing server update. Time since last local update: ${timeSinceLastLocalUpdate}ms`);
+      
+      // OPTIONAL: Nur für Debugging - Echo-Updates erkennen (aber nicht blockieren)
+      if (timeSinceLastLocalUpdate < 500) {
+          console.log(`[FirestoreSync applyServerUpdate] ⚠️ Possible echo update detected (${timeSinceLastLocalUpdate}ms ago), but applying anyway for cross-client sync.`);
       }
 
-      // Schutz: Update ignorieren, wenn gerade in der History navigiert wird
-      if (useUIStore.getState().isNavigatingHistory) {
-          // console.log("[FirestoreSync applyServerUpdate] Skipping server update, currently navigating history.");
-      return;
+      // 🔥 KRITISCHER FIX: History-Navigation Blockierung auch entfernt!
+      // Grund: Könnte ebenfalls Cross-Client-Updates blockieren
+      const isNavigatingHistory = useUIStore.getState().isNavigatingHistory;
+      if (isNavigatingHistory) {
+          console.log("[FirestoreSync applyServerUpdate] ⚠️ Currently navigating history, but applying server update anyway for cross-client sync.");
     }
 
       // --- KORREKTUR: Server-Daten HIER bereinigen ---
@@ -251,7 +256,10 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
       
       console.log(`[FirestoreSync applyServerUpdate] WeisPoints handling: isRoundCompleted=${sanitizedServerData.isRoundCompleted}, shouldReset=${shouldResetWeisPoints}, finalWeisPoints=${JSON.stringify(finalWeisPoints)}`);
       
-      gameStoreSetState({
+      // 🔥 KRITISCHER FIX: State-Preservation - roundHistory bewahren!
+      // Grund: Runden-Listener aktualisiert roundHistory separat, darf nicht überschrieben werden
+      gameStoreSetState(currentState => ({
+          ...currentState, // 🔥 BEWAHRE roundHistory und andere kritische Felder
           scores: sanitizedServerData.scores ?? { top: 0, bottom: 0 },
           weisPoints: finalWeisPoints, // FIX: Verwende berechnete weisPoints statt direkte Server-Daten
           striche: sanitizedServerData.striche ?? { 
@@ -271,8 +279,8 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
             3: "Spieler 3",
             4: "Spieler 4"
           },
-          // Die Runden-History wird durch ihren eigenen Listener aktualisiert, daher hier nicht anfassen.
-      });
+          // roundHistory wird BEWUSST NICHT gesetzt - wird vom Runden-Listener verwaltet
+      }));
 
       // Status prüfen (abgebrochen/beendet) - diese Logik bleibt wichtig
       if (sanitizedServerData.status === 'aborted' || sanitizedServerData.status === 'completed') {
@@ -369,18 +377,12 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
   
   // Hilfsfunktion: Markiere, dass ein lokales Update stattfindet
   const markLocalUpdate = useCallback(() => {
-    console.log("[FirestoreSyncProvider] Lokales Update erkannt (nur Logging)");
-    // NUR Timestamp für Debugging-Zwecke setzen, aber isLocalUpdate.current nicht mehr setzen
+    console.log("[FirestoreSyncProvider] 🔥 Lokales Update erkannt - Cross-Client-Sync aktiviert!");
+    // 🔥 KRITISCHER FIX: Timestamp nur für Debugging setzen, aber KEINE Blockierung mehr
     lastLocalUpdateTimestamp.current = Date.now();
     
-    // Keine isLocalUpdate.current-Änderung mehr, da wir keine Updates mehr blockieren wollen
-    // isLocalUpdate.current = true;
-    
-    // Timer zum Zurücksetzen nicht mehr nötig
-    // setTimeout(() => {
-    //   console.log("[FirestoreSyncProvider] isLocalUpdate.current automatisch zurückgesetzt");
-    //   isLocalUpdate.current = false;
-    // }, LOCAL_UPDATE_WINDOW_MS);
+    // ✅ KEINE BLOCKIERUNG: Andere Clients sollen sofort unsere Updates empfangen können
+    // ✅ KEINE ECHO-BLOCKIERUNG: Akzeptiere minimale Echo-Updates für maximale Sync-Zuverlässigkeit
   }, []);
   
   // Registriere die markLocalUpdate-Funktion in der globalen API für gameStore
@@ -408,10 +410,13 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
     // Funktion zum Einrichten der Listener (bleibt größtenteils gleich)
     const setupListeners = (gameId: string) => {
       // --- WICHTIG: isInitialSyncRef wird hier nicht mehr benötigt/gesetzt --- 
-      console.log(`[FirestoreSyncProvider] Setting up listeners for game ID: ${gameId}`);
+      console.log(`[FirestoreSyncProvider] 🎯 DEBUGGING: setupListeners() called for game ID: ${gameId}`);
+      console.log(`[FirestoreSyncProvider] 🎯 DEBUGGING: Previous listener game ID was: ${currentListenerGameId.current}`);
       currentListenerGameId.current = gameId;
       terminationHandledForGameId.current = null;
       setSyncStatus(prev => ({ ...prev, isSyncing: true, syncError: null }));
+      
+      console.log(`[FirestoreSyncProvider] 🎯 DEBUGGING: About to setup listeners for BOTH game document AND rounds collection...`);
 
       // Listener für Haupt-Dokument
       try {
@@ -443,52 +448,93 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
         setSyncStatus(prev => ({ ...prev, isSyncing: false, syncError: error as Error }));
       }
 
-      // Listener für Runden-Subkollektion
+      // 🔥 KRITISCHER FIX: Runden-Listener mit verbesserter Fehlerbehandlung und Debugging
       try {
         const roundsCollectionRef = collection(db, 'activeGames', gameId, 'rounds');
-        console.log(`[FirestoreSyncProvider] Setting up listener for rounds collection: activeGames/${gameId}/rounds`);
+        console.log(`[FirestoreSyncProvider] 🎯 DEBUGGING: Setting up listener for rounds collection: activeGames/${gameId}/rounds`);
         
         const roundsQuery = query(roundsCollectionRef, orderBy('timestamp'));
-        roundsUnsubscribeRef.current = onSnapshot(roundsQuery, (querySnapshot) => {
-          console.log(`[FirestoreSyncProvider] Rounds sync: Neues Update für Runden (${querySnapshot.docs.length} Dokumente) für Spiel ${gameId}`);
-          const allServerRounds = querySnapshot.docs
-            .map(doc => convertDocToRoundEntry(doc))
-            .filter(entry => entry !== null) as RoundEntry[];
+        
+        // Test: Erst mal schauen, ob die Collection überhaupt existiert
+        console.log(`[FirestoreSyncProvider] 🔍 DEBUGGING: Attempting to create onSnapshot listener for rounds...`);
+        
+        roundsUnsubscribeRef.current = onSnapshot(roundsQuery, 
+          (querySnapshot) => {
+            console.log(`[FirestoreSyncProvider] 🚀 ROUNDS LISTENER FIRED! Game: ${gameId}, Docs: ${querySnapshot.docs.length}`);
+            console.log(`[FirestoreSyncProvider] 🚀 ROUNDS LISTENER - Full snapshot metadata:`, {
+              size: querySnapshot.size,
+              empty: querySnapshot.empty,
+              hasPendingWrites: querySnapshot.metadata.hasPendingWrites,
+              fromCache: querySnapshot.metadata.fromCache
+            });
+            
+            const allServerRounds = querySnapshot.docs
+              .map(doc => {
+                console.log(`[FirestoreSyncProvider] 🚀 ROUNDS LISTENER - Processing doc: ${doc.id}`);
+                return convertDocToRoundEntry(doc);
+              })
+              .filter(entry => entry !== null) as RoundEntry[];
 
-          // Direkte Aktualisierung des gameStore für Runden
-          const localRoundHistory = useGameStore.getState().roundHistory;
-          if (JSON.stringify(allServerRounds) !== JSON.stringify(localRoundHistory)) {
-              console.log(`[FirestoreSyncProvider] Updating roundHistory directly (${allServerRounds.length} rounds).`);
-              const lastActiveIndex = allServerRounds.findLastIndex(r => r.isActive === undefined || r.isActive === true);
-              gameStoreSetState({
-                roundHistory: allServerRounds,
-                currentHistoryIndex: lastActiveIndex >= 0 ? lastActiveIndex : -1
-              });
-          } else {
-              // console.log("[FirestoreSyncProvider] Round history hasn't changed.");
+            console.log(`[FirestoreSyncProvider] 🚀 ROUNDS LISTENER - Converted ${allServerRounds.length} rounds successfully`);
+
+            // Direkte Aktualisierung des gameStore für Runden
+            const localRoundHistory = useGameStore.getState().roundHistory;
+            if (JSON.stringify(allServerRounds) !== JSON.stringify(localRoundHistory)) {
+                console.log(`[FirestoreSyncProvider] 🚀 ROUNDS LISTENER - STATE CHANGE DETECTED! Updating roundHistory (Local: ${localRoundHistory.length} -> Server: ${allServerRounds.length} rounds).`);
+                const lastActiveIndex = allServerRounds.findLastIndex(r => r.isActive === undefined || r.isActive === true);
+                gameStoreSetState({
+                  roundHistory: allServerRounds,
+                  currentHistoryIndex: lastActiveIndex >= 0 ? lastActiveIndex : -1
+                });
+                console.log(`[FirestoreSyncProvider] 🚀 ROUNDS LISTENER - roundHistory updated successfully!`);
+            } else {
+                console.log(`[FirestoreSyncProvider] 🚀 ROUNDS LISTENER - No changes detected in roundHistory (${allServerRounds.length} rounds).`);
+            }
+          }, 
+          (error) => {
+            console.error(`[FirestoreSyncProvider] ❌ CRITICAL ERROR: Rounds listener failed for game ${gameId}:`, error);
+            console.error(`[FirestoreSyncProvider] ❌ Error details:`, {
+              name: error.name,
+              message: error.message,
+              code: (error as any).code,
+              stack: error.stack
+            });
           }
-        }, (error) => {
-          console.error(`[FirestoreSyncProvider] Error listening to rounds for game ${gameId}:`, error);
-        });
+        );
+        
+        console.log(`[FirestoreSyncProvider] ✅ DEBUGGING: Rounds listener setup completed for game ${gameId}`);
+        
       } catch (error) {
-        console.error(`[FirestoreSyncProvider] Failed to set up listener for rounds of game ${gameId}:`, error);
+        console.error(`[FirestoreSyncProvider] ❌ FATAL: Failed to set up listener for rounds of game ${gameId}:`, error);
+        console.error(`[FirestoreSyncProvider] ❌ Setup error details:`, {
+          name: (error as Error).name,
+          message: (error as Error).message,
+          stack: (error as Error).stack
+        });
       }
     };
 
     // Funktion zum Aufräumen der Listener
     const clearListeners = () => { 
-       console.log("[FirestoreSyncProvider] Clearing existing listeners.");
+       console.log("[FirestoreSyncProvider] 🧹 DEBUGGING: clearListeners() called - removing all existing listeners");
+       console.log(`[FirestoreSyncProvider] 🧹 DEBUGGING: Current listener game ID before cleanup: ${currentListenerGameId.current}`);
+       console.log(`[FirestoreSyncProvider] 🧹 DEBUGGING: gameUnsubscribeRef exists: ${!!gameUnsubscribeRef.current}`);
+       console.log(`[FirestoreSyncProvider] 🧹 DEBUGGING: roundsUnsubscribeRef exists: ${!!roundsUnsubscribeRef.current}`);
+       
         if (gameUnsubscribeRef.current) {
-         console.log("[FirestoreSyncProvider] Unsubscribing from game document listener.");
+         console.log("[FirestoreSyncProvider] 🧹 DEBUGGING: Unsubscribing from game document listener...");
           gameUnsubscribeRef.current();
+          console.log("[FirestoreSyncProvider] 🧹 DEBUGGING: Game document listener unsubscribed successfully.");
        }
     if (roundsUnsubscribeRef.current) {
-         console.log("[FirestoreSyncProvider] Unsubscribing from rounds collection listener.");
+         console.log("[FirestoreSyncProvider] 🧹 DEBUGGING: Unsubscribing from rounds collection listener...");
       roundsUnsubscribeRef.current();
+      console.log("[FirestoreSyncProvider] 🧹 DEBUGGING: Rounds collection listener unsubscribed successfully.");
        }
        gameUnsubscribeRef.current = null;
       roundsUnsubscribeRef.current = null;
        currentListenerGameId.current = null; 
+       console.log("[FirestoreSyncProvider] 🧹 DEBUGGING: All listeners cleared and refs reset to null");
     };
 
     // --- NEU: Asynchrone Funktion für initiales Laden und Listener-Setup ---
@@ -579,18 +625,33 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
 
     if (currentJassStoreId) {
       if (currentJassStoreId !== currentListenerId) {
-        console.log(`[FirestoreSyncProvider EFFECT] ID change detected! Target: ${currentJassStoreId}, Previous: ${currentListenerId}. Initiating reload...`); 
+        console.log(`[FirestoreSyncProvider EFFECT] 🔄 DEBUGGING: ID change detected! Target: ${currentJassStoreId}, Previous: ${currentListenerId}. Initiating reload...`); 
         clearListeners(); 
         
         // ENTFERNT: gameStoreReset() - Das würde die korrekten Settings überschreiben
         // ENTFERNT: jassStore.resetJass() - Das würde sessionId auf "initial" setzen!
         // Der FirestoreSyncProvider soll nur die dynamischen Daten synchronisieren.
-        console.log(`[FirestoreSyncProvider EFFECT] Stores NICHT zurückgesetzt. Erwarte korrekte Settings von vorheriger Initialisierung.`);
+        console.log(`[FirestoreSyncProvider EFFECT] 🔄 DEBUGGING: Stores NICHT zurückgesetzt. Erwarte korrekte Settings von vorheriger Initialisierung.`);
+        console.log(`[FirestoreSyncProvider EFFECT] 🔄 DEBUGGING: About to call performInitialLoadAndSetupListeners()...`);
         
         performInitialLoadAndSetupListeners(currentJassStoreId);
         
+        console.log(`[FirestoreSyncProvider EFFECT] 🔄 DEBUGGING: performInitialLoadAndSetupListeners() call completed.`);
+        
+      } else if (!gameUnsubscribeRef.current || !roundsUnsubscribeRef.current) {
+        // 🔥 KRITISCHER FIX: Auch wenn ID gleich ist, prüfe ob Listener überhaupt aktiv sind!
+        console.log(`[FirestoreSyncProvider EFFECT] 🔄 DEBUGGING: ID unchanged (${currentJassStoreId}), but listeners missing! gameListener: ${!!gameUnsubscribeRef.current}, roundsListener: ${!!roundsUnsubscribeRef.current}`);
+        console.log(`[FirestoreSyncProvider EFFECT] 🔄 DEBUGGING: Setting up missing listeners for existing game...`);
+        
+        // Bestehende (potentiell kaputte) Listener bereinigen
+        clearListeners();
+        
+        // Listener neu einrichten - OHNE initialen Load (Daten sind bereits da)
+        setupListeners(currentJassStoreId);
+        
+        console.log(`[FirestoreSyncProvider EFFECT] 🔄 DEBUGGING: Missing listeners setup completed for game ${currentJassStoreId}.`);
       } else {
-         // console.log(`[FirestoreSyncProvider EFFECT] Active game ID unchanged (${currentJassStoreId}), no action needed.`); // LOG F
+        console.log(`[FirestoreSyncProvider EFFECT] ✅ DEBUGGING: ID unchanged (${currentJassStoreId}) and listeners are active. All good!`); 
               }
             } else {
       // Keine aktive Game ID
@@ -608,9 +669,8 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
       return () => {
       // console.log("[FirestoreSyncProvider] useEffect cleanup - checking if listeners need to be cleared");
     };
-  // Dependencies hinzugefügt: db, gameStoreReset, gameStoreSetState, convertDocToRoundEntry, applyServerUpdate 
-  // Diese sollten stabile Referenzen sein. 
-  }, [activeGameIdFromJassStore, syncStatus.isPaused, db, gameStoreReset, gameStoreSetState, convertDocToRoundEntry, applyServerUpdate]); 
+  // 🔥 KRITISCHER FIX: Nur STABILE Dependencies verwenden!
+  }, [activeGameIdFromJassStore, syncStatus.isPaused]); // Nur primitive Werte, keine Funktionen! 
   // --- ENDE Hauptlogik useEffect ---
 
   // NEU: Hilfsfunktion zum Konvertieren eines Firestore-Dokuments in ein CompletedGameSummary-Objekt
@@ -747,8 +807,8 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
         syncError: error instanceof Error ? error : new Error('Unknown error')
       }));
     }
-    // KORREKTUR: Abhängigkeit auf jassSessionId ändern und `user` entfernen
-  }, [jassSessionId, syncStatus.isPaused, db]);
+    // 🔥 KRITISCHER FIX: db entfernt - potentiell instabil
+  }, [jassSessionId, syncStatus.isPaused]);
 
   return (
     <FirestoreSyncContext.Provider value={{

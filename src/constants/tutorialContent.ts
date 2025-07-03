@@ -78,7 +78,7 @@ export const TUTORIAL_CONTENT: TutorialStep[] = [
   {
     id: TUTORIAL_STEPS.WEIS,
     title: "Weise schreiben",
-    content: "Tippe auf die Z-Linie um Weise einzutragen.",
+    content: "Tippe auf die Z-Linie um Weise einzutragen. Mache das immer VOR Abschluss einer Runde!",
     overlayPosition: {
       vertical: "top",
       horizontal: "center",
@@ -209,8 +209,8 @@ export const TUTORIAL_CONTENT: TutorialStep[] = [
   },
   {
     id: TUTORIAL_STEPS.NEW_GAME,
-    title: "Neustart",
-    content: "Hier startest du einen neuen Jass. Die alten Spiele werden dann gelöscht.",
+    title: "Spiel abbrechen / Neustart",
+    content: "Im Onlinemodus brichst du hier die Partie ab. Die Daten werden dann nicht gespeichert! Im Gästemodus startest du so einfach ein neues Spiel.",
     overlayPosition: {
       vertical: "top",
       horizontal: "center",
@@ -269,7 +269,7 @@ export const TUTORIAL_CONTENT: TutorialStep[] = [
   {
     id: TUTORIAL_STEPS.JASS_SETTINGS,
     title: "Jass-Einstellungen",
-    content: "Hier kannst du Zielpunkte, Farben und Multiplikatoren ändern. Blättere links oder rechts für weitere Optionen.",
+    content: "Hier kannst du Zielpunkte, Farben und Multiplikatoren ändern. Im Online-Modus stellen Admins alles in den Gruppen-Settings ein.",
     overlayPosition: {
       vertical: "top",
       horizontal: "center",

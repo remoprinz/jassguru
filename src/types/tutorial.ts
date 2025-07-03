@@ -156,11 +156,13 @@ export interface TutorialState {
     isActive: boolean;
     currentStepIndex: number;
     hasCompletedTutorial: boolean;
+    hasSeenTutorialThisSession: boolean;
     steps: TutorialStep[];
     tutorialUIBlocking: TutorialUIBlocking;
     completedCategories: TutorialCategory[];
     isHelpMode: boolean;
     activeEvents: Set<TutorialEventName>;
+    lastNextStepTime?: number;
   }
 
 export interface TutorialActions {

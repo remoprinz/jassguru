@@ -13,15 +13,24 @@ service firebase.storage {
     }
 
     // --- Gruppenlogos ---
-    // NEUER PFAD mit userId als erstem Segment nach 'groupLogos'
+    // Pfad: groupLogos/{userId}/{groupId}/{fileName}
+    // LASCHE REGELN: Hauptsächlich Frontend-Prüfung für bessere Fehlermeldungen
     match /groupLogos/{userId}/{groupId}/{allPaths=**} { 
        // Jeder darf lesen (Logos anzeigen)
        allow read: if true; 
        
-       // Nur der eigene User darf Logos in SEINEM Unterverzeichnis speichern
-       // Das bedeutet, nur der User mit der entsprechenden ID kann Logos hochladen
-       // Die Gruppenzugehörigkeit wird im Client-Code sichergestellt (uploadGroupLogo prüft, ob User Admin ist)
-       allow write, delete: if request.auth != null && request.auth.uid == userId;
+       // VEREINFACHTE Schreib-/Lösch-Berechtigung:
+       // 1. User ist authentifiziert
+       // 2. User ist der Besitzer des Pfades (userId) 
+       // 3. Datei ist ein Bild unter 2MB
+       // ADMIN-PRÜFUNG erfolgt im Frontend für bessere UX!
+       allow write: if request.auth != null 
+                       && request.auth.uid == userId
+                       && request.resource.size < 2 * 1024 * 1024 
+                       && request.resource.contentType.matches('image/.*');
+       
+       allow delete: if request.auth != null 
+                        && request.auth.uid == userId;
     }
 
     // Optional: Alle anderen Pfade blockieren

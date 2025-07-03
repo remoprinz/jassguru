@@ -572,9 +572,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 }}
               />
             ) : (
-              <span className="text-4xl font-bold text-gray-500">
-                {(currentGroup?.name ?? '?').charAt(0).toUpperCase()}
-              </span>
+              <div className="flex flex-col items-center">
+                <Camera size={40} className="text-gray-400 mb-1" />
+                <span className="text-xs text-gray-500 text-center px-2">
+                  {isAdmin ? "Gruppenbild hochladen" : "Kein Logo"}
+                </span>
+              </div>
             )}
 
             {isAdmin && (
@@ -602,6 +605,26 @@ export const GroupView: React.FC<GroupViewProps> = ({
               className="mx-auto" 
             />
           </div>
+          
+          {/* ✅ SETUP-HINWEIS: Nur für Admins wenn < 4 Mitglieder */}
+          {isAdmin && !membersLoading && members.length < 4 && (
+            <div className="mt-4 mx-auto max-w-md">
+              <div className="bg-gradient-to-r from-green-900/40 to-emerald-900/40 border border-green-500/50 rounded-lg p-3 backdrop-blur-sm">
+                <div className="flex items-center justify-center mb-2">
+                  <Settings className="w-5 h-5 text-green-400 mr-2" />
+                  <span className="text-green-300 font-medium text-sm">Gruppe fertig einrichten</span>
+                </div>
+                <p className="text-green-200 text-xs text-center leading-relaxed">
+                  Schliesse die Gruppeneinstellungen ab und lade mindestens drei weitere Mitspieler ein!
+                </p>
+                <div className="mt-2 text-center">
+                  <span className="text-green-400 text-xs">
+                    {members.length}/4 Mitglieder
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {selectedFile && previewUrl && (
@@ -638,19 +661,23 @@ export const GroupView: React.FC<GroupViewProps> = ({
               variant="ghost" 
               size="sm" 
               onClick={handleInviteClick}
-              className={`text-gray-300 hover:text-white transition-all duration-200 hover:scale-105`}
-              style={{
+              className={`transition-all duration-200 hover:scale-105 ${
+                members.length < 4 
+                  ? 'text-white hover:text-white bg-gray-700/50 hover:bg-gray-600/70 border border-gray-500/40 animate-pulse [animation-duration:2s] drop-shadow-[0_0_6px_rgba(255,255,255,0.3)]' 
+                  : 'text-gray-300 hover:text-white'
+              }`}
+              style={members.length >= 4 ? {
                 backgroundColor: 'transparent',
                 borderColor: 'transparent'
-              }}
-              onMouseEnter={(e) => {
+              } : {}}
+              onMouseEnter={members.length >= 4 ? (e) => {
                 e.currentTarget.style.backgroundColor = `rgba(${themeStyles.primaryRgb}, 0.1)`;
                 e.currentTarget.style.borderColor = `rgba(${themeStyles.primaryRgb}, 0.3)`;
-              }}
-              onMouseLeave={(e) => {
+              } : undefined}
+              onMouseLeave={members.length >= 4 ? (e) => {
                 e.currentTarget.style.backgroundColor = 'transparent';
                 e.currentTarget.style.borderColor = 'transparent';
-              }}
+              } : undefined}
               title="Teilnehmer einladen"
             >
               <UserPlus className="h-4 w-4 mr-1.5" /> Einladen
@@ -661,19 +688,23 @@ export const GroupView: React.FC<GroupViewProps> = ({
               variant="ghost" 
               size="sm" 
               onClick={() => router.push("/groups/settings")}
-              className={`text-gray-300 hover:text-white transition-all duration-200 hover:scale-105`}
-              style={{
+              className={`transition-all duration-200 hover:scale-105 ${
+                members.length < 4 
+                  ? 'text-white hover:text-white bg-gray-700/50 hover:bg-gray-600/70 border border-gray-500/40 animate-pulse [animation-duration:2s] drop-shadow-[0_0_6px_rgba(255,255,255,0.3)]' 
+                  : 'text-gray-300 hover:text-white'
+              }`}
+              style={members.length >= 4 ? {
                 backgroundColor: 'transparent',
                 borderColor: 'transparent'
-              }}
-              onMouseEnter={(e) => {
+              } : {}}
+              onMouseEnter={members.length >= 4 ? (e) => {
                 e.currentTarget.style.backgroundColor = `rgba(${themeStyles.primaryRgb}, 0.1)`;
                 e.currentTarget.style.borderColor = `rgba(${themeStyles.primaryRgb}, 0.3)`;
-              }}
-              onMouseLeave={(e) => {
+              } : undefined}
+              onMouseLeave={members.length >= 4 ? (e) => {
                 e.currentTarget.style.backgroundColor = 'transparent';
                 e.currentTarget.style.borderColor = 'transparent';
-              }}
+              } : undefined}
               title="Einstellungen"
             >
               <Settings className="h-4 w-4 mr-1.5" /> Einstellungen
@@ -1327,58 +1358,46 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                       <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                         {(() => {
-                          const teamKontermatschData = groupStats?.teamWithHighestKontermatschBilanz || groupStats?.teamWithHighestKontermatschRate;
-                          if (teamKontermatschData && teamKontermatschData.length > 0) {
-                            // ✅ KORRIGIERT: Filtere Teams mit Kontermatsch-Erfahrung basierend auf value statt eventsMade/eventsReceived
-                            const teamsWithKontermatsch = teamKontermatschData.filter(team => 
-                              // Für Teams: Wenn eventsMade/eventsReceived verfügbar, verwende diese, sonst verwende value != 0
-                              (team.eventsMade !== undefined && team.eventsReceived !== undefined) 
-                                ? ((team.eventsMade && team.eventsMade > 0) || (team.eventsReceived && team.eventsReceived > 0))
-                                : (team.value !== 0) // Fallback: Zeige Teams mit Bilanz != 0
+                          if (groupStats?.playerWithHighestKontermatschBilanz && groupStats.playerWithHighestKontermatschBilanz.length > 0) {
+                            // Filter: Nur Spieler mit Kontermatsch-Erfahrung anzeigen
+                            const playersWithKontermatschEvents = groupStats.playerWithHighestKontermatschBilanz.filter(player =>
+                              (player.eventsMade && player.eventsMade > 0) ||
+                              (player.eventsReceived && player.eventsReceived > 0)
                             );
-                            
-                            if (teamsWithKontermatsch.length > 0) {
-                              return teamsWithKontermatsch.map((team, index) => (
-                                <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                  <div className="flex items-center">
-                                    <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                    <div className="flex -space-x-2 mr-2">
-                                      <ProfileImage 
-                                        src={findPlayerPhotoByName(team.names[0], members)} 
-                                        alt={team.names[0]} 
+                            return playersWithKontermatschEvents.map((playerStat, index) => {
+                              const playerData = findPlayerByName(playerStat.playerName, members);
+                              const playerId = playerData?.id || playerStat.playerId;
+                              return (
+                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`kontermatschBilanz-${index}`} isClickable={!!playerId} className="block rounded-md">
+                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                    <div className="flex items-center">
+                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <ProfileImage
+                                        src={playerData?.photoURL}
+                                        alt={playerStat.playerName}
                                         size="sm"
-                                        className={`border-2 border-gray-800 ${theme.profileImage}`}
+                                        className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                        fallbackText={team.names[0].charAt(0).toUpperCase()}
+                                        fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
                                       />
-                                      <ProfileImage 
-                                        src={findPlayerPhotoByName(team.names[1], members)} 
-                                        alt={team.names[1]} 
-                                        size="sm"
-                                        className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                        fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                      />
+                                      <span className="text-gray-300">{playerStat.playerName}</span>
                                     </div>
-                                    <span className="text-gray-300">{team.names.join(' & ')}</span>
-                                  </div>
-                                  <div className="flex items-center">
-                                    <span className="text-white font-medium mr-2">
-                                      <span className="text-gray-400 mr-1 text-sm">
-                                        ({team.eventsMade || 0}/{team.eventsReceived || 0})
+                                    <div className="flex items-center">
+                                      <span className="text-white font-medium mr-2">
+                                        <span className="text-gray-400 mr-1 text-sm">
+                                          ({playerStat.eventsMade || 0}/{playerStat.eventsReceived || 0})
+                                        </span>
+                                        <span className="text-lg font-medium">
+                                          {playerStat.value > 0 ? '+' : ''}{playerStat.value}
+                                        </span>
                                       </span>
-                                      <span className="text-lg font-medium">
-                                        {team.value > 0 ? '+' : ''}{Math.round(Number(team.value))}
-                                      </span>
-                                    </span>
+                                    </div>
                                   </div>
-                                </div>
-                              ));
-                            } else {
-                              return <div className="text-gray-400 text-center py-2">Keine Kontermatsch-Erfahrung vorhanden</div>;
-                            }
+                                </StatLink>
+                              );
+                            });
                           } else {
-                            return <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div>;
+                            return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
                           }
                         })()}
                       </div>

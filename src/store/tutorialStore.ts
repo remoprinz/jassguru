@@ -11,7 +11,6 @@ import {
 } from "../types/tutorial";
 import {TUTORIAL_CONTENT} from "../constants/tutorialContent";
 import {isPWA} from "../utils/browserDetection";
-
 // Name des Storage-Keys für die Persistenz
 const TUTORIAL_STORAGE_KEY = isDev ? "dev-tutorial-storage" : "jass-tutorial-storage";
 
@@ -77,6 +76,7 @@ export const useTutorialStore = create<TutorialStore>()(
       isActive: false,
       currentStepIndex: 0,
       hasCompletedTutorial: false,
+      hasSeenTutorialThisSession: false,
       steps: TUTORIAL_CONTENT,
       tutorialUIBlocking: {
         settingsClose: false,
@@ -89,6 +89,7 @@ export const useTutorialStore = create<TutorialStore>()(
       // Neuer State
       isHelpMode: false,
       activeEvents: new Set<TutorialEventName>(),
+      lastNextStepTime: undefined,
 
       // Actions
       setActive: (active: boolean) => set({
@@ -103,30 +104,44 @@ export const useTutorialStore = create<TutorialStore>()(
         // Zusätzlich eine direkte Prüfung im LocalStorage
         const directCheck = directlyGetHasCompletedTutorial();
         
-        console.log(`[TutorialStore] startTutorial: Prüfung - store.hasCompleted=${currentState.hasCompletedTutorial}, direkter Check=${directCheck}, FORCE=${FORCE_TUTORIAL}, options.isHelpMode=${options?.isHelpMode}, stepId=${stepId || 'none'}`);
+        console.log(`[TutorialStore] startTutorial: Prüfung - store.hasCompleted=${currentState.hasCompletedTutorial}, direkter Check=${directCheck}, sessionSeen=${currentState.hasSeenTutorialThisSession}, FORCE=${FORCE_TUTORIAL}, options.isHelpMode=${options?.isHelpMode}, stepId=${stepId || 'none'}`);
 
-        // Absolute bail-out condition: if tutorial is completed (and not forced, not specific help step, not explicit stepId)
-        // This is the most important guard against unwanted restarts.
-        if ((currentState.hasCompletedTutorial || directCheck) && !FORCE_TUTORIAL && !options?.isHelpMode && !stepId) {
-          console.log("[TutorialStore] startTutorial: Verhindert durch hasCompletedTutorial=true.");
+        // 🔧 KRITISCHER FIX: Session-Check IMMER machen (auch bei FORCE_TUTORIAL)
+        if (!options?.isHelpMode && !stepId && currentState.hasSeenTutorialThisSession) {
+          console.log("[TutorialStore] startTutorial: Verhindert durch hasSeenTutorialThisSession=true (bereits in dieser Session beendet).");
           return;
         }
 
-        // Original PWA/Dev check (can be earlier if preferred, but after the crucial hasCompletedTutorial check)
+        // 🔧 KRITISCHER FIX: Completed-Check nur wenn NICHT FORCE_TUTORIAL
+        if (!options?.isHelpMode && !stepId && !FORCE_TUTORIAL) {
+          // Permanent abgeschlossen (Checkbox war mal aktiviert)
+          if (currentState.hasCompletedTutorial || directCheck) {
+            console.log("[TutorialStore] startTutorial: Verhindert durch hasCompletedTutorial=true (Checkbox war aktiviert).");
+            return;
+          }
+        }
+
+        // 🔧 KRITISCH: Tutorial nur in PWAs zeigen (oder im Dev-Mode mit FORCE_TUTORIAL)
         if (!isDev && !isPWA()) {
-          console.log("[TutorialStore] startTutorial: Verhindert durch !isDev && !isPWA().");
+          console.log("[TutorialStore] startTutorial: Verhindert durch !isDev && !isPWA() - Tutorial nur in PWAs erlaubt.");
           return;
         }
         
         // Cleanup previous events - ensure this is called only if we proceed
         currentState.cleanupStepEvents();
 
+        let startStepIndex = 0;
+        
+        if (stepId) {
+          // Wenn eine spezifische Step-ID angegeben ist (Help-Mode)
+          startStepIndex = currentState.steps.findIndex((step) => step.id === stepId);
+        }
+
         set({
           isActive: true,
           isHelpMode: options?.isHelpMode ?? false,
-          currentStepIndex: stepId ?
-            currentState.steps.findIndex((step) => step.id === stepId) :
-            0, // Default to 0 if no stepId
+          currentStepIndex: Math.max(0, startStepIndex),
+          hasSeenTutorialThisSession: true, // 🔧 KRITISCH: Immer setzen wenn Tutorial gestartet wird
         });
       },
 
@@ -139,15 +154,18 @@ export const useTutorialStore = create<TutorialStore>()(
           saveCompletedStatus(true);
         }
         
-        console.log(`[TutorialStore] endTutorial: neverShowAgain=${neverShowAgain}, hasCompletedTutorial wird auf ${neverShowAgain} gesetzt`);
+        console.log(`[TutorialStore] endTutorial: neverShowAgain=${neverShowAgain}, hasCompletedTutorial wird auf ${neverShowAgain} gesetzt, hasSeenTutorialThisSession bleibt true (außer bei Help-Mode)`);
         
         set({
           isActive: false,
           isHelpMode: false,
           currentStepIndex: 0,
           hasCompletedTutorial: neverShowAgain,
+          // hasSeenTutorialThisSession bleibt true - Tutorial soll in aktueller Session nicht mehr erscheinen
         });
       },
+
+
       
       // Neue Methode zum direkten Setzen des hasCompletedTutorial-Status
       setHasCompletedTutorial: (completed: boolean) => {
@@ -160,12 +178,27 @@ export const useTutorialStore = create<TutorialStore>()(
         const {steps, currentStepIndex} = get();
         const currentStep = steps[currentStepIndex];
 
-        // console.log("🎯 Tutorial nextStep:", {
-        //   from: currentStep?.id,
-        //   currentIndex: currentStepIndex,
-        //   nextIndex: currentStepIndex + 1,
-        //   nextStep: steps[currentStepIndex + 1]?.id,
-        // });
+        // 🚨 NOTFALL-DEBOUNCING: Verhindere mehrfache nextStep-Aufrufe
+        const now = Date.now();
+        const lastTime = get().lastNextStepTime;
+        if (lastTime && now - lastTime < 100) {
+          console.log("🚨 [nextStep] BLOCKED - zu schneller Aufruf!");
+          return;
+        }
+        
+        // Debug-Logging für Tutorial-Navigation
+        console.log("🎯 Tutorial nextStep:", {
+          from: currentStep?.id,
+          fromOrder: currentStep?.order,
+          currentIndex: currentStepIndex,
+          nextIndex: currentStepIndex + 1,
+          nextStep: steps[currentStepIndex + 1]?.id,
+          nextStepOrder: steps[currentStepIndex + 1]?.order,
+          category: currentStep?.category,
+        });
+        
+        // Setze Timestamp für diesen nextStep-Aufruf
+        set({ lastNextStepTime: now });
 
         // 1. Erst onExit
         currentStep?.onExit?.();
@@ -242,6 +275,7 @@ export const useTutorialStore = create<TutorialStore>()(
         isActive: false,
         currentStepIndex: 0,
         hasCompletedTutorial: false,
+        hasSeenTutorialThisSession: false,
       }),
 
       setTutorialUIBlocking: (blocking: { [key: string]: boolean }) =>
@@ -269,6 +303,8 @@ export const useTutorialStore = create<TutorialStore>()(
             isActive: false,
             isHelpMode: false,
             currentStepIndex: 0,
+            // 🔧 WICHTIG: hasSeenTutorialThisSession NICHT setzen bei Help-Mode!
+            // Help-Mode soll das normale Tutorial nicht blockieren
           });
         }
       },

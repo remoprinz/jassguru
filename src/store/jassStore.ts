@@ -708,18 +708,29 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
           });
         }
         
-        // Aktualisiere auch die currentSession im jassStore
+        // 🔥 KRITISCHER FIX: participantPlayerIds vor dem Update erfassen
+        const currentState = get();
+        const preservedParticipantPlayerIds = sessionData.participantPlayerIds ?? currentState.currentSession?.participantPlayerIds ?? [];
+
+        // Aktualisiere den gesamten relevanten State aus dem Session-Dokument
         set(state => ({
           ...state,
+          activeGameId: sessionData.currentActiveGameId ?? null, // 🔥 KRITISCHER FIX!
+          jassSessionId: sessionData.id ?? state.jassSessionId,
           currentSession: { 
             ...state.currentSession, 
             ...sessionData,
+            id: sessionData.id ?? state.currentSession?.id,
+            // 🔥 KRITISCHER FIX: participantPlayerIds niemals verlieren!
+            participantPlayerIds: preservedParticipantPlayerIds,
             // Stelle sicher, dass die Settings auch in der currentSession sind
             currentFarbeSettings: sessionData.currentFarbeSettings,
             currentScoreSettings: sessionData.currentScoreSettings,
             currentStrokeSettings: sessionData.currentStrokeSettings,
           } as JassSession
         }));
+
+        console.log(`[jassStore] Session-Update verarbeitet. Neue activeGameId: ${sessionData.currentActiveGameId ?? 'null'}, participantPlayerIds erhalten: ${preservedParticipantPlayerIds.length} IDs`);
       } else {
         console.warn(`[jassStore] Session-Dokument ${sessionId} nicht gefunden.`);
       }

@@ -20,8 +20,9 @@ const AuthTabs: React.FC<AuthTabsProps> = ({defaultTab = "login"}) => {
   const { origin } = router.query;
 
   const handleGuestPlay = () => {
-    continueAsGuest();
-    router.push("/jass");
+    // 🔧 FIX: Navigiere zur WelcomeScreen, die dann den Gastmodus aktiviert
+    // Verhindert Auth-Hängeproblem durch saubere Umleitung
+    router.push("/");
   };
 
   const handleBack = () => {

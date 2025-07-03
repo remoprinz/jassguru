@@ -528,7 +528,7 @@ const GroupSettingsPage = () => {
     }
   };
 
-  // === Handler für direktes Einladen/Teilen ===
+  // === Handler für direktes Einladen/Teilen (verbesserte Version mit eleganter Share API) ===
   const handleDirectInviteShare = async () => {
     if (!currentGroup || !user) return;
     setError(null);
@@ -541,44 +541,93 @@ const GroupSettingsPage = () => {
       const result = await generateInviteToken({ groupId: currentGroup.id });
       const token = (result.data as { token: string }).token;
       if (!token) throw new Error("Kein Token vom Server erhalten.");
+      
       const inviteLink = `${APP_BASE_URL}/join?token=${token}`;
       const inviterName = user.displayName || user.email || 'Jemand';
+      
+      // --- Verbesserter Share-Text (wie in InviteModal.tsx) ---
       const titleText = "**Du wurdest zu Jassguru eingeladen**";
       const bodyText = `${inviterName} lädt dich ein, der Jassgruppe "${currentGroup.name}" beizutreten.`;
-      const linkText = `👉 Hier beitreten: ${inviteLink}`;
-      const shareText = `${titleText}
-
-${bodyText}
-
-${linkText}`;
+      const linkText = `👉 Hier beitreten:`; // Link wird separat über URL-Feld übertragen
+      const shareText = `${titleText}\n\n${bodyText}\n\n${linkText}`;
+      
+      // --- App-Icon laden (dezenter als großes Bild) ---
       let imageFile: File | null = null;
-      const imageUrlToLoad = '/welcome-guru.png';
-
       try {
-        const response = await fetch(imageUrlToLoad);
-        if (!response.ok) throw new Error(`Standardbild konnte nicht geladen werden: ${response.statusText}`);
-        const blob = await response.blob();
-        imageFile = new File([blob], 'welcome-guru.png', { type: blob.type || 'image/png' });
-      } catch (fetchError) {
- console.error("Fehler beim Laden des Standardbildes:", fetchError);
-}
-
-      if (navigator.share) {
-        const shareData: ShareData = { title: `Du wurdest zu Jassguru eingeladen`, text: shareText, url: inviteLink };
-        if (imageFile && navigator.canShare && navigator.canShare({ files: [imageFile] })) {
-          shareData.files = [imageFile];
+        const response = await fetch('/apple-touch-icon.png');
+        if (response.ok) {
+          const blob = await response.blob();
+          imageFile = new File([blob], 'jassguru-icon.png', { type: blob.type || 'image/png' });
+          console.log("Settings: App-Icon für Teilen geladen.");
+        } else {
+          console.error("Settings: App-Icon konnte nicht geladen werden:", response.statusText);
         }
-        await navigator.share(shareData);
-        showNotification({ message: "Einladungslink geteilt!", type: "success" });
-      } else {
-        navigator.clipboard.writeText(inviteLink);
-        showNotification({ message: "Einladungslink in die Zwischenablage kopiert!", type: "info" });
+      } catch (fetchError) {
+        console.error("Settings: Fehler beim Laden des App-Icons:", fetchError);
       }
+
+      // --- Elegante Share-Implementierung (wie in InviteModal.tsx) ---
+      if (typeof window !== 'undefined' && 'share' in navigator) {
+        try {
+          const shareData: ShareData = {
+            title: `Du wurdest zu Jassguru eingeladen`, // Titel als Metadaten
+            text: shareText,
+            url: inviteLink, // URL für korrekte Share-Funktion
+          };
+
+          // Bild hinzufügen, falls unterstützt
+          if (imageFile && navigator.canShare && navigator.canShare({ files: [imageFile] })) {
+            shareData.files = [imageFile];
+            console.log("Settings: Versuche Teilen mit Bild.");
+          } else {
+            console.log("Settings: Bild nicht verfügbar oder Teilen von Files nicht unterstützt.");
+          }
+
+          await navigator.share(shareData);
+          console.log("Settings: Einladung erfolgreich geteilt!");
+          showNotification({ message: "Einladung erfolgreich geteilt!", type: "success" });
+        } catch (shareError: any) {
+          // Share abgebrochen wird nicht als Fehler gewertet
+          if (shareError.name === 'AbortError' || shareError.message?.includes('abort')) {
+            console.log("Settings: Benutzer hat das Teilen abgebrochen.");
+            // Kein Fehler anzeigen bei Benutzer-Abbruch
+          } else {
+            console.warn("Settings: Teilen fehlgeschlagen, versuche Fallback:", shareError);
+            // Fallback zu Clipboard
+            try {
+              await navigator.clipboard.writeText(inviteLink);
+              showNotification({ message: "Einladungslink in Zwischenablage kopiert!", type: "info" });
+            } catch (clipboardError) {
+              console.error("Settings: Auch Zwischenablage fehlgeschlagen:", clipboardError);
+              throw new Error("Teilen und Kopieren fehlgeschlagen.");
+            }
+          }
+        }
+      } else {
+        // Fallback für Geräte ohne Share API (z.B. Desktop)
+        console.log("Settings: Share API nicht verfügbar, nutze Zwischenablage.");
+        try {
+          await navigator.clipboard.writeText(inviteLink);
+          showNotification({ message: "Einladungslink in Zwischenablage kopiert!", type: "info" });
+        } catch (clipboardError) {
+          console.error("Settings: Zwischenablage fehlgeschlagen:", clipboardError);
+          showNotification({ message: "Link konnte nicht kopiert werden. Bitte manuell teilen.", type: "warning" });
+        }
+      }
+
     } catch (error: any) {
-      let errorMessage = "Ein interner Fehler ist aufgetreten.";
-      if (error?.code && typeof error.code === 'string') errorMessage = `Fehler (${error.code}): ${error.message || 'Keine weitere Information.'}`;
-      else if (error instanceof Error) errorMessage = `Fehler: ${error.message}`;
-      else if (typeof error === 'string') errorMessage = error;
+      console.error("Settings: Fehler beim Generieren/Teilen der Einladung:", error);
+      let errorMessage = "Fehler beim Erstellen der Einladung.";
+      
+      // Detaillierte Fehlermeldungen
+      if (error?.code && typeof error.code === 'string') {
+        errorMessage = `Fehler (${error.code}): ${error.message || 'Keine weitere Information.'}`;
+      } else if (error instanceof Error) {
+        errorMessage = `Fehler: ${error.message}`;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
       setDirectInviteError(errorMessage);
       showNotification({ message: errorMessage, type: "error" });
     } finally {
@@ -751,7 +800,7 @@ ${linkText}`;
         <Card className="bg-gray-800 border-gray-700 shadow-inner mt-4">
             <CardHeader className="pb-4">
                 <CardTitle className="text-lg text-gray-200">Striche Zuweisung</CardTitle>
-                <CardDescription className="text-gray-400 text-sm">...</CardDescription>
+                <CardDescription className="text-gray-400 text-sm">Bestimme, wie viele Striche pro Schneider und Kontermatsch vergeben werden.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 pt-0 pb-4">
                 {STROKE_MODES.map((mode) => (
@@ -1002,11 +1051,24 @@ ${linkText}`;
                    <CardTitle className="text-white flex items-center gap-2"><UserPlus className="w-5 h-5" />Freunde einladen</CardTitle>
                  </CardHeader>
                  <CardContent>
-                   <p className="text-sm text-gray-400 mt-1 mb-4">Lade deine Jassfreunde zur Gruppe ein.</p>
+                   <p className="text-sm text-gray-400 mt-1 mb-4">
+                     Lade deine Jassfreunde ein! Der Link funktioniert über WhatsApp, E-Mail oder jede andere App.
+                   </p>
                    <Button onClick={handleDirectInviteShare} disabled={isGeneratingDirectInvite || !currentGroup}
                          className="w-full bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-2"
                        >
-                     {isGeneratingDirectInvite ? (<><Loader2 className="h-4 w-4 animate-spin" />Wird generiert...</>) : ("Zur Gruppe einladen")}
+                     {isGeneratingDirectInvite ? (
+                       <>
+                         <Loader2 className="h-4 w-4 animate-spin" />
+                         Link wird erstellt...
+                       </>
+                     ) : (
+                                                <>
+                           <Share2 className="h-4 w-4" />
+                           {/* Dynamischer Text basierend auf Gerät */}
+                           {typeof window !== 'undefined' && 'share' in navigator ? 'Einladung teilen' : 'Einladungslink kopieren'}
+                         </>
+                     )}
                        </Button>
                    {directInviteError && (<p className="text-xs text-red-400 mt-2 text-center">{directInviteError}</p>)}
                  </CardContent>

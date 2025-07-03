@@ -1263,17 +1263,21 @@ const ResultatKreidetafel = ({
     const currentSwipePosition = useUIStore.getState().resultatKreidetafel.swipePosition;
     const uiStore = useUIStore.getState();
     const gameStore = useGameStore.getState();
-    const timerStore = useTimerStore.getState();
     const jassStore = useJassStore.getState();
+    const timerStore = useTimerStore.getState();
+
+    // 🔥 KRITISCHER FIX: participantPlayerIds SOFORT zu Beginn erfassen!
+    const preservedParticipantPlayerIds = jassStore.currentSession?.participantPlayerIds || [];
+    console.log(`[handleSignatureClick] participantPlayerIds SOFORT erfasst: ${preservedParticipantPlayerIds.length} IDs`);
 
     let teamSigningNow: TeamPosition | null = null;
     if (currentSigningState === 'waitingTeam1' && currentSwipePosition === 'bottom') {
- teamSigningNow = 'bottom';
-} else if (currentSigningState === 'waitingTeam2' && currentSwipePosition === 'top') {
- teamSigningNow = 'top';
-} else {
- return;
-} // Frühzeitig beenden, wenn falsches Team
+      teamSigningNow = 'bottom';
+    } else if (currentSigningState === 'waitingTeam2' && currentSwipePosition === 'top') {
+      teamSigningNow = 'top';
+    } else {
+      return;
+    } // Frühzeitig beenden, wenn falsches Team
 
     if (teamSigningNow) {
         uiStore.recordSignature(teamSigningNow);
@@ -1585,7 +1589,35 @@ const ResultatKreidetafel = ({
                         if (jassStore.currentSession) {
                           const playerNamesLocal = gameStore.playerNames;
                           const participantUidsLocal = jassStore.currentSession.participantUids || [];
-                          const participantPlayerIdsLocal = jassStore.currentSession.participantPlayerIds || [];
+                          
+                          // 🔥 RACE CONDITION FIX: participantPlayerIds direkt aus Firestore lesen!
+                          let participantPlayerIdsFromFirestore: string[] = [];
+                          try {
+                            console.log(`[ResultatKreidetafel] Lade participantPlayerIds direkt aus Firestore für Session ${currentSessionIdFromStore}...`);
+                            const db = getFirestore(firebaseApp);
+                            const sessionDocRef = doc(db, 'sessions', currentSessionIdFromStore);
+                            const sessionSnap = await getDoc(sessionDocRef);
+                            
+                            if (sessionSnap.exists()) {
+                              const sessionData = sessionSnap.data();
+                              participantPlayerIdsFromFirestore = sessionData.participantPlayerIds || [];
+                              console.log(`[ResultatKreidetafel] participantPlayerIds aus Firestore erhalten: ${participantPlayerIdsFromFirestore.length} IDs`);
+                            } else {
+                              console.warn(`[ResultatKreidetafel] Session-Dokument ${currentSessionIdFromStore} nicht gefunden in Firestore`);
+                            }
+                          } catch (firestoreError) {
+                            console.error(`[ResultatKreidetafel] Fehler beim Lesen von participantPlayerIds aus Firestore:`, firestoreError);
+                          }
+                          
+                          // 🔥 KRITISCHER FIX: Verwende Firestore-Daten als primäre Quelle!
+                          const participantPlayerIdsLocal = participantPlayerIdsFromFirestore.length > 0 
+                            ? participantPlayerIdsFromFirestore 
+                            : preservedParticipantPlayerIds.length > 0 
+                              ? preservedParticipantPlayerIds 
+                              : jassStore.currentSession.participantPlayerIds || [];
+                          
+                          console.log(`[ResultatKreidetafel] Finale participantPlayerIds: ${participantPlayerIdsLocal.length} IDs (firestore: ${participantPlayerIdsFromFirestore.length}, preserved: ${preservedParticipantPlayerIds.length}, current: ${jassStore.currentSession.participantPlayerIds?.length || 0})`);
+                          
                           const sessionTeamsData = prepareSessionTeamsData(participantPlayerIdsLocal, playerNamesLocal);
 
                           initialPayloadData = {

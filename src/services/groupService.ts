@@ -92,6 +92,11 @@ export const createGroup = async (
       createdBy: userId,
       adminIds: [userId],
       isPublic: true,
+      // ✅ NEUE GRUPPE MIT KORREKTEN DEFAULT-EINSTELLUNGEN
+      scoreSettings: DEFAULT_SCORE_SETTINGS,
+      strokeSettings: DEFAULT_STROKE_SETTINGS,
+      farbeSettings: DEFAULT_FARBE_SETTINGS,
+      theme: 'yellow', // Default-Theme
       players: {
         [playerId]: {
           displayName: userDisplayName || "Unbekannt",
@@ -616,26 +621,12 @@ export const uploadGroupLogo = async (groupId: string, file: File): Promise<stri
       }
     }
 
-    // NEU: Direkte Aktualisierung des GroupStore
+    // ✅ DIREKTE Store-Aktualisierung (reicht völlig aus!)
     useGroupStore.getState().updateGroupInList(groupId, {logoUrl: downloadURL});
     console.log(`GroupStore für Gruppe ${groupId} mit neuer logoUrl direkt aktualisiert.`);
 
-    // NEU: Versuch, das Neuladen der Gruppen zu erzwingen, um UI-Update sicherzustellen
-    const authState = useAuthStore.getState();
-    if (authState.user) {
-      try {
-        console.log(`GroupService: Reloading groups for user ${authState.user.uid} after logo upload...`);
-        await useGroupStore.getState().loadUserGroups(authState.user.uid);
-        console.log(`GroupService: User groups reloaded for ${authState.user.uid}.`);
-        // Stelle sicher, dass die gerade aktualisierte Gruppe auch die aktive ist
-        const reloadedGroup = useGroupStore.getState().userGroups.find((g) => g.id === groupId) || null;
-        useGroupStore.getState().setCurrentGroup(reloadedGroup as any); // Typ-Assertion hinzugefügt
-        console.log("GroupService: Set current group after reload to:", reloadedGroup?.name);
-      } catch (reloadError) {
-        console.error("GroupService: Fehler beim Neuladen der Gruppen nach Logo-Upload:", reloadError);
-        // Fehler hier nicht weiterwerfen, da der Upload erfolgreich war.
-      }
-    }
+    // ❌ ENTFERNT: Unnötiges Reload verursachte Race Condition und setzte currentGroup auf undefined
+    // Die direkte Store-Aktualisierung oben funktioniert perfekt!
 
     return downloadURL;
   } catch (error: unknown) {

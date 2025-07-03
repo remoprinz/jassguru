@@ -738,12 +738,33 @@ const StartPage = () => {
         showNotification({ message: "Bitte zuerst eine Gruppe auswählen.", type: "warning" });
         return;
       }
+      
+      // ✅ PRÜFUNG: Genug Gruppenmitglieder für Online-Spiel?
+      if (currentGroup && !membersLoading && members.length < 4) {
+        showNotification({
+          message: "Für Gruppenspiele mit Statistik braucht es mindestens vier Mitglieder. Du kannst aber trotzdem im Gastmodus jassen.",
+          type: "info",
+          actions: [
+            {
+              label: "Gastmodus",
+              // 🔧 FIX: Zur WelcomeScreen navigieren anstatt direkt zu game/new
+              onClick: () => router.push("/"),
+            },
+            {
+              label: "Einladen", 
+              onClick: () => {}, // Schliesst nur die Notification
+            },
+          ],
+        });
+        return;
+      }
+      
       // Leitet den Benutzer zur dedizierten Seite für die Erstellung eines neuen
       // Online-Spiels, anstatt direkt zum Jass-Bildschirm.
       // Der Offline/Gast-Flow wird dadurch nicht beeinflusst.
       router.push("/game/new");
     }
-  }, [resumableGameId, router, handleResumeGame, currentGroup, userGroups, showNotification]);
+  }, [resumableGameId, router, handleResumeGame, currentGroup, userGroups, showNotification, members]);
 
   useEffect(() => {
     if (isResuming) {
@@ -873,6 +894,21 @@ const StartPage = () => {
   const handleUpload = async () => {
     if (!selectedFile || !currentGroup) return;
 
+    // ✅ FRONTEND ADMIN-PRÜFUNG für bessere Fehlermeldungen
+    if (!isAdmin) {
+      showNotification({
+        message: "Nur Gruppenadministratoren können das Gruppenbild aktualisieren.",
+        type: "warning",
+        actions: [
+          {
+            label: "Verstanden",
+            onClick: () => {},
+          },
+        ],
+      });
+      return;
+    }
+
     setIsUploading(true);
     try {
       await uploadGroupLogo(currentGroup.id, selectedFile);
@@ -882,14 +918,38 @@ const StartPage = () => {
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (error) {
       console.error("Fehler beim Hochladen des Gruppenlogos:", error);
-      showNotification({message: error instanceof Error ? error.message : "Hochladen fehlgeschlagen.", type: "error"});
+      
+      // Verbesserte Fehlermeldung
+      const errorMessage = error instanceof Error ? error.message : "Hochladen fehlgeschlagen.";
+      if (errorMessage.includes('unauthorized') || errorMessage.includes('permission')) {
+        showNotification({
+          message: "Keine Berechtigung: Nur Gruppenadministratoren können das Gruppenbild ändern.",
+          type: "error"
+        });
+      } else {
+        showNotification({message: errorMessage, type: "error"});
+      }
     } finally {
       setIsUploading(false);
     }
   };
 
   const handleSelectClick = () => {
-    if (isAdmin && fileInputRef.current) {
+    if (!isAdmin) {
+      showNotification({
+        message: "Nur Gruppenadministratoren können das Gruppenbild ändern.",
+        type: "info",
+        actions: [
+          {
+            label: "Verstanden",
+            onClick: () => {},
+          },
+        ],
+      });
+      return;
+    }
+    
+    if (fileInputRef.current) {
       fileInputRef.current.click();
     }
   };
@@ -903,6 +963,21 @@ const StartPage = () => {
 
   const handleInviteClick = async () => {
     if (!currentGroup) return;
+
+    // ✅ FRONTEND ADMIN-PRÜFUNG für Einladungen
+    if (!isAdmin) {
+      showNotification({
+        message: "Nur Gruppenadministratoren können Einladungen erstellen.",
+        type: "info",
+        actions: [
+          {
+            label: "Verstanden",
+            onClick: () => {},
+          },
+        ],
+      });
+      return;
+    }
 
     setIsInviteModalOpen(true);
     setIsGeneratingInvite(true);

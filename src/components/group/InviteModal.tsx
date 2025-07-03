@@ -61,21 +61,21 @@ const InviteModal: React.FC<InviteModalProps> = ({
         const shareText = `${titleText}\n\n${bodyText}\n\n${linkText}`; // Slogan entfernt
         // --- Ende Share-Text ---
 
-        // --- Bild laden: Immer /welcome-guru.png verwenden (Logik hinzugefügt) ---
+        // --- App-Icon laden: Professioneller für Gruppeneinladungen ---
         let imageFile: File | null = null;
         try {
-          const response = await fetch('/welcome-guru.png');
+          const response = await fetch('/apple-touch-icon.png');
           if (response.ok) {
             const blob = await response.blob();
-            imageFile = new File([blob], 'welcome-guru.png', { type: blob.type || 'image/png' });
-            console.log("Modal: Standardbild für Teilen geladen.");
+            imageFile = new File([blob], 'jassguru-icon.png', { type: blob.type || 'image/png' });
+            console.log("Modal: App-Icon für Teilen geladen.");
           } else {
-            console.error("Modal: Standardbild konnte nicht geladen werden:", response.statusText);
+            console.error("Modal: App-Icon konnte nicht geladen werden:", response.statusText);
           }
         } catch (fetchError) {
-          console.error("Modal: Fehler beim Laden des Standardbildes:", fetchError);
+          console.error("Modal: Fehler beim Laden des App-Icons:", fetchError);
         }
-        // --- Ende Bild laden ---
+        // --- Ende App-Icon laden ---
 
         const shareData: ShareData = {
           title: `Du wurdest zu Jassguru eingeladen`, // Titel als Metadaten

@@ -13,7 +13,7 @@ export function useWakeLock(type: WakeLockType = "screen") {
         setWakeLock(lock);
         setIsLocked(true);
         if (type === "screen") {
-          // console.log("Wake Lock aktiviert", {type, timestamp: new Date().toISOString()});
+          console.log("✅ Wake Lock aktiviert - Bildschirm bleibt aktiv", {type, timestamp: new Date().toISOString()});
         }
       } else {
         console.warn("Wake Lock API wird nicht unterstützt", {timestamp: new Date().toISOString()});

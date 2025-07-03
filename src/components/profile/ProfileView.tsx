@@ -392,9 +392,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 }}
               />
             ) : (
-              <span className="text-4xl font-bold text-gray-500">
-                {displayName.charAt(0).toUpperCase()}
-              </span>
+              !isPublicView ? (
+                <div className="flex flex-col items-center">
+                  <CameraIcon size={40} className="text-gray-400 mb-1" />
+                  <span className="text-xs text-gray-500 text-center px-2">
+                    Profilbild hochladen
+                  </span>
+                </div>
+              ) : (
+                <span className="text-4xl font-bold text-gray-500">
+                  {displayName.charAt(0).toUpperCase()}
+                </span>
+              )
             )}
 
             {!isPublicView && handleSelectClick && (

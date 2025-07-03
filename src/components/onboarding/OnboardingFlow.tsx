@@ -51,9 +51,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   isPWA,
   isBrowserOnboarding,
 }) => {
-  // +++ TEMPORÄRE DEAKTIVIERUNG für lokales Testen +++
-  // return null; // Immer null zurückgeben, um Flow zu verhindern <-- DIESE ZEILE ENTFERNEN
-  // +++ ENDE TEMPORÄRE DEAKTIVIERUNG +++
+  // 🔥 KRITISCHER FIX: isDev-Prüfung VOR allen Hooks!
+  if (isDev) {
+    console.log(`[DEV MODE] OnboardingFlow: isDev is true. Rendering null.`);
+    return null; // Komponente nicht rendern im Development Mode
+  }
 
   // Hooks MÜSSEN hier oben und unbedingt aufgerufen werden
   const {overlayScale, urlBarPosition} = useDeviceScale();
@@ -62,9 +64,6 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   const [isDesktop, setIsDesktop] = useState(false);
   const previousButtonHandlers = usePressableButton(onPrevious);
   const nextButtonHandlers = usePressableButton(onNext);
-
-  // Konstante für Development Mode - wird jetzt importiert
-  // const isDevelopment = process.env.NODE_ENV === "development";
 
   // Erfasst die Viewport-Dimensionen und überprüft, ob es sich um einen Desktop handelt
   useEffect(() => {
@@ -129,14 +128,6 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
     default: return "p-5";
     }
   };
-
-  // WICHTIG: Überprüfung auf Development Mode
-  // Der Code hier sollte *nach* allen Hooks stehen, aber *vor* dem return des JSX.
-  if (isDev) { // Verwende die importierte isDev Konstante
-    // Detaillierteres Logging hinzufügen
-    console.log(`[DEV MODE] OnboardingFlow: isDev is true. Rendering null.`);
-    return null; // Komponente nicht rendern im Development Mode
-  }
 
   // Zusätzliche Prüfung: Nur rendern, wenn 'show' true ist (redundant mit AnimatePresence, aber schadet nicht)
   if (!show) {

@@ -1,9 +1,8 @@
-import {Home, BarChart, ClipboardList, User, Award} from "lucide-react";
+import {Home, MessageCircle, ClipboardList, User, Award} from "lucide-react";
 import Link from "next/link";
 import {useRouter} from "next/router";
 import {cn} from "@/lib/utils";
 import {useAuthStore} from "@/store/authStore";
-import {useUIStore} from "@/store/uiStore";
 import {useTournamentStore} from "@/store/tournamentStore";
 import { useMemo, useEffect } from "react";
 import type { TournamentInstance } from "@/types/tournament";
@@ -13,7 +12,6 @@ export function BottomNavigation() {
   const router = useRouter();
   const currentPath = router.pathname;
   const {isGuest, user} = useAuthStore();
-  const showNotification = useUIStore((state) => state.showNotification);
   
   const {
     userActiveTournamentId,
@@ -28,23 +26,7 @@ export function BottomNavigation() {
     }
   }, [user, tournamentStoreStatus, loadUserTournamentInstances, userTournamentInstances.length]);
 
-  const handleStatistikClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    const statistikUrl = "https://jassstatistik.shinyapps.io/mobile/";
 
-    window.open(statistikUrl, "_blank", "noopener,noreferrer");
-
-    showNotification({
-      message: "Statistik ist in Entwicklung.",
-      type: "info",
-      actions: [
-        {
-          label: "Verstanden",
-          onClick: () => {},
-        },
-      ],
-    });
-  };
 
   const baseNavigationItems = [
     {
@@ -62,12 +44,11 @@ export function BottomNavigation() {
       itemTournamentStatus: null,
     },
     {
-      name: "Statistik",
-      href: "https://jassstatistik.shinyapps.io/mobile/",
-      icon: BarChart,
+      name: "Regelchat",
+      href: "https://chat.jassguru.ch",
+      icon: MessageCircle,
       active: false,
       external: true,
-      onClick: handleStatistikClick,
       itemTournamentStatus: null,
     },
   ];
@@ -180,25 +161,7 @@ export function BottomNavigation() {
     <nav className="fixed bottom-0 left-1/2 transform -translate-x-1/2 z-50 bg-gray-900 border-t border-gray-800 h-24 max-w-3xl w-full">
       <div className="w-full flex justify-around items-center h-full px-4 pb-safe pb-8">
         {finalNavigationItems.map((item) => (
-          item.external && item.onClick ? (
-            <button
-              key={item.name}
-              onClick={item.onClick}
-              className={cn(
-                "flex flex-col items-center justify-center w-full h-full space-y-1",
-                "text-sm font-medium transition-colors",
-                "text-gray-400 hover:text-gray-300",
-                "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-blue-500 rounded-md"
-              )}
-            >
-              <item.icon size={24} className={cn(
-                item.itemTournamentStatus === 'active' ? "text-green-400" :
-                item.itemTournamentStatus === 'upcoming' ? "text-yellow-500" :
-                item.itemTournamentStatus === 'completed' ? "text-purple-400" : ""
-              )} />
-              <span className="text-xs">{item.name}</span>
-            </button>
-          ) : item.external ? (
+          item.external ? (
             <a
               key={item.name}
               href={item.href}

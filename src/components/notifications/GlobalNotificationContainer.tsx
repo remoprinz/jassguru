@@ -5,7 +5,10 @@ import {useUIStore} from "../../store/uiStore";
 import type {
   Notification,
   NotificationAction,
+  NotificationCheckbox,
+  SimpleCheckbox,
 } from "../../types/notification";
+import { CustomCheckbox } from "../ui/checkbox-custom";
 import {
   FaExclamationTriangle,
   FaCheckCircle,
@@ -17,6 +20,8 @@ import {
 const GlobalNotificationContainer: React.FC = () => {
   const notifications = useUIStore((state) => state.notifications);
   const removeNotification = useUIStore((state) => state.removeNotification);
+  const iosNotification = useUIStore((state) => state.iosNotification);
+  const setIOSNotificationDontShowAgain = useUIStore((state) => state.setIOSNotificationDontShowAgain);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -100,10 +105,10 @@ const GlobalNotificationContainer: React.FC = () => {
   };
 
   const notificationContent = (
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       {notifications.map((notification) => (
         <motion.div
-          key={notification.id}
+          key={`notification-${notification.id}`}
           initial={{opacity: 0}}
           animate={{opacity: 1}}
           exit={{opacity: 0}}
@@ -131,6 +136,70 @@ const GlobalNotificationContainer: React.FC = () => {
               {renderIcon(notification)}
               <p className="text-center mb-6 mt-4">{notification.message}</p>
             </div>
+
+            {/* Checkbox (falls vorhanden) */}
+            {notification.checkbox && (
+              <div className="flex items-center justify-center mb-4">
+                <CustomCheckbox
+                  checked={notification.checkbox.checked}
+                  onChange={notification.checkbox.onChange}
+                  label={notification.checkbox.label}
+                />
+              </div>
+            )}
+
+            {/* Checkbox-Handling - Unterscheidung zwischen simpleCheckbox und iOS-Notification */}
+            {(notification.simpleCheckbox || notification.isIOSNotification) && (
+              <div className="flex items-center justify-center mb-6">
+                <div 
+                  className={`flex items-center cursor-pointer select-none px-3 py-2 rounded-lg transition-all duration-200 ${
+                    (notification.isIOSNotification ? iosNotification.dontShowAgain : notification.simpleCheckbox?.checked)
+                      ? 'bg-yellow-600/20' 
+                      : 'bg-gray-700/30 hover:bg-gray-600/40'
+                  }`}
+                  onClick={() => {
+                    if (notification.isIOSNotification) {
+                      // iOS-Notification: Verwende uiStore direkt
+                      const newValue = !iosNotification.dontShowAgain;
+                      console.log('🎯 [GlobalContainer iOS] Klick:', { 
+                        notificationId: notification.id,
+                        current: iosNotification.dontShowAgain, 
+                        new: newValue 
+                      });
+                      setIOSNotificationDontShowAgain(newValue);
+                    } else if (notification.simpleCheckbox) {
+                      // Standard simpleCheckbox: Verwende die vorhandene Logik
+                      const newValue = !notification.simpleCheckbox.checked;
+                      console.log('🎯 [GlobalContainer SimpleCheckbox] Klick:', { 
+                        notificationId: notification.id,
+                        current: notification.simpleCheckbox.checked, 
+                        new: newValue 
+                      });
+                      notification.simpleCheckbox.onChange(newValue);
+                    }
+                  }}
+                >
+                  <div 
+                    className={`w-6 h-6 border-2 rounded mr-3 flex items-center justify-center transition-all duration-200 ${
+                      (notification.isIOSNotification ? iosNotification.dontShowAgain : notification.simpleCheckbox?.checked)
+                        ? 'bg-yellow-600 border-yellow-600 text-white' 
+                        : 'bg-gray-700 border-gray-500'
+                    }`}
+                  >
+                    {(notification.isIOSNotification ? iosNotification.dontShowAgain : notification.simpleCheckbox?.checked) && (
+                      <span className="text-white text-lg font-bold leading-none">✓</span>
+                    )}
+                  </div>
+                  <span className={`text-sm transition-colors duration-200 ${
+                    (notification.isIOSNotification ? iosNotification.dontShowAgain : notification.simpleCheckbox?.checked)
+                      ? 'text-yellow-300 font-medium' 
+                      : 'text-gray-300'
+                  }`}>
+                    {notification.isIOSNotification ? 'Nicht mehr anzeigen' : notification.simpleCheckbox?.label}
+                  </span>
+                </div>
+              </div>
+            )}
 
             <div className={`flex justify-${notification.actions?.length === 1 ? "center" : "between"} gap-4`}>
               {renderActions(notification)}

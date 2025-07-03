@@ -34,7 +34,23 @@ const Header: React.FC<HeaderProps> = () => {
 
   const effectiveTitle = headerConfig?.title;
   const showEffectiveBackButton = headerConfig?.showBackButton ?? false;
-  const backButtonAction = headerConfig?.backButtonAction ?? (() => router.back());
+  
+  // 🔧 FIX: Spezielle Zurück-Navigation für Auth-Seiten
+  const backButtonAction = headerConfig?.backButtonAction ?? (() => {
+    // Auf Login/Register-Seiten: Unterscheide zwischen eingeloggt und nicht eingeloggt
+    if (router.pathname === '/auth/login' || router.pathname === '/auth/register' || router.pathname === '/auth/reset-password') {
+      if (user) {
+        // Eingeloggte Benutzer zur Startseite
+        router.push('/start');
+      } else {
+        // Nicht eingeloggte Benutzer zur WelcomeScreen
+        router.push('/');
+      }
+    } else {
+      router.back();
+    }
+  });
+  
   const showEffectiveProfileButton = headerConfig?.showProfileButton ?? true;
 
   const shouldShowHeader = effectiveTitle || showEffectiveBackButton || showEffectiveProfileButton;
@@ -113,7 +129,28 @@ const Header: React.FC<HeaderProps> = () => {
                 Meine Gruppen
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-gray-600"/>
-              <DropdownMenuItem onClick={logout} className="cursor-pointer text-red-400 hover:bg-red-900/50 focus:bg-red-900/50">
+              <DropdownMenuItem 
+                onClick={async () => {
+                  try {
+                    console.log('🚪 [Header] Logout-Prozess gestartet...');
+                    await logout();
+                    console.log('🚪 [Header] Logout erfolgreich, navigiere zur WelcomeScreen...');
+                    
+                    // Zusätzliche Navigation-Zusicherung nach kurzer Verzögerung
+                    setTimeout(() => {
+                      if (router.pathname !== '/') {
+                        console.log('🚪 [Header] Erzwinge Navigation zur WelcomeScreen...');
+                        router.push('/');
+                      }
+                    }, 300);
+                  } catch (error) {
+                    console.error('🚪 [Header] Logout-Fehler:', error);
+                    // Fallback: Direkte Navigation zur WelcomeScreen
+                    router.push('/');
+                  }
+                }} 
+                className="cursor-pointer text-red-400 hover:bg-red-900/50 focus:bg-red-900/50"
+              >
                 Abmelden
               </DropdownMenuItem>
             </DropdownMenuContent>

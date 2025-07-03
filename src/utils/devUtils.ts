@@ -4,12 +4,12 @@ import {useTutorialStore} from "../store/tutorialStore";
 export const isDev = process.env.NODE_ENV === "development";
 
 // Neue Konstante für Tutorial-Entwicklung
-export const FORCE_TUTORIAL = false;
+export const FORCE_TUTORIAL = true;
 
 // Zentrale Dev Flags
 export const DEV_FLAGS = {
   FORCE_PWA_INSTALL: isDev ? false : true,
-  FORCE_TUTORIAL: false,
+  FORCE_TUTORIAL: true,
   SKIP_BROWSER_CHECK: isDev ? true : false,
 } as const;
 

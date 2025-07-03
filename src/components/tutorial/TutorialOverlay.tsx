@@ -172,6 +172,8 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({onCloseMenu}) => {
   const [neverShowAgain, setNeverShowAgain] = useState(false);
   const currentStep = getCurrentStep();
 
+
+
   // Nutze den erweiterten useTutorialComponent Hook
   useTutorialComponent("splitContainer", setIsContentVisible);
   useTutorialComponent("calculator", setIsContentVisible);
@@ -248,15 +250,12 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({onCloseMenu}) => {
                 type="checkbox"
                 id="neverShowAgain"
                 checked={neverShowAgain}
-                onChange={(e) => {
-                  const isChecked = e.target.checked;
-                  setNeverShowAgain(isChecked);
-                  // Speichere den Status sofort, wenn die Checkbox aktiviert wird
-                  if (isChecked) {
-                    // console.log("[TutorialOverlay] Checkbox aktiviert - speichere sofort im localStorage");
-                    useTutorialStore.getState().setHasCompletedTutorial(true);
-                  }
-                }}
+                                  onChange={(e) => {
+                    const isChecked = e.target.checked;
+                    setNeverShowAgain(isChecked);
+                    // 🔧 FIX: Tutorial NICHT sofort als abgeschlossen markieren!
+                    // Das passiert erst beim Klick auf "Fertig" in handleEndTutorial
+                  }}
                 className="w-4 h-4 rounded border-gray-300 text-yellow-600 focus:ring-yellow-500"
               />
               <label htmlFor="neverShowAgain" className="text-sm whitespace-nowrap">
@@ -271,8 +270,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({onCloseMenu}) => {
 
   // 3. Alle useCallback Hooks
   const handleEndTutorial = useCallback(() => {
-    const tutorialStoreActions = useTutorialStore.getState(); // Holen der Store-Instanz für Aktionen
-    const currentStepFromStore = tutorialStoreActions.getCurrentStep();
+    const currentStepFromStore = useTutorialStore.getState().getCurrentStep();
 
     // 1. UI-Elemente schließen
     const uiStore = useUIStore.getState();
@@ -280,38 +278,23 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({onCloseMenu}) => {
     uiStore.setMenuOpen(false);
 
     // 2. UI-Blockierungen aufheben
-    tutorialStoreActions.setTutorialUIBlocking({
+    useTutorialStore.getState().setTutorialUIBlocking({
       calculatorClose: false,
       gameInfoClose: false,
       settingsClose: false,
       resultatKreidetafelClose: false,
     });
 
-    // 3. Kategorie als abgeschlossen markieren
-    if (currentStepFromStore?.category) {
-      // markCategoryAsCompleted wird direkt aus dem useTutorialStore Hook verwendet
+    // 3. Kategorie als abgeschlossen markieren NUR wenn Checkbox aktiviert
+    if (neverShowAgain && currentStepFromStore?.category) {
       markCategoryAsCompleted(currentStepFromStore.category);
     }
 
-    let effectiveNeverShowAgain = neverShowAgain; // from component state (checkbox)
+    // 4. 🔧 KRITISCHER FIX: NUR eine einzige Tutorial-Beendigung!
+    // endTutorial() erledigt ALLES - kein doppeltes setHasCompletedTutorial!
+    endTutorial(neverShowAgain);
 
-    // Für Gäste ist das Tutorial nach BASIC_COMPLETE oder BINGO_SETTINGS immer abgeschlossen.
-    if (
-      isGuest && // Verwendung von isGuest aus dem äußeren Scope
-      (currentStepFromStore?.id === TUTORIAL_STEPS.BINGO_SETTINGS ||
-       currentStepFromStore?.id === TUTORIAL_STEPS.BASIC_COMPLETE)
-    ) {
-      effectiveNeverShowAgain = true;
-    }
-
-    // 4. Tutorial beenden
-    if (effectiveNeverShowAgain) {
-      tutorialStoreActions.setHasCompletedTutorial(true);
-    }
-    // endTutorial wird direkt aus dem useTutorialStore Hook verwendet
-    endTutorial(effectiveNeverShowAgain);
-
-  }, [neverShowAgain, isGuest, markCategoryAsCompleted, endTutorial]); // isGuest ist jetzt eine Abhängigkeit
+  }, [neverShowAgain, markCategoryAsCompleted, endTutorial]);
 
   const handleNext = () => {
     nextStep();
@@ -496,84 +479,8 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({onCloseMenu}) => {
         </motion.div>
       )}
 
-      {/* Navigation mit neuer Logik */}
-      {renderNavigation() && (
-        <motion.div
-          key="tutorial-overlay-navigation"
-          className="fixed left-1/2 transform -translate-x-1/2 z-[1001]"
-          style={{bottom: "4vh", pointerEvents: "auto"}}
-        >
-          <div className="flex flex-col items-center w-full max-w-md px-8 mb-8 mx-auto">
-            {/* Navigation Buttons */}
-            <div className={`w-full flex items-center ${
-              // Wenn es der Welcome Screen ist UND die Checkbox angezeigt wird
-              currentStep?.id === TUTORIAL_STEPS.WELCOME ? "justify-center" : "justify-between"
-            } gap-4 mb-4`}>
-              {/* "Verstanden" Button NUR für Help-Mode (wenn man während des Spiels auf Hilfe klickt) */}
-              {isHelpMode && currentStep.category !== TutorialCategory.TIPS ? (
-                <button
-                  onClick={handleExitHelpStep}
-                  className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold
-                    py-3 px-8 rounded-full w-[180px] mx-auto block
-                    active:bg-yellow-600"
-                >
-                  Verstanden
-                </button>
-              ) : (
-                /* Normale Navigation für alle Tutorial-Flows (Basic, Settings, Tips) */
-                <TutorialNavigation
-                  showBackButton={!currentStep.hideBackButton}
-                  isFirstStep={
-                    currentStep.id === TUTORIAL_STEPS.WELCOME ||
-                    currentStep.id === TUTORIAL_STEPS.SETTINGS ||
-                    currentStep.id === TUTORIAL_STEPS.TIPS_WELCOME
-                  }
-                  isLastStep={
-                    currentStep.id === TUTORIAL_STEPS.BASIC_COMPLETE ||
-                    currentStep.id === TUTORIAL_STEPS.BINGO_SETTINGS ||
-                    currentStep.id === TUTORIAL_STEPS.TIPS_IPHONE_WAKE
-                  }
-                  onNext={
-                    currentStep.id === TUTORIAL_STEPS.BASIC_COMPLETE ||
-                    currentStep.id === TUTORIAL_STEPS.BINGO_SETTINGS ||
-                    currentStep.id === TUTORIAL_STEPS.TIPS_IPHONE_WAKE ?
-                      handleEndTutorial :
-                      undefined
-                  }
-                />
-              )}
-            </div>
-
-            {/* "Nicht mehr anzeigen" Checkbox - nur im letzten Step des normalen Tutorials oder Tips */}
-            {!isHelpMode && (
-              currentStep.id === TUTORIAL_STEPS.BASIC_COMPLETE ||
-              currentStep.id === TUTORIAL_STEPS.BINGO_SETTINGS ||
-              currentStep.id === TUTORIAL_STEPS.TIPS_IPHONE_WAKE
-            ) && (
-              <div className="flex items-center justify-center gap-2 text-white mt-2">
-                <input
-                  type="checkbox"
-                  id="neverShowAgain"
-                  checked={neverShowAgain}
-                  onChange={(e) => {
-                    const isChecked = e.target.checked;
-                    setNeverShowAgain(isChecked);
-                    // Speichere den Status sofort, wenn die Checkbox aktiviert wird
-                    if (isChecked) {
-                      // console.log("[TutorialOverlay] Checkbox aktiviert - speichere sofort im localStorage");
-                      useTutorialStore.getState().setHasCompletedTutorial(true);
-                    }
-                  }}
-                  className="w-4 h-4 rounded border-gray-300 text-yellow-600 focus:ring-yellow-500"
-                />
-                <label htmlFor="neverShowAgain" className="text-sm whitespace-nowrap">
-                  Tutorial das nächste Mal nicht mehr anzeigen
-                </label>
-              </div>
-            )}
-          </div>
-        </motion.div>
-      )}
+      {/* Navigation mit renderNavigation() Funktion */}
+      {renderNavigation()}
     </AnimatePresence>
   );
 };

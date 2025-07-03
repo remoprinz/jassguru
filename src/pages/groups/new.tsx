@@ -26,6 +26,8 @@ import {createGroup, uploadGroupLogo} from "@/services/groupService";
 import MainLayout from "@/components/layout/MainLayout";
 import {Camera, X, ArrowLeft} from "lucide-react";
 import type { FirestoreGroup } from "@/types/jass";
+import imageCompression from "browser-image-compression";
+import ImageCropModal from "@/components/ui/ImageCropModal";
 
 // Zod Schema für die Formularvalidierung
 const createGroupSchema = z.object({
@@ -51,6 +53,11 @@ const CreateGroupPage: React.FC = () => {
   const [selectedLogoFile, setSelectedLogoFile] = useState<File | null>(null);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
   const logoFileInputRef = useRef<HTMLInputElement>(null);
+  
+  // --- Crop Tool State (wie in index.tsx) ---
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   // ------------------------------
 
   // Redirect, wenn nicht eingeloggt
@@ -80,8 +87,11 @@ const CreateGroupPage: React.FC = () => {
       if (logoPreviewUrl) {
         URL.revokeObjectURL(logoPreviewUrl);
       }
+      if (imageToCrop) {
+        URL.revokeObjectURL(imageToCrop);
+      }
     };
-  }, [logoPreviewUrl]);
+  }, [logoPreviewUrl, imageToCrop]);
 
   const form = useForm<CreateGroupFormValues>({
     resolver: zodResolver(createGroupSchema),
@@ -90,24 +100,29 @@ const CreateGroupPage: React.FC = () => {
     },
   });
 
-  // --- Logo Handling Functions (similar to profile page) ---
-  const handleLogoFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // --- Logo Handling Functions (mit Crop Tool wie in index.tsx) ---
+  const handleLogoFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files && files.length > 0) {
-      const file = files[0];
-      if (!file.type.startsWith("image/")) {
-        showNotification({message: "Bitte Bilddatei wählen (JPEG, PNG, GIF).", type: "error"});
+      const originalFile = files[0];
+      if (!originalFile.type.startsWith("image/")) {
+        showNotification({message: "Bitte wählen Sie eine Bilddatei (JPEG oder PNG).", type: "error"});
         return;
       }
-      const maxSizeInBytes = 2 * 1024 * 1024; // 2MB Limit for Logos
-      if (file.size > maxSizeInBytes) {
-        showNotification({message: "Logo ist zu groß (max. 2 MB).", type: "error"});
+      const initialMaxSizeInBytes = 10 * 1024 * 1024; // 10MB initial limit
+      if (originalFile.size > initialMaxSizeInBytes) {
+        showNotification({message: "Die Datei ist zu groß (max. 10 MB).", type: "error"});
         return;
       }
-      const objectUrl = URL.createObjectURL(file);
-      setLogoPreviewUrl(objectUrl);
-      setSelectedLogoFile(file);
-      setError(null); // Clear previous errors
+
+      setError(null);
+      if (logoPreviewUrl) URL.revokeObjectURL(logoPreviewUrl);
+      setLogoPreviewUrl(null);
+      setSelectedLogoFile(null);
+
+      const objectUrl = URL.createObjectURL(originalFile);
+      setImageToCrop(objectUrl);
+      setCropModalOpen(true);
     }
   };
 
@@ -123,6 +138,47 @@ const CreateGroupPage: React.FC = () => {
     setLogoPreviewUrl(null);
     if (logoFileInputRef.current) {
       logoFileInputRef.current.value = "";
+    }
+  };
+
+  // --- Crop Complete Handler (wie in index.tsx) ---
+  const handleCropComplete = async (croppedImageBlob: Blob | null) => {
+    setCropModalOpen(false);
+    if (imageToCrop) {
+      URL.revokeObjectURL(imageToCrop);
+      setImageToCrop(null);
+    }
+
+    if (!croppedImageBlob) {
+      if (logoFileInputRef.current) logoFileInputRef.current.value = "";
+      setIsUploading(false);
+      return;
+    }
+
+    setIsUploading(true);
+
+    const options = {
+      maxSizeMB: 0.2,
+      maxWidthOrHeight: 1024,
+      useWebWorker: true,
+      fileType: "image/jpeg",
+      initialQuality: 0.8,
+    };
+
+    try {
+      const compressedBlob = await imageCompression(new File([croppedImageBlob], "cropped_logo.jpg", {type: "image/jpeg"}), options);
+
+      const finalPreviewUrl = URL.createObjectURL(compressedBlob);
+      setLogoPreviewUrl(finalPreviewUrl);
+      setSelectedLogoFile(new File([compressedBlob], "group_logo.jpg", {type: "image/jpeg"}));
+      setIsUploading(false);
+    } catch (compressionError) {
+      console.error("Fehler bei der Komprimierung des zugeschnittenen Gruppenlogos:", compressionError);
+      showNotification({message: "Fehler bei der Bildkomprimierung.", type: "error"});
+      setSelectedLogoFile(null);
+      setLogoPreviewUrl(null);
+      if (logoFileInputRef.current) logoFileInputRef.current.value = "";
+      setIsUploading(false);
     }
   };
   // --------------------------------------------------------
@@ -159,8 +215,14 @@ const CreateGroupPage: React.FC = () => {
         } catch (logoError) {
           console.error("Fehler beim Hochladen des Gruppenlogos:", logoError);
           showNotification({
-            message: `Gruppe erstellt, aber Logo-Upload fehlgeschlagen: ${logoError instanceof Error ? logoError.message : "Unbekannter Fehler"}`,
-            type: "warning",
+            message: "Gruppe erfolgreich erstellt! Das Gruppenbild konnte nicht hochgeladen werden - kein Problem, du kannst es später in den Gruppeneinstellungen hinzufügen.",
+            type: "success",
+            actions: [
+              {
+                label: "Verstanden",
+                onClick: () => {},
+              },
+            ],
           });
         }
       }
@@ -271,15 +333,22 @@ const CreateGroupPage: React.FC = () => {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               {/* --- Logo Selection UI --- */}
               <FormItem className="flex flex-col items-center">
-                <FormLabel className="text-gray-300 mb-2">Gruppenlogo (Optional)</FormLabel>
+                <FormLabel className="text-gray-300 mb-2">Gruppenlogo (kann später hochgeladen werden)</FormLabel>
                 <div className="relative">
                   <Avatar
-                    className="h-24 w-24 cursor-pointer border-2 border-gray-600 hover:border-gray-500 transition-colors"
-                    onClick={handleLogoSelectClick}
+                    className={`h-24 w-24 border-2 border-gray-600 transition-colors ${isUploading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-gray-500'}`}
+                    onClick={!isUploading ? handleLogoSelectClick : undefined}
                   >
                     <AvatarImage src={logoPreviewUrl ?? undefined} alt="Gruppenlogo Vorschau" className="object-cover" />
                     <AvatarFallback className="bg-gray-700 text-gray-400">
-                      <Camera size={32} />
+                      {isUploading ? (
+                        <div className="flex flex-col items-center">
+                          <div className="h-6 w-6 rounded-full border-2 border-white border-t-transparent animate-spin mb-1"></div>
+                          <span className="text-xs">Verarbeite...</span>
+                        </div>
+                      ) : (
+                        <Camera size={32} />
+                      )}
                     </AvatarFallback>
                   </Avatar>
                   {/* Cancel Button overlay */}
@@ -289,7 +358,7 @@ const CreateGroupPage: React.FC = () => {
                       onClick={handleCancelLogoSelection}
                       className="absolute -top-1 -right-1 z-10 rounded-full bg-red-600 p-1 text-white shadow-md hover:bg-red-700 transition-colors"
                       aria-label="Logo-Auswahl aufheben"
-                      disabled={isLoading}
+                      disabled={isLoading || isUploading}
                     >
                       <X size={14} />
                     </button>
@@ -301,7 +370,7 @@ const CreateGroupPage: React.FC = () => {
                   onChange={handleLogoFileChange}
                   accept="image/jpeg, image/png, image/gif"
                   className="hidden"
-                  disabled={isLoading}
+                  disabled={isLoading || isUploading}
                 />
                 <FormMessage className="text-red-300 mt-1" /> {/* For potential future logo validation errors */}
               </FormItem>
@@ -330,6 +399,15 @@ const CreateGroupPage: React.FC = () => {
           </Form>
         </div>
       </div>
+
+      {/* ✅ IMAGE CROP MODAL */}
+      <ImageCropModal
+        isOpen={cropModalOpen}
+        onClose={() => handleCropComplete(null)}
+        imageSrc={imageToCrop}
+        onCropComplete={handleCropComplete}
+      />
+
     </MainLayout>
   );
 };

@@ -18,6 +18,8 @@ import { FirestoreSyncProvider } from '@/providers/FirestoreSyncProvider'; // Ne
 import { ClipLoader } from "react-spinners"; // Import für einen Spinner
 import { debouncedRouterPush } from '../utils/routerUtils';
 import { isPublicPath } from "@/lib/utils"; // 🚨 NEU: Importiere die zentrale Funktion
+import { handleIndexedDBCorruption, isIndexedDBCorruptionError } from '../utils/indexedDBHelper';
+import { setupEmergencyFunctions } from '../utils/emergencyReset';
 
 // Hilfskomponente für die Ladeanzeige
 const LoadingScreen: React.FC = () => (
@@ -64,25 +66,51 @@ const MyApp = ({Component, pageProps}: AppProps) => {
 
   useEffect(() => {
     setIsClient(true);
-    // Service Worker Registrierung mit Verzögerung wieder aktivieren -> AUSKOMMENTIERT
-    /*
-    const timerId = setTimeout(() => {
-        // console.log('_app.tsx: useEffect - BEFORE calling register() (delayed)');
-        registerServiceWorker(); 
-        // console.log('_app.tsx: useEffect - AFTER calling register() (delayed)');
-    }, 100);
-    */
+    
+    // 🚨 KRITISCH: Globaler IndexedDB Corruption Handler
+    const handleGlobalError = (event: ErrorEvent) => {
+      if (isIndexedDBCorruptionError(event.error)) {
+        console.error('🚨 [App] IndexedDB Korruption erkannt:', event.error);
+        event.preventDefault(); // Stoppe Standard-Fehlerbehandlung
+        handleIndexedDBCorruption();
+        return false;
+      }
+    };
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      if (isIndexedDBCorruptionError(event.reason)) {
+        console.error('🚨 [App] IndexedDB Korruption in Promise erkannt:', event.reason);
+        event.preventDefault();
+        handleIndexedDBCorruption();
+      }
+    };
+
+    // Globale Error Handler registrieren
+    window.addEventListener('error', handleGlobalError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    
+    // 🚨 NEU: Session-Flag-Cleanup für Robustheit
+    if (typeof window !== 'undefined') {
+      // Bereinige verwaiste Session-Flags beim App-Start
+      const cleanupKeys = ['guestFromWelcome'];
+      cleanupKeys.forEach(key => {
+        if (sessionStorage.getItem(key)) {
+          console.log(`[_app] Bereinige verwaistes Session-Flag: ${key}`);
+          sessionStorage.removeItem(key);
+        }
+      });
+    }
+    
+    // Emergency-Funktionen für Konsole verfügbar machen
+    setupEmergencyFunctions();
     
     // console.log('_app.tsx: useEffect - Calling initAuth()');
     initAuth();
     
-    // Entferne den Cache-Reset, der die App blockiert
-    // resetFirestoreCache().catch(error => {
-    //   console.error('[_app.tsx] Fehler beim Zurücksetzen des Firestore-Cache:', error);
-    // });
-
-    // return () => clearTimeout(timerId); // Cleanup für Timer nicht mehr nötig
-    
+    return () => {
+      window.removeEventListener('error', handleGlobalError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
   }, [initAuth]);
 
   // NEU: Effekt zum Setzen des App-Ladezustands - MUSS VOR WEITERLEITUNG KOMMEN!
@@ -155,7 +183,27 @@ const MyApp = ({Component, pageProps}: AppProps) => {
     // Fall 2: Nicht eingeloggter Benutzer oder Gast auf einer geschützten Seite.
     // In beiden Fällen muss er zum Landing-Screen weitergeleitet werden.
     if (!isAuthenticatedUser || isGuestUser) {
+      // 🚨 NEUE CONTEXT-BEWUSSTE LOGIK: Unterscheide Browser vs. PWA Navigation
+      const guestFromWelcome = typeof window !== 'undefined' 
+        ? sessionStorage.getItem('guestFromWelcome') 
+        : null;
+      
+      if (guestFromWelcome === 'true') {
+        // Browser-Nutzer: Gast von WelcomeScreen → Zurück zu /
+        console.log('[_app] Context erkannt: guestFromWelcome=true, navigiere zu /');
+        sessionStorage.removeItem('guestFromWelcome'); // Flag bereinigen
       debouncedRouterPush(router, unauthenticatedLandingPath, undefined, true);
+      } else {
+        // PWA-Nutzer oder andere: Context-basierte Weiterleitung
+        const isPWAContext = typeof window !== 'undefined' && 
+          (window.matchMedia('(display-mode: standalone)').matches ||
+           (window.navigator as any).standalone ||
+           document.referrer.includes('android-app://'));
+        
+        const targetPath = isPWAContext ? '/auth/login' : unauthenticatedLandingPath;
+        console.log(`[_app] ${isPWAContext ? 'PWA' : 'Browser'}-Context erkannt, navigiere zu ${targetPath}`);
+        debouncedRouterPush(router, targetPath, undefined, true);
+      }
     }
     
   }, [authStatus, router.isReady, router.pathname]);

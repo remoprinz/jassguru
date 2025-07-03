@@ -12,14 +12,14 @@ import {PlayerSelectPopover} from "../player/PlayerSelectPopover";
 import {AddGuestModal} from "../player/AddGuestModal";
 import { X } from "lucide-react";
 import { useRouter } from "next/router";
-import { getFirestore, collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { firebaseApp } from "@/services/firebaseInit";
 import { createActiveGame, createSessionDocument, updateSessionActiveGameId } from "@/services/gameService";
 import { nanoid } from "nanoid";
 import { toast } from "sonner";
 import GlobalLoader from "./GlobalLoader";
 import { Button } from "../ui/button";
 import { getPlayerIdForUser } from "@/services/playerService";
+import { shouldShowiOSScreenLockWarning, createSimpleiOSScreenLockNotification, markiOSScreenLockWarningAsShown } from "@/utils/iosNotificationHelper";
+import { getWakeLockStatus } from "@/utils/wakeLockHelper";
 
 // Importiere die Default-Einstellungen
 import { DEFAULT_FARBE_SETTINGS } from '@/config/FarbeSettings';
@@ -55,6 +55,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
   const [startingPlayer, setStartingPlayer] = useState<PlayerNumber | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSelectedStartingPlayer, setHasSelectedStartingPlayer] = useState(false);
+  const [debugMode, setDebugMode] = useState(false);
 
   useEffect(() => {
     if (status === 'authenticated' && user) {
@@ -85,7 +86,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
     return Object.values(currentNames).every(name => name.trim() !== '');
   };
 
-  const handlePlayerFieldClick = (playerNumber: PlayerNumber) => {
+  const handlePlayerFieldClick = (playerNumber: PlayerNumber, event?: React.MouseEvent) => {
     if (status === 'authenticated') {
       if (areAllSlotsFilled(gamePlayers)) {
         setStartingPlayer(playerNumber);
@@ -93,7 +94,13 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
       }
     } else {
       if (areAllNamesEntered(names)) {
+        // Im Gast-Modus: Startspieler auswählen, NICHT das Input-Feld fokussieren
         setStartingPlayer(playerNumber);
+        // Event stoppen, damit das Input-Feld nicht fokussiert wird
+        if (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
       }
     }
   };
@@ -164,7 +171,49 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
     }
   };
 
+  // 🧪 DEBUG: Wake Lock Test (Doppelklick auf Titel)
+  const handleTitleDoubleClick = async () => {
+    if (process.env.NODE_ENV === 'development') {
+      setDebugMode(true);
+      try {
+        const wakeLockStatus = await getWakeLockStatus();
+        const message = wakeLockStatus.isActive 
+          ? `✅ Wake Lock funktioniert auf ${wakeLockStatus.platform}!` 
+          : `❌ Wake Lock nicht verfügbar: ${wakeLockStatus.error}`;
+        
+        showNotification({
+          type: wakeLockStatus.isActive ? 'success' : 'warning',
+          message: message,
+          actions: [{ label: 'OK', onClick: () => {} }]
+        });
+      } catch (error) {
+        showNotification({
+          type: 'error',
+          message: `Wake Lock Test fehlgeschlagen: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`,
+          actions: [{ label: 'OK', onClick: () => {} }]
+        });
+      }
+    }
+  };
+
   const handleStart = async () => {
+    // 🍎 iOS Bildschirmsperre-Warnung anzeigen (falls nötig) - ZENTRAL über uiStore verwaltet
+    const { iosNotification, markIOSNotificationAsShown } = useUIStore.getState();
+    
+    if (shouldShowiOSScreenLockWarning() && !iosNotification.hasBeenShownThisSession) {
+      console.log('🍎 [iOS Notification] Zeige iOS Bildschirmsperre-Warnung via uiStore');
+      markIOSNotificationAsShown(); // Verhindert Doppel-Anzeige in dieser Session
+      
+      const iOSNotification = createSimpleiOSScreenLockNotification(() => {
+        console.log('🎯 [StartScreen] iOS Verstanden-Button geklickt');
+        // Logik für Persistierung ist jetzt im Helper enthalten
+      });
+      
+      showNotification(iOSNotification);
+      // Kurz warten, damit User die Notification sieht, bevor das Spiel startet
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
     if (status === 'authenticated') {
       if (!areAllSlotsFilled(gamePlayers)) {
         showNotification({
@@ -183,7 +232,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
         3: gamePlayers[3]?.name ?? 'Spieler 3',
         4: gamePlayers[4]?.name ?? 'Spieler 4',
       };
-      await startGameFlow(playerNamesForStore, gamePlayers as Required<GamePlayers>);
+      await startGameFlow(gamePlayers as Required<GamePlayers>, playerNamesForStore, startingPlayer as PlayerNumber);
     } else {
       const emptyNames = Object.entries(names).filter(([_, name]) => !name.trim());
       if (emptyNames.length > 0) {
@@ -201,7 +250,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
                   4: names[4]?.trim() || 'Gegner 2'
                 };
                 setNames(validatedNames);
-                await startGameFlow(validatedNames);
+                await startGameFlow(gamePlayers as Required<GamePlayers>, validatedNames, startingPlayer as PlayerNumber);
               }
             },
             {
@@ -215,176 +264,151 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
         });
         return;
       }
-      await startGameFlow(names);
+      await startGameFlow(gamePlayers as Required<GamePlayers>, names, startingPlayer as PlayerNumber);
     }
   };
 
-  const startGameFlow = async (playerNames: PlayerNames, finalGamePlayers?: Required<GamePlayers>) => {
-    if (startingPlayer === null) {
-      toast.error("Bitte wähle einen Startspieler aus.");
-      setIsLoading(false);
-      return;
-    }
-    // console.log(`[StartScreen startGameFlow] STARTING - Initial values: startingPlayer=${startingPlayer}`);
-    
-    // NEU: Loading-State setzen
+  const startGameFlow = async (
+    selectedPlayers: GamePlayers,
+    selectedNames: PlayerNames,
+    selectedStartingPlayer: PlayerNumber
+  ) => {
     setIsLoading(true);
     
-    const auth = useAuthStore.getState();
-    const uiStoreSettingsState = useUIStore.getState().settings; // Globale UI-Einstellungen aus dem UIStore holen
+    try {
+      const auth = useAuthStore.getState();
 
-    // Bereite die initialSettings für den jassStore vor
-    // Sicherer Zugriff, falls die Properties nicht direkt auf uiStoreSettingsState existieren
-    // oder falls sie unter einem verschachtelten Objekt wie 'jassConfig' liegen.
-    // Die genaue Struktur von UISettingsState müsste geprüft werden für eine typsichere Lösung.
-    const initialSettingsForJassStore = {
-      farbeSettings: (uiStoreSettingsState as any)?.farbeSettings ?? (uiStoreSettingsState as any)?.jassConfig?.farbeSettings ?? DEFAULT_FARBE_SETTINGS,
-      scoreSettings: (uiStoreSettingsState as any)?.scoreSettings ?? (uiStoreSettingsState as any)?.jassConfig?.scoreSettings ?? DEFAULT_SCORE_SETTINGS,
-      strokeSettings: (uiStoreSettingsState as any)?.strokeSettings ?? (uiStoreSettingsState as any)?.jassConfig?.strokeSettings ?? DEFAULT_STROKE_SETTINGS,
-    };
-    console.log("[StartScreen] Übergebe folgende initialSettings an jassStore.startJass:", JSON.parse(JSON.stringify(initialSettingsForJassStore)));
-
-    if (auth.status !== 'authenticated' && !auth.isGuest) {
-      console.log("[StartScreen startGameFlow] User ist nicht authentifiziert und kein Gast. Setze Gaststatus jetzt.", { status: auth.status, isGuest: auth.isGuest });
-      auth.continueAsGuest();
-      
-      await new Promise(resolve => setTimeout(resolve, 100));
-      console.log("[StartScreen startGameFlow] Nach continueAsGuest:", { 
-        status: useAuthStore.getState().status, 
-        isGuest: useAuthStore.getState().isGuest 
-      });
-    }
-
-    if (tutorialStore.isActive) {
-      // console.log("[StartScreen startGameFlow] Tutorial is active, ending it...");
-      tutorialStore.endTutorial(true);
-      // console.log(`[StartScreen startGameFlow] Tutorial ended. isActive: ${useTutorialStore.getState().isActive}`);
-    }
-    useUIStore.getState().resetStartScreen();
-    // console.log("[StartScreen startGameFlow] UI Store reset.");
-    // console.log("[StartScreen startGameFlow] Setting team config...");
-    setTeamConfig(teamConfig);
-
-    let activeGameId: string | null = null;
-    let newSessionId: string | null = null;
-    let groupId: string | null = null;
-    let participantUids: string[] = [];
-    let participantPlayerIds: string[] = [];
-
-    if (status === 'authenticated' && user && finalGamePlayers) {
-      // console.log("[StartScreen startGameFlow] Authenticated user detected. Preparing to create session and active game...");
-      try {
-        // 1. Session ID generieren
-        newSessionId = nanoid(); 
-        // console.log(`[StartScreen startGameFlow] Generated new Session ID: ${newSessionId}`);
-
-        // 2. Teilnehmer-UIDs sammeln (wie bisher)
-        const calculatedParticipantUids = Object.values(finalGamePlayers)
-                                     .map(p => (p?.type === 'member' ? p.uid : null)) 
-                                     .filter((uid): uid is string => !!uid);
-        if (!calculatedParticipantUids.includes(user.uid)) {
-            calculatedParticipantUids.push(user.uid);
-        }
-        const uniqueParticipantUids = [...new Set(calculatedParticipantUids)];
-        participantUids = uniqueParticipantUids;
-        groupId = currentGroup?.id ?? null;
-
-        // 3. **NEU:** Session-Dokument in Firestore erstellen
-        // console.log(`[StartScreen startGameFlow] Creating session document ${newSessionId}...`);
-        await createSessionDocument(newSessionId, {
-          groupId: groupId,
-          participantUids: participantUids,
-          playerNames: playerNames
+      if (auth.status !== 'authenticated' && !auth.isGuest) {
+        console.log("[StartScreen startGameFlow] User ist nicht authentifiziert und kein Gast. Setze Gaststatus jetzt.", { status: auth.status, isGuest: auth.isGuest });
+        auth.continueAsGuest();
+        
+        await new Promise(resolve => setTimeout(resolve, 100));
+        console.log("[StartScreen startGameFlow] Nach continueAsGuest:", { 
+          status: useAuthStore.getState().status, 
+          isGuest: useAuthStore.getState().isGuest 
         });
-        // console.log(`[StartScreen startGameFlow] Session document ${newSessionId} created.`);
-
-        // 4. Initiales activeGame-Dokument erstellen (wie bisher)
-        const teamBottom = teamConfig.bottom;
-        const teamTop = teamConfig.top;
-        const initialGameDataForService: Omit<ActiveGame, 'createdAt' | 'lastUpdated' | 'status' | 'gameStartTime' | 'jassStartTime' | 'activeGameId'> & { groupId: string | null } = {
-          groupId: groupId,
-          sessionId: newSessionId,
-          participantUids: uniqueParticipantUids, 
-          playerNames: playerNames,
-          teams: { top: teamTop, bottom: teamBottom }, 
-          scores: { top: 0, bottom: 0 },
-          striche: {
-            top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
-            bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
-          },
-          weisPoints: { top: 0, bottom: 0 },
-          currentPlayer: startingPlayer,
-          currentRound: 1,
-          currentGameNumber: 1,
-          startingPlayer: startingPlayer,
-          initialStartingPlayer: startingPlayer,
-        };
-
-        // console.log("[StartScreen startGameFlow] Calling createActiveGame with data:", initialGameDataForService);
-        // Stelle sicher, dass groupId ein string ist, bevor createActiveGame aufgerufen wird.
-        // Wenn groupId null ist, wird ein leerer String verwendet, um den Typfehler zu beheben.
-        // Die Logik, ob ein Spiel ohne Gruppe online erstellt werden soll, ist davon getrennt zu betrachten.
-        const gameDataForCreation = {
-          ...initialGameDataForService,
-          groupId: initialGameDataForService.groupId ?? "", // Null zu Leerstring für den Aufruf
-        };
-
-        activeGameId = await createActiveGame(gameDataForCreation as Omit<ActiveGame, 'createdAt' | 'lastUpdated' | 'status' | 'gameStartTime' | 'jassStartTime' | 'activeGameId'> & { groupId: string });
-        // console.log("[StartScreen startGameFlow] Active game created with ID: ", activeGameId);
-
-        // 5. **NEU:** Session-Dokument mit der activeGameId aktualisieren
-        // console.log(`[StartScreen startGameFlow] Updating session ${newSessionId} with activeGameId ${activeGameId}...`);
-        await updateSessionActiveGameId(newSessionId, activeGameId);
-        // console.log(`[StartScreen startGameFlow] Session ${newSessionId} updated.`);
-
-        // 6. **NEU:** Teilnehmer-Player IDs sammeln
-        const playerIdPromises = Object.values(finalGamePlayers)
-                               .map(async (p) => {
-                                 if (p?.type === 'member') {
-                                   return await getPlayerIdForUser(p.uid, p.name);
-                                 }
-                                 return null;
-                               });
-        const resolvedPlayerIds = await Promise.all(playerIdPromises);
-        participantPlayerIds = resolvedPlayerIds.filter((id): id is string => !!id);
-
-      } catch (error) {
-        // console.error("[StartScreen startGameFlow] Error creating session or active game: ", error);
-        toast.error("Online-Spiel konnte nicht erstellt werden.");
-        setIsLoading(false); // NEU: Loading-State zurücksetzen bei Fehler
-        return;
-      } finally {
-        // console.log("[StartScreen startGameFlow] Firestore operations finished.");
       }
-    } else {
-      // console.log("[StartScreen startGameFlow] Starting game in guest mode or user not fully authenticated.");
-    }
 
-    // console.log("[StartScreen startGameFlow] Calling jassStore.startJass...");
-    jassStore.startJass({
-      playerNames: playerNames,
-      initialStartingPlayer: startingPlayer, 
-      activeGameId: activeGameId ?? undefined, // Use activeGameId if available
-      sessionId: newSessionId ?? `local_${Date.now()}`, // Use newSessionId or generate local
-      groupId: groupId,
-      participantUids: participantUids,
-      participantPlayerIds: participantPlayerIds,
-      initialSettings: initialSettingsForJassStore, // NEU: Übergabe der Einstellungen
-    });
-    // console.log("[StartScreen startGameFlow] jassStore.startJass called.");
-    
-    // Session-Subscription (nur im Online-Modus)
-    if (newSessionId) {
-      // console.log(`[StartScreen startGameFlow] Subscribing to session ${newSessionId}...`);
-      jassStore.subscribeToSession(newSessionId);
-    }
+      // 🔧 FIX: Tutorial-Behandlung für Gäste verbessert
+      if (tutorialStore.isActive) {
+        tutorialStore.endTutorial(true);
+      }
 
-    // console.log("[StartScreen startGameFlow] Navigating to /jass...");
-    router.push('/jass');
-    // console.log("[StartScreen startGameFlow] COMPLETED.");
-    
-    // NEU: Loading-State wird automatisch nach Navigation zurückgesetzt
-    // Das passiert, wenn die StartScreen-Komponente unmounted wird
+      useUIStore.getState().resetStartScreen();
+      setTeamConfig(teamConfig);
+
+      let activeGameId: string | null = null;
+      let newSessionId: string | null = null;
+      let groupId: string | null = null;
+      let participantUids: string[] = [];
+      let participantPlayerIds: string[] = [];
+
+      if (status === 'authenticated' && user && selectedPlayers) {
+        try {
+          // 1. Session ID generieren
+          newSessionId = nanoid(); 
+
+          // 2. Teilnehmer-UIDs sammeln (wie bisher)
+          const calculatedParticipantUids = Object.values(selectedPlayers)
+                                       .map(p => (p?.type === 'member' ? p.uid : null)) 
+                                       .filter((uid): uid is string => !!uid);
+          if (!calculatedParticipantUids.includes(user.uid)) {
+              calculatedParticipantUids.push(user.uid);
+          }
+          const uniqueParticipantUids = [...new Set(calculatedParticipantUids)];
+          participantUids = uniqueParticipantUids;
+          groupId = currentGroup?.id ?? null;
+
+          // 3. **NEU:** Session-Dokument in Firestore erstellen
+          await createSessionDocument(newSessionId, {
+            groupId: groupId,
+            participantUids: participantUids,
+            playerNames: selectedNames
+          });
+
+          // 4. Initiales activeGame-Dokument erstellen (wie bisher)
+          const teamBottom = teamConfig.bottom;
+          const teamTop = teamConfig.top;
+          const initialGameDataForService: Omit<ActiveGame, 'createdAt' | 'lastUpdated' | 'status' | 'gameStartTime' | 'jassStartTime' | 'activeGameId'> & { groupId: string | null } = {
+            groupId: groupId,
+            sessionId: newSessionId,
+            participantUids: uniqueParticipantUids, 
+            playerNames: selectedNames,
+            teams: { top: teamTop, bottom: teamBottom }, 
+            scores: { top: 0, bottom: 0 },
+            striche: {
+              top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
+              bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
+            },
+            weisPoints: { top: 0, bottom: 0 },
+            currentPlayer: selectedStartingPlayer,
+            currentRound: 1,
+            currentGameNumber: 1,
+            startingPlayer: selectedStartingPlayer,
+            initialStartingPlayer: selectedStartingPlayer,
+          };
+
+          // Stelle sicher, dass groupId ein string ist, bevor createActiveGame aufgerufen wird.
+          // Wenn groupId null ist, wird ein leerer String verwendet, um den Typfehler zu beheben.
+          // Die Logik, ob ein Spiel ohne Gruppe online erstellt werden soll, ist davon getrennt zu betrachten.
+          const gameDataForCreation = {
+            ...initialGameDataForService,
+            groupId: initialGameDataForService.groupId ?? "", // Null zu Leerstring für den Aufruf
+          };
+
+          activeGameId = await createActiveGame(gameDataForCreation as Omit<ActiveGame, 'createdAt' | 'lastUpdated' | 'status' | 'gameStartTime' | 'jassStartTime' | 'activeGameId'> & { groupId: string });
+
+          // 5. **NEU:** Session-Dokument mit der activeGameId aktualisieren
+          await updateSessionActiveGameId(newSessionId, activeGameId);
+
+          // 6. **NEU:** Teilnehmer-Player IDs sammeln
+          const playerIdPromises = Object.values(selectedPlayers)
+                                 .map(async (p) => {
+                                   if (p?.type === 'member') {
+                                     return await getPlayerIdForUser(p.uid, p.name);
+                                   }
+                                   return null;
+                                 });
+          const resolvedPlayerIds = await Promise.all(playerIdPromises);
+          participantPlayerIds = resolvedPlayerIds.filter((id): id is string => !!id);
+
+        } catch (error) {
+          toast.error("Online-Spiel konnte nicht erstellt werden.");
+          setIsLoading(false); // NEU: Loading-State zurücksetzen bei Fehler
+          return;
+        } finally {
+        }
+      } else {
+      }
+
+      jassStore.startJass({
+        playerNames: selectedNames,
+        initialStartingPlayer: selectedStartingPlayer, 
+        activeGameId: activeGameId ?? undefined, // Use activeGameId if available
+        sessionId: newSessionId ?? `local_${Date.now()}`, // Use newSessionId or generate local
+        groupId: groupId,
+        participantUids: participantUids,
+        participantPlayerIds: participantPlayerIds,
+        initialSettings: {
+          farbeSettings: DEFAULT_FARBE_SETTINGS,
+          scoreSettings: DEFAULT_SCORE_SETTINGS,
+          strokeSettings: DEFAULT_STROKE_SETTINGS,
+        },
+      });
+      
+      // Session-Subscription (nur im Online-Modus)
+      if (newSessionId) {
+        jassStore.subscribeToSession(newSessionId);
+      }
+
+      router.push('/jass');
+      
+      // NEU: Loading-State wird automatisch nach Navigation zurückgesetzt
+      // Das passiert, wenn die StartScreen-Komponente unmounted wird
+    } catch (error) {
+      toast.error("Online-Spiel konnte nicht erstellt werden.");
+      setIsLoading(false); // NEU: Loading-State zurücksetzen bei Fehler
+    }
   };
 
   const getPlayerFieldClass = (playerNumber: PlayerNumber, isInput: boolean = false) => {
@@ -458,16 +482,26 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
             <X size={24} />
           </button>
 
-          <h2 className={`text-2xl font-bold text-center mb-4 ${
-            (status === 'authenticated' && areAllSlotsFilled(gamePlayers)) || (status !== 'authenticated' && areAllNamesEntered(names))
-              ? "text-yellow-400"
-              : "text-white"
-            }`}
+          <h2 
+            className={`text-2xl font-bold text-center mb-4 transition-all duration-200 ${
+              (status === 'authenticated' && areAllSlotsFilled(gamePlayers)) || (status !== 'authenticated' && areAllNamesEntered(names))
+                ? "text-yellow-400"
+                : "text-white"
+            } ${
+              // Blinkeffekt für Startspieler-Auswahl
+              ((status === 'authenticated' && areAllSlotsFilled(gamePlayers) && !hasSelectedStartingPlayer) || 
+               (status !== 'authenticated' && areAllNamesEntered(names) && !startingPlayer))
+                ? "animate-pulse [animation-duration:2s] drop-shadow-[0_0_8px_rgba(234,179,8,0.4)]"
+                : ""
+            } ${process.env.NODE_ENV === 'development' ? 'cursor-pointer' : ''}`}
+            onDoubleClick={handleTitleDoubleClick}
+            title={process.env.NODE_ENV === 'development' ? 'Doppelklick für Wake Lock Test' : undefined}
           >
             {status === 'authenticated' ?
               (areAllSlotsFilled(gamePlayers) ? "Startspieler wählen" : "Spieler erfassen") :
               (areAllNamesEntered(names) ? "Startspieler wählen" : "Spielernamen eingeben")
             }
+            {debugMode && process.env.NODE_ENV === 'development' && <span className="text-xs ml-2">🧪</span>}
           </h2>
 
           <h3 className="text-lg font-semibold text-white mb-4">
@@ -489,7 +523,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
                   const playerDisplayOrSelector = (
                     <div
                       key={`slotdisplay-${slotNum}`}
-                      onClick={() => handlePlayerFieldClick(playerNumber)}
+                      onClick={(e) => handlePlayerFieldClick(playerNumber, e)}
                       className={getPlayerFieldClass(playerNumber)}
                     >
                       {player ? (
@@ -560,22 +594,40 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
               <>
                 {[1, 2, 3, 4].map((slotNum) => {
                   const playerNumber = slotNum as PlayerNumber;
+                  const isTeamBottom = teamConfig.bottom.includes(playerNumber);
+                  const teamName = isTeamBottom ? "Team 1" : "Team 2";
+                  const teamColor = isTeamBottom ? 'text-yellow-400' : 'text-blue-400';
+                  const allNamesEntered = areAllNamesEntered(names);
+                  
                   return (
-                    <input
-                      key={slotNum}
-                      type="text"
-                      data-player={slotNum}
-                      placeholder={
-                        playerNumber === 1 ? "Deinen Namen eingeben..." :
-                        (playerNumber === 2 ? "Gegner 1 eingeben..." :
-                        (playerNumber === 3 ? "Partner eingeben..." :
-                        "Gegner 2 eingeben..."))
-                      }
-                      value={names[playerNumber]}
-                      onChange={(e) => handleNameChange(playerNumber, e.target.value)}
-                      onClick={() => areAllNamesEntered(names) ? handlePlayerFieldClick(playerNumber) : undefined}
-                      className={getPlayerFieldClass(playerNumber, true)}
-                    />
+                    <div key={slotNum} className="relative">
+                      <input
+                        type="text"
+                        data-player={slotNum}
+                        placeholder={
+                          playerNumber === 1 ? "Deinen Namen eingeben..." :
+                          (playerNumber === 2 ? "Gegner 1 eingeben..." :
+                          (playerNumber === 3 ? "Partner eingeben..." :
+                          "Gegner 2 eingeben..."))
+                        }
+                        value={names[playerNumber]}
+                        onChange={(e) => handleNameChange(playerNumber, e.target.value)}
+                        onClick={(e) => {
+                          if (allNamesEntered) {
+                            handlePlayerFieldClick(playerNumber, e);
+                          }
+                        }}
+                        className={getPlayerFieldClass(playerNumber, true)}
+                      />
+                      {/* Team-Label anzeigen, wenn Name eingegeben wurde */}
+                      {names[playerNumber] && (
+                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                          <span className={`text-sm font-bold ${teamColor}`}>
+                            ({teamName})
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </>
@@ -586,13 +638,47 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
             initial={{scale: 0.9}}
             animate={{scale: 1}}
             whileTap={{scale: 0.95}}
-            onClick={handleStart}
+            onClick={() => {
+              const isReady = status === 'authenticated' ? 
+                areAllSlotsFilled(gamePlayers) && hasSelectedStartingPlayer : 
+                areAllNamesEntered(names) && startingPlayer;
+              
+              if (isReady) {
+                handleStart();
+              } else {
+                // Zeige Notification je nach fehlendem Element
+                if (status === 'authenticated') {
+                  if (!areAllSlotsFilled(gamePlayers)) {
+                    showNotification({
+                      type: "warning",
+                      message: "Es wurden noch nicht alle Spieler zugewiesen.",
+                    });
+                  } else if (!hasSelectedStartingPlayer) {
+                    showNotification({
+                      type: "info",
+                      message: "Bitte wähle den Startspieler fürs erste Spiel aus (auf einen Spieler klicken).",
+                    });
+                  }
+                } else {
+                  if (!areAllNamesEntered(names)) {
+                    showNotification({
+                      type: "warning",
+                      message: "Es wurden noch nicht alle Spielernamen eingegeben.",
+                    });
+                  } else if (!startingPlayer) {
+                    showNotification({
+                      type: "info",
+                      message: "Bitte wähle den Startspieler fürs erste Spiel aus (auf einen Spieler klicken).",
+                    });
+                  }
+                }
+              }
+            }}
             className={`w-full text-white text-lg font-bold py-4 px-8 rounded-xl shadow-lg transition-colors border-b-4 min-h-[56px] flex items-center justify-center ${
               (status === 'authenticated' ? areAllSlotsFilled(gamePlayers) && hasSelectedStartingPlayer : areAllNamesEntered(names) && startingPlayer) 
                 ? "bg-green-600 hover:bg-green-700 border-green-900 cursor-pointer" 
-                : "bg-gray-500 border-gray-700 cursor-not-allowed opacity-70"
+                : "bg-gray-500 border-gray-700 cursor-pointer opacity-70"
             }`}
-            disabled={status === 'authenticated' ? !areAllSlotsFilled(gamePlayers) || !hasSelectedStartingPlayer : !areAllNamesEntered(names) || !startingPlayer}
           >
             START
           </motion.button>

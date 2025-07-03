@@ -198,6 +198,12 @@ export interface HeaderConfig {
   showProfileButton?: boolean; // Hinzugefügt, um den Profilbutton steuern zu können
 }
 
+// NEU: Interface für iOS-Notification State
+export interface IOSNotificationState {
+  dontShowAgain: boolean;
+  hasBeenShownThisSession: boolean;
+}
+
 export interface UIState {
   calculator: {
     isOpen: boolean;
@@ -302,6 +308,9 @@ export interface UIState {
 
   // NEU: State für globale Klicksperre
   isGlobalClickDisabled: boolean;
+
+  // NEU: iOS-Notification State
+  iosNotification: IOSNotificationState;
 }
 
 interface UIActions {
@@ -406,6 +415,12 @@ interface UIActions {
 
   // NEU: Action für globale Klicksperre
   setGlobalClickDisabled: (isDisabled: boolean, duration?: number) => void;
+
+  // NEU: Actions für iOS-Notification
+  setIOSNotificationDontShowAgain: (value: boolean) => void;
+  markIOSNotificationAsShown: () => void;
+  resetIOSNotificationForSession: () => void;
+  shouldShowIOSNotification: () => boolean;
 }
 
 export type UIStore = UIState & UIActions;
@@ -584,6 +599,12 @@ const initialState: UIState = {
 
   // NEU: Initialwert für globale Klicksperre
   isGlobalClickDisabled: false,
+
+  // NEU: iOS-Notification State
+  iosNotification: {
+    dontShowAgain: false,
+    hasBeenShownThisSession: false,
+  },
 };
 
 // Load-Funktionen für jeden Settings-Typ
@@ -1315,6 +1336,21 @@ export const useUIStore = create<UIState & UIActions>()(
           }, duration);
         }
       },
+
+      // NEU: Actions für iOS-Notification
+      setIOSNotificationDontShowAgain: (value: boolean) => set((state) => ({
+        iosNotification: { ...state.iosNotification, dontShowAgain: value },
+      })),
+      markIOSNotificationAsShown: () => set((state) => ({
+        iosNotification: { ...state.iosNotification, hasBeenShownThisSession: true },
+      })),
+      resetIOSNotificationForSession: () => set((state) => ({
+        iosNotification: { ...state.iosNotification, hasBeenShownThisSession: false },
+      })),
+             shouldShowIOSNotification: () => {
+         const state = get();
+         return !state.iosNotification.dontShowAgain && !state.iosNotification.hasBeenShownThisSession;
+       },
     })),
     {
       name: "jass-ui-storage",

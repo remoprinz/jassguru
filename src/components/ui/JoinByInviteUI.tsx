@@ -167,8 +167,8 @@ const JoinByInviteUI: React.FC<JoinByInviteUIProps> = ({
 
               if (!tempCtx) {
                 console.error("Parent: Konnte temporären Canvas Kontext für Zoom nicht erstellen.");
-                setCameraError("Fehler beim Vorbereiten des Bild-Zooms.");
-                if (showNotification) showNotification({ message: "Fehler beim Bild-Zoom.", type: "error" });
+                setCameraError("Der Scanner ist je nach Smartphone manchmal unzuverlässig. Setze einfach hier den Einladungslink ein!");
+                if (showNotification) showNotification({ message: "Der Scanner ist je nach Smartphone manchmal unzuverlässig. Setze einfach hier den Einladungslink ein!", type: "info" });
                 setShowScannerModal(true);
                 return;
               }
@@ -195,8 +195,8 @@ const JoinByInviteUI: React.FC<JoinByInviteUIProps> = ({
               // Stelle sicher, dass Dimensionen nicht 0 sind
               if (newZoomedWidth <= 0 || newZoomedHeight <=0) {
                  console.warn("Parent: Zoomed Dimensionen sind 0 oder negativ, breche Zoom ab.", newZoomedWidth, newZoomedHeight);
-                 setCameraError("QR-Code erkannt, aber Zoom fehlgeschlagen (Dimensionen). Bitte Foto wiederholen.");
-                 if (showNotification) showNotification({ message: "QR-Code-Zoom fehlgeschlagen.", type: "error" });
+                 setCameraError("Der Scanner ist je nach Smartphone manchmal unzuverlässig. Setze einfach hier den Einladungslink ein!");
+                 if (showNotification) showNotification({ message: "Der Scanner ist je nach Smartphone manchmal unzuverlässig. Setze einfach hier den Einladungslink ein!", type: "info" });
                  setShowScannerModal(true);
                  return;
               }
@@ -208,8 +208,8 @@ const JoinByInviteUI: React.FC<JoinByInviteUIProps> = ({
 
               if (!zoomedCtx) {
                 console.error("Parent: Konnte gezoomten Canvas Kontext nicht erstellen.");
-                setCameraError("Fehler beim Erstellen des gezoomten Bildes.");
-                if (showNotification) showNotification({ message: "Fehler beim Bild-Zoom.", type: "error" });
+                setCameraError("Der Scanner ist je nach Smartphone manchmal unzuverlässig. Setze einfach hier den Einladungslink ein!");
+                if (showNotification) showNotification({ message: "Der Scanner ist je nach Smartphone manchmal unzuverlässig. Setze einfach hier den Einladungslink ein!", type: "info" });
                 setShowScannerModal(true);
                 return;
               }
@@ -244,33 +244,33 @@ const JoinByInviteUI: React.FC<JoinByInviteUIProps> = ({
                 closeModal();
               } else {
                 console.log("Parent: QR-Code auch nach Zoom nicht dekodierbar.");
-                setCameraError("QR-Code erkannt, aber zu klein/undeutlich. Bitte neues Foto mit größerem QR-Code machen.");
-                if (showNotification) showNotification({ message: "QR-Code zu undeutlich.", type: "error" });
+                setCameraError("Der Scanner ist je nach Smartphone manchmal unzuverlässig. Setze einfach hier den Einladungslink ein!");
+                if (showNotification) showNotification({ message: "Der Scanner ist je nach Smartphone manchmal unzuverlässig. Setze einfach hier den Einladungslink ein!", type: "info" });
                 setShowScannerModal(true);
               }
             } else {
               console.log("Parent: QR-Code-Position hatte ungültige Dimensionen nach Erkennung.");
-              setCameraError("QR-Code-Position unklar. Bitte Foto wiederholen.");
-              if (showNotification) showNotification({ message: "QR-Code-Position unklar.", type: "error" });
+              setCameraError("Der Scanner ist je nach Smartphone manchmal unzuverlässig. Setze einfach hier den Einladungslink ein!");
+              if (showNotification) showNotification({ message: "Der Scanner ist je nach Smartphone manchmal unzuverlässig. Setze einfach hier den Einladungslink ein!", type: "info" });
               setShowScannerModal(true);
             }
           } else {
-            setCameraError("Kein QR-Code im Bild gefunden oder Code konnte nicht gelesen werden.");
-            if (showNotification) showNotification({ message: "Kein QR-Code gefunden.", type: "error" });
+            setCameraError("Der Scanner ist je nach Smartphone manchmal unzuverlässig. Setze einfach hier den Einladungslink ein!");
+            if (showNotification) showNotification({ message: "Der Scanner ist je nach Smartphone manchmal unzuverlässig. Setze einfach hier den Einladungslink ein!", type: "info" });
             setShowScannerModal(true);
           }
         };
         image.onerror = () => {
-          setCameraError("Bilddatei konnte nicht geladen werden.");
-          if (showNotification) showNotification({ message: "Bilddatei fehlerhaft.", type: "error" });
+          setCameraError("Der Scanner ist je nach Smartphone manchmal unzuverlässig. Setze einfach hier den Einladungslink ein!");
+          if (showNotification) showNotification({ message: "Der Scanner ist je nach Smartphone manchmal unzuverlässig. Setze einfach hier den Einladungslink ein!", type: "info" });
           setShowScannerModal(true);
           console.error("Parent: Fehler beim Laden der Bilddatei in Image-Objekt.");
         };
         image.src = imageDataUrl;
       } catch (error: any) {
         console.error("Parent: Fehler bei der QR-Code-Verarbeitung:", error);
-        setCameraError(error.message || "Unbekannter Fehler bei der Bildverarbeitung.");
-        if (showNotification) showNotification({ message: error.message || "Fehler bei Bildverarbeitung.", type: "error" });
+        setCameraError("Der Scanner ist je nach Smartphone manchmal unzuverlässig. Setze einfach hier den Einladungslink ein!");
+        if (showNotification) showNotification({ message: "Der Scanner ist je nach Smartphone manchmal unzuverlässig. Setze einfach hier den Einladungslink ein!", type: "info" });
         setShowScannerModal(true);
       } finally {
         setProcessingQrImage(false);
@@ -280,8 +280,8 @@ const JoinByInviteUI: React.FC<JoinByInviteUIProps> = ({
       }
     };
     reader.onerror = () => {
-        setCameraError("Datei konnte nicht gelesen werden.");
-        if (showNotification) showNotification({ message: "Datei nicht lesbar.", type: "error" });
+        setCameraError("Der Scanner ist je nach Smartphone manchmal unzuverlässig. Setze einfach hier den Einladungslink ein!");
+        if (showNotification) showNotification({ message: "Der Scanner ist je nach Smartphone manchmal unzuverlässig. Setze einfach hier den Einladungslink ein!", type: "info" });
         setProcessingQrImage(false);
         setShowScannerModal(true);
         console.error("Parent: Fehler beim Lesen der Datei mit FileReader.");

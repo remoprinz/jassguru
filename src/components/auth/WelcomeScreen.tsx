@@ -24,7 +24,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   onGuestPlay,
 }) => {
   const router = useRouter();
-  const {continueAsGuest, clearGuestStatus, isGuest} = useAuthStore();
+  const {continueAsGuest, clearGuestStatus, isGuest, status, user, logout} = useAuthStore();
   const { setHeaderConfig } = useUIStore();
   const { hasCompletedTutorial, setHasCompletedTutorial } = useTutorialStore();
   const [isClient, setIsClient] = useState(false);
@@ -41,16 +41,56 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     });
   }, [setHeaderConfig]);
 
+  // 🔧 VERBESSERTER FIX: Automatischer Logout für eingeloggte Benutzer auf WelcomeScreen
+  // Verhindert Race Conditions mit Header-Logout durch Status-Prüfung
+  useEffect(() => {
+    if (isClient && status === 'authenticated' && user && !isGuest) {
+      console.log('🔧 [WelcomeScreen] Eingelogger Benutzer erkannt - prüfe ob bereits Logout im Gange...');
+      
+      // WICHTIG: Verzögerung um Race Condition mit Header-Logout zu vermeiden
+      const timeoutId = setTimeout(() => {
+        // Erneute Status-Prüfung nach Verzögerung
+        const currentState = useAuthStore.getState();
+        if (currentState.status === 'authenticated' && currentState.user && !currentState.isGuest) {
+          console.log('🔧 [WelcomeScreen] Status immer noch authenticated - führe automatischen Logout durch');
+          
+          try {
+            logout();
+            console.log('✅ [WelcomeScreen] Automatischer Logout erfolgreich');
+          } catch (error) {
+            console.error('❌ [WelcomeScreen] Fehler beim automatischen Logout:', error);
+            // Fallback: Auth-Store direkt zurücksetzen
+            try {
+              clearGuestStatus();
+            } catch (fallbackError) {
+              console.error('❌ [WelcomeScreen] Auch Fallback fehlgeschlagen:', fallbackError);
+            }
+          }
+        } else {
+          console.log('🔧 [WelcomeScreen] Status bereits geändert - kein automatischer Logout nötig');
+        }
+      }, 200); // 200ms Verzögerung um Header-Logout Zeit zu geben
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isClient, status, user, isGuest, logout, clearGuestStatus]);
+
   useEffect(() => {
     if (router.isReady && isClient) {
+      // 🚨 WICHTIG: Prüfe zuerst, ob User als Gast von dieser WelcomeScreen kam
+      const guestFromWelcome = typeof window !== 'undefined' 
+        ? sessionStorage.getItem('guestFromWelcome') 
+        : null;
+
       // Prüfen, ob wir vom StartScreen zurückkommen (mittels referrer oder sessionStorage)
       const comingFromStartScreen = 
         typeof window !== 'undefined' && 
         (sessionStorage.getItem('comingFromStartScreen') === 'true' || 
          document.referrer.includes('/start'));
       
-      // Wenn vom StartScreen kommend, Flag zurücksetzen und keine Weiterleitung durchführen
-      if (comingFromStartScreen) {
+      // 🚨 ERWEITERTE LOGIK: Wenn vom StartScreen kommend, Flag zurücksetzen und keine Weiterleitung durchführen
+      // ABER: Exception für guestFromWelcome - da darf die normale Logik weiterlaufen
+      if (comingFromStartScreen && guestFromWelcome !== 'true') {
         sessionStorage.removeItem('comingFromStartScreen');
         console.log("[WelcomeScreen] Weiterleitung unterdrückt, da von StartScreen zurückkommend");
         return;
@@ -86,15 +126,30 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     setIsGuestLoading(true);
 
     try {
-      continueAsGuest();      if (onGuestPlay) onGuestPlay();
+      // 🚨 NEU: Session-Flag setzen für Browser-Zurück-Navigation
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('guestFromWelcome', 'true');
+        console.log('[WelcomeScreen] Flag gesetzt: guestFromWelcome = true');
+      }
+
+      continueAsGuest();      
+      if (onGuestPlay) onGuestPlay();
 
       await new Promise((resolve) => setTimeout(resolve, 300));
       
       console.log("[WelcomeScreen] Gastmodus aktiviert. Status:", useAuthStore.getState().status, "isGuest:", useAuthStore.getState().isGuest);
 
-      await debouncedRouterPush(router, "/jass", undefined, true);
+      // 🔧 FIX: Einfache Navigation zur Jass-Seite mit Fallback zur WelcomeScreen
+      try {
+        await debouncedRouterPush(router, "/jass", undefined, true);
+      } catch (navError) {
+        console.error("[WelcomeScreen] Navigation zur Jass-Seite fehlgeschlagen, bleibe auf WelcomeScreen:", navError);
+        // Bei Navigationsproblemen einfach auf WelcomeScreen bleiben
+        // (der User kann es erneut versuchen)
+      }
     } catch (error) {
-      console.error("Fehler beim Navigieren zur Jass-Seite:", error);
+      console.error("[WelcomeScreen] Fehler beim Gastmodus:", error);
+      // Bei jedem Fehler bleiben wir auf der WelcomeScreen
     } finally {
       setIsGuestLoading(false);
     }
@@ -203,15 +258,60 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             </div>
 
             <h1 className="text-3xl font-bold text-white text-center">
-              Willkommen bei Jassguru
+              jassguru.ch
             </h1>
             
             <h2 className="text-xl text-gray-300 text-center -mt-2 italic">
-              Von Jassern für Jasser.
+              {displayMode === "pwa" ? "Von Jassern für Jasser." : (
+                <>
+                  Die digitale Heimat für den<br />
+                  Schweizer Jass-Sport
+                </>
+              )}
             </h2>
 
-            <p className="text-gray-400 text-center">
-              Schneller, smarter, vernetzter Jassen. Erstelle dein eigenes Profil und teile Jassgruppen mit deinen Freunden. Errfasst Spiele mit der digitalen Jasstafel und schreibt eure eigene Jassgeschichte mit detaillierten Statistiken.
+            <p className="text-gray-300 text-center">
+              {displayMode === "pwa" ? (
+                <div className="text-left">
+                  <div className="mb-3">
+                    Bereit für den nächsten Jass mit deinen Freunden? Jetzt anmelden und losjassen.
+                  </div>
+                  <div className="mb-4">
+                    <strong className="text-white">Tipp:</strong> Alle Mitspieler können sich simultan einloggen.
+                  </div>
+                  <div>
+                    <strong className="text-white">Neu hier?</strong> Als Gast spielen und die Jasstafel kennenlernen.
+                  </div>
+                </div>
+              ) : (
+                <div className="text-left">
+                  <div className="mb-4">
+                    Jassen gehört an den Tisch – die Resultate in die offizielle Bilanz. Mit der digitalen Jasstafel erfasst du jede Runde automatisch für dich, deine Freunde und bald die ganze Liga.
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <a 
+                        href="https://jassguru.ch/view/group/Tz0wgIHMTlhvTtFastiJ" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-blue-400 hover:text-blue-300 hover:underline"
+                      >
+                        👉 Beispiel-Gruppe ansehen
+                      </a>
+                    </div>
+                    <div>
+                      <a 
+                        href="https://jassguru.ch/profile/b16c1120111b7d9e7d733837" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-blue-400 hover:text-blue-300 hover:underline"
+                      >
+                        👉 Beispiel-Profil ansehen
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
             </p>
           </div>
 
@@ -248,7 +348,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                 {isGuestLoading ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Lade Spiel...
+                    Jasstafel laden...
                   </>
                 ) : (
                   "Als Gast spielen"

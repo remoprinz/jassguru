@@ -28,15 +28,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({children}) => {
 
   useEffect(() => {
     if (jassSessionId) {
-      console.log(`[MainLayout EFFECT] jassSessionId found (${jassSessionId}). Calling subscribeToSession.`);
+      console.log(`[MainLayout EFFECT] 🔥 STABILISIERT: jassSessionId found (${jassSessionId}). Calling subscribeToSession.`);
       subscribeToSession(jassSessionId);
     } else {
       // Wenn keine Session-ID mehr da ist, alten Listener beenden
       if (sessionUnsubscribe) {
         console.log("[MainLayout EFFECT] jassSessionId is null. Unsubscribing from session listener.");
         sessionUnsubscribe();
-        // Ggf. auch im jassStore den Unsubscriber auf null setzen?
-        // useJassStore.setState({ sessionUnsubscribe: null });
       }
     }
 
@@ -47,7 +45,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({children}) => {
         sessionUnsubscribe();
       }
     };
-  }, [jassSessionId, subscribeToSession]); // Abhängigkeiten angepasst
+  }, [jassSessionId]); // 🔥 KRITISCHER FIX: subscribeToSession entfernt - war instabil! // Abhängigkeiten angepasst
 
   // NEU: Header-Zurücksetzen bei Montage des MainLayout
   // Dies stellt sicher, dass der Header auf allen Seiten außer WelcomeScreen sichtbar ist
