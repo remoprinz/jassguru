@@ -275,6 +275,7 @@ export interface BaseRoundEntry {
   timestamp: number;
   roundId: number;
   startingPlayer: PlayerNumber;
+  startingPlayerName?: string; // NEU: Name des Spielers, der diese Runde gestartet hat
   weisPoints: TeamScores;
   jassPoints: TeamScores;
   scores: TeamScores;

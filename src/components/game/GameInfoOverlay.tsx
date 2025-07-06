@@ -21,6 +21,7 @@ import { DEFAULT_FARBE_SETTINGS } from '@/config/FarbeSettings';
 import {getRandomBedankenSpruch} from "@/utils/sprueche/bedanken";
 import {getRandomBergSpruch} from "@/utils/sprueche/berg";
 import {useDeviceScale} from "@/hooks/useDeviceScale";
+import { serverTimestamp } from 'firebase/firestore';
 
 interface GameInfoOverlayProps {
   isOpen: boolean;
@@ -426,12 +427,53 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
   const [isPlayerSelectOpen, setIsPlayerSelectOpen] = useState(false);
 
   const handlePlayerSelect = (selectedPlayer: PlayerNumber) => {
+    // 1. Lokalen GameStore sofort aktualisieren
     useGameStore.setState((state) => ({
       ...state,
       currentPlayer: selectedPlayer,
       // Wenn es die erste Runde ist, setzen wir auch den Startspieler
       ...(currentRound === 1 && {startingPlayer: selectedPlayer}),
     }));
+
+    // 2. Sofortige Firebase-Synchronisation für alle Clients
+    const activeGameId = useGameStore.getState().activeGameId;
+    if (activeGameId) {
+      // Asynchron Firebase aktualisieren
+      setTimeout(async () => {
+        try {
+          // MARK LOCAL UPDATE vor Firebase-Write
+          if (typeof window !== 'undefined' && window.__FIRESTORE_SYNC_API__?.markLocalUpdate) {
+            window.__FIRESTORE_SYNC_API__.markLocalUpdate();
+          }
+
+          // Import der updateActiveGame Funktion
+          const { updateActiveGame } = await import('@/services/gameService');
+          
+          // Firebase-Update Daten vorbereiten
+          const updateData = {
+            currentPlayer: selectedPlayer,
+            lastUpdated: serverTimestamp(),
+            // Bei erster Runde auch startingPlayer und initialStartingPlayer aktualisieren
+            ...(currentRound === 1 && {
+              startingPlayer: selectedPlayer,
+              initialStartingPlayer: selectedPlayer
+            }),
+          };
+
+          await updateActiveGame(activeGameId, updateData);
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[GameInfoOverlay] Player selection synced to Firebase: ${selectedPlayer}`);
+          }
+        } catch (error) {
+          console.error('[GameInfoOverlay] Firebase sync failed:', error);
+          showNotification({
+            type: 'warning',
+            message: 'Spieler-Update konnte nicht synchronisiert werden.'
+          });
+        }
+      }, 0);
+    }
   };
 
   // Sichere Fallback-Behandlung für currentPlayer

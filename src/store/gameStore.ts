@@ -227,6 +227,11 @@ const createRoundEntry = (
   const cardStyle = options?.cardStyle || settings.cardStyle;
   const nowMillis = Date.now(); // NEU: Zeitstempel holen
 
+  // NEU: Spielername extrahieren über etablierte Hierarchie
+  const startingPlayerName = state.gamePlayers?.[startingPlayerOfRound]?.name || 
+                            state.playerNames[startingPlayerOfRound] || 
+                            `Spieler ${startingPlayerOfRound}`;
+
   // Berechne previousRoundId basierend auf der logischen Vorgänger-Runde
   let previousRoundIdValue: number | undefined = undefined;
   
@@ -257,6 +262,7 @@ const createRoundEntry = (
     timestamp: nowMillis, // Nur Millisekunden speichern
     roundId: nowMillis, // NEU: ID ist jetzt der Timestamp
     startingPlayer: startingPlayerOfRound,
+    startingPlayerName: startingPlayerName, // NEU: Spielername hinzufügen
     weisPoints: {...state.weisPoints},
     jassPoints: {...state.jassPoints},
     scores: {...state.scores},
@@ -881,7 +887,9 @@ export const useGameStore = create<GameStore>()(devtools(
         };
         
         const cleanedUpdateData = sanitizeDataForFirestore(updateData);
+        if (process.env.NODE_ENV === 'development') {
         console.log("[GameStore.finalizeRound] Updating Firestore main document with:", cleanedUpdateData);
+      }
         
         updateActiveGame(initialActiveGameId, cleanedUpdateData)
           .catch(error => console.error("[GameStore.finalizeRound] Firestore update failed:", error));
@@ -1021,7 +1029,9 @@ export const useGameStore = create<GameStore>()(devtools(
     }
 
     // --- Normale Ausführung (wenn am Ende der History) ---
-    console.log("[GameStore.addWeisPoints] No history warning needed, proceeding.");
+    if (process.env.NODE_ENV === 'development') {
+      console.log("[GameStore.addWeisPoints] No history warning needed, proceeding.");
+    }
     let finalState: GameState | null = null;
     set((currentState) => {
         // 1. Weis-Punkte und Aktion aktualisieren
@@ -1037,11 +1047,13 @@ export const useGameStore = create<GameStore>()(devtools(
             weisPoints: newWeisPoints,
             currentRoundWeis: newCurrentRoundWeis,
         };
-        console.log("[addWeisPoints - Normal] State being saved in WeisRoundEntry:", {
-            weisPoints: stateForEntryCreation.weisPoints,
-            scores: stateForEntryCreation.scores,
-            currentRoundWeisCount: stateForEntryCreation.currentRoundWeis.length
-        });
+        if (process.env.NODE_ENV === 'development') {
+          console.log("[addWeisPoints - Normal] State being saved in WeisRoundEntry:", {
+              weisPoints: stateForEntryCreation.weisPoints,
+              scores: stateForEntryCreation.scores,
+              currentRoundWeisCount: stateForEntryCreation.currentRoundWeis.length
+          });
+        }
         const newEntry = createRoundEntry(
           stateForEntryCreation,
           get,
@@ -1058,12 +1070,14 @@ export const useGameStore = create<GameStore>()(devtools(
           currentRoundWeis: newCurrentRoundWeis,
           ...historyUpdate,
         };
-        console.log("[GameStore.addWeisPoints] Normal Weis added:", {
-            currentIndex: finalState.currentHistoryIndex,
-            historyLength: finalState.roundHistory.length,
-            weisPoints: finalState.weisPoints[team],
-            currentRoundWeisCount: finalState.currentRoundWeis.length,
-        });
+        if (process.env.NODE_ENV === 'development') {
+          console.log("[GameStore.addWeisPoints] Normal Weis added:", {
+              currentIndex: finalState.currentHistoryIndex,
+              historyLength: finalState.roundHistory.length,
+              weisPoints: finalState.weisPoints[team],
+              currentRoundWeisCount: finalState.currentRoundWeis.length,
+          });
+        }
         return finalState;
     });
 
@@ -1109,7 +1123,9 @@ export const useGameStore = create<GameStore>()(devtools(
       strokeSettings?: StrokeSettings;
     }
   ) => { 
-    console.log(`[gameStore] resetGame aufgerufen. Nächster Starter: ${nextStarter}, Neue Game ID: ${newActiveGameId}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[gameStore] resetGame aufgerufen. Nächster Starter: ${nextStarter}, Neue Game ID: ${newActiveGameId}`);
+    }
     
     // --- NEU: Kontextabhängige Settings ermitteln ---
     const { currentTournamentInstance } = useTournamentStore.getState();
@@ -1141,7 +1157,9 @@ export const useGameStore = create<GameStore>()(devtools(
       };
     }
 
-    console.log(`[gameStore] resetGame verwendet Settings aus Quelle: '${correctSettings.source}'`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[gameStore] resetGame verwendet Settings aus Quelle: '${correctSettings.source}'`);
+    }
     // --- ENDE NEUE LOGIK ---
 
     set((prevState) => {
@@ -2344,11 +2362,15 @@ export const useGameStore = create<GameStore>()(devtools(
         haveSettingsChanged(strokeSettings, newStrokeSettings);
 
       if (!changed) {
-        console.log("[GameStore setGameSettings] No changes detected. Skipping update.");
+        if (process.env.NODE_ENV === 'development') {
+          console.log("[GameStore setGameSettings] No changes detected. Skipping update.");
+        }
         return state; // Keine Änderungen, gib den aktuellen State zurück
       }
 
-      console.log("[GameStore setGameSettings] Settings have changed. Applying update.");
+      if (process.env.NODE_ENV === 'development') {
+        console.log("[GameStore setGameSettings] Settings have changed. Applying update.");
+      }
       return {
         ...state,
         farbeSettings: newFarbeSettings,

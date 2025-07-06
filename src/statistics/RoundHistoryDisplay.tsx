@@ -307,7 +307,7 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
                     return (
                       <React.Fragment key={round.id ?? `round-${gameIdentifier}-${displayIndex}`}>
                         {/* Jasspunkte-Anzeige */}
-                        <div className={`grid grid-cols-[2rem_5fr_5fr] gap-8 items-center ${hasWeisPoints ? 'pb-0 pt-3 border-b-0' : 'py-3 border-b border-gray-700/50 last:border-b-0'}`}>
+                        <div className={`grid grid-cols-[2rem_5fr_5fr] gap-8 items-center ${hasWeisPoints ? 'pb-0 pt-3 border-b-0' : displayIndex === finalizedJassRoundsToShow.length - 1 ? 'py-3' : 'py-3 border-b border-gray-700/50'}`}>
                           <div className="text-base text-gray-400 text-left pl-3">
                             {displayRoundNumber} {/* Verwende korrigierte Rundennummer */}
                           </div>
@@ -355,8 +355,13 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
 
                         {/* Weispunkte-Anzeige (nur wenn vorhanden) */}
                         {hasWeisPoints && (
-                          <div className="grid grid-cols-[2rem_5fr_5fr] gap-8 items-center pt-0 pb-3 border-b border-gray-700/50 last:border-b-0">
-                            <div className="text-left pl-3"></div> 
+                          <div className={`grid grid-cols-[2rem_5fr_5fr] gap-8 items-center pt-0 pb-3 ${displayIndex === finalizedJassRoundsToShow.length - 1 ? '' : 'border-b border-gray-700/50'}`}>
+                            {/* NEU: Spielername bei letzter Runde HIER anzeigen, wenn Weispunkte vorhanden */}
+                            <div className="text-left pl-3">
+                              {displayIndex === finalizedJassRoundsToShow.length - 1 && round.startingPlayerName ? (
+                                <div className="text-sm text-gray-500">{round.startingPlayerName}</div>
+                              ) : null}
+                            </div>
                             {/* Team Bottom Weispunkte */}
                             <div className="grid-cell">
                               <div className="flex justify-center">
@@ -382,18 +387,28 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
                           </div>
                         )}
 
-                        {/* --- Kumulativer Spielstand Zeile --- */}
+                        {/* NEU: Spielername für die LETZTE Runde (nur wenn KEINE Weispunkte vorhanden) */}
+                        {displayIndex === finalizedJassRoundsToShow.length - 1 && round.startingPlayerName && !hasWeisPoints && (
+                          <div className="grid grid-cols-[2rem_5fr_5fr] gap-8 items-baseline -mt-1">
+                            <div className="pl-3 text-sm text-gray-500">{round.startingPlayerName}</div>
+                            <div></div>
+                            <div></div>
+                          </div>
+                        )}
+
+                        {/* --- Kumulativer Spielstand Zeile MIT SPIELERNAME --- */}
                         {/* Nur anzeigen, wenn es NICHT die letzte Runde ist */}
                         {displayIndex < finalizedJassRoundsToShow.length - 1 && (
-                          <div className="grid grid-cols-[2rem_5fr_5fr] gap-8 items-center py-1 text-sm text-gray-500">
-                            {/* Entferne Summenzeichen */}
-                            <div className="text-left pl-3"></div> 
+                          <div className="grid grid-cols-[2rem_5fr_5fr] gap-8 items-baseline py-1 text-sm text-gray-500">
+                            {/* NEU: Spielername links, mit derselben Baseline wie die Zahlen */}
+                            <div className="pl-3">{round.startingPlayerName || ''}</div>
+                            
                             {/* Team Bottom Kumulativ - Ausrichtung wie Rundenpunkte */} 
                             <div className="grid-cell">
                               <div className="flex justify-center">
-                                <div className="text-right pr-8 w-[120px]"> {/* text-sm und text-gray-500 geerbt */} 
+                                <div className="text-right pr-8 w-[120px]">
                                   <div className="inline-flex items-center justify-end">
-                                    <span className="w-7 h-5 mr-2 flex-shrink-0"></span> {/* Leerer Span für Ausrichtung */} 
+                                    <span className="w-7 h-5 mr-2 flex-shrink-0"></span>
                                     <span>{cumulativeScoreBottom}</span>
                                   </div>
                                 </div>
@@ -402,9 +417,9 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
                             {/* Team Top Kumulativ - Ausrichtung wie Rundenpunkte */} 
                             <div className="grid-cell">
                               <div className="flex justify-center">
-                                <div className="text-right pr-10 w-[120px]"> {/* text-sm und text-gray-500 geerbt */} 
+                                <div className="text-right pr-10 w-[120px]">
                                   <div className="inline-flex items-center justify-end">
-                                    <span className="w-7 h-5 mr-2 flex-shrink-0"></span> {/* Leerer Span für Ausrichtung */} 
+                                    <span className="w-7 h-5 mr-2 flex-shrink-0"></span>
                                     <span>{cumulativeScoreTop}</span>
                                   </div>
                                 </div>
@@ -412,7 +427,6 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
                             </div>
                           </div>
                         )}
-                        {/* ------------------------------------------ */}
                       </React.Fragment>
                     );
                   })}

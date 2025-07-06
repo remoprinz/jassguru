@@ -43,7 +43,7 @@ export const createActiveGame = async (
 
   try {
     await setDoc(newGameRef, gameData);
-    console.log(`[GameService] Successfully created active game: ${gameId}`);
+  
     return gameId;
   } catch (error) {
     console.error("[GameService] Error creating active game: ", error);
@@ -79,7 +79,7 @@ export const updateActiveGame = async (
 
   try {
     await updateDoc(gameDocRef, updatePayload);
-    console.log(`[GameService] Successfully updated active game: ${activeGameId}`);
+  
   } catch (error) {
     console.error(`[GameService] Error updating active game ${activeGameId}: `, error);
     useUIStore.getState().showNotification({
@@ -102,11 +102,8 @@ export const findLatestActiveGameForUserInGroup = async (
   groupId: string
 ): Promise<string | null> => {
   if (!userId || !groupId) {
-    console.log("[GameService] findLatestActiveGame: Missing userId or groupId.");
     return null;
   }
-
-  console.log(`[GameService] Searching for active game for user ${userId} in group ${groupId}...`);
   const activeGamesRef = collection(db, 'activeGames');
 
   const q = query(
@@ -122,10 +119,8 @@ export const findLatestActiveGameForUserInGroup = async (
     const querySnapshot = await getDocs(q);
     if (!querySnapshot.empty) {
       const gameDoc = querySnapshot.docs[0];
-      console.log(`[GameService] Found active game: ${gameDoc.id}`);
       return gameDoc.id;
     } else {
-      console.log("[GameService] No active game found for user in this group.");
       return null;
     }
   } catch (error) {
@@ -152,11 +147,9 @@ export const updateGameStatus = async (
       console.warn(`[GameService] updateGameStatus called with invalid status: ${status}`);
       return;
   }
-  console.log(`[GameService] Updating status of game ${activeGameId} to: ${status}`);
   try {
     // Rufe die bestehende updateActiveGame Funktion auf, um nur den Status zu ändern
     await updateActiveGame(activeGameId, { status: status });
-    console.log(`[GameService] Status of game ${activeGameId} successfully updated to ${status}.`);
   } catch (error) {
     // Der Fehler wird bereits in updateActiveGame geloggt und eine Notification gezeigt.
     // Wir könnten hier optional den Fehler weiterleiten, wenn nötig.
@@ -177,7 +170,9 @@ export const saveRoundToFirestore = async (
   roundEntry: RoundEntry,
   isFinalRound: boolean = false
 ): Promise<void> => {
-  console.debug('[saveRoundToFirestore]', { activeGameId, roundEntry, isFinalRound });
+  if (process.env.NODE_ENV === 'development') {
+    console.debug('[saveRoundToFirestore]', { activeGameId, roundEntry, isFinalRound });
+  }
   if (!activeGameId) {
     console.warn("[GameService] saveRoundToFirestore called without activeGameId.");
     return;
@@ -186,7 +181,6 @@ export const saveRoundToFirestore = async (
   // Debounce-Prüfung für zu schnell aufeinanderfolgende Updates
   const now = Date.now();
   if (now - lastUpdateTimestamp < UPDATE_DEBOUNCE_MS) {
-    console.log(`[GameService] Debouncing update: ${UPDATE_DEBOUNCE_MS - (now - lastUpdateTimestamp)}ms remaining`);
     return;
   }
   
@@ -212,6 +206,7 @@ export const saveRoundToFirestore = async (
       timestamp: Timestamp.fromMillis(roundEntry.timestamp),
       actionType: roundEntry.actionType,
       startingPlayer: roundEntry.startingPlayer,
+      startingPlayerName: roundEntry.startingPlayerName,
       currentPlayer: roundEntry.currentPlayer,
       isRoundFinalized: roundEntry.isRoundFinalized,
       weisPoints: roundEntry.weisPoints,
@@ -386,6 +381,7 @@ export const loadRoundsFromFirestore = async (
         timestamp: timestamp,
         actionType: data.actionType,
         startingPlayer: data.startingPlayer,
+        startingPlayerName: data.startingPlayerName,
         currentPlayer: data.currentPlayer,
         isRoundFinalized: data.isRoundFinalized,
         weisPoints: data.weisPoints,
