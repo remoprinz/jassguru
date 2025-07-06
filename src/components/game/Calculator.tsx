@@ -89,12 +89,14 @@ const Calculator: React.FC<CalculatorProps> = ({
     // 1. ABSOLUTE PRIORITÄT: Ein aktives Online-Spiel
     // Der gameStore ist die EINZIGE Wahrheit für ein laufendes Spiel.
     if (activeGameId && gameFarbeSettings && gameScoreSettings && gameStrokeSettings) {
-      console.log('[Calculator] 🎯 PRIORITÄT 1: Aktives Online-Spiel. Verwende GAMESTORE-Settings.', {
-        source: 'gameStore-active',
-        cardStyle: gameFarbeSettings.cardStyle,
-        siegPunkte: gameScoreSettings.values.sieg,
-        schneiderStriche: gameStrokeSettings.schneider
-      });
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Calculator] 🎯 PRIORITÄT 1: Aktives Online-Spiel. Verwende GAMESTORE-Settings.', {
+          source: 'gameStore-active',
+          cardStyle: gameFarbeSettings.cardStyle,
+          siegPunkte: gameScoreSettings.values.sieg,
+          schneiderStriche: gameStrokeSettings.schneider
+        });
+      }
       return {
         farbeSettings: gameFarbeSettings,
         scoreSettings: gameScoreSettings,
@@ -149,12 +151,14 @@ const Calculator: React.FC<CalculatorProps> = ({
 
     const correctSettings = getCorrectSettings();
 
-    console.log('[Calculator] Settings-Update Effekt. Neue Settings:', {
-      source: correctSettings.source,
-      farbeCardStyle: correctSettings.farbeSettings.cardStyle,
-      scoreWerte: correctSettings.scoreSettings.values,
-      strokeSchneider: correctSettings.strokeSettings.schneider
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Calculator] Settings-Update Effekt. Neue Settings:', {
+        source: correctSettings.source,
+        farbeCardStyle: correctSettings.farbeSettings.cardStyle,
+        scoreWerte: correctSettings.scoreSettings.values,
+        strokeSchneider: correctSettings.strokeSettings.schneider
+      });
+    }
 
     // IMMER die korrekten Settings setzen (keine Vergleiche mehr)
     setActiveFarbeSettings(correctSettings.farbeSettings);
@@ -174,14 +178,16 @@ const Calculator: React.FC<CalculatorProps> = ({
   // Debug Log für die tatsächlich verwendeten Settings
   useEffect(() => {
     if (isOpen && activeFarbeSettings && activeScoreSettings && activeStrokeSettings) {
-      console.log("[Calculator] FINAL aktive Settings für Rendering:", {
-        farbeCardStyle: activeFarbeSettings.cardStyle,
-        farbeValues: activeFarbeSettings.values,
-        scoreWerte: activeScoreSettings.values,
-        scoreEnabled: activeScoreSettings.enabled,
-        strokeSchneider: activeStrokeSettings.schneider,
-        strokeKontermatsch: activeStrokeSettings.kontermatsch
-      });
+      if (process.env.NODE_ENV === 'development') {
+        console.log("[Calculator] FINAL aktive Settings für Rendering:", {
+          farbeCardStyle: activeFarbeSettings.cardStyle,
+          farbeValues: activeFarbeSettings.values,
+          scoreWerte: activeScoreSettings.values,
+          scoreEnabled: activeScoreSettings.enabled,
+          strokeSchneider: activeStrokeSettings.schneider,
+          strokeKontermatsch: activeStrokeSettings.kontermatsch
+        });
+      }
     }
   }, [isOpen, activeFarbeSettings, activeScoreSettings, activeStrokeSettings]);
 
@@ -311,7 +317,9 @@ const Calculator: React.FC<CalculatorProps> = ({
   };
 
   const handleSubmit = useCallback((e?: React.MouseEvent) => {
-    console.log("[Calculator] handleSubmit aufgerufen.");
+    if (process.env.NODE_ENV === 'development') {
+      console.log("[Calculator] handleSubmit aufgerufen.");
+    }
     
     // BUGFIX: Event-Propagation stoppen, um Konflikt mit HistoryWarning zu vermeiden
     if (e) {
@@ -325,15 +333,17 @@ const Calculator: React.FC<CalculatorProps> = ({
     const currentActiveGameId = currentGameStore.activeGameId;
 
     // DEBUG: Log der aktuellen Einstellungen direkt vor der Runden-Finalisierung
-    console.log('[Calculator] Aktuelle Settings vor finalizeRound:', {
-      strokeSettingsSchneider: currentGameStore.strokeSettings?.schneider,
-      cardStyle: currentGameStore.farbeSettings?.cardStyle,
-      clickedPosition,
-      selectedColor,
-      totalValue,
-      opponentValue,
-      isMatschActive
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Calculator] Aktuelle Settings vor finalizeRound:', {
+        strokeSettingsSchneider: currentGameStore.strokeSettings?.schneider,
+        cardStyle: currentGameStore.farbeSettings?.cardStyle,
+        clickedPosition,
+        selectedColor,
+        totalValue,
+        opponentValue,
+        isMatschActive
+      });
+    }
 
     if (isReadOnlyMode) {
       console.log(`[Calculator] Abbruch: ReadOnly-Modus aktiv für Spiel ${currentActiveGameId || 'ID unbekannt'}.`);
@@ -345,7 +355,9 @@ const Calculator: React.FC<CalculatorProps> = ({
     }
     
     const isValid = hasValidScore();
-    console.log(`[Calculator] Prüfung für Spiel ${currentActiveGameId || 'ID unbekannt'}: hasValidScore=${isValid}, selectedColor=${selectedColor}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Calculator] Prüfung für Spiel ${currentActiveGameId || 'ID unbekannt'}: hasValidScore=${isValid}, selectedColor=${selectedColor}`);
+    }
     if (!isValid || !selectedColor) {
         console.log("[Calculator] Abbruch: Keine gültige Punktzahl oder keine Farbe gewählt.");
         return;
@@ -388,12 +400,14 @@ const Calculator: React.FC<CalculatorProps> = ({
       
       strichInfo = { team: clickedPosition, type: strichType };
       
-      console.log("[Calculator] Matsch/Kontermatsch-Logik:", {
-        currentPlayer,
-        currentPlayerTeam,
-        clickedPosition,
-        resultingStrichType: strichType
-      });
+      if (process.env.NODE_ENV === 'development') {
+        console.log("[Calculator] Matsch/Kontermatsch-Logik:", {
+          currentPlayer,
+          currentPlayerTeam,
+          clickedPosition,
+          resultingStrichType: strichType
+        });
+      }
     }
 
     // NEU: Globale Klicksperre für 3 Sekunden aktivieren
@@ -401,7 +415,9 @@ const Calculator: React.FC<CalculatorProps> = ({
     setGlobalClickDisabled(true, 3000);
 
     const isHistoryValid = validateHistoryAction();
-    console.log(`[Calculator] Prüfung: validateHistoryAction=${isHistoryValid}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Calculator] Prüfung: validateHistoryAction=${isHistoryValid}`);
+    }
 
     if (!isHistoryValid) {
       console.log("[Calculator] History-Warnung wird angezeigt.");
@@ -425,14 +441,18 @@ const Calculator: React.FC<CalculatorProps> = ({
       return;
     }
 
-    console.log(`[Calculator] History gültig für Spiel ${currentActiveGameId || 'lokales Spiel'}. Rufe finalizeRound (normal)...`);
-    console.log("[Calculator] Parameter für finalizeRound:", {
-        activeGameId: currentActiveGameId || 'nicht vorhanden (Offline-Modus)',
-        farbe: selectedColor,
-        topScore: scores.top,
-        bottomScore: scores.bottom,
-        strichInfo
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Calculator] History gültig für Spiel ${currentActiveGameId || 'lokales Spiel'}. Rufe finalizeRound (normal)...`);
+    }
+    if (process.env.NODE_ENV === 'development') {
+      console.log("[Calculator] Parameter für finalizeRound:", {
+          activeGameId: currentActiveGameId || 'nicht vorhanden (Offline-Modus)',
+          farbe: selectedColor,
+          topScore: scores.top,
+          bottomScore: scores.bottom,
+          strichInfo
+      });
+    }
     
     try {
         // NEU: Setze die Farbe vor dem Aufruf
@@ -440,7 +460,9 @@ const Calculator: React.FC<CalculatorProps> = ({
         
         // Korrigierter Aufruf mit korrekter strichInfo
         finalizeRound(scores, strichInfo);
-        console.log("[Calculator] finalizeRound erfolgreich aufgerufen (normal).");
+        if (process.env.NODE_ENV === 'development') {
+          console.log("[Calculator] finalizeRound erfolgreich aufgerufen (normal).");
+        }
     } catch (error) {
         console.error("[Calculator] Fehler beim Aufruf von finalizeRound:", error);
         useUIStore.getState().showNotification({ type: 'error', message: 'Fehler beim Verarbeiten der Runde.' });

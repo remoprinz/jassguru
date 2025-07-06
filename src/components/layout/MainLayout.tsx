@@ -28,7 +28,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({children}) => {
 
   useEffect(() => {
     if (jassSessionId) {
-      console.log(`[MainLayout EFFECT] 🔥 STABILISIERT: jassSessionId found (${jassSessionId}). Calling subscribeToSession.`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[MainLayout EFFECT] 🔥 STABILISIERT: jassSessionId found (${jassSessionId}). Calling subscribeToSession.`);
+      }
       subscribeToSession(jassSessionId);
     } else {
       // Wenn keine Session-ID mehr da ist, alten Listener beenden
@@ -41,7 +43,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({children}) => {
     // Cleanup-Funktion für den Fall, dass MainLayout unmounted wird (eher unwahrscheinlich)
     return () => {
       if (sessionUnsubscribe) {
-        console.log("[MainLayout EFFECT Cleanup] Unmounting MainLayout. Unsubscribing from session listener.");
+        if (process.env.NODE_ENV === 'development') {
+          console.log("[MainLayout EFFECT Cleanup] Unmounting MainLayout. Unsubscribing from session listener.");
+        }
         sessionUnsubscribe();
       }
     };
@@ -55,7 +59,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({children}) => {
     
     // Nur Header zurücksetzen, wenn wir NICHT auf der Startseite sind
     if (!isWelcomeScreen) {
-      console.log('[MainLayout] Nicht auf WelcomeScreen, setze Header zurück');
+
       setHeaderConfig({
         showProfileButton: true,  // Header-Profil anzeigen
         showBackButton: false,    // Kein Zurück-Button standardmäßig

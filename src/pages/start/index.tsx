@@ -49,7 +49,7 @@ import { CARD_SYMBOL_MAPPINGS } from '@/config/CardStyles';
 import { toTitleCase } from '@/utils/formatUtils';
 import ProfileImage from '@/components/ui/ProfileImage';
 // THEME-SYSTEM IMPORTE
-import { THEME_COLORS, getCurrentProfileTheme } from '@/config/theme';
+import { THEME_COLORS, getCurrentProfileTheme, type ThemeColor } from '@/config/theme';
 // ENDE NEUE IMPORTE
 import { useNestedScrollFix } from '@/hooks/useNestedScrollFix';
 import { formatMillisecondsDuration } from '@/utils/formatUtils';
@@ -169,17 +169,17 @@ const StartPage = () => {
 
   // Hilfsfunktion zur Umwandlung von Theme-Namen zu Standard-Tailwind-600-Farben für Tab-Styling
   const getTabActiveColor = (themeKey: string): string => {
-    const colorMap: Record<string, string> = {
-      'pink': '#ec4899',     // pink-600 (Standard Tailwind)
-      'green': '#059669',    // emerald-600 (Standard Tailwind)
-      'blue': '#2563eb',     // blue-600 (Standard Tailwind)
-      'purple': '#9333ea',   // purple-600 (Standard Tailwind)
-      'red': '#dc2626',      // red-600 (Standard Tailwind)
-      'yellow': '#ca8a04',   // yellow-600 (Standard Tailwind, konsistent mit Theme)
-      'indigo': '#4f46e5',   // indigo-600 (Standard Tailwind)
-      'teal': '#0d9488'      // teal-600 (Standard Tailwind)
+    const accentColorMap: Record<ThemeColor, string> = {
+      'green': '#10b981',   // green-500 (Standard Tailwind)
+      'blue': '#3b82f6',    // blue-500
+      'purple': '#a855f7',  // purple-500
+      'pink': '#ec4899',    // pink-500
+      'yellow': '#eab308',  // yellow-500
+      'teal': '#14b8a6',    // teal-500
+      'orange': '#f97316',  // orange-500
+      'cyan': '#06b6d4',    // cyan-500
     };
-    return colorMap[themeKey] || '#ca8a04'; // Fallback zu Standard-Gelb (yellow-600)
+    return accentColorMap[themeKey as keyof typeof accentColorMap] || '#ca8a04'; // Fallback zu Standard-Gelb (yellow-600)
   };
 
   // Refs für die scrollbaren Statistik-Container

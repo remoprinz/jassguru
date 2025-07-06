@@ -375,7 +375,7 @@ const PlayerProfilePage = () => {
   // ===== Ab hier ist `player` garantiert vorhanden =====
 
   const activeTheme = getPublicProfileTheme(player?.profileTheme);
-  const activeThemeColors = THEME_COLORS[activeTheme] || THEME_COLORS.indigo;
+  const activeThemeColors = THEME_COLORS[activeTheme] || THEME_COLORS.blue;
 
   return (
     <ProfileView

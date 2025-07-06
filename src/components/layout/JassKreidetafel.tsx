@@ -602,7 +602,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
           const fullShareText = `${message}
 
 Generiert von:
-👉 https://jassguru.ch`;
+👉 jassguru.ch`;
 
           await navigator.share({
             files: [new File([blob], "jass-resultat.png", { type: "image/png" })],

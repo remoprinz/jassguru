@@ -2,8 +2,8 @@ import React, {useEffect, useState, useMemo} from "react";
 import "../styles/globals.css";
 import type {AppProps} from "next/app";
 import { useRouter } from "next/router";
-// import {register} from "../pwa/serviceWorkerRegistration"; // Alten Import ggf. aufräumen
-import DebugLog from "../components/ui/DebugLog";
+import {register} from "../pwa/serviceWorkerRegistration"; // Service Worker Registrierung aktivieren
+// Debug-Log Komponente entfernt
 import {AppProvider} from "../contexts/AppContext";
 import Head from "next/head";
 import {useWakeLock} from "../hooks/useWakeLock";
@@ -19,7 +19,8 @@ import { ClipLoader } from "react-spinners"; // Import für einen Spinner
 import { debouncedRouterPush } from '../utils/routerUtils';
 import { isPublicPath } from "@/lib/utils"; // 🚨 NEU: Importiere die zentrale Funktion
 import { handleIndexedDBCorruption, isIndexedDBCorruptionError } from '../utils/indexedDBHelper';
-import { setupEmergencyFunctions } from '../utils/emergencyReset';
+import { logVersionInfo } from '@/config/version'; // Version-Info für Debugging
+// import { setupEmergencyFunctions } from '../utils/emergencyReset'; // ENTFERNT: Nicht mehr benötigt
 
 // Hilfskomponente für die Ladeanzeige
 const LoadingScreen: React.FC = () => (
@@ -37,7 +38,7 @@ const MyApp = ({Component, pageProps}: AppProps) => {
   const user = useAuthStore((state) => state.user); // NEU: User-Objekt holen
   const isGuest = useAuthStore((state) => state.isGuest);
   const isAuthenticated = useAuthStore.getState().isAuthenticated();
-  const [showDebugLog, setShowDebugLog] = useState(false);
+  // Debug-Log State entfernt
   const releaseWakeLock = useWakeLock();
   const [isAppLoaded, setIsAppLoaded] = useState(false);
   const router = useRouter();
@@ -64,53 +65,30 @@ const MyApp = ({Component, pageProps}: AppProps) => {
   }
   // --- ENDE CHECK ---
 
+  // Client-seitige Initialisierung
   useEffect(() => {
     setIsClient(true);
     
-    // 🚨 KRITISCH: Globaler IndexedDB Corruption Handler
-    const handleGlobalError = (event: ErrorEvent) => {
-      if (isIndexedDBCorruptionError(event.error)) {
-        console.error('🚨 [App] IndexedDB Korruption erkannt:', event.error);
-        event.preventDefault(); // Stoppe Standard-Fehlerbehandlung
-        handleIndexedDBCorruption();
-        return false;
-      }
-    };
-
-    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      if (isIndexedDBCorruptionError(event.reason)) {
-        console.error('🚨 [App] IndexedDB Korruption in Promise erkannt:', event.reason);
-        event.preventDefault();
-        handleIndexedDBCorruption();
-      }
-    };
-
-    // Globale Error Handler registrieren
-    window.addEventListener('error', handleGlobalError);
-    window.addEventListener('unhandledrejection', handleUnhandledRejection);
-    
-    // 🚨 NEU: Session-Flag-Cleanup für Robustheit
+    // Service Worker registrieren (nur im Browser)
     if (typeof window !== 'undefined') {
-      // Bereinige verwaiste Session-Flags beim App-Start
-      const cleanupKeys = ['guestFromWelcome'];
-      cleanupKeys.forEach(key => {
-        if (sessionStorage.getItem(key)) {
-          console.log(`[_app] Bereinige verwaistes Session-Flag: ${key}`);
-          sessionStorage.removeItem(key);
-        }
-      });
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[_app] Registering Service Worker...');
+        logVersionInfo(); // Version-Info für Debugging
+      }
+      register();
     }
     
-    // Emergency-Funktionen für Konsole verfügbar machen
-    setupEmergencyFunctions();
+    // Notfall-Funktionen entfernt - PWA Update Handler macht bereits umfassendes Cleanup
     
-    // console.log('_app.tsx: useEffect - Calling initAuth()');
-    initAuth();
-    
-    return () => {
-      window.removeEventListener('error', handleGlobalError);
-      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-    };
+    // Authentifizierung initialisieren
+    try {
+      initAuth();
+    } catch (error) {
+      console.error('Fehler bei der Authentifizierung-Initialisierung:', error);
+      if (isIndexedDBCorruptionError(error)) {
+        handleIndexedDBCorruption();
+      }
+    }
   }, [initAuth]);
 
   // NEU: Effekt zum Setzen des App-Ladezustands - MUSS VOR WEITERLEITUNG KOMMEN!
@@ -132,17 +110,7 @@ const MyApp = ({Component, pageProps}: AppProps) => {
     }
   }, [router.isReady, router.pathname, authStatus, isAppLoaded]);
 
-  useEffect(() => {
-    // Doppelklick auf den oberen Rand für Debug-Konsole
-    const handleDoubleClick = (e: MouseEvent) => {
-      if (e.clientY < 50) {
-        setShowDebugLog(!showDebugLog);
-      }
-    };
-
-    document.addEventListener("dblclick", handleDoubleClick);
-    return () => document.removeEventListener("dblclick", handleDoubleClick);
-  }, [showDebugLog]);
+  // Debug-Log Doppelklick Handler entfernt
 
   // --- WEITERLEITUNG useEffect (Überarbeitet) - MUSS NACH isAppLoaded KOMMEN!--- 
   useEffect(() => {
@@ -286,15 +254,20 @@ const MyApp = ({Component, pageProps}: AppProps) => {
           name="viewport"
           content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
         />
-        <title>Jassguru - Die Jass-Community in deiner Tasche</title>
+        {/* ✅ Browser-Cache-Invalidierung für neue Versionen */}
+        <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+        <meta httpEquiv="Pragma" content="no-cache" />
+        <meta httpEquiv="Expires" content="0" />
+        <meta name="version" content="2.5.0" />
+        <title>jassguru.ch - Die Jass-Community in deiner Tasche</title>
         <meta name="description" content="Schneller, smarter, vernetzter Jassen" />
-        <meta property="og:title" content="Jassguru - Die Jass-Community in deiner Tasche" />
+        <meta property="og:title" content="jassguru.ch - Die Jass-Community in deiner Tasche" />
         <meta property="og:description" content="Schneller, smarter, vernetzter Jassen" />
-        <meta property="og:url" content="https://jassguru.ch" />
+        <meta property="og:url" content="https://jassguru.ch?v=2.5.0" />
         <meta property="og:image" content="https://jassguru.ch/apple-touch-icon.png" />
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Jassguru - Die Jass-Community in deiner Tasche" />
+        <meta name="twitter:title" content="jassguru.ch - Die Jass-Community in deiner Tasche" />
         <meta name="twitter:description" content="Schneller, smarter, vernetzter Jassen" />
         <meta name="twitter:image" content="https://jassguru.ch/apple-touch-icon.png" />
       </Head>
@@ -314,7 +287,7 @@ const MyApp = ({Component, pageProps}: AppProps) => {
           </FirestoreSyncProvider>
         </UserProvider>
       </AuthProvider>
-      <DebugLog initiallyVisible={false} />
+              {/* Debug-Log Komponente entfernt */}
     </AppProvider>
   );
 };

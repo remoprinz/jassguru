@@ -17,7 +17,7 @@ export function AuthLayout({children}: AuthLayoutProps) {
         </div>
 
         <div className="text-center text-gray-500 text-sm py-4">
-          &copy; {new Date().getFullYear()} Jassguru - Alle Rechte vorbehalten
+          &copy; {new Date().getFullYear()} jassguru.ch - Alle Rechte vorbehalten
         </div>
       </div>
     </div>

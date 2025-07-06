@@ -220,9 +220,11 @@ function getTimeCategory(duration: number, type: GameEndType): SpieltempoKategor
   const thresholds = type === "jassEnd" ? TIME_THRESHOLDS.JASS : TIME_THRESHOLDS.GAME;
 
   // Vereinfachtes Logging
-  console.log(`[Zeit-Kategorie] ${type}:`, {
-    duration: `${(duration / 1000 / 60).toFixed(2)} Minuten`,
-  });
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[Zeit-Kategorie] ${type}:`, {
+      duration: `${(duration / 1000 / 60).toFixed(2)} Minuten`,
+    });
+  }
 
   if (duration >= thresholds.GEMÜTLICH) return "marathon";
   if (duration >= thresholds.NORMAL) return "gemütlich";
@@ -265,13 +267,15 @@ function formatiereKombiniertenSpruch(spruch: KombinierterSpruch): SpruchMitIcon
 export function getJassSpruch(params: JassSpruchParams): SpruchMitIcon {
   const {totalJassTime, currentGameDuration} = params.timerAnalytics;
 
-  console.log("[Spruch-Parameter]", {
-    type: params.type,
-    analytics: {
-      currentGameDuration: `${(currentGameDuration / 1000 / 60).toFixed(2)} Minuten`,
-      totalJassTime: `${(totalJassTime / 1000 / 60).toFixed(2)} Minuten`,
-    },
-  });
+  if (process.env.NODE_ENV === 'development') {
+    console.log("[Spruch-Parameter]", {
+      type: params.type,
+      analytics: {
+        currentGameDuration: `${(currentGameDuration / 1000 / 60).toFixed(2)} Minuten`,
+        totalJassTime: `${(totalJassTime / 1000 / 60).toFixed(2)} Minuten`,
+      },
+    });
+  }
 
   if (params.type === "jassEnd") {
     const kombiniert = getErweiterteSpruchKombination(params);

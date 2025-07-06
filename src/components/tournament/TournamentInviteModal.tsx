@@ -85,11 +85,17 @@ const TournamentInviteModal: React.FC<TournamentInviteModalProps> = ({
     if (!inviteLink) return;
     if (navigator.share) {
       try {
-        const titleText = `**Du wurdest zum Jass-Turnier \"${tournamentName || 'Jass-Turnier'}\" eingeladen!**`;
-        const bodyText = `Nimm am Turnier teil und zeige dein Können.`;
-        const linkText = `👉 Hier beitreten: ${inviteLink}`;
+        // ✅ PERSONALISIERTE TURNIER-EINLADUNG - Absender aus AuthStore holen
+        const { useAuthStore } = await import('@/store/authStore');
+        const user = useAuthStore.getState().user;
+        const inviterName = user?.displayName || user?.email || 'Jemand';
+        
+        const titleText = `Du wurdest zu jassguru.ch eingeladen! 🏆`;
+        const bodyText = `${inviterName} lädt dich zum Jass-Turnier "${tournamentName || 'Jass-Turnier'}" ein. Nimm teil und zeige dein Können!`;
+        const linkText = `👉 Hier beitreten:`;
         const shareText = `${titleText}\n\n${bodyText}\n\n${linkText}`;
 
+        // ✅ KEIN BILD - Nur Text-basierte Einladung für saubere Link-Vorschau
         const shareData: ShareData = {
           title: `Einladung zum Turnier: ${tournamentName || 'Jass-Turnier'}`,
           text: shareText,

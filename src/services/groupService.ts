@@ -74,13 +74,17 @@ export const createGroup = async (
     }
 
     // 1. Player ID für den User sicherstellen
+    if (process.env.NODE_ENV === 'development') {
     console.log(`createGroup: Getting playerId for user ${userId}...`);
+  }
     const playerId = await getPlayerIdForUser(userId, userDisplayName);
     if (!playerId) {
       console.error(`createGroup: Could not get or create playerId for user ${userId}.`);
       throw new Error("Konnte keine Spieler-ID für den Benutzer finden oder erstellen.");
     }
-    console.log(`createGroup: Obtained playerId: ${playerId}`);
+          if (process.env.NODE_ENV === 'development') {
+        console.log(`createGroup: Obtained playerId: ${playerId}`);
+      }
 
     // 2. Neues Gruppen-Dokument erstellen
     const groupData = {
@@ -105,10 +109,14 @@ export const createGroup = async (
         },
       },
     };
-    console.log(`createGroup: Adding new group document with name '${trimmedGroupName}'...`);
+          if (process.env.NODE_ENV === 'development') {
+        console.log(`createGroup: Adding new group document with name '${trimmedGroupName}'...`);
+      }
     const groupRef = await addDoc(groupsCollectionRef, groupData);
     const newGroupId = groupRef.id;
-    console.log(`createGroup: Successfully added group document with ID: ${newGroupId}`);
+          if (process.env.NODE_ENV === 'development') {
+        console.log(`createGroup: Successfully added group document with ID: ${newGroupId}`);
+      }
 
     // NEU: Abrufen des gerade erstellten Dokuments, um das vollständige Objekt zurückzugeben
     const newGroupSnap = await getDoc(groupRef);
@@ -122,16 +130,22 @@ export const createGroup = async (
     const groupDataFromSnap = newGroupSnap.data() as Omit<FirestoreGroup, 'id'>; 
     // Explizite Typzuweisung und Spread (sollte jetzt funktionieren)
     const newGroup: FirestoreGroup = { id: newGroupSnap.id, ...groupDataFromSnap };
-    console.log("createGroup: Successfully fetched newly created group object.");
+          if (process.env.NODE_ENV === 'development') {
+        console.log("createGroup: Successfully fetched newly created group object.");
+      }
 
     // 3. Player-Dokument aktualisieren
     const playerRef = firestoreDoc(db, PLAYERS_COLLECTION, playerId);
-    console.log(`createGroup: Attempting to update player document ${playerId} to add groupId ${newGroupId}...`);
+          if (process.env.NODE_ENV === 'development') {
+        console.log(`createGroup: Attempting to update player document ${playerId} to add groupId ${newGroupId}...`);
+      }
     try {
       await updateDoc(playerRef, {
         groupIds: arrayUnion(newGroupId),
       });
-      console.log(`createGroup: Successfully updated player document ${playerId} with new groupId.`);
+              if (process.env.NODE_ENV === 'development') {
+          console.log(`createGroup: Successfully updated player document ${playerId} with new groupId.`);
+        }
       // Optional: Verify by fetching the player doc again immediately
       // const updatedPlayerDoc = await getPlayerDocument(playerId);
       // console.log("createGroup: Player doc groupIds after update:", updatedPlayerDoc?.groupIds);
@@ -143,16 +157,22 @@ export const createGroup = async (
     }
 
     // 4. User-Dokument aktualisieren über den AuthService
-    console.log(`createGroup: Attempting to update user document ${userId} with lastActiveGroupId ${newGroupId}...`);
+          if (process.env.NODE_ENV === 'development') {
+        console.log(`createGroup: Attempting to update user document ${userId} with lastActiveGroupId ${newGroupId}...`);
+      }
     try {
       await updateUserDocument(userId, {lastActiveGroupId: newGroupId});
-      console.log(`createGroup: Successfully updated user document ${userId}.`);
+              if (process.env.NODE_ENV === 'development') {
+          console.log(`createGroup: Successfully updated user document ${userId}.`);
+        }
     } catch (userUpdateError) {
       // Log this error but maybe don't throw, as the group and player link exist
       console.error(`createGroup: FAILED to update user document ${userId} with lastActiveGroupId ${newGroupId}:`, userUpdateError);
     }
 
-    console.log(`Gruppe '${trimmedGroupName}' (ID: ${newGroupId}) erfolgreich erstellt für User ${userId}.`);
+          if (process.env.NODE_ENV === 'development') {
+        console.log(`Gruppe '${trimmedGroupName}' (ID: ${newGroupId}) erfolgreich erstellt für User ${userId}.`);
+      }
     return newGroup; // Das vollständige Objekt zurückgeben
   } catch (error) {
     // Keep existing general error handling, but the specific errors above might provide more context
@@ -381,7 +401,9 @@ export const getUserGroupsByPlayerId = async (playerId: string): Promise<Firesto
     const playerDoc = await getPlayerDocument(playerId);
 
     if (!playerDoc || !playerDoc.groupIds || playerDoc.groupIds.length === 0) {
+      if (process.env.NODE_ENV === 'development') {
       console.log(`Spieler ${playerId} ist in keiner Gruppe (laut Player-Dokument).`);
+    }
       return [];
     }
 
@@ -485,7 +507,9 @@ export const getUserGroupsByPlayerId = async (playerId: string): Promise<Firesto
           };
         } else {
           // Spieler-Dokument wurde nicht gefunden, obwohl ID in group.playerIds war
+          if (process.env.NODE_ENV === 'development') {
           console.warn(`getUserGroupsByPlayerId: Player data for ID ${pId} not found in fetched playersMap for group ${groupDoc.id}. Using placeholder.`);
+        }
           enrichedPlayersData[pId] = {
             displayName: "Unbekannter Spieler",
             joinedAt: originalPlayerData?.joinedAt instanceof Timestamp ? originalPlayerData.joinedAt : Timestamp.now(),

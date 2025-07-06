@@ -52,7 +52,7 @@ const TournamentPasseArchive: React.FC<TournamentPasseArchiveProps> = ({
         <p className="text-center text-gray-500 py-6">Noch keine Passen gespielt.</p>
       ) : (
         sortedGames.map((game) => {
-          // Extrahiere Spieler und Punkte für die Anzeige
+          // Extrahiere Spieler und Striche für die Anzeige
           const teamTopPlayers = game.playerDetails
             ?.filter(d => d.team === 'top')
             .map(d => d.playerName)
@@ -61,8 +61,18 @@ const TournamentPasseArchive: React.FC<TournamentPasseArchiveProps> = ({
             ?.filter(d => d.team === 'bottom')
             .map(d => d.playerName)
             .join(' & ') || 'Team Unten';
-          const scoreTop = game.teamScoresPasse?.top ?? '-';
-          const scoreBottom = game.teamScoresPasse?.bottom ?? '-';
+          
+          // GEÄNDERT: Zeige Striche statt Punkte
+          const topStriche = game.teamStrichePasse?.top;
+          const bottomStriche = game.teamStrichePasse?.bottom;
+          
+          const stricheTop = topStriche 
+            ? (topStriche.sieg || 0) + (topStriche.berg || 0) + (topStriche.matsch || 0) + (topStriche.schneider || 0) + (topStriche.kontermatsch || 0)
+            : 0;
+          const stricheBottom = bottomStriche 
+            ? (bottomStriche.sieg || 0) + (bottomStriche.berg || 0) + (bottomStriche.matsch || 0) + (bottomStriche.schneider || 0) + (bottomStriche.kontermatsch || 0)
+            : 0;
+          
           const completedTime = formatPasseTime(game.completedAt);
 
           return (
@@ -82,11 +92,11 @@ const TournamentPasseArchive: React.FC<TournamentPasseArchiveProps> = ({
               <div className="text-xs space-y-1">
                 <div className="flex justify-between">
                   <span className="text-gray-300 truncate pr-2" title={teamBottomPlayers}>{teamBottomPlayers}</span>
-                  <span className="font-medium text-white">{scoreBottom}</span>
+                  <span className="font-medium text-white">{stricheBottom}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-300 truncate pr-2" title={teamTopPlayers}>{teamTopPlayers}</span>
-                  <span className="font-medium text-white">{scoreTop}</span>
+                  <span className="font-medium text-white">{stricheTop}</span>
                 </div>
               </div>
               {game.playerDetails && game.playerDetails.length > 0 && (

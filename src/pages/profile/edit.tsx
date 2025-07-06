@@ -32,11 +32,11 @@ const EditProfilePage: React.FC = () => {
     green: { name: "Grün", description: "" },
     blue: { name: "Blau", description: "" },
     purple: { name: "Lila", description: "" },
-    red: { name: "Rot", description: "" },
-    yellow: { name: "Gelb", description: "" },
-    indigo: { name: "Indigo", description: "" },
     pink: { name: "Pink", description: "" },
+    yellow: { name: "Gelb", description: "" },
     teal: { name: "Türkis", description: "" },
+    orange: { name: "Orange", description: "" },
+    cyan: { name: "Cyan", description: "" },
   };
 
   // Theme aus Firebase/localStorage laden

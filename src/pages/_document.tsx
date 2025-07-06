@@ -8,10 +8,10 @@ class MyDocument extends Document {
       <Html lang="de">
         <Head>
           {/* Bestehende Meta-Tags */}
-          <meta name="application-name" content="Jassguru" />
-          <meta name="apple-mobile-web-app-capable" content="yes" />
-          <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-          <meta name="apple-mobile-web-app-title" content="Jassguru" />
+                  <meta name="application-name" content="jassguru.ch" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="jassguru.ch" />
           <meta name="format-detection" content="telephone=no" />
           <meta name="mobile-web-app-capable" content="yes" />
           <meta name="theme-color" content="#000000" />

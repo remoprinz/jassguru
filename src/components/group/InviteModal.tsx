@@ -3,8 +3,9 @@ import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter} from "@/
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {QRCodeCanvas} from "qrcode.react"; // Korrigierter Import: QRCodeCanvas
-import {Copy, Share2} from "lucide-react";
+import {Copy} from "lucide-react";
 import {useUIStore} from "@/store/uiStore";
+import {useAuthStore} from "@/store/authStore";
 
 interface InviteModalProps {
   isOpen: boolean;
@@ -54,43 +55,25 @@ const InviteModal: React.FC<InviteModalProps> = ({
     if (!inviteLink) return;
     if (navigator.share) {
       try {
-        // --- Angepasster Share-Text (NEUE STRUKTUR - OHNE SLOGAN) ---
-        const titleText = "**Du wurdest zu Jassguru eingeladen**";
-        const bodyText = `Tritt der Jassgruppe '${groupName}' bei.`; 
-        const linkText = `👉 Hier beitreten:`; // Link hier entfernt, wird über URL-Feld gesetzt
-        const shareText = `${titleText}\n\n${bodyText}\n\n${linkText}`; // Slogan entfernt
+        // ✅ PERSONALISIERTE EINLADUNG - Absender aus AuthStore holen
+        const user = useAuthStore.getState().user;
+        const inviterName = user?.displayName || user?.email || 'Jemand';
+        
+        // --- Optimierter Share-Text (PERSONALISIERT) ---
+        const titleText = "Du wurdest zu jassguru.ch eingeladen! ✌️";
+        const bodyText = `${inviterName} lädt dich ein, der Jassgruppe "${groupName}" beizutreten.`; 
+        const linkText = `👉 Hier beitreten:`; 
+        const shareText = `${titleText}\n\n${bodyText}\n\n${linkText}`;
         // --- Ende Share-Text ---
 
-        // --- App-Icon laden: Professioneller für Gruppeneinladungen ---
-        let imageFile: File | null = null;
-        try {
-          const response = await fetch('/apple-touch-icon.png');
-          if (response.ok) {
-            const blob = await response.blob();
-            imageFile = new File([blob], 'jassguru-icon.png', { type: blob.type || 'image/png' });
-            console.log("Modal: App-Icon für Teilen geladen.");
-          } else {
-            console.error("Modal: App-Icon konnte nicht geladen werden:", response.statusText);
-          }
-        } catch (fetchError) {
-          console.error("Modal: Fehler beim Laden des App-Icons:", fetchError);
-        }
-        // --- Ende App-Icon laden ---
-
+        // ✅ KEIN BILD MEHR - Nur Text-basierte Einladung für saubere Link-Vorschau
         const shareData: ShareData = {
-          title: `Du wurdest zu Jassguru eingeladen`, // Titel als Metadaten
+          title: `Einladung zur Jassgruppe "${groupName}"`, // Titel als Metadaten
           text: shareText,
           url: inviteLink, // URL bleibt wichtig für die richtige Funktion des Teilens
         };
 
-        // Bild hinzufügen, falls vorhanden und unterstützt
-        if (imageFile && navigator.canShare && navigator.canShare({ files: [imageFile] })) {
-          shareData.files = [imageFile];
-          console.log("Modal: Versuche Teilen mit Bild.");
-        } else {
-          console.log("Modal: Bild nicht verfügbar oder Teilen von Files nicht unterstützt.");
-        }
-
+        // ✅ KEIN imageFile mehr - dadurch wird die Link-Vorschau kleiner und sauberer
         await navigator.share(shareData);
         console.log("Link erfolgreich geteilt");
       } catch (err) {

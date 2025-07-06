@@ -29,6 +29,7 @@ import { useClickAndScrollHandler } from '@/hooks/useClickAndScrollHandler';
 import { StatLink } from '@/components/statistics/StatLink';
 import {fetchCompletedSessionsForUser, SessionSummary} from '@/services/sessionService';
 import { cn } from '@/lib/utils';
+import type { ThemeColor } from '@/config/theme';
 
 // Types
 interface ExpectedPlayerStatsWithAggregates {
@@ -101,6 +102,7 @@ interface ProfileViewProps {
   handleFileChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;
   handleCropComplete?: (blob: Blob | null) => void;
   handleSelectClick?: () => void;
+  inputKey?: number;
   
   // Theme - KORRIGIERT: Nur noch theme und profileTheme nötig
   theme?: any; // THEME_COLORS[groupTheme] 
@@ -139,11 +141,76 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   handleFileChange,
   handleCropComplete,
   handleSelectClick,
+  inputKey,
   theme,
   profileTheme
 }) => {
   const trumpfStatistikRef = useRef<HTMLDivElement>(null);
   useNestedScrollFix(trumpfStatistikRef);
+
+  // Memoized color computation - optimiert für Performance
+  const accentColor = useMemo(() => {
+    const accentColorMap: Record<ThemeColor, string> = {
+      'green': '#10b981',   // green-500 (Standard Tailwind)
+      'blue': '#3b82f6',    // blue-500
+      'purple': '#a855f7',  // purple-500
+      'pink': '#ec4899',    // pink-500
+      'yellow': '#eab308',  // yellow-500
+      'teal': '#14b8a6',    // teal-500
+      'orange': '#f97316',  // orange-500
+      'cyan': '#06b6d4',    // cyan-500
+    };
+    const theme = profileTheme || 'yellow';
+    return accentColorMap[theme as ThemeColor] || accentColorMap.yellow;
+  }, [profileTheme]);
+
+  // RGB für Tailwind-Klassen
+  const rgbValues = useMemo(() => {
+    const rgbMap: Record<ThemeColor, string> = {
+      'green': '16, 185, 129',
+      'blue': '59, 130, 246',
+      'purple': '168, 85, 247',
+      'pink': '236, 72, 153',
+      'yellow': '234, 179, 8',
+      'teal': '20, 184, 166',
+      'orange': '249, 115, 22',
+      'cyan': '6, 182, 212',
+    };
+    const theme = profileTheme || 'yellow';
+    return rgbMap[theme as ThemeColor] || rgbMap.yellow;
+  }, [profileTheme]);
+
+  // Hex für dynamische Styles
+  const hexColor = useMemo(() => {
+    const hexMap: Record<ThemeColor, string> = {
+      'green': '#10b981',
+      'blue': '#3b82f6',
+      'purple': '#a855f7',
+      'pink': '#ec4899',
+      'yellow': '#eab308',
+      'teal': '#14b8a6',
+      'orange': '#f97316',
+      'cyan': '#06b6d4',
+    };
+    const theme = profileTheme || 'yellow';
+    return hexMap[theme as ThemeColor] || hexMap.yellow;
+  }, [profileTheme]);
+
+  // Glow für Schatten-Effekte
+  const glowColor = useMemo(() => {
+    const glowMap: Record<ThemeColor, string> = {
+      'green': 'rgba(16, 185, 129, 0.2)',
+      'blue': 'rgba(59, 130, 246, 0.2)',
+      'purple': 'rgba(168, 85, 247, 0.2)',
+      'pink': 'rgba(236, 72, 153, 0.2)',
+      'yellow': 'rgba(234, 179, 8, 0.2)',
+      'teal': 'rgba(20, 184, 166, 0.2)',
+      'orange': 'rgba(249, 115, 22, 0.2)',
+      'cyan': 'rgba(6, 182, 212, 0.2)',
+    };
+    const theme = profileTheme || 'yellow';
+    return glowMap[theme as ThemeColor] || glowMap.yellow;
+  }, [profileTheme]);
 
   // Handler für den Zurück-Button
   const handleGoBack = () => {
@@ -259,7 +326,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const currentPlayer = isPublicView ? player : user;
   const displayName = currentPlayer?.displayName || "Unbekannter Spieler";
   const photoURL = currentPlayer?.photoURL;
-  const jassSpruch = currentPlayer?.statusMessage || "Hallo! Ich jasse mit Jassguru";
+      const jassSpruch = currentPlayer?.statusMessage || "Hallo! Ich jasse mit jassguru.ch";
 
   // Loading State
   if (!currentPlayer && !isPublicView) {
@@ -280,10 +347,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       'green': '#059669',    // emerald-600 (Standard Tailwind)
       'blue': '#2563eb',     // blue-600 (Standard Tailwind)
       'purple': '#9333ea',   // purple-600 (Standard Tailwind)
-      'red': '#dc2626',      // red-600 (Standard Tailwind)
       'yellow': '#ca8a04',   // yellow-600 (Standard Tailwind, konsistent mit Theme)
-      'indigo': '#4f46e5',   // indigo-600 (Standard Tailwind)
-      'teal': '#0d9488'      // teal-600 (Standard Tailwind)
+      'teal': '#0d9488',     // teal-600 (Standard Tailwind)
+      'orange': '#ea580c',   // orange-600 (Standard Tailwind)
+      'cyan': '#0891b2',     // cyan-600 (Standard Tailwind)
     };
     return colorMap[themeKey] || '#ca8a04'; // Fallback zu Standard-Gelb (yellow-600)
   };
@@ -304,11 +371,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 const themeRgb = profileTheme === 'green' ? '5, 150, 105' :
                                 profileTheme === 'blue' ? '37, 99, 235' :
                                 profileTheme === 'purple' ? '147, 51, 234' :
-                                profileTheme === 'red' ? '220, 38, 38' :
                                 profileTheme === 'yellow' ? '202, 138, 4' :
-                                profileTheme === 'indigo' ? '79, 70, 229' :
                                 profileTheme === 'pink' ? '236, 72, 153' :
-                                profileTheme === 'teal' ? '13, 148, 136' : '79, 70, 229';
+                                profileTheme === 'teal' ? '13, 148, 136' :
+                                profileTheme === 'orange' ? '249, 115, 22' :
+                                profileTheme === 'cyan' ? '6, 182, 212' : '37, 99, 235';
                 e.currentTarget.style.backgroundColor = `rgba(${themeRgb}, 0.2)`;
                 e.currentTarget.style.borderColor = `rgba(${themeRgb}, 0.4)`;
                 e.currentTarget.style.boxShadow = `0 0 15px rgba(${themeRgb}, 0.3)`;
@@ -348,28 +415,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <div 
             className={`relative w-32 h-32 rounded-full overflow-hidden transition-all duration-300 flex items-center justify-center bg-gray-800 shadow-lg hover:shadow-xl hover:scale-105 border-4`}
             style={{
-              borderColor: previewUrl ? 'rgba(147, 51, 234, 1)' : (
-                profileTheme === 'green' ? '#059669' :
-                profileTheme === 'blue' ? '#2563eb' :
-                profileTheme === 'purple' ? '#9333ea' :
-                profileTheme === 'red' ? '#dc2626' :
-                profileTheme === 'yellow' ? '#ca8a04' :
-                profileTheme === 'indigo' ? '#4f46e5' :
-                profileTheme === 'pink' ? '#ec4899' :
-                profileTheme === 'teal' ? '#0d9488' : '#6366f1'
-              ),
+              borderColor: previewUrl ? 'rgba(147, 51, 234, 1)' : hexColor,
               boxShadow: previewUrl 
                 ? '0 0 25px rgba(147, 51, 234, 0.3)'
-                : `0 0 20px ${
-                    profileTheme === 'green' ? 'rgba(5, 150, 105, 0.2)' :
-                    profileTheme === 'blue' ? 'rgba(37, 99, 235, 0.2)' :
-                    profileTheme === 'purple' ? 'rgba(147, 51, 234, 0.2)' :
-                    profileTheme === 'red' ? 'rgba(220, 38, 38, 0.2)' :
-                    profileTheme === 'yellow' ? 'rgba(202, 138, 4, 0.2)' :
-                    profileTheme === 'indigo' ? 'rgba(79, 70, 229, 0.2)' :
-                    profileTheme === 'pink' ? 'rgba(236, 72, 153, 0.2)' :
-                    profileTheme === 'teal' ? 'rgba(13, 148, 136, 0.2)' : 'rgba(99, 102, 241, 0.2)'
-                  }, 0 4px 20px rgba(0,0,0,0.3)`
+                : `0 0 20px ${glowColor}, 0 4px 20px rgba(0,0,0,0.3)`
             }}
           >
             {previewUrl ? (
@@ -425,7 +474,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           >
             {displayName}
           </h1>
-          <div className="text-sm text-gray-400 mx-auto max-w-xl break-words mt-3">
+          <div className="text-base text-gray-300 mx-auto max-w-xl break-words mt-3">
             <p className="text-center">{jassSpruch}</p>
           </div>
         </div>
@@ -532,10 +581,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         {!isPublicView && fileInputRef && handleFileChange && (
           <input
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/jpg,image/png,image/webp,image/gif,image/heic,image/heif"
+            capture="environment"
             ref={fileInputRef}
             onChange={handleFileChange}
             className="hidden"
+            multiple={false}
+            key={inputKey || Date.now()} // ✅ Force re-render für iOS Safari
           />
         )}
 
@@ -651,7 +703,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {/* Block 1: Spielerübersicht */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: profileTheme === "green" ? "#10b981" : profileTheme === "blue" ? "#3b82f6" : profileTheme === "purple" ? "#a855f7" : profileTheme === "red" ? "#ef4444" : profileTheme === "yellow" ? "#eab308" : profileTheme === "indigo" ? "#6366f1" : profileTheme === "pink" ? "#f472b6" : profileTheme === "teal" ? "#14b8a6" : "#6366f1" }}></div>
+                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Spielerübersicht</h3>
                       </div>
                       <div className="p-4 space-y-2">
@@ -689,7 +741,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {/* Block 2: Bilanzen */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: profileTheme === "green" ? "#10b981" : profileTheme === "blue" ? "#3b82f6" : profileTheme === "purple" ? "#a855f7" : profileTheme === "red" ? "#ef4444" : profileTheme === "yellow" ? "#eab308" : profileTheme === "indigo" ? "#6366f1" : profileTheme === "pink" ? "#f472b6" : profileTheme === "teal" ? "#14b8a6" : "#6366f1" }}></div>
+                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Bilanzen</h3>
                       </div>
                       <div className="p-4 space-y-2">
@@ -775,7 +827,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {/* Block 3: 🏆 Highlights */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: profileTheme === "green" ? "#10b981" : profileTheme === "blue" ? "#3b82f6" : profileTheme === "purple" ? "#a855f7" : profileTheme === "red" ? "#ef4444" : profileTheme === "yellow" ? "#eab308" : profileTheme === "indigo" ? "#6366f1" : profileTheme === "pink" ? "#f472b6" : profileTheme === "teal" ? "#14b8a6" : "#6366f1" }}></div>
+                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">🏆 Highlights</h3>
                       </div>
                       <div className="p-4 space-y-2">
@@ -917,7 +969,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {/* Block 4: 👎 Lowlights */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: profileTheme === "green" ? "#10b981" : profileTheme === "blue" ? "#3b82f6" : profileTheme === "purple" ? "#a855f7" : profileTheme === "red" ? "#ef4444" : profileTheme === "yellow" ? "#eab308" : profileTheme === "indigo" ? "#6366f1" : profileTheme === "pink" ? "#f472b6" : profileTheme === "teal" ? "#14b8a6" : "#6366f1" }}></div>
+                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">👎 Lowlights</h3>
                       </div>
                       <div className="p-4 space-y-2">
@@ -1059,7 +1111,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {/* Block 5: Trumpffarben */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: profileTheme === "green" ? "#10b981" : profileTheme === "blue" ? "#3b82f6" : profileTheme === "purple" ? "#a855f7" : profileTheme === "red" ? "#ef4444" : profileTheme === "yellow" ? "#eab308" : profileTheme === "indigo" ? "#6366f1" : profileTheme === "pink" ? "#f472b6" : profileTheme === "teal" ? "#14b8a6" : "#6366f1" }}></div>
+                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Trumpffarben</h3>
                       </div>
                       <div ref={trumpfStatistikRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
@@ -1094,7 +1146,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {/* Siegquote Partien */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: profileTheme === "green" ? "#10b981" : profileTheme === "blue" ? "#3b82f6" : profileTheme === "purple" ? "#a855f7" : profileTheme === "red" ? "#ef4444" : profileTheme === "yellow" ? "#eab308" : profileTheme === "indigo" ? "#6366f1" : profileTheme === "pink" ? "#f472b6" : profileTheme === "teal" ? "#14b8a6" : "#6366f1" }}></div>
+                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Siegquote Partien</h3>
                       </div>
                       <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
@@ -1153,7 +1205,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {/* Siegquote Spiele */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: profileTheme === "green" ? "#10b981" : profileTheme === "blue" ? "#3b82f6" : profileTheme === "purple" ? "#a855f7" : profileTheme === "red" ? "#ef4444" : profileTheme === "yellow" ? "#eab308" : profileTheme === "indigo" ? "#6366f1" : profileTheme === "pink" ? "#f472b6" : profileTheme === "teal" ? "#14b8a6" : "#6366f1" }}></div>
+                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Siegquote Spiele</h3>
                       </div>
                       <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
@@ -1212,7 +1264,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {/* Strichdifferenz */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: profileTheme === "green" ? "#10b981" : profileTheme === "blue" ? "#3b82f6" : profileTheme === "purple" ? "#a855f7" : profileTheme === "red" ? "#ef4444" : profileTheme === "yellow" ? "#eab308" : profileTheme === "indigo" ? "#6366f1" : profileTheme === "pink" ? "#f472b6" : profileTheme === "teal" ? "#14b8a6" : "#6366f1" }}></div>
+                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Strichdifferenz</h3>
                       </div>
                       <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
@@ -1262,7 +1314,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {/* Punktdifferenz */}
                 <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                   <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: profileTheme === "green" ? "#10b981" : profileTheme === "blue" ? "#3b82f6" : profileTheme === "purple" ? "#a855f7" : profileTheme === "red" ? "#ef4444" : profileTheme === "yellow" ? "#eab308" : profileTheme === "indigo" ? "#6366f1" : profileTheme === "pink" ? "#f472b6" : profileTheme === "teal" ? "#14b8a6" : "#6366f1" }}></div>
+                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Punktdifferenz</h3>
                   </div>
                       <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
@@ -1312,7 +1364,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {/* Matsch-Bilanz */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: profileTheme === "green" ? "#10b981" : profileTheme === "blue" ? "#3b82f6" : profileTheme === "purple" ? "#a855f7" : profileTheme === "red" ? "#ef4444" : profileTheme === "yellow" ? "#eab308" : profileTheme === "indigo" ? "#6366f1" : profileTheme === "pink" ? "#f472b6" : profileTheme === "teal" ? "#14b8a6" : "#6366f1" }}></div>
+                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Matsch-Bilanz</h3>
                       </div>
                       <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
@@ -1366,7 +1418,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {/* Schneider-Bilanz */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: profileTheme === "green" ? "#10b981" : profileTheme === "blue" ? "#3b82f6" : profileTheme === "purple" ? "#a855f7" : profileTheme === "red" ? "#ef4444" : profileTheme === "yellow" ? "#eab308" : profileTheme === "indigo" ? "#6366f1" : profileTheme === "pink" ? "#f472b6" : profileTheme === "teal" ? "#14b8a6" : "#6366f1" }}></div>
+                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Schneider-Bilanz</h3>
                       </div>
                       <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
@@ -1420,7 +1472,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {/* Kontermatsch-Bilanz */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: profileTheme === "green" ? "#10b981" : profileTheme === "blue" ? "#3b82f6" : profileTheme === "purple" ? "#a855f7" : profileTheme === "red" ? "#ef4444" : profileTheme === "yellow" ? "#eab308" : profileTheme === "indigo" ? "#6366f1" : profileTheme === "pink" ? "#f472b6" : profileTheme === "teal" ? "#14b8a6" : "#6366f1" }}></div>
+                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Kontermatsch-Bilanz</h3>
                   </div>
                       <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
@@ -1483,7 +1535,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {/* Siegquote Partien */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: profileTheme === "green" ? "#10b981" : profileTheme === "blue" ? "#3b82f6" : profileTheme === "purple" ? "#a855f7" : profileTheme === "red" ? "#ef4444" : profileTheme === "yellow" ? "#eab308" : profileTheme === "indigo" ? "#6366f1" : profileTheme === "pink" ? "#f472b6" : profileTheme === "teal" ? "#14b8a6" : "#6366f1" }}></div>
+                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Siegquote Partien</h3>
                       </div>
                       <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
@@ -1542,7 +1594,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {/* Siegquote Spiele */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: profileTheme === "green" ? "#10b981" : profileTheme === "blue" ? "#3b82f6" : profileTheme === "purple" ? "#a855f7" : profileTheme === "red" ? "#ef4444" : profileTheme === "yellow" ? "#eab308" : profileTheme === "indigo" ? "#6366f1" : profileTheme === "pink" ? "#f472b6" : profileTheme === "teal" ? "#14b8a6" : "#6366f1" }}></div>
+                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Siegquote Spiele</h3>
                       </div>
                       <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
@@ -1601,7 +1653,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {/* Strichdifferenz */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: profileTheme === "green" ? "#10b981" : profileTheme === "blue" ? "#3b82f6" : profileTheme === "purple" ? "#a855f7" : profileTheme === "red" ? "#ef4444" : profileTheme === "yellow" ? "#eab308" : profileTheme === "indigo" ? "#6366f1" : profileTheme === "pink" ? "#f472b6" : profileTheme === "teal" ? "#14b8a6" : "#6366f1" }}></div>
+                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Strichdifferenz</h3>
                       </div>
                       <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
@@ -1651,7 +1703,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {/* Punktdifferenz */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: profileTheme === "green" ? "#10b981" : profileTheme === "blue" ? "#3b82f6" : profileTheme === "purple" ? "#a855f7" : profileTheme === "red" ? "#ef4444" : profileTheme === "yellow" ? "#eab308" : profileTheme === "indigo" ? "#6366f1" : profileTheme === "pink" ? "#f472b6" : profileTheme === "teal" ? "#14b8a6" : "#6366f1" }}></div>
+                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Punktdifferenz</h3>
                       </div>
                       <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
@@ -1701,7 +1753,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {/* Matsch-Bilanz */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: profileTheme === "green" ? "#10b981" : profileTheme === "blue" ? "#3b82f6" : profileTheme === "purple" ? "#a855f7" : profileTheme === "red" ? "#ef4444" : profileTheme === "yellow" ? "#eab308" : profileTheme === "indigo" ? "#6366f1" : profileTheme === "pink" ? "#f472b6" : profileTheme === "teal" ? "#14b8a6" : "#6366f1" }}></div>
+                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Matsch-Bilanz</h3>
                       </div>
                       <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
@@ -1755,7 +1807,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {/* Schneider-Bilanz */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: profileTheme === "green" ? "#10b981" : profileTheme === "blue" ? "#3b82f6" : profileTheme === "purple" ? "#a855f7" : profileTheme === "red" ? "#ef4444" : profileTheme === "yellow" ? "#eab308" : profileTheme === "indigo" ? "#6366f1" : profileTheme === "pink" ? "#f472b6" : profileTheme === "teal" ? "#14b8a6" : "#6366f1" }}></div>
+                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Schneider-Bilanz</h3>
                       </div>
                       <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
@@ -1809,7 +1861,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {/* Kontermatsch-Bilanz */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: profileTheme === "green" ? "#10b981" : profileTheme === "blue" ? "#3b82f6" : profileTheme === "purple" ? "#a855f7" : profileTheme === "red" ? "#ef4444" : profileTheme === "yellow" ? "#eab308" : profileTheme === "indigo" ? "#6366f1" : profileTheme === "pink" ? "#f472b6" : profileTheme === "teal" ? "#14b8a6" : "#6366f1" }}></div>
+                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Kontermatsch-Bilanz</h3>
                       </div>
                       <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">

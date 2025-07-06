@@ -468,11 +468,18 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
   };
 
   return (
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       {/* NEU: GlobalLoader wenn isLoading true ist */}
-      {isLoading && <GlobalLoader message="Jasstafel wird geladen..." />}
+      {isLoading && <GlobalLoader key="global-loader" message="Jasstafel wird geladen..." />}
       
-      <motion.div className="fixed inset-0 flex flex-col items-center justify-center bg-gray-900 bg-opacity-90 z-50 p-4">
+      <motion.div 
+        key="start-screen-content"
+        className="fixed inset-0 flex flex-col items-center justify-center bg-gray-900 bg-opacity-90 z-50 p-4"
+        variants={screenVariants}
+        initial="initial"
+        animate="visible"
+        exit="exit"
+      >
         <div className="relative bg-gray-800 bg-opacity-95 rounded-xl p-6 w-full max-w-xs space-y-6 shadow-lg text-center">
           <button
             onClick={handleCancel}

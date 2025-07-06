@@ -555,7 +555,9 @@ export const syncDisplayNameAcrossCollections = async (
   }
 
   try {
+    if (process.env.NODE_ENV === 'development') {
     console.log(`syncDisplayNameAcrossCollections: Starte Synchronisation für User ${userId}, Player ${playerId} mit DisplayName "${displayName}"`);
+  }
     
     const updates: Promise<any>[] = [];
     
@@ -568,7 +570,11 @@ export const syncDisplayNameAcrossCollections = async (
     
     updates.push(
       setDoc(userDocRef, userUpdate, { merge: true })
-        .then(() => console.log(`User-Dokument ${userId} mit neuem DisplayName aktualisiert.`))
+                  .then(() => {
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`User-Dokument ${userId} mit neuem DisplayName aktualisiert.`);
+            }
+          })
         .catch(e => console.error(`Fehler beim Aktualisieren des User-Dokuments ${userId}:`, e))
     );
     
@@ -581,7 +587,11 @@ export const syncDisplayNameAcrossCollections = async (
     
     updates.push(
       setDoc(playerDocRef, playerUpdate, { merge: true })
-        .then(() => console.log(`Player-Dokument ${playerId} mit neuem DisplayName aktualisiert.`))
+                  .then(() => {
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`Player-Dokument ${playerId} mit neuem DisplayName aktualisiert.`);
+            }
+          })
         .catch(e => console.error(`Fehler beim Aktualisieren des Player-Dokuments ${playerId}:`, e))
     );
     
@@ -610,7 +620,9 @@ export const syncDisplayNameAcrossCollections = async (
             );
           }
         } else {
-          console.log(`Player ${playerId} ist in keiner Gruppe, keine Gruppen-Updates nötig.`);
+          if (process.env.NODE_ENV === 'development') {
+      console.log(`Player ${playerId} ist in keiner Gruppe, keine Gruppen-Updates nötig.`);
+    }
         }
       }
     } catch (groupUpdateError) {
@@ -620,7 +632,9 @@ export const syncDisplayNameAcrossCollections = async (
     
     // Alle Updates parallel ausführen und warten, bis sie abgeschlossen sind
     await Promise.all(updates);
-    console.log(`syncDisplayNameAcrossCollections: Synchronisation für ${userId} / ${playerId} abgeschlossen.`);
+          if (process.env.NODE_ENV === 'development') {
+        console.log(`syncDisplayNameAcrossCollections: Synchronisation für ${userId} / ${playerId} abgeschlossen.`);
+      }
     
   } catch (error) {
     console.error("Fehler bei der Synchronisation des DisplayName:", error);

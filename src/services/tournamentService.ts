@@ -1054,7 +1054,9 @@ export const fetchTournamentsForUser = async (
     querySnapshot.forEach((doc) => {
       instances.push({ id: doc.id, ...doc.data() } as TournamentInstance);
     });
-    console.log(`[tournamentService] Fetched ${instances.length} tournament instances for user ${userId}.`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[tournamentService] Fetched ${instances.length} tournament instances for user ${userId}.`);
+    }
     return instances;
   } catch (error) {
     console.error(`[tournamentService] Error fetching tournaments for user ${userId}:`, error);

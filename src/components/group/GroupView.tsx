@@ -304,12 +304,44 @@ export const GroupView: React.FC<GroupViewProps> = ({
       'green': '#059669',    // emerald-600 (Standard Tailwind)
       'blue': '#2563eb',     // blue-600 (Standard Tailwind)
       'purple': '#9333ea',   // purple-600 (Standard Tailwind)
-      'red': '#dc2626',      // red-600 (Standard Tailwind)
       'yellow': '#ca8a04',   // yellow-600 (Standard Tailwind, konsistent mit Theme)
-      'indigo': '#4f46e5',   // indigo-600 (Standard Tailwind)
-      'teal': '#0d9488'      // teal-600 (Standard Tailwind)
+      'teal': '#0d9488',     // teal-600 (Standard Tailwind)
+      'orange': '#ea580c',   // orange-600 (Standard Tailwind)
+      'cyan': '#0891b2',     // cyan-600 (Standard Tailwind)
     };
     return colorMap[themeKey] || '#ca8a04'; // Fallback zu Standard-Gelb (yellow-600)
+  };
+
+  // Hilfsfunktion für Hex-Farben
+  const getHexColor = (themeKey: string): string => {
+    const hexColorMap: Record<string, string> = {
+      'green': '#10b981',
+      'blue': '#3b82f6',
+      'purple': '#a855f7',
+      'pink': '#ec4899',
+      'yellow': '#eab308',
+      'teal': '#14b8a6',
+      'orange': '#f97316',
+      'cyan': '#06b6d4',
+    };
+    
+    return hexColorMap[themeKey] || hexColorMap.blue;
+  };
+
+  // Hilfsfunktion für Glow-Farben
+  const getGlowColor = (themeKey: string): string => {
+    const glowColorMap: Record<string, string> = {
+      'green': 'rgba(16, 185, 129, 0.2)',
+      'blue': 'rgba(59, 130, 246, 0.2)',
+      'purple': 'rgba(168, 85, 247, 0.2)',
+      'pink': 'rgba(236, 72, 153, 0.2)',
+      'yellow': 'rgba(234, 179, 8, 0.2)',
+      'teal': 'rgba(20, 184, 166, 0.2)',
+      'orange': 'rgba(249, 115, 22, 0.2)',
+      'cyan': 'rgba(6, 182, 212, 0.2)',
+    };
+    
+    return glowColorMap[themeKey] || glowColorMap.blue;
   };
 
   // 🎨 NEU: Theme-basierte Styling-Utilities
@@ -346,14 +378,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
         text: 'text-purple-400',
         accent: 'bg-purple-500/10'
       },
-      red: { 
-        primary: '#dc2626', 
-        primaryRgb: '220, 38, 38', 
-        border: 'border-red-500/60', 
-        glow: 'shadow-red-500/20',
-        text: 'text-red-400',
-        accent: 'bg-red-500/10'
-      },
       yellow: { 
         primary: '#ca8a04', 
         primaryRgb: '202, 138, 4', 
@@ -362,13 +386,21 @@ export const GroupView: React.FC<GroupViewProps> = ({
         text: 'text-yellow-400',
         accent: 'bg-yellow-500/10'
       },
-      indigo: { 
-        primary: '#4f46e5', 
-        primaryRgb: '79, 70, 229', 
-        border: 'border-indigo-500/60', 
-        glow: 'shadow-indigo-500/20',
-        text: 'text-indigo-400',
-        accent: 'bg-indigo-500/10'
+      orange: { 
+        primary: '#f97316', 
+        primaryRgb: '249, 115, 22', 
+        border: 'border-orange-500/60', 
+        glow: 'shadow-orange-500/20',
+        text: 'text-orange-400',
+        accent: 'bg-orange-500/10'
+      },
+      cyan: { 
+        primary: '#06b6d4', 
+        primaryRgb: '6, 182, 212', 
+        border: 'border-cyan-500/60', 
+        glow: 'shadow-cyan-500/20',
+        text: 'text-cyan-400',
+        accent: 'bg-cyan-500/10'
       },
       pink: { 
         primary: '#ec4899', 
@@ -388,7 +420,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
       }
     };
     
-    return themeColorMap[themeKey] || themeColorMap.indigo; // Fallback zu Indigo
+    return themeColorMap[themeKey] || themeColorMap.blue; // Fallback zu Blau
   };
 
   const themeStyles = useMemo(() => getThemeStyles(groupTheme), [groupTheme]);
@@ -426,7 +458,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
       <MainLayout>
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
           <Image src="/welcome-guru.png" alt="Jassguru Logo" width={150} height={150} className="mb-8"/>
-          <h1 className="text-3xl font-bold mb-3 text-center">Willkommen bei Jassguru!</h1>
+                        <h1 className="text-3xl font-bold mb-3 text-center">Willkommen bei jassguru.ch!</h1>
           <p className="text-gray-400 mb-6 text-center max-w-md">
             Du bist noch keiner Gruppe beigetreten. Erstelle eine neue Gruppe oder gib hier einen Einladungscode ein, um loszulegen.
           </p>
@@ -528,28 +560,10 @@ export const GroupView: React.FC<GroupViewProps> = ({
           <div 
             className={`relative w-32 h-32 rounded-full overflow-hidden transition-all duration-300 flex items-center justify-center bg-gray-800 shadow-lg hover:shadow-xl hover:scale-105 border-4`}
             style={{
-              borderColor: previewUrl ? 'rgba(147, 51, 234, 1)' : (
-                groupTheme === 'green' ? '#059669' :
-                groupTheme === 'blue' ? '#2563eb' :
-                groupTheme === 'purple' ? '#9333ea' :
-                groupTheme === 'red' ? '#dc2626' :
-                groupTheme === 'yellow' ? '#ca8a04' :
-                groupTheme === 'indigo' ? '#4f46e5' :
-                groupTheme === 'pink' ? '#ec4899' :
-                groupTheme === 'teal' ? '#0d9488' : '#6366f1'
-              ),
+              borderColor: previewUrl ? 'rgba(147, 51, 234, 1)' : getHexColor(groupTheme),
               boxShadow: previewUrl 
                 ? '0 0 25px rgba(147, 51, 234, 0.3)'
-                : `0 0 20px ${
-                    groupTheme === 'green' ? 'rgba(5, 150, 105, 0.2)' :
-                    groupTheme === 'blue' ? 'rgba(37, 99, 235, 0.2)' :
-                    groupTheme === 'purple' ? 'rgba(147, 51, 234, 0.2)' :
-                    groupTheme === 'red' ? 'rgba(220, 38, 38, 0.2)' :
-                    groupTheme === 'yellow' ? 'rgba(202, 138, 4, 0.2)' :
-                    groupTheme === 'indigo' ? 'rgba(79, 70, 229, 0.2)' :
-                    groupTheme === 'pink' ? 'rgba(236, 72, 153, 0.2)' :
-                    groupTheme === 'teal' ? 'rgba(13, 148, 136, 0.2)' : 'rgba(99, 102, 241, 0.2)'
-                  }, 0 4px 20px rgba(0,0,0,0.3)`
+                : `0 0 20px ${getGlowColor(groupTheme)}, 0 4px 20px rgba(0,0,0,0.3)`
             }}
           >
             {previewUrl ? (
@@ -599,7 +613,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
           >
             {currentGroup?.name ?? 'Keine Gruppe ausgewählt'}
           </h1>
-          <div className="text-sm text-gray-400 mx-auto max-w-xl break-words mt-3">
+          <div className="text-base text-gray-300 mx-auto max-w-xl break-words mt-3">
             <FormattedDescription 
               description={currentGroup?.description} 
               className="mx-auto" 

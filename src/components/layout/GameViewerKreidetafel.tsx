@@ -285,7 +285,7 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
   }, [gameData.games]);
 
   const onShareClick = () => {
-    const shareText = '\n\👉 https://jassguru.ch'; 
+    const shareText = '\n\👉 jassguru.ch'; 
     const elementsToHide = ['#screenshot-hide-dots']; // NEU: Nur noch Dots ausblenden, Total-Zeile soll mit
     // Die Query für das Wurzelelement und den scrollbaren Inhalt
     // NEU: Das `splitLongImage`-Flag auf `true` setzen und die auszublendenden Elemente übergeben

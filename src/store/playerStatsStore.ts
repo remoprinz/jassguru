@@ -114,7 +114,9 @@ export const usePlayerStatsStore = create<PlayerStatsState & PlayerStatsActions>
 
     unsubscribePlayerStats: () => {
       const currentUnsubscribe = get().activeListenerUnsubscribe;
+      if (process.env.NODE_ENV === 'development') {
       console.log("[PlayerStatsStore] Attempting to unsubscribe.", currentUnsubscribe ? "Listener found." : "No active listener.");
+    }
       if (currentUnsubscribe) {
         currentUnsubscribe();
       }

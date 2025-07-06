@@ -93,6 +93,12 @@ export default function Home() {
       <div className="flex flex-col items-center justify-start min-h-screen bg-gray-900 text-white p-4 pt-8">
         <WelcomeScreen />
         
+        <div className="text-center mb-8">
+          <p className="text-lg text-gray-300">
+            Deine digitale Jasstafel
+          </p>
+        </div>
+        
         {/* Public Groups Section */}
         <div className="w-full max-w-md mt-8">
           <h2 className="text-2xl font-bold mb-4 flex items-center">

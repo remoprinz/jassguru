@@ -64,7 +64,7 @@ export const FormattedDescription: React.FC<FormattedDescriptionProps> = ({
         
         // Zeile mit Text und Links rendern
         return (
-          <p key={`line-${lineIndex}`} className="text-sm text-gray-400">
+          <p key={`line-${lineIndex}`} className="text-base text-gray-300">
             {parts.length > 0 ? parts : line}
           </p>
         );

@@ -155,11 +155,17 @@ interface FirestoreGroup {
 
 const PublicSessionPage = () => {
   const router = useRouter();
-  const { sessionId } = router.query;
+  const sessionId = router.query.sessionId as string;
 
+  // Debug: Log the sessionId
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔍 [SessionView] sessionId from router:', sessionId);
+  }
+
+  // Session-Daten Zustand
   const [sessionData, setSessionData] = useState<any>(null);
   const [completedGames, setCompletedGames] = useState<CompletedGameSummary[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // 🚨 INTELLIGENTE ZURÜCK-NAVIGATION (an den Anfang verschoben)
@@ -211,60 +217,57 @@ const PublicSessionPage = () => {
   }, [router, sessionData?.groupId]); // sessionData.groupId als Abhängigkeit hinzufügen
 
   useEffect(() => {
-    if (typeof sessionId !== 'string') return;
+    if (!sessionId) {
+      console.log('🔍 [SessionView] No sessionId, returning');
+      return;
+    }
 
-    const loadSession = async () => {
-      setLoading(true);
-      setError(null);
-      setCompletedGames([]);
-      
+    const loadData = async () => {
       try {
-        console.log('🔄 Lade Session:', sessionId);
-        const db = getFirestore(firebaseApp);
+        setIsLoading(true);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔍 [SessionView] Loading session data for sessionId:', sessionId);
+        }
         
-        let sessionSnap;
-        const summaryRef = doc(db, 'jassGameSummaries', sessionId);
-        sessionSnap = await getDoc(summaryRef);
-
-        if (!sessionSnap.exists()) {
-          console.warn(`[PublicSessionPage] Session nicht in 'jassGameSummaries' gefunden. Versuche 'sessions'...`);
-          const sessionRef = doc(db, 'sessions', sessionId);
-          sessionSnap = await getDoc(sessionRef);
-        }
-
-        if (!sessionSnap.exists()) {
-          throw new Error('Jass-Session nicht gefunden.');
-        }
-
-        const data = { id: sessionId, ...sessionSnap.data() } as any;
-        console.log('✅ Session-Zusammenfassung geladen:', data);
-        setSessionData(data);
+        // Session-Hauptdokument laden
+        const sessionDoc = await getDoc(doc(getFirestore(firebaseApp), 'jassGameSummaries', sessionId));
         
-        // 🚨 NEU: Lade die einzelnen Spiele der Session nach
-        console.log('🔄 Lade einzelne Spiele für Session:', sessionId);
-        const games = await fetchAllGamesForSession(sessionId);
-        if (games.length === 0) {
-            // Fallback: Wenn keine Spiele in der Subcollection sind, aber das Hauptdokument da ist (z.B. alte Daten),
-            // dann erstelle ein "Pseudo-Spiel" aus dem Hauptdokument selbst.
-            console.warn(`[PublicSessionPage] Keine Spiele in 'completedGames' gefunden. Erstelle Fallback-Spiel aus Hauptdokument.`);
-            setCompletedGames([data as CompletedGameSummary]);
-        } else {
-            console.log(`✅ ${games.length} Spiele geladen.`);
-            setCompletedGames(games);
+        if (!sessionDoc.exists()) {
+          console.log('🔍 [SessionView] Session document does not exist:', sessionId);
+          setError('Session nicht gefunden');
+          return;
         }
 
-      } catch (err) {
-        console.error('❌ Fehler beim Laden der Session:', err);
-        setError(err instanceof Error ? err.message : 'Unbekannter Fehler beim Laden der Session.');
+        const sessionDataResult = sessionDoc.data();
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔍 [SessionView] Session data loaded:', sessionDataResult);
+        }
+        setSessionData(sessionDataResult);
+
+        // Completed Games laden
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔍 [SessionView] Loading completed games for sessionId:', sessionId);
+        }
+        const completedGamesResult = await fetchAllGamesForSession(sessionId);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔍 [SessionView] Completed games loaded:', completedGamesResult);
+          console.log('🔍 [SessionView] Number of completed games:', completedGamesResult.length);
+        }
+        
+        setCompletedGames(completedGamesResult);
+        setError(null);
+      } catch (error) {
+        console.error('🔍 [SessionView] Error loading data:', error);
+        setError('Fehler beim Laden der Session-Daten');
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
 
-    loadSession();
+    loadData();
   }, [sessionId]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <MainLayout>
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">

@@ -1,13 +1,16 @@
 // Globales Theme-System für die Jasstafel App
 // Hier können Sie die Hauptfarben zentral verwalten
 
-export type ThemeColor = 'green' | 'blue' | 'purple' | 'red' | 'yellow' | 'indigo' | 'pink' | 'teal';
+import { getAuth } from "firebase/auth";
+
+export type ThemeColor = 'green' | 'blue' | 'purple' | 'pink' | 'yellow' | 'teal' | 'orange' | 'cyan';
 
 export interface ProfileThemeConfig {
   primary: string;        // Haupt-Tab-Navigation, Settings-Button
   primaryHover: string;   // Hover-Zustände
   accent: string;         // Balken und Akzente
   profileImage: string;   // ProfileImage-Hintergründe
+  accentHex: string;      // NEU: Hex-Wert für Inline-Styles
 }
 
 // Verfügbare Farbthemen
@@ -17,53 +20,61 @@ export const THEME_COLORS: Record<ThemeColor, ProfileThemeConfig> = {
     primaryHover: 'bg-green-700/80',
     accent: 'bg-green-500',
     profileImage: 'bg-green-600/20',
+    accentHex: '#22c55e', // green-500
   },
   blue: {
     primary: 'bg-blue-600',
     primaryHover: 'bg-blue-700/80',
     accent: 'bg-blue-500',
     profileImage: 'bg-blue-600/20',
+    accentHex: '#3b82f6', // blue-500
   },
   purple: {
     primary: 'bg-purple-600',
     primaryHover: 'bg-purple-700/80',
     accent: 'bg-purple-500',
     profileImage: 'bg-purple-600/20',
-  },
-  red: {
-    primary: 'bg-red-600',
-    primaryHover: 'bg-red-700/80',
-    accent: 'bg-red-500',
-    profileImage: 'bg-red-600/20',
-  },
-  yellow: {
-    primary: 'bg-yellow-600',
-    primaryHover: 'bg-yellow-700/80',
-    accent: 'bg-yellow-500',
-    profileImage: 'bg-yellow-600/20',
-  },
-  indigo: {
-    primary: 'bg-indigo-600',
-    primaryHover: 'bg-indigo-700/80',
-    accent: 'bg-indigo-500',
-    profileImage: 'bg-indigo-600/20',
+    accentHex: '#a855f7', // purple-500
   },
   pink: {
     primary: 'bg-pink-600',
     primaryHover: 'bg-pink-700/80',
     accent: 'bg-pink-500',
     profileImage: 'bg-pink-600/20',
+    accentHex: '#ec4899', // pink-500
+  },
+  yellow: {
+    primary: 'bg-yellow-600',
+    primaryHover: 'bg-yellow-700/80',
+    accent: 'bg-yellow-500',
+    profileImage: 'bg-yellow-600/20',
+    accentHex: '#eab308', // yellow-500
   },
   teal: {
     primary: 'bg-teal-600',
     primaryHover: 'bg-teal-700/80',
     accent: 'bg-teal-500',
     profileImage: 'bg-teal-600/20',
+    accentHex: '#14b8a6', // teal-500
+  },
+  orange: {
+    primary: 'bg-orange-600',
+    primaryHover: 'bg-orange-700/80',
+    accent: 'bg-orange-500',
+    profileImage: 'bg-orange-600/20',
+    accentHex: '#f97316', // orange-500
+  },
+  cyan: {
+    primary: 'bg-cyan-600',
+    primaryHover: 'bg-cyan-700/80',
+    accent: 'bg-cyan-500',
+    profileImage: 'bg-cyan-600/20',
+    accentHex: '#06b6d4', // cyan-500
   },
 };
 
 // Aktuelle Theme-Farbe (Standard)
-export const CURRENT_PROFILE_THEME: ThemeColor = 'indigo';
+export const CURRENT_PROFILE_THEME: ThemeColor = 'blue';
 
 // Dynamische Theme-Funktion, die Firebase UND localStorage berücksichtigt
 export const getCurrentProfileTheme = (userProfileTheme?: string | null): ThemeColor => {
@@ -167,7 +178,8 @@ export const listAvailableThemes = (): void => {
    - 'purple'  (violett, schön für Premium-Look)
    - 'red'     (kräftig)
    - 'yellow'  (fröhlich)
-   - 'indigo'  (tiefblau)
+   - 'orange'  (orange)
+- 'cyan'    (cyan)
    - 'pink'    (rosa)
    - 'teal'    (blaugrün)
 

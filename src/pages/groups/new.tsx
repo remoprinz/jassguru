@@ -196,14 +196,20 @@ const CreateGroupPage: React.FC = () => {
 
     try {
       // Step 1: Create the group document and get the full object
+      if (process.env.NODE_ENV === 'development') {
       console.log("CreateGroupPage: Attempting to create group document...");
+    }
       newGroup = await createGroup(user.uid, user.displayName, data.groupName);
-      console.log(`CreateGroupPage: Group document ${newGroup?.id} created successfully.`);
+              if (process.env.NODE_ENV === 'development') {
+          console.log(`CreateGroupPage: Group document ${newGroup?.id} created successfully.`);
+        }
 
       // Füge die neue Gruppe direkt zum Store hinzu
       if (newGroup) { 
         addUserGroup(newGroup); 
-        console.log(`CreateGroupPage: Added new group ${newGroup.id} to store.`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`CreateGroupPage: Added new group ${newGroup.id} to store.`);
+        }
       }
 
       // Step 2: Upload logo if selected
@@ -229,9 +235,13 @@ const CreateGroupPage: React.FC = () => {
 
       // Step 3: Update lastActiveGroupId in Firestore and set current group in store
       if (newGroup?.id) {
-        console.log(`CreateGroupPage: Calling setCurrentGroup for new group ${newGroup.id}...`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`CreateGroupPage: Calling setCurrentGroup for new group ${newGroup.id}...`);
+        }
         setCurrentGroup(newGroup as any); 
-        console.log(`CreateGroupPage: setCurrentGroup für ${newGroup.id} aufgerufen.`);
+                  if (process.env.NODE_ENV === 'development') {
+            console.log(`CreateGroupPage: setCurrentGroup für ${newGroup.id} aufgerufen.`);
+          }
       }
 
       // Step 4: NICHT MEHR NÖTIG - Reload user groups and navigate

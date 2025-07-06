@@ -33,10 +33,12 @@ export const JasspunkteStatistik: React.FC<StatisticProps> = ({
   // Debug-Logging
   useEffect(() => {
     if (games && games.length > 0) {
-      console.log(`JasspunkteStatistik: Geladen mit ${games.length} Spielen`);
-      console.log("Aktives Spiel:", currentGameId);
-      const gameIds = games.map(g => 'gameNumber' in g ? g.gameNumber : g.id);
-      console.log("Spiel-IDs in der Liste:", gameIds);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`JasspunkteStatistik: Geladen mit ${games.length} Spielen`);
+        console.log("Aktives Spiel:", currentGameId);
+        const gameIds = games.map(g => 'gameNumber' in g ? g.gameNumber : g.id);
+        console.log("Spiel-IDs in der Liste:", gameIds);
+      }
     }
   }, [games, currentGameId]);
 

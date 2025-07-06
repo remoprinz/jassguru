@@ -545,17 +545,17 @@ const groupStoreCreator: StateCreator<
       // --- Update lokalen State ---
       set(state => produce(state, (draft: GroupStore) => {
         if (draft.currentGroup) {
-           console.log(`[updateMemberRole] Updating local state for group ${draft.currentGroup.id}. Current adminIds:`, [...draft.currentGroup.adminIds]); // LOGGING
+           // Local state update für Admin-Rolle
           if (role === 'admin') {
             if (!draft.currentGroup.adminIds.includes(targetUserId)) {
               draft.currentGroup.adminIds.push(targetUserId);
-              console.log(`[updateMemberRole] Added ${targetUserId} to local adminIds.`); // LOGGING
+              // Admin-Rolle hinzugefügt
             }
           } else {
             const initialLength = draft.currentGroup.adminIds.length;
             draft.currentGroup.adminIds = draft.currentGroup.adminIds.filter(id => id !== targetUserId);
             if (draft.currentGroup.adminIds.length < initialLength) {
-                 console.log(`[updateMemberRole] Removed ${targetUserId} from local adminIds.`); // LOGGING
+                 // Admin-Rolle entfernt
             }
           }
         }

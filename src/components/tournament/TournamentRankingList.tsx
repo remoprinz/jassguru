@@ -64,11 +64,12 @@ const TournamentRankingList: React.FC<TournamentRankingListProps> = ({
               totals[playerUid].score += detail.scoreInPasse || 0;
               totals[playerUid].weis += detail.weisInPasse || 0;
 
-              // Berechne die Summe der Striche für diese Passe
+              // KORRIGIERT: Verwende Team-Striche statt individuelle Spieler-Striche
               let stricheSumInPasse = 0;
-              if (detail.stricheInPasse && typeof detail.stricheInPasse === 'object') {
-                // Summiere alle Werte im StricheRecord auf
-                stricheSumInPasse = Object.values(detail.stricheInPasse).reduce((sum, val) => sum + (val || 0), 0);
+              if (detail.team && game.teamStrichePasse && game.teamStrichePasse[detail.team]) {
+                const teamStriche = game.teamStrichePasse[detail.team];
+                // Summiere alle Team-Striche auf (jeder Spieler im Team bekommt die gleichen Striche)
+                stricheSumInPasse = Object.values(teamStriche).reduce((sum, val) => sum + (val || 0), 0);
               }
               // Addiere zur Gesamtzahl der Striche
               totals[playerUid].striche += stricheSumInPasse;

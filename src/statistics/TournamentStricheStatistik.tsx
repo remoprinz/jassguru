@@ -61,10 +61,11 @@ export const TournamentStricheStatistik: React.FC<TournamentStricheStatistikProp
           if (playerId && stats[playerId]) { 
             playersInThisPasse.add(playerId); // Spieler hat an dieser Passe teilgenommen
 
-            // Aggregiere die Daten
+            // KORRIGIERT: Verwende Team-Striche statt individuelle Spieler-Striche
             let stricheSumInPasse = 0;
-            if (detail.stricheInPasse && typeof detail.stricheInPasse === 'object') {
-              stricheSumInPasse = Object.values(detail.stricheInPasse).reduce((sum, val) => sum + (val || 0), 0);
+            if (detail.team && passe.teamStrichePasse && passe.teamStrichePasse[detail.team]) {
+              const teamStriche = passe.teamStrichePasse[detail.team];
+              stricheSumInPasse = Object.values(teamStriche).reduce((sum, val) => sum + (val || 0), 0);
             }
             stats[playerId].totalStriche += stricheSumInPasse;
             stats[playerId].totalScore += detail.scoreInPasse || 0;

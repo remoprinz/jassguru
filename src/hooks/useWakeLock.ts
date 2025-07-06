@@ -12,14 +12,17 @@ export function useWakeLock(type: WakeLockType = "screen") {
         const lock = await navigator.wakeLock.request(type);
         setWakeLock(lock);
         setIsLocked(true);
-        if (type === "screen") {
+        // Wake Lock erfolgreich aktiviert (nur in Development-Modus loggen)
+        if (type === "screen" && process.env.NODE_ENV === 'development') {
           console.log("✅ Wake Lock aktiviert - Bildschirm bleibt aktiv", {type, timestamp: new Date().toISOString()});
         }
-      } else {
+      } else if (process.env.NODE_ENV === 'development') {
         console.warn("Wake Lock API wird nicht unterstützt", {timestamp: new Date().toISOString()});
       }
     } catch (err: any) {
-      console.error(`Konnte ${type} Wake Lock nicht aktivieren:`, err.name, err.message);
+      if (process.env.NODE_ENV === 'development') {
+        console.error(`Konnte ${type} Wake Lock nicht aktivieren:`, err.name, err.message);
+      }
     }
   };
 
@@ -29,10 +32,14 @@ export function useWakeLock(type: WakeLockType = "screen") {
         .then(() => {
           setWakeLock(null);
           setIsLocked(false);
-          console.log("Wake Lock deaktiviert", {timestamp: new Date().toISOString()});
+          if (process.env.NODE_ENV === 'development') {
+            console.log("Wake Lock deaktiviert", {timestamp: new Date().toISOString()});
+          }
         })
         .catch((err) => {
-          console.error("Wake Lock konnte nicht deaktiviert werden:", err, {timestamp: new Date().toISOString()});
+          if (process.env.NODE_ENV === 'development') {
+            console.error("Wake Lock konnte nicht deaktiviert werden:", err, {timestamp: new Date().toISOString()});
+          }
         });
     }
   };

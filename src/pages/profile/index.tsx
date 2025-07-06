@@ -63,6 +63,7 @@ const ProfilePage: React.FC = () => {
   const showNotification = useUIStore((state) => state.showNotification);
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [inputKey, setInputKey] = useState(Date.now()); // ✅ Force re-render für iOS Safari
 
   const [activeMainTab, setActiveMainTab] = useState("stats");
   const [activeStatsSubTab, setActiveStatsSubTab] = useState("individual");
@@ -326,9 +327,24 @@ const ProfilePage: React.FC = () => {
     if (files && files.length > 0) {
       const originalFile = files[0];
 
+      // ✅ Erweiterte Bild-Validierung
       if (!originalFile.type.startsWith("image/")) {
         showNotification({
-          message: "Bitte wählen Sie eine Bilddatei aus (JPEG oder PNG).",
+          message: "Bitte wählen Sie eine Bilddatei aus (JPEG, PNG, WebP oder GIF).",
+          type: "error",
+        });
+        return;
+      }
+
+      // ✅ Spezifische Bildformat-Prüfung (inkl. iOS HEIC/HEIF)
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif'];
+      const fileExtension = originalFile.name.toLowerCase().split('.').pop();
+      const isValidType = allowedTypes.includes(originalFile.type.toLowerCase()) || 
+                         ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif'].includes(fileExtension || '');
+      
+      if (!isValidType) {
+        showNotification({
+          message: "Unterstützte Formate: JPEG, PNG, WebP, GIF, HEIC",
           type: "error",
         });
         return;
@@ -343,19 +359,137 @@ const ProfilePage: React.FC = () => {
         return;
       }
 
+      // ✅ Minimale Dateigröße prüfen (verhindert korrupte Dateien)
+      if (originalFile.size < 100) {
+        showNotification({
+          message: "Die Bilddatei ist zu klein oder beschädigt.",
+          type: "error",
+        });
+        return;
+      }
+
       clearAuthError();
 
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
-      if (imageToCrop) URL.revokeObjectURL(imageToCrop);
-      setImageToCrop(null);
+      // ✅ Cleanup von vorherigen URLs
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+        setPreviewUrl(null);
+      }
+      if (imageToCrop) {
+        URL.revokeObjectURL(imageToCrop);
+        setImageToCrop(null);
+      }
       setOriginalFileForCrop(null);
 
-      setOriginalFileForCrop(originalFile);
+      try {
+        // ✅ Debug-Logging für Entwicklung
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[ProfileUpload] Validiere Bild:', {
+            name: originalFile.name,
+            type: originalFile.type,
+            size: `${(originalFile.size / 1024).toFixed(2)} KB`,
+            lastModified: new Date(originalFile.lastModified).toISOString(),
+            isHEIC: originalFile.type.includes('heic') || originalFile.name.toLowerCase().includes('.heic'),
+            userAgent: navigator.userAgent
+          });
+        }
 
-      const objectUrl = URL.createObjectURL(originalFile);
-      setImageToCrop(objectUrl);
-      setCropModalOpen(true);
+        // ✅ Spezielle Behandlung für iOS HEIC/HEIF Dateien
+        const isAppleFormat = originalFile.type.includes('heic') || originalFile.type.includes('heif') || 
+                             originalFile.name.toLowerCase().includes('.heic') || originalFile.name.toLowerCase().includes('.heif');
+        
+        if (isAppleFormat) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[ProfileUpload] Apple HEIC/HEIF Format erkannt, verwende erweiterte Validierung');
+          }
+          
+          // Für HEIC-Dateien weniger strenge Validierung, da Browser-Support variiert
+          showNotification({
+            message: "HEIC-Format erkannt. Falls Probleme auftreten, versuchen Sie es mit einem JPEG-Format.",
+            type: "info",
+          });
+        }
+
+        // ✅ Versuche das Bild zu laden und zu validieren
+        const imageValidation = await new Promise<boolean>((resolve, reject) => {
+          const img = new Image();
+          const tempUrl = URL.createObjectURL(originalFile);
+          
+          img.onload = () => {
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[ProfileUpload] Bild erfolgreich geladen:', {
+                width: img.width,
+                height: img.height,
+                naturalWidth: img.naturalWidth,
+                naturalHeight: img.naturalHeight
+              });
+            }
+            
+            URL.revokeObjectURL(tempUrl);
+            // ✅ Prüfe Mindestabmessungen
+            if (img.width < 50 || img.height < 50) {
+              reject(new Error("Das Bild ist zu klein (mindestens 50x50 Pixel erforderlich)."));
+              return;
+            }
+            // ✅ Prüfe maximale Abmessungen
+            if (img.width > 10000 || img.height > 10000) {
+              reject(new Error("Das Bild ist zu groß (maximal 10000x10000 Pixel)."));
+              return;
+            }
+            resolve(true);
+          };
+          
+          img.onerror = (error) => {
+            if (process.env.NODE_ENV === 'development') {
+              console.error('[ProfileUpload] Fehler beim Laden des Bildes:', error);
+            }
+            URL.revokeObjectURL(tempUrl);
+            reject(new Error("Das Bild konnte nicht geladen werden. Möglicherweise ist die Datei beschädigt."));
+          };
+          
+          // ✅ Timeout für das Laden
+          setTimeout(() => {
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('[ProfileUpload] Timeout beim Laden des Bildes nach 10s');
+            }
+            URL.revokeObjectURL(tempUrl);
+            reject(new Error("Timeout beim Laden des Bildes."));
+          }, 10000);
+          
+          img.src = tempUrl;
+        });
+
+        if (imageValidation) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[ProfileUpload] Bild-Validierung erfolgreich, öffne Crop-Modal');
+          }
+          
+          setOriginalFileForCrop(originalFile);
+
+          // ✅ Erstelle Object URL erst nach erfolgreicher Validierung
+          const objectUrl = URL.createObjectURL(originalFile);
+          setImageToCrop(objectUrl);
+          
+          // ✅ Verzögerung für bessere UX (besonders auf Mobile)
+          setTimeout(() => {
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[ProfileUpload] Öffne Crop-Modal mit URL:', objectUrl.substring(0, 50) + '...');
+            }
+            setCropModalOpen(true);
+          }, 100);
+        }
+      } catch (error) {
+        console.error("Fehler bei der Bildvalidierung:", error);
+        showNotification({
+          message: error instanceof Error ? error.message : "Fehler beim Verarbeiten des Bildes.",
+          type: "error",
+        });
+        
+        // ✅ Reset bei Fehler
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      }
     }
   };
 
@@ -406,10 +540,106 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  // ✅ iOS Safari Workaround: Alternative Input-Erstellung
+  const createFreshInputElement = () => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[ProfileUpload] Erstelle neues Input-Element für iOS Safari');
+    }
+    
+    const newInput = document.createElement('input');
+    newInput.type = 'file';
+    newInput.accept = 'image/jpeg,image/jpg,image/png,image/webp,image/gif,image/heic,image/heif';
+    newInput.capture = 'environment';
+    newInput.style.display = 'none';
+    newInput.multiple = false;
+    
+    // Event-Listener für das neue Element
+    newInput.addEventListener('change', (e) => {
+      const target = e.target as HTMLInputElement;
+      if (target.files && target.files.length > 0) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[ProfileUpload] ✅ iOS Safari Alternative: Datei ausgewählt');
+        }
+        // Simuliere das normale onChange-Event
+        const syntheticEvent = {
+          target: { files: target.files }
+        } as React.ChangeEvent<HTMLInputElement>;
+        handleFileChange(syntheticEvent);
+      }
+      // Cleanup
+      document.body.removeChild(newInput);
+    });
+    
+    // Füge temporär zum DOM hinzu
+    document.body.appendChild(newInput);
+    
+    // Trigger nach kurzer Verzögerung
+    setTimeout(() => {
+      newInput.click();
+    }, 100);
+    
+    // Cleanup-Timeout falls nichts passiert
+    setTimeout(() => {
+      if (document.body.contains(newInput)) {
+        document.body.removeChild(newInput);
+      }
+    }, 30000);
+  };
+
   const handleSelectClick = () => {
     if (isUploading || cropModalOpen) return;
+    
+    // ✅ iOS Safari Workaround: Reset input value vor dem Klick
     if (fileInputRef.current) {
-      fileInputRef.current.click();
+      fileInputRef.current.value = "";
+      
+      // ✅ iOS-spezifische Event-Listener hinzufügen
+      const input = fileInputRef.current;
+      
+      // Fokus-Event für iOS Safari
+      const handleFocus = () => {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[ProfileUpload] Input fokussiert - iOS Safari Workaround aktiv');
+        }
+      };
+      
+      // Cancel-Event für iOS Safari (wenn User "Abbrechen" klickt)
+      const handleCancel = () => {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[ProfileUpload] Foto-Picker abgebrochen');
+        }
+        input.removeEventListener('focus', handleFocus);
+        input.removeEventListener('cancel', handleCancel);
+      };
+      
+      input.addEventListener('focus', handleFocus, { once: true });
+      input.addEventListener('cancel', handleCancel, { once: true });
+      
+      // ✅ Trigger mit Verzögerung für iOS Safari
+      setTimeout(() => {
+        input.click();
+      }, 50);
+      
+      // ✅ Nach 3 Sekunden Input-Key erneuern falls kein Event kommt
+      setTimeout(() => {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[ProfileUpload] iOS Safari Fallback: Erneuere Input-Element');
+        }
+        setInputKey(Date.now());
+      }, 3000);
+      
+      // ✅ Nach 5 Sekunden alternative Methode versuchen (nur auf iOS)
+      setTimeout(() => {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        
+        if (isIOS) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[ProfileUpload] iOS Safari Ultimate Fallback: Alternative Input-Erstellung');
+          }
+          createFreshInputElement();
+        }
+      }, 5000);
     }
   };
 
@@ -557,10 +787,11 @@ const ProfilePage: React.FC = () => {
       cropModalOpen={cropModalOpen}
       imageToCrop={imageToCrop}
       handleFileChange={handleFileChange}
-      handleCropComplete={handleCropComplete}
-      handleSelectClick={handleSelectClick}
-      theme={theme}
-      profileTheme={profileTheme}
+              handleCropComplete={handleCropComplete}
+        handleSelectClick={handleSelectClick}
+        inputKey={inputKey}
+        theme={theme}
+        profileTheme={profileTheme}
     />
   );
 };

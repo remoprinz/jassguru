@@ -73,9 +73,11 @@ const TournamentKreidetafel: React.FC<TournamentKreidetafelProps> = ({ instanceI
             if (playerUid && totals[playerUid] && detail) {
               totals[playerUid].score += detail.scoreInPasse || 0;
 
+              // KORRIGIERT: Verwende Team-Striche statt individuelle Spieler-Striche
               let stricheSumInPasse = 0;
-              if (detail.stricheInPasse && typeof detail.stricheInPasse === 'object') {
-                stricheSumInPasse = Object.values(detail.stricheInPasse).reduce((sum, val) => sum + (val || 0), 0);
+              if (detail.team && game.teamStrichePasse && game.teamStrichePasse[detail.team]) {
+                const teamStriche = game.teamStrichePasse[detail.team];
+                stricheSumInPasse = Object.values(teamStriche).reduce((sum, val) => sum + (val || 0), 0);
               }
               totals[playerUid].striche += stricheSumInPasse;
 
@@ -147,8 +149,10 @@ const TournamentKreidetafel: React.FC<TournamentKreidetafelProps> = ({ instanceI
 
                 if (playerDetailInPasse) {
                   passeScore = playerDetailInPasse.scoreInPasse || 0;
-                  if (playerDetailInPasse.stricheInPasse && typeof playerDetailInPasse.stricheInPasse === 'object') {
-                    passeStricheCount = Object.values(playerDetailInPasse.stricheInPasse).reduce((sum, val) => sum + (val || 0), 0);
+                  // KORRIGIERT: Verwende Team-Striche für konsistente Anzeige
+                  if (playerDetailInPasse.team && game.teamStrichePasse && game.teamStrichePasse[playerDetailInPasse.team]) {
+                    const teamStriche = game.teamStrichePasse[playerDetailInPasse.team];
+                    passeStricheCount = Object.values(teamStriche).reduce((sum, val) => sum + (val || 0), 0);
                   }
                 }
                 return (

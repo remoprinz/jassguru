@@ -40,7 +40,6 @@ const syncLocalStorageWithStore = (): void => {
 export const shouldShowiOSScreenLockWarning = (): boolean => {
   // Nur auf iOS-Geräten anzeigen
   if (!isIOS()) {
-    console.log('🚫 [iOS Notification] Nicht auf iOS - keine Warnung');
     return false;
   }
   
@@ -50,19 +49,12 @@ export const shouldShowiOSScreenLockWarning = (): boolean => {
   // Verwende uiStore als Single Source of Truth
   const shouldShow = useUIStore.getState().shouldShowIOSNotification();
   
-  console.log('🤔 [iOS Notification] Soll Warnung anzeigen?', {
-    key: IOS_SCREEN_LOCK_WARNING_KEY,
-    shouldShow,
-    uiState: useUIStore.getState().iosNotification,
-    APP_VERSION
-  });
+  // iOS Notification Status ermittelt
   
   return shouldShow;
 };
 
 export const markiOSScreenLockWarningAsShown = (): void => {
-  console.log('💾 [iOS Notification] Speichere Ausblendung dauerhaft...');
-  
   try {
     // 1. localStorage für Persistierung zwischen App-Starts
     localStorage.setItem(IOS_SCREEN_LOCK_WARNING_KEY, 'true');
@@ -70,12 +62,10 @@ export const markiOSScreenLockWarningAsShown = (): void => {
     // 2. uiStore für aktuelle Session
     useUIStore.getState().setIOSNotificationDontShowAgain(true);
     
-    // Verifikation
-    const verification = localStorage.getItem(IOS_SCREEN_LOCK_WARNING_KEY);
-    console.log('✅ [iOS Notification] localStorage + uiStore erfolgreich gesetzt:', verification);
-    
   } catch (error) {
-    console.error('❌ [iOS Notification] Fehler beim Speichern:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ [iOS Notification] Fehler beim Speichern:', error);
+    }
   }
 };
 
@@ -94,7 +84,7 @@ export const createSimpleiOSScreenLockNotification = (
     type: 'info' as const,
     message: `💡 iOS Tipp: Bildschirmsperre deaktivieren
 
-🔧 Einfache Lösung:
+🔧 Schnelle Lösung:
 Einstellungen > Anzeige & Helligkeit
 > Automatische Sperre > Nie
 

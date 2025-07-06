@@ -218,7 +218,9 @@ export const fetchAllGamesForSession = async (sessionId: string): Promise<Comple
     console.error("[fetchAllGamesForSession] sessionId is required.");
     return [];
   }
-  console.log(`[fetchAllGamesForSession] Fetching games for session: ${sessionId}`);
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[fetchAllGamesForSession] Fetching games for session: ${sessionId}`);
+  }
 
   try {
     const db = getFirestore(firebaseApp);
@@ -251,7 +253,9 @@ export const fetchAllGamesForSession = async (sessionId: string): Promise<Comple
       } as CompletedGameSummary);
     });
 
-    console.log(`[fetchAllGamesForSession] Found ${games.length} games for session: ${sessionId}.`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[fetchAllGamesForSession] Found ${games.length} games for session: ${sessionId}.`);
+    }
     return games;
   } catch (error) {
     console.error(`[fetchAllGamesForSession] Error fetching games for session ${sessionId}:`, error);

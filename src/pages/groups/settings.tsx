@@ -87,7 +87,7 @@ const GroupSettingsPage = () => {
   const [tempScoreSettings, setTempScoreSettings] = useState<ScoreSettings>(DEFAULT_SCORE_SETTINGS);
   const [tempStrokeSettings, setTempStrokeSettings] = useState<StrokeSettings>(DEFAULT_STROKE_SETTINGS);
   const [tempFarbeSettings, setTempFarbeSettings] = useState<FarbeSettings>(DEFAULT_FARBE_SETTINGS);
-  const [tempTheme, setTempTheme] = useState<ThemeColor>('indigo'); // NEU: State für Theme
+  const [tempTheme, setTempTheme] = useState<ThemeColor>('pink'); // NEU: State für Theme
 
   // === STATE für Input Buffer ===
   const [tempInput, setTempInput] = useState<{[key in ScoreMode]?: string}>({});
@@ -220,7 +220,7 @@ const GroupSettingsPage = () => {
        setTempScoreSettings(scoreSettings);
        setTempStrokeSettings(strokeSettings);
        setTempFarbeSettings(farbeSettings);
-       setTempTheme((currentGroup.theme as ThemeColor) || 'indigo'); // NEU: Theme laden oder Default
+       setTempTheme((currentGroup.theme as ThemeColor) || 'pink'); // NEU: Theme laden oder Default
  
        // Reset Input-Buffer
       setTempInput({}); 
@@ -236,7 +236,7 @@ const GroupSettingsPage = () => {
        setTempScoreSettings(DEFAULT_SCORE_SETTINGS);
        setTempStrokeSettings(DEFAULT_STROKE_SETTINGS);
        setTempFarbeSettings(DEFAULT_FARBE_SETTINGS);
-       setTempTheme('indigo'); // NEU: Theme zurücksetzen
+       setTempTheme('pink'); // NEU: Theme zurücksetzen
      }
   }, [currentGroup]);
 
@@ -351,7 +351,7 @@ const GroupSettingsPage = () => {
                                 finalFarbeSettings.cardStyle !== currentCardStyle;
 
     // NEU: Theme-Änderung prüfen
-    const themeChanged = tempTheme !== ((currentGroup.theme as ThemeColor) || 'indigo');
+    const themeChanged = tempTheme !== ((currentGroup.theme as ThemeColor) || 'pink');
 
     let success = true;
     let errorMsg = "";
@@ -454,7 +454,7 @@ const GroupSettingsPage = () => {
                                Object.keys(tempFarbeInput).length > 0;
 
     // Kombinierte Prüfung: Basis ODER Jass ODER Buffer ODER Theme geändert
-    const hasAnyChanges = hasBasicChanges || hasJassChanges || hasBufferedChanges || (tempTheme !== ((currentGroup.theme as ThemeColor) || 'indigo'));
+    const hasAnyChanges = hasBasicChanges || hasJassChanges || hasBufferedChanges || (tempTheme !== ((currentGroup.theme as ThemeColor) || 'pink'));
 
     setPageCta({
       isVisible: true,
@@ -545,44 +545,22 @@ const GroupSettingsPage = () => {
       const inviteLink = `${APP_BASE_URL}/join?token=${token}`;
       const inviterName = user.displayName || user.email || 'Jemand';
       
-      // --- Verbesserter Share-Text (wie in InviteModal.tsx) ---
-      const titleText = "**Du wurdest zu Jassguru eingeladen**";
+      // ✅ OPTIMIERTE EINLADUNG - Personalisiert und ohne großes Bild
+      const titleText = "Du wurdest zu jassguru.ch eingeladen! ✌️";
       const bodyText = `${inviterName} lädt dich ein, der Jassgruppe "${currentGroup.name}" beizutreten.`;
-      const linkText = `👉 Hier beitreten:`; // Link wird separat über URL-Feld übertragen
+      const linkText = `👉 Hier beitreten:`;
       const shareText = `${titleText}\n\n${bodyText}\n\n${linkText}`;
       
-      // --- App-Icon laden (dezenter als großes Bild) ---
-      let imageFile: File | null = null;
-      try {
-        const response = await fetch('/apple-touch-icon.png');
-        if (response.ok) {
-          const blob = await response.blob();
-          imageFile = new File([blob], 'jassguru-icon.png', { type: blob.type || 'image/png' });
-          console.log("Settings: App-Icon für Teilen geladen.");
-        } else {
-          console.error("Settings: App-Icon konnte nicht geladen werden:", response.statusText);
-        }
-      } catch (fetchError) {
-        console.error("Settings: Fehler beim Laden des App-Icons:", fetchError);
-      }
-
-      // --- Elegante Share-Implementierung (wie in InviteModal.tsx) ---
+      // ✅ KEIN BILD MEHR - Nur Text-basierte Einladung für saubere Link-Vorschau
       if (typeof window !== 'undefined' && 'share' in navigator) {
         try {
           const shareData: ShareData = {
-            title: `Du wurdest zu Jassguru eingeladen`, // Titel als Metadaten
+            title: `Einladung zur Jassgruppe "${currentGroup.name}"`, // Titel als Metadaten
             text: shareText,
             url: inviteLink, // URL für korrekte Share-Funktion
           };
 
-          // Bild hinzufügen, falls unterstützt
-          if (imageFile && navigator.canShare && navigator.canShare({ files: [imageFile] })) {
-            shareData.files = [imageFile];
-            console.log("Settings: Versuche Teilen mit Bild.");
-          } else {
-            console.log("Settings: Bild nicht verfügbar oder Teilen von Files nicht unterstützt.");
-          }
-
+          // ✅ KEIN imageFile mehr - dadurch wird die Link-Vorschau kleiner und sauberer
           await navigator.share(shareData);
           console.log("Settings: Einladung erfolgreich geteilt!");
           showNotification({ message: "Einladung erfolgreich geteilt!", type: "success" });
@@ -885,11 +863,11 @@ const GroupSettingsPage = () => {
       green: { name: "Grün", description: "" },
       blue: { name: "Blau", description: "" },
       purple: { name: "Lila", description: "" },
-      red: { name: "Rot", description: "" },
-      yellow: { name: "Gelb", description: "" },
-      indigo: { name: "Indigo", description: "" },
       pink: { name: "Pink", description: "" },
+      yellow: { name: "Gelb", description: "" },
       teal: { name: "Türkis", description: "" },
+      orange: { name: "Orange", description: "" },
+      cyan: { name: "Cyan", description: "" },
     };
 
     return (

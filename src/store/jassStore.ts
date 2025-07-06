@@ -295,7 +295,9 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
   },
 
   startJass: async (config) => {
-    console.log("[JassStore.startJass] Async starting new Jass with config:", JSON.parse(JSON.stringify(config)));
+    if (process.env.NODE_ENV === 'development') {
+      console.log("[JassStore.startJass] Async starting new Jass with config:", JSON.parse(JSON.stringify(config)));
+    }
     const {
       playerNames,
       initialStartingPlayer,
@@ -314,10 +316,14 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
       scoreSettings: initialSettings?.scoreSettings ?? DEFAULT_SCORE_SETTINGS,
       strokeSettings: initialSettings?.strokeSettings ?? DEFAULT_STROKE_SETTINGS,
     };
-    console.log("[JassStore.startJass] Schritt 1 - Basis-Settings (aus initialSettings oder Defaults):", JSON.parse(JSON.stringify(baseSettings)));
+    if (process.env.NODE_ENV === 'development') {
+      console.log("[JassStore.startJass] Schritt 1 - Basis-Settings (aus initialSettings oder Defaults):", JSON.parse(JSON.stringify(baseSettings)));
+    }
 
     if (tournamentSettings && tournamentSettings.farbeSettings && tournamentSettings.scoreSettings && tournamentSettings.strokeSettings) {
-      console.log("[JassStore.startJass] Schritt 2 - Turnier-Settings erkannt, werden als Basis verwendet.");
+      if (process.env.NODE_ENV === 'development') {
+        console.log("[JassStore.startJass] Schritt 2 - Turnier-Settings erkannt, werden als Basis verwendet.");
+      }
       baseSettings = {
         farbeSettings: tournamentSettings.farbeSettings,
         scoreSettings: tournamentSettings.scoreSettings,
@@ -329,7 +335,9 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
     let finalSettingsForGameStore = { ...baseSettings };
 
     if (groupId) {
-      console.log(`[JassStore.startJass] Schritt 3 - Gruppe ${groupId} vorhanden. Lade Gruppen-Einstellungen.`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[JassStore.startJass] Schritt 3 - Gruppe ${groupId} vorhanden. Lade Gruppen-Einstellungen.`);
+      }
       try {
         const db = getFirestore(firebaseApp);
         const groupDocRef = doc(db, 'groups', groupId);
@@ -608,7 +616,7 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
           status: 'completed',
           lastUpdated: serverTimestamp(),
         }, { merge: true });
-        console.log(`[JassStore.finalizeGame] ✅ ActiveGame ${currentGame.activeGameId} als completed markiert`);
+
 
         // 2. Spiel in completedGames Collection speichern
         const completedGameData: CompletedGameSummary = {
@@ -635,7 +643,6 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
 
         const completedGameRef = doc(db, 'jassGameSummaries', state.currentSession.id, 'completedGames', String(currentGame.id));
         await setDoc(completedGameRef, sanitizeDataForFirestore(completedGameData));
-        console.log(`[JassStore.finalizeGame] ✅ Spiel ${currentGame.id} in completedGames gespeichert`);
 
         // 3. Session currentActiveGameId auf null setzen
         const sessionRef = doc(db, 'sessions', state.currentSession.id);
@@ -643,7 +650,6 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
           currentActiveGameId: null,
           lastUpdated: serverTimestamp(),
         }, { merge: true });
-        console.log(`[JassStore.finalizeGame] ✅ Session currentActiveGameId auf null gesetzt`);
 
       } catch (error) {
         console.error("[JassStore.finalizeGame] ❌ Firestore-Update fehlgeschlagen:", error);
@@ -665,9 +671,7 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
   },
 
   resetJass: () => {
-    console.log("Resetting Jass Store...");
     get().sessionUnsubscribe?.(); 
-    console.log("Existing session subscription cancelled (if any).");
     set({ ...initialJassState }); 
   },
 
@@ -695,11 +699,7 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
             strokeSettings: sessionData.currentStrokeSettings,
           });
           
-          console.log("[jassStore] ✅ KRITISCH: Session-Einstellungen SOFORT an gameStore übertragen:", {
-            farbeCardStyle: sessionData.currentFarbeSettings.cardStyle,
-            scoreWerte: sessionData.currentScoreSettings.values,
-            strokeSchneider: sessionData.currentStrokeSettings.schneider
-          });
+
         } else {
           console.warn("[jassStore] ⚠️ Session-Dokument hat unvollständige Settings:", {
             hasFarbeSettings: !!sessionData.currentFarbeSettings,
@@ -730,7 +730,7 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
           } as JassSession
         }));
 
-        console.log(`[jassStore] Session-Update verarbeitet. Neue activeGameId: ${sessionData.currentActiveGameId ?? 'null'}, participantPlayerIds erhalten: ${preservedParticipantPlayerIds.length} IDs`);
+
       } else {
         console.warn(`[jassStore] Session-Dokument ${sessionId} nicht gefunden.`);
       }
@@ -760,7 +760,6 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
   clearActiveGameForSession: (sessionId: string) => {
     set((state) => {
       if (state.currentSession && state.currentSession.id === sessionId) {
-        console.log(`[JassStore] Clearing activeGameId for session ${sessionId}`);
         return {
           ...state,
           activeGameId: null,
@@ -836,7 +835,7 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
         loadRoundsFromFirestore(gameIdToLoad)
           .then((loadedRounds) => {
             const finalHistoryIndex = loadedRounds.length - 1;
-            console.log(`[JassStore] Loaded ${loadedRounds.length} rounds from Firestore for game ${gameIdToLoad}. Setting index to ${finalHistoryIndex}`);
+
             
             set((state) => {
               const updatedGame = {

@@ -97,7 +97,7 @@ const JassFinishNotification: React.FC = () => {
       }
 
       const shareText = typeof message === "string" ? message : message.text;
-      const appUrl = "https://jassguru.web.app";
+      const appUrl = "jassguru.ch";
       const fullShareText = `${shareText}\n\nGeneriert mit 👉 ${appUrl}`;
 
       // Überprüfen ob Web Share API verfügbar ist

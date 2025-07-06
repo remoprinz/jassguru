@@ -23,6 +23,7 @@ import { processPendingInviteToken } from '../lib/handlePendingInvite';
 import { PLAYERS_COLLECTION, USERS_COLLECTION } from "@/constants/firestore";
 import { getPlayerIdForUser, syncDisplayNameAcrossCollections } from "../services/playerService";
 import Router from 'next/router';
+import { THEME_COLORS } from '@/config/theme';
 
 interface AuthState {
   status: AuthStatus;
@@ -55,6 +56,10 @@ type AuthStore = AuthState & AuthActions;
 
 let userDocUnsubscribe: Unsubscribe | null = null;
 let playerDocUnsubscribe: Unsubscribe | null = null;
+let authInitTimeout: NodeJS.Timeout | null = null;
+
+// 🔧 Migration-Lock um Endlosschleifen zu verhindern
+const migrationLocks = new Map<string, boolean>();
 
 export const useAuthStore = create<AuthStore>()(
   persist(
@@ -113,7 +118,9 @@ export const useAuthStore = create<AuthStore>()(
           // *** NEU: Nickname-Einzigartigkeitsprüfung ***
           if (displayName) {
             try {
-              console.log(`AUTH_STORE: Prüfe Nickname-Verfügbarkeit für: ${displayName}`);
+              if (process.env.NODE_ENV === 'development') {
+      console.log(`AUTH_STORE: Prüfe Nickname-Verfügbarkeit für: ${displayName}`);
+    }
               const playersRef = collection(db, PLAYERS_COLLECTION);
               // Beachte Gross-/Kleinschreibung bei der Abfrage!
               // Wenn Gross-/Kleinschreibung egal sein soll, muss man anders vorgehen (z.B. kleingeschriebenes Feld speichern).
@@ -123,7 +130,9 @@ export const useAuthStore = create<AuthStore>()(
                 console.warn(`AUTH_STORE: Nickname "${displayName}" ist bereits vergeben.`);
                 throw new Error("NICKNAME_TAKEN"); // Spezifischer Fehlercode
               }
-              console.log(`AUTH_STORE: Nickname "${displayName}" ist verfügbar.`);
+              if (process.env.NODE_ENV === 'development') {
+          console.log(`AUTH_STORE: Nickname "${displayName}" ist verfügbar.`);
+        }
             } catch (error: any) {
                if (error.message === "NICKNAME_TAKEN") {
                   throw error; // Spezifischen Fehler direkt weiterwerfen
@@ -149,7 +158,9 @@ export const useAuthStore = create<AuthStore>()(
           if (displayName) {
              try {
                await updateProfile(firebaseUser, { displayName });
-               console.log(`AUTH_STORE: Auth profile updated for ${firebaseUser.uid} with displayName: ${displayName}`);
+               if (process.env.NODE_ENV === 'development') {
+          console.log(`AUTH_STORE: Auth profile updated for ${firebaseUser.uid} with displayName: ${displayName}`);
+        }
              } catch (profileError) {
                console.error(`AUTH_STORE: Fehler beim Setzen des DisplayName für ${firebaseUser.uid}:`, profileError);
                // Optional: Fehler behandeln, aber Registrierung fortsetzen?
@@ -170,7 +181,9 @@ export const useAuthStore = create<AuthStore>()(
           };
           try {
             await setDoc(userDocRef, minimalUserData, { merge: true });
-            console.log(`AUTH_STORE: User document created/updated with email and displayName for ${firebaseUser.uid}`);
+            if (process.env.NODE_ENV === 'development') {
+          console.log(`AUTH_STORE: User document created/updated with email and displayName for ${firebaseUser.uid}`);
+        }
           } catch (setDocError) {
             console.error(`AUTH_STORE: Fehler beim initialen setDoc für User ${firebaseUser.uid}:`, setDocError);
             // Dieser Fehler sollte die Registrierung nicht unbedingt blockieren, da der User in Auth existiert.
@@ -181,7 +194,9 @@ export const useAuthStore = create<AuthStore>()(
           if (!playerId) {
             console.error(`AUTH_STORE: Konnte keine Player-ID für User ${firebaseUser.uid} erstellen/finden`);
           } else {
-            console.log(`AUTH_STORE: Player-ID ${playerId} für User ${firebaseUser.uid} gefunden/erstellt`);
+            if (process.env.NODE_ENV === 'development') {
+          console.log(`AUTH_STORE: Player-ID ${playerId} für User ${firebaseUser.uid} gefunden/erstellt`);
+        }
             
             // Schritt 5: NEU - Synchronisiere DisplayName und E-Mail über alle Collections
             try {
@@ -190,7 +205,9 @@ export const useAuthStore = create<AuthStore>()(
                 playerId,
                 displayName || `Jassguru ${firebaseUser.uid.substring(0, 4)}`
               );
-              console.log(`AUTH_STORE: DisplayName und E-Mail erfolgreich synchronisiert`);
+              if (process.env.NODE_ENV === 'development') {
+          console.log(`AUTH_STORE: DisplayName und E-Mail erfolgreich synchronisiert`);
+        }
             } catch (syncError) {
               console.error(`AUTH_STORE: Fehler bei der Synchronisation von DisplayName/Email:`, syncError);
               // Fehler hier nicht weiterwerfen, da der User trotzdem erstellt wurde
@@ -200,13 +217,17 @@ export const useAuthStore = create<AuthStore>()(
           // Schritt 6: Verifizierungs-E-Mail senden
           try {
               await sendEmailVerification(firebaseUser);
-              console.log(`AUTH_STORE: Verification email sent to ${email}`);
+              if (process.env.NODE_ENV === 'development') {
+          console.log(`AUTH_STORE: Verification email sent to ${email}`);
+        }
           } catch (verificationError) {
               console.error(`AUTH_STORE: Fehler beim Senden der Verifizierungs-E-Mail an ${email}:`, verificationError);
           }
           
           // State sollte von onAuthStateChanged aktualisiert werden, der auf die Auth-Änderung reagiert
+          if (process.env.NODE_ENV === 'development') {
           console.log(`AUTH_STORE: Registration completed successfully for ${email}`);
+        }
         } catch (error) {
           let errorMessage = "Ein unbekannter Fehler ist aufgetreten";
           if (error instanceof Error) {
@@ -325,7 +346,9 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       clearGuestStatus: () => {
-        console.log('[AuthStore] clearGuestStatus called');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[AuthStore] clearGuestStatus called');
+        }
         // Setzt nur den Gaststatus zurück und ggf. den App-Modus,
         // beeinflusst aber nicht den angemeldeten User oder Auth-Status direkt.
         set(state => {
@@ -334,7 +357,9 @@ export const useAuthStore = create<AuthStore>()(
           }
           return {}; // Keine Änderung, wenn nicht Gast
         });
-        console.log('[AuthStore] Guest status cleared:', get());
+                  if (process.env.NODE_ENV === 'development') {
+            console.log('[AuthStore] Guest status cleared:', get());
+          }
       },
 
       isAuthenticated: () => {
@@ -416,8 +441,20 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       initAuth: () => {
+        if (authInitTimeout) clearTimeout(authInitTimeout);
         set({status: "loading"});
+
+        // NEU: Watchdog-Timer, um ein Hängenbleiben von onAuthStateChanged zu verhindern
+        authInitTimeout = setTimeout(() => {
+          if (get().status === 'loading') {
+            console.error('AUTH_STORE: Watchdog-Alarm! onAuthStateChanged hat nicht innerhalb von 10s geantwortet. Breche ab und setze auf unauthenticated.');
+            set({ status: 'unauthenticated', error: "Die Authentifizierung hat zu lange gedauert. Prüfe deine Internetverbindung und versuche es erneut." });
+          }
+        }, 10000); // 10 Sekunden Timeout
+
         const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+          if (authInitTimeout) clearTimeout(authInitTimeout); // WICHTIG: Watchdog stoppen, da der Listener erfolgreich war
+
           if (userDocUnsubscribe) userDocUnsubscribe();
           if (playerDocUnsubscribe) playerDocUnsubscribe();
           userDocUnsubscribe = null;
@@ -497,10 +534,84 @@ export const useAuthStore = create<AuthStore>()(
               userDocUnsubscribe = onSnapshot(userRef, async (docSnap) => {
                 if (docSnap.exists()) {
                   const userData = docSnap.data();
-                  // Mappt jetzt Firebase Auth User + Firestore Daten
-                  const mappedUser = mapUserToAuthUser(firebaseUser, userData as Partial<FirestorePlayer>);
+                  let migratedData = {...userData}; // Kopie für potenzielle Migration
+                  let needsUpdate = false;
+
+                  // 🔧 Migration-Lock prüfen - verhindert Endlosschleifen
+                  const migrationKey = `${firebaseUser.uid}_migration`;
+                  if (migrationLocks.get(migrationKey)) {
+                    if (process.env.NODE_ENV === 'development') {
+                      console.log(`AUTH_STORE: Migration bereits aktiv für User ${firebaseUser.uid}. Überspringe.`);
+                    }
+                    // Nur State aktualisieren, keine Migration
+                    const mappedUser = mapUserToAuthUser(firebaseUser, migratedData as Partial<FirestorePlayer>);
+                    set({user: mappedUser, status: "authenticated"});
+                    return;
+                  }
+
+                  // Self-Healing-Logik für veraltete Datenstrukturen
+                  if (migratedData.preferences && typeof migratedData.preferences === 'object') {
+                    if (process.env.NODE_ENV === 'development') {
+                      console.log(`AUTH_STORE: Veraltete "preferences" Struktur für User ${firebaseUser.uid} gefunden. Starte Migration.`);
+                    }
+                    if (migratedData.preferences.theme) {
+                      migratedData.profileTheme = migratedData.preferences.theme;
+                      // Das alte 'light' Theme gilt nicht als echtes Theme
+                      if (migratedData.profileTheme === 'light') {
+                        delete migratedData.profileTheme;
+                      }
+                    }
+                    delete migratedData.preferences; // WICHTIG: Altes Objekt jetzt definitiv entfernen
+                    needsUpdate = true;
+                  }
+
+                  // Sicherstellen, dass die E-Mail im Firestore-Dokument vorhanden ist
+                  if (!migratedData.email && firebaseUser.email) {
+                    if (process.env.NODE_ENV === 'development') {
+          console.log(`AUTH_STORE: Fehlendes "email" Feld für User ${firebaseUser.uid}. Füge es hinzu.`);
+        }
+                    migratedData.email = firebaseUser.email;
+                    needsUpdate = true;
+                  }
+
+                  // Zufälliges Farbthema zuweisen, falls keines vorhanden ist (oder 'light' war)
+                  if (!migratedData.profileTheme) {
+                    const availableThemes = Object.keys(THEME_COLORS);
+                    const randomTheme = availableThemes[Math.floor(Math.random() * availableThemes.length)];
+                    if (process.env.NODE_ENV === 'development') {
+                      console.log(`AUTH_STORE: Kein Profilthema für User ${firebaseUser.uid} gefunden. Weise zufälliges Thema zu: ${randomTheme}`);
+                    }
+                    migratedData.profileTheme = randomTheme;
+                    needsUpdate = true;
+                  }
                   
-                  // --- NEU: Player Nickname Synchronisation ---
+                  // Führe das Update nur aus, wenn es nötig ist
+                  if (needsUpdate) {
+                    // 🔧 Migration-Lock setzen
+                    migrationLocks.set(migrationKey, true);
+                    
+                    try {
+                      await updateDoc(userRef, migratedData);
+                      if (process.env.NODE_ENV === 'development') {
+                        console.log(`AUTH_STORE: User-Dokument ${firebaseUser.uid} erfolgreich migriert/geheilt.`);
+                      }
+                    } catch (migrationError) {
+                      console.error(`AUTH_STORE: Fehler bei der automatischen Datenmigration für User ${firebaseUser.uid}:`, migrationError);
+                    } finally {
+                      // 🔧 Migration-Lock nach 2 Sekunden entfernen
+                      setTimeout(() => {
+                        migrationLocks.delete(migrationKey);
+                        if (process.env.NODE_ENV === 'development') {
+                          console.log(`AUTH_STORE: Migration-Lock für User ${firebaseUser.uid} entfernt.`);
+                        }
+                      }, 2000);
+                    }
+                  }
+
+                  // Mappt jetzt Firebase Auth User + Firestore Daten (mit den migrierten Daten)
+                  const mappedUser = mapUserToAuthUser(firebaseUser, migratedData as Partial<FirestorePlayer>);
+                  
+                  // --- Player Nickname Synchronisation ---
                   if (mappedUser.playerId && mappedUser.displayName) {
                      try {
                          const playerRef = doc(db, PLAYERS_COLLECTION, mappedUser.playerId);
@@ -517,7 +628,7 @@ export const useAuthStore = create<AuthStore>()(
                          // Fehler hier ist nicht kritisch für den Auth-Fluss, nur loggen.
                      }
                   }
-                  // --- ENDE NEU ---
+                  // --- ENDE Player Nickname Synchronisation ---
 
                   // Aktualisiert das initial gesetzte 'user'-Objekt mit den vollständigen Daten
                   set({user: mappedUser, status: "authenticated"});
@@ -577,6 +688,11 @@ export const useAuthStore = create<AuthStore>()(
             set({user: null, firebaseUser: null, status: "unauthenticated", isGuest: get().isGuest});
             useGroupStore.getState().resetGroupStore();
           }
+        }, (error) => {
+            // NEU: Fehlerbehandlung für den onAuthStateChanged-Listener selbst
+            if (authInitTimeout) clearTimeout(authInitTimeout);
+            console.error('AUTH_STORE: Kritischer Fehler im onAuthStateChanged-Listener:', error);
+            set({ status: 'error', error: 'Ein kritischer Fehler bei der Authentifizierung ist aufgetreten.' });
         });
       },
       clearError: () => {

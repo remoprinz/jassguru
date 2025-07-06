@@ -61,7 +61,9 @@ export function LoginForm() {
       if (loggedInUser) {
         if (loggedInUser.emailVerified) {
           setTimeout(() => {
-            console.log("[LoginForm] Verzögerte Navigation: Status=", useAuthStore.getState().status);
+            if (process.env.NODE_ENV === 'development') {
+          console.log("[LoginForm] Verzögerte Navigation: Status=", useAuthStore.getState().status);
+        }
             
             const tournamentToken = getTournamentToken();
             const groupToken = getGroupToken();
@@ -95,7 +97,9 @@ export function LoginForm() {
     try {
       await loginWithGoogle();
       setTimeout(() => {
-        console.log("[LoginForm] Verzögerte Navigation (Google): Status=", useAuthStore.getState().status);
+        if (process.env.NODE_ENV === 'development') {
+          console.log("[LoginForm] Verzögerte Navigation (Google): Status=", useAuthStore.getState().status);
+        }
         
         const tournamentToken = getTournamentToken();
         const groupToken = getGroupToken();

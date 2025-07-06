@@ -1161,7 +1161,9 @@ export const useUIStore = create<UIState & UIActions>()(
           if (initialLength === finalLength) {
             console.warn(`[UIStore] Attempted to remove notification ${id} but it was not found in the list`);
           } else {
-            console.log(`[UIStore] Successfully removed notification ${id}. Count: ${initialLength} -> ${finalLength}`);
+            if (process.env.NODE_ENV === 'development') {
+        console.log(`[UIStore] Successfully removed notification ${id}. Count: ${initialLength} -> ${finalLength}`);
+      }
           }
         });
       },

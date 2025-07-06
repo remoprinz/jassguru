@@ -156,14 +156,20 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   };
 
   const handleLogin = () => {
-    console.log("[WelcomeScreen] handleLogin: Navigiere zur Login-Seite...");
+    if (process.env.NODE_ENV === 'development') {
+      console.log("[WelcomeScreen] handleLogin: Navigiere zur Login-Seite...");
+    }
     if (onLogin) onLogin();
     
     // Gast-Status über Store-Aktion zurücksetzen - falls möglich
     try {
-      console.log("[WelcomeScreen] handleLogin: Versuche clearGuestStatus...");
+      if (process.env.NODE_ENV === 'development') {
+        console.log("[WelcomeScreen] handleLogin: Versuche clearGuestStatus...");
+      }
       clearGuestStatus();
-      console.log("[WelcomeScreen] handleLogin: clearGuestStatus aufgerufen. Neuer Status (direkt danach):", useAuthStore.getState().isGuest);
+              if (process.env.NODE_ENV === 'development') {
+          console.log("[WelcomeScreen] handleLogin: clearGuestStatus aufgerufen. Neuer Status (direkt danach):", useAuthStore.getState().isGuest);
+        }
     } catch (err) {
       console.error("[WelcomeScreen] Fehler beim Zurücksetzen des Gaststatus:", err);
       // Fortfahren, auch wenn es fehlschlägt
@@ -174,7 +180,9 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       try {
         const targetQuery = { ...router.query };
         // Direkt push, keine debounce oder sonstige Wrapper-Funktionen
-        console.log("[WelcomeScreen] handleLogin: Direkte Navigation zu /auth/login");
+        if (process.env.NODE_ENV === 'development') {
+          console.log("[WelcomeScreen] handleLogin: Direkte Navigation zu /auth/login");
+        }
         
         // Im PWA-Kontext zusätzliche Verzögerung und einfachere Navigation
         if (isPWA()) {
@@ -194,13 +202,19 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   };
 
   const handleRegister = () => {
-    console.log("[WelcomeScreen] handleRegister: Navigiere zur Registrierungs-Seite...");
+    if (process.env.NODE_ENV === 'development') {
+      console.log("[WelcomeScreen] handleRegister: Navigiere zur Registrierungs-Seite...");
+    }
     
     // Gast-Status über Store-Aktion zurücksetzen - falls möglich
     try {
-      console.log("[WelcomeScreen] handleRegister: Versuche clearGuestStatus...");
+              if (process.env.NODE_ENV === 'development') {
+          console.log("[WelcomeScreen] handleRegister: Versuche clearGuestStatus...");
+        }
       clearGuestStatus();
-      console.log("[WelcomeScreen] handleRegister: clearGuestStatus aufgerufen. Neuer Status (direkt danach):", useAuthStore.getState().isGuest);
+              if (process.env.NODE_ENV === 'development') {
+          console.log("[WelcomeScreen] handleRegister: clearGuestStatus aufgerufen. Neuer Status (direkt danach):", useAuthStore.getState().isGuest);
+        }
     } catch (err) {
       console.error("[WelcomeScreen] Fehler beim Zurücksetzen des Gaststatus:", err);
       // Fortfahren, auch wenn es fehlschlägt
@@ -210,7 +224,9 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     setTimeout(() => {
       try {
         const targetQuery = { ...router.query };
-        console.log("[WelcomeScreen] handleRegister: Direkte Navigation zu /auth/register");
+        if (process.env.NODE_ENV === 'development') {
+          console.log("[WelcomeScreen] handleRegister: Direkte Navigation zu /auth/register");
+        }
         
         // Im PWA-Kontext einfachere Navigation
         if (isPWA()) {
@@ -286,7 +302,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               ) : (
                 <div className="text-left">
                   <div className="mb-4">
-                    Jassen gehört an den Tisch – die Resultate in die offizielle Bilanz. Mit der digitalen Jasstafel erfasst du jede Runde automatisch für dich, deine Freunde und bald die ganze Liga.
+                    Jassen gehört an den Tisch – Resultate in die App. Mit der digitalen Jasstafel erfasst du jede Runde automatisch für dich, deine Freunde und bald die ganze Liga.
                   </div>
                   <div className="space-y-2 text-sm">
                     <div>
@@ -363,13 +379,19 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                 <a 
                   onClick={(e) => {
                     e.preventDefault();
-                    console.log("[WelcomeScreen] Link-Klick: Navigiere zur Registrierungs-Seite (Link)...");
+                    if (process.env.NODE_ENV === 'development') {
+                      console.log("[WelcomeScreen] Link-Klick: Navigiere zur Registrierungs-Seite (Link)...");
+                    }
                     
                     // Gast-Status über Store-Aktion zurücksetzen - falls möglich
                     try {
-                      console.log("[WelcomeScreen] Link-Klick: Versuche clearGuestStatus...");
+                      if (process.env.NODE_ENV === 'development') {
+                        console.log("[WelcomeScreen] Link-Klick: Versuche clearGuestStatus...");
+                      }
                       clearGuestStatus();
-                      console.log("[WelcomeScreen] Link-Klick: clearGuestStatus aufgerufen. Neuer Status (direkt danach):", useAuthStore.getState().isGuest);
+                      if (process.env.NODE_ENV === 'development') {
+                        console.log("[WelcomeScreen] Link-Klick: clearGuestStatus aufgerufen. Neuer Status (direkt danach):", useAuthStore.getState().isGuest);
+                      }
                     } catch (err) {
                       console.error("[WelcomeScreen] Fehler beim Zurücksetzen des Gaststatus (Link):", err);
                       // Fortfahren, auch wenn es fehlschlägt
@@ -401,13 +423,19 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                 <a 
                   onClick={(e) => {
                     e.preventDefault();
-                    console.log("[WelcomeScreen] Link-Klick: Navigiere zur Login-Seite (Link)...");
+                    if (process.env.NODE_ENV === 'development') {
+                      console.log("[WelcomeScreen] Link-Klick: Navigiere zur Login-Seite (Link)...");
+                    }
                     
                     // Gast-Status über Store-Aktion zurücksetzen - falls möglich
                     try {
-                      console.log("[WelcomeScreen] Link-Klick: Versuche clearGuestStatus...");
+                      if (process.env.NODE_ENV === 'development') {
+                        console.log("[WelcomeScreen] Link-Klick: Versuche clearGuestStatus...");
+                      }
                       clearGuestStatus();
-                      console.log("[WelcomeScreen] Link-Klick: clearGuestStatus aufgerufen. Neuer Status (direkt danach):", useAuthStore.getState().isGuest);
+                      if (process.env.NODE_ENV === 'development') {
+                        console.log("[WelcomeScreen] Link-Klick: clearGuestStatus aufgerufen. Neuer Status (direkt danach):", useAuthStore.getState().isGuest);
+                      }
                     } catch (err) {
                       console.error("[WelcomeScreen] Fehler beim Zurücksetzen des Gaststatus (Link):", err);
                       // Fortfahren, auch wenn es fehlschlägt
@@ -439,7 +467,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         </motion.div>
 
         <div className="mb-6 text-gray-500 text-sm text-center">
-          &copy; {new Date().getFullYear()} Jassguru - Alle Rechte vorbehalten
+                              &copy; {new Date().getFullYear()} jassguru.ch - Alle Rechte vorbehalten
         </div>
       </div>
     </div>

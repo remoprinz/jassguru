@@ -87,18 +87,26 @@ export const calculateEventCounts = (gameSummary: CompletedGameSummary): EventCo
         if (strichInfo.type === 'matsch') {
           if (teamKey === 'bottom') {
             bottomEvents.matsch++;
-            console.log(`[calculateEventCounts] MATSCH für bottom gefunden in Runde ${index}`);
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`[calculateEventCounts] MATSCH für bottom gefunden in Runde ${index}`);
+            }
           } else if (teamKey === 'top') {
             topEvents.matsch++;
-            console.log(`[calculateEventCounts] MATSCH für top gefunden in Runde ${index}`);
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`[calculateEventCounts] MATSCH für top gefunden in Runde ${index}`);
+            }
           }
         } else if (strichInfo.type === 'kontermatsch') {
           if (teamKey === 'bottom') {
             bottomEvents.kontermatsch++;
-            console.log(`[calculateEventCounts] KONTERMATSCH für bottom gefunden in Runde ${index}`);
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`[calculateEventCounts] KONTERMATSCH für bottom gefunden in Runde ${index}`);
+            }
           } else if (teamKey === 'top') {
             topEvents.kontermatsch++;
-            console.log(`[calculateEventCounts] KONTERMATSCH für top gefunden in Runde ${index}`);
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`[calculateEventCounts] KONTERMATSCH für top gefunden in Runde ${index}`);
+            }
           }
         }
       }

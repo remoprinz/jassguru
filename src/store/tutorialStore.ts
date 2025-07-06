@@ -18,19 +18,25 @@ const TUTORIAL_STORAGE_KEY = isDev ? "dev-tutorial-storage" : "jass-tutorial-sto
 const directlyGetHasCompletedTutorial = (): boolean => {
   // Check if we're in the browser (localStorage is available)
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
-    console.log("[TutorialStore] directlyGetHasCompletedTutorial: localStorage nicht verfügbar (SSR)");
+    if (process.env.NODE_ENV === 'development') {
+      console.log("[TutorialStore] directlyGetHasCompletedTutorial: localStorage nicht verfügbar (SSR)");
+    }
     return false;
   }
   
   try {
     const storageData = localStorage.getItem(TUTORIAL_STORAGE_KEY);
     if (!storageData) {
-      console.log("[TutorialStore] directlyGetHasCompletedTutorial: Kein Eintrag im LocalStorage");
+      if (process.env.NODE_ENV === 'development') {
+        console.log("[TutorialStore] directlyGetHasCompletedTutorial: Kein Eintrag im LocalStorage");
+      }
       return false;
     }
     const data = JSON.parse(storageData);
     const hasCompleted = data?.state?.hasCompletedTutorial === true;
-    console.log(`[TutorialStore] directlyGetHasCompletedTutorial: Wert aus LocalStorage = ${hasCompleted}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[TutorialStore] directlyGetHasCompletedTutorial: Wert aus LocalStorage = ${hasCompleted}`);
+    }
     return hasCompleted;
   } catch (error) {
     console.error("[TutorialStore] directlyGetHasCompletedTutorial: Fehler beim Lesen:", error);

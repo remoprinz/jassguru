@@ -2,11 +2,12 @@
 
 // KEIN Store-Import mehr hier!
 
-// Version, die bei jedem Build inkrementiert werden sollte
-const SW_VERSION = 'v2.2.0'; // Muss zur Version im sw-custom.js passen
+// Version wird zentral verwaltet
+import { SW_VERSION } from '@/config/version';
 
 // Globale Variable zur Speicherung der aktuellen Registrierung
 let activeRegistration: ServiceWorkerRegistration | null = null;
+let hasDispatchedInitialUpdate = false; // Verhindert mehrfache Initial-Updates
 
 // Funktion zum Abrufen der aktuellen Registrierung (wird von PwaUpdateHandler verwendet)
 export function getActiveRegistration(): ServiceWorkerRegistration | null {
@@ -16,66 +17,108 @@ export function getActiveRegistration(): ServiceWorkerRegistration | null {
 
 // Helper-Funktion, um das Event auszulösen
 const dispatchUpdateReadyEvent = () => {
-  console.log('[ServiceWorkerRegistration] dispatchUpdateReadyEvent CALLED'); // LOG
+  console.log('[ServiceWorkerRegistration] dispatchUpdateReadyEvent CALLED');
   if (typeof window !== 'undefined') {
     const event = new CustomEvent('swUpdateReady'); 
     window.dispatchEvent(event);
-    console.log('[ServiceWorkerRegistration]', 'Dispatched swUpdateReady event.'); // LOG
+    console.log('[ServiceWorkerRegistration] Dispatched swUpdateReady event.');
   }
 };
 
 // --- Listener-Logik ---
 const setupListenersAndNotify = (registration: ServiceWorkerRegistration) => {
-  console.log('[ServiceWorkerRegistration] setupListenersAndNotify CALLED for scope:', registration.scope); // LOG
-  activeRegistration = registration; // Store the active registration
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[ServiceWorkerRegistration] setupListenersAndNotify CALLED for scope:', registration.scope);
+  }
+  activeRegistration = registration;
   
   // Prüfen, ob bereits ein wartender Worker vorhanden ist
-  if (registration.waiting) {
-    console.log('[ServiceWorkerRegistration]', 'Found waiting worker immediately (state:', registration.waiting.state, '). Dispatching event.'); // LOG
-    dispatchUpdateReadyEvent();
+  // ABER: Nur dispatchen, wenn es sich um einen echten Update handelt
+  if (registration.waiting && !hasDispatchedInitialUpdate) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[ServiceWorkerRegistration] Found waiting worker immediately (state:', registration.waiting.state, '). Checking if it\'s a real update...');
+    }
+    
+    // Prüfe, ob der wartende Worker tatsächlich eine andere Version ist
+    const currentWorker = registration.active;
+    if (currentWorker && currentWorker.scriptURL !== registration.waiting.scriptURL) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[ServiceWorkerRegistration] Different worker versions detected - dispatching update event.');
+      }
+      dispatchUpdateReadyEvent();
+      hasDispatchedInitialUpdate = true;
+    } else {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[ServiceWorkerRegistration] Same worker version - no update needed.');
+      }
+    }
   }
 
   // Lauschen auf neu gefundene Worker (die zu installieren beginnen)
   registration.addEventListener('updatefound', () => {
-    console.log("[ServiceWorkerRegistration] 'updatefound' event FIRED."); // LOG
+    if (process.env.NODE_ENV === 'development') {
+      console.log("[ServiceWorkerRegistration] 'updatefound' event FIRED.");
+    }
     const newWorker = registration.installing;
     if (newWorker) {
-      console.log('[ServiceWorkerRegistration]', 'New worker found during installation:', newWorker); // LOG
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[ServiceWorkerRegistration] New worker found during installation:', newWorker);
+      }
       
       // Lauschen auf den 'statechange' des neuen Workers
       newWorker.addEventListener('statechange', () => {
-        console.log('[ServiceWorkerRegistration]', 'Track new worker state changed:', newWorker.state); // LOG
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[ServiceWorkerRegistration] New worker state changed:', newWorker.state);
+        }
         
         // Event erst auslösen, wenn der Worker installiert ist
         if (newWorker.state === 'installed') {
-           console.log('[ServiceWorkerRegistration]', 'New worker finished installing.'); // LOG
-           dispatchUpdateReadyEvent(); // Dispatch moved here
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[ServiceWorkerRegistration] New worker finished installing.');
+          }
+          
+          // Prüfe, ob es sich um einen echten Update handelt
+          const currentWorker = registration.active;
+          if (currentWorker && currentWorker.scriptURL !== newWorker.scriptURL) {
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[ServiceWorkerRegistration] Real update detected - dispatching event.');
+            }
+            dispatchUpdateReadyEvent();
+          } else {
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[ServiceWorkerRegistration] Same worker version - no update event needed.');
+            }
+          }
         } else if (newWorker.state === 'activated') {
-           console.log('[ServiceWorkerRegistration]', 'New worker activated.'); // LOG
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[ServiceWorkerRegistration] New worker activated.');
+          }
         }
       });
     } else {
-      console.warn("[ServiceWorkerRegistration] 'updatefound' event fired but registration.installing is null."); // LOG
+      if (process.env.NODE_ENV === 'development') {
+        console.warn("[ServiceWorkerRegistration] 'updatefound' event fired but registration.installing is null.");
+      }
     }
   });
 
-  // Log, dass Listener gesetzt wurden
-  console.log('[ServiceWorkerRegistration] Event listeners (updatefound) attached.'); // LOG
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[ServiceWorkerRegistration] Event listeners (updatefound) attached.');
+  }
 };
 // --- Ende Listener-Logik ---
 
 export function register() {
-  console.log('[ServiceWorkerRegistration] register() CALLED');
   const isDevelopment = process.env.NODE_ENV === 'development';
-  // console.log('[ServiceWorkerRegistration]', 'Umgebung:', process.env.NODE_ENV, 'Entwicklungsmodus:', isDevelopment);
+  
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[ServiceWorkerRegistration] register() CALLED');
+  }
   
   if (isDevelopment) {
-    // Simulation im Entwicklungsmodus
-    // console.log('[ServiceWorkerRegistration]', 'Service Worker-Registrierung in der Entwicklungsumgebung übersprungen.');
-    setTimeout(() => {
-      // console.log('[ServiceWorkerRegistration]', 'Simulating swUpdateReady event for development...');
-      dispatchUpdateReadyEvent();
-    }, 5000);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[ServiceWorkerRegistration] Development mode - Service Worker registration skipped.');
+    }
     return;
   }
   
@@ -97,7 +140,9 @@ export function register() {
       swApiAvailable = 'serviceWorker' in navigator;
       // console.log('[ServiceWorkerRegistration] Check \'serviceWorker\' in navigator result:', swApiAvailable);
       if (!swApiAvailable) {
-          console.log('[ServiceWorkerRegistration] Service Worker API not available in navigator. Exiting register().'); // LOG
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[ServiceWorkerRegistration] Service Worker API not available in navigator. Exiting register().');
+          }
           return; 
       }
   } catch (e) {
@@ -108,12 +153,16 @@ export function register() {
   // Funktion zur Registrierung des Service Workers
   const registerServiceWorker = () => {
     const swUrl = `/sw-custom.js?v=${SW_VERSION}`;
-    console.log(`[ServiceWorkerRegistration] Attempting to register Service Worker: ${swUrl}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[ServiceWorkerRegistration] Attempting to register Service Worker: ${swUrl}`);
+    }
     
     navigator.serviceWorker
       .register(swUrl)
       .then((registration) => {
-        console.log('[ServiceWorkerRegistration] Service Worker registered successfully:', registration);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[ServiceWorkerRegistration] Service Worker registered successfully:', registration);
+        }
         setupListenersAndNotify(registration);
       })
       .catch((error) => {
@@ -124,13 +173,19 @@ export function register() {
   // Prüfen, ob 'load' Event bereits abgefeuert wurde
   if (document.readyState === 'complete') {
     // Die Seite ist bereits geladen, sofort registrieren
-    console.log('[ServiceWorkerRegistration] Document already loaded (readyState=complete). Registering immediately.');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[ServiceWorkerRegistration] Document already loaded (readyState=complete). Registering immediately.');
+    }
     registerServiceWorker();
   } else {
     // Noch nicht geladen, auf 'load' Event warten
-    console.log('[ServiceWorkerRegistration] Document not yet loaded. Waiting for load event.');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[ServiceWorkerRegistration] Document not yet loaded. Waiting for load event.');
+    }
     window.addEventListener('load', () => {
-      console.log("[ServiceWorkerRegistration] 'load' event fired. Proceeding with registration.");
+      if (process.env.NODE_ENV === 'development') {
+        console.log("[ServiceWorkerRegistration] 'load' event fired. Proceeding with registration.");
+      }
       registerServiceWorker();
     });
   }

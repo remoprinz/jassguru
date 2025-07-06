@@ -9,7 +9,6 @@ import {useUIStore} from "@/store/uiStore";
 import {useGroupStore} from "@/store/groupStore";
 import MainLayout from "@/components/layout/MainLayout";
 import {getFunctions, httpsCallable, FunctionsErrorCode} from "firebase/functions";
-import type { FirestoreGroup } from "@/types/jass";
 import {FirebaseError} from "firebase/app";
 import {LOCAL_STORAGE_PENDING_INVITE_TOKEN_KEY} from '../constants/appConstants';
 import { Loader2, AlertTriangle, CheckCircle } from "lucide-react";

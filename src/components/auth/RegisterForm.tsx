@@ -62,10 +62,29 @@ export function RegisterForm() {
         successMessage = "Registrierung erfolgreich! Prüfe deine Email (auch Spam-Ordner), um die Gruppen-Einladung abzuschliessen.";
       }
 
+      // ✅ E-Mail-Bestätigung Notification mit verbesserter Sichtbarkeit
       showNotification({
         type: "success",
         message: successMessage,
         preventClose: true,
+        actions: [
+          {
+            label: "Verstanden",
+            onClick: () => {
+              // Navigation erst nach Bestätigung
+              const tournamentToken = getTournamentToken();
+              const groupToken = getGroupToken();
+              
+              if (tournamentToken) {
+                router.push(`/join?tournamentToken=${tournamentToken}`);
+              } else if (groupToken) {
+                router.push(`/join?token=${groupToken}`);
+              } else {
+                router.push("/auth/login");
+              }
+            }
+          }
+        ]
       });
 
       form.reset();
@@ -79,25 +98,51 @@ export function RegisterForm() {
     try {
       await loginWithGoogle();
       
-      // Verzögerte Navigation mit Token-Verarbeitung
-      setTimeout(() => {
-        console.log("[RegisterForm] Verzögerte Navigation (Google): Status=", useAuthStore.getState().status);
-        
-        // Tokens aus Storage lesen
-        const tournamentToken = getTournamentToken();
-        const groupToken = getGroupToken();
-            
-        if (tournamentToken) {
-          console.log("[RegisterForm] Turniertoken im Storage gefunden (Google), leite zu /join weiter:", tournamentToken);
-          router.push(`/join?tournamentToken=${tournamentToken}`);
-        } else if (groupToken) {
-          console.log("[RegisterForm] Gruppentoken im Storage gefunden (Google), leite zu /join weiter:", groupToken);
-          router.push(`/join?token=${groupToken}`);
-        } else {
-          // Standard-Navigation ohne Token
-          router.push("/start");
-        }
-      }, 500);
+      // ✅ Google-Registrierung: Zeige auch E-Mail-Bestätigung falls nötig
+      const loggedInUser = useAuthStore.getState().user;
+      
+      if (loggedInUser && !loggedInUser.emailVerified) {
+        // Google-User aber E-Mail nicht verifiziert - zeige Hinweis
+        showNotification({
+          type: "warning",
+          message: "Bitte bestätige deine E-Mail-Adresse. Prüfe dein Postfach (auch Spam-Ordner).",
+          preventClose: true,
+          actions: [
+            {
+              label: "Verstanden",
+              onClick: () => {
+                router.push("/auth/login");
+              }
+            }
+          ]
+        });
+      } else {
+        // Verzögerte Navigation mit Token-Verarbeitung
+        setTimeout(() => {
+          if (process.env.NODE_ENV === 'development') {
+            console.log("[RegisterForm] Verzögerte Navigation (Google): Status=", useAuthStore.getState().status);
+          }
+          
+          // Tokens aus Storage lesen
+          const tournamentToken = getTournamentToken();
+          const groupToken = getGroupToken();
+              
+          if (tournamentToken) {
+            if (process.env.NODE_ENV === 'development') {
+              console.log("[RegisterForm] Turniertoken im Storage gefunden (Google), leite zu /join weiter:", tournamentToken);
+            }
+            router.push(`/join?tournamentToken=${tournamentToken}`);
+          } else if (groupToken) {
+            if (process.env.NODE_ENV === 'development') {
+              console.log("[RegisterForm] Gruppentoken im Storage gefunden (Google), leite zu /join weiter:", groupToken);
+            }
+            router.push(`/join?token=${groupToken}`);
+          } else {
+            // Standard-Navigation ohne Token
+            router.push("/start");
+          }
+        }, 500);
+      }
       
     } catch (error) {
       console.error("Google-Registrierungsfehler:", error);

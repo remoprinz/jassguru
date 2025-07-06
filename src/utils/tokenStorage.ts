@@ -28,7 +28,9 @@ export const getTournamentToken = (): string | null => {
   try {
     if (typeof window !== 'undefined') {
       const token = sessionStorage.getItem(TOURNAMENT_TOKEN_KEY);
-      console.log('[tokenStorage] Turniertoken gelesen:', token);
+      if (process.env.NODE_ENV === 'development') {
+    console.log('[tokenStorage] Turniertoken gelesen:', token);
+  }
       return token;
     }
   } catch (e) {
@@ -72,7 +74,9 @@ export const getGroupToken = (): string | null => {
   try {
     if (typeof window !== 'undefined') {
       const token = sessionStorage.getItem(GROUP_TOKEN_KEY);
-      console.log('[tokenStorage] Gruppentoken gelesen:', token);
+      if (process.env.NODE_ENV === 'development') {
+    console.log('[tokenStorage] Gruppentoken gelesen:', token);
+  }
       return token;
     }
   } catch (e) {

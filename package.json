@@ -1,7 +1,7 @@
 {
   "name": "jasstafel-frontend",
   "private": true,
-  "version": "2.3.8",
+  "version": "2.5.0",
   "type": "module",
   "scripts": {
     "dev": "NODE_OPTIONS='--inspect' next dev",
@@ -13,7 +13,8 @@
     "preview": "vite preview",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "version:update": "node scripts/update-version.js"
   },
   "engines": {
     "node": ">=18.0.0 <23.0.0",

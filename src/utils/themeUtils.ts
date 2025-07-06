@@ -15,10 +15,10 @@ export const getTabActiveColorFromTheme = (themeKey: string): string => {
     'green': '#059669',    // emerald-600 (Standard Tailwind) 
     'blue': '#2563eb',     // blue-600 (Standard Tailwind)
     'purple': '#9333ea',   // purple-600 (Standard Tailwind)
-    'red': '#dc2626',      // red-600 (Standard Tailwind)
     'yellow': '#ca8a04',   // yellow-600 (Standard Tailwind, konsistent mit Theme)
-    'indigo': '#4f46e5',   // indigo-600 (Standard Tailwind)
-    'teal': '#0d9488'      // teal-600 (Standard Tailwind)
+    'teal': '#0d9488',     // teal-600 (Standard Tailwind)
+    'orange': '#ea580c',   // orange-600 (Standard Tailwind)
+    'cyan': '#0891b2',     // cyan-600 (Standard Tailwind)
   };
   
   return standardTailwind600Colors[themeKey] || '#ca8a04'; // Fallback zu Standard-Gelb (yellow-600)
@@ -33,10 +33,10 @@ export const getHoverColorFromTheme = (themeKey: string): string => {
     'green': '#047857',    // emerald-700
     'blue': '#1d4ed8',     // blue-700
     'purple': '#7c3aed',   // purple-700
-    'red': '#b91c1c',      // red-700
     'yellow': '#a16207',   // yellow-700
-    'indigo': '#3730a3',   // indigo-700
-    'teal': '#0f766e'      // teal-700
+    'teal': '#0f766e',     // teal-700
+    'orange': '#c2410c',   // orange-700
+    'cyan': '#0e7490',     // cyan-700
   };
   
   return standardTailwind700Colors[themeKey] || '#a16207'; // Fallback zu yellow-700
@@ -51,10 +51,10 @@ export const getBorderColorFromTheme = (themeKey: string): string => {
     'green': '#047857',    // emerald-700 für Border
     'blue': '#1d4ed8',     // blue-700 für Border
     'purple': '#7c3aed',   // purple-700 für Border
-    'red': '#b91c1c',      // red-700 für Border
     'yellow': '#a16207',   // yellow-700 für Border
-    'indigo': '#3730a3',   // indigo-700 für Border
-    'teal': '#0f766e'      // teal-700 für Border
+    'teal': '#0f766e',     // teal-700 für Border
+    'orange': '#c2410c',   // orange-700 für Border
+    'cyan': '#0e7490',     // cyan-700 für Border
   };
   
   return standardTailwindBorderColors[themeKey] || '#a16207'; // Fallback zu yellow-700
@@ -82,6 +82,15 @@ export const getThemeColorPalette = (themeKey: string): ThemeColorPalette => ({
  * Type Guard für gültige Theme-Farben
  */
 export const isValidThemeColor = (color: string): color is ThemeColor => {
-  const validColors: ThemeColor[] = ['green', 'blue', 'purple', 'red', 'yellow', 'indigo', 'pink', 'teal'];
+  const validColors: ThemeColor[] = ['green', 'blue', 'purple', 'pink', 'yellow', 'teal', 'orange', 'cyan'];
   return validColors.includes(color as ThemeColor);
+};
+
+/**
+ * Hilfsfunktion für zufällige Theme-Farbe
+ */
+export const getRandomThemeColor = (): ThemeColor => {
+  const validColors: ThemeColor[] = ['green', 'blue', 'purple', 'pink', 'yellow', 'teal', 'orange', 'cyan'];
+  const randomIndex = Math.floor(Math.random() * validColors.length);
+  return validColors[randomIndex];
 }; 
