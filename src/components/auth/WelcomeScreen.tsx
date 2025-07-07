@@ -302,7 +302,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               ) : (
                 <div className="text-left">
                   <div className="mb-4">
-                    Jassen gehört an den Tisch – Resultate in die App. Mit der digitalen Jasstafel erfasst du jede Runde automatisch für dich, deine Freunde und bald die ganze Liga.
+                    Jassen gehört an den Tisch – Resultate, Tabellen und Statistiken in die App. Mit der digitalen Jasstafel erfasst du jede Runde automatisch für dich, deine Jassfreunde und bald die ganze Liga.
                   </div>
                   <div className="space-y-2 text-sm">
                     <div>

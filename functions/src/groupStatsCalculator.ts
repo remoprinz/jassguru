@@ -418,33 +418,40 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
                     stricheStats.made += playerTotal;
                     stricheStats.received += opponentTotal;
                     
-                    // ✅ KORRIGIERT: Event-Statistiken pro Spiel für Tournaments
-                    if (!playerMatschStats.has(playerId)) {
-                      playerMatschStats.set(playerId, { made: 0, received: 0, games: 0 });
+                    // ✅ KORRIGIERT: Event-Statistiken pro Spiel für Tournaments - AUS EVENTCOUNTS!
+                    if (game.eventCounts) {
+                      logger.info(`[groupStatsCalculator] Found eventCounts for TOURNAMENT session ${sessionDoc.id}, game ${gameIndex}`);
+                      const gamePlayerEventCounts = game.eventCounts[gamePlayerTeam] || {};
+                      const gameOpponentEventCounts = game.eventCounts[gamePlayerTeam === 'top' ? 'bottom' : 'top'] || {};
+                      
+                      if (!playerMatschStats.has(playerId)) {
+                        playerMatschStats.set(playerId, { made: 0, received: 0, games: 0 });
+                      }
+                      if (!playerSchneiderStats.has(playerId)) {
+                        playerSchneiderStats.set(playerId, { made: 0, received: 0, games: 0 });
+                      }
+                      if (!playerKontermatschStats.has(playerId)) {
+                        playerKontermatschStats.set(playerId, { made: 0, received: 0, games: 0 });
+                      }
+                      
+                      const matschStats = playerMatschStats.get(playerId)!;
+                      const schneiderStats = playerSchneiderStats.get(playerId)!;
+                      const kontermatschStats = playerKontermatschStats.get(playerId)!;
+                      
+                      matschStats.games += 1;
+                      schneiderStats.games += 1;
+                      kontermatschStats.games += 1;
+                      
+                      // ✅ KORRIGIERT: Verwende eventCounts für Made-Events (wer hat das Event gemacht)
+                      matschStats.made += gamePlayerEventCounts.matsch || 0;
+                      matschStats.received += gameOpponentEventCounts.matsch || 0;
+                      
+                      schneiderStats.made += gamePlayerEventCounts.schneider || 0;
+                      schneiderStats.received += gameOpponentEventCounts.schneider || 0;
+                      
+                      kontermatschStats.made += gamePlayerEventCounts.kontermatsch || 0;
+                      kontermatschStats.received += gameOpponentEventCounts.kontermatsch || 0;
                     }
-                    if (!playerSchneiderStats.has(playerId)) {
-                      playerSchneiderStats.set(playerId, { made: 0, received: 0, games: 0 });
-                    }
-                    if (!playerKontermatschStats.has(playerId)) {
-                      playerKontermatschStats.set(playerId, { made: 0, received: 0, games: 0 });
-                    }
-                    
-                    const matschStats = playerMatschStats.get(playerId)!;
-                    const schneiderStats = playerSchneiderStats.get(playerId)!;
-                    const kontermatschStats = playerKontermatschStats.get(playerId)!;
-                    
-                    matschStats.games += 1;
-                    schneiderStats.games += 1;
-                    kontermatschStats.games += 1;
-                    
-                    matschStats.made += playerStriche.matsch || 0;
-                    matschStats.received += opponentStriche.matsch || 0;
-                    
-                    schneiderStats.made += playerStriche.schneider || 0;
-                    schneiderStats.received += opponentStriche.schneider || 0;
-                    
-                    kontermatschStats.made += playerStriche.kontermatsch || 0;
-                    kontermatschStats.received += opponentStriche.kontermatsch || 0;
                   }
                   
                   // ✅ KORRIGIERT: Spiel-Gewinnraten für Tournament-Sessions

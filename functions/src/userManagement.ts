@@ -2,8 +2,14 @@ import { onDocumentUpdated, Change, FirestoreEvent } from "firebase-functions/v2
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 import { QueryDocumentSnapshot } from "firebase-admin/firestore";
+import {auth} from "firebase-functions/v1";
+import {nanoid} from "nanoid";
 
 const db = admin.firestore();
+
+// Collection-Namen für Konsistenz
+const USERS_COLLECTION = "users";
+const PLAYERS_COLLECTION = "players";
 
 /**
  * Cloud Function (Gen 2), die auf die Aktualisierung des Anzeigenamens (displayName) 
@@ -102,4 +108,76 @@ export const syncUserNameOnChange = onDocumentUpdated({
         logger.error(`Error syncing displayName for user ${userId}:`, error);
     }
     return null;
+});
+
+/**
+ * Erstellt die initialen Daten für ein neues Firestore-Player-Dokument.
+ */
+const createInitialPlayerData = (
+  playerId: string,
+  userId: string,
+  displayName: string | null
+) => {
+  const finalDisplayName = displayName || `Spieler ${playerId.slice(0, 4)}`;
+  return {
+    displayName: finalDisplayName,
+    userId: userId,
+    isGuest: false,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    groupIds: [],
+    stats: {
+      gamesPlayed: 0,
+      wins: 0,
+      totalScore: 0,
+    },
+    metadata: {isOG: false},
+  };
+};
+
+/**
+ * Diese Funktion wird ausgelöst, wenn ein neuer Firebase-Benutzer erstellt wird.
+ * Sie erstellt die zugehörigen Dokumente in Firestore (users und players)
+ * und verknüpft diese miteinander.
+ */
+export const handleUserCreation = auth.user().onCreate(async (user) => {
+  const {uid, email, displayName} = user;
+
+  // Firestore-Instanz holen
+  const db = admin.firestore();
+
+  // Referenzen zu den Dokumenten
+  const userDocRef = db.collection(USERS_COLLECTION).doc(uid);
+  const playerDocRef = db.collection(PLAYERS_COLLECTION).doc(nanoid());
+
+  try {
+    console.log(`[handleUserCreation] Triggered for user: ${uid} (${email})`);
+
+    // Player-ID aus der Referenz extrahieren
+    const playerId = playerDocRef.id;
+
+    // Daten für die neuen Dokumente vorbereiten
+    const newPlayerData = createInitialPlayerData(playerId, uid, displayName || null);
+    const newUserDocumentData = {
+      playerId: playerId,
+      email: email,
+      displayName: newPlayerData.displayName,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    // Schreibe beide Dokumente in einer atomaren Batch-Operation
+    const batch = db.batch();
+    batch.set(playerDocRef, newPlayerData);
+    batch.set(userDocRef, newUserDocumentData, {merge: true});
+
+    await batch.commit();
+
+    console.log(`[handleUserCreation] SUCCESS: User ${uid} and Player ${playerId} created and linked.`);
+  } catch (error) {
+    console.error(`[handleUserCreation] ERROR for user ${uid}:`, error);
+    // Optional: Hier könnte man versuchen, den Auth-User wieder zu löschen,
+    // um einen inkonsistenten Zustand zu vermeiden.
+    // await admin.auth().deleteUser(uid);
+  }
 }); 

@@ -1516,3 +1516,5 @@ export const onJassGameSummaryWritten = onDocumentWritten(
     }
   }
 );
+
+export {handleUserCreation} from "./userManagement";

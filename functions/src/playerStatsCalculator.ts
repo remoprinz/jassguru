@@ -529,13 +529,13 @@ async function calculatePlayerStatisticsInternal(
           stricheMade += gameStricheMade;
           stricheReceived += gameStricheReceived;
           
-          // Event Counts pro Spiel
-          sessionMatschMade += gameWithStriche.finalStriche[gamePlayerTeam]?.matsch || 0;
-          sessionMatschReceived += gameWithStriche.finalStriche[gameOpponentTeam]?.matsch || 0;
-          sessionSchneiderMade += gameWithStriche.finalStriche[gamePlayerTeam]?.schneider || 0;
-          sessionSchneiderReceived += gameWithStriche.finalStriche[gameOpponentTeam]?.schneider || 0;
-          sessionKontermatschMade += gameWithStriche.finalStriche[gamePlayerTeam]?.kontermatsch || 0;
-          sessionKontermatschReceived += gameWithStriche.finalStriche[gameOpponentTeam]?.kontermatsch || 0;
+          // ✅ KORRIGIERT: Event Counts pro Spiel - verwende eventCounts (wer hat gemacht), nicht finalStriche (wer hat erhalten)
+          sessionMatschMade += gameWithStriche.eventCounts?.[gamePlayerTeam]?.matsch || 0;
+          sessionMatschReceived += gameWithStriche.eventCounts?.[gameOpponentTeam]?.matsch || 0;
+          sessionSchneiderMade += gameWithStriche.eventCounts?.[gamePlayerTeam]?.schneider || 0;
+          sessionSchneiderReceived += gameWithStriche.eventCounts?.[gameOpponentTeam]?.schneider || 0;
+          sessionKontermatschMade += gameWithStriche.eventCounts?.[gamePlayerTeam]?.kontermatsch || 0;
+          sessionKontermatschReceived += gameWithStriche.eventCounts?.[gameOpponentTeam]?.kontermatsch || 0;
         }
       }
       
@@ -599,13 +599,13 @@ async function calculatePlayerStatisticsInternal(
         const gameOpponentTeam = gamePlayerTeam === 'top' ? 'bottom' : 'top';
         const gameWithStriche = game as any;
         
-        if (gameWithStriche.finalStriche) {
-          const gameMatschMade = gameWithStriche.finalStriche[gamePlayerTeam]?.matsch || 0;
-          const gameMatschReceived = gameWithStriche.finalStriche[gameOpponentTeam]?.matsch || 0;
-          const gameSchneiderMade = gameWithStriche.finalStriche[gamePlayerTeam]?.schneider || 0;
-          const gameSchneiderReceived = gameWithStriche.finalStriche[gameOpponentTeam]?.schneider || 0;
-          const gameKontermatschMade = gameWithStriche.finalStriche[gamePlayerTeam]?.kontermatsch || 0;
-          const gameKontermatschReceived = gameWithStriche.finalStriche[gameOpponentTeam]?.kontermatsch || 0;
+        if (gameWithStriche.eventCounts) {
+          const gameMatschMade = gameWithStriche.eventCounts[gamePlayerTeam]?.matsch || 0;
+          const gameMatschReceived = gameWithStriche.eventCounts[gameOpponentTeam]?.matsch || 0;
+          const gameSchneiderMade = gameWithStriche.eventCounts[gamePlayerTeam]?.schneider || 0;
+          const gameSchneiderReceived = gameWithStriche.eventCounts[gameOpponentTeam]?.schneider || 0;
+          const gameKontermatschMade = gameWithStriche.eventCounts[gamePlayerTeam]?.kontermatsch || 0;
+          const gameKontermatschReceived = gameWithStriche.eventCounts[gameOpponentTeam]?.kontermatsch || 0;
           
           const gameWon = game.winnerTeam === gamePlayerTeam;
           

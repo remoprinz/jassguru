@@ -115,138 +115,45 @@ export const useAuthStore = create<AuthStore>()(
       register: async (email: string, password: string, displayName?: string) => {
         set({status: "loading", error: null});
         try {
-          // *** NEU: Nickname-Einzigartigkeitsprüfung ***
-          if (displayName) {
-            try {
-              if (process.env.NODE_ENV === 'development') {
-      console.log(`AUTH_STORE: Prüfe Nickname-Verfügbarkeit für: ${displayName}`);
-    }
-              const playersRef = collection(db, PLAYERS_COLLECTION);
-              // Beachte Gross-/Kleinschreibung bei der Abfrage!
-              // Wenn Gross-/Kleinschreibung egal sein soll, muss man anders vorgehen (z.B. kleingeschriebenes Feld speichern).
-              const q = query(playersRef, where("displayName", "==", displayName)); 
-              const querySnapshot = await getDocs(q);
-              if (!querySnapshot.empty) {
-                console.warn(`AUTH_STORE: Nickname "${displayName}" ist bereits vergeben.`);
-                throw new Error("NICKNAME_TAKEN"); // Spezifischer Fehlercode
-              }
-              if (process.env.NODE_ENV === 'development') {
-          console.log(`AUTH_STORE: Nickname "${displayName}" ist verfügbar.`);
-        }
-            } catch (error: any) {
-               if (error.message === "NICKNAME_TAKEN") {
-                  throw error; // Spezifischen Fehler direkt weiterwerfen
-               }
-               console.error("AUTH_STORE: Fehler bei Nickname-Prüfung:", error);
-               // Allgemeiner Fehler bei der Prüfung
-               throw new Error("Fehler bei der Prüfung der Nickname-Verfügbarkeit."); 
-            }
-          }
-          // *** ENDE NEU ***
-
+          // SCHRITT 1: Prüfen, ob die E-Mail bereits verwendet wird.
           const signInMethods = await fetchSignInMethodsForEmail(auth, email);
-          
-          if (signInMethods && signInMethods.length > 0) {
-            throw new Error("AUTH/EMAIL-ALREADY-IN-USE");
+          if (signInMethods.length > 0) {
+            throw new Error("auth/email-already-in-use");
           }
-          
-          // Schritt 1: User in Firebase Auth erstellen
-          const newUserCredential = await createUserWithEmailAndPassword(auth, email, password);
-          const firebaseUser = newUserCredential.user;
-          
-          // Schritt 2: SOFORT DisplayName in Firebase Auth setzen
+
+          // SCHRITT 2: Benutzer in Firebase Authentication erstellen.
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          const user = userCredential.user;
+
+          // SCHRITT 3: Anzeigenamen im Auth-Profil aktualisieren.
           if (displayName) {
-             try {
-               await updateProfile(firebaseUser, { displayName });
-               if (process.env.NODE_ENV === 'development') {
-          console.log(`AUTH_STORE: Auth profile updated for ${firebaseUser.uid} with displayName: ${displayName}`);
-        }
-             } catch (profileError) {
-               console.error(`AUTH_STORE: Fehler beim Setzen des DisplayName für ${firebaseUser.uid}:`, profileError);
-               // Optional: Fehler behandeln, aber Registrierung fortsetzen?
-             }
+            await updateProfile(user, { displayName });
           }
-          
-          // Schritt 3: User-Dokument in Firestore erstellen/minimal aktualisieren, um Cloud Function zu triggern
-          // WICHTIG: Verwende setDoc mit merge:true statt updateUserDocument, um Fehler zu vermeiden
-          // und schreibe nur unkritische Felder.
-          const userDocRef = doc(db, USERS_COLLECTION, firebaseUser.uid); // User-Dokument-Referenz
-          
-          // Aktualisierter Schritt 3a: Explizit E-Mail in Firestore setzen (unbedingt nötig)
-          const minimalUserData = {
-            email: email, // Explizit E-Mail setzen 
-            displayName: displayName || null, // Setze den bekannten Namen
-            lastLogin: serverTimestamp(), // Aktualisiere Login-Zeit
-            lastUpdated: serverTimestamp()
-          };
-          try {
-            await setDoc(userDocRef, minimalUserData, { merge: true });
-            if (process.env.NODE_ENV === 'development') {
-          console.log(`AUTH_STORE: User document created/updated with email and displayName for ${firebaseUser.uid}`);
-        }
-          } catch (setDocError) {
-            console.error(`AUTH_STORE: Fehler beim initialen setDoc für User ${firebaseUser.uid}:`, setDocError);
-            // Dieser Fehler sollte die Registrierung nicht unbedingt blockieren, da der User in Auth existiert.
-          }
-          
-          // Schritt 4: Player-ID sicherstellen (wird automatisch erstellt, wenn nicht vorhanden)
-          const playerId = await getPlayerIdForUser(firebaseUser.uid, displayName ?? null);
-          if (!playerId) {
-            console.error(`AUTH_STORE: Konnte keine Player-ID für User ${firebaseUser.uid} erstellen/finden`);
-          } else {
-            if (process.env.NODE_ENV === 'development') {
-          console.log(`AUTH_STORE: Player-ID ${playerId} für User ${firebaseUser.uid} gefunden/erstellt`);
-        }
-            
-            // Schritt 5: NEU - Synchronisiere DisplayName und E-Mail über alle Collections
-            try {
-              await syncDisplayNameAcrossCollections(
-                firebaseUser.uid,
-                playerId,
-                displayName || `Jassguru ${firebaseUser.uid.substring(0, 4)}`
-              );
-              if (process.env.NODE_ENV === 'development') {
-          console.log(`AUTH_STORE: DisplayName und E-Mail erfolgreich synchronisiert`);
-        }
-            } catch (syncError) {
-              console.error(`AUTH_STORE: Fehler bei der Synchronisation von DisplayName/Email:`, syncError);
-              // Fehler hier nicht weiterwerfen, da der User trotzdem erstellt wurde
-            }
-          }
-          
-          // Schritt 6: Verifizierungs-E-Mail senden
-          try {
-              await sendEmailVerification(firebaseUser);
-              if (process.env.NODE_ENV === 'development') {
-          console.log(`AUTH_STORE: Verification email sent to ${email}`);
-        }
-          } catch (verificationError) {
-              console.error(`AUTH_STORE: Fehler beim Senden der Verifizierungs-E-Mail an ${email}:`, verificationError);
-          }
-          
-          // State sollte von onAuthStateChanged aktualisiert werden, der auf die Auth-Änderung reagiert
-          if (process.env.NODE_ENV === 'development') {
-          console.log(`AUTH_STORE: Registration completed successfully for ${email}`);
-        }
+
+          // SCHRITT 4: Verifizierungs-E-Mail senden.
+          await sendEmailVerification(user);
+
+          // WICHTIG: Die Erstellung der Firestore-Dokumente (user, player) wird
+          // nun durch eine Firebase Function (handleUserCreation) im Backend erledigt.
+          // Der Client ist hier fertig.
+
+          // Setze den Status zurück, damit der Ladebalken verschwindet.
+          // onAuthStateChanged wird den Benutzer kurz darauf als eingeloggt erkennen.
+          set({ status: 'unauthenticated' });
+
         } catch (error) {
-          let errorMessage = "Ein unbekannter Fehler ist aufgetreten";
-          if (error instanceof Error) {
-             if (error.message === "NICKNAME_TAKEN") { // NEU: Fehlerbehandlung für Nickname
-                 errorMessage = "Dieser Jassname ist leider schon vergeben. Bitte wähle einen anderen.";
-             } else if ((error as FirebaseError).code === "auth/email-already-in-use" || error.message === "AUTH/EMAIL-ALREADY-IN-USE") {
-                 errorMessage = "Diese E-Mail-Adresse ist bereits registriert. Bitte melde dich an oder verwende eine andere E-Mail.";
-             } else if ((error as FirebaseError).code === "auth/weak-password") {
-                  errorMessage = "Das Passwort ist zu schwach. Es muss mindestens 6 Zeichen lang sein.";
-             } else {
-                 errorMessage = error.message;
-             }
+          console.error("AUTH_STORE: Fehler bei Registrierung:", error);
+          const firebaseError = error as FirebaseError;
+          let errorMessage = "Registrierung fehlgeschlagen. Bitte versuchen Sie es erneut.";
+
+          if (firebaseError.code === 'auth/email-already-in-use') {
+            errorMessage = "Diese E-Mail-Adresse ist bereits registriert. Bitte melde dich an oder verwende eine andere E-Mail.";
+          } else if (firebaseError.code === 'auth/weak-password') {
+            errorMessage = "Das Passwort ist zu schwach. Es muss mindestens 6 Zeichen lang sein.";
           }
-          console.error("AUTH_STORE: Fehler bei Registrierung:", errorMessage);
-          set({
-            status: "error",
-            error: errorMessage,
-          });
-          throw error;
+          
+          set({ status: 'error', error: errorMessage });
+          throw new Error(errorMessage);
         }
       },
 
@@ -472,7 +379,26 @@ export const useAuthStore = create<AuthStore>()(
               firebaseUser: firebaseUser,
               user: initialMappedUser, // Initialen User setzen
               isGuest: false
-            }); 
+            });
+
+            // BUGFIX: Entferne alle hängenden Registrierungs-Notifications bei erfolgreicher Authentifizierung
+            try {
+              const { useUIStore } = require('../store/uiStore');
+              const uiStore = useUIStore.getState();
+              const registrationNotifications = uiStore.notifications.filter(n => 
+                n.message.includes('Registrierung erfolgreich') || 
+                n.message.includes('Prüfe deine Email') ||
+                n.message.includes('Gruppen-Einladung')
+              );
+              registrationNotifications.forEach(notification => {
+                uiStore.removeNotification(notification.id);
+              });
+              if (registrationNotifications.length > 0) {
+                console.log(`[AuthStore] Removed ${registrationNotifications.length} hanging registration notifications`);
+              }
+            } catch (error) {
+              console.warn('[AuthStore] Could not clear registration notifications:', error);
+            } 
 
             // NEU: Game-State zurücksetzen bei Übergang von Gast zu authentifiziert
             if (wasGuest && (previousStatus === 'unauthenticated' || previousStatus === 'loading')) {
@@ -521,7 +447,17 @@ export const useAuthStore = create<AuthStore>()(
               }
 
               if (previousStatus === 'loading' || previousStatus === 'unauthenticated') {
-                const joinedGroupId = await processPendingInviteToken();
+                // Prüfe, ob bereits eine Registrierungs-Notification aktiv ist
+                const { useUIStore } = require('../store/uiStore');
+                const uiStore = useUIStore.getState();
+                const hasRegistrationNotification = uiStore.notifications.some(n => 
+                  n.message.includes('Registrierung erfolgreich') || 
+                  n.message.includes('Prüfe deine Email') ||
+                  n.message.includes('Gruppen-Einladung')
+                );
+                
+                // Unterdrücke Notification, wenn bereits eine Registrierungs-Notification aktiv ist
+                const joinedGroupId = await processPendingInviteToken(hasRegistrationNotification);
                 if (joinedGroupId) {
                   try {
                     await updateUserDocument(firebaseUser.uid, { lastActiveGroupId: joinedGroupId });

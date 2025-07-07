@@ -12,9 +12,10 @@ import type { FirestoreGroup } from '@/types/jass';
  * NOTE: Direct use of `useToast` here might not work if called outside React context.
  * Consider passing a toast function or using a different notification mechanism if needed.
  *
+ * @param {boolean} suppressNotification - If true, suppresses success notifications (useful when registration notification is already shown)
  * @returns {Promise<string | null>} The ID of the joined group, or null if no group was joined or an error occurred.
  */
-export const processPendingInviteToken = async (): Promise<string | null> => {
+export const processPendingInviteToken = async (suppressNotification: boolean = false): Promise<string | null> => {
   const showNotification = useUIStore.getState().showNotification;
   const addUserGroup = useGroupStore.getState().addUserGroup;
   const setCurrentGroup = useGroupStore.getState().setCurrentGroup;
@@ -53,15 +54,19 @@ export const processPendingInviteToken = async (): Promise<string | null> => {
         addUserGroup(joinedGroup);
         setCurrentGroup(joinedGroup as any);
         
-        showNotification({ 
-            message: `Du bist jetzt Mitglied der Gruppe '${joinedGroup.name}'.`,
-            type: "success",
-            duration: 5000,
-        });
+        // Zeige nur Notification, wenn nicht unterdrückt
+        if (!suppressNotification) {
+          showNotification({ 
+              message: `Du bist jetzt Mitglied der Gruppe '${joinedGroup.name}'.`,
+              type: "success",
+              duration: 5000,
+          });
+        }
         return joinedGroup.id; // Gib die ID zurück
       } else {
           console.error('Error joining group via pending token (success=false or group/id object missing):', data);
           const message = data?.message || 'Beitritt fehlgeschlagen. Ungültige Antwort von Funktion.';
+          // Fehler-Notifications immer anzeigen
           showNotification({ 
              message: message,
              type: "error",
@@ -75,6 +80,7 @@ export const processPendingInviteToken = async (): Promise<string | null> => {
       if (error instanceof Error) {
            message = error.message || message;
       }
+      // Fehler-Notifications immer anzeigen
       showNotification({ 
          message: message,
          type: "error",

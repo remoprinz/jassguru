@@ -63,7 +63,7 @@ export function RegisterForm() {
       }
 
       // ✅ E-Mail-Bestätigung Notification mit verbesserter Sichtbarkeit
-      showNotification({
+      const notificationId = showNotification({
         type: "success",
         message: successMessage,
         preventClose: true,
@@ -71,6 +71,9 @@ export function RegisterForm() {
           {
             label: "Verstanden",
             onClick: () => {
+              // Notification explizit entfernen
+              useUIStore.getState().removeNotification(notificationId);
+              
               // Navigation erst nach Bestätigung
               const tournamentToken = getTournamentToken();
               const groupToken = getGroupToken();
@@ -103,7 +106,7 @@ export function RegisterForm() {
       
       if (loggedInUser && !loggedInUser.emailVerified) {
         // Google-User aber E-Mail nicht verifiziert - zeige Hinweis
-        showNotification({
+        const googleNotificationId = showNotification({
           type: "warning",
           message: "Bitte bestätige deine E-Mail-Adresse. Prüfe dein Postfach (auch Spam-Ordner).",
           preventClose: true,
@@ -111,6 +114,8 @@ export function RegisterForm() {
             {
               label: "Verstanden",
               onClick: () => {
+                // Notification explizit entfernen
+                useUIStore.getState().removeNotification(googleNotificationId);
                 router.push("/auth/login");
               }
             }

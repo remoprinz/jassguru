@@ -1,5 +1,5 @@
 // Zentrale Version-Verwaltung für die gesamte App
-export const APP_VERSION = '2.5.0';
+export const APP_VERSION = '2.4.6';
 
 // Für Service Worker (mit 'v' Prefix)
 export const SW_VERSION = `v${APP_VERSION}`;

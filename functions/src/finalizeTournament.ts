@@ -7,6 +7,20 @@ import { TournamentPlayerRankingData } from "./models/tournament-ranking.model";
 
 const db = admin.firestore();
 
+// ✅ NEU: EventCounts-Interface (muss eventuell aus finalizeSession.ts importiert werden)
+interface EventCountRecord {
+  sieg: number;
+  berg: number;
+  matsch: number;
+  kontermatsch: number;
+  schneider: number;
+}
+
+interface EventCounts {
+  bottom: EventCountRecord;
+  top: EventCountRecord;
+}
+
 interface FinalizeTournamentData {
   tournamentId: string;
 }
@@ -30,7 +44,45 @@ export interface TournamentGameData { // EXPORTIERT
   };
   participantUids?: string[]; // Sollte die UIDs der Spieler in diesem spezifischen Spiel enthalten
   status?: string;
+  roundHistory?: any[]; // ✅ NEU: Für eventCounts-Berechnung
+  eventCounts?: EventCounts; // ✅ NEU: Berechnete eventCounts
   // Weitere relevante Felder eines Spiels...
+}
+
+// ✅ NEU: Hilfsfunktion zur Berechnung der eventCounts für ein Game
+function calculateEventCountsForTournamentGame(game: TournamentGameData): EventCounts {
+  const { finalStriche, roundHistory } = game;
+  
+  const bottomEvents: EventCountRecord = { sieg: 0, berg: 0, matsch: 0, kontermatsch: 0, schneider: 0 };
+  const topEvents: EventCountRecord = { sieg: 0, berg: 0, matsch: 0, kontermatsch: 0, schneider: 0 };
+
+  // 1. Matsch/Kontermatsch aus roundHistory
+  if (roundHistory && Array.isArray(roundHistory)) {
+    roundHistory.forEach(round => {
+      if (round.strichInfo && round.strichInfo.type && round.strichInfo.team) {
+        const teamKey = round.strichInfo.team;
+        if (round.strichInfo.type === 'matsch') {
+          if (teamKey === 'bottom') bottomEvents.matsch++;
+          else if (teamKey === 'top') topEvents.matsch++;
+        } else if (round.strichInfo.type === 'kontermatsch') {
+          if (teamKey === 'bottom') bottomEvents.kontermatsch++;
+          else if (teamKey === 'top') topEvents.kontermatsch++;
+        }
+      }
+    });
+  }
+
+  // 2. Sieg, Berg, Schneider aus finalStriche
+  if (finalStriche) {
+    if (finalStriche.bottom?.sieg > 0) bottomEvents.sieg = 1;
+    if (finalStriche.top?.sieg > 0) topEvents.sieg = 1;
+    if (finalStriche.bottom?.berg > 0) bottomEvents.berg = 1;
+    if (finalStriche.top?.berg > 0) topEvents.berg = 1;
+    if (finalStriche.bottom?.schneider > 0) bottomEvents.schneider = 1;
+    if (finalStriche.top?.schneider > 0) topEvents.schneider = 1;
+  }
+
+  return { bottom: bottomEvents, top: topEvents };
 }
 
 // NEU: Interface für die Struktur eines Gruppeneintrags im Turnierdokument
@@ -143,6 +195,30 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
         });
         return { success: true, message: "Keine abgeschlossenen Spiele im Turnier, Abschluss ohne Ranking." };
       }
+
+      // ✅ NEU: Berechne eventCounts für alle Tournament-Games
+      logger.info(`🔥 Berechne eventCounts für ${tournamentGames.length} Tournament-Games...`);
+      const gameBatch = db.batch();
+      
+      for (const game of tournamentGames) {
+        if (game.finalStriche && !game.eventCounts) {
+          // Berechne eventCounts für dieses Game
+          const eventCounts = calculateEventCountsForTournamentGame(game);
+          
+          // Update das Game in Firestore
+          const gameRef = gamesRef.doc(game.id);
+          gameBatch.update(gameRef, { eventCounts });
+          
+          // Update das lokale Game-Objekt für weitere Berechnungen
+          game.eventCounts = eventCounts;
+          
+          logger.info(`  ✅ Game ${game.id}: eventCounts berechnet - Bottom: ${JSON.stringify(eventCounts.bottom)}, Top: ${JSON.stringify(eventCounts.top)}`);
+        }
+      }
+      
+      // Commit alle Game-Updates
+      await gameBatch.commit();
+      logger.info(`🎯 EventCounts für ${tournamentGames.length} Games erfolgreich berechnet und gespeichert`);
 
       // NEU: Batch für das Schreiben der Player-Rankings
       const playerRankingBatch = db.batch();

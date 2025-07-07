@@ -81,9 +81,9 @@ const GlobalNotificationContainer: React.FC = () => {
         key={index}
         onClick={() => {
           action.onClick();
-          if (!notification.preventClose) {
-            removeNotification(notification.id);
-          }
+          // BUGFIX: Entferne Notification immer, auch bei preventClose: true
+          // preventClose sollte nur das Overlay-Click und automatisches Schließen verhindern
+          removeNotification(notification.id);
         }}
         className={`
           flex-1 px-6 py-2 rounded-full 
