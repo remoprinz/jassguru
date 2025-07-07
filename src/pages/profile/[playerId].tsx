@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/router';
-import { getPlayerById, getGroupMembersSortedByGames } from '@/services/playerService';
+import { getPublicPlayerProfile, getGroupMembersSortedByGames } from '@/services/playerService';
 import type { FirestorePlayer } from '@/types/jass';
 import { getPublicProfileTheme, THEME_COLORS } from '@/config/theme';
 import { ProfileView } from '@/components/profile/ProfileView';
@@ -84,7 +84,7 @@ const PlayerProfilePage = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const fetchedPlayer = await getPlayerById(playerId);
+        const fetchedPlayer = await getPublicPlayerProfile(playerId);
         if (!fetchedPlayer) {
           setError("Spieler nicht gefunden.");
         } else {

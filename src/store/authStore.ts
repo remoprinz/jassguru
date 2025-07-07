@@ -5,6 +5,7 @@ import {onAuthStateChanged, User, fetchSignInMethodsForEmail, createUserWithEmai
 import { FirebaseError } from "firebase/app";
 import {
   loginWithEmail,
+  registerWithEmail,
   signInWithGoogleProvider,
   logout as serviceLogout,
   sendPasswordReset,
@@ -115,28 +116,10 @@ export const useAuthStore = create<AuthStore>()(
       register: async (email: string, password: string, displayName?: string) => {
         set({status: "loading", error: null});
         try {
-          // SCHRITT 1: Prüfen, ob die E-Mail bereits verwendet wird.
-          const signInMethods = await fetchSignInMethodsForEmail(auth, email);
-          if (signInMethods.length > 0) {
-            throw new Error("auth/email-already-in-use");
-          }
-
-          // SCHRITT 2: Benutzer in Firebase Authentication erstellen.
-          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-          const user = userCredential.user;
-
-          // SCHRITT 3: Anzeigenamen im Auth-Profil aktualisieren.
-          if (displayName) {
-            await updateProfile(user, { displayName });
-          }
-
-          // SCHRITT 4: Verifizierungs-E-Mail senden.
-          await sendEmailVerification(user);
-
-          // WICHTIG: Die Erstellung der Firestore-Dokumente (user, player) wird
-          // nun durch eine Firebase Function (handleUserCreation) im Backend erledigt.
-          // Der Client ist hier fertig.
-
+          // Verwende die bewährte registerWithEmail Funktion aus authService,
+          // die bereits createOrUpdateFirestoreUser aufruft und alles korrekt macht
+          const user = await registerWithEmail(email, password, displayName);
+          
           // Setze den Status zurück, damit der Ladebalken verschwindet.
           // onAuthStateChanged wird den Benutzer kurz darauf als eingeloggt erkennen.
           set({ status: 'unauthenticated' });

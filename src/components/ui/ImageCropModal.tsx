@@ -12,6 +12,7 @@ interface ImageCropModalProps {
   onCropComplete: (blob: Blob | null) => void; // Wird aufgerufen bei Klick auf "Hochladen" (mit Blob) oder bei Fehler (mit null)
   confirmButtonLabel?: string;
   confirmButtonClassName?: string; // NEU: Prop für Button-Styling
+  isLoading?: boolean; // NEU: Loading-Zustand für Upload-Prozess
 }
 
 const ImageCropModal: React.FC<ImageCropModalProps> = ({
@@ -21,6 +22,7 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({
   onCropComplete,
   confirmButtonLabel = "Hochladen", // NEU: Standard-Label geändert
   confirmButtonClassName = "bg-green-600 hover:bg-green-700", // NEU: Standard-Klasse (grün)
+  isLoading = false, // NEU: Standard-Wert für Loading-Zustand
 }) => {
   const [crop, setCrop] = useState({x: 0, y: 0});
   const [zoom, setZoom] = useState(1);
@@ -89,6 +91,14 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({
           <DialogTitle>Bild zuschneiden</DialogTitle>
         </DialogHeader>
         <div className="relative h-64 w-full bg-gray-900 mb-4">
+          {isLoading && (
+            <div className="absolute inset-0 bg-gray-900/50 flex items-center justify-center z-10 rounded-lg">
+              <div className="text-white text-center">
+                <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                <span className="text-sm">Wird hochgeladen...</span>
+              </div>
+            </div>
+          )}
           <Cropper
             image={imageSrc}
             crop={crop}
@@ -96,8 +106,8 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({
             aspect={1 / 1} // Quadratisch
             cropShape="round" // Runder Ausschnitt
             showGrid={false}
-            onCropChange={setCrop}
-            onZoomChange={setZoom}
+            onCropChange={isLoading ? () => {} : setCrop}
+            onZoomChange={isLoading ? () => {} : setZoom}
             onCropComplete={onCropCompleteInternal}
             minZoom={1}
             maxZoom={3}
@@ -108,7 +118,8 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({
             onClick={handleZoomOut}
             variant="outline"
             size="icon"
-            className="bg-gray-700 hover:bg-gray-600 border-gray-600"
+            className="bg-gray-700 hover:bg-gray-600 border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isLoading} // NEU: Deaktiviert während Upload
             aria-label="Verkleinern"
           >
             -
@@ -120,13 +131,15 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({
             value={[zoom]}
             onValueChange={(value: number[]) => setZoom(value[0])}
             className="flex-grow mx-4 [&>span:first-child]:h-2 [&>span:first-child>span]:bg-blue-500"
+            disabled={isLoading} // NEU: Deaktiviert während Upload
             aria-label="Zoom-Level"
           />
           <Button
             onClick={handleZoomIn}
             variant="outline"
             size="icon"
-            className="bg-gray-700 hover:bg-gray-600 border-gray-600"
+            className="bg-gray-700 hover:bg-gray-600 border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isLoading} // NEU: Deaktiviert während Upload
             aria-label="Vergrößern"
           >
             +
@@ -135,21 +148,33 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({
 
         {/* NEUER Instruktionstext */}
         <p className="text-sm text-gray-400 text-center mb-4">
-          Wähle den Bildausschnitt durch Zoomen und Verschieben. Klicke dann auf '{confirmButtonLabel}'.
+          {isLoading 
+            ? "Bild wird hochgeladen..." 
+            : `Wähle den Bildausschnitt durch Zoomen und Verschieben. Klicke dann auf '${confirmButtonLabel}'.`
+          }
         </p>
 
         <DialogFooter className="flex-col space-y-2 sm:flex-col sm:space-x-0 sm:space-y-2">
           <Button
             onClick={showCroppedImage} // Ruft nur noch onCropComplete auf
-            className={`w-full ${confirmButtonClassName} text-white`} 
+            disabled={isLoading} // NEU: Deaktiviert während Upload
+            className={`w-full ${confirmButtonClassName} text-white disabled:opacity-50 disabled:cursor-not-allowed`} 
           >
-            {confirmButtonLabel}
+            {isLoading ? (
+              <div className="flex items-center justify-center space-x-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>Wird hochgeladen...</span>
+              </div>
+            ) : (
+              confirmButtonLabel
+            )}
           </Button>
           <Button
-            className="w-full bg-gray-600 text-white hover:bg-gray-500 border border-gray-500"
+            className="w-full bg-gray-600 text-white hover:bg-gray-500 border border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={handleClose} // Ruft nur noch onClose auf
+            disabled={isLoading} // NEU: Deaktiviert während Upload
           >
-            Abbrechen
+            {isLoading ? "Bitte warten..." : "Abbrechen"}
           </Button>
         </DialogFooter>
       </DialogContent>

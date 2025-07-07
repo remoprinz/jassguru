@@ -68,7 +68,8 @@ interface TournamentInstance extends TournamentInstanceType {
 
 // Interface für Teilnehmer mit Fortschrittsinformationen
 export interface ParticipantWithProgress {
-  uid: string; // Explizit uid hier
+  uid: string; // Firebase Auth UID (userId)
+  playerId?: string; // Player Document ID (optional für Rückwärtskompatibilität)
   displayName: string;
   photoURL?: string;
   completedPassesCount: number;
@@ -370,17 +371,25 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
       const participantsFromService = await fetchTournamentParticipants(instanceId);
       const participantsWithProgress = participantsFromService.map(p_service => {
         const p_base = p_service as FirestorePlayerFromService & { userId?: string };
-        const authUid = p_base.userId || p_base.uid || p_base.id;
-        if (authUid === p_base.id && authUid !== p_base.userId && authUid !== p_base.uid) {
-            console.warn(`[TournamentStore] loadTournamentParticipants: Fallback auf Player-Dokument-ID als UID für ${p_base.displayName}. Auth UID nicht in userId oder uid gefunden.`);
+        
+        // KORREKTUR: Strikte Trennung zwischen userId (Firebase Auth) und playerId (Player Document)
+        const userId = p_base.userId; // Firebase Auth UID
+        const playerId = p_base.id; // Player Document ID
+        
+        if (!userId) {
+          console.error(`[TournamentStore] loadTournamentParticipants: Player ${p_base.displayName} (ID: ${playerId}) has no userId. Skipping.`);
+          return null; // Überspringe Spieler ohne userId
         }
+        
         return {
           ...p_base,
-          uid: authUid,
+          uid: userId, // Firebase Auth UID
+          playerId: playerId, // Player Document ID
           completedPassesCount: p_base.completedPassesCount || 0,
           currentPasseNumberForPlayer: p_base.currentPasseNumberForPlayer || 1,
         } as ParticipantWithProgress;
-      });
+      }).filter((p): p is ParticipantWithProgress => p !== null); // Filtere null-Werte heraus
+      
       set({ tournamentParticipants: participantsWithProgress, status: 'success', participantsStatus: 'success' });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Fehler beim Laden der Teilnehmer.';

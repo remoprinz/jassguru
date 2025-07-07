@@ -22,12 +22,13 @@ import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
 import {useAuthStore} from "@/store/authStore";
 import {useUIStore} from "@/store/uiStore";
 import {useGroupStore} from "@/store/groupStore";
-import {createGroup, uploadGroupLogo} from "@/services/groupService";
+import {uploadGroupLogo} from "@/services/groupService";
 import MainLayout from "@/components/layout/MainLayout";
 import {Camera, X, ArrowLeft} from "lucide-react";
 import type { FirestoreGroup } from "@/types/jass";
 import imageCompression from "browser-image-compression";
 import ImageCropModal from "@/components/ui/ImageCropModal";
+import { getFunctions, httpsCallable } from "firebase/functions";
 
 // Zod Schema für die Formularvalidierung
 const createGroupSchema = z.object({
@@ -192,32 +193,37 @@ const CreateGroupPage: React.FC = () => {
 
     setIsLoading(true);
     setError(null);
-    let newGroup: FirestoreGroup | null = null;
 
     try {
-      // Step 1: Create the group document and get the full object
+      // Step 1: Create the group using Cloud Function
       if (process.env.NODE_ENV === 'development') {
-      console.log("CreateGroupPage: Attempting to create group document...");
-    }
-      newGroup = await createGroup(user.uid, user.displayName, data.groupName);
-              if (process.env.NODE_ENV === 'development') {
-          console.log(`CreateGroupPage: Group document ${newGroup?.id} created successfully.`);
-        }
-
-      // Füge die neue Gruppe direkt zum Store hinzu
-      if (newGroup) { 
-        addUserGroup(newGroup); 
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`CreateGroupPage: Added new group ${newGroup.id} to store.`);
-        }
+        console.log("CreateGroupPage: Attempting to create group via Cloud Function...");
+      }
+      
+      const functions = getFunctions(undefined, 'europe-west1');
+      const createNewGroupFn = httpsCallable(functions, 'createNewGroup');
+      const result = await createNewGroupFn({ 
+        name: data.groupName,
+        description: "Willkommen in unserer Jassrunde!",
+        isPublic: true 
+      });
+      
+      const cloudFunctionResponse = result.data as { success: boolean; groupId: string; playerDocId: string };
+      
+      if (!cloudFunctionResponse.success || !cloudFunctionResponse.groupId) {
+        throw new Error("Gruppe konnte nicht erstellt werden");
+      }
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`CreateGroupPage: Group ${cloudFunctionResponse.groupId} created successfully via Cloud Function.`);
       }
 
       // Step 2: Upload logo if selected
-      if (selectedLogoFile && newGroup?.id) {
-        console.log(`CreateGroupPage: Attempting to upload logo for group ${newGroup.id}...`);
+      if (selectedLogoFile && cloudFunctionResponse.groupId) {
+        console.log(`CreateGroupPage: Attempting to upload logo for group ${cloudFunctionResponse.groupId}...`);
         try {
-          await uploadGroupLogo(newGroup.id, selectedLogoFile);
-          console.log(`CreateGroupPage: Logo for group ${newGroup.id} uploaded successfully.`);
+          await uploadGroupLogo(cloudFunctionResponse.groupId, selectedLogoFile);
+          console.log(`CreateGroupPage: Logo for group ${cloudFunctionResponse.groupId} uploaded successfully.`);
         } catch (logoError) {
           console.error("Fehler beim Hochladen des Gruppenlogos:", logoError);
           showNotification({
@@ -233,34 +239,15 @@ const CreateGroupPage: React.FC = () => {
         }
       }
 
-      // Step 3: Update lastActiveGroupId in Firestore and set current group in store
-      if (newGroup?.id) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`CreateGroupPage: Calling setCurrentGroup for new group ${newGroup.id}...`);
-        }
-        setCurrentGroup(newGroup as any); 
-                  if (process.env.NODE_ENV === 'development') {
-            console.log(`CreateGroupPage: setCurrentGroup für ${newGroup.id} aufgerufen.`);
-          }
-      }
-
-      // Step 4: NICHT MEHR NÖTIG - Reload user groups and navigate
-      // console.log("CreateGroupPage: Reloading user groups...");
-      // await loadUserGroups(user.uid); // ENTFERNT
-      // console.log("CreateGroupPage: User groups reloaded.");
-
       showNotification({
         message: `Deine Jassgruppe "${data.groupName}" wurde erfolgreich erstellt! Nimm als erstes die individuellen Jass-Einstellungen von deiner Jassrunde vor.`,
         type: "success",
         image: "/welcome-guru.png",
       });
+      
       // Leite direkt zu den Einstellungen der neuen Gruppe weiter
-      if (newGroup?.id) {
-          router.push(`/groups/settings?groupId=${newGroup.id}`);
-      } else {
-          // Fallback, falls die ID fehlt (sollte nicht passieren)
-          router.push("/start");
-      }
+      router.push(`/groups/settings?groupId=${cloudFunctionResponse.groupId}`);
+      
     } catch (err) {
       console.error("Fehler beim Erstellen der Gruppe (onSubmit):", err);
       if (err instanceof Error) {
@@ -273,8 +260,7 @@ const CreateGroupPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  // loadUserGroups aus Abhängigkeiten entfernt, addUserGroup hinzugefügt
-  }, [user, selectedLogoFile, router, showNotification, setCurrentGroup, addUserGroup]); 
+  }, [user, selectedLogoFile, router, showNotification]);
   // --------------------------------------------------------
 
   // CTA-Button konfigurieren (kommt NACH onSubmit)

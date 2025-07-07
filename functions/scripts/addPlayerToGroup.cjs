@@ -54,7 +54,6 @@ const addPlayerToGroup = async (playerId, groupId) => {
     const playerMapUpdate = {};
     playerMapUpdate[`players.${playerId}`] = {
         displayName: playerData.displayName || 'Unbekannter Spieler',
-        email: playerData.email || null,
         joinedAt: new Date()
     };
     await groupRef.update(playerMapUpdate);

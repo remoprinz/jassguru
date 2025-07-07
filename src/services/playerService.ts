@@ -137,10 +137,13 @@ export const getPlayerByUserId = async (userId: string): Promise<FirestorePlayer
 };
 
 /**
- * Spieler anhand der ID abrufen
- * Ergänzt fehlende Felder (photoURL, statusMessage) aus dem users-Dokument, falls sie im players-Dokument fehlen
+ * Ruft das öffentliche Profil eines Spielers anhand seiner ID ab.
+ * Stellt sicher, dass keine sensiblen Daten (wie E-Mail) zurückgegeben werden.
+ *
+ * @param playerId Die ID des Spieler-Dokuments.
+ * @returns Ein Promise, das ein öffentliches FirestorePlayer-Objekt oder null auflöst.
  */
-export const getPlayerById = async (playerId: string): Promise<FirestorePlayer | null> => {
+export const getPublicPlayerProfile = async (playerId: string): Promise<Omit<FirestorePlayer, 'email'> | null> => {
   if (!collections.players) {
     // Im Offline-Modus simulieren wir, dass der Spieler nicht existiert
     return null;
@@ -158,30 +161,14 @@ export const getPlayerById = async (playerId: string): Promise<FirestorePlayer |
     
     playerData.id = playerDoc.id;
 
-    // Überprüfen, ob bestimmte Felder fehlen und ergänzen aus users-Dokument
-    if ((!playerData.photoURL || !playerData.statusMessage) && playerData.userId) {
-      try {
-        const userDocRef = doc(db, "users", playerData.userId);
-        const userDocSnap = await getDoc(userDocRef);
-        
-        if (userDocSnap.exists()) {
-          const userData = userDocSnap.data();
-          // Fehlende Felder ergänzen, ohne die vorhandenen zu überschreiben
-          if (!playerData.photoURL && userData.photoURL) {
-            playerData.photoURL = userData.photoURL;
-          }
-          if (!playerData.statusMessage && userData.statusMessage) {
-            playerData.statusMessage = userData.statusMessage;
-          }
-        }
-      } catch (userError) {
-        // Fehlschlag beim Abrufen der User-Daten nicht kritisch, wir verwenden was wir haben
-      }
+    // Stelle sicher, dass die E-Mail-Adresse entfernt wird, falls sie vorhanden sein sollte.
+    if ('email' in playerData) {
+      delete (playerData as any).email;
     }
 
     return playerData;
   } catch (error) {
-    console.error("Fehler beim Abrufen des Spielers nach ID:", error);
+    console.error("Fehler beim Abrufen des öffentlichen Spielerprofils nach ID:", error);
     throw error;
   }
 };
@@ -420,8 +407,8 @@ export const ensurePlayersExist = async (
 
     const memberPromises = validPlayerIds.map(async (idToCheck) => {
       try {
-        // Wir verwenden getPlayerById, die jetzt fehlende Felder ergänzt
-        const playerDoc = await getPlayerById(idToCheck);
+        // Wir verwenden getPublicPlayerProfile, die jetzt saubere öffentliche Daten liefert
+        const playerDoc = await getPublicPlayerProfile(idToCheck);
         if (playerDoc) {
           return playerDoc;
         }
@@ -432,8 +419,8 @@ export const ensurePlayersExist = async (
 
         if (userSnap.exists() && userSnap.data()?.playerId) {
           const correctPlayerId = userSnap.data()?.playerId;
-          // Auch hier nutzen wir getPlayerById für die Ergänzung fehlender Felder
-          const correctedPlayerDoc = await getPlayerById(correctPlayerId);
+          // Auch hier nutzen wir getPublicPlayerProfile
+          const correctedPlayerDoc = await getPublicPlayerProfile(correctPlayerId);
 
           if (correctedPlayerDoc) {
             // Selbstheilung der Gruppen-Daten
@@ -639,6 +626,85 @@ export const syncDisplayNameAcrossCollections = async (
   } catch (error) {
     console.error("Fehler bei der Synchronisation des DisplayName:", error);
     throw new Error(`DisplayName-Synchronisation fehlgeschlagen: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
+
+/**
+ * Ruft mehrere öffentliche Spielerprofile basierend auf einer Liste von User-IDs ab.
+ * Stellt sicher, dass keine sensiblen Daten wie E-Mail zurückgegeben werden.
+ *
+ * @param userIds Array von Firebase Auth User IDs.
+ * @returns Ein Promise, das ein Array von FirestorePlayer-Objekten auflöst.
+ */
+export const getPublicPlayerProfilesByUserIds = async (userIds: string[]): Promise<FirestorePlayer[]> => {
+  if (!collections.players || !userIds || userIds.length === 0) {
+    return [];
+  }
+
+  // Firestore "in" Abfragen sind auf 30 Elemente pro Abfrage limitiert.
+  // Wir müssen die Anfragen aufteilen (chunking).
+  const chunks: string[][] = [];
+  for (let i = 0; i < userIds.length; i += 30) {
+    chunks.push(userIds.slice(i, i + 30));
+  }
+
+  const allPlayers: FirestorePlayer[] = [];
+
+  for (const chunk of chunks) {
+    try {
+      const q = query(collections.players, where("userId", "in", chunk));
+      const querySnapshot = await getDocs(q);
+
+      querySnapshot.forEach((doc) => {
+        const playerData = doc.data() as FirestorePlayer;
+        // Stelle sicher, dass die E-Mail-Adresse entfernt wird
+        if ('email' in playerData) {
+          delete (playerData as any).email;
+        }
+        allPlayers.push({
+          ...playerData,
+          id: doc.id,
+        } as FirestorePlayer);
+      });
+    } catch (error) {
+      console.error("Fehler beim Abrufen der Spielerprofile für Chunk:", error);
+      // Fahren Sie mit dem nächsten Chunk fort, anstatt den gesamten Vorgang abzubrechen
+    }
+  }
+
+  return allPlayers;
+};
+
+/**
+ * Aktualisiert spezifische Felder eines Spieler-Dokuments in Firestore.
+ *
+ * @param playerId Die ID des zu aktualisierenden Spieler-Dokuments.
+ * @param dataToUpdate Ein Objekt mit den zu aktualisierenden Feldern.
+ */
+export const updatePlayerDocument = async (playerId: string, dataToUpdate: Partial<FirestorePlayer>): Promise<void> => {
+  if (!collections.players || !playerId) {
+    console.error("updatePlayerDocument: Ungültige Parameter (collections.players, playerId).");
+    return;
+  }
+
+  // Verbiete das Ändern kritischer Felder
+  const forbiddenFields = ['id', 'userId', 'isGuest', 'createdAt'];
+  for (const field of forbiddenFields) {
+    if (field in dataToUpdate) {
+      console.error(`updatePlayerDocument: Versuch, das geschützte Feld '${field}' zu ändern, wurde blockiert.`);
+      throw new Error(`Das Feld '${field}' kann nicht aktualisiert werden.`);
+    }
+  }
+
+  try {
+    const playerDocRef = doc(collections.players, playerId);
+    await updateDoc(playerDocRef, {
+      ...dataToUpdate,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error(`Fehler beim Aktualisieren des Spieler-Dokuments ${playerId}:`, error);
+    throw error;
   }
 };
 

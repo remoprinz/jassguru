@@ -37,7 +37,6 @@ setGlobalOptions({ region: "europe-west1" });
 // Notwendig, da der direkte Import von ../../src/types nicht zuverlässig funktioniert
 interface FirestorePlayerInGroup {
   displayName: string | null;
-  email: string | null;
   joinedAt: admin.firestore.Timestamp;
 }
 
@@ -453,7 +452,6 @@ export const joinGroupByToken = onCall<JoinGroupByTokenData>(async (request) => 
                 if (!groupData.players || !groupData.players[finalPlayerId]) {
                     const missingPlayerEntry = {
                         displayName: finalUserDisplayName,
-                        email: finalUserEmail ?? null,
                         joinedAt: admin.firestore.Timestamp.now(),
                     };
                     transaction.update(groupRef, {
@@ -492,15 +490,22 @@ export const joinGroupByToken = onCall<JoinGroupByTokenData>(async (request) => 
                 lastActiveGroupId: currentGroupIdInTx,
                 lastUpdated: admin.firestore.FieldValue.serverTimestamp()
             };
-            if (!userSnap.exists) {
-                transaction.set(userRef, { ...userUpdateData, displayName: finalUserDisplayName, email: finalUserEmail ?? null, createdAt: admin.firestore.FieldValue.serverTimestamp(), lastLogin: admin.firestore.FieldValue.serverTimestamp() });
-            } else {
-                transaction.update(userRef, userUpdateData);
-            }
+            
+            // ✅ ELEGANTE LÖSUNG: Immer vollständiges users-Dokument schreiben
+            const completeUserData = {
+                ...userUpdateData,
+                displayName: finalUserDisplayName,
+                email: finalUserEmail ?? null,
+                ...(userSnap.exists ? {} : { 
+                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                    lastLogin: admin.firestore.FieldValue.serverTimestamp() 
+                })
+            };
+            
+            transaction.set(userRef, completeUserData, { merge: true });
 
             const groupPlayerEntry = {
                 displayName: finalUserDisplayName,
-                email: finalUserEmail ?? null,
                 joinedAt: admin.firestore.Timestamp.now(),
             };
 
@@ -817,7 +822,6 @@ export const createNewGroup = onCall(async (request) => {
       players: {
         [playerDocId]: { // playerDocId als Schlüssel
           displayName: userDisplayName,
-          email: userEmail ?? null,
           joinedAt: admin.firestore.Timestamp.now(),
         }
       },
@@ -875,7 +879,6 @@ export const addPlayerToGroup = onCall(async (request) => {
   try {
     let playerDocIdToAdd: string | null = null;
     let playerDisplayName = "Unbekannter Jasser";
-    let playerEmail: string | null = null;
 
     // Schritt 1: Finde den User und seinen playerDocId
     const userToAddRef = db.collection("users").doc(playerToAddAuthUid);
@@ -884,7 +887,6 @@ export const addPlayerToGroup = onCall(async (request) => {
     if (userToAddSnap.exists) {
       const userToAddData = userToAddSnap.data();
       playerDisplayName = userToAddData?.displayName || playerDisplayName;
-      playerEmail = userToAddData?.email || null;
       if (userToAddData?.playerId) {
         // Überprüfe, ob dieser Player-Datensatz auch wirklich existiert
         const playerCheckRef = db.collection("players").doc(userToAddData.playerId);
@@ -907,7 +909,6 @@ export const addPlayerToGroup = onCall(async (request) => {
         playerDocIdToAdd = playerQuerySnapshot.docs[0].id;
         const playerData = playerQuerySnapshot.docs[0].data();
         playerDisplayName = playerData?.displayName || playerData?.nickname || playerDisplayName;
-        // playerEmail könnte hier auch aus playerDaten kommen, falls vorhanden
         console.log(`[addPlayerToGroup] Found existing playerDocId ${playerDocIdToAdd} via query for user ${playerToAddAuthUid}.`);
         // Stelle sicher, dass der User-Doc auch diesen PlayerId hat (falls userDoc existiert)
         if (userToAddSnap.exists && userToAddSnap.data()?.playerId !== playerDocIdToAdd) {
@@ -945,7 +946,6 @@ export const addPlayerToGroup = onCall(async (request) => {
             transaction.update(groupRef, {
                 [`players.${playerDocIdToAdd}`]: {
                     displayName: playerDisplayName,
-                    email: playerEmail,
                     joinedAt: admin.firestore.Timestamp.now(),
                 },
                 updatedAt: admin.firestore.FieldValue.serverTimestamp()
@@ -959,7 +959,6 @@ export const addPlayerToGroup = onCall(async (request) => {
         playerIds: admin.firestore.FieldValue.arrayUnion(playerDocIdToAdd),
         [`players.${playerDocIdToAdd}`]: {
           displayName: playerDisplayName,
-          email: playerEmail,
           joinedAt: admin.firestore.Timestamp.now(),
         },
         updatedAt: admin.firestore.FieldValue.serverTimestamp()

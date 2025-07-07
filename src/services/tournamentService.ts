@@ -18,7 +18,7 @@ import {
   getFirestore
 } from 'firebase/firestore';
 import { db } from './firebaseInit'; // Nur db importieren
-import { getPlayerById } from './playerService';
+import { getPublicPlayerProfilesByUserIds } from './playerService';
 import type {
   TournamentInstance,
   TournamentGame,
@@ -534,26 +534,8 @@ export const fetchTournamentParticipants = async (
     const participantUids = tournament.participantUids;
     console.log(`[tournamentService] Found ${participantUids.length} participant UIDs for tournament ${instanceId}:`, participantUids);
 
-    // 2. Für jede Teilnehmer-UID die vollständigen Spielerdaten über getPlayerById abrufen
-    //    (getPlayerById greift auf /players/{playerId} zu und ergänzt ggf. aus /users/{userId})
-    const participantsPromises: Promise<FirestorePlayer | null>[] = participantUids.map(async (uid) => {
-      // Zuerst die playerId für die uid finden (Annahme: uid ist eine userId)
-    const playersCol = collection(db, 'players');
-      const playerQuery = query(playersCol, where('userId', '==', uid), limit(1));
-      const playerSnapshot = await getDocs(playerQuery);
-
-      if (!playerSnapshot.empty) {
-        const playerDoc = playerSnapshot.docs[0];
-        // Jetzt getPlayerById mit der gefundenen playerId aufrufen
-        return getPlayerById(playerDoc.id);
-      } else {
-        console.warn(`[tournamentService] fetchTournamentParticipants: Kein 'players'-Dokument für userId ${uid} im Turnier ${instanceId} gefunden.`);
-        return null;
-      }
-    });
-
-    const resolvedParticipants = await Promise.all(participantsPromises);
-    const validParticipants = resolvedParticipants.filter(p => p !== null) as FirestorePlayer[];
+    // 2. Rufe alle Spielerprofile auf einmal mit der neuen Service-Funktion ab.
+    const validParticipants = await getPublicPlayerProfilesByUserIds(participantUids);
 
     // Optional: Sortiere die Teilnehmer nach Namen
     validParticipants.sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));

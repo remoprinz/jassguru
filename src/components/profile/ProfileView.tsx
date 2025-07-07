@@ -98,6 +98,7 @@ interface ProfileViewProps {
   previewUrl?: string | null;
   isUploading?: boolean;
   cropModalOpen?: boolean;
+  cropModalLoading?: boolean; // NEU: Loading-Zustand für Crop Modal
   imageToCrop?: string | null;
   handleFileChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;
   handleCropComplete?: (blob: Blob | null) => void;
@@ -137,6 +138,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   previewUrl,
   isUploading,
   cropModalOpen,
+  cropModalLoading,
   imageToCrop,
   handleFileChange,
   handleCropComplete,
@@ -582,11 +584,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <input
             type="file"
             accept="image/jpeg,image/jpg,image/png,image/webp,image/gif,image/heic,image/heif"
-            capture="environment"
             ref={fileInputRef}
             onChange={handleFileChange}
             className="hidden"
             multiple={false}
+            disabled={isUploading}
             key={inputKey || Date.now()} // ✅ Force re-render für iOS Safari
           />
         )}
@@ -598,6 +600,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             onCropComplete={handleCropComplete}
             isOpen={cropModalOpen}
             onClose={() => handleCropComplete(null)}
+            isLoading={cropModalLoading} // NEU: Loading-Zustand übergeben
           />
         )}
 

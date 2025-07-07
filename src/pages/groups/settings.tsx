@@ -57,7 +57,7 @@ const APP_BASE_URL = "https://jassguru.ch";
 
 const GroupSettingsPage = () => {
   const {user, status, isAuthenticated} = useAuthStore();
-  const {currentGroup, updateGroup, updateMemberRole, updateCurrentGroupScoreSettings, updateCurrentGroupStrokeSettings, updateCurrentGroupFarbeSettings, updateCurrentGroupJassSettings} = useGroupStore();
+  const {currentGroup, updateGroup, updateMemberRole, updateCurrentGroupScoreSettings, updateCurrentGroupStrokeSettings, updateCurrentGroupFarbeSettings, updateCurrentGroupJassSettings, fetchCurrentGroup} = useGroupStore();
   
   // Selektiere jede Funktion einzeln
   const showNotification = useUIStore((state) => state.showNotification);
@@ -101,6 +101,14 @@ const GroupSettingsPage = () => {
   // Check if current user is admin (using userId/uid, not playerId)
   const isCurrentUserAdmin = !!user?.uid && !!currentGroup?.adminIds.includes(user.uid);
 
+  // Lade Gruppe automatisch, wenn groupId in URL aber keine currentGroup
+  useEffect(() => {
+    if (status === "authenticated" && routeGroupId && !currentGroup && typeof routeGroupId === 'string') {
+      console.log(`[GroupSettings] Lade Gruppe ${routeGroupId} automatisch aus URL`);
+      fetchCurrentGroup(routeGroupId);
+    }
+  }, [status, routeGroupId, currentGroup, fetchCurrentGroup]);
+
   // Redirect wenn nicht eingeloggt oder keine aktive Gruppe oder kein Admin
   useEffect(() => {
     if (status === "authenticated" || status === "unauthenticated") {
@@ -120,82 +128,43 @@ const GroupSettingsPage = () => {
   // Fetch member details
   useEffect(() => {
     const fetchMembers = async () => {
-      if (!currentGroup || !currentGroup.playerIds || currentGroup.playerIds.length === 0) {
+      if (!currentGroup?.playerIds?.length) {
         setMembers([]);
         setMembersLoading(false);
         return;
       }
       setMembersLoading(true);
-      
-      let dataWasHealed = false;
+      setError(null);
       
       try {
-        const validPlayerIds = currentGroup.playerIds.filter((id: string | unknown): id is string => 
-          typeof id === 'string' && id.trim() !== ''
-        );
+        // Die komplexe Logik wird durch einen einzigen, sauberen Service-Aufruf ersetzt.
+        // ensurePlayersExist kümmert sich intern um die Datenheilung.
+        const validMembers = await ensurePlayersExist(currentGroup.playerIds, currentGroup.id);
         
-        const memberPromises = validPlayerIds.map(async (idToCheck: string) => {
-          try {
-            const playerDoc = await getPlayerDocument(idToCheck);
-            if (playerDoc) return playerDoc; 
-            
-            const userRef = doc(db, "users", idToCheck);
-            const userSnap = await getDoc(userRef);
-            
-            if (userSnap.exists() && userSnap.data()?.playerId) {
-              const correctPlayerId = userSnap.data()?.playerId;
-              const correctedPlayerDoc = await getPlayerDocument(correctPlayerId);
-              
-              if (correctedPlayerDoc) {
-                try {
-                  const groupRef = doc(db, "groups", currentGroup.id);
-                  await updateDoc(groupRef, { playerIds: arrayRemove(idToCheck) });
-                  await updateDoc(groupRef, { playerIds: arrayUnion(correctPlayerId) });
-                  dataWasHealed = true;
-                } catch (updateError) {
-                  // Stille Behandlung für "No document to update" Fehler
-                  if (updateError instanceof Error && updateError.message.includes("No document to update")) {
-                    console.warn(`GROUP_SETTINGS: Group ${currentGroup.id} does not exist, silently ignoring data healing.`);
-                  } else {
-                    console.error("Fehler beim Heilen der Gruppendaten:", updateError);
-                  }
-                }
-                return correctedPlayerDoc;
-              }
-            }
-            
-            return {
-              id: idToCheck,
-              displayName: `Unbekannter Spieler ${idToCheck.slice(0, 4)}...`,
-              userId: null, isGuest: false, createdAt: Timestamp.fromDate(new Date()),
-              updatedAt: Timestamp.fromDate(new Date()), groupIds: [currentGroup.id],
-              stats: { gamesPlayed: 0, wins: 0, totalScore: 0 }, _isPlaceholder: true
-            } as FirestorePlayer;
-          } catch (error) {
- return null;
-}
-        });
-        
-        const memberResults = await Promise.all(memberPromises);
-        const validMembers = memberResults.filter((member: FirestorePlayer | null): member is FirestorePlayer => member !== null);
-        
-        setHasInconsistentData(validMembers.some((m: FirestorePlayer) => (m as PlayerWithPlaceholder)._isPlaceholder));
-        
-        if (dataWasHealed) {
-          showNotification({ message: "Gruppen-Daten wurden automatisch korrigiert.", type: "success" });
-        }
-        
+        // Prüfen, ob Platzhalter-Spieler zurückkamen, was auf Inkonsistenzen hindeutet.
+        setHasInconsistentData(validMembers.some((m: any) => m._isPlaceholder));
+
+        // Sortieren und im State setzen
         setMembers(validMembers.sort((a, b) => (a.displayName || "").localeCompare(b.displayName || "")));
+        
+        // Die dataWasHealed-Logik ist jetzt in ensurePlayersExist gekapselt.
+        // Die UI muss sich darum nicht mehr kümmern.
+        // Eine globale Benachrichtigung könnte vom Service selbst ausgelöst werden, wenn nötig.
+
       } catch (err) {
         console.error("Fehler beim Laden der Mitgliederdetails:", err);
         setError("Mitgliederdetails konnten nicht geladen werden.");
+        showNotification({
+            message: "Mitglieder konnten nicht geladen werden.",
+            type: "error"
+        });
       } finally {
         setMembersLoading(false);
       }
     };
 
-    if (currentGroup) { // Stelle sicher, dass currentGroup vorhanden ist
-    fetchMembers();
+    if (currentGroup) {
+      fetchMembers();
     } else {
         setMembers([]);
         setMembersLoading(false);
