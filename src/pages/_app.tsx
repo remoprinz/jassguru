@@ -258,7 +258,7 @@ const MyApp = ({Component, pageProps}: AppProps) => {
         <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
         <meta httpEquiv="Pragma" content="no-cache" />
         <meta httpEquiv="Expires" content="0" />
-        <meta name="version" content="2.4.6" />
+        <meta name="version" content="2.5.0" />
         <title>jassguru.ch - Die Jass-Community in deiner Tasche</title>
         <meta name="description" content="Schneller, smarter, vernetzter Jassen" />
         <meta property="og:title" content="jassguru.ch - Die Jass-Community in deiner Tasche" />
