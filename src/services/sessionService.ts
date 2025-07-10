@@ -68,43 +68,64 @@ export const fetchCompletedSessionsForUser = async (userId: string): Promise<Ses
   try {
     const db = getFirestore(firebaseApp);
     const summariesRef = collection(db, 'jassGameSummaries');
+    
+    // ✅ LÖSUNG: Vereinfachte Query ohne Composite Index
     const q = query(
       summariesRef,
-      where('participantUids', 'array-contains', userId),
-      where('status', 'in', ['completed', 'completed_empty']),
-      orderBy('startedAt', 'desc')
+      where('participantUids', 'array-contains', userId)
+      // orderBy und status-Filter entfernt, um Composite Index zu vermeiden
     );
+    
     const querySnapshot = await getDocs(q);
     const sessions: SessionSummary[] = [];
     querySnapshot.forEach((docSnap) => {
       const data = docSnap.data();
-      sessions.push({
-        id: docSnap.id,
-        startedAt: parseTimestampToMillis(data.startedAt),
-        endedAt: parseTimestampToMillis(data.endedAt),
-        groupId: data.groupId ?? data.gruppeId ?? null,
-        playerNames: data.playerNames || {},
-        participantUids: data.participantUids || [],
-        finalScores: data.finalScores || null,
-        finalStriche: data.finalStriche || null,
-        status: data.status || 'unknown',
-        teams: data.teams || null,
-        pairingIdentifiers: data.pairingIdentifiers || null,
-        gruppeId: data.gruppeId ?? data.groupId ?? null,
-        currentScoreLimit: data.currentScoreLimit || 0,
-        completedGamesCount: data.completedGamesCount || 0,
-        lastActivity: data.lastActivity ? parseTimestampToMillis(data.lastActivity) : null,
-        isTournamentSession: data.isTournamentSession || false,
-        tournamentInstanceId: data.tournamentInstanceId || null,
-        tournamentId: data.tournamentId || null, // ✅ NEU: Für Turnier-Sessions
-        metadata: data.metadata || {},
-      });
+      
+      // ✅ CLIENT-SEITIGE FILTERUNG: Nur abgeschlossene Sessions
+      if (data.status === 'completed' || data.status === 'completed_empty') {
+        sessions.push({
+          id: docSnap.id,
+          startedAt: parseTimestampToMillis(data.startedAt),
+          endedAt: parseTimestampToMillis(data.endedAt),
+          groupId: data.groupId ?? data.gruppeId ?? null,
+          playerNames: data.playerNames || {},
+          participantUids: data.participantUids || [],
+          finalScores: data.finalScores || null,
+          finalStriche: data.finalStriche || null,
+          status: data.status || 'unknown',
+          teams: data.teams || null,
+          pairingIdentifiers: data.pairingIdentifiers || null,
+          gruppeId: data.gruppeId ?? data.groupId ?? null,
+          currentScoreLimit: data.currentScoreLimit || 0,
+          completedGamesCount: data.completedGamesCount || 0,
+          lastActivity: data.lastActivity ? parseTimestampToMillis(data.lastActivity) : null,
+          isTournamentSession: data.isTournamentSession || false,
+          tournamentInstanceId: data.tournamentInstanceId || null,
+          tournamentId: data.tournamentId || null, // ✅ NEU: Für Turnier-Sessions
+          metadata: data.metadata || {},
+        });
+      }
     });
+    
+    // ✅ CLIENT-SEITIGE SORTIERUNG: Nach startedAt absteigend
     sessions.sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0));
+    
     // console.log(`[fetchCompletedSessionsForUser] Found ${sessions.length} sessions for user: ${userId}`);
     return sessions;
   } catch (error) {
     console.error(`[fetchCompletedSessionsForUser] Error fetching sessions for user ${userId}:`, error);
+    
+    // ✅ ELEGANTE FEHLERBEHANDLUNG: Leere Liste bei Index-Fehlern
+    if (error && typeof error === 'object' && 'code' in error) {
+      const firebaseError = error as any;
+      if (firebaseError.code === 'failed-precondition' || 
+          firebaseError.code === 'permission-denied' ||
+          firebaseError.code === 'not-found') {
+        console.log(`[fetchCompletedSessionsForUser] Normal state: No sessions accessible for user ${userId} (${firebaseError.code})`);
+        return [];
+      }
+    }
+    
     return [];
   }
 };
@@ -165,11 +186,11 @@ export const fetchAllGroupSessions = async (groupId: string): Promise<SessionSum
     const db = getFirestore(firebaseApp);
     const sessionsRef = collection(db, 'jassGameSummaries');
 
+    // ✅ LÖSUNG: Vereinfachte Query ohne Composite Index
     const q = query(
       sessionsRef,
-      where('groupId', '==', groupId),
-      where('status', 'in', ['completed', 'completed_empty']),
-      orderBy('startedAt', 'desc')
+      where('groupId', '==', groupId)
+      // status-Filter und orderBy entfernt, um Composite Index zu vermeiden
     );
 
     const querySnapshot = await getDocs(q);
@@ -177,33 +198,52 @@ export const fetchAllGroupSessions = async (groupId: string): Promise<SessionSum
 
     querySnapshot.forEach((docSnap) => {
       const data = docSnap.data();
-      sessions.push({
-        id: docSnap.id,
-        startedAt: parseTimestampToMillis(data.startedAt),
-        endedAt: parseTimestampToMillis(data.endedAt),
-        groupId: data.groupId ?? data.gruppeId ?? null,
-        playerNames: data.playerNames || {},
-        participantUids: data.participantUids || [],
-        finalScores: data.finalScores || null,
-        finalStriche: data.finalStriche || null,
-        status: data.status || 'unknown',
-        teams: data.teams || null,
-        pairingIdentifiers: data.pairingIdentifiers || null,
-        gruppeId: data.gruppeId ?? data.groupId ?? null,
-        currentScoreLimit: data.currentScoreLimit || 0,
-        completedGamesCount: data.completedGamesCount || 0,
-        lastActivity: data.lastActivity ? parseTimestampToMillis(data.lastActivity) : null,
-        isTournamentSession: data.isTournamentSession || false,
-        tournamentInstanceId: data.tournamentInstanceId || null,
-        tournamentId: data.tournamentId || null, // ✅ NEU: Für Turnier-Sessions
-        metadata: data.metadata || {},
-      });
+      
+      // ✅ CLIENT-SEITIGE FILTERUNG: Nur abgeschlossene Sessions
+      if (data.status === 'completed' || data.status === 'completed_empty') {
+        sessions.push({
+          id: docSnap.id,
+          startedAt: parseTimestampToMillis(data.startedAt),
+          endedAt: parseTimestampToMillis(data.endedAt),
+          groupId: data.groupId ?? data.gruppeId ?? null,
+          playerNames: data.playerNames || {},
+          participantUids: data.participantUids || [],
+          finalScores: data.finalScores || null,
+          finalStriche: data.finalStriche || null,
+          status: data.status || 'unknown',
+          teams: data.teams || null,
+          pairingIdentifiers: data.pairingIdentifiers || null,
+          gruppeId: data.gruppeId ?? data.groupId ?? null,
+          currentScoreLimit: data.currentScoreLimit || 0,
+          completedGamesCount: data.completedGamesCount || 0,
+          lastActivity: data.lastActivity ? parseTimestampToMillis(data.lastActivity) : null,
+          isTournamentSession: data.isTournamentSession || false,
+          tournamentInstanceId: data.tournamentInstanceId || null,
+          tournamentId: data.tournamentId || null, // ✅ NEU: Für Turnier-Sessions
+          metadata: data.metadata || {},
+        });
+      }
     });
+
+    // ✅ CLIENT-SEITIGE SORTIERUNG: Nach startedAt absteigend
+    sessions.sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0));
 
     // console.log(`[fetchAllGroupSessions] Found ${sessions.length} sessions for group: ${groupId}.`);
     return sessions;
   } catch (error) {
     console.error(`[fetchAllGroupSessions] Error fetching sessions for group ${groupId}:`, error);
+    
+    // ✅ ELEGANTE FEHLERBEHANDLUNG: Leere Liste bei Index-Fehlern
+    if (error && typeof error === 'object' && 'code' in error) {
+      const firebaseError = error as any;
+      if (firebaseError.code === 'failed-precondition' || 
+          firebaseError.code === 'permission-denied' ||
+          firebaseError.code === 'not-found') {
+        console.log(`[fetchAllGroupSessions] Normal state: No sessions accessible for group ${groupId} (${firebaseError.code})`);
+        return [];
+      }
+    }
+    
     return [];
   }
 };

@@ -74,6 +74,22 @@ const withPWA = withPWAInit({
         },
       },
     },
+    // 🚀 NEUE OPTIMIERTE STRATEGIE: Firebase Storage Bilder (Profilbilder, Gruppenlogos)
+    {
+      urlPattern: /^https:\/\/firebasestorage\.googleapis\.com\/.*\/(profileImages|profilePictures|groupLogos|tournamentLogos)\/.*/i,
+      handler: 'CacheFirst',
+      options: {
+        cacheName: 'firebase-user-images',
+        expiration: {
+          maxEntries: 500, // Mehr Platz für Profilbilder/Logos
+          maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Tage - länger, da Änderungen neue URLs generieren
+        },
+        cacheableResponse: {
+          statuses: [0, 200],
+        },
+      },
+    },
+    // Allgemeine Bilder bleiben StaleWhileRevalidate für häufig ändernde Inhalte
     {
       urlPattern: /\.(?:jpg|jpeg|gif|png|svg|ico|webp|avif)$/i,
       handler: 'StaleWhileRevalidate',
@@ -81,7 +97,7 @@ const withPWA = withPWAInit({
         cacheName: 'static-image-assets',
         expiration: {
           maxEntries: 100,
-          maxAgeSeconds: 7 * 24 * 60 * 60, // 7 Tage (reduziert für häufigere Updates)
+          maxAgeSeconds: 7 * 24 * 60 * 60, // 7 Tage
         },
         cacheableResponse: {
           statuses: [0, 200],
@@ -148,7 +164,7 @@ const withPWA = withPWAInit({
         cacheName: 'offlineCache',
         expiration: {
           maxEntries: 200,
-          maxAgeSeconds: 60 * 60, // 1 Stunde (reduziert für häufigere Updates)
+          maxAgeSeconds: 60 * 60, // 1 Stunde
         },
         networkTimeoutSeconds: 3,
         cacheableResponse: {

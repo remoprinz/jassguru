@@ -27,30 +27,8 @@ const PwaUpdateHandler: React.FC = () => {
     lastUpdateCheck: 0,
   });
 
-  // Debugging beim Mounten (nur in Development)
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[PwaUpdateHandler] Component mounted - Enhanced Version');
-      if (typeof navigator !== 'undefined') {
-        const swAvailable = 'serviceWorker' in navigator;
-        console.log('[PwaUpdateHandler] Service Worker available:', swAvailable);
-        
-        // Prüfe aktuelle Service Worker Registration
-        if (swAvailable) {
-          navigator.serviceWorker.getRegistrations().then((registrations) => {
-            console.log('[PwaUpdateHandler] Current registrations:', registrations.length);
-            registrations.forEach((reg, index) => {
-              console.log(`[PwaUpdateHandler] Registration ${index}:`, {
-                scope: reg.scope,
-                active: !!reg.active,
-                waiting: !!reg.waiting,
-                installing: !!reg.installing,
-              });
-            });
-          });
-        }
-      }
-    }
+    // Component mounted
   }, []);
 
   // Improved update check function
@@ -63,8 +41,15 @@ const PwaUpdateHandler: React.FC = () => {
       const registration = await navigator.serviceWorker.getRegistration();
       if (registration) {
         if (process.env.NODE_ENV === 'development') {
-        console.log('[PwaUpdateHandler] Checking for updates...');
-      }
+          console.log('[PwaUpdateHandler] Checking for updates...');
+        }
+        
+        // 🚨 FIX: Prüfe auf newestWorker null um InvalidStateError zu vermeiden
+        if (registration.waiting || registration.installing) {
+          console.log('[PwaUpdateHandler] Service Worker update already in progress');
+          return;
+        }
+        
         await registration.update();
         setUpdateState(prev => ({ ...prev, lastUpdateCheck: Date.now() }));
       }

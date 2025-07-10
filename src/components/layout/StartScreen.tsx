@@ -12,7 +12,7 @@ import {PlayerSelectPopover} from "../player/PlayerSelectPopover";
 import {AddGuestModal} from "../player/AddGuestModal";
 import { X } from "lucide-react";
 import { useRouter } from "next/router";
-import { createActiveGame, createSessionDocument, updateSessionActiveGameId } from "@/services/gameService";
+import { createActiveGame, createSessionDocument, updateSessionActiveGameId, updateSessionParticipantPlayerIds } from "@/services/gameService";
 import { nanoid } from "nanoid";
 import { toast } from "sonner";
 import GlobalLoader from "./GlobalLoader";
@@ -59,9 +59,16 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
 
   useEffect(() => {
     if (status === 'authenticated' && user) {
+      // 🎯 TODO: Lade die korrekte playerId für den Host-User
+      // Für jetzt verwenden wir eine Fallback-Lösung
       setGamePlayers((prev) => ({
         ...prev,
-        1: {type: "member", uid: user.uid, name: user.displayName || "Ich"},
+        1: {
+          type: "member", 
+          uid: user.uid, 
+          name: user.displayName || "Ich",
+          playerId: user.playerId || user.uid // ✅ HINZUGEFÜGT: playerId
+        },
       }));
       setNames({ 1: user.displayName || "Ich", 2: '', 3: '', 4: '' });
     } else {
@@ -279,14 +286,38 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
       const auth = useAuthStore.getState();
 
       if (auth.status !== 'authenticated' && !auth.isGuest) {
-        console.log("[StartScreen startGameFlow] User ist nicht authentifiziert und kein Gast. Setze Gaststatus jetzt.", { status: auth.status, isGuest: auth.isGuest });
+
         auth.continueAsGuest();
         
         await new Promise(resolve => setTimeout(resolve, 100));
-        console.log("[StartScreen startGameFlow] Nach continueAsGuest:", { 
-          status: useAuthStore.getState().status, 
-          isGuest: useAuthStore.getState().isGuest 
-        });
+
+      }
+
+      // ✅ NEU: Prüfe, ob der eingeloggte User als Spieler teilnimmt
+      if (status === 'authenticated' && user && selectedPlayers) {
+        const selectedPlayerUids = Object.values(selectedPlayers)
+          .map(p => (p?.type === 'member' ? p.uid : null))
+          .filter((uid): uid is string => !!uid);
+        
+        const isUserParticipating = selectedPlayerUids.includes(user.uid);
+        
+        if (!isUserParticipating) {
+          // Zeige Notification, dass der User als Spielleiter fungiert
+          showNotification({
+            type: "info",
+            message: "🎮 Du leitest dieses Spiel, nimmst aber nicht als Spieler teil. Die Punkte werden für die anderen Teilnehmer getrackt.",
+            preventClose: true,
+            actions: [
+              {
+                label: "Verstanden",
+                onClick: () => {},
+              },
+            ],
+          });
+          
+          // Kurz warten, damit der User die Notification lesen kann
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
       }
 
       // 🔧 FIX: Tutorial-Behandlung für Gäste verbessert
@@ -361,16 +392,25 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
           // 5. **NEU:** Session-Dokument mit der activeGameId aktualisieren
           await updateSessionActiveGameId(newSessionId, activeGameId);
 
-          // 6. **NEU:** Teilnehmer-Player IDs sammeln
-          const playerIdPromises = Object.values(selectedPlayers)
-                                 .map(async (p) => {
-                                   if (p?.type === 'member') {
-                                     return await getPlayerIdForUser(p.uid, p.name);
-                                   }
-                                   return null;
-                                 });
-          const resolvedPlayerIds = await Promise.all(playerIdPromises);
-          participantPlayerIds = resolvedPlayerIds.filter((id): id is string => !!id);
+          // 6. **NEU:** Teilnehmer-Player IDs DIREKT sammeln (ELEGANT!)
+          // 🎯 EINFACH: Verwende direkt die Player-IDs aus den selectedPlayers
+          participantPlayerIds = Object.values(selectedPlayers)
+            .map(p => p?.type === 'member' ? p.playerId : null)
+            .filter((id): id is string => !!id);
+          
+          console.log(`[StartScreen] Player-IDs DIREKT gesammelt: ${participantPlayerIds.length}/${uniqueParticipantUids.length}`);
+          console.log(`[StartScreen] UIDs: [${uniqueParticipantUids.join(', ')}]`);
+          console.log(`[StartScreen] Player-IDs: [${participantPlayerIds.join(', ')}]`);
+          
+          if (participantPlayerIds.length !== uniqueParticipantUids.length) {
+            console.warn("[StartScreen] Nicht alle Player-IDs verfügbar - prüfe Spieler-Auswahl");
+          }
+          
+          // 7. **NEU:** Session mit aufgelösten Player-IDs aktualisieren
+          if (participantPlayerIds.length > 0) {
+            await updateSessionParticipantPlayerIds(newSessionId, participantPlayerIds);
+            console.log(`[StartScreen] Session ${newSessionId} mit ${participantPlayerIds.length} Player-IDs aktualisiert.`);
+          }
 
         } catch (error) {
           toast.error("Online-Spiel konnte nicht erstellt werden.");

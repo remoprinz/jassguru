@@ -21,14 +21,33 @@ import { isPublicPath } from "@/lib/utils"; // 🚨 NEU: Importiere die zentrale
 import { handleIndexedDBCorruption, isIndexedDBCorruptionError } from '../utils/indexedDBHelper';
 import { logVersionInfo } from '@/config/version'; // Version-Info für Debugging
 // import { setupEmergencyFunctions } from '../utils/emergencyReset'; // ENTFERNT: Nicht mehr benötigt
+import { initSyncEngine } from '@/services/offlineSyncEngine';
 
-// Hilfskomponente für die Ladeanzeige
-const LoadingScreen: React.FC = () => (
-  <div className="flex flex-1 flex-col items-center justify-center min-h-full bg-gray-900 text-white">
-    <ClipLoader color="#ffffff" size={40} />
-    <p className="mt-4 text-lg">Authentifizierung wird geprüft...</p>
-  </div>
-);
+// 🚨 IMPROVED: Hilfskomponente für die Ladeanzeige mit besserer UX
+const LoadingScreen: React.FC = () => {
+  const [timeoutWarning, setTimeoutWarning] = useState(false);
+  
+  useEffect(() => {
+    // Zeige Warnung nach 2 Sekunden
+    const warningTimer = setTimeout(() => {
+      setTimeoutWarning(true);
+    }, 2000);
+    
+    return () => clearTimeout(warningTimer);
+  }, []);
+  
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center min-h-full bg-gray-900 text-white">
+      <ClipLoader color="#ffffff" size={40} />
+      <p className="mt-4 text-lg">App wird geladen...</p>
+      {timeoutWarning && (
+        <p className="mt-2 text-sm text-gray-400 text-center max-w-xs">
+          Falls die App nicht lädt, prüfe deine Internetverbindung oder lade die Seite neu.
+        </p>
+      )}
+    </div>
+  );
+};
 
 const MyApp = ({Component, pageProps}: AppProps) => {
   const [isClient, setIsClient] = useState(false);
@@ -71,10 +90,7 @@ const MyApp = ({Component, pageProps}: AppProps) => {
     
     // Service Worker registrieren (nur im Browser)
     if (typeof window !== 'undefined') {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[_app] Registering Service Worker...');
-        logVersionInfo(); // Version-Info für Debugging
-      }
+
       register();
     }
     
@@ -91,9 +107,8 @@ const MyApp = ({Component, pageProps}: AppProps) => {
     }
   }, [initAuth]);
 
-  // NEU: Effekt zum Setzen des App-Ladezustands - MUSS VOR WEITERLEITUNG KOMMEN!
+  // 🚨 IMPROVED: App-Loading-Logic mit Auth-Timeout-Handling
   useEffect(() => {
-    // ✅ KORRIGIERT: Öffentliche Seiten können sofort gerendert werden
     if (router.isReady) {
       const currentPath = router.pathname;
       const isCurrentPagePublic = isPublicPath(currentPath);
@@ -103,9 +118,24 @@ const MyApp = ({Component, pageProps}: AppProps) => {
         setIsAppLoaded(true);
         return;
       }
-      // Private Seiten müssen warten, bis Auth-Status definitiv ist
-      else if (authStatus !== 'loading' && authStatus !== 'idle') {
+      
+      // Private Seiten: Warte auf definitiven Auth-Status ODER Timeout
+      if (authStatus !== 'loading' && authStatus !== 'idle') {
         setIsAppLoaded(true);
+      } else {
+        // 🚨 CRITICAL FIX: Auth-Timeout für hängende Loading-States
+        const authTimeoutId = setTimeout(() => {
+          if ((authStatus === 'loading' || authStatus === 'idle') && !isAppLoaded) {
+            console.warn('_app.tsx: Auth-Status Timeout! Fallback zu WelcomeScreen.');
+            // Forciere App-Loading und leite zur WelcomeScreen weiter
+            setIsAppLoaded(true);
+            if (!isCurrentPagePublic) {
+              debouncedRouterPush(router, '/', undefined, true);
+            }
+          }
+        }, 4000); // 4s Timeout (etwas länger als authStore Watchdog)
+        
+        return () => clearTimeout(authTimeoutId);
       }
     }
   }, [router.isReady, router.pathname, authStatus, isAppLoaded]);
@@ -128,9 +158,18 @@ const MyApp = ({Component, pageProps}: AppProps) => {
       return;
     }
 
-    // Wenn die Seite nicht öffentlich ist, warten wir auf einen definitiven Auth-Status.
+    // 🚨 IMPROVED: Robustere Auth-Status Behandlung
     if (authStatus === 'loading' || authStatus === 'idle') {
-      return;
+      // Zusätzlicher Timeout-Schutz: Falls App länger als 5s im loading/idle hängt
+      const routingTimeoutId = setTimeout(() => {
+        if ((authStatus === 'loading' || authStatus === 'idle')) {
+          console.warn('_app.tsx: Routing-Timeout! Forciere Weiterleitung zu WelcomeScreen.');
+          debouncedRouterPush(router, '/', undefined, true);
+        }
+      }, 5000);
+      
+      // Cleanup timeout when component unmounts or authStatus changes
+      return () => clearTimeout(routingTimeoutId);
     }
 
     // Ab hier wissen wir: Die Seite ist GESCHÜTZT und der Auth-Status ist DEFINITIV.
@@ -246,6 +285,18 @@ const MyApp = ({Component, pageProps}: AppProps) => {
     }
   }, [userActiveTournamentId, userActiveTournamentStatus, router.isReady, router.pathname, hasBeenRedirected, setHasBeenRedirected, authStatus]); // router-Objekt entfernt
 
+  // NEU: Sync-Engine Initialisierung
+  useEffect(() => {
+    initSyncEngine();
+    
+    // Development Mode: Lade Test-Helper
+    if (process.env.NODE_ENV === 'development') {
+      import('@/utils/offlineTestHelper').then(() => {
+        console.log('[App] 🧪 Offline test helper loaded. Use testOfflineSync() in console to run tests.');
+      });
+    }
+  }, []);
+
   // --- Immer die Haupt-App-Struktur rendern --- 
   return (
     <AppProvider>
@@ -258,7 +309,12 @@ const MyApp = ({Component, pageProps}: AppProps) => {
         <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
         <meta httpEquiv="Pragma" content="no-cache" />
         <meta httpEquiv="Expires" content="0" />
-        <meta name="version" content="2.5.0" />
+        <meta name="version" content="2.5.2" />
+        
+        {/* 🚀 PERFORMANCE FIX: Preload kritische Bilder */}
+        <link rel="preload" href="/welcome-guru.png" as="image" />
+        <link rel="preload" href="/apple-touch-icon.png" as="image" />
+        
         <title>jassguru.ch - Die Jass-Community in deiner Tasche</title>
         <meta name="description" content="Schneller, smarter, vernetzter Jassen" />
         <meta property="og:title" content="jassguru.ch - Die Jass-Community in deiner Tasche" />

@@ -20,6 +20,8 @@ import ProfileImage from '@/components/ui/ProfileImage';
 import { formatMillisecondsDuration } from '@/utils/formatUtils';
 import InviteModal from '@/components/group/InviteModal';
 import ImageCropModal from '@/components/ui/ImageCropModal';
+// NEU: PLZ-Service für Hauptspielort-Anzeige
+import { getOrtNameByPlz } from '@/utils/locationUtils';
 
 // Props für Schritt 4: Komplette Statistik-Inhalte
 interface GroupViewProps {
@@ -870,7 +872,15 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         </div>
                         <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                           <span className="font-medium text-gray-300">Hauptspielort:</span>
-                          <span className="text-gray-100 text-lg font-medium">{groupStats?.hauptspielortName || 'N/A'}</span>
+                          <span className="text-gray-100 text-lg font-medium">
+                            {(() => {
+                              const plz = (currentGroup as any)?.mainLocationZip;
+                              if (!plz) return 'Nicht angegeben';
+                              
+                              const cityName = getOrtNameByPlz(plz);
+                              return cityName ? `${plz} ${cityName}` : `PLZ ${plz}`;
+                            })()}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -2052,7 +2062,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
           type="file"
           ref={fileInputRef}
           onChange={handleFileChange}
-          accept="image/jpeg, image/png"
+                            accept="image/jpeg, image/jpg, image/png, image/webp, image/gif, image/heic, image/heif"
           className="hidden"
           disabled={isUploading}
         />

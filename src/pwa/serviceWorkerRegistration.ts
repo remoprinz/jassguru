@@ -27,30 +27,20 @@ const dispatchUpdateReadyEvent = () => {
 
 // --- Listener-Logik ---
 const setupListenersAndNotify = (registration: ServiceWorkerRegistration) => {
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[ServiceWorkerRegistration] setupListenersAndNotify CALLED for scope:', registration.scope);
-  }
+
   activeRegistration = registration;
   
   // Prüfen, ob bereits ein wartender Worker vorhanden ist
   // ABER: Nur dispatchen, wenn es sich um einen echten Update handelt
   if (registration.waiting && !hasDispatchedInitialUpdate) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[ServiceWorkerRegistration] Found waiting worker immediately (state:', registration.waiting.state, '). Checking if it\'s a real update...');
-    }
+
     
     // Prüfe, ob der wartende Worker tatsächlich eine andere Version ist
     const currentWorker = registration.active;
     if (currentWorker && currentWorker.scriptURL !== registration.waiting.scriptURL) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[ServiceWorkerRegistration] Different worker versions detected - dispatching update event.');
-      }
+
       dispatchUpdateReadyEvent();
       hasDispatchedInitialUpdate = true;
-    } else {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[ServiceWorkerRegistration] Same worker version - no update needed.');
-      }
     }
   }
 
@@ -96,29 +86,21 @@ const setupListenersAndNotify = (registration: ServiceWorkerRegistration) => {
         }
       });
     } else {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn("[ServiceWorkerRegistration] 'updatefound' event fired but registration.installing is null.");
-      }
+
     }
   });
 
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[ServiceWorkerRegistration] Event listeners (updatefound) attached.');
-  }
+
 };
 // --- Ende Listener-Logik ---
 
 export function register() {
   const isDevelopment = process.env.NODE_ENV === 'development';
   
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[ServiceWorkerRegistration] register() CALLED');
-  }
+
   
   if (isDevelopment) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[ServiceWorkerRegistration] Development mode - Service Worker registration skipped.');
-    }
+
     return;
   }
   
@@ -140,9 +122,7 @@ export function register() {
       swApiAvailable = 'serviceWorker' in navigator;
       // console.log('[ServiceWorkerRegistration] Check \'serviceWorker\' in navigator result:', swApiAvailable);
       if (!swApiAvailable) {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('[ServiceWorkerRegistration] Service Worker API not available in navigator. Exiting register().');
-          }
+
           return; 
       }
   } catch (e) {

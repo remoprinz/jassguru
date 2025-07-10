@@ -221,15 +221,11 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
 
       // 🔥 KRITISCHER FIX: LOCAL_UPDATE_WINDOW_MS Blockierung entfernt!
       // Grund: Blockierte Cross-Client-Synchronisation für 1.5s nach jeder lokalen Aktion
-      if (process.env.NODE_ENV === 'development') {
-      console.log(`[FirestoreSync applyServerUpdate] Processing server update. Time since last local update: ${timeSinceLastLocalUpdate}ms`);
-    }
+
       
       // OPTIONAL: Nur für Debugging - Echo-Updates erkennen (aber nicht blockieren)
       if (timeSinceLastLocalUpdate < 500) {
-          if (process.env.NODE_ENV === 'development') {
-          console.log(`[FirestoreSync applyServerUpdate] ⚠️ Possible echo update detected (${timeSinceLastLocalUpdate}ms ago), but applying anyway for cross-client sync.`);
-        }
+
       }
 
       // 🔥 KRITISCHER FIX: History-Navigation Blockierung auch entfernt!
@@ -243,9 +239,7 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
       const sanitizedServerData = sanitizeDataForFirestore(serverData);
       
       // === NEU: Brutales Überschreiben des Kern-Spielzustands ===
-              if (process.env.NODE_ENV === 'development') {
-          console.log('[FirestoreSync applyServerUpdate] Overwriting local state with authoritative server data.');
-        }
+
       
       // KRITISCHER FIX: weisPoints auf Null setzen, wenn Runde abgeschlossen ist
       const shouldResetWeisPoints = sanitizedServerData.isRoundCompleted === true;
@@ -709,9 +703,7 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
         (querySnapshot) => {
           // --- LOGGING START ---
           const timestamp = new Date().toISOString();
-          if (process.env.NODE_ENV === 'development') {
-          console.log(`[FirestoreSync COMPLETED_GAMES ${timestamp}] Listener received update for session ${sessionId}: ${querySnapshot.size} documents.`);
-        }
+
           // --- LOGGING END ---
           
           // Konvertiere alle Dokumente in CompletedGameSummary-Objekte
@@ -720,9 +712,7 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
             .filter(game => game !== null) as CompletedGameSummary[];
           
           // --- LOGGING START ---
-                      if (process.env.NODE_ENV === 'development') {
-              console.log(`[FirestoreSync COMPLETED_GAMES ${timestamp}] Parsed ${completedGames.length} completed games from snapshot.`);
-            }
+
           // --- LOGGING END ---
 
           // Aktualisiere den jassStore mit den CompletedGameSummary-Objekten

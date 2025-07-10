@@ -9,31 +9,48 @@ service firebase.storage {
        allow read: if true; 
        
        // Nur der eigene User darf sein Profilbild hochladen/löschen
-       allow write, delete: if request.auth != null && request.auth.uid == userId; 
+       // ✅ VERBESSERTE SICHERHEIT: Strikte Validierung mit HEIC/HEIF Support
+       allow write, delete: if request.auth != null 
+                            && request.auth.uid == userId
+                            && request.resource.size < 5 * 1024 * 1024  // Max 5MB
+                            && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif|heic|heif)'); // Inkl. HEIC/HEIF für iOS
     }
 
     // --- Gruppenlogos ---
     // Pfad: groupLogos/{userId}/{groupId}/{fileName}
-    // LASCHE REGELN: Hauptsächlich Frontend-Prüfung für bessere Fehlermeldungen
+    // ✅ PERFORMANCE-OPTIMIERT: Keine Firestore-Lookups mehr
+    // Admin-Prüfung erfolgt im Frontend/Backend
     match /groupLogos/{userId}/{groupId}/{allPaths=**} { 
        // Jeder darf lesen (Logos anzeigen)
        allow read: if true; 
        
-       // VEREINFACHTE Schreib-/Lösch-Berechtigung:
-       // 1. User ist authentifiziert
-       // 2. User ist der Besitzer des Pfades (userId) 
-       // 3. Datei ist ein Bild unter 2MB
-       // ADMIN-PRÜFUNG erfolgt im Frontend für bessere UX!
+       // ✅ PERFORMANCE: Nur Basic-Validierung ohne Firestore-Lookups
        allow write: if request.auth != null 
                        && request.auth.uid == userId
-                       && request.resource.size < 2 * 1024 * 1024 
-                       && request.resource.contentType.matches('image/.*');
+                       && request.resource.size < 5 * 1024 * 1024  // Max 5MB für Logos
+                       && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif|heic|heif|avif)'); // Inkl. HEIC/HEIF für iOS
        
+       // Löschen erlaubt für eigene Uploads
        allow delete: if request.auth != null 
                         && request.auth.uid == userId;
     }
 
-    // Optional: Alle anderen Pfade blockieren
+    // ✅ NEU: Turnierlogos - PERFORMANCE-OPTIMIERT
+    match /tournamentLogos/{userId}/{tournamentId}/{allPaths=**} {
+       allow read: if true;
+       
+       // ✅ PERFORMANCE: Nur Basic-Validierung ohne Firestore-Lookups
+       allow write: if request.auth != null
+                       && request.auth.uid == userId
+                       && request.resource.size < 5 * 1024 * 1024  // Max 5MB für Turnierlogos
+                       && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif|heic|heif|avif)'); // Inkl. HEIC/HEIF für iOS
+                       
+       // Löschen erlaubt für eigene Uploads
+       allow delete: if request.auth != null
+                        && request.auth.uid == userId;
+    }
+
+    // ✅ SICHERHEIT: Alle anderen Pfade explizit blockieren
     match /{allPaths=**} {
       allow read, write: if false;
     }

@@ -583,7 +583,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         {!isPublicView && fileInputRef && handleFileChange && (
           <input
             type="file"
-            accept="image/jpeg,image/jpg,image/png,image/webp,image/gif,image/heic,image/heif"
+                            accept="image/jpeg,image/jpg,image/png,image/webp,image/gif,image/heic,image/heif,image/avif"
             ref={fileInputRef}
             onChange={handleFileChange}
             className="hidden"

@@ -50,10 +50,7 @@ export const calculateEventCounts = (gameSummary: CompletedGameSummary): EventCo
   // 1. ✅ MAXIMAL ROBUST: Zähle Matsch/Kontermatsch Events direkt aus der roundHistory
   if (roundHistory && Array.isArray(roundHistory)) {
     roundHistory.forEach((round, index) => {
-      // ✅ DEBUGGING: Log jede Runde um das Problem zu identifizieren
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`[calculateEventCounts] Runde ${index}:`, JSON.stringify(round, null, 2));
-      }
+
       
       // ✅ MAXIMAL ROBUSTE Prüfung: Mehrere Zugriffsmuster ausprobieren
       let strichInfo: { team?: string; type?: string } | null = null;

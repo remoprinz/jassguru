@@ -26,7 +26,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({children}) => {
   const subscribeToSession = useJassStore((state) => state.subscribeToSession);
   const sessionUnsubscribe = useJassStore((state) => state.sessionUnsubscribe);
 
+  // NEU: Ref für die aktuelle Session-ID um unnötige Re-Subscriptions zu vermeiden
+  const currentSessionIdRef = React.useRef<string | null>(null);
+
   useEffect(() => {
+    // Nur subscriben wenn sich die Session-ID tatsächlich geändert hat
+    if (jassSessionId !== currentSessionIdRef.current) {
+      currentSessionIdRef.current = jassSessionId;
+      
     if (jassSessionId) {
       if (process.env.NODE_ENV === 'development') {
         console.log(`[MainLayout EFFECT] 🔥 STABILISIERT: jassSessionId found (${jassSessionId}). Calling subscribeToSession.`);
@@ -37,6 +44,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({children}) => {
       if (sessionUnsubscribe) {
         console.log("[MainLayout EFFECT] jassSessionId is null. Unsubscribing from session listener.");
         sessionUnsubscribe();
+        }
       }
     }
 
@@ -49,7 +57,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({children}) => {
         sessionUnsubscribe();
       }
     };
-  }, [jassSessionId]); // 🔥 KRITISCHER FIX: subscribeToSession entfernt - war instabil! // Abhängigkeiten angepasst
+  }, [jassSessionId, subscribeToSession, sessionUnsubscribe]); // Alle Dependencies explizit
 
   // NEU: Header-Zurücksetzen bei Montage des MainLayout
   // Dies stellt sicher, dass der Header auf allen Seiten außer WelcomeScreen sichtbar ist

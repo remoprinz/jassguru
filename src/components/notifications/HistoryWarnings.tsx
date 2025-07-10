@@ -27,7 +27,6 @@ const HistoryWarning: React.FC<HistoryWarningProps> = ({
   useEffect(() => {
     if (show) {
       mountTimeRef.current = Date.now();
-      console.log("[HistoryWarning] Mounted at:", mountTimeRef.current);
     }
   }, [show]);
 
@@ -47,14 +46,12 @@ const HistoryWarning: React.FC<HistoryWarningProps> = ({
     
     // Ignoriere Clicks in den ersten 200ms nach dem Erscheinen
     if (timeSinceMount < 200) {
-      console.log(`[HistoryWarning] Ignoring overlay click: only ${timeSinceMount}ms since mount`);
       e.preventDefault();
       e.stopPropagation();
       return;
     }
     
     // Normale Behandlung: Modal schließen
-    console.log(`[HistoryWarning] Valid overlay click after ${timeSinceMount}ms`);
     handleDismiss();
   }, [handleDismiss]);
 

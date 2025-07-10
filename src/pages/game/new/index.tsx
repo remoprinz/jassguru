@@ -65,6 +65,14 @@ const NewGamePage: React.FC = () => {
     }
   }, [isAuthLoading, isAuthenticated, currentGroup, router, showNotification]);
 
+  // 🔧 ZUSÄTZLICHER SCHUTZ: Falls currentGroup während des Ladens verschwindet
+  useEffect(() => {
+    if (!isAuthLoading && isAuthenticated && !currentGroup && !membersLoading) {
+      console.warn("[NewGamePage] currentGroup wurde nach dem Laden null - navigiere zu /start");
+      router.replace('/start');
+    }
+  }, [isAuthLoading, isAuthenticated, currentGroup, membersLoading, router]);
+
   // Zeige GlobalLoader während der Authentifizierung oder beim Laden der Mitglieder
   if (isAuthLoading || !isAuthenticated || !currentGroup || membersLoading) {
     const loadingMessage = isAuthLoading 

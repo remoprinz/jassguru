@@ -39,7 +39,26 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       showBackButton: false,
       title: "",
     });
-  }, [setHeaderConfig]);
+
+    // 🚨 CRITICAL FIX: localStorage-Corruption Detection beim WelcomeScreen-Load
+    try {
+      const authStorage = localStorage.getItem('auth-storage');
+      if (authStorage) {
+        const parsed = JSON.parse(authStorage);
+        // Prüfe auf problematische persistierte States
+        if (parsed?.state?.status === 'authenticated' || parsed?.state?.status === 'loading') {
+          console.warn('[WelcomeScreen] Erkenne problematischen persistierten Auth-Status. Bereinige localStorage.');
+          localStorage.removeItem('auth-storage');
+          // Zusätzlich: Auth-Store direkt zurücksetzen
+          clearGuestStatus();
+        }
+      }
+    } catch (error) {
+      console.error('[WelcomeScreen] localStorage corruption detected. Emergency cleanup.', error);
+      localStorage.removeItem('auth-storage');
+      localStorage.removeItem('auth-failed-attempts');
+    }
+  }, [setHeaderConfig, clearGuestStatus]);
 
   // 🔧 VERBESSERTER FIX: Automatischer Logout für eingeloggte Benutzer auf WelcomeScreen
   // Verhindert Race Conditions mit Header-Logout durch Status-Prüfung

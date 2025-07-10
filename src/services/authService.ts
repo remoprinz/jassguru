@@ -145,13 +145,13 @@ export const registerWithEmail = async (email: string, password: string, display
     const userCredential = await createUserWithEmailAndPassword(currentAuth, email, password);
     const user = userCredential.user;
 
-    if (displayName) {
+      if (displayName) {
       await firebaseUpdateProfile(user, {displayName});
     }
     await createOrUpdateFirestoreUser(user, true);
     await sendEmailVerification(user);
 
-    return mapUserToAuthUser(user);
+      return mapUserToAuthUser(user);
   } catch (error) {
     console.error("Registrierungsfehler im Service:", {email, error});
     if (error instanceof Error) {
@@ -207,11 +207,11 @@ export const signInWithGoogleProvider = async (): Promise<AuthUser> => {
     const result = await signInWithPopup(getAuth(), provider);
     const user = result.user;
 
-    const userDocRef = doc(db, "users", user.uid);
-    const docSnap = await getDoc(userDocRef);
+      const userDocRef = doc(db, "users", user.uid);
+      const docSnap = await getDoc(userDocRef);
     await createOrUpdateFirestoreUser(user, !docSnap.exists());
 
-    return mapUserToAuthUser(user);
+      return mapUserToAuthUser(user);
   } catch (error) {
     console.error("Google Sign-In Fehler:", {error});
     if (error instanceof Error) {
@@ -219,8 +219,8 @@ export const signInWithGoogleProvider = async (): Promise<AuthUser> => {
       if (errorCode === "auth/popup-closed-by-user") {
         throw new Error("Google Sign-In wurde abgebrochen.");
       } else if (errorCode === "auth/account-exists-with-different-credential") {
-        const email = (error as any)?.customData?.email;
-        if (email) {
+          const email = (error as any)?.customData?.email;
+          if (email) {
           const methods = await fetchSignInMethodsForEmail(getAuth(), email);
           throw new Error(`Ein Konto existiert bereits mit dieser E-Mail (${email}), aber mit einer anderen Anmeldemethode (${methods.join(", ")}).`);
         }
@@ -259,10 +259,10 @@ export const uploadProfilePicture = async (file: File, userId: string): Promise<
   const storage = getStorage();
   const storageRef = ref(storage, `profileImages/${userId}/profile.${file.name.split('.').pop()}`);
   
-  const snapshot = await uploadBytes(storageRef, file);
-  const downloadURL = await getDownloadURL(snapshot.ref);
-  
-  await firebaseUpdateProfile(currentUser, { photoURL: downloadURL });
+    const snapshot = await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(snapshot.ref);
+
+    await firebaseUpdateProfile(currentUser, { photoURL: downloadURL });
 
   const playerId = await getPlayerIdForUser(userId, currentUser.displayName);
   if (playerId) {
@@ -276,17 +276,17 @@ export const uploadProfilePicture = async (file: File, userId: string): Promise<
 export const updateUserProfile = async (updates: { displayName?: string; statusMessage?: string; profileTheme?: string }): Promise<void> => {
   const currentUser = getAuth().currentUser;
   if (!currentUser) throw new Error("No authenticated user found.");
-  
+
   const { uid } = currentUser;
 
-  if (updates.displayName) {
-    await firebaseUpdateProfile(currentUser, { displayName: updates.displayName });
+    if (updates.displayName) {
+        await firebaseUpdateProfile(currentUser, { displayName: updates.displayName });
   }
 
   const playerId = await getPlayerIdForUser(uid, currentUser.displayName);
-  if (playerId) {
+          if (playerId) {
     await updatePlayerDocument(playerId, updates);
-  } else {
+          } else {
     console.warn(`Could not find player document for user ${uid} to sync profile updates.`);
   }
 };
@@ -299,10 +299,10 @@ export const updateUserProfile = async (updates: { displayName?: string; statusM
  */
 export const checkNicknameAvailability = async (nickname: string): Promise<boolean> => {
   if (!nickname) return false;
-  const playersRef = collection(db, "players");
-  const lowerCaseNickname = nickname.toLowerCase();
-  const q = query(playersRef, where("lowercaseDisplayName", "==", lowerCaseNickname)); 
-  const querySnapshot = await getDocs(q);
+    const playersRef = collection(db, "players");
+    const lowerCaseNickname = nickname.toLowerCase();
+    const q = query(playersRef, where("lowercaseDisplayName", "==", lowerCaseNickname)); 
+    const querySnapshot = await getDocs(q);
   return querySnapshot.empty;
 };
 

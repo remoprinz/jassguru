@@ -57,7 +57,7 @@ export const aggregateStricheTotal = (games: GameEntry[]): StricheTotals => {
 };
 
 /**
- * Debug-Utility für Striche-Änderungen
+ * Debug-Utility für Striche-Änderungen (disabled in production)
  */
 export const logStricheUpdate = (
   team: TeamPosition,
@@ -65,13 +65,7 @@ export const logStricheUpdate = (
   oldValue: number,
   newValue: number
 ): void => {
-  console.log("🎲 Strich Update:", {
-    team,
-    type,
-    oldValue,
-    newValue,
-    difference: newValue - oldValue,
-  });
+  // Logging disabled for production performance
 };
 
 export const getNormalStricheCount = (striche: StricheRecord): number => {

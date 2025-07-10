@@ -40,7 +40,7 @@ const ZShape: React.FC<ZShapeProps> = ({
       viewBox="0 0 120 100"
       preserveAspectRatio="xMidYMid meet"
     >
-      <g transform={position === "top" ? "translate(0, 0)" : "none"}>
+      <g transform={position === "top" ? "translate(0, 0)" : "translate(0, 0)"}>
         <path d="M0 0 L110 0" stroke="currentColor" strokeWidth={outerStrokeWidth} fill="none" />
         <path d="M0 100 L110 0" stroke="currentColor" strokeWidth={diagonalStrokeWidth * diagonalCompensation} fill="none" />
         <path d="M0 100 L110 100" stroke="currentColor" strokeWidth={outerStrokeWidth} fill="none" />

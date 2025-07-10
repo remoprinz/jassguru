@@ -351,11 +351,11 @@ export const loadRoundsFromFirestore = async (
     // Referenz zur rounds-Subkollektion des aktiven Spiels
     const roundsCollectionRef = collection(db, 'activeGames', activeGameId, 'rounds');
     
-    // Query: Sortiere nach roundId UND filtere nach aktiven Runden
+    // 🚨 FIX: Query ohne orderBy um Firestore Index-Fehler zu vermeiden
     const q = query(
       roundsCollectionRef,
-      where("isActive", "==", true), // <<< NEU: Nur aktive Runden laden
-      orderBy('roundId', 'asc')
+      where("isActive", "==", true) // Nur aktive Runden laden
+      // orderBy entfernt - wird client-seitig sortiert
     );
     
     const querySnapshot = await getDocs(q);
@@ -410,6 +410,13 @@ export const loadRoundsFromFirestore = async (
         // Weis-Runden
         rounds.push(baseEntry as RoundEntry);
       }
+    });
+    
+    // 🚨 FIX: Client-seitige Sortierung nach roundId
+    rounds.sort((a, b) => {
+      const aRoundId = a.roundId || 0;
+      const bRoundId = b.roundId || 0;
+      return aRoundId - bRoundId;
     });
     
     console.log(`[GameService] Successfully loaded ${rounds.length} active rounds for game ${activeGameId}`);
@@ -995,6 +1002,7 @@ export const createSessionDocument = async (
     groupId: string | null; 
     participantUids: string[]; 
     playerNames: PlayerNames; 
+    participantPlayerIds?: string[]; // NEU: Optional für initiale Erstellung
     // Füge hier weitere initiale Felder hinzu, die für eine Session benötigt werden
   }
 ): Promise<void> => {
@@ -1006,6 +1014,7 @@ export const createSessionDocument = async (
   try {
     const fullData = sanitizeDataForFirestore({
       ...initialData,
+      participantPlayerIds: initialData.participantPlayerIds || [], // Leeres Array als Standard
       startedAt: serverTimestamp(),
       lastUpdated: serverTimestamp(),
       currentActiveGameId: null, // Beginnt ohne aktives Spiel
@@ -1015,6 +1024,28 @@ export const createSessionDocument = async (
     console.log(`[GameService] Session document ${sessionId} created successfully.`);
   } catch (error) {
     console.error(`[GameService] Error creating session document ${sessionId}:`, error);
+    throw error; // Fehler weiterleiten
+  }
+};
+
+// *** NEU: Aktualisiert die participantPlayerIds einer bestehenden Session ***
+export const updateSessionParticipantPlayerIds = async (
+  sessionId: string,
+  participantPlayerIds: string[]
+): Promise<void> => {
+  if (!sessionId) {
+    console.warn("[GameService] updateSessionParticipantPlayerIds called without sessionId.");
+    return;
+  }
+  const sessionDocRef = doc(db, 'sessions', sessionId);
+  try {
+    await updateDoc(sessionDocRef, {
+      participantPlayerIds: participantPlayerIds,
+      lastUpdated: serverTimestamp()
+    });
+    console.log(`[GameService] Session ${sessionId} updated with ${participantPlayerIds.length} participantPlayerIds.`);
+  } catch (error) {
+    console.error(`[GameService] Error updating participantPlayerIds for session ${sessionId}:`, error);
     throw error; // Fehler weiterleiten
   }
 };
@@ -1157,17 +1188,34 @@ export const abortActiveGame = async (
     setTimeout(async () => {
       try {
         console.log(`[GameService] Attempting to delete game document ${activeGameId} after 2 second delay...`);
+        
+        // 🔧 FIX: Prüfe ob das Dokument noch existiert bevor wir es löschen
+        const currentGameSnap = await getDoc(gameDocRef);
+        if (!currentGameSnap.exists()) {
+          console.log(`[GameService] Game document ${activeGameId} was already deleted (likely by Cloud Function cleanup). No action needed.`);
+          return;
+        }
+        
         await deleteDoc(gameDocRef);
         console.log(`[GameService] Game document ${activeGameId} deleted successfully`);
         
       } catch (deleteError) {
         console.error(`[GameService] CRITICAL ERROR: Failed to delete game document ${activeGameId}:`, deleteError);
         
-        // Zeige Benutzer-Notification bei kritischem Fehler
+        // 🔧 FIX: Weniger alarmierend, da das Dokument möglicherweise bereits gelöscht wurde
+        if (deleteError instanceof Error && (
+          deleteError.message.includes('Missing or insufficient permissions') ||
+          deleteError.message.includes('No document to update')
+        )) {
+          console.log(`[GameService] Document ${activeGameId} was likely already cleaned up. This is expected.`);
+          return;
+        }
+        
+        // Zeige Benutzer-Notification nur bei echten kritischen Fehlern
         useUIStore.getState().showNotification({
-          type: 'error',
-          message: `Fehler beim Löschen des Spiel-Dokuments. Bitte manuell bereinigen.`,
-          duration: 8000
+          type: 'warning',
+          message: `Spiel wurde erfolgreich abgebrochen, aber Bereinigung ist unvollständig.`,
+          duration: 5000
         });
       }
     }, 2000); // 2 Sekunden Verzögerung

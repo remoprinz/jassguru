@@ -312,7 +312,7 @@ const NewTournamentPage: React.FC = () => {
               type="file"
               ref={logoFileInputRef}
               onChange={handleLogoFileChange}
-              accept="image/jpeg, image/png, image/webp"
+                                accept="image/jpeg, image/jpg, image/png, image/webp, image/gif, image/heic, image/heif"
               className="hidden"
               disabled={isImageProcessing}
             />

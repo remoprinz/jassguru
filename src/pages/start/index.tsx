@@ -157,8 +157,6 @@ const StartPage = () => {
 
   const isAdmin = currentGroup && user && currentGroup.adminIds.includes(user.uid);
 
-  const activeGameListenerUnsubscribe = useRef<Unsubscribe | null>(null);
-
   const [isResuming, setIsResuming] = useState(false);
   
   const [isProcessingInvite, setIsProcessingInvite] = useState(false);
@@ -380,79 +378,389 @@ const StartPage = () => {
     loadArchiveData();
   }, [currentGroup, showNotification]); // Abhängigkeit von user und status entfernt, da jetzt alles von currentGroup abhängt
 
-  useEffect(() => {
-    if (status === 'authenticated' && user && currentGroup) {
-      // console.log(`[StartPage] Setting up active game listener for user ${user.uid} in group ${currentGroup.id}`);
+  // ===== RESUMABLE GAME DETECTION FIX =====
+  
+  // 🔧 FIX: Separate detection logic from group loading
+    useEffect(() => {
+    if (status === 'authenticated' && user) {
+      // 🚀 ROBUST: Check for resumable games as soon as user is authenticated
+      // Don't wait for currentGroup to load!
+      
+      const checkForResumableGames = async () => {
+        try {
       const db = getFirestore(firebaseApp);
       const gamesRef = collection(db, "activeGames");
 
+          // Query all active games for this user
       const q = query(
         gamesRef,
-        where("groupId", "==", currentGroup.id),
-        where("participantUids", "array-contains", user.uid),
-        where("status", "not-in", ["aborted", "completed"]),
-        orderBy("createdAt", "desc"),
-        limit(1)
+        where("participantUids", "array-contains", user.uid)
       );
 
-      activeGameListenerUnsubscribe.current = onSnapshot(
-        q,
-        async (snapshot) => {
-          if (!snapshot.empty) {
-            const latestGameDoc = snapshot.docs[0];
-            const gameId = latestGameDoc.id;
-            const db = getFirestore(firebaseApp);
+          const snapshot = await getDocs(q);
+          
+              if (!snapshot.empty) {
+            // Find the most recent active game
+                const relevantGames = snapshot.docs.filter(doc => {
+                  const data = doc.data();
+              return data.status !== 'aborted' && data.status !== 'completed';
+                });
+                
+            if (relevantGames.length > 0) {
+              // 🔧 KRITISCHER FIX: Sortiere nach "Inhalt" nicht nach "Alter"!
+              // Priorität: Spiele mit Inhalt (höhere currentRound oder Scores) vor leeren Spielen
+              const sortedGames = relevantGames.sort((a, b) => {
+                const aData = a.data();
+                const bData = b.data();
+                
+                // Berechne "Content Score" für jedes Spiel
+                const getContentScore = (gameData: any): number => {
+                  let score = 0;
+                  
+                  // Höhere Runde = mehr Inhalt
+                  score += (gameData.currentRound || 1) * 100;
+                  
+                  // Scores > 0 = Spiel hat stattgefunden
+                  const totalScore = (gameData.scores?.top || 0) + (gameData.scores?.bottom || 0);
+                  score += totalScore;
+                  
+                  // Striche vorhanden = Spiel hat stattgefunden
+                  const stricheTop = gameData.striche?.top || {};
+                  const stricheBottom = gameData.striche?.bottom || {};
+                  const totalStricheTop = Object.values(stricheTop).reduce((sum: number, val: unknown) => sum + ((val as number) || 0), 0) as number;
+                  const totalStricheBottom = Object.values(stricheBottom).reduce((sum: number, val: unknown) => sum + ((val as number) || 0), 0) as number;
+                  score += (totalStricheTop + totalStricheBottom) * 50;
+                  
+                  // Runden-Historie vorhanden = definitiv gespielt
+                  // (Das prüfen wir nicht hier, da es in subcollection liegt)
+                  
+                  return score;
+                };
+                
+                const aContentScore = getContentScore(aData);
+                const bContentScore = getContentScore(bData);
+                
+                // 1. PRIORITÄT: Spiel mit mehr Inhalt
+                if (aContentScore !== bContentScore) {
+                  return bContentScore - aContentScore; // Höherer Content Score zuerst
+                }
+                
+                // 2. FALLBACK: Bei gleichem Content Score, neueres Spiel bevorzugen
+                const aTime = aData.createdAt?.toMillis() || 0;
+                const bTime = bData.createdAt?.toMillis() || 0;
+                  return bTime - aTime;
+                });
+                
+              const mostRelevantGame = sortedGames[0];
+              const gameId = mostRelevantGame.id;
+              const gameData = mostRelevantGame.data();
 
-            try {
-              // console.log(`[StartPage Listener] Found potential active game: ${gameId}. Checking status...`);
-              const gameDocRef = doc(db, 'activeGames', gameId);
-              const gameDocSnap = await getDoc(gameDocRef);
-
-              if (gameDocSnap.exists() && gameDocSnap.data()?.status === 'aborted') {
-                console.warn(`[StartPage Listener] Ignoring game ${gameId} because its status is 'aborted'. Clearing resumable ID.`);
-                clearResumableGameId();
-                return;
-              } 
-              // console.log(`[StartPage Listener] Game ${gameId} is valid (not aborted). Setting as resumable.`);
-              if (useUIStore.getState().resumableGameId !== gameId) {
-                  setResumableGameId(gameId);
+              console.log(`[StartPage] 🎯 CONTENT-BASED DETECTION: Selected game ${gameId} (Round: ${gameData.currentRound}, Scores: ${gameData.scores?.top || 0}:${gameData.scores?.bottom || 0})`);
+              
+              // 🔧 VERBESSERTE VALIDIERUNG: Unterscheide zwischen echten leeren Spielen und begonnenen Spielen
+              const hasGameContent = (gameData.currentRound > 1) || 
+                                     (gameData.scores?.top > 0) || 
+                                     (gameData.scores?.bottom > 0) ||
+                                     Object.values(gameData.striche?.top || {}).some((val: unknown) => (val as number) > 0) ||
+                                     Object.values(gameData.striche?.bottom || {}).some((val: unknown) => (val as number) > 0);
+              
+              // ✅ ZUSÄTZLICHE KRITERIEN: Spiel gilt als "begonnen" wenn:
+              // - createdAt ist älter als 5 Minuten (wahrscheinlich echtes Spiel)
+              // - gameStartTime ist gesetzt (Spiel wurde gestartet)
+              // 🔥 KRITISCH: Gib neuen Spielen eine Gnadenfrist von 2 Minuten!
+              const gameAge = gameData.createdAt ? Date.now() - (gameData.createdAt.toMillis ? gameData.createdAt.toMillis() : gameData.createdAt) : 0;
+              const isVeryNewGame = gameAge < 2 * 60 * 1000; // 2 Minuten Gnadenfrist
+              
+              const hasGameActivity = (gameData.gameStartTime && gameData.gameStartTime !== gameData.createdAt) ||
+                                      (gameAge > 5 * 60 * 1000) || // Spiel älter als 5 Minuten
+                                      isVeryNewGame; // ✅ NEUE Spiele bekommen automatisch eine Chance!
+              
+              const isRealGame = hasGameContent || hasGameActivity;
+              
+              if (!isRealGame) {
+                console.log(`[StartPage] ⚠️ EMPTY GAME DETECTED: Game ${gameId} appears to be empty, marking as aborted and skipping`);
+                
+                // Markiere das leere Spiel als aborted (aber warte nicht darauf)
+                import('@/services/gameService').then(({ updateGameStatus }) => {
+                  updateGameStatus(gameId, 'aborted').catch(error => 
+                    console.warn('[StartPage] Failed to mark empty game as aborted:', error)
+                  );
+                });
+                
+                // Überspringe dieses leere Spiel und prüfe das nächste
+                if (sortedGames.length > 1) {
+                  const nextGame = sortedGames[1];
+                  const nextGameId = nextGame.id;
+                  const nextGameData = nextGame.data();
+                  
+                  console.log(`[StartPage] 🔄 FALLBACK: Trying next game ${nextGameId} (Round: ${nextGameData.currentRound}, Scores: ${nextGameData.scores?.top || 0}:${nextGameData.scores?.bottom || 0})`);
+                  
+                  setResumableGameId(nextGameId);
+                  try {
+                    sessionStorage.setItem(`resumableGameId_${user.uid}`, nextGameId);
+                  } catch (storageError) {
+                    console.warn('[StartPage] Could not persist resumableGameId to sessionStorage:', storageError);
+                  }
+                  return;
+                } else {
+                  console.log(`[StartPage] ❌ NO VALID GAMES: All games appear to be empty`);
+                    clearResumableGameId();
+                  try {
+                    sessionStorage.removeItem(`resumableGameId_${user.uid}`);
+                  } catch (storageError) {
+                    console.warn('[StartPage] Could not clear resumableGameId from sessionStorage:', storageError);
+                  }
+                    return;
+                  } 
+              } else {
+                console.log(`[StartPage] 🎯 INITIAL: Game ${gameId} has content or activity (content=${hasGameContent}, activity=${hasGameActivity}, newGame=${isVeryNewGame}, age=${Math.round(gameAge/1000)}s), setting as resumable`);
               }
-            } catch (error) {
-              console.error(`[StartPage Listener] Error checking game status for ${gameId}:`, error);
-              clearResumableGameId();
-            }
+              
+                      setResumableGameId(gameId);
+              
+              // 🔥 CRITICAL: Store in sessionStorage for persistence
+              try {
+                sessionStorage.setItem(`resumableGameId_${user.uid}`, gameId);
+              } catch (storageError) {
+                console.warn('[StartPage] Could not persist resumableGameId to sessionStorage:', storageError);
+                }
 
-          } else {
-            // console.log("[StartPage Listener] No active game found for user in this group.");
-            if (useUIStore.getState().resumableGameId) {
-                clearResumableGameId();
+              return; // Found and set, exit early
             }
           }
-        },
-        (error) => {
-          console.error("[StartPage Listener] Error listening for active games:", error);
-          showNotification({ message: "Fehler bei der Suche nach laufenden Spielen.", type: "error" });
-          clearResumableGameId();
-        }
-      );
-
-      return () => {
-        if (activeGameListenerUnsubscribe.current) {
-          // console.log("[StartPage] Cleaning up active game listener.");
-          activeGameListenerUnsubscribe.current();
-          activeGameListenerUnsubscribe.current = null;
+          
+          // No active games found, clear any stored ID
+          console.log(`[StartPage] No resumable games found for user ${user.uid}`);
+                    clearResumableGameId();
+          try {
+            sessionStorage.removeItem(`resumableGameId_${user.uid}`);
+          } catch (storageError) {
+            console.warn('[StartPage] Could not clear resumableGameId from sessionStorage:', storageError);
+          }
+          
+        } catch (error) {
+          console.error('[StartPage] Error checking for resumable games:', error);
+          // Don't clear resumableGameId on error - could be temporary network issue
         }
       };
-    } else {
-      if (activeGameListenerUnsubscribe.current) {
-        // console.log("[StartPage] Cleaning up active game listener due to user/group change.");
-        activeGameListenerUnsubscribe.current();
-        activeGameListenerUnsubscribe.current = null;
+      
+      // 🚀 IMMEDIATE CHECK: Run once on authentication
+      checkForResumableGames();
+      
+      // 🔄 CONTINUOUS MONITORING: Set up listener for real-time updates
+      let listenerUnsubscribe: Unsubscribe | null = null;
+      
+      const setupRealtimeListener = async () => {
+        try {
+          const db = getFirestore(firebaseApp);
+          const gamesRef = collection(db, "activeGames");
+          const q = query(
+            gamesRef,
+            where("participantUids", "array-contains", user.uid)
+          );
+          
+          listenerUnsubscribe = onSnapshot(q, (snapshot) => {
+            if (!snapshot.empty) {
+              const relevantGames = snapshot.docs.filter(doc => {
+                const data = doc.data();
+                return data.status !== 'aborted' && data.status !== 'completed';
+              });
+              
+              if (relevantGames.length > 0) {
+                const sortedGames = relevantGames.sort((a, b) => {
+                  const aData = a.data();
+                  const bData = b.data();
+                  
+                  // Berechne "Content Score" für jedes Spiel
+                  const getContentScore = (gameData: any): number => {
+                    let score = 0;
+                    
+                    // Höhere Runde = mehr Inhalt
+                    score += (gameData.currentRound || 1) * 100;
+                    
+                    // Scores > 0 = Spiel hat stattgefunden
+                    const totalScore = (gameData.scores?.top || 0) + (gameData.scores?.bottom || 0);
+                    score += totalScore;
+                    
+                    // Striche vorhanden = Spiel hat stattgefunden
+                    const stricheTop = gameData.striche?.top || {};
+                    const stricheBottom = gameData.striche?.bottom || {};
+                    const totalStricheTop = Object.values(stricheTop).reduce((sum: number, val: unknown) => sum + ((val as number) || 0), 0) as number;
+                    const totalStricheBottom = Object.values(stricheBottom).reduce((sum: number, val: unknown) => sum + ((val as number) || 0), 0) as number;
+                    score += (totalStricheTop + totalStricheBottom) * 50;
+                    
+                    // Runden-Historie vorhanden = definitiv gespielt
+                    // (Das prüfen wir nicht hier, da es in subcollection liegt)
+                    
+                    return score;
+                  };
+                  
+                  const aContentScore = getContentScore(aData);
+                  const bContentScore = getContentScore(bData);
+                  
+                  // 1. PRIORITÄT: Spiel mit mehr Inhalt
+                  if (aContentScore !== bContentScore) {
+                    return bContentScore - aContentScore; // Höherer Content Score zuerst
+                  }
+                  
+                  // 2. FALLBACK: Bei gleichem Content Score, neueres Spiel bevorzugen
+                  const aTime = aData.createdAt?.toMillis() || 0;
+                  const bTime = bData.createdAt?.toMillis() || 0;
+                  return bTime - aTime;
+                });
+                
+                const mostRelevantGame = sortedGames[0];
+                const gameId = mostRelevantGame.id;
+                const gameData = mostRelevantGame.data();
+                
+                if (useUIStore.getState().resumableGameId !== gameId) {
+                  console.log(`[StartPage] Real-time update: Setting resumable game ${gameId}`);
+                  
+                  // 🔧 VERBESSERTE VALIDIERUNG: Unterscheide zwischen echten leeren Spielen und begonnenen Spielen
+                  const hasGameContent = (gameData.currentRound > 1) || 
+                                         (gameData.scores?.top > 0) || 
+                                         (gameData.scores?.bottom > 0) ||
+                                         Object.values(gameData.striche?.top || {}).some((val: unknown) => (val as number) > 0) ||
+                                         Object.values(gameData.striche?.bottom || {}).some((val: unknown) => (val as number) > 0);
+                  
+                  // ✅ ZUSÄTZLICHE KRITERIEN: Spiel gilt als "begonnen" wenn:
+                  // - roundHistory existiert und mindestens eine Runde hat
+                  // - createdAt ist älter als 5 Minuten (wahrscheinlich echtes Spiel)
+                  // - gameStartTime ist gesetzt (Spiel wurde gestartet)
+                  // 🔥 KRITISCH: Gib neuen Spielen eine Gnadenfrist von 2 Minuten!
+                  const gameAge = gameData.createdAt ? Date.now() - (gameData.createdAt.toMillis ? gameData.createdAt.toMillis() : gameData.createdAt) : 0;
+                  const isVeryNewGame = gameAge < 2 * 60 * 1000; // 2 Minuten Gnadenfrist
+                  
+                  const hasGameActivity = (gameData.roundHistory && gameData.roundHistory.length > 0) ||
+                                          (gameData.gameStartTime && gameData.gameStartTime !== gameData.createdAt) ||
+                                          (gameAge > 5 * 60 * 1000) || // Spiel älter als 5 Minuten
+                                          isVeryNewGame; // ✅ NEUE Spiele bekommen automatisch eine Chance!
+                  
+                  const isRealGame = hasGameContent || hasGameActivity;
+                  
+                  if (!isRealGame) {
+                    console.log(`[StartPage] Real-time: Empty game ${gameId} detected (no content AND no activity), marking as aborted`);
+                    
+                    // Markiere als aborted
+                    import('@/services/gameService').then(({ updateGameStatus }) => {
+                      updateGameStatus(gameId, 'aborted').catch(error => 
+                        console.warn('[StartPage] Real-time: Failed to mark empty game as aborted:', error)
+                      );
+                    });
+                    
+                    // Clear resumable game ID da das Spiel leer ist
+                    clearResumableGameId();
+                    try {
+                      sessionStorage.removeItem(`resumableGameId_${user.uid}`);
+                    } catch (storageError) {
+                      console.warn('[StartPage] Could not clear resumableGameId from sessionStorage:', storageError);
+                    }
+                    return;
+              } else {
+                    console.log(`[StartPage] Real-time: Game ${gameId} has content or activity (content=${hasGameContent}, activity=${hasGameActivity}, newGame=${isVeryNewGame}, age=${Math.round(gameAge/1000)}s), keeping as resumable`);
+                  }
+                  
+                  setResumableGameId(gameId);
+                  try {
+                    sessionStorage.setItem(`resumableGameId_${user.uid}`, gameId);
+                  } catch (storageError) {
+                    console.warn('[StartPage] Could not persist resumableGameId to sessionStorage:', storageError);
+                  }
+                }
+              } else {
+                console.log(`[StartPage] Real-time update: No resumable games found`);
+              clearResumableGameId();
+                try {
+                  sessionStorage.removeItem(`resumableGameId_${user.uid}`);
+                } catch (storageError) {
+                  console.warn('[StartPage] Could not clear resumableGameId from sessionStorage:', storageError);
+                }
+              }
+            } else {
+              console.log(`[StartPage] Real-time update: No active games found`);
+          clearResumableGameId();
+              try {
+                sessionStorage.removeItem(`resumableGameId_${user.uid}`);
+              } catch (storageError) {
+                console.warn('[StartPage] Could not clear resumableGameId from sessionStorage:', storageError);
+              }
+            }
+          }, (error) => {
+            console.error('[StartPage] Error in resumable games listener:', error);
+            // Don't clear on error - could be temporary
+          });
+          
+        } catch (error) {
+          console.error('[StartPage] Error setting up resumable games listener:', error);
+        }
+      };
+      
+      // Set up real-time listener
+      setupRealtimeListener();
+      
+      // 🔄 PERSISTENCE RECOVERY: Check sessionStorage on component mount
+      try {
+        const storedGameId = sessionStorage.getItem(`resumableGameId_${user.uid}`);
+        if (storedGameId && !useUIStore.getState().resumableGameId) {
+          console.log(`[StartPage] 🔄 PERSISTENCE RECOVERY: Found stored resumable game ${storedGameId}`);
+          
+          // Verify the stored game is still valid
+          const db = getFirestore(firebaseApp);
+          const gameDocRef = doc(db, 'activeGames', storedGameId);
+          getDoc(gameDocRef).then((gameDocSnap) => {
+            if (gameDocSnap.exists() && 
+                gameDocSnap.data()?.status !== 'aborted' && 
+                gameDocSnap.data()?.status !== 'completed' &&
+                gameDocSnap.data()?.participantUids?.includes(user.uid)) {
+              
+              console.log(`[StartPage] ✅ PERSISTENCE RECOVERY: Restored resumable game ${storedGameId}`);
+              setResumableGameId(storedGameId);
+            } else {
+              console.log(`[StartPage] ❌ PERSISTENCE RECOVERY: Stored game ${storedGameId} is no longer valid, removing`);
+              sessionStorage.removeItem(`resumableGameId_${user.uid}`);
+            }
+          }).catch((error) => {
+            console.error(`[StartPage] Error verifying stored resumable game ${storedGameId}:`, error);
+            // Keep the stored ID for now, let the real-time listener handle cleanup
+          });
+        }
+      } catch (storageError) {
+        console.warn('[StartPage] Could not check sessionStorage for resumableGameId:', storageError);
       }
+      
+      // Cleanup function
+      return () => {
+        if (listenerUnsubscribe) {
+          listenerUnsubscribe();
+        }
+        // 🔧 FIX: DON'T clear resumableGameId on cleanup - let it persist!
+        // The real-time listener will handle proper cleanup when games end
+      };
+    } else {
+      // User not authenticated - clear everything
       clearResumableGameId();
+      if (typeof window !== 'undefined' && user) {
+        try {
+          sessionStorage.removeItem(`resumableGameId_${user.uid}`);
+        } catch (storageError) {
+          console.warn('[StartPage] Could not clear resumableGameId from sessionStorage:', storageError);
+        }
+      }
       return () => {};
     }
+  }, [status, user, setResumableGameId, clearResumableGameId]);
+
+  // ===== LEGACY GROUP-BASED LISTENER (NOW DEPRECATED) =====
+  // 🗑️ DEPRECATED: The old group-based detection is replaced by the robust user-based detection above
+  // Keeping this commented for reference but it should be removed in future cleanup
+  /*
+  useEffect(() => {
+    if (status === 'authenticated' && user && currentGroup) {
+      // OLD GROUP-BASED DETECTION LOGIC WAS HERE
+      // This is now handled by the robust user-based detection above
+    }
   }, [status, user, currentGroup, setResumableGameId, clearResumableGameId, showNotification]);
+  */
 
   useEffect(() => {
     const isAuthDone = !isLoadingOrIdle(status);
@@ -613,6 +921,35 @@ const StartPage = () => {
           } catch (error2) {
             console.warn("[StartPage] ❌ ZWEITE PRIORITÄT fehlgeschlagen:", error2);
             
+            // 🚨 KRITISCHE DRITTE PRIORITÄT: Gruppen-Settings aus Firestore laden!
+            try {
+              const groupId = activeGameData.groupId;
+              if (groupId) {
+                console.log("[StartPage] 🔄 DRITTE PRIORITÄT: Lade Gruppen-Settings aus Firestore für Gruppe", groupId);
+                const groupDocRef = doc(db, 'groups', groupId);
+                const groupDoc = await getDoc(groupDocRef);
+                
+                if (groupDoc.exists()) {
+                  const groupData = groupDoc.data();
+                  settingsFromActiveGame = {
+                    farbeSettings: groupData.farbeSettings || DEFAULT_FARBE_SETTINGS,
+                    scoreSettings: groupData.scoreSettings || DEFAULT_SCORE_SETTINGS,
+                    strokeSettings: groupData.strokeSettings || DEFAULT_STROKE_SETTINGS,
+                  };
+                  console.log("[StartPage] ✅ DRITTE PRIORITÄT: Einstellungen aus Gruppen-Dokument geladen:", {
+                    farbeCardStyle: settingsFromActiveGame.farbeSettings.cardStyle,
+                    scoreWerte: settingsFromActiveGame.scoreSettings.values,
+                    strokeSchneider: settingsFromActiveGame.strokeSettings.schneider
+                  });
+                } else {
+                  throw new Error("Gruppen-Dokument nicht gefunden");
+                }
+              } else {
+                throw new Error("Keine groupId verfügbar");
+              }
+            } catch (error3) {
+              console.warn("[StartPage] ❌ DRITTE PRIORITÄT fehlgeschlagen:", error3);
+            
             // LETZTE RETTUNG: Default-Einstellungen
             settingsFromActiveGame = {
               farbeSettings: DEFAULT_FARBE_SETTINGS,
@@ -620,6 +957,7 @@ const StartPage = () => {
               strokeSettings: DEFAULT_STROKE_SETTINGS,
             };
             console.log("[StartPage] ⚠️ LETZTE RETTUNG: Default-Einstellungen werden verwendet");
+            }
           }
         }
 
@@ -830,9 +1168,9 @@ const StartPage = () => {
         showNotification({message: "Bitte wählen Sie eine Bilddatei (JPEG oder PNG)..", type: "error"});
         return;
       }
-      const initialMaxSizeInBytes = 10 * 1024 * 1024;
+      const initialMaxSizeInBytes = 5 * 1024 * 1024;
       if (originalFile.size > initialMaxSizeInBytes) {
-        showNotification({message: "Die Datei ist zu groß (max. 10 MB).", type: "error"});
+        showNotification({message: "Die Datei ist zu groß (max. 5 MB).", type: "error"});
         return;
       }
 

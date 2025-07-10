@@ -103,6 +103,7 @@ export const PlayerSelectPopover: React.FC<PlayerSelectPopoverProps> = ({
             uid: uid,
             // Verwende nickname oder displayName aus dem Player-Dokument
             name: playerData.displayName || "Unbekannt",
+            playerId: playerId, // ✅ HINZUGEFÜGT: Player Document ID
           });
         }
       }
@@ -117,6 +118,7 @@ export const PlayerSelectPopover: React.FC<PlayerSelectPopoverProps> = ({
             type: "member",
             uid: uid,
             name: playerData.displayName || "Unbekannt",
+            playerId: uid, // ✅ FALLBACK: Verwende UID als playerId
           });
         }
       }

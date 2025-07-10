@@ -157,10 +157,7 @@ const PublicSessionPage = () => {
   const router = useRouter();
   const sessionId = router.query.sessionId as string;
 
-  // Debug: Log the sessionId
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🔍 [SessionView] sessionId from router:', sessionId);
-  }
+
 
   // Session-Daten Zustand
   const [sessionData, setSessionData] = useState<any>(null);

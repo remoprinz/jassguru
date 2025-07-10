@@ -27,6 +27,7 @@ export type MemberInfo = {
   type: "member";
   uid: string;
   name: string;
+  playerId?: string; // ✅ NEU: Player Document ID
 };
 
 export type GuestInfo = {

@@ -305,7 +305,24 @@ export const getUserGroups = async (userId: string): Promise<FirestoreGroup[]> =
     const missingGroupIds = Array.from(requestedIdSet).filter(id => !foundGroupIds.has(id));
     if (missingGroupIds.length > 0) {
       console.warn(`getUserGroups: WARNING - Could not find group documents for ${missingGroupIds.length} requested IDs using 'in' query:`, missingGroupIds);
-      // Optional: Diagnose wie zuvor kann hier bleiben
+      
+      // 🔧 AUTO-HEALING: Bereinige fehlende Gruppen-Referenzen aus dem Player-Dokument
+      try {
+        const playerRef = firestoreDoc(db, PLAYERS_COLLECTION, playerId);
+        const cleanedGroupIds = groupIds.filter(id => foundGroupIds.has(id));
+        
+        if (cleanedGroupIds.length !== groupIds.length) {
+          console.log(`getUserGroups: 🔧 AUTO-HEALING: Bereinige ${missingGroupIds.length} fehlende Gruppenreferenzen für Player ${playerId}`);
+          await updateDoc(playerRef, {
+            groupIds: cleanedGroupIds,
+            updatedAt: serverTimestamp()
+          });
+          console.log(`getUserGroups: ✅ Player-Dokument bereinigt. Neue groupIds: [${cleanedGroupIds.join(', ')}]`);
+        }
+      } catch (healingError) {
+        console.error(`getUserGroups: ❌ Fehler beim Auto-Healing für Player ${playerId}:`, healingError);
+        // Fehler nicht weiterwerfen - die Funktion soll trotzdem die verfügbaren Gruppen zurückgeben
+      }
     }
     // --- Ende Log fehlende Gruppen --- 
 
@@ -441,6 +458,24 @@ export const getUserGroupsByPlayerId = async (playerId: string): Promise<Firesto
     const missingGroupIds = Array.from(requestedIdSet).filter(id => !foundGroupIds.has(id));
     if (missingGroupIds.length > 0) {
       console.warn(`getUserGroupsByPlayerId: WARNING - Could not find group documents for ${missingGroupIds.length} requested IDs using 'in' query:`, missingGroupIds);
+      
+      // 🔧 AUTO-HEALING: Bereinige fehlende Gruppen-Referenzen aus dem Player-Dokument
+      try {
+        const playerRef = firestoreDoc(db, PLAYERS_COLLECTION, playerId);
+        const cleanedGroupIds = groupIds.filter(id => foundGroupIds.has(id));
+        
+        if (cleanedGroupIds.length !== groupIds.length) {
+          console.log(`getUserGroupsByPlayerId: 🔧 AUTO-HEALING: Bereinige ${missingGroupIds.length} fehlende Gruppenreferenzen für Player ${playerId}`);
+          await updateDoc(playerRef, {
+            groupIds: cleanedGroupIds,
+            updatedAt: serverTimestamp()
+          });
+          console.log(`getUserGroupsByPlayerId: ✅ Player-Dokument bereinigt. Neue groupIds: [${cleanedGroupIds.join(', ')}]`);
+        }
+      } catch (healingError) {
+        console.error(`getUserGroupsByPlayerId: ❌ Fehler beim Auto-Healing für Player ${playerId}:`, healingError);
+        // Fehler nicht weiterwerfen - die Funktion soll trotzdem die verfügbaren Gruppen zurückgeben
+      }
     }
 
     // === NEU: Schritt 3: Spielerdaten anreichern ===
@@ -613,8 +648,8 @@ export const uploadGroupLogo = async (groupId: string, file: File): Promise<stri
       throw new Error("Die Datei ist kein Bild.");
     }
     const fileSizeInMB = file.size / (1024 * 1024);
-    if (fileSizeInMB > 2) { // Limit auf 2MB für Logos
-      throw new Error(`Logo ist zu groß (${fileSizeInMB.toFixed(2)} MB). Maximum: 2 MB.`);
+    if (fileSizeInMB > 5) { // Limit auf 5MB für Logos
+      throw new Error(`Logo ist zu groß (${fileSizeInMB.toFixed(2)} MB). Maximum: 5 MB.`);
     }
 
     // Datei hochladen

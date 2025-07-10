@@ -7,9 +7,9 @@ import { Loader2 } from 'lucide-react';
 
 // --- Werte aus @/types/jass ---
 import {
-  determineNextStartingPlayer,
-  getTeamForPlayer,
-  isJassRoundEntry // Funktion als Wert importieren
+  isJassRoundEntry, // Funktion als Wert importieren
+  getNextPlayer, // NEU: Import hinzufügen
+  isPlayerInTeam // NEU: Import hinzufügen
 } from '@/types/jass';
 
 // --- Typen aus @/types/jass ---
@@ -73,6 +73,9 @@ import {
 import { completeAndRecordTournamentPasse } from "@/services/tournamentService"; // NEU: Importieren
 // NEU: Import für Firebase Functions
 import { getFunctions, httpsCallable } from "firebase/functions"; // HttpsError entfernt
+
+// NEU: Import der Offline-Sync-Engine
+import { getSyncEngine } from "@/services/offlineSyncEngine";
 
 // --- Auth Store & Typen ---
 import { useAuthStore } from '@/store/authStore';
@@ -370,15 +373,28 @@ const ResultatKreidetafel = ({
   };
 
   // NEU: Helper-Funktion zur Identifikation echter Online-Sessions
-  const isRealOnlineSession = useMemo(() => {
+  const checkIsRealOnlineSession = useCallback(() => {
     const authStore = useAuthStore.getState();
     const gameStore = useGameStore.getState();
     const jassStore = useJassStore.getState();
     
-    return authStore.isAuthenticated() && // Benutzer ist eingeloggt
-           !!gameStore.activeGameId && // Es gibt eine aktive Game ID
-           !!jassStore.currentSession?.id && // Es gibt eine Session ID
-           !authStore.isGuest; // Benutzer ist kein Gast
+    const isAuthenticated = authStore.isAuthenticated();
+    const hasActiveGame = !!gameStore.activeGameId;
+    const hasSession = !!jassStore.currentSession?.id;
+    const isNotGuest = !authStore.isGuest;
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[ResultatKreidetafel] checkIsRealOnlineSession:', {
+        isAuthenticated,
+        hasActiveGame,
+        activeGameId: gameStore.activeGameId,
+        hasSession,
+        sessionId: jassStore.currentSession?.id,
+        isNotGuest
+      });
+    }
+    
+    return isAuthenticated && hasActiveGame && hasSession && isNotGuest;
   }, []);
 
   // 5. Abgeleitete Werte & Zustände
@@ -890,14 +906,15 @@ const ResultatKreidetafel = ({
     // Logik zum Finalisieren und Resetten (wird von beiden Buttons verwendet)
     const finalizeAndResetLocal = async () => {
       // --- KORRIGIERTE LOGIK: Nur für echte Online-Sessions Firebase aufrufen ---
-      if (isRealOnlineSession) {
+      const isRealOnlineSessionNow = checkIsRealOnlineSession();
+      if (isRealOnlineSessionNow) {
           const currentSessionIdLocal = jassStore.currentSession?.id;
           const totalGamesPlayedInSessionLocal = jassStore.games.length;
           const currentGameNumberLocal = totalGamesPlayedInSessionLocal;
 
           // TypeScript Guard: Stelle sicher, dass sessionId definiert ist
           if (!currentSessionIdLocal) {
-            console.error("[ResultatKreidetafel] currentSessionIdLocal is undefined despite isRealOnlineSession being true");
+            console.error("[ResultatKreidetafel] currentSessionIdLocal is undefined despite checkIsRealOnlineSession being true");
             return;
           }
           try {
@@ -951,6 +968,7 @@ const ResultatKreidetafel = ({
           strokeSettings: DEFAULT_STROKE_SETTINGS,
         }
       });
+      // Transition-State wird automatisch in resetGameState zurückgesetzt
       uiStore.resetSigningProcess();
       uiStore.closeJassFinishNotification();
       closeResultatKreidetafel();
@@ -966,9 +984,15 @@ const ResultatKreidetafel = ({
       message: spruch,
       onShare: async () => { 
         await handleShareAndComplete();
+        // NEU: Setze Transition-State vor finalizeAndResetLocal
+        useGameStore.getState().setTransitioning(true);
         await finalizeAndResetLocal(); // Aufruf der angepassten Funktion
       },
-      onBack: finalizeAndResetLocal, // Aufruf der angepassten Funktion
+      onBack: async () => {
+        // NEU: Setze Transition-State vor finalizeAndResetLocal
+        useGameStore.getState().setTransitioning(true);
+        await finalizeAndResetLocal(); // Aufruf der angepassten Funktion
+      },
       onBackLabel: "Nicht teilen"
     });
     
@@ -1011,57 +1035,234 @@ const ResultatKreidetafel = ({
       const currentActiveGameId = useGameStore.getState().activeGameId;
       const currentSession = useJassStore.getState().currentSession;
 
-      // --- ENTFERNT: Redundanter Block zur Speicherung der Zusammenfassung ---
-      // Dieser Block hat die Daten zwar in jassGameSummaries gespeichert, aber
-      // das zugehörige activeGame nicht als 'completed' markiert.
-      // Die gesamte Logik wird nun von dem nachfolgenden `jassStore.finalizeGame()`
-      // korrekt und vollständig übernommen.
-
-      // Nächsten Starter bestimmen
-      const currentGameEntryForNextStart = useJassStore.getState().getCurrentGame();
-      
-      // Ermittle den Spieler, der als NÄCHSTES dran gewesen wäre
-      const playerWhoWouldBeNext = useGameStore.getState().currentPlayer;
-      // Berechne daraus den Spieler, der die letzte Aktion TATSÄCHLICH ausgeführt hat
-      // Formel: ((Nächster - 2 + 4) % 4) + 1
-      const lastRoundFinishingPlayer = (((playerWhoWouldBeNext - 2 + 4) % 4) + 1) as PlayerNumber;
-      
-      // Korrekte Berechnung mit dem tatsächlich letzten Spieler
-      const initialStartingPlayerForNextGame = determineNextStartingPlayer(
-        currentGameEntryForNextStart ?? null,
-        lastRoundFinishingPlayer
-      );
-      
       // --- KRITISCH: Altes Spiel ZUERST finalisieren ---
       await useJassStore.getState().finalizeGame(); // Markiert altes Spiel als fertig BEVOR neues erstellt wird
-      console.log("[ResultatKreidetafel] Altes Spiel finalisiert, erstelle nun neues Spiel...");
+      
+      // 🔧 RACE CONDITION FIX: Warte kurz auf Firestore-Sync
+      console.log("[ResultatKreidetafel] Warte auf Firestore-Sync nach finalizeGame...");
+      await new Promise(resolve => setTimeout(resolve, 500)); // 500ms Wartezeit für Firestore Eventual Consistency
+
+      // --- NEUE ROBUSTE LOGIK FÜR NÄCHSTEN STARTER ---
+      // Hole die AKTUELLEN Striche aus dem gameStore (nicht aus dem jassStore!)
+      const currentGameStore = useGameStore.getState();
+      const currentStriche = currentGameStore.striche;
+      
+      // Bestimme das Gewinnerteam basierend auf den aktuellen Strichen
+      let gewinnerTeam: TeamPosition | undefined;
+      if (currentStriche.top.sieg > 0) {
+        gewinnerTeam = "top";
+      } else if (currentStriche.bottom.sieg > 0) {
+        gewinnerTeam = "bottom";
+      }
+      
+      // --- KORRIGIERT: Ermittle den TATSÄCHLICH letzten Spieler aus der History ---
+      let lastRoundFinishingPlayer: PlayerNumber;
+      
+      // Die sicherste Methode: Verwende die letzte Runde aus der History
+      // und berechne, wer sie beendet hat
+      const roundHistory = currentGameStore.roundHistory || [];
+      const lastRound = roundHistory.length > 0 ? roundHistory[roundHistory.length - 1] : null;
+      
+      if (lastRound && typeof lastRound.startingPlayer === 'number') {
+        // In einer 4-Spieler-Runde: Der Spieler, der die Runde beendet,
+        // ist immer 3 Positionen nach dem Startspieler (im Kreis)
+        // Beispiel: Start bei 1 → 1,2,3,4 → endet bei 4
+        // Beispiel: Start bei 2 → 2,3,4,1 → endet bei 1
+        // Beispiel: Start bei 3 → 3,4,1,2 → endet bei 2
+        // Beispiel: Start bei 4 → 4,1,2,3 → endet bei 3
+        const startingPlayer = lastRound.startingPlayer;
+        lastRoundFinishingPlayer = (((startingPlayer + 3 - 1) % 4) + 1) as PlayerNumber;
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[ResultatKreidetafel] Letzte Runde gestartet von ${startingPlayer} (${lastRound.startingPlayerName}), beendet von Spieler ${lastRoundFinishingPlayer}`);
+        }
+      } else {
+        // Fallback 1: Verwende currentPlayer aus dem aktuellen Spiel
+        const jassStoreCurrentGame = useJassStore.getState().getCurrentGame();
+        const currentPlayerFromStore = currentGameStore.currentPlayer || jassStoreCurrentGame?.currentPlayer;
+        if (currentPlayerFromStore) {
+          // currentPlayer zeigt, wer als NÄCHSTES dran wäre
+          // Also war der letzte Spieler der davor
+          lastRoundFinishingPlayer = (((currentPlayerFromStore - 2 + 4) % 4) + 1) as PlayerNumber;
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[ResultatKreidetafel] Fallback - currentPlayer: ${currentPlayerFromStore}, letzter Spieler: ${lastRoundFinishingPlayer}`);
+          }
+        } else {
+          // Letzter Fallback: Verwende initialStartingPlayer
+          const initialStarter = currentGameStore.initialStartingPlayer || 1;
+          lastRoundFinishingPlayer = initialStarter;
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[ResultatKreidetafel] Letzter Fallback - verwende initialStartingPlayer: ${lastRoundFinishingPlayer}`);
+          }
+        }
+      }
+      
+      // Bestimme den nächsten Startspieler
+      let initialStartingPlayerForNextGame = getNextPlayer(lastRoundFinishingPlayer);
+      
+      // KORRIGIERT: Wenn es ein Gewinnerteam gibt und der nächste Spieler diesem Team angehört,
+      // überspringe ihn (gehe zum übernächsten Spieler)
+      if (gewinnerTeam && isPlayerInTeam(initialStartingPlayerForNextGame, gewinnerTeam)) {
+        initialStartingPlayerForNextGame = getNextPlayer(initialStartingPlayerForNextGame);
+      }
+      
+      // Debug-Logging für bessere Nachvollziehbarkeit
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[ResultatKreidetafel] Nächster Starter berechnet:`, {
+          lastPlayer: lastRoundFinishingPlayer,
+          winnerTeam: gewinnerTeam || 'keine Sieg-Striche gefunden',
+          nextPlayerBeforeCheck: getNextPlayer(lastRoundFinishingPlayer),
+          finalNextPlayer: initialStartingPlayerForNextGame,
+          currentStriche: {
+            top: currentStriche.top.sieg,
+            bottom: currentStriche.bottom.sieg
+          }
+        });
+      }
+
+      // --- NEUE VALIDIERUNG: Prüfe Session-Vollständigkeit ---
+      if (!currentSession) {
+        console.error("[ResultatKreidetafel] Keine Session vorhanden - kann kein neues Spiel erstellen");
+        uiStore.showNotification({
+          type: "error",
+          message: "Fehler: Keine aktive Session gefunden.",
+        });
+        return;
+      }
+
+      // --- NEU: Warte auf Player-ID Auflösung ---
+      const participantUids = currentSession.participantUids ?? [];
+      let participantPlayerIds: string[] = [];
+      
+      if (participantUids.length > 0) {
+        console.log("[ResultatKreidetafel] Warte auf Auflösung aller Player-IDs...");
+        
+        // Import playerService dynamisch um Circular Dependencies zu vermeiden
+        const { getPlayerIdForUser, getPlayerByUserId } = await import('@/services/playerService');
+        
+        try {
+          // 🔧 KRITISCHER FIX: Verwende parallele Auflösung mit robustem Fallback
+          const authStore = useAuthStore.getState();
+          const currentUserId = authStore.user?.uid;
+          
+          const playerIdPromises = participantUids.map(async (uid) => {
+            try {
+              // Für den aktuellen User: Normale Auflösung mit Lock-System
+              if (uid === currentUserId) {
+                return await getPlayerIdForUser(uid, null);
+              }
+              
+              // 🚀 FIX: Für fremde UIDs - direkter Lookup OHNE Lock-System
+              console.log(`[ResultatKreidetafel] Direkte Player-Suche für fremde UID: ${uid}`);
+              const existingPlayer = await getPlayerByUserId(uid);
+              if (existingPlayer && existingPlayer.id) {
+                console.log(`[ResultatKreidetafel] ✅ Player gefunden für ${uid}: ${existingPlayer.id}`);
+                return existingPlayer.id;
+              }
+              
+              // Wenn kein Player gefunden: Warnung und undefined zurückgeben
+              console.warn(`[ResultatKreidetafel] ⚠️ Kein Player gefunden für UID ${uid} - wird übersprungen`);
+              return undefined;
+              
+            } catch (error) {
+              console.error(`[ResultatKreidetafel] Fehler bei Player-Auflösung für ${uid}:`, error);
+              return undefined;
+            }
+          });
+          
+          const resolvedPlayerIds = await Promise.all(playerIdPromises);
+          participantPlayerIds = resolvedPlayerIds.filter(id => id && id !== 'undefined') as string[];
+          
+          console.log(`[ResultatKreidetafel] Player-IDs aufgelöst: ${participantPlayerIds.length}/${participantUids.length}`);
+          
+          if (participantPlayerIds.length !== participantUids.length) {
+            console.warn("[ResultatKreidetafel] Nicht alle Player-IDs konnten aufgelöst werden");
+            // 🚀 ROBUSTER FALLBACK: Verwende Session.participantPlayerIds direkt aus Firestore
+            if (currentSession.participantPlayerIds && currentSession.participantPlayerIds.length > 0) {
+              console.log("[ResultatKreidetafel] 🔄 Fallback: Verwende participantPlayerIds aus Session");
+              participantPlayerIds = currentSession.participantPlayerIds.filter(id => id && id !== 'undefined');
+            } else {
+              // Zeige Warnung, aber fahre fort mit den aufgelösten IDs
+              uiStore.showNotification({
+                type: "warning", 
+                message: "Einige Spieler-Profile konnten nicht vollständig geladen werden.",
+              });
+            }
+          }
+          
+          // 🔥 KRITISCHER PERMISSION FIX: Stelle sicher, dass aktueller User in participantUids ist
+          const currentUserIdForPermCheck = authStore.user?.uid;
+          if (currentUserIdForPermCheck && !participantUids.includes(currentUserIdForPermCheck)) {
+            console.error("[ResultatKreidetafel] 🚨 KRITISCHER FEHLER: Aktueller User nicht in participantUids!");
+            console.error("participantUids:", participantUids);
+            console.error("currentUserId:", currentUserIdForPermCheck);
+            
+            // Füge den aktuellen User hinzu, um Permission-Fehler zu vermeiden
+            participantUids.push(currentUserIdForPermCheck);
+            console.log("[ResultatKreidetafel] ✅ KORREKTUR: Aktueller User zu participantUids hinzugefügt");
+          }
+        } catch (error) {
+          console.error("[ResultatKreidetafel] Fehler beim Auflösen der Player-IDs:", error);
+          
+          // 🚀 ULTIMATIVER FALLBACK: Session-Daten verwenden
+          if (currentSession.participantPlayerIds && currentSession.participantPlayerIds.length > 0) {
+            console.log("[ResultatKreidetafel] 🔄 Ultimativer Fallback: Verwende Session participantPlayerIds");
+            participantPlayerIds = currentSession.participantPlayerIds.filter(id => id && id !== 'undefined');
+          } else {
+            uiStore.showNotification({
+              type: "error",
+              message: "Fehler beim Laden der Spieler-Profile. Neues Spiel abgebrochen.",
+            });
+            return;
+          }
+        }
+      }
+
+      // --- NEUE VALIDIERUNG: Warte auf vollständige Settings ---
+      let sessionSettings = {
+        farbeSettings: currentSession.currentFarbeSettings,
+        scoreSettings: currentSession.currentScoreSettings,
+        strokeSettings: currentSession.currentStrokeSettings,
+      };
+
+      // Wenn Settings nicht vollständig sind, verwende Fallbacks
+      if (!sessionSettings.farbeSettings || !sessionSettings.scoreSettings || !sessionSettings.strokeSettings) {
+        console.warn("[ResultatKreidetafel] Session-Settings unvollständig, verwende Gruppe/UI-Fallbacks");
+        
+        const currentGroup = useGroupStore.getState().currentGroup;
+        sessionSettings = {
+          farbeSettings: sessionSettings.farbeSettings || currentGroup?.farbeSettings || activeFarbeSettings,
+          scoreSettings: sessionSettings.scoreSettings || currentGroup?.scoreSettings || activeScoreSettings,
+          strokeSettings: sessionSettings.strokeSettings || currentGroup?.strokeSettings || activeStrokeSettings,
+        };
+      }
 
       // --- Firestore Update VOR lokalen Store-Änderungen (geändert) ---
       let newActiveGameId: string | null = null; // Variable für die neue ID
-      if (currentSession) { // Nur fortfahren, wenn eine Session existiert
         try {
           // 1. Initialen Zustand für das neue Spiel vorbereiten
-          // KORREKTUR: playerNames zuerst holen
           const initialPlayerNames = { ...useGameStore.getState().playerNames }; 
           const initialStateForNewGame = {
             sessionId: currentSession.id,
             groupId: currentSession.gruppeId ?? '', 
-            participantUids: currentSession.participantUids ?? [],
-            participantPlayerIds: currentSession.participantPlayerIds || [], // ✅ NEU: Explizites Feld für Player-Doc-IDs
-            playerNames: initialPlayerNames, // Verwende die Variable
-            // NEU: Jass-Einstellungen aus dem aktuellen Kontext übernehmen
-            activeFarbeSettings,
-            activeScoreSettings,
-            activeStrokeSettings,
+          participantUids: participantUids, // 🔥 KORRIGIERT: Verwende bereits validierte participantUids!
+          participantPlayerIds: participantPlayerIds, // ✅ KORRIGIERT: Verwende aufgelöste Player-IDs
+          playerNames: initialPlayerNames,
+          // ✅ KORRIGIERT: Verwende validierte Settings
+          activeFarbeSettings: sessionSettings.farbeSettings,
+          activeScoreSettings: sessionSettings.scoreSettings,
+          activeStrokeSettings: sessionSettings.strokeSettings,
             teams: {
               top: { 
-                players: [initialPlayerNames[2] ?? 'Spieler 2', initialPlayerNames[4] ?? 'Spieler 4'], // Verwende die Variable
+              players: [initialPlayerNames[2] ?? 'Spieler 2', initialPlayerNames[4] ?? 'Spieler 4'],
                 striche: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }, 
                 jassPoints: 0, weisPoints: 0, total: 0,
                 bergActive: false, bedankenActive: false, isSigned: false, playerStats: {}
               },
               bottom: {
-                players: [initialPlayerNames[1] ?? 'Spieler 1', initialPlayerNames[3] ?? 'Spieler 3'], // Verwende die Variable
+              players: [initialPlayerNames[1] ?? 'Spieler 1', initialPlayerNames[3] ?? 'Spieler 3'],
                 striche: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
                 jassPoints: 0, weisPoints: 0, total: 0,
                 bergActive: false, bedankenActive: false, isSigned: false, playerStats: {}
@@ -1069,7 +1270,7 @@ const ResultatKreidetafel = ({
             }, 
             currentGameNumber: (useJassStore.getState().currentGameId ?? 0) + 1, 
             scores: { top: 0, bottom: 0 },
-            striche: { // Dieses Feld wird im ActiveGame-Typ erwartet, initialisieren wir es auch hier
+          striche: {
               top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
               bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
             },
@@ -1081,14 +1282,10 @@ const ResultatKreidetafel = ({
           };
 
           // 2. Neues activeGames Dokument erstellen
-          console.log("[ResultatKreidetafel] Attempting to create NEW active game document...");
-          newActiveGameId = await createNewActiveGame(initialStateForNewGame as any); // `as any` zur Vereinfachung, Typ sollte genauer sein
-          console.log(`[ResultatKreidetafel] NEW active game document created with ID: ${newActiveGameId}`);
+        newActiveGameId = await createNewActiveGame(initialStateForNewGame as any);
 
-          // 3. **WIEDER EINGEFÜGT:** Session-Dokument mit der neuen activeGameId aktualisieren
-          console.log(`[ResultatKreidetafel] Attempting to update session ${currentSession.id} with new activeGameId: ${newActiveGameId}`);
+        // 3. Session-Dokument mit der neuen activeGameId aktualisieren
           await updateSessionActiveGameId(currentSession.id, newActiveGameId);
-          console.log(`[ResultatKreidetafel] Session ${currentSession.id} updated successfully.`);
 
         } catch (error) {
           console.error(`[ResultatKreidetafel] Error creating new game or updating session:`, error);
@@ -1096,39 +1293,26 @@ const ResultatKreidetafel = ({
             type: "error",
             message: "Fehler beim Starten des nächsten Online-Spiels. Lokaler Ablauf gestoppt.",
           });
-          return; // Wichtig: Ablauf hier stoppen, um inkonsistente Zustände zu vermeiden
+        return;
         }
-      } else {
-        console.warn("[ResultatKreidetafel] startNewGameSequence: No currentSession found, cannot proceed with online game creation.");
-        return; // Stoppen, wenn keine Session da ist
-      }
-      // --- ENDE Firestore Update ---
 
       // Lokale Store-Updates für "Neues Spiel" (angepasst)
-      // ENTFERNT: await jassStore.finalizeGame() - Wurde bereits VORHER aufgerufen!
       useJassStore.getState().startNextGame(initialStartingPlayerForNextGame, newActiveGameId);
       
-      // KORREKTUR: Hole die resetGame Action frisch aus dem Store UND die korrekten Settings
+      // ✅ KORRIGIERT: Verwende validierte Settings für Reset
       const resetGameAction = useGameStore.getState().resetGame;
-      const sessionForSettings = useJassStore.getState().currentSession;
-      const settingsForNewGame = {
-        farbeSettings: sessionForSettings?.currentFarbeSettings ?? DEFAULT_FARBE_SETTINGS,
-        scoreSettings: sessionForSettings?.currentScoreSettings ?? DEFAULT_SCORE_SETTINGS,
-        strokeSettings: sessionForSettings?.currentStrokeSettings ?? DEFAULT_STROKE_SETTINGS,
-      };
-      resetGameAction(initialStartingPlayerForNextGame, newActiveGameId ?? undefined, settingsForNewGame); // Übergibt neue ID UND Settings an gameStore für Reset
+      resetGameAction(initialStartingPlayerForNextGame, newActiveGameId ?? undefined, sessionSettings);
       
       // ✅ KRITISCH: Explizites Setzen für neues Spiel
       useGameStore.setState(state => ({
         ...state,
         isGameStarted: true,
         currentRound: 1,
-        isGameCompleted: false, // ✅ WICHTIG: Zurücksetzen für neues Spiel
+        isGameCompleted: false,
         isRoundCompleted: false
       }));
 
-      // NEU: Navigation zu /jass nach erfolgreichem Setup
-      console.log("[ResultatKreidetafel] Neues Spiel erfolgreich erstellt - Weiterleitung zu /jass");
+      // Navigation zu /jass nach erfolgreichem Setup
       await debouncedRouterPush(router, '/jass');
     };
 
@@ -1237,14 +1421,20 @@ const ResultatKreidetafel = ({
         // Rufe startNewGameSequence ohne Argument auf
         onContinue: async () => {
           closeResultatKreidetafel(); // Kreidetafel sofort schließen
-          console.log("[ResultatKreidetafel] Starte neues Spiel - Loader wird angezeigt...");
-          setIsLoadingNewGame(true); // NEU: Ladezustand starten
+          console.log("[ResultatKreidetafel] Starte neues Spiel - Game Transition wird angezeigt...");
+          
+          // NEU: Setze Transition-State direkt im gameStore
+          useGameStore.getState().setTransitioning(true);
+          
           try {
           await startNewGameSequence(); // Kein Argument mehr übergeben
-          } finally {
-            console.log("[ResultatKreidetafel] Neues Spiel abgeschlossen - Loader wird ausgeblendet...");
-            setIsLoadingNewGame(false); // NEU: Ladezustand beenden
+          } catch (error) {
+            console.error("[ResultatKreidetafel] Fehler beim Starten des neuen Spiels:", error);
+            // Bei Fehler Transition-State zurücksetzen
+            useGameStore.getState().setTransitioning(false);
+            throw error; // Re-throw für weitere Fehlerbehandlung
           }
+          // setTransitioning(false) wird automatisch in resetGame() aufgerufen
         }
       }
     });
@@ -1481,11 +1671,28 @@ const ResultatKreidetafel = ({
                   console.log("[ResultatKreidetafel] Marked active game as completed BEFORE saving to prevent duplication.");
                 }
 
-                // Die aggressive Regex-Bereinigung wird entfernt. Das Objekt sollte jetzt korrekt sein.
+                // 🚀 OFFLINE-FIRST: Verwende Sync-Engine statt direktes Firestore-Save
+                try {
+                  const syncEngine = getSyncEngine();
+                  await syncEngine.queueGameFinalization(currentSessionIdFromStore, summaryToSave, 'HIGH');
+                  
                 if (process.env.NODE_ENV === 'development') {
-                  console.log("[ResultatKreidetafel] Attempting to save completed game summary (Struktur überarbeitet)...", { currentSessionIdFromStore, gameNumberToSave, summaryToSave: JSON.parse(JSON.stringify(summaryToSave)) });
+                    console.log("[ResultatKreidetafel] ✅ Game finalization queued for offline-sync (immediate attempt if online)");
                 } 
+                } catch (queueError) {
+                  console.error("[ResultatKreidetafel] ❌ Failed to queue game finalization, falling back to direct save:", queueError);
+                  
+                  // 🔄 FALLBACK: Direkte Firestore-Speicherung bei Queue-Fehler
+                  try {
                     await saveCompletedGameToFirestore(currentSessionIdFromStore, gameNumberToSave, summaryToSave, false);
+                    if (process.env.NODE_ENV === 'development') {
+                      console.log("[ResultatKreidetafel] ✅ Fallback: Completed game summary saved directly to Firestore");
+                    }
+                  } catch (fallbackError) {
+                    console.error("[ResultatKreidetafel] ❌ Both queue and fallback failed:", fallbackError);
+                    uiStore.showNotification({ type: "error", message: "Fehler beim Archivieren des Spiels." });
+                  }
+                }
                 
                 if (process.env.NODE_ENV === 'development') {
                   console.log("[ResultatKreidetafel] Completed game summary saved successfully.");
@@ -1539,6 +1746,9 @@ const ResultatKreidetafel = ({
                 }
 
                 const sessionIdToView = jassStore.currentSession?.id; // NEU: ID vor dem Reset sichern
+
+                // NEU: Setze Transition-State für elegante Benutzerführung
+                gameStore.setTransitioning(true);
 
                         await jassStore.finalizeGame(); 
         timerStore.finalizeJassEnd();
@@ -1597,7 +1807,8 @@ const ResultatKreidetafel = ({
             // console.log(`[handleSignatureClick - LOG 7] Vor Aufruf finalizeSessionSummary. Spiel: ${gameNumberToSave}, History Length: ${useGameStore.getState().roundHistory.length}`);
 
             // --- KORRIGIERTER Aufruf der Callable Function finalizeSession mit Retry --- 
-            if (statusUpdated && currentSessionIdFromStore && gameNumberToSave > 0 && isRealOnlineSession) {
+            const isRealOnlineSessionForFinalize = checkIsRealOnlineSession();
+            if (statusUpdated && currentSessionIdFromStore && gameNumberToSave > 0 && isRealOnlineSessionForFinalize) {
                 console.log(`[ResultatKreidetafel] Attempting to call finalizeSession Cloud Function for REAL online session ${currentSessionIdFromStore}, expecting game ${gameNumberToSave}`);
 
                 if (isFinalizingSession) {
@@ -1627,6 +1838,8 @@ const ResultatKreidetafel = ({
                           
                           // 🔥 RACE CONDITION FIX: participantPlayerIds direkt aus Firestore lesen!
                           let participantPlayerIdsFromFirestore: string[] = [];
+                          // 🚨 FIX: Lese auch startedAt direkt aus dem Session-Dokument
+                          let sessionStartedAtFromFirestore: number | Timestamp | undefined;
                           try {
                             console.log(`[ResultatKreidetafel] Lade participantPlayerIds direkt aus Firestore für Session ${currentSessionIdFromStore}...`);
                             const db = getFirestore(firebaseApp);
@@ -1636,7 +1849,9 @@ const ResultatKreidetafel = ({
                             if (sessionSnap.exists()) {
                               const sessionData = sessionSnap.data();
                               participantPlayerIdsFromFirestore = sessionData.participantPlayerIds || [];
+                              sessionStartedAtFromFirestore = sessionData.startedAt; // ✅ HINZUGEFÜGT
                               console.log(`[ResultatKreidetafel] participantPlayerIds aus Firestore erhalten: ${participantPlayerIdsFromFirestore.length} IDs`);
+                              console.log(`[ResultatKreidetafel] startedAt aus Firestore erhalten:`, sessionStartedAtFromFirestore);
                             } else {
                               console.warn(`[ResultatKreidetafel] Session-Dokument ${currentSessionIdFromStore} nicht gefunden in Firestore`);
                             }
@@ -1660,8 +1875,8 @@ const ResultatKreidetafel = ({
                             participantPlayerIds: participantPlayerIdsLocal,
                             playerNames: playerNamesLocal,
                             gruppeId: jassStore.currentSession?.gruppeId || null,
-                            // KORREKTUR: FieldValue wird zu number/Timestamp konvertiert
-                            startedAt: (() => {
+                            // 🚨 FIX: Verwende das korrekte startedAt aus dem Session-Dokument
+                            startedAt: sessionStartedAtFromFirestore || (() => {
                               const startedAtValue = jassStore.currentSession?.startedAt;
                               if (startedAtValue instanceof Timestamp) return startedAtValue;
                               if (typeof startedAtValue === 'number') return startedAtValue;
@@ -1713,7 +1928,7 @@ const ResultatKreidetafel = ({
                   }
                 } // Ende if (!isFinalizingSession)
             } else {
-                console.warn(`[ResultatKreidetafel] Skipping finalizeSession Cloud Function call: Not a real online session or missing data. IsRealOnlineSession: ${isRealOnlineSession}, StatusUpdated: ${statusUpdated}, SessionID: ${!!currentSessionIdFromStore}, GameNumber: ${gameNumberToSave}`);
+                console.warn(`[ResultatKreidetafel] Skipping finalizeSession Cloud Function call: Not a real online session or missing data. IsRealOnlineSession: ${isRealOnlineSessionForFinalize}, StatusUpdated: ${statusUpdated}, SessionID: ${!!currentSessionIdFromStore}, GameNumber: ${gameNumberToSave}`);
             }
             // --- ENDE Aufruf finalizeSessionSummary mit Retry ---
 
@@ -1792,7 +2007,7 @@ const ResultatKreidetafel = ({
       uiStriche,
       handleNextGameClick, // Bleibt wichtig für Spruch-Berechnung via teamStats
       handleShareAndComplete, // Wichtig für onShare
-      isRealOnlineSession // NEU: Wichtig für Firebase-Aufrufe
+      checkIsRealOnlineSession // NEU: Wichtig für Firebase-Aufrufe
       // Stores (gameStore, jassStore, timerStore, uiStore, authStore) werden über getState geholt
   ]);
 

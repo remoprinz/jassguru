@@ -40,16 +40,17 @@ import {DEFAULT_SCORE_SETTINGS} from "../config/ScoreSettings";
 import {useGroupStore} from "./groupStore";
 import { useTournamentStore } from './tournamentStore'; // NEU
 import { firebaseApp } from '@/services/firebaseInit';
-import { getFirestore, doc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { getFirestore, doc, updateDoc, serverTimestamp, Timestamp, getDoc } from 'firebase/firestore';
 import { updateActiveGame } from "../services/gameService";
 import { sanitizeDataForFirestore } from '@/utils/firestoreUtils';
 import { devtools } from 'zustand/middleware';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { v4 as uuidv4 } from 'uuid';
 
-// NEU: GameState erweitern, um null für activeGameId zu erlauben
+// NEU: GameState erweitern, um null für activeGameId zu erlauben und isTransitioning hinzuzufügen
 export type GameState = Omit<GameStateOriginal, 'activeGameId'> & {
   activeGameId: string | null | undefined;
+  isTransitioning?: boolean;
 };
 
 // Define the global API type
@@ -129,6 +130,9 @@ export type GameStore = GameState & {
   validateHistoryAction: () => boolean;
   // NEU: Funktion zum Setzen der aktuellen Spielfarbe
   setFarbe: (farbe: JassColor | undefined) => void;
+  // NEU: Game Transition Loading State
+  isTransitioning: boolean;
+  setTransitioning: (isTransitioning: boolean) => void;
 };
 
 
@@ -208,6 +212,8 @@ const createInitialStateLocal = (
   historyState: createInitialHistoryState(),
   // NEU: Aktuelle Spielfarbe hinzufügen
   farbe: undefined,
+  // NEU: Game Transition Loading State hinzufügen
+  isTransitioning: false,
 });
 
 // Hilfsfunktionen für die History
@@ -404,59 +410,7 @@ const logRoundDetails = (
     bottom: team === "bottom" ? score : opponentScore,
   };
 
-  console.group("🎲 Runden-Details:");
-  console.log({
-    // Runde aus dem Store (NICHT erhöhen!)
-    nummer: `Runde ${currentRoundId}`,
-
-    // Spieler aus dem Store
-    spieler: state.playerNames[currentPlayer] || `Spieler ${currentPlayer}`,
-
-    // Farbe und Strich-Typ
-    ...(farbe && {farbe}),
-    ...(strichType && {strichTyp: strichType}),
-    ...(team && {team}),
-
-    // Punkte-Details
-    punkte: {
-      dieseRunde: currentRoundPoints,
-      weis: {
-        top: state.weisPoints.top,
-        bottom: state.weisPoints.bottom,
-        aktuelleRunde: state.currentRoundWeis,
-      },
-      total: state.jassPoints,
-    },
-
-    // Aktuelle Weis-Aktionen
-    weis: state.currentRoundWeis,
-
-    // Aktueller Striche-Stand
-    striche: state.striche,
-  });
-
-  // History-Log mit allen Details
-  console.log("Gesamter Spielverlauf:", state.roundHistory.map((entry) => ({
-    roundId: entry.roundId,
-    farbe: isJassRoundEntry(entry) ? entry.farbe : undefined,
-    strichInfo: isJassRoundEntry(entry) ? entry.strichInfo : undefined,
-    timestamp: new Date(entry.timestamp).toLocaleString("de-CH"),
-    currentPlayer: entry.currentPlayer,
-    points: {
-      top: entry.jassPoints.top,
-      bottom: entry.jassPoints.bottom,
-    },
-    weisPoints: {
-      top: entry.weisPoints.top,
-      bottom: entry.weisPoints.bottom,
-    },
-    totalPoints: {
-      top: entry.scores.top,
-      bottom: entry.scores.bottom,
-    },
-  })));
-
-  console.groupEnd();
+  // Development logging removed for production
 };
 
 // Hilfsfunktion für die Konvertierung (NEU)
@@ -587,6 +541,8 @@ export const useGameStore = create<GameStore>()(devtools(
     farbeSettings: DEFAULT_FARBE_SETTINGS,
     strokeSettings: DEFAULT_STROKE_SETTINGS,
     activeGameId: undefined,
+    // NEU: Game Transition Loading State
+    isTransitioning: false,
     // nextRoundFirestoreId: 1, // ENTFERNT
 
     // Actions
@@ -970,7 +926,7 @@ export const useGameStore = create<GameStore>()(devtools(
         message: "Weis wirklich korrigieren? Spätere Einträge werden überschrieben.", 
         onConfirm: () => {
           // --- START Kernlogik (History überschreiben) ---
-          console.log("[GameStore.addWeisPoints] Executing action after history warning confirmation (overwrite)");
+;
           let finalState: GameState | null = null;
           set((currentState) => {
             // 1. Weis-Punkte und Aktion aktualisieren
@@ -986,11 +942,7 @@ export const useGameStore = create<GameStore>()(devtools(
                 weisPoints: newWeisPoints, 
                 currentRoundWeis: newCurrentRoundWeis, 
             };
-            console.log("[addWeisPoints - Overwrite] State being saved in WeisRoundEntry:", {
-                weisPoints: stateForEntryCreation.weisPoints,
-                scores: stateForEntryCreation.scores,
-                currentRoundWeisCount: stateForEntryCreation.currentRoundWeis.length
-            });
+
             const newEntry = createRoundEntry(
               stateForEntryCreation,
               get,
@@ -1007,12 +959,7 @@ export const useGameStore = create<GameStore>()(devtools(
               currentRoundWeis: newCurrentRoundWeis, 
               ...historyUpdate, 
             };
-            console.log("[GameStore.addWeisPoints] History overwritten. New state:", {
-                currentIndex: finalState.currentHistoryIndex,
-                historyLength: finalState.roundHistory.length,
-                weisPoints: finalState.weisPoints[team],
-                currentRoundWeisCount: finalState.currentRoundWeis.length,
-            });
+
             return finalState;
           });
           // --- ENDE Kernlogik ---
@@ -1029,9 +976,6 @@ export const useGameStore = create<GameStore>()(devtools(
     }
 
     // --- Normale Ausführung (wenn am Ende der History) ---
-    if (process.env.NODE_ENV === 'development') {
-      console.log("[GameStore.addWeisPoints] No history warning needed, proceeding.");
-    }
     let finalState: GameState | null = null;
     set((currentState) => {
         // 1. Weis-Punkte und Aktion aktualisieren
@@ -1109,8 +1053,10 @@ export const useGameStore = create<GameStore>()(devtools(
   },
 
   finalizeGame: () => {
+    // NEU: Setze Transition-Loading beim Spielabschluss
     set(() => ({
       isGameCompleted: true,
+      isTransitioning: true,
     }));
   },
 
@@ -1127,64 +1073,134 @@ export const useGameStore = create<GameStore>()(devtools(
       console.log(`[gameStore] resetGame aufgerufen. Nächster Starter: ${nextStarter}, Neue Game ID: ${newActiveGameId}`);
     }
     
-    // --- NEU: Kontextabhängige Settings ermitteln ---
-    const { currentTournamentInstance } = useTournamentStore.getState();
-    const { currentGroup } = useGroupStore.getState();
-    const uiSettings = useUIStore.getState();
+    // --- ERWEITERTE Settings-Ermittlung mit Firestore-Fallback ---
+    const determineCorrectSettings = async (): Promise<{ scoreSettings: ScoreSettings, strokeSettings: StrokeSettings, farbeSettings: FarbeSettings, source: string }> => {
+      const { currentTournamentInstance } = useTournamentStore.getState();
+      const { currentGroup } = useGroupStore.getState();
+      const uiSettings = useUIStore.getState();
 
-    let correctSettings: { scoreSettings: ScoreSettings, strokeSettings: StrokeSettings, farbeSettings: FarbeSettings, source: string };
+      // 1. Tournament Settings (höchste Priorität)
+      if (currentTournamentInstance?.settings) {
+        return {
+          scoreSettings: currentTournamentInstance.settings.scoreSettings || DEFAULT_SCORE_SETTINGS,
+          strokeSettings: currentTournamentInstance.settings.strokeSettings || DEFAULT_STROKE_SETTINGS,
+          farbeSettings: currentTournamentInstance.settings.farbeSettings || DEFAULT_FARBE_SETTINGS,
+          source: 'tournament'
+        };
+      }
 
-    if (currentTournamentInstance?.settings) {
-      correctSettings = {
-        scoreSettings: currentTournamentInstance.settings.scoreSettings || DEFAULT_SCORE_SETTINGS,
-        strokeSettings: currentTournamentInstance.settings.strokeSettings || DEFAULT_STROKE_SETTINGS,
-        farbeSettings: currentTournamentInstance.settings.farbeSettings || DEFAULT_FARBE_SETTINGS,
-        source: 'tournament'
-      };
-    } else if (currentGroup) {
-      correctSettings = {
-        scoreSettings: currentGroup.scoreSettings || DEFAULT_SCORE_SETTINGS,
-        strokeSettings: currentGroup.strokeSettings || DEFAULT_STROKE_SETTINGS,
-        farbeSettings: currentGroup.farbeSettings || DEFAULT_FARBE_SETTINGS,
-        source: 'group'
-      };
-    } else {
-      correctSettings = {
+      // 2. Lokale currentGroup (zweite Priorität)
+      if (currentGroup) {
+        return {
+          scoreSettings: currentGroup.scoreSettings || DEFAULT_SCORE_SETTINGS,
+          strokeSettings: currentGroup.strokeSettings || DEFAULT_STROKE_SETTINGS,
+          farbeSettings: currentGroup.farbeSettings || DEFAULT_FARBE_SETTINGS,
+          source: 'group'
+        };
+      }
+
+      // 3. 🚨 KRITISCHER FIX: Gruppen-Settings aus Firestore laden falls currentGroup leer!
+      // Das passiert nach Re-Login wenn currentGroup noch nicht wiederhergestellt wurde
+      const currentSessionId = useJassStore.getState().currentSession?.id;
+      if (currentSessionId) {
+        try {
+          const db = getFirestore(firebaseApp);
+          const sessionDocRef = doc(db, 'sessions', currentSessionId);
+          const sessionDoc = await getDoc(sessionDocRef);
+          
+          if (sessionDoc.exists()) {
+            const sessionData = sessionDoc.data();
+            const groupId = sessionData.groupId || sessionData.gruppeId;
+            
+            if (groupId) {
+              console.log(`[gameStore] resetGame: currentGroup ist leer, lade Gruppen-Settings aus Firestore für Gruppe ${groupId}`);
+              const groupDocRef = doc(db, 'groups', groupId);
+              const groupDoc = await getDoc(groupDocRef);
+              
+              if (groupDoc.exists()) {
+                const groupData = groupDoc.data();
+                return {
+                  scoreSettings: groupData.scoreSettings || DEFAULT_SCORE_SETTINGS,
+                  strokeSettings: groupData.strokeSettings || DEFAULT_STROKE_SETTINGS,
+                  farbeSettings: groupData.farbeSettings || DEFAULT_FARBE_SETTINGS,
+                  source: 'group-firestore'
+                };
+              }
+            }
+          }
+        } catch (error) {
+          console.warn(`[gameStore] resetGame: Fehler beim Laden der Gruppen-Settings aus Firestore:`, error);
+        }
+      }
+
+      // 4. Fallback: UI Store Settings
+      return {
         scoreSettings: uiSettings.scoreSettings,
         strokeSettings: uiSettings.strokeSettings,
         farbeSettings: uiSettings.farbeSettings,
         source: 'uiStore'
       };
-    }
+    };
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[gameStore] resetGame verwendet Settings aus Quelle: '${correctSettings.source}'`);
-    }
-    // --- ENDE NEUE LOGIK ---
+    // Führe die Settings-Ermittlung aus
+    determineCorrectSettings().then(correctSettings => {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[gameStore] resetGame verwendet Settings aus Quelle: '${correctSettings.source}'`);
+      }
 
-    set((prevState) => {
-      const playerNamesToKeep = prevState.playerNames;
-      const gamePlayersToKeep = prevState.gamePlayers;
+      set((prevState) => {
+        const playerNamesToKeep = prevState.playerNames;
+        const gamePlayersToKeep = prevState.gamePlayers;
+        
+        const baseInitialState = createInitialStateLocal(nextStarter);
+        
+        const resetState: GameState = {
+          ...baseInitialState,
+          // --- Settings aus der async ermittelten Quelle ---
+          scoreSettings: correctSettings.scoreSettings,
+          strokeSettings: correctSettings.strokeSettings,
+          farbeSettings: correctSettings.farbeSettings,
+          // --- Beibehaltene Werte ---
+          playerNames: playerNamesToKeep, 
+          gamePlayers: gamePlayersToKeep,
+          activeGameId: newActiveGameId, 
+          // --- Harter Reset für den Spielverlauf ---
+          roundHistory: [], 
+          currentHistoryIndex: -1,
+          isGameStarted: !!newActiveGameId, 
+          // NEU: Beende Transition-Loading nach Reset
+          isTransitioning: false,
+        };
+        
+        return resetState;
+      });
+    }).catch(error => {
+      console.error(`[gameStore] resetGame: Fehler bei Settings-Ermittlung:`, error);
       
-      const baseInitialState = createInitialStateLocal(nextStarter);
-      
-      const resetState: GameState = {
-        ...baseInitialState,
-        // --- NEU: korrekte, kontextabhängige Settings setzen ---
-        scoreSettings: correctSettings.scoreSettings,
-        strokeSettings: correctSettings.strokeSettings,
-        farbeSettings: correctSettings.farbeSettings,
-        // --- Beibehaltene Werte ---
-        playerNames: playerNamesToKeep, 
-        gamePlayers: gamePlayersToKeep,
-        activeGameId: newActiveGameId, 
-        // --- Harter Reset für den Spielverlauf ---
-        roundHistory: [], 
-        currentHistoryIndex: -1,
-        isGameStarted: !!newActiveGameId, 
-      };
-      
-      return resetState;
+      // Fallback bei Fehler: Verwende UI Store Settings
+      set((prevState) => {
+        const playerNamesToKeep = prevState.playerNames;
+        const gamePlayersToKeep = prevState.gamePlayers;
+        const uiSettings = useUIStore.getState();
+        
+        const baseInitialState = createInitialStateLocal(nextStarter);
+        
+        const resetState: GameState = {
+          ...baseInitialState,
+          scoreSettings: uiSettings.scoreSettings,
+          strokeSettings: uiSettings.strokeSettings,
+          farbeSettings: uiSettings.farbeSettings,
+          playerNames: playerNamesToKeep, 
+          gamePlayers: gamePlayersToKeep,
+          activeGameId: newActiveGameId, 
+          roundHistory: [], 
+          currentHistoryIndex: -1,
+          isGameStarted: !!newActiveGameId, 
+          isTransitioning: false,
+        };
+        
+        return resetState;
+      });
     });
   },
 
@@ -2414,6 +2430,11 @@ export const useGameStore = create<GameStore>()(devtools(
       const newState = { ...state, farbe };
       return newState;
     });
+  },
+  
+  // NEU: Game Transition Loading State Management
+  setTransitioning: (isTransitioning: boolean) => {
+    set({ isTransitioning });
   },
   })
 , { name: "gameStore" }));

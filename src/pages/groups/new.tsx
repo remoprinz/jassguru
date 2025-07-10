@@ -110,9 +110,9 @@ const CreateGroupPage: React.FC = () => {
         showNotification({message: "Bitte wählen Sie eine Bilddatei (JPEG oder PNG).", type: "error"});
         return;
       }
-      const initialMaxSizeInBytes = 10 * 1024 * 1024; // 10MB initial limit
+      const initialMaxSizeInBytes = 5 * 1024 * 1024; // 5MB initial limit
       if (originalFile.size > initialMaxSizeInBytes) {
-        showNotification({message: "Die Datei ist zu groß (max. 10 MB).", type: "error"});
+        showNotification({message: "Die Datei ist zu groß (max. 5 MB).", type: "error"});
         return;
       }
 
@@ -245,8 +245,18 @@ const CreateGroupPage: React.FC = () => {
         image: "/welcome-guru.png",
       });
       
-      // Leite direkt zu den Einstellungen der neuen Gruppe weiter
-      router.push(`/groups/settings?groupId=${cloudFunctionResponse.groupId}`);
+      // Lade die neue Gruppe direkt in den Store und navigiere dann
+      try {
+        const { fetchCurrentGroup } = useGroupStore.getState();
+        await fetchCurrentGroup(cloudFunctionResponse.groupId);
+        router.push(`/groups/settings?groupId=${cloudFunctionResponse.groupId}`);
+      } catch (groupLoadError) {
+        console.warn("Gruppe konnte nicht direkt geladen werden, verwende Fallback-Navigation:", groupLoadError);
+        // Fallback: Navigiere trotzdem, Settings-Seite hat eigenen Fallback
+        setTimeout(() => {
+          router.push(`/groups/settings?groupId=${cloudFunctionResponse.groupId}`);
+        }, 1000);
+      }
       
     } catch (err) {
       console.error("Fehler beim Erstellen der Gruppe (onSubmit):", err);
@@ -364,7 +374,7 @@ const CreateGroupPage: React.FC = () => {
                   type="file"
                   ref={logoFileInputRef}
                   onChange={handleLogoFileChange}
-                  accept="image/jpeg, image/png, image/gif"
+                  accept="image/jpeg, image/jpg, image/png, image/webp, image/gif, image/heic, image/heif"
                   className="hidden"
                   disabled={isLoading || isUploading}
                 />

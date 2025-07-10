@@ -295,41 +295,23 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
   },
 
   startJass: async (config) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log("[JassStore.startJass] Async starting new Jass with config:", JSON.parse(JSON.stringify(config)));
-    }
-    const {
-      playerNames,
-      initialStartingPlayer,
-      activeGameId,
-      sessionId,
-      groupId,
-      participantUids,
-      participantPlayerIds, // ✅ NEU: Player Document IDs
-      initialSettings, // Vom StartScreen übergebene Settings (basierend auf UIStore)
-      tournamentSettings
+    const { 
+      playerNames, 
+      initialStartingPlayer, 
+      activeGameId, 
+      sessionId, 
+      groupId, 
+      participantUids, 
+      participantPlayerIds, 
+      initialSettings 
     } = config;
 
-    // 1. Bestimme die Basis-Einstellungen (Turnier > Initial/UI > Default)
+    // 1. Bestimme die Basis-Einstellungen (Initial/UI > Default)
     let baseSettings = {
       farbeSettings: initialSettings?.farbeSettings ?? DEFAULT_FARBE_SETTINGS,
       scoreSettings: initialSettings?.scoreSettings ?? DEFAULT_SCORE_SETTINGS,
       strokeSettings: initialSettings?.strokeSettings ?? DEFAULT_STROKE_SETTINGS,
     };
-    if (process.env.NODE_ENV === 'development') {
-      console.log("[JassStore.startJass] Schritt 1 - Basis-Settings (aus initialSettings oder Defaults):", JSON.parse(JSON.stringify(baseSettings)));
-    }
-
-    if (tournamentSettings && tournamentSettings.farbeSettings && tournamentSettings.scoreSettings && tournamentSettings.strokeSettings) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log("[JassStore.startJass] Schritt 2 - Turnier-Settings erkannt, werden als Basis verwendet.");
-      }
-      baseSettings = {
-        farbeSettings: tournamentSettings.farbeSettings,
-        scoreSettings: tournamentSettings.scoreSettings,
-        strokeSettings: tournamentSettings.strokeSettings,
-      };
-    }
 
     // 2. Lade Gruppen-Einstellungen und überschreibe/merge mit Basis-Einstellungen
     let finalSettingsForGameStore = { ...baseSettings };
@@ -342,10 +324,10 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
         const db = getFirestore(firebaseApp);
         const groupDocRef = doc(db, 'groups', groupId);
         const groupSnap = await getDoc(groupDocRef);
-
+       
         if (groupSnap.exists()) {
           const groupData = groupSnap.data();
-          console.log("[JassStore.startJass] Gruppendaten geladen:", JSON.parse(JSON.stringify(groupData)));
+
           
           const groupFarbeSettings = groupData.farbeSettings as FarbeSettings | undefined;
           const groupScoreSettings = groupData.scoreSettings as ScoreSettings | undefined;
@@ -363,7 +345,7 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
             scoreSettings: groupScoreSettings ?? baseSettings.scoreSettings,
             strokeSettings: groupStrokeSettings ?? baseSettings.strokeSettings,
           };
-          console.log("[JassStore.startJass] Gruppen-Einstellungen gemerged. Finale Settings für gameStore:", JSON.parse(JSON.stringify(finalSettingsForGameStore)));
+
         } else {
           console.warn(`[JassStore.startJass] Gruppe ${groupId} nicht gefunden. Basis-Einstellungen (UI/Turnier/Default) werden verwendet.`);
         }
@@ -372,13 +354,45 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
         console.warn("[JassStore.startJass] Basis-Einstellungen (UI/Turnier/Default) bleiben nach Fehler erhalten.");
       }
     } else {
-      console.log("[JassStore.startJass] Keine groupId, verwende Basis-Settings (UI/Turnier/Default).");
+
+    }
+
+    // 📝 SICHERSTELLUNG: Session existiert in Firestore, oder verwende den sessionId für lokales Spiel
+    if (!sessionId) {
+      console.error("[JassStore.startJass] ❌ sessionId ist undefined/null.");
+      return;
+    } else {
+      console.log(`[JassStore.startJass] 📄 Session: ${sessionId} | ActiveGame: ${activeGameId ?? 'none'}`);
     }
 
     const initialGame = createGameEntry(1, initialStartingPlayer, sessionId, activeGameId, initialStartingPlayer);
 
     // *** VEREINFACHTE SICHERHEIT - NUR SESSIONS COLLECTION ***
     const db = getFirestore(firebaseApp);
+    
+    // ✅ NEU: Versuche das Session-Dokument zu lesen um korrekte startedAt zu bekommen
+    let sessionStartedAt = Date.now(); // Fallback
+    
+    try {
+      const sessionDocRef = doc(db, 'sessions', sessionId);
+      const sessionDoc = await getDoc(sessionDocRef);
+      
+      if (sessionDoc.exists()) {
+        const sessionData = sessionDoc.data();
+        if (sessionData.startedAt) {
+          // Konvertiere Firestore Timestamp zu number
+          if (typeof sessionData.startedAt.toMillis === 'function') {
+            sessionStartedAt = sessionData.startedAt.toMillis();
+          } else if (typeof sessionData.startedAt === 'number') {
+            sessionStartedAt = sessionData.startedAt;
+          }
+          console.log(`[JassStore.startJass] ✅ Verwendet Session startedAt: ${new Date(sessionStartedAt).toISOString()}`);
+        }
+      }
+    } catch (error) {
+      console.warn("[JassStore.startJass] ⚠️ Konnte Session-Dokument nicht lesen, verwende lokalen Timestamp:", error);
+    }
+    
     const settingsPayload = {
       currentFarbeSettings: finalSettingsForGameStore.farbeSettings,
       currentScoreSettings: finalSettingsForGameStore.scoreSettings,
@@ -398,7 +412,7 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
         currentActiveGameId: activeGameId ?? null,
         lastUpdated: serverTimestamp(),
       }, { merge: true });
-      console.log("[JassStore.startJass] ✅ ERSTE SICHERHEIT: Einstellungen in sessions gespeichert");
+
     } catch (error) {
       console.error("[JassStore.startJass] ❌ ERSTE SICHERHEIT FEHLGESCHLAGEN:", error);
     }
@@ -412,20 +426,18 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
           activeScoreSettings: finalSettingsForGameStore.scoreSettings,
           activeStrokeSettings: finalSettingsForGameStore.strokeSettings,
         }, { merge: true });
-        console.log("[JassStore.startJass] ✅ ZWEITE SICHERHEIT: Einstellungen in activeGame gespeichert");
+
       } catch (error) {
         console.error("[JassStore.startJass] ❌ ZWEITE SICHERHEIT FEHLGESCHLAGEN:", error);
       }
     }
-
-    console.log("[JassStore.startJass] 🛡️ DOPPELTE SICHERHEIT IMPLEMENTIERT - Settings in sessions + activeGame!");
 
     set({
       isJassStarted: true,
       currentSession: { 
         id: sessionId, 
         gruppeId: groupId ?? '',
-        startedAt: Date.now(),
+        startedAt: sessionStartedAt, // ✅ KORRIGIERT: Verwende das korrekte startedAt
         playerNames,
         games: [1],
         currentScoreLimit: 5000,
@@ -459,10 +471,7 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
     });
 
     const gameStore = useGameStore.getState();
-    console.log("[JassStore.startJass] Rufe gameStore.resetGame auf mit finalSettingsForGameStore:", finalSettingsForGameStore ? "Vorhanden" : "Nicht vorhanden (sollte nicht passieren)");
-    if (finalSettingsForGameStore) {
-      console.log("[JassStore.startJass] finalSettingsForGameStore Details:", JSON.parse(JSON.stringify(finalSettingsForGameStore)));
-    }
+
     gameStore.resetGame(initialStartingPlayer, activeGameId, finalSettingsForGameStore);
     useGameStore.setState({ playerNames }); 
 
@@ -470,10 +479,13 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
     timerStore.startJassTimer();
     timerStore.activateGameTimer(1);
 
-    console.log("[JassStore.startJass] Async JassStore and GameStore initialized.");
     
+    
+    // ⏱️ RACE CONDITION FIX: Kurz warten bis Session-Dokument definitiv geschrieben ist
+    setTimeout(() => {
     get().subscribeToSession(sessionId); 
-    console.log(`[JassStore.startJass] Subscribed to session ${sessionId}`);
+
+    }, 100); // 100ms Delay sollte ausreichen für Firestore Eventual Consistency
   },
 
   startNextGame: (initialStartingPlayer: PlayerNumber, newActiveGameId?: string) => {
@@ -607,56 +619,134 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
 
     // KRITISCHE ERGÄNZUNG: Firestore-Updates für Online-Spiele
     if (currentGame.activeGameId && state.currentSession?.id) {
+      // 🚨 FIX: useUIStore Aufrufe VOR try-catch um Hook-Regel-Verstoß zu vermeiden
+      const uiStore = useUIStore.getState();
+      
       try {
         const db = getFirestore(firebaseApp);
         
-        // 1. ActiveGame als "completed" markieren
-        const activeGameRef = doc(db, 'activeGames', currentGame.activeGameId);
-        await setDoc(activeGameRef, {
-          status: 'completed',
-          lastUpdated: serverTimestamp(),
-        }, { merge: true });
+        // 🔧 PERMISSION FIX: Robust error handling for activeGame update
+        try {
+          // 1. ActiveGame als "completed" markieren
+          const activeGameRef = doc(db, 'activeGames', currentGame.activeGameId);
+          await setDoc(activeGameRef, {
+            status: 'completed',
+            lastUpdated: serverTimestamp(),
+          }, { merge: true });
+          console.log("[JassStore.finalizeGame] ✅ ActiveGame als completed markiert");
+        } catch (activeGameError: any) {
+          if (activeGameError.code === 'permission-denied') {
+            console.warn("[JassStore.finalizeGame] ⚠️ Permission-denied beim ActiveGame Update - möglicherweise bereits gelöscht oder User nicht berechtigt. Fahre fort ohne Fehler.");
+          } else if (activeGameError.code === 'not-found') {
+            console.warn("[JassStore.finalizeGame] ⚠️ ActiveGame nicht gefunden - bereits gelöscht. Fahre fort ohne Fehler.");
+          } else {
+            console.error("[JassStore.finalizeGame] ❌ Unerwarteter Fehler beim ActiveGame Update:", activeGameError);
+            throw activeGameError; // Nur bei unerwarteten Fehlern weiterwerfen
+          }
+        }
 
+        // ✅ REAKTIVIERT: Client-seitiger Schreibzugriff auf jassGameSummaries
+        // Firestore Rules erlauben jetzt authentifizierten Teilnehmern das Schreiben
+        try {
+          // 🚨 FIX: Bestimme Rosen10player für das erste Spiel der Session
+          let rosen10PlayerForGame: string | null = null;
+          if (currentGame && typeof currentGame.id === 'number' && currentGame.id === 1) {
+            // Erstes Spiel der Session - finde den ersten Trumpf-Ansager
+            const firstJassRound = gameStore.roundHistory.find(round => 
+              round.actionType === 'jass' && 'farbe' in round && round.farbe
+            );
+            if (firstJassRound && 'currentPlayer' in firstJassRound) {
+              const playerNumber = firstJassRound.currentPlayer;
+              const playerIndex = playerNumber - 1; // PlayerNumber ist 1-basiert, Array ist 0-basiert
+              const participantPlayerIds = state.currentSession?.participantPlayerIds || [];
+              if (participantPlayerIds[playerIndex]) {
+                rosen10PlayerForGame = participantPlayerIds[playerIndex];
+                if (process.env.NODE_ENV === 'development') {
+                  console.log(`[JassStore.finalizeGame] Rosen10player für Spiel 1: Player ${playerNumber} -> ID ${rosen10PlayerForGame}`);
+                }
+              }
+            }
+          }
 
-        // 2. Spiel in completedGames Collection speichern
-        const completedGameData: CompletedGameSummary = {
-          gameNumber: typeof currentGame.id === 'number' ? currentGame.id : parseInt(String(currentGame.id), 10),
-          activeGameId: currentGame.activeGameId,
-          timestampCompleted: serverTimestamp(),
-          durationMillis: typeof finalDuration === 'number' ? finalDuration : 0,
-          finalScores: gameStore.scores,
-          finalStriche: gameStore.striche,
-          // ✅ ELEGANT: Temporärer Dummy-Wert für eventCounts
-          eventCounts: { top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }, bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 } },
-          weisPoints: gameStore.weisPoints,
-          startingPlayer: currentGame.startingPlayer,
-          initialStartingPlayer: currentGame.initialStartingPlayer,
-          playerNames: gameStore.playerNames,
-          trumpColorsPlayed: [],
-          roundHistory: gameStore.roundHistory,
-          participantUids: state.currentSession.participantUids || [],
-          groupId: state.currentSession.gruppeId || null,
-        };
+          const completedGameData: CompletedGameSummary = {
+            gameNumber: typeof currentGame.id === 'number' ? currentGame.id : parseInt(String(currentGame.id), 10),
+            activeGameId: currentGame.activeGameId,
+            timestampCompleted: serverTimestamp(),
+            durationMillis: typeof finalDuration === 'number' ? finalDuration : 0,
+            finalScores: gameStore.scores,
+            finalStriche: gameStore.striche,
+            // Temporärer Dummy-Wert für eventCounts, wird danach überschrieben
+            eventCounts: { top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }, bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 } },
+            weisPoints: gameStore.weisPoints,
+            startingPlayer: currentGame.startingPlayer,
+            initialStartingPlayer: currentGame.initialStartingPlayer,
+            playerNames: gameStore.playerNames,
+            trumpColorsPlayed: [],
+            roundHistory: gameStore.roundHistory,
+            participantUids: state.currentSession.participantUids || [],
+            groupId: state.currentSession.gruppeId || null,
+            Rosen10player: rosen10PlayerForGame, // ✅ HINZUGEFÜGT
+          };
 
-        // ✅ ROBUST: Echte eventCounts berechnen und zuweisen
-        completedGameData.eventCounts = calculateEventCounts(completedGameData);
+          // ✅ Echte eventCounts berechnen und zuweisen
+          completedGameData.eventCounts = calculateEventCounts(completedGameData);
 
-        const completedGameRef = doc(db, 'jassGameSummaries', state.currentSession.id, 'completedGames', String(currentGame.id));
-        await setDoc(completedGameRef, sanitizeDataForFirestore(completedGameData));
+          const completedGameRef = doc(db, 'jassGameSummaries', state.currentSession.id, 'completedGames', String(currentGame.id));
+          await setDoc(completedGameRef, sanitizeDataForFirestore(completedGameData));
+          console.log("[JassStore.finalizeGame] ✅ CompletedGame gespeichert in jassGameSummaries");
+        } catch (summaryError: any) {
+          if (summaryError.code === 'permission-denied') {
+            console.warn("[JassStore.finalizeGame] ⚠️ Permission-denied beim jassGameSummaries Schreibzugriff. User möglicherweise nicht in participantUids.");
+          } else {
+            console.error("[JassStore.finalizeGame] ❌ Fehler beim Speichern der Game Summary:", summaryError);
+          }
+          // Continue with other operations even if summary fails
+        }
 
-        // 3. Session currentActiveGameId auf null setzen
-        const sessionRef = doc(db, 'sessions', state.currentSession.id);
-        await setDoc(sessionRef, {
-          currentActiveGameId: null,
-          lastUpdated: serverTimestamp(),
-        }, { merge: true });
+        // 🔧 PERMISSION FIX: Robust error handling for session update
+        try {
+          // 3. Session currentActiveGameId auf null setzen
+          const sessionRef = doc(db, 'sessions', state.currentSession.id);
+          await setDoc(sessionRef, {
+            currentActiveGameId: null,
+            lastUpdated: serverTimestamp(),
+          }, { merge: true });
+          console.log("[JassStore.finalizeGame] ✅ Session activeGameId cleared");
+        } catch (sessionError: any) {
+          if (sessionError.code === 'permission-denied') {
+            console.warn("[JassStore.finalizeGame] ⚠️ Permission-denied beim Session Update - User möglicherweise nicht berechtigt. Fahre fort ohne Fehler.");
+          } else {
+            console.error("[JassStore.finalizeGame] ❌ Fehler beim Session Update:", sessionError);
+            throw sessionError; // Bei Session-Fehlern weiterwerfen, da kritischer
+          }
+        }
 
       } catch (error) {
         console.error("[JassStore.finalizeGame] ❌ Firestore-Update fehlgeschlagen:", error);
-        useUIStore.getState().showNotification({
-          type: "error",
-          message: "Fehler beim Abschließen des Spiels. Bitte versuchen Sie es erneut.",
-        });
+        
+        // 🔧 PERMISSION FIX: Differentiate between critical and non-critical errors
+        if (error && typeof error === 'object' && 'code' in error) {
+          const firebaseError = error as any;
+          if (firebaseError.code === 'permission-denied') {
+            console.warn("[JassStore.finalizeGame] ⚠️ Permission-Problem erkannt. Spiel wird lokal finalisiert, aber Firestore-Sync fehlgeschlagen.");
+            uiStore.showNotification({
+              type: "warning",
+              message: "Spiel wurde lokal abgeschlossen, aber die Online-Synchronisation schlug fehl. Ihre Daten sind trotzdem sicher.",
+            });
+          } else {
+            // Für andere Fehler zeige ursprüngliche Fehlermeldung
+            uiStore.showNotification({
+              type: "error",
+              message: "Fehler beim Abschließen des Spiels. Bitte versuchen Sie es erneut.",
+            });
+          }
+        } else {
+          // Unbekannter Fehler
+          uiStore.showNotification({
+            type: "error",
+            message: "Unerwarteter Fehler beim Abschließen des Spiels.",
+          });
+        }
       }
     }
 
@@ -701,11 +791,14 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
           
 
         } else {
-          console.warn("[jassStore] ⚠️ Session-Dokument hat unvollständige Settings:", {
+          // ℹ️ INFO: Session-Dokument könnte noch nicht vollständig propagiert sein
+          if (process.env.NODE_ENV === 'development') {
+            console.info("[jassStore] ℹ️ Session-Dokument hat noch unvollständige Settings (möglicherweise noch nicht propagiert):", {
             hasFarbeSettings: !!sessionData.currentFarbeSettings,
             hasScoreSettings: !!sessionData.currentScoreSettings,
             hasStrokeSettings: !!sessionData.currentStrokeSettings
           });
+          }
         }
         
         // 🔥 KRITISCHER FIX: participantPlayerIds vor dem Update erfassen

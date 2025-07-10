@@ -121,21 +121,44 @@ export const fetchTournamentInstancesForGroup = async (
 ): Promise<TournamentInstance[]> => {
   try {
     const tournamentsCol = collection(db, 'tournaments');
+    
+    // ✅ LÖSUNG: Vereinfachte Query ohne Composite Index
     const q = query(
       tournamentsCol,
-      where("groupId", "==", groupId),
-      orderBy("createdAt", "desc") // Neueste zuerst
+      where("groupId", "==", groupId)
+      // orderBy entfernt, um Composite Index zu vermeiden
     );
+    
     const querySnapshot = await getDocs(q);
     const instances: TournamentInstance[] = [];
     querySnapshot.forEach((doc) => {
       // Füge die Dokument-ID zum Datenobjekt hinzu
       instances.push({ id: doc.id, ...doc.data() } as TournamentInstance);
     });
+    
+    // ✅ CLIENT-SEITIGE SORTIERUNG: Nach createdAt absteigend (neueste zuerst)
+    instances.sort((a, b) => {
+      const aTime = a.createdAt ? (typeof a.createdAt === 'object' && 'toMillis' in a.createdAt ? a.createdAt.toMillis() : 0) : 0;
+      const bTime = b.createdAt ? (typeof b.createdAt === 'object' && 'toMillis' in b.createdAt ? b.createdAt.toMillis() : 0) : 0;
+      return bTime - aTime;
+    });
+    
     // console.log(`[tournamentService] Fetched ${instances.length} tournament instances for group ${groupId}.`);
     return instances;
   } catch (error) {
     console.error(`[tournamentService] Error fetching tournaments for group ${groupId}:`, error);
+    
+    // ✅ ELEGANTE FEHLERBEHANDLUNG: Leere Liste bei Index-Fehlern
+    if (error && typeof error === 'object' && 'code' in error) {
+      const firebaseError = error as any;
+      if (firebaseError.code === 'failed-precondition' || 
+          firebaseError.code === 'permission-denied' ||
+          firebaseError.code === 'not-found') {
+        console.log(`[tournamentService] Normal state: No tournaments accessible for group ${groupId} (${firebaseError.code})`);
+        return [];
+      }
+    }
+    
     throw new Error("Turniere konnten nicht geladen werden.");
   }
 };
@@ -190,20 +213,34 @@ export const fetchActiveTournamentForUser = async (
 
   try {
     const tournamentsCol = collection(db, 'tournaments');
+    // 🚨 FIX: Query ohne orderBy um Firestore Index-Fehler zu vermeiden
     const q = query(
       tournamentsCol,
       where("participantUids", "array-contains", userId),
-      where("status", "==", "active"),
-      orderBy("createdAt", "desc"), // Das zuletzt erstellte aktive Turnier
-      limit(1)
+      where("status", "==", "active")
+      // orderBy entfernt - wird client-seitig sortiert
     );
 
     const querySnapshot = await getDocs(q);
     if (!querySnapshot.empty) {
-      const docData = querySnapshot.docs[0].data();
-      const docId = querySnapshot.docs[0].id;
-      // console.log(`[tournamentService] Active tournament found for user ${userId}: ${docId}`);
-      return { ...docData, id: docId } as TournamentInstance;
+      // 🚨 FIX: Client-seitige Sortierung nach createdAt (neuestes zuerst)
+      const tournaments = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as TournamentInstance[];
+      
+      // Sortiere nach createdAt absteigend (neuestes zuerst)
+      tournaments.sort((a, b) => {
+        const aTime = a.createdAt ? (typeof a.createdAt === 'object' && 'toMillis' in a.createdAt ? a.createdAt.toMillis() : 0) : 0;
+        const bTime = b.createdAt ? (typeof b.createdAt === 'object' && 'toMillis' in b.createdAt ? b.createdAt.toMillis() : 0) : 0;
+        return bTime - aTime;
+      });
+      
+      // Nimm das neueste (erste nach Sortierung)
+      const latestTournament = tournaments[0];
+      
+      // console.log(`[tournamentService] Active tournament found for user ${userId}: ${latestTournament.id}`);
+      return latestTournament;
     }
     
     // console.log(`[tournamentService] No active tournament found for user ${userId}.`);
@@ -1042,6 +1079,21 @@ export const fetchTournamentsForUser = async (
     return instances;
   } catch (error) {
     console.error(`[tournamentService] Error fetching tournaments for user ${userId}:`, error);
+    
+    // ✅ ELEGANTE LÖSUNG: Unterscheide zwischen echten Fehlern und normalen Zuständen
+    if (error && typeof error === 'object' && 'code' in error) {
+      const firebaseError = error as any;
+      
+      // Bei Permission-Fehlern oder Collection-nicht-existiert: Leere Liste zurückgeben
+      if (firebaseError.code === 'permission-denied' || 
+          firebaseError.code === 'not-found' ||
+          firebaseError.code === 'failed-precondition') {
+        console.log(`[tournamentService] Normal state: No tournaments accessible for user ${userId} (${firebaseError.code})`);
+        return []; // Leere Liste statt Fehler
+      }
+    }
+    
+    // Nur bei echten Fehlern (Netzwerk, etc.) einen Fehler werfen
     throw new Error("Turniere für den Benutzer konnten nicht geladen werden.");
   }
 };

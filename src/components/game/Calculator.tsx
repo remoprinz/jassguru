@@ -151,14 +151,7 @@ const Calculator: React.FC<CalculatorProps> = ({
 
     const correctSettings = getCorrectSettings();
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[Calculator] Settings-Update Effekt. Neue Settings:', {
-        source: correctSettings.source,
-        farbeCardStyle: correctSettings.farbeSettings.cardStyle,
-        scoreWerte: correctSettings.scoreSettings.values,
-        strokeSchneider: correctSettings.strokeSettings.schneider
-      });
-    }
+
 
     // IMMER die korrekten Settings setzen (keine Vergleiche mehr)
     setActiveFarbeSettings(correctSettings.farbeSettings);
@@ -175,21 +168,7 @@ const Calculator: React.FC<CalculatorProps> = ({
   const renderScoreSettings = activeScoreSettings || DEFAULT_SCORE_SETTINGS;
   const renderStrokeSettings = activeStrokeSettings || DEFAULT_STROKE_SETTINGS;
 
-  // Debug Log für die tatsächlich verwendeten Settings
-  useEffect(() => {
-    if (isOpen && activeFarbeSettings && activeScoreSettings && activeStrokeSettings) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log("[Calculator] FINAL aktive Settings für Rendering:", {
-          farbeCardStyle: activeFarbeSettings.cardStyle,
-          farbeValues: activeFarbeSettings.values,
-          scoreWerte: activeScoreSettings.values,
-          scoreEnabled: activeScoreSettings.enabled,
-          strokeSchneider: activeStrokeSettings.schneider,
-          strokeKontermatsch: activeStrokeSettings.kontermatsch
-        });
-      }
-    }
-  }, [isOpen, activeFarbeSettings, activeScoreSettings, activeStrokeSettings]);
+
 
   const [value, setValue] = useState(initialValue?.toString() || "0");
   const [opponentValue, setOpponentValue] = useState("0");
@@ -317,9 +296,7 @@ const Calculator: React.FC<CalculatorProps> = ({
   };
 
   const handleSubmit = useCallback((e?: React.MouseEvent) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log("[Calculator] handleSubmit aufgerufen.");
-    }
+
     
     // BUGFIX: Event-Propagation stoppen, um Konflikt mit HistoryWarning zu vermeiden
     if (e) {
@@ -332,18 +309,7 @@ const Calculator: React.FC<CalculatorProps> = ({
     const currentGameStore = useGameStore.getState();
     const currentActiveGameId = currentGameStore.activeGameId;
 
-    // DEBUG: Log der aktuellen Einstellungen direkt vor der Runden-Finalisierung
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[Calculator] Aktuelle Settings vor finalizeRound:', {
-        strokeSettingsSchneider: currentGameStore.strokeSettings?.schneider,
-        cardStyle: currentGameStore.farbeSettings?.cardStyle,
-        clickedPosition,
-        selectedColor,
-        totalValue,
-        opponentValue,
-        isMatschActive
-      });
-    }
+
 
     if (isReadOnlyMode) {
       console.log(`[Calculator] Abbruch: ReadOnly-Modus aktiv für Spiel ${currentActiveGameId || 'ID unbekannt'}.`);
@@ -355,11 +321,7 @@ const Calculator: React.FC<CalculatorProps> = ({
     }
     
     const isValid = hasValidScore();
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[Calculator] Prüfung für Spiel ${currentActiveGameId || 'ID unbekannt'}: hasValidScore=${isValid}, selectedColor=${selectedColor}`);
-    }
     if (!isValid || !selectedColor) {
-        console.log("[Calculator] Abbruch: Keine gültige Punktzahl oder keine Farbe gewählt.");
         return;
     }
 
@@ -415,19 +377,13 @@ const Calculator: React.FC<CalculatorProps> = ({
     setGlobalClickDisabled(true, 3000);
 
     const isHistoryValid = validateHistoryAction();
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[Calculator] Prüfung: validateHistoryAction=${isHistoryValid}`);
-    }
-
     if (!isHistoryValid) {
-      console.log("[Calculator] History-Warnung wird angezeigt.");
       
       // BUGFIX: Verzögerung einbauen, um Event-Propagation-Konflikt zu vermeiden
       setTimeout(() => {
         showHistoryWarning(
           HISTORY_WARNING_MESSAGE,
           () => {
-            console.log("[Calculator] History-Warnung bestätigt. Rufe finalizeRound (überschreibend)...");
             // NEU: Setze die Farbe vor dem Aufruf
             setFarbe(selectedColor);
             
@@ -441,18 +397,7 @@ const Calculator: React.FC<CalculatorProps> = ({
       return;
     }
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[Calculator] History gültig für Spiel ${currentActiveGameId || 'lokales Spiel'}. Rufe finalizeRound (normal)...`);
-    }
-    if (process.env.NODE_ENV === 'development') {
-      console.log("[Calculator] Parameter für finalizeRound:", {
-          activeGameId: currentActiveGameId || 'nicht vorhanden (Offline-Modus)',
-          farbe: selectedColor,
-          topScore: scores.top,
-          bottomScore: scores.bottom,
-          strichInfo
-      });
-    }
+
     
     try {
         // NEU: Setze die Farbe vor dem Aufruf
@@ -460,9 +405,6 @@ const Calculator: React.FC<CalculatorProps> = ({
         
         // Korrigierter Aufruf mit korrekter strichInfo
         finalizeRound(scores, strichInfo);
-        if (process.env.NODE_ENV === 'development') {
-          console.log("[Calculator] finalizeRound erfolgreich aufgerufen (normal).");
-        }
     } catch (error) {
         console.error("[Calculator] Fehler beim Aufruf von finalizeRound:", error);
         useUIStore.getState().showNotification({ type: 'error', message: 'Fehler beim Verarbeiten der Runde.' });

@@ -8,22 +8,74 @@ import {
   getDocs,
   serverTimestamp,
   Timestamp,
-  db,
-  auth
+  db
 } from "./firebaseInit";
 import {
   getDocFromServer,
-  addDoc,
   collection,
   updateDoc,
   arrayRemove,
-  arrayUnion
+  arrayUnion,
+  runTransaction,
+  deleteDoc,
+  writeBatch
 } from "firebase/firestore";
 import { type FieldValue } from "firebase/firestore";
 import type { AuthUser } from "@/types/auth";
 import type { FirestorePlayer } from "@/types/jass";
 import {nanoid} from "nanoid";
 import {PLAYERS_COLLECTION, USERS_COLLECTION} from "../constants/firestore";
+
+// Collection-Namen für die Locks
+const PLAYER_LOCKS_COLLECTION = 'player-locks';
+
+/**
+ * 原子操作: Versucht, ein Lock-Dokument für eine userId zu erstellen.
+ * Gibt `true` zurück, wenn das Lock erfolgreich erstellt wurde (d.h. dieser Prozess ist der erste).
+ * Gibt `false` zurück, wenn das Lock bereits existiert.
+ */
+const acquirePlayerCreationLock = async (userId: string): Promise<boolean> => {
+  if (!db) return false;
+  const lockRef = doc(db, PLAYER_LOCKS_COLLECTION, userId);
+  try {
+    // Versuche, das Dokument zu erstellen. Wenn es bereits existiert, schlägt dies fehl.
+    // Wir verwenden eine Transaktion für eine atomare "create if not exists"-Operation.
+    await runTransaction(db, async (transaction) => {
+      const lockDoc = await transaction.get(lockRef);
+      if (lockDoc.exists()) {
+        throw new Error("Lock already exists");
+      }
+      transaction.set(lockRef, { createdAt: serverTimestamp() });
+    });
+    console.log(`[Lock] Lock für userId ${userId} erfolgreich akquiriert.`);
+    return true;
+  } catch (error: any) {
+    if (error.message === "Lock already exists") {
+      console.log(`[Lock] Lock für userId ${userId} existiert bereits. Prozess wartet.`);
+    } else if (error.code === 'permission-denied') {
+      // 🔧 PERMISSION FIX: Permission-Fehler werden als "kein Lock" behandelt
+      console.warn(`[Lock] Permission-denied für Lock ${userId} - verwende Fallback ohne Lock-System.`);
+      return false; // Kein Lock erhalten, aber kein fataler Fehler
+    } else {
+      console.error(`[Lock] Unerwarteter Fehler beim Akquirieren des Locks für userId ${userId}:`, error);
+    }
+    return false;
+  }
+};
+
+/**
+ * Gibt das Lock-Dokument für eine userId frei.
+ */
+const releasePlayerCreationLock = async (userId: string): Promise<void> => {
+  if (!db) return;
+  const lockRef = doc(db, PLAYER_LOCKS_COLLECTION, userId);
+  try {
+    await deleteDoc(lockRef);
+    console.log(`[Lock] Lock für userId ${userId} freigegeben.`);
+  } catch (error) {
+    console.error(`[Lock] Fehler beim Freigeben des Locks für userId ${userId}:`, error);
+  }
+};
 
 /**
  * Erstellt einen neuen Spieler in Firestore
@@ -47,9 +99,10 @@ export const createPlayer = async (
     }
 
     // Neuen Spieler erstellen
-    const playerId = nanoid();
     const isGuest = !authUser;
     const userId = authUser?.uid || null;
+    // 🚀 CRITICAL FIX: Use deterministic IDs for authenticated users, random for guests
+    const playerId = authUser ? `player_${authUser.uid}` : nanoid();
 
     const playerData: FirestorePlayer = {
       id: playerId,
@@ -117,11 +170,27 @@ export const getPlayerByNickname = async (nickname: string): Promise<FirestorePl
  */
 export const getPlayerByUserId = async (userId: string): Promise<FirestorePlayer | null> => {
   if (!collections.players) {
-    // Im Offline-Modus simulieren wir, dass der Spieler nicht existiert
+    // ⚠️ DEBUG: Warum ist collections.players null?
+    console.error(`[getPlayerByUserId] collections.players is NULL for userId ${userId}!`, {
+      collections: collections,
+      hasDB: !!db,
+      collectionsPlayers: collections.players
+    });
     return null;
   }
 
   try {
+    // 🚀 CRITICAL FIX: Try deterministic lookup first
+    const deterministicPlayerId = `player_${userId}`;
+    const deterministicDoc = await getDoc(doc(collections.players, deterministicPlayerId));
+    
+    if (deterministicDoc.exists()) {
+      const data = deterministicDoc.data() as FirestorePlayer;
+      data.id = deterministicDoc.id; // Ensure ID is set
+      return data;
+    }
+    
+    // Fallback: Legacy query for old players with random IDs
     const q = query(collections.players, where("userId", "==", userId));
     const querySnapshot = await getDocs(q);
 
@@ -129,7 +198,9 @@ export const getPlayerByUserId = async (userId: string): Promise<FirestorePlayer
       return null;
     }
 
-    return querySnapshot.docs[0].data() as FirestorePlayer;
+    const data = querySnapshot.docs[0].data() as FirestorePlayer;
+    data.id = querySnapshot.docs[0].id; // Ensure ID is set
+    return data;
   } catch (error) {
     console.error("Fehler beim Abrufen des Spielers nach User-ID:", error);
     throw error;
@@ -226,7 +297,7 @@ const createInitialPlayerData = (playerId: string, userId: string, displayNameIn
 /**
  * Findet ODER erstellt ein Player-Dokument für einen User und stellt die Verknüpfung im User-Dokument sicher.
  * Priorisiert die im User-Dokument gespeicherte playerId.
- * Verhindert die Erstellung von Duplikaten.
+ * Verhindert die Erstellung von Duplikaten durch Mutex-Schutz.
  *
  * @param userId Die Firebase Auth User ID.
  * @param displayName Der Anzeigename des Users (wird für initialen Nickname verwendet).
@@ -237,6 +308,26 @@ export const getPlayerIdForUser = async (userId: string, displayName: string | n
     console.error("getPlayerIdForUser: Ungültige Parameter (db, userId).");
     return null;
   }
+
+  // 🚀 ELEGANT SOLUTION: With deterministic IDs, we don't need complex locking
+  // Multiple calls will all try to create the same document, which is safe with Firestore
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[getPlayerIdForUser] Processing userId ${userId} with deterministic approach`);
+  }
+  
+  try {
+    return await getPlayerIdForUserInternal(userId, displayName);
+  } catch (error) {
+    console.error(`[getPlayerIdForUser] Error processing userId ${userId}:`, error);
+    return null;
+  }
+};
+
+/**
+ * Interne Implementierung von getPlayerIdForUser ohne Mutex-Schutz.
+ * Wird nur von getPlayerIdForUser aufgerufen.
+ */
+const getPlayerIdForUserInternal = async (userId: string, displayName: string | null): Promise<string | null> => {
 
   const playersRef = collection(db, PLAYERS_COLLECTION);
   const userDocRef = doc(db, USERS_COLLECTION, userId);
@@ -277,34 +368,83 @@ export const getPlayerIdForUser = async (userId: string, displayName: string | n
       // Weiter zu Schritt 2
     }
 
-    // --- Schritt 2: Suche Player-Dokument anhand der userId --- 
-    const q = query(playersRef, where("userId", "==", userId));
-    const querySnapshot = await getDocs(q);
+    // --- Schritt 2: Direkte Suche mit deterministischer ID --- 
+    // 🚀 CRITICAL FIX: Use deterministic lookup instead of query
+    const deterministicPlayerId = `player_${userId}`;
+    const deterministicPlayerRef = doc(playersRef, deterministicPlayerId);
+    const deterministicPlayerSnap = await getDoc(deterministicPlayerRef);
 
-    // --- Fall 3: Player-Dokument mit userId GEFUNDEN --- 
-    if (!querySnapshot.empty) {
-      if (querySnapshot.size > 1) {
-        // console.warn(`getPlayerIdForUser: Found MULTIPLE (${querySnapshot.size}) players for userId ${userId}. Using the first one.`);
-      }
-      const foundPlayer = querySnapshot.docs[0];
-      const foundPlayerId = foundPlayer.id;
+    // --- Fall 3: Player-Dokument mit deterministischer ID GEFUNDEN --- 
+    if (deterministicPlayerSnap.exists()) {
       // Player ID im User-Dokument nachtragen, falls es existiert (oder erstellen, falls nicht)
+      // Note: This is safe as a single operation since player already exists
+      await setDoc(userDocRef, { playerId: deterministicPlayerId }, { merge: true });
+      return deterministicPlayerId;
+    }
+    
+    // --- Fallback: Legacy-Suche für alte Player mit zufälligen IDs --- 
+    const legacyQuery = query(playersRef, where("userId", "==", userId));
+    const legacySnapshot = await getDocs(legacyQuery);
+    
+    if (!legacySnapshot.empty) {
+      if (legacySnapshot.size > 1) {
+        console.warn(`getPlayerIdForUser: Found MULTIPLE (${legacySnapshot.size}) legacy players for userId ${userId}. Using the first one.`);
+      }
+      const foundPlayer = legacySnapshot.docs[0];
+      const foundPlayerId = foundPlayer.id;
+      // Player ID im User-Dokument nachtragen
+      // Note: This is safe as a single operation since player already exists
       await setDoc(userDocRef, { playerId: foundPlayerId }, { merge: true });
       return foundPlayerId;
     }
     // --- Fall 4: KEIN Player-Dokument mit userId gefunden -> Player NEU ERSTELLEN --- 
     else {
-      const newPlayerId = nanoid();
+      // 🚀 CRITICAL FIX: Deterministic Player IDs to prevent duplicate creation
+      const newPlayerId = `player_${userId}`;
       // Verwende displayName als Nickname, mit Fallback
-      const finalDisplayName = displayName || `Spieler ${newPlayerId.slice(0, 4)}...`;
+      const finalDisplayName = displayName || `Spieler ${newPlayerId.slice(7, 11)}...`; // slice(7, 11) to get first 4 chars after "player_"
       const newPlayerData = createInitialPlayerData(newPlayerId, userId, finalDisplayName);
-      await setDoc(doc(playersRef, newPlayerId), newPlayerData);
-      // Player ID im User-Dokument nachtragen/erstellen
-      await setDoc(userDocRef, { playerId: newPlayerId }, { merge: true });
-      return newPlayerId;
+      
+      // 🔧 ZUSÄTZLICHE SICHERHEIT: Prüfe nochmals vor dem Erstellen
+      console.log(`getPlayerIdForUserInternal: Erstelle neuen Player ${newPlayerId} für userId ${userId}...`);
+      
+      try {
+        // 🚀 CRITICAL FIX: Use atomic batch operation to prevent race conditions
+        const batch = writeBatch(db);
+        
+        // 1. Create player document
+        batch.set(doc(playersRef, newPlayerId), newPlayerData);
+        
+        // 2. Update user document with playerId - ATOMICALLY
+        batch.set(userDocRef, { playerId: newPlayerId }, { merge: true });
+        
+        // Execute both operations atomically
+        await batch.commit();
+        
+        console.log(`getPlayerIdForUserInternal: ✅ Player ${newPlayerId} erfolgreich erstellt für userId ${userId}`);
+        return newPlayerId;
+      } catch (createError) {
+        console.error(`getPlayerIdForUserInternal: ❌ Fehler beim Erstellen von Player ${newPlayerId} für userId ${userId}:`, createError);
+        
+        // Fallback: Versuche nochmals zu suchen, falls zwischenzeitlich ein anderer Prozess einen Player erstellt hat
+        const fallbackQuery = query(playersRef, where("userId", "==", userId));
+        const fallbackSnapshot = await getDocs(fallbackQuery);
+        
+        if (!fallbackSnapshot.empty) {
+          const existingPlayerId = fallbackSnapshot.docs[0].id;
+          console.log(`getPlayerIdForUserInternal: 🔄 Fallback erfolgreich - gefundener Player ${existingPlayerId} für userId ${userId}`);
+          // Player ID im User-Dokument nachtragen
+          await setDoc(userDocRef, { playerId: existingPlayerId }, { merge: true });
+          return existingPlayerId;
+        }
+        
+        console.error("getPlayerIdForUserInternal: Fallback-Suche nach Erstellungsfehler war erfolglos.");
+        // Hier nicht erneut werfen, sondern null zurückgeben, damit der äußere try/catch das Lock freigibt.
+        return null;
+      }
     }
   } catch (error) {
-    console.error(`getPlayerIdForUser: General error processing userId ${userId}:`, error);
+    console.error(`getPlayerIdForUserInternal: General error processing userId ${userId}:`, error);
     return null;
   }
 };

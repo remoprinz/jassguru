@@ -32,6 +32,7 @@ import {useAuthStore, AuthStatus} from "../../store/authStore";
 import {BrowserOnboardingStep} from "../../constants/onboardingContent";
 import { updateUserDocument } from "../../services/authService";
 import { useGroupStore } from "@/store/groupStore";
+import GlobalLoader from "./GlobalLoader";
 
 // Definiere HTML2Canvas-Optionen Typ
 interface HTML2CanvasOptions {
@@ -112,6 +113,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     weisPoints,
     activeGameId,
     isRoundCompleted,
+    isTransitioning,
   } = useGameStore();
   
   // Sichere Destrukturierung der scores mit Fallback
@@ -651,6 +653,26 @@ Generiert von:
   const gameStoreStateForRoundInfo = useGameStore();
 
   if (!mounted) return null;
+
+  // NEU: Globaler Loader während Spielübergängen
+  if (isTransitioning) {
+    return (
+      <div 
+        className="relative w-full h-screen overflow-hidden bg-chalk-black prevent-interactions max-w-xl mx-auto flex flex-col justify-center"
+        style={{
+          transform: `scale(${scale})`,
+          transformOrigin: "center center",
+        }}
+      >
+        <div className="fixed inset-0 flex flex-col items-center justify-center bg-gray-900 bg-opacity-80 z-[9999]">
+          <div className="h-16 w-16 text-white animate-spin">
+            ⟳
+          </div>
+          <p className="mt-4 text-white text-lg">Spiel wird finalisiert und nächste Runde vorbereitet...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Bedingung für das Anzeigen des StartScreens
   const showStartScreenCondition = isFirstTimeLoad && !isTutorialActive;

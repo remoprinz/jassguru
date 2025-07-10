@@ -62,8 +62,8 @@ export const DEFAULT_SCORE_SETTINGS: ScoreSettings = {
 };
 
 export const DEFAULT_STROKE_SETTINGS: StrokeSettings = {
-  schneider: 1,
-  kontermatsch: 1,
+  schneider: 2,
+  kontermatsch: 2,
 };
 // +++ ENDE NEUE DEFAULTS +++
 

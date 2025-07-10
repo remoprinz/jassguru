@@ -1,118 +1,24 @@
+import postalCodes from 'switzerland-postal-codes';
+
 export const getOrtNameByPlz = (plz: string | null | undefined): string | null => {
   if (!plz) {
     return null;
   }
 
-  // console.log(`[LocationUtils] PLZ lookup for: ${plz}`);
-
-  const schweizerOrte: Record<string, string> = {
-    "8000": "Zürich",
-    "8001": "Zürich",
-    "8002": "Zürich",
-    "8003": "Zürich",
-    "8004": "Zürich",
-    "8005": "Zürich",
-    "8006": "Zürich",
-    "8008": "Zürich",
-    "8032": "Zürich",
-    "8037": "Zürich",
-    "8038": "Zürich",
-    "8041": "Zürich",
-    "8044": "Zürich",
-    "8045": "Zürich",
-    "8046": "Zürich",
-    "8047": "Zürich",
-    "8048": "Zürich",
-    "8049": "Zürich",
-    "8050": "Zürich",
-    "8051": "Zürich",
-    "8052": "Zürich",
-    "8053": "Zürich",
-    "8055": "Zürich",
-    "8057": "Zürich",
-    "8064": "Zürich",
-    "3000": "Bern",
-    "3001": "Bern",
-    "3003": "Bern",
-    "3004": "Bern",
-    "3005": "Bern",
-    "3006": "Bern",
-    "3007": "Bern",
-    "3008": "Bern",
-    "3010": "Bern",
-    "3011": "Bern",
-    "3012": "Bern",
-    "3013": "Bern",
-    "3014": "Bern",
-    "3015": "Bern",
-    "3018": "Bern",
-    "3019": "Bern",
-    "3020": "Bern",
-    "3024": "Bern",
-    "3027": "Bern",
-    "6000": "Luzern",
-    "6002": "Luzern",
-    "6003": "Luzern",
-    "6004": "Luzern",
-    "6005": "Luzern",
-    "6006": "Luzern",
-    "6007": "Luzern",
-    "6014": "Luzern",
-    "6015": "Luzern",
-    "4000": "Basel",
-    "4001": "Basel",
-    "4051": "Basel",
-    "4052": "Basel",
-    "4053": "Basel",
-    "4054": "Basel",
-    "4055": "Basel",
-    "4056": "Basel",
-    "4057": "Basel",
-    "4058": "Basel",
-    "1200": "Genf",
-    "1201": "Genf",
-    "1202": "Genf",
-    "1203": "Genf",
-    "1204": "Genf",
-    "1205": "Genf",
-    "1206": "Genf",
-    "1207": "Genf",
-    "1208": "Genf",
-    "1209": "Genf",
-    "1000": "Lausanne",
-    "1003": "Lausanne",
-    "1004": "Lausanne",
-    "1005": "Lausanne",
-    "1006": "Lausanne",
-    "1007": "Lausanne",
-    "1010": "Lausanne",
-    "1012": "Lausanne",
-    "1018": "Lausanne",
-    "9000": "St. Gallen",
-    "9001": "St. Gallen",
-    "9008": "St. Gallen",
-    "9010": "St. Gallen",
-    "9011": "St. Gallen",
-    "9012": "St. Gallen",
-    "9014": "St. Gallen",
-    "9015": "St. Gallen",
-    "9016": "St. Gallen",
-    "8400": "Winterthur",
-    "8401": "Winterthur",
-    "8404": "Winterthur",
-    "8405": "Winterthur",
-    "8406": "Winterthur",
-    "8408": "Winterthur",
-    "8409": "Winterthur",
-    // Weitere häufige Orte können hier ergänzt werden
-  };
-
-  const ortName = schweizerOrte[plz];
+  // Verwende die vollständige PLZ-Datenbank
+  const ortName = postalCodes[plz];
+  
   if (ortName) {
-    // console.log(`[LocationUtils] Gefunden: ${plz} => ${ortName}`);
+    // Debug-Logging nur in Development-Mode
+    if (process.env.NODE_ENV === 'development') {
+    console.log(`[LocationUtils] PLZ ${plz} => ${ortName}`);
+    }
     return ortName;
   } else {
-    // console.log(`[LocationUtils] Keine Zuordnung für PLZ ${plz} gefunden`);
+    // Warnung nur bei unbekannten PLZ in Development
+    if (process.env.NODE_ENV === 'development') {
+    console.log(`[LocationUtils] PLZ ${plz} nicht in der Datenbank gefunden`);
+    }
     return null;
   }
 }; 

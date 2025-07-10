@@ -411,9 +411,9 @@ const TournamentViewPage: React.FC = () => {
         showNotification({message: "Bitte wählen Sie eine Bilddatei (JPEG oder PNG).", type: "error"});
         return;
       }
-      const initialMaxSizeInBytes = 10 * 1024 * 1024;
+      const initialMaxSizeInBytes = 5 * 1024 * 1024;
       if (originalFile.size > initialMaxSizeInBytes) {
-        showNotification({message: "Die Datei ist zu groß (max. 10 MB).", type: "error"});
+        showNotification({message: "Die Datei ist zu groß (max. 5 MB).", type: "error"});
         return;
       }
 
@@ -906,7 +906,7 @@ const TournamentViewPage: React.FC = () => {
           type="file"
           ref={logoFileInputRef}
           onChange={handleLogoFileChange}
-          accept="image/jpeg, image/png"
+                            accept="image/jpeg, image/jpg, image/png, image/webp, image/gif, image/heic, image/heif"
           className="hidden"
           disabled={isUploadingLogo}
         />

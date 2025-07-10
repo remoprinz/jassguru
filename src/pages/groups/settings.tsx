@@ -36,6 +36,9 @@ import { CARD_SYMBOL_MAPPINGS } from '@/config/CardStyles';
 import { toTitleCase } from '@/utils/formatUtils';
 // ENDE NEUE IMPORTE
 
+// NEU: Import für PLZ-Service
+import { getOrtNameByPlz } from '@/utils/locationUtils';
+
 import type { ScoreSettings, StrokeSettings, FarbeSettings, ScoreMode, StrokeMode, FarbeModeKey, JassColor, CardStyle } from '@/types/jass';
  
 
@@ -76,6 +79,9 @@ const GroupSettingsPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [isInvalidating, setIsInvalidating] = useState(false);
 
+  // NEU: State für automatische Stadtanzeige
+  const [detectedCity, setDetectedCity] = useState<string | null>(null);
+
   // Member list state
   const [members, setMembers] = useState<FirestorePlayer[]>([]);
   const [membersLoading, setMembersLoading] = useState(true);
@@ -109,6 +115,22 @@ const GroupSettingsPage = () => {
     }
   }, [status, routeGroupId, currentGroup, fetchCurrentGroup]);
 
+  // Fallback-Timer: Nach 10 Sekunden Ladezeit automatisch zurück zur Startseite
+  useEffect(() => {
+    if (routeGroupId && !currentGroup && status === "authenticated") {
+      const fallbackTimer = setTimeout(() => {
+        console.warn(`[GroupSettings] Fallback-Timer: Gruppe ${routeGroupId} konnte nicht geladen werden. Zurück zur Startseite.`);
+        showNotification({
+          message: "Gruppe konnte nicht geladen werden. Zurück zur Startseite.",
+          type: "warning"
+        });
+        router.push("/start");
+      }, 10000); // 10 Sekunden
+
+      return () => clearTimeout(fallbackTimer);
+    }
+  }, [routeGroupId, currentGroup, status, router, showNotification]);
+
   // Redirect wenn nicht eingeloggt oder keine aktive Gruppe oder kein Admin
   useEffect(() => {
     if (status === "authenticated" || status === "unauthenticated") {
@@ -116,6 +138,15 @@ const GroupSettingsPage = () => {
         router.push("/");
       } else if (!currentGroup && routeGroupId) {
          // Wenn keine currentGroup aber routeGroupId -> Ladezustand, warte bis Gruppe geladen
+         // Zusätzliche Sicherheit: Versuche nochmals zu laden, falls fetchCurrentGroup fehlgeschlagen ist
+         if (typeof routeGroupId === 'string') {
+           const retryTimer = setTimeout(() => {
+             console.log(`[GroupSettings] Retry: Versuche Gruppe ${routeGroupId} nochmals zu laden`);
+             fetchCurrentGroup(routeGroupId);
+           }, 3000); // Nach 3 Sekunden nochmals versuchen
+           
+           return () => clearTimeout(retryTimer);
+         }
       } else if (!currentGroup && !routeGroupId) {
           router.push("/start"); // Keine Gruppe aktiv und keine ID in URL
       } else if (currentGroup && !isCurrentUserAdmin) {
@@ -123,7 +154,7 @@ const GroupSettingsPage = () => {
         router.push("/start");
       }
     }
-  }, [status, isAuthenticated, router, currentGroup, isCurrentUserAdmin, showNotification, routeGroupId]);
+  }, [status, isAuthenticated, router, currentGroup, isCurrentUserAdmin, showNotification, routeGroupId, fetchCurrentGroup]);
 
   // Fetch member details
   useEffect(() => {
@@ -179,7 +210,9 @@ const GroupSettingsPage = () => {
        setName(currentGroup.name || "");
        // NEU: Setze Default-Beschreibung, falls keine vorhanden
        setDescription(currentGroup.description || "Willkommen bei unserer Jassgruppe!");
-       setMainLocationZip((currentGroup as any).mainLocationZip || ""); // PLZ laden
+       const currentZip = (currentGroup as any).mainLocationZip || "";
+       setMainLocationZip(currentZip); // PLZ laden
+       setDetectedCity(getOrtNameByPlz(currentZip)); // Stadt automatisch setzen
        setIsPublic(currentGroup.isPublic ?? true);
  
        // Lade die Jass-Einstellungen aus der aktuellen Gruppe ODER Defaults
@@ -201,6 +234,7 @@ const GroupSettingsPage = () => {
        // Setze auch hier den Default-Spruch, falls die Gruppe mal entfernt wird
        setDescription("Willkommen bei unserer Jassgruppe!");
        setMainLocationZip(""); // PLZ zurücksetzen
+       setDetectedCity(null); // Stadt zurücksetzen
        setIsPublic(true);
        setTempScoreSettings(DEFAULT_SCORE_SETTINGS);
        setTempStrokeSettings(DEFAULT_STROKE_SETTINGS);
@@ -669,6 +703,21 @@ const GroupSettingsPage = () => {
     setTempFarbeSettings(prev => ({ ...prev, cardStyle: style }));
   };
 
+  // === HANDLER für PLZ-Eingabe mit automatischer Stadterkennung ===
+  const handlePlzChange = (inputValue: string) => {
+    // Nur Zahlen erlauben und auf 4 Stellen begrenzen
+    const cleanedValue = inputValue.replace(/[^0-9]/g, '').slice(0, 4);
+    setMainLocationZip(cleanedValue);
+    
+    // Automatische Stadterkennung bei 4-stelliger PLZ
+    if (cleanedValue.length === 4) {
+      const city = getOrtNameByPlz(cleanedValue);
+      setDetectedCity(city);
+    } else {
+      setDetectedCity(null);
+    }
+  };
+
   // === RENDER-FUNKTIONEN (Score, Stroke, Farbe) - mit korrigierten Handlern ===
   const renderScoreSettings = () => {
     return (
@@ -903,7 +952,20 @@ const GroupSettingsPage = () => {
     return (
       <MainLayout>
         <div className="flex min-h-screen items-center justify-center bg-gray-900 text-white">
-          <div>Laden...</div>
+          <div className="flex flex-col items-center space-y-4">
+            <div className="h-8 w-8 rounded-full border-2 border-white border-t-transparent animate-spin"></div>
+            <div className="text-center">
+              <p className="text-lg font-medium">Lade Gruppeneinstellungen...</p>
+              <p className="text-sm text-gray-400 mt-1">Einen Moment bitte</p>
+            </div>
+            {/* Fallback-Button nach 5 Sekunden */}
+            <button 
+              onClick={() => router.push("/start")}
+              className="mt-8 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-md text-sm text-gray-300 hover:text-white transition-colors"
+            >
+              Zurück zur Startseite
+            </button>
+          </div>
         </div>
       </MainLayout>
     );
@@ -951,10 +1013,24 @@ const GroupSettingsPage = () => {
                 </div>
                 <div className="space-y-2">
                   <label htmlFor="mainLocationZip" className="text-sm font-medium text-gray-200">Hauptspielort (PLZ)</label>
-                  <Input id="mainLocationZip" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={4} value={mainLocationZip} onChange={(e) => setMainLocationZip(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
-                    className="bg-gray-700 border-gray-600 text-white" placeholder="z.B. 8000"
+                  <Input 
+                    id="mainLocationZip" 
+                    type="text" 
+                    inputMode="numeric" 
+                    pattern="[0-9]*" 
+                    maxLength={4} 
+                    value={mainLocationZip} 
+                    onChange={(e) => handlePlzChange(e.target.value)}
+                    className="bg-gray-700 border-gray-600 text-white" 
+                    placeholder="z.B. 8000"
                   />
-                  <p className="text-xs text-gray-400">Schweizer Postleitzahl (4-stellig).</p>
+                  {detectedCity && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <p className="text-sm text-green-400 font-medium">{detectedCity}</p>
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-400">Schweizer Postleitzahl (4-stellig). Stadt wird automatisch erkannt.</p>
                 </div>
                 {/* NEUER "Öffentlicher Link"-Block */}
                 <div className="space-y-2">

@@ -1,7 +1,7 @@
 {
   "name": "jasstafel-frontend",
   "private": true,
-  "version": "2.5.0",
+  "version": "2.5.2",
   "type": "module",
   "scripts": {
     "dev": "NODE_OPTIONS='--inspect' next dev",
@@ -88,6 +88,7 @@
     "sonner": "^2.0.3",
     "styled-components": "^6.0.0",
     "styled-jsx": "^5.1.7",
+    "switzerland-postal-codes": "^5.0.1",
     "tailwind-merge": "*",
     "tailwindcss-animate": "*",
     "zod": "^3.0.0",

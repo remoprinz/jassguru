@@ -171,8 +171,12 @@ const PlayerProfilePage = () => {
       try {
         const tournaments = await fetchTournamentsForUser(player.userId);
         setUserTournaments(tournaments);
-      } catch(e) { setTournamentsError("Turniere konnten nicht geladen werden."); }
-      finally { setTournamentsLoading(false); }
+      } catch(e) { 
+        console.error("Fehler beim Laden der Turniere für öffentliches Profil:", e);
+        setTournamentsError("Turniere konnten nicht geladen werden."); 
+      } finally { 
+        setTournamentsLoading(false); 
+      }
     };
     if (player) {
       loadArchiveData();

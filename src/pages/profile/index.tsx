@@ -167,12 +167,17 @@ const ProfilePage: React.FC = () => {
           if (userGroups && userGroups.length > 0) {
             // Lade Turniere für alle Gruppen des Users
             for (const group of userGroups) {
-              const groupTournaments = await fetchTournamentInstancesForGroup(group.id);
-              allTournaments.push(...groupTournaments.filter(t => 
-                t.status === 'active' || 
-                t.status === 'upcoming' || 
-                t.status === 'completed'
-              ));
+              try {
+                const groupTournaments = await fetchTournamentInstancesForGroup(group.id);
+                allTournaments.push(...groupTournaments.filter(t => 
+                  t.status === 'active' || 
+                  t.status === 'upcoming' || 
+                  t.status === 'completed'
+                ));
+              } catch (groupError) {
+                console.warn(`Fehler beim Laden der Turniere für Gruppe ${group.id}:`, groupError);
+                // Nicht den ganzen Prozess abbrechen, sondern nur diese Gruppe überspringen
+              }
             }
           }
           setUserTournaments(allTournaments);
@@ -326,10 +331,34 @@ const ProfilePage: React.FC = () => {
     const files = event.target.files;
     if (files && files.length > 0) {
         const file = files[0];
-        if (!file.type.startsWith("image/")) {
-            showNotification({ message: "Bitte wählen Sie eine Bilddatei.", type: "error" });
+        
+        // ✅ VERBESSERTE VALIDIERUNG: Unterstützt HEIC/HEIF und andere moderne Formate
+        const allowedTypes = [
+          'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 
+          'image/gif', 'image/heic', 'image/heif', 'image/avif'
+        ];
+        
+        const isValidType = allowedTypes.includes(file.type) || 
+                           file.name.toLowerCase().match(/\.(jpg|jpeg|png|webp|gif|heic|heif|avif)$/);
+        
+        if (!isValidType) {
+            showNotification({ 
+              message: "Bitte wählen Sie eine gültige Bilddatei (JPEG, PNG, WebP, GIF, HEIC, HEIF).", 
+              type: "error" 
+            });
             return;
         }
+        
+        // Größenprüfung
+        const maxSizeMB = 5;
+        if (file.size > maxSizeMB * 1024 * 1024) {
+            showNotification({ 
+              message: `Die Datei ist zu groß (max. ${maxSizeMB} MB).`, 
+              type: "error" 
+            });
+            return;
+        }
+        
         const objectUrl = URL.createObjectURL(file);
         setImageToCrop(objectUrl);
         setOriginalFileForCrop(file); // Speichere die Originaldatei

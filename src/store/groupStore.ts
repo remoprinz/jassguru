@@ -131,80 +131,27 @@ const groupStoreCreator: StateCreator<
     }
   },
 
-  setCurrentGroup: (group) => {
-    const currentListener = get()._currentGroupListenerUnsubscribe;
-    if (currentListener) {
-      currentListener(); // Alten Listener stoppen
-    }
-
-    if (group === null) {
-      // === Block nun entfernt, da Logik in JassKreidetafel.tsx ===
+  setCurrentGroup: (group: Group | null) => {
+    // Race Condition Prevention: Keine Group-Operations während Logout
+    const authState = useAuthStore.getState();
+    if (authState.isLoggingOut) {
+      console.log("GROUP_STORE: Skipping setCurrentGroup during logout process");
       return; 
     }
     
-    // console.log(`GROUP_STORE: Setting current group to ${group.id} and attaching listener.`);
-    const groupRef = doc(db, 'groups', group.id);
-    
-    const unsubscribe = onSnapshot(groupRef, 
-      (docSnap) => {
-        if (docSnap.exists()) {
-          const rawData = docSnap.data();
-          // --- HIER ANREICHERUNG ANWENDEN, wenn nötig! ---
-          // Wenn Live-Updates auch die aktuellen Spieler brauchen:
-          // const playerIds = rawData.playerIds || [];
-          // const enrichedPlayers = await fetchAndEnrichPlayers(playerIds, rawData.players); // Eigene Hilfsfunktion
-          // rawData.players = enrichedPlayers;
-          // ----------------------------------------------
-          const farbeSettings = rawData.farbeSettings ?? DEFAULT_FARBE_SETTINGS;
-          const scoreSettings = rawData.scoreSettings ?? DEFAULT_SCORE_SETTINGS;
-          const strokeSettings = rawData.strokeSettings ?? DEFAULT_STROKE_SETTINGS;
-          const updatedGroupData = {
-            id: docSnap.id,
-            ...rawData,
-            farbeSettings,
-            scoreSettings,
-            strokeSettings
-          } as FirestoreGroup;
-          
-          // console.log(`GROUP_STORE: Snapshot received for current group ${group.id}. Updating state.`);
-          if (get().currentGroup?.id === group.id) {
-             set({ currentGroup: updatedGroupData as any, status: "success", error: null }, false, 'onSnapshotUpdate');
-             get().updateGroupInList(group.id, updatedGroupData);
-          }
-        } else {
-          // console.warn(`GROUP_STORE: Current group ${group.id} snapshot indicates it was deleted.`);
-          if (get().currentGroup?.id === group.id) {
-            set({ currentGroup: null, status: "idle", error: "Ausgewählte Gruppe wurde gelöscht." }, false, 'onSnapshotDelete');
-            get()._cleanupCurrentGroupListener();
-          }
-        }
-      },
-      (error: FirestoreError) => {
-        // console.error(`GROUP_STORE: Error in onSnapshot listener for group ${group.id}:`, error);
-        if (get().currentGroup?.id === group.id) {
-           set({ status: "error", error: "Fehler beim Empfangen von Gruppen-Updates." }, false, 'onSnapshotError');
-        }
+    // Bestehende Listener für die vorherige Gruppe bereinigen
         get()._cleanupCurrentGroupListener();
-      }
-    );
+
+    set({ currentGroup: group }, false, 'setCurrentGroup');
     
-    const groupWithDefaults = {
-        ...group,
-        farbeSettings: group.farbeSettings ?? DEFAULT_FARBE_SETTINGS,
-        scoreSettings: group.scoreSettings ?? DEFAULT_SCORE_SETTINGS,
-        strokeSettings: group.strokeSettings ?? DEFAULT_STROKE_SETTINGS,
-    };
-    set({ currentGroup: groupWithDefaults, _currentGroupListenerUnsubscribe: unsubscribe, status: "success", error: null }, false, 'setCurrentGroup');
-    
-    const authState = useAuthStore.getState(); // Hole den aktuellen Auth-Status
     const userId = authState.user?.uid;
 
-    if (userId && authState.status === "authenticated") { // Prüfe ob userId und Status passen
-      updateUserDocument(userId, { lastActiveGroupId: group.id }).catch(err => {
-        console.warn(`GROUP_STORE: Failed to update lastActiveGroupId to ${group.id} for user ${userId} (maybe during logout?):`, err);
+    if (userId && authState.status === "authenticated" && !authState.isLoggingOut) { // Zusätzlicher isLoggingOut Check
+      updateUserDocument(userId, { lastActiveGroupId: group?.id || null }).catch(err => {
+        console.warn(`GROUP_STORE: Failed to update lastActiveGroupId to ${group?.id || 'null'} for user ${userId} (maybe during logout?):`, err);
       });
     } else {
-      console.log(`GROUP_STORE: Skipping update of lastActiveGroupId for group ${group.id} because user is not authenticated or userId is null.`);
+      console.log(`GROUP_STORE: Skipping update of lastActiveGroupId for group ${group?.id || 'null'} because user is not authenticated or is logging out.`);
     }
   },
 

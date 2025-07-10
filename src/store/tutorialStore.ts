@@ -18,25 +18,19 @@ const TUTORIAL_STORAGE_KEY = isDev ? "dev-tutorial-storage" : "jass-tutorial-sto
 const directlyGetHasCompletedTutorial = (): boolean => {
   // Check if we're in the browser (localStorage is available)
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
-    if (process.env.NODE_ENV === 'development') {
-      console.log("[TutorialStore] directlyGetHasCompletedTutorial: localStorage nicht verfügbar (SSR)");
-    }
+
     return false;
   }
   
   try {
     const storageData = localStorage.getItem(TUTORIAL_STORAGE_KEY);
     if (!storageData) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log("[TutorialStore] directlyGetHasCompletedTutorial: Kein Eintrag im LocalStorage");
-      }
+
       return false;
     }
     const data = JSON.parse(storageData);
     const hasCompleted = data?.state?.hasCompletedTutorial === true;
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[TutorialStore] directlyGetHasCompletedTutorial: Wert aus LocalStorage = ${hasCompleted}`);
-    }
+
     return hasCompleted;
   } catch (error) {
     console.error("[TutorialStore] directlyGetHasCompletedTutorial: Fehler beim Lesen:", error);
@@ -48,7 +42,6 @@ const directlyGetHasCompletedTutorial = (): boolean => {
 const saveCompletedStatus = (completed: boolean): void => {
   // Check if we're in the browser (localStorage is available)
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
-    console.log("[TutorialStore] saveCompletedStatus: localStorage nicht verfügbar (SSR)");
     return;
   }
   
@@ -63,13 +56,7 @@ const saveCompletedStatus = (completed: boolean): void => {
     };
     
     localStorage.setItem(TUTORIAL_STORAGE_KEY, JSON.stringify(data));
-    console.log(`[TutorialStore] hasCompletedTutorial gespeichert: ${completed}`, 2);
     
-    // Überprüfe sofort nach dem Speichern, ob der Wert korrekt gesetzt wurde
-    const verifyStorage = localStorage.getItem(TUTORIAL_STORAGE_KEY);
-    const verifyData = verifyStorage ? JSON.parse(verifyStorage) : {};
-    const verifyValue = verifyData?.state?.hasCompletedTutorial === true;
-    console.log(`[TutorialStore] VERIFY nach Speichern: hasCompletedTutorial = ${verifyValue}`);
   } catch (error) {
     console.error("[TutorialStore] Fehler beim Speichern des Tutorial-Status:", error);
   }
@@ -110,11 +97,10 @@ export const useTutorialStore = create<TutorialStore>()(
         // Zusätzlich eine direkte Prüfung im LocalStorage
         const directCheck = directlyGetHasCompletedTutorial();
         
-        console.log(`[TutorialStore] startTutorial: Prüfung - store.hasCompleted=${currentState.hasCompletedTutorial}, direkter Check=${directCheck}, sessionSeen=${currentState.hasSeenTutorialThisSession}, FORCE=${FORCE_TUTORIAL}, options.isHelpMode=${options?.isHelpMode}, stepId=${stepId || 'none'}`);
+
 
         // 🔧 KRITISCHER FIX: Session-Check IMMER machen (auch bei FORCE_TUTORIAL)
         if (!options?.isHelpMode && !stepId && currentState.hasSeenTutorialThisSession) {
-          console.log("[TutorialStore] startTutorial: Verhindert durch hasSeenTutorialThisSession=true (bereits in dieser Session beendet).");
           return;
         }
 
@@ -122,14 +108,12 @@ export const useTutorialStore = create<TutorialStore>()(
         if (!options?.isHelpMode && !stepId && !FORCE_TUTORIAL) {
           // Permanent abgeschlossen (Checkbox war mal aktiviert)
           if (currentState.hasCompletedTutorial || directCheck) {
-            console.log("[TutorialStore] startTutorial: Verhindert durch hasCompletedTutorial=true (Checkbox war aktiviert).");
             return;
           }
         }
 
         // 🔧 KRITISCH: Tutorial nur in PWAs zeigen (oder im Dev-Mode mit FORCE_TUTORIAL)
         if (!isDev && !isPWA()) {
-          console.log("[TutorialStore] startTutorial: Verhindert durch !isDev && !isPWA() - Tutorial nur in PWAs erlaubt.");
           return;
         }
         
@@ -160,7 +144,7 @@ export const useTutorialStore = create<TutorialStore>()(
           saveCompletedStatus(true);
         }
         
-        console.log(`[TutorialStore] endTutorial: neverShowAgain=${neverShowAgain}, hasCompletedTutorial wird auf ${neverShowAgain} gesetzt, hasSeenTutorialThisSession bleibt true (außer bei Help-Mode)`);
+
         
         set({
           isActive: false,
@@ -175,7 +159,6 @@ export const useTutorialStore = create<TutorialStore>()(
       
       // Neue Methode zum direkten Setzen des hasCompletedTutorial-Status
       setHasCompletedTutorial: (completed: boolean) => {
-        console.log(`[TutorialStore] setHasCompletedTutorial aufgerufen mit: ${completed}`);
         saveCompletedStatus(completed);
         set({ hasCompletedTutorial: completed });
       },
@@ -188,20 +171,8 @@ export const useTutorialStore = create<TutorialStore>()(
         const now = Date.now();
         const lastTime = get().lastNextStepTime;
         if (lastTime && now - lastTime < 100) {
-          console.log("🚨 [nextStep] BLOCKED - zu schneller Aufruf!");
           return;
         }
-        
-        // Debug-Logging für Tutorial-Navigation
-        console.log("🎯 Tutorial nextStep:", {
-          from: currentStep?.id,
-          fromOrder: currentStep?.order,
-          currentIndex: currentStepIndex,
-          nextIndex: currentStepIndex + 1,
-          nextStep: steps[currentStepIndex + 1]?.id,
-          nextStepOrder: steps[currentStepIndex + 1]?.order,
-          category: currentStep?.category,
-        });
         
         // Setze Timestamp für diesen nextStep-Aufruf
         set({ lastNextStepTime: now });
@@ -350,15 +321,10 @@ export const useTutorialStore = create<TutorialStore>()(
         completedCategories: state.completedCategories,
       }),
       onRehydrateStorage: () => (state) => {
-        if (state) {
-          console.log(`[TutorialStore] Rehydrate: hasCompletedTutorial = ${state.hasCompletedTutorial}`);
-        } else {
-          console.log(`[TutorialStore] Rehydrate: State nicht verfügbar`);
-        }
+        // Rehydration completed
       }
     }
   )
 );
 
-// Beim Import des Moduls Direkten Check ausführen
-console.log(`[TutorialStore] Modul-Initialisierung, direkter LocalStorage-Check: hasCompletedTutorial = ${directlyGetHasCompletedTutorial()}`);
+// Module initialization complete

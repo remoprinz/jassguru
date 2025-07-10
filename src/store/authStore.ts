@@ -33,6 +33,7 @@ interface AuthState {
   appMode: AppMode;
   error: string | null;
   isGuest: boolean;
+  isLoggingOut: boolean;
   uploadStatus?: "idle" | "loading" | "success" | "error";
 }
 
@@ -58,6 +59,9 @@ type AuthStore = AuthState & AuthActions;
 let userDocUnsubscribe: Unsubscribe | null = null;
 let playerDocUnsubscribe: Unsubscribe | null = null;
 let authInitTimeout: NodeJS.Timeout | null = null;
+// 🚨 CRITICAL FIX: Prevent multiple initAuth calls from React StrictMode
+let authStateUnsubscribe: (() => void) | null = null;
+let isInitAuthInProgress = false;
 
 // 🔧 Migration-Lock um Endlosschleifen zu verhindern
 const migrationLocks = new Map<string, boolean>();
@@ -72,6 +76,7 @@ export const useAuthStore = create<AuthStore>()(
       appMode: "offline",
       error: null,
       isGuest: false,
+      isLoggingOut: false,
       uploadStatus: "idle",
 
       // Aktionen
@@ -119,7 +124,7 @@ export const useAuthStore = create<AuthStore>()(
           // Verwende die bewährte registerWithEmail Funktion aus authService,
           // die bereits createOrUpdateFirestoreUser aufruft und alles korrekt macht
           const user = await registerWithEmail(email, password, displayName);
-          
+
           // Setze den Status zurück, damit der Ladebalken verschwindet.
           // onAuthStateChanged wird den Benutzer kurz darauf als eingeloggt erkennen.
           set({ status: 'unauthenticated' });
@@ -141,6 +146,9 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       logout: async () => {
+        console.log("AUTH_STORE: Starting logout process...");
+        set({ isLoggingOut: true }); // Race Condition Prevention
+        
         if (userDocUnsubscribe) {
           userDocUnsubscribe();
           userDocUnsubscribe = null;
@@ -159,12 +167,17 @@ export const useAuthStore = create<AuthStore>()(
             status: "unauthenticated",
             appMode: "offline",
             isGuest: false,
+            isLoggingOut: false, // Reset nach erfolgreichem Logout
           });
           console.log("AUTH_STORE: Logout successful, navigating to /");
           Router.push('/');
         } catch (error) {
           console.error("AUTH_STORE: Fehler beim Logout:", error);
-          set({status: "error", error: "Abmeldung fehlgeschlagen"});
+          set({
+            status: "error", 
+            error: "Abmeldung fehlgeschlagen",
+            isLoggingOut: false // Reset auch bei Fehler
+          });
         }
       },
 
@@ -331,19 +344,109 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       initAuth: () => {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('AUTH_STORE: initAuth() called - starting authentication check');
+        }
+        
+        // 🚨 CRITICAL FIX: Prevent double initialization from React StrictMode
+        if (isInitAuthInProgress) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('AUTH_STORE: initAuth already in progress, ignoring duplicate call (React StrictMode?)');
+          }
+          return;
+        }
+        
+        if (authStateUnsubscribe) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('AUTH_STORE: Cleaning up existing auth listener before re-initialization');
+          }
+          authStateUnsubscribe();
+          authStateUnsubscribe = null;
+        }
+        
+        isInitAuthInProgress = true;
         if (authInitTimeout) clearTimeout(authInitTimeout);
         set({status: "loading"});
+        
+        // 🚨 ENHANCED LOGGING: Log current localStorage state
+        if (process.env.NODE_ENV === 'development') {
+          try {
+            const authStorage = localStorage.getItem('auth-storage');
+            if (authStorage) {
+              const parsed = JSON.parse(authStorage);
+              console.log('AUTH_STORE: Found persisted auth data:', {
+                hasUser: !!parsed?.state?.user,
+                isGuest: parsed?.state?.isGuest,
+                appMode: parsed?.state?.appMode,
+                // Status ist jetzt nicht mehr persistiert!
+              });
+            } else {
+              console.log('AUTH_STORE: No persisted auth data found - clean start');
+            }
+          } catch (error) {
+            console.warn('AUTH_STORE: Error reading persisted auth data:', error);
+          }
+        }
 
-        // NEU: Watchdog-Timer, um ein Hängenbleiben von onAuthStateChanged zu verhindern
+        // 🚨 CRITICAL FIX: Verkürzter Watchdog-Timer + Emergency Recovery
         authInitTimeout = setTimeout(() => {
           if (get().status === 'loading') {
-            console.error('AUTH_STORE: Watchdog-Alarm! onAuthStateChanged hat nicht innerhalb von 10s geantwortet. Breche ab und setze auf unauthenticated.');
-            set({ status: 'unauthenticated', error: "Die Authentifizierung hat zu lange gedauert. Prüfe deine Internetverbindung und versuche es erneut." });
+            console.error('AUTH_STORE: Watchdog-Alarm! onAuthStateChanged hat nicht innerhalb von 3s geantwortet.');
+            
+            // Emergency Recovery: Prüfe localStorage auf Corruption
+            let emergencyRecoveryTriggered = false;
+            try {
+              const authStorage = localStorage.getItem('auth-storage');
+              if (authStorage) {
+                const parsed = JSON.parse(authStorage);
+                if (parsed?.state?.status === 'authenticated') {
+                  console.error('AUTH_STORE: Erkenne persistierten authenticated Status - mögliche localStorage Corruption!');
+                  
+                  // Zähle Failed Auth Attempts
+                  const failedAttempts = parseInt(localStorage.getItem('auth-failed-attempts') || '0') + 1;
+                  localStorage.setItem('auth-failed-attempts', failedAttempts.toString());
+                  
+                  if (failedAttempts >= 2) {
+                    console.error('AUTH_STORE: 2+ failed attempts detected - Emergency localStorage cleanup!');
+                    localStorage.removeItem('auth-storage');
+                    localStorage.removeItem('auth-failed-attempts');
+                    emergencyRecoveryTriggered = true;
+                  }
+                }
+              }
+            } catch (storageError) {
+              console.error('AUTH_STORE: localStorage read error - Emergency cleanup!', storageError);
+              localStorage.removeItem('auth-storage');
+              emergencyRecoveryTriggered = true;
+            }
+            
+            set({ 
+              status: 'unauthenticated', 
+              user: null,
+              firebaseUser: null,
+              isGuest: false,
+              error: emergencyRecoveryTriggered 
+                ? "Authentifizierung wurde zurückgesetzt. Bitte melde dich erneut an."
+                : "Die Authentifizierung hat zu lange gedauert. Prüfe deine Internetverbindung und versuche es erneut."
+            });
+            
+            // 🚨 CRITICAL FIX: Reset initialization flag bei Timeout
+            isInitAuthInProgress = false;
           }
-        }, 10000); // 10 Sekunden Timeout
+        }, 3000); // 🚨 VERKÜRZT: 3 Sekunden statt 10
 
         const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
           if (authInitTimeout) clearTimeout(authInitTimeout); // WICHTIG: Watchdog stoppen, da der Listener erfolgreich war
+          
+          // 🚨 CRITICAL FIX: Mark initialization as complete
+          isInitAuthInProgress = false;
+          
+          // 🚨 CRITICAL FIX: Reset failed attempts counter bei erfolgreicher Auth-Response
+          try {
+            localStorage.removeItem('auth-failed-attempts');
+          } catch (storageError) {
+            console.warn('AUTH_STORE: Could not reset failed attempts counter:', storageError);
+          }
 
           if (userDocUnsubscribe) userDocUnsubscribe();
           if (playerDocUnsubscribe) playerDocUnsubscribe();
@@ -353,6 +456,17 @@ export const useAuthStore = create<AuthStore>()(
           if (firebaseUser) {
             const previousStatus = get().status;
             const wasGuest = get().isGuest; // NEU: Prüfe ob vorher im Gastmodus
+            
+            if (process.env.NODE_ENV === 'development') {
+              console.log('AUTH_STORE: Firebase user authenticated:', {
+                uid: firebaseUser.uid,
+                email: firebaseUser.email,
+                displayName: firebaseUser.displayName,
+                previousStatus,
+                wasGuest,
+                timeSinceInitAuth: Date.now() // Rough timing
+              });
+            }
             
             // WICHTIG: User-State SOFORT mit Basisdaten aus Firebase Auth setzen!
             // Firestore-Listener reichert später an.
@@ -420,8 +534,19 @@ export const useAuthStore = create<AuthStore>()(
               }
 
               if (!playerIdToLoad) {
+                  // 🚀 ELEGANT SOLUTION: With deterministic Player IDs, multiple calls are safe and idempotent
                   const displayName = firebaseUser.displayName || `Spieler_${firebaseUser.uid.substring(0, 6)}`;
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log(`AUTH_STORE: No playerId found in user doc, calling getPlayerIdForUser for ${firebaseUser.uid} with displayName: ${displayName}`);
+                  }
                   playerIdToLoad = await getPlayerIdForUser(firebaseUser.uid, displayName);
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log(`AUTH_STORE: getPlayerIdForUser returned playerId: ${playerIdToLoad}`);
+                  }
+              } else {
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log(`AUTH_STORE: Found existing playerId in user doc: ${playerIdToLoad}`);
+                  }
               }
 
               if (playerIdToLoad) {
@@ -552,13 +677,37 @@ export const useAuthStore = create<AuthStore>()(
                   // Aktualisiert das initial gesetzte 'user'-Objekt mit den vollständigen Daten
                   set({user: mappedUser, status: "authenticated"});
                   
+                  // 🚨 KRITISCHER FIX: currentGroup Wiederherstellung bei Re-Login
+                  if (userData.lastActiveGroupId) {
                   const currentGroups = useGroupStore.getState().userGroups;
                   const currentGroupMap = new Map(currentGroups.map(g => [g.id, g]));
                   const currentActiveGroup = useGroupStore.getState().currentGroup;
-                  if (userData.lastActiveGroupId && 
-                      currentGroupMap.has(userData.lastActiveGroupId) && 
+                    
+                    if (currentGroupMap.has(userData.lastActiveGroupId) && 
                       currentActiveGroup?.id !== userData.lastActiveGroupId) {
+                      // Gruppe ist in userGroups vorhanden
                        useGroupStore.getState().setCurrentGroup(currentGroupMap.get(userData.lastActiveGroupId)! as any);
+                    } else if (!currentGroupMap.has(userData.lastActiveGroupId)) {
+                      // 🚨 NEUER FIX: Gruppe NICHT in userGroups - aus Firestore laden!
+                      console.log(`[AuthStore] lastActiveGroupId ${userData.lastActiveGroupId} nicht in userGroups gefunden, lade aus Firestore...`);
+                      
+                      import('../services/groupService').then(({ getGroupById }) => {
+                        getGroupById(userData.lastActiveGroupId!).then(group => {
+                          if (group) {
+                            console.log(`[AuthStore] ✅ Gruppe ${userData.lastActiveGroupId} aus Firestore geladen und als currentGroup gesetzt`);
+                            useGroupStore.getState().setCurrentGroup(group as any);
+                          } else {
+                            console.warn(`[AuthStore] ❌ Gruppe ${userData.lastActiveGroupId} existiert nicht mehr in Firestore`);
+                            // Optional: lastActiveGroupId im User-Dokument löschen
+                            updateUserDocument(firebaseUser.uid, { lastActiveGroupId: null }).catch(console.error);
+                          }
+                        }).catch(error => {
+                          console.error(`[AuthStore] Fehler beim Laden der Gruppe ${userData.lastActiveGroupId} aus Firestore:`, error);
+                        });
+                      }).catch(error => {
+                        console.error(`[AuthStore] Fehler beim Import von groupService:`, error);
+                      });
+                    }
                   }
                 } else {
                    // Fallback: User-Dokument nicht in Firestore gefunden.
@@ -604,15 +753,26 @@ export const useAuthStore = create<AuthStore>()(
 
           } else {
             // User ist abgemeldet
-            set({user: null, firebaseUser: null, status: "unauthenticated", isGuest: get().isGuest});
+            const wasGuest = get().isGuest;
+            if (process.env.NODE_ENV === 'development') {
+              console.log('AUTH_STORE: Firebase user unauthenticated (logged out or no session):', {
+                wasGuest,
+                previousStatus: get().status
+              });
+            }
+            set({user: null, firebaseUser: null, status: "unauthenticated", isGuest: wasGuest});
             useGroupStore.getState().resetGroupStore();
           }
         }, (error) => {
             // NEU: Fehlerbehandlung für den onAuthStateChanged-Listener selbst
             if (authInitTimeout) clearTimeout(authInitTimeout);
+            isInitAuthInProgress = false; // 🚨 Reset flag auch bei Fehler
             console.error('AUTH_STORE: Kritischer Fehler im onAuthStateChanged-Listener:', error);
             set({ status: 'error', error: 'Ein kritischer Fehler bei der Authentifizierung ist aufgetreten.' });
         });
+        
+        // 🚨 CRITICAL FIX: Store unsubscribe function for cleanup
+        authStateUnsubscribe = unsubscribeAuth;
       },
       clearError: () => {
         set({error: null});
@@ -623,10 +783,13 @@ export const useAuthStore = create<AuthStore>()(
       partialize: (state) => ({ 
         appMode: state.appMode,
         isGuest: state.isGuest,
-        // Status speichern, damit wir beim App-Start sehen, dass der User bereits authentifiziert war
-        status: state.status === "authenticated" ? "authenticated" : state.status,
-        // NICHT den kompletten User speichern, nur die Basis-Informationen
-        // Dies hilft dabei, den Auth-Zustand zu erhalten, ohne sensible Daten zu speichern
+        // 🚨 CRITICAL FIX: Status NICHT mehr persistieren!
+        // App startet immer mit status: "idle" und prüft dann Firebase Auth
+        // Dies verhindert das Hängenbleiben bei corrupted localStorage
+        // status: ENTFERNT - Kernursache des Problems!
+        
+        // HINT: Minimale User-Daten für bessere UX (z.B. für Profilbild-Cache)
+        // Aber kein authStatus - Firebase Auth ist die einzige Wahrheitsquelle
         user: state.user ? {
           uid: state.user.uid,
           displayName: state.user.displayName,
