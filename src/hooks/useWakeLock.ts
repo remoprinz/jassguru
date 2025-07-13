@@ -1,12 +1,20 @@
-import {useState, useEffect} from "react";
+import {useState, useEffect, useRef} from "react";
 
 type WakeLockType = "screen";
 
 export function useWakeLock(type: WakeLockType = "screen") {
   const [wakeLock, setWakeLock] = useState<WakeLockSentinel | null>(null);
   const [isLocked, setIsLocked] = useState(false);
+  const isRequestingRef = useRef(false); // 🚀 NEW: Verhindert doppelte Anfragen
 
   const requestWakeLock = async () => {
+    // 🚀 NEW: Verhindere doppelte Anfragen (React StrictMode)
+    if (isRequestingRef.current || wakeLock) {
+      return;
+    }
+
+    isRequestingRef.current = true;
+
     try {
       if ("wakeLock" in navigator) {
         const lock = await navigator.wakeLock.request(type);
@@ -23,6 +31,8 @@ export function useWakeLock(type: WakeLockType = "screen") {
       if (process.env.NODE_ENV === 'development') {
         console.error(`Konnte ${type} Wake Lock nicht aktivieren:`, err.name, err.message);
       }
+    } finally {
+      isRequestingRef.current = false; // 🚀 NEW: Flag zurücksetzen
     }
   };
 
@@ -48,19 +58,21 @@ export function useWakeLock(type: WakeLockType = "screen") {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         requestWakeLock();
-      } else {
-        releaseWakeLock();
       }
     };
 
-    handleVisibilityChange(); // Initial call
+    // Initial Wake Lock Request
+    requestWakeLock();
+
+    // Listen to visibility changes
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
+    // Cleanup function
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       releaseWakeLock();
     };
-  }, []);
+  }, [type]); // 🚀 IMPROVED: Dependency array with type
 
-  return {wakeLock, requestWakeLock, releaseWakeLock};
+  return { wakeLock, isLocked, requestWakeLock, releaseWakeLock };
 }

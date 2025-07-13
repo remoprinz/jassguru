@@ -294,18 +294,16 @@ const JoinByInviteUI: React.FC<JoinByInviteUIProps> = ({
 
   const UILabels = {
     group: {
-      title: "Einer Gruppe beitreten",
-      inputPlaceholder: "Einladungscode hier einfügen",
+      title: "Mit Einladungslink beitreten",
+      inputPlaceholder: "Einladungslink (z.B. https://jassguru.ch/join?token=...)",
       joinButton: "Gruppe beitreten",
-      scanButton: "QR-Code der Gruppe scannen (Foto)",
       modalTitle: "QR-Code Scan Status",
       modalDescription: "Ergebnis des QR-Code Scans.",
     },
     tournament: {
-      title: "An Turnier teilnehmen",
-      inputPlaceholder: "Einladungscode hier einfügen",
+      title: "Mit Einladungslink teilnehmen",
+      inputPlaceholder: "Einladungslink (z.B. https://jassguru.ch/join?tournamentToken=...)",
       joinButton: "Turnier beitreten",
-      scanButton: "QR-Code des Turniers scannen (Foto)",
       modalTitle: "QR-Code Scan Status",
       modalDescription: "Ergebnis des QR-Code Scans.",
     },
@@ -325,13 +323,29 @@ const JoinByInviteUI: React.FC<JoinByInviteUIProps> = ({
           className="w-full bg-gray-700 border-gray-600 text-white focus:border-gray-500"
           disabled={isProcessingInput || processingQrImage}
         />
+        
+        {/* ✅ UX-VERBESSERUNG: Hilfetext für Einladungslink */}
+        <p className="text-xs text-gray-400 -mt-1">
+          Füge den kompletten Link aus der Einladungsnachricht ein
+        </p>
+        
         <Button
           onClick={handleManualSubmit}
           disabled={isProcessingInput || processingQrImage || !manualToken.trim()}
-          className="w-full bg-green-600 hover:bg-green-700 text-white"
+          className="w-full bg-green-600 hover:bg-green-700 text-white font-medium"
         >
           {isProcessingInput ? "Wird verarbeitet..." : labels.joinButton}
         </Button>
+        
+        {/* ✅ UX-VERBESSERUNG: Klarere Trennung zwischen Hauptmethode und Alternative */}
+        <div className="relative my-4">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t border-gray-600" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-gray-800 px-2 text-gray-400">Alternative</span>
+          </div>
+        </div>
         
         <input
           type="file"
@@ -343,14 +357,19 @@ const JoinByInviteUI: React.FC<JoinByInviteUIProps> = ({
           disabled={processingQrImage}
         />
 
-        <Button
-          onClick={openCamera}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center"
-          disabled={isProcessingInput || processingQrImage}
-        >
-          <QrCode size={18} className="mr-2" />
-          {processingQrImage ? "Verarbeite Bild..." : labels.scanButton}
-        </Button>
+        <div className="text-center">
+          <Button
+            onClick={openCamera}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center"
+            disabled={isProcessingInput || processingQrImage}
+          >
+            <QrCode size={18} className="mr-2" />
+            {processingQrImage ? "Verarbeite Bild..." : "📸 Foto vom QR-Code aufnehmen"}
+          </Button>
+          <p className="text-xs text-gray-400 mt-2">
+            Öffnet die Kamera um ein Foto vom QR-Code zu machen
+          </p>
+        </div>
       </div>
 
       {showScannerModal && (

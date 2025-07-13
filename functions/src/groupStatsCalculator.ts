@@ -229,20 +229,44 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
     const playerRoundTimes = new Map<string, number[]>();
     const trumpfCounts = new Map<string, number>();
 
-    // VEREINFACHT: Player-ID zu Namen-Map aus Gruppendaten
+    // ✅ Player-ID zu Namen-Map wird nach allSessions-Definition befüllt
     const playerIdToNameMap = new Map<string, string>();
-    Object.entries(groupData.players || {}).forEach(([playerId, playerData]) => {
-      if (playerData.displayName) {
-        playerIdToNameMap.set(playerId, playerData.displayName);
-      }
-    });
-
+    
     // Schritt 3: Alle Sessions und Spiele verarbeiten
     // ✅ KORRIGIERT: Verarbeite ALLE Sessions (Regular + Tournament) für Spiel-Statistiken,
     // aber unterscheide für Session-basierte Statistiken
     const allSessions = [...regularSessions, ...tournamentSessions];
     
-        for (const sessionDoc of allSessions) {
+    // ✅ KORRIGIERT: Player-ID zu Namen-Map vollständig aus players Collection laden (analog zu playerStatsCalculator)
+    // Step 1: Sammle alle unique Player-IDs aus allen Sessions für effizientes Laden
+    const allPlayerIdsInvolved = new Set<string>();
+    allSessions.forEach(sessionDoc => {
+      const sessionData = sessionDoc.data();
+      const sessionPlayerDocIds = extractPlayerDocIdsFromSessionSimple(sessionData);
+      sessionPlayerDocIds.forEach(id => allPlayerIdsInvolved.add(id));
+    });
+    
+    // Step 2: Lade alle Player-Dokumente auf einmal und erstelle Lookup-Map
+    if (allPlayerIdsInvolved.size > 0) {
+      try {
+        const playerDocs = await db.collection('players').where(admin.firestore.FieldPath.documentId(), 'in', Array.from(allPlayerIdsInvolved)).get();
+        playerDocs.forEach(doc => {
+          playerIdToNameMap.set(doc.id, doc.data()?.displayName || 'Unbekannt');
+        });
+        logger.info(`[calculateGroupStatisticsInternal] Loaded ${playerDocs.size} player names from players collection`);
+      } catch (error) {
+        logger.error(`[calculateGroupStatisticsInternal] Error loading player names:`, error);
+      }
+    }
+    
+    // Step 3: Ergänze aus Gruppendaten (als Fallback und für Vollständigkeit)
+    Object.entries(groupData.players || {}).forEach(([playerId, playerData]) => {
+      if (playerData.displayName && !playerIdToNameMap.has(playerId)) {
+        playerIdToNameMap.set(playerId, playerData.displayName);
+      }
+    });
+
+      for (const sessionDoc of allSessions) {
       const sessionData = sessionDoc.data();
       const isTournamentSession = Boolean(sessionData.tournamentId);
       
@@ -1241,15 +1265,26 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
               topStats.stricheMade += topStricheTotal;
               topStats.stricheReceived += bottomStricheTotal;
               
-              // ✅ KORRIGIERT: Event-Statistiken aus Game-Level finalStriche
-              topStats.matschMade += topStriche.matsch || 0;
-              topStats.schneiderMade += topStriche.schneider || 0;
-              topStats.kontermatschMade += topStriche.kontermatsch || 0;
-              
-              // Füge "received" Statistiken hinzu (von opponent team)
-              topStats.matschReceived += bottomStriche.matsch || 0;
-              topStats.schneiderReceived += bottomStriche.schneider || 0;
-              topStats.kontermatschReceived += bottomStriche.kontermatsch || 0;
+              // ✅ KORRIGIERT: Event-Statistiken aus Game-Level eventCounts (nicht finalStriche!)
+              if (game.eventCounts) {
+                const gameTopEventCounts = game.eventCounts.top || {};
+                const gameBottomEventCounts = game.eventCounts.bottom || {};
+                
+                topStats.matschMade += gameTopEventCounts.matsch || 0;
+                topStats.schneiderMade += gameTopEventCounts.schneider || 0;
+                topStats.kontermatschMade += gameTopEventCounts.kontermatsch || 0;
+                
+                // Füge "received" Statistiken hinzu (von opponent team)
+                topStats.matschReceived += gameBottomEventCounts.matsch || 0;
+                topStats.schneiderReceived += gameBottomEventCounts.schneider || 0;
+                topStats.kontermatschReceived += gameBottomEventCounts.kontermatsch || 0;
+              } else {
+                // Fallback wenn eventCounts fehlt - aber mit Warnung
+                logger.warn(`[groupStatsCalculator] Missing eventCounts for tournament game ${gameIndex + 1} in session ${sessionDoc.id}`);
+                
+                // WICHTIG: Verwende NICHT finalStriche als Fallback, da das falsche Werte liefert!
+                // Events bleiben auf 0 wenn eventCounts fehlt
+              }
             }
 
             // ✅ NEU: Bottom Team für Tournament-Spiel (identische Logik)
@@ -1303,15 +1338,26 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
               bottomStats.stricheMade += bottomStricheTotal;
               bottomStats.stricheReceived += topStricheTotal;
               
-              // Event-Statistiken aus Game-Level finalStriche
-              bottomStats.matschMade += bottomStriche.matsch || 0;
-              bottomStats.schneiderMade += bottomStriche.schneider || 0;
-              bottomStats.kontermatschMade += bottomStriche.kontermatsch || 0;
-              
-              // Füge "received" Statistiken hinzu (von opponent team)
-              bottomStats.matschReceived += topStriche.matsch || 0;
-              bottomStats.schneiderReceived += topStriche.schneider || 0;
-              bottomStats.kontermatschReceived += topStriche.kontermatsch || 0;
+              // ✅ KORRIGIERT: Event-Statistiken aus Game-Level eventCounts (nicht finalStriche!)
+              if (game.eventCounts) {
+                const gameBottomEventCounts = game.eventCounts.bottom || {};
+                const gameTopEventCounts = game.eventCounts.top || {};
+                
+                bottomStats.matschMade += gameBottomEventCounts.matsch || 0;
+                bottomStats.schneiderMade += gameBottomEventCounts.schneider || 0;
+                bottomStats.kontermatschMade += gameBottomEventCounts.kontermatsch || 0;
+                
+                // Füge "received" Statistiken hinzu (von opponent team)
+                bottomStats.matschReceived += gameTopEventCounts.matsch || 0;
+                bottomStats.schneiderReceived += gameTopEventCounts.schneider || 0;
+                bottomStats.kontermatschReceived += gameTopEventCounts.kontermatsch || 0;
+              } else {
+                // Fallback wenn eventCounts fehlt - aber mit Warnung
+                logger.warn(`[groupStatsCalculator] Missing eventCounts for tournament game ${gameIndex + 1} in session ${sessionDoc.id}`);
+                
+                // WICHTIG: Verwende NICHT finalStriche als Fallback, da das falsche Werte liefert!
+                // Events bleiben auf 0 wenn eventCounts fehlt
+              }
             }
           }
         });
@@ -1477,8 +1523,10 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         const kontermatschBilanz = stats.kontermatschMade - stats.kontermatschReceived;
         teamKontermatschRateList.push({
           names: stats.playerNames,
-          value: kontermatschBilanz, // 3 Dezimalstellen für seltene Events
+          value: kontermatschBilanz,
           eventsPlayed: stats.games,
+          eventsMade: stats.kontermatschMade,        // ✅ KORRIGIERT: Hinzugefügt für Klammerwerte
+          eventsReceived: stats.kontermatschReceived, // ✅ KORRIGIERT: Hinzugefügt für Klammerwerte
         });
       }
     });
@@ -1639,6 +1687,22 @@ export async function updateGroupComputedStatsAfterSession(groupId: string): Pro
       // Schritt 1: Berechne Statistiken
       logger.info(`[updateGroupComputedStatsAfterSession] Step 1: Calculating statistics for ${groupId}`);
       const newStats = await calculateGroupStatisticsInternal(groupId);
+      
+      // NEU: Lade den Gruppennamen aus der groups Collection
+      try {
+        const groupDoc = await db.collection('groups').doc(groupId).get();
+        if (groupDoc.exists) {
+          const groupData = groupDoc.data();
+          newStats.groupName = groupData?.name || null;
+          logger.info(`[updateGroupComputedStatsAfterSession] Loaded group name for ${groupId}: ${newStats.groupName}`);
+        } else {
+          logger.warn(`[updateGroupComputedStatsAfterSession] Group document ${groupId} not found, groupName will be null`);
+          newStats.groupName = null;
+        }
+      } catch (nameError) {
+        logger.error(`[updateGroupComputedStatsAfterSession] Error loading group name for ${groupId}:`, nameError);
+        newStats.groupName = null; // Fallback to null if name loading fails
+      }
       
       // Schritt 2: Validiere berechnete Statistiken
       logger.info(`[updateGroupComputedStatsAfterSession] Step 2: Validating calculated statistics for ${groupId}`);

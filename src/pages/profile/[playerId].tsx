@@ -164,14 +164,17 @@ const PlayerProfilePage = () => {
       try {
         const sessions = await fetchCompletedSessionsForUser(player.userId);
         setCompletedSessions(sessions);
-      } catch (e) { setSessionsError("Sessions konnten nicht geladen werden."); }
-      finally { setSessionsLoading(false); }
+      } catch (e) {
+ setSessionsError("Sessions konnten nicht geladen werden.");
+} finally {
+ setSessionsLoading(false);
+}
 
       setTournamentsLoading(true);
       try {
         const tournaments = await fetchTournamentsForUser(player.userId);
         setUserTournaments(tournaments);
-      } catch(e) { 
+      } catch (e) { 
         console.error("Fehler beim Laden der Turniere für öffentliches Profil:", e);
         setTournamentsError("Turniere konnten nicht geladen werden."); 
       } finally { 

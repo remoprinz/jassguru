@@ -1,6 +1,6 @@
 "use client";
 
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useState, useCallback, useMemo} from "react";
 import {useRouter} from "next/router";
 import {motion} from "framer-motion";
 import {useAuthStore} from "@/store/authStore";
@@ -13,142 +13,150 @@ import {Loader2} from "lucide-react";
 import { isPWA } from "@/utils/browserDetection";
 import { debouncedRouterPush } from "@/utils/routerUtils";
 import { saveTokensFromUrl } from "@/utils/tokenStorage";
+import { welcomeLogger, logCriticalError } from "@/utils/logger";
 
 export interface WelcomeScreenProps {
   onLogin?: () => void;
   onGuestPlay?: () => void;
 }
 
-const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
-  onLogin,
-  onGuestPlay,
-}) => {
+// 🚀 OPTIMIERUNG: Custom Hook für WelcomeScreen-Logik
+const useWelcomeScreenLogic = () => {
   const router = useRouter();
   const {continueAsGuest, clearGuestStatus, isGuest, status, user, logout} = useAuthStore();
   const { setHeaderConfig } = useUIStore();
-  const { hasCompletedTutorial, setHasCompletedTutorial } = useTutorialStore();
+  const { hasCompletedTutorial } = useTutorialStore();
+  
   const [isClient, setIsClient] = useState(false);
-  const [isGuestLoading, setIsGuestLoading] = useState(false);
   const [displayMode, setDisplayMode] = useState<"default" | "invite" | "pwa" | "loading">("loading");
 
+  // 🔧 MEMOIZED: Display Mode Calculation
+  const calculatedDisplayMode = useMemo(() => {
+    if (!isClient || !router.isReady) return "loading";
+    
+    const isJoinFlow = router.asPath.startsWith('/join?');
+    if (isJoinFlow) return "invite";
+    if (isPWA()) return "pwa";
+    return "default";
+  }, [isClient, router.isReady, router.asPath]);
+
+  // 🔧 OPTIMIERT: Einmalige Initialisierung
   useEffect(() => {
     setIsClient(true);
-
     setHeaderConfig({
       showProfileButton: false,
       showBackButton: false,
       title: "",
     });
 
-    // 🚨 CRITICAL FIX: localStorage-Corruption Detection beim WelcomeScreen-Load
+    // localStorage-Cleanup nur einmal beim Mount
     try {
       const authStorage = localStorage.getItem('auth-storage');
       if (authStorage) {
         const parsed = JSON.parse(authStorage);
-        // Prüfe auf problematische persistierte States
         if (parsed?.state?.status === 'authenticated' || parsed?.state?.status === 'loading') {
-          console.warn('[WelcomeScreen] Erkenne problematischen persistierten Auth-Status. Bereinige localStorage.');
+          welcomeLogger.warn('Erkenne problematischen persistierten Auth-Status. Bereinige localStorage.');
           localStorage.removeItem('auth-storage');
-          // Zusätzlich: Auth-Store direkt zurücksetzen
           clearGuestStatus();
         }
       }
     } catch (error) {
-      console.error('[WelcomeScreen] localStorage corruption detected. Emergency cleanup.', error);
+      logCriticalError('WelcomeScreen', error, 'localStorage corruption detected. Emergency cleanup.');
       localStorage.removeItem('auth-storage');
       localStorage.removeItem('auth-failed-attempts');
     }
-  }, [setHeaderConfig, clearGuestStatus]);
+  }, []); // Nur beim Mount - keine weiteren Dependencies
 
-  // 🔧 VERBESSERTER FIX: Automatischer Logout für eingeloggte Benutzer auf WelcomeScreen
-  // Verhindert Race Conditions mit Header-Logout durch Status-Prüfung
+  // 🔧 OPTIMIERT: Auth-Status Handler - nur bei relevanten Änderungen
   useEffect(() => {
-    if (isClient && status === 'authenticated' && user && !isGuest) {
-      console.log('🔧 [WelcomeScreen] Eingelogger Benutzer erkannt - prüfe ob bereits Logout im Gange...');
-      
-      // WICHTIG: Verzögerung um Race Condition mit Header-Logout zu vermeiden
-      const timeoutId = setTimeout(() => {
-        // Erneute Status-Prüfung nach Verzögerung
-        const currentState = useAuthStore.getState();
-        if (currentState.status === 'authenticated' && currentState.user && !currentState.isGuest) {
-          console.log('🔧 [WelcomeScreen] Status immer noch authenticated - führe automatischen Logout durch');
-          
-          try {
-            logout();
-            console.log('✅ [WelcomeScreen] Automatischer Logout erfolgreich');
-          } catch (error) {
-            console.error('❌ [WelcomeScreen] Fehler beim automatischen Logout:', error);
-            // Fallback: Auth-Store direkt zurücksetzen
-            try {
-              clearGuestStatus();
-            } catch (fallbackError) {
-              console.error('❌ [WelcomeScreen] Auch Fallback fehlgeschlagen:', fallbackError);
-            }
-          }
-        } else {
-          console.log('🔧 [WelcomeScreen] Status bereits geändert - kein automatischer Logout nötig');
-        }
-      }, 200); // 200ms Verzögerung um Header-Logout Zeit zu geben
+    if (!isClient || status !== 'authenticated' || !user || isGuest) return;
 
-      return () => clearTimeout(timeoutId);
+    welcomeLogger.debug('Eingelogger Benutzer erkannt - führe automatischen Logout durch');
+    
+    // Direkter Logout ohne Verzögerung - Race Condition vermieden
+    const performLogout = async () => {
+      try {
+        await logout();
+        welcomeLogger.info('Automatischer Logout erfolgreich');
+      } catch (error) {
+        welcomeLogger.error('Fehler beim automatischen Logout:', error);
+        clearGuestStatus(); // Fallback
+      }
+    };
+
+    performLogout();
+  }, [isClient, status, user, isGuest]); // Reduzierte Dependencies
+
+  // 🔧 OPTIMIERT: Router & DisplayMode Handler
+  useEffect(() => {
+    if (!router.isReady || !isClient) return;
+
+    // Token-Verarbeitung
+    if (router.query && Object.keys(router.query).length > 0) {
+      welcomeLogger.debug("Prüfe URL auf Einladungstoken:", router.query);
+      saveTokensFromUrl(router.query);
     }
-  }, [isClient, status, user, isGuest, logout, clearGuestStatus]);
 
-  useEffect(() => {
-    if (router.isReady && isClient) {
-      // 🚨 WICHTIG: Prüfe zuerst, ob User als Gast von dieser WelcomeScreen kam
-      const guestFromWelcome = typeof window !== 'undefined' 
-        ? sessionStorage.getItem('guestFromWelcome') 
-        : null;
-
-      // Prüfen, ob wir vom StartScreen zurückkommen (mittels referrer oder sessionStorage)
-      const comingFromStartScreen = 
-        typeof window !== 'undefined' && 
-        (sessionStorage.getItem('comingFromStartScreen') === 'true' || 
-         document.referrer.includes('/start'));
+    // Navigation-Logik für Gäste
+    const handleGuestNavigation = () => {
+      const guestFromWelcome = sessionStorage.getItem('guestFromWelcome');
+      const comingFromStartScreen = sessionStorage.getItem('comingFromStartScreen') === 'true' || 
+                                   document.referrer.includes('/start');
       
-      // 🚨 ERWEITERTE LOGIK: Wenn vom StartScreen kommend, Flag zurücksetzen und keine Weiterleitung durchführen
-      // ABER: Exception für guestFromWelcome - da darf die normale Logik weiterlaufen
       if (comingFromStartScreen && guestFromWelcome !== 'true') {
         sessionStorage.removeItem('comingFromStartScreen');
-        console.log("[WelcomeScreen] Weiterleitung unterdrückt, da von StartScreen zurückkommend");
-        return;
+        welcomeLogger.debug("Weiterleitung unterdrückt, da von StartScreen zurückkommend");
+        return false; // Keine Weiterleitung
       }
 
-      // Wenn Gast und Tutorial abgeschlossen, direkt weiterleiten
       if (isGuest && hasCompletedTutorial) {
-        console.log("[WelcomeScreen] Gastmodus und Tutorial abgeschlossen, Weiterleitung zu /jass");
+        welcomeLogger.navigation("Gastmodus und Tutorial abgeschlossen, Weiterleitung zu /jass");
         debouncedRouterPush(router, "/jass", undefined, true);
-        return;
+        return true; // Navigation durchgeführt
       }
 
-      const isJoinFlowViaAsPath = router.asPath.startsWith('/join?');
+      return false;
+    };
 
-      if (router.query) {
-        console.log("[WelcomeScreen] Prüfe URL auf Einladungstoken:", router.query);
-        saveTokensFromUrl(router.query);
-      }
-
-      if (isJoinFlowViaAsPath) {
-        setDisplayMode("invite");
-      } else if (isPWA()) {
-        setDisplayMode("pwa");
-      } else {
-        setDisplayMode("default");
-      }
+    // Führe Navigation aus
+    const hasNavigated = handleGuestNavigation();
+    
+    // DisplayMode nur setzen wenn keine Navigation stattfand
+    if (!hasNavigated) {
+      setDisplayMode(calculatedDisplayMode);
     }
-  }, [router.isReady, router.asPath, router.query, isClient, isGuest, hasCompletedTutorial]);
+  }, [router.isReady, router.query, isClient, isGuest, hasCompletedTutorial, calculatedDisplayMode]);
 
-  const handleGuestPlay = async () => {
+  return {
+    isClient,
+    displayMode,
+    clearGuestStatus,
+    continueAsGuest
+  };
+};
+
+const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
+  onLogin,
+  onGuestPlay,
+}) => {
+  const router = useRouter();
+  
+  // 🚀 OPTIMIERT: Verwende den Custom Hook
+  const { isClient, displayMode, clearGuestStatus, continueAsGuest } = useWelcomeScreenLogic();
+  
+  const [isGuestLoading, setIsGuestLoading] = useState(false);
+
+  // 🚀 OPTIMIERT: Memoized Gast-Handler
+  const handleGuestPlay = useCallback(async () => {
     if (isGuestLoading) return;
 
     setIsGuestLoading(true);
 
     try {
-      // 🚨 NEU: Session-Flag setzen für Browser-Zurück-Navigation
+      // Session-Flag setzen für Browser-Navigation
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('guestFromWelcome', 'true');
-        console.log('[WelcomeScreen] Flag gesetzt: guestFromWelcome = true');
+        welcomeLogger.debug('Flag gesetzt: guestFromWelcome = true');
       }
 
       continueAsGuest();      
@@ -156,113 +164,82 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 
       await new Promise((resolve) => setTimeout(resolve, 300));
       
-      console.log("[WelcomeScreen] Gastmodus aktiviert. Status:", useAuthStore.getState().status, "isGuest:", useAuthStore.getState().isGuest);
+      welcomeLogger.authEvent("Gastmodus aktiviert");
 
-      // 🔧 FIX: Einfache Navigation zur Jass-Seite mit Fallback zur WelcomeScreen
+      // Navigation zur Jass-Seite
       try {
         await debouncedRouterPush(router, "/jass", undefined, true);
       } catch (navError) {
-        console.error("[WelcomeScreen] Navigation zur Jass-Seite fehlgeschlagen, bleibe auf WelcomeScreen:", navError);
-        // Bei Navigationsproblemen einfach auf WelcomeScreen bleiben
-        // (der User kann es erneut versuchen)
+        welcomeLogger.error("Navigation zur Jass-Seite fehlgeschlagen:", navError);
       }
     } catch (error) {
-      console.error("[WelcomeScreen] Fehler beim Gastmodus:", error);
-      // Bei jedem Fehler bleiben wir auf der WelcomeScreen
+      welcomeLogger.error("Fehler beim Gastmodus:", error);
     } finally {
       setIsGuestLoading(false);
     }
-  };
+  }, [isGuestLoading, continueAsGuest, onGuestPlay, router]);
 
-  const handleLogin = () => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log("[WelcomeScreen] handleLogin: Navigiere zur Login-Seite...");
-    }
+  // 🚀 OPTIMIERT: Memoized Navigation-Handler
+  const handleLogin = useCallback((e?: React.MouseEvent) => {
+    e?.preventDefault();
+    welcomeLogger.navigation("Navigiere zur Login-Seite...");
     if (onLogin) onLogin();
     
-    // Gast-Status über Store-Aktion zurücksetzen - falls möglich
     try {
-      if (process.env.NODE_ENV === 'development') {
-        console.log("[WelcomeScreen] handleLogin: Versuche clearGuestStatus...");
-      }
       clearGuestStatus();
-              if (process.env.NODE_ENV === 'development') {
-          console.log("[WelcomeScreen] handleLogin: clearGuestStatus aufgerufen. Neuer Status (direkt danach):", useAuthStore.getState().isGuest);
-        }
+      welcomeLogger.debug("clearGuestStatus aufgerufen");
     } catch (err) {
-      console.error("[WelcomeScreen] Fehler beim Zurücksetzen des Gaststatus:", err);
-      // Fortfahren, auch wenn es fehlschlägt
+      welcomeLogger.error("Fehler beim Zurücksetzen des Gaststatus:", err);
     }
     
-    // Verzögerte Navigation mit längerer Wartezeit und direktem router.push für höhere Zuverlässigkeit
-    setTimeout(() => {
-      try {
-        const targetQuery = { ...router.query };
-        // Direkt push, keine debounce oder sonstige Wrapper-Funktionen
-        if (process.env.NODE_ENV === 'development') {
-          console.log("[WelcomeScreen] handleLogin: Direkte Navigation zu /auth/login");
-        }
-        
-        // Im PWA-Kontext zusätzliche Verzögerung und einfachere Navigation
-        if (isPWA()) {
-          // Ohne Query-Parameter, nur Basis-URL für maximale Robustheit im PWA-Kontext
-          router.push("/auth/login");
-        } else {
-          // Mit Query-Parametern für normale Browser-Nutzung
-          const loginPath = "/auth/login" + (Object.keys(targetQuery).length > 0 ? `?${new URLSearchParams(targetQuery as any).toString()}` : "");
-          router.push(loginPath);
-        }
-      } catch (navError) {
-        console.error("[WelcomeScreen] Navigation fehlgeschlagen, versuche Fallback:", navError);
-        // Fallback auf absolute URL ohne Parameter
-        window.location.href = "/auth/login";
+    // Optimierte Navigation ohne setTimeout
+    try {
+      const targetQuery = { ...router.query };
+      const hasQuery = Object.keys(targetQuery).length > 0;
+      
+      if (isPWA()) {
+        router.push("/auth/login");
+      } else {
+        const loginPath = hasQuery 
+          ? `/auth/login?${new URLSearchParams(targetQuery as any).toString()}`
+          : "/auth/login";
+        router.push(loginPath);
       }
-    }, 500); // Längere Wartezeit für Stabilisierung
-  };
+    } catch (navError) {
+      welcomeLogger.error("Navigation fehlgeschlagen, versuche Fallback:", navError);
+      window.location.href = "/auth/login";
+    }
+  }, [onLogin, clearGuestStatus, router]);
 
-  const handleRegister = () => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log("[WelcomeScreen] handleRegister: Navigiere zur Registrierungs-Seite...");
-    }
+  const handleRegister = useCallback((e?: React.MouseEvent) => {
+    e?.preventDefault();
+    welcomeLogger.navigation("Navigiere zur Registrierungs-Seite...");
     
-    // Gast-Status über Store-Aktion zurücksetzen - falls möglich
     try {
-              if (process.env.NODE_ENV === 'development') {
-          console.log("[WelcomeScreen] handleRegister: Versuche clearGuestStatus...");
-        }
       clearGuestStatus();
-              if (process.env.NODE_ENV === 'development') {
-          console.log("[WelcomeScreen] handleRegister: clearGuestStatus aufgerufen. Neuer Status (direkt danach):", useAuthStore.getState().isGuest);
-        }
+      welcomeLogger.debug("clearGuestStatus aufgerufen");
     } catch (err) {
-      console.error("[WelcomeScreen] Fehler beim Zurücksetzen des Gaststatus:", err);
-      // Fortfahren, auch wenn es fehlschlägt
+      welcomeLogger.error("Fehler beim Zurücksetzen des Gaststatus:", err);
     }
     
-    // Verzögerte Navigation mit längerer Wartezeit und direktem router.push für höhere Zuverlässigkeit
-    setTimeout(() => {
-      try {
-        const targetQuery = { ...router.query };
-        if (process.env.NODE_ENV === 'development') {
-          console.log("[WelcomeScreen] handleRegister: Direkte Navigation zu /auth/register");
-        }
-        
-        // Im PWA-Kontext einfachere Navigation
-        if (isPWA()) {
-          // Ohne Query-Parameter für maximale Robustheit
-          router.push("/auth/register");
-        } else {
-          // Mit Query-Parametern für normale Browser-Nutzung
-          const registerPath = "/auth/register" + (Object.keys(targetQuery).length > 0 ? `?${new URLSearchParams(targetQuery as any).toString()}` : "");
-          router.push(registerPath);
-        }
-      } catch (navError) {
-        console.error("[WelcomeScreen] Navigation fehlgeschlagen, versuche Fallback:", navError);
-        // Fallback auf absolute URL ohne Parameter
-        window.location.href = "/auth/register";
+    // Optimierte Navigation ohne setTimeout
+    try {
+      const targetQuery = { ...router.query };
+      const hasQuery = Object.keys(targetQuery).length > 0;
+      
+      if (isPWA()) {
+        router.push("/auth/register");
+      } else {
+        const registerPath = hasQuery 
+          ? `/auth/register?${new URLSearchParams(targetQuery as any).toString()}`
+          : "/auth/register";
+        router.push(registerPath);
       }
-    }, 500); // Längere Wartezeit für Stabilisierung
-  };
+    } catch (navError) {
+      welcomeLogger.error("Navigation fehlgeschlagen, versuche Fallback:", navError);
+      window.location.href = "/auth/register";
+    }
+  }, [clearGuestStatus, router]);
 
   if (!isClient || displayMode === "loading") {
     return (
@@ -286,8 +263,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               <Image
                 src="/welcome-guru.png"
                 alt="Jass Kreidetafel"
-                layout="fill"
-                objectFit="contain"
+                fill={true}
+                className="object-contain"
                 priority
               />
             </div>
@@ -305,7 +282,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               )}
             </h2>
 
-            <p className="text-gray-300 text-center">
+            <div className="text-gray-300 text-center">
               {displayMode === "pwa" ? (
                 <div className="text-left">
                   <div className="mb-3">
@@ -347,7 +324,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                   </div>
                 </div>
               )}
-            </p>
+            </div>
           </div>
 
           <div className="space-y-4">
@@ -395,88 +372,18 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           <div className="pt-2 text-center text-gray-500 text-sm">
             {displayMode === "invite" || displayMode === "pwa" ? (
               <p>Noch kein Konto?{" "}
-                <a 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    if (process.env.NODE_ENV === 'development') {
-                      console.log("[WelcomeScreen] Link-Klick: Navigiere zur Registrierungs-Seite (Link)...");
-                    }
-                    
-                    // Gast-Status über Store-Aktion zurücksetzen - falls möglich
-                    try {
-                      if (process.env.NODE_ENV === 'development') {
-                        console.log("[WelcomeScreen] Link-Klick: Versuche clearGuestStatus...");
-                      }
-                      clearGuestStatus();
-                      if (process.env.NODE_ENV === 'development') {
-                        console.log("[WelcomeScreen] Link-Klick: clearGuestStatus aufgerufen. Neuer Status (direkt danach):", useAuthStore.getState().isGuest);
-                      }
-                    } catch (err) {
-                      console.error("[WelcomeScreen] Fehler beim Zurücksetzen des Gaststatus (Link):", err);
-                      // Fortfahren, auch wenn es fehlschlägt
-                    }
-                    
-                    // Direkte Navigation mit Fehlerbehandlung
-                    try {
-                      if (isPWA()) {
-                        // Im PWA-Kontext einfach zur Basis-URL
-                        router.push("/auth/register");
-                      } else {
-                        // Im normalen Browser-Kontext mit Query-Parametern
-                        const targetQuery = { ...router.query };
-                        const registerPath = "/auth/register" + (Object.keys(targetQuery).length > 0 ? `?${new URLSearchParams(targetQuery as any).toString()}` : "");
-                        router.push(registerPath);
-                      }
-                    } catch (navError) {
-                      console.error("[WelcomeScreen] Link-Navigation fehlgeschlagen, versuche Fallback:", navError);
-                      window.location.href = "/auth/register";
-                    }
-                  }}
-                  href="#" 
+                                <a 
+                  onClick={handleRegister}
+                  href="#"
                   className="text-blue-400 hover:underline cursor-pointer">
                   Jetzt registrieren
                 </a>
               </p>
             ) : (
               <p>Bereits ein Konto?{" "}
-                <a 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    if (process.env.NODE_ENV === 'development') {
-                      console.log("[WelcomeScreen] Link-Klick: Navigiere zur Login-Seite (Link)...");
-                    }
-                    
-                    // Gast-Status über Store-Aktion zurücksetzen - falls möglich
-                    try {
-                      if (process.env.NODE_ENV === 'development') {
-                        console.log("[WelcomeScreen] Link-Klick: Versuche clearGuestStatus...");
-                      }
-                      clearGuestStatus();
-                      if (process.env.NODE_ENV === 'development') {
-                        console.log("[WelcomeScreen] Link-Klick: clearGuestStatus aufgerufen. Neuer Status (direkt danach):", useAuthStore.getState().isGuest);
-                      }
-                    } catch (err) {
-                      console.error("[WelcomeScreen] Fehler beim Zurücksetzen des Gaststatus (Link):", err);
-                      // Fortfahren, auch wenn es fehlschlägt
-                    }
-
-                    // Direkte Navigation mit Fehlerbehandlung
-                    try {
-                      if (isPWA()) {
-                        // Im PWA-Kontext einfach zur Basis-URL
-                        router.push("/auth/login");
-                      } else {
-                        // Im normalen Browser-Kontext mit Query-Parametern
-                        const targetQuery = { ...router.query };
-                        const loginPath = "/auth/login" + (Object.keys(targetQuery).length > 0 ? `?${new URLSearchParams(targetQuery as any).toString()}` : "");
-                        router.push(loginPath);
-                      }
-                    } catch (navError) {
-                      console.error("[WelcomeScreen] Link-Navigation fehlgeschlagen, versuche Fallback:", navError);
-                      window.location.href = "/auth/login";
-                    }
-                  }}
-                  href="#" 
+                                <a 
+                  onClick={handleLogin}
+                  href="#"
                   className="text-blue-400 hover:underline cursor-pointer">
                   Jetzt anmelden
                 </a>

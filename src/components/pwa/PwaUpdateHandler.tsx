@@ -5,6 +5,7 @@ import { useUIStore } from '@/store/uiStore';
 import { getActiveRegistration } from '@/pwa/serviceWorkerRegistration';
 import { shouldShowPWAFeatures, shouldUseAggressiveCaching } from '@/utils/pwaDetection';
 import type { NotificationConfig } from '@/types/notification';
+import { appLogger } from '@/utils/logger';
 
 // Verbesserte Update-Strategien
 interface UpdateState {
@@ -31,7 +32,7 @@ const PwaUpdateHandler: React.FC = () => {
     // Component mounted
   }, []);
 
-  // Improved update check function
+    // Improved update check function
   const checkForUpdates = useCallback(async () => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
       return;
@@ -40,13 +41,12 @@ const PwaUpdateHandler: React.FC = () => {
     try {
       const registration = await navigator.serviceWorker.getRegistration();
       if (registration) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[PwaUpdateHandler] Checking for updates...');
-        }
+        appLogger.debug('Checking for updates...');
         
         // 🚨 FIX: Prüfe auf newestWorker null um InvalidStateError zu vermeiden
+        // Verwende debug statt warn um Production-Logs zu reduzieren
         if (registration.waiting || registration.installing) {
-          console.log('[PwaUpdateHandler] Service Worker update already in progress');
+          appLogger.debug('Service Worker update already in progress - skipping check');
           return;
         }
         
@@ -54,7 +54,7 @@ const PwaUpdateHandler: React.FC = () => {
         setUpdateState(prev => ({ ...prev, lastUpdateCheck: Date.now() }));
       }
     } catch (error) {
-      console.error('[PwaUpdateHandler] Error checking for updates:', error);
+      appLogger.error('Error checking for updates:', error);
       setUpdateState(prev => ({ ...prev, updateError: true }));
     }
   }, []);
@@ -65,14 +65,14 @@ const PwaUpdateHandler: React.FC = () => {
       return;
     }
 
-    try {
-      const cacheNames = await caches.keys();
-      console.log('[PwaUpdateHandler] Found caches:', cacheNames);
+          try {
+        const cacheNames = await caches.keys();
+        appLogger.debug('Found caches:', cacheNames);
 
-      // Aktuelle Service Worker Version ermitteln
-      const currentRegistration = await navigator.serviceWorker.getRegistration();
-      const currentSWUrl = currentRegistration?.active?.scriptURL;
-      console.log('[PwaUpdateHandler] Current SW URL:', currentSWUrl);
+        // Aktuelle Service Worker Version ermitteln
+        const currentRegistration = await navigator.serviceWorker.getRegistration();
+        const currentSWUrl = currentRegistration?.active?.scriptURL;
+        appLogger.debug('Current SW URL:', currentSWUrl);
 
       // ALLE Caches löschen, außer den aktuellsten
       const cachesToDelete = cacheNames.filter(cacheName => {
@@ -101,32 +101,32 @@ const PwaUpdateHandler: React.FC = () => {
         return hasOldVersionPattern;
       });
 
-      console.log('[PwaUpdateHandler] Caches to delete:', cachesToDelete);
+              appLogger.debug('Caches to delete:', cachesToDelete);
 
-      // Lösche alle identifizierten veralteten Caches
-      for (const cacheName of cachesToDelete) {
-        try {
-          await caches.delete(cacheName);
-          console.log('[PwaUpdateHandler] ✅ Deleted old cache:', cacheName);
-        } catch (error) {
-          console.warn('[PwaUpdateHandler] ⚠️ Could not delete cache:', cacheName, error);
+        // Lösche alle identifizierten veralteten Caches
+        for (const cacheName of cachesToDelete) {
+          try {
+            await caches.delete(cacheName);
+            appLogger.debug('✅ Deleted old cache:', cacheName);
+          } catch (error) {
+            appLogger.warn('⚠️ Could not delete cache:', cacheName, error);
+          }
         }
-      }
 
-      // Zusätzlich: Lösche auch Browser-Cache-Storage falls verfügbar
-      if ('storage' in navigator && 'estimate' in navigator.storage) {
-        try {
-          const estimate = await navigator.storage.estimate();
-          console.log('[PwaUpdateHandler] Storage usage before cleanup:', estimate);
-        } catch (error) {
-          console.warn('[PwaUpdateHandler] Could not estimate storage:', error);
+        // Zusätzlich: Lösche auch Browser-Cache-Storage falls verfügbar
+        if ('storage' in navigator && 'estimate' in navigator.storage) {
+          try {
+            const estimate = await navigator.storage.estimate();
+            appLogger.debug('Storage usage before cleanup:', estimate);
+          } catch (error) {
+            appLogger.warn('Could not estimate storage:', error);
+          }
         }
-      }
 
-      console.log(`[PwaUpdateHandler] Cache cleanup completed. Deleted ${cachesToDelete.length} old caches.`);
+        appLogger.info(`Cache cleanup completed. Deleted ${cachesToDelete.length} old caches.`);
       
     } catch (error) {
-      console.error('[PwaUpdateHandler] Error during comprehensive cache cleanup:', error);
+      appLogger.error('[PwaUpdateHandler] Error during comprehensive cache cleanup:', error);
     }
   }, []);
 
@@ -137,7 +137,7 @@ const PwaUpdateHandler: React.FC = () => {
     }
 
     try {
-      console.log('[PwaUpdateHandler] Starting storage data cleanup...');
+              appLogger.debug('Starting storage data cleanup...');
 
       // 1. LocalStorage bereinigen - entferne veraltete Einträge
       const localStorageKeysToRemove: string[] = [];
@@ -156,7 +156,7 @@ const PwaUpdateHandler: React.FC = () => {
 
       localStorageKeysToRemove.forEach(key => {
         localStorage.removeItem(key);
-        console.log('[PwaUpdateHandler] ✅ Removed localStorage key:', key);
+        appLogger.debug('✅ Removed localStorage key:', key);
       });
 
       // 2. IndexedDB bereinigen - entferne veraltete Datenbanken
@@ -173,44 +173,44 @@ const PwaUpdateHandler: React.FC = () => {
             await new Promise<void>((resolve, reject) => {
               const deleteReq = indexedDB.deleteDatabase(dbName);
               deleteReq.onsuccess = () => {
-                console.log(`[PwaUpdateHandler] ✅ Deleted IndexedDB: ${dbName}`);
+                appLogger.debug(`✅ Deleted IndexedDB: ${dbName}`);
                 resolve();
               };
               deleteReq.onerror = () => {
-                console.log(`[PwaUpdateHandler] ⚠️ IndexedDB ${dbName} not found (OK)`);
+                appLogger.debug(`⚠️ IndexedDB ${dbName} not found (OK)`);
                 resolve(); // Nicht als Fehler werten
               };
               deleteReq.onblocked = () => {
-                console.log(`[PwaUpdateHandler] 🔄 IndexedDB ${dbName} blocked, continuing...`);
+                appLogger.debug(`🔄 IndexedDB ${dbName} blocked, continuing...`);
                 setTimeout(() => resolve(), 1000);
               };
             });
           } catch (error) {
-            console.warn(`[PwaUpdateHandler] Could not delete IndexedDB ${dbName}:`, error);
+            appLogger.warn(`[PwaUpdateHandler] Could not delete IndexedDB ${dbName}:`, error);
           }
         }
       }
 
-      console.log('[PwaUpdateHandler] Storage data cleanup completed.');
-      
-    } catch (error) {
-      console.error('[PwaUpdateHandler] Error during storage data cleanup:', error);
-    }
-  }, []);
+              appLogger.info('Storage data cleanup completed.');
+        
+      } catch (error) {
+        appLogger.error('Error during storage data cleanup:', error);
+      }
+    }, []);
 
-  // Enhanced update ready handler
-  const handleUpdateReady = useCallback((event: Event) => {
-    console.log('[PwaUpdateHandler] Update ready event received');
-    
-    // ✅ PWA-Context prüfen - Updates nur in echten PWAs anzeigen
-    if (!shouldShowPWAFeatures()) {
-      console.log('[PwaUpdateHandler] Browser-Context erkannt - keine Update-Notification anzeigen');
-      return;
-    }
+    // Enhanced update ready handler
+    const handleUpdateReady = useCallback((event: Event) => {
+      appLogger.debug('Update ready event received');
+      
+      // ✅ PWA-Context prüfen - Updates nur in echten PWAs anzeigen
+      if (!shouldShowPWAFeatures()) {
+        appLogger.debug('Browser-Context erkannt - keine Update-Notification anzeigen');
+        return;
+      }
     
     const registration = getActiveRegistration();
     if (!registration) {
-      console.error('[PwaUpdateHandler] No active registration found');
+      appLogger.error('[PwaUpdateHandler] No active registration found');
       return;
     }
 
@@ -235,8 +235,8 @@ const PwaUpdateHandler: React.FC = () => {
         (window as any).jassguruForceUpdateTimer = null;
       }
       
-      console.log('[PwaUpdateHandler] Starting forced update process...');
-      setUpdateState(prev => ({ ...prev, isUpdating: true }));
+              appLogger.debug('Starting forced update process...');
+        setUpdateState(prev => ({ ...prev, isUpdating: true }));
 
               try {
           // ✅ Intelligente Cache-Strategie basierend auf Context
@@ -245,7 +245,7 @@ const PwaUpdateHandler: React.FC = () => {
             await cleanupOldStorageData();
           } else {
             // Browser: Nur Service Worker Cache, Browser-Cache bleibt
-            console.log('[PwaUpdateHandler] Browser-Context: Sanfte Cache-Bereinigung');
+            appLogger.debug('Browser-Context: Sanfte Cache-Bereinigung');
           }
 
         const sw = navigator.serviceWorker;
@@ -256,7 +256,7 @@ const PwaUpdateHandler: React.FC = () => {
         const currentController = sw.controller;
 
         if (registration.waiting) {
-          console.log('[PwaUpdateHandler] Sending SKIP_WAITING to waiting worker');
+          appLogger.debug('Sending SKIP_WAITING to waiting worker');
           registration.waiting.postMessage({ type: 'SKIP_WAITING' });
 
           // Warte auf Controller-Wechsel mit Timeout
@@ -270,11 +270,11 @@ const PwaUpdateHandler: React.FC = () => {
               const newController = sw.controller;
               
               if (newController && newController !== currentController) {
-                console.log('[PwaUpdateHandler] New controller detected, reloading...');
+                appLogger.debug('New controller detected, reloading...');
                 clearInterval(intervalId);
                 resolve();
               } else if (checks >= maxChecks) {
-                console.warn('[PwaUpdateHandler] Timeout waiting for new controller');
+                appLogger.warn('Timeout waiting for new controller');
                 clearInterval(intervalId);
                 reject(new Error('Update timeout'));
               }
@@ -295,12 +295,12 @@ const PwaUpdateHandler: React.FC = () => {
           }, 1500);
 
         } else {
-          console.warn('[PwaUpdateHandler] No waiting worker found, forcing reload anyway');
+          appLogger.warn('[PwaUpdateHandler] No waiting worker found, forcing reload anyway');
           window.location.reload();
         }
 
       } catch (error) {
-        console.error('[PwaUpdateHandler] Forced update failed:', error);
+        appLogger.error('[PwaUpdateHandler] Forced update failed:', error);
         setUpdateState(prev => ({ 
           ...prev, 
           isUpdating: false, 
@@ -341,7 +341,7 @@ const PwaUpdateHandler: React.FC = () => {
     setUpdateNotificationId(notificationId);
     
     // Starte einen Timer, der das Update nach 30 Sekunden erzwingt
-    console.log('[PwaUpdateHandler] Starting a 30-second timer to force update.');
+    appLogger.debug('Starting a 30-second timer to force update.');
     const forceUpdateTimer = setTimeout(updateAction, 30000);
     // Speichere Timer-ID im window-Objekt, um sie global zugänglich zu machen
     (window as any).jassguruForceUpdateTimer = forceUpdateTimer;
@@ -351,7 +351,7 @@ const PwaUpdateHandler: React.FC = () => {
   // Service Worker event listener setup
   useEffect(() => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
-      console.log('[PwaUpdateHandler] Service Worker not available');
+      appLogger.debug('Service Worker not available');
       return;
     }
 
@@ -391,10 +391,10 @@ const PwaUpdateHandler: React.FC = () => {
   useEffect(() => {
     if (typeof window !== 'undefined' && 'navigator' in window && 'serviceWorker' in navigator) {
       const handleSWMessage = (event: MessageEvent) => {
-        console.log('[PwaUpdateHandler] SW Message received:', event.data);
+        appLogger.debug('SW Message received:', event.data);
         
         if (event.data && event.data.type === 'SW_UPDATED') {
-          console.log('[PwaUpdateHandler] SW Updated, version:', event.data.version);
+          appLogger.debug('SW Updated, version:', event.data.version);
           // Trigger page reload after short delay
           setTimeout(() => {
             window.location.reload();
@@ -402,11 +402,11 @@ const PwaUpdateHandler: React.FC = () => {
         }
         
         if (event.data && event.data.type === 'SW_ACTIVATED') {
-          console.log('[PwaUpdateHandler] SW Activated, version:', event.data.version);
+          appLogger.debug('SW Activated, version:', event.data.version);
         }
         
         if (event.data && event.data.type === 'CACHE_UPDATED') {
-          console.log('[PwaUpdateHandler] Cache updated:', event.data.cacheName);
+          appLogger.debug('Cache updated:', event.data.cacheName);
         }
       };
       

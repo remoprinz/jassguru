@@ -1,6 +1,6 @@
 "use client"; // Add use client directive for useState, useEffect, etc.
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { format } from 'date-fns';
 import type { 
   GameEntry, 
@@ -12,9 +12,11 @@ import type {
   StrokeSettings,
   TeamStand,
   CompletedGameSummary,
-  ScoreSettings
+  ScoreSettings,
+  JassSpruch // NEU: Spruch-Interface
 } from '@/types/jass';
-import { Timestamp, FieldValue } from 'firebase/firestore'; // Import Timestamp and FieldValue
+import { Timestamp, FieldValue, doc, updateDoc, serverTimestamp } from 'firebase/firestore'; // NEU: Firebase imports
+import { db } from '@/services/firebaseInit'; // NEU: Firebase database
 import { STATISTIC_MODULES } from '@/statistics/registry';
 import { animated, useSpring } from 'react-spring';
 import { useSwipeable } from 'react-swipeable';
@@ -22,9 +24,13 @@ import { DEFAULT_STROKE_SETTINGS } from '@/config/GameSettings'; // Default fall
 import { DEFAULT_FARBE_SETTINGS } from '@/config/FarbeSettings'; // Default fallback
 import { DEFAULT_SCORE_SETTINGS } from '@/config/ScoreSettings';
 import { useScreenshot } from '@/hooks/useScreenshot'; // NEU: Importiere den Hook
+import { useAuth } from '@/hooks/useAuth'; // NEU: Auth Hook
+import { useUIStore } from '@/store/uiStore'; // NEU: UI Store
+import { generateEnhancedJassSpruch } from '@/utils/sprueche/enhancedJasssprueche'; // NEU: Enhanced Spruch-Generator
 import { FiShare2, FiLoader } from 'react-icons/fi'; // NEU: Importiere Icons
 import { ArrowLeft } from 'lucide-react'; // 🚨 NEU: Icon für Zurück-Pfeil
 import { Button } from '@/components/ui/button'; // 🚨 NEU: Der offizielle Button
+import JassFinishNotification from '../notifications/JassFinishNotification'; // NEU: Spruch-Notification
 
 // Props Interface mirroring viewerData structure from [gameId].tsx
 export interface GameViewerKreidetafelProps {
@@ -42,6 +48,36 @@ export interface GameViewerKreidetafelProps {
     strokeSettings?: StrokeSettings; // Make optional or provide default
     scoreSettings?: ScoreSettings; // NEU: Benötigt für korrekte Strich-Total-Berechnung
     startedAt?: number | Timestamp | FieldValue;
+    // NEU: Spruch-relevante Felder
+    sessionId?: string; // SessionId für Spruch-Speicherung
+    // jassSpruch entfernt - wird nicht mehr gespeichert
+    // NEU: Gruppen-Statistiken für erweiterte Sprüche
+    groupStats?: {
+      groupName?: string;
+      playerWithHighestMatschBilanz?: Array<{ playerName: string; value: number; eventsMade: number }>;
+      playerWithHighestSchneiderBilanz?: Array<{ playerName: string; value: number; eventsMade: number }>;
+      playerWithHighestStricheDiff?: Array<{ playerName: string; value: number }>;
+      playerWithHighestWinRateSession?: Array<{ playerName: string; value: number }>;
+      teamWithHighestMatschBilanz?: Array<{ names: string[]; value: number; eventsMade: number }>;
+      avgGamesPerSession?: number;
+      avgMatschPerGame?: number;
+      sessionCount?: number;
+    };
+    // ✅ NEU: Session-Level Daten für Spruch-Generierung (separat von Games)
+    sessionLevelData?: {
+      eventCounts?: any;
+      gameResults?: any[];
+      gameWinsByTeam?: { top: number; bottom: number };
+      gameWinsByPlayer?: any;
+      gamesPlayed?: number;
+      durationSeconds?: number;
+      winnerTeamKey?: string;
+      finalStriche?: { top: any; bottom: any }; // 🚨 KRITISCH: finalStriche hinzufügen!
+      aggregatedTrumpfCountsByPlayer?: any;
+      aggregatedRoundDurationsByPlayer?: any;
+      sessionTotalWeisPoints?: any;
+      totalRounds?: number;
+    };
   };
   gameTypeLabel?: string; // NEU: Prop für das Label
   onBackClick?: () => void; // 🚨 NEU: Prop für den Zurück-Pfeil
@@ -61,6 +97,15 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
   const [currentStatistic, setCurrentStatistic] = useState<string>(STATISTIC_MODULES[0]?.id ?? 'striche'); // Default to first module
   const { isSharing, handleShare } = useScreenshot(); // NEU: Hook verwenden
   const [activeTab, setActiveTab] = useState<'points' | 'chart'>('points');
+  
+  // NEU: Spruch-bezogene State-Variablen
+  const [jassSpruch, setJassSpruch] = useState<JassSpruch | null | undefined>(undefined);
+  const [isGeneratingSpruch, setIsGeneratingSpruch] = useState(false);
+  const [hasShownAutoNotification, setHasShownAutoNotification] = useState(false);
+  
+  // NEU: Hooks für Spruch-Funktionalität
+  const { user } = useAuth();
+  const { showJassFinishNotification } = useUIStore();
 
   // Determine current game being viewed (assuming the last game in the array is the most current)
   // In a multi-game session context, this might need adjustment based on viewerData structure.
@@ -284,24 +329,342 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
     return 1; // Default fallback
   }, [gameData.games]);
 
-  const onShareClick = () => {
-    const shareText = '\n\👉 jassguru.ch'; 
-    const elementsToHide = ['#screenshot-hide-dots']; // NEU: Nur noch Dots ausblenden, Total-Zeile soll mit
-    // Die Query für das Wurzelelement und den scrollbaren Inhalt
-    // NEU: Das `splitLongImage`-Flag auf `true` setzen und die auszublendenden Elemente übergeben
-    handleShare(
-      '#game-viewer-kreidetafel', 
-      '.scrollable-content', 
-      elementsToHide, 
-      shareText, 
-      'jass-session.png', 
+  // NEU: Screenshot-Share aus JassFinishNotification
+  const handleShareWithScreenshot = useCallback(async () => {
+    const shareText = `${jassSpruch?.text || 'Jass-Ergebnis'}\n\ngeneriert von:\n👉 jassguru.ch`;
+    const elementsToHide = ['#screenshot-hide-dots'];
+    
+    return handleShare(
+      '#game-viewer-kreidetafel',
+      '.scrollable-content',
+      elementsToHide,
+      shareText,
+      'jass-session.png',
       true
     );
-  };
+  }, [jassSpruch, handleShare]);
+
+  // useEffect für Props-Änderungen entfernt - jassSpruch wird nicht mehr über Props geladen
+  // useEffect(() => {
+  //   console.log('[GameViewer] Props jassSpruch changed:', gameData.jassSpruch);
+  //   if (gameData.jassSpruch !== undefined) {
+  //     setJassSpruch(gameData.jassSpruch);
+  //   }
+  // }, [gameData.jassSpruch]);
+
+  // Auto-Generierung bei Session-Load entfernt - Sprüche werden nur noch on-demand beim Teilen generiert
+  // useEffect(() => {
+  //   console.log('[GameViewer] Auto-generation check:', {
+  //     jassSpruch,
+  //     jassSpruchType: typeof jassSpruch,
+  //     isGeneratingSpruch,
+  //     userUid: user?.uid,
+  //     sessionId: gameData.sessionId
+  //   });  // NEU: useEffect für Spruch-Initialisierung aus Props
+
+  //   const generateAndSaveSpruch = async () => {
+  //     if (
+  //       jassSpruch === null &&          // Explizit null = neue Session braucht Spruch
+  //       !isGeneratingSpruch &&          // Keine doppelte Generierung
+  //       user?.uid &&                    // User authenticated
+  //       gameData.sessionId              // Session ID vorhanden
+  //     ) {
+  //       setIsGeneratingSpruch(true);
+        
+  //       try {
+  //         console.log('[GameViewer] Generating new jassSpruch for session:', gameData.sessionId);
+          
+  //         // ✅ KORREKTUR: Spruch mit Session-Level Daten generieren (wenn vorhanden)
+  //         const sessionLevelData = gameData.sessionLevelData;
+  //         const gamesForSpruch = sessionLevelData ? 
+  //           // Erstelle ein temporäres "angereichtertes" letztes Spiel für die Spruch-Generierung
+  //           [...gameData.games.slice(0, -1), {
+  //             ...gameData.games[gameData.games.length - 1],
+  //             eventCounts: sessionLevelData.eventCounts,
+  //             gameResults: sessionLevelData.gameResults,
+  //             gameWinsByTeam: sessionLevelData.gameWinsByTeam,
+  //             gameWinsByPlayer: sessionLevelData.gameWinsByPlayer,
+  //             gamesPlayed: sessionLevelData.gamesPlayed,
+  //             durationSeconds: sessionLevelData.durationSeconds,
+  //             aggregatedTrumpfCountsByPlayer: sessionLevelData.aggregatedTrumpfCountsByPlayer,
+  //             aggregatedRoundDurationsByPlayer: sessionLevelData.aggregatedRoundDurationsByPlayer,
+  //             sessionTotalWeisPoints: sessionLevelData.sessionTotalWeisPoints,
+  //             totalRounds: sessionLevelData.totalRounds
+  //           } as any] : // Verwende 'as any' um TypeScript-Kompatibilität zu erzwingen
+  //           gameData.games;
+
+  //         // Spruch mit angereicherten Daten generieren
+  //         const newSpruch = generateEnhancedJassSpruch({
+  //           games: gamesForSpruch,
+  //           playerNames: gameData.playerNames,
+  //           currentTotals: currentTotals.striche,
+  //           legacy: false,
+  //           groupStats: gameData.groupStats // NEU: Gruppen-Statistiken übergeben
+  //         });
+
+  //         console.log('[GameViewer] Generated spruch:', newSpruch);
+
+  //         // In Firebase speichern
+  //         await updateDoc(doc(db, 'jassGameSummaries', gameData.sessionId), {
+  //           jassSpruch: {
+  //             ...newSpruch,
+  //             generatedAt: serverTimestamp(),
+  //             version: 'v2',
+  //             generatedBy: user.uid,
+  //           }
+  //         });
+
+  //         const savedSpruch: JassSpruch = {
+  //           ...newSpruch,
+  //           generatedAt: new Date() as any, // Temporärer Timestamp
+  //           version: 'v2',
+  //           generatedBy: user.uid,
+  //         };
+
+  //         setJassSpruch(savedSpruch);
+  //         console.log('[GameViewer] Successfully generated and saved jassSpruch:', savedSpruch);
+  //       } catch (error) {
+  //         console.error('[GameViewer] Failed to generate jassSpruch:', error);
+  //         // Fallback Spruch
+  //         const fallbackSpruch: JassSpruch = {
+  //           text: 'Was für ein spannender Jass!',
+  //           icon: '🎯',
+  //           generatedAt: new Date() as any,
+  //           version: 'v2',
+  //           generatedBy: user.uid,
+  //         };
+  //         setJassSpruch(fallbackSpruch);
+  //       } finally {
+  //         setIsGeneratingSpruch(false);
+  //       }
+  //     }
+  //   };
+
+  //   generateAndSaveSpruch();
+  // }, [jassSpruch, user?.uid, gameData.sessionId, isGeneratingSpruch]); // KORRIGIERT: Weniger Dependencies
+
+  // NEU: useEffect für Auto-Show Notification beim ersten Mal
+  useEffect(() => {
+    console.log('[GameViewer] Auto-show check:', {
+      jassSpruch: !!jassSpruch,
+      jassSpruchType: typeof jassSpruch,
+      hasShownAutoNotification,
+      generatedBy: jassSpruch?.generatedBy,
+      userUid: user?.uid,
+      isMatch: jassSpruch?.generatedBy === user?.uid,
+      sessionId: gameData.sessionId
+    });
+
+    if (
+      jassSpruch &&                     // Spruch vorhanden
+      typeof jassSpruch === 'object' &&  // Kein undefined
+      !hasShownAutoNotification         // Noch nicht gezeigt
+    ) {
+      // ERWEITERT: Auto-Show für alle Sprüche, nicht nur für den Generierer
+      // Das macht Sinn, da der User das Ergebnis sehen möchte
+      console.log('[GameViewer] Auto-showing JassFinishNotification for spruch');
+      // WICHTIG: Direkte State-Update für korrekte Referenz-Übertragung
+      useUIStore.setState(state => ({
+        jassFinishNotification: {
+          isOpen: true,
+          mode: 'share' as const,
+          message: jassSpruch,
+          onShare: handleShareWithScreenshot,
+          onRegenerate: onRegenerateClick, // Frische Referenz
+          onBack: () => {},
+          onBackLabel: 'Schliessen'
+        }
+      }));
+      setHasShownAutoNotification(true);
+    } else if (
+      // FALLBACK: Wenn keine sessionId vorhanden (Legacy) und erster Aufruf
+      !gameData.sessionId &&
+      !hasShownAutoNotification &&
+      gameData.games.length > 0
+    ) {
+      console.log('[GameViewer] Legacy session detected, no auto-notification (use share button)');
+      // Für Legacy-Sessions zeigen wir keine Auto-Notification
+      // User muss den Share-Button verwenden
+      setHasShownAutoNotification(true); // Markiere als "gezeigt" um weitere Checks zu vermeiden
+    }
+  }, [jassSpruch, hasShownAutoNotification, user?.uid, gameData.sessionId, gameData.games.length]);
+
+  // NEU: Spruch-Regenerierung für JassFinishNotification
+  const onRegenerateClick = useCallback(async () => {
+    console.log('[GameViewer] ✅ REGENERATE CALLBACK REACHED - generating fresh spruch');
+    console.log('[GameViewer] gameData:', gameData);
+    console.log('[GameViewer] user:', user?.uid);
+    
+    try {
+      // ✅ KORREKTUR: Neuen Spruch mit Session-Level Daten generieren (gleiche Logik wie onShareClick)
+      const sessionLevelData = gameData.sessionLevelData;
+      const gamesForSpruch = sessionLevelData ? 
+        // Erstelle ein temporäres "angereichtertes" letztes Spiel für die Spruch-Generierung
+        [...gameData.games.slice(0, -1), {
+          ...gameData.games[gameData.games.length - 1],
+          eventCounts: sessionLevelData.eventCounts,
+          gameResults: sessionLevelData.gameResults,
+          gameWinsByTeam: sessionLevelData.gameWinsByTeam,
+          gameWinsByPlayer: sessionLevelData.gameWinsByPlayer,
+          gamesPlayed: sessionLevelData.gamesPlayed,
+          durationSeconds: sessionLevelData.durationSeconds,
+          finalStriche: sessionLevelData.finalStriche,        // 🚨 KRITISCH: finalStriche hinzufügen!
+          winnerTeamKey: sessionLevelData.winnerTeamKey,       // 🚨 KRITISCH: winnerTeamKey hinzufügen!
+          aggregatedTrumpfCountsByPlayer: sessionLevelData.aggregatedTrumpfCountsByPlayer,
+          aggregatedRoundDurationsByPlayer: sessionLevelData.aggregatedRoundDurationsByPlayer,
+          sessionTotalWeisPoints: sessionLevelData.sessionTotalWeisPoints,
+          totalRounds: sessionLevelData.totalRounds
+        } as any] : // Verwende 'as any' um TypeScript-Kompatibilität zu erzwingen
+        gameData.games;
+
+      // IMMER neuen Spruch generieren
+      const baseSpruch = generateEnhancedJassSpruch({
+        games: gamesForSpruch,
+        playerNames: gameData.playerNames,
+        currentTotals: currentTotals.striche,
+        legacy: !gameData.sessionId, // Legacy wenn keine sessionId
+        groupStats: gameData.groupStats
+      });
+      
+      const freshSpruch: JassSpruch = {
+        ...baseSpruch,
+        generatedAt: new Date() as any,
+        version: 'v2' as const,
+        generatedBy: user?.uid || 'manual',
+      };
+
+      console.log('[GameViewer] Generated fresh spruch for regeneration:', freshSpruch);
+
+      // Lokalen State aktualisieren für UI-Display
+      setJassSpruch(freshSpruch);
+
+      // JassFinishNotification mit neuem Spruch aktualisieren (OHNE sie zu schließen)
+      // WICHTIG: Direkte State-Update für korrekte Referenz-Übertragung
+      useUIStore.setState(state => ({
+        jassFinishNotification: {
+          isOpen: true,
+          mode: 'share' as const,
+          message: freshSpruch,
+          onShare: handleShareWithScreenshot,
+          onRegenerate: onRegenerateClick, // Frische Referenz
+          onBack: () => {},
+          onBackLabel: 'Abbrechen'
+        }
+      }));
+
+    } catch (error) {
+      console.error('[GameViewer] Failed to regenerate spruch:', error);
+      
+      // Bei Fehler: Fallback-Spruch anzeigen
+      const fallbackSpruch: JassSpruch = {
+        text: 'Was für ein spannender Jass!',
+        icon: '🎯',
+        generatedAt: new Date() as any,
+        version: 'v2',
+        generatedBy: user?.uid || 'fallback',
+      };
+      
+      setJassSpruch(fallbackSpruch);
+      
+      // Fallback-Spruch anzeigen - Direkte State-Update für korrekte Referenz-Übertragung
+      useUIStore.setState(state => ({
+        jassFinishNotification: {
+          isOpen: true,
+          mode: 'share' as const,
+          message: fallbackSpruch,
+          onShare: handleShareWithScreenshot,
+          onRegenerate: onRegenerateClick, // Frische Referenz
+          onBack: () => {},
+          onBackLabel: 'Abbrechen'
+        }
+      }));
+    }
+      }, [gameData.games, gameData.playerNames, currentTotals, gameData.sessionId, gameData.groupStats, user, handleShareWithScreenshot, setJassSpruch]);
+
+  // NEU: Manuelles Teilen über Button - IMMER neuen Spruch generieren
+  const onShareClick = useCallback(async () => {
+    console.log('[GameViewer] Manual share clicked - generating fresh spruch');
+    
+    try {
+      // ✅ KORREKTUR: IMMER neuen Spruch mit Session-Level Daten generieren
+      const sessionLevelData = gameData.sessionLevelData;
+      const gamesForSpruch = sessionLevelData ? 
+        // Erstelle ein temporäres "angereichtertes" letztes Spiel für die Spruch-Generierung
+        [...gameData.games.slice(0, -1), {
+          ...gameData.games[gameData.games.length - 1],
+          eventCounts: sessionLevelData.eventCounts,
+          gameResults: sessionLevelData.gameResults,
+          gameWinsByTeam: sessionLevelData.gameWinsByTeam,
+          gameWinsByPlayer: sessionLevelData.gameWinsByPlayer,
+          gamesPlayed: sessionLevelData.gamesPlayed,
+          durationSeconds: sessionLevelData.durationSeconds,
+          finalStriche: sessionLevelData.finalStriche,        // 🚨 KRITISCH: finalStriche hinzufügen!
+          winnerTeamKey: sessionLevelData.winnerTeamKey,       // 🚨 KRITISCH: winnerTeamKey hinzufügen!
+          aggregatedTrumpfCountsByPlayer: sessionLevelData.aggregatedTrumpfCountsByPlayer,
+          aggregatedRoundDurationsByPlayer: sessionLevelData.aggregatedRoundDurationsByPlayer,
+          sessionTotalWeisPoints: sessionLevelData.sessionTotalWeisPoints,
+          totalRounds: sessionLevelData.totalRounds
+        } as any] : // Verwende 'as any' um TypeScript-Kompatibilität zu erzwingen
+        gameData.games;
+
+      // IMMER neuen Spruch generieren (für Testing und Variation)
+      const baseSpruch = generateEnhancedJassSpruch({
+        games: gamesForSpruch,
+        playerNames: gameData.playerNames,
+        currentTotals: currentTotals.striche,
+        legacy: !gameData.sessionId, // Legacy wenn keine sessionId
+        groupStats: gameData.groupStats
+      });
+      
+      const freshSpruch: JassSpruch = {
+        ...baseSpruch,
+        generatedAt: new Date() as any,
+        version: 'v2' as const,
+        generatedBy: user?.uid || 'manual',
+      };
+
+      console.log('[GameViewer] Generated fresh spruch:', freshSpruch);
+
+      // Spruch NICHT mehr in Firebase speichern - nur fresh generieren und anzeigen
+      // Firebase-Speicherung entfernt da Sprüche jetzt immer fresh generiert werden
+      
+      // Lokalen State aktualisieren für UI-Display
+      setJassSpruch(freshSpruch);
+
+      // Spruch anzeigen - Direkte State-Update für korrekte Referenz-Übertragung
+      useUIStore.setState(state => ({
+        jassFinishNotification: {
+          isOpen: true,
+          mode: 'share' as const,
+          message: freshSpruch,
+          onShare: handleShareWithScreenshot,
+          onRegenerate: onRegenerateClick, // Frische Referenz
+          onBack: () => {},
+          onBackLabel: 'Abbrechen'
+        }
+      }));
+
+    } catch (error) {
+      console.error('[GameViewer] Failed to generate fresh spruch:', error);
+      
+      // Fallback: Direkte Screenshot-Teilung ohne Spruch
+      const shareText = '\n\ngeneriert von:\n👉 jassguru.ch';
+      const elementsToHide = ['#screenshot-hide-dots'];
+      handleShare(
+        '#game-viewer-kreidetafel',
+        '.scrollable-content',
+        elementsToHide,
+        shareText,
+        'jass-session.png',
+        true
+      );
+    }
+  }, [gameData.games, gameData.playerNames, currentTotals, gameData.sessionId, gameData.groupStats, user, handleShareWithScreenshot, handleShare, setJassSpruch]);
 
   return (
-    // 1. Swipe-Handler am äußersten Div, h-full und touch-action-pan-x hinzufügen
-    <div id="game-viewer-kreidetafel" {...swipeHandlers} className="relative flex flex-col bg-gradient-radial from-gray-800 to-gray-900 text-white p-4 md:p-6 max-w-md mx-auto h-full touch-action-pan-x pt-8">
+    <>
+      {/* 1. Swipe-Handler am äußersten Div, h-full und touch-action-pan-x hinzufügen */}
+      <div id="game-viewer-kreidetafel" {...swipeHandlers} className="relative flex flex-col bg-gradient-radial from-gray-800 to-gray-900 text-white p-4 md:p-6 max-w-md mx-auto h-full touch-action-pan-x pt-8">
       
       {/* 🚨 ZURÜCK-PFEIL: Exakt wie in [playerId].tsx */}
       {onBackClick && (
@@ -441,7 +804,11 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
             ))}
           </div>
         </div>
-    </div>
+      </div>
+      
+      {/* JassFinishNotification einbinden */}
+      <JassFinishNotification />
+    </>
   );
 };
 

@@ -46,13 +46,12 @@ import { TournamentSelector } from "@/components/tournament/TournamentSelector";
 
 // NEUE IMPORTE FÜR KARTENSYMBOL-MAPPING
 import { CARD_SYMBOL_MAPPINGS } from '@/config/CardStyles';
-import { toTitleCase } from '@/utils/formatUtils';
+import { toTitleCase, formatMillisecondsDuration } from '@/utils/formatUtils';
 import ProfileImage from '@/components/ui/ProfileImage';
 // THEME-SYSTEM IMPORTE
 import { THEME_COLORS, getCurrentProfileTheme, type ThemeColor } from '@/config/theme';
 // ENDE NEUE IMPORTE
 import { useNestedScrollFix } from '@/hooks/useNestedScrollFix';
-import { formatMillisecondsDuration } from '@/utils/formatUtils';
 import { useClickAndScrollHandler } from '@/hooks/useClickAndScrollHandler';
 import { StatLink } from '@/components/statistics/StatLink';
 import { GroupView } from '@/components/group/GroupView'; // ✅ NEUE IMPORT
@@ -493,7 +492,9 @@ const StartPage = () => {
                   const nextGameId = nextGame.id;
                   const nextGameData = nextGame.data();
                   
-                  console.log(`[StartPage] 🔄 FALLBACK: Trying next game ${nextGameId} (Round: ${nextGameData.currentRound}, Scores: ${nextGameData.scores?.top || 0}:${nextGameData.scores?.bottom || 0})`);
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log(`[StartPage] 🔄 FALLBACK: Trying next game ${nextGameId} (Round: ${nextGameData.currentRound}, Scores: ${nextGameData.scores?.top || 0}:${nextGameData.scores?.bottom || 0})`);
+                  }
                   
                   setResumableGameId(nextGameId);
                   try {
@@ -503,7 +504,9 @@ const StartPage = () => {
                   }
                   return;
                 } else {
-                  console.log(`[StartPage] ❌ NO VALID GAMES: All games appear to be empty`);
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log(`[StartPage] ❌ NO VALID GAMES: All games appear to be empty`);
+                  }
                     clearResumableGameId();
                   try {
                     sessionStorage.removeItem(`resumableGameId_${user.uid}`);
@@ -530,7 +533,9 @@ const StartPage = () => {
           }
           
           // No active games found, clear any stored ID
-          console.log(`[StartPage] No resumable games found for user ${user.uid}`);
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[StartPage] No resumable games found for user ${user.uid}`);
+          }
                     clearResumableGameId();
           try {
             sessionStorage.removeItem(`resumableGameId_${user.uid}`);
@@ -668,7 +673,9 @@ const StartPage = () => {
                   }
                 }
               } else {
-                console.log(`[StartPage] Real-time update: No resumable games found`);
+                if (process.env.NODE_ENV === 'development') {
+                  console.log(`[StartPage] Real-time update: No resumable games found`);
+                }
               clearResumableGameId();
                 try {
                   sessionStorage.removeItem(`resumableGameId_${user.uid}`);
@@ -677,7 +684,9 @@ const StartPage = () => {
                 }
               }
             } else {
-              console.log(`[StartPage] Real-time update: No active games found`);
+              if (process.env.NODE_ENV === 'development') {
+                console.log(`[StartPage] Real-time update: No active games found`);
+              }
           clearResumableGameId();
               try {
                 sessionStorage.removeItem(`resumableGameId_${user.uid}`);
@@ -1575,13 +1584,33 @@ const StartPage = () => {
   };
 
   // NEU: Leite den aktiven Tab direkt aus dem Router ab
-  const { mainTab, statsSubTab } = router.query;
+  const { mainTab, statsSubTab, joined, newMember } = router.query;
   const activeMainTab = (typeof mainTab === 'string' && ['statistics', 'archive', 'members'].includes(mainTab)) 
     ? mainTab 
     : 'statistics';
   const activeStatsSubTab = (typeof statsSubTab === 'string' && ['overview', 'players', 'teams'].includes(statsSubTab)) 
     ? statsSubTab 
     : 'overview';
+  
+  // ✅ UX-VERBESSERUNG: Context-Parameter für personalisierte Willkommensnachricht
+  const joinedGroupName = typeof joined === 'string' ? joined : null;
+  const isNewMember = typeof newMember === 'string' ? newMember === 'true' : null;
+  
+  // ✅ CLEANUP: URL-Parameter nach Anzeige der Nachricht entfernen
+  useEffect(() => {
+    if (joinedGroupName && router.isReady) {
+      const timer = setTimeout(() => {
+        // Entferne Context-Parameter aus URL ohne Seitenneuladung
+        const { joined, newMember, ...otherQuery } = router.query;
+        router.replace({
+          pathname: router.pathname,
+          query: otherQuery
+        }, undefined, { shallow: true });
+      }, 3000); // Nach 3 Sekunden entfernen
+      
+      return () => clearTimeout(timer);
+    }
+  }, [joinedGroupName, router]);
 
   // NEUE Funktion für Einladungsverarbeitung
   const handleProcessInviteInput = useCallback(async (inputValue: string, inviteUiType: 'group' | 'tournament') => {
@@ -1646,9 +1675,12 @@ const StartPage = () => {
         isPublicView={false} // 🚨 Standard-Verhalten für eingeloggte/Gast-Ansicht
         handleProcessInviteInput={handleProcessInviteInput}
         isProcessingInvite={isProcessingInvite}
-              showNotification={showNotification}
+        showNotification={showNotification}
         groupStatus={groupStatus}
         groupError={groupError}
+        // ✅ UX-VERBESSERUNG: Context-Parameter für personalisierte Willkommensnachricht
+        joinedGroupName={joinedGroupName}
+        isNewMember={isNewMember}
         // SCHRITT 2: Header & Upload Props
         isAdmin={isAdmin}
         selectedFile={selectedFile}

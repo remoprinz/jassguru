@@ -1,6 +1,7 @@
 import type {SpieltempoKategorie, SpruchGenerator} from "../../../types/sprueche";
 
-const formatDuration = (ms: number): string => {
+const formatDurationForSprueche = (ms: number): string => {
+  // Konvertiert ms zu lesbarem Format wie "30 Minuten" oder "1 Stunde und 15 Minuten"
   const hours = Math.floor(ms / (1000 * 60 * 60));
   const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
 
@@ -17,7 +18,7 @@ const createZeitSpruch = (
   (params) => {
     const duration = params.timerAnalytics.totalJassTime;
     return {
-      text: textTemplate(formatDuration(duration)),
+      text: textTemplate(formatDurationForSprueche(duration)),
       icon,
     };
   };

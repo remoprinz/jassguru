@@ -58,7 +58,6 @@ const MyApp = ({Component, pageProps}: AppProps) => {
   const isGuest = useAuthStore((state) => state.isGuest);
   const isAuthenticated = useAuthStore.getState().isAuthenticated();
   // Debug-Log State entfernt
-  const releaseWakeLock = useWakeLock();
   const [isAppLoaded, setIsAppLoaded] = useState(false);
   const router = useRouter();
 
@@ -309,11 +308,10 @@ const MyApp = ({Component, pageProps}: AppProps) => {
         <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
         <meta httpEquiv="Pragma" content="no-cache" />
         <meta httpEquiv="Expires" content="0" />
-        <meta name="version" content="2.5.2" />
+        <meta name="version" content="2.5.4" />
         
-        {/* 🚀 PERFORMANCE FIX: Preload kritische Bilder */}
-        <link rel="preload" href="/welcome-guru.png" as="image" />
-        <link rel="preload" href="/apple-touch-icon.png" as="image" />
+        {/* 🚀 PERFORMANCE: welcome-guru.png (90KB) ist klein genug - kein Preload nötig */}
+        {/* Preload entfernt: Kleine Bilder (<100KB) laden schnell genug ohne Preload */}
         
         <title>jassguru.ch - Die Jass-Community in deiner Tasche</title>
         <meta name="description" content="Schneller, smarter, vernetzter Jassen" />

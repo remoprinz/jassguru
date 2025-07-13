@@ -3,6 +3,7 @@
  */
 
 import { Timestamp } from "firebase/firestore";
+import type { SpieltempoKategorie } from "../types/sprueche";
 
 /**
  * Konvertiert einen String in Title Case (erster Buchstabe jedes Wortes groß)
@@ -145,4 +146,29 @@ export function getNavigationSessionId(
   }
   
   return startSessionId || endSessionId || null;
-} 
+}
+
+/**
+ * Kategorisiert die Spielzeit in Tempo-Kategorien
+ * Realistische Werte für Jass-Sessions:
+ * - blitz_schnell: < 30 min (Express-Jass)
+ * - schnell: 30-75 min (Flotter Jass)
+ * - normal: 75-150 min (Normaler Jass, 1.5-2.5h)
+ * - gemütlich: 150-240 min (Gemütlicher Jass, 2.5-4h)
+ * - marathon: > 240 min (Echter Marathon, >4h)
+ */
+export function getSpieltempoKategorie(durationSeconds: number): SpieltempoKategorie {
+  const durationMinutes = durationSeconds / 60;
+  
+  if (durationMinutes < 30) {
+    return 'blitz_schnell';
+  } else if (durationMinutes < 75) {
+    return 'schnell';
+  } else if (durationMinutes < 150) {
+    return 'normal';
+  } else if (durationMinutes < 240) {
+    return 'gemütlich';
+  } else {
+    return 'marathon';
+  }
+}

@@ -152,7 +152,6 @@ const Calculator: React.FC<CalculatorProps> = ({
     const correctSettings = getCorrectSettings();
 
 
-
     // IMMER die korrekten Settings setzen (keine Vergleiche mehr)
     setActiveFarbeSettings(correctSettings.farbeSettings);
     setActiveScoreSettings(correctSettings.scoreSettings);
@@ -167,7 +166,6 @@ const Calculator: React.FC<CalculatorProps> = ({
   const renderFarbeSettings = activeFarbeSettings || DEFAULT_FARBE_SETTINGS;
   const renderScoreSettings = activeScoreSettings || DEFAULT_SCORE_SETTINGS;
   const renderStrokeSettings = activeStrokeSettings || DEFAULT_STROKE_SETTINGS;
-
 
 
   const [value, setValue] = useState(initialValue?.toString() || "0");
@@ -310,7 +308,6 @@ const Calculator: React.FC<CalculatorProps> = ({
     const currentActiveGameId = currentGameStore.activeGameId;
 
 
-
     if (isReadOnlyMode) {
       console.log(`[Calculator] Abbruch: ReadOnly-Modus aktiv für Spiel ${currentActiveGameId || 'ID unbekannt'}.`);
       useUIStore.getState().showNotification({
@@ -396,7 +393,6 @@ const Calculator: React.FC<CalculatorProps> = ({
       }, 100);
       return;
     }
-
 
     
     try {

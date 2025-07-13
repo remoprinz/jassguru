@@ -59,18 +59,19 @@ const InviteModal: React.FC<InviteModalProps> = ({
         const user = useAuthStore.getState().user;
         const inviterName = user?.displayName || user?.email || 'Jemand';
         
-        // --- Optimierter Share-Text (PERSONALISIERT) ---
+        // --- Optimierter Share-Text (PERSONALISIERT) mit Link direkt nach Ankündigung ---
         const titleText = "Du wurdest zu jassguru.ch eingeladen! ✌️";
         const bodyText = `${inviterName} lädt dich ein, der Jassgruppe "${groupName}" beizutreten.`; 
-        const linkText = `👉 Hier beitreten:`; 
-        const shareText = `${titleText}\n\n${bodyText}\n\n${linkText}`;
+        const linkText = `👉 Hier ist dein Einladungslink:\n${inviteLink}`; 
+        const backupText = `💡 Falls du später beitreten möchtest:\n- Melde dich bei jassguru.ch an\n- Füge den kompletten Link ein`;
+        const shareText = `${titleText}\n\n${bodyText}\n\n${linkText}\n\n${backupText}`;
         // --- Ende Share-Text ---
 
         // ✅ KEIN BILD MEHR - Nur Text-basierte Einladung für saubere Link-Vorschau
         const shareData: ShareData = {
           title: `Einladung zur Jassgruppe "${groupName}"`, // Titel als Metadaten
           text: shareText,
-          url: inviteLink, // URL bleibt wichtig für die richtige Funktion des Teilens
+          // url entfernt, da Link bereits im shareText enthalten ist
         };
 
         // ✅ KEIN imageFile mehr - dadurch wird die Link-Vorschau kleiner und sauberer
@@ -99,7 +100,7 @@ const InviteModal: React.FC<InviteModalProps> = ({
       }}
     >
       <DialogContent 
-        className="bg-gray-800 border-gray-700 text-white max-w-sm rounded-xl"
+        className="bg-gray-800 border-gray-700 text-white max-w-sm rounded-xl max-h-[90vh] overflow-y-auto"
         onPointerDownOutside={(event) => {
           const target = event.target as HTMLElement;
           if (target.closest('#global-notification-container-wrapper')) {
@@ -135,36 +136,57 @@ const InviteModal: React.FC<InviteModalProps> = ({
 
           {inviteLink && !isLoading && !error && (
             <>
-              <p className="text-sm text-gray-400 text-center">
-                QR Code zum Scannen zeigen oder per Link einladen:
-              </p>
-              <div className="bg-white p-2 rounded-lg inline-block">
-                <QRCodeCanvas value={inviteLink} size={256} level="M" />
+              {/* QR-Code Bereich */}
+              <div className="text-center">
+                <h3 className="text-lg font-semibold text-white mb-2">QR-Code scannen</h3>
+                <p className="text-sm text-gray-400 mb-3">
+                  Zeige diesen Code zum direkten Scannen
+                </p>
+                <div className="bg-white p-2 rounded-lg inline-block">
+                  <QRCodeCanvas value={inviteLink} size={256} level="M" />
+                </div>
               </div>
-              <div className="relative w-full">
-                <Input
-                  type="text"
-                  readOnly
-                  value={inviteLink}
-                  className="bg-gray-700 border-gray-600 text-gray-300 pr-10 text-xs"
-                />
+
+              {/* Trennlinie */}
+              <div className="flex items-center w-full">
+                <div className="flex-1 h-px bg-gray-600"></div>
+                <span className="px-3 text-sm text-gray-400">oder</span>
+                <div className="flex-1 h-px bg-gray-600"></div>
+              </div>
+
+              {/* Link versenden Bereich */}
+              <div className="w-full">
+                <h3 className="text-lg font-semibold text-white mb-2 text-center">Einladungslink versenden</h3>
+                <p className="text-sm text-gray-400 mb-3 text-center">
+                  Teile diesen Link über WhatsApp, E-Mail oder andere Apps
+                </p>
+                
+                <div className="relative w-full mb-3">
+                  <Input
+                    type="text"
+                    readOnly
+                    value={inviteLink}
+                    className="bg-gray-700 border-gray-600 text-gray-300 pr-10 text-xs"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 text-gray-400 hover:text-white hover:bg-gray-600"
+                    onClick={handleCopyLink}
+                    aria-label="Link kopieren"
+                  >
+                    <Copy size={16}/>
+                  </Button>
+                </div>
+
                 <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 text-gray-400 hover:text-white hover:bg-gray-600"
-                  onClick={handleCopyLink}
-                  aria-label="Link kopieren"
+                  onClick={handleShare}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  size="default"
                 >
-                  <Copy size={16}/>
+                  Einladung versenden
                 </Button>
               </div>
-              <Button
-                onClick={handleShare}
-                className="w-full bg-green-600 hover:bg-green-700 text-white"
-                size="default"
-              >
-                 Einladen mit Link
-              </Button>
             </>
           )}
         </div>

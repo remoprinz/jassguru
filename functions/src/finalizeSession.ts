@@ -1,6 +1,8 @@
 import * as admin from 'firebase-admin';
 import { HttpsError, onCall, CallableRequest } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
+import { updatePlayerStats } from './playerStatsCalculator'; // NEU: Import der zentralen Funktion
+import { updateGroupComputedStatsAfterSession } from './groupStatsCalculator'; // NEU: Import für Gruppenstatistiken
 
 const db = admin.firestore();
 
@@ -441,7 +443,30 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
                     }
                   } else {
                     // ✅ NEU & PRÄZISE: Für die erste Runde die exakte Startzeit des Spiels berechnen
-                    const completionTimestampMs = game.completedAt?.toMillis() || game.timestampCompleted?.toMillis();
+                    let completionTimestampMs: number | undefined;
+                    
+                    // Sichere Timestamp-Extraktion - behandle verschiedene Datentypen
+                    if (game.completedAt) {
+                      if (typeof game.completedAt === 'object' && 'toMillis' in game.completedAt) {
+                        completionTimestampMs = (game.completedAt as admin.firestore.Timestamp).toMillis();
+                      } else if (typeof game.completedAt === 'object' && 'seconds' in game.completedAt) {
+                        // Firestore Timestamp-ähnliches Objekt mit seconds/nanoseconds
+                        completionTimestampMs = (game.completedAt as any).seconds * 1000 + Math.floor((game.completedAt as any).nanoseconds / 1000000);
+                      } else if (typeof game.completedAt === 'number') {
+                        completionTimestampMs = game.completedAt;
+                      }
+                    }
+                    
+                    if (!completionTimestampMs && game.timestampCompleted) {
+                      if (typeof game.timestampCompleted === 'object' && 'toMillis' in game.timestampCompleted) {
+                        completionTimestampMs = (game.timestampCompleted as admin.firestore.Timestamp).toMillis();
+                      } else if (typeof game.timestampCompleted === 'object' && 'seconds' in game.timestampCompleted) {
+                        completionTimestampMs = (game.timestampCompleted as any).seconds * 1000 + Math.floor((game.timestampCompleted as any).nanoseconds / 1000000);
+                      } else if (typeof game.timestampCompleted === 'number') {
+                        completionTimestampMs = game.timestampCompleted;
+                      }
+                    }
+                    
                     if (completionTimestampMs && game.durationMillis && typeof game.durationMillis === 'number' && game.durationMillis > 0) {
                         previousTimestamp = completionTimestampMs - game.durationMillis;
                     } else if (game.durationMillis && typeof game.durationMillis === 'number' && game.roundHistory && game.roundHistory.length > 0) {
@@ -707,6 +732,34 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
       logger.info(`[finalizeSession] Cleanup of session and verified active games completed for ${sessionId}.`);
     } else {
       logger.info(`[finalizeSession] No active games to clean up for session ${sessionId}.`);
+    }
+
+    // ✅ KRITISCHE KORREKTUR: Gruppenstatistiken nach erfolgreicher Session-Finalisierung aktualisieren
+    if (initialDataFromClient.gruppeId) {
+      logger.info(`[finalizeSession] Triggering group statistics update for group ${initialDataFromClient.gruppeId}`);
+      
+      // Starte die Gruppenstatistik-Berechnung im Hintergrund (gleiche Pattern wie PlayerStats)
+      updateGroupComputedStatsAfterSession(initialDataFromClient.gruppeId).catch(error => {
+        logger.error(`[finalizeSession] Fehler bei der Gruppenstatistik-Berechnung für Gruppe ${initialDataFromClient.gruppeId}:`, error);
+      });
+      
+      logger.info(`[finalizeSession] Group statistics update initiated for group ${initialDataFromClient.gruppeId}`);
+    } else {
+      logger.info(`[finalizeSession] No group ID provided, skipping group statistics update`);
+    }
+
+    // ✅ ZUKUNFT: Player-Statistiken könnten hier auch ausgelöst werden
+    if (participantPlayerIds && participantPlayerIds.length > 0) {
+      logger.info(`[finalizeSession] Triggering player statistics update for ${participantPlayerIds.length} players`);
+      
+      // Starte Player-Statistik-Berechnungen im Hintergrund für alle Teilnehmer
+      participantPlayerIds.forEach(playerId => {
+        updatePlayerStats(playerId).catch(error => {
+          logger.error(`[finalizeSession] Fehler bei der Player-Statistik-Berechnung für Player ${playerId}:`, error);
+        });
+      });
+      
+      logger.info(`[finalizeSession] Player statistics updates initiated for ${participantPlayerIds.length} players`);
     }
 
     // 🚀 ENTFERNT: Die Statistik-Aktualisierung wird jetzt durch einen zentralen Trigger gehandhabt.

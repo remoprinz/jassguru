@@ -37,6 +37,16 @@ export type GuestInfo = {
   consent?: boolean;
 };
 
+// === NEU: JassSpruch Interface für strukturierte Spruch-Speicherung ===
+export interface JassSpruch {
+  text: string;           // Der generierte Spruch-Text
+  icon: string;           // Passendes Emoji für den Spruch
+  generatedAt: Timestamp; // Wann wurde der Spruch generiert
+  version: 'v2';          // Version der Spruch-Generierung
+  generatedBy: string;    // UserId des Nutzers, der den Spruch generiert hat
+}
+// === ENDE NEU ===
+
 // +++ EINSTELLUNGS-TYPEN ZENTRAL DEFINIEREN +++
 
 // Typ für Score-Einstellungen (Wieder eingefügt)
@@ -188,6 +198,34 @@ export interface CompletedGameSummary {
   trumpfCountsByPlayer?: TrumpfCountsByPlayer;
   roundDurationsByPlayer?: RoundDurationsByPlayer;
   Rosen10player?: string | null; // ✅ NEU: Der erste Trumpf-Ansager dieses Spiels (Player Document ID)
+  
+  // 🎯 NEU: Felder aus jassGameSummaries (wie vom User gezeigt)
+  gameResults?: Array<{
+    gameNumber: number;
+    topScore: number;
+    bottomScore: number;
+    winnerTeam: string;
+  }>;
+  gameWinsByTeam?: {
+    top: number;
+    bottom: number;
+  };
+  gameWinsByPlayer?: {
+    [playerId: string]: {
+      wins: number;
+      losses: number;
+    };
+  };
+  gamesPlayed?: number;
+  durationSeconds?: number;
+  winnerTeamKey?: 'top' | 'bottom' | 'draw';
+  status?: 'completed' | 'active' | 'aborted';
+  sessionTotalWeisPoints?: TeamScores;
+  totalRounds?: number;
+  aggregatedTrumpfCountsByPlayer?: TrumpfCountsByPlayer;
+  aggregatedRoundDurationsByPlayer?: RoundDurationsByPlayer;
+  
+  // jassSpruch Feld entfernt - Sprüche werden nicht mehr gespeichert, sondern immer fresh generiert
 }
 // === ENDE NEU ===
 
@@ -1071,6 +1109,8 @@ export interface CompletedGameSummary {
   activeGameId: string; // Sicherstellen, dass dies immer gesetzt wird
   teams?: TeamConfig; // Behält die alte TeamConfig für Spiel-spezifische Layouts bei, falls nötig
                       // Nicht zu verwechseln mit SessionTeams für die gesamte Session
+  
+  // jassSpruch Feld entfernt - Sprüche werden nicht mehr gespeichert, sondern immer fresh generiert
 }
 
 export interface JassSession {

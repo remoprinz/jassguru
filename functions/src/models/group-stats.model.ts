@@ -25,6 +25,7 @@ export interface GroupStatHighlightTeam {
 
 export interface GroupComputedStats {
   groupId: string | null;
+  groupName: string | null; // NEU: Gruppenname für Firebase-Suche
   lastUpdateTimestamp: admin.firestore.Timestamp | null;
   memberCount: number;
   sessionCount: number;
@@ -73,6 +74,7 @@ export interface GroupComputedStats {
 
 export const initialGroupComputedStats: GroupComputedStats = {
   groupId: null,
+  groupName: null, // NEU: Gruppenname für Firebase-Suche
   lastUpdateTimestamp: null,
   memberCount: 0,
   sessionCount: 0,

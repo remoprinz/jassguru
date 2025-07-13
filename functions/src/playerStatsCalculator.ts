@@ -1376,6 +1376,22 @@ export async function updatePlayerStats(playerId: string): Promise<void> {
     // Calculate the new stats using the internal logic.
     const newStats = await calculatePlayerStatisticsInternal(playerId, allPlayerSessions);
 
+    // NEU: Lade den Spielernamen aus der players Collection
+    try {
+      const playerDoc = await db.collection('players').doc(playerId).get();
+      if (playerDoc.exists) {
+        const playerData = playerDoc.data();
+        newStats.playerName = playerData?.displayName || null;
+        logger.info(`[PlayerStats] Loaded player name for ${playerId}: ${newStats.playerName}`);
+      } else {
+        logger.warn(`[PlayerStats] Player document ${playerId} not found, playerName will be null`);
+        newStats.playerName = null;
+      }
+    } catch (nameError) {
+      logger.error(`[PlayerStats] Error loading player name for ${playerId}:`, nameError);
+      newStats.playerName = null; // Fallback to null if name loading fails
+    }
+
     // Save the stats document using the playerId as the document ID
     const statsDocRef = db.collection(PLAYER_COMPUTED_STATS_COLLECTION).doc(playerId);
     await statsDocRef.set(newStats, { merge: true });

@@ -41,4 +41,45 @@ export const vernichtendSprueche: SpruchGenerator[] = [
     text: `${params.loserNames.join(" & ")} wurden gerade aus allen Dimensionen gejasst!`,
     icon: "🌪️",
   }),
+  // NEUE EXTREME SPRÜCHE für 14+ Striche Differenz
+  (params) => ({
+    text: `APOKALYPSE NOW! ${params.winnerNames.join(" & ")} haben ${params.loserNames.join(" & ")} dem Erdboden gleichgemacht!`,
+    icon: "🌋",
+  }),
+  (params) => ({
+    text: `${params.loserNames.join(" & ")} wurden soeben ins Mittelalter zurückgejasst!`,
+    icon: "⚔️",
+  }),
+  (params) => ({
+    text: `${params.winnerNames.join(" & ")} haben die Genfer Konvention des Jassens verletzt!`,
+    icon: "🚨",
+  }),
+  (params) => ({
+    text: `NOTARZT! ${params.loserNames.join(" & ")} brauchen psychologische Betreuung nach dieser Demütigung!`,
+    icon: "🚑",
+  }),
+  (params) => ({
+    text: `${params.winnerNames.join(" & ")} haben ${params.loserNames.join(" & ")} in ihre Einzelteile zerlegt!`,
+    icon: "🔨",
+  }),
+  (params) => ({
+    text: `Das war kein Jass, das war eine EXEKUTION! ${params.loserNames.join(" & ")} R.I.P.`,
+    icon: "💀",
+  }),
+  (params) => ({
+    text: `${params.winnerNames.join(" & ")} haben den JASS-THRON bestiegen - ${params.loserNames.join(" & ")} knien!`,
+    icon: "👑",
+  }),
+  (params) => ({
+    text: `UNFASSBAR! ${params.loserNames.join(" & ")} wurden gerade live im TV vernichtet!`,
+    icon: "📺",
+  }),
+  (params) => ({
+    text: `${params.winnerNames.join(" & ")} haben ${params.loserNames.join(" & ")} ins Schattenreich verbannt!`,
+    icon: "🌑",
+  }),
+  (params) => ({
+    text: `GAME OVER! ${params.loserNames.join(" & ")} wurden aus dem Spiel gelöscht!`,
+    icon: "🎮",
+  }),
 ];

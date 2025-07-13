@@ -165,6 +165,7 @@ export interface JassFinishNotification {
   onBack?: () => void;
   onBackLabel?: string;
   onContinue?: () => void;
+  onRegenerate?: () => Promise<void>; // NEU: Callback für "Neuer Spruch"
 }
 
 export type NotificationType = "info" | "success" | "warning" | "error";
@@ -262,6 +263,7 @@ export interface UIState {
     onBack?: () => void;
     onBackLabel?: string;
     onContinue?: () => void;
+    onRegenerate?: () => Promise<void>; // NEU: Callback für "Neuer Spruch"
   };
   onboarding: {
     currentStep: OnboardingStep;
@@ -546,6 +548,7 @@ const initialState: UIState = {
     onBack: () => {},
     onBackLabel: undefined,
     onContinue: () => {},
+    onRegenerate: async () => {}, // NEU: Initialwert für Regenerate-Callback
   },
   onboarding: {
     currentStep: OnboardingStep.INSTALL,

@@ -44,7 +44,7 @@ const withPWA = withPWAInit({
   clientsClaim: true,
   scope: '/',
   disable: process.env.NODE_ENV === "development",
-  sw: 'sw-custom.js',
+  sw: 'sw.js',
   runtimeCaching: [
     {
       urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,

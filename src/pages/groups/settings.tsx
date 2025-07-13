@@ -367,8 +367,8 @@ const GroupSettingsPage = () => {
     }
 
     try {
-      let updatePromises: Promise<void>[] = [];
-      let updatesPerformed: string[] = [];
+      const updatePromises: Promise<void>[] = [];
+      const updatesPerformed: string[] = [];
 
       // 3. Füge Basis-Info-Update zum Promise-Array hinzu, falls geändert
       if (baseInfoChanged) {
@@ -548,11 +548,12 @@ const GroupSettingsPage = () => {
       const inviteLink = `${APP_BASE_URL}/join?token=${token}`;
       const inviterName = user.displayName || user.email || 'Jemand';
       
-      // ✅ OPTIMIERTE EINLADUNG - Personalisiert und ohne großes Bild
+      // ✅ OPTIMIERTE EINLADUNG - Link direkt nach Ankündigung
       const titleText = "Du wurdest zu jassguru.ch eingeladen! ✌️";
       const bodyText = `${inviterName} lädt dich ein, der Jassgruppe "${currentGroup.name}" beizutreten.`;
-      const linkText = `👉 Hier beitreten:`;
-      const shareText = `${titleText}\n\n${bodyText}\n\n${linkText}`;
+      const linkText = `👉 Hier ist dein Einladungslink:\n${inviteLink}`;
+      const backupText = `💡 Falls du später beitreten möchtest:\n- Melde dich bei jassguru.ch an\n- Füge den kompletten Link ein`;
+      const shareText = `${titleText}\n\n${bodyText}\n\n${linkText}\n\n${backupText}`;
       
       // ✅ KEIN BILD MEHR - Nur Text-basierte Einladung für saubere Link-Vorschau
       if (typeof window !== 'undefined' && 'share' in navigator) {
@@ -560,7 +561,7 @@ const GroupSettingsPage = () => {
           const shareData: ShareData = {
             title: `Einladung zur Jassgruppe "${currentGroup.name}"`, // Titel als Metadaten
             text: shareText,
-            url: inviteLink, // URL für korrekte Share-Funktion
+            // url entfernt, da Link bereits im shareText enthalten ist
           };
 
           // ✅ KEIN imageFile mehr - dadurch wird die Link-Vorschau kleiner und sauberer

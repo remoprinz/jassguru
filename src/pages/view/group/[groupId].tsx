@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/router';
-import { getFirestore, doc, getDoc, collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, collection, getDocs, query, where, orderBy, limit, Timestamp, FieldValue } from 'firebase/firestore';
 import { firebaseApp } from '@/services/firebaseInit';
 import MainLayout from '@/components/layout/MainLayout';
 import { ClipLoader } from 'react-spinners';
@@ -21,7 +21,6 @@ import { DEFAULT_SCORE_SETTINGS } from '@/config/ScoreSettings';
 import { DEFAULT_FARBE_SETTINGS } from '@/config/FarbeSettings';
 import { DEFAULT_STROKE_SETTINGS } from '@/config/GameSettings';
 import { THEME_COLORS } from '@/config/theme';
-import { Timestamp, FieldValue } from 'firebase/firestore';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { CheckCircle, XCircle, MinusCircle, Award as AwardIcon } from 'lucide-react';

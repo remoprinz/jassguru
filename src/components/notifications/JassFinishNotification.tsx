@@ -7,6 +7,7 @@ import { FiLoader } from "react-icons/fi";
 const JassFinishNotification: React.FC = () => {
   const notification = useUIStore((state) => state.jassFinishNotification);
   const [isSharing, setIsSharing] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false); // NEU: Regenerating-State
 
   const {
     jassFinishNotification: {
@@ -17,9 +18,13 @@ const JassFinishNotification: React.FC = () => {
       onBack = () => {},
       onBackLabel,
       onContinue = () => {},
+      onRegenerate = async () => {}, // NEU: Regenerate-Callback
     },
     closeJassFinishNotification,
   } = useUIStore();
+
+  // DEBUG: Log ob onRegenerate übergeben wird
+  console.log('[JassFinishNotification] onRegenerate available:', typeof onRegenerate, onRegenerate !== undefined);
 
   const isFlipped = false;
 
@@ -93,29 +98,30 @@ const JassFinishNotification: React.FC = () => {
     setIsSharing(true);
     try {
       if (onShare) {
+        // Wenn onShare definiert ist, verwende das (Screenshot-Share mit korrekter Attribution)
         await onShare();
-      }
+      } else {
+        // Fallback: Nur Text teilen wenn kein onShare Callback vorhanden
+        const shareText = typeof message === "string" ? message : message.text;
+        const fullShareText = `${shareText}\n\ngeneriert von:\n👉 jassguru.ch`;
 
-      const shareText = typeof message === "string" ? message : message.text;
-      const appUrl = "jassguru.ch";
-      const fullShareText = `${shareText}\n\nGeneriert mit 👉 ${appUrl}`;
-
-      // Überprüfen ob Web Share API verfügbar ist
-      if (navigator.share) {
-        try {
-          await navigator.share({
-            text: fullShareText,
-          });
-        } catch (error) {
-          console.error("Share failed:", error);
-          // Fallback: Text in Zwischenablage kopieren
+        // Überprüfen ob Web Share API verfügbar ist
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              text: fullShareText,
+            });
+          } catch (error) {
+            console.error("Share failed:", error);
+            // Fallback: Text in Zwischenablage kopieren
+            await navigator.clipboard.writeText(fullShareText);
+            // TODO: Zeige Feedback dass Text kopiert wurde
+          }
+        } else {
+          // Fallback für Browser ohne Web Share API
           await navigator.clipboard.writeText(fullShareText);
           // TODO: Zeige Feedback dass Text kopiert wurde
         }
-      } else {
-        // Fallback für Browser ohne Web Share API
-        await navigator.clipboard.writeText(fullShareText);
-        // TODO: Zeige Feedback dass Text kopiert wurde
       }
 
       closeJassFinishNotification();
@@ -140,9 +146,29 @@ const JassFinishNotification: React.FC = () => {
     closeJassFinishNotification();
   }, [onContinue, closeJassFinishNotification]);
 
+  // NEU: Handler für "Neuer Spruch"
+  const handleRegenerate = useCallback(async () => {
+    console.log('[JassFinishNotification] Regenerate clicked, onRegenerate:', typeof onRegenerate);
+    setIsRegenerating(true);
+    try {
+      if (onRegenerate) {
+        console.log('[JassFinishNotification] Calling onRegenerate...');
+        await onRegenerate();
+        console.log('[JassFinishNotification] onRegenerate completed');
+      } else {
+        console.warn('[JassFinishNotification] onRegenerate is not defined!');
+      }
+    } catch (error) {
+      console.error("[JassFinishNotification] Regenerate error:", error);
+    } finally {
+      setIsRegenerating(false);
+    }
+  }, [onRegenerate]);
+
   // Nur die Button-Handler mit usePressableButton ausstatten
   const backButton = usePressableButton(handleBack);
   const actionButton = usePressableButton(mode === "share" ? handleShare : handleContinue);
+  const regenerateButton = usePressableButton(handleRegenerate); // NEU: Regenerate-Button
 
   useEffect(() => {
     if (isOpen) {
@@ -174,31 +200,48 @@ const JassFinishNotification: React.FC = () => {
           >
             <div className="flex flex-col items-center justify-center mb-4">
               {displayContent}
-              <div className="text-center mb-6">
-                <p className="mb-2">
+              <div className="text-center mb-6 max-h-[40vh] overflow-y-auto">
+                <p className="mb-2 text-base sm:text-lg leading-relaxed">
                   {typeof message === "string" ? message : message.text}
                 </p>
               </div>
             </div>
-            <div className="flex justify-between gap-4">
-              <button
-                {...backButton.handlers}
-                className={`
-                  flex-1 bg-gray-600 text-white px-6 py-2 rounded-full 
-                  hover:bg-gray-700 transition-colors text-lg font-semibold
-                  ${backButton.buttonClasses}
-                `}
-                disabled={isSharing}
-              >
-                {onBackLabel || 'Zurück'}
-              </button>
-              {mode === "share" ? (
-                <button
-                  {...actionButton.handlers}
+            {/* NEU: Obere Button-Reihe - nur für Share-Modus */}
+            {mode === "share" && (
+              <div className="flex justify-between gap-4 mb-4">
+                <motion.button
+                  {...regenerateButton.handlers}
+                  initial={{scale: 0.9}}
+                  animate={{scale: 1}}
+                  whileTap={{scale: 0.95}}
                   className={`
-                    flex-1 bg-yellow-600 text-white px-6 py-2 rounded-full 
-                    hover:bg-yellow-700 transition-colors text-lg font-semibold
-                    flex items-center justify-center
+                    flex-1 bg-yellow-600 text-white px-6 py-2 rounded-lg 
+                    hover:bg-yellow-700 transition-all duration-150 text-lg font-semibold
+                    flex items-center justify-center border-b-4 border-yellow-800
+                    shadow-lg leading-tight
+                    active:scale-[0.98] active:border-b-2
+                    ${regenerateButton.buttonClasses}
+                    ${isRegenerating ? 'opacity-50 cursor-not-allowed' : ''}
+                  `}
+                  disabled={isRegenerating}
+                >
+                  {isRegenerating ? (
+                    <FiLoader className="animate-spin w-6 h-6" />
+                  ) : (
+                    'Neuer Spruch'
+                  )}
+                </motion.button>
+                <motion.button
+                  {...actionButton.handlers}
+                  initial={{scale: 0.9}}
+                  animate={{scale: 1}}
+                  whileTap={{scale: 0.95}}
+                  className={`
+                    flex-1 bg-green-600 text-white px-6 py-2 rounded-lg 
+                    hover:bg-green-700 transition-all duration-150 text-lg font-semibold
+                    flex items-center justify-center border-b-4 border-green-800
+                    shadow-lg leading-tight
+                    active:scale-[0.98] active:border-b-2
                     ${actionButton.buttonClasses}
                     ${isSharing ? 'opacity-50 cursor-not-allowed' : ''}
                   `}
@@ -209,19 +252,62 @@ const JassFinishNotification: React.FC = () => {
                   ) : (
                     'Teilen'
                   )}
-                </button>
-              ) : (
-                <button
-                  {...actionButton.handlers}
+                </motion.button>
+              </div>
+            )}
+
+            {/* Continue-Modus Buttons */}
+            {mode === "continue" && (
+              <div className="flex justify-between gap-4 mb-4">
+                <motion.button
+                  {...backButton.handlers}
+                  initial={{scale: 0.9}}
+                  animate={{scale: 1}}
+                  whileTap={{scale: 0.95}}
                   className={`
-                    flex-1 bg-green-600 text-white px-6 py-2 rounded-full 
-                    hover:bg-green-700 transition-colors text-lg font-semibold
+                    flex-1 bg-gray-600 text-white px-6 py-2 rounded-lg 
+                    hover:bg-gray-700 transition-all duration-150 text-lg font-semibold
+                    border-b-4 border-gray-800 shadow-lg leading-tight
+                    active:scale-[0.98] active:border-b-2
+                    ${backButton.buttonClasses}
+                  `}
+                >
+                  {onBackLabel || 'Zurück'}
+                </motion.button>
+                <motion.button
+                  {...actionButton.handlers}
+                  initial={{scale: 0.9}}
+                  animate={{scale: 1}}
+                  whileTap={{scale: 0.95}}
+                  className={`
+                    flex-1 bg-green-600 text-white px-6 py-2 rounded-lg 
+                    hover:bg-green-700 transition-all duration-150 text-lg font-semibold
+                    border-b-4 border-green-800 shadow-lg leading-tight
+                    active:scale-[0.98] active:border-b-2
                     ${actionButton.buttonClasses}
                   `}
                 >
                   Weiterjassen!
-                </button>
-              )}
+                </motion.button>
+              </div>
+            )}
+
+            {/* NEU: Schliessen-Button unterhalb (für alle Modi) */}
+            <div className="flex justify-center">
+              <motion.button
+                onClick={closeJassFinishNotification}
+                initial={{scale: 0.9}}
+                animate={{scale: 1}}
+                whileTap={{scale: 0.95}}
+                className="
+                  w-full bg-gray-600 text-white px-6 py-2 rounded-lg 
+                  hover:bg-gray-700 transition-all duration-150 text-lg font-semibold
+                  border-b-4 border-gray-800 shadow-lg leading-tight
+                  active:scale-[0.98] active:border-b-2
+                "
+              >
+                Schliessen
+              </motion.button>
             </div>
           </motion.div>
         </motion.div>

@@ -7,6 +7,7 @@ export interface SpruchMitIcon {
 
 export type SpruchGenerator = (params: JassSpruchParams) => SpruchMitIcon | null;
 
+// === BESTEHENDE SPRÜCHE TYPEN ===
 export interface GameEndSprueche {
   comeback: SpruchGenerator[];
   führungswechsel: SpruchGenerator[];
@@ -97,3 +98,91 @@ export interface BedankenSpruch {
 }
 
 export type BedankenSprueche = Record<BedankenChargeLevel, BedankenSpruch[]>; 
+
+// === NEXT-LEVEL SPRÜCHEGENERATOR TYPES ===
+
+/**
+ * Statistische Erkenntnis aus groupComputedStats
+ */
+export interface StatInsight {
+  category: 'matsch' | 'schneider' | 'winrate' | 'speed' | 'veteran' | 'team' | 'session';
+  subcategory?: string; // z.B. 'fastest', 'slowest', 'best', 'worst'
+  relevanceScore: number; // 0-100
+  playerName?: string;
+  teamNames?: string[];
+  data: {
+    value: number | string;
+    displayValue?: string;
+    eventsPlayed?: number;
+    context?: any;
+  };
+  contextType: 'player' | 'team' | 'session';
+  isPositive: boolean; // true = gut für Spieler, false = schlecht
+  isSurprising: boolean; // true = überraschend (z.B. schlechter Spieler gewinnt)
+}
+
+/**
+ * Template für Spruch-Generierung
+ */
+export interface ContextTemplate {
+  category: string;
+  subcategory?: string;
+  condition: (insight: StatInsight, sessionData: any) => boolean;
+  templates: ContextTemplateFunction[];
+  tones: ('witzig' | 'statistisch' | 'dramatisch' | 'motivierend' | 'spöttisch')[];
+  minRelevance: number; // Mindest-Relevanz-Score
+}
+
+export type ContextTemplateFunction = (insight: StatInsight, tone: string) => string;
+
+/**
+ * Generierter Kontext-Spruch
+ */
+export interface GeneratedContext {
+  text: string;
+  category: string;
+  relevanceScore: number;
+  insight: StatInsight;
+  tone: string;
+}
+
+/**
+ * Kompositions-Regeln für Smart Compositor
+ */
+export interface CompositionRules {
+  maxContexts: number; // 5-8 statt nur 3
+  minRelevanceScore: number; // Mindest-Score für Aufnahme
+  diversityBonus: number; // Bonus für verschiedene Kategorien
+  surpriseBonus: number; // Bonus für überraschende Insights
+  categoryPriority: Map<string, number>; // Kategorie-Prioritäten
+  redundancyThreshold: number; // Ähnlichkeits-Schwelle für Duplikate
+}
+
+/**
+ * Session-Statistiken für Vergleiche
+ */
+export interface SessionStats {
+  gamesPlayed: number;
+  duration: number; // in Sekunden
+  totalMatsche: number;
+  avgMatschPerGame: number;
+  participantCount: number;
+  uniquePairings: number;
+}
+
+/**
+ * Spieler-Performance für diese Session
+ */
+export interface SessionPlayerPerformance {
+  playerId: string;
+  playerName: string;
+  wins: number;
+  losses: number;
+  matschemade: number;
+  matscheReceived: number;
+  schneiderMade: number;
+  schneiderReceived: number;
+  avgRoundDuration?: number;
+  isWinner: boolean;
+  isLoser: boolean;
+} 

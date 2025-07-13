@@ -926,7 +926,7 @@ export const useGameStore = create<GameStore>()(devtools(
         message: "Weis wirklich korrigieren? Spätere Einträge werden überschrieben.", 
         onConfirm: () => {
           // --- START Kernlogik (History überschreiben) ---
-;
+
           let finalState: GameState | null = null;
           set((currentState) => {
             // 1. Weis-Punkte und Aktion aktualisieren

@@ -96,7 +96,6 @@ export const useTutorialStore = create<TutorialStore>()(
         
         // Zusätzlich eine direkte Prüfung im LocalStorage
         const directCheck = directlyGetHasCompletedTutorial();
-        
 
 
         // 🔧 KRITISCHER FIX: Session-Check IMMER machen (auch bei FORCE_TUTORIAL)
@@ -143,7 +142,6 @@ export const useTutorialStore = create<TutorialStore>()(
         if (neverShowAgain) {
           saveCompletedStatus(true);
         }
-        
 
         
         set({
@@ -154,7 +152,6 @@ export const useTutorialStore = create<TutorialStore>()(
           // hasSeenTutorialThisSession bleibt true - Tutorial soll in aktueller Session nicht mehr erscheinen
         });
       },
-
 
       
       // Neue Methode zum direkten Setzen des hasCompletedTutorial-Status

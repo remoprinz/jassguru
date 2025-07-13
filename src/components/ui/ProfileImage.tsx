@@ -14,6 +14,8 @@ interface ProfileImageProps {
   fallbackClassName?: string;
   priority?: boolean;
   useNextImage?: boolean; // Option für Next.js Image vs Avatar
+  lazy?: boolean; // 🚀 NEU: Lazy Loading Control
+  optimized?: boolean; // 🚀 NEU: Optimierung für Listen
 }
 
 const sizeMapping = {
@@ -33,6 +35,8 @@ const ProfileImage: React.FC<ProfileImageProps> = ({
   fallbackClassName = '',
   priority = false,
   useNextImage = false,
+  lazy = true, // 🚀 NEU: Lazy Loading als Standard
+  optimized = false, // 🚀 NEU: Optimierung für Listen
 }) => {
   const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,6 +46,21 @@ const ProfileImage: React.FC<ProfileImageProps> = ({
   
   // Prüfe, ob src verfügbar und gültig ist
   const hasValidSrc = src && src.trim() !== '' && !imageError;
+
+  // 🚀 NEU: Optimierte Größen für Listen
+  const getOptimizedSizes = () => {
+    if (!optimized) return `${sizeConfig.width}px`;
+    
+    // Für Listen: Kleinere Größen für bessere Performance
+    const optimizedSizes = {
+      xs: '20px',
+      sm: '28px', 
+      md: '36px',
+      lg: '64px',
+      xl: '96px'
+    };
+    return optimizedSizes[size] || `${sizeConfig.width}px`;
+  };
 
   if (useNextImage) {
     // Verwende Next.js Image direkt (für größere Bilder)
@@ -54,9 +73,14 @@ const ProfileImage: React.FC<ProfileImageProps> = ({
             width={sizeConfig.width}
             height={sizeConfig.height}
             className="object-cover h-full w-full"
+            style={{ width: 'auto', height: 'auto' }}
+            sizes={getOptimizedSizes()}
             priority={priority}
+            loading={lazy ? 'lazy' : 'eager'} // 🚀 NEU: Lazy Loading Control
             onError={() => {
-              console.warn(`Failed to load image: ${src}`);
+              if (process.env.NODE_ENV === 'development') {
+                console.warn(`Failed to load image: ${src}`);
+              }
               setImageError(true);
             }}
             onLoad={() => setIsLoading(false)}
@@ -83,7 +107,9 @@ const ProfileImage: React.FC<ProfileImageProps> = ({
           src={src} 
           alt={alt}
           onError={() => {
-            console.warn(`Avatar failed to load image: ${src}`);
+            if (process.env.NODE_ENV === 'development') {
+              console.warn(`Avatar failed to load image: ${src}`);
+            }
             setImageError(true);
           }}
           onLoad={() => setIsLoading(false)}

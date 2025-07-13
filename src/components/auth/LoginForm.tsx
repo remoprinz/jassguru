@@ -21,6 +21,7 @@ import {useRouter} from "next/router";
 import Image from "next/image";
 import {useUIStore} from "@/store/uiStore";
 import { getTournamentToken, getGroupToken } from "@/utils/tokenStorage";
+import { authLogger } from "@/utils/logger";
 
 const loginSchema = z.object({
   email: z.string().email("Ungültige E-Mail-Adresse"),
@@ -50,6 +51,11 @@ export function LoginForm() {
     }
   }, [error, status]);
 
+  // ✅ Error-State beim ersten Laden der Komponente leeren
+  useEffect(() => {
+    clearError();
+  }, [clearError]);
+
   const onSubmit = async (data: LoginFormValues) => {
     clearError();
     setShowVerificationWarning(false);
@@ -61,18 +67,16 @@ export function LoginForm() {
       if (loggedInUser) {
         if (loggedInUser.emailVerified) {
           setTimeout(() => {
-            if (process.env.NODE_ENV === 'development') {
-          console.log("[LoginForm] Verzögerte Navigation: Status=", useAuthStore.getState().status);
-        }
+            authLogger.debug("Verzögerte Navigation: Status=", useAuthStore.getState().status);
             
             const tournamentToken = getTournamentToken();
             const groupToken = getGroupToken();
             
             if (tournamentToken) {
-              console.log("[LoginForm] Turniertoken im Storage gefunden, leite zu /join weiter:", tournamentToken);
+              authLogger.info("Turniertoken im Storage gefunden, leite zu /join weiter:", tournamentToken);
               router.push(`/join?tournamentToken=${tournamentToken}`);
             } else if (groupToken) {
-              console.log("[LoginForm] Gruppentoken im Storage gefunden, leite zu /join weiter:", groupToken);
+              authLogger.info("Gruppentoken im Storage gefunden, leite zu /join weiter:", groupToken);
               router.push(`/join?token=${groupToken}`);
             } else {
               router.push("/start");
@@ -86,7 +90,7 @@ export function LoginForm() {
         throw new Error("Benutzerdaten nach Login nicht verfügbar.");
       }
     } catch (err) {
-      console.error("Login-Fehler im Formular:", err);
+      authLogger.error("Login-Fehler im Formular:", err);
       setShowVerificationWarning(false);
     }
   };
@@ -97,25 +101,23 @@ export function LoginForm() {
     try {
       await loginWithGoogle();
       setTimeout(() => {
-        if (process.env.NODE_ENV === 'development') {
-          console.log("[LoginForm] Verzögerte Navigation (Google): Status=", useAuthStore.getState().status);
-        }
+        authLogger.debug("Verzögerte Navigation (Google): Status=", useAuthStore.getState().status);
         
         const tournamentToken = getTournamentToken();
         const groupToken = getGroupToken();
             
         if (tournamentToken) {
-          console.log("[LoginForm] Turniertoken im Storage gefunden (Google), leite zu /join weiter:", tournamentToken);
+          authLogger.info("Turniertoken im Storage gefunden (Google), leite zu /join weiter:", tournamentToken);
           router.push(`/join?tournamentToken=${tournamentToken}`);
         } else if (groupToken) {
-          console.log("[LoginForm] Gruppentoken im Storage gefunden (Google), leite zu /join weiter:", groupToken);
+          authLogger.info("Gruppentoken im Storage gefunden (Google), leite zu /join weiter:", groupToken);
           router.push(`/join?token=${groupToken}`);
         } else {
           router.push("/start");
         }
       }, 500);
     } catch (error) {
-      console.error("Google login error:", error);
+      authLogger.error("Google login error:", error);
     }
   };
 
@@ -128,7 +130,7 @@ export function LoginForm() {
         type: "success",
       });
     } catch (resendError) {
-      console.error("Fehler beim erneuten Senden:", resendError);
+      authLogger.error("Fehler beim erneuten Senden:", resendError);
       showNotification({
         message: error || "Fehler beim erneuten Senden der E-Mail.",
         type: "error",

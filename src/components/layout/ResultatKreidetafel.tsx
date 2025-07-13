@@ -50,7 +50,7 @@ import { usePressableButton } from '@/hooks/usePressableButton';
 import JassFinishNotification from '../notifications/JassFinishNotification';
 import { useTutorialStore } from '@/store/tutorialStore';
 import { TUTORIAL_STEPS } from '@/types/tutorial';
-import { getJassSpruch } from '@/utils/jasssprueche';
+// NEU: Spruch-Generierung entfernt - erfolgt jetzt in GameViewerKreidetafel
 import { calculateTeamStats } from '@/utils/teamCalculations';
 import { useDeviceScale } from '@/hooks/useDeviceScale';
 import { useSwipeable } from 'react-swipeable';
@@ -231,7 +231,9 @@ const prepareSessionTeamsData = (
 ) => {
   // Mindestens 4 Spieler nötig - füllen wir Lücken mit Platzhaltern
   const playerIds = [...participantPlayerIds];
-  while (playerIds.length < 4) { playerIds.push(`placeholder_playerid_${playerIds.length + 1}`); }
+  while (playerIds.length < 4) {
+ playerIds.push(`placeholder_playerid_${playerIds.length + 1}`);
+}
   
   // Team-Zuordnung: Standard-Konvention in der App
   // Spieler 1+3 = Team A/Bottom, Spieler 2+4 = Team B/Top
@@ -865,43 +867,12 @@ const ResultatKreidetafel = ({
         return; 
     }
 
-    // Fall 2: Gastmodus oder Offline -> Direkt Teilen/Abschliessen anzeigen
+    // Fall 2: Gastmodus oder Offline -> Direkt finalisieren und zur Startseite
     const timerAnalytics = timerStore.getAnalytics();
     const jassDuration = timerStore.prepareJassEnd();
-    const spruch = getJassSpruch({ /* ... (Parameter wie gehabt) ... */ 
-      stricheDifference: Math.abs(currentTotals.striche.top - currentTotals.striche.bottom),
-      pointDifference: Math.abs(currentTotals.punkte.top - currentTotals.punkte.bottom),
-      isUnentschieden: currentStatisticId === 'striche' 
-        ? currentTotals.striche.top === currentTotals.striche.bottom 
-        : currentTotals.punkte.top === currentTotals.punkte.bottom,
-      winnerNames: currentStatisticId === 'striche'
-        ? currentTotals.striche.top > currentTotals.striche.bottom
-          ? [playerNames[2], playerNames[4]].filter(Boolean)
-          : [playerNames[1], playerNames[3]].filter(Boolean)
-        : currentTotals.punkte.top > currentTotals.punkte.bottom
-          ? [playerNames[2], playerNames[4]].filter(Boolean)
-          : [playerNames[1], playerNames[3]].filter(Boolean),
-      loserNames: currentStatisticId === 'striche'
-        ? currentTotals.striche.top > currentTotals.striche.bottom
-          ? [playerNames[1], playerNames[3]].filter(Boolean)
-          : [playerNames[2], playerNames[4]].filter(Boolean)
-        : currentTotals.punkte.top > currentTotals.punkte.bottom
-          ? [playerNames[1], playerNames[3]].filter(Boolean)
-          : [playerNames[2], playerNames[4]].filter(Boolean),
-      isStricheMode: currentStatisticId === 'striche',
-      type: 'jassEnd',
-      timerAnalytics, 
-      matchCount: {
-        team1: uiStriche.top.matsch ?? 0,
-        team2: uiStriche.bottom.matsch ?? 0
-      },
-      totalMatsche: (uiStriche.top.matsch ?? 0) + (uiStriche.bottom.matsch ?? 0),
-      isSchneider: currentTotals.punkte.top < activeScoreSettings.values.schneider || 
-                  currentTotals.punkte.bottom < activeScoreSettings.values.schneider,
-      gameStats: teamStats.gameStats,
-      gesamtStand: teamStats.gesamtStand,
-      previousGesamtStand: teamStats.previousGesamtStand
-    });
+    
+    // NEU: Vereinfachte Logik für Offline-Modus - KEINE Spruch-Generierung
+    console.log('[ResultatKreidetafel] Offline-Modus: Finalisiere lokal ohne Spruch');
 
     // Logik zum Finalisieren und Resetten (wird von beiden Buttons verwendet)
     const finalizeAndResetLocal = async () => {
@@ -978,23 +949,10 @@ const ResultatKreidetafel = ({
       await debouncedRouterPush(router, authStore.isAuthenticated() ? '/start' : '/auth/register?origin=offline', undefined, true);
     };
 
-    // Teilen-Dialog für Gäste/Offline
-    uiStore.showJassFinishNotification({
-      mode: 'share',
-      message: spruch,
-      onShare: async () => { 
-        await handleShareAndComplete();
-        // NEU: Setze Transition-State vor finalizeAndResetLocal
+    // NEU: Direkte Finalisierung ohne Spruch-Dialog
+    // Setze Transition-State vor finalizeAndResetLocal
         useGameStore.getState().setTransitioning(true);
-        await finalizeAndResetLocal(); // Aufruf der angepassten Funktion
-      },
-      onBack: async () => {
-        // NEU: Setze Transition-State vor finalizeAndResetLocal
-        useGameStore.getState().setTransitioning(true);
-        await finalizeAndResetLocal(); // Aufruf der angepassten Funktion
-      },
-      onBackLabel: "Nicht teilen"
-    });
+    await finalizeAndResetLocal();
     
   }, [ /* ... alte Abhängigkeiten + authStore, jassStore ... */ 
     canStartNewGame,
@@ -1582,7 +1540,7 @@ const ResultatKreidetafel = ({
                     // Die `weisActions` sind der Ground Truth für die Weispunkte dieser Runde.
                     // Wenn `cleanedEntry.weisPoints` nicht die Summe der `weisActions` ist, gibt es ein Problem in `createRoundEntry`.
                     // Für die Korrektur hier, stellen wir sicher, dass es konsistent ist, falls createRoundEntry fehlschlägt:
-                    let roundSpecificWeisSum = { top: 0, bottom: 0 };
+                    const roundSpecificWeisSum = { top: 0, bottom: 0 };
                     (cleanedEntry.weisActions || []).forEach(wa => {
                       roundSpecificWeisSum[wa.position] = (roundSpecificWeisSum[wa.position] || 0) + wa.points;
                     });
@@ -1932,62 +1890,23 @@ const ResultatKreidetafel = ({
             }
             // --- ENDE Aufruf finalizeSessionSummary mit Retry ---
 
-            // 4. Spruch berechnen (FullscreenLoader bleibt an!)
-            console.log("[ResultatKreidetafel] Speichern abgeschlossen. Berechne Spruch...");
-            const spruch = getJassSpruch({
-                stricheDifference: Math.abs(currentTotals.striche.top - currentTotals.striche.bottom),
-                pointDifference: Math.abs(currentTotals.punkte.top - currentTotals.punkte.bottom),
-                isUnentschieden: currentStatisticId === 'striche'
-                  ? currentTotals.striche.top === currentTotals.striche.bottom
-                  : currentTotals.punkte.top === currentTotals.punkte.bottom,
-                winnerNames: currentStatisticId === 'striche'
-                  ? currentTotals.striche.top > currentTotals.striche.bottom
-                    ? [playerNames[2], playerNames[4]].filter(Boolean)
-                    : [playerNames[1], playerNames[3]].filter(Boolean)
-                  : currentTotals.punkte.top > currentTotals.punkte.bottom
-                    ? [playerNames[2], playerNames[4]].filter(Boolean)
-                    : [playerNames[1], playerNames[3]].filter(Boolean),
-                loserNames: currentStatisticId === 'striche'
-                  ? currentTotals.striche.top > currentTotals.striche.bottom
-                    ? [playerNames[1], playerNames[3]].filter(Boolean)
-                    : [playerNames[2], playerNames[4]].filter(Boolean)
-                  : currentTotals.punkte.top > currentTotals.punkte.bottom
-                    ? [playerNames[1], playerNames[3]].filter(Boolean)
-                    : [playerNames[2], playerNames[4]].filter(Boolean),
-                isStricheMode: currentStatisticId === 'striche',
-                type: 'jassEnd',
-                timerAnalytics, 
-                matchCount: {
-                  team1: uiStriche.top.matsch ?? 0,
-                  team2: uiStriche.bottom.matsch ?? 0
-                },
-                totalMatsche: (uiStriche.top.matsch ?? 0) + (uiStriche.bottom.matsch ?? 0),
-                isSchneider: currentTotals.punkte.top < activeScoreSettings.values.schneider || 
-                            currentTotals.punkte.bottom < activeScoreSettings.values.schneider,
-                gameStats: teamStats.gameStats,
-                gesamtStand: teamStats.gesamtStand,
-                previousGesamtStand: teamStats.previousGesamtStand
-            });
+                        // 4. Session erfolgreich finalisiert - Weiterleitung zu GameViewerKreidetafel
+            console.log("[ResultatKreidetafel] Session finalisiert. Weiterleitung zu GameViewerKreidetafel...");
+            
+            // 5. Lokale Stores zurücksetzen
+            await finalizeAndResetOnline();
 
-            // 5. JassFinishNotification anzeigen (ohne Drehung)
-            console.log("[ResultatKreidetafel] Zeige JassFinishNotification ohne Drehung..."); 
-            uiStore.showJassFinishNotification({
-                mode: 'share',
-                message: spruch,
-                onShare: async () => {
-                    console.log("[ResultatKreidetafel] Sign-Flow: Share button clicked.");
-                    await handleShareAndComplete();
-                    await finalizeAndResetOnline(); // Reset NACH dem Teilen
-                },
-                onBack: async () => { // Wird jetzt als "Weiter" angezeigt
-                    console.log("[ResultatKreidetafel] Sign-Flow: Weiter button clicked.");
-                    await finalizeAndResetOnline(); // Direkter Reset
-                },
-                onBackLabel: "Weiter" // Das Label für den onBack Button
-            });
+            // 6. Weiterleitung zu GameViewerKreidetafel für Spruch-Anzeige
+            const sessionId = currentSessionIdFromStore;
+            if (sessionId) {
+              await debouncedRouterPush(router, `/view/session/${sessionId}`);
+            } else {
+              console.error("[ResultatKreidetafel] No sessionId available for redirect");
+              await debouncedRouterPush(router, '/start');
+            }
 
-            // 6. FullscreenLoader SOFORT ausblenden nach JassFinishNotification
-            console.log("[ResultatKreidetafel] FullscreenLoader ausblenden nach JassFinishNotification...");
+            // 7. FullscreenLoader ausblenden
+            console.log("[ResultatKreidetafel] FullscreenLoader ausblenden nach Weiterleitung...");
             setIsFinalizingSession(false);
 
         } else {

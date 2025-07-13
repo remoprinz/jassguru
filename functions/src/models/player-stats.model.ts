@@ -128,6 +128,7 @@ export interface PlayerComputedStats {
   lastUpdateTimestamp: admin.firestore.Timestamp; // Wann wurden diese Stats zuletzt berechnet
   firstJassTimestamp: admin.firestore.Timestamp | null;
   lastJassTimestamp: admin.firestore.Timestamp | null;
+  playerName: string | null; // NEU: Spielername für Firebase-Suche
 
   // === Zählstatistiken Allgemein ===
   totalSessions: number;          // Anzahl gespielter Partien
@@ -255,6 +256,7 @@ export const initialPlayerComputedStats: PlayerComputedStats = {
   lastUpdateTimestamp: admin.firestore.Timestamp.fromMillis(0),
   firstJassTimestamp: null,
   lastJassTimestamp: null,
+  playerName: null, // NEU: Spielername für Firebase-Suche
 
   totalSessions: 0,
   totalTournaments: 0,

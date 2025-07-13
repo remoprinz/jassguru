@@ -523,6 +523,10 @@ export const useAuthStore = create<AuthStore>()(
             let playerIdToLoad: string | null = null;
 
             try {
+              // 🚨 RACE CONDITION FIX: Small delay to ensure Firebase Auth is fully ready
+              // This prevents permission errors during page reload
+              await new Promise(resolve => setTimeout(resolve, 100));
+              
               const userRef = doc(db, USERS_COLLECTION, firebaseUser.uid);
               const userSnap = await getDoc(userRef);
 
@@ -578,7 +582,7 @@ export const useAuthStore = create<AuthStore>()(
               userDocUnsubscribe = onSnapshot(userRef, async (docSnap) => {
                 if (docSnap.exists()) {
                   const userData = docSnap.data();
-                  let migratedData = {...userData}; // Kopie für potenzielle Migration
+                  const migratedData = {...userData}; // Kopie für potenzielle Migration
                   let needsUpdate = false;
 
                   // 🔧 Migration-Lock prüfen - verhindert Endlosschleifen
@@ -747,8 +751,25 @@ export const useAuthStore = create<AuthStore>()(
               }
 
             } catch (error) {
-              console.error("AUTH_STORE: Schwerwiegender Fehler bei der Initialisierung (playerId/Gruppenladen):", error);
-              set({ status: "error", error: "Initialisierung fehlgeschlagen." });
+              // 🚨 CRITICAL FIX: Race Condition - Don't logout on Firestore permission errors during initial load
+              console.error("AUTH_STORE: Fehler bei der Initialisierung (playerId/Gruppenladen):", error);
+              
+              // Check if this is a permission error (common during page reload)
+              const isPermissionError = error instanceof FirebaseError && 
+                (error.code === 'permission-denied' || error.message.includes('Missing or insufficient permissions'));
+              
+              if (isPermissionError) {
+                console.warn("AUTH_STORE: Permission error detected during initialization - this is normal during page reload. User stays authenticated.");
+                // Keep user authenticated, just log the issue
+                // The real-time listeners will retry and eventually succeed
+                set({ 
+                  status: "authenticated", // Keep authenticated!
+                  error: null // Don't show error to user
+                });
+              } else {
+                // Only logout for real errors (network, etc.)
+                set({ status: "error", error: "Initialisierung fehlgeschlagen." });
+              }
             }
 
           } else {

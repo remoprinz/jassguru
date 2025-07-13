@@ -307,7 +307,7 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
     } = config;
 
     // 1. Bestimme die Basis-Einstellungen (Initial/UI > Default)
-    let baseSettings = {
+    const baseSettings = {
       farbeSettings: initialSettings?.farbeSettings ?? DEFAULT_FARBE_SETTINGS,
       scoreSettings: initialSettings?.scoreSettings ?? DEFAULT_SCORE_SETTINGS,
       strokeSettings: initialSettings?.strokeSettings ?? DEFAULT_STROKE_SETTINGS,
@@ -478,7 +478,6 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
     const timerStore = useTimerStore.getState();
     timerStore.startJassTimer();
     timerStore.activateGameTimer(1);
-
     
     
     // ⏱️ RACE CONDITION FIX: Kurz warten bis Session-Dokument definitiv geschrieben ist
@@ -596,7 +595,9 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
           striche: {...gameStore.striche.bottom},
         },
       },
-      roundHistory: gameStore.roundHistory,
+      // ✅ KRITISCHER FIX: Verwende die roundHistory aus dem currentGame im jassStore
+      // Diese wurde bereits durch syncWithJassStore aktualisiert
+      roundHistory: currentGame.roundHistory || [],
       currentRound: gameStore.currentRound,
       currentPlayer: gameStore.currentPlayer,
 
@@ -652,7 +653,8 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
           let rosen10PlayerForGame: string | null = null;
           if (currentGame && typeof currentGame.id === 'number' && currentGame.id === 1) {
             // Erstes Spiel der Session - finde den ersten Trumpf-Ansager
-            const firstJassRound = gameStore.roundHistory.find(round => 
+            // ✅ KRITISCHER FIX: Verwende updatedGame.roundHistory statt gameStore.roundHistory
+            const firstJassRound = updatedGame.roundHistory.find(round => 
               round.actionType === 'jass' && 'farbe' in round && round.farbe
             );
             if (firstJassRound && 'currentPlayer' in firstJassRound) {
@@ -682,7 +684,9 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
             initialStartingPlayer: currentGame.initialStartingPlayer,
             playerNames: gameStore.playerNames,
             trumpColorsPlayed: [],
-            roundHistory: gameStore.roundHistory,
+            // ✅ KRITISCHER FIX: Verwende die roundHistory aus dem updatedGame
+            // Diese enthält die vollständige History und wurde nicht durch einen Reset geleert
+            roundHistory: updatedGame.roundHistory,
             participantUids: state.currentSession.participantUids || [],
             groupId: state.currentSession.gruppeId || null,
             Rosen10player: rosen10PlayerForGame, // ✅ HINZUGEFÜGT

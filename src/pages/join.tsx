@@ -168,7 +168,18 @@ const JoinGroupPage: React.FC = () => {
               showNotification({ message: uiMessage, type: "success" });
               setPageStatus("success");
               setMessage(uiMessage);
-              successRedirectionPath = "/start";
+              
+              // ✅ UX-VERBESSERUNG: Context-aware Redirect mit Gruppeninfo
+              const groupName = resultData.group.name || 'unbekannte Gruppe';
+              const wasAlreadyMember = resultData.alreadyMember;
+              
+              // Erstelle Context-Parameter für personalisierte Landing Page
+              const contextParams = new URLSearchParams({
+                joined: groupName,
+                newMember: wasAlreadyMember ? 'false' : 'true'
+              });
+              
+              successRedirectionPath = `/start?${contextParams.toString()}`;
               clearGroupToken();
               finalStatus = "success";
             } else {

@@ -96,7 +96,6 @@ const setupListenersAndNotify = (registration: ServiceWorkerRegistration) => {
 
 export function register() {
   const isDevelopment = process.env.NODE_ENV === 'development';
-  
 
   
   if (isDevelopment) {
@@ -132,7 +131,7 @@ export function register() {
   // ===== NEU =====
   // Funktion zur Registrierung des Service Workers
   const registerServiceWorker = () => {
-    const swUrl = `/sw-custom.js?v=${SW_VERSION}`;
+    const swUrl = `/sw.js?v=${SW_VERSION}`;
     if (process.env.NODE_ENV === 'development') {
       console.log(`[ServiceWorkerRegistration] Attempting to register Service Worker: ${swUrl}`);
     }

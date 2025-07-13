@@ -46,3 +46,14 @@ docs
 
 # Firebase service account key
 /functions/serviceAccountKey.json
+
+# Vertrauliche Verbands-Dokumente (sensible Geschäftsinformationen)
+Vermarktungsvertrag_SJV.md
+Founder_Schutz_Klauseln.md
+Statuten_Schweizer_Jass_Verband.md
+
+# Juristische/Business Dokumente allgemein
+*_Vertrag*.md
+*_Statuten*.md
+*_Klauseln*.md
+*_rechtlich*.md

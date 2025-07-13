@@ -1,6 +1,6 @@
 "use client";
 
-import {useState} from "react";
+import {useState, useEffect} from "react";
 import {useForm} from "react-hook-form";
 import {zodResolver} from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -20,6 +20,7 @@ import {Alert, AlertDescription} from "@/components/ui/alert";
 import {useRouter} from "next/router";
 import Image from "next/image";
 import { getTournamentToken, getGroupToken } from "@/utils/tokenStorage"; // Token-Storage-Helper importieren
+import { authLogger } from "@/utils/logger"; // Logger importieren
 
 // Schema für die Registrierung
 const registerSchema = z.object({
@@ -35,6 +36,11 @@ export function RegisterForm() {
   const showNotification = useUIStore((state) => state.showNotification);
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
+
+  // ✅ Error-State beim ersten Laden der Komponente leeren
+  useEffect(() => {
+    clearError();
+  }, [clearError]);
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -92,7 +98,7 @@ export function RegisterForm() {
 
       form.reset();
     } catch (err) {
-      console.error("Registrierungsfehler im Formular:", err);
+      authLogger.error("Registrierungsfehler im Formular:", err);
     }
   };
 
@@ -124,23 +130,17 @@ export function RegisterForm() {
       } else {
         // Verzögerte Navigation mit Token-Verarbeitung
         setTimeout(() => {
-          if (process.env.NODE_ENV === 'development') {
-            console.log("[RegisterForm] Verzögerte Navigation (Google): Status=", useAuthStore.getState().status);
-          }
+          authLogger.debug("Verzögerte Navigation (Google): Status=", useAuthStore.getState().status);
           
           // Tokens aus Storage lesen
           const tournamentToken = getTournamentToken();
           const groupToken = getGroupToken();
               
           if (tournamentToken) {
-            if (process.env.NODE_ENV === 'development') {
-              console.log("[RegisterForm] Turniertoken im Storage gefunden (Google), leite zu /join weiter:", tournamentToken);
-            }
+            authLogger.info("Turniertoken im Storage gefunden (Google), leite zu /join weiter:", tournamentToken);
             router.push(`/join?tournamentToken=${tournamentToken}`);
           } else if (groupToken) {
-            if (process.env.NODE_ENV === 'development') {
-              console.log("[RegisterForm] Gruppentoken im Storage gefunden (Google), leite zu /join weiter:", groupToken);
-            }
+            authLogger.info("Gruppentoken im Storage gefunden (Google), leite zu /join weiter:", groupToken);
             router.push(`/join?token=${groupToken}`);
           } else {
             // Standard-Navigation ohne Token
@@ -150,7 +150,7 @@ export function RegisterForm() {
       }
       
     } catch (error) {
-      console.error("Google-Registrierungsfehler:", error);
+      authLogger.error("Google-Registrierungsfehler:", error);
     }
   };
 

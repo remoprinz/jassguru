@@ -27,7 +27,6 @@ export function BottomNavigation() {
   }, [user, tournamentStoreStatus, loadUserTournamentInstances, userTournamentInstances.length]);
 
 
-
   const baseNavigationItems = [
     {
       name: "Home",

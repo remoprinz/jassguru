@@ -92,14 +92,14 @@ const TournamentInviteModal: React.FC<TournamentInviteModalProps> = ({
         
         const titleText = `Du wurdest zu jassguru.ch eingeladen! 🏆`;
         const bodyText = `${inviterName} lädt dich zum Jass-Turnier "${tournamentName || 'Jass-Turnier'}" ein. Nimm teil und zeige dein Können!`;
-        const linkText = `👉 Hier beitreten:`;
+        const linkText = `👉 Hier ist dein Einladungslink:\n${inviteLink}`;
         const shareText = `${titleText}\n\n${bodyText}\n\n${linkText}`;
 
         // ✅ KEIN BILD - Nur Text-basierte Einladung für saubere Link-Vorschau
         const shareData: ShareData = {
           title: `Einladung zum Turnier: ${tournamentName || 'Jass-Turnier'}`,
           text: shareText,
-          url: inviteLink,
+          // url entfernt, da Link bereits im shareText enthalten ist
         };
         await navigator.share(shareData);
       } catch (err) {

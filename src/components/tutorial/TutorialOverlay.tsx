@@ -173,7 +173,6 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({onCloseMenu}) => {
   const currentStep = getCurrentStep();
 
 
-
   // Nutze den erweiterten useTutorialComponent Hook
   useTutorialComponent("splitContainer", setIsContentVisible);
   useTutorialComponent("calculator", setIsContentVisible);

@@ -158,12 +158,12 @@ const PublicSessionPage = () => {
   const sessionId = router.query.sessionId as string;
 
 
-
   // Session-Daten Zustand
   const [sessionData, setSessionData] = useState<any>(null);
   const [completedGames, setCompletedGames] = useState<CompletedGameSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [groupStats, setGroupStats] = useState<any>(null); // NEU: State für Gruppen-Statistiken
 
   // 🚨 INTELLIGENTE ZURÜCK-NAVIGATION (an den Anfang verschoben)
   const handleBackClick = useCallback(() => {
@@ -241,6 +241,23 @@ const PublicSessionPage = () => {
         }
         setSessionData(sessionDataResult);
 
+        // NEU: Lade groupComputedStats wenn groupId vorhanden
+        if (sessionDataResult.groupId) {
+          try {
+            const groupStatsDoc = await getDoc(doc(getFirestore(firebaseApp), 'groupComputedStats', sessionDataResult.groupId));
+            if (groupStatsDoc.exists()) {
+              const groupStatsData = groupStatsDoc.data();
+              if (process.env.NODE_ENV === 'development') {
+                console.log('🔍 [SessionView] Group stats loaded:', groupStatsData);
+              }
+              setGroupStats(groupStatsData);
+            }
+          } catch (error) {
+            console.warn('🔍 [SessionView] Could not load group stats:', error);
+            // Kein kritischer Fehler - wir können ohne groupStats weitermachen
+          }
+        }
+
         // Completed Games laden
         if (process.env.NODE_ENV === 'development') {
           console.log('🔍 [SessionView] Loading completed games for sessionId:', sessionId);
@@ -300,10 +317,9 @@ const PublicSessionPage = () => {
     );
   }
 
-  // Die GameViewerKreidetafel erwartet eine bestimmte Datenstruktur.
-  // Wir müssen die geladenen Session-Daten in dieses Format umwandeln.
+  // 🚨 KORREKTUR: Kein Meta-Game mehr! Session-Daten direkt übergeben
   const gameDataForViewer = {
-    games: completedGames, // 🚨 KORREKTUR: Verwende das Array der geladenen Spiele
+    games: completedGames, // ✅ NUR die echten Spiele
     playerNames: sessionData.playerNames || { 1: 'Spieler 1', 2: 'Spieler 2', 3: 'Spieler 3', 4: 'Spieler 4' },
     currentScores: sessionData.finalScores || { top: 0, bottom: 0 },
     currentStriche: sessionData.finalStriche || { 
@@ -315,6 +331,37 @@ const PublicSessionPage = () => {
     strokeSettings: sessionData.strokeSettings || DEFAULT_STROKE_SETTINGS,
     scoreSettings: sessionData.scoreSettings || DEFAULT_SCORE_SETTINGS,
     startedAt: sessionData.startedAt || Date.now(),
+    // NEU: Spruch-relevante Felder für GameViewerKreidetafel
+    sessionId: sessionId, // Wichtig für Spruch-Generierung und -Speicherung
+    jassSpruch: undefined, // Sprüche werden nicht mehr gespeichert, sondern immer fresh generiert
+    // NEU: Gruppen-Statistiken falls verfügbar
+    groupStats: groupStats ? {
+      groupName: groupStats.groupName,
+      playerWithHighestMatschBilanz: groupStats.playerWithHighestMatschBilanz,
+      playerWithHighestSchneiderBilanz: groupStats.playerWithHighestSchneiderBilanz,
+      playerWithHighestStricheDiff: groupStats.playerWithHighestStricheDiff,
+      playerWithHighestWinRateSession: groupStats.playerWithHighestWinRateSession,
+      teamWithHighestMatschBilanz: groupStats.teamWithHighestMatschBilanz,
+      avgGamesPerSession: groupStats.avgGamesPerSession,
+      avgMatschPerGame: groupStats.avgMatschPerGame,
+      sessionCount: groupStats.sessionCount
+    } : undefined,
+    
+    // ✅ NEU: Session-Level Daten für Spruch-Generierung (OHNE Meta-Game!)
+    sessionLevelData: {
+      eventCounts: sessionData.eventCounts,
+      gameResults: sessionData.gameResults,
+      gameWinsByTeam: sessionData.gameWinsByTeam,
+      gameWinsByPlayer: sessionData.gameWinsByPlayer,
+      gamesPlayed: sessionData.gamesPlayed,
+      durationSeconds: sessionData.durationSeconds,
+      winnerTeamKey: sessionData.winnerTeamKey,
+      finalStriche: sessionData.finalStriche,                  // 🚨 KRITISCH: finalStriche hinzufügen!
+      aggregatedTrumpfCountsByPlayer: sessionData.aggregatedTrumpfCountsByPlayer,
+      aggregatedRoundDurationsByPlayer: sessionData.aggregatedRoundDurationsByPlayer,
+      sessionTotalWeisPoints: sessionData.sessionTotalWeisPoints,
+      totalRounds: sessionData.totalRounds
+    }
   };
 
   return (

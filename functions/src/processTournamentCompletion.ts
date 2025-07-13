@@ -210,10 +210,8 @@ export const aggregateTournamentIntoSummary = onDocumentWritten(
         }
         
         // Finalize Summary
-        const resolvedPlayerIds = await Promise.all(
-            Array.from(allPlayerIds).map(uid => getPlayerDocId(uid))
-        );
-        summary.participantPlayerIds = [...new Set(resolvedPlayerIds)];
+        // ✅ KORRIGIERT: allPlayerIds enthält bereits aufgelöste Player-Doc-IDs
+        summary.participantPlayerIds = [...new Set(allPlayerIds)];
         summary.durationSeconds = Math.round(totalDurationMillis / 1000);
         
         // 4. Write the MINIMAL summary document

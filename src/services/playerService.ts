@@ -101,8 +101,8 @@ export const createPlayer = async (
     // Neuen Spieler erstellen
     const isGuest = !authUser;
     const userId = authUser?.uid || null;
-    // 🚀 CRITICAL FIX: Use deterministic IDs for authenticated users, random for guests
-    const playerId = authUser ? `player_${authUser.uid}` : nanoid();
+    // 🔒 SECURITY FIX: Always use cryptographically secure random IDs
+    const playerId = nanoid();
 
     const playerData: FirestorePlayer = {
       id: playerId,
@@ -112,11 +112,7 @@ export const createPlayer = async (
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       groupIds: initialGroupId ? [initialGroupId] : [],
-      stats: {
-        gamesPlayed: 0,
-        wins: 0,
-        totalScore: 0,
-      },
+      // 🔧 OPTIMIZATION: Stats werden nicht mehr initial erstellt - werden bei Bedarf hinzugefügt
       metadata: {
         isOG: true, // Original Jasster Auszeichnung für frühe Nutzer
       },
@@ -180,17 +176,7 @@ export const getPlayerByUserId = async (userId: string): Promise<FirestorePlayer
   }
 
   try {
-    // 🚀 CRITICAL FIX: Try deterministic lookup first
-    const deterministicPlayerId = `player_${userId}`;
-    const deterministicDoc = await getDoc(doc(collections.players, deterministicPlayerId));
-    
-    if (deterministicDoc.exists()) {
-      const data = deterministicDoc.data() as FirestorePlayer;
-      data.id = deterministicDoc.id; // Ensure ID is set
-      return data;
-    }
-    
-    // Fallback: Legacy query for old players with random IDs
+    // 🔒 SECURITY FIX: Remove deterministic lookup - only use userId query
     const q = query(collections.players, where("userId", "==", userId));
     const querySnapshot = await getDocs(q);
 
@@ -255,6 +241,7 @@ export const createGuestPlayer = async (nickname: string, initialGroupId?: strin
  * Erstellt einen Mock-Spieler für die Offline-Entwicklung
  */
 const createMockPlayer = (nickname: string, userId?: string): FirestorePlayer => {
+  // 🔒 SECURITY FIX: Use secure random ID for mock players too
   const playerId = nanoid();
 
   return {
@@ -265,11 +252,7 @@ const createMockPlayer = (nickname: string, userId?: string): FirestorePlayer =>
     createdAt: Timestamp.fromDate(new Date()),
     updatedAt: Timestamp.fromDate(new Date()),
     groupIds: [],
-    stats: {
-      gamesPlayed: 0,
-      wins: 0,
-      totalScore: 0,
-    },
+    // 🔧 OPTIMIZATION: Stats werden nicht mehr initial erstellt - werden bei Bedarf hinzugefügt
     metadata: {isMock: true},
   };
 };
@@ -279,17 +262,13 @@ const createMockPlayer = (nickname: string, userId?: string): FirestorePlayer =>
  */
 const createInitialPlayerData = (playerId: string, userId: string, displayNameInput: string | null): Omit<FirestorePlayer, 'id'> & { createdAt: FieldValue, updatedAt: FieldValue } => {
   return {
-    displayName: displayNameInput || `Spieler ${playerId.slice(0, 4)}...`, // Fallback-Nickname
+    displayName: displayNameInput || `Spieler ${playerId.slice(0, 8)}...`, // Fallback-Nickname
     userId,
     isGuest: false, // Ein verknüpfter User ist kein Gast
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
     groupIds: [],
-    stats: {
-      gamesPlayed: 0,
-      wins: 0,
-      totalScore: 0,
-    },
+    // 🔧 OPTIMIZATION: Stats werden nicht mehr initial erstellt - werden bei Bedarf hinzugefügt
     metadata: { isOG: false }, // Neue Spieler sind nicht OG
   };
 };
@@ -350,7 +329,7 @@ const getPlayerIdForUserInternal = async (userId: string, displayName: string | 
         } else {
           // --- Fall 1.1.2: Player Doc NICHT gefunden -> Fehlendes Player Doc erstellen --- 
           // Verwende displayName als Nickname, mit Fallback
-          const finalDisplayName = displayName || `Spieler ${storedPlayerId.slice(0, 4)}...`;
+          const finalDisplayName = displayName || `Spieler ${storedPlayerId.slice(0, 8)}...`;
           const newPlayerData = createInitialPlayerData(storedPlayerId, userId, finalDisplayName);
           await setDoc(playerRef, newPlayerData);
           // Stelle sicher, dass die ID auch im (existierenden) User-Dokument steht
@@ -368,41 +347,27 @@ const getPlayerIdForUserInternal = async (userId: string, displayName: string | 
       // Weiter zu Schritt 2
     }
 
-    // --- Schritt 2: Direkte Suche mit deterministischer ID --- 
-    // 🚀 CRITICAL FIX: Use deterministic lookup instead of query
-    const deterministicPlayerId = `player_${userId}`;
-    const deterministicPlayerRef = doc(playersRef, deterministicPlayerId);
-    const deterministicPlayerSnap = await getDoc(deterministicPlayerRef);
-
-    // --- Fall 3: Player-Dokument mit deterministischer ID GEFUNDEN --- 
-    if (deterministicPlayerSnap.exists()) {
-      // Player ID im User-Dokument nachtragen, falls es existiert (oder erstellen, falls nicht)
-      // Note: This is safe as a single operation since player already exists
-      await setDoc(userDocRef, { playerId: deterministicPlayerId }, { merge: true });
-      return deterministicPlayerId;
-    }
-    
-    // --- Fallback: Legacy-Suche für alte Player mit zufälligen IDs --- 
+    // --- Schritt 2: Direkte Suche nach bestehenden Player-Dokumenten --- 
     const legacyQuery = query(playersRef, where("userId", "==", userId));
     const legacySnapshot = await getDocs(legacyQuery);
     
     if (!legacySnapshot.empty) {
       if (legacySnapshot.size > 1) {
-        console.warn(`getPlayerIdForUser: Found MULTIPLE (${legacySnapshot.size}) legacy players for userId ${userId}. Using the first one.`);
+        console.warn(`getPlayerIdForUser: Found MULTIPLE (${legacySnapshot.size}) players for userId ${userId}. Using the first one.`);
       }
       const foundPlayer = legacySnapshot.docs[0];
       const foundPlayerId = foundPlayer.id;
       // Player ID im User-Dokument nachtragen
-      // Note: This is safe as a single operation since player already exists
       await setDoc(userDocRef, { playerId: foundPlayerId }, { merge: true });
       return foundPlayerId;
     }
-    // --- Fall 4: KEIN Player-Dokument mit userId gefunden -> Player NEU ERSTELLEN --- 
+    
+    // --- Fall 3: KEIN Player-Dokument mit userId gefunden -> Player NEU ERSTELLEN --- 
     else {
-      // 🚀 CRITICAL FIX: Deterministic Player IDs to prevent duplicate creation
-      const newPlayerId = `player_${userId}`;
+      // 🔒 SECURITY FIX: Use cryptographically secure random IDs
+      const newPlayerId = nanoid();
       // Verwende displayName als Nickname, mit Fallback
-      const finalDisplayName = displayName || `Spieler ${newPlayerId.slice(7, 11)}...`; // slice(7, 11) to get first 4 chars after "player_"
+      const finalDisplayName = displayName || `Spieler ${newPlayerId.slice(0, 8)}...`;
       const newPlayerData = createInitialPlayerData(newPlayerId, userId, finalDisplayName);
       
       // 🔧 ZUSÄTZLICHE SICHERHEIT: Prüfe nochmals vor dem Erstellen

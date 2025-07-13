@@ -6,6 +6,10 @@
 # Skripte ignorieren, die nicht Teil des TS-Projekts sind
 /scripts/*.js
 
+# TypeScript-Migrationsskripts (einmalige Verwendung)
+/scripts/migration-fix-player-ids.ts
+/scripts/test-migration.ts
+
 # Ignoriert die kompilierten JavaScript-Dateien
 /lib/
 

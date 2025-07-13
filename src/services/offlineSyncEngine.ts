@@ -4,8 +4,7 @@
  */
 
 import { getOfflineDB, QueuedGameFinalization, OfflineGameEntry } from '@/utils/indexedDBHelper';
-import { saveCompletedGameToFirestore } from '@/services/gameService';
-import { updateSessionActiveGameId } from '@/services/gameService';
+import { saveCompletedGameToFirestore, updateSessionActiveGameId } from '@/services/gameService';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface SyncEngineConfig {

@@ -25,6 +25,7 @@ import * as userManagementLogic from './userManagement'; // WIEDER HINZUGEFÜGT
 import * as scheduledTaskLogic from './scheduledTasks'; // WIEDER HINZUGEFÜGT
 import * as batchUpdateLogic from './batchUpdateGroupStats'; // NEU: Batch-Update für Gruppenstatistiken
 import * as updateGroupStatsLogic from './updateGroupStats'; // NEU: Manuelle Gruppenstatistik-Aktualisierung
+import * as rateLimiterCleanupLogic from './rateLimiterCleanup'; // NEU: Rate-Limiter Cleanup
 import * as tournamentCompletionLogic from './processTournamentCompletion'; // NEU: Turnier-Aggregation
 import { updatePlayerStats } from './playerStatsCalculator'; // NEU: Import der zentralen Funktion
 import { updateGroupComputedStatsAfterSession } from './groupStatsCalculator'; // NEU: Import für Gruppenstatistiken
@@ -162,6 +163,261 @@ function getSpreadsheetNameFromSession(session: JassGameSummary, playerDisplayNa
   // Das funktioniert für alle Spieler, auch neue, und ist immer aktuell
   return playerDisplayName || "Unbekannt";
 }
+
+// 🧠 INTELLIGENTES ADAPTIVES Rate Limiting
+const rateLimitStore = new Map<string, { count: number; lastReset: number }>();
+const userBasedLimitStore = new Map<string, { count: number; lastReset: number }>();
+const activeUsersTracker = new Map<string, number>(); // userId -> lastSeenTimestamp
+
+// 🤖 BOT-SCHUTZ: Registrierungs-Rate-Limiting ist in userManagement.ts implementiert
+// (handleUserCreation Trigger mit checkUserCreationRateLimit Funktion)
+
+const RATE_LIMIT_WINDOW = 60000; // 1 Minute
+const ACTIVE_USER_TIMEOUT = 300000; // 5 Minuten bis User als inaktiv gilt
+
+// 📊 Monitoring: Log active users every 5 minutes
+let lastMonitoringLog = 0;
+const MONITORING_INTERVAL = 300000; // 5 Minuten
+
+// 🎯 Dynamische Limits basierend auf aktiven Usern
+function getAdaptiveLimits(): { ipLimit: number; userLimit: number; activeUsers: number } {
+  const now = Date.now();
+  
+  // Bereinige inactive Users
+  for (const [userId, lastSeen] of activeUsersTracker.entries()) {
+    if (now - lastSeen > ACTIVE_USER_TIMEOUT) {
+      activeUsersTracker.delete(userId);
+    }
+  }
+  
+  const activeUsers = activeUsersTracker.size;
+  
+  // 🚀 INTELLIGENTE SKALIERUNG:
+  let ipLimit: number;
+  let userLimit: number;
+  
+  if (activeUsers < 10) {
+    // 👥 Normaler Betrieb
+    ipLimit = 100;
+    userLimit = 30;
+  } else if (activeUsers < 30) {
+    // 🎮 Kleine Gruppe/Event
+    ipLimit = 200;
+    userLimit = 45;
+  } else if (activeUsers < 60) {
+    // 🏆 Mittleres Turnier
+    ipLimit = 400;
+    userLimit = 60;
+  } else if (activeUsers < 100) {
+    // 🎪 Großes Turnier
+    ipLimit = 800; // Erhöht für extra Sicherheit bei 60+ Turnieren
+    userLimit = 80;
+  } else {
+    // 🚨 Mega-Event oder potentieller Angriff
+    ipLimit = 1000;
+    userLimit = 100;
+    logger.warn(`🚨 MEGA-EVENT DETECTED: ${activeUsers} active users - Max limits activated`);
+  }
+  
+  return { ipLimit, userLimit, activeUsers };
+}
+
+function checkRateLimit(clientIp: string, userId?: string): boolean {
+  const now = Date.now();
+  
+  // 📊 User Activity Tracking
+  if (userId) {
+    activeUsersTracker.set(userId, now);
+  }
+  
+  // 🧠 Hole adaptive Limits
+  const { ipLimit, userLimit, activeUsers } = getAdaptiveLimits();
+  
+  // 📊 Monitoring & Transparenz
+  if (now - lastMonitoringLog > MONITORING_INTERVAL) {
+    logger.info(`📊 SYSTEM STATUS: ${activeUsers} active users → IP: ${ipLimit}/min, User: ${userLimit}/min`);
+    lastMonitoringLog = now;
+  }
+  
+  // 📝 Event-spezifisches Logging
+  if (activeUsers >= 30) {
+    logger.info(`🎯 EVENT DETECTED: ${activeUsers} active users → IP: ${ipLimit}/min, User: ${userLimit}/min`);
+  }
+  
+  // 1. 🌐 IP-basiertes Limit (adaptiv)
+  const ipEntry = rateLimitStore.get(clientIp);
+  if (!ipEntry || now - ipEntry.lastReset > RATE_LIMIT_WINDOW) {
+    rateLimitStore.set(clientIp, { count: 1, lastReset: now });
+  } else {
+    if (ipEntry.count >= ipLimit) {
+      logger.warn(`🚫 IP rate limit exceeded: ${clientIp} (${ipEntry.count}/${ipLimit} requests, ${activeUsers} active users)`);
+      return false;
+    }
+    ipEntry.count++;
+  }
+  
+  // 2. 👤 User-basiertes Limit (adaptiv)
+  if (userId) {
+    const userEntry = userBasedLimitStore.get(userId);
+    if (!userEntry || now - userEntry.lastReset > RATE_LIMIT_WINDOW) {
+      userBasedLimitStore.set(userId, { count: 1, lastReset: now });
+    } else {
+      if (userEntry.count >= userLimit) {
+        logger.warn(`🚫 User rate limit exceeded: ${userId} (${userEntry.count}/${userLimit} requests, ${activeUsers} active users)`);
+        return false;
+      }
+      userEntry.count++;
+    }
+  }
+  
+  return true;
+}
+
+// === LOKALE IMPLEMENTIERUNG DER LOCK-FUNKTION FÜR CLOUD FUNCTIONS ===
+const PLAYER_LOCKS_COLLECTION = 'player-locks';
+
+/**
+ * Versucht, ein Lock-Dokument für eine userId zu erstellen.
+ * Gibt `true` zurück, wenn das Lock erfolgreich erstellt wurde.
+ * Gibt `false` zurück, wenn das Lock bereits existiert.
+ */
+const acquirePlayerCreationLock = async (userId: string): Promise<boolean> => {
+  const lockRef = db.collection(PLAYER_LOCKS_COLLECTION).doc(userId);
+  try {
+    await db.runTransaction(async (transaction) => {
+      const lockDoc = await transaction.get(lockRef);
+      if (lockDoc.exists) {
+        throw new Error("Lock already exists");
+      }
+      transaction.set(lockRef, { createdAt: admin.firestore.FieldValue.serverTimestamp() });
+    });
+    console.log(`[Lock] Lock für userId ${userId} erfolgreich akquiriert.`);
+    return true;
+  } catch (error: any) {
+    if (error.message === "Lock already exists") {
+      console.log(`[Lock] Lock für userId ${userId} existiert bereits. Prozess wartet.`);
+    } else {
+      console.error(`[Lock] Unerwarteter Fehler beim Akquirieren des Locks für userId ${userId}:`, error);
+    }
+    return false;
+  }
+};
+
+/**
+ * Gibt das Lock-Dokument für eine userId frei.
+ */
+const releasePlayerCreationLock = async (userId: string): Promise<void> => {
+  const lockRef = db.collection(PLAYER_LOCKS_COLLECTION).doc(userId);
+  try {
+    await lockRef.delete();
+    console.log(`[Lock] Lock für userId ${userId} freigegeben.`);
+  } catch (error) {
+    console.error(`[Lock] Fehler beim Freigeben des Locks für userId ${userId}:`, error);
+  }
+};
+
+/**
+ * Cloud Functions Version von getPlayerIdForUser mit Lock-Mechanismus
+ */
+const getPlayerIdForUserWithLock = async (userId: string, displayName: string | null): Promise<string | null> => {
+  const hasLock = await acquirePlayerCreationLock(userId);
+
+  try {
+    if (hasLock) {
+      console.log(`[getPlayerIdForUserWithLock] Prozess hat Lock für ${userId}, führt interne Logik aus.`);
+      return await getPlayerIdForUserInternal(userId, displayName);
+    } else {
+      console.log(`[getPlayerIdForUserWithLock] Prozess wartet auf Lock-Freigabe für ${userId}.`);
+      // Warte-Logik mit Retries
+      let attempts = 0;
+      const maxAttempts = 5;
+      const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+      while (attempts < maxAttempts) {
+        await delay(300 * Math.pow(2, attempts)); // Exponential backoff
+        
+        // Suche nach existierendem Player
+        const playerQuery = db.collection("players").where("userId", "==", userId).limit(1);
+        const playerSnapshot = await playerQuery.get();
+        if (!playerSnapshot.empty) {
+          const playerId = playerSnapshot.docs[0].id;
+          console.log(`[getPlayerIdForUserWithLock] Player für ${userId} nach Warten gefunden: ${playerId}`);
+          return playerId;
+        }
+        
+        attempts++;
+        console.log(`[getPlayerIdForUserWithLock] Versuch ${attempts}/${maxAttempts} für ${userId} fehlgeschlagen.`);
+      }
+      
+      console.error(`[getPlayerIdForUserWithLock] Konnte Player für ${userId} auch nach ${maxAttempts} Versuchen nicht finden.`);
+      return null;
+    }
+  } finally {
+    if (hasLock) {
+      await releasePlayerCreationLock(userId);
+    }
+  }
+};
+
+/**
+ * Interne Implementierung - erstellt Player wenn nötig
+ */
+const getPlayerIdForUserInternal = async (userId: string, displayName: string | null): Promise<string | null> => {
+  try {
+    // 1. Prüfe User-Dokument
+    const userRef = db.collection("users").doc(userId);
+    const userSnap = await userRef.get();
+
+    if (userSnap.exists) {
+      const userData = userSnap.data();
+      if (userData?.playerId && typeof userData.playerId === 'string') {
+        const playerRef = db.collection("players").doc(userData.playerId);
+        const playerSnap = await playerRef.get();
+        if (playerSnap.exists) {
+          return userData.playerId;
+        }
+      }
+    }
+
+    // 2. Direkte Suche nach bestehenden Player-Dokumenten
+    const playerQuery = db.collection("players").where("userId", "==", userId).limit(1);
+    const querySnapshot = await playerQuery.get();
+
+    if (!querySnapshot.empty) {
+      const foundPlayerId = querySnapshot.docs[0].id;
+      // Player ID im User-Dokument nachtragen
+      await userRef.set({ playerId: foundPlayerId }, { merge: true });
+      return foundPlayerId;
+    }
+
+    // 3. Erstelle neuen Player
+    // 🔒 SECURITY FIX: Use cryptographically secure random IDs
+    const newPlayerId = crypto.randomBytes(12).toString('hex');
+    const finalDisplayName = displayName || `Spieler ${newPlayerId.slice(0, 8)}`;
+    
+    const newPlayerData = {
+      displayName: finalDisplayName,
+      userId,
+      isGuest: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      groupIds: [],
+      stats: { gamesPlayed: 0, wins: 0, totalScore: 0 },
+      metadata: { isOG: false },
+    };
+
+    console.log(`[getPlayerIdForUserInternal] Erstelle neuen Player ${newPlayerId} für userId ${userId}...`);
+    
+    await db.collection("players").doc(newPlayerId).set(newPlayerData);
+    await userRef.set({ playerId: newPlayerId }, { merge: true });
+    
+    console.log(`[getPlayerIdForUserInternal] ✅ Player ${newPlayerId} erfolgreich erstellt für userId ${userId}`);
+    return newPlayerId;
+  } catch (error) {
+    console.error(`[getPlayerIdForUserInternal] Fehler für userId ${userId}:`, error);
+    return null;
+  }
+};
 
 /**
  * Generiert einen sicheren, zeitlich begrenzten Einladungstoken für eine Gruppe.
@@ -337,7 +593,12 @@ export const joinGroupByToken = onCall<JoinGroupByTokenData>(async (request) => 
         throw new HttpsError("unauthenticated", "Der Nutzer muss angemeldet sein, um einer Gruppe beizutreten.");
     }
 
+    // TURNIER-SICHERES DDoS-Schutz: Rate Limiting
+    const clientIp = request.rawRequest.ip || 'unknown';
     const userId = request.auth.uid;
+    if (!checkRateLimit(clientIp, userId)) {
+        throw new HttpsError("resource-exhausted", "Zu viele Anfragen. Bitte warten Sie eine Minute.");
+    }
     const userDisplayNameFromToken = request.auth.token.name || "Unbekannter Jasser (aus Token)";
     const userEmailFromToken = request.auth.token.email;
     const token = request.data.token;
@@ -707,120 +968,68 @@ export const createNewGroup = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Authentifizierung erforderlich.");
   }
+
   const userId = request.auth.uid;
-  const userDisplayName = request.auth.token.name || "Unbekannter Jasser";
-  const userEmail = request.auth.token.email;
-
-  // Expliziter Typ für die erwarteten Daten
+  
   const data = request.data as { name?: string; description?: string; isPublic?: boolean };
-
-  if (!data || typeof data.name !== "string" || data.name.trim() === "") {
-    throw new HttpsError("invalid-argument", "Gruppenname fehlt oder ist ungültig.");
+  if (!data || typeof data.name !== "string" || data.name.trim().length === 0) {
+    throw new HttpsError("invalid-argument", "Gruppenname ist erforderlich.");
   }
 
-  const newGroupRef = db.collection("groups").doc(); // Automatisch generierte ID
+  const userDisplayName = request.auth.token.name || `Spieler_${userId.substring(0, 6)}`;
+  const userEmail = request.auth.token.email || null;
 
   try {
-    // --- Ermittle playerDocId für den Ersteller ---
-    let playerDocId: string | null = null;
+    const newGroupRef = db.collection("groups").doc();
     const userRef = db.collection("users").doc(userId);
     const userSnap = await userRef.get();
 
-    if (userSnap.exists && userSnap.data()?.playerId) {
-      // Überprüfe, ob dieser Player-Datensatz auch wirklich existiert
-      const playerCheckRef = db.collection("players").doc(userSnap.data()?.playerId);
-      const playerCheckSnap = await playerCheckRef.get();
-      if (playerCheckSnap.exists) {
-        playerDocId = userSnap.data()?.playerId;
-        console.log(`[createNewGroup] Found existing playerDocId ${playerDocId} from user doc for creator ${userId}.`);
-      } else {
-        console.warn(`[createNewGroup] playerDocId ${userSnap.data()?.playerId} from user doc for ${userId} does not exist in players collection. Will create new.`);
-        // Fallback, falls der Player-Eintrag fehlt
-      }
-    }
-
-    if (!playerDocId) {
-      // Versuche, den Spieler über die userId in der players Collection zu finden
-      const playerQuery = db.collection("players").where("userId", "==", userId).limit(1);
-      const playerQuerySnapshot = await playerQuery.get();
-      if (!playerQuerySnapshot.empty) {
-        playerDocId = playerQuerySnapshot.docs[0].id;
-        console.log(`[createNewGroup] Found existing playerDocId ${playerDocId} via query for creator ${userId}.`);
-        // Stelle sicher, dass der User-Doc auch diesen PlayerId hat
-        if (userSnap.exists && userSnap.data()?.playerId !== playerDocId) {
-          await userRef.update({ playerId: playerDocId, lastUpdated: admin.firestore.FieldValue.serverTimestamp() });
-          console.log(`[createNewGroup] Updated user doc for ${userId} with correct playerDocId ${playerDocId}.`);
-        } else if (!userSnap.exists) {
-          // Erstelle User-Dokument, falls es nicht existiert (sollte selten sein für eingeloggte User)
-          await userRef.set({
-            displayName: userDisplayName,
-            email: userEmail,
-            playerId: playerDocId,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            lastLogin: admin.firestore.FieldValue.serverTimestamp(),
-            lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-          });
-          console.log(`[createNewGroup] Created new user doc for ${userId} with playerDocId ${playerDocId}.`);
+    // === VERWENDE LOCK-MECHANISMUS ===
+    let playerDocId: string | null = null;
+    
+    // Versuche zuerst, die playerId aus dem User-Dokument zu holen
+    if (userSnap.exists) {
+      const userData = userSnap.data();
+      if (userData?.playerId && typeof userData.playerId === 'string') {
+        const playerCheckRef = db.collection("players").doc(userData.playerId);
+        const playerCheckSnap = await playerCheckRef.get();
+        if (playerCheckSnap.exists) {
+          playerDocId = userData.playerId;
+          console.log(`[createNewGroup] Found existing playerDocId ${playerDocId} from user doc for creator ${userId}.`);
         }
       }
     }
 
-    let newPlayerCreated = false;
+    // Falls kein gültiger Player gefunden, verwende Lock-Mechanismus
     if (!playerDocId) {
-      // Wenn immer noch kein playerDocId, erstelle einen neuen Player-Datensatz
-      playerDocId = crypto.randomBytes(12).toString('hex');
-      const newPlayerRef = db.collection("players").doc(playerDocId);
-      const newPlayerData = {
-        userId: userId,
-        nickname: userDisplayName || `Spieler_${userId.substring(0, 6)}`,
-        isGuest: false,
-        stats: { gamesPlayed: 0, wins: 0, totalScore: 0 },
-        groupIds: [newGroupRef.id], // Die neue Gruppe direkt hinzufügen
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        displayName: userDisplayName, // displayName vom Auth-Token
-        email: userEmail, // email vom Auth-Token
-      };
-      await newPlayerRef.set(newPlayerData);
-      newPlayerCreated = true;
-      console.log(`[createNewGroup] Created new player entry with playerDocId ${playerDocId} for creator ${userId}.`);
-
-      // Aktualisiere oder erstelle User-Dokument mit neuem playerDocId
-      if (userSnap.exists) {
-        await userRef.update({ playerId: playerDocId, lastActiveGroupId: newGroupRef.id, lastUpdated: admin.firestore.FieldValue.serverTimestamp() });
-      } else {
-        await userRef.set({
-            displayName: userDisplayName,
-            email: userEmail,
-            playerId: playerDocId,
-            lastActiveGroupId: newGroupRef.id,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            lastLogin: admin.firestore.FieldValue.serverTimestamp(),
-            lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-        });
+      console.log(`[createNewGroup] No valid playerDocId found, using lock mechanism for ${userId}.`);
+      playerDocId = await getPlayerIdForUserWithLock(userId, userDisplayName);
+      
+      if (!playerDocId) {
+        throw new HttpsError("internal", "Player-Dokument konnte nicht erstellt oder gefunden werden.");
       }
-    } else {
-        // Wenn PlayerDocId existiert, stelle sicher, dass die neue groupID in groupIds-Array ist
-        const playerRefToUpdate = db.collection("players").doc(playerDocId);
-        await playerRefToUpdate.update({
-            groupIds: admin.firestore.FieldValue.arrayUnion(newGroupRef.id),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        });
-         console.log(`[createNewGroup] Ensured group ${newGroupRef.id} is in playerDoc ${playerDocId} groupIds.`);
+      
+      console.log(`[createNewGroup] Lock mechanism returned playerDocId ${playerDocId} for creator ${userId}.`);
     }
-    // --- Ende Ermittlung playerDocId ---
 
-    // Verwende das lokale FirestoreGroup-Interface für Strukturklarheit
-    const newGroupData: Omit<FirestoreGroup, 'id'> & { players: Record<string, FirestorePlayerInGroup> } = {
+    // Stelle sicher, dass die neue groupID in groupIds-Array ist
+    const playerRefToUpdate = db.collection("players").doc(playerDocId);
+    await playerRefToUpdate.update({
+        groupIds: admin.firestore.FieldValue.arrayUnion(newGroupRef.id),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Erstelle Gruppe
+    const newGroupData = {
       name: data.name.trim(),
       description: typeof data.description === "string" ? data.description.trim() : "",
       isPublic: typeof data.isPublic === "boolean" ? data.isPublic : false,
       createdAt: admin.firestore.Timestamp.now(),
-      createdBy: userId, // authUid des Erstellers
-      playerIds: [playerDocId], // playerDocId des Erstellers
-      adminIds: [userId], // authUid des Erstellers bleibt Admin
+      createdBy: userId,
+      playerIds: [playerDocId],
+      adminIds: [userId],
       players: {
-        [playerDocId]: { // playerDocId als Schlüssel
+        [playerDocId]: {
           displayName: userDisplayName,
           joinedAt: admin.firestore.Timestamp.now(),
         }
@@ -830,28 +1039,26 @@ export const createNewGroup = onCall(async (request) => {
 
     await newGroupRef.set(newGroupData);
 
-    // Update user document with lastActiveGroupId
-    if (!newPlayerCreated) { // Nur wenn nicht schon oben beim Erstellen des Players passiert
-        if (userSnap.exists) {
-            const userData = userSnap.data();
-            if (userData?.lastActiveGroupId !== newGroupRef.id) {
-                 await userRef.update({ lastActiveGroupId: newGroupRef.id, lastUpdated: admin.firestore.FieldValue.serverTimestamp() });
-            }
-        } else {
-            // Sollte nicht passieren, da userSnap oben geholt wird, aber zur Sicherheit
-             await userRef.set({
-                displayName: userDisplayName,
-                email: userEmail,
-                playerId: playerDocId,
-                lastActiveGroupId: newGroupRef.id,
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                lastLogin: admin.firestore.FieldValue.serverTimestamp(),
-                lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-            }, { merge: true }); // merge falls doch Race Condition
-        }
+    // Update user document
+    if (userSnap.exists) {
+        await userRef.update({ 
+          lastActiveGroupId: newGroupRef.id, 
+          playerId: playerDocId,
+          lastUpdated: admin.firestore.FieldValue.serverTimestamp() 
+        });
+    } else {
+         await userRef.set({
+            displayName: userDisplayName,
+            email: userEmail,
+            playerId: playerDocId,
+            lastActiveGroupId: newGroupRef.id,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            lastLogin: admin.firestore.FieldValue.serverTimestamp(),
+            lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
     }
 
-    console.log(`Group ${newGroupRef.id} created by user ${userId} (playerDocId: ${playerDocId}). Initial players object:`, newGroupData.players);
+    console.log(`Group ${newGroupRef.id} created by user ${userId} (playerDocId: ${playerDocId}).`);
     return { success: true, groupId: newGroupRef.id, playerDocId: playerDocId };
   } catch (error) {
     console.error(`Error creating group for user ${userId}:`, error);
@@ -915,15 +1122,16 @@ export const addPlayerToGroup = onCall(async (request) => {
           await userToAddRef.update({ playerId: playerDocIdToAdd, lastUpdated: admin.firestore.FieldValue.serverTimestamp() });
         }
       } else {
-        // Optional: Wenn der Spieler gar nicht existiert, könnte man hier einen Fehler werfen oder einen neuen erstellen.
-        // Fürs Erste werfen wir einen Fehler, da "addPlayerToGroup" impliziert, dass der Spieler existiert.
-        throw new HttpsError("not-found", `Spieler mit authUid ${playerToAddAuthUid} konnte nicht in der Players-Collection gefunden werden und hat keinen PlayerId im User-Dokument.`);
+        // SICHERHEITS-FIX: Werfe einen generischen Fehler, um nicht preiszugeben, ob ein Benutzer existiert oder nicht (Information Disclosure).
+        // Der vorherige "not-found"-Fehler war zu spezifisch.
+        throw new HttpsError("internal", "Der angegebene Spieler konnte dem System nicht zugeordnet werden.");
       }
     }
 
     if (!playerDocIdToAdd) {
         // Sollte durch die Logik oben eigentlich nicht erreicht werden, aber als Sicherheitsnetz
-        throw new HttpsError("internal", `Konnte playerDocId für ${playerToAddAuthUid} nicht ermitteln.`);
+        // Auch hier eine generische Meldung.
+        throw new HttpsError("internal", `Die Spieler-ID konnte nicht ermittelt werden.`);
     }
 
     await db.runTransaction(async (transaction) => {
@@ -979,7 +1187,7 @@ export const addPlayerToGroup = onCall(async (request) => {
     if (error instanceof HttpsError) {
       throw error;
     } else {
-      throw new HttpsError("internal", "Spieler konnte nicht hinzugefügt werden." + (error instanceof Error ? ` (${error.message})` : ""));
+      throw new HttpsError("internal", "Der Spieler konnte der Gruppe aufgrund eines internen Fehlers nicht hinzugefügt werden.");
     }
   }
 });
@@ -1446,10 +1654,19 @@ export const triggerBatchUpdateGroupStats = batchUpdateLogic.triggerBatchUpdateG
 // Manuelle Gruppenstatistik-Aktualisierung
 export const updateGroupStats = updateGroupStatsLogic.updateGroupStats;
 
+// Rate-Limiter Cleanup
+export const cleanupRateLimitsScheduled = rateLimiterCleanupLogic.cleanupRateLimitsScheduled;
+
 // NEU: Turnier-Aggregation
 export const aggregateTournamentIntoSummary = tournamentCompletionLogic.aggregateTournamentIntoSummary;
 
 // NEU: Manuelle Spielerstatistik-Aktualisierung (Callable Function)
+/* SICHERHEITS-FIX: Diese Funktion wurde entfernt.
+ * Sie stellte eine hohe Sicherheitslücke dar (Denial of Service), da sie von jedem
+ * authentifizierten Benutzer für jeden beliebigen Spieler ohne Berechtigungsprüfung
+ * aufgerufen werden konnte.
+ * Die Statistik-Aktualisierung erfolgt nun ausschliesslich und sicher über den
+ * onJassGameSummaryWritten-Trigger nach Abschluss eines Spiels.
 export const updatePlayerStatsFunction = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Authentifizierung erforderlich.");
@@ -1468,6 +1685,7 @@ export const updatePlayerStatsFunction = onCall(async (request) => {
     throw new HttpsError("internal", `Fehler beim Aktualisieren der Statistiken für Spieler ${playerId}.`);
   }
 });
+*/
 
 // NEU: ZENTRALER TRIGGER FÜR SPIELER- UND GRUPPENSTATISTIKEN
 export const onJassGameSummaryWritten = onDocumentWritten(
@@ -1517,3 +1735,93 @@ export const onJassGameSummaryWritten = onDocumentWritten(
 );
 
 export {handleUserCreation} from "./userManagement";
+
+// ============================================
+// === SYNCHRONISATION: NAMEN IN COMPUTED STATS ===
+// ============================================
+
+/**
+ * Synchronisiert Spielernamen-Änderungen zu playerComputedStats
+ * Wird ausgelöst, wenn sich das displayName Feld in einem players Dokument ändert
+ */
+export const onPlayerDocumentUpdated = onDocumentUpdated(
+  "players/{playerId}",
+  async (event) => {
+    const change = event.data;
+    if (!change) {
+      logger.info(`[onPlayerDocumentUpdated] Event data missing for player ${event.params.playerId}. Exiting.`);
+      return;
+    }
+
+    const beforeData = change.before.data();
+    const afterData = change.after.data();
+    const playerId = event.params.playerId;
+
+    // Prüfe, ob sich der displayName geändert hat
+    const nameChanged = beforeData?.displayName !== afterData?.displayName;
+
+    if (!nameChanged) {
+      logger.info(`[onPlayerDocumentUpdated] No displayName change for player ${playerId}. Skipping.`);
+      return;
+    }
+
+    const newName = afterData?.displayName || null;
+    logger.info(`[onPlayerDocumentUpdated] Player ${playerId} name changed from "${beforeData?.displayName}" to "${newName}". Updating stats.`);
+
+    try {
+      // Aktualisiere playerComputedStats mit dem neuen Namen
+      const playerStatsRef = db.collection('playerComputedStats').doc(playerId);
+      await playerStatsRef.update({
+        playerName: newName,
+        lastUpdateTimestamp: admin.firestore.Timestamp.now()
+      });
+
+      logger.info(`[onPlayerDocumentUpdated] Successfully updated playerName for ${playerId} to "${newName}"`);
+    } catch (error) {
+      logger.error(`[onPlayerDocumentUpdated] Error updating playerName for ${playerId}:`, error);
+    }
+  }
+);
+
+/**
+ * Synchronisiert Gruppennamen-Änderungen zu groupComputedStats
+ * Wird ausgelöst, wenn sich das name Feld in einem groups Dokument ändert
+ */
+export const onGroupDocumentUpdated = onDocumentUpdated(
+  "groups/{groupId}",
+  async (event) => {
+    const change = event.data;
+    if (!change) {
+      logger.info(`[onGroupDocumentUpdated] Event data missing for group ${event.params.groupId}. Exiting.`);
+      return;
+    }
+
+    const beforeData = change.before.data();
+    const afterData = change.after.data();
+    const groupId = event.params.groupId;
+
+    // Prüfe, ob sich der name geändert hat
+    const nameChanged = beforeData?.name !== afterData?.name;
+
+    if (!nameChanged) {
+      logger.info(`[onGroupDocumentUpdated] No name change for group ${groupId}. Skipping.`);
+      return;
+    }
+
+    const newName = afterData?.name || null;
+    logger.info(`[onGroupDocumentUpdated] Group ${groupId} name changed from "${beforeData?.name}" to "${newName}". Updating stats.`);
+
+    try {
+      // Aktualisiere groupComputedStats mit dem neuen Namen
+      const groupStatsRef = db.collection('groupComputedStats').doc(groupId);
+      await groupStatsRef.update({
+        groupName: newName,
+        lastUpdateTimestamp: admin.firestore.Timestamp.now()
+      });
+
+      logger.info(`[onGroupDocumentUpdated] Successfully updated groupName for ${groupId} to "${newName}"`);
+    } catch (error) {
+      logger.error(`[onGroupDocumentUpdated] Error updating groupName for ${groupId}:`, error);
+    }
+  }
+);
