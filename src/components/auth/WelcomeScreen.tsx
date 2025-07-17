@@ -14,6 +14,7 @@ import { isPWA } from "@/utils/browserDetection";
 import { debouncedRouterPush } from "@/utils/routerUtils";
 import { saveTokensFromUrl } from "@/utils/tokenStorage";
 import { welcomeLogger, logCriticalError } from "@/utils/logger";
+import { LegalFooter } from '@/components/layout/LegalFooter';
 
 export interface WelcomeScreenProps {
   onLogin?: () => void;
@@ -69,23 +70,12 @@ const useWelcomeScreenLogic = () => {
 
   // 🔧 OPTIMIERT: Auth-Status Handler - nur bei relevanten Änderungen
   useEffect(() => {
-    if (!isClient || status !== 'authenticated' || !user || isGuest) return;
-
-    welcomeLogger.debug('Eingelogger Benutzer erkannt - führe automatischen Logout durch');
-    
-    // Direkter Logout ohne Verzögerung - Race Condition vermieden
-    const performLogout = async () => {
-      try {
-        await logout();
-        welcomeLogger.info('Automatischer Logout erfolgreich');
-      } catch (error) {
-        welcomeLogger.error('Fehler beim automatischen Logout:', error);
-        clearGuestStatus(); // Fallback
-      }
-    };
-
-    performLogout();
-  }, [isClient, status, user, isGuest]); // Reduzierte Dependencies
+    // 🚨 KORRIGIERT: Leite eingeloggte Benutzer zur App weiter, anstatt sie auszuloggen.
+    if (isClient && status === 'authenticated' && user && !isGuest) {
+      welcomeLogger.debug('Eingeloggter Benutzer auf WelcomeScreen erkannt. Leite zu /start weiter...');
+      router.push('/start');
+    }
+  }, [isClient, status, user, isGuest, router]); // router als Abhängigkeit hinzugefügt
 
   // 🔧 OPTIMIERT: Router & DisplayMode Handler
   useEffect(() => {
@@ -298,7 +288,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               ) : (
                 <div className="text-left">
                   <div className="mb-4">
-                    Jassen gehört an den Tisch – Resultate, Tabellen und Statistiken in die App. Mit der digitalen Jasstafel erfasst du jede Runde automatisch für dich, deine Jassfreunde und bald die ganze Liga.
+                    Jassen gehört an den Tisch – Resultate, Tabellen und Statistiken in die App. Wer führt die Rangliste an? Wer ist Matsch-König? Welche Teams harmonieren? All das erfährst du dank der digitalen Jasstafel, die jede Runde blitzschnell und live erfasst.
                   </div>
                   <div className="space-y-2 text-sm">
                     <div>
@@ -392,8 +382,9 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           </div>
         </motion.div>
 
-        <div className="mb-6 text-gray-500 text-sm text-center">
-                              &copy; {new Date().getFullYear()} jassguru.ch - Alle Rechte vorbehalten
+        {/* LEGAL FOOTER */}
+        <div className="mb-6">
+          <LegalFooter />
         </div>
       </div>
     </div>

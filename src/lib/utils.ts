@@ -21,6 +21,7 @@ export function isPublicPath(path: string): boolean {
     '/jass',
     '/join',
     '/impressum',
+    '/agb',          // Explizit hinzugefügt
     '/datenschutz',
     '/view',
     '/profile'

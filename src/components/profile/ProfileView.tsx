@@ -1,6 +1,6 @@
 "use client";
 
-import React, {useRef, useMemo} from "react";
+import React, {useRef, useMemo, useState} from "react";
 import {useRouter} from "next/router";
 import {Button} from "@/components/ui/button";
 import {Alert, AlertDescription} from "@/components/ui/alert";
@@ -28,8 +28,10 @@ import { CURRENT_PROFILE_THEME, THEME_COLORS, getCurrentProfileTheme } from '@/c
 import { useClickAndScrollHandler } from '@/hooks/useClickAndScrollHandler';
 import { StatLink } from '@/components/statistics/StatLink';
 import {fetchCompletedSessionsForUser, SessionSummary} from '@/services/sessionService';
+import { LegalFooter } from '@/components/layout/LegalFooter';
 import { cn } from '@/lib/utils';
 import type { ThemeColor } from '@/config/theme';
+import { generateBlurPlaceholder } from '@/utils/imageOptimization';
 
 // Types
 interface ExpectedPlayerStatsWithAggregates {
@@ -149,6 +151,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 }) => {
   const trumpfStatistikRef = useRef<HTMLDivElement>(null);
   useNestedScrollFix(trumpfStatistikRef);
+
+  // Neu: State für Bildladung
+  const [isImageLoading, setIsImageLoading] = useState(true);
 
   // Memoized color computation - optimiert für Performance
   const accentColor = useMemo(() => {
@@ -431,17 +436,26 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 className="object-cover"
               />
             ) : photoURL ? (
-              <Image
-                src={photoURL}
-                alt={`Profilbild ${displayName}`}
-                fill={true}
-                className="object-cover"
-                priority
-                sizes="(max-width: 768px) 128px, 128px"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = "/placeholder-avatar.png";
-                }}
-              />
+              <>
+                {isImageLoading && (
+                  <div className="absolute inset-0 bg-gray-800 animate-pulse rounded-full" />
+                )}
+                <Image
+                  src={photoURL}
+                  alt={`Profilbild ${displayName}`}
+                  fill={true}
+                  className={`object-cover transition-opacity duration-300 ${isImageLoading ? 'opacity-0' : 'opacity-100'}`}
+                  loading="lazy"
+                  sizes="128px"
+                  placeholder="blur"
+                  blurDataURL={generateBlurPlaceholder()}
+                  onLoad={() => setIsImageLoading(false)}
+                  onError={(e) => {
+                    setIsImageLoading(false);
+                    (e.target as HTMLImageElement).src = "/placeholder-avatar.png";
+                  }}
+                />
+              </>
             ) : (
               !isPublicView ? (
                 <div className="flex flex-col items-center">
@@ -1176,8 +1190,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                       className={`mr-2 ${theme.profileImage}`}
                                       fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                       fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
-                                      optimized={true}
-                                      lazy={true}
                                     />
                                     <span className="text-gray-300">{partner.partnerDisplayName}</span>
                         </div>
@@ -1237,8 +1249,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                       className={`mr-2 ${theme.profileImage}`}
                                       fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                       fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
-                                      optimized={true}
-                                      lazy={true}
     />
                                     <span className="text-gray-300">{partner.partnerDisplayName}</span>
                                   </div>
@@ -1298,8 +1308,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                       className={`mr-2 ${theme.profileImage}`}
                                       fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                       fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
-                                      optimized={true}
-                                      lazy={true}
                                     />
                                     <span className="text-gray-300">{partner.partnerDisplayName}</span>
                                   </div>
@@ -1350,8 +1358,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                       className={`mr-2 ${theme.profileImage}`}
                                       fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                       fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
-                                      optimized={true}
-                                      lazy={true}
                                     />
                                     <span className="text-gray-300">{partner.partnerDisplayName}</span>
                           </div>
@@ -1402,8 +1408,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                       className={`mr-2 ${theme.profileImage}`}
                                       fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                       fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
-                                      optimized={true}
-                                      lazy={true}
                                     />
                                     <span className="text-gray-300">{partner.partnerDisplayName}</span>
                                   </div>
@@ -1458,8 +1462,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                       className={`mr-2 ${theme.profileImage}`}
                                       fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                       fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
-                                      optimized={true}
-                                      lazy={true}
                                     />
                                     <span className="text-gray-300">{partner.partnerDisplayName}</span>
                               </div>
@@ -1514,8 +1516,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                       className={`mr-2 ${theme.profileImage}`}
                                       fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                       fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
-                                      optimized={true}
-                                      lazy={true}
                                     />
                                     <span className="text-gray-300">{partner.partnerDisplayName}</span>
                                   </div>
@@ -1579,8 +1579,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                       className={`mr-2 ${theme.profileImage}`}
                                       fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                       fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
-                                      optimized={true}
-                                      lazy={true}
                                     />
                                     <span className="text-gray-300">{opponent.opponentDisplayName}</span>
                                   </div>
@@ -1640,8 +1638,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                       className={`mr-2 ${theme.profileImage}`}
                                       fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                       fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
-                                      optimized={true}
-                                      lazy={true}
     />
                                     <span className="text-gray-300">{opponent.opponentDisplayName}</span>
                                   </div>
@@ -1701,8 +1697,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                       className={`mr-2 ${theme.profileImage}`}
                                       fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                       fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
-                                      optimized={true}
-                                      lazy={true}
                                     />
                                     <span className="text-gray-300">{opponent.opponentDisplayName}</span>
                                   </div>
@@ -1753,8 +1747,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                       className={`mr-2 ${theme.profileImage}`}
                                       fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                       fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
-                                      optimized={true}
-                                      lazy={true}
                                     />
                                     <span className="text-gray-300">{opponent.opponentDisplayName}</span>
                                   </div>
@@ -1805,8 +1797,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                       className={`mr-2 ${theme.profileImage}`}
                                       fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                       fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
-                                      optimized={true}
-                                      lazy={true}
                                     />
                                     <span className="text-gray-300">{opponent.opponentDisplayName}</span>
                                   </div>
@@ -1861,8 +1851,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                       className={`mr-2 ${theme.profileImage}`}
                                       fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                       fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
-                                      optimized={true}
-                                      lazy={true}
                                     />
                                     <span className="text-gray-300">{opponent.opponentDisplayName}</span>
                                   </div>
@@ -1917,8 +1905,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                       className={`mr-2 ${theme.profileImage}`}
                                       fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                       fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
-                                      optimized={true}
-                                      lazy={true}
                                     />
                                     <span className="text-gray-300">{opponent.opponentDisplayName}</span>
                                   </div>
@@ -1988,6 +1974,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             )} 
           </TabsContent>
         </Tabs>
+        
+        {/* LEGAL FOOTER */}
+        <LegalFooter />
       </div>
     </MainLayout>
   );

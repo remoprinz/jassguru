@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useCallback, memo } from 'react';
 import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
@@ -26,7 +26,7 @@ const sizeMapping = {
   xl: { width: 128, height: 128, className: 'h-32 w-32' },
 };
 
-const ProfileImage: React.FC<ProfileImageProps> = ({
+const ProfileImage: React.FC<ProfileImageProps> = memo(({
   src,
   alt,
   size = 'md',
@@ -48,7 +48,7 @@ const ProfileImage: React.FC<ProfileImageProps> = ({
   const hasValidSrc = src && src.trim() !== '' && !imageError;
 
   // 🚀 NEU: Optimierte Größen für Listen
-  const getOptimizedSizes = () => {
+  const getOptimizedSizes = useCallback(() => {
     if (!optimized) return `${sizeConfig.width}px`;
     
     // Für Listen: Kleinere Größen für bessere Performance
@@ -60,7 +60,19 @@ const ProfileImage: React.FC<ProfileImageProps> = ({
       xl: '96px'
     };
     return optimizedSizes[size] || `${sizeConfig.width}px`;
-  };
+  }, [optimized, size, sizeConfig.width]);
+
+  const handleError = useCallback(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`Failed to load image: ${src}`);
+    }
+    setImageError(true);
+    setIsLoading(false);
+  }, [src]);
+
+  const handleLoad = useCallback(() => {
+    setIsLoading(false);
+  }, []);
 
   if (useNextImage) {
     // Verwende Next.js Image direkt (für größere Bilder)
@@ -75,15 +87,10 @@ const ProfileImage: React.FC<ProfileImageProps> = ({
             className="object-cover h-full w-full"
             style={{ width: 'auto', height: 'auto' }}
             sizes={getOptimizedSizes()}
-            priority={priority}
+            priority={priority && !lazy}
             loading={lazy ? 'lazy' : 'eager'} // 🚀 NEU: Lazy Loading Control
-            onError={() => {
-              if (process.env.NODE_ENV === 'development') {
-                console.warn(`Failed to load image: ${src}`);
-              }
-              setImageError(true);
-            }}
-            onLoad={() => setIsLoading(false)}
+            onError={handleError}
+            onLoad={handleLoad}
           />
         ) : (
           <div className={cn(
@@ -106,13 +113,8 @@ const ProfileImage: React.FC<ProfileImageProps> = ({
         <AvatarImage 
           src={src} 
           alt={alt}
-          onError={() => {
-            if (process.env.NODE_ENV === 'development') {
-              console.warn(`Avatar failed to load image: ${src}`);
-            }
-            setImageError(true);
-          }}
-          onLoad={() => setIsLoading(false)}
+          onError={handleError}
+          onLoad={handleLoad}
         />
       )}
       <AvatarFallback 
@@ -126,6 +128,15 @@ const ProfileImage: React.FC<ProfileImageProps> = ({
       </AvatarFallback>
     </Avatar>
   );
-};
+}, (prevProps, nextProps) => {
+  // Memo Vergleich: Re-render nur bei Änderungen
+  return prevProps.src === nextProps.src &&
+         prevProps.alt === nextProps.alt &&
+         prevProps.size === nextProps.size &&
+         prevProps.className === nextProps.className &&
+         prevProps.fallbackClassName === nextProps.fallbackClassName;
+});
+
+ProfileImage.displayName = 'ProfileImage';
 
 export default ProfileImage; 

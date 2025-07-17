@@ -18,6 +18,7 @@ import {
 import type { AuthStatus, AuthUser, AppMode } from "@/types/auth";
 export type { AuthStatus };
 import type { FirestorePlayer } from "@/types/jass";
+import { useUIStore } from "./uiStore";
 import {useGroupStore} from "./groupStore";
 import {doc, onSnapshot, Unsubscribe, FirestoreError, getDoc, serverTimestamp, setDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { processPendingInviteToken } from '../lib/handlePendingInvite';
@@ -44,7 +45,8 @@ interface AuthActions {
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   setAppMode: (mode: AppMode) => void;
-  initAuth: () => void;
+  setAuthUser: (firebaseUser: User) => Promise<void>; // NEU
+  setUnauthenticated: () => void; // NEU
   clearError: () => void;
   continueAsGuest: () => void;
   clearGuestStatus: () => void;
@@ -80,6 +82,73 @@ export const useAuthStore = create<AuthStore>()(
       uploadStatus: "idle",
 
       // Aktionen
+      setAuthUser: async (firebaseUser: User) => {
+        if (userDocUnsubscribe) userDocUnsubscribe();
+        if (playerDocUnsubscribe) playerDocUnsubscribe();
+        userDocUnsubscribe = null;
+        playerDocUnsubscribe = null;
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log('AUTH_STORE: setAuthUser called for:', {
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+          });
+        }
+        
+        const initialMappedUser = mapUserToAuthUser(firebaseUser, null);
+        set({
+          status: "authenticated",
+          firebaseUser: firebaseUser,
+          user: initialMappedUser,
+          isGuest: false,
+          error: null, // Fehler zurücksetzen
+        });
+        
+        // Asynchrone Logik zur Anreicherung des User-Objekts
+        try {
+          const userRef = doc(db, USERS_COLLECTION, firebaseUser.uid);
+          userDocUnsubscribe = onSnapshot(userRef, (docSnap) => {
+            if (docSnap.exists()) {
+              const userData = docSnap.data();
+              const mappedUser = mapUserToAuthUser(firebaseUser, userData as Partial<FirestorePlayer>);
+              set({ user: mappedUser });
+              
+              // 🚀 NEU: lastActiveGroup wird automatisch im groupStore gesetzt
+              // sobald userGroups geladen sind (siehe groupStore._trySetLastActiveGroup)
+              // Hier ist keine manuelle Aktion mehr nötig
+            } else {
+               console.warn(`AUTH_STORE: Firestore user document not found for ${firebaseUser.uid}.`);
+            }
+          }, (error) => {
+            console.error(`AUTH_STORE: Fehler im User Doc Listener für ${firebaseUser.uid}:`, error);
+            set({ status: "error", error: "Fehler beim Laden der Benutzerdaten." });
+          });
+          
+          const playerId = await getPlayerIdForUser(firebaseUser.uid, firebaseUser.displayName || '');
+          if (playerId) {
+            await useGroupStore.getState().loadUserGroupsByPlayerId(playerId);
+          }
+
+        } catch (error) {
+           console.error("AUTH_STORE: Fehler bei der Anreicherung des Benutzers in setAuthUser:", error);
+           set({ status: "error", error: "Fehler beim Laden der Profildaten." });
+        }
+      },
+
+      setUnauthenticated: () => {
+        if (userDocUnsubscribe) userDocUnsubscribe();
+        if (playerDocUnsubscribe) playerDocUnsubscribe();
+        userDocUnsubscribe = null;
+        playerDocUnsubscribe = null;
+
+        const wasGuest = get().isGuest;
+        if (process.env.NODE_ENV === 'development') {
+          console.log('AUTH_STORE: setUnauthenticated called.');
+        }
+        set({ user: null, firebaseUser: null, status: "unauthenticated", isGuest: wasGuest });
+        useGroupStore.getState().resetGroupStore();
+      },
+
       login: async (email: string, password: string) => {
         try {
           set({status: "loading", error: null});
@@ -147,7 +216,40 @@ export const useAuthStore = create<AuthStore>()(
 
       logout: async () => {
         console.log("AUTH_STORE: Starting logout process...");
-        set({ isLoggingOut: true }); // Race Condition Prevention
+        
+        // NEU: Prüfe ob Offline-Sync noch läuft
+        if (typeof window !== 'undefined' && window.__OFFLINE_SYNC_SERVICE__) {
+          const syncService = window.__OFFLINE_SYNC_SERVICE__;
+          
+          if (syncService.isSyncInProgress() || syncService.hasPendingSync()) {
+            console.log("AUTH_STORE: Offline-Sync läuft noch, warte auf Abschluss...");
+            
+            // Zeige Benachrichtigung
+            const uiStore = useUIStore.getState();
+            uiStore.showNotification({
+              type: "info",
+              message: "Daten werden synchronisiert... Bitte warten Sie einen Moment.",
+            });
+            
+            // Warte maximal 10 Sekunden auf Sync-Abschluss
+            let waitTime = 0;
+            const maxWaitTime = 10000;
+            const checkInterval = 500;
+            
+            while ((syncService.isSyncInProgress() || syncService.hasPendingSync()) && waitTime < maxWaitTime) {
+              await new Promise(resolve => setTimeout(resolve, checkInterval));
+              waitTime += checkInterval;
+            }
+            
+            if (waitTime >= maxWaitTime) {
+              console.warn("AUTH_STORE: Sync-Timeout erreicht, fahre mit Logout fort");
+            } else {
+              console.log("AUTH_STORE: Sync abgeschlossen, fahre mit Logout fort");
+            }
+          }
+        }
+        
+        set({ isLoggingOut: true });
         
         if (userDocUnsubscribe) {
           userDocUnsubscribe();
@@ -681,38 +783,9 @@ export const useAuthStore = create<AuthStore>()(
                   // Aktualisiert das initial gesetzte 'user'-Objekt mit den vollständigen Daten
                   set({user: mappedUser, status: "authenticated"});
                   
-                  // 🚨 KRITISCHER FIX: currentGroup Wiederherstellung bei Re-Login
-                  if (userData.lastActiveGroupId) {
-                  const currentGroups = useGroupStore.getState().userGroups;
-                  const currentGroupMap = new Map(currentGroups.map(g => [g.id, g]));
-                  const currentActiveGroup = useGroupStore.getState().currentGroup;
-                    
-                    if (currentGroupMap.has(userData.lastActiveGroupId) && 
-                      currentActiveGroup?.id !== userData.lastActiveGroupId) {
-                      // Gruppe ist in userGroups vorhanden
-                       useGroupStore.getState().setCurrentGroup(currentGroupMap.get(userData.lastActiveGroupId)! as any);
-                    } else if (!currentGroupMap.has(userData.lastActiveGroupId)) {
-                      // 🚨 NEUER FIX: Gruppe NICHT in userGroups - aus Firestore laden!
-                      console.log(`[AuthStore] lastActiveGroupId ${userData.lastActiveGroupId} nicht in userGroups gefunden, lade aus Firestore...`);
-                      
-                      import('../services/groupService').then(({ getGroupById }) => {
-                        getGroupById(userData.lastActiveGroupId!).then(group => {
-                          if (group) {
-                            console.log(`[AuthStore] ✅ Gruppe ${userData.lastActiveGroupId} aus Firestore geladen und als currentGroup gesetzt`);
-                            useGroupStore.getState().setCurrentGroup(group as any);
-                          } else {
-                            console.warn(`[AuthStore] ❌ Gruppe ${userData.lastActiveGroupId} existiert nicht mehr in Firestore`);
-                            // Optional: lastActiveGroupId im User-Dokument löschen
-                            updateUserDocument(firebaseUser.uid, { lastActiveGroupId: null }).catch(console.error);
-                          }
-                        }).catch(error => {
-                          console.error(`[AuthStore] Fehler beim Laden der Gruppe ${userData.lastActiveGroupId} aus Firestore:`, error);
-                        });
-                      }).catch(error => {
-                        console.error(`[AuthStore] Fehler beim Import von groupService:`, error);
-                      });
-                    }
-                  }
+                  // 🚀 NEU: lastActiveGroup wird automatisch im groupStore gesetzt
+                  // sobald userGroups geladen sind (siehe groupStore._trySetLastActiveGroup)
+                  // Diese komplexe Re-Login Logik ist nicht mehr nötig
                 } else {
                    // Fallback: User-Dokument nicht in Firestore gefunden.
                    // Behalte den initialen User-State (nur Auth-Daten) bei. Status bleibt 'authenticated'.

@@ -142,12 +142,21 @@ try {
   // Firestore initialisieren
   try {
     if (typeof window !== "undefined") {
-      db = initializeFirestore(app, {
+      // Spezielle Konfiguration für PWA/Service Worker Umgebungen
+      const firestoreSettings: any = {
         localCache: persistentLocalCache({
           tabManager: persistentMultipleTabManager(),
           cacheSizeBytes: CACHE_SIZE_UNLIMITED,
         }),
-      });
+      };
+      
+      // CORS-Fix für PWA: Experimentelle longPolling-Option
+      if ('serviceWorker' in navigator) {
+        // In Service Worker Umgebungen manchmal nötig
+        firestoreSettings.experimentalForceLongPolling = true;
+      }
+      
+      db = initializeFirestore(app, firestoreSettings);
       // console.log("✅ Firestore initialisiert mit Multi-Tab Offline-Persistenz und unlimitiertem Cache.");
     } else {
       // Fallback für Server-Kontext (z.B. während des Builds), wo keine Persistenz möglich ist

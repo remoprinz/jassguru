@@ -860,7 +860,7 @@ const StartPage = () => {
 
         let loadedRounds: RoundEntry[] = [];
         try {
-          const { loadRoundsFromFirestore } = await import('@/services/gameService');
+                        const { loadRoundsFromFirestore } = await import('@/services/gameService');
           loadedRounds = await loadRoundsFromFirestore(gameId);
           // console.log(`[StartPage] Successfully loaded ${loadedRounds.length} rounds from Firestore for game ${gameId}.`);
         } catch (loadError) {

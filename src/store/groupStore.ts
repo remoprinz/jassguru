@@ -79,6 +79,7 @@ interface GroupActions {
     farbeSettingsValues: JassFarbeSettings['values'];
     cardStyle: CardStyle;
   }) => Promise<void>;
+  _trySetLastActiveGroup: () => void;
 }
 
 type GroupStore = GroupState & GroupActions;
@@ -205,6 +206,12 @@ const groupStoreCreator: StateCreator<
             } else {
                  // console.warn(`GROUP_STORE: Current group ${currentGroup.id} no longer exists for player ${playerId}, but couldn't get userId to clear lastActiveGroupId.`);
             }
+        }
+
+        // 🚀 NEU: Automatisches Setzen der lastActiveGroup nach dem Laden
+        // Nur wenn noch keine currentGroup gesetzt ist, versuche lastActiveGroupId zu verwenden
+        if (!currentGroupStillExists && !currentGroup) {
+          get()._trySetLastActiveGroup();
         }
     } catch (error) {
         // console.error(`GROUP_STORE: Failed to load groups for playerId ${playerId}:`, error);
@@ -560,6 +567,38 @@ const groupStoreCreator: StateCreator<
     if (!user || !group || group.id !== targetGroupId) return false;
     // Überprüfe, ob die adminIds existieren und die userId enthalten
     return Array.isArray(group.adminIds) && group.adminIds.includes(user.uid);
+  },
+
+  _trySetLastActiveGroup: () => {
+    // 🚀 NEU: Automatisches Setzen der lastActiveGroup nach dem Laden der userGroups
+    const authUser = useAuthStore.getState().user;
+    const currentGroups = get().userGroups;
+    const currentGroup = get().currentGroup;
+    
+    // Nur ausführen wenn:
+    // 1. User eingeloggt ist
+    // 2. UserGroups bereits geladen sind
+    // 3. Noch keine currentGroup gesetzt ist
+    // 4. User hat eine lastActiveGroupId
+    if (!authUser?.lastActiveGroupId || currentGroup || currentGroups.length === 0) {
+      return;
+    }
+
+    // Finde die lastActiveGroup in den geladenen userGroups
+    const lastActiveGroup = currentGroups.find(g => g.id === authUser.lastActiveGroupId);
+    
+    if (lastActiveGroup) {
+      console.log(`[GroupStore] 🎯 Automatisch lastActiveGroup gesetzt: ${lastActiveGroup.name} (${lastActiveGroup.id})`);
+      get().setCurrentGroup(lastActiveGroup as any);
+    } else {
+      console.warn(`[GroupStore] ⚠️ lastActiveGroupId ${authUser.lastActiveGroupId} nicht in userGroups gefunden`);
+      // Optional: lastActiveGroupId löschen, da die Gruppe nicht mehr existiert
+      if (authUser.uid) {
+        updateUserDocument(authUser.uid, { lastActiveGroupId: null }).catch(error => {
+          console.error('Failed to clear invalid lastActiveGroupId:', error);
+        });
+      }
+    }
   },
 
   updateCurrentGroupJassSettings: async (groupId: string, updates: {

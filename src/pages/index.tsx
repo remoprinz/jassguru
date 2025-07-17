@@ -30,7 +30,7 @@ function isDesktopDevice(): boolean {
 
 export default function Home() {
   const router = useRouter();
-  const {status, isGuest, initAuth} = useAuthStore();
+  const {status, isGuest} = useAuthStore();
   const [isClient, setIsClient] = useState(false);
   const [isPWAInstalled, setIsPWAInstalled] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);

@@ -28,7 +28,6 @@ import { unentschiedenSprueche } from './jassEnd/unentschieden';
 import { vernichtendSprueche } from './jassEnd/vernichtend';
 import { schneiderSprueche } from './common/schneider';
 import { jassEndZeitSprueche } from './zeit/jassEnd';
-import { matschSprueche } from './jassEnd/matsch';
 
 // ===== NEUE STRUKTUREN FÜR KORREKTE EVENT-ATTRIBUTION =====
 
@@ -1914,7 +1913,7 @@ export function generateEnhancedJassSpruch(data: {
         finalText += " • Marcs Augen wurden magnetisch: Sie starren jetzt noch aufs Handy.";
       } else if (marcGewinnt && marcMatschAnzahl >= 2) {
         const mischelAnzahl = Math.floor(Math.random() * 21) + 30; // 30-50
-        finalText += ` • Marc kam nach seinen Matschen ins totale Schwelgen: ${mischelAnzahl} x Mischeln!!!`;
+        finalText += ` • Marc kam nach seinen Matschen ins totale Schwelgen: ${mischelAnzahl} x gemischelt!!!`;
       }
     }
   }

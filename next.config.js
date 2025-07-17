@@ -39,11 +39,11 @@ const nextConfig = {
 
 const withPWA = withPWAInit({
   dest: 'public',
-  register: false, // Custom Registration
+  register: false, // Custom Registration - wir registrieren konditional
   skipWaiting: true,
   clientsClaim: true,
   scope: '/',
-  disable: process.env.NODE_ENV === "development",
+  // disable: true, // 🎯 PWA wieder aktiviert, aber mit Kontrolle
   sw: 'sw.js',
   runtimeCaching: [
     {
@@ -177,12 +177,13 @@ const withPWA = withPWAInit({
     /middleware-manifest\.json$/,
     /build-manifest\.json$/,
     /_buildManifest\.js$/,
+    /dynamic-css-manifest\.json$/, // 🚨 FIX: Diese Datei ausschliessen
   ],
   publicExcludes: [
     '!noprecache/**/*'
   ],
   fallbacks: {
-    image: '/static/images/fallback.png',
+    image: '/apple-touch-icon.png',
   },
 });
 

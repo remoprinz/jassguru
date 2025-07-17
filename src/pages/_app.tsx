@@ -2,8 +2,7 @@ import React, {useEffect, useState, useMemo} from "react";
 import "../styles/globals.css";
 import type {AppProps} from "next/app";
 import { useRouter } from "next/router";
-import {register} from "../pwa/serviceWorkerRegistration"; // Service Worker Registrierung aktivieren
-// Debug-Log Komponente entfernt
+// 🧟‍♂️ ZOMBIE KILLER CODE ENTFERNT
 import {AppProvider} from "../contexts/AppContext";
 import Head from "next/head";
 import {useWakeLock} from "../hooks/useWakeLock";
@@ -13,15 +12,16 @@ import {useAuthStore} from "@/store/authStore";
 import {useTournamentStore} from "@/store/tournamentStore"; // NEU: TournamentStore importieren
 import {useUIStore} from "@/store/uiStore"; // NEU: UIStore importieren
 import GlobalNotificationContainer from "../components/notifications/GlobalNotificationContainer";
-import PwaUpdateHandler from '@/components/pwa/PwaUpdateHandler'; // Wieder einkommentieren
+import PwaUpdateHandler from '@/components/pwa/PwaUpdateHandler'; // 🎯 PWA-Handler wieder aktiviert
 import { FirestoreSyncProvider } from '@/providers/FirestoreSyncProvider'; // Neu importieren
 import { ClipLoader } from "react-spinners"; // Import für einen Spinner
 import { debouncedRouterPush } from '../utils/routerUtils';
 import { isPublicPath } from "@/lib/utils"; // 🚨 NEU: Importiere die zentrale Funktion
-import { handleIndexedDBCorruption, isIndexedDBCorruptionError } from '../utils/indexedDBHelper';
-import { logVersionInfo } from '@/config/version'; // Version-Info für Debugging
-// import { setupEmergencyFunctions } from '../utils/emergencyReset'; // ENTFERNT: Nicht mehr benötigt
+import { handleIndexedDBCorruption, isIndexedDBCorruptionError, getOfflineDB } from '../utils/indexedDBHelper';
 import { initSyncEngine } from '@/services/offlineSyncEngine';
+import { offlineSyncService } from '@/services/offlineSyncService';
+import { getAuth, onAuthStateChanged, User } from 'firebase/auth'; // NEU
+// 🧟‍♂️ NOTFALL-CACHE-CLEAR ENTFERNT
 
 // 🚨 IMPROVED: Hilfskomponente für die Ladeanzeige mit besserer UX
 const LoadingScreen: React.FC = () => {
@@ -52,8 +52,10 @@ const LoadingScreen: React.FC = () => {
 const MyApp = ({Component, pageProps}: AppProps) => {
   const [isClient, setIsClient] = useState(false);
   useWakeLock();
-  const initAuth = useAuthStore((state) => state.initAuth);
-  const authStatus = useAuthStore((state) => state.status);
+  // const initAuth = useAuthStore((state) => state.initAuth); // ALT
+  const setAuthUser = useAuthStore((state) => state.setAuthUser); // NEU
+  const setUnauthenticated = useAuthStore((state) => state.setUnauthenticated); // NEU
+  const status = useAuthStore((state) => state.status); // NEU: Status direkt abonnieren
   const user = useAuthStore((state) => state.user); // NEU: User-Objekt holen
   const isGuest = useAuthStore((state) => state.isGuest);
   const isAuthenticated = useAuthStore.getState().isAuthenticated();
@@ -70,41 +72,25 @@ const MyApp = ({Component, pageProps}: AppProps) => {
   const hasBeenRedirected = useUIStore((state) => state.hasBeenRedirectedToActiveTournament);
   const setHasBeenRedirected = useUIStore((state) => state.setHasBeenRedirectedToActiveTournament);
 
-  // console.log(`_app.tsx: Rendering Component: ${Component.displayName || Component.name || 'Unknown'}, Pathname: ${pageProps.router?.pathname || (typeof window !== 'undefined' ? window.location.pathname : '')}`);
-
-  // --- NEUER CHECK IM RENDER-KONTEXT ---
-  if (typeof window !== 'undefined') {
-    // console.log('[_app.tsx Render] Checking Service Worker API...');
-    const swAvailable = 'serviceWorker' in navigator;
-    // console.log('[_app.tsx Render] \'serviceWorker\' in navigator:', swAvailable);
-    if (!swAvailable) {
-      // console.log('[_app.tsx Render] Properties in navigator:', Object.keys(navigator));
-    }
-  }
-  // --- ENDE CHECK ---
-
-  // Client-seitige Initialisierung
+  // Client-seitige Initialisierung & stabiler Auth-Listener
   useEffect(() => {
     setIsClient(true);
     
-    // Service Worker registrieren (nur im Browser)
-    if (typeof window !== 'undefined') {
-
-      register();
-    }
-    
-    // Notfall-Funktionen entfernt - PWA Update Handler macht bereits umfassendes Cleanup
-    
-    // Authentifizierung initialisieren
-    try {
-      initAuth();
-    } catch (error) {
-      console.error('Fehler bei der Authentifizierung-Initialisierung:', error);
-      if (isIndexedDBCorruptionError(error)) {
-        handleIndexedDBCorruption();
+    // 🚨 NEU: Robuster, globaler onAuthStateChanged Listener
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        setAuthUser(firebaseUser);
+      } else {
+        setUnauthenticated();
       }
-    }
-  }, [initAuth]);
+    });
+
+    // Cleanup-Funktion, die beim Unmount der App aufgerufen wird
+    return () => unsubscribe();
+    
+  }, [setAuthUser, setUnauthenticated]);
+
 
   // 🚨 IMPROVED: App-Loading-Logic mit Auth-Timeout-Handling
   useEffect(() => {
@@ -119,12 +105,12 @@ const MyApp = ({Component, pageProps}: AppProps) => {
       }
       
       // Private Seiten: Warte auf definitiven Auth-Status ODER Timeout
-      if (authStatus !== 'loading' && authStatus !== 'idle') {
+      if (status !== 'loading' && status !== 'idle') {
         setIsAppLoaded(true);
       } else {
         // 🚨 CRITICAL FIX: Auth-Timeout für hängende Loading-States
         const authTimeoutId = setTimeout(() => {
-          if ((authStatus === 'loading' || authStatus === 'idle') && !isAppLoaded) {
+          if ((status === 'loading' || status === 'idle') && !isAppLoaded) {
             console.warn('_app.tsx: Auth-Status Timeout! Fallback zu WelcomeScreen.');
             // Forciere App-Loading und leite zur WelcomeScreen weiter
             setIsAppLoaded(true);
@@ -137,7 +123,7 @@ const MyApp = ({Component, pageProps}: AppProps) => {
         return () => clearTimeout(authTimeoutId);
       }
     }
-  }, [router.isReady, router.pathname, authStatus, isAppLoaded]);
+  }, [router.isReady, router.pathname, status, isAppLoaded]);
 
   // Debug-Log Doppelklick Handler entfernt
 
@@ -158,10 +144,10 @@ const MyApp = ({Component, pageProps}: AppProps) => {
     }
 
     // 🚨 IMPROVED: Robustere Auth-Status Behandlung
-    if (authStatus === 'loading' || authStatus === 'idle') {
+    if (status === 'loading' || status === 'idle') {
       // Zusätzlicher Timeout-Schutz: Falls App länger als 5s im loading/idle hängt
       const routingTimeoutId = setTimeout(() => {
-        if ((authStatus === 'loading' || authStatus === 'idle')) {
+        if ((status === 'loading' || status === 'idle')) {
           console.warn('_app.tsx: Routing-Timeout! Forciere Weiterleitung zu WelcomeScreen.');
           debouncedRouterPush(router, '/', undefined, true);
         }
@@ -172,7 +158,7 @@ const MyApp = ({Component, pageProps}: AppProps) => {
     }
 
     // Ab hier wissen wir: Die Seite ist GESCHÜTZT und der Auth-Status ist DEFINITIV.
-    const isAuthenticatedUser = authStatus === 'authenticated';
+    const isAuthenticatedUser = status === 'authenticated';
     const isGuestUser = useAuthStore.getState().isGuest;
     const authenticatedStartPath = '/start';
     const unauthenticatedLandingPath = '/';
@@ -212,7 +198,7 @@ const MyApp = ({Component, pageProps}: AppProps) => {
       }
     }
     
-  }, [authStatus, router.isReady, router.pathname]);
+  }, [status, router.isReady, router.pathname]);
 
   // NEU: Logik zur Unterscheidung öffentlicher/privater Seiten für das Rendering
   const isPublicPage = useMemo(() => {
@@ -222,7 +208,7 @@ const MyApp = ({Component, pageProps}: AppProps) => {
 
   // NEU: useEffect zur Prüfung auf aktives Turnier für den eingeloggten Benutzer
   useEffect(() => {
-    if (!router.isReady || authStatus !== 'authenticated') {
+    if (!router.isReady || status !== 'authenticated') {
       if (hasBeenRedirected) {
         setHasBeenRedirected(false);
       }
@@ -237,12 +223,11 @@ const MyApp = ({Component, pageProps}: AppProps) => {
     
     setHasBeenRedirected(false);
     checkUserActiveTournament(user.uid);
-  }, [authStatus, router.isReady, checkUserActiveTournament, setHasBeenRedirected]); // user entfernt, da es implizit durch authStatus abgedeckt ist, hasBeenRedirected entfernt
+  }, [status, router.isReady, checkUserActiveTournament, setHasBeenRedirected]); // user entfernt, da es implizit durch authStatus abgedeckt ist, hasBeenRedirected entfernt
 
   // NEU: useEffect für die Weiterleitung zum aktiven Turnier
   useEffect(() => {
-    const isDebugMode = process.env.NODE_ENV === 'development' && false;
-    if (router.isReady && authStatus === 'authenticated' && userActiveTournamentStatus === 'success' && userActiveTournamentId && !hasBeenRedirected) {
+    if (router.isReady && status === 'authenticated' && userActiveTournamentStatus === 'success' && userActiveTournamentId && !hasBeenRedirected) {
       const targetPath = `/view/tournament/${userActiveTournamentId}`;
       const currentPath = router.pathname;
 
@@ -263,32 +248,52 @@ const MyApp = ({Component, pageProps}: AppProps) => {
         return currentPath.startsWith(p);
       });
       
-      if (isDebugMode && !isProtectedPath) {
-        // console.log(`[_app Effect Tournament Redirect] Current path: ${currentPath}, Target: ${targetPath}, IsProtected: ${isProtectedPath}`);
-      }
-
       if (!isProtectedPath) {
         const timerId = setTimeout(() => {
-          if (isDebugMode) console.log(`[_app Effect] Active tournament ${userActiveTournamentId} found. Redirecting from ${currentPath} to ${targetPath} (delayed)...`);
           debouncedRouterPush(router, targetPath, undefined, true); 
           setHasBeenRedirected(true); 
         }, 0);
         return () => clearTimeout(timerId);
-      } else {
-        // if (isDebugMode) console.log(`[_app Effect] Active tournament ${userActiveTournamentId} found, but current path ${currentPath} is protected or target. No redirect.`);
       }
     }
     if (router.isReady && userActiveTournamentStatus === 'success' && !userActiveTournamentId && hasBeenRedirected) {
-        // if (isDebugMode) console.log('[_app Effect] Active tournament ended and user was previously redirected. Resetting redirect flag.');
         setHasBeenRedirected(false);
     }
-  }, [userActiveTournamentId, userActiveTournamentStatus, router.isReady, router.pathname, hasBeenRedirected, setHasBeenRedirected, authStatus]); // router-Objekt entfernt
+  }, [userActiveTournamentId, userActiveTournamentStatus, router.isReady, router.pathname, hasBeenRedirected, setHasBeenRedirected, status]);
 
   // NEU: Sync-Engine Initialisierung
   useEffect(() => {
-    initSyncEngine();
+    let syncEngine: any = null;
     
-    // Development Mode: Lade Test-Helper
+    const initializeOfflineSync = async () => {
+      try {
+        // Warte bis IndexedDB initialisiert ist
+        await getOfflineDB();
+        console.log('[App] IndexedDB initialisiert, starte Offline Sync Engine');
+        
+        // Jetzt erst den Sync Engine starten
+        syncEngine = initSyncEngine();
+        console.log('[App] Offline Sync Service initialisiert');
+      } catch (error) {
+        console.error('[App] Fehler bei der Initialisierung des Offline Sync:', error);
+      }
+    };
+
+    // Nur initialisieren, wenn wir im Browser sind
+    if (typeof window !== 'undefined') {
+      initializeOfflineSync();
+    }
+
+    // Cleanup
+    return () => {
+      if (syncEngine) {
+        syncEngine.stop();
+      }
+    };
+  }, []); // Nur einmal beim Mount ausführen
+
+  // 🧪 Offline test helper (nur in Development)
+  useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
       import('@/utils/offlineTestHelper').then(() => {
         console.log('[App] 🧪 Offline test helper loaded. Use testOfflineSync() in console to run tests.');
@@ -296,34 +301,43 @@ const MyApp = ({Component, pageProps}: AppProps) => {
     }
   }, []);
 
+  // Initialisiere Offline Sync Service
+  useEffect(() => {
+    // Service wird automatisch durch Import initialisiert
+    console.log('[App] Offline Sync Service initialisiert');
+  }, []);
+
   // --- Immer die Haupt-App-Struktur rendern --- 
   return (
     <AppProvider>
       <Head>
+        {/* Essential Meta Tags */}
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
         />
-        {/* ✅ Browser-Cache-Invalidierung für neue Versionen */}
         <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
         <meta httpEquiv="Pragma" content="no-cache" />
         <meta httpEquiv="Expires" content="0" />
-        <meta name="version" content="2.5.4" />
-        
-        {/* 🚀 PERFORMANCE: welcome-guru.png (90KB) ist klein genug - kein Preload nötig */}
-        {/* Preload entfernt: Kleine Bilder (<100KB) laden schnell genug ohne Preload */}
-        
-        <title>jassguru.ch - Die Jass-Community in deiner Tasche</title>
-        <meta name="description" content="Schneller, smarter, vernetzter Jassen" />
-        <meta property="og:title" content="jassguru.ch - Die Jass-Community in deiner Tasche" />
-        <meta property="og:description" content="Schneller, smarter, vernetzter Jassen" />
-        <meta property="og:url" content="https://jassguru.ch?v=2.5.0" />
-        <meta property="og:image" content="https://jassguru.ch/apple-touch-icon.png" />
+
+        {/* SEO & Branding Meta Tags */}
+        <title>Jassguru.ch - Die Jass-Community in deiner Tasche</title>
+        <meta name="description" content="Schneller, smarter, vernetzter Jassen. Deine digitale Jasstafel für Ranglisten, Statistiken und Turniere. Werde Teil der Jass-Community!" />
+        <meta name="keywords" content="Jassen, Jass, Jass-Community, Jasstafel, Jasszähler, Rangliste, Statistik, Tabelle, Turnier, Schieber, Coiffeur, Differenzler, Schweizer Jass" />
+        <link rel="canonical" href="https://www.jassguru.ch" />
+
+        {/* Open Graph / Facebook Meta Tags */}
         <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://www.jassguru.ch/" />
+        <meta property="og:title" content="Jassguru.ch - Die Jass-Community in deiner Tasche" />
+        <meta property="og:description" content="Schneller, smarter, vernetzter Jassen. Deine digitale Jasstafel für Ranglisten, Statistiken und Turniere." />
+        <meta property="og:image" content="https://www.jassguru.ch/apple-touch-icon.png" />
+
+        {/* Twitter Meta Tags */}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="jassguru.ch - Die Jass-Community in deiner Tasche" />
-        <meta name="twitter:description" content="Schneller, smarter, vernetzter Jassen" />
-        <meta name="twitter:image" content="https://jassguru.ch/apple-touch-icon.png" />
+        <meta name="twitter:title" content="Jassguru.ch - Die Jass-Community in deiner Tasche" />
+        <meta name="twitter:description" content="Schneller, smarter, vernetzter Jassen mit digitalen Ranglisten und Statistiken." />
+        <meta name="twitter:image" content="https://www.jassguru.ch/apple-touch-icon.png" />
       </Head>
       <AuthProvider>
         <UserProvider>
@@ -337,7 +351,7 @@ const MyApp = ({Component, pageProps}: AppProps) => {
             {/* --- Ende bedingtes Rendern --- */}
             
             <GlobalNotificationContainer />
-            <PwaUpdateHandler /> 
+            <PwaUpdateHandler /> {/* 🎯 PWA-Updates nur im PWA-Modus */}
           </FirestoreSyncProvider>
         </UserProvider>
       </AuthProvider>

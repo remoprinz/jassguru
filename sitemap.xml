@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://www.jassguru.ch/agb</loc></url
+  ><url><loc>https://www.jassguru.ch/clear-cache</loc></url
+  ><url><loc>https://www.jassguru.ch/datenschutz</loc></url
+  ><url><loc>https://www.jassguru.ch/impressum</loc></url
+  ><url><loc>https://www.jassguru.ch/</loc></url
+  ><url><loc>https://www.jassguru.ch/join</loc></url
+  ><url><loc>https://www.jassguru.ch/game/[activeGameId]</loc></url
+  ><url><loc>https://www.jassguru.ch/jass</loc></url
+  ><url><loc>https://www.jassguru.ch/start</loc></url
+  ><url><loc>https://www.jassguru.ch/tournaments</loc></url
+  ><url><loc>https://www.jassguru.ch/tournaments/new</loc></url
+  ><url><loc>https://www.jassguru.ch/profile/[playerId]</loc></url
+  ><url><loc>https://www.jassguru.ch/profile/edit</loc></url
+  ><url><loc>https://www.jassguru.ch/profile</loc></url
+  ><url><loc>https://www.jassguru.ch/groups/new</loc></url
+  ><url><loc>https://www.jassguru.ch/groups/settings</loc></url
+  ><url><loc>https://www.jassguru.ch/view/[gameId]</loc></url
+  ><url><loc>https://www.jassguru.ch/auth/login</loc></url
+  ><url><loc>https://www.jassguru.ch/auth/register</loc></url
+  ><url><loc>https://www.jassguru.ch/auth/reset-password</loc></url
+  ><url><loc>https://www.jassguru.ch/game/new</loc></url
+  ><url
+    ><loc>https://www.jassguru.ch/tournaments/[instanceId]/settings</loc></url
+  ><url><loc>https://www.jassguru.ch/profile/groups</loc></url
+  ><url><loc>https://www.jassguru.ch/view/group/[groupId]</loc></url
+  ><url><loc>https://www.jassguru.ch/view/tournament/[instanceId]</loc></url
+  ><url><loc>https://www.jassguru.ch/view/session/[sessionId]</loc></url
+  ><url
+    ><loc
+      >https://www.jassguru.ch/tournaments/[instanceId]/passe/[passeId]</loc
+    ></url
+  >
+</urlset>

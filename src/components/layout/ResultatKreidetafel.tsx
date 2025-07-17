@@ -1367,34 +1367,37 @@ const ResultatKreidetafel = ({
     }
 
     // Confirmation Notification (nur für eingeloggte Benutzer)
-    useUIStore.setState({
-      jassFinishNotification: {
-        isOpen: true,
-        mode: 'continue',
-        message: {
-          text: "Möchtest du das nächste Spiel beginnen?",
-          icon: '✅'
+    useUIStore.getState().showNotification({
+      type: 'success',
+      message: 'Möchtest du das nächste Spiel beginnen?',
+      position: swipePosition ?? undefined,
+      isFlipped: swipePosition === 'top',
+      actions: [
+        { 
+          label: 'Zurück', 
+          onClick: closeResultatKreidetafel 
         },
-        onBack: closeResultatKreidetafel,
-        // Rufe startNewGameSequence ohne Argument auf
-        onContinue: async () => {
-          closeResultatKreidetafel(); // Kreidetafel sofort schließen
-          console.log("[ResultatKreidetafel] Starte neues Spiel - Game Transition wird angezeigt...");
-          
-          // NEU: Setze Transition-State direkt im gameStore
-          useGameStore.getState().setTransitioning(true);
-          
-          try {
-          await startNewGameSequence(); // Kein Argument mehr übergeben
-          } catch (error) {
-            console.error("[ResultatKreidetafel] Fehler beim Starten des neuen Spiels:", error);
-            // Bei Fehler Transition-State zurücksetzen
-            useGameStore.getState().setTransitioning(false);
-            throw error; // Re-throw für weitere Fehlerbehandlung
+        { 
+          label: 'Weiterjassen!', 
+          onClick: async () => {
+            closeResultatKreidetafel(); // Kreidetafel sofort schließen
+            console.log("[ResultatKreidetafel] Starte neues Spiel - Game Transition wird angezeigt...");
+            
+            // NEU: Setze Transition-State direkt im gameStore
+            useGameStore.getState().setTransitioning(true);
+            
+            try {
+            await startNewGameSequence(); // Kein Argument mehr übergeben
+            } catch (error) {
+              console.error("[ResultatKreidetafel] Fehler beim Starten des neuen Spiels:", error);
+              // Bei Fehler Transition-State zurücksetzen
+              useGameStore.getState().setTransitioning(false);
+              throw error; // Re-throw für weitere Fehlerbehandlung
+            }
+            // setTransitioning(false) wird automatisch in resetGame() aufgerufen
           }
-          // setTransitioning(false) wird automatisch in resetGame() aufgerufen
         }
-      }
+      ]
     });
   }, [
     canNavigateForward,
@@ -1470,7 +1473,29 @@ const ResultatKreidetafel = ({
                     statusUpdated = true;
                 } catch (err) {
                     console.error("Failed to update game status:", err);
-                    uiStore.showNotification({ type: "error", message: "Fehler beim Speichern des Spielstatus." });
+                    
+                    // 🌐 ELEGANTE OFFLINE-BEHANDLUNG: Prüfe ob wir offline sind
+                    const isOffline = !navigator.onLine;
+                    
+                    if (isOffline) {
+                        uiStore.showNotification({ 
+                            type: "warning", 
+                            message: "Internetverbindung unterbrochen. Das Spiel wird lokal gespeichert und automatisch synchronisiert, sobald die Verbindung wieder hergestellt ist.\n\n⚠️ Wichtig: Verwenden Sie nur dieses Gerät für weitere Rundeneingaben, bis die Internetverbindung wieder verfügbar ist.",
+                            preventClose: true,
+                            actions: [
+                                {
+                                    label: "Verstanden",
+                                    onClick: () => {}
+                                }
+                            ]
+                        });
+                    } else {
+                        uiStore.showNotification({ 
+                            type: "error", 
+                            message: "Fehler beim Speichern des Spielstatus. Bitte versuchen Sie es erneut." 
+                        });
+                    }
+                    
                     // FullscreenLoader ausblenden bei Fehler
                     setIsFinalizingSession(false);
                     return; // Nicht fortfahren

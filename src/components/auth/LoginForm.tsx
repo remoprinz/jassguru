@@ -35,6 +35,8 @@ export function LoginForm() {
   const showNotification = useUIStore((state) => state.showNotification);
   const [showPassword, setShowPassword] = useState(false);
   const [showVerificationWarning, setShowVerificationWarning] = useState(false);
+  const [isEmailLoginSubmitting, setIsEmailLoginSubmitting] = useState(false); // 🚀 NEU: Separater State für Email-Login
+  const [isGoogleLoginSubmitting, setIsGoogleLoginSubmitting] = useState(false); // 🚀 NEU: Separater State für Google-Login
   const router = useRouter();
 
   const form = useForm<LoginFormValues>({
@@ -57,6 +59,7 @@ export function LoginForm() {
   }, [clearError]);
 
   const onSubmit = async (data: LoginFormValues) => {
+    setIsEmailLoginSubmitting(true); // 🚀 Nur Email-Login Loading aktivieren
     clearError();
     setShowVerificationWarning(false);
     try {
@@ -92,10 +95,13 @@ export function LoginForm() {
     } catch (err) {
       authLogger.error("Login-Fehler im Formular:", err);
       setShowVerificationWarning(false);
+    } finally {
+      setIsEmailLoginSubmitting(false); // 🚀 Email-Login Loading zurücksetzen
     }
   };
 
   const handleGoogleLogin = async () => {
+    setIsGoogleLoginSubmitting(true); // 🚀 Nur Google-Login Loading aktivieren
     clearError();
     setShowVerificationWarning(false);
     try {
@@ -118,6 +124,8 @@ export function LoginForm() {
       }, 500);
     } catch (error) {
       authLogger.error("Google login error:", error);
+    } finally {
+      setIsGoogleLoginSubmitting(false); // 🚀 Google-Login Loading zurücksetzen
     }
   };
 
@@ -138,7 +146,7 @@ export function LoginForm() {
     }
   };
 
-  const isLoading = status === "loading";
+  const isAnyLoading = status === "loading" || isEmailLoginSubmitting || isGoogleLoginSubmitting; // 🚀 Globaler Loading-State für Disabled-Status
 
   return (
     <div className="w-full space-y-4">
@@ -156,9 +164,9 @@ export function LoginForm() {
               variant="link"
               className="p-0 h-auto text-yellow-300 hover:text-yellow-200 self-start"
               onClick={handleResendVerification}
-              disabled={isLoading}
+              disabled={isAnyLoading}
             >
-              {isLoading ? "Sende..." : "Bestätigungs-E-Mail erneut senden"}
+              {isAnyLoading ? "Sende..." : "Bestätigungs-E-Mail erneut senden"}
             </Button>
           </AlertDescription>
         </Alert>
@@ -176,7 +184,7 @@ export function LoginForm() {
                   <Input
                     placeholder="deine.email@beispiel.ch"
                     type="email"
-                    disabled={isLoading}
+                    disabled={isAnyLoading}
                     className="bg-gray-800 border-gray-700 text-white focus:border-gray-500"
                     {...field}
                   />
@@ -197,7 +205,7 @@ export function LoginForm() {
                     <Input
                       placeholder="••••••••"
                       type={showPassword ? "text" : "password"}
-                      disabled={isLoading}
+                      disabled={isAnyLoading}
                       className="bg-gray-800 border-gray-700 text-white pr-20 focus:border-gray-500"
                       {...field}
                     />
@@ -218,9 +226,16 @@ export function LoginForm() {
           <Button
             type="submit"
             className="w-full bg-green-600 hover:bg-green-700 text-white h-12 rounded-md"
-            disabled={isLoading}
+            disabled={isAnyLoading}
           >
-            {isLoading ? "Anmeldung läuft..." : "Anmelden"}
+            {isEmailLoginSubmitting ? (
+              <div className="flex items-center justify-center">
+                <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-2"></div>
+                Anmeldung läuft...
+              </div>
+            ) : (
+              "Anmelden"
+            )}
           </Button>
         </form>
       </Form>
@@ -240,16 +255,25 @@ export function LoginForm() {
         variant="outline"
         className="w-full bg-white hover:bg-gray-50 text-gray-600 border border-gray-300 font-medium h-12 rounded-md flex items-center justify-center"
         onClick={handleGoogleLogin}
-        disabled={isLoading}
+        disabled={isAnyLoading}
       >
-        <Image
-          src="/google-logo.svg"
-          alt="Google Logo"
-          width={18}
-          height={18}
-          className="mr-3"
-        />
-        Mit Google fortfahren
+        {isGoogleLoginSubmitting ? (
+          <div className="flex items-center justify-center">
+            <div className="h-4 w-4 rounded-full border-2 border-gray-600 border-t-transparent animate-spin mr-2"></div>
+            Anmeldung läuft...
+          </div>
+        ) : (
+          <>
+            <Image
+              src="/google-logo.svg"
+              alt="Google Logo"
+              width={18}
+              height={18}
+              className="mr-3"
+            />
+            Mit Google fortfahren
+          </>
+        )}
       </Button>
 
       <p className="text-center text-sm text-gray-400">

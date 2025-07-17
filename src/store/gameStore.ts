@@ -43,7 +43,7 @@ import { firebaseApp } from '@/services/firebaseInit';
 import { getFirestore, doc, updateDoc, serverTimestamp, Timestamp, getDoc } from 'firebase/firestore';
 import { updateActiveGame } from "../services/gameService";
 import { sanitizeDataForFirestore } from '@/utils/firestoreUtils';
-import { devtools } from 'zustand/middleware';
+import { devtools, persist } from 'zustand/middleware';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { v4 as uuidv4 } from 'uuid';
 
@@ -531,1353 +531,853 @@ const syncWithJassStore = (stateOfCompletedRound: GameState) => { // Parameter r
 const MAX_HISTORY_SIZE = 50;
 // === ENDE NEU ===
 
-export const useGameStore = create<GameStore>()(devtools(
-  (set, get) => ({
-    // Initial State
-  ...createInitialStateLocal(1), 
-    gamePlayers: null,
-    playerNames: {1: "Spieler 1", 2: "Spieler 2", 3: "Spieler 3", 4: "Spieler 4"},
-    scoreSettings: DEFAULT_SCORE_SETTINGS,
-    farbeSettings: DEFAULT_FARBE_SETTINGS,
-    strokeSettings: DEFAULT_STROKE_SETTINGS,
-    activeGameId: undefined,
-    // NEU: Game Transition Loading State
-    isTransitioning: false,
-    // nextRoundFirestoreId: 1, // ENTFERNT
+export const useGameStore = create<GameStore>()(
+  devtools(
+    persist(
+      (set, get) => ({
+        // Initial State
+        ...createInitialStateLocal(1),
+        gamePlayers: null,
+        playerNames: {1: "Spieler 1", 2: "Spieler 2", 3: "Spieler 3", 4: "Spieler 4"},
+        scoreSettings: DEFAULT_SCORE_SETTINGS,
+        farbeSettings: DEFAULT_FARBE_SETTINGS,
+        strokeSettings: DEFAULT_STROKE_SETTINGS,
+        activeGameId: undefined,
+        // NEU: Game Transition Loading State
+        isTransitioning: false,
+        // nextRoundFirestoreId: 1, // ENTFERNT
 
-    // Actions
-    startGame: (gamePlayers, initialStartingPlayer) => {
-      console.log("🚀 [GameStore] startGame called (wird ggf. durch resetGame abgelöst)", { initialStartingPlayer, gamePlayers, activeGameId: get().activeGameId });
-      // Diese Funktion wird ggf. seltener direkt genutzt, wenn resetGame die Hauptinitialisierung übernimmt.
-      // Für den Moment belassen wir sie, aber stellen sicher, dass sie die Settings korrekt handhabt oder resetGame nutzt.
-      set((state) => {
-        const newState = {
-          ...createInitialStateLocal(initialStartingPlayer, {
-            // Hier könnten die aktuellen state.scoreSettings etc. übergeben werden, wenn sie beibehalten werden sollen
-            // oder man verlässt sich darauf, dass resetGame von außen mit spezifischen Settings gerufen wird.
-            scoreSettings: state.scoreSettings,
-            farbeSettings: state.farbeSettings,
-            strokeSettings: state.strokeSettings,
-          }),
-          playerNames: state.playerNames, 
-          gamePlayers: gamePlayers,
-          activeGameId: state.activeGameId, 
-          isGameStarted: true, 
-        };
-        const syncApi = window.__FIRESTORE_SYNC_API__;
-        if (syncApi?.markLocalUpdate) syncApi.markLocalUpdate();
-        return newState;
-      });
-      useTimerStore.getState().startGameTimer();
-  },
-
-  startRound: () => {
-    const state = get();
-    const timerStore = useTimerStore.getState();
-
-    // Wenn es die erste Runde ist, starten wir den Spiel-Timer
-    if (state.currentRound === 1) {
-      timerStore.startGameTimer();
-    }
-
-    // Neuen Timer für diese Runde starten
-    timerStore.startRoundTimer();
-
-    set(() => ({
-      isRoundCompleted: false,
-      farbe: undefined,
-      currentRoundWeis: [],
-      weisPoints: { top: 0, bottom: 0 }, // NEU: Weispunkte beim Rundenstart zurücksetzen
-    }));
-  },
-
-  finalizeRound: (
-    punkte: { top: number; bottom: number },
-    strichInfo?: { type: 'matsch' | 'kontermatsch'; team: TeamPosition }
-  ) => {
-    const timerStore = useTimerStore.getState();
-    const initialActiveGameId = get().activeGameId; // Hole ID vor dem 'set'
-
-    const settingsFromUIStore = useUIStore.getState().settings; // Expliziter Name für Klarheit
-    const isFinalizingLatest = get().validateHistoryAction();
-
-    timerStore.resetRoundTimer();
-    timerStore.startRoundTimer();
-
-    let finalState: GameState | null = null;
-    let savedRoundEntryForFirestore: RoundEntry | null = null;
-    let stateForJassStoreSyncInternal: GameState | null = null; // Variable für den Sync-State
-
-    set((state) => {
-      // << NEUES LOGGING 2: Zustand VOR Modifikation im set-Block >> // LOG ENTFERNT
-      // console.log(`[GameStore finalizeRound DEBUG 2 - VOR Modifikation im set]`, { /* ... */ }); // LOG ENTFERNT
-      // << ENDE LOGGING 2 >> // LOG ENTFERNT
-
-      // console.log("[GameStore] finalizeRound: Zustand VOR Update (innerhalb set):", JSON.parse(JSON.stringify(state))); // LOG ENTFERNT
-      
-      // --- KORREKTUR: activeStrokeSettings und activeScoreSettings verwenden ---
-      const { currentGroup } = useGroupStore.getState();
-      const uiStoreDirectSettings = useUIStore.getState(); // Für den Fall, dass groupStore nicht vollständig ist
-      
-      const activeStrokeSettings = state.strokeSettings ?? DEFAULT_STROKE_SETTINGS;
-      const activeScoreSettings = state.scoreSettings ?? DEFAULT_SCORE_SETTINGS;
-      // --- ENDE KORREKTUR ---
-      
-      // const {activeGameId} = state; // DIESE ZEILE NICHT MEHR VERWENDEN für die ID dieser Runde
-      
-      const actualStarterOfFinalizedRound = state.currentPlayer; 
-      // console.log(`[GameStore] finalizeRound: actualStarterOfFinalizedRound=${actualStarterOfFinalizedRound}`); // LOG ENTFERNT
-      
-      const entryBeforeFinalize = state.currentHistoryIndex >= 0 ? state.roundHistory[state.currentHistoryIndex] : null;
-      const previousScores = entryBeforeFinalize ? entryBeforeFinalize.scores : { top: 0, bottom: 0 };
-      const roundNumberForEntry = state.currentRound + 1;
-      // console.log(`[GameStore] finalizeRound: roundNumberForEntry=${roundNumberForEntry}`); // LOG ENTFERNT
-
-      const currentRoundJassPoints = punkte;
-
-      const currentRoundWeisSum = (state.currentRoundWeis ?? []).reduce((acc, weis) => {
-        acc[weis.position] = (acc[weis.position] || 0) + weis.points;
-        return acc;
-      }, {top: 0, bottom: 0});
-      
-      const newStriche = {...state.striche};
-      let finalStrichInfoForEntryScoped: { team: TeamPosition; type: StrichTyp } | undefined = undefined; // Scoped Variable
-      
-      if (strichInfo) {
-        const { team: strichTeam, type: strichTypeFromInput } = strichInfo;
-        
-        // KORRIGIERTE LOGIK: Die Entscheidung zwischen Matsch/Kontermatsch wird bereits im Calculator 
-        // basierend auf currentPlayer und Team-Zuordnung getroffen. Hier übernehmen wir nur noch das Ergebnis.
-        const actualStrichType: StrichTyp = strichTypeFromInput;
-        
-        finalStrichInfoForEntryScoped = { team: strichTeam, type: actualStrichType };
-        
-        // --- KORREKTUR: Verwende die korrekten Stroke-Settings für die Anzahl Striche ---
-        if (actualStrichType === 'matsch') {
-            // Matsch ist immer 1 Strich (fest definiert)
-            newStriche[strichTeam] = {
-                ...newStriche[strichTeam],
-                matsch: newStriche[strichTeam].matsch + 1,
+        // Actions
+        startGame: (gamePlayers, initialStartingPlayer) => {
+          console.log("🚀 [GameStore] startGame called (wird ggf. durch resetGame abgelöst)", { initialStartingPlayer, gamePlayers, activeGameId: get().activeGameId });
+          // Diese Funktion wird ggf. seltener direkt genutzt, wenn resetGame die Hauptinitialisierung übernimmt.
+          // Für den Moment belassen wir sie, aber stellen sicher, dass sie die Settings korrekt handhabt oder resetGame nutzt.
+          set((state) => {
+            const newState = {
+              ...createInitialStateLocal(initialStartingPlayer, {
+                // Hier könnten die aktuellen state.scoreSettings etc. übergeben werden, wenn sie beibehalten werden sollen
+                // oder man verlässt sich darauf, dass resetGame von außen mit spezifischen Settings gerufen wird.
+                scoreSettings: state.scoreSettings,
+                farbeSettings: state.farbeSettings,
+                strokeSettings: state.strokeSettings,
+              }),
+              playerNames: state.playerNames, 
+              gamePlayers: gamePlayers,
+              activeGameId: state.activeGameId, 
+              isGameStarted: true, 
             };
-        } else if (actualStrichType === 'kontermatsch') {
-            // Kontermatsch: Verwende den Wert aus den aktiven Stroke-Settings
-            // Hole die aktiven Stroke-Settings (gleiche Logik wie in addKontermatsch)
-            const { currentGroup } = useGroupStore.getState();
-            const uiStoreSettings = useUIStore.getState();
-            const activeStrokeSettings = (currentGroup && currentGroup.strokeSettings !== null && currentGroup.strokeSettings !== undefined) 
-                                           ? currentGroup.strokeSettings 
-                                           : uiStoreSettings.strokeSettings;
-            
-            console.log("[GameStore.finalizeRound] Kontermatsch mit Stroke-Settings:", {
-                team: strichTeam,
-                kontermatschValue: activeStrokeSettings.kontermatsch,
-                currentValue: newStriche[strichTeam].kontermatsch,
-                newTotal: newStriche[strichTeam].kontermatsch + activeStrokeSettings.kontermatsch,
-                source: currentGroup ? 'group' : 'uiStore'
-            });
-            
-            newStriche[strichTeam] = {
-                ...newStriche[strichTeam],
-                kontermatsch: newStriche[strichTeam].kontermatsch + activeStrokeSettings.kontermatsch, // ADDIERE zu bestehenden Strichen
-            };
-        } else if (actualStrichType === 'schneider') {
-            // Schneider: Verwende den Wert aus den aktiven Stroke-Settings
-            // Hole die aktiven Stroke-Settings (gleiche Logik wie in addSchneider)
-            const { currentGroup } = useGroupStore.getState();
-            const uiStoreSettings = useUIStore.getState();
-            const activeStrokeSettings = (currentGroup && currentGroup.strokeSettings !== null && currentGroup.strokeSettings !== undefined) 
-                                           ? currentGroup.strokeSettings 
-                                           : uiStoreSettings.strokeSettings;
-            
-            console.log("[GameStore.finalizeRound] Schneider mit Stroke-Settings:", {
-                team: strichTeam,
-                schneiderValue: activeStrokeSettings.schneider,
-                currentValue: newStriche[strichTeam].schneider,
-                newTotal: newStriche[strichTeam].schneider + activeStrokeSettings.schneider,
-                source: currentGroup ? 'group' : 'uiStore'
-            });
-            
-            newStriche[strichTeam] = {
-                ...newStriche[strichTeam],
-                schneider: newStriche[strichTeam].schneider + activeStrokeSettings.schneider, // ADDIERE zu bestehenden Strichen
-            };
-        }
-      }
-
-      const newTotalScores: TeamScores = {
-        top: previousScores.top + currentRoundJassPoints.top + currentRoundWeisSum.top,
-        bottom: previousScores.bottom + currentRoundJassPoints.bottom + currentRoundWeisSum.bottom,
-      };
-
-      const nextStartingPlayer = getNextPlayer(actualStarterOfFinalizedRound); 
-      const nextCurrentPlayer = nextStartingPlayer;
-      // const nextRoundNumber = roundNumberForEntry + 1; // RUNDENNUMMER WIRD IN stateForEntryCreation.currentRound GESETZT
-      
-      const stateForEntryCreation: GameState = {
-        ...state,
-        scores: newTotalScores, 
-        striche: newStriche, // Die aktualisierten Striche
-        weisPoints: currentRoundWeisSum, // Summe der Weis für diese Runde
-        currentRoundWeis: state.currentRoundWeis, // Die einzelnen Weis-Aktionen für den Entry
-        currentRound: roundNumberForEntry, // Die logische Nummer dieser abgeschlossenen Runde
-        currentPlayer: nextCurrentPlayer, // Der Spieler, der die NÄCHSTE Runde beginnt
-        jassPoints: currentRoundJassPoints, // Nur Jass-Punkte dieser Runde
-        roundHistory: state.roundHistory || [],
-        currentHistoryIndex: state.currentHistoryIndex ?? -1,
-        historyState: state.historyState || createInitialHistoryState(),
-        // strokeSettings etc. bleiben vom state
-        // Wichtig: die restlichen Properties wie playerNames, gamePlayers, activeGameId etc.
-        // werden von ...state übernommen und sollten hier korrekt sein.
-        playerNames: state.playerNames,
-        gamePlayers: state.gamePlayers,
-        activeGameId: state.activeGameId, // initialActiveGameId ist hier eventuell besser, wenn state.activeGameId nicht zuverlässig ist
-        initialStartingPlayer: state.initialStartingPlayer,
-        isGameStarted: state.isGameStarted,
-        isGameCompleted: state.isGameCompleted,
-        scoreSettings: state.scoreSettings,
-        farbeSettings: state.farbeSettings,
-        strokeSettings: state.strokeSettings,
-      };
-      
-      const newEntry = createRoundEntry(
-          stateForEntryCreation,
-          get,
-          "jass", 
-          actualStarterOfFinalizedRound, // Wer hat DIESE Runde gestartet
-          {
-              farbe: state.farbe,
-              strichInfo: finalStrichInfoForEntryScoped,
-              cardStyle: settingsFromUIStore.cardStyle, // UI Store für CardStyle
-          }
-      );
-      // console.log("[GameStore] finalizeRound: newEntry erstellt:", JSON.parse(JSON.stringify(newEntry))); // LOG ENTFERNT
-
-      const historyUpdate = truncateFutureAndAddEntry(state, newEntry);
-      // console.log("[GameStore] finalizeRound: historyUpdate Ergebnis:", { newHistoryLength: historyUpdate.roundHistory?.length, newIndex: historyUpdate.currentHistoryIndex }); // LOG ENTFERNT
-
-      // Erzeuge den State, wie er am Ende der gerade abgeschlossenen Runde war
-      // Dieser State wird für die Synchronisation mit jassStore verwendet.
-      const stateAtEndOfCompletedRound: GameState = {
-          ...state, // Basis ist der State VOR dieser Runde
-          scores: newTotalScores, // Gesamtscores INKLUSIVE dieser Runde
-          striche: newStriche, // Gesamtstriche INKLUSIVE dieser Runde
-          weisPoints: currentRoundWeisSum, // Weispunkte DIESER Runde
-          currentRoundWeis: state.currentRoundWeis, // Weisaktionen DIESER Runde (für den History-Eintrag)
-          isRoundCompleted: true, // Diese Runde ist abgeschlossen
-          currentRound: roundNumberForEntry, // Die Nummer der gerade abgeschlossenen Runde
-          currentPlayer: nextCurrentPlayer, // Der Spieler, der die nächste Runde beginnen würde
-          startingPlayer: actualStarterOfFinalizedRound, // Wer hat DIESE Runde gestartet
-          jassPoints: currentRoundJassPoints, // Jasspunkte DIESER Runde
-          // History Update enthält bereits den newEntry für diese Runde
-          roundHistory: historyUpdate.roundHistory!, 
-          currentHistoryIndex: historyUpdate.currentHistoryIndex!,
-          historyState: state.historyState || createInitialHistoryState(),
-          // Wichtig: Restliche Felder aus stateForEntryCreation übernehmen, um Konsistenz zu wahren
-          playerNames: stateForEntryCreation.playerNames,
-          gamePlayers: stateForEntryCreation.gamePlayers,
-          activeGameId: initialActiveGameId, // Sicherstellen, dass die korrekte ID verwendet wird
-          initialStartingPlayer: stateForEntryCreation.initialStartingPlayer,
-          isGameStarted: stateForEntryCreation.isGameStarted,
-          isGameCompleted: stateForEntryCreation.isGameCompleted, // Bleibt erstmal false, bis das Spiel ganz fertig ist
-          scoreSettings: stateForEntryCreation.scoreSettings,
-          farbeSettings: stateForEntryCreation.farbeSettings,
-          strokeSettings: stateForEntryCreation.strokeSettings,
-      };
-      stateForJassStoreSyncInternal = stateAtEndOfCompletedRound; // Speichere diesen State für außerhalb
-
-      finalState = { // Dies ist der State für die *nächste* lokale gameStore Runde
-          ...state, // Basis ist der State VOR dieser Runde
-          scores: newTotalScores,
-          striche: newStriche,
-          weisPoints: { top: 0, bottom: 0 }, // Reset für NÄCHSTE Runde
-          currentRoundWeis: [],             // Reset für NÄCHSTE Runde
-          isRoundCompleted: true, // Die gerade gespielte Runde ist abgeschlossen
-          currentRound: roundNumberForEntry + 1, // Nächste Rundennummer
-          currentPlayer: nextCurrentPlayer, 
-          startingPlayer: nextStartingPlayer, 
-          ...historyUpdate, // Enthält newEntry in roundHistory
-      } as GameState;
-
-      savedRoundEntryForFirestore = newEntry;
-      // console.log("[GameStore] finalizeRound: Zustand NACH Update (innerhalb set):", JSON.parse(JSON.stringify(finalState))); // LOG ENTFERNT
-
-      // << NEUES LOGGING 3: Zustand NACH Modifikation im set-Block, VOR return >> // LOG ENTFERNT
-      // console.log(`[GameStore finalizeRound DEBUG 3 - NACH Modifikation im set, VOR return finalState]`, { /* ... */ }); // LOG ENTFERNT
-      // << ENDE LOGGING 3 >> // LOG ENTFERNT
-
-      return finalState;
-    }); 
-
-    // Firestore Updates NACH set()
-    const finalStateFromSet = get(); // finalStateFromSet ist jetzt der State für die nächste Runde
-
-    // Den zuvor gespeicherten stateForJassStoreSyncInternal verwenden
-    if (stateForJassStoreSyncInternal) {
-      syncWithJassStore(stateForJassStoreSyncInternal); 
-        } else {
-      // Fallback, sollte nicht passieren, wenn stateForJassStoreSyncInternal immer gesetzt wird
-      console.warn("[GameStore.finalizeRound] stateForJassStoreSyncInternal war nicht gesetzt. Sync mit potenziell falschem State.");
-    syncWithJassStore(finalStateFromSet); 
-    }
-    
-    // NEU: Firestore-Update für das Hauptdokument activeGames/{gameId}
-    if (initialActiveGameId) {
-      setTimeout(() => {
-        // MARK LOCAL UPDATE *BEFORE* WRITING TO FIRESTORE
-        if (typeof window !== 'undefined' && window.__FIRESTORE_SYNC_API__?.markLocalUpdate) {
-          window.__FIRESTORE_SYNC_API__.markLocalUpdate();
-        }
-        
-        const currentState = get(); // Hole den aktuellen State nach allen Updates
-        const updateData: Partial<ActiveGame> = {
-          scores: currentState.scores,
-          weisPoints: currentState.weisPoints,
-          currentRound: currentState.currentRound,
-          currentPlayer: currentState.currentPlayer,
-          startingPlayer: currentState.startingPlayer,
-          striche: currentState.striche,
-          isRoundCompleted: currentState.isRoundCompleted,
-          currentJassPoints: currentState.jassPoints,
-          currentRoundWeis: currentState.currentRoundWeis,
-          lastUpdated: serverTimestamp(),
-        };
-        
-        const cleanedUpdateData = sanitizeDataForFirestore(updateData);
-        if (process.env.NODE_ENV === 'development') {
-        console.log("[GameStore.finalizeRound] Updating Firestore main document with:", cleanedUpdateData);
-      }
-        
-        updateActiveGame(initialActiveGameId, cleanedUpdateData)
-          .catch(error => console.error("[GameStore.finalizeRound] Firestore update failed:", error));
-        
-        // Speichere auch den Rundeneintrag
-        if (savedRoundEntryForFirestore) {
-          import('../services/gameService').then(({ saveRoundToFirestore }) => {
-            // Zusätzliche Null-Prüfung innerhalb des async Callbacks
-            if (savedRoundEntryForFirestore) {
-              saveRoundToFirestore(initialActiveGameId, savedRoundEntryForFirestore)
-                .catch(error => console.error("[GameStore.finalizeRound] Round save failed:", error));
-            }
+            const syncApi = window.__FIRESTORE_SYNC_API__;
+            if (syncApi?.markLocalUpdate) syncApi.markLocalUpdate();
+            return newState;
           });
-        }
-      }, 0);
-    }
-    
-    timerStore.resetRoundTimer();
-    timerStore.startRoundTimer();
-    // console.log("[GameStore] finalizeRound abgeschlossen."); // LOG ENTFERNT
-  }, // Hier endet die finalizeRound Methode korrekt
-
-  updateScore: (team, score, opponentScore) => {
-    set((state) => {
-      const newScores = {...state.scores};
-      const oppositeTeam: TeamPosition = team === "top" ? "bottom" : "top";
-      newScores[team] = validateScore(score);
-      newScores[oppositeTeam] = validateScore(opponentScore);
-      return {scores: newScores};
-    });
-  },
-
-  addStrich: (team: TeamPosition, type: StrichTyp) => {
-    set((state) => {
-      // Neues Striche-Objekt mit allen Kategorien
-      const newStriche = {
-        ...state.striche[team],
-        [type]: state.striche[team][type] + 1,
-      };
-
-      // Sofortige Synchronisation mit JassStore
-      const jassStore = useJassStore.getState();
-      jassStore.updateCurrentGame({
-        teams: {
-          [team]: {
-            striche: newStriche, // Übergebe kompletten StricheRecord
-          },
+          useTimerStore.getState().startGameTimer();
         },
-      });
 
-      // Debug-Logging
-      console.log("🎲 Strich hinzugefügt:", {
-        team,
-        type,
-        newValue: newStriche[type],
-        allStriche: newStriche,
-      });
+        startRound: () => {
+          const state = get();
+          const timerStore = useTimerStore.getState();
 
-      return {
-        ...state,
-        striche: {
-          ...state.striche,
-          [team]: newStriche,
+          // Wenn es die erste Runde ist, starten wir den Spiel-Timer
+          if (state.currentRound === 1) {
+            timerStore.startGameTimer();
+          }
+
+          // Neuen Timer für diese Runde starten
+          timerStore.startRoundTimer();
+
+          set(() => ({
+            isRoundCompleted: false,
+            farbe: undefined,
+            currentRoundWeis: [],
+            weisPoints: { top: 0, bottom: 0 }, // NEU: Weispunkte beim Rundenstart zurücksetzen
+          }));
         },
-      };
-    });
-  },
 
-  addWeisPoints: (team: TeamPosition, points: number) => {
-    // Hole den aktuellsten State *direkt hier*, um Timing-Probleme nach History-Manipulation zu vermeiden
-    const state = get(); 
-    
-    // Prüfe, ob wir uns in der Vergangenheit befinden
-    if (state.currentHistoryIndex < state.roundHistory.length - 1) {
-      const {showHistoryWarning} = useUIStore.getState();
-      showHistoryWarning({
-        // Korrigierter Text
-        message: "Weis wirklich korrigieren? Spätere Einträge werden überschrieben.", 
-        onConfirm: () => {
-          // --- START Kernlogik (History überschreiben) ---
+        finalizeRound: (
+          punkte: { top: number; bottom: number },
+          strichInfo?: { type: 'matsch' | 'kontermatsch'; team: TeamPosition }
+        ) => {
+          const timerStore = useTimerStore.getState();
+          const initialActiveGameId = get().activeGameId; // Hole ID vor dem 'set'
+
+          const settingsFromUIStore = useUIStore.getState().settings; // Expliziter Name für Klarheit
+          const isFinalizingLatest = get().validateHistoryAction();
+
+          timerStore.resetRoundTimer();
+          timerStore.startRoundTimer();
 
           let finalState: GameState | null = null;
-          set((currentState) => {
-            // 1. Weis-Punkte und Aktion aktualisieren
-            const newWeisPoints = {...currentState.weisPoints};
-            newWeisPoints[team] = (newWeisPoints[team] || 0) + points;
-            const newWeisAction = {position: team, points};
-            // BUGFIX: Stelle sicher, dass currentRoundWeis immer ein Array ist
-            const newCurrentRoundWeis = [...(currentState.currentRoundWeis || []), newWeisAction];
+          let savedRoundEntryForFirestore: RoundEntry | null = null;
+          let stateForJassStoreSyncInternal: GameState | null = null; // Variable für den Sync-State
 
-            // 2. History-Eintrag erstellen (vom Typ "weis")
-            const stateForEntryCreation = {
-                ...currentState, 
-                weisPoints: newWeisPoints, 
-                currentRoundWeis: newCurrentRoundWeis, 
-            };
+          set((state) => {
+            // << NEUES LOGGING 2: Zustand VOR Modifikation im set-Block >> // LOG ENTFERNT
+            // console.log(`[GameStore finalizeRound DEBUG 2 - VOR Modifikation im set]`, { /* ... */ }); // LOG ENTFERNT
+            // << ENDE LOGGING 2 >> // LOG ENTFERNT
 
-            const newEntry = createRoundEntry(
-              stateForEntryCreation,
-              get,
-              "weis",
-              currentState.startingPlayer 
-            );
-
-            // 3. History aktualisieren (Zukunft abschneiden + neuen Entry hinzufügen)
-            const historyUpdate = truncateFutureAndAddEntry(currentState, newEntry);
-
-            finalState = {
-              ...currentState, 
-              weisPoints: newWeisPoints, 
-              currentRoundWeis: newCurrentRoundWeis, 
-              ...historyUpdate, 
-            };
-
-            return finalState;
-          });
-          // --- ENDE Kernlogik ---
-          
-          // NEU: Inkrementiere Firestore ID Zähler NACH erfolgreichem Hinzufügen - ENTFERNT
-          // set(state => ({ nextRoundFirestoreId: state.nextRoundFirestoreId + 1 }));
-          
-          // *** ENTFERNT: KEIN Firestore-Update für Weis ***
-        },
-        onCancel: () => get().jumpToLatest(),
-        type: 'error' 
-      });
-      return; 
-    }
-
-    // --- Normale Ausführung (wenn am Ende der History) ---
-    let finalState: GameState | null = null;
-    set((currentState) => {
-        // 1. Weis-Punkte und Aktion aktualisieren
-        const newWeisPoints = {...currentState.weisPoints};
-        newWeisPoints[team] = (newWeisPoints[team] || 0) + points;
-        const newWeisAction = {position: team, points};
-        // BUGFIX: Stelle sicher, dass currentRoundWeis immer ein Array ist
-        const newCurrentRoundWeis = [...(currentState.currentRoundWeis || []), newWeisAction];
-
-        // 2. History-Eintrag erstellen
-        const stateForEntryCreation = {
-            ...currentState,
-            weisPoints: newWeisPoints,
-            currentRoundWeis: newCurrentRoundWeis,
-        };
-        if (process.env.NODE_ENV === 'development') {
-          console.log("[addWeisPoints - Normal] State being saved in WeisRoundEntry:", {
-              weisPoints: stateForEntryCreation.weisPoints,
-              scores: stateForEntryCreation.scores,
-              currentRoundWeisCount: stateForEntryCreation.currentRoundWeis.length
-          });
-        }
-        const newEntry = createRoundEntry(
-          stateForEntryCreation,
-          get,
-          "weis",
-          currentState.startingPlayer
-        );
-
-        // 3. History aktualisieren
-        const historyUpdate = truncateFutureAndAddEntry(currentState, newEntry);
-
-        finalState = {
-          ...currentState,
-          weisPoints: newWeisPoints,
-          currentRoundWeis: newCurrentRoundWeis,
-          ...historyUpdate,
-        };
-        if (process.env.NODE_ENV === 'development') {
-          console.log("[GameStore.addWeisPoints] Normal Weis added:", {
-              currentIndex: finalState.currentHistoryIndex,
-              historyLength: finalState.roundHistory.length,
-              weisPoints: finalState.weisPoints[team],
-              currentRoundWeisCount: finalState.currentRoundWeis.length,
-          });
-        }
-        return finalState;
-    });
-
-    // NEU: Inkrementiere Firestore ID Zähler NACH erfolgreichem Hinzufügen - ENTFERNT
-    // set(state => ({ nextRoundFirestoreId: state.nextRoundFirestoreId + 1 }));
-
-    // *** ENTFERNT: KEIN Firestore-Update für Weis ***
-  },
-
-  undoLastWeis: () => {
-    let finalState: GameState | null = null;
-    set((state) => {
-      // Entferne den letzten Weis-Eintrag
-      const newCurrentRoundWeis = state.currentRoundWeis.slice(0, -1);
-      
-      // Berechne die weisPoints neu basierend auf den verbleibenden Einträgen
-      const recalculatedWeisPoints = {top: 0, bottom: 0};
-      newCurrentRoundWeis.forEach(weis => {
-        recalculatedWeisPoints[weis.position] += weis.points;
-      });
-      
-      finalState = {
-        ...state,
-        currentRoundWeis: newCurrentRoundWeis,
-        weisPoints: recalculatedWeisPoints // Aktualisiere auch weisPoints!
-      };
-      return finalState;
-    });
-  },
-
-  finalizeGame: () => {
-    // NEU: Setze Transition-Loading beim Spielabschluss
-    set(() => ({
-      isGameCompleted: true,
-      isTransitioning: true,
-    }));
-  },
-
-  resetGame: (
-    nextStarter: PlayerNumber,
-    newActiveGameId?: string,
-    initialSettings?: {
-      farbeSettings?: FarbeSettings;
-      scoreSettings?: ScoreSettings;
-      strokeSettings?: StrokeSettings;
-    }
-  ) => { 
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[gameStore] resetGame aufgerufen. Nächster Starter: ${nextStarter}, Neue Game ID: ${newActiveGameId}`);
-    }
-    
-    // --- ERWEITERTE Settings-Ermittlung mit Firestore-Fallback ---
-    const determineCorrectSettings = async (): Promise<{ scoreSettings: ScoreSettings, strokeSettings: StrokeSettings, farbeSettings: FarbeSettings, source: string }> => {
-      const { currentTournamentInstance } = useTournamentStore.getState();
-      const { currentGroup } = useGroupStore.getState();
-      const uiSettings = useUIStore.getState();
-
-      // 1. Tournament Settings (höchste Priorität)
-      if (currentTournamentInstance?.settings) {
-        return {
-          scoreSettings: currentTournamentInstance.settings.scoreSettings || DEFAULT_SCORE_SETTINGS,
-          strokeSettings: currentTournamentInstance.settings.strokeSettings || DEFAULT_STROKE_SETTINGS,
-          farbeSettings: currentTournamentInstance.settings.farbeSettings || DEFAULT_FARBE_SETTINGS,
-          source: 'tournament'
-        };
-      }
-
-      // 2. Lokale currentGroup (zweite Priorität)
-      if (currentGroup) {
-        return {
-          scoreSettings: currentGroup.scoreSettings || DEFAULT_SCORE_SETTINGS,
-          strokeSettings: currentGroup.strokeSettings || DEFAULT_STROKE_SETTINGS,
-          farbeSettings: currentGroup.farbeSettings || DEFAULT_FARBE_SETTINGS,
-          source: 'group'
-        };
-      }
-
-      // 3. 🚨 KRITISCHER FIX: Gruppen-Settings aus Firestore laden falls currentGroup leer!
-      // Das passiert nach Re-Login wenn currentGroup noch nicht wiederhergestellt wurde
-      const currentSessionId = useJassStore.getState().currentSession?.id;
-      if (currentSessionId) {
-        try {
-          const db = getFirestore(firebaseApp);
-          const sessionDocRef = doc(db, 'sessions', currentSessionId);
-          const sessionDoc = await getDoc(sessionDocRef);
-          
-          if (sessionDoc.exists()) {
-            const sessionData = sessionDoc.data();
-            const groupId = sessionData.groupId || sessionData.gruppeId;
+            // console.log("[GameStore] finalizeRound: Zustand VOR Update (innerhalb set):", JSON.parse(JSON.stringify(state))); // LOG ENTFERNT
             
-            if (groupId) {
-              console.log(`[gameStore] resetGame: currentGroup ist leer, lade Gruppen-Settings aus Firestore für Gruppe ${groupId}`);
-              const groupDocRef = doc(db, 'groups', groupId);
-              const groupDoc = await getDoc(groupDocRef);
+            // --- KORREKTUR: activeStrokeSettings und activeScoreSettings verwenden ---
+            const { currentGroup } = useGroupStore.getState();
+            const uiStoreDirectSettings = useUIStore.getState(); // Für den Fall, dass groupStore nicht vollständig ist
+            
+            const activeStrokeSettings = state.strokeSettings ?? DEFAULT_STROKE_SETTINGS;
+            const activeScoreSettings = state.scoreSettings ?? DEFAULT_SCORE_SETTINGS;
+            // --- ENDE KORREKTUR ---
+            
+            // const {activeGameId} = state; // DIESE ZEILE NICHT MEHR VERWENDEN für die ID dieser Runde
+            
+            const actualStarterOfFinalizedRound = state.currentPlayer; 
+            // console.log(`[GameStore] finalizeRound: actualStarterOfFinalizedRound=${actualStarterOfFinalizedRound}`); // LOG ENTFERNT
+            
+            const entryBeforeFinalize = state.currentHistoryIndex >= 0 ? state.roundHistory[state.currentHistoryIndex] : null;
+            const previousScores = entryBeforeFinalize ? entryBeforeFinalize.scores : { top: 0, bottom: 0 };
+            const roundNumberForEntry = state.currentRound + 1;
+            // console.log(`[GameStore] finalizeRound: roundNumberForEntry=${roundNumberForEntry}`); // LOG ENTFERNT
+
+            const currentRoundJassPoints = punkte;
+
+            const currentRoundWeisSum = (state.currentRoundWeis ?? []).reduce((acc, weis) => {
+              acc[weis.position] = (acc[weis.position] || 0) + weis.points;
+              return acc;
+            }, {top: 0, bottom: 0});
+            
+            const newStriche = {...state.striche};
+            let finalStrichInfoForEntryScoped: { team: TeamPosition; type: StrichTyp } | undefined = undefined; // Scoped Variable
+            
+            if (strichInfo) {
+              const { team: strichTeam, type: strichTypeFromInput } = strichInfo;
               
-              if (groupDoc.exists()) {
-                const groupData = groupDoc.data();
-                return {
-                  scoreSettings: groupData.scoreSettings || DEFAULT_SCORE_SETTINGS,
-                  strokeSettings: groupData.strokeSettings || DEFAULT_STROKE_SETTINGS,
-                  farbeSettings: groupData.farbeSettings || DEFAULT_FARBE_SETTINGS,
-                  source: 'group-firestore'
-                };
+              // KORRIGIERTE LOGIK: Die Entscheidung zwischen Matsch/Kontermatsch wird bereits im Calculator 
+              // basierend auf currentPlayer und Team-Zuordnung getroffen. Hier übernehmen wir nur noch das Ergebnis.
+              const actualStrichType: StrichTyp = strichTypeFromInput;
+              
+              finalStrichInfoForEntryScoped = { team: strichTeam, type: actualStrichType };
+              
+              // --- KORREKTUR: Verwende die korrekten Stroke-Settings für die Anzahl Striche ---
+              if (actualStrichType === 'matsch') {
+                  // Matsch ist immer 1 Strich (fest definiert)
+                  newStriche[strichTeam] = {
+                      ...newStriche[strichTeam],
+                      matsch: newStriche[strichTeam].matsch + 1,
+                  };
+              } else if (actualStrichType === 'kontermatsch') {
+                  // Kontermatsch: Verwende den Wert aus den aktiven Stroke-Settings
+                  // Hole die aktiven Stroke-Settings (gleiche Logik wie in addKontermatsch)
+                  const { currentGroup } = useGroupStore.getState();
+                  const uiStoreSettings = useUIStore.getState();
+                  const activeStrokeSettings = (currentGroup && currentGroup.strokeSettings !== null && currentGroup.strokeSettings !== undefined) 
+                                                 ? currentGroup.strokeSettings 
+                                                 : uiStoreSettings.strokeSettings;
+                  
+                  console.log("[GameStore.finalizeRound] Kontermatsch mit Stroke-Settings:", {
+                      team: strichTeam,
+                      kontermatschValue: activeStrokeSettings.kontermatsch,
+                      currentValue: newStriche[strichTeam].kontermatsch,
+                      newTotal: newStriche[strichTeam].kontermatsch + activeStrokeSettings.kontermatsch,
+                      source: currentGroup ? 'group' : 'uiStore'
+                  });
+                  
+                  newStriche[strichTeam] = {
+                      ...newStriche[strichTeam],
+                      kontermatsch: newStriche[strichTeam].kontermatsch + activeStrokeSettings.kontermatsch, // ADDIERE zu bestehenden Strichen
+                  };
+              } else if (actualStrichType === 'schneider') {
+                  // Schneider: Verwende den Wert aus den aktiven Stroke-Settings
+                  // Hole die aktiven Stroke-Settings (gleiche Logik wie in addSchneider)
+                  const { currentGroup } = useGroupStore.getState();
+                  const uiStoreSettings = useUIStore.getState();
+                  const activeStrokeSettings = (currentGroup && currentGroup.strokeSettings !== null && currentGroup.strokeSettings !== undefined) 
+                                                 ? currentGroup.strokeSettings 
+                                                 : uiStoreSettings.strokeSettings;
+                  
+                  console.log("[GameStore.finalizeRound] Schneider mit Stroke-Settings:", {
+                      team: strichTeam,
+                      schneiderValue: activeStrokeSettings.schneider,
+                      currentValue: newStriche[strichTeam].schneider,
+                      newTotal: newStriche[strichTeam].schneider + activeStrokeSettings.schneider,
+                      source: currentGroup ? 'group' : 'uiStore'
+                  });
+                  
+                  newStriche[strichTeam] = {
+                      ...newStriche[strichTeam],
+                      schneider: newStriche[strichTeam].schneider + activeStrokeSettings.schneider, // ADDIERE zu bestehenden Strichen
+                  };
               }
             }
+
+            const newTotalScores: TeamScores = {
+              top: previousScores.top + currentRoundJassPoints.top + currentRoundWeisSum.top,
+              bottom: previousScores.bottom + currentRoundJassPoints.bottom + currentRoundWeisSum.bottom,
+            };
+
+            const nextStartingPlayer = getNextPlayer(actualStarterOfFinalizedRound); 
+            const nextCurrentPlayer = nextStartingPlayer;
+            // const nextRoundNumber = roundNumberForEntry + 1; // RUNDENNUMMER WIRD IN stateForEntryCreation.currentRound GESETZT
+            
+            const stateForEntryCreation: GameState = {
+              ...state,
+              scores: newTotalScores, 
+              striche: newStriche, // Die aktualisierten Striche
+              weisPoints: currentRoundWeisSum, // Summe der Weis für diese Runde
+              currentRoundWeis: state.currentRoundWeis, // Die einzelnen Weis-Aktionen für den Entry
+              currentRound: roundNumberForEntry, // Die logische Nummer dieser abgeschlossenen Runde
+              currentPlayer: nextCurrentPlayer, // Der Spieler, der die NÄCHSTE Runde beginnt
+              jassPoints: currentRoundJassPoints, // Nur Jass-Punkte dieser Runde
+              roundHistory: state.roundHistory || [],
+              currentHistoryIndex: state.currentHistoryIndex ?? -1,
+              historyState: state.historyState || createInitialHistoryState(),
+              // strokeSettings etc. bleiben vom state
+              // Wichtig: die restlichen Properties wie playerNames, gamePlayers, activeGameId etc.
+              // werden von ...state übernommen und sollten hier korrekt sein.
+              playerNames: state.playerNames,
+              gamePlayers: state.gamePlayers,
+              activeGameId: state.activeGameId, // initialActiveGameId ist hier eventuell besser, wenn state.activeGameId nicht zuverlässig ist
+              initialStartingPlayer: state.initialStartingPlayer,
+              isGameStarted: state.isGameStarted,
+              isGameCompleted: state.isGameCompleted,
+              scoreSettings: state.scoreSettings,
+              farbeSettings: state.farbeSettings,
+              strokeSettings: state.strokeSettings,
+            };
+            
+            const newEntry = createRoundEntry(
+                stateForEntryCreation,
+                get,
+                "jass", 
+                actualStarterOfFinalizedRound, // Wer hat DIESE Runde gestartet
+                {
+                    farbe: state.farbe,
+                    strichInfo: finalStrichInfoForEntryScoped,
+                    cardStyle: settingsFromUIStore.cardStyle, // UI Store für CardStyle
+                }
+            );
+            // console.log("[GameStore] finalizeRound: newEntry erstellt:", JSON.parse(JSON.stringify(newEntry))); // LOG ENTFERNT
+
+            const historyUpdate = truncateFutureAndAddEntry(state, newEntry);
+            // console.log("[GameStore] finalizeRound: historyUpdate Ergebnis:", { newHistoryLength: historyUpdate.roundHistory?.length, newIndex: historyUpdate.currentHistoryIndex }); // LOG ENTFERNT
+
+            // Erzeuge den State, wie er am Ende der gerade abgeschlossenen Runde war
+            // Dieser State wird für die Synchronisation mit jassStore verwendet.
+            const stateAtEndOfCompletedRound: GameState = {
+                ...state, // Basis ist der State VOR dieser Runde
+                scores: newTotalScores, // Gesamtscores INKLUSIVE dieser Runde
+                striche: newStriche, // Gesamtstriche INKLUSIVE dieser Runde
+                weisPoints: currentRoundWeisSum, // Weispunkte DIESER Runde
+                currentRoundWeis: state.currentRoundWeis, // Weisaktionen DIESER Runde (für den History-Eintrag)
+                isRoundCompleted: true, // Diese Runde ist abgeschlossen
+                currentRound: roundNumberForEntry, // Die Nummer der gerade abgeschlossenen Runde
+                currentPlayer: nextCurrentPlayer, // Der Spieler, der die nächste Runde beginnen würde
+                startingPlayer: actualStarterOfFinalizedRound, // Wer hat DIESE Runde gestartet
+                jassPoints: currentRoundJassPoints, // Jasspunkte DIESER Runde
+                // History Update enthält bereits den newEntry für diese Runde
+                roundHistory: historyUpdate.roundHistory!, 
+                currentHistoryIndex: historyUpdate.currentHistoryIndex!,
+                historyState: state.historyState || createInitialHistoryState(),
+                // Wichtig: Restliche Felder aus stateForEntryCreation übernehmen, um Konsistenz zu wahren
+                playerNames: stateForEntryCreation.playerNames,
+                gamePlayers: stateForEntryCreation.gamePlayers,
+                activeGameId: initialActiveGameId, // Sicherstellen, dass die korrekte ID verwendet wird
+                initialStartingPlayer: stateForEntryCreation.initialStartingPlayer,
+                isGameStarted: stateForEntryCreation.isGameStarted,
+                isGameCompleted: stateForEntryCreation.isGameCompleted, // Bleibt erstmal false, bis das Spiel ganz fertig ist
+                scoreSettings: stateForEntryCreation.scoreSettings,
+                farbeSettings: stateForEntryCreation.farbeSettings,
+                strokeSettings: stateForEntryCreation.strokeSettings,
+            };
+            stateForJassStoreSyncInternal = stateAtEndOfCompletedRound; // Speichere diesen State für außerhalb
+
+            finalState = { // Dies ist der State für die *nächste* lokale gameStore Runde
+                ...state, // Basis ist der State VOR dieser Runde
+                scores: newTotalScores,
+                striche: newStriche,
+                weisPoints: { top: 0, bottom: 0 }, // Reset für NÄCHSTE Runde
+                currentRoundWeis: [],             // Reset für NÄCHSTE Runde
+                isRoundCompleted: true, // Die gerade gespielte Runde ist abgeschlossen
+                currentRound: roundNumberForEntry + 1, // Nächste Rundennummer
+                currentPlayer: nextCurrentPlayer, 
+                startingPlayer: nextStartingPlayer, 
+                ...historyUpdate, // Enthält newEntry in roundHistory
+            } as GameState;
+
+            savedRoundEntryForFirestore = newEntry;
+            // console.log("[GameStore] finalizeRound: Zustand NACH Update (innerhalb set):", JSON.parse(JSON.stringify(finalState))); // LOG ENTFERNT
+
+            // << NEUES LOGGING 3: Zustand NACH Modifikation im set-Block, VOR return >> // LOG ENTFERNT
+            // console.log(`[GameStore finalizeRound DEBUG 3 - NACH Modifikation im set, VOR return finalState]`, { /* ... */ }); // LOG ENTFERNT
+            // << ENDE LOGGING 3 >> // LOG ENTFERNT
+
+            return finalState;
+          }); 
+
+          // Firestore Updates NACH set()
+          const finalStateFromSet = get(); // finalStateFromSet ist jetzt der State für die nächste Runde
+
+          // Den zuvor gespeicherten stateForJassStoreSyncInternal verwenden
+          if (stateForJassStoreSyncInternal) {
+            syncWithJassStore(stateForJassStoreSyncInternal); 
+          } else {
+            // Fallback, sollte nicht passieren, wenn stateForJassStoreSyncInternal immer gesetzt wird
+            console.warn("[GameStore.finalizeRound] stateForJassStoreSyncInternal war nicht gesetzt. Sync mit potenziell falschem State.");
+            syncWithJassStore(finalStateFromSet); 
           }
-        } catch (error) {
-          console.warn(`[gameStore] resetGame: Fehler beim Laden der Gruppen-Settings aus Firestore:`, error);
-        }
-      }
-
-      // 4. Fallback: UI Store Settings
-      return {
-        scoreSettings: uiSettings.scoreSettings,
-        strokeSettings: uiSettings.strokeSettings,
-        farbeSettings: uiSettings.farbeSettings,
-        source: 'uiStore'
-      };
-    };
-
-    // Führe die Settings-Ermittlung aus
-    determineCorrectSettings().then(correctSettings => {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`[gameStore] resetGame verwendet Settings aus Quelle: '${correctSettings.source}'`);
-      }
-
-      set((prevState) => {
-        const playerNamesToKeep = prevState.playerNames;
-        const gamePlayersToKeep = prevState.gamePlayers;
-        
-        const baseInitialState = createInitialStateLocal(nextStarter);
-        
-        const resetState: GameState = {
-          ...baseInitialState,
-          // --- Settings aus der async ermittelten Quelle ---
-          scoreSettings: correctSettings.scoreSettings,
-          strokeSettings: correctSettings.strokeSettings,
-          farbeSettings: correctSettings.farbeSettings,
-          // --- Beibehaltene Werte ---
-          playerNames: playerNamesToKeep, 
-          gamePlayers: gamePlayersToKeep,
-          activeGameId: newActiveGameId, 
-          // --- Harter Reset für den Spielverlauf ---
-          roundHistory: [], 
-          currentHistoryIndex: -1,
-          isGameStarted: !!newActiveGameId, 
-          // NEU: Beende Transition-Loading nach Reset
-          isTransitioning: false,
-        };
-        
-        return resetState;
-      });
-    }).catch(error => {
-      console.error(`[gameStore] resetGame: Fehler bei Settings-Ermittlung:`, error);
-      
-      // Fallback bei Fehler: Verwende UI Store Settings
-      set((prevState) => {
-        const playerNamesToKeep = prevState.playerNames;
-        const gamePlayersToKeep = prevState.gamePlayers;
-        const uiSettings = useUIStore.getState();
-        
-        const baseInitialState = createInitialStateLocal(nextStarter);
-        
-        const resetState: GameState = {
-          ...baseInitialState,
-          scoreSettings: uiSettings.scoreSettings,
-          strokeSettings: uiSettings.strokeSettings,
-          farbeSettings: uiSettings.farbeSettings,
-          playerNames: playerNamesToKeep, 
-          gamePlayers: gamePlayersToKeep,
-          activeGameId: newActiveGameId, 
-          roundHistory: [], 
-          currentHistoryIndex: -1,
-          isGameStarted: !!newActiveGameId, 
-          isTransitioning: false,
-        };
-        
-        return resetState;
-      });
-    });
-  },
-
-  resetGamePoints: () => {
-    set(() => ({
-      scores: {top: 0, bottom: 0},
-    }));
-  },
-
-  setScore: (team, score) => {
-    set((state) => {
-      const newScores = {...state.scores};
-      newScores[team] = validateScore(score);
-      return {scores: newScores};
-    });
-  },
-
-  setPlayerNames: (names) => {
-    set(() => ({playerNames: names}));
-  },
-
-  updateScoreByStrich: (position: TeamPosition, points: number) => {
-    const state = get();
-    
-    // KORREKTUR: History-Check und Warnung direkt hier, Kernlogik im onConfirm
-    if (state.currentHistoryIndex < state.roundHistory.length - 1) {
-        const {showHistoryWarning} = useUIStore.getState();
-        console.log("[GameStore.updateScoreByStrich] History warning triggered.");
-        
-        showHistoryWarning({
-            message: HISTORY_WARNING_MESSAGE,
-            onConfirm: () => {
-              // === START Kernlogik zum Überschreiben der History ===
-              console.log("[GameStore.updateScoreByStrich] Executing action after history warning confirmation (overwrite)");
-              let finalState: GameState | null = null;
-              set((currentState) => {
-                // currentState ist jetzt der KORREKTE historische Zustand
-                const newScores = {...currentState.scores};
-                newScores[position] += points;
-                
-                const newEntry = createRoundEntry(
-                  {...currentState, scores: newScores }, // KORREKT: state mit neuen scores übergeben
-                  get,
-                  "jass",
-                  currentState.startingPlayer
-                );
-                
-                const historyUpdate = truncateFutureAndAddEntry(currentState, newEntry);
-                
-                finalState = {
-                  ...currentState,
-                  scores: newScores,
-                  ...historyUpdate,
-                };
-                
-                console.log("[GameStore.updateScoreByStrich] History overwritten. New state:", { 
-                  currentIndex: finalState.currentHistoryIndex,
-                  historyLength: finalState.roundHistory.length,
-                  scores: finalState.scores[position]
+          
+          // NEU: Markiere für Offline-Sync
+          if (typeof window !== 'undefined' && window.__OFFLINE_SYNC_SERVICE__) {
+            window.__OFFLINE_SYNC_SERVICE__.markPendingSync();
+          }
+          
+          // NEU: Firestore-Update für das Hauptdokument activeGames/{gameId}
+          if (initialActiveGameId) {
+            setTimeout(() => {
+              // MARK LOCAL UPDATE *BEFORE* WRITING TO FIRESTORE
+              if (typeof window !== 'undefined' && window.__FIRESTORE_SYNC_API__?.markLocalUpdate) {
+                window.__FIRESTORE_SYNC_API__.markLocalUpdate();
+              }
+              
+              const currentState = get(); // Hole den aktuellen State nach allen Updates
+              const updateData: Partial<ActiveGame> = {
+                scores: currentState.scores,
+                weisPoints: currentState.weisPoints,
+                currentRound: currentState.currentRound,
+                currentPlayer: currentState.currentPlayer,
+                startingPlayer: currentState.startingPlayer,
+                striche: currentState.striche,
+                isRoundCompleted: currentState.isRoundCompleted,
+                currentJassPoints: currentState.jassPoints,
+                currentRoundWeis: currentState.currentRoundWeis,
+                lastUpdated: serverTimestamp(),
+              };
+              
+              const cleanedUpdateData = sanitizeDataForFirestore(updateData);
+              if (process.env.NODE_ENV === 'development') {
+              console.log("[GameStore.finalizeRound] Updating Firestore main document with:", cleanedUpdateData);
+            }
+              
+              updateActiveGame(initialActiveGameId, cleanedUpdateData)
+                .catch(error => console.error("[GameStore.finalizeRound] Firestore update failed:", error));
+              
+              // Speichere auch den Rundeneintrag
+              if (savedRoundEntryForFirestore) {
+                import('../services/gameService').then(({ saveRoundToFirestore }) => {
+                  // Zusätzliche Null-Prüfung innerhalb des async Callbacks
+                  if (savedRoundEntryForFirestore) {
+                    saveRoundToFirestore(initialActiveGameId, savedRoundEntryForFirestore)
+                      .catch(error => console.error("[GameStore.finalizeRound] Round save failed:", error));
+                  }
                 });
+              }
+            }, 0);
+          }
+          
+          timerStore.resetRoundTimer();
+          timerStore.startRoundTimer();
+          // console.log("[GameStore] finalizeRound abgeschlossen."); // LOG ENTFERNT
+        }, // Hier endet die finalizeRound Methode korrekt
+
+        updateScore: (team, score, opponentScore) => {
+          set((state) => {
+            const newScores = {...state.scores};
+            const oppositeTeam: TeamPosition = team === "top" ? "bottom" : "top";
+            newScores[team] = validateScore(score);
+            newScores[oppositeTeam] = validateScore(opponentScore);
+            return {scores: newScores};
+          });
+        },
+
+        addStrich: (team: TeamPosition, type: StrichTyp) => {
+          set((state) => {
+            // Neues Striche-Objekt mit allen Kategorien
+            const newStriche = {
+              ...state.striche[team],
+              [type]: state.striche[team][type] + 1,
+            };
+
+            // Sofortige Synchronisation mit JassStore
+            const jassStore = useJassStore.getState();
+            jassStore.updateCurrentGame({
+              teams: {
+                [team]: {
+                  striche: newStriche, // Übergebe kompletten StricheRecord
+                },
+              },
+            });
+
+            // Debug-Logging
+            console.log("🎲 Strich hinzugefügt:", {
+              team,
+              type,
+              newValue: newStriche[type],
+              allStriche: newStriche,
+            });
+            
+            // NEU: Markiere für Offline-Sync
+            if (typeof window !== 'undefined' && window.__OFFLINE_SYNC_SERVICE__) {
+              window.__OFFLINE_SYNC_SERVICE__.markPendingSync();
+            }
+
+            return {
+              ...state,
+              striche: {
+                ...state.striche,
+                [team]: newStriche,
+              },
+            };
+          });
+        },
+
+        addWeisPoints: (team: TeamPosition, points: number) => {
+          // Hole den aktuellsten State *direkt hier*, um Timing-Probleme nach History-Manipulation zu vermeiden
+          const state = get(); 
+          
+          // Prüfe, ob wir uns in der Vergangenheit befinden
+          if (state.currentHistoryIndex < state.roundHistory.length - 1) {
+            const {showHistoryWarning} = useUIStore.getState();
+            showHistoryWarning({
+              // Korrigierter Text
+              message: "Weis wirklich korrigieren? Spätere Einträge werden überschrieben.", 
+              onConfirm: () => {
+                // --- START Kernlogik (History überschreiben) ---
+
+                let finalState: GameState | null = null;
+                set((currentState) => {
+                  // 1. Weis-Punkte und Aktion aktualisieren
+                  const newWeisPoints = {...currentState.weisPoints};
+                  newWeisPoints[team] = (newWeisPoints[team] || 0) + points;
+                  const newWeisAction = {position: team, points};
+                  // BUGFIX: Stelle sicher, dass currentRoundWeis immer ein Array ist
+                  const newCurrentRoundWeis = [...(currentState.currentRoundWeis || []), newWeisAction];
+
+                  // 2. History-Eintrag erstellen (vom Typ "weis")
+                  const stateForEntryCreation = {
+                      ...currentState, 
+                      weisPoints: newWeisPoints, 
+                      currentRoundWeis: newCurrentRoundWeis, 
+                  };
+
+                  const newEntry = createRoundEntry(
+                    stateForEntryCreation,
+                    get,
+                    "weis",
+                    currentState.startingPlayer 
+                  );
+
+                  // 3. History aktualisieren (Zukunft abschneiden + neuen Entry hinzufügen)
+                  const historyUpdate = truncateFutureAndAddEntry(currentState, newEntry);
+
+                  finalState = {
+                    ...currentState, 
+                    weisPoints: newWeisPoints, 
+                    currentRoundWeis: newCurrentRoundWeis, 
+                    ...historyUpdate, 
+                  };
+
+                  return finalState;
+                });
+                // --- ENDE Kernlogik ---
                 
                 // NEU: Inkrementiere Firestore ID Zähler NACH erfolgreichem Hinzufügen - ENTFERNT
                 // set(state => ({ nextRoundFirestoreId: state.nextRoundFirestoreId + 1 }));
                 
-                return finalState;
-              });
-              
-              // Firestore Update (analog zu addWeisPoints)
-              setTimeout(() => {
-                // MARK LOCAL UPDATE *BEFORE* WRITING TO FIRESTORE
-                if (typeof window !== 'undefined' && window.__FIRESTORE_SYNC_API__?.markLocalUpdate) {
-                   window.__FIRESTORE_SYNC_API__.markLocalUpdate();
-                } else {
-                   console.warn("[GameStore.updateScoreByStrich.onConfirm] markLocalUpdate API not available!");
-                }
-                const stateForFirestore = get();
-                const activeGameId = stateForFirestore.activeGameId;
-                if (activeGameId) {
-                  // Update scores im Hauptdokument (angenommen, das ist gewünscht)
-                  const updateData: Partial<ActiveGame> = {
-                    scores: stateForFirestore.scores, 
-                  };
-                  // Bereinige die Daten vor dem Update
-                  const cleanedUpdateData = sanitizeDataForFirestore(updateData);
-                  // console.log("[GameStore.updateScoreByStrich.onConfirm] Bereinigte Daten für Firestore-Update:", cleanedUpdateData);
-                  updateActiveGame(activeGameId, cleanedUpdateData).catch(console.error);
-                  
-                  // Speichere den neuen Rundeneintrag
-                  if (stateForFirestore.roundHistory.length > 0) {
-                    const lastEntry = stateForFirestore.roundHistory[stateForFirestore.roundHistory.length - 1];
-                    import('../services/gameService').then(({ saveRoundToFirestore }) => {
-                      saveRoundToFirestore(activeGameId, lastEntry).catch(console.error);
-                    });
-                  }
-                }
-              }, 0);
-              // === ENDE Kernlogik ===
-            },
-            onCancel: () => get().jumpToLatest(),
-            type: 'error'
-        });
-        return; // Beende die Funktion hier
-    }
-    
-    // --- Normale Ausführung, wenn keine History-Warnung nötig ist --- 
-    console.log("[GameStore.updateScoreByStrich] No history warning needed, proceeding with normal state update.");
-    let finalState: GameState | null = null;
-    set((currentState) => {
-      const newScores = {...currentState.scores};
-      newScores[position] += points;
-      
-      const newEntry = createRoundEntry(
-        {...currentState, scores: newScores}, // KORREKT: state mit neuen scores übergeben
-        get,
-        "jass",
-        currentState.startingPlayer
-      );
-      
-      const historyUpdate = truncateFutureAndAddEntry(currentState, newEntry);
-      
-      finalState = {
-        ...currentState,
-        scores: newScores,
-        ...historyUpdate,
-      };
-      
-      console.log("[GameStore.updateScoreByStrich] Normal score updated by strich:", { 
-        currentIndex: finalState.currentHistoryIndex,
-        historyLength: finalState.roundHistory.length,
-        scores: finalState.scores[position]
-      });
-      
-      // NEU: Inkrementiere Firestore ID Zähler NACH erfolgreichem Hinzufügen - ENTFERNT
-      // set(state => ({ nextRoundFirestoreId: state.nextRoundFirestoreId + 1 }));
-
-      return finalState;
-    });
-
-    // Firestore Update (analog zu addWeisPoints)
-    setTimeout(() => {
-      // MARK LOCAL UPDATE *BEFORE* WRITING TO FIRESTORE
-      if (typeof window !== 'undefined' && window.__FIRESTORE_SYNC_API__?.markLocalUpdate) {
-         window.__FIRESTORE_SYNC_API__.markLocalUpdate();
-      } else {
-         console.warn("[GameStore.updateScoreByStrich] markLocalUpdate API not available!");
-      }
-      const stateForFirestore = get();
-      const activeGameId = stateForFirestore.activeGameId;
-      if (activeGameId) {
-        const updateData: Partial<ActiveGame> = {
-          scores: stateForFirestore.scores, 
-        };
-        // Bereinige die Daten vor dem Update
-        const cleanedUpdateData = sanitizeDataForFirestore(updateData);
-        // console.log("[GameStore.updateScoreByStrich] Bereinigte Daten für Firestore-Update:", cleanedUpdateData);
-        updateActiveGame(activeGameId, cleanedUpdateData).catch(console.error);
-        
-        if (stateForFirestore.roundHistory.length > 0) {
-          const lastEntry = stateForFirestore.roundHistory[stateForFirestore.roundHistory.length - 1];
-          import('../services/gameService').then(({ saveRoundToFirestore }) => {
-            saveRoundToFirestore(activeGameId, lastEntry).catch(console.error);
-          });
-        }
-      }
-    }, 0);
-  },
-
-  getVisualStriche: (position: TeamPosition) => {
-    const state = get();
-    const score = state.scores[position];
-    const {striche, restZahl} = calculateStricheCounts(score);
-
-    return {
-      stricheCounts: {
-        20: striche["20"],
-        50: striche["50"],
-        100: striche["100"],
-      },
-      restZahl,
-    };
-  },
-
-  // Neue History-Navigation Actions
-  navigateHistory: (direction: NavigationDirection) => {
-      const state = get(); // Hole den aktuellen Zustand
-      const now = Date.now();
-
-      let currentIndex = state.currentHistoryIndex;
-      let newIndex = -1; // Initialisierung
-      let targetEntry: RoundEntry | null = null;
-      let attempts = 0;
-      const maxAttempts = state.roundHistory.length + 1; // Sicherheitsschleife
-
-      // Iteriere, um den nächsten *aktiven* Eintrag zu finden
-      do {
-          attempts++;
-          currentIndex = direction === "forward" ? currentIndex + 1 : currentIndex - 1;
-
-          // Index-Grenzen prüfen
-          if (currentIndex < -1 || currentIndex >= state.roundHistory.length) {
-              console.warn(`[navigateHistory] Index out of bounds: ${currentIndex}, Länge: ${state.roundHistory.length}. Stopping navigation.`);
-              useUIStore.setState({ isNavigatingHistory: false });
-              return; // Zustand nicht ändern, Navigation stoppen
+                // *** ENTFERNT: KEIN Firestore-Update für Weis ***
+              },
+              onCancel: () => get().jumpToLatest(),
+              type: 'error' 
+            });
+            return; 
           }
 
-          // Ziel-Eintrag holen (kann null sein für Index -1)
-          targetEntry = currentIndex >= 0 ? state.roundHistory[currentIndex] : null;
-
-          // Prüfe, ob der Eintrag aktiv ist (oder ob wir am Anfang sind: index -1)
-          if (currentIndex === -1 || (targetEntry && (targetEntry.isActive === undefined || targetEntry.isActive === true))) {
-              newIndex = currentIndex; // Gültigen Index gefunden
-              break; // Schleife verlassen
-          } else {
-              console.log(`[navigateHistory] Skipping inactive entry at index: ${currentIndex}`);
-          }
-
-      } while (attempts < maxAttempts);
-
-      if (newIndex === -1 && attempts >= maxAttempts) {
-         console.error("[navigateHistory] Max attempts reached, could not find active entry. Stopping.");
-         useUIStore.setState({ isNavigatingHistory: false });
-         return; // Sicherheitshalber stoppen
-      }
-      
-      // === Sofortige lokale State-Aktualisierung ===
-      const stateUpdateBasedOnTarget = extractStateFromEntry(targetEntry, () => state);
-
-      set({
-        ...stateUpdateBasedOnTarget, // Wende den rekonstruierten Zustand an
-        currentHistoryIndex: newIndex, // Setze den gefundenen, gültigen Index
-        // --- Aktive Weis IMMER bei Navigation zurücksetzen ---
-        weisPoints: { top: 0, bottom: 0 },
-        currentRoundWeis: [],
-      });
-      console.log(`[navigateHistory] Local state updated for index ${newIndex}. Target round: ${targetEntry?.roundState.roundNumber ?? 'Initial'}`);
-      
-      // === UIStore Flag direkt hier zurücksetzen ===
-      useUIStore.setState({ isNavigatingHistory: false });
-      console.log("[navigateHistory] Local navigation complete. UIStore Flag isNavigatingHistory SET to FALSE.");
-  },
-
-  canNavigateForward: () => {
-    const state = get();
-    return state.currentHistoryIndex < state.roundHistory.length - 1;
-  },
-
-  canNavigateBackward: () => {
-    const state = get();
-    return state.currentHistoryIndex > -1;
-  },
-
-  jumpToLatest: () => {
-    set((state) => {
-      const lastIndex = state.roundHistory.length - 1;
-      if (lastIndex === state.currentHistoryIndex) {
-         // Schon am neuesten Stand, keine Aktion nötig bezüglich des alten isNavigating Flags.
-         // Die UIStore Flag wird separat behandelt.
-         return state;
-      }
-
-      const latestEntry = state.roundHistory[lastIndex];
-      if (!latestEntry) return state; // Sicherheitshalber
-
-      let restoredState = {
-        ...state,
-        currentRound: latestEntry.roundState.roundNumber,
-        currentPlayer: latestEntry.roundState.nextPlayer,
-        weisPoints: latestEntry.weisPoints,
-        jassPoints: latestEntry.jassPoints,
-        scores: latestEntry.scores,
-        striche: latestEntry.striche,
-        currentRoundWeis: latestEntry.weisActions,
-        currentHistoryIndex: lastIndex,
-        historyState: {
-          // isNavigating: false, // ENTFERNT! Wird nicht mehr lokal verwaltet
-          lastNavigationTimestamp: Date.now(),
-          weisCache: null
-        },
-        isRoundCompleted: latestEntry.isCompleted,
-      };
-
-      // NEU: Wenn der letzte Eintrag eine abgeschlossene Jass-Runde ist,
-      // setze die temporären Weis-Zähler im *aktiven* State zurück.
-      if (latestEntry.actionType === 'jass') {
-        restoredState = {
-          ...restoredState,
-          weisPoints: { top: 0, bottom: 0 },
-          currentRoundWeis: [],
-        };
-        console.log("[jumpToLatest] Resetting weisPoints/currentRoundWeis for restored Jass entry.");
-      }
-      
-      // Timer wiederherstellen/reaktivieren
-      const timerStore = useTimerStore.getState();
-      const jassStore = useJassStore.getState();
-      timerStore.reactivateGameTimer(jassStore.currentGameId);
-
-      // HIER syncWithJassStore aufrufen, da wir einen finalen Zustand erreicht haben
-      syncWithJassStore(restoredState);
-      return restoredState;
-    });
-  },
-
-  syncHistoryState: (entry: RoundEntry) => {
-    set((state) => ({
-      ...state,
-      roundHistory: [...state.roundHistory, entry],
-      currentHistoryIndex: state.roundHistory.length,
-      historyState: {
-        isNavigating: false,
-        lastNavigationTimestamp: Date.now(),
-      },
-    }));
-  },
-
-  logGameHistory: () => {
-    const state = get();
-    const gameHistory = state.roundHistory
-      .filter((entry) => entry.isRoundFinalized)
-      .map((entry) => ({
-        roundId: entry.roundId,
-        farbe: entry.actionType === "jass" ? entry.farbe : undefined,
-        strichInfo: entry.actionType === "jass" ? entry.strichInfo : undefined,
-        timestamp: new Date(entry.timestamp).toLocaleString("de-CH"),
-        points: {
-          top: entry.jassPoints.top,
-          bottom: entry.jassPoints.bottom,
-        },
-        weisPoints: {
-          top: entry.weisPoints.top,
-          bottom: entry.weisPoints.bottom,
-        },
-        totalPoints: {
-          top: entry.scores.top,
-          bottom: entry.scores.bottom,
-        },
-      }));
-
-    return gameHistory;
-  },
-
-  restoreRoundState: (entry: RoundEntry) => {
-    set((state) => ({
-      ...state,
-      currentRound: entry.roundState.roundNumber,
-      currentPlayer: entry.roundState.nextPlayer,
-    }));
-  },
-
-  // Neue Funktionen hinzufügen
-  isBergActive: (team: TeamPosition) => {
-    const state = get();
-    return state.striche[team].berg > 0;
-  },
-
-  isSiegActive: (team: TeamPosition) => {
-    const state = get();
-    return state.striche[team].sieg > 0;
-  },
-
-  addBerg: (team: TeamPosition) => {
-    let finalState: GameState | null = null;
-    set((state) => {
-      const {scoreSettings} = useUIStore.getState();
-
-      if (!scoreSettings?.enabled?.berg) return state;
-
-      const activeTeam = getActiveStrichTeam(state, "berg");
-      const newStriche = {...state.striche};
-
-      if (activeTeam === team) {
-        newStriche[team].berg = 0;
-      } else if (!activeTeam) {
-        const otherTeam = team === "top" ? "bottom" : "top";
-        newStriche[team].berg = 1;
-        newStriche[otherTeam].berg = 0;
-      }
-
-      const newState = {
-        ...state,
-        striche: newStriche,
-      };
-
-      syncWithJassStore(newState);
-      finalState = newState;
-      return newState;
-    });
-
-    // NEU: Firestore Update hinzufügen
-    // Hole den aktuellen State NACH dem set() Aufruf
-    const currentStateAfterSet = get();
-    if (currentStateAfterSet.activeGameId) {
-      // MARK LOCAL UPDATE *BEFORE* WRITING TO FIRESTORE
-      if (typeof window !== 'undefined' && window.__FIRESTORE_SYNC_API__?.markLocalUpdate) {
-         window.__FIRESTORE_SYNC_API__.markLocalUpdate();
-      } else {
-         console.warn("[GameStore.addBerg] markLocalUpdate API not available!");
-      }
-
-      const activeGameId = currentStateAfterSet.activeGameId;
-      const dataToUpdate: Partial<ActiveGame> = {
-        striche: currentStateAfterSet.striche, 
-        lastUpdated: serverTimestamp(),
-      };
-      // Bereinige die Daten vor dem Update
-      const cleanedDataToUpdate = sanitizeDataForFirestore(dataToUpdate);
-      // console.log("[GameStore.addBerg] Bereinigte Daten für Firestore-Update:", cleanedDataToUpdate);
-      updateActiveGame(activeGameId, cleanedDataToUpdate)
-        .catch(error => console.error("[GameStore.addBerg] Firestore update failed.", error));
-    } else if (finalState) { // Fallback, falls activeGameId im currentStateAfterSet fehlt, aber im alten finalState (sollte nicht passieren)
-        console.warn("[GameStore.addBerg] activeGameId fehlte im State nach get(), verwende alten finalState für Log, falls vorhanden. Firestore-Update übersprungen.", { oldFinalState: finalState });
-    }
-  },
-
-  addSieg: (team: TeamPosition) => {
-    let stricheChanged = false; // Flag bleibt
-
-    set((state) => {
-      // Hole die KORREKTEN, KONTEXTABHÄNGIGEN Einstellungen - ROBUSTER
-      const { currentGroup } = useGroupStore.getState();
-      const uiStoreSettings = useUIStore.getState();
-
-      // Priorisiere Gruppen-Settings, WENN sie DEFINIERT sind, sonst Fallback auf UI Store
-      const activeScoreSettings = (currentGroup && currentGroup.scoreSettings !== null && currentGroup.scoreSettings !== undefined) 
-                                  ? currentGroup.scoreSettings 
-                                  : uiStoreSettings.scoreSettings;
-      const activeStrokeSettings = (currentGroup && currentGroup.strokeSettings !== null && currentGroup.strokeSettings !== undefined) 
-                                   ? currentGroup.strokeSettings 
-                                   : uiStoreSettings.strokeSettings;
-
-      const activeTeam = getActiveStrichTeam(state, "sieg");
-
-      // Wenn Berg aktiviert ist, prüfen ob ein Berg existiert (verwende activeScoreSettings)
-      const bergCheck = activeScoreSettings.enabled.berg ?
-        (state.striche.top.berg > 0 || state.striche.bottom.berg > 0) :
-        true;
-
-      // Basisstruktur für die Striche
-      const baseStriche = {
-        ...state.striche,
-      };
-
-      // Wenn das Team bereits Sieg hat -> komplett entfernen
-      if (activeTeam === team) {
-        baseStriche[team] = {
-          ...baseStriche[team],
-          sieg: 0,
-          schneider: 0, // Auch Schneider entfernen, wenn Sieg entfernt wird
-        };
-
-        const newState = {striche: baseStriche};
-        syncWithJassStore({...state, ...newState});
-        stricheChanged = true;
-        return newState;
-      }
-
-      // Sieg kann gesetzt werden wenn:
-      // - Berg deaktiviert ist ODER
-      // - Berg aktiviert ist UND existiert
-      if (!activeTeam && bergCheck) {
-        const otherTeam = team === "top" ? "bottom" : "top";
-
-        // KORREKTUR: Setze Sieg für aktives Team auf 2 (Sieg zählt 2 Striche)
-        baseStriche[team] = {
-          ...baseStriche[team],
-          sieg: 2, // Korrigiert: 2 für den Sieg (war vorher 1)
-        };
-
-        // Entferne Sieg und Schneider vom anderen Team
-        baseStriche[otherTeam] = {
-          ...baseStriche[otherTeam],
-          sieg: 0,
-          schneider: 0,
-        };
-
-        // Automatische Schneider-Prüfung (verwende activeScoreSettings)
-        if (activeScoreSettings.enabled.schneider) {
-          const otherTeamPoints = state.scores[otherTeam];
-          if (otherTeamPoints < activeScoreSettings.values.schneider) {
-            // === WIEDERHERSTELLUNG: Verwende Wert aus activeStrokeSettings ===
-            baseStriche[team].schneider = activeStrokeSettings.schneider; // Der Wert aus den Settings wird direkt übernommen
-          } else {
-            // Explizit auf 0 setzen, falls Bedingung nicht mehr gilt
-            baseStriche[team].schneider = 0;
-          }
-        } else {
-           // Explizit auf 0 setzen, falls Schneider deaktiviert ist
-           baseStriche[team].schneider = 0;
-        }
-
-        const newState = {striche: baseStriche};
-        syncWithJassStore({...state, ...newState});
-        stricheChanged = true;
-        return newState;
-      }
-
-      // Direkt prüfen, ob sich die Striche ändern würden
-      const originalStricheJSON = JSON.stringify(state.striche);
-      const newStricheJSON = JSON.stringify(baseStriche);
-      const changed = originalStricheJSON !== newStricheJSON;
-
-      if (!changed) {
-      return {}; // Keine Änderung
-      }
-
-      // Wenn sich etwas ändert:
-      stricheChanged = true; // Setze das Flag für das Firestore-Update außerhalb
-      const finalState = {
-        ...state,
-        striche: baseStriche // Wende die neuen Striche an
-      };
-      syncWithJassStore(finalState); // Synchronisiere mit dem neuen State
-      return finalState; // Gib den neuen State zurück
-    });
-
-    // Firestore Update nur ausführen, wenn sich die Striche geändert haben UND wir eine activeGameId haben
-    if (stricheChanged) {
-      // Hole den aktuellsten State NACH dem set(), um sicherzustellen, dass activeGameId aktuell ist
-      const currentState = get(); 
-      if (currentState.activeGameId) {
-        // MARK LOCAL UPDATE *BEFORE* WRITING TO FIRESTORE
-        if (typeof window !== 'undefined' && window.__FIRESTORE_SYNC_API__?.markLocalUpdate) {
-           window.__FIRESTORE_SYNC_API__.markLocalUpdate();
-        } else {
-           console.warn("[GameStore.addSieg] markLocalUpdate API not available!");
-        }
-
-        const activeGameId = currentState.activeGameId;
-        const dataToUpdate: Partial<ActiveGame> = {
-          striche: currentState.striche, // Verwende die Striche aus dem aktuellen State
-          lastUpdated: serverTimestamp(),
-        };
-        // Bereinige die Daten vor dem Update
-        const cleanedDataToUpdate = sanitizeDataForFirestore(dataToUpdate);
-        // console.log("[GameStore.addSieg] Bereinigte Daten für Firestore-Update:", cleanedDataToUpdate);
-        updateActiveGame(activeGameId, cleanedDataToUpdate)
-          .catch(error => console.error("[GameStore.addSieg] Firestore update failed.", error));
-      } else {
-        console.warn("[GameStore.addSieg] Striche changed but activeGameId missing, skipping Firestore update.");
-      }
-    }
-  },
-
-  addSchneider: (team: TeamPosition) => {
-    let finalState: GameState | null = null;
-    set((state) => {
-      // Hole die KORREKTEN, KONTEXTABHÄNGIGEN Einstellungen
-      const { currentGroup } = useGroupStore.getState();
-      const uiStoreSettings = useUIStore.getState();
-      const activeScoreSettings = currentGroup?.scoreSettings ?? uiStoreSettings.scoreSettings;
-      const activeStrokeSettings = currentGroup?.strokeSettings ?? uiStoreSettings.strokeSettings;
-
-      // Debug-Logging
-      console.log("🎲 Settings beim Schneider:", {
-        activeScoreSettings,
-        activeStrokeSettings,
-        team,
-        currentStriche: state.striche[team],
-      });
-
-      // 1. Prüfen ob das Team SIEG hat (striche.sieg ist jetzt 1 oder 0)
-      const hasSieg = state.striche[team].sieg === 1;
-      if (!hasSieg) {
-         console.log("Kein Sieg vorhanden, Schneider nicht hinzugefügt.");
-         return state; // Keine Änderung, wenn kein Sieg
-      }
-
-      // 2. Gegnerteam bestimmen und Punkte prüfen
-      const otherTeam = team === "top" ? "bottom" : "top";
-      const otherTeamPoints = state.scores[otherTeam];
-
-      // Verwende die aktiven Score-Settings für den Schwellenwert und Aktivierung
-      const isSchneider = activeScoreSettings.enabled.schneider &&
-        otherTeamPoints < activeScoreSettings.values.schneider;
-
-      console.log("Schneider Prüfung:", { isSchneider, otherTeamPoints, limit: activeScoreSettings.values.schneider, enabled: activeScoreSettings.enabled.schneider });
-
-      // === KORREKTUR: Verwende den Wert aus den aktiven Stroke-Settings ===
-      const newSchneiderValue = isSchneider ? activeStrokeSettings.schneider : 0;
-
-      // Nur updaten, wenn sich der Wert ändert
-      if (state.striche[team].schneider === newSchneiderValue) {
-          console.log("Schneider-Status unverändert.");
-          return state;
-      }
-
-      // 3. SCHNEIDER-Striche setzen/entfernen
-      const newState = {
-        ...state,
-        striche: {
-          ...state.striche,
-          [team]: {
-            ...state.striche[team],
-            schneider: newSchneiderValue, // Setze korrekten Wert (1 oder 2)
-          },
-          [otherTeam]: {
-            ...state.striche[otherTeam],
-            schneider: 0, // Schneider immer beim Gegner entfernen
-          },
-        },
-      };
-
-      // Synchronisiere mit JassStore
-      syncWithJassStore(newState);
-      finalState = newState;
-      return finalState;
-    });
-  },
-
-  addMatsch: (team: TeamPosition) => {
-    const state = get();
-    
-    // KORREKTUR: History-Check und Warnung direkt hier, Kernlogik im onConfirm
-    if (state.currentHistoryIndex < state.roundHistory.length - 1) {
-      const {showHistoryWarning} = useUIStore.getState();
-      console.log("[GameStore.addMatsch] History warning triggered.");
-      
-      showHistoryWarning({
-        message: "Möchten Sie wirklich einen Matsch in der Vergangenheit hinzufügen?",
-        onConfirm: () => {
-          // === START Kernlogik zum Überschreiben der History ===
-          console.log("[GameStore.addMatsch] Executing action after history warning confirmation (overwrite)");
+          // --- Normale Ausführung (wenn am Ende der History) ---
           let finalState: GameState | null = null;
           set((currentState) => {
-            const newStriche = {
-              ...currentState.striche,
-              [team]: {
-                ...currentState.striche[team],
-                matsch: currentState.striche[team].matsch + 1,
-              },
+              // 1. Weis-Punkte und Aktion aktualisieren
+              const newWeisPoints = {...currentState.weisPoints};
+              newWeisPoints[team] = (newWeisPoints[team] || 0) + points;
+              const newWeisAction = {position: team, points};
+              // BUGFIX: Stelle sicher, dass currentRoundWeis immer ein Array ist
+              const newCurrentRoundWeis = [...(currentState.currentRoundWeis || []), newWeisAction];
+
+              // 2. History-Eintrag erstellen
+              const stateForEntryCreation = {
+                  ...currentState,
+                  weisPoints: newWeisPoints,
+                  currentRoundWeis: newCurrentRoundWeis,
+              };
+              if (process.env.NODE_ENV === 'development') {
+                console.log("[addWeisPoints - Normal] State being saved in WeisRoundEntry:", {
+                    weisPoints: stateForEntryCreation.weisPoints,
+                    scores: stateForEntryCreation.scores,
+                    currentRoundWeisCount: stateForEntryCreation.currentRoundWeis.length
+                });
+              }
+              const newEntry = createRoundEntry(
+                stateForEntryCreation,
+                get,
+                "weis",
+                currentState.startingPlayer
+              );
+
+              // 3. History aktualisieren
+              const historyUpdate = truncateFutureAndAddEntry(currentState, newEntry);
+
+              finalState = {
+                ...currentState,
+                weisPoints: newWeisPoints,
+                currentRoundWeis: newCurrentRoundWeis,
+                ...historyUpdate,
+              };
+              if (process.env.NODE_ENV === 'development') {
+                console.log("[GameStore.addWeisPoints] Normal Weis added:", {
+                    currentIndex: finalState.currentHistoryIndex,
+                    historyLength: finalState.roundHistory.length,
+                    weisPoints: finalState.weisPoints[team],
+                    currentRoundWeisCount: finalState.currentRoundWeis.length,
+                });
+              }
+              return finalState;
+          });
+
+          // NEU: Inkrementiere Firestore ID Zähler NACH erfolgreichem Hinzufügen - ENTFERNT
+          // set(state => ({ nextRoundFirestoreId: state.nextRoundFirestoreId + 1 }));
+          
+          // NEU: Markiere für Offline-Sync
+          if (typeof window !== 'undefined' && window.__OFFLINE_SYNC_SERVICE__) {
+            window.__OFFLINE_SYNC_SERVICE__.markPendingSync();
+          }
+
+          // *** ENTFERNT: KEIN Firestore-Update für Weis ***
+        },
+
+        undoLastWeis: () => {
+          let finalState: GameState | null = null;
+          set((state) => {
+            // Entferne den letzten Weis-Eintrag
+            const newCurrentRoundWeis = state.currentRoundWeis.slice(0, -1);
+            
+            // Berechne die weisPoints neu basierend auf den verbleibenden Einträgen
+            const recalculatedWeisPoints = {top: 0, bottom: 0};
+            newCurrentRoundWeis.forEach(weis => {
+              recalculatedWeisPoints[weis.position] += weis.points;
+            });
+            
+            finalState = {
+              ...state,
+              currentRoundWeis: newCurrentRoundWeis,
+              weisPoints: recalculatedWeisPoints // Aktualisiere auch weisPoints!
             };
+            return finalState;
+          });
+        },
+
+        finalizeGame: () => {
+          // NEU: Setze Transition-Loading beim Spielabschluss
+          set(() => ({
+            isGameCompleted: true,
+            isTransitioning: true,
+          }));
+        },
+
+        resetGame: (
+          nextStarter: PlayerNumber,
+          newActiveGameId?: string,
+          initialSettings?: {
+            farbeSettings?: FarbeSettings;
+            scoreSettings?: ScoreSettings;
+            strokeSettings?: StrokeSettings;
+          }
+        ) => { 
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[gameStore] resetGame aufgerufen. Nächster Starter: ${nextStarter}, Neue Game ID: ${newActiveGameId}`);
+          }
+          
+          // --- ERWEITERTE Settings-Ermittlung mit Firestore-Fallback ---
+          const determineCorrectSettings = async (): Promise<{ scoreSettings: ScoreSettings, strokeSettings: StrokeSettings, farbeSettings: FarbeSettings, source: string }> => {
+            const { currentTournamentInstance } = useTournamentStore.getState();
+            const { currentGroup } = useGroupStore.getState();
+            const uiSettings = useUIStore.getState();
+
+            // 1. Tournament Settings (höchste Priorität)
+            if (currentTournamentInstance?.settings) {
+              return {
+                scoreSettings: currentTournamentInstance.settings.scoreSettings || DEFAULT_SCORE_SETTINGS,
+                strokeSettings: currentTournamentInstance.settings.strokeSettings || DEFAULT_STROKE_SETTINGS,
+                farbeSettings: currentTournamentInstance.settings.farbeSettings || DEFAULT_FARBE_SETTINGS,
+                source: 'tournament'
+              };
+            }
+
+            // 2. Lokale currentGroup (zweite Priorität)
+            if (currentGroup) {
+              return {
+                scoreSettings: currentGroup.scoreSettings || DEFAULT_SCORE_SETTINGS,
+                strokeSettings: currentGroup.strokeSettings || DEFAULT_STROKE_SETTINGS,
+                farbeSettings: currentGroup.farbeSettings || DEFAULT_FARBE_SETTINGS,
+                source: 'group'
+              };
+            }
+
+            // 3. 🚨 KRITISCHER FIX: Gruppen-Settings aus Firestore laden falls currentGroup leer!
+            // Das passiert nach Re-Login wenn currentGroup noch nicht wiederhergestellt wurde
+            const currentSessionId = useJassStore.getState().currentSession?.id;
+            if (currentSessionId) {
+              try {
+                const db = getFirestore(firebaseApp);
+                const sessionDocRef = doc(db, 'sessions', currentSessionId);
+                const sessionDoc = await getDoc(sessionDocRef);
+                
+                if (sessionDoc.exists()) {
+                  const sessionData = sessionDoc.data();
+                  const groupId = sessionData.groupId || sessionData.gruppeId;
+                  
+                  if (groupId) {
+                    console.log(`[gameStore] resetGame: currentGroup ist leer, lade Gruppen-Settings aus Firestore für Gruppe ${groupId}`);
+                    const groupDocRef = doc(db, 'groups', groupId);
+                    const groupDoc = await getDoc(groupDocRef);
+                    
+                    if (groupDoc.exists()) {
+                      const groupData = groupDoc.data();
+                      return {
+                        scoreSettings: groupData.scoreSettings || DEFAULT_SCORE_SETTINGS,
+                        strokeSettings: groupData.strokeSettings || DEFAULT_STROKE_SETTINGS,
+                        farbeSettings: groupData.farbeSettings || DEFAULT_FARBE_SETTINGS,
+                        source: 'group-firestore'
+                      };
+                    }
+                  }
+                }
+              } catch (error) {
+                console.warn(`[gameStore] resetGame: Fehler beim Laden der Gruppen-Settings aus Firestore:`, error);
+              }
+            }
+
+            // 4. Fallback: UI Store Settings
+            return {
+              scoreSettings: uiSettings.scoreSettings,
+              strokeSettings: uiSettings.strokeSettings,
+              farbeSettings: uiSettings.farbeSettings,
+              source: 'uiStore'
+            };
+          };
+
+          // Führe die Settings-Ermittlung aus
+          determineCorrectSettings().then(correctSettings => {
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`[gameStore] resetGame verwendet Settings aus Quelle: '${correctSettings.source}'`);
+            }
+
+            set((prevState) => {
+              const playerNamesToKeep = prevState.playerNames;
+              const gamePlayersToKeep = prevState.gamePlayers;
+              
+              const baseInitialState = createInitialStateLocal(nextStarter);
+              
+              const resetState: GameState = {
+                ...baseInitialState,
+                // --- Settings aus der async ermittelten Quelle ---
+                scoreSettings: correctSettings.scoreSettings,
+                strokeSettings: correctSettings.strokeSettings,
+                farbeSettings: correctSettings.farbeSettings,
+                // --- Beibehaltene Werte ---
+                playerNames: playerNamesToKeep, 
+                gamePlayers: gamePlayersToKeep,
+                activeGameId: newActiveGameId, 
+                // --- Harter Reset für den Spielverlauf ---
+                roundHistory: [], 
+                currentHistoryIndex: -1,
+                isGameStarted: !!newActiveGameId, 
+                // NEU: Beende Transition-Loading nach Reset
+                isTransitioning: false,
+              };
+              
+              return resetState;
+            });
+          }).catch(error => {
+            console.error(`[gameStore] resetGame: Fehler bei Settings-Ermittlung:`, error);
+            
+            // Fallback bei Fehler: Verwende UI Store Settings
+            set((prevState) => {
+              const playerNamesToKeep = prevState.playerNames;
+              const gamePlayersToKeep = prevState.gamePlayers;
+              const uiSettings = useUIStore.getState();
+              
+              const baseInitialState = createInitialStateLocal(nextStarter);
+              
+              const resetState: GameState = {
+                ...baseInitialState,
+                scoreSettings: uiSettings.scoreSettings,
+                strokeSettings: uiSettings.strokeSettings,
+                farbeSettings: uiSettings.farbeSettings,
+                playerNames: playerNamesToKeep, 
+                gamePlayers: gamePlayersToKeep,
+                activeGameId: newActiveGameId, 
+                roundHistory: [], 
+                currentHistoryIndex: -1,
+                isGameStarted: !!newActiveGameId, 
+                isTransitioning: false,
+              };
+              
+              return resetState;
+            });
+          });
+        },
+
+        resetGamePoints: () => {
+          set(() => ({
+            scores: {top: 0, bottom: 0},
+          }));
+        },
+
+        setScore: (team, score) => {
+          set((state) => {
+            const newScores = {...state.scores};
+            newScores[team] = validateScore(score);
+            return {scores: newScores};
+          });
+        },
+
+        setPlayerNames: (names) => {
+          set(() => ({playerNames: names}));
+        },
+
+        updateScoreByStrich: (position: TeamPosition, points: number) => {
+          const state = get();
+          
+          // KORREKTUR: History-Check und Warnung direkt hier, Kernlogik im onConfirm
+          if (state.currentHistoryIndex < state.roundHistory.length - 1) {
+              const {showHistoryWarning} = useUIStore.getState();
+              console.log("[GameStore.updateScoreByStrich] History warning triggered.");
+              
+              showHistoryWarning({
+                  message: HISTORY_WARNING_MESSAGE,
+                  onConfirm: () => {
+                    // === START Kernlogik zum Überschreiben der History ===
+                    console.log("[GameStore.updateScoreByStrich] Executing action after history warning confirmation (overwrite)");
+                    let finalState: GameState | null = null;
+                    set((currentState) => {
+                      // currentState ist jetzt der KORREKTE historische Zustand
+                      const newScores = {...currentState.scores};
+                      newScores[position] += points;
+                      
+                      const newEntry = createRoundEntry(
+                        {...currentState, scores: newScores }, // KORREKT: state mit neuen scores übergeben
+                        get,
+                        "jass",
+                        currentState.startingPlayer
+                      );
+                      
+                      const historyUpdate = truncateFutureAndAddEntry(currentState, newEntry);
+                      
+                      finalState = {
+                        ...currentState,
+                        scores: newScores,
+                        ...historyUpdate,
+                      };
+                      
+                      console.log("[GameStore.updateScoreByStrich] History overwritten. New state:", { 
+                        currentIndex: finalState.currentHistoryIndex,
+                        historyLength: finalState.roundHistory.length,
+                        scores: finalState.scores[position]
+                      });
+                      
+                      // NEU: Inkrementiere Firestore ID Zähler NACH erfolgreichem Hinzufügen - ENTFERNT
+                      // set(state => ({ nextRoundFirestoreId: state.nextRoundFirestoreId + 1 }));
+                      
+                      return finalState;
+                    });
+                    
+                    // Firestore Update (analog zu addWeisPoints)
+                    setTimeout(() => {
+                      // MARK LOCAL UPDATE *BEFORE* WRITING TO FIRESTORE
+                      if (typeof window !== 'undefined' && window.__FIRESTORE_SYNC_API__?.markLocalUpdate) {
+                         window.__FIRESTORE_SYNC_API__.markLocalUpdate();
+                      } else {
+                         console.warn("[GameStore.updateScoreByStrich.onConfirm] markLocalUpdate API not available!");
+                      }
+                      const stateForFirestore = get();
+                      const activeGameId = stateForFirestore.activeGameId;
+                      if (activeGameId) {
+                        // Update scores im Hauptdokument (angenommen, das ist gewünscht)
+                        const updateData: Partial<ActiveGame> = {
+                          scores: stateForFirestore.scores, 
+                        };
+                        // Bereinige die Daten vor dem Update
+                        const cleanedUpdateData = sanitizeDataForFirestore(updateData);
+                        // console.log("[GameStore.updateScoreByStrich.onConfirm] Bereinigte Daten für Firestore-Update:", cleanedUpdateData);
+                        updateActiveGame(activeGameId, cleanedUpdateData).catch(console.error);
+                        
+                        // Speichere den neuen Rundeneintrag
+                        if (stateForFirestore.roundHistory.length > 0) {
+                          const lastEntry = stateForFirestore.roundHistory[stateForFirestore.roundHistory.length - 1];
+                          import('../services/gameService').then(({ saveRoundToFirestore }) => {
+                            saveRoundToFirestore(activeGameId, lastEntry).catch(console.error);
+                          });
+                        }
+                      }
+                    }, 0);
+                    // === ENDE Kernlogik ===
+                  },
+                  onCancel: () => get().jumpToLatest(),
+                  type: 'error'
+              });
+              return; // Beende die Funktion hier
+          }
+          
+          // --- Normale Ausführung, wenn keine History-Warnung nötig ist --- 
+          console.log("[GameStore.updateScoreByStrich] No history warning needed, proceeding with normal state update.");
+          let finalState: GameState | null = null;
+          set((currentState) => {
+            const newScores = {...currentState.scores};
+            newScores[position] += points;
             
             const newEntry = createRoundEntry(
-              {...currentState, striche: newStriche},
+              {...currentState, scores: newScores}, // KORREKT: state mit neuen scores übergeben
               get,
               "jass",
-              currentState.startingPlayer,
-              { strichInfo: { team: team, type: "matsch" } }
+              currentState.startingPlayer
             );
             
             const historyUpdate = truncateFutureAndAddEntry(currentState, newEntry);
             
             finalState = {
               ...currentState,
-              striche: newStriche,
+              scores: newScores,
               ...historyUpdate,
             };
             
-            console.log("[GameStore.addMatsch] History overwritten. New state:", { 
+            console.log("[GameStore.updateScoreByStrich] Normal score updated by strich:", { 
               currentIndex: finalState.currentHistoryIndex,
               historyLength: finalState.roundHistory.length,
-              striche: finalState.striche[team].matsch
+              scores: finalState.scores[position]
             });
             
             // NEU: Inkrementiere Firestore ID Zähler NACH erfolgreichem Hinzufügen - ENTFERNT
             // set(state => ({ nextRoundFirestoreId: state.nextRoundFirestoreId + 1 }));
-            
+
             return finalState;
           });
           
-          // Firestore Update (analog)
+          // NEU: Markiere für Offline-Sync
+          if (typeof window !== 'undefined' && window.__OFFLINE_SYNC_SERVICE__) {
+            window.__OFFLINE_SYNC_SERVICE__.markPendingSync();
+          }
+
+          // Firestore Update (analog zu addWeisPoints)
           setTimeout(() => {
             // MARK LOCAL UPDATE *BEFORE* WRITING TO FIRESTORE
             if (typeof window !== 'undefined' && window.__FIRESTORE_SYNC_API__?.markLocalUpdate) {
                window.__FIRESTORE_SYNC_API__.markLocalUpdate();
             } else {
-               console.warn("[GameStore.addMatsch.onConfirm] markLocalUpdate API not available!");
+               console.warn("[GameStore.updateScoreByStrich] markLocalUpdate API not available!");
             }
             const stateForFirestore = get();
             const activeGameId = stateForFirestore.activeGameId;
             if (activeGameId) {
               const updateData: Partial<ActiveGame> = {
-                striche: stateForFirestore.striche, 
+                scores: stateForFirestore.scores, 
               };
               // Bereinige die Daten vor dem Update
               const cleanedUpdateData = sanitizeDataForFirestore(updateData);
-              // console.log("[GameStore.addMatsch.onConfirm] Bereinigte Daten für Firestore-Update:", cleanedUpdateData);
+              // console.log("[GameStore.updateScoreByStrich] Bereinigte Daten für Firestore-Update:", cleanedUpdateData);
               updateActiveGame(activeGameId, cleanedUpdateData).catch(console.error);
               
               if (stateForFirestore.roundHistory.length > 0) {
@@ -1888,148 +1388,797 @@ export const useGameStore = create<GameStore>()(devtools(
               }
             }
           }, 0);
-          // === ENDE Kernlogik ===
         },
-        onCancel: () => get().jumpToLatest(),
-      });
-      return; // Beende die Funktion hier
-    }
-    
-    // --- Normale Ausführung --- 
-    console.log("[GameStore.addMatsch] No history warning needed, proceeding.");
-    let finalState: GameState | null = null;
-    set((currentState) => {
-      const newStriche = {
-        ...currentState.striche,
-        [team]: {
-          ...currentState.striche[team],
-          matsch: currentState.striche[team].matsch + 1,
+
+        getVisualStriche: (position: TeamPosition) => {
+          const state = get();
+          const score = state.scores[position];
+          const {striche, restZahl} = calculateStricheCounts(score);
+
+          return {
+            stricheCounts: {
+              20: striche["20"],
+              50: striche["50"],
+              100: striche["100"],
+            },
+            restZahl,
+          };
         },
-      };
 
-      const newEntry = createRoundEntry(
-        {...currentState, striche: newStriche},
-        get,
-        "jass",
-        currentState.startingPlayer,
-        { strichInfo: { team: team, type: "matsch" } }
-      );
+        // Neue History-Navigation Actions
+        navigateHistory: (direction: NavigationDirection) => {
+            const state = get(); // Hole den aktuellen Zustand
+            const now = Date.now();
 
-      const historyUpdate = truncateFutureAndAddEntry(currentState, newEntry);
-      
-      finalState = {
-        ...currentState,
-        striche: newStriche,
-        ...historyUpdate,
-      };
-      
-      console.log("[GameStore.addMatsch] Normal Matsch added:", { 
-        currentIndex: finalState.currentHistoryIndex,
-        historyLength: finalState.roundHistory.length,
-        striche: finalState.striche[team].matsch
-      });
-      
-      // NEU: Inkrementiere Firestore ID Zähler NACH erfolgreichem Hinzufügen - ENTFERNT
-      // set(state => ({ nextRoundFirestoreId: state.nextRoundFirestoreId + 1 }));
+            let currentIndex = state.currentHistoryIndex;
+            let newIndex = -1; // Initialisierung
+            let targetEntry: RoundEntry | null = null;
+            let attempts = 0;
+            const maxAttempts = state.roundHistory.length + 1; // Sicherheitsschleife
 
-      return finalState;
-    });
-    
-    // Firestore Update (analog)
-    setTimeout(() => {
-      // MARK LOCAL UPDATE *BEFORE* WRITING TO FIRESTORE
-      if (typeof window !== 'undefined' && window.__FIRESTORE_SYNC_API__?.markLocalUpdate) {
-         window.__FIRESTORE_SYNC_API__.markLocalUpdate();
-      } else {
-         console.warn("[GameStore.addMatsch] markLocalUpdate API not available!");
-      }
-      const stateForFirestore = get();
-      const activeGameId = stateForFirestore.activeGameId;
-      if (activeGameId) {
-        const updateData: Partial<ActiveGame> = {
-          striche: stateForFirestore.striche, 
-        };
-        // Bereinige die Daten vor dem Update
-        const cleanedUpdateData = sanitizeDataForFirestore(updateData);
-        // console.log("[GameStore.addMatsch] Bereinigte Daten für Firestore-Update:", cleanedUpdateData);
-        updateActiveGame(activeGameId, cleanedUpdateData).catch(console.error);
-        
-        if (stateForFirestore.roundHistory.length > 0) {
-          const lastEntry = stateForFirestore.roundHistory[stateForFirestore.roundHistory.length - 1];
-          import('../services/gameService').then(({ saveRoundToFirestore }) => {
-            saveRoundToFirestore(activeGameId, lastEntry).catch(console.error);
+            // Iteriere, um den nächsten *aktiven* Eintrag zu finden
+            do {
+                attempts++;
+                currentIndex = direction === "forward" ? currentIndex + 1 : currentIndex - 1;
+
+                // Index-Grenzen prüfen
+                if (currentIndex < -1 || currentIndex >= state.roundHistory.length) {
+                    console.warn(`[navigateHistory] Index out of bounds: ${currentIndex}, Länge: ${state.roundHistory.length}. Stopping navigation.`);
+                    useUIStore.setState({ isNavigatingHistory: false });
+                    return; // Zustand nicht ändern, Navigation stoppen
+                }
+
+                // Ziel-Eintrag holen (kann null sein für Index -1)
+                targetEntry = currentIndex >= 0 ? state.roundHistory[currentIndex] : null;
+
+                // Prüfe, ob der Eintrag aktiv ist (oder ob wir am Anfang sind: index -1)
+                if (currentIndex === -1 || (targetEntry && (targetEntry.isActive === undefined || targetEntry.isActive === true))) {
+                    newIndex = currentIndex; // Gültigen Index gefunden
+                    break; // Schleife verlassen
+                } else {
+                    console.log(`[navigateHistory] Skipping inactive entry at index: ${currentIndex}`);
+                }
+
+            } while (attempts < maxAttempts);
+
+            if (newIndex === -1 && attempts >= maxAttempts) {
+               console.error("[navigateHistory] Max attempts reached, could not find active entry. Stopping.");
+               useUIStore.setState({ isNavigatingHistory: false });
+               return; // Sicherheitshalber stoppen
+            }
+            
+            // === Sofortige lokale State-Aktualisierung ===
+            const stateUpdateBasedOnTarget = extractStateFromEntry(targetEntry, () => state);
+
+            set({
+              ...stateUpdateBasedOnTarget, // Wende den rekonstruierten Zustand an
+              currentHistoryIndex: newIndex, // Setze den gefundenen, gültigen Index
+              // --- Aktive Weis IMMER bei Navigation zurücksetzen ---
+              weisPoints: { top: 0, bottom: 0 },
+              currentRoundWeis: [],
+            });
+            console.log(`[navigateHistory] Local state updated for index ${newIndex}. Target round: ${targetEntry?.roundState.roundNumber ?? 'Initial'}`);
+            
+            // === UIStore Flag direkt hier zurücksetzen ===
+            useUIStore.setState({ isNavigatingHistory: false });
+            console.log("[navigateHistory] Local navigation complete. UIStore Flag isNavigatingHistory SET to FALSE.");
+        },
+
+        canNavigateForward: () => {
+          const state = get();
+          return state.currentHistoryIndex < state.roundHistory.length - 1;
+        },
+
+        canNavigateBackward: () => {
+          const state = get();
+          return state.currentHistoryIndex > -1;
+        },
+
+        jumpToLatest: () => {
+          set((state) => {
+            const lastIndex = state.roundHistory.length - 1;
+            if (lastIndex === state.currentHistoryIndex) {
+               // Schon am neuesten Stand, keine Aktion nötig bezüglich des alten isNavigating Flags.
+               // Die UIStore Flag wird separat behandelt.
+               return state;
+            }
+
+            const latestEntry = state.roundHistory[lastIndex];
+            if (!latestEntry) return state; // Sicherheitshalber
+
+            let restoredState = {
+              ...state,
+              currentRound: latestEntry.roundState.roundNumber,
+              currentPlayer: latestEntry.roundState.nextPlayer,
+              weisPoints: latestEntry.weisPoints,
+              jassPoints: latestEntry.jassPoints,
+              scores: latestEntry.scores,
+              striche: latestEntry.striche,
+              currentRoundWeis: latestEntry.weisActions,
+              currentHistoryIndex: lastIndex,
+              historyState: {
+                // isNavigating: false, // ENTFERNT! Wird nicht mehr lokal verwaltet
+                lastNavigationTimestamp: Date.now(),
+                weisCache: null
+              },
+              isRoundCompleted: latestEntry.isCompleted,
+            };
+
+            // NEU: Wenn der letzte Eintrag eine abgeschlossene Jass-Runde ist,
+            // setze die temporären Weis-Zähler im *aktiven* State zurück.
+            if (latestEntry.actionType === 'jass') {
+              restoredState = {
+                ...restoredState,
+                weisPoints: { top: 0, bottom: 0 },
+                currentRoundWeis: [],
+              };
+              console.log("[jumpToLatest] Resetting weisPoints/currentRoundWeis for restored Jass entry.");
+            }
+            
+            // Timer wiederherstellen/reaktivieren
+            const timerStore = useTimerStore.getState();
+            const jassStore = useJassStore.getState();
+            timerStore.reactivateGameTimer(jassStore.currentGameId);
+
+            // HIER syncWithJassStore aufrufen, da wir einen finalen Zustand erreicht haben
+            syncWithJassStore(restoredState);
+            return restoredState;
           });
-        }
-      }
-    }, 0);
-  },
+        },
 
-  // Neue Getter-Methode für die Gesamtstriche
-  getTotalStriche: (team: TeamPosition): number => {
-    const state = get();
-    const {scoreSettings} = useUIStore.getState();
-    const striche = state.striche[team];
+        syncHistoryState: (entry: RoundEntry) => {
+          set((state) => ({
+            ...state,
+            roundHistory: [...state.roundHistory, entry],
+            currentHistoryIndex: state.roundHistory.length,
+            historyState: {
+              isNavigating: false,
+              lastNavigationTimestamp: Date.now(),
+            },
+          }));
+        },
 
-    let total = 0;
+        logGameHistory: () => {
+          const state = get();
+          const gameHistory = state.roundHistory
+            .filter((entry) => entry.isRoundFinalized)
+            .map((entry) => ({
+              roundId: entry.roundId,
+              farbe: entry.actionType === "jass" ? entry.farbe : undefined,
+              strichInfo: entry.actionType === "jass" ? entry.strichInfo : undefined,
+              timestamp: new Date(entry.timestamp).toLocaleString("de-CH"),
+              points: {
+                top: entry.jassPoints.top,
+                bottom: entry.jassPoints.bottom,
+              },
+              weisPoints: {
+                top: entry.weisPoints.top,
+                bottom: entry.weisPoints.bottom,
+              },
+              totalPoints: {
+                top: entry.scores.top,
+                bottom: entry.scores.bottom,
+              },
+            }));
 
-    // Berg nur wenn aktiviert
-    if (scoreSettings?.enabled?.berg) {
-      total += striche.berg;
-    }
+          return gameHistory;
+        },
 
-    // Sieg immer
-    total += striche.sieg;
+        restoreRoundState: (entry: RoundEntry) => {
+          set((state) => ({
+            ...state,
+            currentRound: entry.roundState.roundNumber,
+            currentPlayer: entry.roundState.nextPlayer,
+          }));
+        },
 
-    // Schneider nur wenn aktiviert
-    if (scoreSettings?.enabled?.schneider) {
-      total += striche.schneider;
-    }
+        // Neue Funktionen hinzufügen
+        isBergActive: (team: TeamPosition) => {
+          const state = get();
+          return state.striche[team].berg > 0;
+        },
 
-    // Matsch und Kontermatsch immer
-    total += striche.matsch;
-    total += striche.kontermatsch;
+        isSiegActive: (team: TeamPosition) => {
+          const state = get();
+          return state.striche[team].sieg > 0;
+        },
 
-    return total;
-  },
+        addBerg: (team: TeamPosition) => {
+          let finalState: GameState | null = null;
+          set((state) => {
+            const {scoreSettings} = useUIStore.getState();
 
-  completeRound: () => {
-    const timerStore = useTimerStore.getState();
+            if (!scoreSettings?.enabled?.berg) return state;
 
-    set((state) => ({
-      ...state,
-      isRoundCompleted: true,
-      currentRound: state.currentRound + 1,
-    }));
+            const activeTeam = getActiveStrichTeam(state, "berg");
+            const newStriche = {...state.striche};
 
-    // Timer auf null setzen
-    timerStore.resetRoundTimer();
-  },
+            if (activeTeam === team) {
+              newStriche[team].berg = 0;
+            } else if (!activeTeam) {
+              const otherTeam = team === "top" ? "bottom" : "top";
+              newStriche[team].berg = 1;
+              newStriche[otherTeam].berg = 0;
+            }
 
-  // Neue Methode für Kontermatsch
-  addKontermatsch: (team: TeamPosition) => {
-    const state = get();
-    
-    // KORREKTUR: History-Check und Warnung direkt hier, Kernlogik im onConfirm
-    if (state.currentHistoryIndex < state.roundHistory.length - 1) {
-      const {showHistoryWarning} = useUIStore.getState();
-      // console.log("[GameStore.addKontermatsch] History warning triggered.");
-      
-      showHistoryWarning({
-        message: "Möchten Sie wirklich einen Kontermatsch in der Vergangenheit hinzufügen?",
-        onConfirm: () => {
-          // === START Kernlogik zum Überschreiben der History ===
-          // console.log("[GameStore.addKontermatsch] Executing action after history warning confirmation (overwrite)");
+            const newState = {
+              ...state,
+              striche: newStriche,
+            };
+
+            syncWithJassStore(newState);
+            finalState = newState;
+            return newState;
+          });
+          
+          // NEU: Markiere für Offline-Sync
+          if (typeof window !== 'undefined' && window.__OFFLINE_SYNC_SERVICE__) {
+            window.__OFFLINE_SYNC_SERVICE__.markPendingSync();
+          }
+
+          // NEU: Firestore Update hinzufügen
+          // Hole den aktuellen State NACH dem set() Aufruf
+          const currentStateAfterSet = get();
+          if (currentStateAfterSet.activeGameId) {
+            // MARK LOCAL UPDATE *BEFORE* WRITING TO FIRESTORE
+            if (typeof window !== 'undefined' && window.__FIRESTORE_SYNC_API__?.markLocalUpdate) {
+               window.__FIRESTORE_SYNC_API__.markLocalUpdate();
+            } else {
+               console.warn("[GameStore.addBerg] markLocalUpdate API not available!");
+            }
+
+            const activeGameId = currentStateAfterSet.activeGameId;
+            const dataToUpdate: Partial<ActiveGame> = {
+              striche: currentStateAfterSet.striche, 
+              lastUpdated: serverTimestamp(),
+            };
+            // Bereinige die Daten vor dem Update
+            const cleanedDataToUpdate = sanitizeDataForFirestore(dataToUpdate);
+            // console.log("[GameStore.addBerg] Bereinigte Daten für Firestore-Update:", cleanedDataToUpdate);
+            updateActiveGame(activeGameId, cleanedDataToUpdate)
+              .catch(error => console.error("[GameStore.addBerg] Firestore update failed.", error));
+          } else if (finalState) { // Fallback, falls activeGameId im currentStateAfterSet fehlt, aber im alten finalState (sollte nicht passieren)
+              console.warn("[GameStore.addBerg] activeGameId fehlte im State nach get(), verwende alten finalState für Log, falls vorhanden. Firestore-Update übersprungen.", { oldFinalState: finalState });
+          }
+        },
+
+        addSieg: (team: TeamPosition) => {
+          let stricheChanged = false; // Flag bleibt
+
+          set((state) => {
+            // Hole die KORREKTEN, KONTEXTABHÄNGIGEN Einstellungen - ROBUSTER
+            const { currentGroup } = useGroupStore.getState();
+            const uiStoreSettings = useUIStore.getState();
+
+            // Priorisiere Gruppen-Settings, WENN sie DEFINIERT sind, sonst Fallback auf UI Store
+            const activeScoreSettings = (currentGroup && currentGroup.scoreSettings !== null && currentGroup.scoreSettings !== undefined) 
+                                        ? currentGroup.scoreSettings 
+                                        : uiStoreSettings.scoreSettings;
+            const activeStrokeSettings = (currentGroup && currentGroup.strokeSettings !== null && currentGroup.strokeSettings !== undefined) 
+                                         ? currentGroup.strokeSettings 
+                                         : uiStoreSettings.strokeSettings;
+
+            const activeTeam = getActiveStrichTeam(state, "sieg");
+
+            // Wenn Berg aktiviert ist, prüfen ob ein Berg existiert (verwende activeScoreSettings)
+            const bergCheck = activeScoreSettings.enabled.berg ?
+              (state.striche.top.berg > 0 || state.striche.bottom.berg > 0) :
+              true;
+
+            // Basisstruktur für die Striche
+            const baseStriche = {
+              ...state.striche,
+            };
+
+            // Wenn das Team bereits Sieg hat -> komplett entfernen
+            if (activeTeam === team) {
+              baseStriche[team] = {
+                ...baseStriche[team],
+                sieg: 0,
+                schneider: 0, // Auch Schneider entfernen, wenn Sieg entfernt wird
+              };
+
+              const newState = {striche: baseStriche};
+              syncWithJassStore({...state, ...newState});
+              stricheChanged = true;
+              return newState;
+            }
+
+            // Sieg kann gesetzt werden wenn:
+            // - Berg deaktiviert ist ODER
+            // - Berg aktiviert ist UND existiert
+            if (!activeTeam && bergCheck) {
+              const otherTeam = team === "top" ? "bottom" : "top";
+
+              // KORREKTUR: Setze Sieg für aktives Team auf 2 (Sieg zählt 2 Striche)
+              baseStriche[team] = {
+                ...baseStriche[team],
+                sieg: 2, // Korrigiert: 2 für den Sieg (war vorher 1)
+              };
+
+              // Entferne Sieg und Schneider vom anderen Team
+              baseStriche[otherTeam] = {
+                ...baseStriche[otherTeam],
+                sieg: 0,
+                schneider: 0,
+              };
+
+              // Automatische Schneider-Prüfung (verwende activeScoreSettings)
+              if (activeScoreSettings.enabled.schneider) {
+                const otherTeamPoints = state.scores[otherTeam];
+                if (otherTeamPoints < activeScoreSettings.values.schneider) {
+                  // === WIEDERHERSTELLUNG: Verwende Wert aus activeStrokeSettings ===
+                  baseStriche[team].schneider = activeStrokeSettings.schneider; // Der Wert aus den Settings wird direkt übernommen
+                } else {
+                  // Explizit auf 0 setzen, falls Bedingung nicht mehr gilt
+                  baseStriche[team].schneider = 0;
+                }
+              } else {
+                 // Explizit auf 0 setzen, falls Schneider deaktiviert ist
+                 baseStriche[team].schneider = 0;
+              }
+
+              const newState = {striche: baseStriche};
+              syncWithJassStore({...state, ...newState});
+              stricheChanged = true;
+              return newState;
+            }
+
+            // Direkt prüfen, ob sich die Striche ändern würden
+            const originalStricheJSON = JSON.stringify(state.striche);
+            const newStricheJSON = JSON.stringify(baseStriche);
+            const changed = originalStricheJSON !== newStricheJSON;
+
+            if (!changed) {
+            return {}; // Keine Änderung
+            }
+
+            // Wenn sich etwas ändert:
+            stricheChanged = true; // Setze das Flag für das Firestore-Update außerhalb
+            const finalState = {
+              ...state,
+              striche: baseStriche // Wende die neuen Striche an
+            };
+            syncWithJassStore(finalState); // Synchronisiere mit dem neuen State
+            return finalState; // Gib den neuen State zurück
+          });
+          
+          // NEU: Markiere für Offline-Sync
+          if (stricheChanged && typeof window !== 'undefined' && window.__OFFLINE_SYNC_SERVICE__) {
+            window.__OFFLINE_SYNC_SERVICE__.markPendingSync();
+          }
+
+          // Firestore Update nur ausführen, wenn sich die Striche geändert haben UND wir eine activeGameId haben
+          if (stricheChanged) {
+            // Hole den aktuellsten State NACH dem set(), um sicherzustellen, dass activeGameId aktuell ist
+            const currentState = get(); 
+            if (currentState.activeGameId) {
+              // MARK LOCAL UPDATE *BEFORE* WRITING TO FIRESTORE
+              if (typeof window !== 'undefined' && window.__FIRESTORE_SYNC_API__?.markLocalUpdate) {
+                 window.__FIRESTORE_SYNC_API__.markLocalUpdate();
+              } else {
+                 console.warn("[GameStore.addSieg] markLocalUpdate API not available!");
+              }
+
+              const activeGameId = currentState.activeGameId;
+              const dataToUpdate: Partial<ActiveGame> = {
+                striche: currentState.striche, // Verwende die Striche aus dem aktuellen State
+                lastUpdated: serverTimestamp(),
+              };
+              // Bereinige die Daten vor dem Update
+              const cleanedDataToUpdate = sanitizeDataForFirestore(dataToUpdate);
+              // console.log("[GameStore.addSieg] Bereinigte Daten für Firestore-Update:", cleanedDataToUpdate);
+              updateActiveGame(activeGameId, cleanedDataToUpdate)
+                .catch(error => console.error("[GameStore.addSieg] Firestore update failed.", error));
+            } else {
+              console.warn("[GameStore.addSieg] Striche changed but activeGameId missing, skipping Firestore update.");
+            }
+          }
+        },
+
+        addSchneider: (team: TeamPosition) => {
+          let finalState: GameState | null = null;
+          set((state) => {
+            // Hole die KORREKTEN, KONTEXTABHÄNGIGEN Einstellungen
+            const { currentGroup } = useGroupStore.getState();
+            const uiStoreSettings = useUIStore.getState();
+            const activeScoreSettings = currentGroup?.scoreSettings ?? uiStoreSettings.scoreSettings;
+            const activeStrokeSettings = currentGroup?.strokeSettings ?? uiStoreSettings.strokeSettings;
+
+            // Debug-Logging
+            console.log("🎲 Settings beim Schneider:", {
+              activeScoreSettings,
+              activeStrokeSettings,
+              team,
+              currentStriche: state.striche[team],
+            });
+
+            // 1. Prüfen ob das Team SIEG hat (striche.sieg ist jetzt 1 oder 0)
+            const hasSieg = state.striche[team].sieg === 1;
+            if (!hasSieg) {
+               console.log("Kein Sieg vorhanden, Schneider nicht hinzugefügt.");
+               return state; // Keine Änderung, wenn kein Sieg
+            }
+
+            // 2. Gegnerteam bestimmen und Punkte prüfen
+            const otherTeam = team === "top" ? "bottom" : "top";
+            const otherTeamPoints = state.scores[otherTeam];
+
+            // Verwende die aktiven Score-Settings für den Schwellenwert und Aktivierung
+            const isSchneider = activeScoreSettings.enabled.schneider &&
+              otherTeamPoints < activeScoreSettings.values.schneider;
+
+            console.log("Schneider Prüfung:", { isSchneider, otherTeamPoints, limit: activeScoreSettings.values.schneider, enabled: activeScoreSettings.enabled.schneider });
+
+            // === KORREKTUR: Verwende den Wert aus den aktiven Stroke-Settings ===
+            const newSchneiderValue = isSchneider ? activeStrokeSettings.schneider : 0;
+
+            // Nur updaten, wenn sich der Wert ändert
+            if (state.striche[team].schneider === newSchneiderValue) {
+                console.log("Schneider-Status unverändert.");
+                return state;
+            }
+
+            // 3. SCHNEIDER-Striche setzen/entfernen
+            const newState = {
+              ...state,
+              striche: {
+                ...state.striche,
+                [team]: {
+                  ...state.striche[team],
+                  schneider: newSchneiderValue, // Setze korrekten Wert (1 oder 2)
+                },
+                [otherTeam]: {
+                  ...state.striche[otherTeam],
+                  schneider: 0, // Schneider immer beim Gegner entfernen
+                },
+              },
+            };
+
+            // Synchronisiere mit JassStore
+            syncWithJassStore(newState);
+            finalState = newState;
+            return finalState;
+          });
+        },
+
+        addMatsch: (team: TeamPosition) => {
+          const state = get();
+          
+          // KORREKTUR: History-Check und Warnung direkt hier, Kernlogik im onConfirm
+          if (state.currentHistoryIndex < state.roundHistory.length - 1) {
+            const {showHistoryWarning} = useUIStore.getState();
+            console.log("[GameStore.addMatsch] History warning triggered.");
+            
+            showHistoryWarning({
+              message: "Möchten Sie wirklich einen Matsch in der Vergangenheit hinzufügen?",
+              onConfirm: () => {
+                // === START Kernlogik zum Überschreiben der History ===
+                console.log("[GameStore.addMatsch] Executing action after history warning confirmation (overwrite)");
+                let finalState: GameState | null = null;
+                set((currentState) => {
+                  const newStriche = {
+                    ...currentState.striche,
+                    [team]: {
+                      ...currentState.striche[team],
+                      matsch: currentState.striche[team].matsch + 1,
+                    },
+                  };
+                  
+                  const newEntry = createRoundEntry(
+                    {...currentState, striche: newStriche},
+                    get,
+                    "jass",
+                    currentState.startingPlayer,
+                    { strichInfo: { team: team, type: "matsch" } }
+                  );
+                  
+                  const historyUpdate = truncateFutureAndAddEntry(currentState, newEntry);
+                  
+                  finalState = {
+                    ...currentState,
+                    striche: newStriche,
+                    ...historyUpdate,
+                  };
+                  
+                  console.log("[GameStore.addMatsch] History overwritten. New state:", { 
+                    currentIndex: finalState.currentHistoryIndex,
+                    historyLength: finalState.roundHistory.length,
+                    striche: finalState.striche[team].matsch
+                  });
+                  
+                  // NEU: Inkrementiere Firestore ID Zähler NACH erfolgreichem Hinzufügen - ENTFERNT
+                  // set(state => ({ nextRoundFirestoreId: state.nextRoundFirestoreId + 1 }));
+                  
+                  return finalState;
+                });
+                
+                // Firestore Update (analog)
+                setTimeout(() => {
+                  // MARK LOCAL UPDATE *BEFORE* WRITING TO FIRESTORE
+                  if (typeof window !== 'undefined' && window.__FIRESTORE_SYNC_API__?.markLocalUpdate) {
+                     window.__FIRESTORE_SYNC_API__.markLocalUpdate();
+                  } else {
+                     console.warn("[GameStore.addMatsch.onConfirm] markLocalUpdate API not available!");
+                  }
+                  const stateForFirestore = get();
+                  const activeGameId = stateForFirestore.activeGameId;
+                  if (activeGameId) {
+                    const updateData: Partial<ActiveGame> = {
+                      striche: stateForFirestore.striche, 
+                    };
+                    // Bereinige die Daten vor dem Update
+                    const cleanedUpdateData = sanitizeDataForFirestore(updateData);
+                    // console.log("[GameStore.addMatsch.onConfirm] Bereinigte Daten für Firestore-Update:", cleanedUpdateData);
+                    updateActiveGame(activeGameId, cleanedUpdateData).catch(console.error);
+                    
+                    if (stateForFirestore.roundHistory.length > 0) {
+                      const lastEntry = stateForFirestore.roundHistory[stateForFirestore.roundHistory.length - 1];
+                      import('../services/gameService').then(({ saveRoundToFirestore }) => {
+                        saveRoundToFirestore(activeGameId, lastEntry).catch(console.error);
+                      });
+                    }
+                  }
+                }, 0);
+                // === ENDE Kernlogik ===
+              },
+              onCancel: () => get().jumpToLatest(),
+            });
+            return; // Beende die Funktion hier
+          }
+          
+          // --- Normale Ausführung --- 
+          console.log("[GameStore.addMatsch] No history warning needed, proceeding.");
           let finalState: GameState | null = null;
           set((currentState) => {
-            // Hole die StrokeSettings
+            const newStriche = {
+              ...currentState.striche,
+              [team]: {
+                ...currentState.striche[team],
+                matsch: currentState.striche[team].matsch + 1,
+              },
+            };
+
+            const newEntry = createRoundEntry(
+              {...currentState, striche: newStriche},
+              get,
+              "jass",
+              currentState.startingPlayer,
+              { strichInfo: { team: team, type: "matsch" } }
+            );
+
+            const historyUpdate = truncateFutureAndAddEntry(currentState, newEntry);
+            
+            finalState = {
+              ...currentState,
+              striche: newStriche,
+              ...historyUpdate,
+            };
+            
+            console.log("[GameStore.addMatsch] Normal Matsch added:", { 
+              currentIndex: finalState.currentHistoryIndex,
+              historyLength: finalState.roundHistory.length,
+              striche: finalState.striche[team].matsch
+            });
+            
+            // NEU: Inkrementiere Firestore ID Zähler NACH erfolgreichem Hinzufügen - ENTFERNT
+            // set(state => ({ nextRoundFirestoreId: state.nextRoundFirestoreId + 1 }));
+
+            return finalState;
+          });
+          
+          // NEU: Markiere für Offline-Sync
+          if (typeof window !== 'undefined' && window.__OFFLINE_SYNC_SERVICE__) {
+            window.__OFFLINE_SYNC_SERVICE__.markPendingSync();
+          }
+          
+          // Firestore Update (analog)
+          setTimeout(() => {
+            // MARK LOCAL UPDATE *BEFORE* WRITING TO FIRESTORE
+            if (typeof window !== 'undefined' && window.__FIRESTORE_SYNC_API__?.markLocalUpdate) {
+               window.__FIRESTORE_SYNC_API__.markLocalUpdate();
+            } else {
+               console.warn("[GameStore.addMatsch] markLocalUpdate API not available!");
+            }
+            const stateForFirestore = get();
+            const activeGameId = stateForFirestore.activeGameId;
+            if (activeGameId) {
+              const updateData: Partial<ActiveGame> = {
+                striche: stateForFirestore.striche, 
+              };
+              // Bereinige die Daten vor dem Update
+              const cleanedUpdateData = sanitizeDataForFirestore(updateData);
+              // console.log("[GameStore.addMatsch] Bereinigte Daten für Firestore-Update:", cleanedUpdateData);
+              updateActiveGame(activeGameId, cleanedUpdateData).catch(console.error);
+              
+              if (stateForFirestore.roundHistory.length > 0) {
+                const lastEntry = stateForFirestore.roundHistory[stateForFirestore.roundHistory.length - 1];
+                import('../services/gameService').then(({ saveRoundToFirestore }) => {
+                  saveRoundToFirestore(activeGameId, lastEntry).catch(console.error);
+                });
+              }
+            }
+          }, 0);
+        },
+
+        // Neue Getter-Methode für die Gesamtstriche
+        getTotalStriche: (team: TeamPosition): number => {
+          const state = get();
+          const {scoreSettings} = useUIStore.getState();
+          const striche = state.striche[team];
+
+          let total = 0;
+
+          // Berg nur wenn aktiviert
+          if (scoreSettings?.enabled?.berg) {
+            total += striche.berg;
+          }
+
+          // Sieg immer
+          total += striche.sieg;
+
+          // Schneider nur wenn aktiviert
+          if (scoreSettings?.enabled?.schneider) {
+            total += striche.schneider;
+          }
+
+          // Matsch und Kontermatsch immer
+          total += striche.matsch;
+          total += striche.kontermatsch;
+
+          return total;
+        },
+
+        completeRound: () => {
+          const timerStore = useTimerStore.getState();
+
+          set((state) => ({
+            ...state,
+            isRoundCompleted: true,
+            currentRound: state.currentRound + 1,
+          }));
+
+          // Timer auf null setzen
+          timerStore.resetRoundTimer();
+        },
+
+        // Neue Methode für Kontermatsch
+        addKontermatsch: (team: TeamPosition) => {
+          const state = get();
+          
+          // KORREKTUR: History-Check und Warnung direkt hier, Kernlogik im onConfirm
+          if (state.currentHistoryIndex < state.roundHistory.length - 1) {
+            const {showHistoryWarning} = useUIStore.getState();
+            // console.log("[GameStore.addKontermatsch] History warning triggered.");
+            
+            showHistoryWarning({
+              message: "Möchten Sie wirklich einen Kontermatsch in der Vergangenheit hinzufügen?",
+              onConfirm: () => {
+                // === START Kernlogik zum Überschreiben der History ===
+                // console.log("[GameStore.addKontermatsch] Executing action after history warning confirmation (overwrite)");
+                let finalState: GameState | null = null;
+                set((currentState) => {
+                  // Hole die StrokeSettings
+                  const { currentGroup } = useGroupStore.getState();
+                  const uiStoreSettings = useUIStore.getState();
+                  const activeStrokeSettings = (currentGroup && currentGroup.strokeSettings !== null && currentGroup.strokeSettings !== undefined) 
+                                                 ? currentGroup.strokeSettings 
+                                                 : uiStoreSettings.strokeSettings;
+
+                  // *** NEUES LOGGING (Overwrite Path) ***
+                  // console.log("[GameStore.addKontermatsch] Settings Check (overwrite path):", {
+                  //   team,
+                  //   strichValue: activeStrokeSettings.kontermatsch,
+                  //   activeStrokeSettings: state.strokeSettings,
+                  //   kontermatschValue: state.strokeSettings.kontermatsch
+                  // });
+                  // *** ENDE NEUES LOGGING ***
+
+                  // Striche-Objekt erstellen mit korrektem kontermatsch-Wert 
+                  const newStriche = {
+                    ...currentState.striche,
+                    [team]: {
+                      ...currentState.striche[team],
+                      kontermatsch: activeStrokeSettings.kontermatsch,
+                    },
+                  };
+                  
+                  // WICHTIG: Wir erstellen ein neues State-Objekt, das die neuen Striche enthält
+                  const updatedState = {
+                    ...currentState,
+                    striche: newStriche
+                  };
+                  
+                  // Dann übergeben wir das aktualisierte State-Objekt an createRoundEntry
+                  const newEntry = createRoundEntry(
+                    updatedState, // HIER ist die Änderung! Wir verwenden den aktualisierten State
+                    get,
+                    "jass",
+                    currentState.startingPlayer,
+                    { 
+                      strichInfo: { 
+                        team: team, 
+                        type: "kontermatsch"
+                      }
+                    }
+                  );
+                  
+                  // DEBUG: Überprüfen der Werte im erstellten RoundEntry
+                  // if (newEntry.actionType === "jass") {
+                  //   console.log(`[GameStore.addKontermatsch] RoundEntry erstellt mit kontermatsch-Wert: ${newEntry.striche[team].kontermatsch}`);
+                  // } else {
+                  //   console.log(`[GameStore.addKontermatsch] RoundEntry erstellt (Typ: ${newEntry.actionType}), keine Striche geloggt.`);
+                  // }
+
+                  const historyUpdate = truncateFutureAndAddEntry(currentState, newEntry);
+                  
+                  finalState = {
+                    ...currentState,
+                    striche: newStriche,
+                    ...historyUpdate,
+                  };
+                  
+                  // console.log("[GameStore.addKontermatsch] History overwritten. New state:", { 
+                  //   currentIndex: finalState.currentHistoryIndex,
+                  //   historyLength: finalState.roundHistory.length,
+                  //   stricheTeam: finalState.striche[team].kontermatsch
+                  // });
+                  
+                  return finalState;
+                });
+                
+                // Firestore Update (analog)
+                setTimeout(() => {
+                  if (typeof window !== 'undefined' && window.__FIRESTORE_SYNC_API__?.markLocalUpdate) {
+                     window.__FIRESTORE_SYNC_API__.markLocalUpdate();
+                  } else {
+                     console.warn("[GameStore.addKontermatsch.onConfirm] markLocalUpdate API not available!");
+                  }
+                  const stateForFirestore = get();
+                  const activeGameId = stateForFirestore.activeGameId;
+                  if (activeGameId) {
+                    const updateData: Partial<ActiveGame> = { // KORREKTE DEKLARATION
+                      striche: stateForFirestore.striche, 
+                      lastUpdated: serverTimestamp(),
+                    };
+                    const cleanedUpdateData = sanitizeDataForFirestore(updateData);
+                    updateActiveGame(activeGameId, cleanedUpdateData).catch(console.error);
+                    
+                    if (stateForFirestore.roundHistory.length > 0) {
+                      const lastEntry = stateForFirestore.roundHistory[stateForFirestore.roundHistory.length - 1];
+                      
+                      // DEBUG: Überprüfen, ob der RoundEntry die korrekten Werte enthält
+                      // if (lastEntry.actionType === "jass") {
+                      //   console.log(`[GameStore.addKontermatsch.onConfirm] LastEntry für Firestore mit kontermatsch-Wert: ${lastEntry.striche[team].kontermatsch}`);
+                      // } else {
+                      //   console.log(`[GameStore.addKontermatsch.onConfirm] LastEntry für Firestore (Typ: ${lastEntry.actionType}), keine Striche geloggt.`);
+                      // }
+                      
+                      import('../services/gameService').then(({ saveRoundToFirestore }) => {
+                        saveRoundToFirestore(activeGameId, lastEntry).catch(console.error); 
+                      });
+                    }
+                  }
+                }, 0);
+                // === ENDE Kernlogik ===
+              },
+              onCancel: () => get().jumpToLatest(),
+            });
+            return; 
+          }
+          
+          // --- Normale Ausführung --- 
+          // console.log("[GameStore.addKontermatsch] No history warning needed, proceeding.");
+          let finalState: GameState | null = null;
+          set((currentState) => {
             const { currentGroup } = useGroupStore.getState();
             const uiStoreSettings = useUIStore.getState();
             const activeStrokeSettings = (currentGroup && currentGroup.strokeSettings !== null && currentGroup.strokeSettings !== undefined) 
                                            ? currentGroup.strokeSettings 
                                            : uiStoreSettings.strokeSettings;
 
-            // *** NEUES LOGGING (Overwrite Path) ***
-            // console.log("[GameStore.addKontermatsch] Settings Check (overwrite path):", {
+            // *** NEUES LOGGING (Normal Path) ***
+            // console.log("[GameStore.addKontermatsch] Settings Check (normal path):", {
             //   team,
             //   strichValue: activeStrokeSettings.kontermatsch,
             //   activeStrokeSettings: state.strokeSettings,
@@ -2081,7 +2230,7 @@ export const useGameStore = create<GameStore>()(devtools(
               ...historyUpdate,
             };
             
-            // console.log("[GameStore.addKontermatsch] History overwritten. New state:", { 
+            // console.log("[GameStore.addKontermatsch] Normal Kontermatsch added:", { 
             //   currentIndex: finalState.currentHistoryIndex,
             //   historyLength: finalState.roundHistory.length,
             //   stricheTeam: finalState.striche[team].kontermatsch
@@ -2090,12 +2239,17 @@ export const useGameStore = create<GameStore>()(devtools(
             return finalState;
           });
           
+          // NEU: Markiere für Offline-Sync
+          if (typeof window !== 'undefined' && window.__OFFLINE_SYNC_SERVICE__) {
+            window.__OFFLINE_SYNC_SERVICE__.markPendingSync();
+          }
+          
           // Firestore Update (analog)
           setTimeout(() => {
             if (typeof window !== 'undefined' && window.__FIRESTORE_SYNC_API__?.markLocalUpdate) {
                window.__FIRESTORE_SYNC_API__.markLocalUpdate();
             } else {
-               console.warn("[GameStore.addKontermatsch.onConfirm] markLocalUpdate API not available!");
+               console.warn("[GameStore.addKontermatsch] markLocalUpdate API not available!");
             }
             const stateForFirestore = get();
             const activeGameId = stateForFirestore.activeGameId;
@@ -2105,16 +2259,16 @@ export const useGameStore = create<GameStore>()(devtools(
                 lastUpdated: serverTimestamp(),
               };
               const cleanedUpdateData = sanitizeDataForFirestore(updateData);
-              updateActiveGame(activeGameId, cleanedUpdateData).catch(console.error);
+              updateActiveGame(activeGameId, cleanedUpdateData).catch(console.error); 
               
               if (stateForFirestore.roundHistory.length > 0) {
                 const lastEntry = stateForFirestore.roundHistory[stateForFirestore.roundHistory.length - 1];
                 
                 // DEBUG: Überprüfen, ob der RoundEntry die korrekten Werte enthält
                 // if (lastEntry.actionType === "jass") {
-                //   console.log(`[GameStore.addKontermatsch.onConfirm] LastEntry für Firestore mit kontermatsch-Wert: ${lastEntry.striche[team].kontermatsch}`);
+                //   console.log(`[GameStore.addKontermatsch] LastEntry für Firestore mit kontermatsch-Wert: ${lastEntry.striche[team].kontermatsch}`);
                 // } else {
-                //   console.log(`[GameStore.addKontermatsch.onConfirm] LastEntry für Firestore (Typ: ${lastEntry.actionType}), keine Striche geloggt.`);
+                //   console.log(`[GameStore.addKontermatsch] LastEntry für Firestore (Typ: ${lastEntry.actionType}), keine Striche geloggt.`);
                 // }
                 
                 import('../services/gameService').then(({ saveRoundToFirestore }) => {
@@ -2123,318 +2277,212 @@ export const useGameStore = create<GameStore>()(devtools(
               }
             }
           }, 0);
-          // === ENDE Kernlogik ===
         },
-        onCancel: () => get().jumpToLatest(),
-      });
-      return; 
-    }
-    
-    // --- Normale Ausführung --- 
-    // console.log("[GameStore.addKontermatsch] No history warning needed, proceeding.");
-    let finalState: GameState | null = null;
-    set((currentState) => {
-      const { currentGroup } = useGroupStore.getState();
-      const uiStoreSettings = useUIStore.getState();
-      const activeStrokeSettings = (currentGroup && currentGroup.strokeSettings !== null && currentGroup.strokeSettings !== undefined) 
-                                     ? currentGroup.strokeSettings 
-                                     : uiStoreSettings.strokeSettings;
 
-      // *** NEUES LOGGING (Normal Path) ***
-      // console.log("[GameStore.addKontermatsch] Settings Check (normal path):", {
-      //   team,
-      //   strichValue: activeStrokeSettings.kontermatsch,
-      //   activeStrokeSettings: state.strokeSettings,
-      //   kontermatschValue: state.strokeSettings.kontermatsch
-      // });
-      // *** ENDE NEUES LOGGING ***
-
-      // Striche-Objekt erstellen mit korrektem kontermatsch-Wert 
-      const newStriche = {
-        ...currentState.striche,
-        [team]: {
-          ...currentState.striche[team],
-          kontermatsch: activeStrokeSettings.kontermatsch,
+        getPlayerName: (playerNumber: PlayerNumber): string => {
+          const state = get();
+          return state.gamePlayers?.[playerNumber]?.name || state.playerNames[playerNumber] || `Spieler ${playerNumber}`;
         },
-      };
-      
-      // WICHTIG: Wir erstellen ein neues State-Objekt, das die neuen Striche enthält
-      const updatedState = {
-        ...currentState,
-        striche: newStriche
-      };
-      
-      // Dann übergeben wir das aktualisierte State-Objekt an createRoundEntry
-      const newEntry = createRoundEntry(
-        updatedState, // HIER ist die Änderung! Wir verwenden den aktualisierten State
-        get,
-        "jass",
-        currentState.startingPlayer,
-        { 
-          strichInfo: { 
-            team: team, 
-            type: "kontermatsch"
+
+        resetGameState: (options?: { 
+          newActiveGameId?: string | null | undefined; 
+          nextStarter?: PlayerNumber;
+          settings?: {
+            farbeSettings?: FarbeSettings;
+            scoreSettings?: ScoreSettings;
+            strokeSettings?: StrokeSettings;
           }
-        }
-      );
-      
-      // DEBUG: Überprüfen der Werte im erstellten RoundEntry
-      // if (newEntry.actionType === "jass") {
-      //   console.log(`[GameStore.addKontermatsch] RoundEntry erstellt mit kontermatsch-Wert: ${newEntry.striche[team].kontermatsch}`);
-      // } else {
-      //   console.log(`[GameStore.addKontermatsch] RoundEntry erstellt (Typ: ${newEntry.actionType}), keine Striche geloggt.`);
-      // }
+        }) => {
+          set((prevState: GameState): GameState => { // Ändere von Partial<GameState> zu GameState
+            const initialPlayer = options?.nextStarter || prevState.initialStartingPlayer || 1;
 
-      const historyUpdate = truncateFutureAndAddEntry(currentState, newEntry);
-      
-      finalState = {
-        ...currentState,
-        striche: newStriche,
-        ...historyUpdate,
-      };
-      
-      // console.log("[GameStore.addKontermatsch] Normal Kontermatsch added:", { 
-      //   currentIndex: finalState.currentHistoryIndex,
-      //   historyLength: finalState.roundHistory.length,
-      //   stricheTeam: finalState.striche[team].kontermatsch
-      // });
-      
-      return finalState;
-    });
-    
-    // Firestore Update (analog)
-    setTimeout(() => {
-      if (typeof window !== 'undefined' && window.__FIRESTORE_SYNC_API__?.markLocalUpdate) {
-         window.__FIRESTORE_SYNC_API__.markLocalUpdate();
-      } else {
-         console.warn("[GameStore.addKontermatsch] markLocalUpdate API not available!");
-      }
-      const stateForFirestore = get();
-      const activeGameId = stateForFirestore.activeGameId;
-      if (activeGameId) {
-        const updateData: Partial<ActiveGame> = { // KORREKTE DEKLARATION
-          striche: stateForFirestore.striche, 
-          lastUpdated: serverTimestamp(),
-        };
-        const cleanedUpdateData = sanitizeDataForFirestore(updateData);
-        updateActiveGame(activeGameId, cleanedUpdateData).catch(console.error); 
-        
-        if (stateForFirestore.roundHistory.length > 0) {
-          const lastEntry = stateForFirestore.roundHistory[stateForFirestore.roundHistory.length - 1];
-          
-          // DEBUG: Überprüfen, ob der RoundEntry die korrekten Werte enthält
-          // if (lastEntry.actionType === "jass") {
-          //   console.log(`[GameStore.addKontermatsch] LastEntry für Firestore mit kontermatsch-Wert: ${lastEntry.striche[team].kontermatsch}`);
-          // } else {
-          //   console.log(`[GameStore.addKontermatsch] LastEntry für Firestore (Typ: ${lastEntry.actionType}), keine Striche geloggt.`);
-          // }
-          
-          import('../services/gameService').then(({ saveRoundToFirestore }) => {
-            saveRoundToFirestore(activeGameId, lastEntry).catch(console.error); 
+            // Einstellungen aus Optionen oder prevState oder Defaults
+            const newFarbeSettings = options?.settings?.farbeSettings ?? prevState.farbeSettings ?? DEFAULT_FARBE_SETTINGS;
+            const newScoreSettings = options?.settings?.scoreSettings ?? prevState.scoreSettings ?? DEFAULT_SCORE_SETTINGS;
+            const newStrokeSettings = options?.settings?.strokeSettings ?? prevState.strokeSettings ?? DEFAULT_STROKE_SETTINGS;
+            
+            const settingsForInitialState = {
+              farbeSettings: newFarbeSettings,
+              scoreSettings: newScoreSettings,
+              strokeSettings: newStrokeSettings,
+            };
+
+            const baseResetState = createInitialStateLocal(initialPlayer, settingsForInitialState);
+
+            // PlayerNames und gamePlayers aus dem prevState übernehmen, falls vorhanden und gültig
+            const playerNamesToKeep = prevState.playerNames && Object.values(prevState.playerNames).some(name => name !== "") 
+                                      ? prevState.playerNames 
+                                      : initialPlayerNames; // Fallback auf Default, wenn prevState leer
+            const gamePlayersToKeep = prevState.gamePlayers || null;
+
+
+            let newActiveGameIdToSet: string | null | undefined;
+            let newIsGameStarted: boolean = false;
+
+            if (options && options.hasOwnProperty('newActiveGameId')) {
+              if (options.newActiveGameId === null) {
+                newActiveGameIdToSet = null;
+                newIsGameStarted = false;
+              } else if (typeof options.newActiveGameId === 'string') {
+                newActiveGameIdToSet = options.newActiveGameId;
+                newIsGameStarted = true;
+              } else { 
+                newActiveGameIdToSet = undefined;
+                newIsGameStarted = false;
+              }
+            } else { 
+              // Wenn keine newActiveGameId in options, behalte die aus prevState, wenn vorhanden, sonst undefined
+              newActiveGameIdToSet = prevState.activeGameId; 
+              newIsGameStarted = !!prevState.activeGameId;
+            }
+            
+            const newState: GameState = { // Ändere von Partial<GameState> zu GameState
+              ...baseResetState, // Startet mit Defaults für die meisten Dinge
+              gamePlayers: gamePlayersToKeep, 
+              activeGameId: newActiveGameIdToSet,
+              isGameStarted: newIsGameStarted,
+              // Explizit die ermittelten Einstellungen setzen
+              farbeSettings: newFarbeSettings,
+              scoreSettings: newScoreSettings,
+              strokeSettings: newStrokeSettings,
+              roundHistory: [], 
+              currentHistoryIndex: -1,
+              // Explizit sicherstellen, dass scores definiert ist
+              scores: baseResetState.scores || { top: 0, bottom: 0 },
+              // Explizit sicherstellen, dass striche definiert ist
+              striche: baseResetState.striche || {
+                top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
+                bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }
+              },
+              // Explizit sicherstellen, dass playerNames definiert ist
+              playerNames: playerNamesToKeep || baseResetState.playerNames || {
+                1: "Spieler 1",
+                2: "Spieler 2", 
+                3: "Spieler 3",
+                4: "Spieler 4"
+              },
+              // Explizit sicherstellen, dass currentPlayer definiert ist
+              currentPlayer: baseResetState.currentPlayer || 1,
+            };
+
+            console.log(`[GameStore] resetGameState durchgeführt. activeGameId: ${newState.activeGameId}, isGameStarted: ${newState.isGameStarted}, playerNames: ${JSON.stringify(newState.playerNames).substring(0, 50)}...`,
+            "Farbe CardStyle:", newState.farbeSettings?.cardStyle,
+            "Score Sieg:", newState.scoreSettings?.values.sieg,
+            "Stroke Schneider:", newState.strokeSettings?.schneider
+            );
+            return newState; // Stellen sicher, dass der neue State zurückgegeben wird
           });
-        }
-      }
-    }, 0);
-  },
-
-  getPlayerName: (playerNumber: PlayerNumber): string => {
-    const state = get();
-    return state.gamePlayers?.[playerNumber]?.name || state.playerNames[playerNumber] || `Spieler ${playerNumber}`;
-  },
-
-  resetGameState: (options?: { 
-    newActiveGameId?: string | null | undefined; 
-    nextStarter?: PlayerNumber;
-    settings?: {
-      farbeSettings?: FarbeSettings;
-      scoreSettings?: ScoreSettings;
-      strokeSettings?: StrokeSettings;
-    }
-  }) => {
-    set((prevState: GameState): GameState => { // Ändere von Partial<GameState> zu GameState
-      const initialPlayer = options?.nextStarter || prevState.initialStartingPlayer || 1;
-
-      // Einstellungen aus Optionen oder prevState oder Defaults
-      const newFarbeSettings = options?.settings?.farbeSettings ?? prevState.farbeSettings ?? DEFAULT_FARBE_SETTINGS;
-      const newScoreSettings = options?.settings?.scoreSettings ?? prevState.scoreSettings ?? DEFAULT_SCORE_SETTINGS;
-      const newStrokeSettings = options?.settings?.strokeSettings ?? prevState.strokeSettings ?? DEFAULT_STROKE_SETTINGS;
-      
-      const settingsForInitialState = {
-        farbeSettings: newFarbeSettings,
-        scoreSettings: newScoreSettings,
-        strokeSettings: newStrokeSettings,
-      };
-
-      const baseResetState = createInitialStateLocal(initialPlayer, settingsForInitialState);
-
-      // PlayerNames und gamePlayers aus dem prevState übernehmen, falls vorhanden und gültig
-      const playerNamesToKeep = prevState.playerNames && Object.values(prevState.playerNames).some(name => name !== "") 
-                                ? prevState.playerNames 
-                                : initialPlayerNames; // Fallback auf Default, wenn prevState leer
-      const gamePlayersToKeep = prevState.gamePlayers || null;
-
-
-      let newActiveGameIdToSet: string | null | undefined;
-      let newIsGameStarted: boolean = false;
-
-      if (options && options.hasOwnProperty('newActiveGameId')) {
-        if (options.newActiveGameId === null) {
-          newActiveGameIdToSet = null;
-          newIsGameStarted = false;
-        } else if (typeof options.newActiveGameId === 'string') {
-          newActiveGameIdToSet = options.newActiveGameId;
-          newIsGameStarted = true;
-        } else { 
-          newActiveGameIdToSet = undefined;
-          newIsGameStarted = false;
-        }
-      } else { 
-        // Wenn keine newActiveGameId in options, behalte die aus prevState, wenn vorhanden, sonst undefined
-        newActiveGameIdToSet = prevState.activeGameId; 
-        newIsGameStarted = !!prevState.activeGameId;
-      }
-      
-      const newState: GameState = { // Ändere von Partial<GameState> zu GameState
-        ...baseResetState, // Startet mit Defaults für die meisten Dinge
-        gamePlayers: gamePlayersToKeep, 
-        activeGameId: newActiveGameIdToSet,
-        isGameStarted: newIsGameStarted,
-        // Explizit die ermittelten Einstellungen setzen
-        farbeSettings: newFarbeSettings,
-        scoreSettings: newScoreSettings,
-        strokeSettings: newStrokeSettings,
-        roundHistory: [], 
-        currentHistoryIndex: -1,
-        // Explizit sicherstellen, dass scores definiert ist
-        scores: baseResetState.scores || { top: 0, bottom: 0 },
-        // Explizit sicherstellen, dass striche definiert ist
-        striche: baseResetState.striche || {
-          top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
-          bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }
         },
-        // Explizit sicherstellen, dass playerNames definiert ist
-        playerNames: playerNamesToKeep || baseResetState.playerNames || {
-          1: "Spieler 1",
-          2: "Spieler 2", 
-          3: "Spieler 3",
-          4: "Spieler 4"
+
+        rebuildStateFromHistory: (index: number) => {
+          set((state) => {
+            if (index < -1 || index >= state.roundHistory.length) {
+              console.error(`[rebuildStateFromHistory] Ungültiger Index: ${index}`);
+              return state; // Keine Änderung bei ungültigem Index
+            }
+
+            const targetEntry = index === -1 ? null : state.roundHistory[index];
+            const newState = extractStateFromEntry(targetEntry, () => state);
+
+            return {
+              ...state,
+              ...newState,
+              currentHistoryIndex: index,
+              historyState: {
+                // KORREKTUR: Entferne isNavigating auch hier
+                lastNavigationTimestamp: state.historyState.lastNavigationTimestamp, // Behalte den letzten Timestamp?
+                weisCache: null
+                // isNavigating: false, // Sicherstellen, dass diese Zeile entfernt ist
+              }
+            };
+          });
         },
-        // Explizit sicherstellen, dass currentPlayer definiert ist
-        currentPlayer: baseResetState.currentPlayer || 1,
-      };
 
-      console.log(`[GameStore] resetGameState durchgeführt. activeGameId: ${newState.activeGameId}, isGameStarted: ${newState.isGameStarted}, playerNames: ${JSON.stringify(newState.playerNames).substring(0, 50)}...`,
-      "Farbe CardStyle:", newState.farbeSettings?.cardStyle,
-      "Score Sieg:", newState.scoreSettings?.values.sieg,
-      "Stroke Schneider:", newState.strokeSettings?.schneider
-      );
-      return newState; // Stellen sicher, dass der neue State zurückgegeben wird
-    });
-  },
+        setPlayers: (newPlayers: PlayerNames) => set({ playerNames: newPlayers }),
 
-  rebuildStateFromHistory: (index: number) => {
-    set((state) => {
-      if (index < -1 || index >= state.roundHistory.length) {
-        console.error(`[rebuildStateFromHistory] Ungültiger Index: ${index}`);
-        return state; // Keine Änderung bei ungültigem Index
+        setGameSettings: (settings) => {
+          set((state) => {
+            const { farbeSettings, scoreSettings, strokeSettings } = state;
+
+            // Eine einfache Vergleichsfunktion, um zu prüfen, ob sich Objekte geändert haben.
+            const haveSettingsChanged = (
+              current: any,
+              next: any
+            ) => JSON.stringify(current) !== JSON.stringify(next);
+
+            const newFarbeSettings = settings.farbeSettings || farbeSettings;
+            const newScoreSettings = settings.scoreSettings || scoreSettings;
+            const newStrokeSettings = settings.strokeSettings || strokeSettings;
+
+            const changed =
+              haveSettingsChanged(farbeSettings, newFarbeSettings) ||
+              haveSettingsChanged(scoreSettings, newScoreSettings) ||
+              haveSettingsChanged(strokeSettings, newStrokeSettings);
+
+            if (!changed) {
+              if (process.env.NODE_ENV === 'development') {
+                console.log("[GameStore setGameSettings] No changes detected. Skipping update.");
+              }
+              return state; // Keine Änderungen, gib den aktuellen State zurück
+            }
+
+            if (process.env.NODE_ENV === 'development') {
+              console.log("[GameStore setGameSettings] Settings have changed. Applying update.");
+            }
+            return {
+              ...state,
+              farbeSettings: newFarbeSettings,
+              scoreSettings: newScoreSettings,
+              strokeSettings: newStrokeSettings,
+            };
+          });
+        },
+
+        showHistoryWarning: (
+          message: string,
+          onConfirm: () => void,
+          onCancel: () => void = () => get().jumpToLatest()
+        ) => {
+          const state = get();
+          // Die Prüfung hier ist redundant, da sie schon in den aufrufenden Methoden stattfindet,
+          // aber zur Sicherheit lassen wir sie drin.
+          if (state.currentHistoryIndex < state.roundHistory.length - 1) {
+            const uiStore = useUIStore.getState();
+            uiStore.showHistoryWarning({
+              message,
+              onConfirm,
+              onCancel,
+              type: 'error' // Setze Typ auf 'error' für rotes Icon
+            });
+          } else {
+            // Sollte eigentlich nie passieren, wenn von den Aktionen aufgerufen
+            console.warn("[GameStore.showHistoryWarning] Called unexpectedly when already at the latest state.");
+            onConfirm(); 
+          }
+        },
+
+        validateHistoryAction: () => {
+          const state = get();
+          // Gibt true zurück, wenn die Aktion erlaubt ist (d.h. wir sind am aktuellen Ende der History)
+          return state.currentHistoryIndex >= state.roundHistory.length - 1;
+        },
+        // NEU: Funktion zum Setzen der aktuellen Spielfarbe
+        setFarbe: (farbe: JassColor | undefined) => {
+          set((state) => {
+            const newState = { ...state, farbe };
+            return newState;
+          });
+        },
+        
+        // NEU: Game Transition Loading State Management
+        setTransitioning: (isTransitioning: boolean) => {
+          set({ isTransitioning });
+        },
+      }),
+      {
+        name: 'game-storage', // Eindeutiger Name für den Persist-Speicher
       }
-
-      const targetEntry = index === -1 ? null : state.roundHistory[index];
-      const newState = extractStateFromEntry(targetEntry, () => state);
-
-      return {
-        ...state,
-        ...newState,
-        currentHistoryIndex: index,
-        historyState: {
-          // KORREKTUR: Entferne isNavigating auch hier
-          lastNavigationTimestamp: state.historyState.lastNavigationTimestamp, // Behalte den letzten Timestamp?
-          weisCache: null
-          // isNavigating: false, // Sicherstellen, dass diese Zeile entfernt ist
-        }
-      };
-    });
-  },
-
-  setPlayers: (newPlayers: PlayerNames) => set({ playerNames: newPlayers }),
-
-  setGameSettings: (settings) => {
-    set((state) => {
-      const { farbeSettings, scoreSettings, strokeSettings } = state;
-
-      // Eine einfache Vergleichsfunktion, um zu prüfen, ob sich Objekte geändert haben.
-      const haveSettingsChanged = (
-        current: any,
-        next: any
-      ) => JSON.stringify(current) !== JSON.stringify(next);
-
-      const newFarbeSettings = settings.farbeSettings || farbeSettings;
-      const newScoreSettings = settings.scoreSettings || scoreSettings;
-      const newStrokeSettings = settings.strokeSettings || strokeSettings;
-
-      const changed =
-        haveSettingsChanged(farbeSettings, newFarbeSettings) ||
-        haveSettingsChanged(scoreSettings, newScoreSettings) ||
-        haveSettingsChanged(strokeSettings, newStrokeSettings);
-
-      if (!changed) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log("[GameStore setGameSettings] No changes detected. Skipping update.");
-        }
-        return state; // Keine Änderungen, gib den aktuellen State zurück
-      }
-
-      if (process.env.NODE_ENV === 'development') {
-        console.log("[GameStore setGameSettings] Settings have changed. Applying update.");
-      }
-      return {
-        ...state,
-        farbeSettings: newFarbeSettings,
-        scoreSettings: newScoreSettings,
-        strokeSettings: newStrokeSettings,
-      };
-    });
-  },
-
-  showHistoryWarning: (
-    message: string,
-    onConfirm: () => void,
-    onCancel: () => void = () => get().jumpToLatest()
-  ) => {
-    const state = get();
-    // Die Prüfung hier ist redundant, da sie schon in den aufrufenden Methoden stattfindet,
-    // aber zur Sicherheit lassen wir sie drin.
-    if (state.currentHistoryIndex < state.roundHistory.length - 1) {
-      const uiStore = useUIStore.getState();
-      uiStore.showHistoryWarning({
-        message,
-        onConfirm,
-        onCancel,
-        type: 'error' // Setze Typ auf 'error' für rotes Icon
-      });
-    } else {
-      // Sollte eigentlich nie passieren, wenn von den Aktionen aufgerufen
-      console.warn("[GameStore.showHistoryWarning] Called unexpectedly when already at the latest state.");
-      onConfirm(); 
-    }
-  },
-
-  validateHistoryAction: () => {
-    const state = get();
-    // Gibt true zurück, wenn die Aktion erlaubt ist (d.h. wir sind am aktuellen Ende der History)
-    return state.currentHistoryIndex >= state.roundHistory.length - 1;
-  },
-  // NEU: Funktion zum Setzen der aktuellen Spielfarbe
-  setFarbe: (farbe: JassColor | undefined) => {
-    set((state) => {
-      const newState = { ...state, farbe };
-      return newState;
-    });
-  },
-  
-  // NEU: Game Transition Loading State Management
-  setTransitioning: (isTransitioning: boolean) => {
-    set({ isTransitioning });
-  },
-  })
-, { name: "gameStore" }));
+    ),
+    { name: "gameStore" }
+  )
+);

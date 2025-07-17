@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from "react";
+import React, { useRef, useMemo, useState } from "react";
 import Image from "next/image";
 import MainLayout from "@/components/layout/MainLayout";
 import { GroupSelector } from "@/components/group/GroupSelector";
@@ -19,8 +19,10 @@ import { toTitleCase, formatMillisecondsDuration } from '@/utils/formatUtils';
 import ProfileImage from '@/components/ui/ProfileImage';
 import InviteModal from '@/components/group/InviteModal';
 import ImageCropModal from '@/components/ui/ImageCropModal';
+import { LegalFooter } from '@/components/layout/LegalFooter';
 // NEU: PLZ-Service für Hauptspielort-Anzeige
 import { getOrtNameByPlz } from '@/utils/locationUtils';
+import { generateBlurPlaceholder } from '@/utils/imageOptimization';
 
 // Props für Schritt 4: Komplette Statistik-Inhalte
 interface GroupViewProps {
@@ -214,6 +216,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
     }
   };
   
+  // Neu: State für Bildladung
+  const [isImageLoading, setIsImageLoading] = useState(true);
+
   // ===== REFS FÜR SCROLLBARE STATISTIK-CONTAINER (IDENTISCH ZUM ORIGINAL) =====
   // Übersicht
   const overviewMostGamesRef = useRef<HTMLDivElement>(null);
@@ -603,17 +608,26 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 className="object-cover"
               />
             ) : currentGroup?.logoUrl ? (
-              <Image
-                src={currentGroup.logoUrl}
-                alt={`Logo ${currentGroup?.name ?? 'Gruppe'}`}
-                fill={true}
-                className="object-cover"
-                priority
-                sizes="(max-width: 768px) 128px, 128px"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = "/placeholder-logo.png";
-                }}
-              />
+              <>
+                {isImageLoading && (
+                  <div className="absolute inset-0 bg-gray-800 animate-pulse" />
+                )}
+                <Image
+                  src={currentGroup.logoUrl}
+                  alt={`Logo ${currentGroup?.name ?? 'Gruppe'}`}
+                  fill={true}
+                  className={`object-cover transition-opacity duration-300 ${isImageLoading ? 'opacity-0' : 'opacity-100'}`}
+                  loading="lazy"
+                  sizes="128px"
+                  placeholder="blur"
+                  blurDataURL={generateBlurPlaceholder()}
+                  onLoad={() => setIsImageLoading(false)}
+                  onError={(e) => {
+                    setIsImageLoading(false);
+                    (e.target as HTMLImageElement).src = "/placeholder-logo.png";
+                  }}
+                />
+              </>
             ) : (
               <div className="flex flex-col items-center">
                 <Camera size={40} className="text-gray-400 mb-1" />
@@ -974,8 +988,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                         className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
-                                        optimized={true}
-                                        lazy={true}
                                       />
                                       <span className="text-gray-300">{playerStat.playerName}</span>
                                     </div>
@@ -1021,8 +1033,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                         className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
-                                        optimized={true}
-                                        lazy={true}
                                       />
                                       <span className="text-gray-300">{playerStat.playerName}</span>
                                     </div>
@@ -1111,8 +1121,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                       className={`mr-2 ${theme.profileImage}`}
                                       fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                       fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
-                                      optimized={true}
-                                      lazy={true}
                                     />
                                     <span className="text-gray-300">{playerStat.playerName}</span>
                                   </div>
@@ -1167,8 +1175,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                         className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
-                                        optimized={true}
-                                        lazy={true}
                                       />
                                       <span className="text-gray-300">{playerStat.playerName}</span>
                                     </div>
@@ -1222,8 +1228,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                         className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
-                                        optimized={true}
-                                        lazy={true}
                                       />
                                       <span className="text-gray-300">{playerStat.playerName}</span>
                                     </div>
@@ -1279,8 +1283,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                         className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
-                                        optimized={true}
-                                        lazy={true}
                                       />
                                       <span className="text-gray-300">{playerStat.playerName}</span>
                                     </div>
@@ -1336,8 +1338,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                         className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
-                                        optimized={true}
-                                        lazy={true}
                                       />
                                       <span className="text-gray-300">{playerStat.playerName}</span>
                                     </div>
@@ -1391,8 +1391,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                         className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
-                                        optimized={true}
-                                        lazy={true}
                                       />
                                       <span className="text-gray-300">{playerStat.playerName}</span>
                                     </div>
@@ -1446,8 +1444,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                         className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
-                                        optimized={true}
-                                        lazy={true}
                                       />
                                       <span className="text-gray-300">{playerStat.playerName}</span>
                                     </div>
@@ -1500,8 +1496,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                         className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
-                                        optimized={true}
-                                        lazy={true}
                                       />
                                       <span className="text-gray-300">{playerStat.playerName}</span>
                                     </div>
@@ -1549,8 +1543,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                     fallbackText={team.names[0].charAt(0).toUpperCase()}
-                                    optimized={true}
-                                    lazy={true}
                                   />
                                   <ProfileImage 
                                     src={findPlayerPhotoByName(team.names[1], members)} 
@@ -1559,8 +1551,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                     fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                    optimized={true}
-                                    lazy={true}
                                   />
                                 </div>
                                 <span className="text-gray-300">{team.names.join(' & ')}</span>
@@ -1606,8 +1596,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                     fallbackText={team.names[0].charAt(0).toUpperCase()}
-                                    optimized={true}
-                                    lazy={true}
                                   />
                                   <ProfileImage 
                                     src={findPlayerPhotoByName(team.names[1], members)} 
@@ -1616,8 +1604,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                     fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                    optimized={true}
-                                    lazy={true}
                                   />
                                 </div>
                                 <span className="text-gray-300">{team.names.join(' & ')}</span>
@@ -1662,8 +1648,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                     fallbackText={team.names[0].charAt(0).toUpperCase()}
-                                    optimized={true}
-                                    lazy={true}
                                   />
                                   <ProfileImage 
                                     src={findPlayerPhotoByName(team.names[1], members)} 
@@ -1672,8 +1656,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                     fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                    optimized={true}
-                                    lazy={true}
                                   />
                                 </div>
                                 <span className="text-gray-300">{team.names.join(' & ')}</span>
@@ -1720,8 +1702,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                     fallbackText={team.names[0].charAt(0).toUpperCase()}
-                                    optimized={true}
-                                    lazy={true}
                                   />
                                   <ProfileImage 
                                     src={findPlayerPhotoByName(team.names[1], members)} 
@@ -1730,8 +1710,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                     fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                    optimized={true}
-                                    lazy={true}
                                   />
                                 </div>
                                 <span className="text-gray-300">{team.names.join(' & ')}</span>
@@ -1783,8 +1761,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                       className={`border-2 border-gray-800 ${theme.profileImage}`}
                                       fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                       fallbackText={team.names[0].charAt(0).toUpperCase()}
-                                      optimized={true}
-                                      lazy={true}
                                     />
                                     <ProfileImage 
                                       src={findPlayerPhotoByName(team.names[1], members)} 
@@ -1793,8 +1769,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                       className={`border-2 border-gray-800 ${theme.profileImage}`}
                                       fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                       fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                      optimized={true}
-                                      lazy={true}
                                     />
                                   </div>
                                   <span className="text-gray-300">{team.names.join(' & ')}</span>
@@ -1847,8 +1821,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                       className={`border-2 border-gray-800 ${theme.profileImage}`}
                                       fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                       fallbackText={team.names[0].charAt(0).toUpperCase()}
-                                      optimized={true}
-                                      lazy={true}
                                     />
                                     <ProfileImage 
                                       src={findPlayerPhotoByName(team.names[1], members)} 
@@ -1857,8 +1829,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                       className={`border-2 border-gray-800 ${theme.profileImage}`}
                                       fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                       fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                      optimized={true}
-                                      lazy={true}
                                     />
                                   </div>
                                   <span className="text-gray-300">{team.names.join(' & ')}</span>
@@ -1913,8 +1883,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                         className={`border-2 border-gray-800 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={team.names[0].charAt(0).toUpperCase()}
-                                        optimized={true}
-                                        lazy={true}
                                       />
                                       <ProfileImage 
                                         src={findPlayerPhotoByName(team.names[1], members)} 
@@ -1923,8 +1891,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                         className={`border-2 border-gray-800 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                        optimized={true}
-                                        lazy={true}
                                       />
                                     </div>
                                     <span className="text-gray-300">{team.names.join(' & ')}</span>
@@ -1975,8 +1941,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                     fallbackText={team.names[0].charAt(0).toUpperCase()}
-                                    optimized={true}
-                                    lazy={true}
                                   />
                                   <ProfileImage 
                                     src={findPlayerPhotoByName(team.names[1], members)} 
@@ -1985,8 +1949,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                     fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                    optimized={true}
-                                    lazy={true}
                                   />
                                 </div>
                                 <span className="text-gray-300">{team.names.join(' & ')}</span>
@@ -2024,8 +1986,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                     fallbackText={team.names[0].charAt(0).toUpperCase()}
-                                    optimized={true}
-                                    lazy={true}
                                   />
                                   <ProfileImage 
                                     src={findPlayerPhotoByName(team.names[1], members)} 
@@ -2034,8 +1994,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                     fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                    optimized={true}
-                                    lazy={true}
                                   />
                                 </div>
                                 <span className="text-gray-300">{team.names.join(' & ')}</span>
@@ -2170,6 +2128,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
         imageSrc={imageToCrop}
         onCropComplete={handleCropComplete}
       />
+
+      {/* LEGAL FOOTER */}
+      <LegalFooter />
 
     </MainLayout>
   );

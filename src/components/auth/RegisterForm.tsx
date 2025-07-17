@@ -14,6 +14,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Checkbox } from "@/components/ui/checkbox";
+import Link from "next/link";
 import {useAuthStore} from "@/store/authStore";
 import {useUIStore} from "@/store/uiStore";
 import {Alert, AlertDescription} from "@/components/ui/alert";
@@ -35,6 +37,7 @@ export function RegisterForm() {
   const {register, loginWithGoogle, status, error, clearError} = useAuthStore();
   const showNotification = useUIStore((state) => state.showNotification);
   const [showPassword, setShowPassword] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const router = useRouter();
 
   // ✅ Error-State beim ersten Laden der Komponente leeren
@@ -234,10 +237,45 @@ export function RegisterForm() {
               )}
             />
 
+            <div className="flex items-start space-x-3 py-2">
+              <Checkbox 
+                id="terms" 
+                checked={agreedToTerms} 
+                onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
+                className="mt-0.5 border-2 border-gray-500 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600 h-5 w-5"
+              />
+              <div className="grid gap-1.5 leading-none">
+                <label
+                  htmlFor="terms"
+                  className="text-sm font-light text-gray-300 peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Ich akzeptiere die{' '}
+                  <Link 
+                    href="/agb" 
+                    className="font-medium underline hover:text-white" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                  >
+                    Nutzungsbedingungen
+                  </Link>
+                  {' '}und habe die{' '}
+                  <Link 
+                    href="/datenschutz" 
+                    className="font-medium underline hover:text-white" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                  >
+                    Datenschutzerklärung
+                  </Link>
+                  {' '}gelesen.
+                </label>
+              </div>
+            </div>
+
             <Button
               type="submit"
               className="w-full bg-green-600 hover:bg-green-700 text-white h-12 rounded-md"
-              disabled={form.formState.isSubmitting}
+              disabled={form.formState.isSubmitting || !agreedToTerms}
             >
               {form.formState.isSubmitting ? "Registrierung läuft..." : "Registrieren"}
             </Button>
@@ -259,7 +297,7 @@ export function RegisterForm() {
           variant="outline"
           className="w-full bg-white hover:bg-gray-50 text-gray-600 border border-gray-300 font-medium h-12 rounded-md flex items-center justify-center"
           onClick={handleGoogleRegister}
-          disabled={form.formState.isSubmitting}
+          disabled={form.formState.isSubmitting || !agreedToTerms}
         >
           <Image
             src="/google-logo.svg"

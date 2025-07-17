@@ -80,7 +80,7 @@ const JassFinishNotification: React.FC = () => {
         <img
           src="/welcome-guru.png"
           alt="Jass Guru"
-          className="w-64 h-64 object-cover mb-6 rounded-lg"
+          className="w-48 h-48 sm:w-64 sm:h-64 object-cover mb-4 rounded-lg"
         />
       );
     }
@@ -196,7 +196,7 @@ const JassFinishNotification: React.FC = () => {
             initial={{scale: 0.95}}
             animate={{scale: 1}}
             exit={{scale: 0.95}}
-            className="bg-gray-800 p-6 rounded-lg shadow-lg max-w-xs w-full relative text-white z-10"
+            className="bg-gray-800 p-6 rounded-lg shadow-lg max-w-xs w-full relative text-white z-10 max-h-[90vh] overflow-y-auto"
           >
             <div className="flex flex-col items-center justify-center mb-4">
               {displayContent}
@@ -292,23 +292,25 @@ const JassFinishNotification: React.FC = () => {
               </div>
             )}
 
-            {/* NEU: Schliessen-Button unterhalb (für alle Modi) */}
-            <div className="flex justify-center">
-              <motion.button
-                onClick={closeJassFinishNotification}
-                initial={{scale: 0.9}}
-                animate={{scale: 1}}
-                whileTap={{scale: 0.95}}
-                className="
-                  w-full bg-gray-600 text-white px-6 py-2 rounded-lg 
-                  hover:bg-gray-700 transition-all duration-150 text-lg font-semibold
-                  border-b-4 border-gray-800 shadow-lg leading-tight
-                  active:scale-[0.98] active:border-b-2
-                "
-              >
-                Schliessen
-              </motion.button>
-            </div>
+            {/* DEFINITIVE KORREKTUR: Schliessen-Button nur noch im Share-Modus anzeigen */}
+            {mode === "share" && (
+              <div className="flex justify-center mt-4">
+                <motion.button
+                  onClick={closeJassFinishNotification}
+                  initial={{scale: 0.9}}
+                  animate={{scale: 1}}
+                  whileTap={{scale: 0.95}}
+                  className="
+                    w-full bg-gray-600 text-white px-6 py-2 rounded-lg 
+                    hover:bg-gray-700 transition-all duration-150 text-lg font-semibold
+                    border-b-4 border-gray-800 shadow-lg leading-tight
+                    active:scale-[0.98] active:border-b-2
+                  "
+                >
+                  Schliessen
+                </motion.button>
+              </div>
+            )}
           </motion.div>
         </motion.div>
       )}

@@ -1,6 +1,7 @@
 // src/store/jassStore.ts
 
 import {create, StateCreator} from "zustand";
+import { persist } from "zustand/middleware"; // NEU
 import {useGameStore} from "./gameStore";
 import {jassStorage} from "./jassStorage";
 import {
@@ -1193,4 +1194,18 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
 },
 });
 
-export const useJassStore = create(createJassStore);
+export const useJassStore = create<JassStore>()(
+  persist(
+    createJassStore,
+    {
+      name: 'jass-storage',
+      partialize: (state) => ({
+        games: state.games,
+        currentSession: state.currentSession,
+        currentGameId: state.currentGameId,
+        jassSessionId: state.jassSessionId,
+        isJassStarted: state.isJassStarted,
+      }),
+    }
+  )
+);

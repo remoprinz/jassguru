@@ -88,7 +88,7 @@ const GlobalNotificationContainer: React.FC = () => {
         className={`
           flex-1 px-6 py-2 rounded-full 
           text-lg font-semibold
-          ${notification.type === "bedanken" && index === notification.actions!.length - 1 ?
+          ${(notification.type === "bedanken" || notification.type === "success") && index === notification.actions!.length - 1 ?
         "bg-green-600 hover:bg-green-700" :
         index === notification.actions!.length - 1 ?
           "bg-yellow-600 hover:bg-yellow-700" :
