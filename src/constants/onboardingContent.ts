@@ -149,8 +149,8 @@ export const BROWSER_ONBOARDING = {
     },
     FINAL_HINTS: {
       title: "Hinweise",
-      message: "Vermeide es, die App mehrfach zu installieren. Das kann zu unerwünschtem Verhalten führen.",
-      secondaryMessage: "Beim ersten Öffnen der App wirst du durch alle wichtigen Funktionen geführt.",
+      message: "Vermeide es, die App mehrfach zu installieren.",
+      secondaryMessage: "Beim ersten Öffnen der App spiele zuerst «Als Gast» und du wirst durch alle wichtigen Funktionen geführt.",
       finalMessage: "Viel Spass beim Jassen!",
       image: "/welcome-guru.png",
     },

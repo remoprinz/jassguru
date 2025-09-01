@@ -107,7 +107,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({children}) => {
   const mainPaddingBottom = isCtaVisible ? "pb-44" : (showBottomNav ? "pb-24" : "pb-0");
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900 max-w-3xl mx-auto">
+    <div className="flex flex-col h-full bg-gray-900 max-w-3xl mx-auto">
       {/* Fixierter Header */}
       <Header />
 

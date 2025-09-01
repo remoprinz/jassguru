@@ -6,26 +6,55 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * 🚨 NEU: Zentrale Funktion zur Prüfung, ob ein Pfad öffentlich zugänglich ist.
- * Dies ist die einzige Quelle der Wahrheit für die gesamte App.
- * @param path Der zu prüfende URL-Pfad (z.B. router.pathname).
- * @returns true, wenn der Pfad öffentlich ist, sonst false.
+ * Checks if the current path is a public route.
+ * @param path The path to check.
+ * @returns True if the path is public, false otherwise.
  */
-export function isPublicPath(path: string): boolean {
-  if (path === '/') {
-    return true; // Die Startseite ist immer öffentlich.
-  }
+export const isPublicPath = (path: string): boolean => {
+  // Normalize path by removing trailing slash if it exists and isn't just "/"
+  const normalizedPath = path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path;
 
-  const publicPathBases = [
-    '/auth',
-    '/jass',
-    '/join',
-    '/impressum',
-    '/agb',          // Explizit hinzugefügt
+  const publicPaths = [
+    '/',
+    '/auth/login',
+    '/auth/register',
+    '/auth/reset-password',
+    '/agb',
     '/datenschutz',
-    '/view',
-    '/profile'
+    '/impressum',
+    '/clear-cache',
+    '/join',
+    '/features'
   ];
 
-  return publicPathBases.some(base => path.startsWith(base));
-}
+  // Check for exact matches against the normalized path
+  if (publicPaths.includes(normalizedPath)) {
+    return true;
+  }
+
+  // Check for public path prefixes
+  if (normalizedPath.startsWith('/wissen') ||
+      normalizedPath.startsWith('/view') ||
+      normalizedPath.startsWith('/profile')) {
+    return true;
+  }
+
+  return false;
+};
+
+/**
+ * Converts a string to a URL-friendly slug.
+ * @param str The string to convert.
+ * @returns The slugified string.
+ */
+export const toSlug = (str: string): string => {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .replace(/ä/g, 'ae')
+    .replace(/ö/g, 'oe')
+    .replace(/ü/g, 'ue')
+    .replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9_]+/g, '-')
+    .replace(/(^-|-$)+/g, '');
+};

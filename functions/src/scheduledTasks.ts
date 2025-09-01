@@ -1,7 +1,7 @@
 import { onSchedule, ScheduledEvent } from "firebase-functions/v2/scheduler"; 
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
-import { google } from "googleapis";
+// HINWEIS: 'googleapis' wird nicht mehr benötigt und wurde entfernt.
 
 const db = admin.firestore();
 
@@ -27,17 +27,21 @@ export const scheduledFirestoreBackup = onSchedule({
       return;
     }
 
-    const dateStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    const bucket = `gs://jassguru-firestore-backups/backup-${dateStr}`;
+    // VERBESSERT: Erstellt einen einzigartigen, dateisystem-sicheren Zeitstempel,
+    // um Backups sekundengenau zu benennen und Überschreibungen zu verhindern.
+    const timestamp = new Date().toISOString().replace(/\..+/, '').replace(/:/g, '-');
+    const bucket = `gs://jassguru-firestore-backups/backup-${timestamp}`;
     
     try {
-      const firestore = google.firestore('v1');
+      // NEU: Verwendet den Firestore Admin Client aus dem firebase-admin SDK,
+      // der die Authentifizierung automatisch und korrekt handhabt.
+      const client = new admin.firestore.v1.FirestoreAdminClient();
+      const databaseName = `projects/${projectId}/databases/(default)`;
       
-      await firestore.projects.databases.exportDocuments({
-        name: `projects/${projectId}/databases/(default)`,
-        requestBody: {
-          outputUriPrefix: bucket,
-        },
+      await client.exportDocuments({
+        name: databaseName,
+        outputUriPrefix: bucket,
+        collectionIds: [], // Ein leeres Array exportiert alle Collections
       });
       
       logger.info(`Firestore backup successfully started. Output: ${bucket}`);

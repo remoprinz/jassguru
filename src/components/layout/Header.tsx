@@ -55,8 +55,11 @@ const Header: React.FC<HeaderProps> = () => {
 
   const shouldShowHeader = effectiveTitle || showEffectiveBackButton || showEffectiveProfileButton;
 
-  // Explizit den Header auf dem WelcomeScreen (angenommen Root '/' oder '/join') ausblenden
-  if (router.pathname === '/' || router.pathname === '/join') {
+  // Explizit den Header auf dem WelcomeScreen und öffentlichen Views ausblenden
+  if (router.pathname === '/' || 
+      router.pathname === '/join' ||
+      router.pathname.startsWith('/view/') ||  // Alle /view/* Seiten (group, session, tournament, game)
+      (router.pathname.startsWith('/profile/') && router.pathname !== '/profile' && router.pathname !== '/profile/edit' && router.pathname !== '/profile/groups')) {
     return null;
   }
 

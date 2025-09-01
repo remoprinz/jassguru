@@ -23,6 +23,7 @@ import { LegalFooter } from '@/components/layout/LegalFooter';
 // NEU: PLZ-Service für Hauptspielort-Anzeige
 import { getOrtNameByPlz } from '@/utils/locationUtils';
 import { generateBlurPlaceholder } from '@/utils/imageOptimization';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // Props für Schritt 4: Komplette Statistik-Inhalte
 interface GroupViewProps {
@@ -463,6 +464,26 @@ export const GroupView: React.FC<GroupViewProps> = ({
     return `rgb(${mixedR}, ${mixedG}, ${mixedB})`;
   };
   
+  if (groupStatus === 'loading' && !currentGroup) {
+    return (
+      <MainLayout>
+        <div className="flex flex-col items-center justify-start bg-gray-900 text-white p-4 relative pt-8 pb-20">
+          <div className="relative mb-4 mt-6">
+            <Skeleton className="w-32 h-32 rounded-full border-4 border-gray-700" />
+          </div>
+          <div className="w-full text-center mb-6 px-4">
+            <Skeleton className="h-9 w-48 mx-auto mb-3" />
+            <Skeleton className="h-5 w-64 mx-auto" />
+          </div>
+          <div className="w-full">
+            <Skeleton className="h-12 w-full rounded-lg mb-4" />
+            <Skeleton className="h-64 w-full rounded-lg" />
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+  
   // ===== FRÜHE RETURN STATEMENTS VOM ORIGINAL =====
   
   if (isAuthenticated() && !isGuest && userGroups.length === 0 && !currentGroup) {
@@ -562,7 +583,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
   // ===== HAUPT-UI MIT KOMPLETTEM TAB-SYSTEM =====
   return (
     <MainLayout>
-      <div id="group-view-container" className="flex flex-col items-center justify-start min-h-screen bg-gray-900 text-white p-4 relative pt-8 pb-20">
+      <div id="group-view-container" className="flex flex-col items-center justify-start bg-gray-900 text-white p-4 relative pt-8 pb-20">
         
         {/* 🚨 NEU: SHARE BUTTON - IMMER SICHTBAR, WENN GRUPPE EXISTIERT */}
         {currentGroup && (
@@ -596,11 +617,13 @@ export const GroupView: React.FC<GroupViewProps> = ({
             style={{
               borderColor: previewUrl ? 'rgba(147, 51, 234, 1)' : getHexColor(groupTheme),
               boxShadow: previewUrl 
-                ? '0 0 25px rgba(147, 51, 234, 0.3)'
+                ? `0 0 25px rgba(147, 51, 234, 0.3)`
                 : `0 0 20px ${getGlowColor(groupTheme)}, 0 4px 20px rgba(0,0,0,0.3)`
             }}
           >
-            {previewUrl ? (
+            {groupStatus === 'loading' ? (
+              <Skeleton className="w-full h-full rounded-full" />
+            ) : previewUrl ? (
               <Image
                 src={previewUrl}
                 alt="Vorschau Gruppenlogo"
@@ -654,13 +677,15 @@ export const GroupView: React.FC<GroupViewProps> = ({
           <h1 
             className="text-3xl font-bold mb-1 text-white break-words transition-colors duration-300"
           >
-            {currentGroup?.name ?? 'Keine Gruppe ausgewählt'}
+            {groupStatus === 'loading' ? <Skeleton className="h-9 w-48 mx-auto" /> : (currentGroup?.name ?? 'Keine Gruppe ausgewählt')}
           </h1>
           <div className="text-base text-gray-300 mx-auto max-w-xl break-words mt-3">
-            <FormattedDescription 
-              description={currentGroup?.description} 
-              className="mx-auto" 
-            />
+            {groupStatus === 'loading' ? <Skeleton className="h-5 w-64 mx-auto" /> : (
+              <FormattedDescription 
+                description={currentGroup?.description} 
+                className="mx-auto" 
+              />
+            )}
           </div>
           
           {/* ✅ SETUP-HINWEIS: Nur für Admins wenn < 4 Mitglieder */}

@@ -104,7 +104,9 @@ service cloud.firestore {
       // Rounds-Subcollection: Gleiche Regeln wie Hauptdokument
       match /rounds/{roundId} {
         allow read: if true;
-        allow write: if request.auth != null;
+        // KORREKTUR: Nur Teilnehmer des Spiels dürfen schreiben
+        allow write: if request.auth != null && 
+                     request.auth.uid in get(/databases/$(database)/documents/activeGames/$(gameId)).data.participantUids;
         allow delete: if false;
       }
     }
@@ -187,12 +189,14 @@ service cloud.firestore {
     // =====================================================================
     match /groupComputedStats/{groupId} {
         allow read: if true;
-        allow write: if true;
+        // KORREKTUR: Schreibzugriff nur für Cloud Functions (vom Client blockiert)
+        allow write: if false;
     }
 
     match /playerComputedStats/{playerId} {
         allow read: if true;
-        allow write: if true;
+        // KORREKTUR: Schreibzugriff nur für Cloud Functions (vom Client blockiert)
+        allow write: if false;
     }
 
     // =====================================================================

@@ -150,11 +150,11 @@ try {
         }),
       };
       
-      // CORS-Fix für PWA: Experimentelle longPolling-Option
-      if ('serviceWorker' in navigator) {
-        // In Service Worker Umgebungen manchmal nötig
-        firestoreSettings.experimentalForceLongPolling = true;
-      }
+      // CORS-Fix für PWA: Experimentelle longPolling-Option nur bei Problemen
+      // DEAKTIVIERT: Kann Loading-Probleme verursachen
+      // if ('serviceWorker' in navigator) {
+      //   firestoreSettings.experimentalForceLongPolling = true;
+      // }
       
       db = initializeFirestore(app, firestoreSettings);
       // console.log("✅ Firestore initialisiert mit Multi-Tab Offline-Persistenz und unlimitiertem Cache.");

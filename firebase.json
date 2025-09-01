@@ -13,7 +13,7 @@
         "destination": "/agb.html"
       },
       {
-        "source": "/datenschutz", 
+        "source": "/datenschutz",
         "destination": "/datenschutz.html"
       },
       {
@@ -21,19 +21,7 @@
         "destination": "/impressum.html"
       },
       {
-        "source": "/view/tournament/**",
-        "destination": "/view/tournament/[instanceId].html"
-      },
-      {
-        "source": "/view/group/**",
-        "destination": "/view/group/[groupId].html"
-      },
-      {
-        "source": "/profile/**",
-        "destination": "/profile/[playerId].html"
-      },
-      {
-        "source": "!(_next/**|**/*.js|**/*.css|**/*.png|**/*.jpg|**/*.svg|**/*.ico|**/*.json|**/*.txt)",
+        "source": "**",
         "destination": "/index.html"
       }
     ],
@@ -110,6 +98,78 @@
         ]
       },
       {
+        "source": "**",
+        "headers": [
+          {
+            "key": "X-Frame-Options",
+            "value": "DENY"
+          },
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "strict-origin-when-cross-origin"
+          },
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=3600, s-maxage=86400"
+          }
+        ]
+      },
+      {
+        "source": "/view/group/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          },
+          {
+            "key": "Pragma",
+            "value": "no-cache"
+          },
+          {
+            "key": "Expires",
+            "value": "0"
+          }
+        ]
+      },
+      {
+        "source": "/profile/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          },
+          {
+            "key": "Pragma",
+            "value": "no-cache"
+          },
+          {
+            "key": "Expires",
+            "value": "0"
+          }
+        ]
+      },
+      {
+        "source": "/view/tournament/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          },
+          {
+            "key": "Pragma",
+            "value": "no-cache"
+          },
+          {
+            "key": "Expires",
+            "value": "0"
+          }
+        ]
+      },
+      {
         "source": "**/*.html",
         "headers": [
           {
@@ -135,27 +195,6 @@
           {
             "key": "Referrer-Policy",
             "value": "strict-origin-when-cross-origin"
-          }
-        ]
-      },
-      {
-        "source": "**",
-        "headers": [
-          {
-            "key": "X-Frame-Options",
-            "value": "DENY"
-          },
-          {
-            "key": "X-Content-Type-Options",
-            "value": "nosniff"
-          },
-          {
-            "key": "Referrer-Policy",
-            "value": "strict-origin-when-cross-origin"
-          },
-          {
-            "key": "Cache-Control",
-            "value": "public, max-age=3600, s-maxage=86400"
           }
         ]
       }

@@ -7,7 +7,7 @@ import type {
 } from "../../constants/onboardingContent";
 import {usePressableButton} from "../../hooks/usePressableButton";
 import {useDeviceScale} from "../../hooks/useDeviceScale";
-import { isDev } from "../../utils/devUtils";
+// isDev-Import entfernt - wird nicht mehr benötigt
 
 // Neue Funktion zur Erkennung von Desktop-Geräten
 function isDesktopDevice() {
@@ -51,11 +51,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   isPWA,
   isBrowserOnboarding,
 }) => {
-  // 🔥 KRITISCHER FIX: isDev-Prüfung VOR allen Hooks!
-  if (isDev) {
-    console.log(`[DEV MODE] OnboardingFlow: isDev is true. Rendering null.`);
-    return null; // Komponente nicht rendern im Development Mode
-  }
+  // 🔧 GEÄNDERT: Keine pauschale isDev-Blockierung mehr
+  // Das Onboarding wird jetzt durch die show-Prop gesteuert
 
   // Hooks MÜSSEN hier oben und unbedingt aufgerufen werden
   const {overlayScale, urlBarPosition} = useDeviceScale();
@@ -131,7 +128,6 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
 
   // Zusätzliche Prüfung: Nur rendern, wenn 'show' true ist (redundant mit AnimatePresence, aber schadet nicht)
   if (!show) {
-     console.log("OnboardingFlow: 'show' prop is false. Rendering null.");
      return null;
   }
 
@@ -385,7 +381,7 @@ const FinalStep: React.FC<StepComponentProps> = ({
         Achtung:
       </h3>
       <p className={`text-center ${getTextClass()}`}>
-        Vermeide es, die App mehrfach zu installieren – das kann zu unerwünschtem Verhalten führen!
+        Vermeide es, die App mehrfach zu installieren.
       </p>
       <h4 className={`font-semibold text-gray-300 ${getSubheadingClass()}`}>
         Nächster Schritt:

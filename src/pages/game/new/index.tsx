@@ -9,6 +9,7 @@ import MainLayout from '@/components/layout/MainLayout';
 import StartScreen from '@/components/layout/StartScreen';
 import GlobalLoader from '@/components/layout/GlobalLoader';
 import { getGroupMembersSortedByGames } from "@/services/playerService";
+import { isPWA } from '@/utils/browserDetection';
 import type { FirestorePlayer } from '@/types/jass';
 
 const NewGamePage: React.FC = () => {
@@ -58,6 +59,20 @@ const NewGamePage: React.FC = () => {
       if (!isAuthenticated) {
         showNotification({ type: 'error', message: 'Sie müssen angemeldet sein, um ein Spiel zu starten.' });
         router.replace('/auth/login');
+      } else if (!isPWA()) {
+        // 🚨 ZUSÄTZLICHE SICHERHEIT: Browser-Zugriff verhindern
+        showNotification({
+          type: 'warning',
+          message: 'Bitte schliesse den Browser und öffne die App vom Homebildschirm aus, um die Jasstafel zu laden.',
+          actions: [
+            {
+              label: 'Verstanden',
+              onClick: () => {},
+            },
+          ],
+          preventClose: true,
+        });
+        router.replace('/start');
       } else if (!currentGroup) {
         showNotification({ type: 'warning', message: 'Bitte wählen Sie zuerst eine Gruppe aus.' });
         router.replace('/start');

@@ -103,7 +103,20 @@ export function register() {
     return;
   }
   
-  // --- Detailliertes Debugging für Produktionsmodus ---
+  // 🚨 BROWSER-SCHUTZ: NIEMALS Service Worker im Browser registrieren!
+  if (typeof window !== 'undefined') {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    const isIOSStandalone = (window.navigator as any).standalone === true;
+    const isPWAInstalled = isStandalone || isIOSStandalone;
+    
+    if (!isPWAInstalled) {
+      // Browser-Modus: Komplett deaktivieren
+      console.log('[ServiceWorkerRegistration] Browser-Modus erkannt - Service Worker DEAKTIVIERT');
+      return;
+    }
+  }
+  
+  // --- Detailliertes Debugging für PWA-Modus ---
   
   if (typeof window === 'undefined') {
     // console.warn('[ServiceWorkerRegistration] window object is undefined. Cannot register SW.');

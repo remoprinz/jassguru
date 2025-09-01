@@ -4,6 +4,13 @@ import withPWAInit from 'next-pwa';
 const nextConfig = {
   reactStrictMode: true,
   output: 'export',
+  trailingSlash: true,
+  exportPathMap: async function (defaultPathMap) {
+    return {
+      ...defaultPathMap,
+      '/features': { page: '/features' },
+    }
+  },
   images: {
     unoptimized: true,
     remotePatterns: [
@@ -158,13 +165,28 @@ const withPWA = withPWAInit({
       },
     },
     {
+      urlPattern: /^https?.*\.html$/,
+      handler: 'NetworkFirst',
+      options: {
+        cacheName: 'html-pages',
+        expiration: {
+          maxEntries: 50,
+          maxAgeSeconds: 5 * 60, // 5 Minuten für HTML-Seiten
+        },
+        networkTimeoutSeconds: 3,
+        cacheableResponse: {
+          statuses: [0, 200],
+        },
+      },
+    },
+    {
       urlPattern: /^https?.*/,
       handler: 'NetworkFirst',
       options: {
         cacheName: 'offlineCache',
         expiration: {
           maxEntries: 200,
-          maxAgeSeconds: 60 * 60, // 1 Stunde
+          maxAgeSeconds: 60 * 60, // 1 Stunde für andere Ressourcen
         },
         networkTimeoutSeconds: 3,
         cacheableResponse: {
@@ -184,7 +206,28 @@ const withPWA = withPWAInit({
   ],
   fallbacks: {
     image: '/apple-touch-icon.png',
+    document: '/index.html', // Reduziert separate Fallback-Dateien
+    // font: '/apple-touch-icon.png', // Nicht nötig
+    // audio: '/apple-touch-icon.png', // Nicht nötig
+    // video: '/apple-touch-icon.png', // Nicht nötig
   },
+  // Reduziert unnötige Fallback-Generierung
+  maximumFileSizeToCacheInBytes: 3000000, // 3MB limit
+  exclude: [
+    /\.map$/,
+    /manifest$/,
+    /\.htaccess$/,
+    // Reduziert Anzahl Fallback-Dateien für JS
+    ({ asset, compilation }) => {
+      if (
+        asset.name.startsWith('static/') ||
+        asset.name.startsWith('_next/static/')
+      ) {
+        return asset.name.includes('fallback');
+      }
+      return false;
+    },
+  ],
 });
 
 export default withPWA(nextConfig);

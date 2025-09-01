@@ -18,7 +18,7 @@ import { DEFAULT_FARBE_SETTINGS } from '@/config/FarbeSettings';
 import type { TournamentSettings } from '@/types/tournament';
 import type { ScoreSettings, StrokeSettings, FarbeSettings } from '@/types/jass';
 import { useImageCorper } from "@/hooks/useImageCorper";
-import { updateTournamentSettings } from '@/services/tournamentService';
+import { updateTournamentSettings, uploadTournamentLogoFirebase } from '@/services/tournamentService';
 
 // Turnier-spezifische Default-Einstellungen
 const TOURNAMENT_DEFAULT_SCORE_SETTINGS: ScoreSettings = {
@@ -79,7 +79,6 @@ const NewTournamentPage: React.FC = () => {
     isProcessing: isImageProcessing,
     error: imageError,
     cropImage,
-    uploadCroppedImage,
     resetImage,
   } = useImageCorper({ aspectRatio: 1, maxWidth: 500, maxHeight: 500, outputFormat: 'jpeg' });
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
@@ -216,8 +215,12 @@ const NewTournamentPage: React.FC = () => {
       if (croppedImage && newTournamentId) {
         showNotification({ message: "Lade Turnier-Logo hoch...", type: "info" });
         try {
-          const logoPath = `tournamentLogos/${newTournamentId}`;
-          finalLogoUrl = await uploadCroppedImage(logoPath);
+          // 🚨 FIX: Konvertiere den Blob in eine Datei
+          const logoFile = new File([croppedImage], "logo.jpg", { type: "image/jpeg" });
+          
+          // ✅ KORREKT: Verwende den zentralen Service mit korrekter userId
+          finalLogoUrl = await uploadTournamentLogoFirebase(newTournamentId, logoFile, user.uid);
+          
           await updateTournamentSettings(newTournamentId, { logoUrl: finalLogoUrl });
           showNotification({ message: "Turnier-Logo erfolgreich hochgeladen!", type: "success" });
         } catch (uploadError) {

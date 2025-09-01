@@ -45,9 +45,55 @@ class ServiceWorkerService {
   }
   
   /**
+   * Deregistriert alle Service Worker (für Browser-Cleanup)
+   */
+  async unregisterAll(): Promise<void> {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+      return;
+    }
+
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      
+      for (const registration of registrations) {
+        await registration.unregister();
+        console.log('[ServiceWorker] Service Worker deregistriert:', registration.scope);
+      }
+      
+      // Cache cleanup
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        for (const cacheName of cacheNames) {
+          await caches.delete(cacheName);
+          console.log('[ServiceWorker] Cache gelöscht:', cacheName);
+        }
+      }
+    } catch (error) {
+      console.error('[ServiceWorker] Fehler beim Deregistrieren:', error);
+    }
+  }
+
+  /**
    * Registriert Service Worker nur wenn im PWA-Modus
    */
   async register(config: ServiceWorkerConfig = {}): Promise<void> {
+    // 🚨 BROWSER-SCHUTZ: NIEMALS Service Worker im Browser registrieren!
+    if (typeof window !== 'undefined') {
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+      const isIOSStandalone = (window.navigator as any).standalone === true;
+      const isPWAInstalled = isStandalone || isIOSStandalone;
+      
+      if (!isPWAInstalled) {
+        // Browser-Modus: Komplett deaktivieren
+        console.log('[ServiceWorker] Browser-Modus erkannt - Service Worker DEAKTIVIERT');
+        
+        // 🚨 CLEANUP: Entferne bestehende Service Worker im Browser
+        await this.unregisterAll();
+        
+        return;
+      }
+    }
+    
     // Nur in Production
     if (process.env.NODE_ENV !== 'production') {
       return;
@@ -55,12 +101,6 @@ class ServiceWorkerService {
     
     // Service Worker Support prüfen
     if (!('serviceWorker' in navigator)) {
-      return;
-    }
-    
-    // NUR im PWA-Modus registrieren
-    if (!this.isPWAMode()) {
-      // Entferne den Log für Browser-Modus
       return;
     }
     

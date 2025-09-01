@@ -1066,6 +1066,22 @@ const ResultatKreidetafel = ({
         initialStartingPlayerForNextGame = getNextPlayer(initialStartingPlayerForNextGame);
       }
       
+      // 🆕 NEU: Vorzeitiges-Ende-Regel (Edge Case für Bedanken ohne Calculator)
+      const topTotalScore = topScore + weisPoints.top;
+      const bottomTotalScore = bottomScore + weisPoints.bottom;
+      const siegPunkte = activeScoreSettings.values.sieg;
+      const wasVorzeitigesEnde = topTotalScore < siegPunkte && bottomTotalScore < siegPunkte;
+      const istVerliererteam = !gewinnerTeam || !isPlayerInTeam(initialStartingPlayerForNextGame, gewinnerTeam);
+
+      if (wasVorzeitigesEnde && istVerliererteam) {
+        initialStartingPlayerForNextGame = getNextPlayer(initialStartingPlayerForNextGame);
+        
+        // Erneute Gewinner-Prüfung nach Übersprung
+        if (gewinnerTeam && isPlayerInTeam(initialStartingPlayerForNextGame, gewinnerTeam)) {
+          initialStartingPlayerForNextGame = getNextPlayer(initialStartingPlayerForNextGame);
+        }
+      }
+      
       // Debug-Logging für bessere Nachvollziehbarkeit
       if (process.env.NODE_ENV === 'development') {
         console.log(`[ResultatKreidetafel] Nächster Starter berechnet:`, {

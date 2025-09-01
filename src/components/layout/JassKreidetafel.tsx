@@ -25,7 +25,7 @@ import {isPWA} from "../../utils/browserDetection";
 import {useTutorialStore} from "../../store/tutorialStore";
 import TutorialOverlay from "../tutorial/TutorialOverlay";
 import TutorialInfoDialog from "../tutorial/TutorialInfoDialog";
-import { isDev, FORCE_TUTORIAL } from "../../utils/devUtils";
+import { isDev, FORCE_TUTORIAL, shouldShowBrowserOnboarding } from "../../utils/devUtils";
 import {useDeviceScale} from "../../hooks/useDeviceScale";
 import html2canvas from "html2canvas";
 import {useAuthStore, AuthStatus} from "../../store/authStore";
@@ -169,9 +169,10 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
   const isBrowserOnboardingRequired = useMemo(() => {
     const currentPath = pathname;
     const isExcluded = onboardingExcludedPaths.includes(currentPath);
-    const result = !isDev && !isPWAInstalled && !isExcluded;
+    // NEU: Verwende die Helper-Funktion für Development-Support
+    const result = shouldShowBrowserOnboarding(isPWAInstalled, isExcluded);
     return result;
-  }, [isDev, isPWAInstalled, pathname]);
+  }, [isPWAInstalled, pathname, authStatus]);
 
   // Hook liefert showOnboarding nicht mehr
   const {
@@ -200,28 +201,25 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     setMounted(true);
   }, []);
 
+
   // Container-Höhen berechnen
   const {topContainerHeight, bottomContainerHeight, middleLinePosition} = useMemo(() => {
     if (typeof window === "undefined" || !mounted) {
       return {topContainerHeight: 0, bottomContainerHeight: 0, middleLinePosition: 0};
     }
-    const safeAreaTop = isPWA() ?
-      parseInt(window.getComputedStyle(document.documentElement).getPropertyValue("--safe-area-top") || "0") :
-      0;
-    const safeAreaBottom = isPWA() ?
-      parseInt(window.getComputedStyle(document.documentElement).getPropertyValue("--safe-area-bottom") || "0") :
-      0;
-
-    const adjustedViewportHeight = viewportHeight - safeAreaTop - safeAreaBottom;
-    const midLinePos = Math.floor(adjustedViewportHeight / 2);
-    const halfHeight = Math.floor(adjustedViewportHeight / 2);
+    
+    // KORREKTUR: Jeder Container bekommt die HÄLFTE der GESAMTEN Viewport-Höhe
+    const halfHeight = Math.floor(viewportHeight / 2);
+    
+    // Die Mittellinie ist jetzt die EXAKTE Mitte des Viewports
+    const midLinePos = Math.floor(viewportHeight / 2);
 
     return {
       topContainerHeight: halfHeight,
       bottomContainerHeight: halfHeight,
-      middleLinePosition: midLinePos + safeAreaTop,
+      middleLinePosition: midLinePos,
     };
-  }, [viewportHeight, middleLineThickness, mounted]);
+  }, [viewportHeight, mounted]);
 
   // Animations-Hooks
   const {
@@ -679,10 +677,11 @@ Generiert von:
 
   return (
     <div
-      className="relative w-full h-screen overflow-hidden bg-chalk-black prevent-interactions max-w-xl mx-auto flex flex-col justify-center"
+      className="relative w-full overflow-hidden bg-chalk-black prevent-interactions max-w-xl mx-auto flex flex-col justify-center"
       onClick={handleGlobalClick} // handleGlobalClick prüft jetzt intern auf Overlays
       onContextMenu={(e) => e.preventDefault()}
       style={{
+        height: viewportHeight,
         transform: `scale(${scale})`,
         transformOrigin: "center center",
       }}
@@ -692,11 +691,12 @@ Generiert von:
         {isTutorialInfoOpen && <TutorialInfoDialog />}
       </>
 
+
       {/* Rendere OnboardingFlow wenn erforderlich */}
       {isBrowserOnboardingRequired && (() => {
         return (
           <OnboardingFlow
-            show={isBrowserOnboardingRequired && !isDev} // Vereinfachte Bedingung
+            show={isBrowserOnboardingRequired} // NEU: Keine zusätzliche isDev-Prüfung mehr
             step={currentStep as BrowserOnboardingStep}
             content={content}
             onNext={handleNext}

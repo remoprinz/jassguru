@@ -1,21 +1,24 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { UserCheck, ExternalLink } from 'lucide-react'; // Icon für Admin und externen Link
 import Image from 'next/image'; // Wichtig: Füge diesen Import hinzu
 import { Button } from '@/components/ui/button'; // Import für Button-Komponente
 import { ParticipantWithProgress } from '@/store/tournamentStore';
+import type { TournamentGame } from '@/types/tournament';
 
 interface TournamentParticipantsListProps {
   participants: ParticipantWithProgress[];
   tournamentAdminId?: string; 
   onParticipantClick?: (participant: ParticipantWithProgress) => void; // NEU: Callback Prop
+  tournamentGames?: TournamentGame[]; // ✅ NEU: Für korrekte Passen-Berechnung
 }
 
 const TournamentParticipantsList: React.FC<TournamentParticipantsListProps> = ({
   participants,
   tournamentAdminId,
   onParticipantClick, // NEU
+  tournamentGames, // ✅ NEU
 }) => {
   if (!participants || participants.length === 0) {
     return (
@@ -24,6 +27,27 @@ const TournamentParticipantsList: React.FC<TournamentParticipantsListProps> = ({
       </div>
     );
   }
+
+  // ✅ NEU: Berechne korrekte Passen-Anzahl basierend auf Tournament-Games
+  const participantsWithCorrectPassesCounts = useMemo(() => {
+    if (!tournamentGames || tournamentGames.length === 0) {
+      return participants; // Fallback zu ursprünglichen Daten
+    }
+
+    return participants.map(participant => {
+      // Zähle abgeschlossene Passen für diesen Spieler
+      const completedPassesForPlayer = tournamentGames.filter(game => {
+        // Prüfe ob Passe abgeschlossen ist (hat completedAt) und Spieler teilgenommen hat
+        return game.completedAt && 
+               game.playerDetails?.some(detail => detail.playerId === participant.uid || detail.playerName === participant.displayName);
+      }).length;
+
+      return {
+        ...participant,
+        completedPassesCount: completedPassesForPlayer
+      };
+    });
+  }, [participants, tournamentGames]);
 
   const handleItemClick = (participant: ParticipantWithProgress) => {
     if (onParticipantClick) {
@@ -39,10 +63,10 @@ const TournamentParticipantsList: React.FC<TournamentParticipantsListProps> = ({
     <div className="p-0 md:p-4">
       <Card className="bg-gray-800/70 border-gray-700/50 shadow-lg">
         <CardHeader className="pb-3 pt-4 px-4 md:px-5">
-          <CardTitle className="text-lg text-white">Teilnehmer ({participants.length})</CardTitle>
+          <CardTitle className="text-lg text-white">Teilnehmer ({participantsWithCorrectPassesCounts.length})</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 px-2 py-2 md:px-4 md:pb-4 max-h-[400px] overflow-y-auto">
-          {participants.map((player) => {
+          {participantsWithCorrectPassesCounts.map((player) => {
             const playerId = player.uid;
             
             return (
@@ -69,7 +93,7 @@ const TournamentParticipantsList: React.FC<TournamentParticipantsListProps> = ({
                       )}
                     </Avatar>
                     <div className="min-w-0">
-                      <p className="font-medium text-sm text-white truncate" title={player.displayName || 'Unbekannter Spieler'}>
+                      <p className="text-sm font-medium text-white truncate" title={player.displayName || 'Unbekannter Spieler'}>
                         {player.displayName || 'Unbekannter Spieler'}
                       </p>
                       {/* Optional: Anzeige einer Rolle, falls relevant */}
@@ -79,8 +103,8 @@ const TournamentParticipantsList: React.FC<TournamentParticipantsListProps> = ({
                           Turnier-Admin
                         </span>
                       )}
-                      {/* NEU: Passen anzeigen */}
-                      <span className="text-xs text-gray-400">
+                      {/* ✅ KORRIGIERT: Passen anzeigen mit größerem Text */}
+                      <span className="text-sm text-gray-400">
                         {player.completedPassesCount} {player.completedPassesCount === 1 ? 'Passe' : 'Passen'} abgeschlossen
                       </span>
                     </div>

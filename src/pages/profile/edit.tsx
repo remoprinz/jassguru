@@ -12,6 +12,8 @@ import {Input} from "@/components/ui/input";
 import {Textarea} from "@/components/ui/textarea";
 import {Alert, AlertDescription} from "@/components/ui/alert";
 import { CURRENT_PROFILE_THEME, THEME_COLORS, type ThemeColor, getCurrentProfileTheme } from '@/config/theme';
+import { getPlayerByUserId } from '@/services/playerService';
+import type { FirestorePlayer } from '@/types/jass';
 
 const EditProfilePage: React.FC = () => {
   const {user, status, isAuthenticated, updateProfile} = useAuthStore();
@@ -26,6 +28,9 @@ const EditProfilePage: React.FC = () => {
   const [selectedTheme, setSelectedTheme] = useState<ThemeColor>(CURRENT_PROFILE_THEME);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // 🔧 FIX: Aktuelle Player-Daten aus Firebase laden (für korrekte Theme-Anzeige)
+  const [currentPlayerData, setCurrentPlayerData] = useState<FirestorePlayer | null>(null);
 
   // Deutsche Farbnamen und Beschreibungen
   const themeLabels: Record<ThemeColor, { name: string; description: string }> = {
@@ -39,10 +44,39 @@ const EditProfilePage: React.FC = () => {
     cyan: { name: "Cyan", description: "" },
   };
 
+  // 🔧 FIX: Aktuelle Player-Daten aus Firebase laden
+  useEffect(() => {
+    const loadCurrentPlayerData = async () => {
+      if (!user?.uid) {
+        setCurrentPlayerData(null);
+        return;
+      }
+
+      try {
+        const playerData = await getPlayerByUserId(user.uid);
+        setCurrentPlayerData(playerData);
+      } catch (error) {
+        console.error("Fehler beim Laden der aktuellen Player-Daten:", error);
+        setCurrentPlayerData(null);
+      }
+    };
+
+    loadCurrentPlayerData();
+  }, [user?.uid]);
+
   // Theme aus Firebase/localStorage laden
   useEffect(() => {
-    setSelectedTheme(getCurrentProfileTheme(user?.profileTheme));
-  }, [user?.profileTheme]);
+    // 🎯 KRITISCH: Verwende Firebase-Daten (currentPlayerData) statt authStore
+    // 🔧 FIX: Vermeide localStorage-Fallback um Pink-Flackern zu verhindern
+    if (currentPlayerData?.profileTheme) {
+      setSelectedTheme(getCurrentProfileTheme(currentPlayerData.profileTheme));
+    } else if (user?.profileTheme) {
+      setSelectedTheme(getCurrentProfileTheme(user.profileTheme));
+    } else {
+      // Fallback zu 'cyan' (User's Firebase default) statt localStorage
+      setSelectedTheme('cyan');
+    }
+  }, [currentPlayerData?.profileTheme, user?.profileTheme]);
 
   // Redirect wenn nicht eingeloggt
   useEffect(() => {
@@ -53,13 +87,15 @@ const EditProfilePage: React.FC = () => {
     }
   }, [status, isAuthenticated, router]);
 
-  // Form-Daten aktualisieren wenn User-Daten geladen werden
+  // Form-Daten aktualisieren wenn User-Daten geladen werden  
   useEffect(() => {
-    if (user) {
-      setDisplayName(user.displayName || "");
-      setStatusMessage(user.statusMessage || "");
+    // 🔧 FIX: Bevorzuge Firebase-Daten (currentPlayerData) über authStore (user)
+    const playerData = currentPlayerData || user;
+    if (playerData) {
+      setDisplayName(playerData.displayName || "");
+      setStatusMessage(playerData.statusMessage || "");
     }
-  }, [user]);
+  }, [currentPlayerData, user]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -113,7 +149,7 @@ const EditProfilePage: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="flex min-h-screen flex-col items-center bg-gray-900 p-4 text-white relative">
+      <div className="flex flex-col items-center bg-gray-900 p-4 text-white relative">
         {/* Back Button */}
         <Link href="/profile" passHref legacyBehavior>
           <Button

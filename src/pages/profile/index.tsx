@@ -18,7 +18,7 @@ import { transformComputedStatsToExtended, type TransformedPlayerStats } from '@
 import { useGroupStore } from "@/store/groupStore";
 import type { FrontendPartnerAggregate, FrontendOpponentAggregate } from '@/types/computedStats';
 import { JassColor } from "@/types/jass";
-import { getGroupMembersSortedByGames } from '@/services/playerService';
+import { getGroupMembersSortedByGames, getPlayerByUserId } from '@/services/playerService';
 import { THEME_COLORS, getCurrentProfileTheme } from '@/config/theme';
 import { CheckCircle, XCircle, Award as AwardIcon } from "lucide-react";
 import { ProfileView } from '@/components/profile/ProfileView';
@@ -86,6 +86,9 @@ const ProfilePage: React.FC = () => {
   const [members, setMembers] = useState<FirestorePlayer[]>([]);
   const [membersLoading, setMembersLoading] = useState(true);
   
+  // 🔧 FIX: Aktuelle Player-Daten aus Firebase laden (für korrekte Theme-Anzeige)
+  const [currentPlayerData, setCurrentPlayerData] = useState<FirestorePlayer | null>(null);
+  
   const {
     stats: rawPlayerStats,
     isLoading: statsLoading,
@@ -98,14 +101,31 @@ const ProfilePage: React.FC = () => {
 
   // Theme-System: Verwende PERSÖNLICHES Profil-Theme (UNABHÄNGIG vom Gruppen-Theme!)
   // PRIORITÄT: Firebase > localStorage > Default
-  const profileTheme = getCurrentProfileTheme(user?.profileTheme); // Theme aus Firebase oder localStorage
-  const theme = THEME_COLORS[profileTheme as keyof typeof THEME_COLORS] || THEME_COLORS.yellow;
+  // 🔧 FIX: Verwende aktuelle Firebase-Daten für profileTheme
+  // 🎯 KRITISCH: Warte auf Firebase-Daten, um Pink-Flackern zu vermeiden
+  const profileTheme = useMemo(() => {
+    // Wenn Firebase-Daten verfügbar sind, verwende sie
+    if (currentPlayerData?.profileTheme) {
+      return getCurrentProfileTheme(currentPlayerData.profileTheme);
+    }
+    // Wenn authStore User-Daten verfügbar sind, verwende sie  
+    if (user?.profileTheme) {
+      return getCurrentProfileTheme(user.profileTheme);
+    }
+    // Sonst Standard verwenden (NICHT localStorage um Flackern zu vermeiden)
+    return 'cyan'; // User's Firebase default
+  }, [currentPlayerData?.profileTheme, user?.profileTheme]);
+  
+  const theme = THEME_COLORS[profileTheme as keyof typeof THEME_COLORS] || THEME_COLORS.cyan;
 
   const [playerStats, setPlayerStats] = useState<ProfilePagePlayerStats | null>(null);
 
   // ===== CURRENT PLAYER für ProfileView =====
   const currentPlayer: FirestorePlayer | null = useMemo(() => {
     if (!user) return null;
+    
+    // 🔧 FIX: Bevorzuge aktuelle Firebase-Daten, fallback zu authStore.user
+    const playerData = currentPlayerData || user;
     
     return {
       id: user.playerId || user.uid,
@@ -116,10 +136,18 @@ const ProfilePage: React.FC = () => {
       displayName: user.displayName || user.email || 'Unbekannt',
       email: user.email || '',
       profilePictureUrl: user.photoURL || '',
+      photoURL: user.photoURL || '', // Auch photoURL für Kompatibilität
       createdAt: Timestamp.now(),
-      profileTheme: user.profileTheme || 'yellow'
+      // 🎯 KRITISCH: Verwende profileTheme aus Firebase (currentPlayerData) statt authStore
+      profileTheme: currentPlayerData?.profileTheme || user.profileTheme || 'yellow',
+      statusMessage: currentPlayerData?.statusMessage || user.statusMessage || 'Hallo! Ich jasse mit jassguru.ch',
+      // Übernehme weitere relevante Felder aus Firebase
+      ...(currentPlayerData && {
+        updatedAt: currentPlayerData.updatedAt,
+        metadata: currentPlayerData.metadata
+      })
     };
-  }, [user, userGroups]);
+  }, [user, userGroups, currentPlayerData]);
 
   useEffect(() => {
     if (router.isReady) {
@@ -259,6 +287,26 @@ const ProfilePage: React.FC = () => {
 
     loadMembers();
   }, [userGroups]);
+
+  // 🔧 FIX: Aktuelle Player-Daten aus Firebase laden (für korrekte Theme-Anzeige)
+  useEffect(() => {
+    const loadCurrentPlayerData = async () => {
+      if (!user?.uid) {
+        setCurrentPlayerData(null);
+        return;
+      }
+
+      try {
+        const playerData = await getPlayerByUserId(user.uid);
+        setCurrentPlayerData(playerData);
+      } catch (error) {
+        console.error("Fehler beim Laden der aktuellen Player-Daten:", error);
+        setCurrentPlayerData(null);
+      }
+    };
+
+    loadCurrentPlayerData();
+  }, [user?.uid]);
 
   const combinedArchiveItems = useMemo(() => {
     const sessionsWithType: ArchiveItem[] = completedSessions.map(s => ({ ...s, type: 'session' }));
@@ -532,7 +580,7 @@ const ProfilePage: React.FC = () => {
   if (status === "loading" && !isUploading) {
     return (
       <MainLayout>
-        <div className="flex min-h-screen items-center justify-center bg-gray-900 text-white">
+        <div className="flex items-center justify-center bg-gray-900 text-white py-20">
           <div>Laden...</div>
         </div>
       </MainLayout>

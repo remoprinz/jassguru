@@ -18,6 +18,7 @@ import ImageCropModal from "@/components/ui/ImageCropModal";
 import InviteModal from "@/components/group/InviteModal";
 import {getFunctions, httpsCallable} from "firebase/functions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {isPWA} from "@/utils/browserDetection";
 import { GroupMemberList } from "@/components/group/GroupMemberList";
 import { getGroupMembersSortedByGames } from "@/services/playerService";
 import type { FirestorePlayer, ActiveGame, RoundDataFirebase, GameEntry, RoundEntry, CompletedGameSummary, StricheRecord, JassColor, FarbeSettings, ScoreSettings } from "@/types/jass";
@@ -1106,12 +1107,29 @@ const StartPage = () => {
         return;
       }
       
+      // 🚨 BROWSER-WARNUNG: Verhindere StartScreen-Navigation im Browser
+      // Authentifizierte User sollen nur in der PWA Spiele starten können
+      if (status === 'authenticated' && !isPWA()) {
+        showNotification({
+          type: "warning",
+          message: "Bitte schliesse den Browser und öffne die App vom Homebildschirm aus, um die Jasstafel zu laden.",
+          actions: [
+            {
+              label: "Verstanden",
+              onClick: () => {}, // Schliesst nur die Notification
+            },
+          ],
+          preventClose: true, // User muss explizit "Verstanden" klicken
+        });
+        return;
+      }
+      
       // Leitet den Benutzer zur dedizierten Seite für die Erstellung eines neuen
       // Online-Spiels, anstatt direkt zum Jass-Bildschirm.
       // Der Offline/Gast-Flow wird dadurch nicht beeinflusst.
       router.push("/game/new");
     }
-  }, [resumableGameId, router, handleResumeGame, currentGroup, userGroups, showNotification, members]);
+  }, [resumableGameId, router, handleResumeGame, currentGroup, userGroups, showNotification, members, status]);
 
   useEffect(() => {
     if (isResuming) {

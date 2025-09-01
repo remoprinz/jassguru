@@ -1,5 +1,13 @@
-# https://www.robotstxt.org/robotstxt.html
+# *
 User-agent: *
 Allow: /
 
-Sitemap: https://www.jassguru.ch/sitemap.xml
+# *
+User-agent: *
+Allow: /wissen/
+
+# Host
+Host: https://jassguru.ch
+
+# Sitemaps
+Sitemap: https://jassguru.ch/sitemap.xml

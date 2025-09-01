@@ -7,24 +7,31 @@ class MyDocument extends Document {
     return (
       <Html lang="de">
         <Head>
+          {/* Viewport für iOS Safe Areas */}
+          <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+          
           {/* Bestehende Meta-Tags */}
-                  <meta name="application-name" content="jassguru.ch" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="jassguru.ch" />
+          <meta name="application-name" content="jassguru.ch" />
+          <meta name="apple-mobile-web-app-capable" content="yes" />
+          <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+          <meta name="apple-mobile-web-app-title" content="jassguru.ch" />
           <meta name="format-detection" content="telephone=no" />
           <meta name="mobile-web-app-capable" content="yes" />
           <meta name="theme-color" content="#000000" />
-          <meta name="format-detection" content="telephone=no" />
 
           {/* iOS-spezifische Icons */}
           <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-          <link rel="icon" type="image/png" sizes="192x192" href="/apple-touch-icon.png" />
-          <link rel="icon" type="image/png" sizes="512x512" href="/apple-touch-icon.png" />
-          <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+          <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+          <link rel="apple-touch-icon" sizes="167x167" href="/apple-touch-icon.png" />
+          
+          {/* PWA Icons */}
+          <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+          <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
+          
           {/* Favicon für Browser */}
           <link rel="icon" href="/favicon.ico" />
-          <link rel="apple-touch-icon" sizes="167x167" href="/apple-touch-icon.png" />
+          <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+          <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
           {/* Web App Manifest */}
           <link rel="manifest" href="/manifest.json" />
 
@@ -39,9 +46,7 @@ class MyDocument extends Document {
 
           {/* Zusätzliche Meta-Tags */}
           <meta name="description" content="Schneller, smarter, vernetzter Jassen" />
-          <meta name="apple-mobile-web-app-capable" content="yes" />
           <meta name="apple-touch-fullscreen" content="yes" />
-          <link rel="apple-touch-startup-image" href="/splash.png" />
           <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
           <meta httpEquiv="Pragma" content="no-cache" />
           <meta httpEquiv="Expires" content="0" />

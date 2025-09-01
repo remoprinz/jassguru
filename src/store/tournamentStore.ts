@@ -1017,11 +1017,16 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
               currentTournament.completedPasseCount !== newData.completedPasseCount ||
               currentTournament.status !== newData.status ||
               JSON.stringify(currentTournament.participantUids) !== JSON.stringify(newData.participantUids) ||
-              // Tiefergehender Vergleich der Einstellungen
+              // ✅ HINZUGEFÜGT: Logo und Beschreibung für Real-time Updates
+              currentTournament.logoUrl !== newData.logoUrl ||
+              currentTournament.description !== newData.description ||
+              currentTournament.name !== newData.name ||
+              // Tiefergehender Vergleich der Einstellungen (inkl. logoUrl in settings)
               JSON.stringify(currentTournament.settings?.rankingMode) !== JSON.stringify(newData.settings?.rankingMode) ||
               JSON.stringify(currentTournament.settings?.scoreSettings) !== JSON.stringify(newData.settings?.scoreSettings) ||
               JSON.stringify(currentTournament.settings?.strokeSettings) !== JSON.stringify(newData.settings?.strokeSettings) ||
-              JSON.stringify(currentTournament.settings?.farbeSettings) !== JSON.stringify(newData.settings?.farbeSettings);
+              JSON.stringify(currentTournament.settings?.farbeSettings) !== JSON.stringify(newData.settings?.farbeSettings) ||
+              currentTournament.settings?.logoUrl !== newData.settings?.logoUrl;
 
             if (hasRelevantChanges) {
               console.log(`[TournamentStore] Relevant changes detected for tournament ${instanceId}, updating state`);

@@ -29,6 +29,7 @@ import { useClickAndScrollHandler } from '@/hooks/useClickAndScrollHandler';
 import { StatLink } from '@/components/statistics/StatLink';
 import {fetchCompletedSessionsForUser, SessionSummary} from '@/services/sessionService';
 import { LegalFooter } from '@/components/layout/LegalFooter';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import type { ThemeColor } from '@/config/theme';
 import { generateBlurPlaceholder } from '@/utils/imageOptimization';
@@ -335,18 +336,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const photoURL = currentPlayer?.photoURL;
       const jassSpruch = currentPlayer?.statusMessage || "Hallo! Ich jasse mit jassguru.ch";
 
-  // Loading State
-  if (!currentPlayer && !isPublicView) {
-    return (
-      <MainLayout>
-        <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 p-4 text-white">
-          <div className="h-8 w-8 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
-          <span className="ml-3 text-white">Lade Profil...</span>
-        </div>
-      </MainLayout>
-    );
-  }
-
   // ===== LOKALE TAB-COLOR FUNKTION (IDENTISCH ZU GROUPVIEW) =====
   const getTabActiveColor = (themeKey: string): string => {
     const colorMap: Record<string, string> = {
@@ -362,9 +351,21 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     return colorMap[themeKey] || '#ca8a04'; // Fallback zu Standard-Gelb (yellow-600)
   };
 
+  if (!currentPlayer && !statsLoading) {
+    return (
+      <MainLayout>
+        <div className="flex flex-col items-center justify-center min-h-screen text-white">
+          <AlertXCircle className="w-16 h-16 text-red-500 mb-4" />
+          <h1 className="text-2xl font-bold">Profil nicht gefunden</h1>
+          <p className="text-gray-400">Das angeforderte Spielerprofil konnte nicht geladen werden.</p>
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout>
-      <div className="flex flex-col items-center justify-start min-h-screen bg-gray-900 text-white p-4 relative pt-8 pb-20">
+      <div className="flex flex-col items-center justify-start bg-gray-900 text-white p-4 relative pt-8 pb-20">
           {/* NEU: SHARE BUTTON - OBEN RECHTS (nur für öffentliche Profile) */}
           {isPublicView && currentPlayer && (
             <button 
@@ -428,7 +429,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 : `0 0 20px ${glowColor}, 0 4px 20px rgba(0,0,0,0.3)`
             }}
           >
-            {previewUrl ? (
+            {statsLoading ? (
+              <Skeleton className="w-full h-full rounded-full" />
+            ) : previewUrl ? (
               <Image
                 src={previewUrl}
                 alt="Vorschau Profilbild"
@@ -488,10 +491,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <h1 
             className="text-3xl font-bold mb-1 text-white break-words transition-colors duration-300"
           >
-            {displayName}
+            {statsLoading ? <Skeleton className="h-9 w-48 mx-auto" /> : displayName}
           </h1>
           <div className="text-base text-gray-300 mx-auto max-w-xl break-words mt-3">
-            <p className="text-center">{jassSpruch}</p>
+            <p className="text-center">{statsLoading ? <Skeleton className="h-5 w-64 mx-auto" /> : jassSpruch}</p>
           </div>
         </div>
 

@@ -9,12 +9,13 @@ import {useTutorialStore} from "@/store/tutorialStore";
 import {Button} from "@/components/ui/button";
 import Image from "next/image";
 import Link from "next/link";
-import {Loader2} from "lucide-react";
+import {Loader2, Eye} from "lucide-react";
 import { isPWA } from "@/utils/browserDetection";
 import { debouncedRouterPush } from "@/utils/routerUtils";
 import { saveTokensFromUrl } from "@/utils/tokenStorage";
 import { welcomeLogger, logCriticalError } from "@/utils/logger";
 import { LegalFooter } from '@/components/layout/LegalFooter';
+import ScreenshotSlider from '@/components/auth/ScreenshotSlider';
 
 export interface WelcomeScreenProps {
   onLogin?: () => void;
@@ -30,6 +31,7 @@ const useWelcomeScreenLogic = () => {
   
   const [isClient, setIsClient] = useState(false);
   const [displayMode, setDisplayMode] = useState<"default" | "invite" | "pwa" | "loading">("loading");
+  const [isScreenshotSliderOpen, setIsScreenshotSliderOpen] = useState(false);
 
   // 🔧 MEMOIZED: Display Mode Calculation
   const calculatedDisplayMode = useMemo(() => {
@@ -121,7 +123,9 @@ const useWelcomeScreenLogic = () => {
     isClient,
     displayMode,
     clearGuestStatus,
-    continueAsGuest
+    continueAsGuest,
+    isScreenshotSliderOpen,
+    setIsScreenshotSliderOpen
   };
 };
 
@@ -132,7 +136,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   const router = useRouter();
   
   // 🚀 OPTIMIERT: Verwende den Custom Hook
-  const { isClient, displayMode, clearGuestStatus, continueAsGuest } = useWelcomeScreenLogic();
+  const { isClient, displayMode, clearGuestStatus, continueAsGuest, isScreenshotSliderOpen, setIsScreenshotSliderOpen } = useWelcomeScreenLogic();
   
   const [isGuestLoading, setIsGuestLoading] = useState(false);
 
@@ -267,7 +271,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               {displayMode === "pwa" ? "Von Jassern für Jasser." : (
                 <>
                   Die digitale Heimat für den<br />
-                  Schweizer Jass-Sport
+                  Schweizer Nationalsport
                 </>
               )}
             </h2>
@@ -288,17 +292,26 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               ) : (
                 <div className="text-left">
                   <div className="mb-4">
-                    Jassen gehört an den Tisch – Resultate, Tabellen und Statistiken in die App. Wer führt die Rangliste an? Wer ist Matsch-König? Welche Teams harmonieren? All das erfährst du dank der digitalen Jasstafel, die jede Runde blitzschnell und live erfasst.
+                    Jassen gehört an den Tisch – Resultate, Tabellen und Statistiken auf die Cloud. Wer ist Matsch-König? Welche Spieler harmonieren? Jasse mit jassguru.ch und du weisst Bescheid. Jetzt Vorschau ansehen und starten:
                   </div>
-                  <div className="space-y-2 text-sm">
+                  <div className="space-y-2">
+                    <div>
+                      <Link href="/features" passHref>
+                        <a className="flex items-center space-x-1 text-blue-400 hover:text-blue-300 hover:underline transition-colors">
+                          <span>👉</span>
+                          <span>Vorschau App</span>
+                        </a>
+                      </Link>
+                    </div>
                     <div>
                       <a 
                         href="https://jassguru.ch/view/group/Tz0wgIHMTlhvTtFastiJ" 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="text-blue-400 hover:text-blue-300 hover:underline"
+                        className="flex items-center space-x-1 text-blue-400 hover:text-blue-300 hover:underline"
                       >
-                        👉 Beispiel-Gruppe ansehen
+                        <span>👉</span>
+                        <span>Beispiel Gruppe</span>
                       </a>
                     </div>
                     <div>
@@ -306,9 +319,10 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                         href="https://jassguru.ch/profile/b16c1120111b7d9e7d733837" 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="text-blue-400 hover:text-blue-300 hover:underline"
+                        className="flex items-center space-x-1 text-blue-400 hover:text-blue-300 hover:underline"
                       >
-                        👉 Beispiel-Profil ansehen
+                        <span>👉</span>
+                        <span>Beispiel&nbsp;Profil</span>
                       </a>
                     </div>
                   </div>
@@ -380,6 +394,20 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               </p>
             )}
           </div>
+          
+          {/* Divider and Link to Knowledge Hub */}
+          <div className="pt-6 mt-6 border-t border-gray-700/50">
+            <Link href="/wissen" legacyBehavior>
+              <a className="group block text-center transition-transform hover:scale-105">
+                <span className="text-lg font-semibold text-gray-200 group-hover:text-green-400 transition-colors">
+                  Das Schweizer Jass-Lexikon
+                </span>
+                <p className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors mt-1">
+                  Regeln, Strategien & mehr →
+                </p>
+              </a>
+            </Link>
+          </div>
         </motion.div>
 
         {/* LEGAL FOOTER */}
@@ -387,6 +415,13 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           <LegalFooter />
         </div>
       </div>
+
+      {/* SCREENSHOT SLIDER */}
+      <ScreenshotSlider
+        isOpen={isScreenshotSliderOpen}
+        onClose={() => setIsScreenshotSliderOpen(false)}
+        initialIndex={0}
+      />
     </div>
   );
 };

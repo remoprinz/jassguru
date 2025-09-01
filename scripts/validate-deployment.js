@@ -51,6 +51,18 @@ if (fs.existsSync(cssDir)) {
   }
 }
 
+// Überprüfe JavaScript Chunks
+const chunksDir = path.join(outDir, '_next/static/chunks');
+if (fs.existsSync(chunksDir)) {
+  const jsFiles = fs.readdirSync(chunksDir).filter(f => f.endsWith('.js'));
+  if (jsFiles.length === 0) {
+    console.error('❌ Fehler: Keine JavaScript-Chunks im Build gefunden');
+    hasErrors = true;
+  } else {
+    console.log(`✅ ${jsFiles.length} JavaScript-Chunk(s) gefunden`);
+  }
+}
+
 // Überprüfe Build Manifest (für Static Export)
 const buildManifestFiles = fs.readdirSync(path.join(outDir, '_next/static'))
   .filter(dir => fs.statSync(path.join(outDir, '_next/static', dir)).isDirectory())
@@ -69,7 +81,7 @@ const indexPath = path.join(outDir, 'index.html');
 if (fs.existsSync(indexPath)) {
   const indexContent = fs.readFileSync(indexPath, 'utf8');
   
-  // Überprüfe ob CSS und JS richtig verlinkt sind
+  // Überprüfe ob CSS und JS richtig verlinkt sind (Next.js 15+ Static Export)
   if (!indexContent.includes('/_next/static/css/')) {
     console.error('❌ Fehler: Keine CSS-Verlinkung in index.html gefunden');
     hasErrors = true;

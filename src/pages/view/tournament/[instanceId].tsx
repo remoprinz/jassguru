@@ -92,6 +92,8 @@ const TournamentViewPage: React.FC = () => {
   const { currentGroup } = useGroupStore();
   
   const fetchTournamentInstanceDetails = useTournamentStore((state) => state.fetchTournamentInstanceDetails);
+  const setupTournamentListener = useTournamentStore((state) => state.setupTournamentListener);
+  const clearTournamentListener = useTournamentStore((state) => state.clearTournamentListener);
   const tournament = useTournamentStore((state) => state.currentTournamentInstance);
   const tournamentError = useTournamentStore((state) => state.error);
   const detailsStatus = useTournamentStore(selectDetailsStatus);
@@ -204,6 +206,23 @@ const TournamentViewPage: React.FC = () => {
       }
     }
   }, [memoizedInstanceId, tournament?.id, detailsStatus, participantsStatus, loadTournamentParticipants, isDebugMode, tournament?.status]);
+
+  // ✅ NEU: Real-time Listener für Tournament-Details (Profilbild, Beschreibung, etc.)
+  useEffect(() => {
+    if (!memoizedInstanceId || typeof memoizedInstanceId !== 'string') return;
+    
+    // Aktiviere Real-time Listener sobald Tournament erfolgreich geladen wurde
+    if (detailsStatus === 'success' && tournament?.id === memoizedInstanceId) {
+      if (isDebugMode) console.log(`[TournamentViewPage] Setting up real-time listener for tournament: ${memoizedInstanceId}`);
+      setupTournamentListener(memoizedInstanceId);
+    }
+
+    // Cleanup-Funktion wird automatisch beim nächsten Effect-Run oder Unmount aufgerufen
+    return () => {
+      if (isDebugMode) console.log(`[TournamentViewPage] Cleaning up real-time listener for tournament: ${memoizedInstanceId}`);
+      // Der TournamentStore verwaltet bereits das Cleanup im clearCurrentTournamentInstance
+    };
+  }, [memoizedInstanceId, detailsStatus, tournament?.id, setupTournamentListener, isDebugMode]);
 
   useEffect(() => {
     const db = getFirestore(firebaseApp);
@@ -473,10 +492,16 @@ const TournamentViewPage: React.FC = () => {
 
   const handleUploadTournamentLogo = async () => {
     if (!selectedLogoFile || !tournament) return;
+    
+    // 🚨 KORRIGIERT: userId für Storage-Regel-Kompatibilität hinzufügen
+    if (!user?.uid) {
+      showNotification({message: "Benutzer-Authentifizierung erforderlich für Logo-Upload.", type: "error"});
+      return;
+    }
 
     setIsUploadingLogo(true);
     try {
-      const downloadUrl = await uploadTournamentLogoFirebase(tournament.id, selectedLogoFile);
+      const downloadUrl = await uploadTournamentLogoFirebase(tournament.id, selectedLogoFile, user.uid);
       
       console.log("[TournamentViewPage DEBUG] Erhaltene Download-URL direkt nach Upload:", downloadUrl); 
 
@@ -491,7 +516,8 @@ const TournamentViewPage: React.FC = () => {
       
       setIsUploadingLogo(false);
 
-      if (memoizedInstanceId) fetchTournamentInstanceDetails(memoizedInstanceId);
+      // ✅ OPTIMIERT: Kein manueller Fetch nötig - Real-time Listener übernimmt das automatisch
+      // if (memoizedInstanceId) fetchTournamentInstanceDetails(memoizedInstanceId);
     } catch (error) {
       console.error("Fehler beim Hochladen des Turnierbildes:", error);
       showNotification({message: error instanceof Error ? error.message : "Hochladen fehlgeschlagen.", type: "error"});
@@ -620,10 +646,18 @@ const TournamentViewPage: React.FC = () => {
 
   return ( 
     <MainLayout>
-      <div className="flex flex-col min-h-screen bg-gray-900 text-white pt-6 pb-20">
+      <div className="flex flex-col min-h-screen bg-gray-900 text-white pt-8 pb-20">
         {tournament && (
-          <div className="flex flex-col items-center mb-4">
-            <div className={`relative w-32 h-32 rounded-full overflow-hidden border-2 ${selectedLogoFile && logoPreviewUrl ? 'border-purple-500' : 'border-gray-700'} flex items-center justify-center bg-gray-800`}>
+          <div className="flex flex-col items-center mb-4 mt-12">
+            <div 
+              className="relative w-32 h-32 rounded-full overflow-hidden transition-all duration-300 flex items-center justify-center bg-gray-800 shadow-lg hover:shadow-xl hover:scale-105 border-4"
+              style={{
+                borderColor: selectedLogoFile && logoPreviewUrl ? '#a855f7' : '#a855f7', // Immer lila
+                boxShadow: selectedLogoFile && logoPreviewUrl 
+                  ? '0 0 25px rgba(168, 85, 247, 0.3)'
+                  : '0 0 20px rgba(168, 85, 247, 0.2), 0 4px 20px rgba(0,0,0,0.3)'
+              }}
+            >
               {logoPreviewUrl ? (
                 <Image 
                   src={logoPreviewUrl} 
@@ -803,6 +837,7 @@ const TournamentViewPage: React.FC = () => {
                   participants={tournamentParticipants} 
                   tournamentAdminId={tournament.adminIds?.[0]}
                   onParticipantClick={handleOpenPlayerProgress}
+                  tournamentGames={currentTournamentGames} // ✅ NEU: Für korrekte Passen-Berechnung
                 />
               ) : isLoadingParticipants ? (
                 <div className="flex justify-center items-center p-8">
@@ -865,13 +900,7 @@ const TournamentViewPage: React.FC = () => {
           </div>
         )}
 
-        {(tournament.status === 'completed' || tournament.status === 'archived') && (
-          <div className="sticky bottom-0 left-0 right-0 p-4 bg-gray-800 border-t border-gray-700 text-center">
-            <p className="text-sm text-gray-400">
-              {tournament.status === 'completed' ? "Dieses Turnier ist abgeschlossen." : "Dieses Turnier ist archiviert."}
-            </p>
-          </div>
-        )}
+
 
         {showStartPasseScreen && memoizedInstanceId && (
           <TournamentStartScreen 

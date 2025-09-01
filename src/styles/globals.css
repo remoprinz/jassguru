@@ -74,26 +74,219 @@ body,
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen,
     Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue, sans-serif;
+}
+
+/* App-specific styles - nur für Nicht-Lexikon-Seiten */
+body:not(.lexikon-page),
+body:not(.lexikon-page) #__next {
   height: 100%;
   width: 100%;
-  height: calc(var(--vh, 1vh) * 100);
+  /* Standard Viewport-Höhe - KEIN -webkit-fill-available wegen Safe Area Konflikten */
+  height: 100vh;
   overflow: hidden;
 }
 
-/* Jass-spezifische Styles */
-body {
+/* Jass-spezifische Styles - nur für Nicht-Lexikon-Seiten */
+body:not(.lexikon-page) {
   background-color: black;
   touch-action: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  position: fixed;
-  inset: 0;
+  /* position: fixed; ENTFERNT - verursacht Layout-Probleme mit Safe Areas */
 }
 
-@supports (padding: env(safe-area-inset-top)) {
-  body {
-    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+/* Lexikon/Wissen-Seiten überschreiben die App-Styles */
+body.lexikon-page {
+  background-color: #111827 !important; /* gray-900 - Jassguru Dark */
+  touch-action: auto !important;
+  display: block !important;
+  align-items: initial !important;
+  justify-content: initial !important;
+  position: relative !important;
+  overflow: auto !important;
+  height: auto !important;
+  min-height: 100vh !important;
+}
+
+body.lexikon-page #__next {
+  overflow: auto !important;
+  height: auto !important;
+  min-height: 100vh !important;
+  position: relative !important;
+  display: block !important;
+}
+
+/* Verhindern, dass die Jass-App-Styles die Lexikon-Seiten beeinflussen */
+body.lexikon-page .prevent-interactions {
+  touch-action: auto !important;
+}
+
+/* Zusätzliche Overrides für Container */
+body.lexikon-page * {
+  position: static;
+}
+
+body.lexikon-page div[id="__next"] {
+  position: relative !important;
+  inset: auto !important;
+}
+
+/* Jassguru Dark Theme für Lexikon-Content */
+.content-formatting {
+  line-height: 1.7;
+  color: #f9fafb; /* Haupttext weiß */
+}
+
+.content-formatting a {
+  color: #ffffff !important; /* Weiß für alle Links */
+  text-decoration: underline;
+  text-decoration-color: #10b981; /* Grüne Unterstreichung */
+  text-underline-offset: 2px;
+  transition: all 0.2s ease;
+}
+
+.content-formatting a:hover {
+  color: #10b981 !important; /* Grün beim Hover */
+  text-decoration-color: #fbbf24; /* Gelbe Unterstreichung beim Hover */
+}
+
+.content-formatting h1 {
+  font-size: 2.5rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 1.5rem;
+  color: #ffffff; /* Weiß für Haupttitel */
+}
+
+.content-formatting h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  color: #10b981; /* Jassguru Grün für Überschriften */
+}
+
+.content-formatting h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: #fbbf24; /* Jassguru Gelb für Subheadings */
+}
+
+.content-formatting p {
+  font-size: 1.125rem;
+  line-height: 1.7;
+  margin-bottom: 1.5rem;
+  color: #e5e7eb; /* Helles Grau für Text */
+}
+
+.content-formatting ul {
+  margin: 1.5rem 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.content-formatting ul li {
+  position: relative;
+  padding-left: 2rem;
+  margin-bottom: 0.75rem;
+  font-size: 1.125rem;
+  line-height: 1.6;
+  color: #e5e7eb; /* Helles Grau für Listen */
+}
+
+.content-formatting ul li::before {
+  content: "•";
+  position: absolute;
+  left: 0.5rem;
+  color: #10b981; /* Jassguru Grün für Bullets */
+  font-weight: bold;
+  font-size: 1.25rem;
+}
+
+.content-formatting ol {
+  margin: 1.5rem 0;
+  padding-left: 2rem;
+  counter-reset: list-counter;
+}
+
+.content-formatting ol li {
+  position: relative;
+  margin-bottom: 0.75rem;
+  font-size: 1.125rem;
+  line-height: 1.6;
+  color: #e5e7eb;
+  counter-increment: list-counter;
+}
+
+.content-formatting strong {
+  font-weight: 700;
+  color: #ffffff; /* Weiß für Hervorhebungen */
+}
+
+.content-formatting em {
+  font-style: italic;
+  color: #d1d5db; /* Mittleres Grau für Kursiv */
+}
+
+/* Mobile Optimierungen */
+@media (max-width: 640px) {
+  .content-formatting h1 {
+    font-size: 2rem;
+  }
+  
+  .content-formatting h2 {
+    font-size: 1.75rem;
+  }
+  
+  .content-formatting h3 {
+    font-size: 1.375rem;
+  }
+  
+  .content-formatting p,
+  .content-formatting ul li,
+  .content-formatting ol li {
+    font-size: 1rem;
+  }
+}
+
+/* iOS Safe Area Support - NUR für PWA-Modus */
+@media (display-mode: standalone) {
+  @supports (padding: env(safe-area-inset-top)) {
+    /* Safe Areas nur für spezifische Container in PWA */
+    .safe-area-container {
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+    }
+    
+    /* PWA: Vollscreen für Jass-App ohne Safe Area Padding */
+    body:not(.lexikon-page) {
+      background-color: black;
+      height: 100vh !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+    
+    body:not(.lexikon-page) #__next {
+      height: 100vh !important;
+    }
+  }
+}
+
+/* Browser-Modus: Korrekte Viewport-Höhe mit JS-Fallback, um UI-Leisten auszugleichen */
+@media not (display-mode: standalone) {
+  body:not(.lexikon-page),
+  body:not(.lexikon-page) #__next {
+    height: 100%;
+    width: 100%;
+    /* WICHTIG: Stellt die korrekte Höhe für mobile Browser sicher */
+    height: var(--vh, 100vh);
   }
 }
 

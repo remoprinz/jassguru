@@ -16,7 +16,6 @@ interface UseImageCorperReturn {
   isProcessing: boolean;
   error: string | null;
   cropImage: (file: File) => Promise<string>;
-  uploadCroppedImage: (path: string) => Promise<string>;
   resetImage: () => void;
 }
 
@@ -125,47 +124,6 @@ export function useImageCorper(options: UseImageCorperOptions = {}): UseImageCor
     }
   }, [aspectRatio, maxWidth, maxHeight, quality, outputFormat]);
 
-  // Zugeschnittenes Bild zu Firebase hochladen
-  const uploadCroppedImage = useCallback(async (path: string): Promise<string> => {
-    if (!croppedImage) {
-      const errorMsg = 'Kein Bild zum Hochladen vorhanden';
-      setError(errorMsg);
-      throw new Error(errorMsg);
-    }
-    
-    setIsProcessing(true);
-    
-    try {
-      // DataURL in Blob umwandeln
-      const response = await fetch(croppedImage);
-      const blob = await response.blob();
-      
-      // Eindeutigen Dateinamen generieren
-      const fileExtension = outputFormat === 'jpeg' ? 'jpg' : outputFormat;
-      const filename = `${nanoid()}.${fileExtension}`;
-      
-      // Pfad in Firebase Storage
-      const fullPath = `${path}/${filename}`;
-      const storageRef = ref(storage, fullPath);
-      
-      // Bild hochladen
-      await uploadBytes(storageRef, blob);
-      
-      // Download-URL abrufen
-      const downloadUrl = await getDownloadURL(storageRef);
-      setIsProcessing(false);
-      
-      return downloadUrl;
-    } catch (err) {
-      setIsProcessing(false);
-      const errorMsg = err instanceof Error 
-        ? `Fehler beim Hochladen: ${err.message}` 
-        : 'Unbekannter Fehler beim Hochladen';
-      setError(errorMsg);
-      throw new Error(errorMsg);
-    }
-  }, [croppedImage, outputFormat]);
-
   // Zustand zurücksetzen
   const resetImage = useCallback(() => {
     setCroppedImage(null);
@@ -177,8 +135,7 @@ export function useImageCorper(options: UseImageCorperOptions = {}): UseImageCor
     isProcessing,
     error,
     cropImage,
-    uploadCroppedImage,
-    resetImage
+    resetImage,
   };
 }
 

@@ -21,11 +21,13 @@ import { handleIndexedDBCorruption, isIndexedDBCorruptionError, getOfflineDB } f
 import { initSyncEngine } from '@/services/offlineSyncEngine';
 import { offlineSyncService } from '@/services/offlineSyncService';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth'; // NEU
+import useViewportHeight from '../hooks/useViewportHeight';
 // 🧟‍♂️ NOTFALL-CACHE-CLEAR ENTFERNT
 
-// 🚨 IMPROVED: Hilfskomponente für die Ladeanzeige mit besserer UX
-const LoadingScreen: React.FC = () => {
+// 🚨 EMERGENCY: Robuste LoadingScreen mit Notfall-Escape
+const LoadingScreen: React.FC<{ onForceLoad?: () => void }> = ({ onForceLoad }) => {
   const [timeoutWarning, setTimeoutWarning] = useState(false);
+  const [showEmergencyButton, setShowEmergencyButton] = useState(false);
   
   useEffect(() => {
     // Zeige Warnung nach 2 Sekunden
@@ -33,17 +35,40 @@ const LoadingScreen: React.FC = () => {
       setTimeoutWarning(true);
     }, 2000);
     
-    return () => clearTimeout(warningTimer);
+    // Zeige Notfall-Button nach 5 Sekunden
+    const emergencyTimer = setTimeout(() => {
+      setShowEmergencyButton(true);
+    }, 5000);
+    
+    return () => {
+      clearTimeout(warningTimer);
+      clearTimeout(emergencyTimer);
+    };
   }, []);
   
   return (
-    <div className="flex flex-1 flex-col items-center justify-center min-h-full bg-gray-900 text-white">
+    <div className="flex flex-1 flex-col items-center justify-center min-h-full bg-gray-900 text-white p-6">
       <ClipLoader color="#ffffff" size={40} />
       <p className="mt-4 text-lg">App wird geladen...</p>
+      
       {timeoutWarning && (
         <p className="mt-2 text-sm text-gray-400 text-center max-w-xs">
-          Falls die App nicht lädt, prüfe deine Internetverbindung oder lade die Seite neu.
+          Falls die App nicht lädt, prüfe deine Internetverbindung.
         </p>
+      )}
+      
+      {showEmergencyButton && onForceLoad && (
+        <div className="mt-4 text-center">
+          <button
+            onClick={onForceLoad}
+            className="px-6 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-semibold transition-colors"
+          >
+            App trotzdem laden
+          </button>
+          <p className="mt-2 text-xs text-gray-500 max-w-xs">
+            Notfall-Modus: Lädt die App ohne vollständige Initialisierung
+          </p>
+        </div>
       )}
     </div>
   );
@@ -52,6 +77,9 @@ const LoadingScreen: React.FC = () => {
 const MyApp = ({Component, pageProps}: AppProps) => {
   const [isClient, setIsClient] = useState(false);
   useWakeLock();
+  // 🚨 KRITISCH: Setze --vh Variable global für alle Seiten
+  useViewportHeight();
+  
   // const initAuth = useAuthStore((state) => state.initAuth); // ALT
   const setAuthUser = useAuthStore((state) => state.setAuthUser); // NEU
   const setUnauthenticated = useAuthStore((state) => state.setUnauthenticated); // NEU
@@ -92,174 +120,108 @@ const MyApp = ({Component, pageProps}: AppProps) => {
   }, [setAuthUser, setUnauthenticated]);
 
 
-  // 🚨 IMPROVED: App-Loading-Logic mit Auth-Timeout-Handling
+  // 🚨 ROBUST: App-Loading-Logic mit Service-Berücksichtigung und Timeout
   useEffect(() => {
-    if (router.isReady) {
-      const currentPath = router.pathname;
-      const isCurrentPagePublic = isPublicPath(currentPath);
-      
-      // Öffentliche Seiten können sofort gerendert werden
-      if (isCurrentPagePublic) {
+    if (!router.isReady) return;
+
+    let loadingTimer: NodeJS.Timeout;
+    let hasLoaded = false;
+
+    const markAsLoaded = () => {
+      if (!hasLoaded) {
+        hasLoaded = true;
         setIsAppLoaded(true);
-        return;
+        if (loadingTimer) clearTimeout(loadingTimer);
       }
-      
-      // Private Seiten: Warte auf definitiven Auth-Status ODER Timeout
-      if (status !== 'loading' && status !== 'idle') {
-        setIsAppLoaded(true);
-      } else {
-        // 🚨 CRITICAL FIX: Auth-Timeout für hängende Loading-States
-        const authTimeoutId = setTimeout(() => {
-          if ((status === 'loading' || status === 'idle') && !isAppLoaded) {
-            console.warn('_app.tsx: Auth-Status Timeout! Fallback zu WelcomeScreen.');
-            // Forciere App-Loading und leite zur WelcomeScreen weiter
-            setIsAppLoaded(true);
-            if (!isCurrentPagePublic) {
-              debouncedRouterPush(router, '/', undefined, true);
-            }
-          }
-        }, 4000); // 4s Timeout (etwas länger als authStore Watchdog)
-        
-        return () => clearTimeout(authTimeoutId);
-      }
+    };
+
+    // Sofort laden wenn:
+    // 1. Öffentliche Seite (keine Auth nötig)
+    // 2. Auth bereits abgeschlossen
+    const currentPath = typeof window !== 'undefined' ? window.location.pathname : router.asPath;
+    const isPublicPage = isPublicPath(currentPath);
+    
+    if (isPublicPage || status === 'authenticated' || status === 'unauthenticated') {
+      markAsLoaded();
+    } else {
+      // Warte auf Auth, aber maximal 3 Sekunden
+      loadingTimer = setTimeout(() => {
+        console.warn('[App] Loading timeout reached, forcing app load');
+        markAsLoaded();
+      }, 3000);
     }
-  }, [router.isReady, router.pathname, status, isAppLoaded]);
+
+    return () => {
+      if (loadingTimer) clearTimeout(loadingTimer);
+    };
+  }, [router.isReady, status]);
 
   // Debug-Log Doppelklick Handler entfernt
 
-  // --- WEITERLEITUNG useEffect (Überarbeitet) - MUSS NACH isAppLoaded KOMMEN!--- 
+  // --- VEREINFACHTES ROUTING ---
   useEffect(() => {
-    // Nur ausführen, wenn der Router bereit ist
-    if (!router.isReady) {
+    if (!router.isReady || !isAppLoaded || status === 'loading' || status === 'idle') {
       return;
     }
 
-    const currentPath = router.pathname;
-    const isCurrentlyPublic = isPublicPath(currentPath);
+    // 🎯 FINAL FIX: Lese immer den echten Pfad aus dem Browser
+    // Dies stellt sicher, dass der Auth-Guard die gleiche Info hat wie der SPA-Router in index.tsx
+    const currentPath = window.location.pathname;
 
-    // 🚨 KRITISCH: Wenn die Seite öffentlich ist, darf unter keinen Umständen eine Weiterleitung stattfinden.
-    // Dies ist die wichtigste Regel und hat Vorrang vor allem anderen.
-    if (isCurrentlyPublic) {
+    // Prüfe, ob die Seite öffentlich ist. Wenn ja, darf der Auth-Guard NICHTS tun.
+    if (isPublicPath(currentPath)) {
+      console.log(`[_app.tsx] Öffentliche Seite ${currentPath} erkannt, Auth-Guard wird übersprungen.`);
       return;
     }
 
-    // 🚨 IMPROVED: Robustere Auth-Status Behandlung
-    if (status === 'loading' || status === 'idle') {
-      // Zusätzlicher Timeout-Schutz: Falls App länger als 5s im loading/idle hängt
-      const routingTimeoutId = setTimeout(() => {
-        if ((status === 'loading' || status === 'idle')) {
-          console.warn('_app.tsx: Routing-Timeout! Forciere Weiterleitung zu WelcomeScreen.');
-          debouncedRouterPush(router, '/', undefined, true);
-        }
-      }, 5000);
-      
-      // Cleanup timeout when component unmounts or authStatus changes
-      return () => clearTimeout(routingTimeoutId);
+    // Nur wenn die Seite NICHT öffentlich ist, prüfen wir auf Authentifizierung.
+    const isAuthenticatedUser = status === 'authenticated' && !isGuest;
+    const isGuestUser = status === 'unauthenticated' && isGuest;
+
+    if (!isAuthenticatedUser && !isGuestUser) {
+      console.log(`[_app.tsx] Private Seite ${currentPath} - Weiterleitung zu / wegen Auth-Status: ${status}, isGuest: ${isGuest}`);
+      debouncedRouterPush(router, '/', undefined, true);
     }
+  }, [router.isReady, isAppLoaded, status, isGuest]); // router.pathname wird nicht mehr benötigt
 
-    // Ab hier wissen wir: Die Seite ist GESCHÜTZT und der Auth-Status ist DEFINITIV.
-    const isAuthenticatedUser = status === 'authenticated';
-    const isGuestUser = useAuthStore.getState().isGuest;
-    const authenticatedStartPath = '/start';
-    const unauthenticatedLandingPath = '/';
-
-    // Fall 1: Eingeloggter Benutzer auf einer geschützten Seite.
-    // Er sollte hier sein, es sei denn, er ist auf einer Auth-Seite gelandet (sollte nicht passieren).
-    if (isAuthenticatedUser && !isGuestUser) {
-      if (currentPath.startsWith('/auth')) {
-        debouncedRouterPush(router, authenticatedStartPath, undefined, true);
-      }
-      return; // Ansonsten alles ok.
-    }
-
-    // Fall 2: Nicht eingeloggter Benutzer oder Gast auf einer geschützten Seite.
-    // In beiden Fällen muss er zum Landing-Screen weitergeleitet werden.
-    if (!isAuthenticatedUser || isGuestUser) {
-      // 🚨 NEUE CONTEXT-BEWUSSTE LOGIK: Unterscheide Browser vs. PWA Navigation
-      const guestFromWelcome = typeof window !== 'undefined' 
-        ? sessionStorage.getItem('guestFromWelcome') 
-        : null;
-      
-      if (guestFromWelcome === 'true') {
-        // Browser-Nutzer: Gast von WelcomeScreen → Zurück zu /
-        console.log('[_app] Context erkannt: guestFromWelcome=true, navigiere zu /');
-        sessionStorage.removeItem('guestFromWelcome'); // Flag bereinigen
-      debouncedRouterPush(router, unauthenticatedLandingPath, undefined, true);
-      } else {
-        // PWA-Nutzer oder andere: Context-basierte Weiterleitung
-        const isPWAContext = typeof window !== 'undefined' && 
-          (window.matchMedia('(display-mode: standalone)').matches ||
-           (window.navigator as any).standalone ||
-           document.referrer.includes('android-app://'));
-        
-        const targetPath = isPWAContext ? '/auth/login' : unauthenticatedLandingPath;
-        console.log(`[_app] ${isPWAContext ? 'PWA' : 'Browser'}-Context erkannt, navigiere zu ${targetPath}`);
-        debouncedRouterPush(router, targetPath, undefined, true);
-      }
-    }
-    
-  }, [status, router.isReady, router.pathname]);
-
-  // NEU: Logik zur Unterscheidung öffentlicher/privater Seiten für das Rendering
-  const isPublicPage = useMemo(() => {
-    // 🚨 KORREKTUR: Verwende die zentrale Funktion
-    return isPublicPath(router.pathname);
-  }, [router.pathname]);
 
   // NEU: useEffect zur Prüfung auf aktives Turnier für den eingeloggten Benutzer
   useEffect(() => {
-    if (!router.isReady || status !== 'authenticated') {
-      if (hasBeenRedirected) {
-        setHasBeenRedirected(false);
-      }
+    // Nur für authentifizierte Benutzer und wenn App geladen ist
+    if (!router.isReady || !isAppLoaded || status !== 'authenticated') {
       return;
     }
 
     const user = useAuthStore.getState().user;
     if (!user) {
-      // console.error('[_app Effect] Unexpected: authStatus is authenticated but no user found.');
       return;
     }
     
-    setHasBeenRedirected(false);
     checkUserActiveTournament(user.uid);
-  }, [status, router.isReady, checkUserActiveTournament, setHasBeenRedirected]); // user entfernt, da es implizit durch authStatus abgedeckt ist, hasBeenRedirected entfernt
+  }, [status, router.isReady, isAppLoaded, checkUserActiveTournament]);
 
   // NEU: useEffect für die Weiterleitung zum aktiven Turnier
   useEffect(() => {
-    if (router.isReady && status === 'authenticated' && userActiveTournamentStatus === 'success' && userActiveTournamentId && !hasBeenRedirected) {
-      const targetPath = `/view/tournament/${userActiveTournamentId}`;
-      const currentPath = router.pathname;
-
-      const protectedPaths = [
-        targetPath, 
-        '/jass', 
-        '/game', 
-        '/tournaments/[instanceId]/settings', 
-        '/view/session', 
-        '/view/group' 
-      ];
-
-      const isProtectedPath = protectedPaths.some(p => {
-        if (p.includes('[instanceId]')) { 
-          const baseProtectedPath = p.substring(0, p.indexOf('['));
-          return currentPath.startsWith(baseProtectedPath);
-        }
-        return currentPath.startsWith(p);
-      });
-      
-      if (!isProtectedPath) {
-        const timerId = setTimeout(() => {
-          debouncedRouterPush(router, targetPath, undefined, true); 
-          setHasBeenRedirected(true); 
-        }, 0);
-        return () => clearTimeout(timerId);
-      }
+    // Nur wenn alles bereit ist und wir einen definitiven Tournament-Status haben
+    if (!router.isReady || !isAppLoaded || status !== 'authenticated' || 
+        userActiveTournamentStatus !== 'success' || !userActiveTournamentId || hasBeenRedirected) {
+      return;
     }
-    if (router.isReady && userActiveTournamentStatus === 'success' && !userActiveTournamentId && hasBeenRedirected) {
-        setHasBeenRedirected(false);
+
+    const targetPath = `/view/tournament/${userActiveTournamentId}`;
+    const currentPath = router.pathname;
+
+    // Vereinfachte Protected-Path-Prüfung
+    const isAlreadyOnTournamentPath = currentPath.startsWith('/view/tournament/') ||
+                                      currentPath.startsWith('/jass') ||
+                                      currentPath.startsWith('/game');
+    
+    if (!isAlreadyOnTournamentPath) {
+      debouncedRouterPush(router, targetPath, undefined, true); 
+      setHasBeenRedirected(true); 
     }
-  }, [userActiveTournamentId, userActiveTournamentStatus, router.isReady, router.pathname, hasBeenRedirected, setHasBeenRedirected, status]);
+  }, [userActiveTournamentId, userActiveTournamentStatus, router.isReady, isAppLoaded, 
+      router.pathname, hasBeenRedirected, setHasBeenRedirected, status]);
 
   // NEU: Sync-Engine Initialisierung
   useEffect(() => {
@@ -346,7 +308,7 @@ const MyApp = ({Component, pageProps}: AppProps) => {
             {isAppLoaded ? (
               <Component {...pageProps} />
             ) : (
-              <LoadingScreen />
+              <LoadingScreen onForceLoad={() => setIsAppLoaded(true)} />
             )}
             {/* --- Ende bedingtes Rendern --- */}
             

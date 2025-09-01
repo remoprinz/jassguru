@@ -85,18 +85,18 @@ const TournamentPasseArchive: React.FC<TournamentPasseArchiveProps> = ({
                 <span className="text-sm font-semibold text-purple-300">
                   Passe {game.passeNumber}
                 </span>
-                <span className="text-xs text-gray-400">
+                <span className="text-sm text-gray-400">
                   {completedTime}
                 </span>
               </div>
-              <div className="text-xs space-y-1">
+              <div className="text-sm space-y-1">
                 <div className="flex justify-between">
-                  <span className="text-gray-300 truncate pr-2" title={teamBottomPlayers}>{teamBottomPlayers}</span>
-                  <span className="font-medium text-white">{stricheBottom}</span>
+                  <span className="text-sm text-gray-300 truncate pr-2" title={teamBottomPlayers}>{teamBottomPlayers}</span>
+                  <span className="text-lg font-medium text-white">{stricheBottom}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-300 truncate pr-2" title={teamTopPlayers}>{teamTopPlayers}</span>
-                  <span className="font-medium text-white">{stricheTop}</span>
+                  <span className="text-sm text-gray-300 truncate pr-2" title={teamTopPlayers}>{teamTopPlayers}</span>
+                  <span className="text-lg font-medium text-white">{stricheTop}</span>
                 </div>
               </div>
               {game.playerDetails && game.playerDetails.length > 0 && (

@@ -1013,16 +1013,19 @@ export const updateTournamentSettings = async (
  * Lädt ein Turnierlogo (Profilbild) zu Firebase Storage hoch.
  * @param tournamentId Die ID des Turniers.
  * @param file Die hochzuladende Datei (Blob oder File).
+ * @param userId Die ID des Users der das Logo hochlädt (für Storage-Regel-Kompatibilität).
  * @returns Die Download-URL des hochgeladenen Bildes.
  */
-export const uploadTournamentLogoFirebase = async (tournamentId: string, file: File): Promise<string> => {
+export const uploadTournamentLogoFirebase = async (tournamentId: string, file: File, userId: string): Promise<string> => {
   if (!file) throw new Error("Keine Datei für den Upload ausgewählt.");
   if (!tournamentId) throw new Error("Keine Turnier-ID für den Logo-Upload angegeben.");
+  if (!userId) throw new Error("Keine User-ID für den Logo-Upload angegeben.");
 
   const storage = getStorage(firebaseApp); // firebaseApp hier verwenden
   const fileExtension = file.name.split('.').pop() || 'jpg'; // Fallback
   const fileName = `logo.${fileExtension}`; // Fester Name für das Logo, um Überschreiben zu ermöglichen
-  const filePath = `tournamentLogos/${tournamentId}/${fileName}`;
+  // 🚨 KORRIGIERT: Pfad muss mit Storage-Regel übereinstimmen: tournamentLogos/{userId}/{tournamentId}/{fileName}
+  const filePath = `tournamentLogos/${userId}/${tournamentId}/${fileName}`;
   const fileStorageRef = storageRef(storage, filePath); // Alias `storageRef` verwenden
 
   try {
