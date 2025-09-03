@@ -22,7 +22,6 @@ import { HttpsError } from "firebase-functions/v2/https";
 
 const db = admin.firestore();
 
-const JASS_SUMMARIES_COLLECTION = 'jassGameSummaries';
 const PLAYER_COMPUTED_STATS_COLLECTION = 'playerComputedStats';
 
 // =================================================================================================
@@ -1360,18 +1359,43 @@ export async function updatePlayerStats(playerId: string): Promise<void> {
   }
 
   try {
-    // Fetch all completed sessions where the player participated.
-    const sessionsSnapshot = await db
-      .collection(JASS_SUMMARIES_COLLECTION)
-      .where("participantPlayerIds", "array-contains", playerId)
-      .where("status", "==", "completed")
-      .get();
+    // 🚀 NEUE ARCHITEKTUR: Sessions aus allen Gruppen des Spielers sammeln
+    logger.info(`[PlayerStats] 📊 Fetching sessions from NEW structure for player ${playerId}`);
+    
+    // Hole Player-Dokument um Gruppen zu finden
+    const playerDoc = await db.collection('players').doc(playerId).get();
+    if (!playerDoc.exists) {
+      logger.warn(`[PlayerStats] Player document ${playerId} not found`);
+      return;
+    }
+    
+    const playerData = playerDoc.data();
+    const groupIds = playerData?.groupIds || [];
+    
+    logger.info(`[PlayerStats] Player ${playerId} is member of ${groupIds.length} groups`);
+    
+    // Sammle Sessions aus allen Gruppen
+    const allPlayerSessions: SessionSummary[] = [];
+    
+    for (const groupId of groupIds) {
+      try {
+        const groupSessionsSnapshot = await db
+          .collection(`groups/${groupId}/jassGameSummaries`)
+          .where("participantPlayerIds", "array-contains", playerId)
+          .where("status", "==", "completed")
+          .get();
+        
+        logger.info(`[PlayerStats] Found ${groupSessionsSnapshot.size} sessions in group ${groupId}`);
+        
+        groupSessionsSnapshot.docs.forEach(doc => {
+          allPlayerSessions.push({ ...doc.data(), sessionId: doc.id } as SessionSummary);
+        });
+      } catch (error) {
+        logger.error(`[PlayerStats] Error fetching sessions from group ${groupId}:`, error);
+      }
+    }
 
-    const allPlayerSessions = sessionsSnapshot.docs.map(
-      (doc) => ({ ...doc.data(), sessionId: doc.id } as SessionSummary)
-    );
-
-    logger.info(`[PlayerStats] Found ${allPlayerSessions.length} sessions for player ${playerId}.`);
+    logger.info(`[PlayerStats] Total sessions found: ${allPlayerSessions.length} for player ${playerId}.`);
 
     // Calculate the new stats using the internal logic.
     const newStats = await calculatePlayerStatisticsInternal(playerId, allPlayerSessions);

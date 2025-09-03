@@ -137,8 +137,10 @@ const TournamentInviteModal: React.FC<TournamentInviteModalProps> = ({
         onPointerDownOutside={(event) => {
           const target = event.target as HTMLElement;
           if (target.closest('#global-notification-container-wrapper')) {
-            event.preventDefault();
-            event.stopPropagation();
+            // 🔥 BUGFIX: Nur Modal-Schließen verhindern, aber Notification-Klicks erlauben
+            event.preventDefault(); // Verhindert Modal-Schließen
+            // WICHTIG: stopPropagation() NICHT verwenden, damit Notification-Klicks funktionieren
+            return;
           }
         }}
       >

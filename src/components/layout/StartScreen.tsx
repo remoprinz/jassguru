@@ -208,11 +208,11 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
     const { iosNotification, markIOSNotificationAsShown } = useUIStore.getState();
     
     if (shouldShowiOSScreenLockWarning() && !iosNotification.hasBeenShownThisSession) {
-      console.log('🍎 [iOS Notification] Zeige iOS Bildschirmsperre-Warnung via uiStore');
+
       markIOSNotificationAsShown(); // Verhindert Doppel-Anzeige in dieser Session
       
       const iOSNotification = createSimpleiOSScreenLockNotification(() => {
-        console.log('🎯 [StartScreen] iOS Verstanden-Button geklickt');
+
         // Logik für Persistierung ist jetzt im Helper enthalten
       });
       
@@ -398,9 +398,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
             .map(p => p?.type === 'member' ? p.playerId : null)
             .filter((id): id is string => !!id);
           
-          console.log(`[StartScreen] Player-IDs DIREKT gesammelt: ${participantPlayerIds.length}/${uniqueParticipantUids.length}`);
-          console.log(`[StartScreen] UIDs: [${uniqueParticipantUids.join(', ')}]`);
-          console.log(`[StartScreen] Player-IDs: [${participantPlayerIds.join(', ')}]`);
+
           
           if (participantPlayerIds.length !== uniqueParticipantUids.length) {
             console.warn("[StartScreen] Nicht alle Player-IDs verfügbar - prüfe Spieler-Auswahl");
@@ -409,7 +407,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
           // 7. **NEU:** Session mit aufgelösten Player-IDs aktualisieren
           if (participantPlayerIds.length > 0) {
             await updateSessionParticipantPlayerIds(newSessionId, participantPlayerIds);
-            console.log(`[StartScreen] Session ${newSessionId} mit ${participantPlayerIds.length} Player-IDs aktualisiert.`);
+
           }
 
         } catch (error) {

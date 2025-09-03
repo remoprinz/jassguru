@@ -140,7 +140,7 @@ export const clearActiveGameInSession = async (sessionId: string): Promise<void>
     throw new Error("sessionId is required for clearActiveGameInSession");
   }
 
-  const sessionRef = doc(db, "jassGameSummaries", sessionId);
+  const sessionRef = doc(db, "sessions", sessionId);
 
   try {
     console.log(`[clearActiveGameInSession] Attempting to clear active game for session ${sessionId}.`);
@@ -184,43 +184,44 @@ export const fetchAllGroupSessions = async (groupId: string): Promise<SessionSum
 
   try {
     const db = getFirestore(firebaseApp);
-    const sessionsRef = collection(db, 'jassGameSummaries');
-
-    // ✅ LÖSUNG: Vereinfachte Query ohne Composite Index
-    const q = query(
-      sessionsRef,
-      where('groupId', '==', groupId)
-      // status-Filter und orderBy entfernt, um Composite Index zu vermeiden
-    );
+    
+    // Immer aus neuer Gruppenstruktur lesen
+    const sessionsRef = collection(db, `groups/${groupId}/jassGameSummaries`);
+    // Keine where-Clause nötig, da alle Sessions in dieser Collection zur Gruppe gehören
+    const q = query(sessionsRef);
 
     const querySnapshot = await getDocs(q);
     const sessions: SessionSummary[] = [];
 
     querySnapshot.forEach((docSnap) => {
       const data = docSnap.data();
+      if (!data || typeof data !== 'object') return;
+      
+      // ✅ SAUBERE TYPISIERUNG: Type Guard für object
+      const sessionData = data as Record<string, any>;
       
       // ✅ CLIENT-SEITIGE FILTERUNG: Nur abgeschlossene Sessions
-      if (data.status === 'completed' || data.status === 'completed_empty') {
+      if (sessionData.status === 'completed' || sessionData.status === 'completed_empty') {
         sessions.push({
           id: docSnap.id,
-          startedAt: parseTimestampToMillis(data.startedAt),
-          endedAt: parseTimestampToMillis(data.endedAt),
-          groupId: data.groupId ?? data.gruppeId ?? null,
-          playerNames: data.playerNames || {},
-          participantUids: data.participantUids || [],
-          finalScores: data.finalScores || null,
-          finalStriche: data.finalStriche || null,
-          status: data.status || 'unknown',
-          teams: data.teams || null,
-          pairingIdentifiers: data.pairingIdentifiers || null,
-          gruppeId: data.gruppeId ?? data.groupId ?? null,
-          currentScoreLimit: data.currentScoreLimit || 0,
-          completedGamesCount: data.completedGamesCount || 0,
-          lastActivity: data.lastActivity ? parseTimestampToMillis(data.lastActivity) : null,
-          isTournamentSession: data.isTournamentSession || false,
-          tournamentInstanceId: data.tournamentInstanceId || null,
-          tournamentId: data.tournamentId || null, // ✅ NEU: Für Turnier-Sessions
-          metadata: data.metadata || {},
+          startedAt: parseTimestampToMillis(sessionData.startedAt),
+          endedAt: parseTimestampToMillis(sessionData.endedAt),
+          groupId: sessionData.groupId ?? sessionData.gruppeId ?? null,
+          playerNames: sessionData.playerNames || {},
+          participantUids: sessionData.participantUids || [],
+          finalScores: sessionData.finalScores || null,
+          finalStriche: sessionData.finalStriche || null,
+          status: sessionData.status || 'unknown',
+          teams: sessionData.teams || null,
+          pairingIdentifiers: sessionData.pairingIdentifiers || null,
+          gruppeId: sessionData.gruppeId ?? sessionData.groupId ?? null,
+          currentScoreLimit: sessionData.currentScoreLimit || 0,
+          completedGamesCount: sessionData.completedGamesCount || 0,
+          lastActivity: sessionData.lastActivity ? parseTimestampToMillis(sessionData.lastActivity) : null,
+          isTournamentSession: sessionData.isTournamentSession || false,
+          tournamentInstanceId: sessionData.tournamentInstanceId || null,
+          tournamentId: sessionData.tournamentId || null,
+          metadata: sessionData.metadata || {},
         });
       }
     });
@@ -253,25 +254,45 @@ export const fetchAllGroupSessions = async (groupId: string): Promise<SessionSum
  * @param sessionId Die ID der Session.
  * @returns Ein Promise, das ein Array von CompletedGameSummary-Objekten (aus @/types/jass) auflöst.
  */
-export const fetchAllGamesForSession = async (sessionId: string): Promise<CompletedGameSummary[]> => {
+export const fetchAllGamesForSession = async (sessionId: string, groupId?: string): Promise<CompletedGameSummary[]> => {
   if (!sessionId) {
     console.error("[fetchAllGamesForSession] sessionId is required.");
     return [];
   }
   if (process.env.NODE_ENV === 'development') {
-    console.log(`[fetchAllGamesForSession] Fetching games for session: ${sessionId}`);
+    console.log(`[fetchAllGamesForSession] Fetching games for session: ${sessionId}, groupId: ${groupId}`);
   }
 
   try {
     const db = getFirestore(firebaseApp);
-    const gamesRef = collection(db, 'jassGameSummaries', sessionId, 'completedGames');
+    
+    // 🚀 NEUE ARCHITEKTUR: GroupId ermitteln falls nicht übergeben
+    let resolvedGroupId = groupId;
+    if (!resolvedGroupId) {
+      console.log(`[fetchAllGamesForSession] No groupId provided, trying to resolve from session ${sessionId}`);
+      const sessionDoc = await getDoc(doc(db, 'sessions', sessionId));
+      if (sessionDoc.exists()) {
+        const sessionData = sessionDoc.data();
+        resolvedGroupId = sessionData?.groupId || sessionData?.gruppeId || null;
+        console.log(`[fetchAllGamesForSession] Resolved groupId: ${resolvedGroupId}`);
+      }
+    }
+    
+    if (!resolvedGroupId) {
+      console.error(`[fetchAllGamesForSession] No groupId could be resolved for session ${sessionId}`);
+      return [];
+    }
+    
+
+    const gamesRef = collection(db, 'groups', resolvedGroupId, 'jassGameSummaries', sessionId, 'completedGames');
+    
     const q = query(gamesRef, orderBy('timestampCompleted', 'asc'));
 
     const querySnapshot = await getDocs(q);
     const games: CompletedGameSummary[] = [];
 
     querySnapshot.forEach((docSnap) => {
-      const data = docSnap.data();
+      const data = docSnap.data() as any;
       // Explizites Mapping zu CompletedGameSummary Feldern
       games.push({
         gameNumber: data.gameNumber || 0,

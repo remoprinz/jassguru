@@ -24,7 +24,9 @@ import {
 import {useTimerStore} from "./timerStore";
 import {aggregateStricheForTeam} from "../utils/stricheCalculations";
 import { calculateEventCounts } from "@/utils/jassUtils";
-import { Timestamp, serverTimestamp, getFirestore, doc, setDoc, onSnapshot, Unsubscribe, getDoc } from "firebase/firestore";
+import { Timestamp, serverTimestamp, getFirestore, doc, setDoc, onSnapshot, Unsubscribe, getDoc, writeBatch } from "firebase/firestore";
+
+
 import { firebaseApp } from "@/services/firebaseInit";
 import { sanitizeDataForFirestore } from "@/utils/firestoreUtils";
 import { DEFAULT_FARBE_SETTINGS } from '@/config/FarbeSettings';
@@ -32,6 +34,8 @@ import { DEFAULT_SCORE_SETTINGS } from '@/config/ScoreSettings';
 import { DEFAULT_STROKE_SETTINGS } from '@/config/GameSettings';
 import { useUIStore } from "@/store/uiStore";
 import { loadCompletedGamesFromFirestore } from "@/services/gameService";
+
+
 
 // --- 1. Interface für State --- 
 
@@ -96,7 +100,7 @@ export interface JassActions {
   updateWeisPoints: (team: TeamPosition, points: number) => void;
   getTotalsUpToGame: (gameId: number) => GameTotals;
   startGame: () => void; // Beibehalten, falls verwendet
-  subscribeToSession: (sessionId: string) => void;
+  subscribeToSession: (sessionId: string, groupId?: string | null) => void; // MODIFIZIERT
   clearActiveGameForSession: (sessionId: string) => void;
   syncCompletedGamesForSession: (sessionId: string) => void;
 }
@@ -363,7 +367,9 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
       console.error("[JassStore.startJass] ❌ sessionId ist undefined/null.");
       return;
     } else {
-      console.log(`[JassStore.startJass] 📄 Session: ${sessionId} | ActiveGame: ${activeGameId ?? 'none'}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[JassStore.startJass] Session: ${sessionId} | ActiveGame: ${activeGameId ?? 'none'}`);
+      }
     }
 
     const initialGame = createGameEntry(1, initialStartingPlayer, sessionId, activeGameId, initialStartingPlayer);
@@ -387,7 +393,9 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
           } else if (typeof sessionData.startedAt === 'number') {
             sessionStartedAt = sessionData.startedAt;
           }
-          console.log(`[JassStore.startJass] ✅ Verwendet Session startedAt: ${new Date(sessionStartedAt).toISOString()}`);
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[JassStore.startJass] Verwendet Session startedAt: ${new Date(sessionStartedAt).toISOString()}`);
+          }
         }
       }
     } catch (error) {
@@ -483,7 +491,7 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
     
     // ⏱️ RACE CONDITION FIX: Kurz warten bis Session-Dokument definitiv geschrieben ist
     setTimeout(() => {
-    get().subscribeToSession(sessionId); 
+      get().subscribeToSession(sessionId, groupId); // MODIFIZIERT
 
     }, 100); // 100ms Delay sollte ausreichen für Firestore Eventual Consistency
   },
@@ -635,7 +643,7 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
             status: 'completed',
             lastUpdated: serverTimestamp(),
           }, { merge: true });
-          console.log("[JassStore.finalizeGame] ✅ ActiveGame als completed markiert");
+
         } catch (activeGameError: any) {
           if (activeGameError.code === 'permission-denied') {
             console.warn("[JassStore.finalizeGame] ⚠️ Permission-denied beim ActiveGame Update - möglicherweise bereits gelöscht oder User nicht berechtigt. Fahre fort ohne Fehler.");
@@ -696,9 +704,15 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
           // ✅ Echte eventCounts berechnen und zuweisen
           completedGameData.eventCounts = calculateEventCounts(completedGameData);
 
-          const completedGameRef = doc(db, 'jassGameSummaries', state.currentSession.id, 'completedGames', String(currentGame.id));
-          await setDoc(completedGameRef, sanitizeDataForFirestore(completedGameData));
-          console.log("[JassStore.finalizeGame] ✅ CompletedGame gespeichert in jassGameSummaries");
+          // CompletedGames in Gruppenstruktur schreiben
+          if (state.currentSession.gruppeId) {
+            const completedGameRef = doc(db, 'groups', state.currentSession.gruppeId, 'jassGameSummaries', state.currentSession.id, 'completedGames', String(currentGame.id));
+            await setDoc(completedGameRef, sanitizeDataForFirestore(completedGameData));
+          } else {
+            const completedGameRef = doc(db, 'jassGameSummaries', state.currentSession.id, 'completedGames', String(currentGame.id));
+            await setDoc(completedGameRef, sanitizeDataForFirestore(completedGameData));
+          }
+
         } catch (summaryError: any) {
           if (summaryError.code === 'permission-denied') {
             console.warn("[JassStore.finalizeGame] ⚠️ Permission-denied beim jassGameSummaries Schreibzugriff. User möglicherweise nicht in participantUids.");
@@ -716,7 +730,9 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
             currentActiveGameId: null,
             lastUpdated: serverTimestamp(),
           }, { merge: true });
-          console.log("[JassStore.finalizeGame] ✅ Session activeGameId cleared");
+          if (process.env.NODE_ENV === 'development') {
+            console.log("[JassStore.finalizeGame] Session activeGameId cleared");
+          }
         } catch (sessionError: any) {
           if (sessionError.code === 'permission-denied') {
             console.warn("[JassStore.finalizeGame] ⚠️ Permission-denied beim Session Update - User möglicherweise nicht berechtigt. Fahre fort ohne Fehler.");
@@ -770,13 +786,15 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
     set({ ...initialJassState }); 
   },
 
-  subscribeToSession: (sessionId: string) => {
+  subscribeToSession: async (sessionId: string, groupId?: string | null) => { // MODIFIZIERT
     const existingUnsubscribe = get().sessionUnsubscribe;
     if (existingUnsubscribe) {
       existingUnsubscribe();
     }
     
     const db = getFirestore(firebaseApp);
+    
+    // Sessions bleiben in globaler Struktur (temporäre Daten)
     const sessionDocRef = doc(db, 'sessions', sessionId);
 
     const unsubscribe = onSnapshot(sessionDocRef, (docSnap) => {

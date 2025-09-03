@@ -22,7 +22,16 @@ import { initSyncEngine } from '@/services/offlineSyncEngine';
 import { offlineSyncService } from '@/services/offlineSyncService';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth'; // NEU
 import useViewportHeight from '../hooks/useViewportHeight';
+import { useBackgroundOptimization } from '../hooks/useBackgroundOptimization'; // 🚀 NEU: Background Image Optimization
 // 🧟‍♂️ NOTFALL-CACHE-CLEAR ENTFERNT
+
+// 🚨 NEU: App-Watchdog, der die App vor dem Einfrieren rettet
+if (typeof window !== 'undefined') {
+  (window as any).__JASSGURU_APP_WATCHDOG__ = setTimeout(() => {
+    console.error("Jassguru-Watchdog: App-Initialisierung hat zu lange gedauert. Leite zur Reparaturseite weiter.");
+    window.location.href = '/recovery.html';
+  }, 12000); // 12 Sekunden Timeout
+}
 
 // 🚨 EMERGENCY: Robuste LoadingScreen mit Notfall-Escape
 const LoadingScreen: React.FC<{ onForceLoad?: () => void }> = ({ onForceLoad }) => {
@@ -35,10 +44,10 @@ const LoadingScreen: React.FC<{ onForceLoad?: () => void }> = ({ onForceLoad }) 
       setTimeoutWarning(true);
     }, 2000);
     
-    // Zeige Notfall-Button nach 5 Sekunden
+    // Zeige Notfall-Button nach 4 Sekunden (vorher 5s)
     const emergencyTimer = setTimeout(() => {
       setShowEmergencyButton(true);
-    }, 5000);
+    }, 4000);
     
     return () => {
       clearTimeout(warningTimer);
@@ -79,7 +88,18 @@ const MyApp = ({Component, pageProps}: AppProps) => {
   useWakeLock();
   // 🚨 KRITISCH: Setze --vh Variable global für alle Seiten
   useViewportHeight();
+  // 🚀 NEU: Background Image Optimization für bessere Performance
+  useBackgroundOptimization();
   
+  // Client-seitige Initialisierung: Watchdog entfernen, da App erfolgreich geladen wurde
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).__JASSGURU_APP_WATCHDOG__) {
+      clearTimeout((window as any).__JASSGURU_APP_WATCHDOG__);
+      delete (window as any).__JASSGURU_APP_WATCHDOG__;
+      console.log("Jassguru-Watchdog: App erfolgreich initialisiert. Watchdog entfernt.");
+    }
+  }, []);
+
   // const initAuth = useAuthStore((state) => state.initAuth); // ALT
   const setAuthUser = useAuthStore((state) => state.setAuthUser); // NEU
   const setUnauthenticated = useAuthStore((state) => state.setUnauthenticated); // NEU
@@ -144,11 +164,11 @@ const MyApp = ({Component, pageProps}: AppProps) => {
     if (isPublicPage || status === 'authenticated' || status === 'unauthenticated') {
       markAsLoaded();
     } else {
-      // Warte auf Auth, aber maximal 3 Sekunden
+      // Warte auf Auth, aber maximal 7 Sekunden (vorher 3s)
       loadingTimer = setTimeout(() => {
         console.warn('[App] Loading timeout reached, forcing app load');
         markAsLoaded();
-      }, 3000);
+      }, 7000);
     }
 
     return () => {
@@ -170,7 +190,7 @@ const MyApp = ({Component, pageProps}: AppProps) => {
 
     // Prüfe, ob die Seite öffentlich ist. Wenn ja, darf der Auth-Guard NICHTS tun.
     if (isPublicPath(currentPath)) {
-      console.log(`[_app.tsx] Öffentliche Seite ${currentPath} erkannt, Auth-Guard wird übersprungen.`);
+
       return;
     }
 
@@ -211,10 +231,11 @@ const MyApp = ({Component, pageProps}: AppProps) => {
     const targetPath = `/view/tournament/${userActiveTournamentId}`;
     const currentPath = router.pathname;
 
-    // Vereinfachte Protected-Path-Prüfung
-    const isAlreadyOnTournamentPath = currentPath.startsWith('/view/tournament/') ||
-                                      currentPath.startsWith('/jass') ||
-                                      currentPath.startsWith('/game');
+      // Vereinfachte Protected-Path-Prüfung - NEU: Öffentliche View-Pfade ausschließen
+  const isAlreadyOnTournamentPath = currentPath.startsWith('/view/tournament/') ||
+                                    currentPath.startsWith('/jass') ||
+                                    currentPath.startsWith('/game') ||
+                                    isPublicPath(currentPath); // NEU: Alle öffentlichen Pfade ausschließen
     
     if (!isAlreadyOnTournamentPath) {
       debouncedRouterPush(router, targetPath, undefined, true); 

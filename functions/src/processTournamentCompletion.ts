@@ -104,7 +104,7 @@ const getPlayerDocIdWithCache = (cache: Map<string, string>) => async (authUid: 
  * Tournament teams change every game, so session-level aggregations are meaningless.
  */
 export const aggregateTournamentIntoSummary = onDocumentWritten(
-  "tournaments/{tournamentId}",
+  { document: "tournaments/{tournamentId}", region: "europe-west1" },
   async (event) => {
     const { tournamentId } = event.params;
 

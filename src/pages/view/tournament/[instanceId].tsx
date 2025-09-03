@@ -901,7 +901,6 @@ const TournamentViewPage: React.FC = () => {
         )}
 
 
-
         {showStartPasseScreen && memoizedInstanceId && (
           <TournamentStartScreen 
                 isVisible={showStartPasseScreen}

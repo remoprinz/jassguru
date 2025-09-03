@@ -319,7 +319,9 @@ export function createEmptyStatistics(): GroupStatistics {
 // Hauptfunktion zum Abrufen der Gruppenstatistiken (ANGEPASST)
 export const fetchGroupStatistics = async (groupId: string, groupMainLocationZip: string | null | undefined): Promise<GroupStatistics> => {
   try {
-    const groupStatsRef = doc(db, "groupComputedStats", groupId);
+    // Immer aus neuer Gruppenstruktur lesen
+    const groupStatsRef = doc(db, `groups/${groupId}/stats`, 'computed');
+    
     const groupStatsSnap = await getDoc(groupStatsRef);
 
     if (!groupStatsSnap.exists()) {
@@ -991,23 +993,42 @@ export function subscribeToGroupStatistics(
   callback: (stats: GroupStatistics | null) => void,
   zipCode?: string | null
 ): () => void {
-  const docRef = doc(db, "groupComputedStats", groupId);
+  // 🚀 MIGRATION: Dynamische Auswahl der Struktur
+  // Für Subscriptions müssen wir die Migration Flags synchron prüfen
+  // Da onSnapshot callback async ist, machen wir den initial check und verwenden dann die entsprechende Referenz
+  
+  let currentUnsubscribe: (() => void) | null = null;
+  
+  const createSubscription = async () => {
+    const docRef = doc(db, `groups/${groupId}/stats`, 'computed');
 
-  const unsubscribe = onSnapshot(docRef, (docSnap) => {
-    if (docSnap.exists()) {
-      const stats = docSnap.data() as GroupStatistics;
-      stats.hauptspielortName = zipCode || stats.hauptspielortName || 'N/A';
-      callback(transformStatistics(stats));
-    } else {
-      console.log("No such statistics document to subscribe to!");
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const stats = docSnap.data() as GroupStatistics;
+        stats.hauptspielortName = zipCode || stats.hauptspielortName || 'N/A';
+        callback(transformStatistics(stats));
+      } else {
+        console.log("No such statistics document to subscribe to!");
+        callback(null);
+      }
+    }, (error) => {
+      console.error("Error listening to group statistics:", error);
       callback(null);
+    });
+    
+    currentUnsubscribe = unsubscribe;
+    return unsubscribe;
+  };
+  
+  // Starte das Subscription
+  createSubscription();
+  
+  // Return cleanup function
+  return () => {
+    if (currentUnsubscribe) {
+      currentUnsubscribe();
     }
-  }, (error) => {
-    console.error("Error listening to group statistics:", error);
-    callback(null);
-  });
-
-  return unsubscribe;
+  };
 }
 
 function transformStatistics(stats: GroupStatistics): GroupStatistics {

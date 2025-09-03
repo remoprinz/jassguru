@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useCallback, memo } from 'react';
+import React, { useState, useCallback, memo, useEffect } from 'react';
 import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { backgroundOptimizer } from '@/utils/backgroundImageOptimizer';
 
 interface ProfileImageProps {
   src?: string | null;
@@ -14,8 +15,16 @@ interface ProfileImageProps {
   fallbackClassName?: string;
   priority?: boolean;
   useNextImage?: boolean; // Option für Next.js Image vs Avatar
-  lazy?: boolean; // 🚀 NEU: Lazy Loading Control
-  optimized?: boolean; // 🚀 NEU: Optimierung für Listen
+  lazy?: boolean; // Lazy Loading Control
+  optimized?: boolean; // Optimierung für Listen
+  // 🚀 NEU: Context-aware Loading
+  context?: 'default' | 'list' | 'hero'; // Optimierung basierend auf Verwendungskontext
+  // 🚀 NEU: Background Optimization
+  autoOptimize?: boolean; // Automatische Hintergrund-Optimierung
+  optimizationType?: 'profile' | 'group' | 'tournament';
+  userId?: string; // Für Profile und Tournament-Optimierung
+  groupId?: string; // Für Gruppen-Optimierung  
+  tournamentId?: string; // Für Tournament-Optimierung
 }
 
 const sizeMapping = {
@@ -34,9 +43,17 @@ const ProfileImage: React.FC<ProfileImageProps> = memo(({
   className = '',
   fallbackClassName = '',
   priority = false,
-  useNextImage = false,
-  lazy = true, // 🚀 NEU: Lazy Loading als Standard
-  optimized = false, // 🚀 NEU: Optimierung für Listen
+  useNextImage = true, // 🔥 WICHTIG: Next.js Image als Standard für bessere Performance
+  lazy = true, // Lazy Loading als Standard
+  optimized = false, // Optimierung für Listen
+  // 🚀 NEU: Context-aware Loading
+  context = 'default',
+  // 🚀 NEU: Background Optimization Props
+  autoOptimize = true, // Standardmäßig aktiviert
+  optimizationType = 'profile',
+  userId,
+  groupId,
+  tournamentId,
 }) => {
   const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -47,20 +64,34 @@ const ProfileImage: React.FC<ProfileImageProps> = memo(({
   // Prüfe, ob src verfügbar und gültig ist
   const hasValidSrc = src && src.trim() !== '' && !imageError;
 
-  // 🚀 NEU: Optimierte Größen für Listen
+  // 🚀 NEU: Context-aware Loading Logic
+  const getLoadingBehavior = useCallback(() => {
+    // Hero images: priority + eager loading
+    if (context === 'hero') {
+      return { shouldUsePriority: true, shouldBeLazy: false };
+    }
+    // List images: eager loading but no priority (für bessere Performance in Listen)
+    if (context === 'list') {
+      return { shouldUsePriority: false, shouldBeLazy: false };
+    }
+    // Default: respektiere explizite props
+    return { shouldUsePriority: priority, shouldBeLazy: lazy };
+  }, [context, priority, lazy]);
+
+  const { shouldUsePriority, shouldBeLazy } = getLoadingBehavior();
+
+  // Optimierte responsive Größen für bessere Performance
   const getOptimizedSizes = useCallback(() => {
-    if (!optimized) return `${sizeConfig.width}px`;
-    
-    // Für Listen: Kleinere Größen für bessere Performance
-    const optimizedSizes = {
-      xs: '20px',
-      sm: '28px', 
-      md: '36px',
-      lg: '64px',
-      xl: '96px'
+    // Responsive sizes für verschiedene Viewports
+    const responsiveSizes = {
+      xs: '(max-width: 640px) 24px, 24px',
+      sm: '(max-width: 640px) 32px, 32px', 
+      md: '(max-width: 640px) 40px, 40px',
+      lg: '(max-width: 640px) 60px, 80px',
+      xl: '(max-width: 640px) 96px, 128px'
     };
-    return optimizedSizes[size] || `${sizeConfig.width}px`;
-  }, [optimized, size, sizeConfig.width]);
+    return responsiveSizes[size] || `${sizeConfig.width}px`;
+  }, [size, sizeConfig.width]);
 
   const handleError = useCallback(() => {
     if (process.env.NODE_ENV === 'development') {
@@ -74,6 +105,35 @@ const ProfileImage: React.FC<ProfileImageProps> = memo(({
     setIsLoading(false);
   }, []);
 
+  // 🚀 NEU: Background Optimization Hook
+  useEffect(() => {
+    if (!autoOptimize || !src || imageError || !hasValidSrc) {
+      return;
+    }
+
+    // Triggere Background Optimization nach erfolgreicher Bildanzeige
+    const metadata = {
+      userId,
+      groupId, 
+      tournamentId
+    };
+
+    // Prüfe ob alle nötigen Metadaten vorhanden sind
+    const hasRequiredMetadata = 
+      (optimizationType === 'profile' && userId) ||
+      (optimizationType === 'group' && groupId) ||
+      (optimizationType === 'tournament' && userId && tournamentId);
+
+    if (hasRequiredMetadata) {
+      // Kurze Verzögerung, damit das Bild Zeit hat zu laden
+      const timer = setTimeout(() => {
+        backgroundOptimizer.checkAndQueue(src, optimizationType, metadata, priority ? 1 : 3);
+      }, 1000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [src, autoOptimize, optimizationType, userId, groupId, tournamentId, imageError, hasValidSrc, priority]);
+
   if (useNextImage) {
     // Verwende Next.js Image direkt (für größere Bilder)
     return (
@@ -85,10 +145,11 @@ const ProfileImage: React.FC<ProfileImageProps> = memo(({
             width={sizeConfig.width}
             height={sizeConfig.height}
             className="object-cover h-full w-full"
-            style={{ width: 'auto', height: 'auto' }}
             sizes={getOptimizedSizes()}
-            priority={priority && !lazy}
-            loading={lazy ? 'lazy' : 'eager'} // 🚀 NEU: Lazy Loading Control
+            priority={shouldUsePriority && !shouldBeLazy}
+            loading={shouldBeLazy ? 'lazy' : 'eager'}
+            quality={optimized ? 50 : 75} // Reduzierte Qualität für Listen
+            placeholder="empty" // Kein Blur-Placeholder für schnelleres Laden
             onError={handleError}
             onLoad={handleLoad}
           />
@@ -129,12 +190,20 @@ const ProfileImage: React.FC<ProfileImageProps> = memo(({
     </Avatar>
   );
 }, (prevProps, nextProps) => {
-  // Memo Vergleich: Re-render nur bei Änderungen
+  // Memo Vergleich: Re-render nur bei Änderungen der relevanten Props
   return prevProps.src === nextProps.src &&
          prevProps.alt === nextProps.alt &&
          prevProps.size === nextProps.size &&
          prevProps.className === nextProps.className &&
-         prevProps.fallbackClassName === nextProps.fallbackClassName;
+         prevProps.fallbackClassName === nextProps.fallbackClassName &&
+         prevProps.priority === nextProps.priority &&
+         prevProps.context === nextProps.context &&
+         prevProps.optimized === nextProps.optimized &&
+         prevProps.autoOptimize === nextProps.autoOptimize &&
+         prevProps.optimizationType === nextProps.optimizationType &&
+         prevProps.userId === nextProps.userId &&
+         prevProps.groupId === nextProps.groupId &&
+         prevProps.tournamentId === nextProps.tournamentId;
 });
 
 ProfileImage.displayName = 'ProfileImage';

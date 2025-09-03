@@ -4,7 +4,6 @@ import { GroupComputedStats, initialGroupComputedStats, GroupStatHighlightPlayer
 
 const db = admin.firestore();
 
-const JASS_SUMMARIES_COLLECTION = 'jassGameSummaries';
 const COMPLETED_GAMES_SUBCOLLECTION = 'completedGames';
 const GROUPS_COLLECTION = 'groups';
 
@@ -176,9 +175,10 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         calculatedStats.memberCount = groupMemberPlayerDocIds.size;
     calculatedStats.hauptspielortName = groupData.mainLocationZip || null;
 
-        // Schritt 2: Alle abgeschlossenen Sessions der Gruppe laden
-        const sessionsSnap = await db.collection(JASS_SUMMARIES_COLLECTION)
-            .where("groupId", "==", groupId)
+        // Schritt 2: Alle abgeschlossenen Sessions der Gruppe laden (NEUE ARCHITEKTUR)
+        logger.info(`[NEW ARCHITECTURE] 📊 Lese Sessions aus groups/${groupId}/jassGameSummaries`);
+        
+        const sessionsSnap = await db.collection(`groups/${groupId}/jassGameSummaries`)
             .where("status", "==", "completed")
             .orderBy("startedAt", "asc")
             .get();
@@ -1716,10 +1716,9 @@ export async function updateGroupComputedStatsAfterSession(groupId: string): Pro
       // Schritt 4: Detailliertes Logging
       logStatisticsCalculation(groupId, newStats, rawDataSummary);
       
-      // Schritt 5: Speichere Statistiken
+      // Schritt 5: Speichere Statistiken (NEUE ARCHITEKTUR)
       logger.info(`[updateGroupComputedStatsAfterSession] Step 3: Saving statistics to Firestore for ${groupId}`);
-      const statsRef = db.collection('groupComputedStats').doc(groupId);
-      await statsRef.set(newStats, { merge: true });
+      await saveGroupStats(groupId, newStats);
       
       logger.info(`[updateGroupComputedStatsAfterSession] SUCCESS for group: ${groupId}`);
       logger.info(`[updateGroupComputedStatsAfterSession] Final stats: ${newStats.sessionCount} sessions, ${newStats.gameCount} games, ${newStats.memberCount} members`);
@@ -1746,9 +1745,8 @@ export async function updateGroupComputedStatsAfterSession(groupId: string): Pro
  */
 async function collectRawDataSummary(groupId: string): Promise<any> {
   try {
-    // Sessions zählen und separieren
-    const sessionsSnap = await db.collection(JASS_SUMMARIES_COLLECTION)
-      .where("groupId", "==", groupId)
+    // Sessions zählen und separieren (NEUE ARCHITEKTUR)
+    const sessionsSnap = await db.collection(`groups/${groupId}/jassGameSummaries`)
       .where("status", "==", "completed")
       .get();
     
@@ -1813,4 +1811,16 @@ async function collectRawDataSummary(groupId: string): Promise<any> {
       dataErrors: 1
     };
     }
+}
+
+/**
+ * 🚀 NEUE ARCHITEKTUR: GroupStats in neuer Struktur speichern
+ */
+async function saveGroupStats(groupId: string, statsData: GroupComputedStats): Promise<void> {
+  logger.info(`[NEW ARCHITECTURE] 📊 Schreibe GroupStats in groups/${groupId}/stats/computed`);
+  
+  const statsRef = db.collection('groups').doc(groupId).collection('stats').doc('computed');
+  await statsRef.set(statsData, { merge: true });
+  
+  logger.info(`[NEW ARCHITECTURE] ✅ GroupStats für ${groupId} erfolgreich gespeichert`);
 } 

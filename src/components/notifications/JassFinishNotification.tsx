@@ -23,8 +23,7 @@ const JassFinishNotification: React.FC = () => {
     closeJassFinishNotification,
   } = useUIStore();
 
-  // DEBUG: Log ob onRegenerate übergeben wird
-  console.log('[JassFinishNotification] onRegenerate available:', typeof onRegenerate, onRegenerate !== undefined);
+
 
   const isFlipped = false;
 
@@ -148,13 +147,10 @@ const JassFinishNotification: React.FC = () => {
 
   // NEU: Handler für "Neuer Spruch"
   const handleRegenerate = useCallback(async () => {
-    console.log('[JassFinishNotification] Regenerate clicked, onRegenerate:', typeof onRegenerate);
     setIsRegenerating(true);
     try {
       if (onRegenerate) {
-        console.log('[JassFinishNotification] Calling onRegenerate...');
         await onRegenerate();
-        console.log('[JassFinishNotification] onRegenerate completed');
       } else {
         console.warn('[JassFinishNotification] onRegenerate is not defined!');
       }

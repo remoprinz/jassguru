@@ -94,7 +94,7 @@ Einstellungen > Anzeige & Helligkeit
         label: 'Verstanden',
         onClick: () => {
           const currentState = useUIStore.getState().iosNotification.dontShowAgain;
-          console.log('🎯 [iOS Notification] Verstanden-Button geklickt. Dont Show Again:', currentState);
+
           
           if (currentState) {
             markiOSScreenLockWarningAsShown();

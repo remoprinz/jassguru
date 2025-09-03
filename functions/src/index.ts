@@ -834,29 +834,14 @@ export const cleanupAbortedSession = onCall(async (request) => {
     const sessionRef = db.collection("sessions").doc(sessionId);
     const sessionSnap = await sessionRef.get();
 
-    // NEU: Auch in jassGameSummaries suchen, falls nicht in sessions gefunden
-    const jassSessionRef = db.collection("jassGameSummaries").doc(sessionId);
-    const jassSessionSnap = await jassSessionRef.get();
-
-    // Prüfe, welche Session existiert
+    // 🚀 NEUE ARCHITEKTUR: Sessions sind nur noch in sessions Collection
     let sessionData: any = null;
     let sessionDocToDelete: admin.firestore.DocumentReference | null = null;
-    let additionalSessionDocToDelete: admin.firestore.DocumentReference | null = null;
 
     if (sessionSnap.exists) {
       sessionData = sessionSnap.data();
       sessionDocToDelete = sessionRef;
       console.info(`Found session in 'sessions' collection: ${sessionId}`);
-      
-      // Prüfe auch, ob es eine entsprechende jassGameSummaries gibt
-      if (jassSessionSnap.exists) {
-        additionalSessionDocToDelete = jassSessionRef;
-        console.info(`Also found corresponding session in 'jassGameSummaries' collection: ${sessionId}`);
-      }
-    } else if (jassSessionSnap.exists) {
-      sessionData = jassSessionSnap.data();
-      sessionDocToDelete = jassSessionRef;
-      console.info(`Found session in 'jassGameSummaries' collection: ${sessionId}`);
     } else {
       throw new HttpsError("not-found", "Session nicht gefunden.");
     }
@@ -899,10 +884,7 @@ export const cleanupAbortedSession = onCall(async (request) => {
       batch.delete(sessionDocToDelete);
       console.info(`Marked main session document for deletion: ${sessionDocToDelete.path}`);
     }
-    if (additionalSessionDocToDelete) {
-      batch.delete(additionalSessionDocToDelete);
-      console.info(`Marked additional session document for deletion: ${additionalSessionDocToDelete.path}`);
-    }
+
     
     // Alle activeGames-Dokumente und ihre Subkollektionen löschen
     for (const gameDoc of activeGamesSnapshot.docs) {
@@ -926,7 +908,7 @@ export const cleanupAbortedSession = onCall(async (request) => {
     await batch.commit();
     
     const deletedGamesCount = activeGamesSnapshot.size;
-    const deletedSessionsCount = (sessionDocToDelete ? 1 : 0) + (additionalSessionDocToDelete ? 1 : 0);
+    const deletedSessionsCount = sessionDocToDelete ? 1 : 0;
 
     console.info(`Successfully cleaned up session ${sessionId}: deleted ${deletedSessionsCount} session document(s), ${deletedGamesCount} games, and their rounds`);
 
@@ -1687,49 +1669,49 @@ export const updatePlayerStatsFunction = onCall(async (request) => {
 });
 */
 
-// NEU: ZENTRALER TRIGGER FÜR SPIELER- UND GRUPPENSTATISTIKEN
-export const onJassGameSummaryWritten = onDocumentWritten(
-  "jassGameSummaries/{sessionId}",
+// 🚀 NEUE ARCHITEKTUR: ZENTRALER TRIGGER FÜR NEUE STRUKTUR
+export const onGroupJassGameSummaryWritten = onDocumentWritten(
+  "groups/{groupId}/jassGameSummaries/{sessionId}",
   async (event) => {
     const dataAfter = event.data?.after.data();
     const participantPlayerIds = dataAfter?.participantPlayerIds || [];
-    const groupId = dataAfter?.groupId;
+    const groupId = event.params.groupId; // Direkt aus dem Pfad
     const sessionId = event.params.sessionId;
     const statusAfter = dataAfter?.status;
 
+    logger.info(`[NEW ARCHITECTURE] 🚀 Session ${sessionId} in group ${groupId} triggered stats update`);
+
     // Nur bei completed Sessions Statistiken aktualisieren
     if (statusAfter !== 'completed') {
-      logger.info(`Session ${sessionId} status is '${statusAfter}', not 'completed'. Skipping stats update.`);
+      logger.info(`[NEW ARCHITECTURE] Session ${sessionId} status is '${statusAfter}', not 'completed'. Skipping stats update.`);
       return;
     }
 
     // 1. Spielerstatistiken aktualisieren
     if (participantPlayerIds.length > 0) {
-      logger.info(`JassGameSummary ${sessionId} completed. Triggering stats update for ${participantPlayerIds.length} players.`);
+      logger.info(`[NEW ARCHITECTURE] Triggering stats update for ${participantPlayerIds.length} players.`);
       
       const updatePlayerPromises = participantPlayerIds.map((playerId: string) => {
         return updatePlayerStats(playerId).catch(err => {
-          logger.error(`[onJassGameSummaryWritten] Failed to update stats for player ${playerId} from session ${sessionId}`, err);
+          logger.error(`[NEW ARCHITECTURE] Failed to update stats for player ${playerId} from session ${sessionId}`, err);
         });
       });
 
       await Promise.all(updatePlayerPromises);
-      logger.info(`All player stats updates for session ${sessionId} completed.`);
+      logger.info(`[NEW ARCHITECTURE] All player stats updates for session ${sessionId} completed.`);
     } else {
-      logger.info(`No participants found in summary ${sessionId}. No player stats to update.`);
+      logger.info(`[NEW ARCHITECTURE] No participants found in summary ${sessionId}. No player stats to update.`);
     }
 
     // 2. Gruppenstatistiken aktualisieren
-    if (groupId && typeof groupId === 'string') {
+    if (groupId) {
       try {
-        logger.info(`Triggering group stats update for group ${groupId} after session ${sessionId} completion.`);
+        logger.info(`[NEW ARCHITECTURE] Triggering group stats update for group ${groupId} after session ${sessionId} completion.`);
         await updateGroupComputedStatsAfterSession(groupId);
-        logger.info(`Group stats update for group ${groupId} completed successfully.`);
+        logger.info(`[NEW ARCHITECTURE] Group stats update for group ${groupId} completed successfully.`);
       } catch (error) {
-        logger.error(`[onJassGameSummaryWritten] Failed to update group stats for group ${groupId} from session ${sessionId}`, error);
+        logger.error(`[NEW ARCHITECTURE] Failed to update group stats for group ${groupId} from session ${sessionId}`, error);
       }
-    } else {
-      logger.warn(`No groupId found in session ${sessionId}. Skipping group stats update.`);
     }
   }
 );
@@ -1812,12 +1794,15 @@ export const onGroupDocumentUpdated = onDocumentUpdated(
     logger.info(`[onGroupDocumentUpdated] Group ${groupId} name changed from "${beforeData?.name}" to "${newName}". Updating stats.`);
 
     try {
-      // Aktualisiere groupComputedStats mit dem neuen Namen
-      const groupStatsRef = db.collection('groupComputedStats').doc(groupId);
-      await groupStatsRef.update({
+      // 🚀 NEUE ARCHITEKTUR: Aktualisiere GroupStats mit neuem Namen
+      const updateData = {
         groupName: newName,
         lastUpdateTimestamp: admin.firestore.Timestamp.now()
-      });
+      };
+      
+      logger.info(`[NEW ARCHITECTURE] 📊 Update GroupName für Gruppe ${groupId} zu "${newName}"`);
+      const statsRef = db.collection('groups').doc(groupId).collection('stats').doc('computed');
+      await statsRef.update(updateData);
 
       logger.info(`[onGroupDocumentUpdated] Successfully updated groupName for ${groupId} to "${newName}"`);
     } catch (error) {

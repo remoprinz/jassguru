@@ -111,6 +111,33 @@ const PublicGroupPage = () => {
     loadGroup();
   }, [groupId]);
 
+  // 🚀 NEU: Preload Gruppenbild für sofortige Anzeige
+  useEffect(() => {
+    if (currentGroup?.logoUrl && typeof window !== 'undefined') {
+      console.log('[PublicGroupPage] Preloading group logo:', currentGroup.logoUrl);
+      const link = document.createElement('link');
+      link.rel = 'preload';
+      link.as = 'image';
+      link.href = currentGroup.logoUrl;
+      link.type = 'image/jpeg'; // Standard für Firebase Storage
+      document.head.appendChild(link);
+
+      // Cleanup: Link nach 10 Sekunden entfernen (Browser hat genug Zeit zum Preloaden)
+      const cleanup = setTimeout(() => {
+        if (document.head.contains(link)) {
+          document.head.removeChild(link);
+        }
+      }, 10000);
+
+      return () => {
+        clearTimeout(cleanup);
+        if (document.head.contains(link)) {
+          document.head.removeChild(link);
+        }
+      };
+    }
+  }, [currentGroup?.logoUrl]);
+
   // ===== MITGLIEDER LADEN =====
   useEffect(() => {
     if (!currentGroup) return;

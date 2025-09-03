@@ -1,11 +1,11 @@
-'use client'
+'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { X, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
-import Image from 'next/image'
-import { SCREENSHOT_DATA, ScreenshotData } from '@/constants/screenshotData'
-import { isPWA, isIOS } from '@/utils/browserDetection'
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import Image from 'next/image';
+import { SCREENSHOT_DATA, ScreenshotData } from '@/constants/screenshotData';
+import { isPWA, isIOS } from '@/utils/browserDetection';
 
 interface DesktopFeatureSliderProps {
   isOpen: boolean
@@ -18,68 +18,67 @@ const DesktopFeatureSlider: React.FC<DesktopFeatureSliderProps> = ({
   onClose,
   initialIndex = 0
 }) => {
-  const [currentIndex, setCurrentIndex] = useState(initialIndex)
-  const [currentScreenshot, setCurrentScreenshot] = useState<ScreenshotData>(SCREENSHOT_DATA[0])
-  const [isImageLoading, setIsImageLoading] = useState(true)
-  const [viewportWidth, setViewportWidth] = useState(0)
-  const [viewportHeight, setViewportHeight] = useState(0)
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [currentScreenshot, setCurrentScreenshot] = useState<ScreenshotData>(SCREENSHOT_DATA[0]);
+  const [isImageLoading, setIsImageLoading] = useState(true);
+  const [viewportWidth, setViewportWidth] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(0);
 
   // Navigation handlers mit LOOP-FUNKTIONALITÄT
   const handleNext = useCallback(() => {
     if (currentIndex < SCREENSHOT_DATA.length - 1) {
-      setCurrentIndex(prev => prev + 1)
+      setCurrentIndex(prev => prev + 1);
     } else {
-      setCurrentIndex(0)
+      setCurrentIndex(0);
     }
-  }, [currentIndex])
+  }, [currentIndex]);
 
   const handlePrevious = useCallback(() => {
     if (currentIndex > 0) {
-      setCurrentIndex(prev => prev - 1)
+      setCurrentIndex(prev => prev - 1);
     } else {
-      setCurrentIndex(SCREENSHOT_DATA.length - 1)
+      setCurrentIndex(SCREENSHOT_DATA.length - 1);
     }
-  }, [currentIndex])
+  }, [currentIndex]);
 
   // Update current screenshot when index changes
   useEffect(() => {
     if (currentIndex >= 0 && currentIndex < SCREENSHOT_DATA.length) {
-      setCurrentScreenshot(SCREENSHOT_DATA[currentIndex])
-      setIsImageLoading(true)
+      setCurrentScreenshot(SCREENSHOT_DATA[currentIndex]);
+      setIsImageLoading(true);
     }
-  }, [currentIndex])
+  }, [currentIndex]);
 
   // Jump to specific screenshot
   const handleJumpTo = useCallback((index: number) => {
     if (index >= 0 && index < SCREENSHOT_DATA.length) {
-      setCurrentIndex(index)
+      setCurrentIndex(index);
     }
-  }, [])
-
+  }, []);
 
 
   // Viewport Detection
   useEffect(() => {
     const updateDimensions = () => {
-      setViewportWidth(window.innerWidth)
-      setViewportHeight(window.innerHeight)
-    }
+      setViewportWidth(window.innerWidth);
+      setViewportHeight(window.innerHeight);
+    };
 
-    updateDimensions()
-    window.addEventListener("resize", updateDimensions)
-    return () => window.removeEventListener("resize", updateDimensions)
-  }, [])
+    updateDimensions();
+    window.addEventListener("resize", updateDimensions);
+    return () => window.removeEventListener("resize", updateDimensions);
+  }, []);
 
   // Device Detection
   const deviceInfo = useMemo(() => {
-    const isDesktop = viewportWidth >= 1024
-    const isTablet = viewportWidth >= 768 && viewportWidth < 1024
-    const isMobile = viewportWidth < 768
-    const isPWAMode = isPWA()
-    const isIOSDevice = isIOS()
+    const isDesktop = viewportWidth >= 1024;
+    const isTablet = viewportWidth >= 768 && viewportWidth < 1024;
+    const isMobile = viewportWidth < 768;
+    const isPWAMode = isPWA();
+    const isIOSDevice = isIOS();
     
-    return { isDesktop, isTablet, isMobile, isPWAMode, isIOSDevice }
-  }, [viewportWidth])
+    return { isDesktop, isTablet, isMobile, isPWAMode, isIOSDevice };
+  }, [viewportWidth]);
 
   // Adaptive Layout Configuration
   const layoutConfig = useMemo(() => {
@@ -93,7 +92,7 @@ const DesktopFeatureSlider: React.FC<DesktopFeatureSliderProps> = ({
         titleSize: 'text-6xl', // MASSIV GRÖSSER!
         padding: 'p-12',
         gap: 'gap-12'
-      }
+      };
     } else if (deviceInfo.isTablet) {
       return {
         layout: 'tablet-stacked' as const,
@@ -104,7 +103,7 @@ const DesktopFeatureSlider: React.FC<DesktopFeatureSliderProps> = ({
         titleSize: 'text-3xl',
         padding: 'p-8',
         gap: 'gap-8'
-      }
+      };
     } else {
       return {
         layout: 'mobile-fullscreen' as const,
@@ -115,59 +114,59 @@ const DesktopFeatureSlider: React.FC<DesktopFeatureSliderProps> = ({
         titleSize: 'text-2xl',
         padding: 'p-6',
         gap: 'gap-6'
-      }
+      };
     }
-  }, [deviceInfo, viewportWidth, viewportHeight])
+  }, [deviceInfo, viewportWidth, viewportHeight]);
 
   // Auto-preload images
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen) return;
 
     const preloadImages = () => {
       const indicesToPreload = [
         currentIndex - 1,
         currentIndex + 1
-      ].filter(index => index >= 0 && index < SCREENSHOT_DATA.length)
+      ].filter(index => index >= 0 && index < SCREENSHOT_DATA.length);
 
       indicesToPreload.forEach(index => {
-        const img = document.createElement('img')
-        img.src = SCREENSHOT_DATA[index].src
-      })
-    }
+        const img = document.createElement('img');
+        img.src = SCREENSHOT_DATA[index].src;
+      });
+    };
 
-    preloadImages()
-  }, [currentIndex, isOpen])
+    preloadImages();
+  }, [currentIndex, isOpen]);
 
   // Keyboard navigation
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       switch (event.key) {
         case 'Escape':
-          onClose()
-          break
+          onClose();
+          break;
         case 'ArrowLeft':
-          handlePrevious()
-          break
+          handlePrevious();
+          break;
         case 'ArrowRight':
-          handleNext()
-          break
+          handleNext();
+          break;
       }
-    }
+    };
 
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, onClose, handleNext, handlePrevious])
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose, handleNext, handlePrevious]);
 
   // Reset index when slider opens
   useEffect(() => {
     if (isOpen) {
-      setCurrentIndex(initialIndex)
+      setCurrentIndex(initialIndex);
     }
-  }, [isOpen, initialIndex])
+  }, [isOpen, initialIndex]);
 
-  if (!isOpen) return null
+  if (!isOpen) return null;
 
   // Desktop Two-Column Layout
   if (layoutConfig.layout === 'desktop-two-column') {
@@ -316,7 +315,7 @@ const DesktopFeatureSlider: React.FC<DesktopFeatureSliderProps> = ({
           </>
         )}
       </AnimatePresence>
-    )
+    );
   }
 
   // Tablet and Mobile Layout (optimized but similar to original)
@@ -422,13 +421,13 @@ const DesktopFeatureSlider: React.FC<DesktopFeatureSliderProps> = ({
                         ref={(ref) => {
                           if (ref) {
                             // Auto-scroll aktuellen Dot in Sichtbereich
-                            const currentDot = ref.children[currentIndex] as HTMLElement
+                            const currentDot = ref.children[currentIndex] as HTMLElement;
                             if (currentDot) {
                               currentDot.scrollIntoView({
                                 behavior: 'smooth',
                                 block: 'nearest',
                                 inline: 'center'
-                              })
+                              });
                             }
                           }
                         }}
@@ -489,7 +488,7 @@ const DesktopFeatureSlider: React.FC<DesktopFeatureSliderProps> = ({
         </>
       )}
     </AnimatePresence>
-  )
-}
+  );
+};
 
-export default DesktopFeatureSlider
+export default DesktopFeatureSlider;

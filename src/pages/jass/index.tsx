@@ -22,14 +22,13 @@ const JassPage: React.FC = () => {
 
     // Neu: Überprüfe ob der Benutzer authentifiziert ODER ein Gast ist
     const authStore = useAuthStore.getState();
-    console.log("[JassPage] Auth-Check: isAuthenticated()=", isAuthenticated(), 
-                "status=", status, "isGuest=", authStore.isGuest);
+
                 
     if (!isAuthenticated() && !authStore.isGuest && status !== "loading") {
       console.log("[JassPage] Benutzer ist weder authentifiziert noch Gast, Weiterleitung zur Startseite");
       router.push("/");
     } else {
-      console.log("[JassPage] Benutzer darf auf dieser Seite bleiben: isAuthenticated=", isAuthenticated(), "isGuest=", authStore.isGuest);
+
     }
   }, [isAuthenticated, status, router, isClient]);
 

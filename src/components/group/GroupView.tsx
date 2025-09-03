@@ -640,7 +640,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                   alt={`Logo ${currentGroup?.name ?? 'Gruppe'}`}
                   fill={true}
                   className={`object-cover transition-opacity duration-300 ${isImageLoading ? 'opacity-0' : 'opacity-100'}`}
-                  loading="lazy"
+                  priority={true}
                   sizes="128px"
                   placeholder="blur"
                   blurDataURL={generateBlurPlaceholder()}
@@ -1013,6 +1013,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                         className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
+                                        context="list"
                                       />
                                       <span className="text-gray-300">{playerStat.playerName}</span>
                                     </div>
@@ -1058,6 +1059,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                         className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
+                                        context="list"
                                       />
                                       <span className="text-gray-300">{playerStat.playerName}</span>
                                     </div>
@@ -1200,6 +1202,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                         className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
+                                        context="list"
                                       />
                                       <span className="text-gray-300">{playerStat.playerName}</span>
                                     </div>
@@ -1253,6 +1256,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                         className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
+                                        context="list"
                                       />
                                       <span className="text-gray-300">{playerStat.playerName}</span>
                                     </div>
@@ -1308,6 +1312,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                         className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
+                                        context="list"
                                       />
                                       <span className="text-gray-300">{playerStat.playerName}</span>
                                     </div>
@@ -1363,6 +1368,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                         className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
+                                        context="list"
                                       />
                                       <span className="text-gray-300">{playerStat.playerName}</span>
                                     </div>
@@ -1416,6 +1422,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                         className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
+                                        context="list"
                                       />
                                       <span className="text-gray-300">{playerStat.playerName}</span>
                                     </div>
@@ -1521,6 +1528,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                         className={`mr-2 ${theme.profileImage}`}
                                         fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                         fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
+                                        context="list"
                                       />
                                       <span className="text-gray-300">{playerStat.playerName}</span>
                                     </div>
@@ -1568,6 +1576,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                     fallbackText={team.names[0].charAt(0).toUpperCase()}
+                                    context="list"
                                   />
                                   <ProfileImage 
                                     src={findPlayerPhotoByName(team.names[1], members)} 
@@ -1576,6 +1585,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                     fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
+                                    context="list"
                                   />
                                 </div>
                                 <span className="text-gray-300">{team.names.join(' & ')}</span>
@@ -1621,6 +1631,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                     fallbackText={team.names[0].charAt(0).toUpperCase()}
+                                    context="list"
                                   />
                                   <ProfileImage 
                                     src={findPlayerPhotoByName(team.names[1], members)} 
@@ -1629,6 +1640,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                     fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
+                                    context="list"
                                   />
                                 </div>
                                 <span className="text-gray-300">{team.names.join(' & ')}</span>
@@ -1673,6 +1685,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                     fallbackText={team.names[0].charAt(0).toUpperCase()}
+                                    context="list"
                                   />
                                   <ProfileImage 
                                     src={findPlayerPhotoByName(team.names[1], members)} 
@@ -1681,6 +1694,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                     fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
+                                    context="list"
                                   />
                                 </div>
                                 <span className="text-gray-300">{team.names.join(' & ')}</span>
@@ -1727,6 +1741,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                     fallbackText={team.names[0].charAt(0).toUpperCase()}
+                                    context="list"
                                   />
                                   <ProfileImage 
                                     src={findPlayerPhotoByName(team.names[1], members)} 
@@ -1735,6 +1750,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                     fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
+                                    context="list"
                                   />
                                 </div>
                                 <span className="text-gray-300">{team.names.join(' & ')}</span>
@@ -1966,6 +1982,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                     fallbackText={team.names[0].charAt(0).toUpperCase()}
+                                    context="list"
                                   />
                                   <ProfileImage 
                                     src={findPlayerPhotoByName(team.names[1], members)} 
@@ -1974,6 +1991,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                     fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
+                                    context="list"
                                   />
                                 </div>
                                 <span className="text-gray-300">{team.names.join(' & ')}</span>
@@ -2011,6 +2029,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                     fallbackText={team.names[0].charAt(0).toUpperCase()}
+                                    context="list"
                                   />
                                   <ProfileImage 
                                     src={findPlayerPhotoByName(team.names[1], members)} 
@@ -2019,6 +2038,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     fallbackClassName="bg-gray-700 text-gray-300 text-sm"
                                     fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
+                                    context="list"
                                   />
                                 </div>
                                 <span className="text-gray-300">{team.names.join(' & ')}</span>

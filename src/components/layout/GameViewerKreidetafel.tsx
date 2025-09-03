@@ -445,15 +445,7 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
 
   // NEU: useEffect für Auto-Show Notification beim ersten Mal
   useEffect(() => {
-    console.log('[GameViewer] Auto-show check:', {
-      jassSpruch: !!jassSpruch,
-      jassSpruchType: typeof jassSpruch,
-      hasShownAutoNotification,
-      generatedBy: jassSpruch?.generatedBy,
-      userUid: user?.uid,
-      isMatch: jassSpruch?.generatedBy === user?.uid,
-      sessionId: gameData.sessionId
-    });
+
 
     if (
       jassSpruch &&                     // Spruch vorhanden
@@ -664,13 +656,13 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
   return (
     <>
       {/* 1. Swipe-Handler am äußersten Div, h-full und touch-action-pan-x hinzufügen */}
-      <div id="game-viewer-kreidetafel" {...swipeHandlers} className="relative flex flex-col bg-gradient-radial from-gray-800 to-gray-900 text-white p-4 md:p-6 max-w-md mx-auto h-full touch-action-pan-x pt-8">
+      <div id="game-viewer-kreidetafel" {...swipeHandlers} className="relative flex flex-col bg-gradient-radial from-gray-800 to-gray-900 text-white p-4 md:p-6 max-w-md mx-auto h-full touch-action-pan-x pt-24">
       
       {/* 🚨 ZURÜCK-PFEIL: Exakt wie in [playerId].tsx */}
       {onBackClick && (
         <Button 
           variant="ghost" 
-          className="absolute top-8 left-4 text-white hover:bg-gray-700 p-3"
+          className="absolute top-12 left-4 text-white hover:bg-gray-700 p-3"
           aria-label="Zurück"
           onClick={onBackClick}
         >
@@ -682,7 +674,7 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
       <button 
         onClick={onShareClick}
         disabled={isSharing}
-        className="absolute top-8 right-4 z-10 p-2 text-gray-300 hover:text-white transition-colors duration-200 rounded-full bg-gray-700/50 hover:bg-gray-600/70 disabled:opacity-50 disabled:cursor-wait"
+        className="absolute top-12 right-4 z-10 p-2 text-gray-300 hover:text-white transition-colors duration-200 rounded-full bg-gray-700/50 hover:bg-gray-600/70 disabled:opacity-50 disabled:cursor-wait"
         aria-label="Ergebnis teilen"
       >
         {isSharing ? (
@@ -750,10 +742,10 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
                 cardStyle: activeCardStyle,
                 strokeSettings: activeStrokeSettings,
                 scoreSettings: activeScoreSettings, // Pass score settings
-                // NEU: activeGameScores direkt aus dem letzten Spiel der History übergeben
-                activeGameScores: ('finalScores' in currentGame && currentGame.finalScores) 
+                // ✅ KORREKTUR: Null-Check für currentGame hinzufügen
+                activeGameScores: currentGame && ('finalScores' in currentGame && currentGame.finalScores) 
                                 ? currentGame.finalScores 
-                                : ('teams' in currentGame && currentGame.teams && 'total' in currentGame.teams.top && 'total' in currentGame.teams.bottom) // Typsicherheit hier hinzufügen
+                                : currentGame && ('teams' in currentGame && currentGame.teams && 'total' in currentGame.teams.top && 'total' in currentGame.teams.bottom) // Typsicherheit hier hinzufügen
                                     ? { top: currentGame.teams.top.total, bottom: currentGame.teams.bottom.total }
                                     : { top: 0, bottom: 0 },
                 currentGameId: currentGame?.gameNumber ?? 0, // KORREKTUR: Fallback für undefined

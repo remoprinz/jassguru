@@ -2365,11 +2365,9 @@ export const useGameStore = create<GameStore>()(
               currentPlayer: baseResetState.currentPlayer || 1,
             };
 
-            console.log(`[GameStore] resetGameState durchgeführt. activeGameId: ${newState.activeGameId}, isGameStarted: ${newState.isGameStarted}, playerNames: ${JSON.stringify(newState.playerNames).substring(0, 50)}...`,
-            "Farbe CardStyle:", newState.farbeSettings?.cardStyle,
-            "Score Sieg:", newState.scoreSettings?.values.sieg,
-            "Stroke Schneider:", newState.strokeSettings?.schneider
-            );
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`[GameStore] resetGameState completed. ActiveGameId: ${newState.activeGameId}`);
+            }
             return newState; // Stellen sicher, dass der neue State zurückgegeben wird
           });
         },

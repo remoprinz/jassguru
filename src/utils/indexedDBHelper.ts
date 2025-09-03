@@ -75,7 +75,7 @@ class OfflineDBHelper {
       const request = store.add(item);
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
-        console.log(`[OfflineDB] ✅ Sync item added to queue: ${item.id}`);
+
         resolve();
       };
     });
@@ -113,7 +113,7 @@ class OfflineDBHelper {
       const request = store.delete(id);
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
-        console.log(`[OfflineDB] ✅ Sync item removed from queue: ${id}`);
+
         resolve();
       };
     });

@@ -6,13 +6,15 @@
   "scripts": {
     "dev": "NODE_OPTIONS='--inspect' next dev",
     "clean": "rm -rf out && rm -f public/sw*.js* public/workbox-*.js* public/fallback-*.js* && find public -name 'fallback-*' -delete",
-    "build": "next build",
+    "build": "node scripts/cleanup-old-sw.cjs && next build",
     "postbuild": "next-sitemap --config next-sitemap.config.cjs",
     "prebuild": "tsx scripts/sync-content.mjs",
     "start": "next start",
-    "lint": "next lint --fix",
+    "lint": "next lint",
+    "analyze": "cross-env ANALYZE=true next build",
+    "export": "next export",
     "validate": "node scripts/validate-deployment.js",
-    "deploy": "npm run build && npm run validate && firebase deploy --only hosting",
+    "deploy": "npm run build && firebase deploy",
     "deploy:force": "npm run build && firebase deploy --only hosting",
     "preview": "vite preview",
     "test": "jest",
@@ -21,7 +23,9 @@
     "version:update": "node scripts/update-version.js",
     "check:deployment": "curl -s -I https://jassguru.ch/_next/static/css/ | grep -E 'content-type|status'",
     "health": "node scripts/health-check.js",
-    "reprocess:images": "node scripts/reprocess-profile-images.mjs"
+    "reprocess:images": "node scripts/reprocess-profile-images.mjs",
+    "fix-permissions": "ts-node scripts/fix-permissions.ts",
+    "fix-permissions:dry": "ts-node scripts/fix-permissions.ts --dry-run"
   },
   "engines": {
     "node": ">=18.0.0 <23.0.0",

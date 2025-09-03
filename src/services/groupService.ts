@@ -14,6 +14,7 @@ import {
   auth,
 } from "./firebaseInit";
 // import { documentId } from "firebase/firestore"; // Entfernt
+import { compressImage } from "@/utils/imageUtils";
 import {
   GROUPS_COLLECTION,
   PLAYERS_COLLECTION,
@@ -652,9 +653,19 @@ export const uploadGroupLogo = async (groupId: string, file: File): Promise<stri
       throw new Error(`Logo ist zu groß (${fileSizeInMB.toFixed(2)} MB). Maximum: 5 MB.`);
     }
 
+    // 🔥 NEU: Logo komprimieren für bessere Performance
+    console.log(`[groupService] Komprimiere Gruppenlogo: ${file.size} bytes`);
+    const compressedFile = await compressImage(file, 512, 0.85); // 512px für Gruppenlogos
+    if (!compressedFile) {
+      console.warn("[groupService] Bildkomprimierung fehlgeschlagen, verwende Original");
+    }
+    
+    const finalFile = compressedFile || file;
+    console.log(`[groupService] Upload-Dateigröße: ${finalFile.size} bytes (${((finalFile.size / file.size) * 100).toFixed(1)}% des Originals)`);
+
     // Datei hochladen
     console.log(`Lade Gruppenlogo hoch nach ${filePath}...`);
-    const uploadResult = await uploadBytes(storageRef, file);
+    const uploadResult = await uploadBytes(storageRef, finalFile);
     console.log("Upload erfolgreich.");
 
     // Download-URL holen

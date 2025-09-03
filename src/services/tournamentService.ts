@@ -19,6 +19,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebaseInit'; // Nur db importieren
 import { getPublicPlayerProfilesByUserIds } from './playerService';
+import { compressImage } from "@/utils/imageUtils";
 import type {
   TournamentInstance,
   TournamentGame,
@@ -1029,8 +1030,18 @@ export const uploadTournamentLogoFirebase = async (tournamentId: string, file: F
   const fileStorageRef = storageRef(storage, filePath); // Alias `storageRef` verwenden
 
   try {
+    // 🔥 NEU: Logo komprimieren für bessere Performance
+    console.log(`[tournamentService] Komprimiere Turnierlogo: ${file.size} bytes`);
+    const compressedFile = await compressImage(file, 512, 0.85); // 512px für Turnierlogos
+    if (!compressedFile) {
+      console.warn("[tournamentService] Bildkomprimierung fehlgeschlagen, verwende Original");
+    }
+    
+    const finalFile = compressedFile || file;
+    console.log(`[tournamentService] Upload-Dateigröße: ${finalFile.size} bytes (${((finalFile.size / file.size) * 100).toFixed(1)}% des Originals)`);
+
     console.log(`[tournamentService] Uploading tournament logo to: ${filePath}`);
-    const snapshot = await uploadBytes(fileStorageRef, file);
+    const snapshot = await uploadBytes(fileStorageRef, finalFile);
     const downloadURL = await getDownloadURL(snapshot.ref);
     console.log("[tournamentService] Tournament logo uploaded successfully. Download URL:", downloadURL);
     return downloadURL;

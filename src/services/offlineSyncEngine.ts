@@ -125,7 +125,9 @@ class OfflineSyncEngine {
     
     try {
       await offlineDB.addToSyncQueue(queueItem);
-      console.log(`[SyncEngine] ✅ Game finalization queued: ${queueItem.id}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[SyncEngine] ✅ Game finalization queued: ${queueItem.id}`);
+      }
       
       // Try immediate sync if online
       if (this.isOnline) {
@@ -169,7 +171,9 @@ class OfflineSyncEngine {
         return;
       }
       
-      console.log(`[SyncEngine] 🔄 Processing ${pendingItems.length} pending sync items`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[SyncEngine] 🔄 Processing ${pendingItems.length} pending sync items`);
+      }
       
       // Process items in batches
       const batchSize = this.config.batchSize;
@@ -205,14 +209,18 @@ class OfflineSyncEngine {
         return; // Too soon to retry
       }
       
-      console.log(`[SyncEngine] 🔄 Attempting sync for item ${item.id} (attempt ${item.attempts + 1})`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[SyncEngine] 🔄 Attempting sync for item ${item.id} (attempt ${item.attempts + 1})`);
+      }
       
       // Attempt to sync
       await this.syncGameFinalization(item);
       
       // Success - remove from queue
       await offlineDB.removeSyncItem(item.id);
-      console.log(`[SyncEngine] ✅ Successfully synced item ${item.id}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[SyncEngine] ✅ Successfully synced item ${item.id}`);
+      }
       
     } catch (error) {
       console.warn(`[SyncEngine] ⚠️ Sync attempt failed for item ${item.id}:`, error);
@@ -238,14 +246,18 @@ class OfflineSyncEngine {
     try {
       // 1. Save completed game to Firestore
       await saveCompletedGameToFirestore(sessionId, gameNumber, gameData, false);
-      console.log(`[SyncEngine] ✅ Completed game saved to Firestore: Session ${sessionId}, Game ${gameNumber}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[SyncEngine] ✅ Completed game saved to Firestore: Session ${sessionId}, Game ${gameNumber}`);
+      }
       
       // 2. Clear active game ID from session (if this was the last game)
       // This is optional and depends on your business logic
       if (gameData.clearActiveGameId !== false) {
         try {
           await updateSessionActiveGameId(sessionId, null);
-          console.log(`[SyncEngine] ✅ Session activeGameId cleared: ${sessionId}`);
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[SyncEngine] ✅ Session activeGameId cleared: ${sessionId}`);
+          }
         } catch (sessionError) {
           console.warn(`[SyncEngine] ⚠️ Failed to clear session activeGameId (non-critical):`, sessionError);
           // Don't fail the entire sync for this

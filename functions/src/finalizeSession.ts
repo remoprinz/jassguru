@@ -6,7 +6,6 @@ import { updateGroupComputedStatsAfterSession } from './groupStatsCalculator'; /
 
 const db = admin.firestore();
 
-const JASS_SUMMARIES_COLLECTION = 'jassGameSummaries';
 const COMPLETED_GAMES_SUBCOLLECTION = 'completedGames';
 
 
@@ -196,7 +195,7 @@ export interface SessionSummary {
   };
 }
 
-export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSessionData>) => {
+export const finalizeSession = onCall({ region: "europe-west1" }, async (request: CallableRequest<FinalizeSessionData>) => {
   logger.info("--- finalizeSession START ---", { data: request.data });
 
   if (!request.auth) {
@@ -224,7 +223,17 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
     throw new HttpsError("invalid-argument", "Client must provide participantPlayerIds.");
   }
 
-  const summaryDocRef = db.collection(JASS_SUMMARIES_COLLECTION).doc(sessionId);
+  // 🚀 NEUE ARCHITEKTUR: Direkt neue Struktur verwenden
+  if (!initialDataFromClient.gruppeId) {
+    throw new HttpsError("invalid-argument", "Group ID is required for session finalization.");
+  }
+  
+  const groupId = initialDataFromClient.gruppeId;
+  logger.info(`[finalizeSession] Using NEW structure for group ${groupId}`);
+  
+  // 🚀 NEUE ARCHITEKTUR: Alle Daten unter der Gruppe
+  const summaryDocRef = db.collection(`groups/${groupId}/jassGameSummaries`).doc(sessionId);
+  // 🚀 NEUE ARCHITEKTUR: CompletedGames auch unter der Gruppe
   const completedGamesColRef = summaryDocRef.collection(COMPLETED_GAMES_SUBCOLLECTION);
 
   try {
@@ -256,7 +265,9 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
       const summarySnap = await transaction.get(summaryDocRef);
       const gamesSnap = await transaction.get(completedGamesColRef.orderBy("gameNumber"));
       
-      const existingSummaryData = summarySnap.exists ? summarySnap.data() : null;
+      // 🔧 FIREBASE ADMIN SDK FIX: Safe type conversion
+      const summaryDocSnap = summarySnap as unknown as admin.firestore.DocumentSnapshot;
+      const existingSummaryData = summaryDocSnap.exists ? summaryDocSnap.data() : null;
 
       if (existingSummaryData && existingSummaryData.status === "completed") {
         logger.warn(`Session ${sessionId} is already completed. Skipping finalization.`);
@@ -682,8 +693,17 @@ export const finalizeSession = onCall(async (request: CallableRequest<FinalizeSe
         finalUpdateData.gameWinsByPlayer = gameWinsByPlayer;
       }
       
-      // SCHREIBVORGANG
-      transaction.set(summaryDocRef, finalUpdateData, { merge: true });
+      // 🚀 NEUE ARCHITEKTUR: Direkte Speicherung in neuer Struktur
+      logger.info(`[finalizeSession] 📊 Writing session ${sessionId} to NEW structure: groups/${groupId}/jassGameSummaries`);
+      
+      // Entferne groupId aus den Daten (nicht nötig in neuer Struktur)
+      const newFinalUpdateData = { ...finalUpdateData };
+      if ('groupId' in newFinalUpdateData) {
+        delete (newFinalUpdateData as any).groupId;
+      }
+      
+      transaction.set(summaryDocRef, newFinalUpdateData, { merge: true });
+      
       logger.info(`--- Transaction END for ${sessionId} (document set/merged) ---`);
       
       // IDs für die spätere Löschung sammeln

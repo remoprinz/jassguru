@@ -38,6 +38,7 @@ import {auth, db, isFirebaseReady} from "./firebaseInit";
 import type { AuthUser } from "@/types/auth";
 import type { FirestorePlayer } from "@/types/jass";
 import { getPlayerIdForUser, updatePlayerDocument } from "./playerService";
+import { compressImage } from "@/utils/imageUtils";
 
 // Type-Definition für Firebase Auth Fehler
 interface FirebaseAuthError extends Error {
@@ -256,11 +257,22 @@ export const uploadProfilePicture = async (file: File, userId: string): Promise<
   const currentUser = getAuth().currentUser;
   if (!currentUser || currentUser.uid !== userId) throw new Error("Authentication error.");
 
+  // 🔥 NEU: Bild automatisch komprimieren für bessere Performance
+  console.log(`[authService] Komprimiere Profilbild: ${file.size} bytes`);
+  const compressedFile = await compressImage(file, 400, 0.8); // 400px für Profilbilder
+  if (!compressedFile) {
+    console.warn("[authService] Bildkomprimierung fehlgeschlagen, verwende Original");
+    // Fallback auf Original-Datei
+  }
+  
+  const finalFile = compressedFile || file;
+  console.log(`[authService] Upload-Dateigröße: ${finalFile.size} bytes (${((finalFile.size / file.size) * 100).toFixed(1)}% des Originals)`);
+
   const storage = getStorage();
   const storageRef = ref(storage, `profileImages/${userId}/profile.${file.name.split('.').pop()}`);
   
-    const snapshot = await uploadBytes(storageRef, file);
-    const downloadURL = await getDownloadURL(snapshot.ref);
+  const snapshot = await uploadBytes(storageRef, finalFile);
+  const downloadURL = await getDownloadURL(snapshot.ref);
 
     await firebaseUpdateProfile(currentUser, { photoURL: downloadURL });
 

@@ -24,6 +24,7 @@ const UPDATE_DEBOUNCE_MS = 1000; // Mindestzeit zwischen Updates
 export const createActiveGame = async (
   initialGameData: Omit<ActiveGame, 'createdAt' | 'lastUpdated' | 'status' | 'gameStartTime' | 'jassStartTime'> & { groupId: string } // Stellen sicher, dass groupId vorhanden ist
 ): Promise<string> => {
+  // ✅ VEREINFACHT: Direkte Firestore-Operationen (kein DualWrite für temporäre Daten)
   const activeGamesRef = collection(db, 'activeGames');
   const newGameRef = doc(activeGamesRef); // Firestore generiert eine ID
   const gameId = newGameRef.id;
@@ -42,6 +43,7 @@ export const createActiveGame = async (
   };
 
   try {
+    // ✅ DIREKT: Alte Struktur für temporäre ActiveGames
     await setDoc(newGameRef, gameData);
   
     return gameId;
@@ -302,6 +304,7 @@ export const saveRoundToFirestore = async (
         currentJassPoints: roundEntry.jassPoints, // Aktuelle Jass-Punkte
         isRoundCompleted: roundEntry.isRoundFinalized, // Runden-Status
         gamePlayers: gameStore.gamePlayers, // Strukturierte Spielerdaten
+        roundHistory: gameStore.roundHistory, // ✅ KRITISCH: roundHistory für Live-Zuschauer
       });
       
       try {
@@ -361,7 +364,7 @@ export const loadRoundsFromFirestore = async (
     const querySnapshot = await getDocs(q);
     
     if (querySnapshot.empty) {
-      console.log(`[GameService] No rounds found for game ${activeGameId}`);
+
       return [];
     }
     
@@ -461,6 +464,7 @@ export const saveCompletedGameToFirestore = async (
   // Verwende die stabile jassSessionId aus dem jassStore als primäre ID
   // Fallback auf die übergebene sessionId, falls keine jassSessionId existiert
   const jassSessionId = useJassStore.getState().jassSessionId || sessionId;
+  const currentSession = useJassStore.getState().currentSession;
   
   if (!jassSessionId) {
     console.error("[saveCompletedGameToFirestore] Keine gültige Session-ID gefunden.");
@@ -468,7 +472,15 @@ export const saveCompletedGameToFirestore = async (
   }
 
   const docId = String(gameNumber); // Dokument-ID basierend auf gameNumber
-  const gameSummaryRef = doc(db, `jassGameSummaries/${jassSessionId}/completedGames/${docId}`);
+  
+  // 🚀 NEUE ARCHITEKTUR: CompletedGame in neue Gruppenstruktur schreiben (OHNE Fallback)
+  if (!currentSession?.gruppeId) {
+    console.error(`[saveCompletedGameToFirestore] No groupId found for session ${jassSessionId}`);
+    return false;
+  }
+  
+
+  const gameSummaryRef = doc(db, 'groups', currentSession.gruppeId, 'jassGameSummaries', jassSessionId, 'completedGames', docId);
 
   try {
     // Prüfung, ob das Dokument bereits existiert
@@ -482,7 +494,7 @@ export const saveCompletedGameToFirestore = async (
       if ((!existingData.roundHistory || existingData.roundHistory.length === 0) && 
           summaryData.roundHistory && summaryData.roundHistory.length > 0) {
         
-        console.log(`[saveCompletedGameToFirestore] Dokument ${docId} existiert bereits, aber ohne Rundenhistorie. Aktualisiere mit neuer Rundenhistorie.`);
+
         
         // Nur die roundHistory und trumpColorsPlayed aktualisieren
         await updateDoc(gameSummaryRef, {
@@ -500,7 +512,7 @@ export const saveCompletedGameToFirestore = async (
         
         return true;
       } else {
-        console.log(`[saveCompletedGameToFirestore] Dokument ${docId} existiert bereits mit Rundenhistorie. Überspringe Speichern.`);
+
         return true; // Überspringen des Speicherns gilt als Erfolg
       }
     }
@@ -520,7 +532,7 @@ export const saveCompletedGameToFirestore = async (
         }
         return updatedEntry;
       });
-      console.log(`[saveCompletedGameToFirestore] Rundenhistorie für Spiel ${gameNumber} neu nummeriert. Länge: ${renumberedHistory.length}`);
+
     } else {
       console.warn(`[saveCompletedGameToFirestore] Keine gültige Rundenhistorie zum Neunummerieren in Spiel ${gameNumber} gefunden.`);
     }
@@ -534,7 +546,7 @@ export const saveCompletedGameToFirestore = async (
     // Bereinige die Daten vor dem Speichern
     const cleanedSummaryData = sanitizeDataForFirestore(dataToSave); 
     
-    console.log(`[saveCompletedGameToFirestore] Speichere neues Spiel ${gameNumber} für Session ${jassSessionId} mit ${renumberedHistory.length} Runden.`);
+
 
     // Spiel speichern
     await setDoc(gameSummaryRef, cleanedSummaryData);
@@ -568,7 +580,8 @@ export const saveCompletedGameToFirestore = async (
  * @returns Ein Promise mit einem Array von CompletedGameSummary-Objekten
  */
 export const fetchCompletedGamesFromFirestore = async (
-  sessionId: string
+  sessionId: string,
+  groupId?: string
 ): Promise<CompletedGameSummary[]> => {
   if (!sessionId) {
     console.warn("[GameService] fetchCompletedGamesFromFirestore called without sessionId.");
@@ -576,7 +589,23 @@ export const fetchCompletedGamesFromFirestore = async (
   }
   const db = getFirestore(firebaseApp);
   try {
-    const completedGamesRef = collection(db, 'jassGameSummaries', sessionId, 'completedGames');
+    // 🚀 NEUE ARCHITEKTUR: GroupId aus Session ermitteln (OHNE Fallback)
+    const sessionDoc = await getDoc(doc(db, 'sessions', sessionId));
+    let groupId: string | null = null;
+    
+    if (sessionDoc.exists()) {
+      const sessionData = sessionDoc.data();
+      groupId = sessionData?.groupId || sessionData?.gruppeId || null;
+    }
+    
+    if (!groupId) {
+      console.error(`[fetchCompletedGamesFromFirestore] No groupId found for session ${sessionId}`);
+      return [];
+    }
+    
+
+    const completedGamesRef = collection(db, 'groups', groupId, 'jassGameSummaries', sessionId, 'completedGames');
+    
     const q = query(completedGamesRef, orderBy('gameNumber', 'asc'));
     const querySnapshot = await getDocs(q);
     
@@ -614,23 +643,57 @@ export const loadCompletedGamesFromFirestore = (
     console.error("[GameService] loadCompletedGamesFromFirestore aufgerufen ohne sessionId.");
     return () => {}; // Leere Unsubscribe-Funktion zurückgeben
   }
+  
   const db = getFirestore(firebaseApp);
-  const gamesRef = collection(db, 'jassGameSummaries', sessionId, 'completedGames');
-  const q = query(gamesRef, orderBy('gameNumber', 'asc'));
+  let unsubscribeFunction: Unsubscribe = () => {};
+  
+  // 🚀 NEUE ARCHITEKTUR: GroupId aus Session ermitteln und dann Listener einrichten
+  const setupListener = async () => {
+    try {
+      const sessionDoc = await getDoc(doc(db, 'sessions', sessionId));
+      let groupId: string | null = null;
+      
+      if (sessionDoc.exists()) {
+        const sessionData = sessionDoc.data();
+        groupId = sessionData?.groupId || sessionData?.gruppeId || null;
+      }
+      
+      if (!groupId) {
+        console.error(`[loadCompletedGamesFromFirestore] No groupId found for session ${sessionId}`);
+        onUpdate([]);
+        return;
+      }
+      
 
-  const unsubscribe = onSnapshot(q, (querySnapshot) => {
-    const games: CompletedGameSummary[] = [];
-    querySnapshot.forEach((doc) => {
-      games.push({ ...doc.data() } as CompletedGameSummary);
-    });
-    onUpdate(games);
-  }, (error) => {
-    console.error(`[GameService] Fehler beim Laden der abgeschlossenen Spiele für Session ${sessionId}:`, error);
-    // Bei einem Fehler eine leere Liste an den Callback übergeben, um den State zu leeren
-    onUpdate([]);
-  });
+      const gamesRef = collection(db, 'groups', groupId, 'jassGameSummaries', sessionId, 'completedGames');
+      
+      const q = query(gamesRef, orderBy('gameNumber', 'asc'));
 
-  return unsubscribe;
+      unsubscribeFunction = onSnapshot(q, (querySnapshot) => {
+        const games: CompletedGameSummary[] = [];
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          if (data) {
+            games.push(data as CompletedGameSummary);
+          }
+        });
+        onUpdate(games);
+      }, (error) => {
+        console.error(`[GameService] Fehler beim Laden der abgeschlossenen Spiele für Session ${sessionId}:`, error);
+        onUpdate([]);
+      });
+      
+    } catch (error) {
+      console.error(`[GameService] Fehler beim Setup des CompletedGames Listeners für Session ${sessionId}:`, error);
+      onUpdate([]);
+    }
+  };
+  
+  // Setup asynchron starten
+  setupListener();
+  
+  // Return-Funktion die den tatsächlichen unsubscribe aufruft
+  return () => unsubscribeFunction();
 };
 
 /**
@@ -649,41 +712,63 @@ export const subscribeToCompletedGames = (
     return () => {}; // Dummy-Unsubscribe-Funktion
   }
 
-  try {
-    // Referenz zur completedGames-Subkollektion der Session
-    const completedGamesRef = collection(db, 'jassGameSummaries', sessionId, 'completedGames');
-    
-    // Query: Sortiere nach gameNumber
-    const q = query(completedGamesRef, orderBy('gameNumber', 'asc'));
-    
-    // Richtet den Echtzeit-Listener ein
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const completedGames: CompletedGameSummary[] = [];
+  const db = getFirestore(firebaseApp);
+  let unsubscribeFunction: Unsubscribe = () => {};
+  
+  // 🚀 NEUE ARCHITEKTUR: GroupId aus Session ermitteln und dann Listener einrichten
+  const setupListener = async () => {
+    try {
+      const sessionDoc = await getDoc(doc(db, 'sessions', sessionId));
+      let groupId: string | null = null;
       
-      snapshot.forEach((doc) => {
-        const data = doc.data() as CompletedGameSummary;
-        completedGames.push(data);
+      if (sessionDoc.exists()) {
+        const sessionData = sessionDoc.data();
+        groupId = sessionData?.groupId || sessionData?.gruppeId || null;
+      }
+      
+      if (!groupId) {
+        console.error(`[subscribeToCompletedGames] No groupId found for session ${sessionId}`);
+        callback([]);
+        return;
+      }
+      
+
+      const completedGamesRef = collection(db, 'groups', groupId, 'jassGameSummaries', sessionId, 'completedGames');
+      
+      const q = query(completedGamesRef, orderBy('gameNumber', 'asc'));
+      
+      unsubscribeFunction = onSnapshot(q, (snapshot) => {
+        const completedGames: CompletedGameSummary[] = [];
+        
+        snapshot.forEach((doc) => {
+          const data = doc.data() as CompletedGameSummary;
+          completedGames.push(data);
+        });
+        
+        console.log(`[GameService] Snapshot update: ${completedGames.length} completed games for session ${sessionId}`);
+        callback(completedGames);
+      }, (error) => {
+        console.error(`[GameService] Error in completed games snapshot listener for session ${sessionId}:`, error);
+        useUIStore.getState().showNotification({
+          type: "error",
+          message: "Fehler bei der Echtzeitaktualisierung der abgeschlossenen Spiele.",
+        });
       });
       
-      console.log(`[GameService] Snapshot update: ${completedGames.length} completed games for session ${sessionId}`);
-      callback(completedGames);
-    }, (error) => {
-      console.error(`[GameService] Error in completed games snapshot listener for session ${sessionId}:`, error);
+    } catch (error) {
+      console.error(`[GameService] Error setting up completed games listener for session ${sessionId}:`, error);
       useUIStore.getState().showNotification({
         type: "error",
-        message: "Fehler bei der Echtzeitaktualisierung der abgeschlossenen Spiele.",
+        message: "Fehler beim Einrichten des Listeners für abgeschlossene Spiele.",
       });
-    });
-    
-    return unsubscribe;
-  } catch (error) {
-    console.error(`[GameService] Error setting up completed games listener for session ${sessionId}:`, error);
-    useUIStore.getState().showNotification({
-      type: "error",
-      message: "Fehler beim Einrichten des Listeners für abgeschlossene Spiele.",
-    });
-    return () => {}; // Dummy-Unsubscribe-Funktion im Fehlerfall
-  }
+    }
+  };
+  
+  // Setup asynchron starten
+  setupListener();
+  
+  // Return-Funktion die den tatsächlichen unsubscribe aufruft
+  return () => unsubscribeFunction();
 };
 
 /**
@@ -880,8 +965,23 @@ export const cleanupDuplicateCompletedGames = async (sessionId: string): Promise
   console.log(`[Cleanup] Starte Bereinigung für Session ${sessionId}...`);
   const db = getFirestore(firebaseApp);
   try {
-    // Referenz zur completedGames-Subkollektion
-    const gamesRef = collection(db, `jassGameSummaries/${sessionId}/completedGames`);
+    // 🚀 NEUE ARCHITEKTUR: GroupId aus Session ermitteln (OHNE Fallback)
+    const sessionDoc = await getDoc(doc(db, 'sessions', sessionId));
+    let groupId: string | null = null;
+    
+    if (sessionDoc.exists()) {
+      const sessionData = sessionDoc.data();
+      groupId = sessionData?.groupId || sessionData?.gruppeId || null;
+    }
+    
+    if (!groupId) {
+      console.error(`[cleanupDuplicateCompletedGames] No groupId found for session ${sessionId}`);
+      return;
+    }
+    
+
+    const gamesRef = collection(db, 'groups', groupId, 'jassGameSummaries', sessionId, 'completedGames');
+    
     const snapshot = await getDocs(gamesRef); // Alle Dokumente holen
 
     if (snapshot.empty) {
@@ -927,6 +1027,7 @@ export const cleanupDuplicateCompletedGames = async (sessionId: string): Promise
 export const createNewActiveGame = async (
   initialState: Omit<ActiveGame, 'activeGameId' | 'createdAt' | 'lastUpdated' | 'status' | 'gameStartTime' | 'jassStartTime'> & { participantUids: string[], groupId: string, sessionId: string }
 ): Promise<string> => {
+  // ✅ VEREINFACHT: Direkte Firestore-Operationen für temporäre ActiveGames
   const activeGamesRef = collection(db, 'activeGames');
   // KORREKTUR: ID VORHER generieren mit doc()
   const newGameDocRef = doc(activeGamesRef); 
@@ -953,14 +1054,14 @@ export const createNewActiveGame = async (
   try {
     // Bereinige die Daten vor dem Hinzufügen
     const cleanedGameData = sanitizeDataForFirestore(gameData);
-    // KORREKTUR: Verwende setDoc mit der generierten Ref
-    await setDoc(newGameDocRef, cleanedGameData); 
-    console.log(`[GameService] Successfully created NEW active game document with ID: ${newGameId} using setDoc.`);
-    // KORREKTUR: Der separate updateDoc ist jetzt überflüssig
-    // await updateDoc(docRef, { activeGameId: docRef.id });
+    
+    // ✅ DIREKT: Alte Struktur für temporäre ActiveGames  
+    await setDoc(newGameDocRef, cleanedGameData);
+    
+    console.log(`[GameService] Successfully created NEW active game document with ID: ${newGameId}.`);
     return newGameId; // Gib die generierte ID zurück
   } catch (error) {
-    console.error("[GameService] Error creating NEW active game document using setDoc: ", error);
+    console.error("[GameService] Error creating NEW active game document: ", error);
     useUIStore.getState().showNotification({
       type: "error",
       message: "Fehler beim Erstellen des neuen Online-Spiels.",
@@ -986,7 +1087,7 @@ export const updateSessionActiveGameId = async (
       lastUpdated: serverTimestamp(),
     });
     await updateDoc(sessionDocRef, updateData);
-    console.log(`[GameService] Session ${sessionId} updated with activeGameId: ${newActiveGameId}`);
+
   } catch (error) {
      console.error(`[GameService] Error updating session ${sessionId} with activeGameId ${newActiveGameId}: `, error);
      // Fehler weiterleiten, falls die aufrufende Logik ihn behandeln muss
@@ -1012,21 +1113,48 @@ export const createSessionDocument = async (
   }
   const sessionDocRef = doc(db, 'sessions', sessionId);
   try {
+    // ✅ PERMISSION-FIX: Stelle sicher, dass beide ID-Arrays gesetzt sind
+    const participantPlayerIds = initialData.participantPlayerIds?.length 
+      ? initialData.participantPlayerIds 
+      : await getPlayerIdsFromUids(initialData.participantUids);
+
     const fullData = sanitizeDataForFirestore({
       ...initialData,
-      participantPlayerIds: initialData.participantPlayerIds || [], // Leeres Array als Standard
+      participantUids: initialData.participantUids || [], // Sicher stellen
+      participantPlayerIds: participantPlayerIds || [], // Aus UIDs ableiten falls nicht gegeben
       startedAt: serverTimestamp(),
       lastUpdated: serverTimestamp(),
       currentActiveGameId: null, // Beginnt ohne aktives Spiel
-      notes: "" // Nur noch dieses eine optionale Feld für Notizen
+      notes: "", // Nur noch dieses eine optionale Feld für Notizen
+      createdBy: initialData.participantUids?.[0] || null // Erster User als Creator
     });
     await setDoc(sessionDocRef, fullData);
-    console.log(`[GameService] Session document ${sessionId} created successfully.`);
+
   } catch (error) {
     console.error(`[GameService] Error creating session document ${sessionId}:`, error);
     throw error; // Fehler weiterleiten
   }
 };
+
+// ✅ HILFSFUNKTION: PlayerIds aus UIDs ermitteln
+async function getPlayerIdsFromUids(uids: string[]): Promise<string[]> {
+  const playerIds: string[] = [];
+  
+  for (const uid of uids) {
+    try {
+      // User-Dokument abrufen um playerId zu finden
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      if (userDoc.exists() && userDoc.data()?.playerId) {
+        playerIds.push(userDoc.data()!.playerId);
+      }
+    } catch (error) {
+      console.warn(`[GameService] Could not resolve playerId for uid ${uid}:`, error);
+      // Ignoriere Fehler für einzelne UIDs - app funktioniert trotzdem
+    }
+  }
+  
+  return playerIds;
+}
 
 // *** NEU: Aktualisiert die participantPlayerIds einer bestehenden Session ***
 export const updateSessionParticipantPlayerIds = async (
@@ -1043,7 +1171,7 @@ export const updateSessionParticipantPlayerIds = async (
       participantPlayerIds: participantPlayerIds,
       lastUpdated: serverTimestamp()
     });
-    console.log(`[GameService] Session ${sessionId} updated with ${participantPlayerIds.length} participantPlayerIds.`);
+
   } catch (error) {
     console.error(`[GameService] Error updating participantPlayerIds for session ${sessionId}:`, error);
     throw error; // Fehler weiterleiten
@@ -1121,21 +1249,9 @@ export const abortActiveGame = async (
               currentActiveGameId: null,
               lastUpdated: serverTimestamp(),
             });
-            console.log(`[GameService] Regular session ${sessionId} in sessions collection cleared of activeGameId`);
+            console.log(`[GameService] Session ${sessionId} cleared of activeGameId`);
           } else {
-            // Falls nicht in sessions, dann in jassGameSummaries suchen
-            const summariesDocRef = doc(db, 'jassGameSummaries', sessionId);
-            const summariesSnap = await getDoc(summariesDocRef);
-            
-            if (summariesSnap.exists()) {
-              await updateDoc(summariesDocRef, {
-                currentActiveGameId: null,
-                lastUpdated: serverTimestamp(),
-              });
-              console.log(`[GameService] Regular session ${sessionId} in jassGameSummaries collection cleared of activeGameId`);
-            } else {
-              console.log(`[GameService] Session ${sessionId} does not exist in either collection, no cleanup needed`);
-            }
+            console.log(`[GameService] Session ${sessionId} does not exist, no cleanup needed`);
           }
         }
       } catch (sessionError) {

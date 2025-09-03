@@ -8,6 +8,7 @@ import MainLayout from '@/components/layout/MainLayout';
 import { ArrowLeft } from 'lucide-react'; // <-- Import ArrowLeft icon
 // Firestore imports hinzufügen
 import { getFirestore, doc, collection, getDoc, getDocs, query, orderBy, Timestamp as ClientTimestamp } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 import { firebaseApp } from '@/services/firebaseInit'; // Client-seitige Firebase App importieren
 // Importiere die Anzeige-Komponente und Defaults
 import GameViewerKreidetafel from '@/components/layout/GameViewerKreidetafel';
@@ -226,10 +227,55 @@ const PublicSessionPage = () => {
           console.log('🔍 [SessionView] Loading session data for sessionId:', sessionId);
         }
         
-        // Session-Hauptdokument laden
-        const sessionDoc = await getDoc(doc(getFirestore(firebaseApp), 'jassGameSummaries', sessionId));
+        // 🚀 NEUE ARCHITEKTUR: Session aus neuer Struktur laden
+        // Versuche zunächst aus allen Gruppen des Users zu laden
+        const auth = getAuth(firebaseApp);
+        const user = auth.currentUser;
         
-        if (!sessionDoc.exists()) {
+        if (!user) {
+          console.log('🔍 [SessionView] No authenticated user');
+          setError('Nicht angemeldet');
+          return;
+        }
+
+        // Hole User-Dokument um Gruppen zu finden
+        const userDoc = await getDoc(doc(getFirestore(firebaseApp), 'users', user.uid));
+        if (!userDoc.exists()) {
+          console.log('🔍 [SessionView] User document not found');
+          setError('Benutzer nicht gefunden');
+          return;
+        }
+
+        const userData = userDoc.data();
+        const playerDoc = await getDoc(doc(getFirestore(firebaseApp), 'players', userData.playerId));
+        
+        if (!playerDoc.exists()) {
+          console.log('🔍 [SessionView] Player document not found');
+          setError('Spieler nicht gefunden');
+          return;
+        }
+
+        const playerData = playerDoc.data();
+        const groupIds = playerData.groupIds || [];
+
+        // Durchsuche alle Gruppen nach der Session
+        let sessionDoc: any = null;
+        let foundGroupId: string | null = null;
+
+        for (const groupId of groupIds) {
+          try {
+            const groupSessionDoc = await getDoc(doc(getFirestore(firebaseApp), `groups/${groupId}/jassGameSummaries`, sessionId));
+            if (groupSessionDoc.exists()) {
+              sessionDoc = groupSessionDoc;
+              foundGroupId = groupId;
+              break;
+            }
+          } catch (error) {
+            console.log(`🔍 [SessionView] Error checking group ${groupId}:`, error);
+          }
+        }
+        
+        if (!sessionDoc || !sessionDoc.exists()) {
           console.log('🔍 [SessionView] Session document does not exist:', sessionId);
           setError('Session nicht gefunden');
           return;
@@ -241,28 +287,28 @@ const PublicSessionPage = () => {
         }
         setSessionData(sessionDataResult);
 
-        // NEU: Lade groupComputedStats wenn groupId vorhanden
-        if (sessionDataResult.groupId) {
+        // 🚀 NEUE ARCHITEKTUR: Lade groupStats aus neuer Struktur
+        if (foundGroupId) {
           try {
-            const groupStatsDoc = await getDoc(doc(getFirestore(firebaseApp), 'groupComputedStats', sessionDataResult.groupId));
+            const groupStatsDoc = await getDoc(doc(getFirestore(firebaseApp), 'groups', foundGroupId, 'stats', 'computed'));
             if (groupStatsDoc.exists()) {
               const groupStatsData = groupStatsDoc.data();
               if (process.env.NODE_ENV === 'development') {
-                console.log('🔍 [SessionView] Group stats loaded:', groupStatsData);
+                console.log('🔍 [SessionView] Group stats loaded from NEW structure:', groupStatsData);
               }
               setGroupStats(groupStatsData);
             }
           } catch (error) {
-            console.warn('🔍 [SessionView] Could not load group stats:', error);
+            console.warn('🔍 [SessionView] Could not load group stats from NEW structure:', error);
             // Kein kritischer Fehler - wir können ohne groupStats weitermachen
           }
         }
 
         // Completed Games laden
         if (process.env.NODE_ENV === 'development') {
-          console.log('🔍 [SessionView] Loading completed games for sessionId:', sessionId);
+          console.log('🔍 [SessionView] Loading completed games for sessionId:', sessionId, 'groupId:', foundGroupId);
         }
-        const completedGamesResult = await fetchAllGamesForSession(sessionId);
+        const completedGamesResult = await fetchAllGamesForSession(sessionId, foundGroupId || undefined);
         if (process.env.NODE_ENV === 'development') {
           console.log('🔍 [SessionView] Completed games loaded:', completedGamesResult);
           console.log('🔍 [SessionView] Number of completed games:', completedGamesResult.length);

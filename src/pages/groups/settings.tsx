@@ -109,11 +109,17 @@ const GroupSettingsPage = () => {
 
   // Lade Gruppe automatisch, wenn groupId in URL aber keine currentGroup
   useEffect(() => {
+    // 🔥 KRITISCHER FIX: Verhindere Race Condition während Navigation
     if (status === "authenticated" && routeGroupId && !currentGroup && typeof routeGroupId === 'string') {
-      console.log(`[GroupSettings] Lade Gruppe ${routeGroupId} automatisch aus URL`);
-      fetchCurrentGroup(routeGroupId);
+      // Nur laden wenn wir nicht gerade navigieren (erkennbar am Router)
+      if (router.pathname === '/groups/settings') {
+        console.log(`[GroupSettings] Lade Gruppe ${routeGroupId} automatisch aus URL`);
+        fetchCurrentGroup(routeGroupId);
+      } else {
+        console.log(`[GroupSettings] Navigation erkannt, überspringe fetchCurrentGroup`);
+      }
     }
-  }, [status, routeGroupId, currentGroup, fetchCurrentGroup]);
+  }, [status, routeGroupId, currentGroup, fetchCurrentGroup, router.pathname]);
 
   // Fallback-Timer: Nach 10 Sekunden Ladezeit automatisch zurück zur Startseite
   useEffect(() => {
@@ -141,8 +147,13 @@ const GroupSettingsPage = () => {
          // Zusätzliche Sicherheit: Versuche nochmals zu laden, falls fetchCurrentGroup fehlgeschlagen ist
          if (typeof routeGroupId === 'string') {
            const retryTimer = setTimeout(() => {
-             console.log(`[GroupSettings] Retry: Versuche Gruppe ${routeGroupId} nochmals zu laden`);
-             fetchCurrentGroup(routeGroupId);
+             // 🔥 KRITISCHER FIX: Verhindere Race Condition während Navigation
+             if (router.pathname === '/groups/settings') {
+               console.log(`[GroupSettings] Retry: Versuche Gruppe ${routeGroupId} nochmals zu laden`);
+               fetchCurrentGroup(routeGroupId);
+             } else {
+               console.log(`[GroupSettings] Navigation erkannt, überspringe Retry`);
+             }
            }, 3000); // Nach 3 Sekunden nochmals versuchen
            
            return () => clearTimeout(retryTimer);

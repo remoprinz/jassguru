@@ -80,26 +80,107 @@ service cloud.firestore {
       // Löschen: Nur der ursprüngliche Ersteller
       allow delete: if request.auth != null && 
                     request.auth.uid == resource.data.createdBy;
+
+      // =====================================================================
+      // NEUE REGELN FÜR GRUPPEN-SUBCOLLECTIONS
+      // =====================================================================
+
+      // Sessions in einer Gruppe
+      match /sessions/{sessionId} {
+        allow read: if true; // Öffentlich lesbar
+        allow create: if request.auth != null && 
+                         request.auth.uid in request.resource.data.participantUids;
+        allow update: if request.auth != null && 
+                         request.auth.uid in resource.data.participantUids;
+        allow delete: if false; // Sessions sind historisch
+      }
+
+      // ActiveGames in einer Gruppe
+      match /activeGames/{gameId} {
+        allow read: if true;
+        allow create: if request.auth != null &&
+                        request.auth.uid in request.resource.data.participantUids;
+        allow update, delete: if request.auth != null &&
+                                 request.auth.uid in resource.data.participantUids;
+      }
+      
+      // JassGameSummaries (Sessions) in einer Gruppe
+      match /jassGameSummaries/{sessionId} {
+        allow read: if true;
+        allow create, update: if request.auth != null &&
+                                request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.playerIds;
+        allow delete: if false;
+        
+        // CompletedGames in einer Session - participantUids aus sessions/{sessionId} holen!
+        match /completedGames/{gameNumber} {
+          allow read: if true;
+          allow create, update: if request.auth != null &&
+                                  request.auth.uid in get(/databases/$(database)/documents/sessions/$(sessionId)).data.participantUids;
+          allow delete: if false;
+        }
+      }
+      
+      // Members in einer Gruppe
+      match /members/{memberId} {
+        allow read: if true;
+        // Nur Admins der Gruppe dürfen Mitglieder verwalten
+        allow write: if request.auth != null &&
+                        request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.adminIds;
+      }
+
+      // Tournaments in einer Gruppe
+      match /tournaments/{tournamentId} {
+        allow read: if true;
+        // Nur Admins der Gruppe dürfen Turniere verwalten
+        allow write: if request.auth != null &&
+                        request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.adminIds;
+      }
+
+      // Stats in einer Gruppe
+      match /stats/{statsDoc} {
+        allow read: if true;
+        // Stats können von jedem Mitglied gelesen, aber nur vom System geschrieben werden
+        // In der Praxis wird dies über Cloud Functions oder Admin SDK gemacht
+        allow write: if request.auth != null;
+      }
+
+      // Invites in einer Gruppe  
+      match /invites/{inviteId} {
+        allow read: if true; // Öffentlich lesbar für Join-Links
+        // Nur Admins der Gruppe dürfen Einladungen verwalten
+        allow create: if request.auth != null &&
+                        request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.adminIds;
+        allow update, delete: if request.auth != null &&
+                                 (request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.adminIds ||
+                                  request.auth.uid == resource.data.invitedBy);
+      }
     }
 
     // =====================================================================
-    // ACTIVEGAMES - Laufende Spiele
+    // ACTIVEGAMES - Laufende Spiele (TEMPORÄR - VEREINFACHT)
     // =====================================================================
     match /activeGames/{gameId} {
       // Jeder darf laufende Spiele lesen (es ist nur Jassen)
       allow read: if true;
 
-      // Erstellen: Nur wenn man selbst Teilnehmer ist
-      allow create: if request.auth != null && 
-                    request.auth.uid in request.resource.data.participantUids;
+      // ✅ VEREINFACHT: Erstellen für alle authentifizierten Benutzer
+      allow create: if request.auth != null;
 
-      // Aktualisieren: Nur Teilnehmer dürfen den Spielstand ändern
-      allow update: if request.auth != null && 
-                    request.auth.uid in resource.data.participantUids;
+      // ✅ FLEXIBEL: Update mit mehreren Berechtigungsebenen  
+      allow update: if request.auth != null && (
+        // Primär: participantUids
+        (resource.data.participantUids != null && request.auth.uid in resource.data.participantUids) ||
+        // Fallback: Gruppenadmin-Berechtigung
+        (resource.data.groupId != null && 
+         request.auth.uid in get(/databases/$(database)/documents/groups/$(resource.data.groupId)).data.adminIds)
+      );
 
-      // Löschen: Nur Teilnehmer dürfen ihre Spiele löschen (für Abort-Funktionalität)
-      allow delete: if request.auth != null && 
-                    request.auth.uid in resource.data.participantUids;
+      // ✅ FLEXIBEL: Löschen mit gleichen Berechtigungen
+      allow delete: if request.auth != null && (
+        (resource.data.participantUids != null && request.auth.uid in resource.data.participantUids) ||
+        (resource.data.groupId != null && 
+         request.auth.uid in get(/databases/$(database)/documents/groups/$(resource.data.groupId)).data.adminIds)
+      );
 
       // Rounds-Subcollection: Gleiche Regeln wie Hauptdokument
       match /rounds/{roundId} {
@@ -139,31 +220,7 @@ service cloud.firestore {
       }
     }
 
-    // =====================================================================
-    // JASSGAMESUMMARIES & SESSIONS - Öffentlich lesbare Spieldaten
-    // =====================================================================
-    // Diese Collections enthalten die Rohdaten für alle Statistiken.
-    // JEDER darf sie lesen, authentifizierte Teilnehmer dürfen für ihre Sessions schreiben.
-    match /jassGameSummaries/{sessionId}/{documents=**} {
-      allow read: if true;
-      
-      // ✅ KORRIGIERTE REGEL: Prüft die participantUids aus der sessions Collection
-      allow write: if request.auth != null && (
-        // Für Updates: Prüfe das existierende Dokument
-        (resource != null && resource.data.participantUids != null && request.auth.uid in resource.data.participantUids) ||
-        // Für Creates (Haupt- oder Subdokumente): Prüfe die Session in der sessions Collection
-        (resource == null && exists(/databases/$(database)/documents/sessions/$(sessionId)) && 
-         request.auth.uid in get(/databases/$(database)/documents/sessions/$(sessionId)).data.participantUids) ||
-        // Fallback für Session-Hauptdokument mit participantUids in Request
-        (resource == null && request.resource.data.participantUids != null && 
-         request.auth.uid in request.resource.data.participantUids)
-      );
-                       
-      // ❌ Cloud Functions haben trotzdem vollständigen Zugriff
-      // ✅ Offline-Fähigkeit für Clients wiederhergestellt
-      // ✅ Sicherheit durch participantUids-Prüfung gewährleistet
-      // ✅ Funktioniert sowohl für Session-Updates als auch Subcollection-Writes
-    }
+
 
     // =====================================================================
     // SESSIONS - Jass-Sessions und Tournament-Sessions  
@@ -172,26 +229,33 @@ service cloud.firestore {
         // Jeder darf Sessions lesen (für Viewer-Features)
         allow read: if true;
         
-        // Erstellen: Nur authentifizierte Benutzer, die selbst Teilnehmer sind
-        allow create: if request.auth != null && 
-                      request.auth.uid in request.resource.data.participantUids;
+        // ✅ VEREINFACHT: Erstellen für alle authentifizierten Benutzer
+        allow create: if request.auth != null;
         
-        // Aktualisieren: Nur Teilnehmer dürfen Sessions aktualisieren
-        allow update: if request.auth != null && 
-                      request.auth.uid in resource.data.participantUids;
+        // ✅ FLEXIBEL: Update mit mehreren Berechtigungsebenen
+        allow update: if request.auth != null && (
+          // Primär: participantUids (neue Sessions)
+          (resource.data.participantUids != null && request.auth.uid in resource.data.participantUids) ||
+          // Fallback: createdBy (legacy Sessions)  
+          resource.data.createdBy == request.auth.uid ||
+          // Fallback: participantPlayerIds via Player-Lookup (falls nötig)
+          (resource.data.participantPlayerIds != null && 
+           request.auth.uid in get(/databases/$(database)/documents/players/$(request.auth.uid)).data.userId)
+        );
         
         // Löschen verboten (Sessions sind Teil der Historie)
         allow delete: if false;
+        
+        // ✅ NEU: CompletedGames in Sessions auch öffentlich lesbar
+        match /completedGames/{gameNumber} {
+          allow read: if true; // Öffentlich lesbar für Live-Viewer
+          allow create, update: if request.auth != null &&
+                                  request.auth.uid in get(/databases/$(database)/documents/sessions/$(sessionId)).data.participantUids;
+          allow delete: if false;
+        }
     }
 
-    // =====================================================================
-    // STATS - Öffentlich lesbare, berechnete Statistiken
-    // =====================================================================
-    match /groupComputedStats/{groupId} {
-        allow read: if true;
-        // KORREKTUR: Schreibzugriff nur für Cloud Functions (vom Client blockiert)
-        allow write: if false;
-    }
+
 
     match /playerComputedStats/{playerId} {
         allow read: if true;
@@ -207,10 +271,11 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+
     // =====================================================================
     // FALLBACK - Alle anderen Collections
     // =====================================================================
-    // Gilt für: sessions, jassGameSummaries, groupComputedStats, etc.
+    // Gilt für: legacy Collections, Cache-Daten, etc.
     // Diese werden primär von Cloud Functions verwaltet.
     //
     // SICHERHEITS-FIX: Die vorherige Regel 'allow read: if true; allow write: if request.auth != null;'

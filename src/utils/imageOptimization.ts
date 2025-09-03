@@ -3,9 +3,12 @@
  */
 
 // Generiert eine sehr kleine Base64-kodierte Placeholder-Bild URL
+// OPTIMIERT: Statischer Wert statt Funktionsaufruf bei jedem Render
+const BLUR_PLACEHOLDER = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
 export const generateBlurPlaceholder = (width: number = 4, height: number = 4): string => {
-  // Transparentes 1x1 Pixel GIF als ultraleichter Placeholder
-  return 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+  // Verwende statischen Placeholder für bessere Performance
+  return BLUR_PLACEHOLDER;
 };
 
 // Optimierte Bildgrößen für verschiedene Anwendungsfälle

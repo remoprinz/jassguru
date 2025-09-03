@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useRef, useEffect, useState } from 'react';
 import { useUIStore, UIStore } from '@/store/uiStore';
 import { useGameStore } from '@/store/gameStore';
-import { FiX, FiRotateCcw, FiSkipBack, FiLoader } from 'react-icons/fi';
+import { FiX, FiRotateCcw, FiSkipBack, FiLoader, FiShare2 } from 'react-icons/fi';
 import { format } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 
@@ -81,6 +81,9 @@ import { getSyncEngine } from "@/services/offlineSyncEngine";
 import { useAuthStore } from '@/store/authStore';
 import type { AuthUser } from '@/types/auth'; // AuthUser als Typ
 import FullscreenLoader from "@/components/ui/FullscreenLoader"; // Verwende FullscreenLoader für bessere Sichtbarkeit
+
+// NEU: Import für CompletedGameSummary Typ
+import type { CompletedGameSummary as CompletedGameSummaryType } from '@/types/jass';
 
 // --- NEU: Interface für Callable Function Daten (wie in der Function definiert) ---
 interface InitialSessionDataClient {
@@ -600,6 +603,115 @@ const ResultatKreidetafel = ({
     }
   }), [currentTotals, currentGameId, gamesToDisplay.length, playerNames, currentStatisticId, uiStriche, storeStriche, activeScoreSettings]);
 
+  // NEU: Refactoring der Logik zur Erstellung des Spielzusammenfassungs-Objekts
+  const createCompletedGameSummaryFromStores = useCallback((): CompletedGameSummaryType | null => {
+    const gameStore = useGameStore.getState();
+    const jassStore = useJassStore.getState();
+    const timerStore = useTimerStore.getState();
+
+    const gameNumberToSave = jassStore.currentGameId;
+    if (gameNumberToSave === null || gameNumberToSave <= 0) {
+      console.error("[createCompletedGameSummary] Invalid gameNumber:", gameNumberToSave);
+      return null;
+    }
+
+    // Daten aus den Stores sammeln
+    const finalStriche = gameStore.striche;
+    const jassStoreCurrentGame = jassStore.getCurrentGame();
+    const finalScoresCorrected = {
+      top: jassStoreCurrentGame?.teams.top.total || 0,
+      bottom: jassStoreCurrentGame?.teams.bottom.total || 0,
+    };
+    const finalPlayerNames = gameStore.playerNames;
+    const finalDuration = timerStore.getGameDuration(gameNumberToSave);
+    const accumulatedWeisPointsForGame = {
+      top: jassStoreCurrentGame?.teams.top.weisPoints || 0,
+      bottom: jassStoreCurrentGame?.teams.bottom.weisPoints || 0,
+    };
+    const finalStartingPlayer = gameStore.startingPlayer;
+    const finalInitialStartingPlayer = gameStore.initialStartingPlayer;
+    const finalRoundHistory = [...gameStore.roundHistory];
+    const finalParticipantUids = (jassStore.currentSession?.participantUids ?? []) as string[];
+    const finalGroupId = jassStore.currentSession?.gruppeId ?? null;
+    const activeGameId = gameStore.activeGameId;
+
+    if (!activeGameId) {
+      console.warn("[createCompletedGameSummary] No activeGameId found, cannot create summary.");
+      return null;
+    }
+
+    const filteredRoundHistory = finalRoundHistory.filter(entry => entry.isActive === undefined || entry.isActive === true);
+    const trumpColorsPlayedSet = new Set<string>();
+    
+    const cleanedRoundHistory = filteredRoundHistory.map(entry => {
+      const cleanedEntry = { ...entry };
+      if ('_savedWeisPoints' in cleanedEntry) {
+        delete (cleanedEntry as any)._savedWeisPoints;
+      }
+      if (isJassRoundEntry(cleanedEntry)) {
+        if (cleanedEntry.farbe) {
+           trumpColorsPlayedSet.add(cleanedEntry.farbe);
+        }
+        const roundSpecificWeisSum = { top: 0, bottom: 0 };
+        (cleanedEntry.weisActions || []).forEach(wa => {
+          roundSpecificWeisSum[wa.position] = (roundSpecificWeisSum[wa.position] || 0) + wa.points;
+        });
+        cleanedEntry.weisPoints = roundSpecificWeisSum;
+      }
+      // Entferne optionale Felder, wenn sie undefined sind
+      if (cleanedEntry.ansager === undefined) delete cleanedEntry.ansager;
+      if (cleanedEntry.startTime === undefined) delete cleanedEntry.startTime;
+      if (cleanedEntry.endTime === undefined) delete cleanedEntry.endTime;
+      return cleanedEntry;
+    });
+    const finalTrumpColorsPlayed = Array.from(trumpColorsPlayedSet);
+
+    const gameAggregations = calculateGameAggregations(cleanedRoundHistory);
+    
+    const gameDataForEventCalculation = {
+      gameNumber: gameNumberToSave,
+      finalScores: finalScoresCorrected,
+      finalStriche: finalStriche,
+      roundHistory: [...gameStore.roundHistory],
+      timestampCompleted: Timestamp.now(),
+      durationMillis: finalDuration ?? 0,
+      weisPoints: accumulatedWeisPointsForGame,
+      startingPlayer: finalStartingPlayer,
+      initialStartingPlayer: finalInitialStartingPlayer,
+      playerNames: finalPlayerNames,
+      trumpColorsPlayed: finalTrumpColorsPlayed,
+      participantUids: finalParticipantUids,
+      groupId: finalGroupId,
+      activeGameId: activeGameId,
+      eventCounts: { bottom: { sieg: 0, berg: 0, matsch: 0, kontermatsch: 0, schneider: 0 }, top: { sieg: 0, berg: 0, matsch: 0, kontermatsch: 0, schneider: 0 } }
+    } as CompletedGameSummaryType;
+
+    const summaryToSave: CompletedGameSummaryType = {
+      gameNumber: gameNumberToSave,
+      finalScores: finalScoresCorrected,
+      finalStriche: finalStriche,
+      eventCounts: calculateEventCounts(gameDataForEventCalculation),
+      playerNames: finalPlayerNames,
+      timestampCompleted: Timestamp.now(),
+      weisPoints: accumulatedWeisPointsForGame,
+      startingPlayer: finalStartingPlayer,
+      initialStartingPlayer: finalInitialStartingPlayer,
+      trumpColorsPlayed: finalTrumpColorsPlayed,
+      roundHistory: cleanedRoundHistory,
+      participantUids: finalParticipantUids,
+      groupId: finalGroupId,
+      activeGameId: activeGameId,
+      completedAt: Timestamp.now(),
+      durationMillis: finalDuration ?? 0,
+      totalRoundDurationMillis: gameAggregations.totalRoundDurationMillis,
+      trumpfCountsByPlayer: gameAggregations.trumpfCountsByPlayer,
+      roundDurationsByPlayer: gameAggregations.roundDurationsByPlayer,
+      Rosen10player: gameAggregations.Rosen10player
+    };
+
+    return summaryToSave;
+  }, []);
+  
   // 7. Callbacks (hängen von Stores und abgeleiteten Werten ab)
   const handleBack = useCallback(() => {
     const jassStore = useJassStore.getState();
@@ -872,7 +984,9 @@ const ResultatKreidetafel = ({
     const jassDuration = timerStore.prepareJassEnd();
     
     // NEU: Vereinfachte Logik für Offline-Modus - KEINE Spruch-Generierung
-    console.log('[ResultatKreidetafel] Offline-Modus: Finalisiere lokal ohne Spruch');
+          if (process.env.NODE_ENV === 'development') {
+        console.log('[ResultatKreidetafel] Offline-Modus: Finalisiere lokal ohne Spruch');
+      }
 
     // Logik zum Finalisieren und Resetten (wird von beiden Buttons verwendet)
     const finalizeAndResetLocal = async () => {
@@ -889,7 +1003,7 @@ const ResultatKreidetafel = ({
             return;
           }
           try {
-              const functions = getFunctions(firebaseApp, "us-central1");
+              const functions = getFunctions(firebaseApp, "europe-west1");
               const finalizeFunction = httpsCallable<FinalizeSessionDataClient, { success: boolean; message: string }>(functions, 'finalizeSession');
               
               const playerNamesLocal = gameStore.playerNames;
@@ -996,8 +1110,30 @@ const ResultatKreidetafel = ({
       // --- KRITISCH: Altes Spiel ZUERST finalisieren ---
       await useJassStore.getState().finalizeGame(); // Markiert altes Spiel als fertig BEVOR neues erstellt wird
       
+      // --- NEU: Abgeschlossenes Spiel sofort in Firestore speichern ---
+      const summaryToSave = createCompletedGameSummaryFromStores();
+      if (summaryToSave && currentSession?.id && currentActiveGameId) {
+        try {
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[ResultatKreidetafel] Speichere Spiel ${summaryToSave.gameNumber} für Session ${currentSession.id} nach "Weiterjassen!"`);
+          }
+          // Wir verwenden die Offline-Sync-Engine für Robustheit
+          const syncEngine = getSyncEngine();
+          await syncEngine.queueGameFinalization(currentSession.id, summaryToSave, 'HIGH');
+        } catch (error) {
+          console.error("[ResultatKreidetafel] Fehler beim Speichern des Zwischenspiels:", error);
+          // Zeige eine nicht-blockierende Fehlermeldung, der Ablauf kann weitergehen
+          useUIStore.getState().showNotification({ type: "error", message: "Fehler beim Speichern des letzten Spiels." });
+        }
+      } else {
+        console.warn("[ResultatKreidetafel] Überspringe Speichern des Zwischenspiels, Daten unvollständig.", { summary: !!summaryToSave, sessionId: currentSession?.id, activeGameId: currentActiveGameId });
+      }
+      // --- ENDE NEU ---
+
       // 🔧 RACE CONDITION FIX: Warte kurz auf Firestore-Sync
-      console.log("[ResultatKreidetafel] Warte auf Firestore-Sync nach finalizeGame...");
+      if (process.env.NODE_ENV === 'development') {
+        console.log("[ResultatKreidetafel] Warte auf Firestore-Sync nach finalizeGame...");
+      }
       await new Promise(resolve => setTimeout(resolve, 500)); // 500ms Wartezeit für Firestore Eventual Consistency
 
       // --- NEUE ROBUSTE LOGIK FÜR NÄCHSTEN STARTER ---
@@ -1111,7 +1247,9 @@ const ResultatKreidetafel = ({
       let participantPlayerIds: string[] = [];
       
       if (participantUids.length > 0) {
-        console.log("[ResultatKreidetafel] Warte auf Auflösung aller Player-IDs...");
+        if (process.env.NODE_ENV === 'development') {
+          console.log("[ResultatKreidetafel] Warte auf Auflösung aller Player-IDs...");
+        }
         
         // Import playerService dynamisch um Circular Dependencies zu vermeiden
         const { getPlayerIdForUser, getPlayerByUserId } = await import('@/services/playerService');
@@ -1129,10 +1267,14 @@ const ResultatKreidetafel = ({
               }
               
               // 🚀 FIX: Für fremde UIDs - direkter Lookup OHNE Lock-System
-              console.log(`[ResultatKreidetafel] Direkte Player-Suche für fremde UID: ${uid}`);
+              if (process.env.NODE_ENV === 'development') {
+                console.log(`[ResultatKreidetafel] Direkte Player-Suche für fremde UID: ${uid}`);
+              }
               const existingPlayer = await getPlayerByUserId(uid);
               if (existingPlayer && existingPlayer.id) {
-                console.log(`[ResultatKreidetafel] ✅ Player gefunden für ${uid}: ${existingPlayer.id}`);
+                if (process.env.NODE_ENV === 'development') {
+                  console.log(`[ResultatKreidetafel] Player gefunden für ${uid}: ${existingPlayer.id}`);
+                }
                 return existingPlayer.id;
               }
               
@@ -1149,13 +1291,17 @@ const ResultatKreidetafel = ({
           const resolvedPlayerIds = await Promise.all(playerIdPromises);
           participantPlayerIds = resolvedPlayerIds.filter(id => id && id !== 'undefined') as string[];
           
-          console.log(`[ResultatKreidetafel] Player-IDs aufgelöst: ${participantPlayerIds.length}/${participantUids.length}`);
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[ResultatKreidetafel] Player-IDs aufgelöst: ${participantPlayerIds.length}/${participantUids.length}`);
+          }
           
           if (participantPlayerIds.length !== participantUids.length) {
             console.warn("[ResultatKreidetafel] Nicht alle Player-IDs konnten aufgelöst werden");
             // 🚀 ROBUSTER FALLBACK: Verwende Session.participantPlayerIds direkt aus Firestore
             if (currentSession.participantPlayerIds && currentSession.participantPlayerIds.length > 0) {
-              console.log("[ResultatKreidetafel] 🔄 Fallback: Verwende participantPlayerIds aus Session");
+              if (process.env.NODE_ENV === 'development') {
+                console.log("[ResultatKreidetafel] Fallback: Verwende participantPlayerIds aus Session");
+              }
               participantPlayerIds = currentSession.participantPlayerIds.filter(id => id && id !== 'undefined');
             } else {
               // Zeige Warnung, aber fahre fort mit den aufgelösten IDs
@@ -1175,14 +1321,18 @@ const ResultatKreidetafel = ({
             
             // Füge den aktuellen User hinzu, um Permission-Fehler zu vermeiden
             participantUids.push(currentUserIdForPermCheck);
-            console.log("[ResultatKreidetafel] ✅ KORREKTUR: Aktueller User zu participantUids hinzugefügt");
+            if (process.env.NODE_ENV === 'development') {
+              console.log("[ResultatKreidetafel] KORREKTUR: Aktueller User zu participantUids hinzugefügt");
+            }
           }
         } catch (error) {
           console.error("[ResultatKreidetafel] Fehler beim Auflösen der Player-IDs:", error);
           
           // 🚀 ULTIMATIVER FALLBACK: Session-Daten verwenden
           if (currentSession.participantPlayerIds && currentSession.participantPlayerIds.length > 0) {
-            console.log("[ResultatKreidetafel] 🔄 Ultimativer Fallback: Verwende Session participantPlayerIds");
+            if (process.env.NODE_ENV === 'development') {
+              console.log("[ResultatKreidetafel] Ultimativer Fallback: Verwende Session participantPlayerIds");
+            }
             participantPlayerIds = currentSession.participantPlayerIds.filter(id => id && id !== 'undefined');
           } else {
             uiStore.showNotification({
@@ -1306,12 +1456,14 @@ const ResultatKreidetafel = ({
                 strokeSettings: sessionForNavigation?.currentStrokeSettings ?? DEFAULT_STROKE_SETTINGS,
               };
               
-              console.log('[ResultatKreidetafel] Navigation-Pfad: Übergebe Settings an resetGame:', {
-                source: sessionForNavigation?.currentFarbeSettings ? 'Session' : 'Default',
-                cardStyle: settingsForNavigation.farbeSettings.cardStyle,
-                siegPunkte: settingsForNavigation.scoreSettings.values.sieg,
-                schneiderStriche: settingsForNavigation.strokeSettings.schneider
-              });
+              if (process.env.NODE_ENV === 'development') {
+                console.log('[ResultatKreidetafel] Navigation-Pfad: Übergebe Settings an resetGame:', {
+                  source: sessionForNavigation?.currentFarbeSettings ? 'Session' : 'Default',
+                  cardStyle: settingsForNavigation.farbeSettings.cardStyle,
+                  siegPunkte: settingsForNavigation.scoreSettings.values.sieg,
+                  schneiderStriche: settingsForNavigation.strokeSettings.schneider
+                });
+              }
               
               gameStore.resetGame(nextGame.initialStartingPlayer, undefined, settingsForNavigation);
               useGameStore.setState(state => ({
@@ -1397,7 +1549,7 @@ const ResultatKreidetafel = ({
           label: 'Weiterjassen!', 
           onClick: async () => {
             closeResultatKreidetafel(); // Kreidetafel sofort schließen
-            console.log("[ResultatKreidetafel] Starte neues Spiel - Game Transition wird angezeigt...");
+
             
             // NEU: Setze Transition-State direkt im gameStore
             useGameStore.getState().setTransitioning(true);
@@ -1529,136 +1681,12 @@ const ResultatKreidetafel = ({
                 // LOG 4: Direkt vor dem Auslesen der History für summaryToSave
                 // console.log(`[handleSignatureClick - LOG 4] Im try-Block, vor History-Extraktion. Spiel: ${gameNumberToSave}, History Length: ${useGameStore.getState().roundHistory.length}`);
                 
-                // Daten aus den Stores sammeln (VOR dem Reset!)
-                const finalStriche = gameStore.striche;
-                // finalScores sind die Gesamtpunkte des Spiels (Jass-Punkte + Weis der LETZTEN Runde aus gameStore.scores)
-                // Dies ist NICHT die Summe aller Rundenpunkte.
-                // Die korrekten Endpunkte des Spiels (inkl. aller Weispunkte) sind in jassStore.getCurrentGame().teams.X.total
-                const jassStoreCurrentGame = jassStore.getCurrentGame();
-                const finalScoresCorrected = {
-                  top: jassStoreCurrentGame?.teams.top.total || 0,
-                  bottom: jassStoreCurrentGame?.teams.bottom.total || 0,
-                };
-
-                const finalPlayerNames = gameStore.playerNames;
-                const finalDuration = timerStore.getGameDuration(gameNumberToSave);
-                
-                // Korrekte Quelle für die Gesamt-Weispunkte der Partie aus dem jassStore
-                const accumulatedWeisPointsForGame = {
-                  top: jassStoreCurrentGame?.teams.top.weisPoints || 0,
-                  bottom: jassStoreCurrentGame?.teams.bottom.weisPoints || 0,
-                };
-                                
-                const finalStartingPlayer = gameStore.startingPlayer;
-                const finalInitialStartingPlayer = gameStore.initialStartingPlayer;
-                // WICHTIG: roundHistory direkt aus dem gameStore nehmen.
-                // Diese SOLLTE die korrekten runden-spezifischen weisPoints enthalten,
-                // da gameStore.createRoundEntry diese aus currentRoundWeisSum setzt.
-                const finalRoundHistory = [...gameStore.roundHistory]; 
-                const finalParticipantUids = (jassStore.currentSession?.participantUids ?? []) as string[];
-                const finalGroupId = jassStore.currentSession?.gruppeId ?? null;
-
-                const filteredRoundHistory = finalRoundHistory.filter(entry => entry.isActive === undefined || entry.isActive === true);
-                const trumpColorsPlayedSet = new Set<string>();
-                
-                const cleanedRoundHistory = filteredRoundHistory.map(entry => {
-                  const cleanedEntry = { ...entry };
-                  // Das Feld _savedWeisPoints ist nicht Teil von RoundEntry und sollte entfernt werden, falls es existiert
-                  if ('_savedWeisPoints' in cleanedEntry) {
-                    delete (cleanedEntry as any)._savedWeisPoints;
-                  }
-
-                  if (isJassRoundEntry(cleanedEntry)) {
-                    if (cleanedEntry.farbe) {
-                       trumpColorsPlayedSet.add(cleanedEntry.farbe);
-                  }
-                    if (cleanedEntry.strichInfo === undefined) {
-                      delete cleanedEntry.strichInfo;
-                    }
-                    // Die weisPoints in JassRoundEntry sollten hier bereits die Summe der Weis DIESER Runde sein,
-                    // gesetzt durch createRoundEntry(stateForEntryCreation) in gameStore.finalizeRound.
-                    // Wir müssen sicherstellen, dass sie nicht {0,0} sind, falls die Runde Weis hatte.
-                    // Die `weisActions` sind der Ground Truth für die Weispunkte dieser Runde.
-                    // Wenn `cleanedEntry.weisPoints` nicht die Summe der `weisActions` ist, gibt es ein Problem in `createRoundEntry`.
-                    // Für die Korrektur hier, stellen wir sicher, dass es konsistent ist, falls createRoundEntry fehlschlägt:
-                    const roundSpecificWeisSum = { top: 0, bottom: 0 };
-                    (cleanedEntry.weisActions || []).forEach(wa => {
-                      roundSpecificWeisSum[wa.position] = (roundSpecificWeisSum[wa.position] || 0) + wa.points;
-                    });
-                    cleanedEntry.weisPoints = roundSpecificWeisSum;
-
-                  }
-                  if (cleanedEntry.ansager === undefined) delete cleanedEntry.ansager;
-                  if (cleanedEntry.startTime === undefined) delete cleanedEntry.startTime;
-                  if (cleanedEntry.endTime === undefined) delete cleanedEntry.endTime;
-                  if (cleanedEntry.playerTurns === undefined) delete cleanedEntry.playerTurns;
-                  if (cleanedEntry.timerSnapshot === undefined) delete cleanedEntry.timerSnapshot;
-                  if (cleanedEntry.previousRoundId === undefined) delete cleanedEntry.previousRoundId;
-                  if (cleanedEntry.nextRoundId === undefined) delete cleanedEntry.nextRoundId;
-
-                  if (cleanedEntry.scores?.weisPoints === undefined) { // Dieses 'weisPoints' in 'scores' ist meist {0,0}
-                    if (cleanedEntry.scores) cleanedEntry.scores.weisPoints = {top: 0, bottom: 0};
-                  }
-                  if (cleanedEntry.visualStriche?.top === undefined) {
-                    if (cleanedEntry.visualStriche) cleanedEntry.visualStriche.top = {stricheCounts: { 20: 0, 50: 0, 100: 0 }, restZahl: 0}; 
-                  }
-                  if (cleanedEntry.visualStriche?.bottom === undefined) {
-                    if (cleanedEntry.visualStriche) cleanedEntry.visualStriche.bottom = {stricheCounts: { 20: 0, 50: 0, 100: 0 }, restZahl: 0};
-                  }
-                  return cleanedEntry;
-                });
-                const finalTrumpColorsPlayed = Array.from(trumpColorsPlayedSet) as string[];
-
-                // ✅ NEU: Aggregierte Spiel-Daten einmal berechnen für maximale Effizienz
-                const gameAggregations = calculateGameAggregations(cleanedRoundHistory);
-                
-                // ✅ KORRIGIERT: Verwende die URSPRÜNGLICHE roundHistory für eventCounts-Berechnung
-                // Die cleanedRoundHistory kann modifizierte Strukturen haben, die calculateEventCounts nicht lesen kann
-                const originalRoundHistory = [...gameStore.roundHistory]; // Ursprüngliche History aus dem GameStore
-                
-                // Temporäres Objekt für Event-Berechnung mit der ursprünglichen roundHistory
-                const gameDataForEventCalculation = {
-                  gameNumber: gameNumberToSave,
-                  finalScores: finalScoresCorrected,
-                  finalStriche: finalStriche,
-                  roundHistory: originalRoundHistory, // ✅ WICHTIG: Ursprüngliche History verwenden!
-                  timestampCompleted: Timestamp.now(),
-                  durationMillis: finalDuration ?? 0,
-                  weisPoints: accumulatedWeisPointsForGame,
-                  startingPlayer: finalStartingPlayer,
-                  initialStartingPlayer: finalInitialStartingPlayer,
-                  playerNames: finalPlayerNames,
-                  trumpColorsPlayed: finalTrumpColorsPlayed,
-                  participantUids: finalParticipantUids,
-                  groupId: finalGroupId,
-                  activeGameId: activeGameId,
-                  eventCounts: { bottom: { sieg: 0, berg: 0, matsch: 0, kontermatsch: 0, schneider: 0 }, top: { sieg: 0, berg: 0, matsch: 0, kontermatsch: 0, schneider: 0 } } // Dummy für Typsicherheit
-                } as CompletedGameSummary;
-
-                const summaryToSave: CompletedGameSummary = {
-                  gameNumber: gameNumberToSave, 
-                  finalScores: finalScoresCorrected, // Korrigierte Gesamtpunkte des Spiels
-                  finalStriche: finalStriche, 
-                  eventCounts: calculateEventCounts(gameDataForEventCalculation), // ✅ NEU: Event-Zähler berechnen
-                  playerNames: finalPlayerNames, 
-                  timestampCompleted: Timestamp.now(), 
-                  weisPoints: accumulatedWeisPointsForGame, // Verwende die akkumulierten Gesamt-Weispunkte für das SPIEL
-                  startingPlayer: finalStartingPlayer, 
-                  initialStartingPlayer: finalInitialStartingPlayer, 
-                  trumpColorsPlayed: finalTrumpColorsPlayed,
-                  roundHistory: cleanedRoundHistory, // History mit korrigierten/validierten runden-spezifischen weisPoints
-                  participantUids: finalParticipantUids, 
-                  groupId: finalGroupId, 
-                  activeGameId: activeGameId,
-                  completedAt: Timestamp.now(),
-                  durationMillis: finalDuration ?? 0,
-                  
-                  // ✅ NEU: Aggregierte Spiel-Daten einbeziehen
-                  totalRoundDurationMillis: gameAggregations.totalRoundDurationMillis,
-                  trumpfCountsByPlayer: gameAggregations.trumpfCountsByPlayer,
-                  roundDurationsByPlayer: gameAggregations.roundDurationsByPlayer,
-                  Rosen10player: gameAggregations.Rosen10player // Wird später zur Player Doc ID konvertiert
-                };
+                // --- NEU: Refactoring nutzen ---
+                const summaryToSave = createCompletedGameSummaryFromStores();
+                if (!summaryToSave) {
+                  throw new Error("Konnte Spielzusammenfassung nicht erstellen.");
+                }
+                // --- ENDE NEU ---
 
                 // ✅ KRITISCH: Spiel VOR dem Speichern als completed markieren
                 // Dies verhindert Race Condition in gamesForStatistik zwischen Speichern und React Re-Render
@@ -1683,7 +1711,7 @@ const ResultatKreidetafel = ({
                   
                   // 🔄 FALLBACK: Direkte Firestore-Speicherung bei Queue-Fehler
                   try {
-                    await saveCompletedGameToFirestore(currentSessionIdFromStore, gameNumberToSave, summaryToSave, false);
+                    await saveCompletedGameToFirestore(currentSessionIdFromStore, summaryToSave.gameNumber, summaryToSave, false);
                     if (process.env.NODE_ENV === 'development') {
                       console.log("[ResultatKreidetafel] ✅ Fallback: Completed game summary saved directly to Firestore");
                     }
@@ -1712,7 +1740,7 @@ const ResultatKreidetafel = ({
                 uiStore.showNotification({ type: "error", message: "Fehler beim Archivieren des Spiels." });
               }
             } else if (!activeGameId) {
-                 console.log("[ResultatKreidetafel] Skipping summary save because no activeGameId (Offline/Guest).");
+
             } else if (!statusUpdated) {
                 console.warn("[ResultatKreidetafel] Skipping summary save because status update failed.");
             } else if (!currentSessionIdFromStore || !(gameNumberToSave > 0)) {
@@ -1808,7 +1836,7 @@ const ResultatKreidetafel = ({
             // --- KORRIGIERTER Aufruf der Callable Function finalizeSession mit Retry --- 
             const isRealOnlineSessionForFinalize = checkIsRealOnlineSession();
             if (statusUpdated && currentSessionIdFromStore && gameNumberToSave > 0 && isRealOnlineSessionForFinalize) {
-                console.log(`[ResultatKreidetafel] Attempting to call finalizeSession Cloud Function for REAL online session ${currentSessionIdFromStore}, expecting game ${gameNumberToSave}`);
+    
 
                 if (isFinalizingSession) {
                   console.warn("[ResultatKreidetafel] finalizeSession is already in progress. Skipping duplicate call.");
@@ -1817,7 +1845,7 @@ const ResultatKreidetafel = ({
                 } else {
                   setIsFinalizingSession(true); // Setze den Flag, bevor der Prozess beginnt
 
-                  const functions = getFunctions(firebaseApp, "us-central1");
+                  const functions = getFunctions(firebaseApp, "europe-west1");
                   const finalizeFunction = httpsCallable<FinalizeSessionDataClient, { success: boolean; message: string }>(functions, 'finalizeSession');
 
                   let attempts = 0;
@@ -1828,7 +1856,7 @@ const ResultatKreidetafel = ({
                     while (attempts < maxAttempts) {
                       attempts++;
                       try {
-                        console.log(`[ResultatKreidetafel] Calling finalizeSession (Attempt ${attempts})...`);
+
 
                         let initialPayloadData: InitialSessionDataClient | undefined = undefined;
                         if (jassStore.currentSession) {
@@ -1840,7 +1868,7 @@ const ResultatKreidetafel = ({
                           // 🚨 FIX: Lese auch startedAt direkt aus dem Session-Dokument
                           let sessionStartedAtFromFirestore: number | Timestamp | undefined;
                           try {
-                            console.log(`[ResultatKreidetafel] Lade participantPlayerIds direkt aus Firestore für Session ${currentSessionIdFromStore}...`);
+
                             const db = getFirestore(firebaseApp);
                             const sessionDocRef = doc(db, 'sessions', currentSessionIdFromStore);
                             const sessionSnap = await getDoc(sessionDocRef);
@@ -1849,8 +1877,7 @@ const ResultatKreidetafel = ({
                               const sessionData = sessionSnap.data();
                               participantPlayerIdsFromFirestore = sessionData.participantPlayerIds || [];
                               sessionStartedAtFromFirestore = sessionData.startedAt; // ✅ HINZUGEFÜGT
-                              console.log(`[ResultatKreidetafel] participantPlayerIds aus Firestore erhalten: ${participantPlayerIdsFromFirestore.length} IDs`);
-                              console.log(`[ResultatKreidetafel] startedAt aus Firestore erhalten:`, sessionStartedAtFromFirestore);
+
                             } else {
                               console.warn(`[ResultatKreidetafel] Session-Dokument ${currentSessionIdFromStore} nicht gefunden in Firestore`);
                             }
@@ -1865,7 +1892,7 @@ const ResultatKreidetafel = ({
                               ? preservedParticipantPlayerIds 
                               : jassStore.currentSession.participantPlayerIds || [];
                           
-                          console.log(`[ResultatKreidetafel] Finale participantPlayerIds: ${participantPlayerIdsLocal.length} IDs (firestore: ${participantPlayerIdsFromFirestore.length}, preserved: ${preservedParticipantPlayerIds.length}, current: ${jassStore.currentSession.participantPlayerIds?.length || 0})`);
+
                           
                           const sessionTeamsData = prepareSessionTeamsData(participantPlayerIdsLocal, playerNamesLocal);
 
@@ -1884,7 +1911,7 @@ const ResultatKreidetafel = ({
                             teams: sessionTeamsData.teams,
                             pairingIdentifiers: sessionTeamsData.pairingIdentifiers
                           };
-                          console.log("[ResultatKreidetafel] initialSessionData prepared:", JSON.stringify(initialPayloadData));
+
                         } else {
                           console.warn("[ResultatKreidetafel] currentSession in jassStore is null, cannot send full initialSessionData.");
                         }
@@ -1900,7 +1927,7 @@ const ResultatKreidetafel = ({
                           initialSessionData: initialPayloadData
                         });
 
-                        console.log(`[ResultatKreidetafel] finalizeSession SUCCESS (Attempt ${attempts}):`, result.data);
+
                         break;
                       } catch (error: any) {
                         console.warn(`[ResultatKreidetafel] finalizeSession FAILED (Attempt ${attempts}):`, error);
@@ -1932,7 +1959,7 @@ const ResultatKreidetafel = ({
             // --- ENDE Aufruf finalizeSessionSummary mit Retry ---
 
                         // 4. Session erfolgreich finalisiert - Weiterleitung zu GameViewerKreidetafel
-            console.log("[ResultatKreidetafel] Session finalisiert. Weiterleitung zu GameViewerKreidetafel...");
+
             
             // 5. Lokale Stores zurücksetzen
             await finalizeAndResetOnline();
@@ -1947,7 +1974,7 @@ const ResultatKreidetafel = ({
             }
 
             // 7. FullscreenLoader ausblenden
-            console.log("[ResultatKreidetafel] FullscreenLoader ausblenden nach Weiterleitung...");
+
             setIsFinalizingSession(false);
 
         } else {
@@ -2281,12 +2308,48 @@ const ResultatKreidetafel = ({
             <FiRotateCcw className="w-8 h-8" />
           </button>
 
-          {/* Close Button */}
+          {/* Share Button oben rechts (ersetzt Close Button) */}
           <button 
-            onClick={closeResultatKreidetafel}
-            className="absolute right-2 top-2 p-2 text-gray-400 hover:text-white"
+            onClick={() => {
+              // Generiere Share-Link für Live-Session
+              if (currentSessionId) {
+                const shareUrl = `https://jassguru.ch/view/session/public/${currentSessionId}`;
+                const shareText = `Verfolge unseren Jass live! Schau dir die aktuellen Ergebnisse und Statistiken in Echtzeit an.\n\n${shareUrl}\n\ngeneriert von:\n👉 jassguru.ch`;
+                
+                if (navigator.share) {
+                  navigator.share({ text: shareText }).then(() => {
+                    console.log("✅ Live-Session Link erfolgreich geteilt!");
+                    closeResultatKreidetafel(); // Schließe nach erfolgreichem Teilen
+                  }).catch((error) => {
+                    if (error.name !== 'AbortError') {
+                      console.error("❌ Fehler beim Teilen:", error);
+                    }
+                  });
+                } else {
+                  // Fallback: In Zwischenablage kopieren
+                  navigator.clipboard.writeText(shareText).then(() => {
+                    useUIStore.getState().showNotification({
+                      type: 'success',
+                      message: 'Link wurde in die Zwischenablage kopiert!',
+                    });
+                    closeResultatKreidetafel();
+                  }).catch((error) => {
+                    console.error("❌ Zwischenablage fehlgeschlagen:", error);
+                    useUIStore.getState().showNotification({
+                      type: 'error',
+                      message: 'Teilen fehlgeschlagen. Bitte versuche es erneut.',
+                    });
+                  });
+                }
+              } else {
+                // Fallback: Normale Schließen-Funktion wenn keine Session-ID
+                closeResultatKreidetafel();
+              }
+            }}
+            className="absolute right-2 top-2 p-2 text-gray-400 hover:text-white transition-colors duration-200"
+            aria-label={currentSessionId ? "Live-Session teilen" : "Schließen"}
           >
-            <FiX size={24} />
+            {currentSessionId ? <FiShare2 size={24} /> : <FiX size={24} />}
           </button>
 
           {/* Neuer Back-Button oben links, nur wenn canNavigateBack UND NICHT im Navigations-Modus */}

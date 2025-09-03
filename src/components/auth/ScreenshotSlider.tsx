@@ -1,14 +1,14 @@
-'use client'
+'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { X, Loader2 } from 'lucide-react'
-import { FaArrowLeft, FaArrowRight } from 'react-icons/fa'
-import Image from 'next/image'
-import { SCREENSHOT_DATA, ScreenshotData } from '@/constants/screenshotData'
-import { usePressableButton } from '@/hooks/usePressableButton'
-import { isPWA } from '@/utils/browserDetection'
-import { isDesktopDevice } from '@/utils/deviceDetection'
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Loader2 } from 'lucide-react';
+import { FaArrowLeft, FaArrowRight } from 'react-icons/fa';
+import Image from 'next/image';
+import { SCREENSHOT_DATA, ScreenshotData } from '@/constants/screenshotData';
+import { usePressableButton } from '@/hooks/usePressableButton';
+import { isPWA } from '@/utils/browserDetection';
+import { isDesktopDevice } from '@/utils/deviceDetection';
 
 interface ScreenshotSliderProps {
   isOpen: boolean
@@ -21,114 +21,114 @@ const ScreenshotSlider: React.FC<ScreenshotSliderProps> = ({
   onClose,
   initialIndex = 0
 }) => {
-  const [currentIndex, setCurrentIndex] = useState(initialIndex)
-  const [currentScreenshot, setCurrentScreenshot] = useState<ScreenshotData>(SCREENSHOT_DATA[0])
-  const [isImageLoading, setIsImageLoading] = useState(true)
-  const [viewportHeight, setViewportHeight] = useState(0)
-  const [viewportWidth, setViewportWidth] = useState(0)
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [currentScreenshot, setCurrentScreenshot] = useState<ScreenshotData>(SCREENSHOT_DATA[0]);
+  const [isImageLoading, setIsImageLoading] = useState(true);
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const [viewportWidth, setViewportWidth] = useState(0);
 
   // Navigation handlers mit LOOP-FUNKTIONALITÄT (müssen vor usePressableButton definiert werden)
   const handleNext = useCallback(() => {
     if (currentIndex < SCREENSHOT_DATA.length - 1) {
-      setCurrentIndex(prev => prev + 1)
+      setCurrentIndex(prev => prev + 1);
     } else {
       // LOOP: Am Ende wieder zum Anfang
-      setCurrentIndex(0)
+      setCurrentIndex(0);
     }
-  }, [currentIndex])
+  }, [currentIndex]);
 
   const handlePrevious = useCallback(() => {
     if (currentIndex > 0) {
-      setCurrentIndex(prev => prev - 1)
+      setCurrentIndex(prev => prev - 1);
     } else {
       // LOOP: Am Anfang zum Ende springen
-      setCurrentIndex(SCREENSHOT_DATA.length - 1)
+      setCurrentIndex(SCREENSHOT_DATA.length - 1);
     }
-  }, [currentIndex])
+  }, [currentIndex]);
 
   // OnboardingFlow Pattern: usePressableButton für Navigation  
-  const previousButtonHandlers = usePressableButton(handlePrevious)
-  const nextButtonHandlers = usePressableButton(handleNext)
+  const previousButtonHandlers = usePressableButton(handlePrevious);
+  const nextButtonHandlers = usePressableButton(handleNext);
 
   // Update current screenshot when index changes
   useEffect(() => {
     if (currentIndex >= 0 && currentIndex < SCREENSHOT_DATA.length) {
-      setCurrentScreenshot(SCREENSHOT_DATA[currentIndex])
-      setIsImageLoading(true)
+      setCurrentScreenshot(SCREENSHOT_DATA[currentIndex]);
+      setIsImageLoading(true);
     }
-  }, [currentIndex])
+  }, [currentIndex]);
 
   // Jump to specific screenshot
   const handleJumpTo = useCallback((index: number) => {
     if (index >= 0 && index < SCREENSHOT_DATA.length) {
-      setCurrentIndex(index)
+      setCurrentIndex(index);
     }
-  }, [])
+  }, []);
 
   // Intelligente Dot-Navigation: Berechne sichtbare Dots
   const getVisibleDots = useCallback(() => {
-    const totalDots = SCREENSHOT_DATA.length
-    const maxVisibleDots = 7 // Optimale Anzahl für Mobile
+    const totalDots = SCREENSHOT_DATA.length;
+    const maxVisibleDots = 7; // Optimale Anzahl für Mobile
     
     if (totalDots <= maxVisibleDots) {
       // Wenige Dots: Alle anzeigen
       return SCREENSHOT_DATA.map((_, index) => ({
         index,
         type: 'dot' as const
-      }))
+      }));
     }
 
-    const visibleDots: Array<{index: number, type: 'dot' | 'ellipsis'}> = []
-    const sideCount = Math.floor((maxVisibleDots - 1) / 2) // 3 pro Seite
+    const visibleDots: Array<{index: number, type: 'dot' | 'ellipsis'}> = [];
+    const sideCount = Math.floor((maxVisibleDots - 1) / 2); // 3 pro Seite
 
     if (currentIndex <= sideCount) {
       // Am Anfang: [0,1,2,3,4,...,last]
       for (let i = 0; i < maxVisibleDots - 2; i++) {
-        visibleDots.push({ index: i, type: 'dot' })
+        visibleDots.push({ index: i, type: 'dot' });
       }
-      visibleDots.push({ index: -1, type: 'ellipsis' })
-      visibleDots.push({ index: totalDots - 1, type: 'dot' })
+      visibleDots.push({ index: -1, type: 'ellipsis' });
+      visibleDots.push({ index: totalDots - 1, type: 'dot' });
     } else if (currentIndex >= totalDots - sideCount - 1) {
       // Am Ende: [first,...,22,23,24,25,26]
-      visibleDots.push({ index: 0, type: 'dot' })
-      visibleDots.push({ index: -1, type: 'ellipsis' })
+      visibleDots.push({ index: 0, type: 'dot' });
+      visibleDots.push({ index: -1, type: 'ellipsis' });
       for (let i = totalDots - maxVisibleDots + 2; i < totalDots; i++) {
-        visibleDots.push({ index: i, type: 'dot' })
+        visibleDots.push({ index: i, type: 'dot' });
       }
     } else {
       // In der Mitte: [first,...,current-2,current-1,current,current+1,current+2,...,last]
-      visibleDots.push({ index: 0, type: 'dot' })
-      visibleDots.push({ index: -1, type: 'ellipsis' })
+      visibleDots.push({ index: 0, type: 'dot' });
+      visibleDots.push({ index: -1, type: 'ellipsis' });
       for (let i = currentIndex - 2; i <= currentIndex + 2; i++) {
-        visibleDots.push({ index: i, type: 'dot' })
+        visibleDots.push({ index: i, type: 'dot' });
       }
-      visibleDots.push({ index: -2, type: 'ellipsis' })
-      visibleDots.push({ index: totalDots - 1, type: 'dot' })
+      visibleDots.push({ index: -2, type: 'ellipsis' });
+      visibleDots.push({ index: totalDots - 1, type: 'dot' });
     }
 
-    return visibleDots
-  }, [currentIndex])
+    return visibleDots;
+  }, [currentIndex]);
 
   // VERBESSERTE Viewport Detection
   useEffect(() => {
     const updateDimensions = () => {
-      setViewportHeight(window.innerHeight)
-      setViewportWidth(window.innerWidth)
-    }
+      setViewportHeight(window.innerHeight);
+      setViewportWidth(window.innerWidth);
+    };
 
-    updateDimensions()
-    window.addEventListener("resize", updateDimensions)
-    return () => window.removeEventListener("resize", updateDimensions)
-  }, [])
+    updateDimensions();
+    window.addEventListener("resize", updateDimensions);
+    return () => window.removeEventListener("resize", updateDimensions);
+  }, []);
 
   // ADAPTIVE Layout Detection
   const layoutMode = useMemo(() => {
-    const isDesktop = viewportWidth >= 1024 // lg breakpoint
-    const isTablet = viewportWidth >= 768 && viewportWidth < 1024
-    const isMobile = viewportWidth < 768
+    const isDesktop = viewportWidth >= 1024; // lg breakpoint
+    const isTablet = viewportWidth >= 768 && viewportWidth < 1024;
+    const isMobile = viewportWidth < 768;
     
-    return { isDesktop, isTablet, isMobile }
-  }, [viewportWidth])
+    return { isDesktop, isTablet, isMobile };
+  }, [viewportWidth]);
 
   // ADAPTIVE Image Sizing
   const imageConfig = useMemo(() => {
@@ -137,71 +137,71 @@ const ScreenshotSlider: React.FC<ScreenshotSliderProps> = ({
         maxWidth: 450,
         maxHeight: Math.min(viewportHeight * 0.7, 600),
         containerClass: "lg:flex lg:gap-8 lg:items-start"
-      }
+      };
     } else if (layoutMode.isTablet) {
       return {
         maxWidth: 400,
         maxHeight: Math.min(viewportHeight * 0.6, 500),
         containerClass: "flex flex-col items-center"
-      }
+      };
     } else {
       return {
         maxWidth: Math.min(viewportWidth - 80, 350),
         maxHeight: Math.min(viewportHeight * 0.55, 450),
         containerClass: "flex flex-col items-center"
-      }
+      };
     }
-  }, [layoutMode, viewportHeight, viewportWidth])
+  }, [layoutMode, viewportHeight, viewportWidth]);
 
   // Auto-preload next and previous images for smoother experience
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen) return;
 
     const preloadImages = () => {
       const indicesToPreload = [
         currentIndex - 1,
         currentIndex + 1
-      ].filter(index => index >= 0 && index < SCREENSHOT_DATA.length)
+      ].filter(index => index >= 0 && index < SCREENSHOT_DATA.length);
 
       indicesToPreload.forEach(index => {
-        const img = document.createElement('img')
-        img.src = SCREENSHOT_DATA[index].src
-      })
-    }
+        const img = document.createElement('img');
+        img.src = SCREENSHOT_DATA[index].src;
+      });
+    };
 
-    preloadImages()
-  }, [currentIndex, isOpen])
+    preloadImages();
+  }, [currentIndex, isOpen]);
 
   // Keyboard navigation
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       switch (event.key) {
         case 'Escape':
-          onClose()
-          break
+          onClose();
+          break;
         case 'ArrowLeft':
-          handlePrevious()
-          break
+          handlePrevious();
+          break;
         case 'ArrowRight':
-          handleNext()
-          break
+          handleNext();
+          break;
       }
-    }
+    };
 
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, onClose, handleNext, handlePrevious])
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose, handleNext, handlePrevious]);
 
   // Reset index when slider opens
   useEffect(() => {
     if (isOpen) {
-      setCurrentIndex(initialIndex)
+      setCurrentIndex(initialIndex);
     }
-  }, [isOpen, initialIndex])
+  }, [isOpen, initialIndex]);
 
-  if (!isOpen) return null
+  if (!isOpen) return null;
 
   return (
     <AnimatePresence>
@@ -320,10 +320,10 @@ const ScreenshotSlider: React.FC<ScreenshotSliderProps> = ({
                             <div key={`ellipsis-${item.index}-${idx}`} className="flex items-center">
                               <span className="text-gray-500 text-xs px-1">⋯</span>
                             </div>
-                          )
+                          );
                         }
                         
-                        const isActive = item.index === currentIndex
+                        const isActive = item.index === currentIndex;
                         return (
                           <button
                             key={item.index}
@@ -339,7 +339,7 @@ const ScreenshotSlider: React.FC<ScreenshotSliderProps> = ({
                             }`}
                             aria-label={`Springe zu Screenshot ${item.index + 1}`}
                           />
-                        )
+                        );
                       })}
                     </div>
                   </div>
@@ -384,7 +384,7 @@ const ScreenshotSlider: React.FC<ScreenshotSliderProps> = ({
         </>
       )}
     </AnimatePresence>
-  )
-}
+  );
+};
 
-export default ScreenshotSlider
+export default ScreenshotSlider;

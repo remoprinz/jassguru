@@ -212,8 +212,16 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
                                 : fullRoundHistory.length - 1;
           const relevantHistorySlice = fullRoundHistory.slice(0, historyEndIndex + 1);
           
-          // Filtere den relevanten Slice direkt mit dem umfassenden Type Guard
-          const finalizedJassRoundsToShow = relevantHistorySlice.filter(isFinalizedJassRound);
+          // ✅ NEU: Unterscheide zwischen aktivem Spiel und abgeschlossenen Spielen
+          const isActiveGame = (game as any).isActiveGame === true;
+          const roundsToShow = relevantHistorySlice.filter(round => {
+            // Für aktive Spiele sind alle Runden in der History finalisiert genug zur Anzeige
+            if (isActiveGame) {
+              return round.actionType === 'jass' && (round.isActive === undefined || round.isActive === true);
+            }
+            // Für abgeschlossene Spiele den strengen Guard verwenden
+            return isFinalizedJassRound(round);
+          });
           
           // --- DEBUG LOGGING --- 
           // console.log(`[RoundHistoryDisplay MAP TRY] Game ${gameIdForLog} (Display: S${displayGameNumber}): relevantHistorySlice length: ${relevantHistorySlice.length}, finalizedJassRoundsToShow length: ${finalizedJassRoundsToShow.length}`);
@@ -275,24 +283,26 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
               </div>
               
               {/* Bedingtes Rendering basierend auf finalisierten Runden */} 
-              {finalizedJassRoundsToShow.length > 0 ? (
+              {roundsToShow.length > 0 ? (
                 <div className="space-y-0 px-1">
                   {/* Runden-Mapping */}
-                  {finalizedJassRoundsToShow.map((round, displayIndex) => {
+                  {roundsToShow.map((round, displayIndex) => {
                     // KORREKTUR: prevRound aus der *gleichen* gefilterten Liste holen
-                    const prevRound = displayIndex > 0 ? finalizedJassRoundsToShow[displayIndex - 1] : undefined;
+                    const prevRound = displayIndex > 0 ? roundsToShow[displayIndex - 1] : undefined;
                     const roundPoints = getRoundPoints(round, prevRound);
                     
-                    const isMatschRound = round.strichInfo?.type === 'matsch';
-                    const isKontermatschRound = round.strichInfo?.type === 'kontermatsch';
-                    const teamThatMadeMatsch = round.strichInfo?.team;
+                    // ✅ KORREKTUR: Typsichere Prüfung für JassRoundEntry
+                    const jassRound = round.actionType === 'jass' ? round as JassRoundEntry : null;
+                    const isMatschRound = jassRound?.strichInfo?.type === 'matsch';
+                    const isKontermatschRound = jassRound?.strichInfo?.type === 'kontermatsch';
+                    const teamThatMadeMatsch = jassRound?.strichInfo?.team;
 
                     // --- WIEDER EINGEFÜGTE DEFINITIONEN ---
-                    const roundJassPoints = round.jassPoints ?? roundPoints;
+                    const roundJassPoints = jassRound?.jassPoints ?? roundPoints;
                     const roundWeisPoints = (round as any)._savedWeisPoints ?? round.weisPoints ?? { top: 0, bottom: 0 };
                     const hasWeisPoints = roundWeisPoints.top > 0 || roundWeisPoints.bottom > 0;
                     const startingTeam = getStartingTeamPosition(round.startingPlayer);
-                    const trumpfFarbeForPictogram = mapDbValueToJassColorType(round.farbe as string | undefined); // Cast zu string, da round.farbe JassColor sein kann
+                    const trumpfFarbeForPictogram = mapDbValueToJassColorType(jassRound?.farbe as string | undefined);
                     const cumulativeScoreTop = round.scores?.top ?? 0;
                     const cumulativeScoreBottom = round.scores?.bottom ?? 0;
                     // --- ENDE WIEDER EINGEFÜGTE DEFINITIONEN ---
@@ -307,7 +317,7 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
                     return (
                       <React.Fragment key={round.id ?? `round-${gameIdentifier}-${displayIndex}`}>
                         {/* Jasspunkte-Anzeige */}
-                        <div className={`grid grid-cols-[2rem_5fr_5fr] gap-8 items-center ${hasWeisPoints ? 'pb-0 pt-3 border-b-0' : displayIndex === finalizedJassRoundsToShow.length - 1 ? 'py-3' : 'py-3 border-b border-gray-700/50'}`}>
+                        <div className={`grid grid-cols-[2rem_5fr_5fr] gap-8 items-center ${hasWeisPoints ? 'pb-0 pt-3 border-b-0' : displayIndex === roundsToShow.length - 1 ? 'py-3' : 'py-3 border-b border-gray-700/50'}`}>
                           <div className="text-base text-gray-400 text-left pl-3">
                             {displayRoundNumber} {/* Verwende korrigierte Rundennummer */}
                           </div>
@@ -355,10 +365,10 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
 
                         {/* Weispunkte-Anzeige (nur wenn vorhanden) */}
                         {hasWeisPoints && (
-                          <div className={`grid grid-cols-[2rem_5fr_5fr] gap-8 items-center pt-0 pb-3 ${displayIndex === finalizedJassRoundsToShow.length - 1 ? '' : 'border-b border-gray-700/50'}`}>
+                          <div className={`grid grid-cols-[2rem_5fr_5fr] gap-8 items-center pt-0 pb-3 ${displayIndex === roundsToShow.length - 1 ? '' : 'border-b border-gray-700/50'}`}>
                             {/* NEU: Spielername bei letzter Runde HIER anzeigen, wenn Weispunkte vorhanden */}
                             <div className="text-left pl-3">
-                              {displayIndex === finalizedJassRoundsToShow.length - 1 && round.startingPlayerName ? (
+                              {displayIndex === roundsToShow.length - 1 && round.startingPlayerName ? (
                                 <div className="text-sm text-gray-500">{round.startingPlayerName}</div>
                               ) : null}
                             </div>
@@ -388,7 +398,7 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
                         )}
 
                         {/* NEU: Spielername für die LETZTE Runde (nur wenn KEINE Weispunkte vorhanden) */}
-                        {displayIndex === finalizedJassRoundsToShow.length - 1 && round.startingPlayerName && !hasWeisPoints && (
+                        {displayIndex === roundsToShow.length - 1 && round.startingPlayerName && !hasWeisPoints && (
                           <div className="grid grid-cols-[2rem_5fr_5fr] gap-8 items-baseline -mt-1">
                             <div className="pl-3 text-sm text-gray-500">{round.startingPlayerName}</div>
                             <div></div>
@@ -398,7 +408,7 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
 
                         {/* --- Kumulativer Spielstand Zeile MIT SPIELERNAME --- */}
                         {/* Nur anzeigen, wenn es NICHT die letzte Runde ist */}
-                        {displayIndex < finalizedJassRoundsToShow.length - 1 && (
+                        {displayIndex < roundsToShow.length - 1 && (
                           <div className="grid grid-cols-[2rem_5fr_5fr] gap-8 items-baseline py-1 text-sm text-gray-500">
                             {/* NEU: Spielername links, mit derselben Baseline wie die Zahlen */}
                             <div className="pl-3">{round.startingPlayerName || ''}</div>

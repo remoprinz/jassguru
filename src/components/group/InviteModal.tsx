@@ -104,10 +104,10 @@ const InviteModal: React.FC<InviteModalProps> = ({
         onPointerDownOutside={(event) => {
           const target = event.target as HTMLElement;
           if (target.closest('#global-notification-container-wrapper')) {
-            // Klick war auf Notification Container, verhindere, dass sich das Modal schliesst
-            // UND stoppe die weitere Propagation des Events, damit der Klick an die Notification geht.
-            event.preventDefault();
-            event.stopPropagation();
+            // 🔥 BUGFIX: Nur Modal-Schließen verhindern, aber Notification-Klicks erlauben
+            event.preventDefault(); // Verhindert Modal-Schließen
+            // WICHTIG: stopPropagation() NICHT verwenden, damit Notification-Klicks funktionieren
+            return;
           }
           // Ansonsten (Klick war auf Modal-Overlay oder ausserhalb) -> Standardverhalten des Dialogs greift (schliesst sich über onOpenChange)
         }}

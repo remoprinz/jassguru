@@ -20,6 +20,10 @@ const PublicGroupPage = dynamic(() => import('./view/group/[groupId]'), {
   loading: () => <div className="fixed inset-0 bg-gray-900 flex items-center justify-center text-white">Gruppe wird geladen...</div>,
   ssr: false
 });
+const PublicSessionPage = dynamic(() => import('./view/session/public/[sessionId]'), {
+  loading: () => <div className="fixed inset-0 bg-gray-900 flex items-center justify-center text-white">Live Jass wird geladen...</div>,
+  ssr: false
+});
 
 const LoadingComponent = () => (
   <div className="fixed inset-0 flex items-center justify-center bg-gray-900">
@@ -57,6 +61,12 @@ const HomePage = () => {
       const groupId = pathParts[2];
       newRouterState.pathname = '/view/group/[groupId]';
       newRouterState.query = { groupId: groupId };
+      newRouterState.asPath = path;
+    } else if (path.startsWith('/view/session/public/') && pathParts.length === 4) {
+      ComponentToRender = PublicSessionPage;
+      const sessionId = pathParts[3];
+      newRouterState.pathname = '/view/session/public/[sessionId]';
+      newRouterState.query = { sessionId: sessionId };
       newRouterState.asPath = path;
     } else {
       // Für alle anderen Pfade (z.B. die Startseite '/')

@@ -215,9 +215,18 @@ const GlobalNotificationContainer: React.FC = () => {
     return null;
   }
 
+  // ✅ BUGFIX: Wrapper-Container für Modal-Kompatibilität hinzufügen
+  const wrappedContent = (
+    <div id="global-notification-container-wrapper" className="pointer-events-none">
+      <div className="pointer-events-auto">
+        {notificationContent}
+      </div>
+    </div>
+  );
+
   // Verwende createPortal, um den Inhalt direkt in document.body zu rendern
   return ReactDOM.createPortal(
-    notificationContent,
+    wrappedContent,
     document.body
   );
 };

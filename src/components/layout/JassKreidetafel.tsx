@@ -121,7 +121,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
   
   const isOnlineMode = !!activeGameId; // Definition von isOnlineMode
 
-  const {isJassStarted} = useJassStore();
+  const {isJassStarted, jassSessionId} = useJassStore();
 
   const {
     menu: {isOpen: isMenuOpen},
@@ -169,8 +169,10 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
   const isBrowserOnboardingRequired = useMemo(() => {
     const currentPath = pathname;
     const isExcluded = onboardingExcludedPaths.includes(currentPath);
+    // NEU: Zusätzlicher Check für öffentliche Pfade - OnboardingFlow soll nicht auf öffentlichen Views gezeigt werden
+    const isPublicViewPath = currentPath.startsWith('/view/');
     // NEU: Verwende die Helper-Funktion für Development-Support
-    const result = shouldShowBrowserOnboarding(isPWAInstalled, isExcluded);
+    const result = shouldShowBrowserOnboarding(isPWAInstalled, isExcluded || isPublicViewPath);
     return result;
   }, [isPWAInstalled, pathname, authStatus]);
 
@@ -189,6 +191,8 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
 
   // Device Scale Hook
   const {scale, deviceType} = useDeviceScale();
+  
+
 
   const isFirstTimeLoad = useMemo(() => {
     const result = !isJassStarted && !isGameStarted;
@@ -713,6 +717,8 @@ Generiert von:
         <StartScreen members={[]} />
       ) : (
         <>
+
+          
           {/* TOP */}
           <SplitContainer
             position="top"

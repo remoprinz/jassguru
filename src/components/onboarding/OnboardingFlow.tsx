@@ -130,6 +130,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   if (!show) {
      return null;
   }
+  
+  // NEU: Zusätzlicher Schutz für öffentliche View-Pfade
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/view/')) {
+    return null; // Niemals OnboardingFlow auf öffentlichen View-Pfaden zeigen
+  }
 
   // JSX wird nur zurückgegeben, wenn NICHT im Development Mode und show=true
   return (

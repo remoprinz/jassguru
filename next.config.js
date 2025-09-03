@@ -47,8 +47,8 @@ const nextConfig = {
 const withPWA = withPWAInit({
   dest: 'public',
   register: false, // Custom Registration - wir registrieren konditional
-  skipWaiting: true,
-  clientsClaim: true,
+  skipWaiting: false, // 🛑 WICHTIG: Auf false setzen für kontrollierte Updates
+  clientsClaim: false, // 🛑 WICHTIG: Auf false setzen für sanfteren Übergang
   scope: '/',
   // disable: true, // 🎯 PWA wieder aktiviert, aber mit Kontrolle
   sw: 'sw.js',
@@ -81,15 +81,15 @@ const withPWA = withPWAInit({
         },
       },
     },
-    // 🚀 NEUE OPTIMIERTE STRATEGIE: Firebase Storage Bilder (Profilbilder, Gruppenlogos)
+    // 🚀 OPTIMIERTE STRATEGIE: Firebase Storage Bilder mit StaleWhileRevalidate
     {
       urlPattern: /^https:\/\/firebasestorage\.googleapis\.com\/.*\/(profileImages|profilePictures|groupLogos|tournamentLogos)\/.*/i,
-      handler: 'CacheFirst',
+      handler: 'StaleWhileRevalidate', // 🔥 WICHTIG: Zeigt alten Cache sofort, lädt im Hintergrund neu
       options: {
         cacheName: 'firebase-user-images',
         expiration: {
-          maxEntries: 500, // Mehr Platz für Profilbilder/Logos
-          maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Tage - länger, da Änderungen neue URLs generieren
+          maxEntries: 200, // Reduziert für bessere Performance
+          maxAgeSeconds: 7 * 24 * 60 * 60, // 7 Tage - kürzere Cache-Zeit
         },
         cacheableResponse: {
           statuses: [0, 200],

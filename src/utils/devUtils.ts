@@ -34,6 +34,14 @@ export const shouldForcePWAInstall = (): boolean => {
 
 // NEU: Helper für Browser-Onboarding
 export const shouldShowBrowserOnboarding = (isPWAInstalled: boolean, isPathExcluded: boolean): boolean => {
+  // Zusätzlicher Check: OnboardingFlow niemals auf View-Pfaden zeigen
+  if (typeof window !== 'undefined') {
+    const currentPath = window.location.pathname;
+    if (currentPath.startsWith('/view/')) {
+      return false; // Niemals OnboardingFlow auf öffentlichen View-Pfaden
+    }
+  }
+  
   // Im Development-Modus: Zeige Onboarding wenn FORCE_BROWSER_ONBOARDING aktiv ist
   if (isDev && FORCE_BROWSER_ONBOARDING) {
     return !isPWAInstalled && !isPathExcluded;

@@ -14,14 +14,28 @@ export async function compressImage(
   quality: number = 0.8
 ): Promise<Blob | null> {
   try {
+    // 🔥 OPTIMIERT: Aggressivere Kompression für schnellere Ladezeiten
     const options = {
-      maxSizeMB: 1, // Maximum Dateigröße in MB
-      maxWidthOrHeight,
+      maxSizeMB: 0.5, // Reduziert von 1MB auf 0.5MB
+      maxWidthOrHeight: Math.min(maxWidthOrHeight, 600), // Max 600px für Profilbilder
       useWebWorker: true,
       initialQuality: quality,
+      fileType: 'image/jpeg', // JPEG für bessere Kompression
     };
 
     const compressedFile = await imageCompression(imageFile, options);
+    
+    // Zusätzliche Größenprüfung
+    if (compressedFile.size > 500000) { // Wenn immer noch > 500KB
+      // Zweiter Durchgang mit noch stärkerer Kompression
+      const secondPassOptions = {
+        ...options,
+        maxSizeMB: 0.3,
+        initialQuality: 0.6,
+      };
+      return await imageCompression(compressedFile as File, secondPassOptions);
+    }
+    
     return compressedFile;
   } catch (error) {
     console.error("Fehler bei der Bildkompression:", error);

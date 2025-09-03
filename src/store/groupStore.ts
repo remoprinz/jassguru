@@ -220,13 +220,32 @@ const groupStoreCreator: StateCreator<
   },
 
   fetchCurrentGroup: async (groupId: string) => {
+    // 🔥 KRITISCHER FIX: Verhindere Race Condition während Navigation
+    const currentState = get();
+    
+    // Wenn bereits eine Gruppe mit derselben ID geladen ist, überspringe unnötiges Neuladen
+    if (currentState.currentGroup?.id === groupId && currentState.status === "success") {
+      console.log(`[groupStore] fetchCurrentGroup: Gruppe ${groupId} bereits geladen, überspringe`);
+      return;
+    }
+    
+    // Verhindere parallele Ladevorgänge für dieselbe Gruppe
+    if (currentState.status === "loading") {
+      console.log(`[groupStore] fetchCurrentGroup: Bereits am Laden, überspringe`);
+      return;
+    }
+    
     set({ status: "loading", error: null }, false, 'fetchCurrentGroupStart');
     try {
       // HINWEIS: getGroupById liefert aktuell *keine* angereicherten Spielerdaten!
       // Das könnte zu Inkonsistenzen führen, wenn diese Funktion verwendet wird.
       const group = await getGroupById(groupId);
-      get().setCurrentGroup(group as any); // Typ-Assertion beibehalten
-      if (!group) {
+      
+      // ✅ WICHTIG: Setze Status auf "success" wenn Gruppe erfolgreich geladen
+      if (group) {
+        get().setCurrentGroup(group as any); // Typ-Assertion beibehalten
+        set({ status: "success" }, false, 'fetchCurrentGroupSuccess');
+      } else {
         set({ status: "error", error: "Gruppe nicht gefunden" }, false, 'fetchCurrentGroupNotFound');
       }
     } catch (error) {
@@ -588,7 +607,7 @@ const groupStoreCreator: StateCreator<
     const lastActiveGroup = currentGroups.find(g => g.id === authUser.lastActiveGroupId);
     
     if (lastActiveGroup) {
-      console.log(`[GroupStore] 🎯 Automatisch lastActiveGroup gesetzt: ${lastActiveGroup.name} (${lastActiveGroup.id})`);
+
       get().setCurrentGroup(lastActiveGroup as any);
     } else {
       console.warn(`[GroupStore] ⚠️ lastActiveGroupId ${authUser.lastActiveGroupId} nicht in userGroups gefunden`);
