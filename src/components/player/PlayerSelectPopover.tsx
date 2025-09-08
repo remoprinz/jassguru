@@ -19,6 +19,7 @@ import { UserPlus} from "lucide-react";
 import type {FirestoreGroup, FirestorePlayer, MemberInfo, PlayerInfo, PlayerNumber} from "@/types/jass";
 // Importiere die Funktion, um einen Player per ID zu laden
 import {getPlayerDocument} from "@/services/playerService";
+import {getGroupMembers} from "@/services/groupService";
 import ProfileImage from '@/components/ui/ProfileImage';
 
 interface PlayerSelectPopoverProps {
@@ -43,14 +44,55 @@ export const PlayerSelectPopover: React.FC<PlayerSelectPopoverProps> = ({
   const [playerDocs, setPlayerDocs] = useState<{[playerId: string]: FirestorePlayer}>({});
   const [isLoading, setIsLoading] = useState(false);
 
-  // Effekt, um alle playerIds der Gruppe zu laden
+  // OPTIMIERT: Lade alle Members mit einem einzigen Firestore-Read
   useEffect(() => {
     const fetchPlayerDocs = async () => {
-      if (!group?.playerIds?.length) return;
+      if (!group?.id) return;
       
       setIsLoading(true);
-      // console.log("### PlayerSelectPopover: Lade Spielerdaten für", group.playerIds.length, "Spieler...");
+      console.log("### PlayerSelectPopover: [OPTIMIERT] Lade Members für Gruppe", group.id);
       
+      try {
+        // 🚀 PERFORMANCE-BOOST: 1 Read statt 12+ Reads
+        const members = await getGroupMembers(group.id);
+        
+        if (members.length > 0) {
+          // Konvertiere Members zu PlayerDocs Format für Kompatibilität
+          const playerData: {[playerId: string]: FirestorePlayer} = {};
+          
+          members.forEach(member => {
+            playerData[member.playerId] = {
+              id: member.playerId,
+              displayName: member.displayName,
+              photoURL: member.photoURL,
+              // Füge minimale Required-Felder hinzu
+              userId: null, // Wird nicht für UI benötigt
+              isGuest: false, // Default-Wert
+              createdAt: member.joinedAt,
+              updatedAt: member.joinedAt,
+              groupIds: [group.id!]
+            } as FirestorePlayer;
+          });
+          
+          setPlayerDocs(playerData);
+          console.log(`### PlayerSelectPopover: [OPTIMIERT] ${members.length} Members in 1 Read geladen!`);
+        } else {
+          console.log("### PlayerSelectPopover: [FALLBACK] Keine Members in Subcollection, nutze alte Methode");
+          // Fallback zur alten Methode falls members-Subcollection leer ist
+          await fallbackToOldMethod();
+        }
+      } catch (error) {
+        console.error("### PlayerSelectPopover: [FALLBACK] Fehler beim optimierten Laden, nutze alte Methode:", error);
+        await fallbackToOldMethod();
+      }
+      
+      setIsLoading(false);
+    };
+
+    const fallbackToOldMethod = async () => {
+      if (!group?.playerIds?.length) return;
+      
+      console.log("### PlayerSelectPopover: [FALLBACK] Lade", group.playerIds.length, "Spieler einzeln...");
       const playerData: {[playerId: string]: FirestorePlayer} = {};
       
       for (const playerId of group.playerIds) {
@@ -58,21 +100,17 @@ export const PlayerSelectPopover: React.FC<PlayerSelectPopoverProps> = ({
           const playerDoc = await getPlayerDocument(playerId);
           if (playerDoc) {
             playerData[playerId] = playerDoc;
-            // console.log(`### PlayerSelectPopover: Spielerdaten für ${playerId} geladen:`, 
-            //             playerDoc.nickname || playerDoc.displayName || "Kein Name");
           }
         } catch (err) {
-          console.error(`### PlayerSelectPopover: Fehler beim Laden des Spielers ${playerId}:`, err);
+          console.error(`### PlayerSelectPopover: [FALLBACK] Fehler beim Laden des Spielers ${playerId}:`, err);
         }
       }
       
       setPlayerDocs(playerData);
-      setIsLoading(false);
-      // console.log("### PlayerSelectPopover: Alle Spielerdaten geladen:", Object.keys(playerData).length);
     };
     
     fetchPlayerDocs();
-  }, [group?.playerIds]);
+  }, [group?.id, group?.playerIds]);
 
   // Verwende jetzt die geladenen Player-Dokumente anstelle der eingebetteten Daten
   const availableMembers = React.useMemo(() => {

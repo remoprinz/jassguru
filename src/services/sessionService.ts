@@ -67,51 +67,90 @@ export const fetchCompletedSessionsForUser = async (userId: string): Promise<Ses
 
   try {
     const db = getFirestore(firebaseApp);
-    const summariesRef = collection(db, 'jassGameSummaries');
+    // 🔍 1. Lade alle Gruppen des Users aus players collection
+    const playersRef = collection(db, 'players');
+    const playerQuery = query(playersRef, where('userId', '==', userId));
+    const playerSnapshot = await getDocs(playerQuery);
     
-    // ✅ LÖSUNG: Vereinfachte Query ohne Composite Index
-    const q = query(
-      summariesRef,
-      where('participantUids', 'array-contains', userId)
-      // orderBy und status-Filter entfernt, um Composite Index zu vermeiden
-    );
-    
-    const querySnapshot = await getDocs(q);
-    const sessions: SessionSummary[] = [];
-    querySnapshot.forEach((docSnap) => {
-      const data = docSnap.data();
-      
-      // ✅ CLIENT-SEITIGE FILTERUNG: Nur abgeschlossene Sessions
-      if (data.status === 'completed' || data.status === 'completed_empty') {
-        sessions.push({
-          id: docSnap.id,
-          startedAt: parseTimestampToMillis(data.startedAt),
-          endedAt: parseTimestampToMillis(data.endedAt),
-          groupId: data.groupId ?? data.gruppeId ?? null,
-          playerNames: data.playerNames || {},
-          participantUids: data.participantUids || [],
-          finalScores: data.finalScores || null,
-          finalStriche: data.finalStriche || null,
-          status: data.status || 'unknown',
-          teams: data.teams || null,
-          pairingIdentifiers: data.pairingIdentifiers || null,
-          gruppeId: data.gruppeId ?? data.groupId ?? null,
-          currentScoreLimit: data.currentScoreLimit || 0,
-          completedGamesCount: data.completedGamesCount || 0,
-          lastActivity: data.lastActivity ? parseTimestampToMillis(data.lastActivity) : null,
-          isTournamentSession: data.isTournamentSession || false,
-          tournamentInstanceId: data.tournamentInstanceId || null,
-          tournamentId: data.tournamentId || null, // ✅ NEU: Für Turnier-Sessions
-          metadata: data.metadata || {},
-        });
+    if (playerSnapshot.empty) {
+      console.log('🔍 [SessionService] Kein Player-Dokument für User gefunden:', userId);
+      return [];
+    }
+
+    // 📋 2. Sammle alle groupIds
+    const groupIds: string[] = [];
+    playerSnapshot.forEach(doc => {
+      const playerData = doc.data();
+      if (playerData.groupIds && Array.isArray(playerData.groupIds)) {
+        groupIds.push(...playerData.groupIds);
       }
     });
+
+    if (groupIds.length === 0) {
+      console.log('🔍 [SessionService] User ist in keinen Gruppen:', userId);
+      return [];
+    }
     
-    // ✅ CLIENT-SEITIGE SORTIERUNG: Nach startedAt absteigend
-    sessions.sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0));
+    // 🔄 3. Parallel alle Gruppen-Sessions aus neuer Struktur laden
+    const allSessions: SessionSummary[] = [];
+    const groupPromises = groupIds.map(async (groupId) => {
+      try {
+        const groupSummariesRef = collection(db, 'groups', groupId, 'jassGameSummaries');
+        const q = query(
+          groupSummariesRef,
+          where('participantUids', 'array-contains', userId)
+        );
+
+        const querySnapshot = await getDocs(q);
+        const groupSessions: SessionSummary[] = [];
+
+        querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          
+          // ✅ CLIENT-SEITIGE FILTERUNG: Nur abgeschlossene Sessions
+          if (data.status === 'completed' || data.status === 'completed_empty') {
+            groupSessions.push({
+              id: docSnap.id,
+              startedAt: parseTimestampToMillis(data.startedAt),
+              endedAt: parseTimestampToMillis(data.endedAt),
+              groupId: groupId, // ✅ Explizit setzen für Konsistenz
+              playerNames: data.playerNames || {},
+              participantUids: data.participantUids || [],
+              finalScores: data.finalScores || null,
+              finalStriche: data.finalStriche || null,
+              status: data.status || 'unknown',
+              teams: data.teams || null,
+              pairingIdentifiers: data.pairingIdentifiers || null,
+              gruppeId: groupId, // ✅ Backwards compatibility
+              currentScoreLimit: data.currentScoreLimit || 0,
+              completedGamesCount: data.completedGamesCount || 0,
+              lastActivity: data.lastActivity ? parseTimestampToMillis(data.lastActivity) : null,
+              isTournamentSession: data.isTournamentSession || false,
+              tournamentInstanceId: data.tournamentInstanceId || null,
+              tournamentId: data.tournamentId || null,
+              metadata: data.metadata || {},
+            });
+          }
+        });
+
+        return groupSessions;
+      } catch (error) {
+        console.error('❌ [SessionService] Fehler beim Laden der Sessions für Gruppe:', groupId, error);
+        return [];
+      }
+    });
+
+    // 📊 4. Alle Ergebnisse zusammenführen
+    const groupResults = await Promise.all(groupPromises);
+    groupResults.forEach(groupSessions => {
+      allSessions.push(...groupSessions);
+    });
     
-    // console.log(`[fetchCompletedSessionsForUser] Found ${sessions.length} sessions for user: ${userId}`);
-    return sessions;
+    // ✅ 5. CLIENT-SEITIGE SORTIERUNG: Nach startedAt absteigend
+    allSessions.sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0));
+    
+    console.log(`[fetchCompletedSessionsForUser] Found ${allSessions.length} sessions for user: ${userId} across ${groupIds.length} groups`);
+    return allSessions;
   } catch (error) {
     console.error(`[fetchCompletedSessionsForUser] Error fetching sessions for user ${userId}:`, error);
     
@@ -206,7 +245,7 @@ export const fetchAllGroupSessions = async (groupId: string): Promise<SessionSum
           id: docSnap.id,
           startedAt: parseTimestampToMillis(sessionData.startedAt),
           endedAt: parseTimestampToMillis(sessionData.endedAt),
-          groupId: sessionData.groupId ?? sessionData.gruppeId ?? null,
+          groupId: groupId, // ✅ FIX: Verwende die groupId aus dem Funktionsparameter, nicht aus den Daten
           playerNames: sessionData.playerNames || {},
           participantUids: sessionData.participantUids || [],
           finalScores: sessionData.finalScores || null,
@@ -214,7 +253,7 @@ export const fetchAllGroupSessions = async (groupId: string): Promise<SessionSum
           status: sessionData.status || 'unknown',
           teams: sessionData.teams || null,
           pairingIdentifiers: sessionData.pairingIdentifiers || null,
-          gruppeId: sessionData.gruppeId ?? sessionData.groupId ?? null,
+          gruppeId: groupId, // ✅ FIX: Auch hier die groupId aus dem Parameter verwenden
           currentScoreLimit: sessionData.currentScoreLimit || 0,
           completedGamesCount: sessionData.completedGamesCount || 0,
           lastActivity: sessionData.lastActivity ? parseTimestampToMillis(sessionData.lastActivity) : null,
@@ -269,13 +308,16 @@ export const fetchAllGamesForSession = async (sessionId: string, groupId?: strin
     // 🚀 NEUE ARCHITEKTUR: GroupId ermitteln falls nicht übergeben
     let resolvedGroupId = groupId;
     if (!resolvedGroupId) {
-      console.log(`[fetchAllGamesForSession] No groupId provided, trying to resolve from session ${sessionId}`);
-      const sessionDoc = await getDoc(doc(db, 'sessions', sessionId));
-      if (sessionDoc.exists()) {
-        const sessionData = sessionDoc.data();
-        resolvedGroupId = sessionData?.groupId || sessionData?.gruppeId || null;
-        console.log(`[fetchAllGamesForSession] Resolved groupId: ${resolvedGroupId}`);
-      }
+      console.log(`[fetchAllGamesForSession] No groupId provided, attempting to resolve from session ${sessionId}`);
+      // 🚨 BUG-FIX: Die Abfrage auf die globale 'sessions' Collection funktioniert für öffentliche
+      // Viewer nicht, da die Leserechte fehlen. Da wir die groupId auf der PublicGroupPage
+      // bereits haben, können wir diesen unsicheren Fallback entfernen.
+      // const sessionDoc = await getDoc(doc(db, 'sessions', sessionId));
+      // if (sessionDoc.exists()) {
+      //   const sessionData = sessionDoc.data();
+      //   resolvedGroupId = sessionData?.groupId || sessionData?.gruppeId || null;
+      //   console.log(`[fetchAllGamesForSession] Resolved groupId: ${resolvedGroupId}`);
+      // }
     }
     
     if (!resolvedGroupId) {

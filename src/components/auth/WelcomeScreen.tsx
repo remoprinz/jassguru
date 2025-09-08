@@ -270,8 +270,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             <h2 className="text-xl text-gray-300 text-center -mt-2 italic">
               {displayMode === "pwa" ? "Von Jassern für Jasser." : (
                 <>
-                  Die digitale Heimat für den<br />
-                  Schweizer Nationalsport
+                  Endlich eine Jasstafel, die nicht flucht.
                 </>
               )}
             </h2>
@@ -292,7 +291,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               ) : (
                 <div className="text-left">
                   <div className="mb-4">
-                    Jassen gehört an den Tisch – Resultate, Tabellen und Statistiken auf die Cloud. Wer ist Matsch-König? Welche Spieler harmonieren? Jasse mit jassguru.ch und du weisst Bescheid. Jetzt Vorschau ansehen und starten:
+                    Letzte Woche am Stammtisch: 'Haben wir den Weis schon geschrieben?' - 'Keine Ahnung.' - 'Wer ist an der Reihe?' - 'Du warst doch...' - 'Wer jasst am besten?' - 'Das dikutieren wir noch!' - STOPP! Hier kommt die Jasstafel, die mitdenkt und sich alles merkt.
                   </div>
                   <div className="space-y-2">
                     <div>
@@ -306,7 +305,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                     <div>
                       <a 
                         href="https://jassguru.ch/view/group/Tz0wgIHMTlhvTtFastiJ" 
-                        target="_blank" 
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center space-x-1 text-blue-400 hover:text-blue-300 hover:underline"
                       >
@@ -317,7 +316,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                     <div>
                       <a 
                         href="https://jassguru.ch/profile/b16c1120111b7d9e7d733837" 
-                        target="_blank" 
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center space-x-1 text-blue-400 hover:text-blue-300 hover:underline"
                       >

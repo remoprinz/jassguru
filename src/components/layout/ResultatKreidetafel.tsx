@@ -81,6 +81,7 @@ import { getSyncEngine } from "@/services/offlineSyncEngine";
 import { useAuthStore } from '@/store/authStore';
 import type { AuthUser } from '@/types/auth'; // AuthUser als Typ
 import FullscreenLoader from "@/components/ui/FullscreenLoader"; // Verwende FullscreenLoader für bessere Sichtbarkeit
+import GlobalLoader from "@/components/layout/GlobalLoader"; // NEU: Import für GlobalLoader
 
 // NEU: Import für CompletedGameSummary Typ
 import type { CompletedGameSummary as CompletedGameSummaryType } from '@/types/jass';
@@ -1438,6 +1439,9 @@ const ResultatKreidetafel = ({
 
       // Navigation zu /jass nach erfolgreichem Setup
       await debouncedRouterPush(router, '/jass');
+      
+      // NEU: Loading-State zurücksetzen nach erfolgreicher Navigation
+      setIsLoadingNewGame(false);
     };
 
     // Fallunterscheidung: Navigation oder Neues Spiel (unverändert)
@@ -1548,21 +1552,26 @@ const ResultatKreidetafel = ({
         { 
           label: 'Weiterjassen!', 
           onClick: async () => {
-            closeResultatKreidetafel(); // Kreidetafel sofort schließen
-
+            // NEU: Setze Loading-State ZUERST, bevor die Komponente geschlossen wird
+            setIsLoadingNewGame(true);
+            
+            // Dann Kreidetafel schließen - GlobalLoader bleibt sichtbar wegen isLoadingNewGame
+            closeResultatKreidetafel();
             
             // NEU: Setze Transition-State direkt im gameStore
             useGameStore.getState().setTransitioning(true);
             
             try {
-            await startNewGameSequence(); // Kein Argument mehr übergeben
+              await startNewGameSequence(); // Kein Argument mehr übergeben
             } catch (error) {
               console.error("[ResultatKreidetafel] Fehler beim Starten des neuen Spiels:", error);
-              // Bei Fehler Transition-State zurücksetzen
+              // Bei Fehler beide States zurücksetzen
               useGameStore.getState().setTransitioning(false);
+              setIsLoadingNewGame(false); // NEU: Loading-State zurücksetzen bei Fehler
               throw error; // Re-throw für weitere Fehlerbehandlung
             }
             // setTransitioning(false) wird automatisch in resetGame() aufgerufen
+            // setIsLoadingNewGame(false) wird nach erfolgreicher Navigation zurückgesetzt
           }
         }
       ]
@@ -2256,7 +2265,7 @@ const ResultatKreidetafel = ({
 
   return (
     <>
-      {isLoadingNewGame && <FullscreenLoader text="Nächstes Spiel wird vorbereitet..." />}
+      {isLoadingNewGame && <GlobalLoader message="Nächstes Spiel wird vorbereitet..." color="purple" />}
       {isFinalizingSession && <FullscreenLoader text="Daten und Statistiken werden aktualisiert..." />}
       {showConfetti && (
         <div className="fixed inset-0 bg-white bg-opacity-70 z-50">

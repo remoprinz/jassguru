@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {isPWA} from "@/utils/browserDetection";
 import { GroupMemberList } from "@/components/group/GroupMemberList";
 import { getGroupMembersSortedByGames } from "@/services/playerService";
+import { getGroupMembersOptimized } from '@/services/groupService'; // 🚀 NEUER IMPORT
 import type { FirestorePlayer, ActiveGame, RoundDataFirebase, GameEntry, RoundEntry, CompletedGameSummary, StricheRecord, JassColor, FarbeSettings, ScoreSettings } from "@/types/jass";
 import { getFirestore, doc, getDoc, collection, getDocs, query, where, orderBy, limit, onSnapshot, Unsubscribe, Timestamp, FieldValue } from "firebase/firestore";
 import { firebaseApp } from "@/services/firebaseInit";
@@ -57,22 +58,35 @@ import { useClickAndScrollHandler } from '@/hooks/useClickAndScrollHandler';
 import { StatLink } from '@/components/statistics/StatLink';
 import { GroupView } from '@/components/group/GroupView'; // ✅ NEUE IMPORT
 
+// 🚀 PERFORMANCE-OPTIMIERUNG: Erstelle eine Member-Map für schnellen Zugriff
+const useMemberMap = (members: FirestorePlayer[]) => {
+  return useMemo(() => {
+    const map = new Map<string, FirestorePlayer>();
+    members.forEach(member => {
+      if (member.displayName) {
+        map.set(member.displayName.toLowerCase(), member);
+      }
+    });
+    return map;
+  }, [members]);
+};
+
 // Hilfsfunktion zum Finden des Spieler-Profilbilds anhand des Namens
-function findPlayerPhotoByName(playerName: string, membersList: FirestorePlayer[]): string | undefined {
-  if (!playerName) return undefined; // <-- HIER DIE NEUE PRÜFUNG
-  if (!membersList?.length) return undefined;
-  
-  const player = membersList.find(
-    m => m.displayName?.toLowerCase() === playerName.toLowerCase()
-  );
-  
-  // Umwandeln von null zu undefined für typekompatibilität
+function findPlayerPhotoByName(playerName: string, memberMap: Map<string, FirestorePlayer>): string | undefined {
+  if (!playerName) return undefined;
+  const player = memberMap.get(playerName.toLowerCase());
   return player?.photoURL || undefined;
 }
 
+// Hilfsfunktion zum Finden des Spieler-Objekts anhand des Namens
+function findPlayerByName(playerName: string, memberMap: Map<string, FirestorePlayer>): FirestorePlayer | undefined {
+  if (!playerName) return undefined;
+  return memberMap.get(playerName.toLowerCase());
+}
+
 // Typ-Guard für Firestore Timestamp
-function isFirestoreTimestamp(value: unknown): value is Timestamp {
-  return Boolean(value && typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function');
+function isFirestoreTimestamp(value: any): value is Timestamp {
+  return value && typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function';
 }
 
 type GroupLoadingStatus = "idle" | "loading" | "success" | "error";
@@ -94,14 +108,6 @@ const normalizeJassColor = (farbe: string): JassColor => {
   
   return (mappings[farbe.toLowerCase()] ?? farbe) as JassColor;
 };
-
-// Hilfsfunktion zum Finden des Spieler-Profilbilds UND der ID anhand des Namens
-function findPlayerByName(playerName: string, membersList: FirestorePlayer[]): FirestorePlayer | undefined {
-  if (!membersList?.length) return undefined;
-  return membersList.find(
-    m => m.displayName?.toLowerCase() === playerName.toLowerCase()
-  );
-}
 
 const StartPage = () => {
   // ===== FEATURE FLAG FÜR SICHERE MIGRATION =====
@@ -139,7 +145,7 @@ const StartPage = () => {
   const [membersLoading, setMembersLoading] = useState(true);
   const [membersError, setMembersError] = useState<string | null>(null);
 
-  const [completedSessions, setCompletedSessions] = useState<SessionSummary[]>([]);
+  const [completedSessions, setCompletedSessions] = useState<any[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(true);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
 
@@ -334,23 +340,21 @@ const StartPage = () => {
 
   useEffect(() => {
     const loadMembers = async () => {
-      if (!currentGroup) {
+      if (currentGroup) {
+        setMembersLoading(true);
+        try {
+          // 🚀 PERFORMANCE-FIX: Ersetze ineffiziente Ladefunktion
+          const fetchedMembers = await getGroupMembersOptimized(currentGroup.id);
+          setMembers(fetchedMembers);
+        } catch (error) {
+          console.error("Fehler beim Laden der Gruppenmitglieder:", error);
+          setMembersError("Mitglieder konnten nicht geladen werden.");
+          showNotification({ message: "Fehler beim Laden der Gruppenmitglieder.", type: "error" });
+        } finally {
+          setMembersLoading(false);
+        }
+      } else {
         setMembers([]);
-        setMembersLoading(false);
-        return;
-      }
-
-      setMembersLoading(true);
-      setMembersError(null);
-      try {
-        const fetchedMembers = await getGroupMembersSortedByGames(currentGroup.id);
-        setMembers(fetchedMembers);
-      } catch (error) {
-        console.error("Fehler beim Laden der Gruppenmitglieder:", error);
-        const message = error instanceof Error ? error.message : "Mitglieder konnten nicht geladen werden.";
-        setMembersError(message);
-        showNotification({ message, type: "error" });
-      } finally {
         setMembersLoading(false);
       }
     };
@@ -1694,6 +1698,9 @@ const StartPage = () => {
     setIsProcessingInvite(false);
   }, [router, showNotification]);
 
+  // 🚀 PERFORMANCE-OPTIMIERUNG: Member-Map für schnellen Zugriff
+  const memberMap = useMemberMap(members);
+
   // Der Gatekeeper: Zeige den Loader, bis die Daten UND der Router bereit sind.
   if (!isDataLoadDetermined || !router.isReady) {
     return (
@@ -1765,8 +1772,8 @@ const StartPage = () => {
         // SCHRITT 4: Statistik-Daten Props
         groupStats={groupStats}
         theme={theme}
-        findPlayerByName={findPlayerByName}
-        findPlayerPhotoByName={findPlayerPhotoByName}
+        findPlayerByName={(name) => findPlayerByName(name, memberMap)}
+        findPlayerPhotoByName={(name) => findPlayerPhotoByName(name, memberMap)}
         // SCHRITT 5: InviteModal Props (FEHLTEN!)
         isInviteModalOpen={isInviteModalOpen}
         onCloseInviteModal={handleCloseInviteModal}

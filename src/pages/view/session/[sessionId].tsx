@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -157,6 +158,9 @@ interface FirestoreGroup {
 const PublicSessionPage = () => {
   const router = useRouter();
   const sessionId = router.query.sessionId as string;
+  const isPublicRoute = typeof window !== 'undefined' 
+    ? (router.pathname?.includes('/view/session/public') || router.asPath?.includes('/view/session/public'))
+    : false;
 
 
   // Session-Daten Zustand
@@ -227,51 +231,66 @@ const PublicSessionPage = () => {
           console.log('🔍 [SessionView] Loading session data for sessionId:', sessionId);
         }
         
-        // 🚀 NEUE ARCHITEKTUR: Session aus neuer Struktur laden
-        // Versuche zunächst aus allen Gruppen des Users zu laden
-        const auth = getAuth(firebaseApp);
-        const user = auth.currentUser;
-        
-        if (!user) {
-          console.log('🔍 [SessionView] No authenticated user');
-          setError('Nicht angemeldet');
-          return;
-        }
-
-        // Hole User-Dokument um Gruppen zu finden
-        const userDoc = await getDoc(doc(getFirestore(firebaseApp), 'users', user.uid));
-        if (!userDoc.exists()) {
-          console.log('🔍 [SessionView] User document not found');
-          setError('Benutzer nicht gefunden');
-          return;
-        }
-
-        const userData = userDoc.data();
-        const playerDoc = await getDoc(doc(getFirestore(firebaseApp), 'players', userData.playerId));
-        
-        if (!playerDoc.exists()) {
-          console.log('🔍 [SessionView] Player document not found');
-          setError('Spieler nicht gefunden');
-          return;
-        }
-
-        const playerData = playerDoc.data();
-        const groupIds = playerData.groupIds || [];
-
-        // Durchsuche alle Gruppen nach der Session
+        const db = getFirestore(firebaseApp);
         let sessionDoc: any = null;
         let foundGroupId: string | null = null;
 
-        for (const groupId of groupIds) {
-          try {
-            const groupSessionDoc = await getDoc(doc(getFirestore(firebaseApp), `groups/${groupId}/jassGameSummaries`, sessionId));
-            if (groupSessionDoc.exists()) {
-              sessionDoc = groupSessionDoc;
-              foundGroupId = groupId;
-              break;
+        if (isPublicRoute) {
+          // ÖFFENTLICHE ROUTE: Da wir keine groupId kennen, versuchen wir alle Gruppen zu durchsuchen
+          // Zuerst holen wir alle öffentlichen Gruppen
+          const groupsSnap = await getDocs(collection(db, 'groups'));
+          for (const groupDoc of groupsSnap.docs) {
+            try {
+              const sessionDocRef = doc(db, `groups/${groupDoc.id}/jassGameSummaries`, sessionId);
+              const sessionDocSnap = await getDoc(sessionDocRef);
+              if (sessionDocSnap.exists()) {
+                sessionDoc = sessionDocSnap;
+                foundGroupId = groupDoc.id;
+                break;
+              }
+            } catch (error) {
+              // Ignoriere Fehler für einzelne Gruppen
+              continue;
             }
-          } catch (error) {
-            console.log(`🔍 [SessionView] Error checking group ${groupId}:`, error);
+          }
+        } else {
+          // Privater Flow: über User → Player → groupIds iterieren
+          const auth = getAuth(firebaseApp);
+          const user = auth.currentUser;
+          if (!user) {
+            console.log('🔍 [SessionView] No authenticated user');
+            setError('Nicht angemeldet');
+            return;
+          }
+
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (!userDoc.exists()) {
+            console.log('🔍 [SessionView] User document not found');
+            setError('Benutzer nicht gefunden');
+            return;
+          }
+
+          const userData = userDoc.data();
+          const playerDoc = await getDoc(doc(db, 'players', userData.playerId));
+          if (!playerDoc.exists()) {
+            console.log('🔍 [SessionView] Player document not found');
+            setError('Spieler nicht gefunden');
+            return;
+          }
+          const playerData = playerDoc.data();
+          const groupIds = playerData.groupIds || [];
+
+          for (const groupId of groupIds) {
+            try {
+              const groupSessionDoc = await getDoc(doc(db, `groups/${groupId}/jassGameSummaries`, sessionId));
+              if (groupSessionDoc.exists()) {
+                sessionDoc = groupSessionDoc;
+                foundGroupId = groupId;
+                break;
+              }
+            } catch (error) {
+              console.log(`🔍 [SessionView] Error checking group ${groupId}:`, error);
+            }
           }
         }
         

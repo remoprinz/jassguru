@@ -401,6 +401,98 @@ export const getUserGroups = async (userId: string): Promise<FirestoreGroup[]> =
 };
 
 /**
+ * Lädt alle Members einer Gruppe aus der members-Subcollection (Performance-optimiert).
+ * Dies ist viel effizienter als einzelne Player-Dokumente zu laden.
+ * 
+ * @param groupId Die ID der Gruppe
+ * @returns Promise mit Array von Member-Objekten
+ */
+export const getGroupMembers = async (groupId: string): Promise<Array<{
+  playerId: string;
+  displayName: string;
+  photoURL: string | null;
+  joinedAt: Timestamp;
+}>> => {
+  if (!db) throw new Error("Firestore ist nicht initialisiert.");
+  if (!groupId) throw new Error("Ungültige Gruppen-ID.");
+
+  try {
+    console.log(`[getGroupMembers] Lade Members für Gruppe ${groupId}...`);
+    
+    const membersRef = collection(db, 'groups', groupId, 'members');
+    const membersSnapshot = await getDocs(membersRef);
+    
+    const members = membersSnapshot.docs.map(doc => ({
+      playerId: doc.id,
+      displayName: doc.data().displayName || 'Unbekannt',
+      photoURL: doc.data().photoURL || null,
+      joinedAt: doc.data().joinedAt || Timestamp.now()
+    }));
+    
+    console.log(`[getGroupMembers] ${members.length} Members geladen für Gruppe ${groupId}`);
+    return members;
+    
+  } catch (error) {
+    console.error(`[getGroupMembers] Fehler beim Laden der Members für Gruppe ${groupId}:`, error);
+    // Fallback zur alten Methode
+    return [];
+  }
+};
+
+/**
+ * 🚀 PERFORMANCE-OPTIMIERT: Lädt Members aus der members-Subcollection und erstellt kompatible FirestorePlayer-Objekte.
+ * Falls members-Subcollection nicht verfügbar/leer ist, fällt automatisch auf die alte Methode zurück.
+ * 
+ * @param groupId Die ID der Gruppe
+ * @returns Promise mit Array von FirestorePlayer-Objekten (sortiert nach gamesPlayed)
+ */
+export const getGroupMembersOptimized = async (groupId: string): Promise<FirestorePlayer[]> => {
+  if (!db) throw new Error("Firestore ist nicht initialisiert.");
+  if (!groupId) throw new Error("Ungültige Gruppen-ID.");
+
+  try {
+    console.log(`[getGroupMembersOptimized] 🚀 Versuche optimierten Lade-Prozess für Gruppe ${groupId}...`);
+    
+    // 1. Versuche Members aus der optimierten Subcollection zu laden
+    const members = await getGroupMembers(groupId);
+    
+    if (members.length > 0) {
+      // 2. Konvertiere zu kompatiblen FirestorePlayer-Objekten
+      const firestorePlayers: FirestorePlayer[] = members.map(member => ({
+        id: member.playerId,
+        displayName: member.displayName,
+        photoURL: member.photoURL,
+        userId: null, // Wird für UI-Zwecke nicht benötigt
+        isGuest: false, // Default-Wert
+        createdAt: member.joinedAt,
+        updatedAt: member.joinedAt,
+        groupIds: [groupId],
+        stats: { gamesPlayed: 0, wins: 0, totalScore: 0 } // Default-Stats, werden von Statistik-Service überschrieben
+      }));
+      
+      console.log(`[getGroupMembersOptimized] ✅ OPTIMIERT: ${firestorePlayers.length} Members in 1 Read geladen!`);
+      return firestorePlayers;
+    }
+    
+    console.log(`[getGroupMembersOptimized] ⚠️ FALLBACK: members-Subcollection leer, nutze alte Methode...`);
+    // 3. Fallback zur alten Methode (nur wenn members-Subcollection leer)
+    const { getGroupMembersSortedByGames } = await import('../services/playerService');
+    return await getGroupMembersSortedByGames(groupId);
+    
+  } catch (error) {
+    console.error(`[getGroupMembersOptimized] ❌ FALLBACK: Fehler beim optimierten Laden, nutze alte Methode:`, error);
+    // Vollständiger Fallback zur alten Methode
+    try {
+      const { getGroupMembersSortedByGames } = await import('../services/playerService');
+      return await getGroupMembersSortedByGames(groupId);
+    } catch (fallbackError) {
+      console.error(`[getGroupMembersOptimized] ❌ Auch Fallback fehlgeschlagen:`, fallbackError);
+      return [];
+    }
+  }
+};
+
+/**
  * Ruft alle Gruppen ab, in denen ein Spieler Mitglied ist, basierend auf seiner Player-ID.
  * NEU: Reichert die `players`-Map jeder Gruppe mit aktuellen Spielerdaten an.
  * @param playerId Die ID des Spieler-Dokuments.

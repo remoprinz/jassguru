@@ -1,28 +1,4 @@
 {
-  "indexes": [
-    {
-      "collectionGroup": "jassGameSummaries",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "groupId", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "startedAt", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "jassGameSummaries",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "participantPlayerIds",
-          "arrayConfig": "CONTAINS"
-        },
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        }
-      ]
-    }
-  ],
+  "indexes": [],
   "fieldOverrides": []
 } 

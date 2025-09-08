@@ -32,17 +32,30 @@ function isFirestoreTimestamp(value: unknown): value is Timestamp {
 
 type ArchiveItemType = (any & { type: 'session' }) | (TournamentInstance & { type: 'tournament' });
 
+// 🚀 PERFORMANCE-OPTIMIERUNG: Erstelle eine Member-Map für schnellen Zugriff
+const useMemberMap = (members: FirestorePlayer[]) => {
+  return useMemo(() => {
+    const map = new Map<string, FirestorePlayer>();
+    members.forEach(member => {
+      if (member.displayName) {
+        map.set(member.displayName.toLowerCase(), member);
+      }
+    });
+    return map;
+  }, [members]);
+};
+
 // Hilfsfunktion zum Finden des Spieler-Profilbilds anhand des Namens
-function findPlayerPhotoByName(playerName: string, membersList: FirestorePlayer[]): string | undefined {
-  if (!playerName || !membersList?.length) return undefined;
-  const player = membersList.find(m => m.displayName?.toLowerCase() === playerName.toLowerCase());
+function findPlayerPhotoByName(playerName: string, memberMap: Map<string, FirestorePlayer>): string | undefined {
+  if (!playerName || !memberMap) return undefined;
+  const player = memberMap.get(playerName.toLowerCase());
   return player?.photoURL || undefined;
 }
 
 // Hilfsfunktion zum Finden des Spieler-Objekts anhand des Namens
-function findPlayerByName(playerName: string, membersList: FirestorePlayer[]): FirestorePlayer | undefined {
-  if (!membersList?.length) return undefined;
-  return membersList.find(m => m.displayName?.toLowerCase() === playerName.toLowerCase());
+function findPlayerByName(playerName: string, memberMap: Map<string, FirestorePlayer>): FirestorePlayer | undefined {
+  if (!playerName || !memberMap) return undefined;
+  return memberMap.get(playerName.toLowerCase());
 }
 
 const PublicGroupPage = () => {
@@ -68,6 +81,9 @@ const PublicGroupPage = () => {
   const [statsError, setStatsError] = useState<string | null>(null);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
   const [tournamentsError, setTournamentsError] = useState<string | null>(null);
+
+  // 🚀 PERFORMANCE-OPTIMIERUNG: Member-Map für schnellen Zugriff
+  const memberMap = useMemberMap(members);
 
   // ===== THEME SYSTEM =====
   const groupTheme = currentGroup?.theme || 'yellow';
@@ -318,7 +334,7 @@ const PublicGroupPage = () => {
       const formattedDate = displayDate ? format(displayDate, 'dd.MM.yy, HH:mm') : 'Unbekannt';
 
       return (
-        <Link href={`/view/session/${id}`} key={`session-${id}`} passHref>
+        <Link href={`/view/session/public/${id}`} key={`session-${id}`} passHref>
           <div className="p-3 bg-gray-700/50 rounded-lg hover:bg-gray-600/50 transition-colors duration-150 cursor-pointer mb-2">
             <div className="flex justify-between items-center mb-1.5">
               <div className="flex items-center flex-grow">
@@ -494,8 +510,8 @@ const PublicGroupPage = () => {
       // ===== STATISTIK-DATEN =====
       groupStats={groupStats}
       theme={theme}
-      findPlayerByName={findPlayerByName}
-      findPlayerPhotoByName={findPlayerPhotoByName}
+      findPlayerByName={(name) => findPlayerByName(name, memberMap)}
+      findPlayerPhotoByName={(name) => findPlayerPhotoByName(name, memberMap)}
       
       // ===== MODAL PROPS (DEAKTIVIERT) =====
       isInviteModalOpen={false}

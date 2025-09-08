@@ -687,6 +687,14 @@ export const joinGroupByToken = onCall<JoinGroupByTokenData>(async (request) => 
                 playerQuerySnapshot = await transaction.get(playerQuery);
             }
 
+            // NEU: photoURL frühzeitig extrahieren für spätere Verwendung
+            let playerPhotoURL: string | null = null;
+            if (playerVerifySnap?.exists) {
+                playerPhotoURL = playerVerifySnap.data()?.photoURL || null;
+            } else if (playerQuerySnapshot && !playerQuerySnapshot.empty) {
+                playerPhotoURL = playerQuerySnapshot.docs[0].data()?.photoURL || null;
+            }
+
             const finalUserDisplayName = userSnap.exists && userSnap.data()?.displayName ? userSnap.data()?.displayName : userDisplayNameFromToken;
             const finalUserEmail = userSnap.exists && userSnap.data()?.email ? userSnap.data()?.email : userEmailFromToken;
 
@@ -722,6 +730,18 @@ export const joinGroupByToken = onCall<JoinGroupByTokenData>(async (request) => 
                     if (!groupData.players) groupData.players = {};
                     groupData.players[finalPlayerId] = missingPlayerEntry;
                 }
+                
+                // HINZUGEFÜGT: Self-healing für die members-Subcollection
+                const memberDocRef = groupRef.collection("members").doc(finalPlayerId);
+                const memberSnap = await transaction.get(memberDocRef);
+                if (!memberSnap.exists) {
+                    transaction.set(memberDocRef, {
+                        displayName: finalUserDisplayName,
+                        photoURL: playerPhotoURL,
+                        joinedAt: admin.firestore.Timestamp.now(),
+                    });
+                }
+                
                 return { success: true, alreadyMember: true, group: { id: groupSnap.id, ...groupData } };
             }
 
@@ -776,6 +796,15 @@ export const joinGroupByToken = onCall<JoinGroupByTokenData>(async (request) => 
                 updatedAt: admin.firestore.FieldValue.serverTimestamp()
             });
             
+            // HINZUGEFÜGT: Dokument in members-Subcollection mit robuster Struktur erstellen
+            const memberDocRef = groupRef.collection("members").doc(finalPlayerId);
+            const memberData = {
+                displayName: finalUserDisplayName,
+                photoURL: playerPhotoURL, // Ist null für neue Spieler, was korrekt ist
+                joinedAt: groupPlayerEntry.joinedAt, // Gleichen Timestamp verwenden
+            };
+            transaction.set(memberDocRef, memberData);
+
             const resultingGroupData = {
               id: groupSnap.id, 
               ...groupData,
@@ -1434,9 +1463,50 @@ export const syncUserProfileToPlayer = onDocumentUpdated(
     }
 
     const playerRef = admin.firestore().collection("players").doc(playerId);
+    const db = admin.firestore();
+    
     try {
+      // 1. Aktualisiere das Player-Dokument
       await playerRef.set(playerUpdateData, { merge: true }); 
       console.log(`[syncUserProfileToPlayer] Successfully synced user ${userId} changes to player ${playerId}.`);
+      
+      // 2. 🚨 NEU: Aktualisiere auch alle members-Subcollections in den Gruppen
+      if (nameChanged || photoChanged) {
+        console.log(`[syncUserProfileToPlayer] Updating members subcollections for player ${playerId}...`);
+        
+        // Hole das Player-Dokument um die groupIds zu bekommen
+        const playerDoc = await playerRef.get();
+        const playerData = playerDoc.data();
+        const groupIds = playerData?.groupIds || [];
+        
+        if (groupIds.length > 0) {
+          const updatePromises = groupIds.map(async (groupId: string) => {
+            try {
+              const memberRef = db.collection("groups").doc(groupId).collection("members").doc(playerId);
+              const memberUpdateData: { [key: string]: unknown } = {};
+              
+              if (nameChanged && afterData.displayName) {
+                memberUpdateData.displayName = afterData.displayName;
+              }
+              if (photoChanged) {
+                memberUpdateData.photoURL = afterData.photoURL ?? null;
+              }
+              
+              if (Object.keys(memberUpdateData).length > 0) {
+                await memberRef.update(memberUpdateData);
+                console.log(`[syncUserProfileToPlayer] Updated member in group ${groupId}`);
+              }
+            } catch (groupError) {
+              // Member existiert möglicherweise nicht in dieser Gruppe - das ist ok
+              console.log(`[syncUserProfileToPlayer] Could not update member in group ${groupId} (may not exist)`);
+            }
+          });
+          
+          await Promise.all(updatePromises);
+          console.log(`[syncUserProfileToPlayer] Finished updating ${groupIds.length} group member entries`);
+        }
+      }
+      
       return null;
     } catch (error) {
       console.error(`[syncUserProfileToPlayer] Error updating player document ${playerId} for user ${userId}:`, error);

@@ -269,7 +269,8 @@ export const uploadProfilePicture = async (file: File, userId: string): Promise<
   console.log(`[authService] Upload-Dateigröße: ${finalFile.size} bytes (${((finalFile.size / file.size) * 100).toFixed(1)}% des Originals)`);
 
   const storage = getStorage();
-  const storageRef = ref(storage, `profileImages/${userId}/profile.${file.name.split('.').pop()}`);
+// 🔥 KONSOLIDIERUNG: Verwende konsistent den Ordner 'profilePictures'
+  const storageRef = ref(storage, `profilePictures/${userId}/profile.${file.name.split('.').pop()}`);
   
   const snapshot = await uploadBytes(storageRef, finalFile);
   const downloadURL = await getDownloadURL(snapshot.ref);
@@ -291,16 +292,19 @@ export const updateUserProfile = async (updates: { displayName?: string; statusM
 
   const { uid } = currentUser;
 
-    if (updates.displayName) {
-        await firebaseUpdateProfile(currentUser, { displayName: updates.displayName });
+  // 1. Firebase Auth Profil aktualisieren (für schnelle UI-Updates)
+  if (updates.displayName) {
+      await firebaseUpdateProfile(currentUser, { displayName: updates.displayName });
   }
 
-  const playerId = await getPlayerIdForUser(uid, currentUser.displayName);
-          if (playerId) {
-    await updatePlayerDocument(playerId, updates);
-          } else {
-    console.warn(`Could not find player document for user ${uid} to sync profile updates.`);
-  }
+  // 2. 'users' Dokument aktualisieren (Source of Truth).
+  //    Dies löst die Cloud Function 'syncUserProfileToPlayer' aus,
+  //    welche die Daten automatisch in das 'players' Dokument synchronisiert.
+  const userDocRef = doc(db, "users", uid);
+  await updateDoc(userDocRef, {
+    ...updates,
+    lastUpdated: serverTimestamp(),
+  });
 };
 
 /**

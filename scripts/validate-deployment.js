@@ -95,6 +95,50 @@ if (fs.existsSync(indexPath)) {
   console.log('✅ index.html Struktur validiert');
 }
 
+// Überprüfe Service Worker Konsistenz
+console.log('\n🔍 Prüfe Service Worker Konsistenz...');
+const swPath = path.join(outDir, 'sw.js');
+if (fs.existsSync(swPath)) {
+  const swContent = fs.readFileSync(swPath, 'utf8');
+  const fallbackMatch = swContent.match(/fallback-([^"']+)\.js/);
+  if (fallbackMatch) {
+    const swBuildId = fallbackMatch[1];
+    console.log(`  Service Worker Build ID: ${swBuildId}`);
+    
+    // Extrahiere Build ID aus index.html
+    const indexPath = path.join(outDir, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      const indexContent = fs.readFileSync(indexPath, 'utf8');
+      const buildIdMatch = indexContent.match(/"buildId":\s*"([^"]+)"/);
+      if (buildIdMatch) {
+        const indexBuildId = buildIdMatch[1];
+        if (swBuildId !== indexBuildId) {
+          console.error('❌ KRITISCHER FEHLER: Build ID Mismatch!');
+          console.error(`   index.html Build ID: ${indexBuildId}`);
+          console.error(`   Service Worker Build ID: ${swBuildId}`);
+          hasErrors = true;
+        } else {
+          console.log('✅ Build IDs sind konsistent');
+        }
+      }
+    }
+    
+    // Prüfe ob Fallback-Datei existiert
+    const fallbackFile = `fallback-${swBuildId}.js`;
+    if (!fs.existsSync(path.join(outDir, fallbackFile))) {
+      console.error(`❌ Fehler: Fallback-Datei fehlt: ${fallbackFile}`);
+      hasErrors = true;
+    }
+  }
+}
+
+// Warnung vor Service Worker im Root
+if (fs.existsSync(path.join(rootDir, 'sw.js'))) {
+  console.warn('\n⚠️  WARNUNG: Service Worker im Root-Verzeichnis gefunden!');
+  console.warn('   Dies kann zu Deployment-Problemen führen.');
+  hasErrors = true;
+}
+
 console.log('\n' + (hasErrors ? '❌ Validierung fehlgeschlagen!' : '✅ Validierung erfolgreich!'));
 
 if (hasErrors) {

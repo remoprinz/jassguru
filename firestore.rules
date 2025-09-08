@@ -107,6 +107,7 @@ service cloud.firestore {
       // JassGameSummaries (Sessions) in einer Gruppe
       match /jassGameSummaries/{sessionId} {
         allow read: if true;
+        allow list: if true; // 🚨 FIX: Erlaube das Auflisten der Collection für öffentliche Seiten
         allow create, update: if request.auth != null &&
                                 request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.playerIds;
         allow delete: if false;
@@ -141,7 +142,8 @@ service cloud.firestore {
         allow read: if true;
         // Stats können von jedem Mitglied gelesen, aber nur vom System geschrieben werden
         // In der Praxis wird dies über Cloud Functions oder Admin SDK gemacht
-        allow write: if request.auth != null;
+        // FIX: Schreibzugriff vom Client komplett blockieren
+        allow write: if false;
       }
 
       // Invites in einer Gruppe  
@@ -286,6 +288,15 @@ service cloud.firestore {
     // ✅ ELEGANTE LÖSUNG: Bessere Fehlerbehandlung für normale Zustände
     // Statt komplett zu blockieren, erlauben wir Lesezugriff für authentifizierte Benutzer
     // auf Collections, die möglicherweise leer sind (bessere UX)
+    
+    // =====================================================================
+    // COLLECTION GROUP QUERIES - Explizite Regeln für öffentliche Zugriffe
+    // =====================================================================
+    match /{path=**}/jassGameSummaries/{sessionId} {
+      // Erlaubt collectionGroup-Queries auf jassGameSummaries für öffentliche Session-Ansichten
+      allow read: if true;
+    }
+    
     match /{document=**} {
       allow read: if request.auth != null; // Authentifizierte Benutzer dürfen lesen
       allow write: if false; // Schreibzugriff bleibt verboten

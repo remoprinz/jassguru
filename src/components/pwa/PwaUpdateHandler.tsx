@@ -27,25 +27,20 @@ const PwaUpdateHandler: React.FC = () => {
       setIsUpdating(true);
       
       try {
-        // Update durchführen
-        await serviceWorkerService.update();
+        // Update durchführen und auf Reload warten
+        await serviceWorkerService.activateUpdate();
         
-        // Erfolgs-Nachricht
+        // Die Seite wird durch den Service neu geladen, aber wir zeigen für den Fall der Fälle eine Nachricht
         const successConfig: NotificationConfig = {
           message: 'Update erfolgreich! Die App wird neu geladen...',
           type: 'success',
           preventClose: true,
-          duration: 1500,
+          duration: 3000, // Länger, falls der Reload hängt
         };
         showNotification(successConfig);
         
-        // Reload nach kurzer Verzögerung
-        setTimeout(() => {
-          window.location.reload();
-        }, 1500);
-        
       } catch (error) {
-        console.error('[PWA] Update fehlgeschlagen:', error);
+        console.error('[PWA] Update-Aktivierung fehlgeschlagen:', error);
         
         // Fehler-Nachricht
         const errorConfig: NotificationConfig = {
@@ -97,24 +92,19 @@ const PwaUpdateHandler: React.FC = () => {
       }
     });
 
-    // Periodische Update-Checks (alle 30 Minuten)
-    const checkInterval = setInterval(async () => {
-      if (serviceWorkerService.isPWAMode()) {
-        await serviceWorkerService.update();
-      }
-    }, 30 * 60 * 1000);
+    // 🛡️ OPTIMIERT: Periodische Checks werden bereits vom serviceWorkerService durchgeführt
+    // Keine doppelten Intervalle mehr nötig
 
     // Update-Check wenn Tab wieder aktiv wird
     const handleVisibilityChange = () => {
-      if (!document.hidden && serviceWorkerService.isPWAMode()) {
-        serviceWorkerService.update();
+      if (!document.hidden) {
+        serviceWorkerService.checkForUpdate();
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     // Cleanup
     return () => {
-      clearInterval(checkInterval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [showUpdateNotification]);

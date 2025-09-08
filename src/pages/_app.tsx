@@ -25,13 +25,12 @@ import useViewportHeight from '../hooks/useViewportHeight';
 import { useBackgroundOptimization } from '../hooks/useBackgroundOptimization'; // 🚀 NEU: Background Image Optimization
 // 🧟‍♂️ NOTFALL-CACHE-CLEAR ENTFERNT
 
-// 🚨 NEU: App-Watchdog, der die App vor dem Einfrieren rettet
-if (typeof window !== 'undefined') {
-  (window as any).__JASSGURU_APP_WATCHDOG__ = setTimeout(() => {
-    console.error("Jassguru-Watchdog: App-Initialisierung hat zu lange gedauert. Leite zur Reparaturseite weiter.");
-    window.location.href = '/recovery.html';
-  }, 12000); // 12 Sekunden Timeout
-}
+// 🚨 NEU: PWA Service Worker Registrierung mit dem robusten Service
+import { serviceWorkerService } from '@/services/serviceWorkerService';
+import ServiceWorkerMonitor from '@/components/pwa/ServiceWorkerMonitor';
+
+
+// 🚨 App-Watchdog in index.html verschoben für frühere Ausführung
 
 // 🚨 EMERGENCY: Robuste LoadingScreen mit Notfall-Escape
 const LoadingScreen: React.FC<{ onForceLoad?: () => void }> = ({ onForceLoad }) => {
@@ -91,13 +90,39 @@ const MyApp = ({Component, pageProps}: AppProps) => {
   // 🚀 NEU: Background Image Optimization für bessere Performance
   useBackgroundOptimization();
   
-  // Client-seitige Initialisierung: Watchdog entfernen, da App erfolgreich geladen wurde
+  // Client-seitige Initialisierung: Watchdog aus index.html entfernen
   useEffect(() => {
-    if (typeof window !== 'undefined' && (window as any).__JASSGURU_APP_WATCHDOG__) {
-      clearTimeout((window as any).__JASSGURU_APP_WATCHDOG__);
-      delete (window as any).__JASSGURU_APP_WATCHDOG__;
-      console.log("Jassguru-Watchdog: App erfolgreich initialisiert. Watchdog entfernt.");
+    if (typeof window !== 'undefined' && typeof window.cancelPwaLoadTimeout === 'function') {
+      window.cancelPwaLoadTimeout();
     }
+  }, []);
+
+  // 🚨 NEU: Robuste Service Worker Registrierung beim App-Start
+  useEffect(() => {
+    // Registriere den Service Worker mit dem neuen, bulletproof Service
+    serviceWorkerService.register({
+      onUpdate: (registration) => {
+        console.log('[App] Service Worker Update gefunden!', registration);
+        // Hier könnte man den UI-Store benachrichtigen, um einen Update-Hinweis anzuzeigen
+        useUIStore.getState().showNotification({
+          message: 'Ein App-Update ist bereit.',
+          type: 'info',
+          duration: 8000,
+          actions: [{
+            label: 'Jetzt aktualisieren',
+            onClick: () => {
+              serviceWorkerService.activateUpdate();
+            }
+          }]
+        });
+      },
+      onSuccess: (registration) => {
+        console.log('[App] Service Worker erfolgreich registriert.', registration);
+      },
+      onError: (error) => {
+        console.error('[App] Service Worker Registrierung fehlgeschlagen:', error);
+      }
+    });
   }, []);
 
   // const initAuth = useAuthStore((state) => state.initAuth); // ALT
@@ -335,6 +360,7 @@ const MyApp = ({Component, pageProps}: AppProps) => {
             
             <GlobalNotificationContainer />
             <PwaUpdateHandler /> {/* 🎯 PWA-Updates nur im PWA-Modus */}
+            <ServiceWorkerMonitor /> {/* 🛡️ NEU: Fügt den SW Health Monitor hinzu */}
           </FirestoreSyncProvider>
         </UserProvider>
       </AuthProvider>

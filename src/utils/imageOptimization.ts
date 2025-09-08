@@ -32,13 +32,14 @@ export const generateSrcSet = (baseUrl: string, sizes: number[]): string => {
   return sizes.map(size => `${baseUrl} ${size}w`).join(', ');
 };
 
-// Fügt Query-Parameter für Größenbeschränkung hinzu (Firebase Storage)
+// 🚀 PERFORMANCE-FIX: Firebase Storage URL-Optimierung 
+// WICHTIG: Keine URL-Modifikation, da das die Firebase Storage Token ungültig macht
 export const getOptimizedImageUrl = (url: string, maxWidth: number): string => {
   if (!url || !url.includes('firebasestorage.googleapis.com')) {
     return url;
   }
   
-  // Firebase Storage unterstützt keine direkte Bildtransformation
-  // Wir müssen die Bilder beim Upload optimieren
+  // 🔥 RÜCKNAHME: URL-Modifikation macht Firebase Storage URLs ungültig
+  // Das Caching muss komplett über den Service Worker laufen
   return url;
 }; 

@@ -370,7 +370,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           {isPublicView && currentPlayer && (
             <button 
               onClick={handleShareClick}
-              className="absolute top-4 right-4 z-10 p-2 text-gray-300 hover:text-white transition-all duration-200 rounded-full bg-gray-700/50 hover:scale-110"
+              className="absolute top-8 right-4 z-10 p-2 text-gray-300 hover:text-white transition-all duration-200 rounded-full bg-gray-700/50 hover:scale-110"
               style={{
                 backgroundColor: 'rgba(55, 65, 81, 0.5)',
                 borderColor: 'transparent'
@@ -855,7 +855,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
                           onClick={() => {
                             if (playerStats?.highestStricheDifferenceSession?.relatedId) {
-                              router.push(`/view/session/${playerStats.highestStricheDifferenceSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
+                              router.push(`/view/session/public/${playerStats.highestStricheDifferenceSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
                             }
                           }}
                         >
@@ -874,7 +874,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
                           onClick={() => {
                             if (playerStats?.highestPointsDifferenceSession?.relatedId) {
-                              router.push(`/view/session/${playerStats.highestPointsDifferenceSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
+                              router.push(`/view/session/public/${playerStats.highestPointsDifferenceSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
                             }
                           }}
                         >
@@ -893,7 +893,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
                           onClick={() => {
                             if (playerStats?.longestWinStreakSessions?.startSessionId) {
-                              router.push(`/view/session/${playerStats.longestWinStreakSessions.startSessionId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
+                              router.push(`/view/session/public/${playerStats.longestWinStreakSessions.startSessionId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
                             }
                           }}
                         >
@@ -912,7 +912,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
                           onClick={() => {
                             if (playerStats?.longestUndefeatedStreakSessions?.startSessionId) {
-                              router.push(`/view/session/${playerStats.longestUndefeatedStreakSessions.startSessionId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
+                              router.push(`/view/session/public/${playerStats.longestUndefeatedStreakSessions.startSessionId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
                             }
                           }}
                         >
@@ -931,7 +931,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
                           onClick={() => {
                             if (playerStats?.longestWinStreakGames?.startSessionId) {
-                              router.push(`/view/session/${playerStats.longestWinStreakGames.startSessionId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
+                              router.push(`/view/session/public/${playerStats.longestWinStreakGames.startSessionId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
                             }
                           }}
                         >
@@ -950,7 +950,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
                           onClick={() => {
                             if (playerStats?.highestMatschDifferenceSession?.relatedId) {
-                              router.push(`/view/session/${playerStats.highestMatschDifferenceSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
+                              router.push(`/view/session/public/${playerStats.highestMatschDifferenceSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
                             }
                           }}
                         >
@@ -969,7 +969,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
                           onClick={() => {
                             if (playerStats?.mostWeisPointsSession?.relatedId) {
-                              router.push(`/view/session/${playerStats.mostWeisPointsSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
+                              router.push(`/view/session/public/${playerStats.mostWeisPointsSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
                             }
                           }}
                         >
@@ -997,7 +997,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
                           onClick={() => {
                             if (playerStats?.lowestStricheDifferenceSession?.relatedId) {
-                              router.push(`/view/session/${playerStats.lowestStricheDifferenceSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
+                              router.push(`/view/session/public/${playerStats.lowestStricheDifferenceSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
                             }
                           }}
                         >
@@ -1016,7 +1016,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
                           onClick={() => {
                             if (playerStats?.lowestPointsDifferenceSession?.relatedId) {
-                              router.push(`/view/session/${playerStats.lowestPointsDifferenceSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
+                              router.push(`/view/session/public/${playerStats.lowestPointsDifferenceSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
                             }
                           }}
                         >
@@ -1035,7 +1035,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
                           onClick={() => {
                             if (playerStats?.longestLossStreakSessions?.startSessionId) {
-                              router.push(`/view/session/${playerStats.longestLossStreakSessions.startSessionId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
+                              router.push(`/view/session/public/${playerStats.longestLossStreakSessions.startSessionId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
                             }
                           }}
                         >
@@ -1054,7 +1054,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
                           onClick={() => {
                             if (playerStats?.longestWinlessStreakSessions?.startSessionId) {
-                              router.push(`/view/session/${playerStats.longestWinlessStreakSessions.startSessionId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
+                              router.push(`/view/session/public/${playerStats.longestWinlessStreakSessions.startSessionId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
                             }
                           }}
                         >
@@ -1073,7 +1073,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
                           onClick={() => {
                             if (playerStats?.longestLossStreakGames?.startSessionId) {
-                              router.push(`/view/session/${playerStats.longestLossStreakGames.startSessionId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
+                              router.push(`/view/session/public/${playerStats.longestLossStreakGames.startSessionId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
                             }
                           }}
                         >
@@ -1092,7 +1092,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
                           onClick={() => {
                             if (playerStats?.lowestMatschDifferenceSession?.relatedId) {
-                              router.push(`/view/session/${playerStats.lowestMatschDifferenceSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
+                              router.push(`/view/session/public/${playerStats.lowestMatschDifferenceSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
                             }
                           }}
                         >
@@ -1111,7 +1111,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
                           onClick={() => {
                             if (playerStats?.mostWeisPointsReceivedSession?.relatedId) {
-                              router.push(`/view/session/${playerStats.mostWeisPointsReceivedSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
+                              router.push(`/view/session/public/${playerStats.mostWeisPointsReceivedSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
                             }
                           }}
                         >

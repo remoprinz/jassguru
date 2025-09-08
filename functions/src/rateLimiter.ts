@@ -9,6 +9,14 @@ interface RateLimitConfig {
   keyPrefix: string;
 }
 
+// --- SECURITY AUDIT: TYPE SAFETY ---
+// Interface für einen einzelnen Request im Rate-Limiting
+interface RateLimitRequest {
+  timestamp: number;
+  ip: string | null;
+}
+// --- END SECURITY AUDIT FIX ---
+
 /**
  * Rate-Limiting-Funktion für Cloud Functions
  * Verwendet Firestore als Backend für verteilte Rate-Limiting
@@ -33,17 +41,19 @@ export async function checkRateLimit(
           requests: [{
             timestamp: now,
             ip: null // Könnte erweitert werden
-          }],
+          }] as RateLimitRequest[],
           lastReset: now
         });
         return;
       }
       
       const data = doc.data();
-      let requests = data?.requests || [];
+      // --- SECURITY AUDIT: TYPE SAFETY ---
+      let requests: RateLimitRequest[] = data?.requests || [];
       
       // Entferne alte Requests außerhalb des Zeitfensters
-      requests = requests.filter((req: any) => req.timestamp > windowStart);
+      requests = requests.filter((req: RateLimitRequest) => req.timestamp > windowStart);
+      // --- END SECURITY AUDIT FIX ---
       
       // Prüfe Rate-Limit
       if (requests.length >= config.maxRequests) {

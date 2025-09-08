@@ -14,6 +14,7 @@ import {Alert, AlertDescription} from "@/components/ui/alert";
 import { CURRENT_PROFILE_THEME, THEME_COLORS, type ThemeColor, getCurrentProfileTheme } from '@/config/theme';
 import { getPlayerByUserId } from '@/services/playerService';
 import type { FirestorePlayer } from '@/types/jass';
+import { sanitizeInput } from "@/utils/sanitize";
 
 const EditProfilePage: React.FC = () => {
   const {user, status, isAuthenticated, updateProfile} = useAuthStore();
@@ -99,11 +100,30 @@ const EditProfilePage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    // --- SECURITY AUDIT: VALIDATION & SANITIZATION ---
+    if (displayName.trim().length < 2 || displayName.trim().length > 30) {
+      setError("Name muss zwischen 2 und 30 Zeichen lang sein.");
+      return;
+    }
+    if (statusMessage.length > 150) {
+      setError("Jasspruch darf maximal 150 Zeichen lang sein.");
+      return;
+    }
+
+    const sanitizedDisplayName = sanitizeInput(displayName.trim());
+    const sanitizedStatusMessage = sanitizeInput(statusMessage);
+    // --- END SECURITY AUDIT FIX ---
+
     setIsSubmitting(true);
     setError(null);
 
     try {
-      await updateProfile({displayName, statusMessage, profileTheme: selectedTheme});
+      await updateProfile({
+        displayName: sanitizedDisplayName, 
+        statusMessage: sanitizedStatusMessage, 
+        profileTheme: selectedTheme
+      });
 
       showNotification({
         message: `Profil und Farbe "${themeLabels[selectedTheme].name}" erfolgreich gespeichert.`,

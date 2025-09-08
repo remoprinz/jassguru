@@ -4,14 +4,13 @@ import React, {useEffect, useState, useRef, useMemo, useCallback} from "react";
 import {useRouter} from "next/router";
 import {useAuthStore} from "@/store/authStore";
 import {useUIStore} from "@/store/uiStore";
-import {toast} from "sonner";
-import {compressImage} from "@/utils/imageUtils";
+
 import {fetchCompletedSessionsForUser, SessionSummary} from '@/services/sessionService';
 import Link from 'next/link';
 import {format} from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 import type { StricheRecord, FirestorePlayer } from '@/types/jass';
-import { fetchTournamentsForUser, fetchTournamentInstancesForGroup } from '@/services/tournamentService';
+import {fetchTournamentInstancesForGroup } from '@/services/tournamentService';
 import type { TournamentInstance } from '@/types/tournament';
 import { usePlayerStatsStore } from '@/store/playerStatsStore';
 import { transformComputedStatsToExtended, type TransformedPlayerStats } from '@/utils/statsTransformer';
@@ -19,6 +18,7 @@ import { useGroupStore } from "@/store/groupStore";
 import type { FrontendPartnerAggregate, FrontendOpponentAggregate } from '@/types/computedStats';
 import { JassColor } from "@/types/jass";
 import { getGroupMembersSortedByGames, getPlayerByUserId } from '@/services/playerService';
+import { getGroupMembersOptimized } from '@/services/groupService';
 import { THEME_COLORS, getCurrentProfileTheme } from '@/config/theme';
 import { CheckCircle, XCircle, Award as AwardIcon } from "lucide-react";
 import { ProfileView } from '@/components/profile/ProfileView';
@@ -169,13 +169,18 @@ const ProfilePage: React.FC = () => {
 
   const typedRawPlayerStats = rawPlayerStats as ExpectedPlayerStatsWithAggregates | null;
 
+  // ✅ NEUE, ROBUSTE LADE-LOGIK FÜR ARCHIV-DATEN
   useEffect(() => {
     const loadArchiveData = async () => {
-      if (status === 'authenticated' && user) {
+      // Wir warten auf die aktuellen, aus Firebase geladenen Spielerdaten.
+      // Dies löst die Race Condition und stellt sicher, dass wir die korrekte Gruppenliste haben.
+      if (currentPlayerData) {
+        // 1. Abgeschlossene Sessions laden
         setSessionsLoading(true);
         setSessionsError(null);
         try {
-          const sessions = await fetchCompletedSessionsForUser(user.uid);
+          if (!currentPlayerData?.userId) throw new Error("User ID ist nicht verfügbar.");
+          const sessions = await fetchCompletedSessionsForUser(currentPlayerData.userId);
           setCompletedSessions(sessions);
         } catch (error) {
           console.error("Fehler beim Laden der abgeschlossenen Sessions im Profil:", error);
@@ -185,24 +190,24 @@ const ProfilePage: React.FC = () => {
           setSessionsLoading(false);
         }
 
-        // Turniere über alle Gruppen des Users laden
+        // 2. Turniere laden (jetzt auch basierend auf den aktuellen groupIds)
         setTournamentsLoading(true);
         setTournamentsError(null);
         try {
           const allTournaments: TournamentInstance[] = [];
-          if (userGroups && userGroups.length > 0) {
-            // Lade Turniere für alle Gruppen des Users
-            for (const group of userGroups) {
+          const groupIds = currentPlayerData.groupIds || [];
+
+          if (groupIds.length > 0) {
+            for (const groupId of groupIds) {
               try {
-                const groupTournaments = await fetchTournamentInstancesForGroup(group.id);
+                const groupTournaments = await fetchTournamentInstancesForGroup(groupId);
                 allTournaments.push(...groupTournaments.filter(t => 
                   t.status === 'active' || 
                   t.status === 'upcoming' || 
                   t.status === 'completed'
                 ));
               } catch (groupError) {
-                console.warn(`Fehler beim Laden der Turniere für Gruppe ${group.id}:`, groupError);
-                // Nicht den ganzen Prozess abbrechen, sondern nur diese Gruppe überspringen
+                console.warn(`Fehler beim Laden der Turniere für Gruppe ${groupId}:`, groupError);
               }
             }
           }
@@ -214,9 +219,8 @@ const ProfilePage: React.FC = () => {
         } finally {
            setTournamentsLoading(false);
         }
-      } else if (status === 'authenticated' && !user) {
-          console.warn("User authenticated but user object not available for archive loading yet.");
-      } else {
+      } else if (status === 'unauthenticated') {
+          // Wenn der User ausgeloggt ist, alles leeren.
           setSessionsLoading(false);
           setTournamentsLoading(false);
           setCompletedSessions([]);
@@ -225,7 +229,7 @@ const ProfilePage: React.FC = () => {
     };
 
     loadArchiveData();
-  }, [status, user, userGroups]);
+  }, [currentPlayerData, status]); // Trigger NUR wenn aktuelle Spielerdaten geladen sind.
 
   useEffect(() => {
     if (status === 'authenticated' && user?.playerId) {
@@ -265,7 +269,8 @@ const ProfilePage: React.FC = () => {
         const seenPlayerIds = new Set<string>();
 
         for (const group of userGroups) {
-          const groupMembers = await getGroupMembersSortedByGames(group.id);
+          // 🚀 PERFORMANCE-OPTIMIERT: Nutze Members-Subcollection statt einzelne Player-Reads
+          const groupMembers = await getGroupMembersOptimized(group.id);
           // Verhindere Duplikate (falls User in mehreren Gruppen mit gleichen Spielern ist)
           groupMembers.forEach(member => {
             const playerId = member.id || member.userId;
@@ -497,7 +502,7 @@ const ProfilePage: React.FC = () => {
       const formattedDate = displayDate ? format(displayDate, 'dd.MM.yy, HH:mm') : 'Unbekannt';
 
       return (
-          <Link href={`/view/session/${id}?returnTo=/profile&returnMainTab=archive`} key={`session-${id}`} passHref>
+          <Link href={`/view/session/public/${id}?returnTo=/profile&returnMainTab=archive`} key={`session-${id}`} passHref>
             <div className="p-3 bg-gray-700/50 rounded-lg hover:bg-gray-600/50 transition-colors duration-150 cursor-pointer mb-2">
               <div className="flex justify-between items-center mb-1.5">
                  <div className="flex items-center flex-grow"> 

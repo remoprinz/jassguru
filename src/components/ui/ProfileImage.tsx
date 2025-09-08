@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useCallback, memo, useEffect } from 'react';
+import React, { useState, useCallback, memo, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { backgroundOptimizer } from '@/utils/backgroundImageOptimizer';
+import { getOptimizedImageUrl } from '@/utils/imageOptimization';
 
 interface ProfileImageProps {
   src?: string | null;
@@ -63,6 +64,12 @@ const ProfileImage: React.FC<ProfileImageProps> = memo(({
   
   // Prüfe, ob src verfügbar und gültig ist
   const hasValidSrc = src && src.trim() !== '' && !imageError;
+  
+  // 🔥 KRITISCHER PERFORMANCE-FIX: Optimiere Firebase Storage URLs für Caching
+  const optimizedSrc = useMemo(() => {
+    if (!src) return '';
+    return getOptimizedImageUrl(src, sizeConfig.width);
+  }, [src, sizeConfig.width]);
 
   // 🚀 NEU: Context-aware Loading Logic
   const getLoadingBehavior = useCallback(() => {
@@ -70,9 +77,9 @@ const ProfileImage: React.FC<ProfileImageProps> = memo(({
     if (context === 'hero') {
       return { shouldUsePriority: true, shouldBeLazy: false };
     }
-    // List images: eager loading but no priority (für bessere Performance in Listen)
+    // List images: LAZY laden, um parallele Requests zu drosseln
     if (context === 'list') {
-      return { shouldUsePriority: false, shouldBeLazy: false };
+      return { shouldUsePriority: false, shouldBeLazy: true };
     }
     // Default: respektiere explizite props
     return { shouldUsePriority: priority, shouldBeLazy: lazy };
@@ -127,6 +134,7 @@ const ProfileImage: React.FC<ProfileImageProps> = memo(({
     if (hasRequiredMetadata) {
       // Kurze Verzögerung, damit das Bild Zeit hat zu laden
       const timer = setTimeout(() => {
+        // Verwende die Original-URL für den Optimizer, nicht die optimierte
         backgroundOptimizer.checkAndQueue(src, optimizationType, metadata, priority ? 1 : 3);
       }, 1000);
 
@@ -140,7 +148,7 @@ const ProfileImage: React.FC<ProfileImageProps> = memo(({
       <div className={cn(`relative overflow-hidden rounded-full bg-gray-800`, sizeConfig.className, className)}>
         {hasValidSrc ? (
           <Image
-            src={src}
+            src={optimizedSrc}
             alt={alt}
             width={sizeConfig.width}
             height={sizeConfig.height}
@@ -148,7 +156,7 @@ const ProfileImage: React.FC<ProfileImageProps> = memo(({
             sizes={getOptimizedSizes()}
             priority={shouldUsePriority && !shouldBeLazy}
             loading={shouldBeLazy ? 'lazy' : 'eager'}
-            quality={optimized ? 50 : 75} // Reduzierte Qualität für Listen
+            quality={optimized ? 50 : 75}
             placeholder="empty" // Kein Blur-Placeholder für schnelleres Laden
             onError={handleError}
             onLoad={handleLoad}
@@ -172,7 +180,7 @@ const ProfileImage: React.FC<ProfileImageProps> = memo(({
     <Avatar className={cn(sizeConfig.className, className)}>
       {hasValidSrc && (
         <AvatarImage 
-          src={src} 
+          src={optimizedSrc} 
           alt={alt}
           onError={handleError}
           onLoad={handleLoad}
