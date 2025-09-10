@@ -6,21 +6,12 @@ import {useAuthStore} from "@/store/authStore";
 import {useGroupStore} from "@/store/groupStore";
 import {useGameStore} from "@/store/gameStore";
 import {useJassStore, createInitialTeamStand} from "@/store/jassStore";
-import {useUIStore} from "@/store/uiStore";
-import {Button} from "@/components/ui/button";
-import Image from "next/image";
+import {useUIStore} from "@/store/uiStore";;
 import MainLayout from "@/components/layout/MainLayout";
-import {GroupSelector} from "@/components/group/GroupSelector";
 import {Users, Settings, UserPlus, Camera, Upload, X, Loader2, BarChart, Archive, CheckCircle, XCircle, MinusCircle, Award as AwardIcon, BarChart2, BarChart3, AlertTriangle, ArrowLeft, DownloadCloud, Smartphone, Monitor, Laptop, LayoutGrid, Columns, Mail, Copy } from "lucide-react";
 import imageCompression from "browser-image-compression";
 import {uploadGroupLogo} from "@/services/groupService";
-import ImageCropModal from "@/components/ui/ImageCropModal";
-import InviteModal from "@/components/group/InviteModal";
 import {getFunctions, httpsCallable} from "firebase/functions";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {isPWA} from "@/utils/browserDetection";
-import { GroupMemberList } from "@/components/group/GroupMemberList";
-import { getGroupMembersSortedByGames } from "@/services/playerService";
 import { getGroupMembersOptimized } from '@/services/groupService'; // 🚀 NEUER IMPORT
 import type { FirestorePlayer, ActiveGame, RoundDataFirebase, GameEntry, RoundEntry, CompletedGameSummary, StricheRecord, JassColor, FarbeSettings, ScoreSettings } from "@/types/jass";
 import { getFirestore, doc, getDoc, collection, getDocs, query, where, orderBy, limit, onSnapshot, Unsubscribe, Timestamp, FieldValue } from "firebase/firestore";
@@ -38,24 +29,13 @@ import {
   GroupStatistics,
   subscribeToGroupStatistics,
 } from "@/services/statisticsService";
-import { FormattedDescription } from '@/components/ui/FormattedDescription';
-import { StatRow } from '@/components/statistics/StatRow';
-import { FarbePictogram } from '@/components/settings/FarbePictogram';
 import { StrokeSettings } from '@/types/jass';
-import JoinByInviteUI from "@/components/ui/JoinByInviteUI";
 import { extractAndValidateToken } from "@/utils/tokenUtils";
-import { TournamentSelector } from "@/components/tournament/TournamentSelector"; // NEU: TournamentSelector importieren
 
-// NEUE IMPORTE FÜR KARTENSYMBOL-MAPPING
-import { CARD_SYMBOL_MAPPINGS } from '@/config/CardStyles';
-import { toTitleCase, formatMillisecondsDuration } from '@/utils/formatUtils';
-import ProfileImage from '@/components/ui/ProfileImage';
 // THEME-SYSTEM IMPORTE
 import { THEME_COLORS, getCurrentProfileTheme, type ThemeColor } from '@/config/theme';
 // ENDE NEUE IMPORTE
 import { useNestedScrollFix } from '@/hooks/useNestedScrollFix';
-import { useClickAndScrollHandler } from '@/hooks/useClickAndScrollHandler';
-import { StatLink } from '@/components/statistics/StatLink';
 import { GroupView } from '@/components/group/GroupView'; // ✅ NEUE IMPORT
 
 // 🚀 PERFORMANCE-OPTIMIERUNG: Erstelle eine Member-Map für schnellen Zugriff
@@ -1709,6 +1689,18 @@ const StartPage = () => {
 
   // 🚀 PERFORMANCE-OPTIMIERUNG: Member-Map für schnellen Zugriff
   const memberMap = useMemberMap(members);
+
+  // 🚨 WATCHDOG: Automatischer Reset wenn App zu lange hängt
+  useEffect(() => {
+    if (!isDataLoadDetermined || !router.isReady) {
+      const watchdog = setTimeout(() => {
+        console.warn('[Watchdog] App hängt beim Laden (isDataLoadDetermined:', isDataLoadDetermined, ', router.isReady:', router.isReady, ') - automatischer Reset wird eingeleitet...');
+        window.location.href = '/kill-sw.html?auto=true';
+      }, 20000); // 20 Sekunden Timeout
+      
+      return () => clearTimeout(watchdog);
+    }
+  }, [isDataLoadDetermined, router.isReady]);
 
   // Der Gatekeeper: Zeige den Loader, bis die Daten UND der Router bereit sind.
   if (!isDataLoadDetermined || !router.isReady) {

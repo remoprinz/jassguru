@@ -22,6 +22,8 @@ import {getAuth, onAuthStateChanged} from 'firebase/auth';
 import useViewportHeight from '../hooks/useViewportHeight';
 import {useBackgroundOptimization} from '../hooks/useBackgroundOptimization';
 import {UpdateBanner} from '@/components/pwa/UpdateBanner';
+import GlobalLoader from '@/components/layout/GlobalLoader';
+import FullscreenLoader from '@/components/ui/FullscreenLoader';
 
 // App-Watchdog in index.html verschoben für frühere Ausführung
 
@@ -319,6 +321,14 @@ const MyApp = ({Component, pageProps}: AppProps) => {
             <GlobalNotificationContainer />
             <PwaUpdateHandler /> {/* 🎯 PWA-Updates nur im PWA-Modus */}
             <UpdateBanner /> {/* ✨ NEU: Permanenter Update-Banner */}
+            {/* 🚀 NEU: Globaler Loader für "Neues Spiel" und andere Operationen */}
+            {useUIStore(state => state.isLoading) && (
+              <GlobalLoader message="Nächstes Spiel wird vorbereitet..." color="white" />
+            )}
+            {/* 🚀 NEU: Globaler FullscreenLoader für Session-Finalisierung */}
+            {useUIStore(state => state.isFinalizingSession) && (
+              <FullscreenLoader text="Daten und Statistiken werden aktualisiert..." />
+            )}
           </FirestoreSyncProvider>
         </UserProvider>
       </AuthProvider>

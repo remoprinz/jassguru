@@ -80,8 +80,8 @@ import { getSyncEngine } from "@/services/offlineSyncEngine";
 // --- Auth Store & Typen ---
 import { useAuthStore } from '@/store/authStore';
 import type { AuthUser } from '@/types/auth'; // AuthUser als Typ
-import FullscreenLoader from "@/components/ui/FullscreenLoader"; // Verwende FullscreenLoader für bessere Sichtbarkeit
-import GlobalLoader from "@/components/layout/GlobalLoader"; // NEU: Import für GlobalLoader
+// ENTFERNT: import FullscreenLoader from "@/components/ui/FullscreenLoader"; // Wird jetzt global gerendert
+// ENTFERNT: import GlobalLoader from "@/components/layout/GlobalLoader"; // Wird jetzt global gerendert
 
 // NEU: Import für CompletedGameSummary Typ
 import type { CompletedGameSummary as CompletedGameSummaryType } from '@/types/jass';
@@ -309,8 +309,10 @@ const ResultatKreidetafel = ({
   const [showBackButton, setShowBackButton] = useState(false); // Wiederherstellen/Sicherstellen
   const [showNextButton, setShowNextButton] = useState(false); // Wiederherstellen/Sicherstellen
   const [isCompletingPasse, setIsCompletingPasse] = useState(false); // Wiederherstellen der Deklaration
-  const [isFinalizingSession, setIsFinalizingSession] = useState(false); // Hinzufügen/Korrigieren
-  const [isLoadingNewGame, setIsLoadingNewGame] = useState(false); // NEU für Ladezustand
+  // ENTFERNT: Lokaler State - verwende globalen uiStore.isFinalizingSession
+  // const [isFinalizingSession, setIsFinalizingSession] = useState(false);
+  // ENTFERNT: Lokaler State - verwende globalen uiStore.isLoading
+  // const [isLoadingNewGame, setIsLoadingNewGame] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false); // HINZUGEFÜGT
   const [isTakingScreenshot, setIsTakingScreenshot] = useState(false);
   const [screenshotData, setScreenshotData] = useState<{
@@ -321,6 +323,7 @@ const ResultatKreidetafel = ({
 
   // NEU: Turnierkontext-Erkennung
   const { currentSession } = useJassStore();
+  const isFinalizingSession = useUIStore(state => state.isFinalizingSession);
   const gameStoreActiveGameId = useGameStore((state) => state.activeGameId);
   const isTournamentPasse = useMemo(() => {
     // Verwende die Session-ID als Indikator für eine Turnierpasse
@@ -1457,8 +1460,11 @@ const ResultatKreidetafel = ({
       // Navigation zu /jass nach erfolgreichem Setup
       await debouncedRouterPush(router, '/jass');
       
-      // NEU: Loading-State zurücksetzen nach erfolgreicher Navigation
-      setIsLoadingNewGame(false);
+      // ROBUSTER FIX: Loading-State mit kurzer Verzögerung zurücksetzen 
+      // um sicherzustellen, dass die Navigation abgeschlossen ist
+      setTimeout(() => {
+        useUIStore.getState().setLoading(false);
+      }, 500); // 500ms Verzögerung für vollständige Navigation
     };
 
     // Fallunterscheidung: Navigation oder Neues Spiel (unverändert)
@@ -1570,9 +1576,9 @@ const ResultatKreidetafel = ({
           label: 'Weiterjassen!', 
           onClick: async () => {
             // NEU: Setze Loading-State ZUERST, bevor die Komponente geschlossen wird
-            setIsLoadingNewGame(true);
+            useUIStore.getState().setLoading(true);
             
-            // Dann Kreidetafel schließen - GlobalLoader bleibt sichtbar wegen isLoadingNewGame
+            // Dann Kreidetafel schließen - GlobalLoader bleibt sichtbar wegen uiStore.isLoading
             closeResultatKreidetafel();
             
             // NEU: Setze Transition-State direkt im gameStore
@@ -1584,11 +1590,11 @@ const ResultatKreidetafel = ({
               console.error("[ResultatKreidetafel] Fehler beim Starten des neuen Spiels:", error);
               // Bei Fehler beide States zurücksetzen
               useGameStore.getState().setTransitioning(false);
-              setIsLoadingNewGame(false); // NEU: Loading-State zurücksetzen bei Fehler
+              useUIStore.getState().setLoading(false); // NEU: Loading-State zurücksetzen bei Fehler
               throw error; // Re-throw für weitere Fehlerbehandlung
             }
             // setTransitioning(false) wird automatisch in resetGame() aufgerufen
-            // setIsLoadingNewGame(false) wird nach erfolgreicher Navigation zurückgesetzt
+            // setLoading(false) wird nach erfolgreicher Navigation zurückgesetzt
           }
         }
       ]
@@ -1655,7 +1661,7 @@ const ResultatKreidetafel = ({
             if (process.env.NODE_ENV === 'development') {
               console.log("[ResultatKreidetafel] Starte Finalisierung - FullscreenLoader wird angezeigt...");
             }
-            setIsFinalizingSession(true); // Dies zeigt den FullscreenLoader an
+            useUIStore.getState().setFinalizingSession(true); // Dies zeigt den FullscreenLoader an
 
             // LOG 2: Direkt vor updateGameStatus
             // console.log(`[handleSignatureClick - LOG 2] Vor updateGameStatus. Spiel: ${currentGameNumber}, History Length: ${useGameStore.getState().roundHistory.length}`);
@@ -1691,7 +1697,7 @@ const ResultatKreidetafel = ({
                     }
                     
                     // FullscreenLoader ausblenden bei Fehler
-                    setIsFinalizingSession(false);
+                    useUIStore.getState().setFinalizingSession(false);
                     return; // Nicht fortfahren
                 }
             } else {
@@ -1821,7 +1827,7 @@ const ResultatKreidetafel = ({
         uiStore.closeJassFinishNotification();
                 
                 // NEU: FullscreenLoader ausblenden vor Navigation
-                setIsFinalizingSession(false);
+                useUIStore.getState().setFinalizingSession(false);
                 
                 closeResultatKreidetafel();
                 
@@ -1869,7 +1875,7 @@ const ResultatKreidetafel = ({
                   // Optional: return hier, wenn die gesamte handleSignatureClick nicht weiterlaufen soll
                   // Oder spezifische UI-Rückmeldung geben
                 } else {
-                  setIsFinalizingSession(true); // Setze den Flag, bevor der Prozess beginnt
+                  useUIStore.getState().setFinalizingSession(true); // Setze den Flag, bevor der Prozess beginnt
 
                   const functions = getFunctions(firebaseApp, "europe-west1");
                   const finalizeFunction = httpsCallable<FinalizeSessionDataClient, { success: boolean; message: string }>(functions, 'finalizeSession');
@@ -2001,7 +2007,7 @@ const ResultatKreidetafel = ({
 
             // 7. FullscreenLoader ausblenden
 
-            setIsFinalizingSession(false);
+            useUIStore.getState().setFinalizingSession(false);
 
         } else {
             // Noch nicht fertig, automatisch flippen
@@ -2277,13 +2283,13 @@ const ResultatKreidetafel = ({
   }, [isTournamentPasse, gameStoreActiveGameId, tournamentInstanceId, closeResultatKreidetafel, router, canStartNewGame, swipePosition]); // NEU: canStartNewGame und swipePosition als Abhängigkeiten hinzugefügt
 
   // --- Component Return --- 
-  // KORREKTUR: Loader auch anzeigen wenn Komponente geschlossen ist
-  if (!isOpen && !isLoadingNewGame && !isFinalizingSession) return null;
+  // KORREKTUR: Beide Loader werden jetzt global gerendert
+  if (!isOpen) return null;
 
   return (
     <>
-      {isLoadingNewGame && <GlobalLoader message="Nächstes Spiel wird vorbereitet..." color="purple" />}
-      {isFinalizingSession && <FullscreenLoader text="Daten und Statistiken werden aktualisiert..." />}
+      {/* ENTFERNT: GlobalLoader wird jetzt global in _app.tsx gerendert */}
+      {/* ENTFERNT: FullscreenLoader wird jetzt global in _app.tsx gerendert */}
       {showConfetti && (
         <div className="fixed inset-0 bg-white bg-opacity-70 z-50">
           {/* Add your confetti animation or image here */}

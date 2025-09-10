@@ -292,6 +292,7 @@ export interface UIState {
   activeModal: string | null;
   isNotificationCenterOpen: boolean;
   isLoading: boolean; // Generischer Ladezustand
+  isFinalizingSession: boolean; // Spezieller Ladezustand für Session-Finalisierung
   startScreenState: StartScreenState;
   pageCta: PageCtaState;
   isFarbeSettingsModalOpen: boolean;
@@ -398,6 +399,7 @@ interface UIActions {
   openNotificationCenter: () => void;
   closeNotificationCenter: () => void;
   setLoading: (loading: boolean) => void;
+  setFinalizingSession: (finalizing: boolean) => void;
   setPageCta: (ctaConfig: Partial<Omit<PageCtaState, "isVisible" | "variant">> & { isVisible: true; text: string; onClick: () => void; variant?: PageCtaState["variant"] }) => void;
   resetPageCta: () => void;
   setPageCtaLoading: (isLoading: boolean) => void;
@@ -588,6 +590,7 @@ const initialState: UIState = {
   activeModal: null,
   isNotificationCenterOpen: false,
   isLoading: false,
+  isFinalizingSession: false,
   startScreenState: "idle" as StartScreenState,
   pageCta: {
     isVisible: false,
@@ -1237,6 +1240,7 @@ export const useUIStore = create<UIState & UIActions>()(
       openNotificationCenter: () => set({isNotificationCenterOpen: true}),
       closeNotificationCenter: () => set({isNotificationCenterOpen: false}),
       setLoading: (loading: boolean) => set({isLoading: loading}),
+      setFinalizingSession: (finalizing: boolean) => set({isFinalizingSession: finalizing}),
       setPageCta: (ctaConfig) =>
         set((state) => {
           if (ctaConfig.isVisible && ctaConfig.text && ctaConfig.onClick) {

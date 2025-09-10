@@ -132,6 +132,25 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
   };
 
   const handleRemovePlayer = (slot: PlayerNumber) => {
+    // 🚨 SICHERHEIT: Verhindere, dass sich der Host selbst entfernt (außer Admin)
+    const player = gamePlayers[slot];
+    const isHostUser = status === 'authenticated' && user && player?.type === 'member' && player.uid === user.uid;
+    const isAdminException = user?.uid === 'AaTUBO0SbWVfStdHmD7zi3qAMww2'; // Admin-Ausnahme
+    
+    if (isHostUser && !isAdminException) {
+      showNotification({
+        type: 'warning',
+        message: 'Du kannst dich nicht selbst aus dem Spiel entfernen. Falls du nicht mitspielen möchtest, erstelle das Spiel im Gastmodus.',
+        actions: [
+          {
+            label: 'Verstanden',
+            onClick: () => {}
+          }
+        ]
+      });
+      return;
+    }
+    
     setGamePlayers((prev) => ({ ...prev, [slot]: null }));
     if (startingPlayer === slot) {
         setStartingPlayer(null);
@@ -596,18 +615,27 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
                               </span>
                             </span>
                           </div>
-                          <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              onClick={(e) => { 
-                                  e.stopPropagation();
-                                  handleRemovePlayer(playerNumber); 
-                              }}
-                              className="absolute top-1/2 right-2 transform -translate-y-1/2 text-gray-400 hover:text-white flex-shrink-0 p-1 h-8 w-8"
-                              aria-label="Spieler entfernen"
-                          >
-                              <X size={18}/>
-                          </Button>
+                          {(() => {
+                            // 🚨 SICHERHEIT: "X"-Button nur anzeigen, wenn sich der User entfernen darf
+                            const isHostUser = status === 'authenticated' && user && player.type === 'member' && player.uid === user.uid;
+                            const isAdminException = user?.uid === 'AaTUBO0SbWVfStdHmD7zi3qAMww2'; // Admin-Ausnahme
+                            const canRemove = !isHostUser || isAdminException;
+                            
+                            return canRemove ? (
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={(e) => { 
+                                    e.stopPropagation();
+                                    handleRemovePlayer(playerNumber); 
+                                }}
+                                className="absolute top-1/2 right-2 transform -translate-y-1/2 text-gray-400 hover:text-white flex-shrink-0 p-1 h-8 w-8"
+                                aria-label="Spieler entfernen"
+                              >
+                                <X size={18}/>
+                              </Button>
+                            ) : null;
+                          })()}
                         </>
                       ) : (
                         <span className='text-gray-400 italic'>

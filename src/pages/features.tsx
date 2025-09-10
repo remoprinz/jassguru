@@ -10,6 +10,16 @@ const FeaturesPage = () => {
     setIsClient(true);
   }, []);
 
+  // 🚨 WATCHDOG: Automatischer Reset wenn Features-Seite zu lange hängt
+  useEffect(() => {
+    const watchdog = setTimeout(() => {
+      console.warn('[Watchdog] Features-Seite hängt beim Laden - automatischer Reset wird eingeleitet...');
+      window.location.href = '/kill-sw.html?auto=true';
+    }, 25000); // 25 Sekunden Timeout (etwas länger für Bild-Downloads)
+    
+    return () => clearTimeout(watchdog);
+  }, []);
+
   const handleClose = () => {
     // Navigiert zur Startseite, wenn der Slider geschlossen wird
     router.push('/');

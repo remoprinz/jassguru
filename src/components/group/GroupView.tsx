@@ -464,6 +464,18 @@ export const GroupView: React.FC<GroupViewProps> = ({
     return `rgb(${mixedR}, ${mixedG}, ${mixedB})`;
   };
   
+  // 🚨 WATCHDOG: Automatischer Reset wenn GroupView zu lange lädt
+  React.useEffect(() => {
+    if (groupStatus === 'loading' && !currentGroup) {
+      const watchdog = setTimeout(() => {
+        console.warn('[Watchdog] GroupView hängt beim Laden der Gruppendaten - automatischer Reset wird eingeleitet...');
+        window.location.href = '/kill-sw.html?auto=true';
+      }, 20000); // 20 Sekunden Timeout
+      
+      return () => clearTimeout(watchdog);
+    }
+  }, [groupStatus, currentGroup]);
+
   if (groupStatus === 'loading' && !currentGroup) {
     return (
       <MainLayout>
