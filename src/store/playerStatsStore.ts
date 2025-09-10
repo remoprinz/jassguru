@@ -47,7 +47,7 @@ export const usePlayerStatsStore = create<PlayerStatsState & PlayerStatsActions>
     activeListenerUnsubscribe: null,
 
     subscribeToPlayerStats: (playerId) => {
-      console.log(`[PlayerStatsStore] Attempting to subscribe for playerId: ${playerId}`);
+      // console.log(`[PlayerStatsStore] Attempting to subscribe for playerId: ${playerId}`);
       if (!playerId) {
         console.error("[PlayerStatsStore] Player ID is undefined or null. Subscription aborted.");
         set((state) => {
@@ -71,17 +71,17 @@ export const usePlayerStatsStore = create<PlayerStatsState & PlayerStatsActions>
       const db = getFirestore(firebaseApp);
       const playerStatsRef = doc(db, 'playerComputedStats', playerId);
 
-      console.log(`[PlayerStatsStore] Setting up listener for playerComputedStats/${playerId}`);
+      // console.log(`[PlayerStatsStore] Setting up listener for playerComputedStats/${playerId}`);
 
       const unsubscribe = onSnapshot(
         playerStatsRef,
         (docSnap) => {
-          console.log(`[PlayerStatsStore] Listener for playerComputedStats/${playerId} received data. Doc exists: ${docSnap.exists()}`);
+          // console.log(`[PlayerStatsStore] Listener for playerComputedStats/${playerId} received data. Doc exists: ${docSnap.exists()}`);
           if (docSnap.exists()) {
             const rawData = docSnap.data();
-            console.log("[PlayerStatsStore] Raw data from Firestore:", JSON.parse(JSON.stringify(rawData)));
+            // console.log("[PlayerStatsStore] Raw data from Firestore:", JSON.parse(JSON.stringify(rawData)));
             const dataWithDates = convertTimestampsToDates(rawData) as FrontendPlayerComputedStats;
-            console.log("[PlayerStatsStore] Data after timestamp conversion:", JSON.parse(JSON.stringify(dataWithDates)));
+            // console.log("[PlayerStatsStore] Data after timestamp conversion:", JSON.parse(JSON.stringify(dataWithDates)));
             set((state) => {
               state.stats = dataWithDates;
               state.isLoading = false;
@@ -108,7 +108,7 @@ export const usePlayerStatsStore = create<PlayerStatsState & PlayerStatsActions>
 
       set((state) => {
         state.activeListenerUnsubscribe = unsubscribe;
-        console.log(`[PlayerStatsStore] Listener setup complete for ${playerId}.`);
+        // console.log(`[PlayerStatsStore] Listener setup complete for ${playerId}.`);
       });
     },
 

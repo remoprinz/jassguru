@@ -422,7 +422,7 @@ export const loadRoundsFromFirestore = async (
       return aRoundId - bRoundId;
     });
     
-    console.log(`[GameService] Successfully loaded ${rounds.length} active rounds for game ${activeGameId}`);
+    // console.log(`[GameService] Successfully loaded ${rounds.length} active rounds for game ${activeGameId}`);
     return rounds;
     
   } catch (error) {
@@ -788,7 +788,7 @@ export const markRoundsAsInactive = async (
     return;
   }
 
-  console.log(`[GameService] Deaktiviere ${roundIdsToDeactivate.length} Runden für Spiel ${activeGameId}: ${roundIdsToDeactivate.join(', ')}`);
+  // console.log(`[GameService] Deaktiviere ${roundIdsToDeactivate.length} Runden für Spiel ${activeGameId}: ${roundIdsToDeactivate.join(', ')}`);
 
   try {
     // Referenz zur rounds-Subkollektion des aktiven Spiels
@@ -910,7 +910,7 @@ export const markAllFollowingRoundsAsInactive = async (
     return;
   }
 
-  console.log(`[GameService] Deaktiviere alle aktiven Runden mit ID > ${currentRoundId} für Spiel ${activeGameId}`);
+  // console.log(`[GameService] Deaktiviere alle aktiven Runden mit ID > ${currentRoundId} für Spiel ${activeGameId}`);
 
   try {
     const roundsCollectionRef = collection(db, 'activeGames', activeGameId, 'rounds');
@@ -1058,7 +1058,7 @@ export const createNewActiveGame = async (
     // ✅ DIREKT: Alte Struktur für temporäre ActiveGames  
     await setDoc(newGameDocRef, cleanedGameData);
     
-    console.log(`[GameService] Successfully created NEW active game document with ID: ${newGameId}.`);
+    // console.log(`[GameService] Successfully created NEW active game document with ID: ${newGameId}.`);
     return newGameId; // Gib die generierte ID zurück
   } catch (error) {
     console.error("[GameService] Error creating NEW active game document: ", error);
@@ -1201,7 +1201,7 @@ export const abortActiveGame = async (
     return;
   }
 
-  console.log(`[GameService] Starting abort process for game ${activeGameId}`);
+  // console.log(`[GameService] Starting abort process for game ${activeGameId}`);
 
   try {
     // SCHRITT 1: Spiel-Dokument laden, um Session-ID zu ermitteln
@@ -1217,14 +1217,14 @@ export const abortActiveGame = async (
     const sessionId = gameData.sessionId;
     const tournamentInstanceId = gameData.tournamentInstanceId || options?.tournamentInstanceId;
 
-    console.log(`[GameService] Game ${activeGameId} found with sessionId: ${sessionId}, tournamentInstanceId: ${tournamentInstanceId || 'none'}`);
+    // console.log(`[GameService] Game ${activeGameId} found with sessionId: ${sessionId}, tournamentInstanceId: ${tournamentInstanceId || 'none'}`);
 
     // SCHRITT 2: Status auf 'aborted' setzen (für andere Clients sichtbar)
     await updateDoc(gameDocRef, {
       status: 'aborted',
       lastUpdated: serverTimestamp(),
     });
-    console.log(`[GameService] Game ${activeGameId} status set to 'aborted'`);
+    // console.log(`[GameService] Game ${activeGameId} status set to 'aborted'`);
 
     // SCHRITT 3: Session-Referenz bereinigen (falls nicht übersprungen)
     if (!options?.skipSessionCleanup && sessionId) {
@@ -1249,9 +1249,9 @@ export const abortActiveGame = async (
               currentActiveGameId: null,
               lastUpdated: serverTimestamp(),
             });
-            console.log(`[GameService] Session ${sessionId} cleared of activeGameId`);
+            // console.log(`[GameService] Session ${sessionId} cleared of activeGameId`);
           } else {
-            console.log(`[GameService] Session ${sessionId} does not exist, no cleanup needed`);
+            // console.log(`[GameService] Session ${sessionId} does not exist, no cleanup needed`);
           }
         }
       } catch (sessionError) {
@@ -1288,10 +1288,10 @@ export const abortActiveGame = async (
     // Dies verhindert, dass Fehler in der Session-Bereinigung die Dokument-Löschung blockieren
     if (sessionId && !tournamentInstanceId) {
       // Nur für reguläre Sessions (nicht Tournament-Sessions)
-      console.log(`[GameService] Calling cleanupAbortedSession for session ${sessionId} BEFORE deleting game document`);
+      // console.log(`[GameService] Calling cleanupAbortedSession for session ${sessionId} BEFORE deleting game document`);
       try {
         await cleanupAbortedSession(sessionId);
-        console.log(`[GameService] Session ${sessionId} cleanup completed successfully`);
+        // console.log(`[GameService] Session ${sessionId} cleanup completed successfully`);
       } catch (cleanupError) {
         console.error(`[GameService] Error during session cleanup for ${sessionId}:`, cleanupError);
         // Session-Cleanup-Fehler sind nicht fatal - wir löschen das Spiel trotzdem
@@ -1303,17 +1303,17 @@ export const abortActiveGame = async (
     // Dies gibt anderen Clients Zeit, den 'aborted' Status zu sehen
     setTimeout(async () => {
       try {
-        console.log(`[GameService] Attempting to delete game document ${activeGameId} after 2 second delay...`);
+        // console.log(`[GameService] Attempting to delete game document ${activeGameId} after 2 second delay...`);
         
         // 🔧 FIX: Prüfe ob das Dokument noch existiert bevor wir es löschen
         const currentGameSnap = await getDoc(gameDocRef);
         if (!currentGameSnap.exists()) {
-          console.log(`[GameService] Game document ${activeGameId} was already deleted (likely by Cloud Function cleanup). No action needed.`);
+          // console.log(`[GameService] Game document ${activeGameId} was already deleted (likely by Cloud Function cleanup). No action needed.`);
           return;
         }
         
         await deleteDoc(gameDocRef);
-        console.log(`[GameService] Game document ${activeGameId} deleted successfully`);
+        // console.log(`[GameService] Game document ${activeGameId} deleted successfully`);
         
       } catch (deleteError) {
         console.error(`[GameService] CRITICAL ERROR: Failed to delete game document ${activeGameId}:`, deleteError);
@@ -1336,7 +1336,7 @@ export const abortActiveGame = async (
       }
     }, 2000); // 2 Sekunden Verzögerung
 
-    console.log(`[GameService] Abort process completed for game ${activeGameId}`);
+    // console.log(`[GameService] Abort process completed for game ${activeGameId}`);
 
   } catch (error) {
     console.error(`[GameService] Error aborting game ${activeGameId}:`, error);
@@ -1351,7 +1351,7 @@ export const cleanupAbortedSession = async (sessionId: string): Promise<void> =>
     return;
   }
 
-  console.log(`[GameService] Starte Bereinigung für Session ${sessionId}...`);
+  // console.log(`[GameService] Starte Bereinigung für Session ${sessionId}...`);
 
   try {
     // Cloud Function aufrufen
@@ -1367,7 +1367,7 @@ export const cleanupAbortedSession = async (sessionId: string): Promise<void> =>
     };
 
     if (responseData.success) {
-      console.log(`[GameService] Session ${sessionId} erfolgreich bereinigt: ${responseData.deletedGamesCount} Spiele gelöscht.`);
+      // console.log(`[GameService] Session ${sessionId} erfolgreich bereinigt: ${responseData.deletedGamesCount} Spiele gelöscht.`);
       
       useUIStore.getState().showNotification({
         type: 'success',

@@ -149,7 +149,7 @@ export const fetchCompletedSessionsForUser = async (userId: string): Promise<Ses
     // ✅ 5. CLIENT-SEITIGE SORTIERUNG: Nach startedAt absteigend
     allSessions.sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0));
     
-    console.log(`[fetchCompletedSessionsForUser] Found ${allSessions.length} sessions for user: ${userId} across ${groupIds.length} groups`);
+    // console.log(`[fetchCompletedSessionsForUser] Found ${allSessions.length} sessions for user: ${userId} across ${groupIds.length} groups`);
     return allSessions;
   } catch (error) {
     console.error(`[fetchCompletedSessionsForUser] Error fetching sessions for user ${userId}:`, error);

@@ -50,7 +50,7 @@ export const PlayerSelectPopover: React.FC<PlayerSelectPopoverProps> = ({
       if (!group?.id) return;
       
       setIsLoading(true);
-      console.log("### PlayerSelectPopover: [OPTIMIERT] Lade Members für Gruppe", group.id);
+      // console.log("### PlayerSelectPopover: [OPTIMIERT] Lade Members für Gruppe", group.id);
       
       try {
         // 🚀 PERFORMANCE-BOOST: 1 Read statt 12+ Reads
@@ -75,9 +75,9 @@ export const PlayerSelectPopover: React.FC<PlayerSelectPopoverProps> = ({
           });
           
           setPlayerDocs(playerData);
-          console.log(`### PlayerSelectPopover: [OPTIMIERT] ${members.length} Members in 1 Read geladen!`);
+          // console.log(`### PlayerSelectPopover: [OPTIMIERT] ${members.length} Members in 1 Read geladen!`);
         } else {
-          console.log("### PlayerSelectPopover: [FALLBACK] Keine Members in Subcollection, nutze alte Methode");
+          // console.log("### PlayerSelectPopover: [FALLBACK] Keine Members in Subcollection, nutze alte Methode");
           // Fallback zur alten Methode falls members-Subcollection leer ist
           await fallbackToOldMethod();
         }

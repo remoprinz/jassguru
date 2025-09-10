@@ -81,14 +81,14 @@ export const SCREENSHOT_DATA: ScreenshotData[] = [
     id: '6_matsch',
     src: '/assets/screenshots/6_Matsch.PNG',
     title: 'Gamification',
-    description: 'Maaaatsch! Solche Momente verdienen manchmal eine richtige Feier. Die App überrascht dich mit kleinen Highlights – ganz zur Freude oder Ärger des jeweiligen Teams!',
+    description: 'Maaaatsch! Solche Momente verdienen manchmal eine richtige Feier. Die App überrascht dich mit kleinen Highlights – ganz zur Freude oder dem Ärger des jeweiligen Teams!',
     order: 11
   },
   {
     id: '7_berg',
     src: '/assets/screenshots/7_Berg.PNG',
     title: 'Berg und Sieg',
-    description: 'Doppelklick: Die Übersicht öffnet. Schreibe hier Berg und Sieg. Aber Achtung, bedanken musst du dich immer noch selber. Dafür sind die Restpunkte zu Berg oder Sieg stets vorberechnet. Welch Zeitersparnis!',
+    description: 'Doppelklick: Die Übersicht öffnet. Schreibe hier Berg und Sieg. Aber Achtung, bedanken musst du dich immer noch selber. Dafür sind die Restpunkte zu Berg und Sieg stets vorberechnet. Welch Zeitersparnis!',
     order: 12
   },
   {
@@ -172,7 +172,7 @@ export const SCREENSHOT_DATA: ScreenshotData[] = [
     id: '9c_einstellungen',
     src: '/assets/screenshots/9c_Einstellungen.PNG',
     title: 'Einstellungen',
-    description: 'Deine Regeln, dein Jass! Karten, Farben, Multiplikatoren – alles nach euren Vorlieben.',
+    description: 'Deine Regeln, dein Jass! Karten, Farben, Multiplikatoren – alles ist nach euren Vorlieben einstellbar.',
     order: 24
   },
   {

@@ -98,7 +98,7 @@ const PublicGroupPage = () => {
       setGroupError(null);
       
       try {
-        console.log('🔄 Lade Gruppe:', groupId);
+        // console.log('🔄 Lade Gruppe:', groupId);
         const db = getFirestore(firebaseApp);
         const groupRef = doc(db, 'groups', groupId);
         const groupSnap = await getDoc(groupRef);
@@ -108,7 +108,7 @@ const PublicGroupPage = () => {
         }
 
         const groupData = { id: groupId, ...groupSnap.data() } as any;
-        console.log('✅ Gruppe geladen:', groupData.name);
+        // console.log('✅ Gruppe geladen:', groupData.name);
         
         // 🚨 PRÜFE NUR: Ist es privat?
         if (groupData.isPublic === false) {
@@ -130,7 +130,7 @@ const PublicGroupPage = () => {
   // 🚀 NEU: Preload Gruppenbild für sofortige Anzeige
   useEffect(() => {
     if (currentGroup?.logoUrl && typeof window !== 'undefined') {
-      console.log('[PublicGroupPage] Preloading group logo:', currentGroup.logoUrl);
+      // console.log('[PublicGroupPage] Preloading group logo:', currentGroup.logoUrl);
       const link = document.createElement('link');
       link.rel = 'preload';
       link.as = 'image';

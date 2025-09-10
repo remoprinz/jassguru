@@ -45,7 +45,7 @@ export function useGlobalClick({
   const handleGlobalClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     // NEU: Globale Sperre prüfen
     if (isGlobalClickDisabled) {
-      console.log("🚫 Klick ignoriert: Globale Sperre ist aktiv.");
+      // console.log("🚫 Klick ignoriert: Globale Sperre ist aktiv.");
       return;
     }
 
@@ -111,7 +111,7 @@ export function useGlobalClick({
             !isProcessingDoubleClickRef.current && // Wird gerade ein Doppelklick verarbeitet? (Sicherheitscheck)
             strichBox && positionAttr && boxType && onSingleClick) // Sind alle Daten für Einzelklick vorhanden?
         {
-          console.log("🖱️ Einzelklick ausgeführt für:", boxType, positionAttr);
+          // console.log("🖱️ Einzelklick ausgeführt für:", boxType, positionAttr);
           onSingleClick(positionAttr, boxType);
         } else {
           // console.log("🖱️ Einzelklick verhindert", { lock: Date.now() < lockUntilRef.current, processing: isProcessingDoubleClickRef.current });

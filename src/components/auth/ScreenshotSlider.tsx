@@ -7,8 +7,6 @@ import { FaArrowLeft, FaArrowRight } from 'react-icons/fa';
 import Image from 'next/image';
 import { SCREENSHOT_DATA, ScreenshotData } from '@/constants/screenshotData';
 import { usePressableButton } from '@/hooks/usePressableButton';
-import { isPWA } from '@/utils/browserDetection';
-import { isDesktopDevice } from '@/utils/deviceDetection';
 
 interface ScreenshotSliderProps {
   isOpen: boolean

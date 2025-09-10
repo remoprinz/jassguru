@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { useAuthStore } from '@/store/authStore';
 import { useGroupStore } from '@/store/groupStore';
@@ -11,6 +11,10 @@ import GlobalLoader from '@/components/layout/GlobalLoader';
 import { getGroupMembersSortedByGames } from "@/services/playerService";
 import { isPWA } from '@/utils/browserDetection';
 import type { FirestorePlayer } from '@/types/jass';
+import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
+import { useOnboardingFlow } from '@/hooks/useOnboardingFlow';
+import { shouldShowBrowserOnboarding } from '@/utils/devUtils';
+import type { BrowserOnboardingStep } from '@/constants/onboardingContent';
 
 const NewGamePage: React.FC = () => {
   const router = useRouter();
@@ -24,6 +28,40 @@ const NewGamePage: React.FC = () => {
 
   const isAuthLoading = status === 'loading';
   const isAuthenticated = status === 'authenticated' && !isGuest;
+
+  // 🚀 NEU: Onboarding-Logik für Browser-Nutzer
+  const [isPWAInstalled] = useState(() => isPWA());
+  const pathname = router.pathname;
+  
+  // Bestimme, ob Browser Onboarding erforderlich ist
+  const isBrowserOnboardingRequired = useMemo(() => {
+    // Nur für /game/new zeigen (nicht für andere Pfade)
+    const isCurrentPath = pathname === '/game/new';
+    if (!isCurrentPath) return false;
+    
+    // Verwende die gleiche Logik wie in JassKreidetafel
+    const result = shouldShowBrowserOnboarding(isPWAInstalled, false);
+    return result;
+  }, [isPWAInstalled, pathname]);
+
+  // Onboarding Hook
+  const {
+    currentStep,
+    content,
+    handleNext,
+    handlePrevious,
+    handleDismiss,
+    canBeDismissed,
+  } = useOnboardingFlow(isBrowserOnboardingRequired);
+
+  // State um zu verfolgen, ob Onboarding abgeschlossen ist
+  const [isOnboardingComplete, setIsOnboardingComplete] = useState(!isBrowserOnboardingRequired);
+
+  // Custom Dismiss Handler
+  const handleOnboardingDismiss = () => {
+    handleDismiss();
+    setIsOnboardingComplete(true);
+  };
 
   // Lade Mitglieder, wenn Gruppe verfügbar ist
   useEffect(() => {
@@ -59,24 +97,12 @@ const NewGamePage: React.FC = () => {
       if (!isAuthenticated) {
         showNotification({ type: 'error', message: 'Sie müssen angemeldet sein, um ein Spiel zu starten.' });
         router.replace('/auth/login');
-      } else if (!isPWA()) {
-        // 🚨 ZUSÄTZLICHE SICHERHEIT: Browser-Zugriff verhindern
-        showNotification({
-          type: 'warning',
-          message: 'Bitte schliesse den Browser und öffne die App vom Homebildschirm aus, um die Jasstafel zu laden.',
-          actions: [
-            {
-              label: 'Verstanden',
-              onClick: () => {},
-            },
-          ],
-          preventClose: true,
-        });
-        router.replace('/start');
       } else if (!currentGroup) {
         showNotification({ type: 'warning', message: 'Bitte wählen Sie zuerst eine Gruppe aus.' });
         router.replace('/start');
       }
+      // ENTFERNT: PWA-Prüfung, da sie den korrekten OnboardingFlow in JassKreidetafel.tsx blockiert
+      // Die intelligente Onboarding-Logik (Desktop=QR-Code, Mobile=Installation) ist bereits in JassKreidetafel.tsx implementiert
     }
   }, [isAuthLoading, isAuthenticated, currentGroup, router, showNotification]);
 
@@ -99,6 +125,25 @@ const NewGamePage: React.FC = () => {
     return (
       <MainLayout>
         <GlobalLoader message={loadingMessage} />
+      </MainLayout>
+    );
+  }
+
+  // 🚀 NEU: Zeige Onboarding BEFORE StartScreen
+  if (isBrowserOnboardingRequired && !isOnboardingComplete) {
+    return (
+      <MainLayout>
+        <OnboardingFlow
+          show={true}
+          step={currentStep as BrowserOnboardingStep}
+          content={content}
+          onNext={handleNext}
+          onPrevious={handlePrevious}
+          onDismiss={handleOnboardingDismiss}
+          canBeDismissed={canBeDismissed}
+          isPWA={isPWAInstalled}
+          isBrowserOnboarding={isBrowserOnboardingRequired}
+        />
       </MainLayout>
     );
   }

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jassguru - Service Worker Reset</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #1f2937;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 400px;
+            text-align: center;
+            background-color: #374151;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        h1 {
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        p {
+            margin-bottom: 30px;
+            color: #d1d5db;
+            line-height: 1.6;
+        }
+        button {
+            background-color: #10b981;
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #059669;
+        }
+        button:disabled {
+            background-color: #6b7280;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .success {
+            background-color: #065f46;
+            color: #6ee7b7;
+        }
+        .error {
+            background-color: #7f1d1d;
+            color: #fca5a5;
+        }
+        .info {
+            background-color: #1e3a8a;
+            color: #93c5fd;
+        }
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s ease-in-out infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Jassguru App-Wartung</h1>
+        <p>
+            Die App muss zurückgesetzt werden, um das neueste Update zu installieren. 
+            Dies dauert nur wenige Sekunden.
+        </p>
+        <button id="resetBtn" onclick="resetServiceWorker()">
+            App zurücksetzen
+        </button>
+        <div id="status"></div>
+    </div>
+
+    <script>
+        async function resetServiceWorker() {
+            const button = document.getElementById('resetBtn');
+            const status = document.getElementById('status');
+            
+            button.disabled = true;
+            button.innerHTML = '<span class="spinner"></span>Wird zurückgesetzt...';
+            
+            try {
+                // Schritt 1: Service Worker deregistrieren
+                if ('serviceWorker' in navigator) {
+                    status.innerHTML = '<div class="status info">Service Worker werden entfernt...</div>';
+                    
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (let registration of registrations) {
+                        await registration.unregister();
+                        console.log('Service Worker deregistriert:', registration.scope);
+                    }
+                }
+                
+                // Schritt 2: Alle Caches löschen
+                if ('caches' in window) {
+                    status.innerHTML = '<div class="status info">Cache wird geleert...</div>';
+                    
+                    const cacheNames = await caches.keys();
+                    await Promise.all(
+                        cacheNames.map(cacheName => {
+                            console.log('Lösche Cache:', cacheName);
+                            return caches.delete(cacheName);
+                        })
+                    );
+                }
+                
+                // Schritt 3: IndexedDB löschen (optional, aber gründlich)
+                if ('indexedDB' in window) {
+                    const databases = await indexedDB.databases();
+                    for (let db of databases) {
+                        if (db.name) {
+                            indexedDB.deleteDatabase(db.name);
+                            console.log('IndexedDB gelöscht:', db.name);
+                        }
+                    }
+                }
+                
+                // Schritt 4: LocalStorage und SessionStorage leeren
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                // Erfolg!
+                status.innerHTML = '<div class="status success">✅ App erfolgreich zurückgesetzt!</div>';
+                button.innerHTML = 'Zur App';
+                button.disabled = false;
+                button.onclick = () => {
+                    // Mit Cache-Busting zur Hauptseite
+                    window.location.href = '/?reset=' + Date.now();
+                };
+                
+            } catch (error) {
+                console.error('Fehler beim Zurücksetzen:', error);
+                status.innerHTML = '<div class="status error">❌ Fehler beim Zurücksetzen. Bitte versuchen Sie es erneut.</div>';
+                button.innerHTML = 'Erneut versuchen';
+                button.disabled = false;
+            }
+        }
+        
+        // Auto-Reset Option: Wenn ?auto=true in der URL
+        if (new URLSearchParams(window.location.search).get('auto') === 'true') {
+            setTimeout(() => {
+                resetServiceWorker();
+            }, 500);
+        }
+    </script>
+</body>
+</html>

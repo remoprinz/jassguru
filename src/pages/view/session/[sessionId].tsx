@@ -173,7 +173,7 @@ const PublicSessionPage = () => {
   // 🚨 INTELLIGENTE ZURÜCK-NAVIGATION (an den Anfang verschoben)
   const handleBackClick = useCallback(() => {
     const referrer = document.referrer;
-    console.log('[SessionPage] Zurück-Navigation von Referrer:', referrer);
+    // console.log('[SessionPage] Zurück-Navigation von Referrer:', referrer);
     
     // 🚨 NEU: Fall 0: Spezieller Fall wenn wir von einem abgeschlossenen Jass kommen
     const fromJassCompletion = router.query.fromJassCompletion === 'true';
@@ -209,7 +209,7 @@ const PublicSessionPage = () => {
 
     // Fall 4: Standard-Browser-History als Fallback
     if (window.history.length > 1) {
-      console.log('[SessionPage] Interne History vorhanden, navigiere zurück');
+      // console.log('[SessionPage] Interne History vorhanden, navigiere zurück');
       router.back();
     } else {
       // Fall 5: Absoluter Notfall-Fallback

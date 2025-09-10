@@ -91,13 +91,13 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
     if (authStore.status === "authenticated") {
       if (userActiveTournamentId) {
         targetRoute = `/view/tournament/${userActiveTournamentId}`;
-        console.log(`[MenuOverlay] Active tournament detected via tournamentStore. Navigating to: ${targetRoute}`);
+        // console.log(`[MenuOverlay] Active tournament detected via tournamentStore. Navigating to: ${targetRoute}`);
       } else {
         targetRoute = "/start";
-        console.log(`[MenuOverlay] No active tournament in tournamentStore. Navigating to: ${targetRoute}`);
+        // console.log(`[MenuOverlay] No active tournament in tournamentStore. Navigating to: ${targetRoute}`);
       }
     } else {
-        console.log(`[MenuOverlay] User not authenticated. Navigating to: ${targetRoute}`);
+        // console.log(`[MenuOverlay] User not authenticated. Navigating to: ${targetRoute}`);
     }
     
     debouncedRouterPush(router, targetRoute);
@@ -162,21 +162,21 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
     const tournamentInstanceIdForAbort = tournamentIdForService;
 
     if (isTournamentPasse && tournamentInstanceIdForAbort) {
-        console.log(`[MenuOverlay] Turnierpasse erkannt. Instance ID: ${tournamentInstanceIdForAbort}, Game ID to abort: ${activeGameId}`);
+        // console.log(`[MenuOverlay] Turnierpasse erkannt. Instance ID: ${tournamentInstanceIdForAbort}, Game ID to abort: ${activeGameId}`);
     } else {
-        console.log(`[MenuOverlay] Gruppenpasse (oder kein Spiel aktiv) erkannt. Game ID to abort: ${activeGameId}`);
+        // console.log(`[MenuOverlay] Gruppenpasse (oder kein Spiel aktiv) erkannt. Game ID to abort: ${activeGameId}`);
     }
 
     // Verwende die neue, zentrale abortActiveGame-Funktion
     if (activeGameId && gameStore.isGameStarted && !gameStore.isGameCompleted) {
         try {
             setIsAborting(true);
-            console.log(`[MenuOverlay] Calling abortActiveGame for ${activeGameId}`);
+            // console.log(`[MenuOverlay] Calling abortActiveGame for ${activeGameId}`);
             await abortActiveGame(activeGameId, {
                 tournamentInstanceId: tournamentInstanceIdForAbort || undefined,
                 skipSessionCleanup: false
             });
-            console.log(`[MenuOverlay] Successfully aborted game ${activeGameId}`);
+            // console.log(`[MenuOverlay] Successfully aborted game ${activeGameId}`);
             
             // SUCCESS NOTIFICATION ENTFERNT - cleanupAbortedSession zeigt bereits eine Meldung
         } catch (error) {
@@ -190,11 +190,11 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
             setIsAborting(false);
         }
     } else {
-        console.log(`[MenuOverlay] Kein aktives Spiel zum Abbrechen gefunden (ID: ${activeGameId}) oder Spiel bereits beendet/nicht gestartet.`);
+        // console.log(`[MenuOverlay] Kein aktives Spiel zum Abbrechen gefunden (ID: ${activeGameId}) oder Spiel bereits beendet/nicht gestartet.`);
     }
 
     // Lokale Stores zurücksetzen
-    console.log("[MenuOverlay] Resetting local stores (Game, Jass, Timer)");
+    // console.log("[MenuOverlay] Resetting local stores (Game, Jass, Timer)");
     useGameStore.getState().resetGameState({ newActiveGameId: null }); 
     useJassStore.getState().resetJass(); 
     useTimerStore.getState().resetAllTimers();
@@ -206,12 +206,12 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
     const isTrulyAuthenticated = authStore.status === 'authenticated' && !isGuestMode;
     
     if (isGuestMode) {
-      console.log("[MenuOverlay] Gastmodus erkannt: Aufsetzen eines neuen Spiels in der Jasstafel");
+      // console.log("[MenuOverlay] Gastmodus erkannt: Aufsetzen eines neuen Spiels in der Jasstafel");
       useUIStore.getState().resetStartScreen();
       await debouncedRouterPush(router, "/jass");
     } else {
       const targetRoute = isTrulyAuthenticated ? "/start" : "/auth/register";
-      console.log(`[MenuOverlay] Navigating to ${targetRoute} (isTrulyAuthenticated: ${isTrulyAuthenticated})`);
+      // console.log(`[MenuOverlay] Navigating to ${targetRoute} (isTrulyAuthenticated: ${isTrulyAuthenticated})`);
       await debouncedRouterPush(router, targetRoute);
     }
 

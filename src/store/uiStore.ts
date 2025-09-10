@@ -313,6 +313,12 @@ export interface UIState {
 
   // NEU: iOS-Notification State
   iosNotification: IOSNotificationState;
+
+  // NEU: Update-Banner Zustand
+  isUpdateAvailable: boolean;
+  setUpdateAvailable: (isAvailable: boolean) => void;
+  triggerUpdate: (() => void) | null;
+  setTriggerUpdate: (trigger: (() => void) | null) => void;
 }
 
 interface UIActions {
@@ -423,6 +429,11 @@ interface UIActions {
   markIOSNotificationAsShown: () => void;
   resetIOSNotificationForSession: () => void;
   shouldShowIOSNotification: () => boolean;
+
+  // NEU: Update-Banner Zustand
+  setUpdateAvailable: (isAvailable: boolean) => void;
+  triggerUpdate: (() => void) | null;
+  setTriggerUpdate: (trigger: (() => void) | null) => void;
 }
 
 export type UIStore = UIState & UIActions;
@@ -608,6 +619,12 @@ const initialState: UIState = {
     dontShowAgain: false,
     hasBeenShownThisSession: false,
   },
+
+  // NEU: Update-Banner Zustand
+  isUpdateAvailable: false,
+  setUpdateAvailable: (isAvailable) => {},
+  triggerUpdate: null,
+  setTriggerUpdate: (trigger) => {},
 };
 
 // Load-Funktionen für jeden Settings-Typ
@@ -1334,7 +1351,7 @@ export const useUIStore = create<UIState & UIActions>()(
         set({ isGlobalClickDisabled: isDisabled });
         if (isDisabled && duration) {
           setTimeout(() => {
-            console.log("⏱️ Globale Klicksperre aufgehoben.");
+            // console.log("⏱️ Globale Klicksperre aufgehoben.");
             set({ isGlobalClickDisabled: false });
           }, duration);
         }
@@ -1354,6 +1371,11 @@ export const useUIStore = create<UIState & UIActions>()(
          const state = get();
          return !state.iosNotification.dontShowAgain && !state.iosNotification.hasBeenShownThisSession;
        },
+
+      // NEU: Update-Banner Zustand
+      setUpdateAvailable: (isAvailable) => set({ isUpdateAvailable: isAvailable }),
+      triggerUpdate: null,
+      setTriggerUpdate: (trigger) => set({ triggerUpdate: trigger }),
     })),
     {
       name: "jass-ui-storage",

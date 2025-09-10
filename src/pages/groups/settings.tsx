@@ -383,7 +383,7 @@ const GroupSettingsPage = () => {
 
       // 3. Füge Basis-Info-Update zum Promise-Array hinzu, falls geändert
       if (baseInfoChanged) {
-        console.log("Speichere Basis-Infos...");
+        // console.log("Speichere Basis-Infos...");
         // WICHTIG: Kein 'await' hier, wir sammeln die Promises
         // showNotification: false verhindert doppelte Benachrichtigungen
         updatePromises.push(updateGroup(groupId, { name, description, mainLocationZip, isPublic }, false));

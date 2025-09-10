@@ -1204,13 +1204,14 @@ const ResultatKreidetafel = ({
       }
       
       // 🆕 NEU: Vorzeitiges-Ende-Regel (Edge Case für Bedanken ohne Calculator)
+      // Diese Regel greift nur, wenn das Spiel vorzeitig beendet wurde UND der letzte bekannte
+      // Spieler zum Gewinnerteam gehört (was bedeutet, dass bereits jemand vom Verliererteam dran war)
       const topTotalScore = topScore + weisPoints.top;
       const bottomTotalScore = bottomScore + weisPoints.bottom;
       const siegPunkte = activeScoreSettings.values.sieg;
       const wasVorzeitigesEnde = topTotalScore < siegPunkte && bottomTotalScore < siegPunkte;
-      const istVerliererteam = !gewinnerTeam || !isPlayerInTeam(initialStartingPlayerForNextGame, gewinnerTeam);
 
-      if (wasVorzeitigesEnde && istVerliererteam) {
+      if (wasVorzeitigesEnde && gewinnerTeam && isPlayerInTeam(lastRoundFinishingPlayer, gewinnerTeam)) {
         initialStartingPlayerForNextGame = getNextPlayer(initialStartingPlayerForNextGame);
         
         // Erneute Gewinner-Prüfung nach Übersprung
@@ -1248,9 +1249,9 @@ const ResultatKreidetafel = ({
       let participantPlayerIds: string[] = [];
       
       if (participantUids.length > 0) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log("[ResultatKreidetafel] Warte auf Auflösung aller Player-IDs...");
-        }
+        // if (process.env.NODE_ENV === 'development') {
+        //   console.log("[ResultatKreidetafel] Warte auf Auflösung aller Player-IDs...");
+        // }
         
         // Import playerService dynamisch um Circular Dependencies zu vermeiden
         const { getPlayerIdForUser, getPlayerByUserId } = await import('@/services/playerService');
@@ -1260,31 +1261,47 @@ const ResultatKreidetafel = ({
           const authStore = useAuthStore.getState();
           const currentUserId = authStore.user?.uid;
           
-          const playerIdPromises = participantUids.map(async (uid) => {
+          const playerIdPromises = participantUids.map(async (uidOrPlayerId) => {
             try {
               // Für den aktuellen User: Normale Auflösung mit Lock-System
-              if (uid === currentUserId) {
-                return await getPlayerIdForUser(uid, null);
+              if (uidOrPlayerId === currentUserId) {
+                return await getPlayerIdForUser(uidOrPlayerId, null);
               }
               
-              // 🚀 FIX: Für fremde UIDs - direkter Lookup OHNE Lock-System
-              if (process.env.NODE_ENV === 'development') {
-                console.log(`[ResultatKreidetafel] Direkte Player-Suche für fremde UID: ${uid}`);
-              }
-              const existingPlayer = await getPlayerByUserId(uid);
-              if (existingPlayer && existingPlayer.id) {
-                if (process.env.NODE_ENV === 'development') {
-                  console.log(`[ResultatKreidetafel] Player gefunden für ${uid}: ${existingPlayer.id}`);
+              // 🛡️ ROBUSTE LÖSUNG: Prüfe ob es eine UID oder schon eine Player-ID ist
+              // Erst versuchen als UID (hat users-Dokument?)
+              const { getDoc, doc } = await import('firebase/firestore');
+              const { firebaseApp } = await import('@/services/firebaseInit');
+              const { getFirestore } = await import('firebase/firestore');
+              const db = getFirestore(firebaseApp);
+              
+              try {
+                const userDoc = await getDoc(doc(db, 'users', uidOrPlayerId));
+                if (userDoc.exists() && userDoc.data()?.playerId) {
+                  // Es ist eine UID - hole Player-ID
+                  return userDoc.data()!.playerId;
                 }
-                return existingPlayer.id;
+              } catch (uidError) {
+                // Nicht schlimm, versuche als Player-ID
               }
               
-              // Wenn kein Player gefunden: Warnung und undefined zurückgeben
-              console.warn(`[ResultatKreidetafel] ⚠️ Kein Player gefunden für UID ${uid} - wird übersprungen`);
+              // Falls nicht als UID gefunden: Prüfe ob es direkt eine Player-ID ist
+              try {
+                const playerDoc = await getDoc(doc(db, 'players', uidOrPlayerId));
+                if (playerDoc.exists()) {
+                  // Es ist schon eine Player-ID
+                  return uidOrPlayerId;
+                }
+              } catch (playerError) {
+                // Auch nicht als Player-ID gefunden
+              }
+              
+              // 🚨 Weder UID noch Player-ID gefunden
+              console.warn(`[ResultatKreidetafel] ⚠️ Weder als UID noch als Player-ID gefunden: ${uidOrPlayerId} - wird übersprungen`);
               return undefined;
               
             } catch (error) {
-              console.error(`[ResultatKreidetafel] Fehler bei Player-Auflösung für ${uid}:`, error);
+              console.error(`[ResultatKreidetafel] Fehler bei Player-Auflösung für ${uidOrPlayerId}:`, error);
               return undefined;
             }
           });
@@ -1292,17 +1309,17 @@ const ResultatKreidetafel = ({
           const resolvedPlayerIds = await Promise.all(playerIdPromises);
           participantPlayerIds = resolvedPlayerIds.filter(id => id && id !== 'undefined') as string[];
           
-          if (process.env.NODE_ENV === 'development') {
-            console.log(`[ResultatKreidetafel] Player-IDs aufgelöst: ${participantPlayerIds.length}/${participantUids.length}`);
-          }
+          // if (process.env.NODE_ENV === 'development') {
+          //   console.log(`[ResultatKreidetafel] Player-IDs aufgelöst: ${participantPlayerIds.length}/${participantUids.length}`);
+          // }
           
           if (participantPlayerIds.length !== participantUids.length) {
             console.warn("[ResultatKreidetafel] Nicht alle Player-IDs konnten aufgelöst werden");
             // 🚀 ROBUSTER FALLBACK: Verwende Session.participantPlayerIds direkt aus Firestore
             if (currentSession.participantPlayerIds && currentSession.participantPlayerIds.length > 0) {
-              if (process.env.NODE_ENV === 'development') {
-                console.log("[ResultatKreidetafel] Fallback: Verwende participantPlayerIds aus Session");
-              }
+              // if (process.env.NODE_ENV === 'development') {
+              //   console.log("[ResultatKreidetafel] Fallback: Verwende participantPlayerIds aus Session");
+              // }
               participantPlayerIds = currentSession.participantPlayerIds.filter(id => id && id !== 'undefined');
             } else {
               // Zeige Warnung, aber fahre fort mit den aufgelösten IDs

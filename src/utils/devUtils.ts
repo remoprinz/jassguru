@@ -6,14 +6,14 @@ export const isDev = process.env.NODE_ENV === "development";
 // Neue Konstante für Tutorial-Entwicklung
 export const FORCE_TUTORIAL = true;
 
-// NEU: Konstante für Browser-Onboarding Development
-export const FORCE_BROWSER_ONBOARDING = true;
+// NEU: Konstante für Browser-Onboarding Development (im Dev-Modus deaktiviert für direkten Zugang)
+export const FORCE_BROWSER_ONBOARDING = false;
 
 // Zentrale Dev Flags
 export const DEV_FLAGS = {
   FORCE_PWA_INSTALL: isDev ? false : true,
   FORCE_TUTORIAL: true,
-  FORCE_BROWSER_ONBOARDING: true, // NEU: Flag für Browser-Onboarding
+  FORCE_BROWSER_ONBOARDING: false, // NEU: Flag für Browser-Onboarding (Dev-Modus: direkter Zugang)
   SKIP_BROWSER_CHECK: isDev ? true : false,
 } as const;
 
@@ -42,9 +42,13 @@ export const shouldShowBrowserOnboarding = (isPWAInstalled: boolean, isPathExclu
     }
   }
   
-  // Im Development-Modus: Zeige Onboarding wenn FORCE_BROWSER_ONBOARDING aktiv ist
-  if (isDev && FORCE_BROWSER_ONBOARDING) {
-    return !isPWAInstalled && !isPathExcluded;
+  // Im Development-Modus: Zeige Onboarding nur wenn FORCE_BROWSER_ONBOARDING aktiv ist
+  if (isDev) {
+    if (FORCE_BROWSER_ONBOARDING) {
+      return !isPWAInstalled && !isPathExcluded;
+    } else {
+      return false; // Kein Onboarding im Dev-Modus wenn FORCE_BROWSER_ONBOARDING = false
+    }
   }
   
   // In Produktion: Normale Logik

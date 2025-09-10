@@ -1,4 +1,4 @@
-import {Home, MessageCircle, ClipboardList, User, Award} from "lucide-react";
+import {Home, MessageCircle, ClipboardList, User, Award, Info} from "lucide-react";
 import Link from "next/link";
 import {useRouter} from "next/router";
 import {cn} from "@/lib/utils";
@@ -130,18 +130,18 @@ export function BottomNavigation() {
       baseNavigationItems[2],
     ];
   } else {
-    const jassenItem = {
-      name: "Jassen",
-      href: "/jass",
-      icon: ClipboardList,
-      active: currentPath === "/jass",
+    const infoItem = {
+      name: "Info",
+      href: "/features",
+      icon: Info,
+      active: currentPath === "/features",
       itemTournamentStatus: null,
     };
     finalNavigationItems = [
       baseNavigationItems[0],
       baseNavigationItems[1],
       baseNavigationItems[2],
-      jassenItem,
+      infoItem,
     ];
   }
 

@@ -417,7 +417,7 @@ export const getGroupMembers = async (groupId: string): Promise<Array<{
   if (!groupId) throw new Error("Ungültige Gruppen-ID.");
 
   try {
-    console.log(`[getGroupMembers] Lade Members für Gruppe ${groupId}...`);
+    // console.log(`[getGroupMembers] Lade Members für Gruppe ${groupId}...`);
     
     const membersRef = collection(db, 'groups', groupId, 'members');
     const membersSnapshot = await getDocs(membersRef);
@@ -429,7 +429,7 @@ export const getGroupMembers = async (groupId: string): Promise<Array<{
       joinedAt: doc.data().joinedAt || Timestamp.now()
     }));
     
-    console.log(`[getGroupMembers] ${members.length} Members geladen für Gruppe ${groupId}`);
+    // console.log(`[getGroupMembers] ${members.length} Members geladen für Gruppe ${groupId}`);
     return members;
     
   } catch (error) {
@@ -451,7 +451,7 @@ export const getGroupMembersOptimized = async (groupId: string): Promise<Firesto
   if (!groupId) throw new Error("Ungültige Gruppen-ID.");
 
   try {
-    console.log(`[getGroupMembersOptimized] 🚀 Versuche optimierten Lade-Prozess für Gruppe ${groupId}...`);
+    // console.log(`[getGroupMembersOptimized] 🚀 Versuche optimierten Lade-Prozess für Gruppe ${groupId}...`);
     
     // 1. Versuche Members aus der optimierten Subcollection zu laden
     const members = await getGroupMembers(groupId);
@@ -470,11 +470,11 @@ export const getGroupMembersOptimized = async (groupId: string): Promise<Firesto
         stats: { gamesPlayed: 0, wins: 0, totalScore: 0 } // Default-Stats, werden von Statistik-Service überschrieben
       }));
       
-      console.log(`[getGroupMembersOptimized] ✅ OPTIMIERT: ${firestorePlayers.length} Members in 1 Read geladen!`);
+      // console.log(`[getGroupMembersOptimized] ✅ OPTIMIERT: ${firestorePlayers.length} Members in 1 Read geladen!`);
       return firestorePlayers;
     }
     
-    console.log(`[getGroupMembersOptimized] ⚠️ FALLBACK: members-Subcollection leer, nutze alte Methode...`);
+    // console.log(`[getGroupMembersOptimized] ⚠️ FALLBACK: members-Subcollection leer, nutze alte Methode...`);
     // 3. Fallback zur alten Methode (nur wenn members-Subcollection leer)
     const { getGroupMembersSortedByGames } = await import('../services/playerService');
     return await getGroupMembersSortedByGames(groupId);

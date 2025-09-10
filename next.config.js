@@ -190,7 +190,6 @@ const withPWA = withPWAInit({
             maxEntries: 30,
             maxAgeSeconds: 5 * 60, // 5 Minuten
           },
-          networkTimeoutSeconds: 5,
         },
       },
       {
@@ -202,34 +201,17 @@ const withPWA = withPWAInit({
             maxEntries: 50,
             maxAgeSeconds: 5 * 60, // 5 Minuten
           },
-          networkTimeoutSeconds: 3,
-        },
-      },
-      {
-        urlPattern: /^https?.*\.html$/,
-        handler: 'NetworkFirst',
-        options: {
-          cacheName: 'html-pages',
-          expiration: {
-            maxEntries: 50,
-            maxAgeSeconds: 5 * 60, // 5 Minuten für HTML-Seiten
-          },
-          networkTimeoutSeconds: 3,
-          cacheableResponse: {
-            statuses: [0, 200],
-          },
         },
       },
       {
         urlPattern: /^https?.*/,
-        handler: 'NetworkFirst',
+        handler: 'StaleWhileRevalidate',
         options: {
           cacheName: 'offlineCache',
           expiration: {
             maxEntries: 200,
             maxAgeSeconds: 60 * 60, // 1 Stunde für andere Ressourcen
           },
-          networkTimeoutSeconds: 3,
           cacheableResponse: {
             statuses: [0, 200],
           },

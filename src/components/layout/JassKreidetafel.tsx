@@ -171,8 +171,10 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     const isExcluded = onboardingExcludedPaths.includes(currentPath);
     // NEU: Zusätzlicher Check für öffentliche Pfade - OnboardingFlow soll nicht auf öffentlichen Views gezeigt werden
     const isPublicViewPath = currentPath.startsWith('/view/');
+    // NEU: Onboarding wird jetzt in /game/new angezeigt, nicht mehr hier
+    const isGameNewPath = currentPath === '/game/new';
     // NEU: Verwende die Helper-Funktion für Development-Support
-    const result = shouldShowBrowserOnboarding(isPWAInstalled, isExcluded || isPublicViewPath);
+    const result = shouldShowBrowserOnboarding(isPWAInstalled, isExcluded || isPublicViewPath || isGameNewPath);
     return result;
   }, [isPWAInstalled, pathname, authStatus]);
 

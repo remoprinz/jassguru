@@ -370,7 +370,7 @@ const Calculator: React.FC<CalculatorProps> = ({
     }
 
     // NEU: Globale Klicksperre für 1.5 Sekunden aktivieren
-    console.log("⚡️ Globale Klicksperre für 1.5s aktiviert.");
+    // console.log("⚡️ Globale Klicksperre für 1.5s aktiviert.");
     setGlobalClickDisabled(true, 1500);
 
     const isHistoryValid = validateHistoryAction();

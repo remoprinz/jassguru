@@ -418,25 +418,47 @@ const StartPage = () => {
       // Don't wait for currentGroup to load!
       
       const checkForResumableGames = async () => {
+        if (!user?.uid || !user?.playerId) {
+          // console.log("[StartPage] User UID or PlayerID is missing, skipping resumable game check.");
+          return;
+        }
+        
         try {
-      const db = getFirestore(firebaseApp);
-      const gamesRef = collection(db, "activeGames");
-
-          // Query all active games for this user
-      const q = query(
-        gamesRef,
-        where("participantUids", "array-contains", user.uid)
-      );
-
-          const snapshot = await getDocs(q);
+          const db = getFirestore(firebaseApp);
+          const gamesRef = collection(db, "activeGames");
+      
+          // Query 1: Suche nach Firebase Auth UID (bestehende Logik)
+          const uidQuery = query(
+            gamesRef,
+            where("participantUids", "array-contains", user.uid)
+          );
+      
+          // Query 2: Suche nach Player ID (NEUE Logik für Kompatibilität)
+          const playerIdQuery = query(
+            gamesRef,
+            where("participantUids", "array-contains", user.playerId)
+          );
+      
+          // Führe beide Abfragen parallel aus
+          const [uidSnapshot, playerIdSnapshot] = await Promise.all([
+            getDocs(uidQuery),
+            getDocs(playerIdQuery)
+          ]);
+      
+          // Führe die Ergebnisse zusammen und entferne Duplikate
+          const allDocs = new Map();
+          uidSnapshot.forEach(doc => allDocs.set(doc.id, doc));
+          playerIdSnapshot.forEach(doc => allDocs.set(doc.id, doc));
           
-              if (!snapshot.empty) {
+          const uniqueDocs = Array.from(allDocs.values());
+      
+          if (uniqueDocs.length > 0) {
             // Find the most recent active game
-                const relevantGames = snapshot.docs.filter(doc => {
-                  const data = doc.data();
+            const relevantGames = uniqueDocs.filter(doc => {
+              const data = doc.data();
               return data.status !== 'aborted' && data.status !== 'completed';
-                });
-                
+            });
+            
             if (relevantGames.length > 0) {
               // 🔧 KRITISCHER FIX: Sortiere nach "Inhalt" nicht nach "Alter"!
               // Priorität: Spiele mit Inhalt (höhere currentRound oder Scores) vor leeren Spielen
@@ -486,7 +508,7 @@ const StartPage = () => {
               const gameId = mostRelevantGame.id;
               const gameData = mostRelevantGame.data();
 
-              console.log(`[StartPage] 🎯 CONTENT-BASED DETECTION: Selected game ${gameId} (Round: ${gameData.currentRound}, Scores: ${gameData.scores?.top || 0}:${gameData.scores?.bottom || 0})`);
+              // console.log(`[StartPage] 🎯 CONTENT-BASED DETECTION: Selected game ${gameId} (Round: ${gameData.currentRound}, Scores: ${gameData.scores?.top || 0}:${gameData.scores?.bottom || 0})`);
               
               // 🔧 VERBESSERTE VALIDIERUNG: Unterscheide zwischen echten leeren Spielen und begonnenen Spielen
               const hasGameContent = (gameData.currentRound > 1) || 
@@ -548,7 +570,7 @@ const StartPage = () => {
                     return;
                   } 
               } else {
-                console.log(`[StartPage] 🎯 INITIAL: Game ${gameId} has content or activity (content=${hasGameContent}, activity=${hasGameActivity}, newGame=${isVeryNewGame}, age=${Math.round(gameAge/1000)}s), setting as resumable`);
+                // console.log(`[StartPage] 🎯 INITIAL: Game ${gameId} has content or activity (content=${hasGameContent}, activity=${hasGameActivity}, newGame=${isVeryNewGame}, age=${Math.round(gameAge/1000)}s), setting as resumable`);
               }
               
                       setResumableGameId(gameId);
@@ -651,7 +673,7 @@ const StartPage = () => {
                 const gameData = mostRelevantGame.data();
                 
                 if (useUIStore.getState().resumableGameId !== gameId) {
-                  console.log(`[StartPage] Real-time update: Setting resumable game ${gameId}`);
+                  // console.log(`[StartPage] Real-time update: Setting resumable game ${gameId}`);
                   
                   // 🔧 VERBESSERTE VALIDIERUNG: Unterscheide zwischen echten leeren Spielen und begonnenen Spielen
                   const hasGameContent = (gameData.currentRound > 1) || 
@@ -694,7 +716,7 @@ const StartPage = () => {
                     }
                     return;
               } else {
-                    console.log(`[StartPage] Real-time: Game ${gameId} has content or activity (content=${hasGameContent}, activity=${hasGameActivity}, newGame=${isVeryNewGame}, age=${Math.round(gameAge/1000)}s), keeping as resumable`);
+                    // console.log(`[StartPage] Real-time: Game ${gameId} has content or activity (content=${hasGameContent}, activity=${hasGameActivity}, newGame=${isVeryNewGame}, age=${Math.round(gameAge/1000)}s), keeping as resumable`);
                   }
                   
                   setResumableGameId(gameId);
@@ -743,7 +765,7 @@ const StartPage = () => {
       try {
         const storedGameId = sessionStorage.getItem(`resumableGameId_${user.uid}`);
         if (storedGameId && !useUIStore.getState().resumableGameId) {
-          console.log(`[StartPage] 🔄 PERSISTENCE RECOVERY: Found stored resumable game ${storedGameId}`);
+          // console.log(`[StartPage] 🔄 PERSISTENCE RECOVERY: Found stored resumable game ${storedGameId}`);
           
           // Verify the stored game is still valid
           const db = getFirestore(firebaseApp);
@@ -752,12 +774,13 @@ const StartPage = () => {
             if (gameDocSnap.exists() && 
                 gameDocSnap.data()?.status !== 'aborted' && 
                 gameDocSnap.data()?.status !== 'completed' &&
-                gameDocSnap.data()?.participantUids?.includes(user.uid)) {
+                (gameDocSnap.data()?.participantUids?.includes(user.uid) || (user.playerId && gameDocSnap.data()?.participantUids?.includes(user.playerId)))
+            ) {
               
-              console.log(`[StartPage] ✅ PERSISTENCE RECOVERY: Restored resumable game ${storedGameId}`);
+              // console.log(`[StartPage] ✅ PERSISTENCE RECOVERY: Restored resumable game ${storedGameId}`);
               setResumableGameId(storedGameId);
             } else {
-              console.log(`[StartPage] ❌ PERSISTENCE RECOVERY: Stored game ${storedGameId} is no longer valid, removing`);
+              // console.log(`[StartPage] ❌ PERSISTENCE RECOVERY: Stored game ${storedGameId} is no longer valid, removing`);
               sessionStorage.removeItem(`resumableGameId_${user.uid}`);
             }
           }).catch((error) => {
@@ -1138,22 +1161,8 @@ const StartPage = () => {
         return;
       }
       
-      // 🚨 BROWSER-WARNUNG: Verhindere StartScreen-Navigation im Browser
-      // Authentifizierte User sollen nur in der PWA Spiele starten können
-      if (status === 'authenticated' && !isPWA()) {
-        showNotification({
-          type: "warning",
-          message: "Bitte schliesse den Browser und öffne die App vom Homebildschirm aus, um die Jasstafel zu laden.",
-          actions: [
-            {
-              label: "Verstanden",
-              onClick: () => {}, // Schliesst nur die Notification
-            },
-          ],
-          preventClose: true, // User muss explizit "Verstanden" klicken
-        });
-        return;
-      }
+      // ENTFERNT: PWA-Prüfung, da sie den korrekten OnboardingFlow in JassKreidetafel.tsx blockiert
+      // Die intelligente Onboarding-Logik (Desktop=QR-Code, Mobile=Installation) ist bereits in JassKreidetafel.tsx implementiert
       
       // Leitet den Benutzer zur dedizierten Seite für die Erstellung eines neuen
       // Online-Spiels, anstatt direkt zum Jass-Bildschirm.

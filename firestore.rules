@@ -187,9 +187,17 @@ service cloud.firestore {
       // Rounds-Subcollection: Gleiche Regeln wie Hauptdokument
       match /rounds/{roundId} {
         allow read: if true;
-        // KORREKTUR: Nur Teilnehmer des Spiels dürfen schreiben
-        allow write: if request.auth != null && 
-                     request.auth.uid in get(/databases/$(database)/documents/activeGames/$(gameId)).data.participantUids;
+        // ✅ KORRIGIERTER FIX: Erlaube Schreibzugriff, wenn die UID ODER die PlayerID des Benutzers in den Teilnehmerlisten des Spiels enthalten ist.
+        // 1. Prüfe, ob die Firebase Auth UID direkt in participantUids steht (Host-Fall)
+        // 2. Prüfe, ob die PlayerID des Benutzers in participantUids steht (Nicht-Host-Fall)
+        allow write: if request.auth != null &&
+                     (
+                       request.auth.uid in get(/databases/$(database)/documents/activeGames/$(gameId)).data.participantUids ||
+                       (
+                         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.playerId in get(/databases/$(database)/documents/activeGames/$(gameId)).data.participantUids
+                       )
+                     );
         allow delete: if false;
       }
     }
@@ -240,9 +248,10 @@ service cloud.firestore {
           (resource.data.participantUids != null && request.auth.uid in resource.data.participantUids) ||
           // Fallback: createdBy (legacy Sessions)  
           resource.data.createdBy == request.auth.uid ||
-          // Fallback: participantPlayerIds via Player-Lookup (falls nötig)
-          (resource.data.participantPlayerIds != null && 
-           request.auth.uid in get(/databases/$(database)/documents/players/$(request.auth.uid)).data.userId)
+      // Fallback: participantPlayerIds via Player-Lookup (falls nötig)
+      (resource.data.participantPlayerIds != null && 
+       exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.playerId in resource.data.participantPlayerIds)
         );
         
         // Löschen verboten (Sessions sind Teil der Historie)

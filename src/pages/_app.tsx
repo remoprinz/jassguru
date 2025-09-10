@@ -23,11 +23,13 @@ import { offlineSyncService } from '@/services/offlineSyncService';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth'; // NEU
 import useViewportHeight from '../hooks/useViewportHeight';
 import { useBackgroundOptimization } from '../hooks/useBackgroundOptimization'; // 🚀 NEU: Background Image Optimization
+
 // 🧟‍♂️ NOTFALL-CACHE-CLEAR ENTFERNT
 
 // 🚨 NEU: PWA Service Worker Registrierung mit dem robusten Service
 import { serviceWorkerService } from '@/services/serviceWorkerService';
 import ServiceWorkerMonitor from '@/components/pwa/ServiceWorkerMonitor';
+import { UpdateBanner } from '@/components/pwa/UpdateBanner';
 
 
 // 🚨 App-Watchdog in index.html verschoben für frühere Ausführung
@@ -97,33 +99,10 @@ const MyApp = ({Component, pageProps}: AppProps) => {
     }
   }, []);
 
-  // 🚨 NEU: Robuste Service Worker Registrierung beim App-Start
-  useEffect(() => {
-    // Registriere den Service Worker mit dem neuen, bulletproof Service
-    serviceWorkerService.register({
-      onUpdate: (registration) => {
-        console.log('[App] Service Worker Update gefunden!', registration);
-        // Hier könnte man den UI-Store benachrichtigen, um einen Update-Hinweis anzuzeigen
-        useUIStore.getState().showNotification({
-          message: 'Ein App-Update ist bereit.',
-          type: 'info',
-          duration: 8000,
-          actions: [{
-            label: 'Jetzt aktualisieren',
-            onClick: () => {
-              serviceWorkerService.activateUpdate();
-            }
-          }]
-        });
-      },
-      onSuccess: (registration) => {
-        console.log('[App] Service Worker erfolgreich registriert.', registration);
-      },
-      onError: (error) => {
-        console.error('[App] Service Worker Registrierung fehlgeschlagen:', error);
-      }
-    });
-  }, []);
+  // 🚨 HINWEIS: Die Service Worker Registrierung wird nun vollständig vom
+  // <PwaUpdateHandler /> und dem Service selbst gemanagt.
+  // Der Codeblock hier wird entfernt, um Redundanz zu vermeiden und
+  // die Logik an einem zentralen Ort zu bündeln.
 
   // const initAuth = useAuthStore((state) => state.initAuth); // ALT
   const setAuthUser = useAuthStore((state) => state.setAuthUser); // NEU
@@ -277,11 +256,9 @@ const MyApp = ({Component, pageProps}: AppProps) => {
       try {
         // Warte bis IndexedDB initialisiert ist
         await getOfflineDB();
-        console.log('[App] IndexedDB initialisiert, starte Offline Sync Engine');
-        
-        // Jetzt erst den Sync Engine starten
+        // IndexedDB initialisiert, starte Offline Sync Engine
         syncEngine = initSyncEngine();
-        console.log('[App] Offline Sync Service initialisiert');
+        // Offline Sync Service erfolgreich initialisiert
       } catch (error) {
         console.error('[App] Fehler bei der Initialisierung des Offline Sync:', error);
       }
@@ -309,11 +286,7 @@ const MyApp = ({Component, pageProps}: AppProps) => {
     }
   }, []);
 
-  // Initialisiere Offline Sync Service
-  useEffect(() => {
-    // Service wird automatisch durch Import initialisiert
-    console.log('[App] Offline Sync Service initialisiert');
-  }, []);
+  // Initialisiere Offline Sync Service (Service wird automatisch durch Import initialisiert)
 
   // --- Immer die Haupt-App-Struktur rendern --- 
   return (
@@ -361,6 +334,7 @@ const MyApp = ({Component, pageProps}: AppProps) => {
             <GlobalNotificationContainer />
             <PwaUpdateHandler /> {/* 🎯 PWA-Updates nur im PWA-Modus */}
             <ServiceWorkerMonitor /> {/* 🛡️ NEU: Fügt den SW Health Monitor hinzu */}
+            <UpdateBanner /> {/* ✨ NEU: Permanenter Update-Banner */}
           </FirestoreSyncProvider>
         </UserProvider>
       </AuthProvider>

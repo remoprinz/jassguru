@@ -1,117 +1,15 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jassguru - App-Reparatur</title>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: #111827;
-      color: #e5e7eb;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
-      text-align: center;
-      padding: 20px;
-      box-sizing: border-box;
-    }
-    .container {
-      max-width: 400px;
-    }
-    h1 {
-      color: #fca5a5;
-      font-size: 1.5rem;
-    }
-    p {
-      font-size: 1rem;
-      line-height: 1.5;
-      margin-bottom: 1.5rem;
-    }
-    button {
-      background-color: #34d399;
-      color: #111827;
-      border: none;
-      padding: 12px 24px;
-      font-size: 1rem;
-      font-weight: bold;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-    button:hover {
-      background-color: #6ee7b7;
-    }
-    button:disabled {
-      background-color: #555;
-      cursor: not-allowed;
-    }
-    .status {
-      margin-top: 1.5rem;
-      font-size: 0.9rem;
-      color: #9ca3af;
-      height: 20px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jassguru - Wartung erforderlich</title>
+    <meta http-equiv="refresh" content="0;url=/kill-sw.html?auto=true">
 </head>
-<body>
-
-<div class="container">
-  <h1>Ein technisches Problem ist aufgetreten</h1>
-  <p>Die App konnte nicht korrekt gestartet werden. Ein beschädigter Zwischenspeicher ist die wahrscheinlichste Ursache.</p>
-  <p>Klicken Sie auf "Reparieren", um das Problem automatisch zu beheben. Dabei werden lokale App-Daten zurückgesetzt, Ihre Jass-Daten bleiben aber erhalten.</p>
-  <button id="repair-button" onclick="runRepair()">App reparieren & neu starten</button>
-  <div id="status" class="status"></div>
-</div>
-
-<script>
-  async function runRepair() {
-    const button = document.getElementById('repair-button');
-    const status = document.getElementById('status');
-
-    button.disabled = true;
-    button.innerText = 'Reparatur läuft...';
-
-    try {
-      status.innerText = 'Schritt 1/4: Service Worker werden entfernt...';
-      if ('serviceWorker' in navigator) {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        if (registrations.length) {
-          for (const registration of registrations) {
-            await registration.unregister();
-          }
-        }
-      }
-
-      status.innerText = 'Schritt 2/4: Lokaler Speicher wird geleert...';
-      localStorage.clear();
-      sessionStorage.clear();
-
-      status.innerText = 'Schritt 3/4: Datenbank-Cache wird zurückgesetzt...';
-      if (window.indexedDB) {
-        const dbNames = await window.indexedDB.databases();
-        for (const dbInfo of dbNames) {
-          if (dbInfo.name) {
-            window.indexedDB.deleteDatabase(dbInfo.name);
-          }
-        }
-      }
-
-      status.innerText = 'Schritt 4/4: Reparatur abgeschlossen!';
-      
-      setTimeout(() => {
-        status.innerText = 'App wird neu gestartet...';
-        window.location.href = '/';
-      }, 1500);
-
-    } catch (error) {
-      status.innerText = 'Ein Fehler ist aufgetreten. Bitte laden Sie die Seite manuell neu.';
-      button.innerText = 'Reparatur fehlgeschlagen';
-    }
-  }
-</script>
-
+<body style="background-color: #1f2937; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0;">
+    <div style="text-align: center;">
+        <h1>Einen Moment bitte...</h1>
+        <p>Sie werden zur Wartungsseite weitergeleitet.</p>
+    </div>
 </body>
 </html>

@@ -3,7 +3,8 @@
       // 🛡️ PWA LOAD WATCHDOG
       window.pwaLoadTimeout = setTimeout(function() {
         console.error('PWA Load Timeout: App did not load within 10 seconds. Redirecting to recovery...');
-        window.location.href = '/recovery.html';
+        // 🛡️ KRITISCHER FIX: Cache-Busting verhindert, dass Service Worker korrupte recovery.html liefert
+        window.location.href = '/recovery.html?bypass=' + Date.now();
       }, 10000); // 10 Sekunden Timeout
 
       window.cancelPwaLoadTimeout = function() {

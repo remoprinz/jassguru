@@ -370,8 +370,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           {isPublicView && currentPlayer && (
             <button 
               onClick={handleShareClick}
-              className="absolute top-8 right-4 z-10 p-2 text-gray-300 hover:text-white transition-all duration-200 rounded-full bg-gray-700/50 hover:scale-110"
+              className="absolute top-6 right-4 z-10 p-2 text-gray-300 hover:text-white transition-all duration-200 rounded-full bg-gray-700/50 hover:scale-110 safe-area-top"
               style={{
+                top: 'calc(1.5rem + env(safe-area-inset-top))',
                 backgroundColor: 'rgba(55, 65, 81, 0.5)',
                 borderColor: 'transparent'
               }}
@@ -410,7 +411,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           {isPublicView && (
             <Button 
               variant="ghost" 
-              className="absolute top-8 left-4 text-white hover:bg-gray-700 p-3"
+              className="absolute top-6 left-4 text-white hover:bg-gray-700 p-3 safe-area-top"
+              style={{ top: 'calc(1.5rem + env(safe-area-inset-top))' }}
               aria-label="Zurück"
               onClick={handleGoBack}
             >
@@ -419,7 +421,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           )}
 
         {/* ✅ HEADER MIT LOGO UND BUTTONS (IDENTISCH ZU GROUPVIEW) */}
-        <div className="relative mb-4 mt-6">
+        <div className={`relative mb-4 ${isPublicView ? 'mt-16' : 'mt-4'}`}>
           <div 
             className={`relative w-32 h-32 rounded-full overflow-hidden transition-all duration-300 flex items-center justify-center bg-gray-800 shadow-lg hover:shadow-xl hover:scale-105 border-4`}
             style={{

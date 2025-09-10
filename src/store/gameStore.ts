@@ -364,7 +364,7 @@ const truncateFutureAndAddEntry = (state: GameState, newEntry: RoundEntry): Part
     const roundIdsToDeactivate = removedEntries.map(entry => entry.roundId).filter(id => id !== undefined) as number[];
     
     if (roundIdsToDeactivate.length > 0) {
-      console.log(`[truncateFutureAndAddEntry] ${roundIdsToDeactivate.length} Einträge (IDs: ${roundIdsToDeactivate.join(', ')}) werden in Firestore als inaktiv markiert`);
+      // console.log(`[truncateFutureAndAddEntry] ${roundIdsToDeactivate.length} Einträge (IDs: ${roundIdsToDeactivate.join(', ')}) werden in Firestore als inaktiv markiert`);
       setTimeout(() => {
         // KORREKTUR: Verwende markRoundsAsInactive statt markAllFollowingRoundsAsInactive
         import('../services/gameService').then(({ markRoundsAsInactive }) => {
@@ -670,13 +670,13 @@ export const useGameStore = create<GameStore>()(
                                                  ? currentGroup.strokeSettings 
                                                  : uiStoreSettings.strokeSettings;
                   
-                  console.log("[GameStore.finalizeRound] Kontermatsch mit Stroke-Settings:", {
-                      team: strichTeam,
-                      kontermatschValue: activeStrokeSettings.kontermatsch,
-                      currentValue: newStriche[strichTeam].kontermatsch,
-                      newTotal: newStriche[strichTeam].kontermatsch + activeStrokeSettings.kontermatsch,
-                      source: currentGroup ? 'group' : 'uiStore'
-                  });
+                  // console.log("[GameStore.finalizeRound] Kontermatsch mit Stroke-Settings:", {
+                  //     team: strichTeam,
+                  //     kontermatschValue: activeStrokeSettings.kontermatsch,
+                  //     currentValue: newStriche[strichTeam].kontermatsch,
+                  //     newTotal: newStriche[strichTeam].kontermatsch + activeStrokeSettings.kontermatsch,
+                  //     source: currentGroup ? 'group' : 'uiStore'
+                  // });
                   
                   newStriche[strichTeam] = {
                       ...newStriche[strichTeam],
@@ -1457,11 +1457,11 @@ export const useGameStore = create<GameStore>()(
               weisPoints: { top: 0, bottom: 0 },
               currentRoundWeis: [],
             });
-            console.log(`[navigateHistory] Local state updated for index ${newIndex}. Target round: ${targetEntry?.roundState.roundNumber ?? 'Initial'}`);
+            // console.log(`[navigateHistory] Local state updated for index ${newIndex}. Target round: ${targetEntry?.roundState.roundNumber ?? 'Initial'}`);
             
             // === UIStore Flag direkt hier zurücksetzen ===
             useUIStore.setState({ isNavigatingHistory: false });
-            console.log("[navigateHistory] Local navigation complete. UIStore Flag isNavigatingHistory SET to FALSE.");
+            // console.log("[navigateHistory] Local navigation complete. UIStore Flag isNavigatingHistory SET to FALSE.");
         },
 
         canNavigateForward: () => {

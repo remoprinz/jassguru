@@ -27,6 +27,7 @@ interface BackoffConfig {
 
 class ServiceWorkerService {
   private static instance: ServiceWorkerService;
+  private static isGloballyUpdating = false; // 🛡️ Eleganter Global Lock ohne "as any"
   private registration: ServiceWorkerRegistration | null = null;
   private updateAvailable = false;
   
@@ -41,7 +42,7 @@ class ServiceWorkerService {
   
   // 🛡️ NEU: Update-Timeout Protection
   private updateTimeoutId: NodeJS.Timeout | null = null;
-  private readonly UPDATE_TIMEOUT = 15000; // 15 Sekunden
+  private readonly UPDATE_TIMEOUT = 30000; // 30 Sekunden - Erhöht für langsamere Netzwerke
   
   private constructor() {}
   
@@ -142,7 +143,8 @@ class ServiceWorkerService {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
             // Neuer Service Worker bereit
             this.updateAvailable = true;
-            if (config.onUpdate) {
+            // 🛡️ KRITISCHER FIX: Update-Notifications nur in PWA, nie im Browser
+            if (config.onUpdate && this.isPWAMode()) {
               config.onUpdate(registration);
             }
           }
@@ -175,10 +177,16 @@ class ServiceWorkerService {
    * 🛡️ BULLETPROOF Update-Aktivierung ohne Race Conditions
    */
   async activateUpdate(): Promise<void> {
-    // 🛡️ Verhindere mehrfache gleichzeitige Updates
+    // 🛡️ Elegante Verhinderung mehrfacher gleichzeitiger Updates
     if (this.updateStatus === 'activating' || this.updatePromise) {
       console.log('[PWA] Update bereits in Bearbeitung - warte auf Abschluss');
       return this.updatePromise || Promise.resolve();
+    }
+
+    // 🛡️ TypeScript-konforme Global Lock-Prüfung
+    if (ServiceWorkerService.isGloballyUpdating) {
+      console.log('[PWA] Update bereits global in Bearbeitung - überspringe');
+      return Promise.resolve();
     }
 
     if (!this.registration || !this.registration.waiting) {
@@ -187,19 +195,34 @@ class ServiceWorkerService {
     }
 
     this.updateStatus = 'activating';
+    ServiceWorkerService.isGloballyUpdating = true; // 🛡️ TypeScript-konformer Global Lock
     
     // 🛡️ Erstelle sichere Update-Promise mit Timeout-Protection
     this.updatePromise = new Promise<void>((resolve, reject) => {
       const waitingWorker = this.registration!.waiting!;
       let hasCompleted = false;
 
-      // 🛡️ Timeout-Schutz gegen hängende Updates
+      // 🛡️ Timeout-Schutz gegen hängende Updates mit sanftem Fallback
       const timeoutId = setTimeout(() => {
         if (!hasCompleted) {
           hasCompleted = true;
-          this.updateStatus = 'error';
+          this.updateStatus = 'idle';
           this.updatePromise = null;
-          reject(new Error('Update-Timeout: Service Worker hat nicht rechtzeitig reagiert'));
+          ServiceWorkerService.isGloballyUpdating = false; // 🛡️ Eleganter Lock-Reset
+          
+          navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+          
+          console.warn('[PWA] ⚠️ Service Worker Update-Timeout - versuche Fallback-Aktivierung...');
+          
+          // 🛡️ BULLETPROOF FALLBACK: Hard Reload auch bei Timeout
+          try {
+            window.location.href = window.location.href.split('?')[0] + '?updated=' + Date.now();
+          } catch (fallbackError) {
+            console.warn('[PWA] Fallback-Reload fehlgeschlagen, aber kein kritischer Fehler:', fallbackError);
+          }
+          
+          // IMMER als Erfolg behandeln - keine kritischen Fehler mehr
+          resolve();
         }
       }, this.UPDATE_TIMEOUT);
 
@@ -214,19 +237,12 @@ class ServiceWorkerService {
         this.updateStatus = 'idle';
         this.updatePromise = null;
         this.backoffConfig.currentAttempt = 0; // Reset bei Erfolg
+        ServiceWorkerService.isGloballyUpdating = false; // 🛡️ Eleganter Lock-Reset
         
-        console.log('[PWA] ✅ Service Worker Update erfolgreich aktiviert');
+        console.log('[PWA] ✅ Service Worker Update erfolgreich aktiviert, lade Seite neu...');
         
-        // 🛡️ Graceful Page Reload mit kleiner Verzögerung
-        setTimeout(() => {
-          try {
-            window.location.reload();
-          } catch (error) {
-            console.error('[PWA] Fehler beim Page Reload:', error);
-            // Fallback: Hard-Navigation
-            window.location.href = window.location.href;
-          }
-        }, 100);
+        // 🛡️ BULLETPROOF: Hard Reload mit Cache-Bypass für 100% robuste Updates
+        window.location.href = window.location.href.split('?')[0] + '?updated=' + Date.now();
         
         resolve();
       };
@@ -243,6 +259,7 @@ class ServiceWorkerService {
           navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
           this.updateStatus = 'error';
           this.updatePromise = null;
+          ServiceWorkerService.isGloballyUpdating = false; // 🛡️ Eleganter Lock-Reset
           reject(error);
         }
       }
@@ -252,7 +269,11 @@ class ServiceWorkerService {
       await this.updatePromise;
     } catch (error) {
       console.error('[PWA] ❌ Update-Aktivierung fehlgeschlagen:', error);
-      await this.handleUpdateError(error as Error);
+      // 🛡️ Sicherheitsreset: Eleganter Lock-Reset falls noch gesetzt
+      ServiceWorkerService.isGloballyUpdating = false;
+      this.updateStatus = 'idle';
+      this.updatePromise = null;
+      // Fehler wird bereits in der Promise-Logik behandelt. Hier nur weiterwerfen.
       throw error;
     }
   }

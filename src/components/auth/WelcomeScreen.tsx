@@ -250,10 +250,10 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           initial={{opacity: 0, scale: 0.9}}
           animate={{opacity: 1, scale: 1}}
           transition={{duration: 0.3}}
-          className="w-full max-w-md bg-gray-800 rounded-xl p-8 shadow-2xl space-y-8 my-4"
+          className="w-full max-w-md bg-gray-800 rounded-xl p-6 shadow-2xl space-y-6 my-2"
         >
-          <div className="flex flex-col items-center justify-center space-y-4">
-            <div className="relative w-36 h-36 mb-4">
+          <div className="flex flex-col items-center justify-center space-y-3">
+            <div className="relative w-24 h-24 mb-2">
               <Image
                 src="/welcome-guru.png"
                 alt="Jass Kreidetafel"
@@ -270,7 +270,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             <h2 className="text-xl text-gray-300 text-center -mt-2 italic">
               {displayMode === "pwa" ? "Von Jassern für Jasser." : (
                 <>
-                  Endlich eine Jasstafel, die nicht flucht.
+                  Die Jasstafel, die automatisch rechnet, Statistiken führt und nie einen Punkt vergisst.
                 </>
               )}
             </h2>
@@ -291,15 +291,19 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               ) : (
                 <div className="text-left">
                   <div className="mb-4">
-                    Letzte Woche am Stammtisch: 'Haben wir den Weis schon geschrieben?' - 'Keine Ahnung.' - 'Wer ist an der Reihe?' - 'Du warst doch...' - 'Wer jasst am besten?' - 'Das dikutieren wir noch!' - STOPP! Hier kommt die Jasstafel, die mitdenkt und sich alles merkt.
+                    Erstelle dein Profil, gründe eine Gruppe oder trete einer bei. 
+                    Jassen war noch nie so schnell, smart und vernetzt.
                   </div>
+                  
+                  <div className="mb-4">
+                    <strong className="text-white">Schau dir an, wie es funktioniert:</strong>
+                  </div>
+                  
                   <div className="space-y-2">
                     <div>
-                      <Link href="/features" passHref>
-                        <a className="flex items-center space-x-1 text-blue-400 hover:text-blue-300 hover:underline transition-colors">
-                          <span>👉</span>
-                          <span>Vorschau App</span>
-                        </a>
+                      <Link href="/features" className="flex items-center space-x-1 text-blue-400 hover:text-blue-300 hover:underline transition-colors">
+                        <span>👉</span>
+                        <span>Vorschau App</span>
                       </Link>
                     </div>
                     <div>
@@ -310,7 +314,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                         className="flex items-center space-x-1 text-blue-400 hover:text-blue-300 hover:underline"
                       >
                         <span>👉</span>
-                        <span>Beispiel Gruppe</span>
+                        <span>Jassgruppe ansehen</span>
                       </a>
                     </div>
                     <div>
@@ -321,7 +325,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                         className="flex items-center space-x-1 text-blue-400 hover:text-blue-300 hover:underline"
                       >
                         <span>👉</span>
-                        <span>Beispiel&nbsp;Profil</span>
+                        <span>Jassprofil ansehen</span>
                       </a>
                     </div>
                   </div>
@@ -396,15 +400,13 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           
           {/* Divider and Link to Knowledge Hub */}
           <div className="pt-6 mt-6 border-t border-gray-700/50">
-            <Link href="/wissen" legacyBehavior>
-              <a className="group block text-center transition-transform hover:scale-105">
-                <span className="text-lg font-semibold text-gray-200 group-hover:text-green-400 transition-colors">
-                  Das Schweizer Jass-Lexikon
-                </span>
-                <p className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors mt-1">
-                  Regeln, Strategien & mehr →
-                </p>
-              </a>
+            <Link href="/wissen" className="group block text-center transition-transform hover:scale-105">
+              <span className="text-lg font-semibold text-gray-200 group-hover:text-green-400 transition-colors">
+                Das Schweizer Jass-Lexikon
+              </span>
+              <p className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors mt-1">
+                Regeln, Strategien & mehr →
+              </p>
             </Link>
           </div>
         </motion.div>

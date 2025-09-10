@@ -510,7 +510,7 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
     const previousGameId = state.currentGameId;
 
     const nextGameId = previousGameId + 1;
-    console.log(`[JassStore.startNextGame] Creating game ${nextGameId} with initialStartingPlayer=${initialStartingPlayer}, newActiveGameId=${newActiveGameId || 'none'}`);
+    // console.log(`[JassStore.startNextGame] Creating game ${nextGameId} with initialStartingPlayer=${initialStartingPlayer}, newActiveGameId=${newActiveGameId || 'none'}`);
     
     const newGameEntry = createGameEntry(
       nextGameId,
@@ -561,12 +561,12 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
       strokeSettings: latestState.currentSession.currentStrokeSettings ?? DEFAULT_STROKE_SETTINGS,
     };
 
-    console.log('[JassStore.startNextGame] Übergebe folgende Settings an resetGame:', {
-      source: latestState.currentSession.currentFarbeSettings ? 'Session' : 'Default',
-      cardStyle: settingsForNextGame.farbeSettings.cardStyle,
-      siegPunkte: settingsForNextGame.scoreSettings.values.sieg,
-      schneiderStriche: settingsForNextGame.strokeSettings.schneider
-    });
+    // console.log('[JassStore.startNextGame] Übergebe folgende Settings an resetGame:', {
+    //   source: latestState.currentSession.currentFarbeSettings ? 'Session' : 'Default',
+    //   cardStyle: settingsForNextGame.farbeSettings.cardStyle,
+    //   siegPunkte: settingsForNextGame.scoreSettings.values.sieg,
+    //   schneiderStriche: settingsForNextGame.strokeSettings.schneider
+    // });
 
     gameStore.resetGame(initialStartingPlayer, newActiveGameId, settingsForNextGame);
     useGameStore.setState({ playerNames: latestState.currentSession.playerNames });
@@ -576,7 +576,7 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
       get().syncCompletedGamesForSession(state.currentSession.id);
     }
 
-    console.log(`[JassStore.startNextGame] Started game ${nextGameId}. New Active Game ID: ${newActiveGameId || 'none'}`);
+    // console.log(`[JassStore.startNextGame] Started game ${nextGameId}. New Active Game ID: ${newActiveGameId || 'none'}`);
   },
 
   finalizeGame: async () => {
