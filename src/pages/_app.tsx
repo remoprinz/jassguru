@@ -1,40 +1,31 @@
-import React, {useEffect, useState, useMemo} from "react";
+import React, {useEffect, useState} from "react";
 import "../styles/globals.css";
 import type {AppProps} from "next/app";
 import { useRouter } from "next/router";
-// 🧟‍♂️ ZOMBIE KILLER CODE ENTFERNT
 import {AppProvider} from "../contexts/AppContext";
 import Head from "next/head";
 import {useWakeLock} from "../hooks/useWakeLock";
 import {AuthProvider} from "../providers/AuthProvider";
 import {UserProvider} from "../providers/UserProvider";
 import {useAuthStore} from "@/store/authStore";
-import {useTournamentStore} from "@/store/tournamentStore"; // NEU: TournamentStore importieren
-import {useUIStore} from "@/store/uiStore"; // NEU: UIStore importieren
+import {useTournamentStore} from "@/store/tournamentStore";
+import {useUIStore} from "@/store/uiStore";
 import GlobalNotificationContainer from "../components/notifications/GlobalNotificationContainer";
-import PwaUpdateHandler from '@/components/pwa/PwaUpdateHandler'; // 🎯 PWA-Handler wieder aktiviert
-import { FirestoreSyncProvider } from '@/providers/FirestoreSyncProvider'; // Neu importieren
-import { ClipLoader } from "react-spinners"; // Import für einen Spinner
-import { debouncedRouterPush } from '../utils/routerUtils';
-import { isPublicPath } from "@/lib/utils"; // 🚨 NEU: Importiere die zentrale Funktion
-import { handleIndexedDBCorruption, isIndexedDBCorruptionError, getOfflineDB } from '../utils/indexedDBHelper';
-import { initSyncEngine } from '@/services/offlineSyncEngine';
-import { offlineSyncService } from '@/services/offlineSyncService';
-import { getAuth, onAuthStateChanged, User } from 'firebase/auth'; // NEU
+import PwaUpdateHandler from '@/components/pwa/PwaUpdateHandler';
+import {FirestoreSyncProvider} from '@/providers/FirestoreSyncProvider';
+import {ClipLoader} from "react-spinners";
+import {debouncedRouterPush} from '../utils/routerUtils';
+import {isPublicPath} from "@/lib/utils";
+import {getOfflineDB} from '../utils/indexedDBHelper';
+import {initSyncEngine} from '@/services/offlineSyncEngine';
+import {getAuth, onAuthStateChanged} from 'firebase/auth';
 import useViewportHeight from '../hooks/useViewportHeight';
-import { useBackgroundOptimization } from '../hooks/useBackgroundOptimization'; // 🚀 NEU: Background Image Optimization
+import {useBackgroundOptimization} from '../hooks/useBackgroundOptimization';
+import {UpdateBanner} from '@/components/pwa/UpdateBanner';
 
-// 🧟‍♂️ NOTFALL-CACHE-CLEAR ENTFERNT
+// App-Watchdog in index.html verschoben für frühere Ausführung
 
-// 🚨 NEU: PWA Service Worker Registrierung mit dem robusten Service
-import { serviceWorkerService } from '@/services/serviceWorkerService';
-import ServiceWorkerMonitor from '@/components/pwa/ServiceWorkerMonitor';
-import { UpdateBanner } from '@/components/pwa/UpdateBanner';
-
-
-// 🚨 App-Watchdog in index.html verschoben für frühere Ausführung
-
-// 🚨 EMERGENCY: Robuste LoadingScreen mit Notfall-Escape
+// EMERGENCY: Robuste LoadingScreen mit Notfall-Escape
 const LoadingScreen: React.FC<{ onForceLoad?: () => void }> = ({ onForceLoad }) => {
   const [timeoutWarning, setTimeoutWarning] = useState(false);
   const [showEmergencyButton, setShowEmergencyButton] = useState(false);
@@ -104,14 +95,10 @@ const MyApp = ({Component, pageProps}: AppProps) => {
   // Der Codeblock hier wird entfernt, um Redundanz zu vermeiden und
   // die Logik an einem zentralen Ort zu bündeln.
 
-  // const initAuth = useAuthStore((state) => state.initAuth); // ALT
-  const setAuthUser = useAuthStore((state) => state.setAuthUser); // NEU
-  const setUnauthenticated = useAuthStore((state) => state.setUnauthenticated); // NEU
-  const status = useAuthStore((state) => state.status); // NEU: Status direkt abonnieren
-  const user = useAuthStore((state) => state.user); // NEU: User-Objekt holen
+  const setAuthUser = useAuthStore((state) => state.setAuthUser);
+  const setUnauthenticated = useAuthStore((state) => state.setUnauthenticated);
+  const status = useAuthStore((state) => state.status);
   const isGuest = useAuthStore((state) => state.isGuest);
-  const isAuthenticated = useAuthStore.getState().isAuthenticated();
-  // Debug-Log State entfernt
   const [isAppLoaded, setIsAppLoaded] = useState(false);
   const router = useRouter();
 
@@ -179,8 +166,6 @@ const MyApp = ({Component, pageProps}: AppProps) => {
       if (loadingTimer) clearTimeout(loadingTimer);
     };
   }, [router.isReady, status]);
-
-  // Debug-Log Doppelklick Handler entfernt
 
   // --- VEREINFACHTES ROUTING ---
   useEffect(() => {
@@ -333,12 +318,10 @@ const MyApp = ({Component, pageProps}: AppProps) => {
             
             <GlobalNotificationContainer />
             <PwaUpdateHandler /> {/* 🎯 PWA-Updates nur im PWA-Modus */}
-            <ServiceWorkerMonitor /> {/* 🛡️ NEU: Fügt den SW Health Monitor hinzu */}
             <UpdateBanner /> {/* ✨ NEU: Permanenter Update-Banner */}
           </FirestoreSyncProvider>
         </UserProvider>
       </AuthProvider>
-              {/* Debug-Log Komponente entfernt */}
     </AppProvider>
   );
 };
