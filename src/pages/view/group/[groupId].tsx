@@ -334,7 +334,7 @@ const PublicGroupPage = () => {
       const formattedDate = displayDate ? format(displayDate, 'dd.MM.yy, HH:mm') : 'Unbekannt';
 
       return (
-        <Link href={`/view/session/public/${id}`} key={`session-${id}`} passHref>
+        <Link href={`/view/session/public/${id}?groupId=${currentGroup?.id || groupId}`} key={`session-${id}`} passHref>
           <div className="p-3 bg-gray-700/50 rounded-lg hover:bg-gray-600/50 transition-colors duration-150 cursor-pointer mb-2">
             <div className="flex justify-between items-center mb-1.5">
               <div className="flex items-center flex-grow">

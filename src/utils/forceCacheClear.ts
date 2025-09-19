@@ -5,6 +5,8 @@
  * um sicherzustellen, dass Benutzer die neueste Version erhalten.
  */
 
+import { APP_VERSION } from '@/config/version.js';
+
 export const forceCacheClear = async (): Promise<void> => {
   if (typeof window === 'undefined') return;
   
@@ -57,7 +59,7 @@ export const forceCacheClear = async (): Promise<void> => {
     });
     
     // 4. Aktuelle Version in LocalStorage speichern
-    localStorage.setItem('app-cache-version', '2.5.6');
+    localStorage.setItem('app-cache-version', APP_VERSION);
     localStorage.setItem('last-cache-clear', new Date().toISOString());
     
     console.log('✅ Force Cache Clear abgeschlossen');
@@ -73,20 +75,17 @@ export const forceCacheClear = async (): Promise<void> => {
   }
 };
 
-// Auto-Execute auf bestimmte Bedingungen
+// 🛡️ BULLETPROOF: Manuelle Cache-Update-Prüfung (nicht automatisch)
 export const checkAndForceCacheUpdate = (): void => {
   if (typeof window === 'undefined') return;
   
-  const currentVersion = '2.5.6';
   const lastCachedVersion = localStorage.getItem('app-cache-version');
   
   // Wenn die gespeicherte Version nicht der aktuellen entspricht
-  if (!lastCachedVersion || lastCachedVersion !== currentVersion) {
-    console.log(`Version-Mismatch erkannt: ${lastCachedVersion} → ${currentVersion}`);
-    
-    // Stille Aktualisierung ohne Benutzerinteraktion für bessere UX
-    console.log('Führe automatischen Cache-Clear durch...');
-    forceCacheClear();
+  if (!lastCachedVersion || lastCachedVersion !== APP_VERSION) {
+    console.log(`Version-Mismatch erkannt: ${lastCachedVersion} → ${APP_VERSION}`);
+    console.log('Verwende forceCacheClear() für manuellen Cache-Clear');
+    // ENTFERNT: Automatischer Cache-Clear für bessere Kontrolle
   }
 };
 

@@ -207,6 +207,19 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     setMounted(true);
   }, []);
 
+  // ✅ NEU & ROBUSTER: Globalen Loading-State erst dann beenden,
+  // wenn der Spielzustand bestätigt ist. Das verhindert das "Flackern".
+  useEffect(() => {
+    // Schalte den Loader aus, sobald das Spiel bereit ist.
+    if (isJassStarted || isGameStarted) {
+      const timer = setTimeout(() => {
+        useUIStore.getState().setLoading(false);
+      }, 100); // Kurze Verzögerung für ein sauberes Rendering
+
+      return () => clearTimeout(timer);
+    }
+  }, [isJassStarted, isGameStarted]);
+
 
   // Container-Höhen berechnen
   const {topContainerHeight, bottomContainerHeight, middleLinePosition} = useMemo(() => {

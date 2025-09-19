@@ -4,7 +4,7 @@ service firebase.storage {
   match /b/{bucket}/o {
 
     // --- Profilbilder ---
-    match /profileImages/{userId}/{allPaths=**} {
+    match /profilePictures/{userId}/{allPaths=**} {
        // Jeder darf lesen (Bilder anzeigen)
        allow read: if true; 
        

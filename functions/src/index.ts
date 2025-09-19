@@ -1524,9 +1524,10 @@ export const syncUserProfileToPlayer = onDocumentUpdated(
  * Diese Funktion ersetzt die alten `exportCompletedSessionToSheet` und `removeSessionOnStatusChange`.
  */
 export const handleSessionUpdate = onDocumentWritten(
-  "jassGameSummaries/{sessionId}",
+  "groups/{groupId}/jassGameSummaries/{sessionId}",
   async (event: FirestoreEvent<Change<DocumentSnapshot> | undefined>) => {
     const sessionId = event.params.sessionId;
+    const groupId = event.params.groupId;
     const beforeData = event.data?.before.data();
     const afterData = event.data?.after.data();
 
@@ -1536,15 +1537,16 @@ export const handleSessionUpdate = onDocumentWritten(
     // --- Fall 1: EXPORTIEREN ---
     // Wird ausgelöst, wenn eine Session den Status "completed" erhält (egal von welchem Status vorher).
     if (afterStatus === "completed" && beforeStatus !== "completed") {
-      console.log(`[handleSessionUpdate] EXPORT: Session ${sessionId} wurde abgeschlossen. Starte Export...`);
-      const session = afterData as JassGameSummary;
-      session.id = sessionId;
-
+      console.log(`[handleSessionUpdate] EXPORT: Session ${sessionId} in Gruppe ${groupId} wurde abgeschlossen. Starte Export...`);
+      
       // NEUE PRÜFUNG: Nur Daten der spezifischen Gruppe ins Spreadsheet schreiben
-      if (session.groupId !== "Tz0wgIHMTlhvTtFastiJ") {
-        console.log(`[handleSessionUpdate] EXPORT-SKIP: Session ${sessionId} gehört nicht zur Zielgruppe (groupId: ${session.groupId}). Export übersprungen.`);
+      if (groupId !== "Tz0wgIHMTlhvTtFastiJ") {
+        console.log(`[handleSessionUpdate] EXPORT-SKIP: Session ${sessionId} gehört nicht zur Zielgruppe (groupId: ${groupId}). Export übersprungen.`);
         return;
       }
+
+      const session = afterData as JassGameSummary;
+      session.id = sessionId;
 
       try {
         const auth = new google.auth.GoogleAuth({
@@ -1553,7 +1555,7 @@ export const handleSessionUpdate = onDocumentWritten(
         });
         const sheets = google.sheets({ version: "v4", auth });
         
-        const completedGamesSnapshot = await db.collection("jassGameSummaries").doc(session.id).collection("completedGames").orderBy("gameNumber").get();
+        const completedGamesSnapshot = await db.collection("groups").doc(groupId).collection("jassGameSummaries").doc(session.id).collection("completedGames").orderBy("gameNumber").get();
 
         if (completedGamesSnapshot.empty) {
           console.log(`[handleSessionUpdate] EXPORT-WARN: Session ${session.id} hat keine abgeschlossenen Spiele. Kein Export.`);
@@ -1617,15 +1619,16 @@ export const handleSessionUpdate = onDocumentWritten(
     // --- Fall 2: LÖSCHEN ---
     // Wird ausgelöst, wenn eine "completed" Session ihren Status verliert (in der App gelöscht wird).
     if (beforeStatus === "completed" && afterStatus !== "completed") {
-      console.log(`[handleSessionUpdate] LÖSCHEN: Session ${sessionId} wurde entfernt (Status: ${beforeStatus} -> ${afterStatus}). Starte Löschung...`);
-      const session = beforeData as JassGameSummary;
-      session.id = sessionId;
-
+      console.log(`[handleSessionUpdate] LÖSCHEN: Session ${sessionId} in Gruppe ${groupId} wurde entfernt (Status: ${beforeStatus} -> ${afterStatus}). Starte Löschung...`);
+      
       // NEUE PRÜFUNG: Nur Daten der spezifischen Gruppe aus dem Spreadsheet löschen
-      if (session.groupId !== "Tz0wgIHMTlhvTtFastiJ") {
-        console.log(`[handleSessionUpdate] LÖSCH-SKIP: Session ${sessionId} gehört nicht zur Zielgruppe (groupId: ${session.groupId}). Löschung übersprungen.`);
+      if (groupId !== "Tz0wgIHMTlhvTtFastiJ") {
+        console.log(`[handleSessionUpdate] LÖSCH-SKIP: Session ${sessionId} gehört nicht zur Zielgruppe (groupId: ${groupId}). Löschung übersprungen.`);
         return;
       }
+
+      const session = beforeData as JassGameSummary;
+      session.id = sessionId;
 
       try {
         const auth = new google.auth.GoogleAuth({
@@ -1820,18 +1823,111 @@ export const onPlayerDocumentUpdated = onDocumentUpdated(
     const newName = afterData?.displayName || null;
     logger.info(`[onPlayerDocumentUpdated] Player ${playerId} name changed from "${beforeData?.displayName}" to "${newName}". Updating stats.`);
 
-    try {
-      // Aktualisiere playerComputedStats mit dem neuen Namen
-      const playerStatsRef = db.collection('playerComputedStats').doc(playerId);
-      await playerStatsRef.update({
-        playerName: newName,
-        lastUpdateTimestamp: admin.firestore.Timestamp.now()
-      });
+    const updatePromises: Promise<void>[] = [];
 
-      logger.info(`[onPlayerDocumentUpdated] Successfully updated playerName for ${playerId} to "${newName}"`);
+    // 1. Aktualisiere playerComputedStats (bestehende Logik)
+    const playerStatsUpdatePromise = (async () => {
+      try {
+        const playerStatsRef = db.collection('playerComputedStats').doc(playerId);
+        await playerStatsRef.update({
+          playerName: newName,
+          lastUpdateTimestamp: admin.firestore.Timestamp.now()
+        });
+        logger.info(`[onPlayerDocumentUpdated] Successfully updated playerName for ${playerId} to "${newName}"`);
+      } catch (error) {
+        // Log error but don't block other updates
+        logger.error(`[onPlayerDocumentUpdated] Error updating playerName for ${playerId}:`, error);
+      }
+    })();
+    updatePromises.push(playerStatsUpdatePromise);
+
+    // 2. NEU: Aktualisiere jassGameSummaries in allen Gruppen (ROBUSTERE VARIANTE)
+    const summaryUpdatePromise = (async () => {
+      try {
+        // Schritt 1: Hole die Gruppen des Spielers
+        const playerDoc = await db.collection('players').doc(playerId).get();
+        const playerData = playerDoc.data();
+        const groupIds = playerData?.groupIds || [];
+
+        if (groupIds.length === 0) {
+          logger.info(`[onPlayerDocumentUpdated] Player ${playerId} is not in any groups. No summaries to update.`);
+          return;
+        }
+
+        logger.info(`[onPlayerDocumentUpdated] Player ${playerId} is in ${groupIds.length} groups. Checking each for summaries.`);
+
+        // Schritt 2: Durchsuche jede Gruppe einzeln nach relevanten Sessions
+        const updatePromises = groupIds.map(async (groupId: string) => {
+          const summariesToUpdate = await db.collection('groups').doc(groupId).collection('jassGameSummaries')
+            .where('participantPlayerIds', 'array-contains', playerId)
+            .get();
+
+          if (summariesToUpdate.empty) {
+            return; // Nichts zu tun in dieser Gruppe
+          }
+          
+          const batch = db.batch();
+          let updatedCount = 0;
+
+          summariesToUpdate.forEach(doc => {
+              const summaryData = doc.data();
+              const updateData: { [key: string]: any } = {};
+
+              // teams-Struktur aktualisieren
+              let teamsUpdated = false;
+              const newTeams = JSON.parse(JSON.stringify(summaryData.teams || {}));
+              
+              if (newTeams?.top?.players) {
+                  newTeams.top.players.forEach((p: {playerId?: string; displayName?: string}) => {
+                      if (p.playerId === playerId) {
+                          p.displayName = newName;
+                          teamsUpdated = true;
+                      }
+                  });
+              }
+              if (newTeams?.bottom?.players) {
+                  newTeams.bottom.players.forEach((p: {playerId?: string; displayName?: string}) => {
+                      if (p.playerId === playerId) {
+                          p.displayName = newName;
+                          teamsUpdated = true;
+                      }
+                  });
+              }
+              if (teamsUpdated) {
+                  updateData['teams'] = newTeams;
+              }
+
+              // playerNames-Map aktualisieren
+              if (summaryData.participantPlayerIds && summaryData.playerNames) {
+                  const playerIndex = summaryData.participantPlayerIds.indexOf(playerId);
+                  if (playerIndex !== -1) {
+                      const playerKey = (playerIndex + 1).toString();
+                      if (summaryData.playerNames[playerKey]) {
+                         updateData[`playerNames.${playerKey}`] = newName;
+                      }
+                  }
+              }
+              
+              if (Object.keys(updateData).length > 0) {
+                batch.update(doc.ref, updateData);
+                updatedCount++;
+              }
+          });
+
+          if (updatedCount > 0) {
+            await batch.commit();
+            logger.info(`[onPlayerDocumentUpdated] Updated ${updatedCount} summaries in group ${groupId} for player ${playerId}.`);
+          }
+        });
+        
+        await Promise.all(updatePromises);
     } catch (error) {
-      logger.error(`[onPlayerDocumentUpdated] Error updating playerName for ${playerId}:`, error);
+        logger.error(`[onPlayerDocumentUpdated] CRITICAL: Failed to update jassGameSummaries for player ${playerId}:`, error);
     }
+    })();
+    updatePromises.push(summaryUpdatePromise);
+
+    await Promise.all(updatePromises);
   }
 );
 

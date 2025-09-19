@@ -35,6 +35,12 @@ export interface TransformedPlayerStats {
   avgRoundTime?: string;
   totalStrichesDifference: number;
   totalPointsDifference: number;
+  
+  // ✅ NEU: Rohdaten für UI-Anzeige
+  totalStricheMade: number;
+  totalStricheReceived: number;
+  totalPointsMade: number;
+  totalPointsReceived: number;
 
   // ✅ NEU: Bilanz-Felder für absolute Zahlen (analog zu Group-Statistiken)
   matschBilanz?: number;
@@ -258,6 +264,12 @@ export const transformComputedStatsToExtended = (
     tournamentWins: rawStats.tournamentWins || 0,
     totalStrichesDifference: rawStats.totalStricheDifference || 0,
     totalPointsDifference: rawStats.totalPointsDifference || 0,
+    
+    // ✅ NEU: Rohdaten für UI-Anzeige
+    totalStricheMade: rawStats.totalStricheMade || 0,
+    totalStricheReceived: rawStats.totalStricheReceived || 0,
+    totalPointsMade: rawStats.totalPointsMade || 0,
+    totalPointsReceived: rawStats.totalPointsReceived || 0,
     avgRoundTime: rawStats.avgRoundDurationMilliseconds 
       ? formatMillisecondsDuration(rawStats.avgRoundDurationMilliseconds)
       : undefined,

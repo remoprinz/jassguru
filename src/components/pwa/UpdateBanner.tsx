@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { useUIStore } from '@/store/uiStore';
+import { serviceWorkerService } from '@/services/serviceWorkerService';
+import { isPublicPath } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Rocket, Loader2 } from 'lucide-react';
 
@@ -9,7 +11,11 @@ export const UpdateBanner = () => {
   const { isUpdateAvailable, triggerUpdate } = useUIStore();
   const [isUpdating, setIsUpdating] = useState(false);
 
-  if (!isUpdateAvailable) {
+  // Banner nur im PWA-Modus und nicht auf öffentlichen Seiten zeigen
+  const isPwa = typeof window !== 'undefined' ? serviceWorkerService.isPWAMode() : false;
+  const isPublic = typeof window !== 'undefined' ? isPublicPath(window.location.pathname) : false;
+
+  if (!isUpdateAvailable || !isPwa || isPublic) {
     return null;
   }
 

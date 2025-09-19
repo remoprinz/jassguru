@@ -5,7 +5,7 @@ import {useRouter} from "next/router";
 import {useAuthStore} from "@/store/authStore";
 import {useUIStore} from "@/store/uiStore";
 
-import {fetchCompletedSessionsForUser, SessionSummary} from '@/services/sessionService';
+import {fetchCompletedSessionsForUser, fetchCompletedSessionsForPlayer, SessionSummary} from '@/services/sessionService';
 import Link from 'next/link';
 import {format} from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
@@ -179,8 +179,8 @@ const ProfilePage: React.FC = () => {
         setSessionsLoading(true);
         setSessionsError(null);
         try {
-          if (!currentPlayerData?.userId) throw new Error("User ID ist nicht verfügbar.");
-          const sessions = await fetchCompletedSessionsForUser(currentPlayerData.userId);
+          if (!currentPlayerData?.id) throw new Error("Player ID ist nicht verfügbar.");
+          const sessions = await fetchCompletedSessionsForPlayer(currentPlayerData.id);
           setCompletedSessions(sessions);
         } catch (error) {
           console.error("Fehler beim Laden der abgeschlossenen Sessions im Profil:", error);
@@ -502,7 +502,7 @@ const ProfilePage: React.FC = () => {
       const formattedDate = displayDate ? format(displayDate, 'dd.MM.yy, HH:mm') : 'Unbekannt';
 
       return (
-          <Link href={`/view/session/public/${id}?returnTo=/profile&returnMainTab=archive`} key={`session-${id}`} passHref>
+          <Link href={`/view/session/public/${id}?groupId=${session.groupId || session.gruppeId || ''}&returnTo=/profile&returnMainTab=archive`} key={`session-${id}`} passHref>
             <div className="p-3 bg-gray-700/50 rounded-lg hover:bg-gray-600/50 transition-colors duration-150 cursor-pointer mb-2">
               <div className="flex justify-between items-center mb-1.5">
                  <div className="flex items-center flex-grow"> 

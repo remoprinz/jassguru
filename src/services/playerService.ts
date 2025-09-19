@@ -328,8 +328,12 @@ const getPlayerIdForUserInternal = async (userId: string, displayName: string | 
           return storedPlayerId;
         } else {
           // --- Fall 1.1.2: Player Doc NICHT gefunden -> Fehlendes Player Doc erstellen --- 
-          // Verwende displayName als Nickname, mit Fallback
-          const finalDisplayName = displayName || `Spieler ${storedPlayerId.slice(0, 8)}...`;
+          // 🚨 KRITISCHER FIX: Verwende displayName aus userDocSnap wenn verfügbar
+          const userDisplayName = userData?.displayName;
+          const finalDisplayName = userDisplayName || displayName || `Spieler ${storedPlayerId.slice(0, 8)}...`;
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`Player-Doc nicht gefunden für ${storedPlayerId}. Erstelle mit displayName: "${finalDisplayName}" (userDoc: "${userDisplayName}", param: "${displayName}")`);
+          }
           const newPlayerData = createInitialPlayerData(storedPlayerId, userId, finalDisplayName);
           await setDoc(playerRef, newPlayerData);
           // Stelle sicher, dass die ID auch im (existierenden) User-Dokument steht
@@ -811,6 +815,45 @@ export const updatePlayerDocument = async (playerId: string, dataToUpdate: Parti
     console.error(`Fehler beim Aktualisieren des Spieler-Dokuments ${playerId}:`, error);
     throw error;
   }
+};
+
+/**
+ * Ruft mehrere Spieler-Dokumente anhand ihrer IDs ab.
+ * 
+ * ⚠️ STUB IMPLEMENTATION: Diese Funktion wird aktuell nicht in der Codebase verwendet.
+ * Sie existiert nur, um Import-Fehler im groupStore zu vermeiden.
+ * 
+ * @param playerIds Array von Player-IDs
+ * @returns Map mit playerId als Key und FirestorePlayer als Value
+ */
+export const getPlayersByIds = async (playerIds: string[]): Promise<Map<string, FirestorePlayer>> => {
+  console.warn('[playerService] getPlayersByIds: Stub implementation - function not used in codebase');
+  
+  if (!playerIds || playerIds.length === 0) {
+    return new Map();
+  }
+  
+  // Falls diese Funktion doch mal verwendet werden sollte, hier eine funktionale Implementierung:
+  const playersMap = new Map<string, FirestorePlayer>();
+  
+  try {
+    const playerPromises = playerIds.map(async (playerId) => {
+      try {
+        const player = await getPlayerDocument(playerId);
+        if (player) {
+          playersMap.set(playerId, player);
+        }
+      } catch (error) {
+        console.warn(`[getPlayersByIds] Failed to load player ${playerId}:`, error);
+      }
+    });
+    
+    await Promise.all(playerPromises);
+  } catch (error) {
+    console.error('[getPlayersByIds] Error loading players:', error);
+  }
+  
+  return playersMap;
 };
 
 // Zukünftige Funktionen (updatePlayerStats, etc.) können hier hinzugefügt werden.

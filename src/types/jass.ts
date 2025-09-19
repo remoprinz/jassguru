@@ -55,6 +55,7 @@ export interface ScoreSettings {
   values: Record<ScoreMode, number>;
   enabled: Record<ScoreMode, boolean>;
   isFlipped?: boolean;
+  matschBonus: boolean; // NEU: Matschbonus aktiviert/deaktiviert (Default: true)
 }
 
 // Typ für Strich-Einstellungen

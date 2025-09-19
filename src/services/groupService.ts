@@ -1046,7 +1046,10 @@ export const getGroupDetails = async (groupId: string): Promise<FirestoreGroup |
       players: groupData.players || {},
       playerIds: groupData.playerIds || [],
       adminIds: groupData.adminIds || [],
-      scoreSettings: groupData.scoreSettings || DEFAULT_SCORE_SETTINGS,
+      scoreSettings: {
+        ...DEFAULT_SCORE_SETTINGS,
+        ...(groupData.scoreSettings || {}),
+      },
       strokeSettings: groupData.strokeSettings || DEFAULT_STROKE_SETTINGS,
       farbeSettings: groupData.farbeSettings || DEFAULT_FARBE_SETTINGS,
     };
@@ -1057,6 +1060,36 @@ export const getGroupDetails = async (groupId: string): Promise<FirestoreGroup |
     console.error(`[getGroupDetails] Error fetching group ${groupId}:`, error);
     throw new Error(`Failed to fetch group details: ${error instanceof Error ? error.message : String(error)}`);
   }
+};
+
+/**
+ * Abonniert Änderungen an Gruppenmitgliedern für Realtime-Updates.
+ * 
+ * ⚠️ STUB IMPLEMENTATION: Diese Funktion wird aktuell nicht in der Codebase verwendet.
+ * Sie existiert nur, um Import-Fehler im groupStore zu vermeiden.
+ * 
+ * @param groupId Die ID der Gruppe
+ * @param callback Callback-Funktion, die bei Änderungen aufgerufen wird
+ * @returns Unsubscribe-Funktion
+ */
+export const subscribeToGroupMembers = (
+  groupId: string, 
+  callback: (members: FirestorePlayer[]) => void
+): () => void => {
+  console.warn('[groupService] subscribeToGroupMembers: Stub implementation - function not used in codebase');
+  
+  if (!groupId || !callback) {
+    console.warn('[subscribeToGroupMembers] Invalid parameters provided');
+    return () => {}; // Empty unsubscribe function
+  }
+  
+  // Falls diese Funktion doch mal verwendet werden sollte, hier eine funktionale Implementierung:
+  // Dies würde einen echten Firestore-Listener erstellen, der auf Änderungen in der players-Map hört
+  
+  // Für jetzt: Gib eine leere Unsubscribe-Funktion zurück
+  return () => {
+    // Cleanup logic würde hier stehen
+  };
 };
 
 // Hier könnten später weitere Funktionen hinzukommen (updateGroup, addPlayerToGroup, etc.)

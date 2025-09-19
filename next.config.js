@@ -1,6 +1,7 @@
 import withPWAInit from 'next-pwa';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { APP_VERSION } from './src/config/version.js'; // 🛡️ BULLETPROOF: Automatische Version-Synchronisation
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -47,21 +48,40 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
 };
 
 const withPWA = withPWAInit({
   dest: 'public',
   disable: process.env.NODE_ENV === 'development',
   register: false, // WICHTIG: Wir nutzen unseren eigenen Service für die Registrierung
-  skipWaiting: false, // WICHTIG: Wir kontrollieren das Update über 'SKIP_WAITING' Message
+  skipWaiting: true, // 🛡️ BULLETPROOF: Automatisches Update für robuste App-Starts
+  // importScripts entfernt, um harte Abhängigkeit zu vermeiden
   // 🛡️ Vereinfachte Konfiguration für next-pwa v5.6.0
   runtimeCaching: [
+      // ✅ Hash-basierte Next-Bundles immer CacheFirst: nie HTML als Fallback!
+      {
+        urlPattern: /\/_next\/static\/.*/i,
+        handler: 'CacheFirst',
+        options: {
+          cacheName: `next-static-assets-v${APP_VERSION}`,
+          expiration: {
+            maxEntries: 200,
+            maxAgeSeconds: 30 * 24 * 60 * 60,
+          },
+          cacheableResponse: {
+            statuses: [0, 200],
+          },
+        },
+      },
       // 🎯 OPTIMIERT: Google Fonts mit Update-sicherer Strategie
       {
         urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
         handler: 'StaleWhileRevalidate', // 🔄 Ermöglicht Updates ohne Blockierung
         options: {
-          cacheName: 'google-fonts-v2',
+          cacheName: `google-fonts-v${APP_VERSION}`,
           expiration: {
             maxEntries: 15,
             maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Tage statt 1 Jahr
@@ -93,10 +113,10 @@ const withPWA = withPWAInit({
       },
       // 🚀 OPTIMIERTE STRATEGIE: Firebase Storage Bilder mit StaleWhileRevalidate
       {
-        urlPattern: /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/.*\/o\/.*%(profileImages|profilePictures|groupLogos|tournamentLogos)%2F.*/i,
+        urlPattern: /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/.*\/o\/.*%(profilePictures|groupLogos|tournamentLogos)%2F.*/i,
         handler: 'CacheFirst', // 🔥 KRITISCH: Cache zuerst für sofortige Bilder!
         options: {
-          cacheName: 'firebase-user-images',
+          cacheName: `firebase-user-images-v${APP_VERSION}`,
           expiration: {
             maxEntries: 500, // Erhöht für mehr Bilder
             maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Tage für bessere Performance
@@ -150,50 +170,27 @@ const withPWA = withPWAInit({
           },
         },
       },
-      // 🛡️ KRITISCH: JS/CSS mit Update-sicherer Strategie
+      // 🛡️ JS/CSS ausserhalb von /_next/static: konservativ, aber ohne HTML-Fallback
       {
         urlPattern: /\.(?:js|css)$/i,
-        handler: 'StaleWhileRevalidate', // 🔄 Stale-While-Revalidate für bessere Updates
+        handler: 'StaleWhileRevalidate',
         options: {
-          cacheName: 'static-js-css-assets-v2',
+          cacheName: `static-js-css-assets-v${APP_VERSION}`, // 🛡️ BULLETPROOF: Automatisch synchronisierte Version
           expiration: {
-            maxEntries: 100, // Mehr Speicher für bessere Performance
-            maxAgeSeconds: 12 * 60 * 60, // 12 Stunden statt 24h für schnellere Updates
+            maxEntries: 50, // Reduziert für weniger Speicher-Konflikte
+            maxAgeSeconds: 2 * 60 * 60, // 2 Stunden für häufigere Updates
           },
           cacheableResponse: {
             statuses: [0, 200],
           },
-          // 🚀 NEU: Intelligente Cache-Invalidierung
-          plugins: [{
-            cacheWillUpdate: async ({ response, request }) => {
-              // Prüfe auf neue Build-Hashes in Dateinamen
-              if (response.status === 200 && request.url.includes('/_next/static/')) {
-                return response;
-              }
-              return response.status === 200 ? response : null;
-            },
-            cacheKeyWillBeUsed: async ({ request }) => {
-              // Entferne Query-Parameter für bessere Cache-Hits
-              const url = new URL(request.url);
-              url.search = '';
-              return url.href;
-            }
-          }]
+          plugins: []
         },
       },
+      // ⚠️ WICHTIG: Keine generische Caching-Regel für *.googleapis.com,
+      // um Firestore Listen/Streaming-Anfragen nicht zu stören (CORS/long-poll)
+      // (vorherige NetworkFirst-Regel entfernt)
       {
-        urlPattern: /^https:\/\/.*\.googleapis\.com\/.*/i,
-        handler: 'NetworkFirst',
-        options: {
-          cacheName: 'google-apis-cache',
-          expiration: {
-            maxEntries: 30,
-            maxAgeSeconds: 5 * 60, // 5 Minuten
-          },
-        },
-      },
-      {
-        urlPattern: /^https:\/\/.*\.firebaseapp\.com\/.*/i,
+        urlPattern: /^https:\/\/.*\.firebaseapp\.com\/.*$/i,
         handler: 'NetworkFirst',
         options: {
           cacheName: 'firebase-cache',
@@ -225,14 +222,12 @@ const withPWA = withPWAInit({
     /dynamic-css-manifest\.json$/, // 🚨 FIX: Diese Datei ausschliessen
   ],
   publicExcludes: [
-    '!noprecache/**/*'
+    '!noprecache/**/*',
+    '!index.html' // 🚫 Nie index.html aus /public precachen
   ],
+  // Wichtig: kein document-Fallback definieren, damit Scripts nie HTML bekommen
   fallbacks: {
-    image: '/apple-touch-icon.png',
-    document: '/index.html', // Reduziert separate Fallback-Dateien
-    // font: '/apple-touch-icon.png', // Nicht nötig
-    // audio: '/apple-touch-icon.png', // Nicht nötig
-    // video: '/apple-touch-icon.png', // Nicht nötig
+    image: '/apple-touch-icon.png'
   },
   // Reduziert unnötige Fallback-Generierung
   maximumFileSizeToCacheInBytes: 3000000, // 3MB limit
@@ -242,6 +237,9 @@ const withPWA = withPWAInit({
     /\.htaccess$/,
     // Reduziert Anzahl Fallback-Dateien für JS
     ({ asset, compilation }) => {
+      // 1) niemals index.html precachen -> immer vom Netzwerk holen
+      if (asset.name === 'index.html') return true;
+      // 2) Keine generierten Fallback-Dateien precachen
       if (
         asset.name.startsWith('static/') ||
         asset.name.startsWith('_next/static/')

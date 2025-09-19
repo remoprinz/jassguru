@@ -59,6 +59,7 @@ export const DEFAULT_SCORE_SETTINGS: ScoreSettings = {
     berg: true,
     schneider: true,
   },
+  matschBonus: true, // NEU: Matschbonus per Default aktiviert
 };
 
 export const DEFAULT_STROKE_SETTINGS: StrokeSettings = {

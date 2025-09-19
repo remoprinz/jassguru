@@ -53,7 +53,8 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
   const [names, setNames] = useState<PlayerNames>({ 1: '', 2: '', 3: '', 4: '' });
   const [teamConfig] = useState<TeamConfig>(DEFAULT_TEAM_CONFIG);
   const [startingPlayer, setStartingPlayer] = useState<PlayerNumber | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  // ENTFERNT: Lokaler isLoading State - verwende globalen uiStore Loading
+  // const [isLoading, setIsLoading] = useState(false);
   const [hasSelectedStartingPlayer, setHasSelectedStartingPlayer] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
 
@@ -299,7 +300,8 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
     selectedNames: PlayerNames,
     selectedStartingPlayer: PlayerNumber
   ) => {
-    setIsLoading(true);
+    // ✅ GLOBALER Loading-State für nahtlose Navigation
+    useUIStore.getState().setLoading(true);
     
     try {
       const auth = useAuthStore.getState();
@@ -431,7 +433,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
 
         } catch (error) {
           toast.error("Online-Spiel konnte nicht erstellt werden.");
-          setIsLoading(false); // NEU: Loading-State zurücksetzen bei Fehler
+          useUIStore.getState().setLoading(false); // ✅ GLOBAL: Loading-State zurücksetzen bei Fehler
           return;
         } finally {
         }
@@ -460,11 +462,12 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
 
       router.push('/jass');
       
-      // NEU: Loading-State wird automatisch nach Navigation zurückgesetzt
-      // Das passiert, wenn die StartScreen-Komponente unmounted wird
+      // ✅ WICHTIG: Loading-State NICHT hier zurücksetzen!
+      // Der globale Loader bleibt aktiv bis JassKreidetafel vollständig geladen ist
+      // Das verhindert das "Flackern" zwischen den Komponenten
     } catch (error) {
       toast.error("Online-Spiel konnte nicht erstellt werden.");
-      setIsLoading(false); // NEU: Loading-State zurücksetzen bei Fehler
+      useUIStore.getState().setLoading(false); // ✅ GLOBAL: Loading-State nur bei Fehler zurücksetzen
     }
   };
 
@@ -526,8 +529,8 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
 
   return (
     <AnimatePresence mode="wait">
-      {/* NEU: GlobalLoader wenn isLoading true ist */}
-      {isLoading && <GlobalLoader key="global-loader" message="Jasstafel wird geladen..." />}
+      {/* ENTFERNT: Lokaler Loader - verwende globalen Loader aus _app.tsx */}
+      {/* {isLoading && <GlobalLoader key="global-loader" message="Jasstafel wird geladen..." />} */}
       
       <motion.div 
         key="start-screen-content"

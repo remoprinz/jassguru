@@ -124,10 +124,17 @@ export const imageLoader = new ProgressiveImageLoader();
  * Service Worker Message für Cache-Verwaltung
  */
 export const clearImageCache = async (): Promise<void> => {
-  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-    navigator.serviceWorker.controller.postMessage({
-      type: 'CLEAR_IMAGE_CACHE'
-    });
+  // 🛡️ BULLETPROOF: Service Worker Controller Guard
+  if ('serviceWorker' in navigator && 
+      navigator.serviceWorker.controller && 
+      navigator.serviceWorker.controller.postMessage) {
+    try {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'CLEAR_IMAGE_CACHE'
+      });
+    } catch (error) {
+      console.warn('[ImagePerformance] SW messaging fehlgeschlagen (nicht kritisch):', error);
+    }
   }
   
   // Zusätzlich Browser-Cache leeren

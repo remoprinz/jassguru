@@ -52,6 +52,7 @@ const TOURNAMENT_DEFAULT_SCORE_SETTINGS: ScoreSettings = {
     berg: false,    // B) Berg deaktiviert
     schneider: false, // B) Schneider deaktiviert
   },
+  matschBonus: true, // NEU: Matschbonus auch bei Turnieren per Default aktiviert
 };
 
 const TOURNAMENT_DEFAULT_STROKE_SETTINGS: StrokeSettings = {
@@ -207,7 +208,12 @@ const TournamentSettingsPage: React.FC = () => {
       console.log('[Jassguru Debug] SettingsPage - tempStartDate set to:', dateStr);
       console.log('[Jassguru Debug] SettingsPage - tempStartTime set to:', timeStr);
 
-      setTempScoreSettings(tournament.settings?.scoreSettings || TOURNAMENT_DEFAULT_SCORE_SETTINGS);
+      // NEU: Merge bestehende Settings mit Defaults (für neue Felder wie matschBonus)
+      const scoreSettings = {
+        ...TOURNAMENT_DEFAULT_SCORE_SETTINGS,
+        ...(tournament.settings?.scoreSettings || {}),
+      };
+      setTempScoreSettings(scoreSettings);
       setTempStrokeSettings(tournament.settings?.strokeSettings || TOURNAMENT_DEFAULT_STROKE_SETTINGS);
       setTempFarbeSettings(tournament.settings?.farbeSettings || TOURNAMENT_DEFAULT_FARBE_SETTINGS);
       // NEU: Initialisiere Teilnehmerlimits
@@ -230,7 +236,10 @@ const TournamentSettingsPage: React.FC = () => {
     const nameChanged = name !== (tournament.name || '');
     const descriptionChanged = description !== (tournament.description || '');
     const rankingModeChanged = selectedRankingMode !== (tournament.settings?.rankingMode || undefined);
-    const scoreSettingsChanged = JSON.stringify(tempScoreSettings) !== JSON.stringify(tournament.settings?.scoreSettings || TOURNAMENT_DEFAULT_SCORE_SETTINGS);
+    const scoreSettingsChanged = JSON.stringify(tempScoreSettings) !== JSON.stringify({
+      ...TOURNAMENT_DEFAULT_SCORE_SETTINGS,
+      ...(tournament.settings?.scoreSettings || {}),
+    });
     const strokeSettingsChanged = JSON.stringify(tempStrokeSettings) !== JSON.stringify(tournament.settings?.strokeSettings || TOURNAMENT_DEFAULT_STROKE_SETTINGS);
     const scoreInputChanged = Object.keys(tempScoreInput).length > 0;
     const strokeInputChanged = Object.keys(tempStrokeInput).length > 0;
@@ -287,9 +296,11 @@ const TournamentSettingsPage: React.FC = () => {
             if (newEnabled.schneider) newScores.schneider = halfValue;
           } else if (modeKey === 'berg') {
             newScores.berg = cleanValue;
-             if (newEnabled.schneider) newScores.schneider = Math.min(cleanValue, newScores.schneider);
+             // NEU: Berg-Änderungen beeinflussen Schneider nicht mehr
           } else if (modeKey === 'schneider') {
-            newScores.schneider = cleanValue;
+            // NEU: Schneider kann bis zu Sieg-Punkte gehen (nicht mehr durch Berg begrenzt)
+            const maxSchneiderValue = newScores.sieg;
+            newScores.schneider = Math.min(cleanValue, maxSchneiderValue);
           }
           finalScoreSettings = { ...finalScoreSettings, values: newScores, enabled: newEnabled };
         }
@@ -338,7 +349,10 @@ const TournamentSettingsPage: React.FC = () => {
         actualSettingsHaveChanged = true;
     }
     
-    if (JSON.stringify(finalScoreSettings) !== JSON.stringify(tournament.settings?.scoreSettings || TOURNAMENT_DEFAULT_SCORE_SETTINGS)) {
+    if (JSON.stringify(finalScoreSettings) !== JSON.stringify({
+      ...TOURNAMENT_DEFAULT_SCORE_SETTINGS,
+      ...(tournament.settings?.scoreSettings || {}),
+    })) {
       settingsUpdates.scoreSettings = finalScoreSettings;
       actualSettingsHaveChanged = true;
     }
@@ -594,16 +608,14 @@ const TournamentSettingsPage: React.FC = () => {
                      setTempScoreInput(prev => ({ ...prev, schneider: halfValue.toString() }));
                 }
             } else if (mode === 'berg') {
-                if (currentEnabled.schneider) {
-                    setTempScoreInput(prev => ({ ...prev, schneider: Math.min(numericValue, parseInt(tempScoreInput.schneider || '0', 10) || numericValue).toString() }));
-                }
+                // NEU: Berg-Änderungen beeinflussen Schneider nicht mehr
             }
         }
     } else {
          if (mode === 'sieg') {
             setTempScoreInput(prev => ({ ...prev, berg: undefined, schneider: undefined }));
          } else if (mode === 'berg') {
-            setTempScoreInput(prev => ({ ...prev, schneider: undefined }));
+            // NEU: Berg-Änderungen beeinflussen Schneider nicht mehr
          }
     }
   };
@@ -622,6 +634,14 @@ const TournamentSettingsPage: React.FC = () => {
         
         return { ...prev, values: newValues, enabled: newEnabled };
     });
+  };
+
+  // NEU: Handler für Matschbonus-Toggle
+  const handleMatschBonusToggle = () => {
+    setTempScoreSettings(prev => ({
+        ...prev,
+        matschBonus: !prev.matschBonus
+    }));
   };
 
   const handleStrokeInputChange = (mode: StrokeMode, inputValue: string) => {
@@ -683,6 +703,20 @@ const TournamentSettingsPage: React.FC = () => {
               </div>
             );
           })}
+          {/* NEU: Matschbonus */}
+          <div className="bg-gray-700/40 rounded-lg overflow-hidden border border-gray-600/40">
+            <div className="flex items-center justify-between p-3">
+              <div className="flex-1">
+                <Label htmlFor="toggle-matschbonus" className="font-medium text-gray-300">Matschbonus aktiviert</Label>
+                <p className="text-xs text-gray-400 mt-1">
+                  Bei einem Matsch werden 100 Bonuspunkte hinzugefügt (Total: 257 Punkte)
+                </p>
+              </div>
+              <Switch id="toggle-matschbonus" checked={tempScoreSettings.matschBonus} onCheckedChange={() => handleMatschBonusToggle()}
+                className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-gray-600"
+              />
+            </div>
+          </div>
         </CardContent>
       </Card>
     );

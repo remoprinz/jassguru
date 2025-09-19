@@ -52,7 +52,7 @@ type PlayerWithPlaceholder = FirestorePlayer & { _isPlaceholder?: boolean };
 const SCORE_RANGES = {
   sieg: { min: 1000, max: 10000, default: 2000 },
   berg: { min: 0, max: 5000, default: 1000 },
-  schneider: { min: 0, max: 5000, default: 1000 },
+  schneider: { min: 0, max: 10000, default: 1000 }, // NEU: Schneider kann bis zu Sieg-Punkte gehen
 } as const;
 
 // --- App Base URL KORRIGIERT --- 
@@ -227,7 +227,11 @@ const GroupSettingsPage = () => {
        setIsPublic(currentGroup.isPublic ?? true);
  
        // Lade die Jass-Einstellungen aus der aktuellen Gruppe ODER Defaults
-       const scoreSettings = currentGroup.scoreSettings ?? DEFAULT_SCORE_SETTINGS;
+       // NEU: Merge bestehende Settings mit Defaults (für neue Felder wie matschBonus)
+       const scoreSettings = {
+         ...DEFAULT_SCORE_SETTINGS,
+         ...(currentGroup.scoreSettings || {}),
+       };
        const strokeSettings = currentGroup.strokeSettings ?? DEFAULT_STROKE_SETTINGS;
        const farbeSettings = currentGroup.farbeSettings ?? DEFAULT_FARBE_SETTINGS;
        setTempScoreSettings(scoreSettings);
@@ -284,8 +288,8 @@ const GroupSettingsPage = () => {
                newScores.berg = validatedBergValue;
                if (newEnabled.schneider) newScores.schneider = Math.min(validatedBergValue, SCORE_RANGES.schneider.max);
              } else if (modeKey === 'schneider') {
-               const maxSchneiderValueBasedOnBerg = newEnabled.berg ? newScores.berg : Math.floor(newScores.sieg / 2);
-               const maxSchneiderValue = Math.min(maxSchneiderValueBasedOnBerg, SCORE_RANGES.schneider.max);
+               // NEU: Schneider kann bis zu Sieg-Punkte gehen (nicht mehr durch Berg begrenzt)
+               const maxSchneiderValue = Math.min(newScores.sieg, SCORE_RANGES.schneider.max);
                newScores.schneider = Math.max(0, Math.min(cleanValue, maxSchneiderValue));
              }
              updatedScoreSettings = { ...updatedScoreSettings, values: newScores, enabled: newEnabled };
@@ -690,12 +694,19 @@ const GroupSettingsPage = () => {
               const maxSchneiderValue = Math.min(Math.floor(newValues.sieg / 2), SCORE_RANGES.schneider.max);
               newValues.schneider = Math.min(newValues.schneider, maxSchneiderValue);
           }
-          if (mode === 'berg' && newEnabled.berg && newEnabled.schneider) {
-              newValues.schneider = Math.min(newValues.schneider, newValues.berg, SCORE_RANGES.schneider.max);
-          }
+          // NEU: Berg-Änderungen beeinflussen Schneider nicht mehr
+          // Schneider bleibt unabhängig und wird nur durch Sieg-Punkte begrenzt
           
           return { ...prev, values: newValues, enabled: newEnabled };
       });
+  };
+
+  // NEU: Handler für Matschbonus-Toggle
+  const handleMatschBonusToggle = () => {
+      setTempScoreSettings(prev => ({
+          ...prev,
+          matschBonus: !prev.matschBonus
+      }));
   };
 
   // === HANDLER für Stroke Inputs ===
@@ -787,7 +798,7 @@ const GroupSettingsPage = () => {
               <div className="flex items-center justify-between p-3">
                 <Label htmlFor="score-schneider" className="font-medium text-gray-200">Schneider-Punkte</Label>
                 <Input id="score-schneider" type="number" inputMode="numeric" pattern="[0-9]*" min="0"
-                  max={tempScoreSettings.enabled.berg ? tempScoreSettings.values.berg : Math.floor(tempScoreSettings.values.sieg / 2)}
+                  max={tempScoreSettings.values.sieg} // NEU: Schneider kann bis zu Sieg-Punkte gehen
                   className="w-24 bg-gray-700 border-gray-600 text-white text-right"
                   value={tempInput.schneider ?? tempScoreSettings.values.schneider}
                   onChange={(e) => handleScoreInputChange('schneider', e.target.value)}
@@ -797,6 +808,20 @@ const GroupSettingsPage = () => {
                 />
               </div>
             )}
+          </div>
+          {/* NEU: Matschbonus */}
+          <div className="bg-gray-700/50 rounded-lg overflow-hidden border border-gray-600/50">
+            <div className="flex items-center justify-between p-3">
+              <div className="flex-1">
+                <Label htmlFor="toggle-matschbonus" className="font-medium text-gray-200">Matschbonus aktiviert</Label>
+                <p className="text-xs text-gray-400 mt-1">
+                  Bei einem Matsch werden 100 Bonuspunkte hinzugefügt (Total: 257 Punkte)
+                </p>
+              </div>
+              <Switch id="toggle-matschbonus" checked={tempScoreSettings.matschBonus} onCheckedChange={() => handleMatschBonusToggle()}
+                className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>

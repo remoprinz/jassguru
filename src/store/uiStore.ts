@@ -484,6 +484,7 @@ const initialScoreSettings: ScoreSettings = {
   enabled: Object.fromEntries(
     SCORE_MODES.map((mode) => [mode.id, true])
   ) as Record<ScoreMode, boolean>,
+  matschBonus: true, // NEU: Matschbonus per Default aktiviert
 };
 
 const initialState: UIState = {
@@ -1383,6 +1384,17 @@ export const useUIStore = create<UIState & UIActions>()(
     })),
     {
       name: "jass-ui-storage",
+      version: 1, // NEU: Version 0 -> 1 (wegen matschBonus)
+      migrate: (persistedState, version) => {
+        if (version === 0) {
+          const typedState = persistedState as any;
+          if (typedState.scoreSettings && typeof typedState.scoreSettings.matschBonus === 'undefined') {
+            console.log('🔄 Migrating uiStore state v0 to v1: Adding matschBonus');
+            typedState.scoreSettings.matschBonus = true;
+          }
+        }
+        return persistedState;
+      },
       partialize: (state) => ({
         farbeSettings: state.farbeSettings,
         scoreSettings: state.scoreSettings,

@@ -977,7 +977,10 @@ const StartPage = () => {
                   const groupData = groupDoc.data();
                   settingsFromActiveGame = {
                     farbeSettings: groupData.farbeSettings || DEFAULT_FARBE_SETTINGS,
-                    scoreSettings: groupData.scoreSettings || DEFAULT_SCORE_SETTINGS,
+                    scoreSettings: {
+                      ...DEFAULT_SCORE_SETTINGS,
+                      ...(groupData.scoreSettings || {}),
+                    },
                     strokeSettings: groupData.strokeSettings || DEFAULT_STROKE_SETTINGS,
                   };
                   console.log("[StartPage] ✅ DRITTE PRIORITÄT: Einstellungen aus Gruppen-Dokument geladen:", {

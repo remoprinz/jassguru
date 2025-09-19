@@ -32,6 +32,7 @@ const TOURNAMENT_DEFAULT_SCORE_SETTINGS: ScoreSettings = {
     berg: false,    // B) Berg deaktiviert
     schneider: false, // B) Schneider deaktiviert
   },
+  matschBonus: true, // NEU: Matschbonus auch bei neuen Turnieren per Default aktiviert
   // isFlipped komplett entfernt, da nicht benötigt und Ursache für undefined-Fehler
 };
 

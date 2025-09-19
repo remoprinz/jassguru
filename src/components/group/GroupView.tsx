@@ -1093,7 +1093,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                         <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">% Trumpffarben</h3>
+                        <h3 className="text-base font-semibold text-white">Trumpfansagen</h3>
                       </div>
                       <div ref={overviewTrumpfRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
                         {trumpfStatistikArray.length > 0 ? (
@@ -1115,7 +1115,10 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                   />
                                   <span className="text-gray-300 capitalize">{displayName}</span>
                                 </div>
-                                <span className="text-white text-lg font-medium">{(item.anteil * 100).toFixed(1)}%</span>
+                                <span className="text-white font-medium mr-2">
+                                  <span className="text-gray-400 mr-1 text-sm">({item.anzahl})</span>
+                                  <span className="text-lg font-medium">{(item.anteil * 100).toFixed(1)}%</span>
+                                </span>
                               </div>
                             );
                           })

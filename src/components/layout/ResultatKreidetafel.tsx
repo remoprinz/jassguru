@@ -70,7 +70,7 @@ import {
   createNewActiveGame, // NEU
   updateSessionActiveGameId // WIEDER HINZUGEFÜGT
 } from "@/services/gameService"; 
-import { completeAndRecordTournamentPasse } from "@/services/tournamentService"; // NEU: Importieren
+import { completeAndRecordTournamentPasse } from "@/services/tournamentService"; // NEU: Importieren 
 // NEU: Import für Firebase Functions
 import { getFunctions, httpsCallable } from "firebase/functions"; // HttpsError entfernt
 
@@ -80,8 +80,6 @@ import { getSyncEngine } from "@/services/offlineSyncEngine";
 // --- Auth Store & Typen ---
 import { useAuthStore } from '@/store/authStore';
 import type { AuthUser } from '@/types/auth'; // AuthUser als Typ
-// ENTFERNT: import FullscreenLoader from "@/components/ui/FullscreenLoader"; // Wird jetzt global gerendert
-// ENTFERNT: import GlobalLoader from "@/components/layout/GlobalLoader"; // Wird jetzt global gerendert
 
 // NEU: Import für CompletedGameSummary Typ
 import type { CompletedGameSummary as CompletedGameSummaryType } from '@/types/jass';

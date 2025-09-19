@@ -9,7 +9,7 @@ import { ClipLoader } from 'react-spinners';
 import { usePlayerStatsStore } from '@/store/playerStatsStore';
 import { transformComputedStatsToExtended, type TransformedPlayerStats } from '@/utils/statsTransformer';
 import type { FrontendPartnerAggregate, FrontendOpponentAggregate } from '@/types/computedStats';
-import { fetchCompletedSessionsForUser, SessionSummary } from '@/services/sessionService';
+import { fetchCompletedSessionsForUser, fetchCompletedSessionsForPlayer, SessionSummary } from '@/services/sessionService';
 import { fetchTournamentsForUser } from '@/services/tournamentService';
 import type { TournamentInstance } from '@/types/tournament';
 import { Timestamp, FieldValue } from 'firebase/firestore';
@@ -158,11 +158,11 @@ const PlayerProfilePage = () => {
   // Archive Data laden
   useEffect(() => {
     const loadArchiveData = async () => {
-      if (!player?.userId) return;
+      if (!player?.id) return;
       
       setSessionsLoading(true);
       try {
-        const sessions = await fetchCompletedSessionsForUser(player.userId);
+        const sessions = await fetchCompletedSessionsForPlayer(player.id);
         setCompletedSessions(sessions);
       } catch (e) {
  setSessionsError("Sessions konnten nicht geladen werden.");
@@ -172,6 +172,11 @@ const PlayerProfilePage = () => {
 
       setTournamentsLoading(true);
       try {
+        if (!player.userId) {
+          console.warn('Player userId not available for tournaments loading');
+          setUserTournaments([]);
+          return;
+        }
         const tournaments = await fetchTournamentsForUser(player.userId);
         setUserTournaments(tournaments);
       } catch (e) { 
@@ -261,7 +266,7 @@ const PlayerProfilePage = () => {
       const formattedDate = displayDate ? format(displayDate, 'dd.MM.yy, HH:mm') : 'Unbekannt';
 
       return (
-          <Link href={`/view/session/public/${id}?returnTo=/profile/${player?.id}&returnMainTab=archive`} key={`session-${id}`} passHref>
+          <Link href={`/view/session/public/${id}?groupId=${session.groupId || session.gruppeId || ''}&returnTo=/profile/${player?.id}&returnMainTab=archive`} key={`session-${id}`} passHref>
             <div className="p-3 bg-gray-700/50 rounded-lg hover:bg-gray-600/50 transition-colors duration-150 cursor-pointer mb-2">
               <div className="flex justify-between items-center mb-1.5">
                  <div className="flex items-center flex-grow"> 

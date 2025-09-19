@@ -1217,6 +1217,20 @@ export const useJassStore = create<JassStore>()(
     createJassStore,
     {
       name: 'jass-storage',
+      version: 1, // NEU: Version 0 -> 1 (wegen matschBonus in currentSession.currentScoreSettings)
+      migrate: (persistedState, version) => {
+        if (version === 0) {
+          const typedState = persistedState as any;
+          if (
+            typedState?.currentSession?.currentScoreSettings &&
+            typeof typedState.currentSession.currentScoreSettings.matschBonus === 'undefined'
+          ) {
+            console.log('🔄 Migrating jassStore state v0 to v1: Adding matschBonus to currentSession');
+            typedState.currentSession.currentScoreSettings.matschBonus = true;
+          }
+        }
+        return persistedState;
+      },
       partialize: (state) => ({
         games: state.games,
         currentSession: state.currentSession,

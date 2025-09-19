@@ -40,6 +40,7 @@ export interface Round {
   };
   farbe?: string; 
   currentPlayer?: 1 | 2 | 3 | 4;
+  startingPlayer?: 1 | 2 | 3 | 4; // ✅ HINZUGEFÜGT: Der trumpfansagende Spieler
   _savedWeisPoints?: TeamScores;
   timestamp?: number;
   durationMillis?: number;
@@ -418,12 +419,12 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
           sessionTotalRounds += game.roundHistory.length;
         }
 
-        // ✅ Trumpf-Aggregation aus roundHistory (bleibt unverändert)
+        // ✅ Trumpf-Aggregation aus roundHistory
         if (game.roundHistory && Array.isArray(game.roundHistory)) {
           game.roundHistory.forEach((round, roundIndex) => {
-            // ✅ Trumpf-Aggregation
-            if (round.currentPlayer) {
-              const trumpfPlayerId = playerNumberToIdMap.get(round.currentPlayer);
+            // ✅ KRITISCHER FIX: Trumpf-Aggregation - der trumpfansagende Spieler ist der startingPlayer!
+            if (round.startingPlayer) {
+              const trumpfPlayerId = playerNumberToIdMap.get(round.startingPlayer);
               if (trumpfPlayerId && round.farbe) {
                 if (!aggregatedTrumpfCounts[trumpfPlayerId]) {
                   aggregatedTrumpfCounts[trumpfPlayerId] = {};

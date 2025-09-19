@@ -180,7 +180,6 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         
         const sessionsSnap = await db.collection(`groups/${groupId}/jassGameSummaries`)
             .where("status", "==", "completed")
-            .orderBy("startedAt", "asc")
             .get();
 
         if (sessionsSnap.empty) {

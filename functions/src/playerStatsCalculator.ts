@@ -29,6 +29,73 @@ const PLAYER_COMPUTED_STATS_COLLECTION = 'playerComputedStats';
 // =================================================================================================
 
 /**
+ * ✅ FALLBACK: Berechnet Trumpfansagen aus completedGames für Sessions ohne aggregatedTrumpfCountsByPlayer
+ * @param sessionId - Die Session ID
+ * @param playerId - Player Document ID
+ * @param session - Session-Daten für Mapping
+ * @returns Trumpffarben-Zählungen für den Spieler
+ */
+async function calculateTrumpfFromCompletedGames(
+  sessionId: string, 
+  playerId: string, 
+  session: SessionSummary
+): Promise<{ [farbe: string]: number }> {
+  const trumpfCounts: { [farbe: string]: number } = {};
+  
+  try {
+    // 1. Erstelle Player-Mapping (analog zu finalizeSession.ts)
+    const playerNumberToIdMap = new Map<number, string>();
+    if (session.participantPlayerIds && Array.isArray(session.participantPlayerIds)) {
+      session.participantPlayerIds.forEach((pid, index) => {
+        playerNumberToIdMap.set(index + 1, pid); // 1-basiert
+      });
+    } else {
+      logger.warn(`[calculateTrumpfFromCompletedGames] No participantPlayerIds found for session ${sessionId}. Cannot map players.`);
+      return trumpfCounts;
+    }
+    
+    // 2. Lade completedGames für diese Session
+    let completedGamesCollectionRef;
+    if (session.groupId) {
+      // Neue Architektur: groups/{groupId}/jassGameSummaries/{sessionId}/completedGames
+      completedGamesCollectionRef = db.collection(`groups/${session.groupId}/jassGameSummaries/${sessionId}/completedGames`);
+    } else {
+      // Fallback für alte Architektur
+      completedGamesCollectionRef = db.collection(`sessions/${sessionId}/completedGames`);
+    }
+    
+    const completedGamesSnap = await completedGamesCollectionRef.orderBy("gameNumber").get();
+    
+    // 3. Analysiere jedes Spiel
+    completedGamesSnap.forEach(gameDoc => {
+      const gameData = gameDoc.data();
+      if (gameData.roundHistory && Array.isArray(gameData.roundHistory)) {
+        gameData.roundHistory.forEach((round: any) => {
+          // ✅ KRITISCHER FIX: Der trumpfansagende Spieler ist der startingPlayer, nicht der currentPlayer!
+          if (round.startingPlayer && round.farbe) {
+            // Mappe startingPlayer (1-4) zu Player-ID
+            const trumpfPlayerId = playerNumberToIdMap.get(round.startingPlayer);
+            
+            // Zähle nur Trumpfansagen für den gesuchten Spieler
+            if (trumpfPlayerId === playerId) {
+              const farbeKey = round.farbe.toLowerCase();
+              trumpfCounts[farbeKey] = (trumpfCounts[farbeKey] || 0) + 1;
+            }
+          }
+        });
+      }
+    });
+    
+    const totalTrumpfCount = Object.values(trumpfCounts).reduce((sum, count) => sum + count, 0);
+    logger.info(`[calculateTrumpfFromCompletedGames] Player ${playerId} in session ${sessionId}: Found ${totalTrumpfCount} trumpf calls via fallback calculation`);
+  } catch (error) {
+    logger.error(`[calculateTrumpfFromCompletedGames] Error calculating trumpf for player ${playerId} in session ${sessionId}:`, error);
+  }
+  
+  return trumpfCounts;
+}
+
+/**
  * Erstellt ein WinRateInfo Objekt mit korrektem Bruch-Format.
  * @param wins - Anzahl Siege
  * @param total - Gesamtanzahl entschiedener Spiele/Sessions
@@ -707,9 +774,19 @@ async function calculatePlayerStatisticsInternal(
     // --- Trumpf Statistics ---
     const playerTrumpf = session.aggregatedTrumpfCountsByPlayer?.[playerId];
     if (playerTrumpf) {
+      // ✅ STANDARD: Verwende vorberechnete Session-Aggregation
       for (const [farbe, count] of Object.entries(playerTrumpf)) {
         stats.trumpfStatistik[farbe] = (stats.trumpfStatistik[farbe] || 0) + (count as number);
         stats.totalTrumpfCount += (count as number);
+      }
+    } else {
+      // 🔄 FALLBACK: Berechne Trumpfansagen aus completedGames für legacy Sessions
+      logger.info(`[PlayerStats] ${playerId}: No aggregatedTrumpfCountsByPlayer found for session ${sessionId}. Using fallback calculation.`);
+      
+      const fallbackTrumpfCounts = await calculateTrumpfFromCompletedGames(sessionId, playerId, session);
+      for (const [farbe, count] of Object.entries(fallbackTrumpfCounts)) {
+        stats.trumpfStatistik[farbe] = (stats.trumpfStatistik[farbe] || 0) + count;
+        stats.totalTrumpfCount += count;
       }
     }
     

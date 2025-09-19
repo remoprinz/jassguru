@@ -420,7 +420,10 @@ const TournamentViewPage: React.FC = () => {
   const isCurrentUserAdmin = !!tournament && !!user && tournament.adminIds?.includes(user.uid);
   const nextPasseNumber = (currentTournamentGames?.length || 0) + 1;
   const activeStrokeSettings: StrokeSettings = tournament?.settings?.strokeSettings || DEFAULT_STROKE_SETTINGS;
-  const activeScoreSettings: ScoreSettings = tournament?.settings?.scoreSettings || DEFAULT_SCORE_SETTINGS;
+  const activeScoreSettings: ScoreSettings = {
+    ...DEFAULT_SCORE_SETTINGS,
+    ...(tournament?.settings?.scoreSettings || {}),
+  };
 
   const handleLogoFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -957,7 +960,10 @@ const TournamentViewPage: React.FC = () => {
                   playerName={selectedPlayerForProgressView.displayName}
                   playerPhotoUrl={selectedPlayerForProgressView.photoURL ?? undefined}
                   strokeSettings={tournament.settings?.strokeSettings || DEFAULT_STROKE_SETTINGS}
-                  scoreSettings={tournament.settings?.scoreSettings || DEFAULT_SCORE_SETTINGS}
+                  scoreSettings={{
+                    ...DEFAULT_SCORE_SETTINGS,
+                    ...(tournament.settings?.scoreSettings || {}),
+                  }}
                   cardStyle={tournament.settings?.farbeSettings?.cardStyle || DEFAULT_FARBE_SETTINGS.cardStyle}
                 />
               </div>

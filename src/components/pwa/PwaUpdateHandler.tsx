@@ -3,6 +3,7 @@
 import { useEffect, useCallback } from 'react';
 import { useUIStore } from '@/store/uiStore';
 import { serviceWorkerService } from '@/services/serviceWorkerService';
+import { isPublicPath } from '@/lib/utils';
 
 const PwaUpdateHandler: React.FC = () => {
   const { setUpdateAvailable, setTriggerUpdate } = useUIStore();
@@ -16,8 +17,14 @@ const PwaUpdateHandler: React.FC = () => {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
+    // Registrierung: überall (auch Browser), aber Update-Notify nur, wenn nicht öffentliche Route
     serviceWorkerService.register({
-      onUpdate: handleUpdate,
+      onUpdate: (reg) => {
+        if (typeof window !== 'undefined') {
+          const onPublic = isPublicPath(window.location.pathname);
+          if (!onPublic) handleUpdate(reg);
+        }
+      },
     });
 
     const handleVisibilityChange = () => {

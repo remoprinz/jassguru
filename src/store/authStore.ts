@@ -490,10 +490,10 @@ export const useAuthStore = create<AuthStore>()(
           }
         }
 
-        // 🚨 CRITICAL FIX: Verkürzter Watchdog-Timer + Emergency Recovery
+        // 🚨 BULLETPROOF: Verlängerter Watchdog-Timer + Emergency Recovery
         authInitTimeout = setTimeout(() => {
           if (get().status === 'loading') {
-            console.error('AUTH_STORE: Watchdog-Alarm! onAuthStateChanged hat nicht innerhalb von 3s geantwortet.');
+            console.error('AUTH_STORE: Watchdog-Alarm! onAuthStateChanged hat nicht innerhalb von 8s geantwortet.');
             
             // Emergency Recovery: Prüfe localStorage auf Corruption
             let emergencyRecoveryTriggered = false;
@@ -532,10 +532,10 @@ export const useAuthStore = create<AuthStore>()(
                 : "Die Authentifizierung hat zu lange gedauert. Prüfe deine Internetverbindung und versuche es erneut."
             });
             
-            // 🚨 CRITICAL FIX: Reset initialization flag bei Timeout
+            // 🚨 BULLETPROOF: Reset initialization flag bei Timeout
             isInitAuthInProgress = false;
           }
-        }, 3000); // 🚨 VERKÜRZT: 3 Sekunden statt 10
+        }, 8000); // 🛡️ BULLETPROOF: 8 Sekunden für robuste Initialisierung
 
         const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
           if (authInitTimeout) clearTimeout(authInitTimeout); // WICHTIG: Watchdog stoppen, da der Listener erfolgreich war
@@ -632,22 +632,31 @@ export const useAuthStore = create<AuthStore>()(
               const userRef = doc(db, USERS_COLLECTION, firebaseUser.uid);
               const userSnap = await getDoc(userRef);
 
+              let userData: any = null;
               if (userSnap.exists()) {
-                  const userData = userSnap.data() as Partial<FirestorePlayer>;
+                  userData = userSnap.data() as Partial<FirestorePlayer>;
                    if (userData?.playerId && typeof userData.playerId === 'string') { 
                       playerIdToLoad = userData.playerId;
                    }
               }
 
               if (!playerIdToLoad) {
-                  // 🚀 ELEGANT SOLUTION: With deterministic Player IDs, multiple calls are safe and idempotent
-                  const displayName = firebaseUser.displayName || `Spieler_${firebaseUser.uid.substring(0, 6)}`;
-                  if (process.env.NODE_ENV === 'development') {
-                    console.log(`AUTH_STORE: No playerId found in user doc, calling getPlayerIdForUser for ${firebaseUser.uid} with displayName: ${displayName}`);
-                  }
-                  playerIdToLoad = await getPlayerIdForUser(firebaseUser.uid, displayName);
-                  if (process.env.NODE_ENV === 'development') {
-                    console.log(`AUTH_STORE: getPlayerIdForUser returned playerId: ${playerIdToLoad}`);
+                  // 🚨 ROBUST: Einfache Fehlerbehandlung ohne Timeout-Komplexität
+                  try {
+                    const userDocDisplayName = userData?.displayName || null;
+                    const displayName = userDocDisplayName || firebaseUser.displayName || `Spieler_${firebaseUser.uid.substring(0, 6)}`;
+                    if (process.env.NODE_ENV === 'development') {
+                      console.log(`AUTH_STORE: No playerId found in user doc, calling getPlayerIdForUser for ${firebaseUser.uid} with displayName: ${displayName} (from userDoc: ${userDocDisplayName})`);
+                    }
+                    
+                    playerIdToLoad = await getPlayerIdForUser(firebaseUser.uid, displayName);
+                    
+                    if (process.env.NODE_ENV === 'development') {
+                      console.log(`AUTH_STORE: getPlayerIdForUser returned playerId: ${playerIdToLoad}`);
+                    }
+                  } catch (playerError) {
+                    console.error(`AUTH_STORE: getPlayerIdForUser failed for ${firebaseUser.uid}:`, playerError);
+                    playerIdToLoad = null; // Continue without playerId
                   }
               } else {
                   if (process.env.NODE_ENV === 'development') {
@@ -656,8 +665,13 @@ export const useAuthStore = create<AuthStore>()(
               }
 
               if (playerIdToLoad) {
-                  await useGroupStore.getState().loadUserGroupsByPlayerId(playerIdToLoad); 
-              } else {
+                  // 🚨 ROBUST: Einfache Fehlerbehandlung für Gruppenladen
+                  try {
+                    await useGroupStore.getState().loadUserGroupsByPlayerId(playerIdToLoad);
+                  } catch (groupError) {
+                    console.error(`AUTH_STORE: loadUserGroupsByPlayerId failed for ${playerIdToLoad}:`, groupError);
+                    // Continue without groups
+                  }
               }
 
               if (previousStatus === 'loading' || previousStatus === 'unauthenticated') {

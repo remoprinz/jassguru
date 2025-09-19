@@ -29,10 +29,20 @@ class OfflineDBHelper {
 
   async init(): Promise<void> {
     return new Promise((resolve, reject) => {
+      // 🛡️ BULLETPROOF: Timeout-Protection für IndexedDB
+      const timeout = setTimeout(() => {
+        console.warn('[IndexedDB] Init timeout nach 3s - möglicherweise Safari Private Mode');
+        reject(new Error('IndexedDB initialization timeout'));
+      }, 3000);
+
       const request = indexedDB.open(this.dbName, this.dbVersion);
 
-      request.onerror = () => reject(request.error);
+      request.onerror = () => {
+        clearTimeout(timeout);
+        reject(request.error);
+      };
       request.onsuccess = () => {
+        clearTimeout(timeout);
         this.db = request.result;
         resolve();
       };

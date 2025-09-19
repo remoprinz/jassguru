@@ -1099,7 +1099,10 @@ export const useGameStore = create<GameStore>()(
             // 1. Tournament Settings (höchste Priorität)
             if (currentTournamentInstance?.settings) {
               return {
-                scoreSettings: currentTournamentInstance.settings.scoreSettings || DEFAULT_SCORE_SETTINGS,
+                scoreSettings: {
+                  ...DEFAULT_SCORE_SETTINGS,
+                  ...(currentTournamentInstance.settings.scoreSettings || {}),
+                },
                 strokeSettings: currentTournamentInstance.settings.strokeSettings || DEFAULT_STROKE_SETTINGS,
                 farbeSettings: currentTournamentInstance.settings.farbeSettings || DEFAULT_FARBE_SETTINGS,
                 source: 'tournament'
@@ -1109,7 +1112,10 @@ export const useGameStore = create<GameStore>()(
             // 2. Lokale currentGroup (zweite Priorität)
             if (currentGroup) {
               return {
-                scoreSettings: currentGroup.scoreSettings || DEFAULT_SCORE_SETTINGS,
+                scoreSettings: {
+                  ...DEFAULT_SCORE_SETTINGS,
+                  ...(currentGroup.scoreSettings || {}),
+                },
                 strokeSettings: currentGroup.strokeSettings || DEFAULT_STROKE_SETTINGS,
                 farbeSettings: currentGroup.farbeSettings || DEFAULT_FARBE_SETTINGS,
                 source: 'group'
@@ -1137,7 +1143,10 @@ export const useGameStore = create<GameStore>()(
                     if (groupDoc.exists()) {
                       const groupData = groupDoc.data();
                       return {
-                        scoreSettings: groupData.scoreSettings || DEFAULT_SCORE_SETTINGS,
+                        scoreSettings: {
+                          ...DEFAULT_SCORE_SETTINGS,
+                          ...(groupData.scoreSettings || {}),
+                        },
                         strokeSettings: groupData.strokeSettings || DEFAULT_STROKE_SETTINGS,
                         farbeSettings: groupData.farbeSettings || DEFAULT_FARBE_SETTINGS,
                         source: 'group-firestore'
@@ -2479,6 +2488,17 @@ export const useGameStore = create<GameStore>()(
       }),
       {
         name: 'game-storage', // Eindeutiger Name für den Persist-Speicher
+        version: 1, // NEU: Version 0 -> 1 (wegen matschBonus)
+        migrate: (persistedState, version) => {
+          if (version === 0) {
+            const typedState = persistedState as any;
+            if (typedState.scoreSettings && typeof typedState.scoreSettings.matschBonus === 'undefined') {
+              console.log('🔄 Migrating gameStore state v0 to v1: Adding matschBonus');
+              typedState.scoreSettings.matschBonus = true;
+            }
+          }
+          return persistedState;
+        },
       }
     ),
     { name: "gameStore" }

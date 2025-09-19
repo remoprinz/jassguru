@@ -44,6 +44,10 @@ class ServiceWorkerService {
   private updateTimeoutId: NodeJS.Timeout | null = null;
   private readonly UPDATE_TIMEOUT = 30000; // 30 Sekunden - Erhöht für langsamere Netzwerke
   
+  // 🔁 Auto-Fallback-Konfiguration
+  private readonly FAIL_COUNT_KEY = 'swActivationFailures';
+  private readonly MAX_FAILS_BEFORE_KILL = 2;
+  
   private constructor() {}
   
   static getInstance(): ServiceWorkerService {
@@ -51,6 +55,49 @@ class ServiceWorkerService {
       ServiceWorkerService.instance = new ServiceWorkerService();
     }
     return ServiceWorkerService.instance;
+  }
+  
+  // ===== Helper: Persistente Fehlversuchs-Zählung =====
+  private getActivationFailCount(): number {
+    try {
+      const raw = localStorage.getItem(this.FAIL_COUNT_KEY);
+      const n = raw ? parseInt(raw, 10) : 0;
+      return Number.isFinite(n) ? n : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  private setActivationFailCount(count: number): void {
+    try {
+      localStorage.setItem(this.FAIL_COUNT_KEY, String(Math.max(0, count)));
+    } catch {}
+  }
+
+  private resetActivationFailCount(): void {
+    this.setActivationFailCount(0);
+  }
+
+  private handleActivationFailureAndMaybeKill(): void {
+    const next = this.getActivationFailCount() + 1;
+    this.setActivationFailCount(next);
+    
+    // Verhindere Redirect-Schleifen: wenn wir bereits auf kill-sw.html sind, nichts tun
+    const onKillPage = typeof window !== 'undefined' && window.location.pathname.endsWith('/kill-sw.html');
+    if (onKillPage) {
+      return;
+    }
+    
+    if (next >= this.MAX_FAILS_BEFORE_KILL) {
+      // Zähler zurücksetzen und harten Cleanup triggern
+      this.resetActivationFailCount();
+      try {
+        window.location.href = '/kill-sw.html';
+      } catch {
+        // Fallback: normales Reload
+        try { window.location.reload(); } catch {}
+      }
+    }
   }
   
   /**
@@ -70,6 +117,30 @@ class ServiceWorkerService {
   }
   
   /**
+   * 🛡️ BULLETPROOF: Bereinigt Legacy Service Worker mit /pwa/ Scope
+   */
+  private async cleanupLegacyServiceWorkers(): Promise<void> {
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      
+      for (const registration of registrations) {
+        const scriptURL = registration.active?.scriptURL || '';
+        
+        // Legacy-Registrierungen mit /pwa/ Scope ODER /pwa/sw.js Script deregistrieren
+        if (registration.scope.includes('/pwa/') || scriptURL.includes('/pwa/sw.js')) {
+          // console.log('[ServiceWorker] 🧹 Bereinige Legacy SW:', {
+          //   scope: registration.scope,
+          //   script: scriptURL
+          // });
+          await registration.unregister();
+        }
+      }
+    } catch (error) {
+      console.warn('[ServiceWorker] Legacy cleanup fehlgeschlagen (nicht kritisch):', error);
+    }
+  }
+
+  /**
    * Deregistriert alle Service Worker (für Browser-Cleanup)
    */
   async unregisterAll(): Promise<void> {
@@ -82,7 +153,7 @@ class ServiceWorkerService {
       
       for (const registration of registrations) {
         await registration.unregister();
-        console.log('[ServiceWorker] Service Worker deregistriert:', registration.scope);
+        // console.log('[ServiceWorker] Service Worker deregistriert:', registration.scope);
       }
       
       // Cache cleanup
@@ -90,7 +161,7 @@ class ServiceWorkerService {
         const cacheNames = await caches.keys();
         for (const cacheName of cacheNames) {
           await caches.delete(cacheName);
-          console.log('[ServiceWorker] Cache gelöscht:', cacheName);
+          // console.log('[ServiceWorker] Cache gelöscht:', cacheName);
         }
       }
     } catch (error) {
@@ -115,6 +186,18 @@ class ServiceWorkerService {
     if (!('serviceWorker' in navigator)) {
       return;
     }
+
+    // Hard-Bypass wenn ?no-sw=1 aktiv ist (Failsafe nach Hänger)
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('no-sw') === '1') {
+        // console.warn('[PWA] Service Worker Registrierung übersprungen wegen ?no-sw=1');
+        return;
+      }
+    } catch {}
+
+    // 🛡️ BULLETPROOF: Legacy Service Worker Cleanup
+    await this.cleanupLegacyServiceWorkers();
     
     // Service Worker registrieren - nur in PWA
     try {
@@ -143,8 +226,8 @@ class ServiceWorkerService {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
             // Neuer Service Worker bereit
             this.updateAvailable = true;
-            // 🛡️ KRITISCHER FIX: Update-Notifications nur in PWA, nie im Browser
-            if (config.onUpdate && this.isPWAMode()) {
+            // 🛡️ FIX: Update-Notifications auch im Browser-Modus ermöglichen
+            if (config.onUpdate) {
               config.onUpdate(registration);
             }
           }
@@ -179,18 +262,28 @@ class ServiceWorkerService {
   async activateUpdate(): Promise<void> {
     // 🛡️ Elegante Verhinderung mehrfacher gleichzeitiger Updates
     if (this.updateStatus === 'activating' || this.updatePromise) {
-      console.log('[PWA] Update bereits in Bearbeitung - warte auf Abschluss');
+      // console.log('[PWA] Update bereits in Bearbeitung - warte auf Abschluss');
       return this.updatePromise || Promise.resolve();
     }
 
     // 🛡️ TypeScript-konforme Global Lock-Prüfung
     if (ServiceWorkerService.isGloballyUpdating) {
-      console.log('[PWA] Update bereits global in Bearbeitung - überspringe');
+      // console.log('[PWA] Update bereits global in Bearbeitung - überspringe');
       return Promise.resolve();
     }
 
     if (!this.registration || !this.registration.waiting) {
-      console.log('[PWA] Kein wartender Service Worker zum Aktivieren gefunden.');
+      // console.log('[PWA] Kein wartender Service Worker zum Aktivieren gefunden. Führe sicheren Hard-Reload durch...');
+      try {
+        // Fallback: Wenn der SW bereits skipWaiting() nutzt (z. B. iOS/next-pwa),
+        // existiert oft kein "waiting". Ein Hard-Reload lädt die neue Version dennoch zuverlässig.
+        window.location.href = window.location.href.split('?')[0] + '?updated=' + Date.now();
+      } catch (err) {
+        // Als letzte Rückfallebene normales Reload versuchen
+        try {
+          window.location.reload();
+        } catch (_) {}
+      }
       return;
     }
 
@@ -212,13 +305,16 @@ class ServiceWorkerService {
           
           navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
           
-          console.warn('[PWA] ⚠️ Service Worker Update-Timeout - versuche Fallback-Aktivierung...');
+          // console.warn('[PWA] ⚠️ Service Worker Update-Timeout - versuche Fallback-Aktivierung...');
           
+          // 🔁 Auto-Fallback-Zähler erhöhen und ggf. Kill-Switch auslösen
+          this.handleActivationFailureAndMaybeKill();
+
           // 🛡️ BULLETPROOF FALLBACK: Hard Reload auch bei Timeout
           try {
             window.location.href = window.location.href.split('?')[0] + '?updated=' + Date.now();
           } catch (fallbackError) {
-            console.warn('[PWA] Fallback-Reload fehlgeschlagen, aber kein kritischer Fehler:', fallbackError);
+            // console.warn('[PWA] Fallback-Reload fehlgeschlagen, aber kein kritischer Fehler:', fallbackError);
           }
           
           // IMMER als Erfolg behandeln - keine kritischen Fehler mehr
@@ -233,24 +329,42 @@ class ServiceWorkerService {
         
         clearTimeout(timeoutId);
         navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+        navigator.serviceWorker.removeEventListener('message', onSWMessage);
         
         this.updateStatus = 'idle';
         this.updatePromise = null;
         this.backoffConfig.currentAttempt = 0; // Reset bei Erfolg
         ServiceWorkerService.isGloballyUpdating = false; // 🛡️ Eleganter Lock-Reset
         
-        console.log('[PWA] ✅ Service Worker Update erfolgreich aktiviert, lade Seite neu...');
+        // console.log('[PWA] ✅ Service Worker Update erfolgreich aktiviert, lade Seite neu...');
         
+        // Erfolg -> Fehlversuche zurücksetzen
+        this.resetActivationFailCount();
+
         // 🛡️ BULLETPROOF: Hard Reload mit Cache-Bypass für 100% robuste Updates
         window.location.href = window.location.href.split('?')[0] + '?updated=' + Date.now();
         
         resolve();
       };
 
+      // 🛡️ NEU: ACK-Kanal vom SW (public/sw-ext.js) – besonders für iOS/Safari
+      const onSWMessage = (event: MessageEvent) => {
+        try {
+          const data: any = (event as any).data;
+          if (!data || typeof data !== 'object') return;
+          if (data.type === 'SW_ACTIVATED' && !hasCompleted) {
+            onControllerChange();
+          }
+        } catch (_) {
+          // ignore
+        }
+      };
+      navigator.serviceWorker.addEventListener('message', onSWMessage);
+
       navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
 
       try {
-        console.log('[PWA] 🚀 Sende SKIP_WAITING an Service Worker...');
+        // console.log('[PWA] 🚀 Sende SKIP_WAITING an Service Worker...');
         waitingWorker.postMessage({ type: 'SKIP_WAITING' });
       } catch (error) {
         if (!hasCompleted) {
@@ -260,6 +374,8 @@ class ServiceWorkerService {
           this.updateStatus = 'error';
           this.updatePromise = null;
           ServiceWorkerService.isGloballyUpdating = false; // 🛡️ Eleganter Lock-Reset
+          // 🔁 Auto-Fallback-Zähler erhöhen und ggf. Kill-Switch auslösen
+          this.handleActivationFailureAndMaybeKill();
           reject(error);
         }
       }
@@ -296,7 +412,7 @@ class ServiceWorkerService {
     }
     
     const delay = this.backoffConfig.delays[this.backoffConfig.currentAttempt - 1] || 60000;
-    console.log(`[PWA] ⏰ Update-Retry in ${delay}ms (Versuch ${this.backoffConfig.currentAttempt})`);
+    // console.log(`[PWA] ⏰ Update-Retry in ${delay}ms (Versuch ${this.backoffConfig.currentAttempt})`);
     
     setTimeout(() => {
       this.activateUpdate().catch(console.error);
@@ -308,19 +424,19 @@ class ServiceWorkerService {
    */
   async checkForUpdate(): Promise<void> {
     if (!this.registration) {
-      console.log('[PWA] Keine Service Worker Registrierung für Update-Check gefunden.');
+      // console.log('[PWA] Keine Service Worker Registrierung für Update-Check gefunden.');
       return;
     }
     
     if (this.updateStatus === 'checking' || this.updateStatus === 'activating') {
-      console.log('[PWA] Update-Check bereits aktiv - überspringe');
+      // console.log('[PWA] Update-Check bereits aktiv - überspringe');
       return;
     }
     
     this.updateStatus = 'checking';
     
     try {
-      console.log('[PWA] 🔍 Suche nach Updates...');
+      // console.log('[PWA] 🔍 Suche nach Updates...');
       await this.registration.update();
       this.updateStatus = 'idle';
     } catch (error) {

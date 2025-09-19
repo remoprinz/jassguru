@@ -112,7 +112,10 @@ const Calculator: React.FC<CalculatorProps> = ({
        console.log('[Calculator] PRIORITÄT 2: Turnier-Kontext. Verwende TURNIER-Settings.');
       return {
         farbeSettings: currentTournamentInstance.settings.farbeSettings || DEFAULT_FARBE_SETTINGS,
-        scoreSettings: currentTournamentInstance.settings.scoreSettings || DEFAULT_SCORE_SETTINGS,
+        scoreSettings: {
+          ...DEFAULT_SCORE_SETTINGS,
+          ...(currentTournamentInstance.settings.scoreSettings || {}),
+        },
         strokeSettings: currentTournamentInstance.settings.strokeSettings || DEFAULT_STROKE_SETTINGS,
         source: 'tournament'
       };
@@ -123,7 +126,10 @@ const Calculator: React.FC<CalculatorProps> = ({
        console.log('[Calculator] PRIORITÄT 3: Gruppen-Kontext. Verwende GRUPPEN-Settings.');
       return {
         farbeSettings: currentGroup.farbeSettings || DEFAULT_FARBE_SETTINGS,
-        scoreSettings: currentGroup.scoreSettings || DEFAULT_SCORE_SETTINGS,
+        scoreSettings: {
+          ...DEFAULT_SCORE_SETTINGS,
+          ...(currentGroup.scoreSettings || {}),
+        },
         strokeSettings: currentGroup.strokeSettings || DEFAULT_STROKE_SETTINGS,
         source: 'group'
       };
@@ -216,13 +222,21 @@ const Calculator: React.FC<CalculatorProps> = ({
     setIsClient(true);
   }, []);
 
-  const calculateValues = (inputValue: string, currentMultiplier: number) => {
+  // NEU: Dynamische Matsch-Berechnung basierend auf Settings
+  const calculateMatschScore = useCallback(() => {
+    const settings = getCorrectSettings();
+    return settings.scoreSettings.matschBonus ? 257 : 157; // 157 ohne Bonus, 257 mit Bonus
+  }, [getCorrectSettings]);
+
+  const calculateValues = useCallback((inputValue: string, currentMultiplier: number) => {
+    const matschScore = calculateMatschScore(); // NEU: Dynamische Matsch-Berechnung
+    
     if (inputValue === "0") {
       setOpponentValue((MAX_SCORE * currentMultiplier).toString());
       setTotalValue("0");
-    } else if (inputValue === MATSCH_SCORE.toString()) {
+    } else if (inputValue === matschScore.toString()) { // NEU: Dynamische Prüfung
       setOpponentValue("0");
-      const total = MATSCH_SCORE * currentMultiplier;
+      const total = matschScore * currentMultiplier; // NEU: Dynamische Berechnung
       setTotalValue(total.toString());
     } else {
       const numericValue = parseInt(inputValue, 10);
@@ -233,17 +247,12 @@ const Calculator: React.FC<CalculatorProps> = ({
       setOpponentValue(multipliedOpponentValue.toString());
       setTotalValue(multipliedValue.toString());
     }
-  };
+  }, [calculateMatschScore]);
 
   useEffect(() => {
     calculateValues(value, multiplier);
-  }, [value, multiplier]);
+  }, [value, multiplier, calculateValues]);
 
-  const validateInput = (input: string): string => {
-    const numericValue = parseInt(input, 10);
-    if (isNaN(numericValue)) return "0";
-    return Math.min(numericValue, 157).toString();
-  };
 
   const hasValidScore = () => {
     return numberWasTyped && selectedColor !== null;
@@ -441,9 +450,10 @@ const Calculator: React.FC<CalculatorProps> = ({
 
   const handleMatsch = (e?: React.MouseEvent | React.TouchEvent) => {
     e?.stopPropagation();
-    setValue("257");
+    const matschScore = calculateMatschScore();
+    setValue(matschScore.toString());
     setOpponentValue("0");
-    setTotalValue((257 * multiplier).toString());
+    setTotalValue((matschScore * multiplier).toString());
     setIsMatschActive(true);
     setNumberWasTyped(true);
     triggerMatschConfetti(confettiCharge, calculator.isFlipped);

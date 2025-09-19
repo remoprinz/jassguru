@@ -170,6 +170,114 @@ export const fetchCompletedSessionsForUser = async (userId: string): Promise<Ses
 };
 
 /**
+ * Lädt Sessions für einen Spieler anhand seiner Player-ID (viel einfacher & robuster)
+ * 
+ * @param playerId Die ID des Spieler-Dokuments
+ * @returns Ein Promise, das ein Array von SessionSummary-Objekten auflöst
+ */
+export const fetchCompletedSessionsForPlayer = async (playerId: string): Promise<SessionSummary[]> => {
+  if (!playerId) {
+    console.error("[fetchCompletedSessionsForPlayer] playerId is required.");
+    return [];
+  }
+
+  try {
+    const db = getFirestore(firebaseApp);
+    
+    // 1. Hole Player-Dokument für groupIds
+    const playerDoc = await getDoc(doc(db, 'players', playerId));
+    if (!playerDoc.exists()) {
+      console.log('[fetchCompletedSessionsForPlayer] Player document not found:', playerId);
+      return [];
+    }
+    
+    const playerData = playerDoc.data();
+    const groupIds = playerData.groupIds || [];
+    
+    if (groupIds.length === 0) {
+      console.log('[fetchCompletedSessionsForPlayer] Player is in no groups:', playerId);
+      return [];
+    }
+    
+    // 2. Parallel alle Gruppen-Sessions laden
+    const allSessions: SessionSummary[] = [];
+    const groupPromises = groupIds.map(async (groupId: string) => {
+      try {
+        const groupSummariesRef = collection(db, 'groups', groupId, 'jassGameSummaries');
+        const q = query(
+          groupSummariesRef,
+          where('participantPlayerIds', 'array-contains', playerId) // ✅ EINFACH: Direkter Player-ID Lookup!
+        );
+
+        const querySnapshot = await getDocs(q);
+        const groupSessions: SessionSummary[] = [];
+
+        querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          
+          // ✅ CLIENT-SEITIGE FILTERUNG: Nur abgeschlossene Sessions UND keine Tournament-Sessions
+          if ((data.status === 'completed' || data.status === 'completed_empty') && !data.tournamentId) {
+            groupSessions.push({
+              id: docSnap.id,
+              startedAt: parseTimestampToMillis(data.startedAt),
+              endedAt: parseTimestampToMillis(data.endedAt),
+              groupId: groupId,
+              playerNames: data.playerNames || {},
+              participantUids: data.participantUids || [],
+              finalScores: data.finalScores || null,
+              finalStriche: data.finalStriche || null,
+              status: data.status || 'unknown',
+              teams: data.teams || null,
+              pairingIdentifiers: data.pairingIdentifiers || null,
+              gruppeId: groupId,
+              currentScoreLimit: data.currentScoreLimit || 0,
+              completedGamesCount: data.completedGamesCount || 0,
+              lastActivity: data.lastActivity ? parseTimestampToMillis(data.lastActivity) : null,
+              isTournamentSession: data.isTournamentSession || false,
+              tournamentInstanceId: data.tournamentInstanceId || null,
+              tournamentId: data.tournamentId || null,
+              metadata: data.metadata || {},
+            });
+          }
+        });
+
+        return groupSessions;
+      } catch (error) {
+        console.error('❌ [fetchCompletedSessionsForPlayer] Error loading sessions for group:', groupId, error);
+        return [];
+      }
+    });
+
+    // 3. Alle Ergebnisse zusammenführen
+    const groupResults = await Promise.all(groupPromises);
+    groupResults.forEach(groupSessions => {
+      allSessions.push(...groupSessions);
+    });
+    
+    // 4. Sortierung nach startedAt absteigend
+    allSessions.sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0));
+    
+    console.log(`[fetchCompletedSessionsForPlayer] Found ${allSessions.length} sessions for player: ${playerId} across ${groupIds.length} groups`);
+    return allSessions;
+  } catch (error) {
+    console.error(`[fetchCompletedSessionsForPlayer] Error fetching sessions for player ${playerId}:`, error);
+    
+    // ✅ ELEGANTE FEHLERBEHANDLUNG: Leere Liste bei Index-Fehlern
+    if (error && typeof error === 'object' && 'code' in error) {
+      const firebaseError = error as any;
+      if (firebaseError.code === 'failed-precondition' || 
+          firebaseError.code === 'permission-denied' ||
+          firebaseError.code === 'not-found') {
+        console.log(`[fetchCompletedSessionsForPlayer] Normal state: No sessions accessible for player ${playerId} (${firebaseError.code})`);
+        return [];
+      }
+    }
+    
+    return [];
+  }
+};
+
+/**
  * Setzt das currentActiveGameId Feld in einem JassSession-Dokument auf null.
  * @param sessionId Die ID der JassSession.
  */

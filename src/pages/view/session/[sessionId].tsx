@@ -8,7 +8,7 @@ import FullscreenLoader from '@/components/ui/FullscreenLoader';
 import MainLayout from '@/components/layout/MainLayout';
 import { ArrowLeft } from 'lucide-react'; // <-- Import ArrowLeft icon
 // Firestore imports hinzufügen
-import { getFirestore, doc, collection, getDoc, getDocs, query, orderBy, Timestamp as ClientTimestamp } from 'firebase/firestore';
+import { getFirestore, doc, collection, getDoc, getDocs, query, orderBy, Timestamp as ClientTimestamp, collectionGroup, where, documentId, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { firebaseApp } from '@/services/firebaseInit'; // Client-seitige Firebase App importieren
 // Importiere die Anzeige-Komponente und Defaults
@@ -158,6 +158,7 @@ interface FirestoreGroup {
 const PublicSessionPage = () => {
   const router = useRouter();
   const sessionId = router.query.sessionId as string;
+  const groupIdFromQuery = typeof router.query.groupId === 'string' ? router.query.groupId : null;
   const isPublicRoute = typeof window !== 'undefined' 
     ? (router.pathname?.includes('/view/session/public') || router.asPath?.includes('/view/session/public'))
     : false;
@@ -166,9 +167,58 @@ const PublicSessionPage = () => {
   // Session-Daten Zustand
   const [sessionData, setSessionData] = useState<any>(null);
   const [completedGames, setCompletedGames] = useState<CompletedGameSummary[]>([]);
+  const [activeGameData, setActiveGameData] = useState<any | null>(null);
+  const [activeGameRounds, setActiveGameRounds] = useState<RoundEntry[]>([]);
+  const [allActiveGames, setAllActiveGames] = useState<any[]>([]); // V4: Für alle Live/kürzlichen Spiele
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [groupStats, setGroupStats] = useState<any>(null); // NEU: State für Gruppen-Statistiken
+
+  // 🚀 V4/FIX: Hook vor die bedingten Returns verschieben, um React Error #310 zu vermeiden
+  const allGames = useMemo(() => {
+    const gameMap = new Map<number, any>();
+    const defaultStriche: StricheRecord = { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 };
+
+    // 1. Archivierte Spiele als Basis nehmen
+    completedGames.forEach(game => {
+      if (typeof game?.gameNumber === 'number') {
+        gameMap.set(game.gameNumber, game);
+      }
+    });
+
+    // 2. Mit Live/kürzlichen Spielen überschreiben/ergänzen
+    allActiveGames.forEach(activeGame => {
+      // Unterstütze sowohl gameNumber als auch currentGameNumber
+      const gameNum = typeof (activeGame as any)?.gameNumber === 'number'
+        ? (activeGame as any).gameNumber
+        : (typeof (activeGame as any)?.currentGameNumber === 'number'
+            ? (activeGame as any).currentGameNumber
+            : undefined);
+
+      if (typeof gameNum === 'number') {
+        const isCurrentActiveGame = activeGame.id === activeGameData?.id;
+        const rounds = isCurrentActiveGame ? activeGameRounds : activeGame.roundHistory;
+
+        const compatibleGame = {
+          id: activeGame.id,
+          gameNumber: gameNum,
+          finalScores: activeGame.scores,
+          roundHistory: rounds,
+          weisPoints: activeGame.weisPoints,
+          finalStriche: activeGame.striche,
+          playerNames: activeGame.playerNames,
+          teams: {
+            top: { striche: activeGame.striche?.top || defaultStriche },
+            bottom: { striche: activeGame.striche?.bottom || defaultStriche }
+          }
+        };
+        gameMap.set(gameNum, compatibleGame);
+      }
+    });
+
+    // 3. Nach Spielnummer sortieren für korrekte Chronologie
+    return Array.from(gameMap.values()).sort((a, b) => a.gameNumber - b.gameNumber);
+  }, [completedGames, allActiveGames, activeGameData, activeGameRounds]); // V4.1: Wichtige Abhängigkeiten hinzugefügt
 
   // 🚨 INTELLIGENTE ZURÜCK-NAVIGATION (an den Anfang verschoben)
   const handleBackClick = useCallback(() => {
@@ -219,38 +269,58 @@ const PublicSessionPage = () => {
   }, [router, sessionData?.groupId]); // sessionData.groupId als Abhängigkeit hinzufügen
 
   useEffect(() => {
+    let activeGameUnsubscribe: Unsubscribe | null = null;
+    let activeRoundsUnsubscribe: Unsubscribe | null = null;
     if (!sessionId) {
-      console.log('🔍 [SessionView] No sessionId, returning');
       return;
     }
 
     const loadData = async () => {
       try {
         setIsLoading(true);
-        if (process.env.NODE_ENV === 'development') {
-          console.log('🔍 [SessionView] Loading session data for sessionId:', sessionId);
-        }
         
         const db = getFirestore(firebaseApp);
         let sessionDoc: any = null;
         let foundGroupId: string | null = null;
 
         if (isPublicRoute) {
-          // ÖFFENTLICHE ROUTE: Da wir keine groupId kennen, versuchen wir alle Gruppen zu durchsuchen
-          // Zuerst holen wir alle öffentlichen Gruppen
-          const groupsSnap = await getDocs(collection(db, 'groups'));
-          for (const groupDoc of groupsSnap.docs) {
+          // ÖFFENTLICHE ROUTE: Zuerst Live-Quelle prüfen (sessions/{sessionId})
+          const liveSessionRef = doc(db, 'sessions', sessionId);
+          const liveSessionSnap = await getDoc(liveSessionRef);
+
+          if (liveSessionSnap.exists()) {
+            sessionDoc = liveSessionSnap;
+            const sd: any = liveSessionSnap.data();
+            foundGroupId = sd?.groupId || sd?.gruppeId || null;
+          } else {
+            // Zusätzlicher schneller Pfad: Wenn groupId via Query bekannt ist, versuche direkten Zugriff unter groups/{groupId}/jassGameSummaries/{sessionId}
+            if (!sessionDoc && groupIdFromQuery) {
+              try {
+                const directRef = doc(db, `groups/${groupIdFromQuery}/jassGameSummaries`, sessionId);
+                const directSnap = await getDoc(directRef);
+                if (directSnap.exists()) {
+                  sessionDoc = directSnap;
+                  foundGroupId = groupIdFromQuery;
+                }
+              } catch {}
+            }
+
+            // Fallback: Abgeschlossene Session über collectionGroup finden
             try {
-              const sessionDocRef = doc(db, `groups/${groupDoc.id}/jassGameSummaries`, sessionId);
-              const sessionDocSnap = await getDoc(sessionDocRef);
-              if (sessionDocSnap.exists()) {
-                sessionDoc = sessionDocSnap;
-                foundGroupId = groupDoc.id;
-                break;
+              const cg = query(
+                collectionGroup(db, 'jassGameSummaries'),
+                where(documentId(), '==', sessionId)
+              );
+              const cgSnap = await getDocs(cg);
+              if (!cgSnap.empty) {
+                const jgsDoc = cgSnap.docs[0];
+                sessionDoc = jgsDoc;
+                const jassGameSummariesCol = jgsDoc.ref.parent;
+                const groupDocRef = jassGameSummariesCol?.parent; // groups/{groupId}
+                foundGroupId = groupDocRef?.id || null;
               }
             } catch (error) {
-              // Ignoriere Fehler für einzelne Gruppen
-              continue;
+              // Ignorieren – wird unten als "nicht gefunden" behandelt
             }
           }
         } else {
@@ -258,14 +328,12 @@ const PublicSessionPage = () => {
           const auth = getAuth(firebaseApp);
           const user = auth.currentUser;
           if (!user) {
-            console.log('🔍 [SessionView] No authenticated user');
             setError('Nicht angemeldet');
             return;
           }
 
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (!userDoc.exists()) {
-            console.log('🔍 [SessionView] User document not found');
             setError('Benutzer nicht gefunden');
             return;
           }
@@ -273,7 +341,6 @@ const PublicSessionPage = () => {
           const userData = userDoc.data();
           const playerDoc = await getDoc(doc(db, 'players', userData.playerId));
           if (!playerDoc.exists()) {
-            console.log('🔍 [SessionView] Player document not found');
             setError('Spieler nicht gefunden');
             return;
           }
@@ -289,22 +356,26 @@ const PublicSessionPage = () => {
                 break;
               }
             } catch (error) {
-              console.log(`🔍 [SessionView] Error checking group ${groupId}:`, error);
             }
           }
         }
         
         if (!sessionDoc || !sessionDoc.exists()) {
-          console.log('🔍 [SessionView] Session document does not exist:', sessionId);
           setError('Session nicht gefunden');
           return;
         }
 
         const sessionDataResult = sessionDoc.data();
         if (process.env.NODE_ENV === 'development') {
-          console.log('🔍 [SessionView] Session data loaded:', sessionDataResult);
         }
         setSessionData(sessionDataResult);
+
+        // 🎯 V3 FIX: IMMER abgeschlossene Spiele aus der Gruppe laden (Single Source of Truth)
+        let initialCompletedGames: CompletedGameSummary[] = [];
+        if (foundGroupId) {
+          initialCompletedGames = await fetchAllGamesForSession(sessionId, foundGroupId);
+          setCompletedGames(initialCompletedGames);
+        }
 
         // 🚀 NEUE ARCHITEKTUR: Lade groupStats aus neuer Struktur
         if (foundGroupId) {
@@ -313,7 +384,6 @@ const PublicSessionPage = () => {
             if (groupStatsDoc.exists()) {
               const groupStatsData = groupStatsDoc.data();
               if (process.env.NODE_ENV === 'development') {
-                console.log('🔍 [SessionView] Group stats loaded from NEW structure:', groupStatsData);
               }
               setGroupStats(groupStatsData);
             }
@@ -323,17 +393,66 @@ const PublicSessionPage = () => {
           }
         }
 
-        // Completed Games laden
+        // Completed Games laden (Live vs. Abgeschlossen)
         if (process.env.NODE_ENV === 'development') {
-          console.log('🔍 [SessionView] Loading completed games for sessionId:', sessionId, 'groupId:', foundGroupId);
         }
-        const completedGamesResult = await fetchAllGamesForSession(sessionId, foundGroupId || undefined);
-        if (process.env.NODE_ENV === 'development') {
-          console.log('🔍 [SessionView] Completed games loaded:', completedGamesResult);
-          console.log('🔍 [SessionView] Number of completed games:', completedGamesResult.length);
+
+        const status = sessionDataResult?.status || null;
+        const isCompleted = status === 'completed' || status === 'completed_empty';
+
+        if (!isCompleted) {
+          // LIVE: Session ist aktiv. completedGames sind bereits geladen.
+          // Jetzt ALLE aktiven/kürzlichen Spiele für diese Session abonnieren.
+          try {
+            const activeGamesQuery = query(collection(db, 'activeGames'), where('sessionId', '==', sessionId));
+            
+            activeGameUnsubscribe = onSnapshot(activeGamesQuery, async (querySnapshot) => {
+              const fetchedGames = await Promise.all(querySnapshot.docs.map(async (doc) => {
+                const gameData = doc.data();
+                const roundsQuery = query(collection(doc.ref, 'rounds'), orderBy('timestamp'));
+                const roundsSnapshot = await getDocs(roundsQuery);
+                const rounds = roundsSnapshot.docs.map(d => parseRoundEntryTimestamps(d.data()));
+                return { ...gameData, id: doc.id, roundHistory: rounds };
+              }));
+
+              setAllActiveGames(fetchedGames);
+
+              // Finde das "aktuellste" Spiel für die Hauptanzeige
+              const currentActiveId = sessionDataResult?.currentActiveGameId;
+              const currentLiveGame = currentActiveId ? fetchedGames.find(g => g.id === currentActiveId) : null;
+              
+              if (currentLiveGame) {
+                setActiveGameData(currentLiveGame);
+                setActiveGameRounds(currentLiveGame.roundHistory || []);
+              } else if (fetchedGames.length > 0) {
+                // Fallback: Nimm das Spiel mit dem höchsten gameNumber
+                const latestGame = fetchedGames.reduce((latest: any, game: any) => {
+                  // Robuster Guard, um TypeScript-Fehler und Laufzeitprobleme zu vermeiden
+                  if (typeof game?.gameNumber !== 'number') return latest;
+                  if (!latest || game.gameNumber > latest.gameNumber) {
+                    return game;
+                  }
+                  return latest;
+                }, null);
+                setActiveGameData(latestGame);
+                setActiveGameRounds(latestGame?.roundHistory || []);
+              }
+            });
+
+          } catch (e) {
+            console.error('[SessionView] Could not attach active games query listener:', e);
+            setActiveGameData(null);
+            setActiveGameRounds([]);
+          }
+        } else {
+          // ABGESCHLOSSEN: Alle Spiele sind bereits über fetchAllGamesForSession geladen.
+          // Nichts weiter zu tun.
+          setActiveGameData(null);
+          setActiveGameRounds([]);
+          // Cleanup aller Listener
+          if (activeGameUnsubscribe) { activeGameUnsubscribe(); activeGameUnsubscribe = null; }
+          if (activeRoundsUnsubscribe) { activeRoundsUnsubscribe(); activeRoundsUnsubscribe = null; }
         }
-        
-        setCompletedGames(completedGamesResult);
         setError(null);
       } catch (error) {
         console.error('🔍 [SessionView] Error loading data:', error);
@@ -344,6 +463,18 @@ const PublicSessionPage = () => {
     };
 
     loadData();
+
+    // Cleanup beim Unmount oder sessionId-Wechsel
+    return () => {
+      if (activeGameUnsubscribe) {
+        activeGameUnsubscribe();
+        activeGameUnsubscribe = null;
+      }
+      if (activeRoundsUnsubscribe) {
+        activeRoundsUnsubscribe();
+        activeRoundsUnsubscribe = null;
+      }
+    };
   }, [sessionId]);
 
   if (isLoading) {
@@ -382,19 +513,39 @@ const PublicSessionPage = () => {
     );
   }
 
-  // 🚨 KORREKTUR: Kein Meta-Game mehr! Session-Daten direkt übergeben
+  // 🎯 BULLETPROOF: Warte auf vollständige Live-Daten bevor Rendering
+  const hasActiveGame = sessionData.currentActiveGameId || sessionData.activeGameId;
+  
+  if (isPublicRoute && hasActiveGame && (!activeGameData || activeGameRounds.length === 0)) {
+    return (
+      <MainLayout>
+        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">
+          <ClipLoader color="#ffffff" size={40} />
+          <p className="mt-4 text-lg">Lade Live-Spieldaten...</p>
+          <p className="mt-2 text-sm text-gray-400">ActiveGame: {sessionData.currentActiveGameId || sessionData.activeGameId}</p>
+        </div>
+      </MainLayout>
+    );
+  }
+
   const gameDataForViewer = {
-    games: completedGames, // ✅ NUR die echten Spiele
+    games: allGames, // ✅ V4: Verwendet die kombinierte und sortierte Liste
     playerNames: sessionData.playerNames || { 1: 'Spieler 1', 2: 'Spieler 2', 3: 'Spieler 3', 4: 'Spieler 4' },
-    currentScores: sessionData.finalScores || { top: 0, bottom: 0 },
-    currentStriche: sessionData.finalStriche || { 
+    currentScores: (activeGameData?.scores) || sessionData.finalScores || { top: 0, bottom: 0 },
+    currentStriche: (activeGameData?.striche) || sessionData.finalStriche || { 
       top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }, 
       bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 } 
     },
-    weisPoints: sessionData.weisPoints || { top: 0, bottom: 0 },
+    weisPoints: (activeGameData?.weisPoints) || sessionData.weisPoints || { top: 0, bottom: 0 },
+    // 🎯 NEU: Live-Runden für aktuelle Partie
+    roundHistory: activeGameRounds, // Live-Runden aus activeGames/{id}/rounds
+    currentHistoryIndex: activeGameRounds.length > 0 ? activeGameRounds.length - 1 : -1,
     cardStyle: sessionData.cardStyle || DEFAULT_FARBE_SETTINGS.cardStyle,
     strokeSettings: sessionData.strokeSettings || DEFAULT_STROKE_SETTINGS,
-    scoreSettings: sessionData.scoreSettings || DEFAULT_SCORE_SETTINGS,
+    scoreSettings: {
+      ...DEFAULT_SCORE_SETTINGS,
+      ...(sessionData.scoreSettings || {}),
+    },
     startedAt: sessionData.startedAt || Date.now(),
     // NEU: Spruch-relevante Felder für GameViewerKreidetafel
     sessionId: sessionId, // Wichtig für Spruch-Generierung und -Speicherung
@@ -428,6 +579,7 @@ const PublicSessionPage = () => {
       totalRounds: sessionData.totalRounds
     }
   };
+
 
   return (
     <MainLayout>

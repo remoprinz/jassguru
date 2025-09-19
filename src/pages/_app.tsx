@@ -157,11 +157,11 @@ const MyApp = ({Component, pageProps}: AppProps) => {
     if (isPublicPage || status === 'authenticated' || status === 'unauthenticated') {
       markAsLoaded();
     } else {
-      // Warte auf Auth, aber maximal 7 Sekunden (vorher 3s)
+      // 🛡️ BULLETPROOF: Warte auf Auth, aber maximal 4 Sekunden für bessere UX
       loadingTimer = setTimeout(() => {
-        console.warn('[App] Loading timeout reached, forcing app load');
+        // console.warn('[App] Loading timeout reached, forcing app load');
         markAsLoaded();
-      }, 7000);
+      }, 4000);
     }
 
     return () => {
@@ -169,31 +169,44 @@ const MyApp = ({Component, pageProps}: AppProps) => {
     };
   }, [router.isReady, status]);
 
-  // --- VEREINFACHTES ROUTING ---
+  // 🚨 ABSOLUTER FAILSAFE: Erzwinge nach 5s ein Rendering, selbst wenn router.isReady nie true wird
   useEffect(() => {
-    if (!router.isReady || !isAppLoaded || status === 'loading' || status === 'idle') {
+    if (isAppLoaded) return;
+    const hardFallback = setTimeout(() => {
+      setIsAppLoaded(true);
+    }, 5000);
+    return () => clearTimeout(hardFallback);
+  }, [isAppLoaded]);
+
+  // 🛡️ BULLETPROOF: Stabilisierter Auth-Guard mit Entprellung
+  useEffect(() => {
+    // Nur bei stabilen Auth-Status-Werten ausführen
+    const stableStatuses = ['authenticated', 'unauthenticated'];
+    if (!router.isReady || !isAppLoaded || !stableStatuses.includes(status)) {
       return;
     }
 
-    // 🎯 FINAL FIX: Lese immer den echten Pfad aus dem Browser
-    // Dies stellt sicher, dass der Auth-Guard die gleiche Info hat wie der SPA-Router in index.tsx
-    const currentPath = window.location.pathname;
+    // 🛡️ Entprellung: Kurz warten, um Race Conditions zu vermeiden
+    const guardTimer = setTimeout(() => {
+      const currentPath = window.location.pathname;
 
-    // Prüfe, ob die Seite öffentlich ist. Wenn ja, darf der Auth-Guard NICHTS tun.
-    if (isPublicPath(currentPath)) {
+      // Prüfe, ob die Seite öffentlich ist
+      if (isPublicPath(currentPath)) {
+        return;
+      }
 
-      return;
-    }
+      // Nur bei privaten Seiten Auth prüfen
+      const isAuthenticatedUser = status === 'authenticated' && !isGuest;
+      const isGuestUser = status === 'unauthenticated' && isGuest;
 
-    // Nur wenn die Seite NICHT öffentlich ist, prüfen wir auf Authentifizierung.
-    const isAuthenticatedUser = status === 'authenticated' && !isGuest;
-    const isGuestUser = status === 'unauthenticated' && isGuest;
+      if (!isAuthenticatedUser && !isGuestUser) {
+        // console.log(`[Auth-Guard] Private Seite ${currentPath} - Redirect zu / (Status: ${status}, Gast: ${isGuest})`);
+        debouncedRouterPush(router, '/', undefined, true);
+      }
+    }, 100); // 100ms Entprellung
 
-    if (!isAuthenticatedUser && !isGuestUser) {
-      console.log(`[_app.tsx] Private Seite ${currentPath} - Weiterleitung zu / wegen Auth-Status: ${status}, isGuest: ${isGuest}`);
-      debouncedRouterPush(router, '/', undefined, true);
-    }
-  }, [router.isReady, isAppLoaded, status, isGuest]); // router.pathname wird nicht mehr benötigt
+    return () => clearTimeout(guardTimer);
+  }, [router.isReady, isAppLoaded, status, isGuest]);
 
 
   // NEU: useEffect zur Prüfung auf aktives Turnier für den eingeloggten Benutzer
@@ -235,24 +248,31 @@ const MyApp = ({Component, pageProps}: AppProps) => {
   }, [userActiveTournamentId, userActiveTournamentStatus, router.isReady, isAppLoaded, 
       router.pathname, hasBeenRedirected, setHasBeenRedirected, status]);
 
-  // NEU: Sync-Engine Initialisierung
+  // 🛡️ BULLETPROOF: Nicht-blockierende Sync-Engine Initialisierung
   useEffect(() => {
     let syncEngine: any = null;
     
     const initializeOfflineSync = async () => {
       try {
-        // Warte bis IndexedDB initialisiert ist
-        await getOfflineDB();
-        // IndexedDB initialisiert, starte Offline Sync Engine
+        // 🛡️ BULLETPROOF: IndexedDB mit Timeout-Protection
+        await Promise.race([
+          getOfflineDB(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('IndexedDB timeout')), 2000)
+          )
+        ]);
+        
         syncEngine = initSyncEngine();
-        // Offline Sync Service erfolgreich initialisiert
+        // console.log('[App] ✅ Offline Sync Engine initialisiert');
       } catch (error) {
-        console.error('[App] Fehler bei der Initialisierung des Offline Sync:', error);
+        console.warn('[App] ⚠️ Offline Sync nicht verfügbar (nicht kritisch):', error);
+        // App funktioniert weiter ohne Offline-Sync
       }
     };
 
-    // Nur initialisieren, wenn wir im Browser sind
+    // Nur initialisieren, wenn wir im Browser sind - nicht-blockierend
     if (typeof window !== 'undefined') {
+      // Starte Initialisierung im Hintergrund, blockiere aber nicht die App
       initializeOfflineSync();
     }
 
@@ -268,7 +288,7 @@ const MyApp = ({Component, pageProps}: AppProps) => {
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
       import('@/utils/offlineTestHelper').then(() => {
-        console.log('[App] 🧪 Offline test helper loaded. Use testOfflineSync() in console to run tests.');
+        // console.log('[App] 🧪 Offline test helper loaded. Use testOfflineSync() in console to run tests.');
       });
     }
   }, []);

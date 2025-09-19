@@ -27,7 +27,7 @@ import { getSessionWinRateDisplay, getWinRateDisplay } from '@/utils/winRateUtil
 import { CURRENT_PROFILE_THEME, THEME_COLORS, getCurrentProfileTheme } from '@/config/theme';
 import { useClickAndScrollHandler } from '@/hooks/useClickAndScrollHandler';
 import { StatLink } from '@/components/statistics/StatLink';
-import {fetchCompletedSessionsForUser, SessionSummary} from '@/services/sessionService';
+import {fetchCompletedSessionsForUser, fetchCompletedSessionsForPlayer, SessionSummary} from '@/services/sessionService';
 import { LegalFooter } from '@/components/layout/LegalFooter';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -769,37 +769,56 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       <div className="p-4 space-y-2">
                         <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                           <span className="font-medium text-gray-300">Strichdifferenz:</span>
-                          <span className="text-gray-100 text-lg font-medium">
-                            {playerStats?.totalStrichesDifference !== undefined && playerStats.totalStrichesDifference > 0 ? '+' : ''}
-                            {playerStats?.totalStrichesDifference || 0}
+                          <span className="text-gray-100">
+                            <span className="text-gray-400 mr-1 text-sm">
+                              ({playerStats?.totalStricheMade || 0}/{playerStats?.totalStricheReceived || 0})
+                            </span>
+                            <span className="text-lg font-medium">
+                              {playerStats?.totalStrichesDifference !== undefined && playerStats.totalStrichesDifference > 0 ? '+' : ''}
+                              {playerStats?.totalStrichesDifference || 0}
+                            </span>
                           </span>
                         </div>
                         <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                           <span className="font-medium text-gray-300">Punktdifferenz:</span>
-                          <span className="text-gray-100 text-lg font-medium">
-                            {playerStats?.totalPointsDifference !== undefined && playerStats.totalPointsDifference > 0 ? '+' : ''}
-                            {playerStats?.totalPointsDifference || 0}
+                          <span className="text-gray-100">
+                            <span className="text-gray-400 mr-1 text-sm">
+                              ({(() => {
+                                const formatLargeNumber = (num: number): string => {
+                                  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+                                  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+                                  return num.toString();
+                                };
+                                return `${formatLargeNumber(playerStats?.totalPointsMade || 0)}/${formatLargeNumber(playerStats?.totalPointsReceived || 0)}`;
+                              })()})
+                            </span>
+                            <span className="text-lg font-medium">
+                              {playerStats?.totalPointsDifference !== undefined && playerStats.totalPointsDifference > 0 ? '+' : ''}
+                              {playerStats?.totalPointsDifference || 0}
+                            </span>
                           </span>
                         </div>
                         <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Partien gewonnen:</span>
-                          <span className="text-gray-100 text-lg font-medium">{playerStats?.sessionsWon || 0}</span>
+                          <span className="font-medium text-gray-300">Siegquote Partien:</span>
+                          <span className="text-gray-100">
+                            <span className="text-gray-400 mr-1 text-sm">
+                              ({playerStats?.sessionsWon || 0}/{playerStats?.sessionsLost || 0}/{playerStats?.sessionsTied || 0})
+                            </span>
+                            <span className="text-lg font-medium">
+                              {playerStats?.sessionWinRate !== undefined ? `${(playerStats.sessionWinRate * 100).toFixed(1)}%` : '0.0%'}
+                            </span>
+                          </span>
                         </div>
                         <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Partien unentschieden:</span>
-                          <span className="text-gray-100 text-lg font-medium">{playerStats?.sessionsTied || 0}</span>
-                        </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Partien verloren:</span>
-                          <span className="text-gray-100 text-lg font-medium">{playerStats?.sessionsLost || 0}</span>
-                        </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Spiele gewonnen:</span>
-                          <span className="text-gray-100 text-lg font-medium">{playerStats?.gamesWon || 0}</span>
-                        </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Spiele verloren:</span>
-                          <span className="text-gray-100 text-lg font-medium">{playerStats?.gamesLost || 0}</span>
+                          <span className="font-medium text-gray-300">Siegquote Spiele:</span>
+                          <span className="text-gray-100">
+                            <span className="text-gray-400 mr-1 text-sm">
+                              ({playerStats?.gamesWon || 0}/{playerStats?.gamesLost || 0})
+                            </span>
+                            <span className="text-lg font-medium">
+                              {playerStats?.gameWinRate !== undefined ? `${(playerStats.gameWinRate * 100).toFixed(1)}%` : '0.0%'}
+                            </span>
+                          </span>
                         </div>
                         <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
                           <span className="font-medium text-gray-300">Matsch-Bilanz:</span>
@@ -846,7 +865,34 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Block 3: 🏆 Highlights */}
+                    {/* Block 3: Trumpfansagen */}
+                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
+                        <h3 className="text-base font-semibold text-white">Trumpfansagen</h3>
+                      </div>
+                      <div ref={trumpfStatistikRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                        {trumpfStatistikArray.length > 0 ? (
+                          trumpfStatistikArray.map((item, index) => (
+                            <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
+                              <div className="flex items-center">
+                                <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                <FarbePictogram farbe={normalizeJassColor(item.farbe)} mode="svg" className="h-6 w-6 mr-2" />
+                                <span className="text-gray-300 capitalize">{item.farbe}</span>
+                              </div>
+                              <span className="text-white font-medium mr-2">
+                                <span className="text-gray-400 mr-1 text-sm">({item.anzahl})</span>
+                                <span className="text-lg font-medium">{(item.anteil * 100).toFixed(1)}%</span>
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-gray-400 text-center py-2">Keine Trumpfstatistik verfügbar</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Block 4: 🏆 Highlights */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                         <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
@@ -988,7 +1034,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Block 4: 👎 Lowlights */}
+                    {/* Block 5: 👎 Lowlights */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                         <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
@@ -1127,30 +1173,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             </div>
                           )}
                         </div>
-                      </div>
-                    </div>
-
-                    {/* Block 5: Trumpffarben */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
-                        <h3 className="text-base font-semibold text-white">Trumpffarben</h3>
-                      </div>
-                      <div ref={trumpfStatistikRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                        {trumpfStatistikArray.length > 0 ? (
-                          trumpfStatistikArray.map((item, index) => (
-                            <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
-                              <div className="flex items-center">
-                                <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                <FarbePictogram farbe={normalizeJassColor(item.farbe)} mode="svg" className="h-6 w-6 mr-2" />
-                                <span className="text-gray-300 capitalize">{item.farbe}</span>
-                              </div>
-                              <span className="text-white text-lg font-medium">{(item.anteil * 100).toFixed(1)}%</span>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="text-gray-400 text-center py-2">Keine Trumpfstatistik verfügbar</div>
-                        )}
                       </div>
                     </div>
                   </div>

@@ -50,6 +50,51 @@ class MyDocument extends Document {
           <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
           <meta httpEquiv="Pragma" content="no-cache" />
           <meta httpEquiv="Expires" content="0" />
+
+          {/* Inline-Failsafe: Wenn die App in der PWA nicht binnen 2s hydriert,
+              deregistriere evtl. Legacy-SWs und lade einmal mit ?no-sw=1 neu. */}
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `(() => {
+  try {
+    const isStandalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || (typeof navigator !== 'undefined' && navigator && navigator['standalone']);
+
+    // Erlaubt dem App-Code den Timeout abzubrechen, sobald Hydration beginnt
+    window.cancelPwaLoadTimeout = function() {
+      try { clearTimeout(window['__pwaHydrationTimer__']); } catch (e) {}
+    };
+
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('no-sw') === '1') {
+      window['__NO_SW__'] = true;
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(rs){ return Promise.all(rs.map(function(r){ return r.unregister(); })); }).catch(function(){});
+      }
+      if ('caches' in window) {
+        caches.keys().then(function(keys){ return Promise.all(keys.map(function(k){ return caches.delete(k); })); }).catch(function(){});
+      }
+    }
+
+    if (isStandalone) {
+      window['__pwaHydrationTimer__'] = setTimeout(async () => {
+        try {
+          // Wenn bis dahin keine Hydration passierte, härterer Reset
+          if ('serviceWorker' in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map(r => r.unregister()));
+          }
+          const reloadUrl = new URL(window.location.href);
+          if (!reloadUrl.searchParams.get('no-sw')) reloadUrl.searchParams.set('no-sw','1');
+          window.location.replace(reloadUrl.toString());
+        } catch (e) {
+          window.location.reload();
+        }
+      }, 2000);
+    }
+  } catch (e) {}
+})();`
+            }}
+          />
         </Head>
         <body>
           <Main />

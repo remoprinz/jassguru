@@ -3,7 +3,7 @@
 // KEIN Store-Import mehr hier!
 
 // Version wird zentral verwaltet
-import { SW_VERSION } from '@/config/version';
+import { SW_VERSION } from '@/config/version.js';
 
 // Globale Variable zur Speicherung der aktuellen Registrierung
 let activeRegistration: ServiceWorkerRegistration | null = null;
