@@ -109,13 +109,13 @@ try {
   // Initialisiere Firebase nur wenn Config vollständig ist
   if (!isMissingConfig()) {
     app = initializeApp(firebaseConfig);
+    // Auth initialisieren
+    auth = getAuth(app);
   } else {
     // Fallback für unvollständige Config (z.B. im CI ohne .env.local)
-    throw new Error('Firebase config incomplete');
+    // Erstelle Mock-Objekte damit der Code nicht abstürzt
+    throw new Error('Firebase config incomplete - skipping initialization');
   }
-
-  // Auth initialisieren
-  auth = getAuth(app);
 
   // Setze Persistenz auf LOCAL, damit Benutzer über längere Zeit eingeloggt bleiben
   // Dies wird nur im Browser ausgeführt, nicht im Server-Kontext
@@ -214,15 +214,17 @@ try {
     // );
   }
 } catch (error) {
-  console.error("Fehler bei der Firebase-Initialisierung:", error);
+  console.warn("Firebase-Initialisierung übersprungen (CI/Build-Mode):", error.message);
 
-  // Dummy-Objekte erstellen
+  // Dummy-Objekte erstellen für CI-Mode
   // @ts-expect-error - Firebase-App-Dummy für Offline-Mode
   app = {};
   // @ts-expect-error - Firebase-Auth-Dummy für Offline-Mode
   auth = {};
   // @ts-expect-error - Firestore-DB-Dummy für Offline-Mode
   db = {};
+  // @ts-expect-error - Storage-Dummy für Offline-Mode
+  storage = {};
 }
 
 // Funktionen zum Registrieren, Anmelden und Zurücksetzen des Passworts
