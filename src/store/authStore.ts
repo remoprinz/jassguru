@@ -1,7 +1,7 @@
 import {create} from "zustand";
 import {persist} from "zustand/middleware";
 import {auth, db} from "../services/firebaseInit";
-import {onAuthStateChanged, User, fetchSignInMethodsForEmail, createUserWithEmailAndPassword, sendEmailVerification, updateProfile} from "firebase/auth";
+import {onAuthStateChanged, User, fetchSignInMethodsForEmail, createUserWithEmailAndPassword, sendEmailVerification, updateProfile, getAuth} from "firebase/auth";
 import { FirebaseError } from "firebase/app";
 import {
   loginWithEmail,
@@ -107,7 +107,8 @@ export const useAuthStore = create<AuthStore>()(
         // Asynchrone Logik zur Anreicherung des User-Objekts
         try {
           const userRef = doc(db, USERS_COLLECTION, firebaseUser.uid);
-          userDocUnsubscribe = onSnapshot(userRef, (docSnap) => {
+          let retriedPermissionDenied = false;
+          const attachUserListener = () => onSnapshot(userRef, (docSnap) => {
             if (docSnap.exists()) {
               const userData = docSnap.data();
               const mappedUser = mapUserToAuthUser(firebaseUser, userData as Partial<FirestorePlayer>);
@@ -119,10 +120,25 @@ export const useAuthStore = create<AuthStore>()(
             } else {
                console.warn(`AUTH_STORE: Firestore user document not found for ${firebaseUser.uid}.`);
             }
-          }, (error) => {
+          }, async (error) => {
             console.error(`AUTH_STORE: Fehler im User Doc Listener für ${firebaseUser.uid}:`, error);
+            // Hotfix: Seltene Race-Condition direkt nach Google Sign-In
+            // -> Token auffrischen und Listener einmalig neu anhängen
+            // Verhindert "Missing or insufficient permissions" unmittelbar nach Login
+            try {
+              if (!retriedPermissionDenied && (error as FirestoreError).code === 'permission-denied') {
+                retriedPermissionDenied = true;
+                await getAuth().currentUser?.getIdToken(true);
+                // kurzer Delay, damit die neuen Credentials übernommen werden
+                await new Promise(r => setTimeout(r, 200));
+                if (userDocUnsubscribe) { userDocUnsubscribe(); }
+                userDocUnsubscribe = attachUserListener();
+                return;
+              }
+            } catch (_) {}
             set({ status: "error", error: "Fehler beim Laden der Benutzerdaten." });
           });
+          userDocUnsubscribe = attachUserListener();
           
           const playerId = await getPlayerIdForUser(firebaseUser.uid, firebaseUser.displayName || '');
           if (playerId) {

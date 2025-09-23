@@ -25,7 +25,12 @@
     "health": "node scripts/health-check.js",
     "reprocess:images": "node scripts/reprocess-profile-images.mjs",
     "fix-permissions": "ts-node scripts/fix-permissions.ts",
-    "fix-permissions:dry": "ts-node scripts/fix-permissions.ts --dry-run"
+    "fix-permissions:dry": "ts-node scripts/fix-permissions.ts --dry-run",
+    "calculate-ratings:games": "node scripts/calculateRatingsPerGame.cjs",
+    "calculate-ratings:games:group": "node scripts/calculateRatingsPerGame.cjs",
+    "validate-jass-elo": "node scripts/validateJassElo.cjs",
+    "reset-ratings": "node scripts/resetAndRecalculate.cjs",
+    "show-leaderboard": "node scripts/showJassEloLeaderboard.cjs"
   },
   "engines": {
     "node": ">=18.0.0 <23.0.0",

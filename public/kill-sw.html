@@ -1,6 +1,118 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Jassguru – Recovery</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:#0b1220; color:#fff; margin:0; }
+    .wrap { min-height: 100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
+    .card { width:100%; max-width:560px; background:#0f172a; border:1px solid #24304a; border-radius:12px; padding:24px; box-shadow: 0 10px 30px rgba(0,0,0,0.35); }
+    h1 { margin:0 0 8px; font-size:20px; }
+    p { margin:8px 0; color:#cbd5e1; }
+    .log { margin-top:16px; background:#0b1220; border:1px solid #1f2937; border-radius:8px; padding:12px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; color:#9ca3af; max-height:160px; overflow:auto; }
+    .row { display:flex; gap:12px; margin-top:16px; flex-wrap:wrap; }
+    button, a.btn { appearance:none; border:none; border-radius:8px; padding:10px 14px; cursor:pointer; font-weight:600; text-decoration:none; }
+    .primary { background:#22c55e; color:#052e16; }
+    .secondary { background:#334155; color:#e2e8f0; }
+    .danger { background:#ef4444; color:#fee2e2; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Jassguru – Sicherer Wiederherstellungsmodus</h1>
+      <p>Wir bereinigen jetzt deinen Service Worker und Cache. Danach kannst du die App neu starten – ohne Neuinstallation.</p>
+      <div class="row">
+        <button id="start" class="primary">Bereinigung starten</button>
+        <a id="restart" class="secondary" href="/">App neu starten</a>
+        <button id="force" class="danger">Alles löschen (Notfall)</button>
+      </div>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const logEl = document.getElementById('log');
+      const restartEl = document.getElementById('restart');
+      const startBtn = document.getElementById('start');
+      const forceBtn = document.getElementById('force');
+
+      function log(msg){
+        const time = new Date().toLocaleTimeString();
+        logEl.textContent += `[${time}] ${msg}\n`;
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      async function unregisterAllSW(){
+        if (!('serviceWorker' in navigator)) { log('Kein Service Worker Support.'); return; }
+        try {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r => r.unregister()));
+          log(`Service Worker deregistriert: ${regs.length}`);
+        } catch(e){ log('Fehler bei SW-Deregistrierung: ' + (e && e.message)); }
+      }
+
+      async function clearAllCaches(){
+        if (!('caches' in window)) { log('Kein Cache-API Support.'); return; }
+        try {
+          const names = await caches.keys();
+          await Promise.all(names.map(n => caches.delete(n)));
+          log(`Caches gelöscht: ${names.length}`);
+        } catch(e){ log('Fehler beim Cache-Löschen: ' + (e && e.message)); }
+      }
+
+      function clearStorageFlags(){
+        try { sessionStorage.removeItem('pwaUpdateReloaded'); } catch {}
+        try { sessionStorage.removeItem('hydrationReloaded'); } catch {}
+        try { localStorage.removeItem('swActivationFailures'); } catch {}
+        log('Recovery-Flags zurückgesetzt');
+      }
+
+      function addNoSwParamToRestart(){
+        try {
+          const url = new URL(window.location.origin + '/');
+          url.searchParams.set('no-sw','1');
+          restartEl.href = url.toString();
+          log('Restart-Link mit ?no-sw=1 vorbereitet');
+        } catch {}
+      }
+
+      async function runRecovery(){
+        startBtn.disabled = true; forceBtn.disabled = true;
+        log('Starte Bereinigung...');
+        await unregisterAllSW();
+        await clearAllCaches();
+        clearStorageFlags();
+        addNoSwParamToRestart();
+        log('✅ Fertig. Klicke "App neu starten".');
+      }
+
+      async function runForce(){
+        startBtn.disabled = true; forceBtn.disabled = true;
+        await runRecovery();
+        // Harte Weiterleitung nach erfolgreicher Bereinigung
+        try {
+          const url = new URL(window.location.origin + '/');
+          url.searchParams.set('no-sw','1');
+          window.location.replace(url.toString());
+        } catch(e){ log('Notfall-Redirect fehlgeschlagen: ' + (e && e.message)); }
+      }
+
+      startBtn.addEventListener('click', runRecovery);
+      forceBtn.addEventListener('click', runForce);
+
+      // Auto-Start (komfortabel): Versuche direkt zu bereinigen
+      runRecovery();
+    })();
+  </script>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
   <meta charset="UTF-8">
   <title>Jassguru App Update...</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">

@@ -275,9 +275,15 @@ class ServiceWorkerService {
     if (!this.registration || !this.registration.waiting) {
       // console.log('[PWA] Kein wartender Service Worker zum Aktivieren gefunden. Führe sicheren Hard-Reload durch...');
       try {
-        // Fallback: Wenn der SW bereits skipWaiting() nutzt (z. B. iOS/next-pwa),
-        // existiert oft kein "waiting". Ein Hard-Reload lädt die neue Version dennoch zuverlässig.
-        window.location.href = window.location.href.split('?')[0] + '?updated=' + Date.now();
+        const alreadyReloaded = (() => {
+          try { return sessionStorage.getItem('pwaUpdateReloaded') === '1'; } catch { return false; }
+        })();
+        if (!alreadyReloaded) {
+          try { sessionStorage.setItem('pwaUpdateReloaded', '1'); } catch {}
+          // Fallback: Wenn der SW bereits skipWaiting() nutzt (z. B. iOS/next-pwa),
+          // existiert oft kein "waiting". Ein Hard-Reload lädt die neue Version dennoch zuverlässig.
+          window.location.href = window.location.href.split('?')[0] + '?updated=' + Date.now();
+        }
       } catch (err) {
         // Als letzte Rückfallebene normales Reload versuchen
         try {
@@ -310,9 +316,13 @@ class ServiceWorkerService {
           // 🔁 Auto-Fallback-Zähler erhöhen und ggf. Kill-Switch auslösen
           this.handleActivationFailureAndMaybeKill();
 
-          // 🛡️ BULLETPROOF FALLBACK: Hard Reload auch bei Timeout
+          // 🛡️ BULLETPROOF FALLBACK: Hard Reload auch bei Timeout (einmalig)
           try {
-            window.location.href = window.location.href.split('?')[0] + '?updated=' + Date.now();
+            const alreadyReloaded = (() => { try { return sessionStorage.getItem('pwaUpdateReloaded') === '1'; } catch { return false; } })();
+            if (!alreadyReloaded) {
+              try { sessionStorage.setItem('pwaUpdateReloaded', '1'); } catch {}
+              window.location.href = window.location.href.split('?')[0] + '?updated=' + Date.now();
+            }
           } catch (fallbackError) {
             // console.warn('[PWA] Fallback-Reload fehlgeschlagen, aber kein kritischer Fehler:', fallbackError);
           }
@@ -341,7 +351,8 @@ class ServiceWorkerService {
         // Erfolg -> Fehlversuche zurücksetzen
         this.resetActivationFailCount();
 
-        // 🛡️ BULLETPROOF: Hard Reload mit Cache-Bypass für 100% robuste Updates
+        // 🛡️ BULLETPROOF: Hard Reload mit Cache-Bypass (einmalig)
+        try { sessionStorage.setItem('pwaUpdateReloaded', '1'); } catch {}
         window.location.href = window.location.href.split('?')[0] + '?updated=' + Date.now();
         
         resolve();

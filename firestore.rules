@@ -156,6 +156,18 @@ service cloud.firestore {
                                  (request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.adminIds ||
                                   request.auth.uid == resource.data.invitedBy);
       }
+
+      // Player Ratings in einer Gruppe (Spiegelung der globalen Ratings)
+      match /playerRatings/{playerId} {
+        allow read: if true; // Öffentlich lesbar für Gruppen-Leaderboards
+        allow write: if false; // Nur für Cloud Functions und Scripts
+        
+        // 🆕 Rating-Historie Subcollection
+        match /history/{historyId} {
+          allow read: if true; // Öffentlich lesbar für Rating-Verlaufskurven
+          allow write: if false; // Nur für Cloud Functions und Scripts
+        }
+      }
     }
 
     // =====================================================================
@@ -271,6 +283,16 @@ service cloud.firestore {
     match /playerComputedStats/{playerId} {
         allow read: if true;
         // KORREKTUR: Schreibzugriff nur für Cloud Functions (vom Client blockiert)
+        allow write: if false;
+    }
+
+    // =====================================================================
+    // PLAYER RATINGS - Jass-Elo System
+    // =====================================================================
+    match /playerRatings/{playerId} {
+        // Jeder darf Elo-Ratings lesen (für öffentliche Profile)
+        allow read: if true;
+        // Schreibzugriff nur für Cloud Functions und Scripts
         allow write: if false;
     }
 

@@ -36,15 +36,70 @@ Um das Projekt lokal zu starten, folgen Sie diesen Schritten:
 
    Die Anwendung ist nun unter [http://localhost:3000](http://localhost:3000) verfügbar.
 
+## Jass-Elo Rating System
+
+Die Jasstafel App verwendet ein eigenes **Jass-Elo Rating System** zur Bewertung der Spielerfertigkeiten. Das System basiert auf dem klassischen Elo-Algorithmus (siehe [Wikipedia: Elo-Zahl](https://de.wikipedia.org/wiki/Elo-Zahl)) mit Jass-spezifischen Anpassungen.
+
+### Kernprinzipien
+
+- **Wikipedia-konform**: Verwendet nur Striche als Performance-Metric (wie Punkte im Tischtennis)
+- **K-Rampe**: Neue Spieler haben weniger Volatilität (10% Wirkung → 100% nach 50 Spielen)
+- **Gruppenübergreifend**: Globaler Skill-Level unabhängig von der Spielgruppe
+- **Zero-sum**: Jedes Spiel verschiebt Rating-Punkte von Verlierern zu Gewinnern
+
+### Algorithmus
+
+```typescript
+// Erwartungswert (klassisches Elo)
+E_A = 1 / (1 + 10^((Rating_B - Rating_A) / 400))
+
+// Performance-Score (Striche-Anteil)
+S = Striche_A / (Striche_A + Striche_B)
+
+// K-Rampe für Stabilität
+f(n) = 0.1 + 0.9 * min(1, n/50)
+K_eff = 20 * f(Spiele_gespielt)
+
+// Rating-Update
+Δ_Rating = K_eff * (S - E)
+```
+
+### Tier-System
+
+| Rating | Tier | Beschreibung |
+|--------|------|--------------|
+| 2000+ | Grandmaster | Elite-Spieler |
+| 1800+ | Master | Hervorragende Spieler |
+| 1600+ | Diamond | Sehr gute Spieler |
+| 1400+ | Platin | Gute Spieler |
+| 1300+ | Gold | Solide Spieler |
+| 1200+ | Silber | Durchschnittliche Spieler |
+| <1200 | Bronze | Anfänger |
+
+### Rating-Berechnung
+
+```bash
+# Alle Gruppen neu berechnen
+npm run calculate-ratings:games
+
+# Spezifische Gruppe
+npm run calculate-ratings:games:group [groupId]
+
+# Reset & Neuberechnung
+node scripts/resetAndRecalculate.cjs [groupId]
+```
+
 ## Verfügbare Skripte
 
 Im Projektverzeichnis können Sie folgende Befehle ausführen:
 
-### `npm run dev`
+### Entwicklung
+
+#### `npm run dev`
 
 Startet den Entwicklungsserver. Öffnen Sie [http://localhost:3000](http://localhost:3000), um die Anwendung im Browser zu sehen.
 
-### `npm run build`
+#### `npm run build`
 
 Erstellt eine optimierte Produktionsversion der Anwendung.
 

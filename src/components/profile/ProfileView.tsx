@@ -33,6 +33,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import type { ThemeColor } from '@/config/theme';
 import { generateBlurPlaceholder } from '@/utils/imageOptimization';
+// NEU: Jass-Elo Service
+import { loadPlayerRatings, type PlayerRatingWithTier, getRatingTier } from '@/services/jassElo';
+import { db } from '@/services/firebaseInit';
+import { doc, getDoc } from 'firebase/firestore';
 
 // Types
 interface ExpectedPlayerStatsWithAggregates {
@@ -155,6 +159,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   // Neu: State für Bildladung
   const [isImageLoading, setIsImageLoading] = useState(true);
+  
+  // NEU: State für Elo-Rating
+  const [playerRating, setPlayerRating] = useState<PlayerRatingWithTier | null>(null);
 
   // Memoized color computation - optimiert für Performance
   const accentColor = useMemo(() => {
@@ -330,11 +337,74 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       .sort((a, b) => b.anzahl - a.anzahl);
   }, [playerStats]);
 
-  // Bestimme den aktuellen Player (für Public View aus props, für Private View aus user)
-  const currentPlayer = isPublicView ? player : user;
+  // Bestimme den aktuellen Player (für Public View aus props, für Private View verwende bevorzugt den Firestore-Player aus props)
+  const currentPlayer = isPublicView ? player : (player || user);
   const displayName = currentPlayer?.displayName || "Unbekannter Spieler";
   const photoURL = currentPlayer?.photoURL;
-      const jassSpruch = currentPlayer?.statusMessage || "Hallo! Ich jasse mit jassguru.ch";
+  const jassSpruch = currentPlayer?.statusMessage || "Hallo! Ich jasse mit jassguru.ch";
+
+  // NEU: Lade Elo-Rating für aktuellen Spieler
+  React.useEffect(() => {
+    // Sammle alle möglichen IDs
+    const possibleIds = [
+      (currentPlayer as any)?.id,
+      (currentPlayer as any)?.userId,
+      (user as any)?.playerId,
+      (user as any)?.uid
+    ].filter(Boolean);
+
+    if (possibleIds.length === 0) return;
+
+    (async () => {
+      try {
+        // console.log('🔍 Suche Elo für IDs:', possibleIds);
+        
+        // 1) Versuche Root-Collection mit allen IDs
+        for (const playerId of possibleIds) {
+          const rootRatings = await loadPlayerRatings([playerId]);
+          const root = rootRatings.get(playerId);
+          if (root) {
+            // console.log('✅ Elo gefunden (Root):', root);
+            setPlayerRating(root);
+            return;
+          }
+        }
+
+        // 2) Fallback: Gruppenspezifische Subcollections
+        const groupIds: string[] = Array.isArray((currentPlayer as any)?.groupIds)
+          ? (currentPlayer as any).groupIds
+          : (Array.isArray((user as any)?.groupIds) ? (user as any).groupIds : []);
+
+        let best: PlayerRatingWithTier | null = null;
+        for (const playerId of possibleIds) {
+          for (const gid of groupIds) {
+            try {
+              const dref = doc(db as any, `groups/${gid}/playerRatings/${playerId}`);
+              const dsnap = await getDoc(dref);
+              if (dsnap.exists()) {
+                const data: any = dsnap.data();
+                const tier = getRatingTier(data.rating || 1000);
+                const candidate: PlayerRatingWithTier = {
+                  id: playerId,
+                  rating: data.rating || 1000,
+                  gamesPlayed: data.gamesPlayed || 0,
+                  lastUpdated: data.lastUpdated || Date.now(),
+                  displayName: data.displayName,
+                  tier: tier.name,
+                  tierEmoji: tier.emoji,
+                };
+                if (!best || candidate.rating > best.rating) best = candidate;
+                // console.log('✅ Elo gefunden (Group):', candidate);
+              }
+            } catch {}
+          }
+        }
+        if (best) setPlayerRating(best);
+      } catch (error) {
+        console.warn('Fehler beim Laden des Elo-Ratings:', error);
+      }
+    })();
+  }, [currentPlayer, user]);
 
   // ===== LOKALE TAB-COLOR FUNKTION (IDENTISCH ZU GROUPVIEW) =====
   const getTabActiveColor = (themeKey: string): string => {
@@ -491,11 +561,21 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
         <div className="w-full text-center mb-6 px-4">
           <h1 
-            className="text-3xl font-bold mb-1 text-white break-words transition-colors duration-300"
+            className="text-3xl font-bold mb-3 text-white break-words transition-colors duration-300"
           >
             {statsLoading ? <Skeleton className="h-9 w-48 mx-auto" /> : displayName}
           </h1>
-          <div className="text-base text-gray-300 mx-auto max-w-xl break-words mt-3">
+          
+          {/* NEU: Jass-Elo Rating unterhalb des Namens */}
+          {playerRating && (
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <span className="text-base text-gray-300">Jass-Elo:</span>
+              <span className="text-xl font-semibold text-white">{Math.round(playerRating.rating)}</span>
+              <span className="text-lg">{playerRating.tierEmoji}</span>
+            </div>
+          )}
+          
+          <div className="text-base text-gray-300 mx-auto max-w-xl break-words">
             <p className="text-center">{statsLoading ? <Skeleton className="h-5 w-64 mx-auto" /> : jassSpruch}</p>
           </div>
         </div>
@@ -871,7 +951,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Trumpfansagen</h3>
                       </div>
-                      <div ref={trumpfStatistikRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div ref={trumpfStatistikRef} className="p-4 space-y-2  pr-2">
                         {trumpfStatistikArray.length > 0 ? (
                           trumpfStatistikArray.map((item, index) => (
                             <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
@@ -1193,7 +1273,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Siegquote Partien</h3>
                       </div>
-                      <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).partnerAggregates
                           .filter((partner: any) => partner.sessionsPlayedWith >= 1)
                           .sort((a: any, b: any) => (b.sessionWinRate || 0) - (a.sessionWinRate || 0))
@@ -1253,7 +1333,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Siegquote Spiele</h3>
                       </div>
-                      <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div className="p-4 space-y-2  pr-2">
                                                         {(playerStats as any).partnerAggregates
                           .filter((partner: any) => partner.gamesPlayedWith >= 1)
                           .sort((a: any, b: any) => (b.gameWinRate || 0) - (a.gameWinRate || 0))
@@ -1312,7 +1392,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Strichdifferenz</h3>
                       </div>
-                      <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).partnerAggregates
                           .filter((partner: any) => partner.gamesPlayedWith >= 1)
                           .sort((a: any, b: any) => b.totalStricheDifferenceWith - a.totalStricheDifferenceWith)
@@ -1363,7 +1443,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Punktdifferenz</h3>
                   </div>
-                      <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).partnerAggregates
                           .filter((partner: any) => partner.gamesPlayedWith >= 1)
                           .sort((a: any, b: any) => b.totalPointsDifferenceWith - a.totalPointsDifferenceWith)
@@ -1414,7 +1494,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Matsch-Bilanz</h3>
                       </div>
-                      <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).partnerAggregates
                           .filter((partner: any) => partner.gamesPlayedWith >= 1 && ((partner.matschEventsMadeWith || 0) > 0 || (partner.matschEventsReceivedWith || 0) > 0))
                           .sort((a: any, b: any) => (b.matschBilanz || 0) - (a.matschBilanz || 0))
@@ -1469,7 +1549,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Schneider-Bilanz</h3>
                       </div>
-                      <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).partnerAggregates
                           .filter((partner: any) => partner.gamesPlayedWith >= 1 && ((partner.schneiderEventsMadeWith || 0) > 0 || (partner.schneiderEventsReceivedWith || 0) > 0))
                           .sort((a: any, b: any) => (b.schneiderBilanz || 0) - (a.schneiderBilanz || 0))
@@ -1524,7 +1604,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Kontermatsch-Bilanz</h3>
                   </div>
-                      <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).partnerAggregates
                           .filter((partner: any) => partner.gamesPlayedWith >= 1 && ((partner.kontermatschEventsMadeWith || 0) > 0 || (partner.kontermatschEventsReceivedWith || 0) > 0))
                           .sort((a: any, b: any) => (b.kontermatschBilanz || 0) - (a.kontermatschBilanz || 0))
@@ -1588,7 +1668,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Siegquote Partien</h3>
                       </div>
-                      <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).opponentAggregates
                           .filter((opponent: any) => opponent.sessionsPlayedAgainst >= 1)
                           .sort((a: any, b: any) => (b.sessionWinRate || 0) - (a.sessionWinRate || 0))
@@ -1648,7 +1728,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Siegquote Spiele</h3>
                       </div>
-                      <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).opponentAggregates
                           .filter((opponent: any) => opponent.gamesPlayedAgainst >= 1)
                           .sort((a: any, b: any) => (b.gameWinRate || 0) - (a.gameWinRate || 0))
@@ -1707,7 +1787,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Strichdifferenz</h3>
                       </div>
-                      <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).opponentAggregates
                           .filter((opponent: any) => opponent.gamesPlayedAgainst >= 1)
                           .sort((a: any, b: any) => b.totalStricheDifferenceAgainst - a.totalStricheDifferenceAgainst)
@@ -1758,7 +1838,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Punktdifferenz</h3>
                       </div>
-                      <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).opponentAggregates
                           .filter((opponent: any) => opponent.gamesPlayedAgainst >= 1)
                           .sort((a: any, b: any) => b.totalPointsDifferenceAgainst - a.totalPointsDifferenceAgainst)
@@ -1809,7 +1889,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Matsch-Bilanz</h3>
                       </div>
-                      <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).opponentAggregates
                           .filter((opponent: any) => opponent.gamesPlayedAgainst >= 1 && ((opponent.matschEventsMadeAgainst || 0) > 0 || (opponent.matschEventsReceivedAgainst || 0) > 0))
                           .sort((a: any, b: any) => (b.matschBilanz || 0) - (a.matschBilanz || 0))
@@ -1864,7 +1944,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Schneider-Bilanz</h3>
                       </div>
-                      <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).opponentAggregates
                           .filter((opponent: any) => opponent.gamesPlayedAgainst >= 1 && ((opponent.schneiderEventsMadeAgainst || 0) > 0 || (opponent.schneiderEventsReceivedAgainst || 0) > 0))
                           .sort((a: any, b: any) => (b.schneiderBilanz || 0) - (a.schneiderBilanz || 0))
@@ -1919,7 +1999,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
                         <h3 className="text-base font-semibold text-white">Kontermatsch-Bilanz</h3>
                       </div>
-                      <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).opponentAggregates
                           .filter((opponent: any) => opponent.gamesPlayedAgainst >= 1 && ((opponent.kontermatschEventsMadeAgainst || 0) > 0 || (opponent.kontermatschEventsReceivedAgainst || 0) > 0))
                           .sort((a: any, b: any) => (b.kontermatschBilanz || 0) - (a.kontermatschBilanz || 0))

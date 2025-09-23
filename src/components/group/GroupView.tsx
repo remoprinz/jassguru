@@ -4,7 +4,7 @@ import MainLayout from "@/components/layout/MainLayout";
 import { GroupSelector } from "@/components/group/GroupSelector";
 import JoinByInviteUI from "@/components/ui/JoinByInviteUI";
 import {Button} from "@/components/ui/button";
-import {Users, Settings, UserPlus, Camera, Upload, X, BarChart, Archive, BarChart2, CheckCircle, XCircle, MinusCircle, Award as AwardIcon, AlertTriangle, BarChart3} from "lucide-react";
+import {Users, Settings, UserPlus, Camera, Upload, X, BarChart, Archive, BarChart2, CheckCircle, XCircle, MinusCircle, Award as AwardIcon, AlertTriangle, BarChart3, Info} from "lucide-react";
 import { FiShare2 } from 'react-icons/fi'; // 🚨 NEU: Share Button Icons
 import { FormattedDescription } from "@/components/ui/FormattedDescription";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -24,6 +24,10 @@ import { LegalFooter } from '@/components/layout/LegalFooter';
 import { getOrtNameByPlz } from '@/utils/locationUtils';
 import { generateBlurPlaceholder } from '@/utils/imageOptimization';
 import { Skeleton } from '@/components/ui/skeleton';
+// NEU: Jass-Elo Service
+import { loadPlayerRatings, type PlayerRatingWithTier } from '@/services/jassElo';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/services/firebaseInit';
 
 // Props für Schritt 4: Komplette Statistik-Inhalte
 interface GroupViewProps {
@@ -219,6 +223,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
   
   // Neu: State für Bildladung
   const [isImageLoading, setIsImageLoading] = useState(true);
+  
+  // NEU: State für Elo-Ratings
+  const [playerRatings, setPlayerRatings] = useState<Map<string, PlayerRatingWithTier>>(new Map());
 
   // ===== REFS FÜR SCROLLBARE STATISTIK-CONTAINER (IDENTISCH ZUM ORIGINAL) =====
   // Übersicht
@@ -475,6 +482,46 @@ export const GroupView: React.FC<GroupViewProps> = ({
       return () => clearTimeout(watchdog);
     }
   }, [groupStatus, currentGroup]);
+
+  // NEU: Lade Elo-Ratings für Gruppenmitglieder
+  React.useEffect(() => {
+    if (members && members.length > 0) {
+      const playerIds = members.map(m => m.id || m.userId).filter(Boolean);
+      
+      loadPlayerRatings(playerIds)
+        .then(setPlayerRatings)
+        .catch(error => console.warn('Fehler beim Laden der Elo-Ratings:', error));
+    }
+  }, [members]);
+
+  // NEU: Öffentliche Gruppenansicht – lade Elo direkt aus group-Subcollection
+  React.useEffect(() => {
+    const groupId = currentGroup?.id;
+    if (!groupId) return;
+    (async () => {
+      try {
+        const snap = await getDocs(collection(db, `groups/${groupId}/playerRatings`));
+        if (!snap.empty) {
+          const map = new Map<string, PlayerRatingWithTier>();
+          snap.forEach(doc => {
+            const data: any = doc.data();
+            map.set(doc.id, {
+              id: doc.id,
+              rating: data.rating || 1000,
+              gamesPlayed: data.gamesPlayed || 0,
+              lastUpdated: data.lastUpdated || Date.now(),
+              displayName: data.displayName || `Spieler_${doc.id.slice(0,6)}`,
+              tier: '',
+              tierEmoji: ''
+            });
+          });
+          setPlayerRatings(map);
+        }
+      } catch (e) {
+        console.warn('Elo (group subcollection) konnte nicht geladen werden:', (e as any)?.message);
+      }
+    })();
+  }, [currentGroup?.id]);
 
   if (groupStatus === 'loading' && !currentGroup) {
     return (
@@ -913,7 +960,185 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 {/* ÜBERSICHT TAB - MIT ECHTEN INHALTEN UND REFS */}
                 <TabsContent value="overview" className="w-full bg-gray-800/50 rounded-lg p-4">
                   <div className="space-y-3 text-sm">
-                    {/* ECHTE Gruppenübersicht (aus dem Original) */}
+                    {/* 1. Spielerstärke (Jass-Elo) - NEUE REIHENFOLGE */}
+                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                      <div className="flex items-center justify-between border-b border-gray-700/50 px-4 py-3">
+                        <div className="flex items-center">
+                          <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
+                          <h3 className="text-base font-semibold text-white">🏆 Spielerstärke (Jass-Elo)</h3>
+                        </div>
+                        <a 
+                          href="https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/Jass-Elo-Whitepaper.pdf?alt=media&token=d32eae8b-dd83-4e53-a0b2-783abb720cb2" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-700/50 hover:bg-gray-600/70 border border-gray-600/40 hover:border-gray-500/60 transition-all duration-200 hover:scale-105"
+                          title="Jass-Elo Whitepaper öffnen"
+                        >
+                          <Info size={18} className="text-gray-300 hover:text-white" />
+                        </a>
+                      </div>
+                      <div ref={overviewMostGamesRef} className="p-4 space-y-2 pr-2">
+                        {(() => {
+                          // Erstelle sortierte Liste aus Elo-Ratings
+                          const ratingsArray = Array.from(playerRatings.values())
+                            .filter(rating => rating.gamesPlayed > 0) // Nur Spieler mit Spielen
+                            .sort((a, b) => b.rating - a.rating); // Nach Rating sortiert
+                          
+                          if (ratingsArray.length > 0) {
+                            return ratingsArray.map((rating, index) => {
+                              const playerData = members.find(m => (m.id || m.userId) === rating.id);
+                              const playerId = rating.id;
+                              return (
+                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=overview` : '#'} key={`eloRating-${index}`} isClickable={!!playerId} className="block rounded-md">
+                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                    <div className="flex items-center">
+                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <ProfileImage 
+                                        src={playerData?.photoURL} 
+                                        alt={rating.displayName || 'Spieler'} 
+                                        size="sm"
+                                        className={`mr-2 ${theme.profileImage}`}
+                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        fallbackText={rating.displayName ? rating.displayName.charAt(0).toUpperCase() : '?'}
+                                        context="list"
+                                      />
+                                      <span className="text-gray-300">{rating.displayName}</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <span className="text-white text-lg font-medium mr-2">{Math.round(rating.rating)}</span>
+                                      <span className="text-lg">{rating.tierEmoji}</span>
+                                    </div>
+                                  </div>
+                                </StatLink>
+                              );
+                            });
+                          } else {
+                            return <div className="text-gray-400 text-center py-2">Noch keine Elo-Ratings verfügbar</div>;
+                          }
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* 2. Rundentempo - NEUE REIHENFOLGE */}
+                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className="text-base font-semibold text-white">Rundentempo</h3>
+                      </div>
+                      <div ref={playerRoundTimeRef} className="p-4 space-y-2 pr-2">
+                        {(() => {
+                          if (groupStats?.playerAllRoundTimes && groupStats.playerAllRoundTimes.length > 0) {
+                            // Filter: Nur Spieler mit gültigen Rundendaten anzeigen
+                            const playersWithRoundTimes = groupStats.playerAllRoundTimes.filter(player => 
+                              player.value && player.value > 0
+                            );
+                            return playersWithRoundTimes.map((playerStat, index) => {
+                              const playerData = findPlayerByName(playerStat.playerName, members);
+                              const playerId = playerData?.id || playerStat.playerId;
+                              return (
+                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=overview` : '#'} key={`roundTime-${index}`} isClickable={!!playerId} className="block rounded-md">
+                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                    <div className="flex items-center">
+                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <ProfileImage 
+                                        src={playerData?.photoURL} 
+                                        alt={playerStat.playerName} 
+                                        size="sm"
+                                        className={`mr-2 ${theme.profileImage}`}
+                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
+                                        context="list"
+                                      />
+                                      <span className="text-gray-300">{playerStat.playerName}</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <span className="text-white text-lg font-medium text-right whitespace-nowrap">{formatMillisecondsDuration(playerStat.value)}</span>
+                                    </div>
+                                  </div>
+                                </StatLink>
+                              );
+                            });
+                          } else {
+                            return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
+                          }
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* 3. Trumpfansagen - NEUE REIHENFOLGE */}
+                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className="text-base font-semibold text-white">Trumpfansagen</h3>
+                      </div>
+                      <div ref={overviewTrumpfRef} className="p-4 space-y-2 pr-2">
+                        {trumpfStatistikArray.length > 0 ? (
+                          trumpfStatistikArray.map((item, index) => {
+                            // NEU: Logik für dynamische Anzeige
+                            const cardStyle = currentGroup?.farbeSettings?.cardStyle || 'DE';
+                            const mappedColorKey = toTitleCase(item.farbe);
+                            const displayName = CARD_SYMBOL_MAPPINGS[mappedColorKey as JassColor]?.[cardStyle] ?? mappedColorKey;
+                            
+                            return (
+                              <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                <div className="flex items-center">
+                                  <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                  <FarbePictogram 
+                                    farbe={normalizeJassColor(item.farbe)} 
+                                    mode="svg" 
+                                    cardStyle={cardStyle} // cardStyle übergeben
+                                    className="h-8 w-8 mr-2"
+                                  />
+                                  <span className="text-gray-300 capitalize">{displayName}</span>
+                                </div>
+                                <span className="text-white font-medium mr-2">
+                                  <span className="text-gray-400 mr-1 text-sm">({item.anzahl})</span>
+                                  <span className="text-lg font-medium">{(item.anteil * 100).toFixed(1)}%</span>
+                                </span>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="text-gray-400 text-center py-2">Keine Trumpfstatistik verfügbar</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 4. Durchschnittswerte & Details - NEUE REIHENFOLGE */}
+                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className="text-base font-semibold text-white">Durchschnittswerte & Details</h3>
+                      </div>
+                      <div className="p-4 space-y-2">
+                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                          <span className="font-medium text-gray-300">Ø Dauer pro Partie:</span>
+                          <span className="text-gray-100 text-lg font-medium">{groupStats?.avgSessionDuration || '-'}</span>
+                        </div>
+                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                          <span className="font-medium text-gray-300">Ø Dauer pro Spiel:</span>
+                          <span className="text-gray-100 text-lg font-medium">{groupStats?.avgGameDuration || '-'}</span>
+                        </div>
+                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                          <span className="font-medium text-gray-300">Ø Spiele pro Partie:</span>
+                          <span className="text-gray-100 text-lg font-medium">{groupStats?.avgGamesPerSession ? groupStats.avgGamesPerSession.toFixed(1) : '-'}</span>
+                        </div>
+                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                          <span className="font-medium text-gray-300">Ø Runden pro Spiel:</span>
+                          <span className="text-gray-100 text-lg font-medium">{groupStats?.avgRoundsPerGame ? groupStats.avgRoundsPerGame.toFixed(1) : '-'}</span>
+                        </div>
+                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                          <span className="font-medium text-gray-300">Ø Matsch pro Spiel:</span>
+                          <span className="text-gray-100 text-lg font-medium">{groupStats?.avgMatschPerGame ? groupStats.avgMatschPerGame.toFixed(2) : '-'}</span>
+                        </div>
+                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
+                          <span className="font-medium text-gray-300">Ø Rundentempo:</span>
+                          <span className="text-gray-100 text-lg font-medium">{groupStats?.avgRoundDuration || '-'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 5. Gruppenübersicht - NEUE REIHENFOLGE */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                       <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                         <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
@@ -962,171 +1187,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         </div>
                       </div>
                     </div>
-
-                    {/* VERGESSENE SEKTION: Durchschnittswerte & Details */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">Durchschnittswerte & Details</h3>
-                      </div>
-                      <div className="p-4 space-y-2">
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Ø Dauer pro Partie:</span>
-                          <span className="text-gray-100 text-lg font-medium">{groupStats?.avgSessionDuration || '-'}</span>
-                        </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Ø Dauer pro Spiel:</span>
-                          <span className="text-gray-100 text-lg font-medium">{groupStats?.avgGameDuration || '-'}</span>
-                        </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Ø Spiele pro Partie:</span>
-                          <span className="text-gray-100 text-lg font-medium">{groupStats?.avgGamesPerSession ? groupStats.avgGamesPerSession.toFixed(1) : '-'}</span>
-                        </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Ø Runden pro Spiel:</span>
-                          <span className="text-gray-100 text-lg font-medium">{groupStats?.avgRoundsPerGame ? groupStats.avgRoundsPerGame.toFixed(1) : '-'}</span>
-                        </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Ø Matsch pro Spiel:</span>
-                          <span className="text-gray-100 text-lg font-medium">{groupStats?.avgMatschPerGame ? groupStats.avgMatschPerGame.toFixed(2) : '-'}</span>
-                        </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Ø Rundentempo:</span>
-                          <span className="text-gray-100 text-lg font-medium">{groupStats?.avgRoundDuration || '-'}</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* ECHTE Anzahl Spiele Statistik mit REF */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">Anzahl Spiele</h3>
-                      </div>
-                      <div ref={overviewMostGamesRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                        {(() => {
-                          if (groupStats?.playerWithMostGames && groupStats.playerWithMostGames.length > 0) {
-                            // Filter: Nur Spieler mit gespielten Spielen anzeigen
-                            const playersWithGames = groupStats.playerWithMostGames.filter(player => 
-                              player.value && player.value > 0
-                            );
-                            return playersWithGames.map((playerStat, index) => {
-                              const playerData = findPlayerByName(playerStat.playerName, members);
-                              const playerId = playerData?.id || playerData?.userId;
-                              return (
-                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=overview` : '#'} key={`mostGames-${index}`} isClickable={!!playerId} className="block rounded-md">
-                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                    <div className="flex items-center">
-                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                      <ProfileImage 
-                                        src={playerData?.photoURL} 
-                                        alt={playerStat.playerName} 
-                                        size="sm"
-                                        className={`mr-2 ${theme.profileImage}`}
-                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                        fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
-                                        context="list"
-                                      />
-                                      <span className="text-gray-300">{playerStat.playerName}</span>
-                                    </div>
-                                    <div className="flex items-center">
-                                      <span className="text-white text-lg font-medium mr-2">{playerStat.value}</span>
-                                    </div>
-                                  </div>
-                                </StatLink>
-                              );
-                            });
-                          } else {
-                            return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
-                          }
-                        })()}
-                      </div>
-                    </div>
-
-                    {/* VERGESSENE SEKTION: Rundentempo mit REF */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">Rundentempo</h3>
-                      </div>
-                      <div ref={playerRoundTimeRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                        {(() => {
-                          if (groupStats?.playerAllRoundTimes && groupStats.playerAllRoundTimes.length > 0) {
-                            // Filter: Nur Spieler mit gültigen Rundendaten anzeigen
-                            const playersWithRoundTimes = groupStats.playerAllRoundTimes.filter(player => 
-                              player.value && player.value > 0
-                            );
-                            return playersWithRoundTimes.map((playerStat, index) => {
-                              const playerData = findPlayerByName(playerStat.playerName, members);
-                              const playerId = playerData?.id || playerStat.playerId;
-                              return (
-                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=overview` : '#'} key={`roundTime-${index}`} isClickable={!!playerId} className="block rounded-md">
-                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                    <div className="flex items-center">
-                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                      <ProfileImage 
-                                        src={playerData?.photoURL} 
-                                        alt={playerStat.playerName} 
-                                        size="sm"
-                                        className={`mr-2 ${theme.profileImage}`}
-                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
-                                        fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
-                                        context="list"
-                                      />
-                                      <span className="text-gray-300">{playerStat.playerName}</span>
-                                    </div>
-                                    <div className="flex items-center">
-                                      <span className="text-white text-lg font-medium text-right whitespace-nowrap">{formatMillisecondsDuration(playerStat.value)}</span>
-                                    </div>
-                                  </div>
-                                </StatLink>
-                              );
-                            });
-                          } else {
-                            return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
-                          }
-                        })()}
-                      </div>
-                    </div>
-
-                    {/* ECHTE Trumpfstatistik mit REF */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">Trumpfansagen</h3>
-                      </div>
-                      <div ref={overviewTrumpfRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
-                        {trumpfStatistikArray.length > 0 ? (
-                          trumpfStatistikArray.map((item, index) => {
-                            // NEU: Logik für dynamische Anzeige
-                            const cardStyle = currentGroup?.farbeSettings?.cardStyle || 'DE';
-                            const mappedColorKey = toTitleCase(item.farbe);
-                            const displayName = CARD_SYMBOL_MAPPINGS[mappedColorKey as JassColor]?.[cardStyle] ?? mappedColorKey;
-                            
-                            return (
-                              <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                <div className="flex items-center">
-                                  <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                  <FarbePictogram 
-                                    farbe={normalizeJassColor(item.farbe)} 
-                                    mode="svg" 
-                                    cardStyle={cardStyle} // cardStyle übergeben
-                                    className="h-8 w-8 mr-2"
-                                  />
-                                  <span className="text-gray-300 capitalize">{displayName}</span>
-                                </div>
-                                <span className="text-white font-medium mr-2">
-                                  <span className="text-gray-400 mr-1 text-sm">({item.anzahl})</span>
-                                  <span className="text-lg font-medium">{(item.anteil * 100).toFixed(1)}%</span>
-                                </span>
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <div className="text-gray-400 text-center py-2">Keine Trumpfstatistik verfügbar</div>
-                        )}
-                      </div>
-                    </div>
                   </div>
                 </TabsContent>
                 
@@ -1139,7 +1199,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
                         <h3 className="text-base font-semibold text-white">Strichdifferenz</h3>
                       </div>
-                      <div ref={playerStricheDiffRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div ref={playerStricheDiffRef} className="p-4 space-y-2 pr-2">
                         {(() => {
                           if (groupStats?.playerWithHighestStricheDiff && groupStats.playerWithHighestStricheDiff.length > 0) {
                             // Filter: Nur Spieler mit gespielten Spielen anzeigen
@@ -1193,7 +1253,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
                         <h3 className="text-base font-semibold text-white">Punktedifferenz</h3>
                       </div>
-                      <div ref={playerPointsDiffRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div ref={playerPointsDiffRef} className="p-4 space-y-2 pr-2">
                         {(() => {
                           if (groupStats?.playerWithHighestPointsDiff && groupStats.playerWithHighestPointsDiff.length > 0) {
                             // Filter: Nur Spieler mit gespielten Spielen anzeigen
@@ -1248,7 +1308,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
                         <h3 className="text-base font-semibold text-white">Siegquote Partie</h3>
                       </div>
-                      <div ref={playerWinRateSessionRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div ref={playerWinRateSessionRef} className="p-4 space-y-2 pr-2">
                         {(() => {
                           if (groupStats?.playerWithHighestWinRateSession && groupStats.playerWithHighestWinRateSession.length > 0) {
                             // Filter: Nur Spieler mit gespielten Partien anzeigen
@@ -1305,7 +1365,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
                         <h3 className="text-base font-semibold text-white">Siegquote Spiel</h3>
                       </div>
-                      <div ref={playerWinRateGameRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div ref={playerWinRateGameRef} className="p-4 space-y-2 pr-2">
                         {(() => {
                           if (groupStats?.playerWithHighestWinRateGame && groupStats.playerWithHighestWinRateGame.length > 0) {
                             // Filter: Nur Spieler mit gespielten Spielen anzeigen
@@ -1360,7 +1420,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
                         <h3 className="text-base font-semibold text-white">Matsch-Bilanz</h3>
                       </div>
-                      <div ref={playerMatschRateRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div ref={playerMatschRateRef} className="p-4 space-y-2 pr-2">
                         {(() => {
                           if (groupStats?.playerWithHighestMatschBilanz && groupStats.playerWithHighestMatschBilanz.length > 0) {
                             // Filter: Nur Spieler mit Matsch-Erfahrung anzeigen
@@ -1414,7 +1474,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
                         <h3 className="text-base font-semibold text-white">Schneider-Bilanz</h3>
                       </div>
-                      <div ref={playerSchneiderRateRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div ref={playerSchneiderRateRef} className="p-4 space-y-2 pr-2">
                         {(() => {
                           if (groupStats?.playerWithHighestSchneiderBilanz && groupStats.playerWithHighestSchneiderBilanz.length > 0) {
                             // Filter: Nur Spieler mit Schneider-Erfahrung anzeigen
@@ -1468,7 +1528,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
                         <h3 className="text-base font-semibold text-white">Kontermatsch-Bilanz</h3>
                       </div>
-                      <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div className="p-4 space-y-2 pr-2">
                         {(() => {
                           if (groupStats?.playerWithHighestKontermatschBilanz && groupStats.playerWithHighestKontermatschBilanz.length > 0) {
                             // Filter: Nur Spieler mit Kontermatsch-Erfahrung anzeigen
@@ -1521,7 +1581,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
                         <h3 className="text-base font-semibold text-white">Weis-Durchschnitt</h3>
                       </div>
-                      <div ref={playerWeisAvgRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div ref={playerWeisAvgRef} className="p-4 space-y-2 pr-2">
                         {(() => {
                           if (groupStats?.playerWithMostWeisPointsAvg && groupStats.playerWithMostWeisPointsAvg.length > 0) {
                             // Filter: Nur Spieler mit Weis-Punkten anzeigen
@@ -1572,7 +1632,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
                         <h3 className="text-base font-semibold text-white">Strichdifferenz</h3>
                       </div>
-                      <div ref={teamStricheDiffRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div ref={teamStricheDiffRef} className="p-4 space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2">
                         {groupStats?.teamWithHighestStricheDiff && groupStats.teamWithHighestStricheDiff.length > 0 ? (
                           groupStats.teamWithHighestStricheDiff
                             .filter(team => 
@@ -1627,7 +1687,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
                         <h3 className="text-base font-semibold text-white">Punktedifferenz</h3>
                       </div>
-                      <div ref={teamPointsDiffRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div ref={teamPointsDiffRef} className="p-4 space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2">
                         {groupStats?.teamWithHighestPointsDiff && groupStats.teamWithHighestPointsDiff.length > 0 ? (
                           groupStats.teamWithHighestPointsDiff
                             .filter(team => 
@@ -1682,7 +1742,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
                         <h3 className="text-base font-semibold text-white">Siegquote (Partien)</h3>
                       </div>
-                      <div ref={teamWinRateSessionRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div ref={teamWinRateSessionRef} className="p-4 space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2">
                         {groupStats?.teamWithHighestWinRateSession && groupStats.teamWithHighestWinRateSession.length > 0 ? (
                           groupStats.teamWithHighestWinRateSession
                             .filter(team => 
@@ -1738,7 +1798,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
                         <h3 className="text-base font-semibold text-white">Siegquote (Spiele)</h3>
                       </div>
-                      <div ref={teamWinRateGameRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div ref={teamWinRateGameRef} className="p-4 space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2">
                         {groupStats?.teamWithHighestWinRateGame && groupStats.teamWithHighestWinRateGame.length > 0 ? (
                           groupStats.teamWithHighestWinRateGame
                             .filter(team => 
@@ -1794,7 +1854,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
                         <h3 className="text-base font-semibold text-white">Matsch-Bilanz</h3>
                       </div>
-                      <div ref={teamMatschRateRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div ref={teamMatschRateRef} className="p-4 space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2">
                         {(() => {
                           // ✅ KORRIGIERT: Verwende teamWithHighestMatschBilanz statt teamWithHighestMatschRate
                           const teamMatschData = groupStats?.teamWithHighestMatschBilanz || groupStats?.teamWithHighestMatschRate;
@@ -1854,7 +1914,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
                         <h3 className="text-base font-semibold text-white">Schneider-Bilanz</h3>
                       </div>
-                      <div ref={teamSchneiderRateRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div ref={teamSchneiderRateRef} className="p-4 space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2">
                         {(() => {
                           // ✅ KORRIGIERT: Verwende teamWithHighestSchneiderBilanz statt teamWithHighestSchneiderRate
                           const teamSchneiderData = groupStats?.teamWithHighestSchneiderBilanz || groupStats?.teamWithHighestSchneiderRate;
@@ -1914,7 +1974,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
                         <h3 className="text-base font-semibold text-white">Kontermatsch-Bilanz</h3>
                       </div>
-                      <div className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div className="p-4 space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2">
                         {(() => {
                           const teamKontermatschData = groupStats?.teamWithHighestKontermatschBilanz || groupStats?.teamWithHighestKontermatschRate;
                           if (teamKontermatschData && teamKontermatschData.length > 0) {
@@ -1979,7 +2039,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
                         <h3 className="text-base font-semibold text-white">Weis-Durchschnitt</h3>
                       </div>
-                      <div ref={teamWeisAvgRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div ref={teamWeisAvgRef} className="p-4 space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2">
                         {groupStats?.teamWithMostWeisPointsAvg && groupStats.teamWithMostWeisPointsAvg.length > 0 ? (
                           groupStats.teamWithMostWeisPointsAvg
                             .filter(team => 
@@ -2026,7 +2086,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
                         <h3 className="text-base font-semibold text-white">Rundentempo</h3>
                       </div>
-                      <div ref={teamRoundTimeRef} className="p-4 space-y-2 max-h-[calc(10*2.5rem)] overflow-y-auto pr-2">
+                      <div ref={teamRoundTimeRef} className="p-4 space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2">
                         {groupStats?.teamWithFastestRounds && groupStats.teamWithFastestRounds.length > 0 ? (
                           groupStats.teamWithFastestRounds
                             .filter(team => 

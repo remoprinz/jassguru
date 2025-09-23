@@ -3,6 +3,8 @@ import { HttpsError, onCall, CallableRequest } from 'firebase-functions/v2/https
 import * as logger from 'firebase-functions/logger';
 import { updatePlayerStats } from './playerStatsCalculator'; // NEU: Import der zentralen Funktion
 import { updateGroupComputedStatsAfterSession } from './groupStatsCalculator'; // NEU: Import für Gruppenstatistiken
+import { updateEloForSession } from './jassEloUpdater'; // NEU: Elo-Update
+import { saveRatingHistorySnapshot } from './ratingHistoryService'; // 🆕 Rating-Historie
 
 const db = admin.firestore();
 
@@ -563,18 +565,25 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
       
       const sessionDurationSeconds = Math.round(totalGameDurationMillis / 1000);
 
-      // Gewinner bestimmen - VEREINFACHT mit direkter top/bottom Logik
+      // Gewinner bestimmen - KORREKT basierend auf GESAMTSTRICHEN
       let determinedWinnerTeamKey: 'top' | 'bottom' | 'draw' | undefined = initialDataFromClient.winnerTeamKey;
       
       if (!determinedWinnerTeamKey) {
-        // ✅ KORREKT: Direkter Vergleich der SIEGE für top vs bottom (nicht Punkte!)
-        if (totalEventCountsTop.sieg > totalEventCountsBottom.sieg) {
+        // ✅ KORREKT: Vergleiche GESAMTSTRICHE (berg + sieg + matsch + schneider + kontermatsch)
+        const totalStricheTop = totalStricheTopRecord.berg + totalStricheTopRecord.sieg + 
+                               totalStricheTopRecord.matsch + totalStricheTopRecord.schneider + 
+                               totalStricheTopRecord.kontermatsch;
+        const totalStricheBottom = totalStricheBottomRecord.berg + totalStricheBottomRecord.sieg + 
+                                  totalStricheBottomRecord.matsch + totalStricheBottomRecord.schneider + 
+                                  totalStricheBottomRecord.kontermatsch;
+        
+        if (totalStricheTop > totalStricheBottom) {
           determinedWinnerTeamKey = 'top';
-        } else if (totalEventCountsBottom.sieg > totalEventCountsTop.sieg) {
+        } else if (totalStricheBottom > totalStricheTop) {
           determinedWinnerTeamKey = 'bottom';
-         } else {
-          determinedWinnerTeamKey = 'draw';
-         }
+        } else {
+          determinedWinnerTeamKey = 'draw'; // Echter Gleichstand bei Gesamtstrichen
+        }
       }
       
       // ✅ STRIKT: Die 'teams'-Struktur vom Client MUSS Player Doc IDs enthalten.
@@ -753,6 +762,24 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
       logger.info(`[finalizeSession] Cleanup of session and verified active games completed for ${sessionId}.`);
     } else {
       logger.info(`[finalizeSession] No active games to clean up for session ${sessionId}.`);
+    }
+
+    // ✅ Elo-Update (post ex)
+    try {
+      await updateEloForSession(groupId, sessionId);
+      
+      // 🆕 Rating-Historie nach erfolgreichem Elo-Update speichern
+      logger.info(`[finalizeSession] Saving rating history snapshot for session ${sessionId}`);
+      await saveRatingHistorySnapshot(
+        groupId,
+        sessionId,
+        participantPlayerIds,
+        'session_end'
+      );
+      logger.info(`[finalizeSession] Rating history snapshot completed for session ${sessionId}`);
+      
+    } catch (e) {
+      logger.error(`[finalizeSession] Elo update failed for session ${sessionId}:`, e);
     }
 
     // ✅ KRITISCHE KORREKTUR: Gruppenstatistiken nach erfolgreicher Session-Finalisierung aktualisieren

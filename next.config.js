@@ -223,7 +223,8 @@ const withPWA = withPWAInit({
   ],
   publicExcludes: [
     '!noprecache/**/*',
-    '!index.html' // 🚫 Nie index.html aus /public precachen
+    '!index.html', // 🚫 Nie index.html aus /public precachen
+    '!*.pdf' // 📄 PDF-Dateien auch nicht precachen für direkten Zugriff
   ],
   // Wichtig: kein document-Fallback definieren, damit Scripts nie HTML bekommen
   fallbacks: {

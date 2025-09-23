@@ -76,6 +76,17 @@ class MyDocument extends Document {
     }
 
     if (isStandalone) {
+      // Schutz: Nicht erneut triggern, wenn bereits ein SW-Bypass aktiv ist
+      if (window.location.search.includes('no-sw=1') || window.location.search.includes('updated=')) {
+        return;
+      }
+      // Einmaliger Hydration-Fallback mit Session-Guard
+      try {
+        if (sessionStorage.getItem('hydrationReloaded') === '1') {
+          return;
+        }
+      } catch (e) {}
+
       window['__pwaHydrationTimer__'] = setTimeout(async () => {
         try {
           // Wenn bis dahin keine Hydration passierte, härterer Reset
@@ -85,6 +96,7 @@ class MyDocument extends Document {
           }
           const reloadUrl = new URL(window.location.href);
           if (!reloadUrl.searchParams.get('no-sw')) reloadUrl.searchParams.set('no-sw','1');
+          try { sessionStorage.setItem('hydrationReloaded', '1'); } catch (e) {}
           window.location.replace(reloadUrl.toString());
         } catch (e) {
           window.location.reload();

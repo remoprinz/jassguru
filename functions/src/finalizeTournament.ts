@@ -4,6 +4,7 @@ import * as logger from "firebase-functions/logger";
 // Ggf. weitere spezifische Modelle importieren, z.B. PlayerComputedStats, TournamentPlacement
 import { PlayerComputedStats, initialPlayerComputedStats, TournamentPlacement, StatHighlight } from "./models/player-stats.model"; // PlayerComputedStats und TournamentPlacement importiert
 import { TournamentPlayerRankingData } from "./models/tournament-ranking.model"; // NEU: Import für das Ranking-Datenmodell
+import { saveRatingHistorySnapshot } from './ratingHistoryService'; // 🆕 Rating-Historie
 
 const db = admin.firestore();
 
@@ -780,6 +781,68 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
       // Warte auf alle Gruppen-Updates (parallel)
       await Promise.allSettled(groupStatsUpdatePromises);
       logger.info(`[finalizeTournament] Group stats update completed for ${participantGroups.size} groups`);
+
+      // 🆕 Rating-Historie für Turnier-Ende speichern
+      try {
+        logger.info(`[finalizeTournament] Saving rating history snapshots for tournament ${tournamentId}`);
+        
+        // Sammle alle Gruppen der Turnier-Teilnehmer für Rating-Historie
+        const groupsToUpdateHistory = new Set<string>();
+        
+        for (const playerUid of participantUidsInTournament) {
+          try {
+            const playerGroupsSnap = await db.collection('groups')
+              .where(`players.${playerUid}`, '!=', null)
+              .limit(5) // Begrenze auf 5 Gruppen pro Spieler für Rating-Historie
+              .get();
+            
+            playerGroupsSnap.docs.forEach(groupDoc => {
+              groupsToUpdateHistory.add(groupDoc.id);
+            });
+          } catch (groupQueryError) {
+            logger.warn(`[finalizeTournament] Error querying groups for rating history for player ${playerUid}:`, groupQueryError);
+          }
+        }
+
+        // Speichere Rating-Historie für jede betroffene Gruppe
+        const historyPromises = Array.from(groupsToUpdateHistory).map(async (groupId) => {
+          try {
+            // Finde Spieler dieser Gruppe, die am Turnier teilgenommen haben
+            const groupRef = db.collection('groups').doc(groupId);
+            const groupDoc = await groupRef.get();
+            
+            if (groupDoc.exists) {
+              const groupData = groupDoc.data();
+              const groupPlayerUids = Object.keys(groupData?.players || {});
+              const tournamentParticipantsInGroup = groupPlayerUids.filter(uid => 
+                participantUidsInTournament.includes(uid)
+              );
+              
+              if (tournamentParticipantsInGroup.length > 0) {
+                await saveRatingHistorySnapshot(
+                  groupId,
+                  null, // Keine Session-ID bei Turnier-Ende
+                  tournamentParticipantsInGroup,
+                  'tournament_end',
+                  tournamentId
+                );
+                
+                logger.info(`[finalizeTournament] Rating history saved for ${tournamentParticipantsInGroup.length} players in group ${groupId}`);
+              }
+            }
+          } catch (historyError) {
+            logger.warn(`[finalizeTournament] Error saving rating history for group ${groupId}:`, historyError);
+            // Fehler bei Rating-Historie soll Turnier-Finalisierung nicht blockieren
+          }
+        });
+
+        await Promise.allSettled(historyPromises);
+        logger.info(`[finalizeTournament] Rating history snapshots completed for tournament ${tournamentId}`);
+        
+      } catch (historyError) {
+        logger.warn(`[finalizeTournament] Error during rating history snapshot process for tournament ${tournamentId}:`, historyError);
+        // Rating-Historie-Fehler soll Turnier-Finalisierung nicht blockieren
+      }
 
       logger.info(`--- finalizeTournament SUCCESS for ${tournamentId} ---`);
       return { success: true, message: `Turnier ${tournamentId} erfolgreich abgeschlossen und Rankings gespeichert.` };
