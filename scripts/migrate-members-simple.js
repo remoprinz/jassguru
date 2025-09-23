@@ -10,9 +10,15 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, getDocs, doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
 
-// Firebase Konfiguration (gleiche wie in der App)
+// Firebase Konfiguration aus Umgebungsvariablen (sicher, ohne hardkodierte Keys)
+const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+if (!FIREBASE_API_KEY) {
+  console.error('🔑 FIREBASE_API_KEY fehlt! Setze: FIREBASE_API_KEY=your_key node script.js');
+  process.exit(1);
+}
+
 const firebaseConfig = {
-  apiKey: "AIzaSyD-9tSrke72PFVo4Ry7580kN_n7PQu4_3c",
+  apiKey: FIREBASE_API_KEY,
   authDomain: "jassguru.firebaseapp.com",
   projectId: "jassguru",
   storageBucket: "jassguru.appspot.com",
