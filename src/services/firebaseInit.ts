@@ -106,8 +106,13 @@ let analytics: Analytics | null = null;
 let isFirebaseInitialized = false;
 
 try {
-  // Initialisiere Firebase
-  app = initializeApp(firebaseConfig);
+  // Initialisiere Firebase nur wenn Config vollständig ist
+  if (!isMissingConfig()) {
+    app = initializeApp(firebaseConfig);
+  } else {
+    // Fallback für unvollständige Config (z.B. im CI ohne .env.local)
+    throw new Error('Firebase config incomplete');
+  }
 
   // Auth initialisieren
   auth = getAuth(app);
