@@ -24,8 +24,15 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# local env files
+# local env files and secrets
 .env*.local
+.env
+.env.production
+.env.development
+*.key
+*.pem
+*.p12
+*.jks
 
 # build info
 src/build-info.json
@@ -48,8 +55,11 @@ jasstafel/Vorlage UI/Examplevideo.mp4
 # Jassguru spezifische Dokumentation / Notizen
 docs
 
-# Firebase service account key
+# Firebase service account keys (security critical)
 /functions/serviceAccountKey.json
+firebase-service-account.json
+firebase-service-account*.json
+*service-account*.json
 
 # Vertrauliche Verbands-Dokumente (sensible Geschäftsinformationen)
 Vermarktungsvertrag_SJV.md
