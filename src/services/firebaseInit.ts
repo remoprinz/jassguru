@@ -69,7 +69,8 @@ const isMissingConfig = () => {
 };
 
 // Wenn die Konfiguration unvollständig ist, zeige eine deutliche Warnung
-if (isMissingConfig()) {
+// Aber nur in development, nicht beim Build in CI
+if (isMissingConfig() && process.env.NODE_ENV === 'development') {
   console.error(
     "❌ FIREBASE-KONFIGURATION FEHLT! ❌\n" +
     "Bitte stelle sicher, dass du die .env.local Datei korrekt eingerichtet hast.\n" +
