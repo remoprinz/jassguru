@@ -27,10 +27,16 @@ jobs:
         run: |
           set -euo pipefail
           # Fail the build if obvious duplicate files exist (e.g., "file 2.tsx")
+          # But ignore build artifacts and dependencies
           if find . \
             -path ./node_modules -prune -o \
             -path ./.next -prune -o \
             -path ./.git -prune -o \
+            -path ./out -prune -o \
+            -path ./dist -prune -o \
+            -path ./build -prune -o \
+            -path ./coverage -prune -o \
+            -path ./.nyc_output -prune -o \
             -type f \( -name "* 2.*" -o -name "* 3.*" -o -name "* 4.*" -o -name "* (1).*" -o -name "* (2).*" -o -name "* copy.*" -o -name "* Copy.*" \) -print | grep -q .; then
             echo "❌ Duplicate-looking files detected. Please clean up before pushing." >&2
             exit 1
