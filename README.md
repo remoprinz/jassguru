@@ -4,37 +4,50 @@ Dieses Projekt ist eine digitale Jass-Kreidetafel, entwickelt mit Next.js, TypeS
 
 ## Repository
 
-Dieses Projekt ist auf GitHub gehostet: [https://github.com/remo/jassguru.ch/tree/main/Jassguru/jasstafel]
+Dieses Projekt ist auf GitHub gehostet: [https://github.com/remoprinz/jassguru](https://github.com/remoprinz/jassguru)
 
 ## Produktive App
 
-Die produktive Version der App ist unter [https://jassguru.web.app/](https://jassguru.web.app/) gehostet.
+Die produktive Version der App ist unter [https://jassguru.ch](https://jassguru.ch) gehostet. Eine Feature-Übersicht und Beispiele:
+- Features: https://jassguru.ch/features/
+- Demo-Gruppe: https://jassguru.ch/view/group/Tz0wgIHMTlhvTtFastiJ
+- Beispiel-Profil: https://jassguru.ch/profile/b16c1120111b7d9e7d733837
 
 ## Technische Spezifikation
 
 Eine detaillierte technische Spezifikation der App finden Sie in der [SPECIFICATION.md](./SPECIFICATION.md) Datei.
 
-## Lokale Entwicklung
+## Sichtung/Evaluation (lokal)
 
-Um das Projekt lokal zu starten, folgen Sie diesen Schritten:
+Dieser Code ist zur Einsicht, Evaluation und zum Verständnis bestimmt. Ein lokaler Start ist zu Evaluationszwecken erlaubt:
 
-1. Klonen Sie das Repository:
+1. Repository klonen (nur zur Einsicht/Evaluation):
    ```
-   git clone https://github.com/remo/jassguru.ch.git
-   cd jassguru.ch/Jassguru/jasstafel
+   git clone https://github.com/remoprinz/jassguru.git
+   cd jassguru/jasstafel
    ```
-
-2. Installieren Sie die Abhängigkeiten:
+2. Abhängigkeiten installieren:
    ```
    npm install
    ```
-
-3. Starten Sie den Entwicklungsserver:
+3. Entwicklungsserver starten:
    ```
    npm run dev
    ```
+   Anschliessend ist die App unter [http://localhost:3000](http://localhost:3000) erreichbar.
 
-   Die Anwendung ist nun unter [http://localhost:3000](http://localhost:3000) verfügbar.
+> Hinweis: Diese Nutzung ist ausschliesslich für Evaluation, Review und Lernen vorgesehen. Ein Deployment, Forks oder abgeleitete Werke sind ohne vorherige schriftliche Zustimmung nicht gestattet.
+
+## Nutzungsbedingungen (Kurzfassung)
+
+- Erlaubt: Lesen, Evaluieren, lokales Ausführen zu Demonstrations-/Lernzwecken.
+- Nicht erlaubt ohne schriftliche Zustimmung: 
+  - Forks und Re-Distribution des Quellcodes
+  - Deployments/Hosting (öffentlich oder privat)
+  - Abgeleitete Produkte/"Klonen" der App, insbesondere Jass-Apps/Scoreboards (insb. Schweiz)
+  - Kommerzielle Nutzung
+
+Für Kollaboration oder Lizenzen: remo@jassguru.ch
 
 ## Jass-Elo Rating System
 
