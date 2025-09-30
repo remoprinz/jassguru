@@ -30,7 +30,8 @@
     "calculate-ratings:games:group": "node scripts/calculateRatingsPerGame.cjs",
     "validate-jass-elo": "node scripts/validateJassElo.cjs",
     "reset-ratings": "node scripts/resetAndRecalculate.cjs",
-    "show-leaderboard": "node scripts/showJassEloLeaderboard.cjs"
+    "show-leaderboard": "node scripts/showJassEloLeaderboard.cjs",
+    "compress-screenshots": "node scripts/compress-screenshots.mjs"
   },
   "engines": {
     "node": ">=18.0.0 <23.0.0",
