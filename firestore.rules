@@ -106,15 +106,16 @@ service cloud.firestore {
       
       // JassGameSummaries (Sessions) in einer Gruppe
       match /jassGameSummaries/{sessionId} {
-        allow read: if true;
-        allow list: if true; // 🚨 FIX: Erlaube das Auflisten der Collection für öffentliche Seiten
+        allow read, list: if get(/databases/$(database)/documents/groups/$(groupId)).data.isPublic == true ||
+                           (request.auth != null && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.playerIds);
         allow create, update: if request.auth != null &&
                                 request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.playerIds;
         allow delete: if false;
         
         // CompletedGames in einer Session - participantUids aus sessions/{sessionId} holen!
         match /completedGames/{gameNumber} {
-          allow read: if true;
+          allow read: if get(/databases/$(database)/documents/groups/$(groupId)).data.isPublic == true ||
+                       (request.auth != null && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.playerIds);
           allow create, update: if request.auth != null &&
                                   request.auth.uid in get(/databases/$(database)/documents/sessions/$(sessionId)).data.participantUids;
           allow delete: if false;

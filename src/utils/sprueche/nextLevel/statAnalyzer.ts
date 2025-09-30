@@ -29,7 +29,6 @@ export class StatAnalyzer {
     insights.sort((a, b) => b.relevanceScore - a.relevanceScore);
     
     if (process.env.NODE_ENV === 'development') {
-      console.log('🔍 StatAnalyzer generated', insights.length, 'insights');
       insights.slice(0, 5).forEach(insight => {
         console.log(`  ${insight.category}: ${insight.relevanceScore}% - ${insight.playerName || 'Session'}`);
       });

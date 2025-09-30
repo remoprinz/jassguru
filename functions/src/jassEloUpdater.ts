@@ -1,13 +1,14 @@
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
+import { getRatingTier } from './shared/rating-tiers';
 
 const db = admin.firestore();
 
 // Elo-Parameter (synchron zum Frontend/Script)
 const JASS_ELO_CONFIG = {
-  K_TARGET: 32,
-  DEFAULT_RATING: 1000,
-  ELO_SCALE: 300,
+  K_TARGET: 15,           // ✅ ANGEPASST: K=15 für moderate Änderungen
+  DEFAULT_RATING: 100,    // ✅ ANGEPASST: Startwert bei 100 (neue Skala)
+  ELO_SCALE: 1000,        // Beibehalten: Skala 1000 für optimale Spreizung
 } as const;
 
 type PlayerRatingDoc = {
@@ -15,6 +16,14 @@ type PlayerRatingDoc = {
   gamesPlayed: number;
   lastUpdated: number;
   displayName?: string;
+  tier?: string;
+  tierEmoji?: string;
+  lastDelta?: number;
+  // 🆕 PEAK/LOW TRACKING
+  peakRating?: number;        // Höchste je erreichte Wertung
+  peakRatingDate?: number;    // Timestamp wann Peak erreicht wurde
+  lowestRating?: number;      // Tiefste je erreichte Wertung  
+  lowestRatingDate?: number;  // Timestamp wann Low erreicht wurde
 };
 
 function expectedScore(ratingA: number, ratingB: number): number {
@@ -96,23 +105,36 @@ export async function updateEloForSession(groupId: string, sessionId: string): P
   const playerIds = [...topPlayers, ...bottomPlayers];
   const displayNameMap = await loadDisplayNames(playerIds);
 
-  const ratingMap = new Map<string, PlayerRatingDoc>();
+  const ratingMap = new Map<string, PlayerRatingDoc & { oldRating: number }>();
   for (const pid of playerIds) {
     const snap = await db.collection('playerRatings').doc(pid).get();
     if (snap.exists) {
       const d = snap.data() as PlayerRatingDoc;
+      const currentRating = d.rating || JASS_ELO_CONFIG.DEFAULT_RATING;
       ratingMap.set(pid, {
-        rating: d.rating || JASS_ELO_CONFIG.DEFAULT_RATING,
+        rating: currentRating,
+        oldRating: currentRating, // ✅ Ursprüngliches Rating merken
         gamesPlayed: d.gamesPlayed || 0,
         lastUpdated: d.lastUpdated || Date.now(),
         displayName: d.displayName || displayNameMap.get(pid),
+        // 🆕 PEAK/LOW Werte laden (falls vorhanden)
+        peakRating: d.peakRating || currentRating,
+        peakRatingDate: d.peakRatingDate,
+        lowestRating: d.lowestRating || currentRating,
+        lowestRatingDate: d.lowestRatingDate,
       });
     } else {
       ratingMap.set(pid, {
         rating: JASS_ELO_CONFIG.DEFAULT_RATING,
+        oldRating: JASS_ELO_CONFIG.DEFAULT_RATING, // ✅ Ursprüngliches Rating merken
         gamesPlayed: 0,
         lastUpdated: Date.now(),
         displayName: displayNameMap.get(pid),
+        // 🆕 PEAK/LOW für neue Spieler: Start bei DEFAULT_RATING
+        peakRating: JASS_ELO_CONFIG.DEFAULT_RATING,
+        peakRatingDate: Date.now(),
+        lowestRating: JASS_ELO_CONFIG.DEFAULT_RATING,
+        lowestRatingDate: Date.now(),
       });
     }
   }
@@ -127,17 +149,20 @@ export async function updateEloForSession(groupId: string, sessionId: string): P
     const deltaA = JASS_ELO_CONFIG.K_TARGET * (S - expectedA);
     const deltaB = -deltaA;
 
-    // Auf Spieler anwenden (ohne /2 – wie in Script)
+    // ✅ KORRIGIERT: Gleichverteilung im Team (50/50 Split wie im Script)
+    const deltaAPlayer = deltaA / 2;
+    const deltaBPlayer = deltaB / 2;
+    
     for (const pid of topPlayers) {
       const r = ratingMap.get(pid)!;
-      r.rating = r.rating + deltaA;
+      r.rating = r.rating + deltaAPlayer;
       r.gamesPlayed += 1;
       r.lastUpdated = Date.now();
       ratingMap.set(pid, r);
     }
     for (const pid of bottomPlayers) {
       const r = ratingMap.get(pid)!;
-      r.rating = r.rating + deltaB;
+      r.rating = r.rating + deltaBPlayer;
       r.gamesPlayed += 1;
       r.lastUpdated = Date.now();
       ratingMap.set(pid, r);
@@ -147,11 +172,31 @@ export async function updateEloForSession(groupId: string, sessionId: string): P
   // Schreiben: global + gruppenspezifisch
   const batch = db.batch();
   ratingMap.forEach((val, pid) => {
+    // 🆕 Tier berechnen für aktuelles Rating
+    const tierInfo = getRatingTier(val.rating);
+    
+    // ✅ KORRIGIERT: Delta berechnen - GESAMTES DELTA DER SESSION!
+    const totalDelta = Math.round(val.rating - val.oldRating);
+    
+    // 🆕 PEAK/LOW TRACKING
+    const currentPeak = val.peakRating || 100;
+    const currentLow = val.lowestRating || 100;
+    const newPeak = Math.max(val.rating, currentPeak);
+    const newLow = Math.min(val.rating, currentLow);
+    
     const docData: PlayerRatingDoc = {
       rating: val.rating,
       gamesPlayed: val.gamesPlayed,
       lastUpdated: Date.now(),
       displayName: val.displayName,
+      tier: tierInfo.name,
+      tierEmoji: tierInfo.emoji,
+      lastDelta: totalDelta,
+      // 🆕 PEAK/LOW TRACKING: Immer die korrekten Werte setzen
+      peakRating: newPeak,
+      peakRatingDate: newPeak > currentPeak ? Date.now() : val.peakRatingDate,
+      lowestRating: newLow,
+      lowestRatingDate: newLow < currentLow ? Date.now() : val.lowestRatingDate,
     };
     batch.set(db.collection('playerRatings').doc(pid), docData, { merge: true });
     batch.set(db.collection(`groups/${groupId}/playerRatings`).doc(pid), docData, { merge: true });
@@ -161,7 +206,76 @@ export async function updateEloForSession(groupId: string, sessionId: string): P
   batch.set(summaryRef, { eloUpdatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
 
   await batch.commit();
+  
+  // 🚀 PERFORMANCE: Leaderboard für Gruppe aktualisieren
+  await updateGroupLeaderboard(groupId);
+  
   logger.info(`[Elo] Update finished for session ${sessionId}`);
+}
+
+async function updateGroupLeaderboard(groupId: string): Promise<void> {
+  try {
+    // Alle Mitglieder der Gruppe laden (aus members collection)
+    const membersSnap = await db.collection(`groups/${groupId}/members`).get();
+    const memberIds = membersSnap.docs.map(doc => doc.id);
+    
+    if (memberIds.length === 0) {
+      logger.warn(`[Leaderboard] No members found for group ${groupId}`);
+      return;
+    }
+    
+    // Ratings für alle Mitglieder laden (aus gruppenspezifischen playerRatings)
+    const leaderboardEntries: any[] = [];
+    
+    for (const memberId of memberIds) {
+      const memberDoc = membersSnap.docs.find(doc => doc.id === memberId);
+      const memberData = memberDoc?.data();
+      
+      const ratingSnap = await db.doc(`groups/${groupId}/playerRatings/${memberId}`).get();
+      
+      if (ratingSnap.exists) {
+        const rating = ratingSnap.data() as PlayerRatingDoc;
+        leaderboardEntries.push({
+          playerId: memberId,
+          rating: rating.rating || JASS_ELO_CONFIG.DEFAULT_RATING,
+          displayName: rating.displayName || memberData?.displayName || `Spieler_${memberId.slice(0, 6)}`,
+          tier: rating.tier || 'Anfänger',
+          tierEmoji: rating.tierEmoji || '🆕',
+          gamesPlayed: rating.gamesPlayed || 0,
+          lastDelta: rating.lastDelta || 0,
+          photoURL: memberData?.photoURL || null,
+        });
+      } else {
+        // Fallback für Mitglieder ohne Rating
+        leaderboardEntries.push({
+          playerId: memberId,
+          rating: JASS_ELO_CONFIG.DEFAULT_RATING,
+          displayName: memberData?.displayName || `Spieler_${memberId.slice(0, 6)}`,
+          tier: 'Anfänger',
+          tierEmoji: '🆕',
+          gamesPlayed: 0,
+          lastDelta: 0,
+          photoURL: memberData?.photoURL || null,
+        });
+      }
+    }
+    
+    // Nach Rating sortieren (höchstes zuerst)
+    leaderboardEntries.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    
+    // Leaderboard-Dokument schreiben
+    const leaderboardData = {
+      entries: leaderboardEntries,
+      lastUpdated: admin.firestore.Timestamp.now(),
+      totalMembers: leaderboardEntries.length,
+    };
+    
+    await db.doc(`groups/${groupId}/aggregated/leaderboard`).set(leaderboardData);
+    logger.info(`[Leaderboard] Updated for group ${groupId} with ${leaderboardEntries.length} members`);
+  } catch (error) {
+    logger.error(`[Leaderboard] Failed to update for group ${groupId}:`, error);
+    // Nicht kritisch - soll das Elo-Update nicht blockieren
+  }
 }
 
 

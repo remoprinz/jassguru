@@ -95,6 +95,12 @@ const setupListenersAndNotify = (registration: ServiceWorkerRegistration) => {
 // --- Ende Listener-Logik ---
 
 export function register() {
+  // 🚫 DEAKTIVIERT: Diese Legacy-Registrierung ist durch serviceWorkerService ersetzt
+  // Alle Service Worker Registrierungen laufen jetzt zentral über serviceWorkerService
+  console.log('[serviceWorkerRegistration] Legacy-Registrierung deaktiviert - verwendet serviceWorkerService');
+  return;
+
+  // Legacy-Code bleibt zur Sicherheit erhalten, aber wird nicht ausgeführt
   const isDevelopment = process.env.NODE_ENV === 'development';
 
   

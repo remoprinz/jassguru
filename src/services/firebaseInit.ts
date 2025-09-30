@@ -148,21 +148,11 @@ try {
   // Firestore initialisieren
   try {
     if (typeof window !== "undefined") {
-      // Spezielle Konfiguration für PWA/Service Worker Umgebungen
-      const firestoreSettings: any = {
-        localCache: persistentLocalCache({
-          tabManager: persistentMultipleTabManager(),
-          cacheSizeBytes: CACHE_SIZE_UNLIMITED,
-        }),
-      };
-      
-      // CORS-Fix für PWA: Experimentelle longPolling-Option nur bei Problemen
-      // DEAKTIVIERT: Kann Loading-Probleme verursachen
-      // if ('serviceWorker' in navigator) {
-      //   firestoreSettings.experimentalForceLongPolling = true;
-      // }
-      
-      db = initializeFirestore(app, firestoreSettings);
+      // Vereinheitlichte, robuste Initialisierung: immer Standard-Cache
+      // Begründung: persistentLocalCache verursacht in WebViews/Private-Browsern (z.B. iOS/WhatsApp) sporadische IDB-Crashes
+      // und führte zu "can't access property 'Pe', e is null". Für Stabilität verzichten wir auf persistente IDB-Caches.
+      console.log('[Firestore] Verwende Standard-Cache (persistente IDB-Cache deaktiviert)');
+      db = getFirestore(app);
       // console.log("✅ Firestore initialisiert mit Multi-Tab Offline-Persistenz und unlimitiertem Cache.");
     } else {
       // Fallback für Server-Kontext (z.B. während des Builds), wo keine Persistenz möglich ist

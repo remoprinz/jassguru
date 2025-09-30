@@ -19,31 +19,30 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 // Tier-System (15-Tier System für perfekte Granularität)
-const RATING_TIERS = [
-  { name: 'Göpf Egg', emoji: '👼', minRating: 1100, color: '#FFD700' },
-  { name: 'Jassgott', emoji: '🔱', minRating: 1090, color: '#9333EA' },
-  { name: 'Jasskönig', emoji: '👑', minRating: 1080, color: '#8B5CF6' },
-  { name: 'Eidgenoss', emoji: '🇨🇭', minRating: 1070, color: '#EF4444' },
-  { name: 'Kranzjasser', emoji: '🍀', minRating: 1060, color: '#10B981' },
-  { name: 'Grossmeister', emoji: '🏆', minRating: 1050, color: '#F59E0B' },
-  { name: 'Jassmeister', emoji: '💎', minRating: 1040, color: '#06B6D4' },
-  { name: 'Goldjasser', emoji: '🥇', minRating: 1030, color: '#D97706' },
-  { name: 'Silberjasser', emoji: '🥈', minRating: 1020, color: '#6B7280' },
-  { name: 'Bronzejasser', emoji: '🥉', minRating: 1010, color: '#92400E' },
-  { name: 'Akademiker', emoji: '👨‍🎓', minRating: 1000, color: '#059669' },
-  { name: 'Aspirant', emoji: '💡', minRating: 990, color: '#F59E0B' },
-  { name: 'Praktikant', emoji: '☘️', minRating: 980, color: '#16A34A' },
-  { name: 'Schüler', emoji: '📚', minRating: 970, color: '#3B82F6' },
-  { name: 'Hahn', emoji: '🐓', minRating: 960, color: '#DC2626' },
-  { name: 'Huhn', emoji: '🐔', minRating: 950, color: '#F97316' },
-  { name: 'Kücken', emoji: '🐥', minRating: 940, color: '#CA8A04' },
-  { name: 'Anfänger', emoji: '🌱', minRating: 930, color: '#65A30D' },
-  { name: 'Chlaus', emoji: '🎅', minRating: 920, color: '#DC2626' },
-  { name: 'Käse', emoji: '🧀', minRating: 910, color: '#F59E0B' },
-  { name: 'Ente', emoji: '🦆', minRating: 900, color: '#0891B2' },
-  { name: 'Gurke', emoji: '🥒', minRating: 890, color: '#22C55E' },
-  { name: 'Just Egg', emoji: '🥚', minRating: 0, color: '#78716C' },
-];
+  const RATING_TIERS = [
+   { minRating: 150, name: "Göpf Egg", emoji: "👼" },
+   { minRating: 145, name: "Jassgott", emoji: "🔱" },
+   { minRating: 140, name: "Jasskönig", emoji: "👑" },
+   { minRating: 135, name: "Grossmeister", emoji: "🏆" },
+   { minRating: 130, name: "Jasser mit Auszeichnung", emoji: "🎖️" },
+   { minRating: 125, name: "Diamantjasser II", emoji: "💎" },
+   { minRating: 120, name: "Diamantjasser I", emoji: "💍" },
+   { minRating: 115, name: "Goldjasser", emoji: "🥇" },
+   { minRating: 110, name: "Silberjasser", emoji: "🥈" },
+   { minRating: 105, name: "Broncejasser", emoji: "🥉" },
+   { minRating: 100, name: "A-Student", emoji: "👨‍🎓" },
+   { minRating: 95,  name: "Kleeblatt vierblättrig", emoji: "🍀" },
+   { minRating: 90,  name: "Kleeblatt dreiblättrig", emoji: "☘️" },
+   { minRating: 85,  name: "Sprössling", emoji: "🌱" },
+   { minRating: 80,  name: "Hahn", emoji: "🐓" },
+   { minRating: 75,  name: "Huhn", emoji: "🐔" },
+   { minRating: 70,  name: "Kücken", emoji: "🐥" },
+   { minRating: 65,  name: "Ente", emoji: "🦆" },
+   { minRating: 60,  name: "Chlaus", emoji: "🎅" },
+   { minRating: 55,  name: "Chäs", emoji: "🧀" },
+   { minRating: 50,  name: "Gurke", emoji: "🥒" },
+   { minRating: 0, name: "Just Egg", emoji: "🥚" }
+  ];
 
 function getRatingTier(rating) {
   for (const tier of RATING_TIERS) {

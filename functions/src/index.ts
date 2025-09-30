@@ -1189,6 +1189,13 @@ export const addPlayerToGroup = onCall(async (request) => {
         groupIds: admin.firestore.FieldValue.arrayUnion(groupId),
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       });
+
+      // Neu: Member-Subcollection upserten (sichert Anzeige in GroupView & Foto-Sync)
+      const memberRef = groupRef.collection("members").doc(playerDocIdToAdd);
+      transaction.set(memberRef, {
+        displayName: playerDisplayName,
+        joinedAt: admin.firestore.Timestamp.now(),
+      }, { merge: true });
     });
 
     console.log(`Player (docId: ${playerDocIdToAdd}, authUid: ${playerToAddAuthUid}) added to group ${groupId} by admin ${adminUserId}`);
@@ -1493,8 +1500,9 @@ export const syncUserProfileToPlayer = onDocumentUpdated(
               }
               
               if (Object.keys(memberUpdateData).length > 0) {
-                await memberRef.update(memberUpdateData);
-                console.log(`[syncUserProfileToPlayer] Updated member in group ${groupId}`);
+                // Upsert statt reinem Update: erstellt Member-Dokument falls nicht vorhanden
+                await memberRef.set(memberUpdateData, { merge: true });
+                console.log(`[syncUserProfileToPlayer] Upserted member in group ${groupId}`);
               }
             } catch (groupError) {
               // Member existiert möglicherweise nicht in dieser Gruppe - das ist ok

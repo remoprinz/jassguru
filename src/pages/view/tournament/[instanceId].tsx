@@ -506,7 +506,6 @@ const TournamentViewPage: React.FC = () => {
     try {
       const downloadUrl = await uploadTournamentLogoFirebase(tournament.id, selectedLogoFile, user.uid);
       
-      console.log("[TournamentViewPage DEBUG] Erhaltene Download-URL direkt nach Upload:", downloadUrl); 
 
       await updateTournamentSettings(tournament.id, { logoUrl: downloadUrl });
 

@@ -11,12 +11,14 @@ export const debugiOSNotificationStorage = (): void => {
   const key = IOS_SCREEN_LOCK_WARNING_KEY;
   const value = localStorage.getItem(key);
   const uiState = useUIStore.getState().iosNotification;
-  console.log('🔍 [iOS Notification Debug]', { 
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔍 [iOS Notification Debug]', { 
     key, 
     localStorage: value, 
     uiStore: uiState,
     APP_VERSION 
-  });
+    });
+  }
 };
 
 export interface iOSNotificationOptions {

@@ -103,7 +103,8 @@ const transformTournamentGameToViewerData = (
 
 const PasseDetailPage: React.FC = () => {
   const router = useRouter();
-  const { instanceId, passeId } = router.query as { instanceId: string; passeId: string };
+  const instanceId = typeof router.query.instanceId === 'string' ? router.query.instanceId : undefined;
+  const passeId = typeof router.query.passeId === 'string' ? router.query.passeId : undefined;
   const { user } = useAuthStore();
 
   const fetchTournamentInstanceDetails = useTournamentStore((state) => state.fetchTournamentInstanceDetails);
@@ -117,34 +118,49 @@ const PasseDetailPage: React.FC = () => {
   const [viewerData, setViewerData] = useState<GameViewerKreidetafelProps['gameData'] | null>(null);
 
   useEffect(() => {
-    if (instanceId && !tournament) {
+    if (!router.isReady || !instanceId) {
+      return;
+    }
+
+    if (!tournament) {
       console.log(`[PasseDetailPage] Fetching tournament details for instance: ${instanceId}`);
       fetchTournamentInstanceDetails(instanceId);
     }
-  }, [instanceId, tournament, fetchTournamentInstanceDetails]);
+  }, [router.isReady, instanceId, tournament, fetchTournamentInstanceDetails]);
 
   useEffect(() => {
-    const shouldFetch = instanceId && passeId &&
-                        (!currentPasse || currentPasse.passeId !== passeId) &&
+    if (!router.isReady || !instanceId || !passeId) {
+      return;
+    }
+
+    const shouldFetch = (!currentPasse || currentPasse.passeId !== passeId) &&
                         passeStatus !== 'loading';
 
     if (shouldFetch) {
       console.log(`[PasseDetailPage修正] Fetching passe details for: ${passeId} in tournament ${instanceId}. CurrentPasseId: ${currentPasse?.passeId}`);
       fetchTournamentGameById(instanceId, passeId);
     }
-  }, [instanceId, passeId, currentPasse?.passeId, fetchTournamentGameById, passeStatus]);
+  }, [router.isReady, instanceId, passeId, currentPasse?.passeId, fetchTournamentGameById, passeStatus]);
 
   useEffect(() => {
+    if (!router.isReady) {
+      return;
+    }
+
     if (currentPasse && tournament && tournament.settings) {
       const transformedData = transformTournamentGameToViewerData(currentPasse, tournament.settings);
       setViewerData(transformedData);
     } else {
       setViewerData(null); // Zurücksetzen, wenn Daten fehlen
     }
-  }, [currentPasse, tournament]);
+  }, [router.isReady, currentPasse, tournament]);
 
   const handleGoBack = () => {
-    router.push(`/view/tournament/${instanceId}`);
+    if (instanceId) {
+      router.push(`/view/tournament/${instanceId}`);
+    } else {
+      router.push('/tournaments');
+    }
   };
 
   if (detailsStatus === 'loading' || passeStatus === 'loading') {

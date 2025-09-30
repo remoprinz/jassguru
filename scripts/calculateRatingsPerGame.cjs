@@ -11,7 +11,7 @@
 const admin = require('firebase-admin');
 const path = require('path');
 
-const serviceAccountPath = path.join(__dirname, '../firebase-service-account.json');
+const serviceAccountPath = path.join(__dirname, '../serviceAccountKey.json');
 
 if (!admin.apps.length) {
   admin.initializeApp({
@@ -35,10 +35,10 @@ const parseArgInt = (flag, fallback) => {
 // Import des neuen Jass-Elo Moduls (Node.js kompatibel)
 // Note: Da wir CommonJS verwenden, simulieren wir den Import
 const JASS_ELO_CONFIG = {
-  K_TARGET: parseArgInt('--K', 32),           // FINAL: K=32 (optimale Volatilität)
+  K_TARGET: parseArgInt('--K', 15),           // KONSTANT: K=15 für alle (moderate Änderungen)wi
   RAMP_MAX_GAMES: 50,                         // IRRELEVANT: K-Rampe deaktiviert
   RAMP_MIN_FACTOR: 0.1,                       // IRRELEVANT: K-Rampe deaktiviert
-  DEFAULT_RATING: 1000,                       // Startwert auf 1000 umgestellt (Durchschnitt)
+  DEFAULT_RATING: 100,                        // Startwert bei 100 (niedrigere Basis)
   ELO_SCALE: parseArgInt('--scale', 1000),    // FINAL: Skala=1000 (optimale Spreizung)
 };
 
@@ -63,12 +63,19 @@ function kRampFactor(gamesPlayed) {
 }
 
 function effectiveK(team) {
-  // FIXER K-FAKTOR: Alle Spieler bekommen K=20
-  const player1K = JASS_ELO_CONFIG.K_TARGET; // = 20
-  const player2K = JASS_ELO_CONFIG.K_TARGET; // = 20
-  const teamK = JASS_ELO_CONFIG.K_TARGET;    // = 20
+  // KONSTANTER K-FAKTOR: K=15 für alle Spieler (moderate Änderungen)
+  const player1K = JASS_ELO_CONFIG.K_TARGET; // = 15
+  const player2K = JASS_ELO_CONFIG.K_TARGET; // = 15
+  const teamK = JASS_ELO_CONFIG.K_TARGET;    // = 15
   
   return { player1K, player2K, teamK };
+}
+
+// ✅ NEU: Dynamische Verteilung basierend auf Rating-Unterschied
+function calculateDynamicDistribution(rating1, rating2, teamDelta) {
+  // Gleichverteilung im Team: je 50% des Team-Deltas
+  const half = teamDelta / 2;
+  return { delta1: half, delta2: half };
 }
 
 function updateMatchRatings(match) {
@@ -89,14 +96,26 @@ function updateMatchRatings(match) {
   const deltaA = teamKAvg * (S - expectedA);
   const deltaB = -deltaA;
   
-  // Spieler-Updates
+  // ✅ Gleichverteilung innerhalb der Teams (50/50)
+  const distributionA = calculateDynamicDistribution(
+    match.teamA.player1.rating, 
+    match.teamA.player2.rating, 
+    deltaA
+  );
+  const distributionB = calculateDynamicDistribution(
+    match.teamB.player1.rating, 
+    match.teamB.player2.rating, 
+    deltaB
+  );
+
+  // Spieler-Updates mit individuellen Deltas
   const updates = [
-    // Team A - OHNE /2: Voller Delta für jeden Spieler
+    // Team A - Dynamische Verteilung
     {
       playerId: match.teamA.player1.id,
       oldRating: match.teamA.player1.rating,
-      newRating: match.teamA.player1.rating + deltaA,
-      delta: deltaA,
+      newRating: match.teamA.player1.rating + distributionA.delta1,
+      delta: distributionA.delta1,
       oldGamesPlayed: match.teamA.player1.gamesPlayed,
       newGamesPlayed: match.teamA.player1.gamesPlayed + 1,
       kEffective: kA.player1K,
@@ -104,18 +123,18 @@ function updateMatchRatings(match) {
     {
       playerId: match.teamA.player2.id,
       oldRating: match.teamA.player2.rating,
-      newRating: match.teamA.player2.rating + deltaA,
-      delta: deltaA,
+      newRating: match.teamA.player2.rating + distributionA.delta2,
+      delta: distributionA.delta2,
       oldGamesPlayed: match.teamA.player2.gamesPlayed,
       newGamesPlayed: match.teamA.player2.gamesPlayed + 1,
       kEffective: kA.player2K,
     },
-    // Team B - OHNE /2: Voller Delta für jeden Spieler
+    // Team B - Dynamische Verteilung
     {
       playerId: match.teamB.player1.id,
       oldRating: match.teamB.player1.rating,
-      newRating: match.teamB.player1.rating + deltaB,
-      delta: deltaB,
+      newRating: match.teamB.player1.rating + distributionB.delta1,
+      delta: distributionB.delta1,
       oldGamesPlayed: match.teamB.player1.gamesPlayed,
       newGamesPlayed: match.teamB.player1.gamesPlayed + 1,
       kEffective: kB.player1K,
@@ -123,8 +142,8 @@ function updateMatchRatings(match) {
     {
       playerId: match.teamB.player2.id,
       oldRating: match.teamB.player2.rating,
-      newRating: match.teamB.player2.rating + deltaB,
-      delta: deltaB,
+      newRating: match.teamB.player2.rating + distributionB.delta2,
+      delta: distributionB.delta2,
       oldGamesPlayed: match.teamB.player2.gamesPlayed,
       newGamesPlayed: match.teamB.player2.gamesPlayed + 1,
       kEffective: kB.player2K,
@@ -180,7 +199,7 @@ async function calculateRatingsPerGame() {
     }
 
     // 3. Berechne Ratings pro Spiel
-    const results = await calculateRatingsFromGames(allGames, { freshStart });
+    const results = await calculateRatingsFromGames(allGames, { freshStart, sessions });
     
     // 4. Speichere in Firestore (inkl. Spiegelung in Gruppen-Subcollections)
     await saveRatings(results.playerRatings, results.playerGroupsMap);
@@ -316,13 +335,18 @@ async function loadAllGamesFromSessions(sessions) {
   return allGames;
 }
 
-async function calculateRatingsFromGames(games, { freshStart = false } = {}) {
+async function calculateRatingsFromGames(games, { freshStart = false, sessions = [] } = {}) {
   console.log('🧮 Berechne Jass-Elo Ratings pro Spiel...');
 
   // Lade bestehende Ratings (gruppenübergreifend)
   const playerRatings = await loadExistingRatings(freshStart);
   // NEU: Mapping Spieler -> Gruppen, in denen sie gespielt haben (für Gruppen-Subcollections)
   const playerGroupsMap = new Map(); // playerId -> Set(groupId)
+  
+  // ✅ NEU: Session-Start-Ratings für korrektes Session-Delta
+  const sessionStartRatings = new Map(); // sessionId -> Map<playerId, startRating>
+  const sessionEndRatings = new Map(); // sessionId -> Map<playerId, endRating>
+  const playerSessionHistory = new Map(); // playerId -> [{ sessionId, endRating }, ...]
   
   let processedCount = 0;
   let skippedCount = 0;
@@ -337,20 +361,49 @@ async function calculateRatingsFromGames(games, { freshStart = false } = {}) {
 
       const result = updateMatchRatings(match);
       
+       // ✅ NEU: Speichere Start-Ratings für erste Spiele einer Session
+       if (game.sessionId && game.gameNumber === 1) {
+         const sessionPlayerRatings = new Map();
+         for (const update of result.updates) {
+           sessionPlayerRatings.set(update.playerId, update.oldRating);
+         }
+         sessionStartRatings.set(game.sessionId, sessionPlayerRatings);
+       }
+      
       // Update lokale Ratings
       for (const update of result.updates) {
-        playerRatings.set(update.playerId, {
+        const updateData = {
           id: update.playerId,
           rating: update.newRating,
           gamesPlayed: update.newGamesPlayed,
           lastUpdated: Date.now()
-        });
+        };
+        
+        // ✅ Für Turnier-Spiele: Delta sofort setzen (pro Spiel)
+        if (game.tournamentId && !game.sessionId) {
+          updateData.lastDelta = Math.round(update.newRating - update.oldRating);
+        }
+        // Für Session-Spiele: lastDelta wird später am Ende der Session gesetzt
+        
+        playerRatings.set(update.playerId, updateData);
         // NEU: Gruppen-Zuordnung merken
         if (game.groupId) {
           if (!playerGroupsMap.has(update.playerId)) {
             playerGroupsMap.set(update.playerId, new Set());
           }
           playerGroupsMap.get(update.playerId).add(game.groupId);
+        }
+      }
+
+      // ✅ VEREINFACHT: Speichere immer End-Ratings (überschreibt bei mehreren Spielen)
+      if (game.sessionId) {
+        if (!sessionEndRatings.has(game.sessionId)) {
+          sessionEndRatings.set(game.sessionId, new Map());
+        }
+        const endRatings = sessionEndRatings.get(game.sessionId);
+        
+        for (const update of result.updates) {
+          endRatings.set(update.playerId, update.newRating);
         }
       }
 
@@ -366,6 +419,200 @@ async function calculateRatingsFromGames(games, { freshStart = false } = {}) {
     }
   }
 
+  // ✅ NEU: Berechne Session-Deltas am Ende (Cloud Function Logik)
+  // Gruppiere Spiele nach Session
+  const sessionGames = new Map(); // sessionId -> array of games
+  for (const game of games) {
+    if (game.sessionId) {
+      if (!sessionGames.has(game.sessionId)) {
+        sessionGames.set(game.sessionId, []);
+      }
+      sessionGames.get(game.sessionId).push(game);
+    }
+  }
+  
+   // ✅ KORRIGIERT: Verwende Session-endedAt aus den ursprünglichen Session-Daten
+   const sessionTimestamps = new Map(); // sessionId -> endedAt timestamp
+   
+   // Lade Session-Timestamps aus den ursprünglichen Sessions
+   for (const session of sessions) {
+     let timestamp = 0;
+     
+     // 1. Versuche endedAt (PRIMÄR)
+     if (session.endedAt) {
+       if (typeof session.endedAt === 'object' && session.endedAt.toMillis) {
+         timestamp = session.endedAt.toMillis();
+       } else if (typeof session.endedAt === 'object' && session.endedAt.seconds) {
+         timestamp = session.endedAt.seconds * 1000;
+       } else if (typeof session.endedAt === 'number') {
+         timestamp = session.endedAt;
+       }
+     }
+     // 2. Fallback: startedAt
+     else if (session.startedAt) {
+       if (typeof session.startedAt === 'object' && session.startedAt.toMillis) {
+         timestamp = session.startedAt.toMillis();
+       } else if (typeof session.startedAt === 'object' && session.startedAt.seconds) {
+         timestamp = session.startedAt.seconds * 1000;
+       } else if (typeof session.startedAt === 'number') {
+         timestamp = session.startedAt;
+       }
+     }
+     // 3. Fallback: createdAt
+     else if (session.createdAt) {
+       if (typeof session.createdAt === 'object' && session.createdAt.toMillis) {
+         timestamp = session.createdAt.toMillis();
+       } else if (typeof session.createdAt === 'object' && session.createdAt.seconds) {
+         timestamp = session.createdAt.seconds * 1000;
+       } else if (typeof session.createdAt === 'number') {
+         timestamp = session.createdAt;
+       }
+     }
+     
+     if (timestamp > 0) {
+       sessionTimestamps.set(session.id, timestamp);
+     } else {
+       console.warn(`⚠️ Session ${session.id} hat keinen verwertbaren Timestamp`);
+       sessionTimestamps.set(session.id, 0);
+     }
+   }
+  
+  // Sortiere Sessions chronologisch mit sekundärer Session-ID Sortierung
+  const sortedSessionIds = Array.from(sessionGames.keys()).sort((a, b) => {
+    const timestampA = sessionTimestamps.get(a) || 0;
+    const timestampB = sessionTimestamps.get(b) || 0;
+    
+    // Primäre Sortierung: Timestamp
+    if (timestampA !== timestampB) {
+      return timestampA - timestampB;
+    }
+    
+    // Sekundäre Sortierung: Session-ID alphabetisch (bei gleichen/fehlenden Timestamps)
+    return a.localeCompare(b);
+  });
+  
+  // ✅ SESSION-BASIERTE DELTA-BERECHNUNG: Speichere Start- UND End-Rating pro Session
+  for (const sessionId of sortedSessionIds) {
+    const startRatings = sessionStartRatings.get(sessionId);
+    const endRatings = sessionEndRatings.get(sessionId);
+    
+    if (startRatings && endRatings) {
+      for (const [playerId, startRating] of startRatings) {
+        const endRating = endRatings.get(playerId);
+        if (endRating !== undefined) {
+          // Initialisiere History für Spieler
+          if (!playerSessionHistory.has(playerId)) {
+            playerSessionHistory.set(playerId, []);
+          }
+          
+          // Füge Session-Daten mit Start- UND End-Rating hinzu
+          const playerHistory = playerSessionHistory.get(playerId);
+          playerHistory.push({
+            sessionId,
+            startRating: startRating,  // ✅ NEU: Start-Rating der Session
+            endRating: endRating,
+            sessionDelta: Math.round(endRating - startRating)  // ✅ NEU: Delta INNERHALB der Session
+          });
+        }
+      }
+    }
+  }
+   
+   // ✅ KRITISCHES DEBUG: Zeige Session-Timestamps für Remo & Michael
+   const debugSessionIds = ['xe38yaG8mn6BpwVUP2-Ln', 'fNGTXwzTxxinFXW1EF91B'];
+   console.log('\n🚨 CHRONOLOGIE-DEBUG:');
+   for (const sessionId of debugSessionIds) {
+     const timestamp = sessionTimestamps.get(sessionId);
+     const date = timestamp ? new Date(timestamp).toISOString() : 'UNBEKANNT';
+     console.log(`   ${sessionId}: ${timestamp} (${date})`);
+   }
+   
+   // Debug: Zeige alle Sessions von Remo UND Michael
+   const playerNames = { 'b16c1120111b7d9e7d733837': 'REMO', '9K2d1OQ1mCXddko7ft6y': 'MICHAEL' };
+   
+   for (const [playerId, playerName] of Object.entries(playerNames)) {
+     const history = playerSessionHistory.get(playerId);
+     if (history) {
+       console.log(`\n📅 ${playerName}'s SESSIONS (chronologisch):`);
+       history.forEach((session, index) => {
+         const isLast = index === history.length - 1;
+         const isSecondLast = index === history.length - 2;
+         const marker = isLast ? '🔴 LETZTE' : isSecondLast ? '🟡 VORLETZTE' : '';
+         const deltaStr = session.sessionDelta >= 0 ? `+${session.sessionDelta}` : `${session.sessionDelta}`;
+         console.log(`   ${index + 1}. ${session.sessionId} → Rating: ${Math.round(session.startRating)} → ${Math.round(session.endRating)} (${deltaStr}) ${marker}`);
+       });
+       
+       if (history.length > 0) {
+         const lastSession = history[history.length - 1];
+         console.log(`   💡 ${playerName} lastDelta (letzte Session): ${lastSession.sessionDelta >= 0 ? '+' : ''}${lastSession.sessionDelta}`);
+       }
+     }
+   }
+   
+   // ✅ KORREKT: lastDelta = Änderung INNERHALB der letzten Session
+   for (const [playerId, history] of playerSessionHistory) {
+     const currentPlayerData = playerRatings.get(playerId);
+     if (!currentPlayerData) continue;
+     
+     if (history.length > 0) {
+       // Nimm das Delta der LETZTEN Session (Änderung innerhalb dieser Session)
+       const lastSession = history[history.length - 1];
+       currentPlayerData.lastDelta = lastSession.sessionDelta;
+     } else {
+       // Keine Sessions: Delta = 0
+       currentPlayerData.lastDelta = 0;
+     }
+     
+     playerRatings.set(playerId, currentPlayerData);
+   }
+  
+  // Für Turnier-Spiele (kein sessionId): Delta ist bereits korrekt gesetzt
+  for (const game of games) {
+    if (!game.sessionId && game.tournamentId) {
+      // Bei Turnier-Spielen ist das Delta pro Spiel bereits korrekt
+      // Nichts zu tun
+    }
+  }
+
+  // 🆕 PEAK/LOW TRACKING: Berechne echte Peaks aus kompletter Historie
+  for (const [playerId, playerData] of playerRatings) {
+    const sessionHistory = playerSessionHistory.get(playerId) || [];
+    
+    // Alle Ratings sammeln: Start (100) + alle Session-Endwerte mit Timestamps
+    const allRatingsWithDates = [{ rating: 100, timestamp: Date.now() }]; // Startwert
+    sessionHistory.forEach(session => {
+      allRatingsWithDates.push({ 
+        rating: session.endRating, 
+        timestamp: session.timestamp || Date.now() 
+      });
+    });
+    
+    // Peak und Low berechnen mit echten Datums
+    let truePeak = 100;
+    let trueLow = 100;
+    let peakDate = Date.now();
+    let lowDate = Date.now();
+    
+    allRatingsWithDates.forEach(entry => {
+      if (entry.rating > truePeak) {
+        truePeak = entry.rating;
+        peakDate = entry.timestamp;
+      }
+      if (entry.rating < trueLow) {
+        trueLow = entry.rating;
+        lowDate = entry.timestamp;
+      }
+    });
+    
+    // Erweitere playerData
+    playerData.peakRating = truePeak;
+    playerData.peakRatingDate = peakDate;
+    playerData.lowestRating = trueLow;
+    playerData.lowestRatingDate = lowDate;
+    
+    playerRatings.set(playerId, playerData);
+  }
+  
   return {
     processedGames: processedCount,
     skippedGames: skippedCount,
@@ -514,10 +761,21 @@ async function saveRatings(playerRatings, playerGroupsMap) {
     const docRef = db.collection('playerRatings').doc(rating.id);
     
     // Erweitere Rating um Spielernamen
+    // ✅ WICHTIG: Tier und Emoji mit neuer 100er-Skala berechnen!
+    const tierInfo = getRatingTier(rating.rating);
+    
     const ratingWithName = {
       ...rating,
       displayName: playerNames[rating.id] || `Spieler_${rating.id.slice(0, 6)}`,
-      lastUpdated: Date.now()
+      lastUpdated: Date.now(),
+      tier: tierInfo.name,
+      tierEmoji: tierInfo.emoji,
+      // 🆕 PEAK/LOW TRACKING: Berechne aus Session-History
+      peakRating: Math.max(rating.rating, rating.peakRating || 100),
+      peakRatingDate: rating.rating > (rating.peakRating || 100) ? Date.now() : rating.peakRatingDate,
+      lowestRating: Math.min(rating.rating, rating.lowestRating || 100),
+      lowestRatingDate: rating.rating < (rating.lowestRating || 100) ? Date.now() : rating.lowestRatingDate,
+      // lastDelta ist bereits korrekt aus der Game-Iteration gesetzt
     };
     
     batch.set(docRef, ratingWithName);
@@ -579,14 +837,15 @@ function showSummary(results) {
   console.log('\n🏆 TOP 15 SPIELER:');
   topPlayers.forEach((player, index) => {
     const tier = getRatingTier(player.rating);
-    console.log(`${index + 1}. ${player.id}: ${Math.round(player.rating)} (${player.gamesPlayed} Spiele) - ${tier}`);
+    console.log(`${index + 1}. ${player.id}: ${Math.round(player.rating)} (${player.gamesPlayed} Spiele) - ${tier.emoji} ${tier.name}`);
   });
   
   console.log('\n📈 RATING-VERTEILUNG:');
   const distribution = {};
   Array.from(results.playerRatings.values()).forEach(player => {
     const tier = getRatingTier(player.rating);
-    distribution[tier] = (distribution[tier] || 0) + 1;
+    const tierKey = `${tier.emoji} ${tier.name}`;
+    distribution[tierKey] = (distribution[tierKey] || 0) + 1;
   });
   
   Object.entries(distribution).forEach(([tier, count]) => {
@@ -599,30 +858,29 @@ function showSummary(results) {
 }
 
 function getRatingTier(rating) {
-  // Finale Schweizer Jass-Tier System
-  if (rating >= 1100) return "👼 Göpf Egg";
-  if (rating >= 1090) return "🔱 Jassgott";
-  if (rating >= 1080) return "👑 Jasskönig";
-  if (rating >= 1070) return "🇨🇭 Eidgenoss";
-  if (rating >= 1060) return "🍀 Kranzjasser";
-  if (rating >= 1050) return "🏆 Grossmeister";
-  if (rating >= 1040) return "💎 Jassmeister";
-  if (rating >= 1030) return "🥇 Goldjasser";
-  if (rating >= 1020) return "🥈 Silberjasser";
-  if (rating >= 1010) return "🥉 Bronzejasser";
-  if (rating >= 1000) return "👨‍🎓 Akademiker";
-  if (rating >= 990) return "💡 Aspirant";
-  if (rating >= 980) return "☘️ Praktikant";
-  if (rating >= 970) return "📚 Schüler";
-  if (rating >= 960) return "🐓 Hahn";
-  if (rating >= 950) return "🐔 Huhn";
-  if (rating >= 940) return "🐥 Kücken";
-  if (rating >= 930) return "🌱 Anfänger";
-  if (rating >= 920) return "🎅 Chlaus";
-  if (rating >= 910) return "🧀 Käse";
-  if (rating >= 900) return "🦆 Ente";
-  if (rating >= 890) return "🥒 Gurke";
-  return "🥚 Just Egg";
+  // ✅ PERFEKTE JASS-TIERS: Exakt synchronisiert mit shared/rating-tiers.ts
+  if (rating >= 150) return { name: "Göpf Egg", emoji: "👼" };
+  if (rating >= 145) return { name: "Jassgott", emoji: "🔱" };
+  if (rating >= 140) return { name: "Jasskönig", emoji: "👑" };
+  if (rating >= 135) return { name: "Grossmeister", emoji: "🏆" };
+  if (rating >= 130) return { name: "Jasser mit Auszeichnung", emoji: "🎖️" };
+  if (rating >= 125) return { name: "Diamantjasser II", emoji: "💎" };
+  if (rating >= 120) return { name: "Diamantjasser I", emoji: "💍" };
+  if (rating >= 115) return { name: "Goldjasser", emoji: "🥇" };
+  if (rating >= 110) return { name: "Silberjasser", emoji: "🥈" };
+  if (rating >= 105) return { name: "Broncejasser", emoji: "🥉" };
+  if (rating >= 100) return { name: "Jassstudent", emoji: "👨‍🎓" };
+  if (rating >= 95)  return { name: "Kleeblatt vierblättrig", emoji: "🍀" };
+  if (rating >= 90)  return { name: "Kleeblatt dreiblättrig", emoji: "☘️" };
+  if (rating >= 85)  return { name: "Sprössling", emoji: "🌱" };
+  if (rating >= 80)  return { name: "Hahn", emoji: "🐓" };
+  if (rating >= 75)  return { name: "Huhn", emoji: "🐔" };
+  if (rating >= 70)  return { name: "Kücken", emoji: "🐥" };
+  if (rating >= 65)  return { name: "Ente", emoji: "🦆" };
+  if (rating >= 60)  return { name: "Chlaus", emoji: "🎅" };
+  if (rating >= 55)  return { name: "Chäs", emoji: "🧀" };
+  if (rating >= 50)  return { name: "Gurke", emoji: "🥒" };
+  return { name: "Just Egg", emoji: "🥚" };
 }
 
 function showHelp() {

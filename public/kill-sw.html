@@ -22,11 +22,9 @@
   <div class="wrap">
     <div class="card">
       <h1>Jassguru – Sicherer Wiederherstellungsmodus</h1>
-      <p>Wir bereinigen jetzt deinen Service Worker und Cache. Danach kannst du die App neu starten – ohne Neuinstallation.</p>
+      <p>Wir bereinigen jetzt deinen Service Worker und Cache. Danach startet die App automatisch neu – ohne Neuinstallation.</p>
       <div class="row">
         <button id="start" class="primary">Bereinigung starten</button>
-        <a id="restart" class="secondary" href="/">App neu starten</a>
-        <button id="force" class="danger">Alles löschen (Notfall)</button>
       </div>
       <div class="log" id="log"></div>
     </div>
@@ -35,9 +33,7 @@
   <script>
     (function(){
       const logEl = document.getElementById('log');
-      const restartEl = document.getElementById('restart');
       const startBtn = document.getElementById('start');
-      const forceBtn = document.getElementById('force');
 
       function log(msg){
         const time = new Date().toLocaleTimeString();
@@ -63,127 +59,82 @@
         } catch(e){ log('Fehler beim Cache-Löschen: ' + (e && e.message)); }
       }
 
+      async function clearIndexedDBStores() {
+        if (!('indexedDB' in window)) { log('Kein IndexedDB Support.'); return; }
+        
+        const dbsToDelete = [
+          'firebaseLocalStorageDb',
+          'firebase-heartbeat-database',
+          'firebase-installations-database',
+          'workbox-precache-v2-https://jassguru.ch/',
+          'workbox-runtime-https://jassguru.ch/',
+          'workbox-background-sync'
+        ];
+
+        let deletedCount = 0;
+        for (const dbName of dbsToDelete) {
+          try {
+            await new Promise((resolve, reject) => {
+              const deleteReq = indexedDB.deleteDatabase(dbName);
+              deleteReq.onsuccess = () => resolve();
+              deleteReq.onerror = () => reject(deleteReq.error);
+              deleteReq.onblocked = () => {
+                setTimeout(() => resolve(), 1000); // Timeout nach 1s
+              };
+            });
+            deletedCount++;
+          } catch(e) {
+            // Fehler beim Löschen einzelner DBs sind nicht kritisch
+          }
+        }
+        log(`IndexedDB bereinigt: ${deletedCount}/${dbsToDelete.length} DBs`);
+      }
+
       function clearStorageFlags(){
         try { sessionStorage.removeItem('pwaUpdateReloaded'); } catch {}
         try { sessionStorage.removeItem('hydrationReloaded'); } catch {}
+        try { sessionStorage.removeItem('watchdog-triggered'); } catch {} // 🛡️ WICHTIG: Watchdog-Flag zurücksetzen
         try { localStorage.removeItem('swActivationFailures'); } catch {}
         log('Recovery-Flags zurückgesetzt');
       }
 
-      function addNoSwParamToRestart(){
-        try {
-          const url = new URL(window.location.origin + '/');
-          url.searchParams.set('no-sw','1');
-          restartEl.href = url.toString();
-          log('Restart-Link mit ?no-sw=1 vorbereitet');
-        } catch {}
-      }
 
       async function runRecovery(){
-        startBtn.disabled = true; forceBtn.disabled = true;
-        log('Starte Bereinigung...');
+        startBtn.disabled = true;
+        startBtn.textContent = 'Bereinigung läuft...';
+        log('Starte vollständige Bereinigung...');
+        
         await unregisterAllSW();
         await clearAllCaches();
+        await clearIndexedDBStores(); // 🧹 WICHTIG: Vollständige IDB-Bereinigung
         clearStorageFlags();
-        addNoSwParamToRestart();
-        log('✅ Fertig. Klicke "App neu starten".');
-      }
-
-      async function runForce(){
-        startBtn.disabled = true; forceBtn.disabled = true;
-        await runRecovery();
-        // Harte Weiterleitung nach erfolgreicher Bereinigung
-        try {
-          const url = new URL(window.location.origin + '/');
-          url.searchParams.set('no-sw','1');
-          window.location.replace(url.toString());
-        } catch(e){ log('Notfall-Redirect fehlgeschlagen: ' + (e && e.message)); }
+        
+        log('✅ Bereinigung abgeschlossen. App startet automatisch neu...');
+        
+        // Automatische Weiterleitung nach erfolgreicher Bereinigung
+        setTimeout(() => {
+          try {
+            const url = new URL(window.location.origin + '/');
+            url.searchParams.set('no-sw','1');
+            window.location.replace(url.toString());
+          } catch(e){ 
+            log('Auto-Redirect fehlgeschlagen: ' + (e && e.message)); 
+            // Fallback: Button wieder aktivieren
+            startBtn.disabled = false;
+            startBtn.textContent = 'Bereinigung starten';
+          }
+        }, 1500);
       }
 
       startBtn.addEventListener('click', runRecovery);
-      forceBtn.addEventListener('click', runForce);
 
-      // Auto-Start (komfortabel): Versuche direkt zu bereinigen
-      runRecovery();
+      // Auto-Start bei ?auto=true Parameter
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('auto') === 'true') {
+        log('Auto-Recovery gestartet...');
+        runRecovery();
+      }
     })();
-  </script>
-</body>
-</html>
-
-<!DOCTYPE html>
-<html lang="de">
-<head>
-  <meta charset="UTF-8">
-  <title>Jassguru App Update...</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body {
-      background-color: #111827;
-      color: #e5e7eb;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
-      text-align: center;
-      flex-direction: column;
-    }
-    .spinner {
-      border: 4px solid rgba(255, 255, 255, 0.3);
-      border-radius: 50%;
-      border-top: 4px solid #3498db;
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
-      margin-bottom: 20px;
-    }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-  </style>
-</head>
-<body>
-  <div class="spinner"></div>
-  <h1>App wird zurückgesetzt & aktualisiert...</h1>
-  <p>Dies sollte nur wenige Sekunden dauern.</p>
-
-  <script>
-    async function forceReset() {
-      try {
-        if ('serviceWorker' in navigator) {
-          console.log('Deregistriere alle Service Worker...');
-          const registrations = await navigator.serviceWorker.getRegistrations();
-          for (const registration of registrations) {
-            await registration.unregister();
-            console.log('Service Worker deregistriert:', registration.scope);
-          }
-        }
-      } catch (err) {
-        console.error('Fehler bei der Deregistrierung des Service Workers:', err);
-      }
-
-      try {
-        if ('caches' in window) {
-          console.log('Lösche alle Caches...');
-          const keys = await caches.keys();
-          for (const key of keys) {
-            await caches.delete(key);
-            console.log('Cache gelöscht:', key);
-          }
-        }
-      } catch (err) {
-        console.error('Fehler beim Löschen der Caches:', err);
-      }
-      
-      // Zurück zur Hauptseite mit einem Cache-Busting-Parameter
-      console.log('Weiterleitung zur Startseite...');
-      window.location.href = '/?reset=' + Date.now();
-    }
-
-    // Starte den Reset, sobald die Seite geladen ist
-    window.addEventListener('load', forceReset);
   </script>
 </body>
 </html>

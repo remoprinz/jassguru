@@ -16,6 +16,7 @@ import { Timestamp } from 'firebase/firestore';
 import type { StricheRecord, FirestorePlayer } from '@/types/jass';
 import type { TournamentInstance } from '@/types/tournament';
 import ProfileImage from '@/components/ui/ProfileImage';
+import AvatarPreloader from '@/components/ui/AvatarPreloader';
 import { transformComputedStatsToExtended, type TransformedPlayerStats } from '@/utils/statsTransformer';
 import NotableEventsList from "@/components/profile/NotableEventsList";
 import type { FrontendPartnerAggregate, FrontendOpponentAggregate } from '@/types/computedStats';
@@ -34,7 +35,7 @@ import { cn } from '@/lib/utils';
 import type { ThemeColor } from '@/config/theme';
 import { generateBlurPlaceholder } from '@/utils/imageOptimization';
 // NEU: Jass-Elo Service
-import { loadPlayerRatings, type PlayerRatingWithTier, getRatingTier } from '@/services/jassElo';
+import { loadPlayerRatings, type PlayerRatingWithTier } from '@/services/jassElo';
 import { db } from '@/services/firebaseInit';
 import { doc, getDoc } from 'firebase/firestore';
 
@@ -162,6 +163,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   
   // NEU: State für Elo-Rating
   const [playerRating, setPlayerRating] = useState<PlayerRatingWithTier | null>(null);
+  // NEU: State für Elo-Delta
+  const [playerDelta, setPlayerDelta] = useState<number | null>(null);
 
   // Memoized color computation - optimiert für Performance
   const accentColor = useMemo(() => {
@@ -338,73 +341,92 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   }, [playerStats]);
 
   // Bestimme den aktuellen Player (für Public View aus props, für Private View verwende bevorzugt den Firestore-Player aus props)
-  const currentPlayer = isPublicView ? player : (player || user);
+  const currentPlayer = useMemo(() => {
+    if (isPublicView) {
+      return player;
+    }
+    if (player) return player;
+    if (user && typeof user === 'object') {
+      const { id, userId, displayName, photoURL, statusMessage, groupIds } = user as any;
+      return {
+        id,
+        userId,
+        displayName,
+        photoURL,
+        statusMessage,
+        groupIds,
+      };
+    }
+    return null;
+  }, [isPublicView, player, user]);
   const displayName = currentPlayer?.displayName || "Unbekannter Spieler";
   const photoURL = currentPlayer?.photoURL;
   const jassSpruch = currentPlayer?.statusMessage || "Hallo! Ich jasse mit jassguru.ch";
 
-  // NEU: Lade Elo-Rating für aktuellen Spieler
+  const profileAvatarPhotoURLs = useMemo(() => {
+    const urls: (string | undefined | null)[] = [];
+
+    if (members) {
+      urls.push(...members.map((m) => m.photoURL));
+    }
+
+    if (currentPlayer?.photoURL) {
+      urls.push(currentPlayer.photoURL);
+    }
+
+    const pushMemberPhotoById = (id?: string) => {
+      if (!id) return;
+      const member = members?.find((m) => m.id === id || m.userId === id);
+      if (member?.photoURL) {
+        urls.push(member.photoURL);
+      }
+    };
+
+    const pushMemberPhotoByName = (name?: string) => {
+      if (!name) return;
+      const normalized = name.toLowerCase();
+      const member = members?.find((m) => m.displayName?.toLowerCase() === normalized);
+      if (member?.photoURL) {
+        urls.push(member.photoURL);
+      }
+    };
+
+    const safeArray = <T extends { partnerId?: string; opponentId?: string; partnerDisplayName?: string; opponentDisplayName?: string; }>(arr?: T[]) => Array.isArray(arr) ? arr : [];
+
+    safeArray(playerStats?.partnerAggregates).forEach((partner) => {
+      pushMemberPhotoById(partner.partnerId);
+      pushMemberPhotoByName(partner.partnerDisplayName);
+    });
+
+    safeArray(playerStats?.opponentAggregates).forEach((opponent) => {
+      pushMemberPhotoById(opponent.opponentId);
+      pushMemberPhotoByName(opponent.opponentDisplayName);
+    });
+
+    return Array.from(new Set(urls.filter((url): url is string => typeof url === 'string' && url.trim() !== '')));
+  }, [members, currentPlayer, playerStats?.partnerAggregates, playerStats?.opponentAggregates]);
+
+  // NEU: Lade Elo-Rating für aktuellen Spieler (einheitlich via loadPlayerRatings)
   React.useEffect(() => {
-    // Sammle alle möglichen IDs
-    const possibleIds = [
-      (currentPlayer as any)?.id,
-      (currentPlayer as any)?.userId,
-      (user as any)?.playerId,
-      (user as any)?.uid
-    ].filter(Boolean);
-
-    if (possibleIds.length === 0) return;
-
+    const playerId = (currentPlayer as any)?.id || (currentPlayer as any)?.userId || (user as any)?.playerId || (user as any)?.uid || (isPublicView ? router?.query?.playerId : null);
+    if (!playerId) return;
     (async () => {
       try {
-        // console.log('🔍 Suche Elo für IDs:', possibleIds);
-        
-        // 1) Versuche Root-Collection mit allen IDs
-        for (const playerId of possibleIds) {
-          const rootRatings = await loadPlayerRatings([playerId]);
-          const root = rootRatings.get(playerId);
-          if (root) {
-            // console.log('✅ Elo gefunden (Root):', root);
-            setPlayerRating(root);
-            return;
+        const map = await loadPlayerRatings([String(playerId)]);
+        const rating = map.get(String(playerId));
+        if (rating) {
+          setPlayerRating(rating);
+          if (typeof rating.lastDelta === 'number') {
+            setPlayerDelta(rating.lastDelta);
+          } else {
+            setPlayerDelta(null);
           }
         }
-
-        // 2) Fallback: Gruppenspezifische Subcollections
-        const groupIds: string[] = Array.isArray((currentPlayer as any)?.groupIds)
-          ? (currentPlayer as any).groupIds
-          : (Array.isArray((user as any)?.groupIds) ? (user as any).groupIds : []);
-
-        let best: PlayerRatingWithTier | null = null;
-        for (const playerId of possibleIds) {
-          for (const gid of groupIds) {
-            try {
-              const dref = doc(db as any, `groups/${gid}/playerRatings/${playerId}`);
-              const dsnap = await getDoc(dref);
-              if (dsnap.exists()) {
-                const data: any = dsnap.data();
-                const tier = getRatingTier(data.rating || 1000);
-                const candidate: PlayerRatingWithTier = {
-                  id: playerId,
-                  rating: data.rating || 1000,
-                  gamesPlayed: data.gamesPlayed || 0,
-                  lastUpdated: data.lastUpdated || Date.now(),
-                  displayName: data.displayName,
-                  tier: tier.name,
-                  tierEmoji: tier.emoji,
-                };
-                if (!best || candidate.rating > best.rating) best = candidate;
-                // console.log('✅ Elo gefunden (Group):', candidate);
-              }
-            } catch {}
-          }
-        }
-        if (best) setPlayerRating(best);
-      } catch (error) {
-        console.warn('Fehler beim Laden des Elo-Ratings:', error);
+      } catch (e) {
+        console.warn('Fehler beim Laden des Elo-Ratings via loadPlayerRatings:', e);
       }
     })();
-  }, [currentPlayer, user]);
+  }, [currentPlayer, user, isPublicView, router?.query?.playerId]);
 
   // ===== LOKALE TAB-COLOR FUNKTION (IDENTISCH ZU GROUPVIEW) =====
   const getTabActiveColor = (themeKey: string): string => {
@@ -436,6 +458,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   return (
     <MainLayout>
       <div className="flex flex-col items-center justify-start bg-gray-900 text-white p-4 relative pt-8 pb-20">
+          {/* 🚀 AVATAR PRELOADER: Lädt alle Partner/Gegner-Avatare unsichtbar vor */}
+          {profileAvatarPhotoURLs.length > 0 && (
+            <AvatarPreloader photoURLs={profileAvatarPhotoURLs} />
+          )}
+          
           {/* NEU: SHARE BUTTON - OBEN RECHTS (nur für öffentliche Profile) */}
           {isPublicView && currentPlayer && (
             <button 
@@ -570,7 +597,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           {playerRating && (
             <div className="flex items-center justify-center gap-2 mb-4">
               <span className="text-base text-gray-300">Jass-Elo:</span>
-              <span className="text-xl font-semibold text-white">{Math.round(playerRating.rating)}</span>
+              <span className="text-xl font-semibold text-white">
+                {Math.round(playerRating.rating)}
+                {playerDelta !== null && (
+                  <span className={`ml-1 text-base ${playerDelta > 0 ? 'text-green-400' : playerDelta < 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                    ({playerDelta > 0 ? '+' : ''}{Math.round(playerDelta)})
+                  </span>
+                )}
+              </span>
               <span className="text-lg">{playerRating.tierEmoji}</span>
             </div>
           )}
@@ -738,8 +772,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </TabsTrigger>
           </TabsList>
 
-          {/* Statistics Tab Content */}
-          <TabsContent value="stats" className="w-full mb-8">
+          {/* Statistics Tab Content - forceMount für instant Avatar-Loading */}
+          <TabsContent 
+            value="stats" 
+            forceMount
+            className={activeMainTab !== 'stats' ? 'hidden' : 'w-full mb-8'}
+            style={{ display: activeMainTab !== 'stats' ? 'none' : 'block' }}
+          >
             <Tabs
               value={activeStatsSubTab}
               onValueChange={(value) => {
@@ -790,7 +829,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               </div>
               
               {/* Individual Stats Content */}
-              <TabsContent value="individual" className="w-full bg-gray-800/50 rounded-lg p-4">
+              <TabsContent 
+                value="individual"
+                forceMount
+            className={activeStatsSubTab !== 'individual' ? 'hidden' : 'w-full bg-gray-800/50 rounded-lg p-4'}
+            style={{ display: activeStatsSubTab !== 'individual' ? 'none' : 'block' }}
+              >
                 {statsLoading ? (
                   <div className="flex justify-center items-center py-10">
                     <div className="h-6 w-6 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
@@ -954,7 +998,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       <div ref={trumpfStatistikRef} className="p-4 space-y-2  pr-2">
                         {trumpfStatistikArray.length > 0 ? (
                           trumpfStatistikArray.map((item, index) => (
-                            <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
+                            <div key={`trumpf-${item.farbe}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
                               <div className="flex items-center">
                                 <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                 <FarbePictogram farbe={normalizeJassColor(item.farbe)} mode="svg" className="h-6 w-6 mr-2" />
@@ -1264,7 +1308,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               </TabsContent>
 
               {/* Partner Stats Content */}
-              <TabsContent value="partner" className="w-full bg-gray-800/50 rounded-lg p-4 space-y-6">
+              <TabsContent 
+                value="partner"
+                forceMount
+                className={activeStatsSubTab !== 'partner' ? 'hidden' : 'w-full bg-gray-800/50 rounded-lg p-4 space-y-6'}
+                style={{ display: activeStatsSubTab !== 'partner' ? 'none' : 'block' }}
+              >
                 {(playerStats as any)?.partnerAggregates && (playerStats as any).partnerAggregates.length > 0 ? (
                   <>
                     {/* Siegquote Partien */}
@@ -1282,7 +1331,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             const playerData = members?.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
                             return (
                             <StatLink
-                                key={`partner-session-${index}`}
+                                key={`partner-session-${partner.partnerId}`}
                                 href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`}
                                 isClickable={!!partner.partnerId}
                                 className="block rounded-md"
@@ -1342,7 +1391,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             const playerData = members?.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
                             return (
                             <StatLink 
-                                key={`partner-game-${index}`} 
+                                key={`partner-game-${partner.partnerId}`} 
                                 href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`} 
                                 isClickable={!!partner.partnerId}
                                 className="block rounded-md"
@@ -1401,7 +1450,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             const playerData = members?.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
                             return (
                             <StatLink 
-                                key={`partner-striche-${index}`} 
+                                key={`partner-striche-${partner.partnerId}`} 
                                 href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`} 
                                 isClickable={!!partner.partnerId}
                                 className="block rounded-md"
@@ -1452,7 +1501,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             const playerData = members?.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
                             return (
                             <StatLink 
-                                key={`partner-points-${index}`} 
+                                key={`partner-points-${partner.partnerId}`} 
                                 href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`} 
                                 isClickable={!!partner.partnerId}
                                 className="block rounded-md"
@@ -1503,7 +1552,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             const playerData = members?.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
                             return (
                             <StatLink 
-                                key={`partner-matsch-${index}`} 
+                                key={`partner-matsch-${partner.partnerId}`} 
                                 href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`} 
                                 isClickable={!!partner.partnerId}
                                 className="block rounded-md"
@@ -1558,7 +1607,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             const playerData = members?.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
                             return (
                               <StatLink 
-                                key={`partner-schneider-${index}`} 
+                                key={`partner-schneider-${partner.partnerId}`} 
                                 href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`} 
                                 isClickable={!!partner.partnerId}
                                 className="block rounded-md"
@@ -1613,7 +1662,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             const playerData = members?.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
                             return (
                               <StatLink 
-                                key={`partner-kontermatsch-${index}`} 
+                                key={`partner-kontermatsch-${partner.partnerId}`} 
                                 href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`} 
                                 isClickable={!!partner.partnerId}
                                 className="block rounded-md"
@@ -1659,7 +1708,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               </TabsContent>
 
               {/* Opponent Stats Content */}
-              <TabsContent value="opponent" className="w-full bg-gray-800/50 rounded-lg p-4 space-y-6">
+              <TabsContent 
+                value="opponent"
+                forceMount
+                className={activeStatsSubTab !== 'opponent' ? 'hidden' : 'w-full bg-gray-800/50 rounded-lg p-4 space-y-6'}
+                style={{ display: activeStatsSubTab !== 'opponent' ? 'none' : 'block' }}
+              >
                 {(playerStats as any)?.opponentAggregates && (playerStats as any).opponentAggregates.length > 0 ? (
                   <>
                     {/* Siegquote Partien */}
@@ -1677,7 +1731,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             const playerData = members?.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
                             return (
                               <StatLink 
-                                key={`opponent-session-${index}`} 
+                                key={`opponent-session-${opponent.opponentId}`} 
                                 href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
                                 isClickable={!!opponent.opponentId}
                                 className="block rounded-md"
@@ -1737,7 +1791,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             const playerData = members?.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
                             return (
                               <StatLink 
-                                key={`opponent-game-${index}`} 
+                                key={`opponent-game-${opponent.opponentId}`} 
                                 href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
                                 isClickable={!!opponent.opponentId}
                                 className="block rounded-md"
@@ -1796,7 +1850,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             const playerData = members?.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
                             return (
                               <StatLink 
-                                key={`opponent-striche-${index}`} 
+                                key={`opponent-striche-${opponent.opponentId}`} 
                                 href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
                                 isClickable={!!opponent.opponentId}
                                 className="block rounded-md"
@@ -1847,7 +1901,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             const playerData = members?.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
                             return (
                               <StatLink 
-                                key={`opponent-points-${index}`} 
+                                key={`opponent-points-${opponent.opponentId}`} 
                                 href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
                                 isClickable={!!opponent.opponentId}
                                 className="block rounded-md"
@@ -1898,7 +1952,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             const playerData = members?.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
                             return (
                               <StatLink 
-                                key={`opponent-matsch-${index}`} 
+                                key={`opponent-matsch-${opponent.opponentId}`} 
                                 href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
                                 isClickable={!!opponent.opponentId}
                                 className="block rounded-md"
@@ -1953,7 +2007,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             const playerData = members?.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
                             return (
                               <StatLink 
-                                key={`opponent-schneider-${index}`} 
+                                key={`opponent-schneider-${opponent.opponentId}`} 
                                 href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
                                 isClickable={!!opponent.opponentId}
                                 className="block rounded-md"
@@ -2008,7 +2062,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             const playerData = members?.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
                             return (
                               <StatLink 
-                                key={`opponent-kontermatsch-${index}`} 
+                                key={`opponent-kontermatsch-${opponent.opponentId}`} 
                                 href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
                                 isClickable={!!opponent.opponentId}
                                 className="block rounded-md"

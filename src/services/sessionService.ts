@@ -73,7 +73,6 @@ export const fetchCompletedSessionsForUser = async (userId: string): Promise<Ses
     const playerSnapshot = await getDocs(playerQuery);
     
     if (playerSnapshot.empty) {
-      console.log('🔍 [SessionService] Kein Player-Dokument für User gefunden:', userId);
       return [];
     }
 
@@ -87,7 +86,6 @@ export const fetchCompletedSessionsForUser = async (userId: string): Promise<Ses
     });
 
     if (groupIds.length === 0) {
-      console.log('🔍 [SessionService] User ist in keinen Gruppen:', userId);
       return [];
     }
     

@@ -3,41 +3,47 @@
 import React, { useState, useEffect } from 'react';
 import { Trophy, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { JASS_ELO_CONFIG, createDefaultPlayerRating, type PlayerRating } from '@/services/jassElo';
+import { getRatingTier } from '@/shared/rating-tiers';
 
 // Jass-Elo Rating System
 
-// Rating Tier System
-interface RatingTier {
+// Farb-Mapping für die neuen Tiers (100er-Skala)
+const TIER_COLORS: { [tierName: string]: string } = {
+  'Göpf Egg': '#FFD700',      // Gold für höchste Stufe
+  'Jassgott': '#9333EA',      // Lila
+  'Jasskönig': '#EF4444',     // Rot
+  'Eidgenoss': '#059669',     // Grün
+  'Kranzjasser': '#F59E0B',   // Orange
+  'Grossmeister': '#8B5CF6',  // Hellviolett
+  'Jassmeister': '#EC4899',   // Pink
+  'Goldjasser': '#F59E0B',    // Orange/Gold
+  'Akademiker': '#059669',    // Grün
+  'Aspirant': '#0891B2',      // Blau
+  'Praktikant': '#16A34A',    // Hellgrün
+  'Schüler': '#CA8A04',       // Gelb
+  'Hahn': '#EF4444',          // Rot
+  'Huhn': '#F59E0B',          // Orange
+  'Kücken': '#65A30D',        // Hellgrün
+  'Anfänger': '#4B5563',      // Grau
+  'Gurke': '#059669',         // Grün
+  'Just Egg': '#78716C',      // Grau (Default)
+};
+
+interface RatingTierWithColor {
   name: string;
+  emoji: string;
   color: string;
-  minRating: number;
 }
 
-const RATING_TIERS: RatingTier[] = [
-  { name: 'Legendary', color: '#9333EA', minRating: 1080 },
-  { name: 'Grandmaster', color: '#8B5CF6', minRating: 1060 },
-  { name: 'Master', color: '#EF4444', minRating: 1050 },
-  { name: 'Diamant', color: '#EC4899', minRating: 1040 },
-  { name: 'Gold', color: '#F59E0B', minRating: 1030 },
-  { name: 'Silber', color: '#6B7280', minRating: 1020 },
-  { name: 'Bronze', color: '#92400E', minRating: 1010 },
-  { name: 'Fortgeschritten', color: '#059669', minRating: 1000 },
-  { name: 'Rookie', color: '#0891B2', minRating: 990 },
-  { name: 'Ambitioniert', color: '#4B5563', minRating: 980 },
-  { name: 'Entwicklung', color: '#16A34A', minRating: 970 },
-  { name: 'Learner', color: '#CA8A04', minRating: 960 },
-  { name: 'Schwimmer', color: '#0284C7', minRating: 950 },
-  { name: 'Beginner', color: '#65A30D', minRating: 940 },
-  { name: 'Neuling', color: '#78716C', minRating: 0 },
-];
-
-function getRatingTier(rating: number): RatingTier {
-  for (const tier of RATING_TIERS) {
-    if (rating >= tier.minRating) {
-      return tier;
-    }
-  }
-  return RATING_TIERS[RATING_TIERS.length - 1]; // Neuling fallback
+function getRatingTierWithColor(rating: number): RatingTierWithColor {
+  const tier = getRatingTier(rating);
+  const color = TIER_COLORS[tier.name] || '#78716C'; // Fallback zu Grau
+  
+  return {
+    name: tier.name,
+    emoji: tier.emoji,
+    color: color
+  };
 }
 
 interface PlayerRatingBadgeProps {
@@ -97,7 +103,7 @@ export const PlayerRatingBadge: React.FC<PlayerRatingBadgeProps> = ({
     );
   }
 
-  const tier = getRatingTier(rating.rating);
+  const tier = getRatingTierWithColor(rating.rating);
   
   // Jass-Elo hat keine Confidence - verwende Spiel-basierte "Stabilität"
   const stabilityPercentage = Math.min(100, Math.round((rating.gamesPlayed / 50) * 100));

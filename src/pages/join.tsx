@@ -1,6 +1,5 @@
 "use client";
 
-// console.log('<<<< EXECUTE JOIN.TSX - VERSION DEBUG_001 >>>>'); // Eindeutige Log-Meldung
 
 import React, {useEffect, useState, useRef} from "react";
 import {useRouter} from "next/router";

@@ -28,6 +28,18 @@ export const performHealthCheck = () => {
   };
 
   checkIndexedDB().catch(() => {
-    window.location.href = '/kill-sw.html?auto=true&reason=healthcheck_failed';
+    // 🛡️ SCHLEIFENSCHUTZ: Nur einmalig in dieser Session triggern
+    try {
+      const hasTriggeredRecovery = sessionStorage.getItem('watchdog-triggered');
+      if (hasTriggeredRecovery === 'true') {
+        console.warn('[HealthCheck] Recovery bereits versucht - überspringe weitere Redirects');
+        return;
+      }
+      
+      sessionStorage.setItem('watchdog-triggered', 'true');
+      window.location.href = '/kill-sw.html?auto=true&reason=healthcheck_failed&source=healthcheck';
+    } catch (error) {
+      console.error('[HealthCheck] Fehler beim Session-Check:', error);
+    }
   });
 };

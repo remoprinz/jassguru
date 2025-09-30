@@ -17,6 +17,7 @@ import { FarbePictogram } from '@/components/settings/FarbePictogram';
 import { CARD_SYMBOL_MAPPINGS } from '@/config/CardStyles';
 import { toTitleCase, formatMillisecondsDuration } from '@/utils/formatUtils';
 import ProfileImage from '@/components/ui/ProfileImage';
+import AvatarPreloader from '@/components/ui/AvatarPreloader';
 import InviteModal from '@/components/group/InviteModal';
 import ImageCropModal from '@/components/ui/ImageCropModal';
 import { LegalFooter } from '@/components/layout/LegalFooter';
@@ -25,7 +26,7 @@ import { getOrtNameByPlz } from '@/utils/locationUtils';
 import { generateBlurPlaceholder } from '@/utils/imageOptimization';
 import { Skeleton } from '@/components/ui/skeleton';
 // NEU: Jass-Elo Service
-import { loadPlayerRatings, type PlayerRatingWithTier } from '@/services/jassElo';
+import { loadPlayerRatings, loadGroupLeaderboard, type PlayerRatingWithTier } from '@/services/jassElo';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/services/firebaseInit';
 
@@ -226,6 +227,8 @@ export const GroupView: React.FC<GroupViewProps> = ({
   
   // NEU: State für Elo-Ratings
   const [playerRatings, setPlayerRatings] = useState<Map<string, PlayerRatingWithTier>>(new Map());
+  // NEU: State für Elo-Deltas
+  const [playerDeltas, setPlayerDeltas] = useState<Map<string, number>>(new Map());
 
   // ===== REFS FÜR SCROLLBARE STATISTIK-CONTAINER (IDENTISCH ZUM ORIGINAL) =====
   // Übersicht
@@ -445,6 +448,95 @@ export const GroupView: React.FC<GroupViewProps> = ({
 
   const themeStyles = useMemo(() => getThemeStyles(groupTheme), [groupTheme]);
 
+  // 🔥 Sammle alle Photo-URLs, die im UI auftauchen, damit der Preloader sie dekodieren kann
+  const groupAvatarPhotoURLs = useMemo(() => {
+    const urls: (string | undefined | null)[] = [];
+
+    // Mitglieder
+    if (members) {
+      urls.push(...members.map((m) => m.photoURL));
+    }
+
+    // Statistiken: Elo (playerRatings)
+    playerRatings.forEach((rating) => {
+      if (!rating?.id) return;
+      const member = members?.find((m) => (m.id || m.userId) === rating.id);
+      if (member?.photoURL) {
+        urls.push(member.photoURL);
+      }
+    });
+
+    const pushMemberPhotoByName = (playerName?: string, fallbackId?: string) => {
+      if (!playerName && !fallbackId) return;
+      const normalizedName = playerName?.toLowerCase();
+      const member = members?.find((m) => {
+        const matchById = fallbackId && (m.id === fallbackId || m.userId === fallbackId);
+        if (matchById) return true;
+        const displayName = m.displayName?.toLowerCase();
+        return normalizedName && displayName === normalizedName;
+      });
+      if (member?.photoURL) {
+        urls.push(member.photoURL);
+      }
+    };
+
+    const safeStatsArray = <T extends { playerName?: string; playerId?: string; names?: string[]; }>(arr?: T[]) => Array.isArray(arr) ? arr : [];
+
+    safeStatsArray(groupStats?.playerAllRoundTimes).forEach((stat) => {
+      pushMemberPhotoByName(stat.playerName, stat.playerId);
+    });
+
+    safeStatsArray(groupStats?.playerWithHighestStricheDiff).forEach((stat) => {
+      pushMemberPhotoByName(stat.playerName, stat.playerId);
+    });
+
+    safeStatsArray(groupStats?.playerWithHighestPointsDiff).forEach((stat) => {
+      pushMemberPhotoByName(stat.playerName, stat.playerId);
+    });
+
+    safeStatsArray(groupStats?.playerWithHighestWinRateSession).forEach((stat) => {
+      pushMemberPhotoByName(stat.playerName, stat.playerId);
+    });
+
+    safeStatsArray(groupStats?.playerWithHighestWinRateGame).forEach((stat) => {
+      pushMemberPhotoByName(stat.playerName, stat.playerId);
+    });
+
+    safeStatsArray(groupStats?.playerWithHighestMatschBilanz).forEach((stat) => {
+      pushMemberPhotoByName(stat.playerName, stat.playerId);
+    });
+
+    safeStatsArray(groupStats?.playerWithHighestSchneiderBilanz).forEach((stat) => {
+      pushMemberPhotoByName(stat.playerName, stat.playerId);
+    });
+
+    safeStatsArray(groupStats?.playerWithHighestKontermatschBilanz).forEach((stat) => {
+      pushMemberPhotoByName(stat.playerName, stat.playerId);
+    });
+
+    safeStatsArray(groupStats?.playerWithMostWeisPointsAvg).forEach((stat) => {
+      pushMemberPhotoByName(stat.playerName, stat.playerId);
+    });
+
+    const collectTeamPhotos = (teams?: { names: string[] }[]) => {
+      safeStatsArray(teams).forEach((team) => {
+        team.names?.forEach((name) => pushMemberPhotoByName(name));
+      });
+    };
+
+    collectTeamPhotos(groupStats?.teamWithHighestStricheDiff);
+    collectTeamPhotos(groupStats?.teamWithHighestPointsDiff);
+    collectTeamPhotos(groupStats?.teamWithHighestWinRateSession);
+    collectTeamPhotos(groupStats?.teamWithHighestWinRateGame);
+    collectTeamPhotos(groupStats?.teamWithHighestMatschBilanz || groupStats?.teamWithHighestMatschRate);
+    collectTeamPhotos(groupStats?.teamWithHighestSchneiderBilanz || groupStats?.teamWithHighestSchneiderRate);
+    collectTeamPhotos(groupStats?.teamWithHighestKontermatschBilanz || groupStats?.teamWithHighestKontermatschRate);
+    collectTeamPhotos(groupStats?.teamWithMostWeisPointsAvg);
+    collectTeamPhotos(groupStats?.teamWithFastestRounds);
+
+    return Array.from(new Set(urls.filter((url): url is string => typeof url === 'string' && url.trim() !== '')));
+  }, [members, playerRatings, groupStats]);
+
   // 🎨 Utility für Theme-basierte ProfileImage-Styles
   const getProfileImageThemeStyles = () => ({
     className: `border border-gray-600/50 hover:scale-105 transition-all duration-200`,
@@ -475,53 +567,102 @@ export const GroupView: React.FC<GroupViewProps> = ({
   React.useEffect(() => {
     if (groupStatus === 'loading' && !currentGroup) {
       const watchdog = setTimeout(() => {
-        console.warn('[Watchdog] GroupView hängt beim Laden der Gruppendaten - automatischer Reset wird eingeleitet...');
-        window.location.href = '/kill-sw.html?auto=true';
+        console.warn('[Watchdog] GroupView hängt beim Laden der Gruppendaten - prüfe Recovery-Status...');
+        
+        // 🛡️ SCHLEIFENSCHUTZ: Nur einmalig in dieser Session triggern
+        try {
+          const hasTriggeredRecovery = sessionStorage.getItem('watchdog-triggered');
+          if (hasTriggeredRecovery === 'true') {
+            console.warn('[Watchdog] Recovery bereits versucht - erzwinge einfachen Reload');
+            window.location.reload();
+            return;
+          }
+          
+          sessionStorage.setItem('watchdog-triggered', 'true');
+          console.warn('[Watchdog] Erster Recovery-Versuch - leite zu Kill-SW weiter');
+          window.location.href = '/kill-sw.html?auto=true&source=groupview';
+        } catch (error) {
+          console.error('[Watchdog] Fehler beim Session-Check, führe einfachen Reload durch:', error);
+          window.location.reload();
+        }
       }, 20000); // 20 Sekunden Timeout
       
       return () => clearTimeout(watchdog);
     }
   }, [groupStatus, currentGroup]);
 
-  // NEU: Lade Elo-Ratings für Gruppenmitglieder
+  // 🚀 PERFORMANCE: Lade Elo-Ratings für Gruppenmitglieder (optimiert)
   React.useEffect(() => {
-    if (members && members.length > 0) {
-      const playerIds = members.map(m => m.id || m.userId).filter(Boolean);
-      
-      loadPlayerRatings(playerIds)
-        .then(setPlayerRatings)
-        .catch(error => console.warn('Fehler beim Laden der Elo-Ratings:', error));
-    }
-  }, [members]);
+    if (!currentGroup?.id) return;
+    
+    // 🚀 PERFORMANCE: Lade voraggregiertes Leaderboard statt N einzelne playerRatings
+    loadGroupLeaderboard(currentGroup.id)
+      .then((ratingsMap) => {
+        if (ratingsMap.size === 0 && members && members.length > 0) {
+          // Fallback auf alte Methode falls kein Leaderboard existiert
+          const playerIds = members.map(m => m.id || m.userId).filter(Boolean);
+          return loadPlayerRatings(playerIds);
+        }
+        return ratingsMap;
+      })
+      .then((ratingsMap) => {
+        setPlayerRatings(ratingsMap);
+        
+        // ✅ OPTIMIERT: Delta ist bereits in playerRatings verfügbar!
+        const deltaMap = new Map<string, number>();
+        ratingsMap.forEach((rating, playerId) => {
+          deltaMap.set(playerId, rating?.lastDelta || 0);
+        });
+        setPlayerDeltas(deltaMap);
+      })
+      .catch(error => console.warn('Fehler beim Laden der Elo-Ratings:', error));
+  }, [members, currentGroup?.id]);
 
-  // NEU: Öffentliche Gruppenansicht – lade Elo direkt aus group-Subcollection
+  // 🚀 PERFORMANCE: Öffentliche Gruppenansicht – lade Leaderboard statt N playerRatings  
   React.useEffect(() => {
     const groupId = currentGroup?.id;
     if (!groupId) return;
-    (async () => {
-      try {
-        const snap = await getDocs(collection(db, `groups/${groupId}/playerRatings`));
-        if (!snap.empty) {
-          const map = new Map<string, PlayerRatingWithTier>();
-          snap.forEach(doc => {
-            const data: any = doc.data();
-            map.set(doc.id, {
-              id: doc.id,
-              rating: data.rating || 1000,
-              gamesPlayed: data.gamesPlayed || 0,
-              lastUpdated: data.lastUpdated || Date.now(),
-              displayName: data.displayName || `Spieler_${doc.id.slice(0,6)}`,
-              tier: '',
-              tierEmoji: ''
+    
+    // ✅ NUR für öffentliche Ansicht oder wenn members leer ist!
+    if (!isPublicView && members && members.length > 0) return;
+    
+    // 🚀 PERFORMANCE: Auch für öffentliche Ansicht Leaderboard verwenden
+    loadGroupLeaderboard(groupId)
+      .then((ratingsMap) => {
+        if (ratingsMap.size === 0) {
+          // Fallback: Direkt aus group-Subcollection laden
+          return getDocs(collection(db, `groups/${groupId}/playerRatings`))
+            .then((snap) => {
+              const map = new Map<string, PlayerRatingWithTier>();
+              snap.forEach(doc => {
+                const data: any = doc.data();
+                map.set(doc.id, {
+                  id: doc.id,
+                  rating: typeof data.rating === 'number' ? data.rating : 100,
+                  gamesPlayed: data.gamesPlayed || 0,
+                  lastUpdated: data.lastUpdated || Date.now(),
+                  displayName: data.displayName || `Spieler_${doc.id.slice(0,6)}`,
+                  tier: data.tier || 'Just Egg',
+                  tierEmoji: data.tierEmoji || '🥚',
+                  lastDelta: data.lastDelta || 0
+                });
+              });
+              return map;
             });
-          });
-          setPlayerRatings(map);
         }
-      } catch (e) {
-        console.warn('Elo (group subcollection) konnte nicht geladen werden:', (e as any)?.message);
-      }
-    })();
-  }, [currentGroup?.id]);
+        return ratingsMap;
+      })
+      .then((ratingsMap) => {
+        setPlayerRatings(ratingsMap);
+        
+        const deltaMap = new Map<string, number>();
+        ratingsMap.forEach((rating, playerId) => {
+          deltaMap.set(playerId, rating?.lastDelta || 0);
+        });
+        setPlayerDeltas(deltaMap);
+      })
+      .catch(e => console.warn('Elo (group subcollection) konnte nicht geladen werden:', (e as any)?.message));
+  }, [currentGroup?.id, isPublicView, members]);
 
   if (groupStatus === 'loading' && !currentGroup) {
     return (
@@ -643,6 +784,11 @@ export const GroupView: React.FC<GroupViewProps> = ({
   return (
     <MainLayout>
       <div id="group-view-container" className="flex flex-col items-center justify-start bg-gray-900 text-white p-4 relative pt-8 pb-20">
+        
+        {/* 🚀 AVATAR PRELOADER: Lädt alle relevanten Avatare unsichtbar vor */}
+        {groupAvatarPhotoURLs.length > 0 && (
+          <AvatarPreloader photoURLs={groupAvatarPhotoURLs} />
+        )}
         
         {/* 🚨 NEU: SHARE BUTTON - IMMER SICHTBAR, WENN GRUPPE EXISTIERT */}
         {currentGroup && (
@@ -898,8 +1044,13 @@ export const GroupView: React.FC<GroupViewProps> = ({
             </TabsTrigger>
           </TabsList>
 
-          {/* STATISTIK TAB */}
-          <TabsContent value="statistics" className="w-full mb-8">
+          {/* STATISTIK TAB - forceMount für instant Avatar-Loading */}
+          <TabsContent 
+            value="statistics" 
+            forceMount
+            className={activeMainTab !== 'statistics' ? 'hidden' : 'w-full mb-8'}
+            style={{ display: activeMainTab !== 'statistics' ? 'none' : 'block' }}
+          >
             {statsError && !statsLoading && (
               <div className="text-red-400 text-sm text-center p-4 bg-red-900/30 rounded-md mb-4">
                 Fehler beim Laden der Statistiken: {statsError}
@@ -958,7 +1109,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 </div>
                 
                 {/* ÜBERSICHT TAB - MIT ECHTEN INHALTEN UND REFS */}
-                <TabsContent value="overview" className="w-full bg-gray-800/50 rounded-lg p-4">
+                <TabsContent 
+                  value="overview"
+                  forceMount
+                  className={activeStatsSubTab !== 'overview' ? 'hidden' : 'w-full bg-gray-800/50 rounded-lg p-4'}
+                  style={{ display: activeStatsSubTab !== 'overview' ? 'none' : 'block' }}
+                >
                   <div className="space-y-3 text-sm">
                     {/* 1. Spielerstärke (Jass-Elo) - NEUE REIHENFOLGE */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
@@ -968,7 +1124,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                           <h3 className="text-base font-semibold text-white">🏆 Spielerstärke (Jass-Elo)</h3>
                         </div>
                         <a 
-                          href="https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/Jass-Elo-Whitepaper.pdf?alt=media&token=d32eae8b-dd83-4e53-a0b2-783abb720cb2" 
+                          href="https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/Jass-Elo_%20Ein%20Elo-basiertes%20Bewertungssystem%20fu%CC%88r%20den%20Schieber.pdf?alt=media&token=5db3a7af-1725-4d2d-a7dd-d68a9db9dfbb" 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-700/50 hover:bg-gray-600/70 border border-gray-600/40 hover:border-gray-500/60 transition-all duration-200 hover:scale-105"
@@ -989,7 +1145,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               const playerData = members.find(m => (m.id || m.userId) === rating.id);
                               const playerId = rating.id;
                               return (
-                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=overview` : '#'} key={`eloRating-${index}`} isClickable={!!playerId} className="block rounded-md">
+                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=overview` : '#'} key={`eloRating-${rating.id}`} isClickable={!!playerId} className="block rounded-md">
                                   <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                     <div className="flex items-center">
                                       <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
@@ -1005,7 +1161,20 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                       <span className="text-gray-300">{rating.displayName}</span>
                                     </div>
                                     <div className="flex items-center">
-                                      <span className="text-white text-lg font-medium mr-2">{Math.round(rating.rating)}</span>
+                                      <span className="text-white text-lg font-medium mr-2">
+                                        {Math.round(rating.rating)}
+                                        {(() => {
+                                          const delta = playerDeltas.get(rating.id);
+                                          if (delta !== undefined) {
+                                            return (
+                                              <span className={`ml-1 text-sm ${delta > 0 ? 'text-green-400' : delta < 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                                                ({delta > 0 ? '+' : ''}{Math.round(delta)})
+                                              </span>
+                                            );
+                                          }
+                                          return null;
+                                        })()}
+                                      </span>
                                       <span className="text-lg">{rating.tierEmoji}</span>
                                     </div>
                                   </div>
@@ -1036,7 +1205,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               const playerData = findPlayerByName(playerStat.playerName, members);
                               const playerId = playerData?.id || playerStat.playerId;
                               return (
-                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=overview` : '#'} key={`roundTime-${index}`} isClickable={!!playerId} className="block rounded-md">
+                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=overview` : '#'} key={`roundTime-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
                                   <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                     <div className="flex items-center">
                                       <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
@@ -1080,7 +1249,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             const displayName = CARD_SYMBOL_MAPPINGS[mappedColorKey as JassColor]?.[cardStyle] ?? mappedColorKey;
                             
                             return (
-                              <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                              <div key={`trumpf-${item.farbe}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                 <div className="flex items-center">
                                   <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                   <FarbePictogram 
@@ -1191,7 +1360,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 </TabsContent>
                 
                 {/* SPIELER TAB - ALLE 8 ECHTEN STATISTIKEN */}
-                <TabsContent value="players" className="w-full bg-gray-800/50 rounded-lg p-4">
+                <TabsContent 
+                  value="players"
+                  forceMount
+                  className={activeStatsSubTab !== 'players' ? 'hidden' : 'w-full bg-gray-800/50 rounded-lg p-4'}
+                  style={{ display: activeStatsSubTab !== 'players' ? 'none' : 'block' }}
+                >
                   <div className="space-y-3 text-sm">
                     {/* 1. Strichdifferenz */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
@@ -1212,7 +1386,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               const playerData = findPlayerByName(playerStat.playerName, members);
                               const playerId = playerData?.id || playerData?.userId;
                               return (
-                               <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`stricheDiff-${index}`} isClickable={!!playerId} className="block rounded-md">
+                               <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`stricheDiff-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
                                 <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                   <div className="flex items-center">
                                     <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
@@ -1266,7 +1440,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               const playerData = findPlayerByName(playerStat.playerName, members);
                               const playerId = playerData?.id || playerStat.playerId;
                               return (
-                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`pointsDiff-${index}`} isClickable={!!playerId} className="block rounded-md">
+                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`pointsDiff-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
                                   <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                     <div className="flex items-center">
                                       <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
@@ -1320,7 +1494,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               // KORREKTUR: Verwende die playerId aus der Statistik als Fallback
                               const playerId = playerData?.id || playerStat.playerId;
                               return (
-                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`winRateSession-${index}`} isClickable={!!playerId} className="block rounded-md">
+                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`winRateSession-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
                                   <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                     <div className="flex items-center">
                                       <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
@@ -1376,7 +1550,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               const playerData = findPlayerByName(playerStat.playerName, members);
                               const playerId = playerData?.id || playerStat.playerId;
                               return (
-                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`winRateGame-${index}`} isClickable={!!playerId} className="block rounded-md">
+                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`winRateGame-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
                                   <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                     <div className="flex items-center">
                                       <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
@@ -1432,7 +1606,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               const playerData = findPlayerByName(playerStat.playerName, members);
                               const playerId = playerData?.id || playerStat.playerId;
                               return (
-                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`matschBilanz-${index}`} isClickable={!!playerId} className="block rounded-md">
+                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`matschBilanz-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
                                   <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                     <div className="flex items-center">
                                       <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
@@ -1486,7 +1660,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               const playerData = findPlayerByName(playerStat.playerName, members);
                               const playerId = playerData?.id || playerStat.playerId;
                               return (
-                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`schneiderBilanz-${index}`} isClickable={!!playerId} className="block rounded-md">
+                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`schneiderBilanz-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
                                   <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                     <div className="flex items-center">
                                       <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
@@ -1540,7 +1714,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               const playerData = findPlayerByName(playerStat.playerName, members);
                               const playerId = playerData?.id || playerStat.playerId;
                               return (
-                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`kontermatschBilanz-${index}`} isClickable={!!playerId} className="block rounded-md">
+                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`kontermatschBilanz-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
                                   <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                     <div className="flex items-center">
                                       <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
@@ -1592,7 +1766,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               const playerData = findPlayerByName(playerStat.playerName, members);
                               const playerId = playerData?.id || playerStat.playerId;
                               return (
-                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`weisPoints-${index}`} isClickable={!!playerId} className="block rounded-md">
+                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`weisPoints-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
                                   <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                     <div className="flex items-center">
                                       <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
@@ -1624,7 +1798,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 </TabsContent>
                 
                 {/* TEAMS TAB - ALLE 9 ECHTEN STATISTIKEN */}
-                <TabsContent value="teams" className="w-full bg-gray-800/50 rounded-lg p-4">
+                <TabsContent 
+                  value="teams"
+                  forceMount
+                  className={activeStatsSubTab !== 'teams' ? 'hidden' : 'w-full bg-gray-800/50 rounded-lg p-4'}
+                  style={{ display: activeStatsSubTab !== 'teams' ? 'none' : 'block' }}
+                >
                   <div className="space-y-3 text-sm">
                     {/* 1. Strichdifferenz */}
                     <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
@@ -1640,7 +1819,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               (team.value && team.value !== 0)
                             )
                             .map((team, index) => (
-                            <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                            <div key={`team-${team.names.join('-')}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                               <div className="flex items-center">
                                 <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                 <div className="flex -space-x-2 mr-2">
@@ -1695,7 +1874,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               (team.value && team.value !== 0)
                             )
                             .map((team, index) => (
-                            <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                            <div key={`team-${team.names.join('-')}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                               <div className="flex items-center">
                                 <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                 <div className="flex -space-x-2 mr-2">
@@ -1749,7 +1928,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               team.eventsPlayed && team.eventsPlayed > 0
                             )
                             .map((team, index) => (
-                            <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                            <div key={`team-${team.names.join('-')}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                               <div className="flex items-center">
                                 <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                 <div className="flex -space-x-2 mr-2">
@@ -1805,7 +1984,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               team.eventsPlayed && team.eventsPlayed > 0
                             )
                             .map((team, index) => (
-                            <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                            <div key={`team-${team.names.join('-')}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                               <div className="flex items-center">
                                 <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                 <div className="flex -space-x-2 mr-2">
@@ -1866,7 +2045,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               (team.value && team.value !== 0)
                             );
                             return teamsWithMatschEvents.map((team, index) => (
-                              <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                              <div key={`team-${team.names.join('-')}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                 <div className="flex items-center">
                                   <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                   <div className="flex -space-x-2 mr-2">
@@ -1926,7 +2105,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               (team.value && team.value !== 0)
                             );
                             return teamsWithSchneiderEvents.map((team, index) => (
-                              <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                              <div key={`team-${team.names.join('-')}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                 <div className="flex items-center">
                                   <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                   <div className="flex -space-x-2 mr-2">
@@ -1988,7 +2167,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             
                             if (teamsWithKontermatsch.length > 0) {
                               return teamsWithKontermatsch.map((team, index) => (
-                                <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                <div key={`team-${team.names.join('-')}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                   <div className="flex items-center">
                                     <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                     <div className="flex -space-x-2 mr-2">
@@ -2046,7 +2225,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               team.value && team.value > 0
                             )
                             .map((team, index) => (
-                            <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                            <div key={`team-${team.names.join('-')}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                               <div className="flex items-center">
                                 <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                 <div className="flex -space-x-2 mr-2">
@@ -2093,7 +2272,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               team.value && team.value > 0
                             )
                             .map((team, index) => (
-                            <div key={index} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                            <div key={`team-${team.names.join('-')}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                               <div className="flex items-center">
                                 <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
                                 <div className="flex -space-x-2 mr-2">
@@ -2186,7 +2365,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
           </TabsContent>
 
           {/* MITGLIEDER TAB */}
-          <TabsContent value="members" className="w-full bg-gray-800/50 rounded-lg p-4 mb-8">
+          <TabsContent 
+            value="members" 
+            forceMount
+            className={activeMainTab !== 'members' ? 'hidden' : 'w-full bg-gray-800/50 rounded-lg p-4 mb-8'}
+            style={{ display: activeMainTab !== 'members' ? 'none' : 'block' }}
+          >
             {membersError && !membersLoading && (
                 <div className="text-red-400 text-sm text-center p-4 bg-red-900/30 rounded-md">
                     Fehler: {membersError}

@@ -58,6 +58,8 @@ docs
 
 # Firebase service account keys (security critical)
 /functions/serviceAccountKey.json
+/functions/ser.json
+serviceAccountKey.json
 firebase-service-account.json
 firebase-service-account*.json
 *service-account*.json

@@ -196,6 +196,29 @@ class ServiceWorkerService {
       }
     } catch {}
 
+    // 🛡️ RECOVERY-SCHUTZ: Nicht registrieren während aktiver Recovery
+    try {
+      if (window.location.pathname.endsWith('/kill-sw.html') || 
+          window.location.pathname.endsWith('/recovery.html')) {
+        // console.warn('[PWA] Service Worker Registrierung übersprungen während Recovery');
+        return;
+      }
+    } catch {}
+
+    // 🛡️ NO-SW-BOOTSTRAP: Verzögerte Registrierung nach Recovery
+    try {
+      const hasTriggeredRecovery = sessionStorage.getItem('watchdog-triggered');
+      if (hasTriggeredRecovery === 'true') {
+        // console.warn('[PWA] Service Worker Registrierung verzögert nach Recovery');
+        // Registrierung um 5 Sekunden verzögern, damit App erst stabil hochfährt
+        setTimeout(() => {
+          sessionStorage.removeItem('watchdog-triggered');
+          this.register(config);
+        }, 5000);
+        return;
+      }
+    } catch {}
+
     // 🛡️ BULLETPROOF: Legacy Service Worker Cleanup
     await this.cleanupLegacyServiceWorkers();
     
@@ -376,7 +399,10 @@ class ServiceWorkerService {
 
       try {
         // console.log('[PWA] 🚀 Sende SKIP_WAITING an Service Worker...');
-        waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+        // 🛡️ FIXED: Explizit skipWaiting() aufrufen statt Message (robuster)
+        if (waitingWorker && typeof waitingWorker.postMessage === 'function') {
+          waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+        }
       } catch (error) {
         if (!hasCompleted) {
           hasCompleted = true;

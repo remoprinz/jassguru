@@ -1,6 +1,6 @@
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
-import { getRatingTier } from './jassEloUpdater'; // Import der Tier-Funktion
+import { getRatingTier } from './shared/rating-tiers';
 
 const db = admin.firestore();
 
@@ -68,7 +68,7 @@ export async function saveRatingHistorySnapshot(
         }
 
         const currentRatingData = playerRatingDoc.data();
-        const currentRating = currentRatingData?.rating || 1000;
+        const currentRating = currentRatingData?.rating || 100;
         const currentGamesPlayed = currentRatingData?.gamesPlayed || 0;
 
         // Hole das letzte Historie-Entry um Delta zu berechnen
@@ -78,7 +78,7 @@ export async function saveRatingHistorySnapshot(
           .limit(1)
           .get();
 
-        let previousRating = 1000; // Default Startrating
+        let previousRating = 100; // Default Startrating (neue Skala)
         if (!lastHistorySnap.empty) {
           const lastEntry = lastHistorySnap.docs[0].data() as RatingHistoryEntry;
           previousRating = lastEntry.rating;
@@ -125,7 +125,6 @@ export async function saveRatingHistorySnapshot(
         } else {
           logger.debug(`[RatingHistory] Skipping snapshot for player ${playerId} - no rating change (${currentRating})`);
         }
-
       } catch (playerError) {
         logger.error(`[RatingHistory] Error processing player ${playerId}:`, playerError);
         // Weiter mit nächstem Spieler, um Batch nicht zu blockieren
@@ -146,7 +145,6 @@ export async function saveRatingHistorySnapshot(
 
     // 🧹 Cleanup: Behalte nur die letzten 100 Einträge pro Spieler
     await cleanupOldHistoryEntries(groupId, playerIds);
-
   } catch (error) {
     logger.error(`[RatingHistory] Critical error saving snapshots for group ${groupId}:`, error);
     // Fehler nicht weiterwerfen, um Haupt-Workflow nicht zu blockieren
@@ -194,7 +192,6 @@ async function cleanupOldHistoryEntries(
       await cleanupBatch.commit();
       logger.info(`[RatingHistory] Cleanup completed: deleted ${totalDeleted} old entries from group ${groupId}`);
     }
-
   } catch (cleanupError) {
     logger.warn(`[RatingHistory] Cleanup failed for group ${groupId}:`, cleanupError);
     // Cleanup-Fehler sind nicht kritisch
@@ -255,8 +252,8 @@ export async function getRatingTrend(
 
     if (recentHistorySnap.empty) {
       return {
-        startRating: 1000,
-        endRating: 1000,
+        startRating: 100,
+        endRating: 100,
         delta: 0,
         percentChange: 0,
         entriesCount: 0
@@ -276,12 +273,11 @@ export async function getRatingTrend(
       percentChange,
       entriesCount: entries.length
     };
-
   } catch (error) {
     logger.error(`[RatingHistory] Error calculating trend for player ${playerId}:`, error);
     return {
-      startRating: 1000,
-      endRating: 1000,
+      startRating: 100,
+      endRating: 100,
       delta: 0,
       percentChange: 0,
       entriesCount: 0
@@ -319,7 +315,6 @@ export async function getPlayerPeakRating(
       tier: peakEntry.tier,
       tierEmoji: peakEntry.tierEmoji
     };
-
   } catch (error) {
     logger.error(`[RatingHistory] Error fetching peak rating for player ${playerId}:`, error);
     return null;

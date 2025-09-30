@@ -57,8 +57,9 @@ const withPWA = withPWAInit({
   dest: 'public',
   disable: process.env.NODE_ENV === 'development',
   register: false, // WICHTIG: Wir nutzen unseren eigenen Service für die Registrierung
-  skipWaiting: true, // 🛡️ BULLETPROOF: Automatisches Update für robuste App-Starts
-  // importScripts entfernt, um harte Abhängigkeit zu vermeiden
+  skipWaiting: false, // 🛡️ FIXED: Kontrollierte Updates verhindern Chunk-Mismatches
+  clientsClaim: false, // 🛡️ FIXED: Nicht aggressiv claimen, um Race-Conditions zu vermeiden
+  importScripts: ['/sw-ext.js'], // 🛡️ Extension für kontrollierte Updates
   // 🛡️ Vereinfachte Konfiguration für next-pwa v5.6.0
   runtimeCaching: [
       // ✅ Hash-basierte Next-Bundles immer CacheFirst: nie HTML als Fallback!

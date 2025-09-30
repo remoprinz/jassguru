@@ -1697,8 +1697,24 @@ const StartPage = () => {
   useEffect(() => {
     if (!isDataLoadDetermined || !router.isReady) {
       const watchdog = setTimeout(() => {
-        console.warn('[Watchdog] App hängt beim Laden (isDataLoadDetermined:', isDataLoadDetermined, ', router.isReady:', router.isReady, ') - automatischer Reset wird eingeleitet...');
-        window.location.href = '/kill-sw.html?auto=true';
+        console.warn('[Watchdog] App hängt beim Laden (isDataLoadDetermined:', isDataLoadDetermined, ', router.isReady:', router.isReady, ') - prüfe Recovery-Status...');
+        
+        // 🛡️ SCHLEIFENSCHUTZ: Nur einmalig in dieser Session triggern
+        try {
+          const hasTriggeredRecovery = sessionStorage.getItem('watchdog-triggered');
+          if (hasTriggeredRecovery === 'true') {
+            console.warn('[Watchdog] Recovery bereits versucht - erzwinge einfachen Reload');
+            window.location.reload();
+            return;
+          }
+          
+          sessionStorage.setItem('watchdog-triggered', 'true');
+          console.warn('[Watchdog] Erster Recovery-Versuch - leite zu Kill-SW weiter');
+          window.location.href = '/kill-sw.html?auto=true&source=startpage';
+        } catch (error) {
+          console.error('[Watchdog] Fehler beim Session-Check, führe einfachen Reload durch:', error);
+          window.location.reload();
+        }
       }, 20000); // 20 Sekunden Timeout
       
       return () => clearTimeout(watchdog);

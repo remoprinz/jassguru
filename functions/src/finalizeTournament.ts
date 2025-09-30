@@ -838,7 +838,6 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
 
         await Promise.allSettled(historyPromises);
         logger.info(`[finalizeTournament] Rating history snapshots completed for tournament ${tournamentId}`);
-        
       } catch (historyError) {
         logger.warn(`[finalizeTournament] Error during rating history snapshot process for tournament ${tournamentId}:`, historyError);
         // Rating-Historie-Fehler soll Turnier-Finalisierung nicht blockieren

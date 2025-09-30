@@ -338,7 +338,6 @@ export class SmartCompositor {
   public analyzeRedundancy(candidates: SpruchCandidate[]): void {
     if (process.env.NODE_ENV !== 'development') return;
     
-    console.log('🔍 Redundancy Analysis:');
     for (let i = 0; i < candidates.length; i++) {
       for (let j = i + 1; j < candidates.length; j++) {
         const similarity = this.calculateSimilarity(candidates[i], candidates[j]);

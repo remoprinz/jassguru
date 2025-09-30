@@ -81,11 +81,15 @@ const ProfileImage: React.FC<ProfileImageProps> = memo(({
     if (context === 'list') {
       return { shouldUsePriority: false, shouldBeLazy: true };
     }
+    // 🔥 PERFORMANCE-BOOST: Kleine Avatare in Listen automatisch mit Avatar-Component (schneller)
+    if (size === 'sm' || size === 'xs') {
+      return { shouldUsePriority: false, shouldBeLazy: true, useAvatarComponent: true };
+    }
     // Default: respektiere explizite props
     return { shouldUsePriority: priority, shouldBeLazy: lazy };
-  }, [context, priority, lazy]);
+  }, [context, priority, lazy, size]);
 
-  const { shouldUsePriority, shouldBeLazy } = getLoadingBehavior();
+  const { shouldUsePriority, shouldBeLazy, useAvatarComponent } = getLoadingBehavior();
 
   // Optimierte responsive Größen für bessere Performance
   const getOptimizedSizes = useCallback(() => {
@@ -142,7 +146,8 @@ const ProfileImage: React.FC<ProfileImageProps> = memo(({
     }
   }, [src, autoOptimize, optimizationType, userId, groupId, tournamentId, imageError, hasValidSrc, priority]);
 
-  if (useNextImage) {
+  // 🔥 PERFORMANCE-BOOST: Kleine Avatare automatisch mit Avatar-Component (weniger Overhead)
+  if (useNextImage && !useAvatarComponent) {
     // Verwende Next.js Image direkt (für größere Bilder)
     return (
       <div className={cn(`relative overflow-hidden rounded-full bg-gray-800`, sizeConfig.className, className)}>

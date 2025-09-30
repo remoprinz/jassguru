@@ -157,11 +157,26 @@ interface FirestoreGroup {
 
 const PublicSessionPage = () => {
   const router = useRouter();
-  const sessionId = router.query.sessionId as string;
+  const sessionId = typeof router.query.sessionId === 'string' ? router.query.sessionId : undefined;
   const groupIdFromQuery = typeof router.query.groupId === 'string' ? router.query.groupId : null;
-  const isPublicRoute = typeof window !== 'undefined' 
-    ? (router.pathname?.includes('/view/session/public') || router.asPath?.includes('/view/session/public'))
-    : false;
+  
+  // Robustere Public-Route-Erkennung
+  const isPublicRoute = React.useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    
+    // Prüfe mehrere Indikatoren für Public Route
+    const pathIndicators = [
+      // 1. Aktueller Window-Pfad (zuverlässigste Quelle beim direkten Laden)
+      window.location.pathname.includes('/view/session/public'),
+      // 2. Router asPath (funktioniert nach Navigation)
+      router.asPath?.includes('/view/session/public'),
+      // 3. Router pathname (für Re-Export-Erkennung)
+      router.pathname?.includes('/view/session/public')
+    ];
+    
+    // Wenn irgendein Indikator true ist, ist es eine Public Route
+    return pathIndicators.some(indicator => indicator === true);
+  }, [router.asPath, router.pathname]);
 
 
   // Session-Daten Zustand
@@ -271,17 +286,21 @@ const PublicSessionPage = () => {
   useEffect(() => {
     let activeGameUnsubscribe: Unsubscribe | null = null;
     let activeRoundsUnsubscribe: Unsubscribe | null = null;
-    if (!sessionId) {
+    let isCancelled = false;
+
+    if (!router.isReady || !sessionId) {
       return;
     }
 
     const loadData = async () => {
       try {
         setIsLoading(true);
+        setError(null);
         
         const db = getFirestore(firebaseApp);
         let sessionDoc: any = null;
         let foundGroupId: string | null = null;
+        let loadedFromGroupSummary = false; // Kennzeichnet Public-Quelle (groups/*/jassGameSummaries)
 
         if (isPublicRoute) {
           // ÖFFENTLICHE ROUTE: Zuerst Live-Quelle prüfen (sessions/{sessionId})
@@ -301,6 +320,7 @@ const PublicSessionPage = () => {
                 if (directSnap.exists()) {
                   sessionDoc = directSnap;
                   foundGroupId = groupIdFromQuery;
+                  loadedFromGroupSummary = true;
                 }
               } catch {}
             }
@@ -318,6 +338,7 @@ const PublicSessionPage = () => {
                 const jassGameSummariesCol = jgsDoc.ref.parent;
                 const groupDocRef = jassGameSummariesCol?.parent; // groups/{groupId}
                 foundGroupId = groupDocRef?.id || null;
+                loadedFromGroupSummary = true;
               }
             } catch (error) {
               // Ignorieren – wird unten als "nicht gefunden" behandelt
@@ -328,20 +349,20 @@ const PublicSessionPage = () => {
           const auth = getAuth(firebaseApp);
           const user = auth.currentUser;
           if (!user) {
-            setError('Nicht angemeldet');
+            if (!isCancelled) setError('Nicht angemeldet');
             return;
           }
 
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (!userDoc.exists()) {
-            setError('Benutzer nicht gefunden');
+            if (!isCancelled) setError('Benutzer nicht gefunden');
             return;
           }
 
           const userData = userDoc.data();
           const playerDoc = await getDoc(doc(db, 'players', userData.playerId));
           if (!playerDoc.exists()) {
-            setError('Spieler nicht gefunden');
+            if (!isCancelled) setError('Spieler nicht gefunden');
             return;
           }
           const playerData = playerDoc.data();
@@ -361,44 +382,40 @@ const PublicSessionPage = () => {
         }
         
         if (!sessionDoc || !sessionDoc.exists()) {
-          setError('Session nicht gefunden');
+          if (!isCancelled) setError('Session nicht gefunden');
           return;
         }
 
         const sessionDataResult = sessionDoc.data();
-        if (process.env.NODE_ENV === 'development') {
+        if (!isCancelled) {
+          setSessionData(sessionDataResult);
         }
-        setSessionData(sessionDataResult);
 
         // 🎯 V3 FIX: IMMER abgeschlossene Spiele aus der Gruppe laden (Single Source of Truth)
         let initialCompletedGames: CompletedGameSummary[] = [];
         if (foundGroupId) {
           initialCompletedGames = await fetchAllGamesForSession(sessionId, foundGroupId);
-          setCompletedGames(initialCompletedGames);
+          if (!isCancelled) {
+            setCompletedGames(initialCompletedGames);
+          }
         }
 
         // 🚀 NEUE ARCHITEKTUR: Lade groupStats aus neuer Struktur
         if (foundGroupId) {
           try {
             const groupStatsDoc = await getDoc(doc(getFirestore(firebaseApp), 'groups', foundGroupId, 'stats', 'computed'));
-            if (groupStatsDoc.exists()) {
+            if (groupStatsDoc.exists() && !isCancelled) {
               const groupStatsData = groupStatsDoc.data();
-              if (process.env.NODE_ENV === 'development') {
-              }
               setGroupStats(groupStatsData);
             }
           } catch (error) {
-            console.warn('🔍 [SessionView] Could not load group stats from NEW structure:', error);
             // Kein kritischer Fehler - wir können ohne groupStats weitermachen
           }
         }
 
-        // Completed Games laden (Live vs. Abgeschlossen)
-        if (process.env.NODE_ENV === 'development') {
-        }
-
         const status = sessionDataResult?.status || null;
-        const isCompleted = status === 'completed' || status === 'completed_empty';
+        // Öffentliche Quelle (group summaries) → immer als abgeschlossen behandeln, keine Live-Listener öffnen
+        const isCompleted = loadedFromGroupSummary || status === 'completed' || status === 'completed_empty';
 
         if (!isCompleted) {
           // LIVE: Session ist aktiv. completedGames sind bereits geladen.
@@ -415,6 +432,10 @@ const PublicSessionPage = () => {
                 return { ...gameData, id: doc.id, roundHistory: rounds };
               }));
 
+              if (isCancelled) {
+                return;
+              }
+
               setAllActiveGames(fetchedGames);
 
               // Finde das "aktuellste" Spiel für die Hauptanzeige
@@ -427,7 +448,6 @@ const PublicSessionPage = () => {
               } else if (fetchedGames.length > 0) {
                 // Fallback: Nimm das Spiel mit dem höchsten gameNumber
                 const latestGame = fetchedGames.reduce((latest: any, game: any) => {
-                  // Robuster Guard, um TypeScript-Fehler und Laufzeitprobleme zu vermeiden
                   if (typeof game?.gameNumber !== 'number') return latest;
                   if (!latest || game.gameNumber > latest.gameNumber) {
                     return game;
@@ -441,31 +461,41 @@ const PublicSessionPage = () => {
 
           } catch (e) {
             console.error('[SessionView] Could not attach active games query listener:', e);
-            setActiveGameData(null);
-            setActiveGameRounds([]);
+            if (!isCancelled) {
+              setActiveGameData(null);
+              setActiveGameRounds([]);
+            }
           }
         } else {
           // ABGESCHLOSSEN: Alle Spiele sind bereits über fetchAllGamesForSession geladen.
           // Nichts weiter zu tun.
-          setActiveGameData(null);
-          setActiveGameRounds([]);
-          // Cleanup aller Listener
+          if (!isCancelled) {
+            setActiveGameData(null);
+            setActiveGameRounds([]);
+          }
           if (activeGameUnsubscribe) { activeGameUnsubscribe(); activeGameUnsubscribe = null; }
           if (activeRoundsUnsubscribe) { activeRoundsUnsubscribe(); activeRoundsUnsubscribe = null; }
         }
-        setError(null);
+
+        if (!isCancelled) {
+          setError(null);
+        }
       } catch (error) {
-        console.error('🔍 [SessionView] Error loading data:', error);
-        setError('Fehler beim Laden der Session-Daten');
+        if (!isCancelled) {
+          setError('Fehler beim Laden der Session-Daten');
+        }
       } finally {
-        setIsLoading(false);
+        if (!isCancelled) {
+          setIsLoading(false);
+        }
       }
     };
 
     loadData();
 
-    // Cleanup beim Unmount oder sessionId-Wechsel
+    // Cleanup beim Unmount oder Dependency-Wechsel
     return () => {
+      isCancelled = true;
       if (activeGameUnsubscribe) {
         activeGameUnsubscribe();
         activeGameUnsubscribe = null;
@@ -475,7 +505,7 @@ const PublicSessionPage = () => {
         activeRoundsUnsubscribe = null;
       }
     };
-  }, [sessionId]);
+  }, [router.isReady, sessionId, groupIdFromQuery]);
 
   if (isLoading) {
     return (

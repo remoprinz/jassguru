@@ -767,8 +767,13 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
     // ✅ Elo-Update (post ex)
     try {
       await updateEloForSession(groupId, sessionId);
-      
-      // 🆕 Rating-Historie nach erfolgreichem Elo-Update speichern
+      logger.info(`[finalizeSession] Elo update completed successfully for session ${sessionId}`);
+    } catch (e) {
+      logger.error(`[finalizeSession] Elo update failed for session ${sessionId}:`, e);
+    }
+
+    // 🆕 Rating-Historie nach Elo-Update speichern (separater Try/Catch für bessere Fehlerdiagnose)
+    try {
       logger.info(`[finalizeSession] Saving rating history snapshot for session ${sessionId}`);
       await saveRatingHistorySnapshot(
         groupId,
@@ -777,9 +782,8 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
         'session_end'
       );
       logger.info(`[finalizeSession] Rating history snapshot completed for session ${sessionId}`);
-      
     } catch (e) {
-      logger.error(`[finalizeSession] Elo update failed for session ${sessionId}:`, e);
+      logger.error(`[finalizeSession] Rating history snapshot failed for session ${sessionId}:`, e);
     }
 
     // ✅ KRITISCHE KORREKTUR: Gruppenstatistiken nach erfolgreicher Session-Finalisierung aktualisieren

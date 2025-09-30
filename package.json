@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "NODE_OPTIONS='--inspect' next dev",
-    "clean": "rm -rf out && rm -f public/sw*.js* public/workbox-*.js* public/fallback-*.js* && find public -name 'fallback-*' -delete && rm -f sw.js workbox-*.js fallback-*.js*",
+    "clean": "rm -rf out && rm -f public/workbox-*.js* public/fallback-*.js* && find public -name 'fallback-*' -delete && rm -rf public/pwa && rm -f sw.js workbox-*.js fallback-*.js*",
     "build": "npm run clean && node scripts/cleanup-old-sw.cjs && node scripts/cleanup-fallbacks.cjs && next build",
     "postbuild": "next-sitemap --config next-sitemap.config.cjs",
-    "prebuild": "node scripts/generate-build-info.js",
+    "prebuild": "tsx scripts/sync-content.mjs && node scripts/generate-build-info.js",
     "start": "next start",
     "lint": "next lint",
     "analyze": "cross-env ANALYZE=true next build",
