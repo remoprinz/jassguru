@@ -1,10 +1,12 @@
 import React, {useState, useEffect, useMemo} from "react";
 import {motion, AnimatePresence} from "framer-motion";
 import {FaArrowLeft, FaArrowRight} from "react-icons/fa";
+import {FaApple, FaAndroid} from "react-icons/fa";
 import type {
   OnboardingContent,
   BrowserOnboardingStep,
 } from "../../constants/onboardingContent";
+import {BROWSER_ONBOARDING} from "../../constants/onboardingContent";
 import {usePressableButton} from "../../hooks/usePressableButton";
 import {useDeviceScale} from "../../hooks/useDeviceScale";
 // isDev-Import entfernt - wird nicht mehr benötigt
@@ -155,18 +157,18 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
             animate={{opacity: 1}}
             exit={{opacity: 0}}
             className={`fixed inset-0 flex items-center justify-center z-[99999] 
-              ${urlBarPosition === "top" ? "pt-8 sm:pt-16 pb-4 sm:pb-8" : "pt-4 sm:pt-8 pb-8 sm:pb-16"}`}
+              ${isDesktop ? "py-8" : urlBarPosition === "top" ? "pt-8 sm:pt-16 pb-4 sm:pb-8" : "pt-4 sm:pt-8 pb-8 sm:pb-16"}`}
           >
             <motion.div
               key={step}
               initial={{scale: 0.95}}
               animate={{
                 scale: overlayScale,
-                y: urlBarPosition === "top" ? (deviceSize === "xs" ? 20 : 40) : (deviceSize === "xs" ? -20 : -40),
+                y: isDesktop ? 0 : (urlBarPosition === "top" ? (deviceSize === "xs" ? 20 : 40) : (deviceSize === "xs" ? -20 : -40)),
               }}
               exit={{scale: 0.95}}
               className={`bg-gray-800 ${getPadding()} rounded-lg shadow-lg w-full relative text-white 
-                max-w-xs sm:max-w-sm md:max-w-md 
+                ${isDesktop && !isWelcomeStep && step !== "FINAL_HINTS" ? "max-w-4xl" : "max-w-xs sm:max-w-sm md:max-w-md"}
                 ${deviceSize === "xs" ? "max-h-[90vh] overflow-y-auto" : ""}`}
             >
               <div className="flex flex-col items-center justify-center">
@@ -191,12 +193,21 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                     optimalStepImageHeight={optimalStepImageHeight}
                   />
                 ) : (
-                  <StandardStep
-                    content={content}
-                    deviceSize={deviceSize}
-                    optimalImageHeight={optimalImageHeight}
-                    optimalStepImageHeight={optimalStepImageHeight}
-                  />
+                  isDesktop ? (
+                    <DualOSStep
+                      step={step}
+                      deviceSize={deviceSize}
+                      optimalImageHeight={optimalImageHeight}
+                      optimalStepImageHeight={optimalStepImageHeight}
+                    />
+                  ) : (
+                    <StandardStep
+                      content={content}
+                      deviceSize={deviceSize}
+                      optimalImageHeight={optimalImageHeight}
+                      optimalStepImageHeight={optimalStepImageHeight}
+                    />
+                  )
                 )}
 
                 {/* Navigation Buttons */}
@@ -217,7 +228,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   );
 };
 
-// Neue QR-Code-Komponente für Desktop-Geräte
+// Neue QR-Code-Komponente für Desktop-Geräte - MIT BEIDEN OS-ANLEITUNGEN!
 const QRCodeStep: React.FC<{ content: OnboardingContent } & StepComponentProps> = ({
   content,
   deviceSize,
@@ -471,6 +482,170 @@ const StandardStep: React.FC<{ content: OnboardingContent } & StepComponentProps
         </p>
       )}
     </>
+  );
+};
+
+// NEUE Dual-OS-Komponente - INTELLIGENT: Zeigt nur iOS wenn Android keinen Content hat!
+const DualOSStep: React.FC<{ step: BrowserOnboardingStep } & StepComponentProps> = ({
+  step,
+  deviceSize,
+  optimalStepImageHeight = 200,
+}) => {
+  const iosContent = BROWSER_ONBOARDING.iOS[step as keyof typeof BROWSER_ONBOARDING.iOS];
+  const androidContent = BROWSER_ONBOARDING.Android[step as keyof typeof BROWSER_ONBOARDING.Android];
+
+  if (!iosContent) return null;
+
+  // INTELLIGENTE LOGIK: Wenn Android keinen Content hat oder identisch ist → nur iOS zeigen!
+  const showBothOS = androidContent && 
+    androidContent.message !== iosContent.message && 
+    androidContent.title === iosContent.title; // Gleicher Titel = gleicher Schritt
+
+  // INSTALL_DONE: Beide haben gleichen Content → nur einmal zeigen mit "iPhone & Android"
+  const isSharedStep = step === "INSTALL_DONE";
+  
+  // INSTALL_FINAL: iOS hat "Hinzufügen", Android braucht das nicht
+  const isIOSOnlyStep = step === "INSTALL_FINAL";
+
+  if (isIOSOnlyStep) {
+    return (
+      <div className="w-full">
+        <h1 className="text-2xl font-bold text-center text-white mb-6">
+          {iosContent.title}
+        </h1>
+        
+        {/* iOS + Android Hinweis nebeneinander */}
+        <div className="grid grid-cols-2 gap-6">
+          {/* iOS Seite */}
+          <div className="flex flex-col items-center">
+            <div className="flex items-center gap-2 mb-3">
+              <FaApple className="text-white" size={24} />
+              <span className="text-lg font-semibold text-white">iPhone</span>
+            </div>
+            {('image' in iosContent) && iosContent.image && (
+              <img
+                src={iosContent.image}
+                alt={iosContent.title}
+                style={{ maxHeight: `${optimalStepImageHeight * 0.8}px`, maxWidth: '200px' }}
+                className="object-contain mb-4"
+              />
+            )}
+            <p className="text-center text-sm text-gray-300 mb-6">
+              {iosContent.message}
+            </p>
+          </div>
+
+          {/* Android Seite - Hinweis */}
+          <div className="flex flex-col items-center justify-center">
+            <div className="flex items-center gap-2 mb-3">
+              <FaAndroid className="text-white" size={24} />
+              <span className="text-lg font-semibold text-white">Android</span>
+            </div>
+            <div className="flex flex-col items-center justify-center h-full">
+              <p className="text-center text-base text-gray-400 italic">
+                Braucht diesen Schritt nicht.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isSharedStep || !showBothOS) {
+    return (
+      <div className="w-full">
+        <h1 className="text-2xl font-bold text-center text-white mb-6">
+          {isSharedStep ? iosContent.title : iosContent.title}
+        </h1>
+        
+        {/* SINGLE CONTENT - Zentriert */}
+        <div className="flex flex-col items-center max-w-md mx-auto">
+          {isSharedStep && (
+            <div className="flex items-center gap-4 mb-4">
+              <div className="flex items-center gap-2">
+                <FaApple className="text-white" size={20} />
+                <span className="text-base font-medium text-white">iPhone</span>
+              </div>
+              <span className="text-white">&</span>
+              <div className="flex items-center gap-2">
+                <FaAndroid className="text-white" size={20} />
+                <span className="text-base font-medium text-white">Android</span>
+              </div>
+            </div>
+          )}
+          
+          {!isSharedStep && (
+            <div className="flex items-center gap-2 mb-4">
+              <FaApple className="text-white" size={20} />
+              <span className="text-base font-medium text-white">iPhone</span>
+            </div>
+          )}
+          
+          {('image' in iosContent) && iosContent.image && (
+            <img
+              src={iosContent.image}
+              alt={iosContent.title}
+              style={{ maxHeight: `${optimalStepImageHeight * 0.9}px`, maxWidth: '300px' }}
+              className="object-contain mb-4"
+            />
+          )}
+          <p className="text-center text-base text-gray-300 mb-6">
+            {iosContent.message}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // DUAL CONTENT - Nebeneinander (nur wenn wirklich unterschiedlich)
+  return (
+    <div className="w-full">
+      <h1 className="text-2xl font-bold text-center text-white mb-6">
+        {iosContent.title}
+      </h1>
+      
+      {/* Beide OS-Anleitungen nebeneinander */}
+      <div className="grid grid-cols-2 gap-6">
+        {/* iOS Seite */}
+        <div className="flex flex-col items-center">
+          <div className="flex items-center gap-2 mb-3">
+            <FaApple className="text-white" size={24} />
+            <span className="text-lg font-semibold text-white">iPhone</span>
+          </div>
+          {('image' in iosContent) && iosContent.image && (
+            <img
+              src={iosContent.image}
+              alt={iosContent.title}
+              style={{ maxHeight: `${optimalStepImageHeight * 0.8}px`, maxWidth: '200px' }}
+              className="object-contain mb-4"
+            />
+          )}
+          <p className="text-center text-sm text-gray-300 mb-6">
+            {iosContent.message}
+          </p>
+        </div>
+
+        {/* Android Seite */}
+        <div className="flex flex-col items-center">
+          <div className="flex items-center gap-2 mb-3">
+            <FaAndroid className="text-white" size={24} />
+            <span className="text-lg font-semibold text-white">Android</span>
+          </div>
+          {('image' in androidContent) && androidContent.image && (
+            <img
+              src={androidContent.image}
+              alt={androidContent.title}
+              style={{ maxHeight: `${optimalStepImageHeight * 0.8}px`, maxWidth: '200px' }}
+              className="object-contain mb-4"
+            />
+          )}
+          <p className="text-center text-sm text-gray-300 mb-6">
+            {androidContent.message}
+          </p>
+        </div>
+      </div>
+    </div>
   );
 };
 

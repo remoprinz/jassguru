@@ -206,9 +206,9 @@ const DesktopFeatureSlider: React.FC<DesktopFeatureSliderProps> = ({
                 </button>
 
                 {/* ZENTRIERTES Layout - Screenshots MASSIV, perfekt ausbalanciert */}
-                <div className="flex gap-20 h-full items-center justify-center max-w-none mx-auto">
+                <div className="flex gap-20 h-full items-center justify-center max-w-none mx-auto px-12">
                   {/* Left: Screenshot - MASSIV GRÖSSER */}
-                  <div className="flex items-center justify-center">
+                  <div className="flex items-center justify-center flex-shrink-0">
                     <AnimatePresence mode="wait">
                       <motion.div
                         key={currentIndex}
@@ -243,36 +243,39 @@ const DesktopFeatureSlider: React.FC<DesktopFeatureSliderProps> = ({
                     </AnimatePresence>
                   </div>
 
-                  {/* Right: Content - zentriert ausgerichtet zum Screenshot */}
-                  <div className="flex flex-col justify-center space-y-10 w-[500px]">
-                    {/* Title */}
-                    <motion.h1 
-                      key={`title-${currentIndex}`}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.2, duration: 0.4 }}
-                      className="text-7xl font-bold text-white leading-tight"
-                    >
-                      {currentScreenshot.title}
-                    </motion.h1>
+                  {/* Right: Content - FLEXIBLE STRUKTUR für kleinere Viewports */}
+                  <div className="flex flex-col w-[500px] justify-center">
+                    {/* Content Area - vertikal zentriert zwischen Bild-Top und Buttons */}
+                    <div className="flex flex-col space-y-8">
+                      {/* Title */}
+                      <motion.h1 
+                        key={`title-${currentIndex}`}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2, duration: 0.4 }}
+                        className="text-6xl font-bold text-white leading-tight"
+                      >
+                        {currentScreenshot.title}
+                      </motion.h1>
 
-                    {/* Description */}
-                    <motion.p 
-                      key={`desc-${currentIndex}`}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.3, duration: 0.4 }}
-                      className="text-3xl text-gray-200 leading-relaxed whitespace-pre-line font-light"
-                    >
-                      {currentScreenshot.description}
-                    </motion.p>
+                      {/* Description */}
+                      <motion.p 
+                        key={`desc-${currentIndex}`}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3, duration: 0.4 }}
+                        className="text-2xl text-gray-200 leading-relaxed whitespace-pre-line font-light"
+                      >
+                        {currentScreenshot.description}
+                      </motion.p>
+                    </div>
 
-                    {/* Progress */}
+                    {/* Navigation Area - Mit Spacing nach oben für bessere Zentrierung */}
                     <motion.div 
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.4, duration: 0.4 }}
-                      className="space-y-6"
+                      className="space-y-6 mt-10"
                     >
                       {/* Dots - grösser und besser sichtbar */}
                       <div className="flex justify-start space-x-4">

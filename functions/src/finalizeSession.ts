@@ -280,15 +280,100 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
       const completedGames: CompletedGameData[] = gamesSnap.docs.map(doc => doc.data() as CompletedGameData);
       const finalizationNotes: string[] = [];
 
-      // KONSISTENZPRÜFUNG - JETZT ROBUST
+      // KONSISTENZPRÜFUNG MIT PROAKTIVEM FALLBACK
       if (completedGames.length < expectedGameNumber) {
-        const warningMessage = `Game count mismatch. Expected ${expectedGameNumber}, found ${completedGames.length}. Finalizing with available data.`;
+        const warningMessage = `Game count mismatch. Expected ${expectedGameNumber}, found ${completedGames.length}. Searching activeGames for missing completed games...`;
         logger.warn(`[finalizeSession] Session ${sessionId}: ${warningMessage}`);
         finalizationNotes.push(warningMessage);
-        // NICHT MEHR ABBRECHEN
+        
+        // 🛡️ FALLBACK: Suche fehlende Spiele in activeGames Collection
+        try {
+          const activeGamesQuery = db.collection('activeGames')
+            .where('sessionId', '==', sessionId)
+            .where('status', '==', 'completed');
+          
+          const activeGamesSnap = await activeGamesQuery.get();
+          
+          if (!activeGamesSnap.empty) {
+            logger.info(`[finalizeSession] Found ${activeGamesSnap.size} completed games in activeGames for session ${sessionId}`);
+            
+            // Erstelle Set mit bereits vorhandenen activeGameIds
+            const existingGameIds = new Set(completedGames.map(g => g.activeGameId).filter(Boolean));
+            
+            for (const activeGameDoc of activeGamesSnap.docs) {
+              const activeGameData = activeGameDoc.data();
+              const activeGameId = activeGameDoc.id;
+              
+              // Wenn dieses Spiel noch nicht in completedGames ist
+              if (!existingGameIds.has(activeGameId)) {
+                logger.info(`[finalizeSession] 🔄 Recovering missing completed game: ${activeGameId}`);
+                
+                // Berechne Spiel-Dauer aus roundHistory
+                let gameDuration = 0;
+                if (activeGameData.roundHistory && Array.isArray(activeGameData.roundHistory)) {
+                  const timestamps = activeGameData.roundHistory
+                    .map((r: any) => r.timestamp)
+                    .filter((t: any): t is number => typeof t === 'number')
+                    .sort((a: number, b: number) => a - b);
+                  
+                  if (timestamps.length >= 2) {
+                    gameDuration = timestamps[timestamps.length - 1] - timestamps[0];
+                  }
+                }
+                
+                // Rekonstruiere CompletedGameData aus activeGame
+                const recoveredGame: CompletedGameData = {
+                  gameNumber: activeGameData.currentGameNumber || (completedGames.length + 1),
+                  activeGameId: activeGameId,
+                  finalScores: activeGameData.scores || { top: 0, bottom: 0 },
+                  finalStriche: activeGameData.striche || {
+                    top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
+                    bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }
+                  },
+                  roundHistory: activeGameData.roundHistory || [],
+                  weisPoints: activeGameData.weisPoints || { top: 0, bottom: 0 },
+                  durationMillis: gameDuration,
+                  completedAt: activeGameData.lastUpdated || admin.firestore.Timestamp.now(),
+                  participantUids: activeGameData.participantUids || [],
+                  playerNames: activeGameData.playerNames || {},
+                  sessionId: sessionId,
+                };
+                
+                // Füge zu completedGames hinzu
+                completedGames.push(recoveredGame);
+                
+                // Schreibe in completedGames Subcollection
+                // ✅ KORREKTUR: Verwende gameNumber als Document-ID, nicht activeGameId!
+                const gameDocRef = completedGamesColRef.doc(String(recoveredGame.gameNumber));
+                transaction.set(gameDocRef, recoveredGame);
+                
+                logger.info(`[finalizeSession] ✅ Successfully recovered and wrote missing game ${activeGameId} (gameNumber: ${recoveredGame.gameNumber}) to completedGames/${recoveredGame.gameNumber}`);
+                
+                // Aktualisiere Notiz
+                const recoveryNote = `Recovered missing game ${recoveredGame.gameNumber} from activeGames (ID: ${activeGameId})`;
+                finalizationNotes.push(recoveryNote);
+              }
+            }
+            
+            // Sortiere completedGames nach gameNumber für korrekte Aggregation
+            completedGames.sort((a, b) => (a.gameNumber || 0) - (b.gameNumber || 0));
+            
+            if (completedGames.length === expectedGameNumber) {
+              logger.info(`[finalizeSession] ✅ All ${expectedGameNumber} games recovered successfully!`);
+              finalizationNotes.push(`Successfully recovered all ${expectedGameNumber} games`);
+            } else {
+              logger.warn(`[finalizeSession] ⚠️ Still missing games: Expected ${expectedGameNumber}, recovered ${completedGames.length}`);
+            }
+          } else {
+            logger.warn(`[finalizeSession] No completed games found in activeGames for session ${sessionId}`);
+          }
+        } catch (fallbackError) {
+          logger.error(`[finalizeSession] Error during activeGames fallback recovery:`, fallbackError);
+          finalizationNotes.push(`Fallback recovery failed: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`);
+        }
       }
       
-      // AB HIER IST SICHERGESTELLT, DASS WIR ALLE ERWARTETEN SPIELE HABEN
+      // AB HIER HABEN WIR ALLE VERFÜGBAREN SPIELE (MIT FALLBACK-RECOVERY)
       const now = admin.firestore.Timestamp.now();
       let startedAtTimestamp: admin.firestore.Timestamp;
       if (initialDataFromClient.startedAt instanceof admin.firestore.Timestamp) {
@@ -300,7 +385,9 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
         logger.warn(`[finalizeSession] startedAt not provided correctly by client for session ${sessionId}, using fallback or existing.`);
       }
       
-      const createdAtTimestamp = existingSummaryData?.createdAt || now;
+      // ✅ KORREKTUR: createdAt NICHT überschreiben - es repräsentiert den Session-Start
+      // Wenn bereits vorhanden, behalten wir es. Nur bei neuen Sessions setzen wir es.
+      const createdAtTimestamp = existingSummaryData?.createdAt || startedAtTimestamp;
 
       // Aggregation der Daten
       let totalPointsTeamTop = 0;

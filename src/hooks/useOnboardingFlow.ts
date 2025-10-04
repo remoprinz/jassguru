@@ -35,7 +35,8 @@ export const useOnboardingFlow = (isBrowserOnboarding: boolean = false) => {
 
   // --- Hooks immer aufrufen ---
   const deviceOS = getDeviceOS();
-  const osKey = deviceOS === "other" ? "Android" : deviceOS as DeviceOS;
+  // Schweiz: Mehr iPhone-Nutzer → iOS als Default für Desktop/other
+  const osKey = deviceOS === "other" ? "iOS" : deviceOS as DeviceOS;
   const STEPS = osKey === "iOS" ? IOS_BROWSER_STEPS : ANDROID_BROWSER_STEPS;
   type CurrentStepType = typeof osKey extends "iOS" ? iOSBrowserStep : AndroidBrowserStep;
 

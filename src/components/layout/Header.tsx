@@ -68,7 +68,7 @@ const Header: React.FC<HeaderProps> = () => {
   }
 
   return (
-    <header className="sticky top-0 z-10 w-full bg-gray-800 shadow-md pt-12 pb-2">
+    <header className="sticky top-0 z-10 w-full bg-gray-800 shadow-md pt-12 pb-2 max-w-3xl mx-auto">
       <div className="w-full flex items-center justify-between px-4">
         <div className="flex items-center">
           {showEffectiveBackButton && (

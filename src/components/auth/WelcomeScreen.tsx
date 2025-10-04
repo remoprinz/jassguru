@@ -16,6 +16,8 @@ import { saveTokensFromUrl } from "@/utils/tokenStorage";
 import { welcomeLogger, logCriticalError } from "@/utils/logger";
 import { LegalFooter } from '@/components/layout/LegalFooter';
 import ScreenshotSlider from '@/components/auth/ScreenshotSlider';
+import ScreenshotPreview from '@/components/auth/ScreenshotPreview';
+import WelcomeBox from '@/components/auth/WelcomeBox';
 
 export interface WelcomeScreenProps {
   onLogin?: () => void;
@@ -245,7 +247,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 
   return (
     <div className="h-full w-full absolute inset-0 bg-gray-900 overflow-y-auto">
-      <div className="flex flex-col items-center justify-center min-h-screen py-8 px-4">
+      {/* 📱 MOBILE VERSION - BLEIBT UNVERÄNDERT! */}
+      <div className="lg:hidden flex flex-col items-center justify-center min-h-screen py-8 px-4">
         <motion.div
           initial={{opacity: 0, scale: 0.9}}
           animate={{opacity: 1, scale: 1}}
@@ -414,6 +417,32 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         {/* LEGAL FOOTER */}
         <div className="mb-6">
           <LegalFooter />
+        </div>
+      </div>
+
+      {/* 💻 DESKTOP VERSION - 40/60 SPLIT LAYOUT (OPTIMAL!) */}
+      <div className="hidden lg:grid lg:grid-cols-[40%_60%] min-h-screen">
+        {/* LEFT: Screenshot Preview (40%) */}
+        <div className="bg-gray-900 flex items-start justify-center p-8 pt-16">
+          <ScreenshotPreview />
+        </div>
+
+        {/* RIGHT: Welcome Content (60% - KOMPAKT & ZENTRIERT!) */}
+        <div className="bg-gray-800 flex items-center justify-center px-16 py-12">
+          <div className="max-w-xl w-full space-y-6">
+            <WelcomeBox
+              displayMode={displayMode}
+              isGuestLoading={isGuestLoading}
+              onRegister={handleRegister}
+              onLogin={handleLogin}
+              onGuestPlay={handleGuestPlay}
+            />
+
+            {/* LEGAL FOOTER - Desktop */}
+            <div className="flex justify-center">
+              <LegalFooter />
+            </div>
+          </div>
         </div>
       </div>
 

@@ -38,6 +38,8 @@ import { generateBlurPlaceholder } from '@/utils/imageOptimization';
 import { loadPlayerRatings, type PlayerRatingWithTier } from '@/services/jassElo';
 import { db } from '@/services/firebaseInit';
 import { doc, getDoc } from 'firebase/firestore';
+// NEU: Responsive Layout Hook
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 
 // Types
 interface ExpectedPlayerStatsWithAggregates {
@@ -157,6 +159,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 }) => {
   const trumpfStatistikRef = useRef<HTMLDivElement>(null);
   useNestedScrollFix(trumpfStatistikRef);
+  
+  // NEU: Responsive Layout Hook
+  const layout = useResponsiveLayout();
 
   // Neu: State für Bildladung
   const [isImageLoading, setIsImageLoading] = useState(true);
@@ -457,7 +462,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   return (
     <MainLayout>
-      <div className="flex flex-col items-center justify-start bg-gray-900 text-white p-4 relative pt-8 pb-20">
+      <div className={`flex flex-col items-center justify-start bg-gray-900 text-white ${layout.containerPadding} relative pt-8 pb-20 lg:w-full lg:px-0`}>
+        {/* Responsive Container Wrapper */}
+        <div className={`w-full ${layout.containerMaxWidth} mx-auto lg:px-12 lg:py-8`}>
           {/* 🚀 AVATAR PRELOADER: Lädt alle Partner/Gegner-Avatare unsichtbar vor */}
           {profileAvatarPhotoURLs.length > 0 && (
             <AvatarPreloader photoURLs={profileAvatarPhotoURLs} />
@@ -518,9 +525,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           )}
 
         {/* ✅ HEADER MIT LOGO UND BUTTONS (IDENTISCH ZU GROUPVIEW) */}
-        <div className={`relative mb-4 ${isPublicView ? 'mt-16' : 'mt-4'}`}>
+        <div className={`relative mb-4 ${isPublicView ? 'mt-16' : 'mt-6'} flex justify-center`}>
           <div 
-            className={`relative w-32 h-32 rounded-full overflow-hidden transition-all duration-300 flex items-center justify-center bg-gray-800 shadow-lg hover:shadow-xl hover:scale-105 border-4`}
+            className={`relative ${layout.avatarSize} rounded-full overflow-hidden transition-all duration-300 flex items-center justify-center bg-gray-800 shadow-lg hover:shadow-xl hover:scale-105 border-4`}
             style={{
               borderColor: previewUrl ? 'rgba(147, 51, 234, 1)' : hexColor,
               boxShadow: previewUrl 
@@ -588,29 +595,29 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
         <div className="w-full text-center mb-6 px-4">
           <h1 
-            className="text-3xl font-bold mb-3 text-white break-words transition-colors duration-300"
+            className={`${layout.titleSize} font-bold mb-1 text-white break-words transition-colors duration-300`}
           >
-            {statsLoading ? <Skeleton className="h-9 w-48 mx-auto" /> : displayName}
+            {statsLoading ? <Skeleton className={`${layout.skeletonTitleHeight} w-48 mx-auto`} /> : displayName}
           </h1>
           
           {/* NEU: Jass-Elo Rating unterhalb des Namens */}
           {playerRating && (
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <span className="text-base text-gray-300">Jass-Elo:</span>
-              <span className="text-xl font-semibold text-white">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <span className={`${layout.bodySize} text-gray-300`}>Jass-Elo:</span>
+              <span className={`${layout.headingSize} font-semibold text-white`}>
                 {Math.round(playerRating.rating)}
                 {playerDelta !== null && (
-                  <span className={`ml-1 text-base ${playerDelta > 0 ? 'text-green-400' : playerDelta < 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                  <span className={`ml-1 ${layout.bodySize} ${playerDelta > 0 ? 'text-green-400' : playerDelta < 0 ? 'text-red-400' : 'text-gray-400'}`}>
                     ({playerDelta > 0 ? '+' : ''}{Math.round(playerDelta)})
                   </span>
                 )}
               </span>
-              <span className="text-lg">{playerRating.tierEmoji}</span>
+              <span className={layout.headingSize}>{playerRating.tierEmoji}</span>
             </div>
           )}
           
-          <div className="text-base text-gray-300 mx-auto max-w-xl break-words">
-            <p className="text-center">{statsLoading ? <Skeleton className="h-5 w-64 mx-auto" /> : jassSpruch}</p>
+          <div className={`${layout.subtitleSize} text-gray-300 mx-auto max-w-xl break-words mt-3`}>
+            <p className="text-center">{statsLoading ? <Skeleton className={`${layout.skeletonTextHeight} w-64 mx-auto`} /> : jassSpruch}</p>
           </div>
         </div>
 
@@ -619,36 +626,38 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <div className="flex gap-2 justify-center mb-4">
             <Button
               onClick={() => {/* handleUpload - wird über props übergeben */}}
+              size={layout.buttonSize}
               className="bg-green-600 hover:bg-green-700 flex items-center gap-1"
               disabled={!previewUrl || isUploading}
             >
               {isUploading ? (
                 <>
-                  <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-1"></div>
+                  <div className={`${layout.spinnerSize} rounded-full border-2 border-white border-t-transparent animate-spin mr-1`}></div>
                   Hochladen...
                 </>
               ) : (
                 <>
-                  <Upload size={16} /> Hochladen
+                  <Upload size={layout.buttonIconSize} /> Hochladen
                 </>
               )}
             </Button>
             <Button
               onClick={() => {/* handleCancelSelection - wird über props übergeben */}}
+              size={layout.buttonSize}
               className="bg-gray-600 hover:bg-gray-700 flex items-center gap-1"
               disabled={isUploading}
             >
-              <AlertXCircle size={16} /> Abbrechen
+              <AlertXCircle size={layout.buttonIconSize} /> Abbrechen
             </Button>
           </div>
         )}
 
-        {/* Navigation Buttons (nur private Profile) - IDENTISCH ZU GROUPVIEW */}
+        {/* Navigation Buttons (nur private Profile) */}
         {!isPublicView && (
           <div className="flex justify-center items-center gap-3 mb-6 px-4">
             <Button
               variant="ghost" 
-              size="sm" 
+              size={layout.buttonSize}
               onClick={() => router.push("/profile/groups")}
               className={`text-gray-300 hover:text-white transition-all duration-200 hover:scale-105`}
               style={{
@@ -665,11 +674,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               }}
               title="Gruppen"
             >
-              <Users className="h-4 w-4 mr-1.5" /> Gruppen
+              <Users size={layout.buttonIconSize} className="mr-1.5" /> Gruppen
             </Button>
             <Button
               variant="ghost" 
-              size="sm" 
+              size={layout.buttonSize}
               onClick={() => router.push("/tournaments")}
               className={`text-gray-300 hover:text-white transition-all duration-200 hover:scale-105`}
               style={{
@@ -686,11 +695,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               }}
               title="Turniere"
             >
-              <AwardIcon className="h-4 w-4 mr-1.5" /> Turniere
+              <AwardIcon size={layout.buttonIconSize} className="mr-1.5" /> Turniere
             </Button>
             <Button
               variant="ghost" 
-              size="sm" 
+              size={layout.buttonSize}
               onClick={() => router.push("/profile/edit")}
               className={`text-gray-300 hover:text-white transition-all duration-200 hover:scale-105`}
               style={{
@@ -707,7 +716,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               }}
               title="Einstellungen"
             >
-              <UserCog className="h-4 w-4 mr-1.5" /> Einstellungen
+              <UserCog size={layout.buttonIconSize} className="mr-1.5" /> Einstellungen
             </Button>
           </div>
         )}
@@ -751,24 +760,24 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           }}
           className="w-full"
         >
-          <TabsList className="grid w-full grid-cols-2 bg-gray-800 p-1 rounded-lg mb-4 sticky top-0 z-30 backdrop-blur-md">
+          <TabsList className={`grid w-full grid-cols-2 bg-gray-800 ${layout.mainTabContainerPadding} rounded-lg mb-4 sticky top-0 z-30 backdrop-blur-md`}>
             <TabsTrigger 
               value="stats" 
-              className="data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md py-2.5 text-sm font-medium"
+              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-medium`}
               style={{
                 backgroundColor: activeMainTab === 'stats' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
               }}
             > 
-              <BarChart3 className="w-4 h-4 mr-2" /> Statistik 
+              <BarChart3 size={layout.mainTabIconSize} className="mr-2" /> Statistik 
             </TabsTrigger> 
             <TabsTrigger 
               value="archive" 
-              className="data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md py-2.5 text-sm font-medium"
+              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-medium`}
               style={{
                 backgroundColor: activeMainTab === 'archive' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
               }}
             > 
-              <Archive className="w-4 h-4 mr-2" /> Archiv 
+              <Archive size={layout.mainTabIconSize} className="mr-2" /> Archiv 
             </TabsTrigger>
           </TabsList>
 
@@ -789,40 +798,40 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               }}
               className="w-full"
             >
-              <div className="h-2"></div>
+              {/* Responsiver Abstand: Desktop weniger (16px), Mobile weniger (8px) */}
+              <div className={layout.isDesktop ? "h-4" : "h-2"}></div>
               
-              <div className="sticky top-[44px] z-20 bg-gray-900 pt-0 pb-4">
-                <div className="absolute top-[-44px] left-0 right-0 h-[44px] bg-gray-900"></div>
-                
-                <TabsList className="grid w-full grid-cols-3 bg-gray-800 p-1 rounded-lg backdrop-blur-md">
+              {/* Sticky Container für Sub-Tabs */}
+              <div className={`sticky ${layout.isDesktop ? "top-[60px]" : "top-[44px]"} z-20 bg-gray-900 pt-0 pb-4`}>
+                <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.subTabContainerPadding} rounded-lg backdrop-blur-md`}>
                   <TabsTrigger
                     value="individual"
-                    className="data-[state=active]:text-white text-gray-400 hover:text-white rounded-md py-1.5 text-sm font-medium"
+                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium`}
                     style={{
                       backgroundColor: activeStatsSubTab === 'individual' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
                     }}
                   >
-                    <User className="w-4 h-4 mr-1.5" />
+                    <User size={layout.subTabIconSize} className="mr-1.5" />
                     Individuell
                   </TabsTrigger>
                   <TabsTrigger
                     value="partner"
-                    className="data-[state=active]:text-white text-gray-400 hover:text-white rounded-md py-1.5 text-sm font-medium"
+                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium`}
                     style={{
                       backgroundColor: activeStatsSubTab === 'partner' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
                     }}
                   >
-                    <Users className="w-4 h-4 mr-1.5" />
+                    <Users size={layout.subTabIconSize} className="mr-1.5" />
                     Partner
                   </TabsTrigger>
                   <TabsTrigger
                     value="opponent"
-                    className="data-[state=active]:text-white text-gray-400 hover:text-white rounded-md py-1.5 text-sm font-medium"
+                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium`}
                     style={{
                       backgroundColor: activeStatsSubTab === 'opponent' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
                     }}
                   >
-                    <Shield className="w-4 h-4 mr-1.5" />
+                    <Shield size={layout.subTabIconSize} className="mr-1.5" />
                     Gegner
                   </TabsTrigger>
                 </TabsList>
@@ -832,7 +841,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <TabsContent 
                 value="individual"
                 forceMount
-            className={activeStatsSubTab !== 'individual' ? 'hidden' : 'w-full bg-gray-800/50 rounded-lg p-4'}
+            className={activeStatsSubTab !== 'individual' ? 'hidden' : `w-full bg-gray-800/50 rounded-lg ${layout.cardPadding}`}
             style={{ display: activeStatsSubTab !== 'individual' ? 'none' : 'block' }}
               >
                 {statsLoading ? (
@@ -845,68 +854,68 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     Fehler beim Laden der Statistiken: {statsError}
                   </div>
                 ) : playerStats ? (
-                  <div className="space-y-3 text-sm"> 
+                  <div className={`${layout.sectionSpacing} ${layout.bodySize}`}> 
                     {/* Block 1: Spielerübersicht */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
-                        <h3 className="text-base font-semibold text-white">Spielerübersicht</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Spielerübersicht</h3>
                       </div>
-                      <div className="p-4 space-y-2">
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Anzahl Gruppen:</span>
-                          <span className="text-gray-100 text-lg font-medium">{playerStats?.groupCount || 0}</span> 
+                      <div className={`${layout.cardPadding} space-y-2`}>
+                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                          <span className={`${layout.bodySize} font-medium text-gray-300`}>Anzahl Gruppen:</span>
+                          <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.groupCount || 0}</span> 
                         </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Anzahl Partien:</span>
-                          <span className="text-gray-100 text-lg font-medium">{playerStats?.totalSessions ?? 0}</span>
+                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                          <span className={`${layout.bodySize} font-medium text-gray-300`}>Anzahl Partien:</span>
+                          <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.totalSessions ?? 0}</span>
                         </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Anzahl Turniere:</span>
-                          <span className="text-gray-100 text-lg font-medium">{playerStats?.totalTournaments ?? 0}</span>
+                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                          <span className={`${layout.bodySize} font-medium text-gray-300`}>Anzahl Turniere:</span>
+                          <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.totalTournaments ?? 0}</span>
                         </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Anzahl Spiele:</span>
-                          <span className="text-gray-100 text-lg font-medium">{playerStats?.totalGames ?? 0}</span>
+                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                          <span className={`${layout.bodySize} font-medium text-gray-300`}>Anzahl Spiele:</span>
+                          <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.totalGames ?? 0}</span>
                         </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Gesamte Jass-Zeit:</span>
-                          <span className="text-gray-100 text-lg font-medium">{playerStats?.totalPlayTime || '-'}</span>
+                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                          <span className={`${layout.bodySize} font-medium text-gray-300`}>Gesamte Jass-Zeit:</span>
+                          <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.totalPlayTime || '-'}</span>
                         </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Erster Jass:</span>
-                          <span className="text-gray-100 text-lg font-medium">{playerStats?.firstJassDate || '-'}</span>
+                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                          <span className={`${layout.bodySize} font-medium text-gray-300`}>Erster Jass:</span>
+                          <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.firstJassDate || '-'}</span>
                         </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Letzter Jass:</span>
-                          <span className="text-gray-100 text-lg font-medium">{playerStats?.lastJassDate || '-'}</span>
+                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                          <span className={`${layout.bodySize} font-medium text-gray-300`}>Letzter Jass:</span>
+                          <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.lastJassDate || '-'}</span>
                         </div>
                       </div>
                     </div>
 
                     {/* Block 2: Bilanzen */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
-                        <h3 className="text-base font-semibold text-white">Bilanzen</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Bilanzen</h3>
                       </div>
-                      <div className="p-4 space-y-2">
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Strichdifferenz:</span>
-                          <span className="text-gray-100">
-                            <span className="text-gray-400 mr-1 text-sm">
+                      <div className={`${layout.cardPadding} space-y-2`}>
+                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                          <span className={`${layout.bodySize} font-medium text-gray-300`}>Strichdifferenz:</span>
+                          <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
+                            <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                               ({playerStats?.totalStricheMade || 0}/{playerStats?.totalStricheReceived || 0})
                             </span>
-                            <span className="text-lg font-medium">
+                            <span className={`${layout.valueSize} font-medium`}>
                               {playerStats?.totalStrichesDifference !== undefined && playerStats.totalStrichesDifference > 0 ? '+' : ''}
                               {playerStats?.totalStrichesDifference || 0}
                             </span>
                           </span>
                         </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Punktdifferenz:</span>
-                          <span className="text-gray-100">
-                            <span className="text-gray-400 mr-1 text-sm">
+                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                          <span className={`${layout.bodySize} font-medium text-gray-300`}>Punktdifferenz:</span>
+                          <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
+                            <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                               ({(() => {
                                 const formatLargeNumber = (num: number): string => {
                                   if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -916,71 +925,71 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                 return `${formatLargeNumber(playerStats?.totalPointsMade || 0)}/${formatLargeNumber(playerStats?.totalPointsReceived || 0)}`;
                               })()})
                             </span>
-                            <span className="text-lg font-medium">
+                            <span className={`${layout.valueSize} font-medium`}>
                               {playerStats?.totalPointsDifference !== undefined && playerStats.totalPointsDifference > 0 ? '+' : ''}
                               {playerStats?.totalPointsDifference || 0}
                             </span>
                           </span>
                         </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Siegquote Partien:</span>
-                          <span className="text-gray-100">
-                            <span className="text-gray-400 mr-1 text-sm">
+                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                          <span className={`${layout.bodySize} font-medium text-gray-300`}>Siegquote Partien:</span>
+                          <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
+                            <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                               ({playerStats?.sessionsWon || 0}/{playerStats?.sessionsLost || 0}/{playerStats?.sessionsTied || 0})
                             </span>
-                            <span className="text-lg font-medium">
+                            <span className={`${layout.valueSize} font-medium`}>
                               {playerStats?.sessionWinRate !== undefined ? `${(playerStats.sessionWinRate * 100).toFixed(1)}%` : '0.0%'}
                             </span>
                           </span>
                         </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Siegquote Spiele:</span>
-                          <span className="text-gray-100">
-                            <span className="text-gray-400 mr-1 text-sm">
+                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                          <span className={`${layout.bodySize} font-medium text-gray-300`}>Siegquote Spiele:</span>
+                          <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
+                            <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                               ({playerStats?.gamesWon || 0}/{playerStats?.gamesLost || 0})
                             </span>
-                            <span className="text-lg font-medium">
+                            <span className={`${layout.valueSize} font-medium`}>
                               {playerStats?.gameWinRate !== undefined ? `${(playerStats.gameWinRate * 100).toFixed(1)}%` : '0.0%'}
                             </span>
                           </span>
                         </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Matsch-Bilanz:</span>
-                          <span className="text-gray-100">
+                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                          <span className={`${layout.bodySize} font-medium text-gray-300`}>Matsch-Bilanz:</span>
+                          <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
                             {playerStats?.totalMatschEventsMade !== undefined && playerStats?.totalMatschEventsReceived !== undefined && (
-                              <span className="text-gray-400 text-sm mr-1">
+                              <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                 ({playerStats.totalMatschEventsMade}/{playerStats.totalMatschEventsReceived})
                               </span>
                             )}
-                            <span className="text-lg font-medium">
+                            <span className={`${layout.valueSize} font-medium`}>
                               {playerStats?.matschBilanz !== undefined && playerStats.matschBilanz > 0 ? '+' : ''}
                               {playerStats?.matschBilanz || 0}
                             </span>
                           </span>
                         </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Schneider-Bilanz:</span>
-                          <span className="text-gray-100">
+                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                          <span className={`${layout.bodySize} font-medium text-gray-300`}>Schneider-Bilanz:</span>
+                          <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
                             {playerStats?.totalSchneiderEventsMade !== undefined && playerStats?.totalSchneiderEventsReceived !== undefined && (
-                              <span className="text-gray-400 text-sm mr-1">
+                              <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                 ({playerStats.totalSchneiderEventsMade}/{playerStats.totalSchneiderEventsReceived})
                               </span>
                             )}
-                            <span className="text-lg font-medium">
+                            <span className={`${layout.valueSize} font-medium`}>
                               {playerStats?.schneiderBilanz !== undefined && playerStats.schneiderBilanz > 0 ? '+' : ''}
                               {playerStats?.schneiderBilanz || 0}
                             </span>
                           </span>
                         </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Ø Kontermatsch-Bilanz:</span>
-                          <span className="text-gray-100">
+                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                          <span className={`${layout.bodySize} font-medium text-gray-300`}>Ø Kontermatsch-Bilanz:</span>
+                          <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
                             {playerStats?.totalKontermatschEventsMade !== undefined && playerStats?.totalKontermatschEventsReceived !== undefined && (
-                              <span className="text-gray-400 text-sm mr-1">
+                              <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                 ({playerStats.totalKontermatschEventsMade}/{playerStats.totalKontermatschEventsReceived})
                               </span>
                             )}
-                            <span className="text-lg font-medium">
+                            <span className={`${layout.valueSize} font-medium`}>
                               {playerStats?.kontermatschBilanz !== undefined && playerStats.kontermatschBilanz > 0 ? '+' : ''}
                               {playerStats?.kontermatschBilanz || 0}
                             </span>
@@ -990,41 +999,41 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </div>
 
                     {/* Block 3: Trumpfansagen */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
-                        <h3 className="text-base font-semibold text-white">Trumpfansagen</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Trumpfansagen</h3>
                       </div>
-                      <div ref={trumpfStatistikRef} className="p-4 space-y-2  pr-2">
+                      <div ref={trumpfStatistikRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
                         {trumpfStatistikArray.length > 0 ? (
                           trumpfStatistikArray.map((item, index) => (
-                            <div key={`trumpf-${item.farbe}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30">
+                            <div key={`trumpf-${item.farbe}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                               <div className="flex items-center">
-                                <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                <FarbePictogram farbe={normalizeJassColor(item.farbe)} mode="svg" className="h-6 w-6 mr-2" />
-                                <span className="text-gray-300 capitalize">{item.farbe}</span>
+                                <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
+                                <FarbePictogram farbe={normalizeJassColor(item.farbe)} mode="svg" className={layout.isDesktop ? "h-12 w-12 mr-2" : "h-8 w-8 mr-2"} />
+                                <span className={`${layout.bodySize} text-gray-300 capitalize`}>{item.farbe}</span>
                               </div>
-                              <span className="text-white font-medium mr-2">
-                                <span className="text-gray-400 mr-1 text-sm">({item.anzahl})</span>
-                                <span className="text-lg font-medium">{(item.anteil * 100).toFixed(1)}%</span>
+                              <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
+                                <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>({item.anzahl})</span>
+                                <span className={`${layout.valueSize} font-medium`}>{(item.anteil * 100).toFixed(1)}%</span>
                               </span>
                             </div>
                           ))
                         ) : (
-                          <div className="text-gray-400 text-center py-2">Keine Trumpfstatistik verfügbar</div>
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine Trumpfstatistik verfügbar</div>
                         )}
                       </div>
                     </div>
 
                     {/* Block 4: 🏆 Highlights */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
-                        <h3 className="text-base font-semibold text-white">🏆 Highlights</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Highlights</h3>
                       </div>
-                      <div className="p-4 space-y-2">
+                      <div className={`${layout.cardPadding} space-y-2`}>
                         <div 
-                          className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                          className={`${layout.listItemPadding} rounded-md cursor-pointer bg-gray-700/30 hover:bg-gray-600/50 transition-colors`}
                           onClick={() => {
                             if (playerStats?.highestStricheDifferenceSession?.relatedId) {
                               router.push(`/view/session/public/${playerStats.highestStricheDifferenceSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
@@ -1032,8 +1041,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           }}
                         >
                           <div className="flex justify-between items-center">
-                            <span className="font-medium text-gray-300">Höchste Strichdifferenz (Partie):</span>
-                            <span className="text-gray-100 text-lg font-medium">{playerStats?.highestStricheDifferenceSession?.value || '-'}</span>
+                            <span className={`${layout.bodySize} font-medium text-gray-300`}>Höchste Strichdifferenz (Partie):</span>
+                            <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.highestStricheDifferenceSession?.value || '-'}</span>
                           </div>
                           {playerStats?.highestStricheDifferenceSession?.date && (
                             <div className="mt-1">
@@ -1043,7 +1052,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         </div>
 
                         <div 
-                          className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                          className={`${layout.listItemPadding} rounded-md cursor-pointer bg-gray-700/30 hover:bg-gray-600/50 transition-colors`}
                           onClick={() => {
                             if (playerStats?.highestPointsDifferenceSession?.relatedId) {
                               router.push(`/view/session/public/${playerStats.highestPointsDifferenceSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
@@ -1051,8 +1060,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           }}
                         >
                           <div className="flex justify-between items-center">
-                            <span className="font-medium text-gray-300">Höchste Punktdifferenz (Partie):</span>
-                            <span className="text-gray-100 text-lg font-medium">{playerStats?.highestPointsDifferenceSession?.value || '-'}</span>
+                            <span className={`${layout.bodySize} font-medium text-gray-300`}>Höchste Punktdifferenz (Partie):</span>
+                            <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.highestPointsDifferenceSession?.value || '-'}</span>
                           </div>
                           {playerStats?.highestPointsDifferenceSession?.date && (
                             <div className="mt-1">
@@ -1062,7 +1071,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         </div>
 
                         <div 
-                          className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                          className={`${layout.listItemPadding} rounded-md cursor-pointer bg-gray-700/30 hover:bg-gray-600/50 transition-colors`}
                           onClick={() => {
                             if (playerStats?.longestWinStreakSessions?.startSessionId) {
                               router.push(`/view/session/public/${playerStats.longestWinStreakSessions.startSessionId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
@@ -1070,8 +1079,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           }}
                         >
                           <div className="flex justify-between items-center">
-                            <span className="font-medium text-gray-300">Längste Siegesserie (Partien):</span>
-                            <span className="text-gray-100 text-lg font-medium">{playerStats?.longestWinStreakSessions?.value || '-'}</span>
+                            <span className={`${layout.bodySize} font-medium text-gray-300`}>Längste Siegesserie (Partien):</span>
+                            <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.longestWinStreakSessions?.value || '-'}</span>
                           </div>
                           {playerStats?.longestWinStreakSessions?.dateRange && (
                             <div className="mt-1">
@@ -1081,7 +1090,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         </div>
 
                         <div 
-                          className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                          className={`${layout.listItemPadding} rounded-md cursor-pointer bg-gray-700/30 hover:bg-gray-600/50 transition-colors`}
                           onClick={() => {
                             if (playerStats?.longestUndefeatedStreakSessions?.startSessionId) {
                               router.push(`/view/session/public/${playerStats.longestUndefeatedStreakSessions.startSessionId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
@@ -1089,8 +1098,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           }}
                         >
                           <div className="flex justify-between items-center">
-                            <span className="font-medium text-gray-300">Längste Serie ohne Niederlage (Partien):</span>
-                            <span className="text-gray-100 text-lg font-medium">{playerStats?.longestUndefeatedStreakSessions?.value || '-'}</span>
+                            <span className={`${layout.bodySize} font-medium text-gray-300`}>Längste Serie ohne Niederlage (Partien):</span>
+                            <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.longestUndefeatedStreakSessions?.value || '-'}</span>
                           </div>
                           {playerStats?.longestUndefeatedStreakSessions?.dateRange && (
                             <div className="mt-1">
@@ -1100,7 +1109,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         </div>
 
                         <div 
-                          className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                          className={`${layout.listItemPadding} rounded-md cursor-pointer bg-gray-700/30 hover:bg-gray-600/50 transition-colors`}
                           onClick={() => {
                             if (playerStats?.longestWinStreakGames?.startSessionId) {
                               router.push(`/view/session/public/${playerStats.longestWinStreakGames.startSessionId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
@@ -1108,8 +1117,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           }}
                         >
                           <div className="flex justify-between items-center">
-                            <span className="font-medium text-gray-300">Längste Siegesserie (Spiele):</span>
-                            <span className="text-gray-100 text-lg font-medium">{playerStats?.longestWinStreakGames?.value || '-'}</span>
+                            <span className={`${layout.bodySize} font-medium text-gray-300`}>Längste Siegesserie (Spiele):</span>
+                            <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.longestWinStreakGames?.value || '-'}</span>
                           </div>
                           {playerStats?.longestWinStreakGames?.dateRange && (
                             <div className="mt-1">
@@ -1119,7 +1128,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         </div>
 
                         <div 
-                          className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                          className={`${layout.listItemPadding} rounded-md cursor-pointer bg-gray-700/30 hover:bg-gray-600/50 transition-colors`}
                           onClick={() => {
                             if (playerStats?.highestMatschDifferenceSession?.relatedId) {
                               router.push(`/view/session/public/${playerStats.highestMatschDifferenceSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
@@ -1127,8 +1136,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           }}
                         >
                           <div className="flex justify-between items-center">
-                            <span className="font-medium text-gray-300">Höchste Matschdifferenz (Partie):</span>
-                            <span className="text-gray-100 text-lg font-medium">{playerStats?.highestMatschDifferenceSession?.value || '-'}</span>
+                            <span className={`${layout.bodySize} font-medium text-gray-300`}>Höchste Matschdifferenz (Partie):</span>
+                            <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.highestMatschDifferenceSession?.value || '-'}</span>
                           </div>
                           {playerStats?.highestMatschDifferenceSession?.date && (
                             <div className="mt-1">
@@ -1138,7 +1147,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         </div>
 
                         <div 
-                          className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                          className={`${layout.listItemPadding} rounded-md cursor-pointer bg-gray-700/30 hover:bg-gray-600/50 transition-colors`}
                           onClick={() => {
                             if (playerStats?.mostWeisPointsSession?.relatedId) {
                               router.push(`/view/session/public/${playerStats.mostWeisPointsSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
@@ -1146,8 +1155,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           }}
                         >
                           <div className="flex justify-between items-center">
-                            <span className="font-medium text-gray-300">Meiste Weispunkte (Partie):</span>
-                            <span className="text-gray-100 text-lg font-medium">{playerStats?.mostWeisPointsSession?.value || '-'}</span>
+                            <span className={`${layout.bodySize} font-medium text-gray-300`}>Meiste Weispunkte (Partie):</span>
+                            <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.mostWeisPointsSession?.value || '-'}</span>
                           </div>
                           {playerStats?.mostWeisPointsSession?.date && (
                             <div className="mt-1">
@@ -1159,14 +1168,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </div>
 
                     {/* Block 5: 👎 Lowlights */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
-                        <h3 className="text-base font-semibold text-white">👎 Lowlights</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>👎 Lowlights</h3>
                       </div>
-                      <div className="p-4 space-y-2">
+                      <div className={`${layout.cardPadding} space-y-2`}>
                         <div 
-                          className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                          className={`${layout.listItemPadding} rounded-md cursor-pointer bg-gray-700/30 hover:bg-gray-600/50 transition-colors`}
                           onClick={() => {
                             if (playerStats?.lowestStricheDifferenceSession?.relatedId) {
                               router.push(`/view/session/public/${playerStats.lowestStricheDifferenceSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
@@ -1174,8 +1183,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           }}
                         >
                           <div className="flex justify-between items-center">
-                            <span className="font-medium text-gray-300">Niedrigste Strichdifferenz (Partie):</span>
-                            <span className="text-gray-100 text-lg font-medium">{playerStats?.lowestStricheDifferenceSession?.value || '-'}</span>
+                            <span className={`${layout.bodySize} font-medium text-gray-300`}>Niedrigste Strichdifferenz (Partie):</span>
+                            <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.lowestStricheDifferenceSession?.value || '-'}</span>
                           </div>
                           {playerStats?.lowestStricheDifferenceSession?.date && (
                             <div className="mt-1">
@@ -1185,7 +1194,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         </div>
 
                         <div 
-                          className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                          className={`${layout.listItemPadding} rounded-md cursor-pointer bg-gray-700/30 hover:bg-gray-600/50 transition-colors`}
                           onClick={() => {
                             if (playerStats?.lowestPointsDifferenceSession?.relatedId) {
                               router.push(`/view/session/public/${playerStats.lowestPointsDifferenceSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
@@ -1193,8 +1202,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           }}
                         >
                           <div className="flex justify-between items-center">
-                            <span className="font-medium text-gray-300">Niedrigste Punktdifferenz (Partie):</span>
-                            <span className="text-gray-100 text-lg font-medium">{playerStats?.lowestPointsDifferenceSession?.value || '-'}</span>
+                            <span className={`${layout.bodySize} font-medium text-gray-300`}>Niedrigste Punktdifferenz (Partie):</span>
+                            <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.lowestPointsDifferenceSession?.value || '-'}</span>
                           </div>
                           {playerStats?.lowestPointsDifferenceSession?.date && (
                             <div className="mt-1">
@@ -1204,7 +1213,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         </div>
 
                         <div 
-                          className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                          className={`${layout.listItemPadding} rounded-md cursor-pointer bg-gray-700/30 hover:bg-gray-600/50 transition-colors`}
                           onClick={() => {
                             if (playerStats?.longestLossStreakSessions?.startSessionId) {
                               router.push(`/view/session/public/${playerStats.longestLossStreakSessions.startSessionId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
@@ -1212,8 +1221,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           }}
                         >
                           <div className="flex justify-between items-center">
-                            <span className="font-medium text-gray-300">Längste Niederlagenserie (Partien):</span>
-                            <span className="text-gray-100 text-lg font-medium">{playerStats?.longestLossStreakSessions?.value || '-'}</span>
+                            <span className={`${layout.bodySize} font-medium text-gray-300`}>Längste Niederlagenserie (Partien):</span>
+                            <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.longestLossStreakSessions?.value || '-'}</span>
                           </div>
                           {playerStats?.longestLossStreakSessions?.dateRange && (
                             <div className="mt-1">
@@ -1223,7 +1232,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         </div>
 
                         <div 
-                          className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                          className={`${layout.listItemPadding} rounded-md cursor-pointer bg-gray-700/30 hover:bg-gray-600/50 transition-colors`}
                           onClick={() => {
                             if (playerStats?.longestWinlessStreakSessions?.startSessionId) {
                               router.push(`/view/session/public/${playerStats.longestWinlessStreakSessions.startSessionId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
@@ -1231,8 +1240,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           }}
                         >
                           <div className="flex justify-between items-center">
-                            <span className="font-medium text-gray-300">Längste Serie ohne Sieg (Partien):</span>
-                            <span className="text-gray-100 text-lg font-medium">{playerStats?.longestWinlessStreakSessions?.value || '-'}</span>
+                            <span className={`${layout.bodySize} font-medium text-gray-300`}>Längste Serie ohne Sieg (Partien):</span>
+                            <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.longestWinlessStreakSessions?.value || '-'}</span>
                           </div>
                           {playerStats?.longestWinlessStreakSessions?.dateRange && (
                             <div className="mt-1">
@@ -1242,7 +1251,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         </div>
 
                         <div 
-                          className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                          className={`${layout.listItemPadding} rounded-md cursor-pointer bg-gray-700/30 hover:bg-gray-600/50 transition-colors`}
                           onClick={() => {
                             if (playerStats?.longestLossStreakGames?.startSessionId) {
                               router.push(`/view/session/public/${playerStats.longestLossStreakGames.startSessionId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
@@ -1250,8 +1259,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           }}
                         >
                           <div className="flex justify-between items-center">
-                            <span className="font-medium text-gray-300">Längste Niederlagenserie (Spiele):</span>
-                            <span className="text-gray-100 text-lg font-medium">{playerStats?.longestLossStreakGames?.value || '-'}</span>
+                            <span className={`${layout.bodySize} font-medium text-gray-300`}>Längste Niederlagenserie (Spiele):</span>
+                            <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.longestLossStreakGames?.value || '-'}</span>
                           </div>
                           {playerStats?.longestLossStreakGames?.dateRange && (
                             <div className="mt-1">
@@ -1261,7 +1270,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         </div>
 
                         <div 
-                          className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                          className={`${layout.listItemPadding} rounded-md cursor-pointer bg-gray-700/30 hover:bg-gray-600/50 transition-colors`}
                           onClick={() => {
                             if (playerStats?.lowestMatschDifferenceSession?.relatedId) {
                               router.push(`/view/session/public/${playerStats.lowestMatschDifferenceSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
@@ -1269,8 +1278,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           }}
                         >
                           <div className="flex justify-between items-center">
-                            <span className="font-medium text-gray-300">Niedrigste Matschdifferenz (Partie):</span>
-                            <span className="text-gray-100 text-lg font-medium">{playerStats?.lowestMatschDifferenceSession?.value || '-'}</span>
+                            <span className={`${layout.bodySize} font-medium text-gray-300`}>Niedrigste Matschdifferenz (Partie):</span>
+                            <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.lowestMatschDifferenceSession?.value || '-'}</span>
                           </div>
                           {playerStats?.lowestMatschDifferenceSession?.date && (
                             <div className="mt-1">
@@ -1280,7 +1289,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         </div>
 
                         <div 
-                          className="bg-gray-700/30 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-600/50 transition-colors"
+                          className={`${layout.listItemPadding} rounded-md cursor-pointer bg-gray-700/30 hover:bg-gray-600/50 transition-colors`}
                           onClick={() => {
                             if (playerStats?.mostWeisPointsReceivedSession?.relatedId) {
                               router.push(`/view/session/public/${playerStats.mostWeisPointsReceivedSession.relatedId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=individual`);
@@ -1288,8 +1297,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           }}
                         >
                           <div className="flex justify-between items-center">
-                            <span className="font-medium text-gray-300">Meiste Weispunkte erhalten (Partie):</span>
-                            <span className="text-gray-100 text-lg font-medium">{playerStats?.mostWeisPointsReceivedSession?.value || '-'}</span>
+                            <span className={`${layout.bodySize} font-medium text-gray-300`}>Meiste Weispunkte erhalten (Partie):</span>
+                            <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.mostWeisPointsReceivedSession?.value || '-'}</span>
                           </div>
                           {playerStats?.mostWeisPointsReceivedSession?.date && (
                             <div className="mt-1">
@@ -1317,10 +1326,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 {(playerStats as any)?.partnerAggregates && (playerStats as any).partnerAggregates.length > 0 ? (
                   <>
                     {/* Siegquote Partien */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
-                        <h3 className="text-base font-semibold text-white">Siegquote Partien</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Siegquote Partien</h3>
                       </div>
                       <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).partnerAggregates
@@ -1338,26 +1347,26 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               >
                                 <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                   <div className="flex items-center">
-                                    <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
                                       src={playerData?.photoURL || undefined} 
                                       alt={partner.partnerDisplayName} 
-                                      size="sm"
-                                      className={`mr-2 ${theme.profileImage}`}
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                      size={layout.profileImageListSize}
+                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                       fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
                                       context="list"
                                     />
-                                    <span className="text-gray-300">{partner.partnerDisplayName}</span>
+                                    <span className={`text-gray-300 ${layout.bodySize}`}>{partner.partnerDisplayName}</span>
                         </div>
                                   <div className="flex items-center">
-                                    <span className="text-white font-medium mr-2">
+                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
                                       {partner.sessionsPlayedWith > 0 && (
-                                        <span className="text-gray-400 mr-1 text-sm">
+                                        <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                           ({partner.sessionsWonWith}/{partner.sessionsPlayedWith})
                           </span>
                                       )}
-                                      <span className="text-lg font-medium">
+                                      <span className={`${layout.valueSize} font-medium`}>
                                         {getWinRateDisplay(
                                           partner.sessionWinRateInfo,
                                           partner.sessionsWonWith,
@@ -1377,10 +1386,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </div>
 
                     {/* Siegquote Spiele */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
-                        <h3 className="text-base font-semibold text-white">Siegquote Spiele</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Siegquote Spiele</h3>
                       </div>
                       <div className="p-4 space-y-2  pr-2">
                                                         {(playerStats as any).partnerAggregates
@@ -1398,25 +1407,25 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               >
                                 <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                   <div className="flex items-center">
-                                    <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
                                       src={playerData?.photoURL || undefined} 
                                       alt={partner.partnerDisplayName} 
-                                      size="sm"
-                                      className={`mr-2 ${theme.profileImage}`}
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                      size={layout.profileImageListSize}
+                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                       fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
     />
-                                    <span className="text-gray-300">{partner.partnerDisplayName}</span>
+                                    <span className={`text-gray-300 ${layout.bodySize}`}>{partner.partnerDisplayName}</span>
                                   </div>
                                   <div className="flex items-center">
-                                    <span className="text-white font-medium mr-2">
+                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
                                       {partner.gamesPlayedWith > 0 && (
-                                        <span className="text-gray-400 mr-1 text-sm">
+                                        <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                           ({partner.gamesWonWith}/{partner.gamesPlayedWith})
                                         </span>
                                       )}
-                                      <span className="text-lg font-medium">
+                                      <span className={`${layout.valueSize} font-medium`}>
                                         {getWinRateDisplay(
                                           partner.gameWinRateInfo,
                                           partner.gamesWonWith,
@@ -1436,10 +1445,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </div>
 
                     {/* Strichdifferenz */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
-                        <h3 className="text-base font-semibold text-white">Strichdifferenz</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Strichdifferenz</h3>
                       </div>
                       <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).partnerAggregates
@@ -1457,22 +1466,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               >
                                 <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                   <div className="flex items-center">
-                                    <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
                                       src={playerData?.photoURL || undefined} 
                                       alt={partner.partnerDisplayName} 
-                                      size="sm"
-                                      className={`mr-2 ${theme.profileImage}`}
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                      size={layout.profileImageListSize}
+                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                       fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
                                       context="list"
                                     />
-                                    <span className="text-gray-300">{partner.partnerDisplayName}</span>
+                                    <span className={`text-gray-300 ${layout.bodySize}`}>{partner.partnerDisplayName}</span>
                                   </div>
                                   <div className="flex items-center">
-                                    <span className="text-white font-medium mr-2">
+                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
                                       {partner.gamesPlayedWith > 0 && (
-                                        <span className="text-gray-400 mr-1 text-sm">
+                                        <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                           ({partner.gamesPlayedWith})
                                         </span>
                                       )}
@@ -1490,7 +1499,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                   <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                         <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
-                        <h3 className="text-base font-semibold text-white">Punktdifferenz</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Punktdifferenz</h3>
                   </div>
                       <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).partnerAggregates
@@ -1508,22 +1517,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               >
                                 <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                   <div className="flex items-center">
-                                    <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
                                       src={playerData?.photoURL || undefined} 
                                       alt={partner.partnerDisplayName} 
-                                      size="sm"
-                                      className={`mr-2 ${theme.profileImage}`}
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                      size={layout.profileImageListSize}
+                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                       fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
                                       context="list"
                                     />
-                                    <span className="text-gray-300">{partner.partnerDisplayName}</span>
+                                    <span className={`text-gray-300 ${layout.bodySize}`}>{partner.partnerDisplayName}</span>
                           </div>
                                   <div className="flex items-center">
-                                    <span className="text-white font-medium mr-2">
+                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
                                       {partner.gamesPlayedWith > 0 && (
-                                        <span className="text-gray-400 mr-1 text-sm">
+                                        <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                           ({partner.gamesPlayedWith})
                             </span>
                                       )}
@@ -1538,10 +1547,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </div>
 
                     {/* Matsch-Bilanz */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
-                        <h3 className="text-base font-semibold text-white">Matsch-Bilanz</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Matsch-Bilanz</h3>
                       </div>
                       <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).partnerAggregates
@@ -1559,24 +1568,24 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               >
                                 <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                   <div className="flex items-center">
-                                    <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
                                       src={playerData?.photoURL || undefined} 
                                       alt={partner.partnerDisplayName} 
-                                      size="sm"
-                                      className={`mr-2 ${theme.profileImage}`}
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                      size={layout.profileImageListSize}
+                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                       fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
                                       context="list"
                                     />
-                                    <span className="text-gray-300">{partner.partnerDisplayName}</span>
+                                    <span className={`text-gray-300 ${layout.bodySize}`}>{partner.partnerDisplayName}</span>
                                   </div>
                                   <div className="flex items-center">
-                                    <span className="text-white font-medium mr-2">
-                                      <span className="text-gray-400 mr-1 text-sm">
+                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
+                                      <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                         ({partner.matschEventsMadeWith || 0}/{(partner.matschEventsReceivedWith || 0)})
                                       </span>
-                                      <span className="text-lg font-medium">
+                                      <span className={`${layout.valueSize} font-medium`}>
                                         {(partner.matschBilanz || 0) > 0 ? '+' : ''}
                                         {partner.matschBilanz || 0}
                                       </span>
@@ -1593,10 +1602,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 </div>
 
                     {/* Schneider-Bilanz */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
-                        <h3 className="text-base font-semibold text-white">Schneider-Bilanz</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Schneider-Bilanz</h3>
                       </div>
                       <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).partnerAggregates
@@ -1614,24 +1623,24 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               >
                                 <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                               <div className="flex items-center">
-                                <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
                                       src={playerData?.photoURL || undefined} 
                                       alt={partner.partnerDisplayName} 
-                                      size="sm"
-                                      className={`mr-2 ${theme.profileImage}`}
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                      size={layout.profileImageListSize}
+                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                       fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
                                       context="list"
                                     />
-                                    <span className="text-gray-300">{partner.partnerDisplayName}</span>
+                                    <span className={`text-gray-300 ${layout.bodySize}`}>{partner.partnerDisplayName}</span>
                               </div>
                                   <div className="flex items-center">
-                                    <span className="text-white font-medium mr-2">
-                                      <span className="text-gray-400 mr-1 text-sm">
+                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
+                                      <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                         ({partner.schneiderEventsMadeWith || 0}/{(partner.schneiderEventsReceivedWith || 0)})
                                       </span>
-                                      <span className="text-lg font-medium">
+                                      <span className={`${layout.valueSize} font-medium`}>
                                         {(partner.schneiderBilanz || 0) > 0 ? '+' : ''}
                                         {partner.schneiderBilanz || 0}
                                       </span>
@@ -1648,10 +1657,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </div>
 
                     {/* Kontermatsch-Bilanz */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
-                        <h3 className="text-base font-semibold text-white">Kontermatsch-Bilanz</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Kontermatsch-Bilanz</h3>
                   </div>
                       <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).partnerAggregates
@@ -1669,24 +1678,24 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               >
                                 <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                   <div className="flex items-center">
-                                    <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
                                       src={playerData?.photoURL || undefined} 
                                       alt={partner.partnerDisplayName} 
-                                      size="sm"
-                                      className={`mr-2 ${theme.profileImage}`}
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                      size={layout.profileImageListSize}
+                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                       fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
                                       context="list"
                                     />
-                                    <span className="text-gray-300">{partner.partnerDisplayName}</span>
+                                    <span className={`text-gray-300 ${layout.bodySize}`}>{partner.partnerDisplayName}</span>
                                   </div>
                                   <div className="flex items-center">
-                                    <span className="text-white font-medium mr-2">
-                                      <span className="text-gray-400 mr-1 text-sm">
+                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
+                                      <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                         ({partner.kontermatschEventsMadeWith || 0}/{(partner.kontermatschEventsReceivedWith || 0)})
                                       </span>
-                                      <span className="text-lg font-medium">
+                                      <span className={`${layout.valueSize} font-medium`}>
                                         {(partner.kontermatschBilanz || 0) > 0 ? '+' : ''}
                                         {partner.kontermatschBilanz || 0}
                                       </span>
@@ -1717,10 +1726,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 {(playerStats as any)?.opponentAggregates && (playerStats as any).opponentAggregates.length > 0 ? (
                   <>
                     {/* Siegquote Partien */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
-                        <h3 className="text-base font-semibold text-white">Siegquote Partien</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Siegquote Partien</h3>
                       </div>
                       <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).opponentAggregates
@@ -1738,26 +1747,26 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               >
                                 <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                   <div className="flex items-center">
-                                    <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
                                       src={playerData?.photoURL || undefined} 
                                       alt={opponent.opponentDisplayName} 
-                                      size="sm"
-                                      className={`mr-2 ${theme.profileImage}`}
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                      size={layout.profileImageListSize}
+                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                       fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
                                       context="list"
                                     />
-                                    <span className="text-gray-300">{opponent.opponentDisplayName}</span>
+                                    <span className={`text-gray-300 ${layout.bodySize}`}>{opponent.opponentDisplayName}</span>
                                   </div>
                                   <div className="flex items-center">
-                                    <span className="text-white font-medium mr-2">
+                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
                                       {opponent.sessionsPlayedAgainst > 0 && (
-                                        <span className="text-gray-400 mr-1 text-sm">
+                                        <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                           ({opponent.sessionsWonAgainst}/{opponent.sessionsPlayedAgainst})
                                         </span>
                                       )}
-                                      <span className="text-lg font-medium">
+                                      <span className={`${layout.valueSize} font-medium`}>
                                         {getWinRateDisplay(
                                           opponent.sessionWinRateInfo,
                                           opponent.sessionsWonAgainst,
@@ -1777,10 +1786,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </div>
 
                     {/* Siegquote Spiele */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
-                        <h3 className="text-base font-semibold text-white">Siegquote Spiele</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Siegquote Spiele</h3>
                       </div>
                       <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).opponentAggregates
@@ -1798,25 +1807,25 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               >
                                 <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                   <div className="flex items-center">
-                                    <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                                                         <ProfileImage 
                                       src={playerData?.photoURL || undefined} 
                                       alt={opponent.opponentDisplayName} 
-                                      size="sm"
-                                      className={`mr-2 ${theme.profileImage}`}
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                      size={layout.profileImageListSize}
+                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                       fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
     />
-                                    <span className="text-gray-300">{opponent.opponentDisplayName}</span>
+                                    <span className={`text-gray-300 ${layout.bodySize}`}>{opponent.opponentDisplayName}</span>
                                   </div>
                                   <div className="flex items-center">
-                                    <span className="text-white font-medium mr-2">
+                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
                                       {opponent.gamesPlayedAgainst > 0 && (
-                                        <span className="text-gray-400 mr-1 text-sm">
+                                        <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                           ({opponent.gamesWonAgainst}/{opponent.gamesPlayedAgainst})
                                         </span>
                                       )}
-                                      <span className="text-lg font-medium">
+                                      <span className={`${layout.valueSize} font-medium`}>
                                         {getWinRateDisplay(
                                           opponent.gameWinRateInfo,
                                           opponent.gamesWonAgainst,
@@ -1836,10 +1845,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </div>
 
                     {/* Strichdifferenz */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
-                        <h3 className="text-base font-semibold text-white">Strichdifferenz</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Strichdifferenz</h3>
                       </div>
                       <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).opponentAggregates
@@ -1857,22 +1866,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               >
                                 <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                   <div className="flex items-center">
-                                    <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
                                       src={playerData?.photoURL || undefined} 
                                       alt={opponent.opponentDisplayName} 
-                                      size="sm"
-                                      className={`mr-2 ${theme.profileImage}`}
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                      size={layout.profileImageListSize}
+                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                       fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
                                       context="list"
                                     />
-                                    <span className="text-gray-300">{opponent.opponentDisplayName}</span>
+                                    <span className={`text-gray-300 ${layout.bodySize}`}>{opponent.opponentDisplayName}</span>
                                   </div>
                                   <div className="flex items-center">
-                                    <span className="text-white font-medium mr-2">
+                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
                                       {opponent.gamesPlayedAgainst > 0 && (
-                                        <span className="text-gray-400 mr-1 text-sm">
+                                        <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                           ({opponent.gamesPlayedAgainst})
                                         </span>
                                       )}
@@ -1887,10 +1896,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </div>
 
                     {/* Punktdifferenz */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
-                        <h3 className="text-base font-semibold text-white">Punktdifferenz</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Punktdifferenz</h3>
                       </div>
                       <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).opponentAggregates
@@ -1908,22 +1917,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               >
                                 <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                   <div className="flex items-center">
-                                    <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
                                       src={playerData?.photoURL || undefined} 
                                       alt={opponent.opponentDisplayName} 
-                                      size="sm"
-                                      className={`mr-2 ${theme.profileImage}`}
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                      size={layout.profileImageListSize}
+                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                       fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
                                       context="list"
                                     />
-                                    <span className="text-gray-300">{opponent.opponentDisplayName}</span>
+                                    <span className={`text-gray-300 ${layout.bodySize}`}>{opponent.opponentDisplayName}</span>
                                   </div>
                                   <div className="flex items-center">
-                                    <span className="text-white font-medium mr-2">
+                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
                                       {opponent.gamesPlayedAgainst > 0 && (
-                                        <span className="text-gray-400 mr-1 text-sm">
+                                        <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                           ({opponent.gamesPlayedAgainst})
                                         </span>
                                       )}
@@ -1938,10 +1947,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </div>
 
                     {/* Matsch-Bilanz */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
-                        <h3 className="text-base font-semibold text-white">Matsch-Bilanz</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Matsch-Bilanz</h3>
                       </div>
                       <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).opponentAggregates
@@ -1959,24 +1968,24 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               >
                                 <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                   <div className="flex items-center">
-                                    <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
                                       src={playerData?.photoURL || undefined} 
                                       alt={opponent.opponentDisplayName} 
-                                      size="sm"
-                                      className={`mr-2 ${theme.profileImage}`}
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                      size={layout.profileImageListSize}
+                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                       fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
                                       context="list"
                                     />
-                                    <span className="text-gray-300">{opponent.opponentDisplayName}</span>
+                                    <span className={`text-gray-300 ${layout.bodySize}`}>{opponent.opponentDisplayName}</span>
                                   </div>
                                   <div className="flex items-center">
-                                    <span className="text-white font-medium mr-2">
-                                      <span className="text-gray-400 mr-1 text-sm">
+                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
+                                      <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                         ({opponent.matschEventsMadeAgainst || 0}/{(opponent.matschEventsReceivedAgainst || 0)})
                                       </span>
-                                      <span className="text-lg font-medium">
+                                      <span className={`${layout.valueSize} font-medium`}>
                                         {(opponent.matschBilanz || 0) > 0 ? '+' : ''}
                                         {opponent.matschBilanz || 0}
                                       </span>
@@ -1993,10 +2002,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </div>
 
                     {/* Schneider-Bilanz */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
-                        <h3 className="text-base font-semibold text-white">Schneider-Bilanz</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Schneider-Bilanz</h3>
                       </div>
                       <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).opponentAggregates
@@ -2014,24 +2023,24 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               >
                                 <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                   <div className="flex items-center">
-                                    <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
                                       src={playerData?.photoURL || undefined} 
                                       alt={opponent.opponentDisplayName} 
-                                      size="sm"
-                                      className={`mr-2 ${theme.profileImage}`}
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                      size={layout.profileImageListSize}
+                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                       fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
                                       context="list"
                                     />
-                                    <span className="text-gray-300">{opponent.opponentDisplayName}</span>
+                                    <span className={`text-gray-300 ${layout.bodySize}`}>{opponent.opponentDisplayName}</span>
                                   </div>
                                   <div className="flex items-center">
-                                    <span className="text-white font-medium mr-2">
-                                      <span className="text-gray-400 mr-1 text-sm">
+                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
+                                      <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                         ({opponent.schneiderEventsMadeAgainst || 0}/{(opponent.schneiderEventsReceivedAgainst || 0)})
                                       </span>
-                                      <span className="text-lg font-medium">
+                                      <span className={`${layout.valueSize} font-medium`}>
                                         {(opponent.schneiderBilanz || 0) > 0 ? '+' : ''}
                                         {opponent.schneiderBilanz || 0}
                                       </span>
@@ -2048,10 +2057,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </div>
 
                     {/* Kontermatsch-Bilanz */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
-                        <h3 className="text-base font-semibold text-white">Kontermatsch-Bilanz</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Kontermatsch-Bilanz</h3>
                       </div>
                       <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).opponentAggregates
@@ -2069,24 +2078,24 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               >
                                 <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                   <div className="flex items-center">
-                                    <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
                                       src={playerData?.photoURL || undefined} 
                                       alt={opponent.opponentDisplayName} 
-                                      size="sm"
-                                      className={`mr-2 ${theme.profileImage}`}
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                      size={layout.profileImageListSize}
+                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                       fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
                                       context="list"
                                     />
-                                    <span className="text-gray-300">{opponent.opponentDisplayName}</span>
+                                    <span className={`text-gray-300 ${layout.bodySize}`}>{opponent.opponentDisplayName}</span>
                                   </div>
                                   <div className="flex items-center">
-                                    <span className="text-white font-medium mr-2">
-                                      <span className="text-gray-400 mr-1 text-sm">
+                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
+                                      <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                         ({opponent.kontermatschEventsMadeAgainst || 0}/{(opponent.kontermatschEventsReceivedAgainst || 0)})
                                       </span>
-                                      <span className="text-lg font-medium">
+                                      <span className={`${layout.valueSize} font-medium`}>
                                         {(opponent.kontermatschBilanz || 0) > 0 ? '+' : ''}
                                         {opponent.kontermatschBilanz || 0}
                                       </span>
@@ -2110,15 +2119,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </TabsContent>
 
           {/* Archive Tab Content */}
-          <TabsContent value="archive" className="w-full bg-gray-800/50 rounded-lg p-4 mb-8">
+          <TabsContent value="archive" className={`w-full bg-gray-800/50 rounded-lg ${layout.cardPadding} mb-8`}>
             {(sessionsLoading || tournamentsLoading) && (
               <div className="flex justify-center items-center py-10">
                 <div className="h-6 w-6 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
-                <span className="ml-3 text-gray-300">Lade Archiv...</span>
+                <span className={`ml-3 text-gray-300 ${layout.bodySize}`}>Lade Archiv...</span>
               </div>
             )} 
             {(sessionsError || tournamentsError) && !(sessionsLoading || tournamentsLoading) && (
-              <div className="text-red-400 text-sm text-center p-4 bg-red-900/30 rounded-md"> 
+              <div className={`text-red-400 ${layout.smallTextSize} text-center p-4 bg-red-900/30 rounded-md`}> 
                 {sessionsError && `Fehler Partien: ${sessionsError}`}
                 {sessionsError && tournamentsError && <br/>}
                 {tournamentsError && `Fehler Turniere: ${tournamentsError}`}
@@ -2127,15 +2136,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             {!(sessionsLoading || tournamentsLoading) && !(sessionsError || tournamentsError) && (combinedArchiveItems?.length === 0) && (
                <div className="text-center text-gray-400 py-6 px-4 bg-gray-800/30 rounded-md">
                   <Archive size={32} className="mx-auto mb-3 text-gray-500" />
-                  <p className="font-semibold text-gray-300">Keine Einträge im Archiv</p>
-                  <p className="text-sm">Abgeschlossene Partien und Turniere werden hier angezeigt.</p>
+                  <p className={`font-semibold text-gray-300 ${layout.bodySize}`}>Keine Einträge im Archiv</p>
+                  <p className={`${layout.smallTextSize}`}>Abgeschlossene Partien und Turniere werden hier angezeigt.</p>
               </div>
             )} 
             {!(sessionsLoading || tournamentsLoading) && !(sessionsError || tournamentsError) && combinedArchiveItems && combinedArchiveItems.length > 0 && (
               <div className="space-y-4">
                  {sortedYears?.map(year => (
                    <div key={year}>
-                    <h3 className="text-lg font-semibold text-white mb-3 text-center">{year}</h3>
+                     <h3 className={`${layout.headingSize} font-semibold text-white mb-3 text-center`}>{year}</h3>
                     <div className="space-y-2">
                       {groupedArchiveByYear?.[year]?.map(item => (
                         renderArchiveItem?.(item)
@@ -2150,6 +2159,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         
         {/* LEGAL FOOTER */}
         <LegalFooter />
+        </div> {/* End Responsive Container Wrapper */}
       </div>
     </MainLayout>
   );

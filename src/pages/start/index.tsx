@@ -1550,10 +1550,10 @@ const StartPage = () => {
 
       return (
         <Link href={`/view/session/${id}`} key={`session-${id}`} passHref>
-          <div className="p-3 bg-gray-700/50 rounded-lg hover:bg-gray-600/50 transition-colors duration-150 cursor-pointer mb-2">
+          <div className="px-3 py-2 md:px-4 md:py-2.5 lg:px-6 lg:py-3 bg-gray-700/50 rounded-lg hover:bg-gray-600/50 transition-colors duration-150 cursor-pointer mb-2">
             <div className="flex justify-between items-center mb-1.5">
               <div className="flex items-center flex-grow">
-                <span className="text-sm font-medium text-white mr-2">
+                <span className="text-base md:text-lg lg:text-xl font-medium text-white mr-2">
                   {title} - {formattedDate}
                 </span>
                 <div className="flex-shrink-0">
@@ -1562,17 +1562,17 @@ const StartPage = () => {
               </div>
             </div>
             <div className="space-y-1">
-              <div className="flex justify-between items-center text-sm text-gray-400">
+              <div className="flex justify-between items-center text-base md:text-lg lg:text-xl text-gray-400">
                 <div>
                   <span className="block">Team 1:&nbsp;<span className="text-white">{playerNames['1'] || '?'} + {playerNames['3'] || '?'}</span></span>
                 </div>
-                <span className="text-sm font-semibold text-white pl-2">{totalStricheBottom !== null ? totalStricheBottom : '-'}</span>
+                <span className="text-xl md:text-2xl lg:text-2xl font-semibold text-white pl-2">{totalStricheBottom !== null ? totalStricheBottom : '-'}</span>
               </div>
-              <div className="flex justify-between items-center text-sm text-gray-400">
+              <div className="flex justify-between items-center text-base md:text-lg lg:text-xl text-gray-400">
                 <div>
                   <span className="block">Team 2:&nbsp;<span className="text-white">{playerNames['2'] || '?'} + {playerNames['4'] || '?'}</span></span>
                 </div>
-                <span className="text-sm font-semibold text-white pl-2">{totalStricheTop !== null ? totalStricheTop : '-'}</span>
+                <span className="text-xl md:text-2xl lg:text-2xl font-semibold text-white pl-2">{totalStricheTop !== null ? totalStricheTop : '-'}</span>
               </div>
             </div>
           </div>
@@ -1586,18 +1586,18 @@ const StartPage = () => {
 
       return (
         <Link href={`/view/tournament/${id}`} key={`tournament-${id}`} passHref>
-          <div className="p-3 bg-purple-900/30 rounded-lg hover:bg-purple-800/40 transition-colors duration-150 cursor-pointer mb-2 border border-purple-700/50">
+          <div className="px-3 py-2 md:px-4 md:py-2.5 lg:px-6 lg:py-3 bg-purple-900/30 rounded-lg hover:bg-purple-800/40 transition-colors duration-150 cursor-pointer mb-2 border border-purple-700/50">
             <div className="flex justify-between items-center">
               <div className="flex items-center space-x-3">
-                <AwardIcon className="w-5 h-5 text-purple-400 flex-shrink-0" />
+                <AwardIcon className="w-6 h-6 md:w-7 md:h-7 lg:w-9 lg:h-9 text-purple-400 flex-shrink-0" />
                 <div className="flex flex-col">
-                  <span className="text-sm font-medium text-white">{name}</span>
+                  <span className="text-base md:text-lg lg:text-xl font-medium text-white">{name}</span>
                   {formattedDate && (
-                    <span className="text-sm text-gray-400">{formattedDate}</span>
+                    <span className="text-base md:text-lg lg:text-xl text-gray-400">{formattedDate}</span>
                   )}
                 </div>
               </div>
-              <span className={`text-sm px-2 py-0.5 rounded-full ${tournamentStatus === 'completed' ? 'bg-gray-600 text-gray-300' : (tournamentStatus === 'active' ? 'bg-green-600 text-white' : 'bg-blue-500 text-white')}`}>
+              <span className={`text-base md:text-lg lg:text-xl px-2 py-0.5 rounded-full ${tournamentStatus === 'completed' ? 'bg-gray-600 text-gray-300' : (tournamentStatus === 'active' ? 'bg-green-600 text-white' : 'bg-blue-500 text-white')}`}>
                 {tournamentStatus === 'completed' ? 'Abgeschlossen' : (tournamentStatus === 'active' ? 'Aktiv' : 'Anstehend')}
               </span>
             </div>

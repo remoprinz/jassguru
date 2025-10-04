@@ -4,11 +4,12 @@ import MainLayout from "@/components/layout/MainLayout";
 import { GroupSelector } from "@/components/group/GroupSelector";
 import JoinByInviteUI from "@/components/ui/JoinByInviteUI";
 import {Button} from "@/components/ui/button";
-import {Users, Settings, UserPlus, Camera, Upload, X, BarChart, Archive, BarChart2, CheckCircle, XCircle, MinusCircle, Award as AwardIcon, AlertTriangle, BarChart3, Info} from "lucide-react";
+import {Users, Settings, UserPlus, Camera, Upload, X, BarChart, Archive, BarChart2, CheckCircle, XCircle, MinusCircle, Award as AwardIcon, AlertTriangle, BarChart3, Info, User} from "lucide-react";
 import { FiShare2 } from 'react-icons/fi'; // 🚨 NEU: Share Button Icons
 import { FormattedDescription } from "@/components/ui/FormattedDescription";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNestedScrollFix } from '@/hooks/useNestedScrollFix';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { GroupMemberList } from "@/components/group/GroupMemberList";
 import type { FirestorePlayer, JassColor, FarbeSettings, StrokeSettings } from "@/types/jass";
 import { GroupStatistics } from "@/services/statisticsService";
@@ -182,6 +183,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
   isGeneratingInvite,
   handleGenerateNewInvite,
 }) => {
+  // 🎨 RESPONSIVE LAYOUT HOOK - Desktop/Tablet/Mobile Optimierung
+  const layout = useResponsiveLayout();
+  
   // 🚨 SHARE-FUNKTION: Einfacher Text-Share ohne Screenshot
   const handleShareClick = async () => {
     if (!currentGroup) return;
@@ -667,17 +671,19 @@ export const GroupView: React.FC<GroupViewProps> = ({
   if (groupStatus === 'loading' && !currentGroup) {
     return (
       <MainLayout>
-        <div className="flex flex-col items-center justify-start bg-gray-900 text-white p-4 relative pt-8 pb-20">
-          <div className="relative mb-4 mt-6">
-            <Skeleton className="w-32 h-32 rounded-full border-4 border-gray-700" />
-          </div>
-          <div className="w-full text-center mb-6 px-4">
-            <Skeleton className="h-9 w-48 mx-auto mb-3" />
-            <Skeleton className="h-5 w-64 mx-auto" />
-          </div>
-          <div className="w-full">
-            <Skeleton className="h-12 w-full rounded-lg mb-4" />
-            <Skeleton className="h-64 w-full rounded-lg" />
+        <div className={`flex flex-col items-center justify-start bg-gray-900 text-white ${layout.containerPadding} relative pt-8 pb-20`}>
+          <div className={`w-full ${layout.containerMaxWidth} mx-auto`}>
+            <div className="relative mb-4 mt-6 flex justify-center">
+              <Skeleton className={`${layout.avatarSize} rounded-full border-4 border-gray-700`} />
+            </div>
+            <div className="w-full text-center mb-6 px-4">
+              <Skeleton className={`${layout.skeletonTitleHeight} w-48 mx-auto mb-3`} />
+              <Skeleton className={`${layout.skeletonTextHeight} w-64 mx-auto`} />
+            </div>
+            <div className="w-full">
+              <Skeleton className="h-12 w-full rounded-lg mb-4" />
+              <Skeleton className="h-64 w-full rounded-lg" />
+            </div>
           </div>
         </div>
       </MainLayout>
@@ -689,16 +695,16 @@ export const GroupView: React.FC<GroupViewProps> = ({
   if (isAuthenticated() && !isGuest && userGroups.length === 0 && !currentGroup) {
     return (
       <MainLayout>
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
-          <Image src="/welcome-guru.png" alt="Jassguru Logo" width={150} height={150} className="mb-8"/>
+        <div className={`flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white ${layout.containerPadding}`}>
+          <Image src="/welcome-guru.png" alt="Jassguru Logo" width={layout.isDesktop ? 200 : 150} height={layout.isDesktop ? 200 : 150} className="mb-8"/>
           
           {/* ✅ UX-VERBESSERUNG: Context-aware Willkommensnachricht */}
           {joinedGroupName ? (
             <>
-              <h1 className="text-3xl font-bold mb-3 text-center">
+              <h1 className={`${layout.titleSize} font-bold mb-3 text-center`}>
                 {isNewMember ? '🎉 Willkommen bei jassguru.ch!' : '👋 Zurück bei jassguru.ch!'}
               </h1>
-              <p className="text-gray-400 mb-6 text-center max-w-md">
+              <p className={`${layout.subtitleSize} text-gray-400 mb-6 text-center max-w-md`}>
                 {isNewMember 
                   ? `Du bist erfolgreich der Gruppe "${joinedGroupName}" beigetreten. Jetzt kann das Jassen beginnen!`
                   : `Du bist bereits Mitglied der Gruppe "${joinedGroupName}". Schön, dass du wieder da bist!`
@@ -707,8 +713,8 @@ export const GroupView: React.FC<GroupViewProps> = ({
             </>
           ) : (
             <>
-              <h1 className="text-3xl font-bold mb-3 text-center">Willkommen bei jassguru.ch!</h1>
-              <p className="text-gray-400 mb-6 text-center max-w-md">
+              <h1 className={`${layout.titleSize} font-bold mb-3 text-center`}>Willkommen bei jassguru.ch!</h1>
+              <p className={`${layout.subtitleSize} text-gray-400 mb-6 text-center max-w-md`}>
                 Du bist noch keiner Gruppe beigetreten. Erstelle eine neue Gruppe oder gib hier einen Einladungscode ein, um loszulegen.
               </p>
                          </>
@@ -733,10 +739,10 @@ export const GroupView: React.FC<GroupViewProps> = ({
   if (isAuthenticated() && !isGuest && userGroups.length > 0 && !currentGroup) {
     return (
       <MainLayout>
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
-          <Image src="/welcome-guru.png" alt="Jassguru Logo" width={150} height={150} className="mb-8"/>
-          <h1 className="text-2xl font-bold mb-4">Wähle deine Jassgruppe</h1>
-          <p className="text-gray-400 mb-6">Du bist Mitglied in mehreren Gruppen. Wähle eine aus oder tritt einer neuen bei.</p>
+        <div className={`flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white ${layout.containerPadding}`}>
+          <Image src="/welcome-guru.png" alt="Jassguru Logo" width={layout.isDesktop ? 200 : 150} height={layout.isDesktop ? 200 : 150} className="mb-8"/>
+          <h1 className={`${layout.titleSize} font-bold mb-4`}>Wähle deine Jassgruppe</h1>
+          <p className={`${layout.subtitleSize} text-gray-400 mb-6`}>Du bist Mitglied in mehreren Gruppen. Wähle eine aus oder tritt einer neuen bei.</p>
           <div className="w-full max-w-sm mb-6">
             <GroupSelector />
           </div>
@@ -758,9 +764,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
     // NUR für echten Gastmodus (nicht öffentliche Ansicht), zeige Gastmodus-Screen
     return (
       <MainLayout>
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
-          <h1 className="text-3xl font-bold mb-4 text-center">Gastmodus</h1>
-          <p className="text-gray-400 mb-6 text-center max-w-sm">
+        <div className={`flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white ${layout.containerPadding}`}>
+          <h1 className={`${layout.titleSize} font-bold mb-4 text-center`}>Gastmodus</h1>
+          <p className={`${layout.subtitleSize} text-gray-400 mb-6 text-center max-w-sm`}>
             Im Gastmodus kannst du die App erkunden. Für vollen Funktionsumfang bitte anmelden.
           </p>
           {/* Ggf. CTA zum Anmelden/Registrieren */}
@@ -783,7 +789,10 @@ export const GroupView: React.FC<GroupViewProps> = ({
   // ===== HAUPT-UI MIT KOMPLETTEM TAB-SYSTEM =====
   return (
     <MainLayout>
-      <div id="group-view-container" className="flex flex-col items-center justify-start bg-gray-900 text-white p-4 relative pt-8 pb-20">
+      <div id="group-view-container" className={`flex flex-col items-center justify-start bg-gray-900 text-white ${layout.containerPadding} relative pt-8 pb-20 lg:w-full lg:px-0`}>
+        
+        {/* 🎨 RESPONSIVE CONTAINER WRAPPER */}
+        <div className={`w-full ${layout.containerMaxWidth} mx-auto lg:px-12 lg:py-8`}>
         
         {/* 🚀 AVATAR PRELOADER: Lädt alle relevanten Avatare unsichtbar vor */}
         {groupAvatarPhotoURLs.length > 0 && (
@@ -794,7 +803,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
         {currentGroup && (
           <button 
             onClick={handleShareClick}
-            className="absolute top-4 right-4 z-10 p-2 text-gray-300 hover:text-white transition-all duration-200 rounded-full bg-gray-700/50 hover:scale-110"
+            className={`absolute top-4 right-4 z-10 ${layout.actionButtonPadding} text-gray-300 hover:text-white transition-all duration-200 rounded-full bg-gray-700/50 hover:scale-110`}
             style={{
               backgroundColor: 'rgba(55, 65, 81, 0.5)',
               borderColor: 'transparent'
@@ -811,14 +820,14 @@ export const GroupView: React.FC<GroupViewProps> = ({
             }}
             aria-label="Gruppenstatistiken teilen"
           >
-            <FiShare2 className="w-5 h-5" />
+            <FiShare2 size={layout.actionButtonSize} />
           </button>
         )}
         
         {/* ✅ SCHRITT 2: HEADER MIT LOGO UND BUTTONS */}
-        <div className="relative mb-4 mt-6">
+        <div className="relative mb-4 mt-6 flex justify-center">
           <div 
-            className={`relative w-32 h-32 rounded-full overflow-hidden transition-all duration-300 flex items-center justify-center bg-gray-800 shadow-lg hover:shadow-xl hover:scale-105 border-4`}
+            className={`relative ${layout.avatarSize} rounded-full overflow-hidden transition-all duration-300 flex items-center justify-center bg-gray-800 shadow-lg hover:shadow-xl hover:scale-105 border-4`}
             style={{
               borderColor: previewUrl ? 'rgba(147, 51, 234, 1)' : getHexColor(groupTheme),
               boxShadow: previewUrl 
@@ -858,8 +867,8 @@ export const GroupView: React.FC<GroupViewProps> = ({
               </>
             ) : (
               <div className="flex flex-col items-center">
-                <Camera size={40} className="text-gray-400 mb-1" />
-                <span className="text-xs text-gray-500 text-center px-2">
+                <Camera size={layout.isDesktop ? 60 : 40} className="text-gray-400 mb-1" />
+                <span className={`${layout.miniTextSize} text-gray-500 text-center px-2`}>
                   {isAdmin ? "Gruppenbild hochladen" : "Kein Logo"}
                 </span>
               </div>
@@ -872,7 +881,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 disabled={isUploading}
                 aria-label="Gruppenlogo ändern"
               >
-                <Camera className="text-white opacity-0 hover:opacity-100 transition-opacity duration-200" size={32} />
+                <Camera className="text-white opacity-0 hover:opacity-100 transition-opacity duration-200" size={layout.isDesktop ? 48 : 32} />
               </button>
             )}
           </div>
@@ -880,12 +889,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
 
         <div className="w-full text-center mb-6 px-4">
           <h1 
-            className="text-3xl font-bold mb-1 text-white break-words transition-colors duration-300"
+            className={`${layout.titleSize} font-bold mb-1 text-white break-words transition-colors duration-300`}
           >
-            {groupStatus === 'loading' ? <Skeleton className="h-9 w-48 mx-auto" /> : (currentGroup?.name ?? 'Keine Gruppe ausgewählt')}
+            {groupStatus === 'loading' ? <Skeleton className={`${layout.skeletonTitleHeight} w-48 mx-auto`} /> : (currentGroup?.name ?? 'Keine Gruppe ausgewählt')}
           </h1>
-          <div className="text-base text-gray-300 mx-auto max-w-xl break-words mt-3">
-            {groupStatus === 'loading' ? <Skeleton className="h-5 w-64 mx-auto" /> : (
+          <div className={`${layout.subtitleSize} text-gray-300 mx-auto max-w-xl break-words mt-3`}>
+            {groupStatus === 'loading' ? <Skeleton className={`${layout.skeletonTextHeight} w-64 mx-auto`} /> : (
               <FormattedDescription 
                 description={currentGroup?.description} 
                 className="mx-auto" 
@@ -896,16 +905,16 @@ export const GroupView: React.FC<GroupViewProps> = ({
           {/* ✅ SETUP-HINWEIS: Nur für Admins wenn < 4 Mitglieder */}
           {isAdmin && !membersLoading && members.length < 4 && (
             <div className="mt-4 mx-auto max-w-md">
-              <div className="bg-gradient-to-r from-green-900/40 to-emerald-900/40 border border-green-500/50 rounded-lg p-3 backdrop-blur-sm">
+              <div className={`bg-gradient-to-r from-green-900/40 to-emerald-900/40 border border-green-500/50 rounded-lg ${layout.cardPadding} backdrop-blur-sm`}>
                 <div className="flex items-center justify-center mb-2">
-                  <Settings className="w-5 h-5 text-green-400 mr-2" />
-                  <span className="text-green-300 font-medium text-sm">Gruppe fertig einrichten</span>
+                  <Settings size={layout.iconSize} className="text-green-400 mr-2" />
+                  <span className={`text-green-300 font-medium ${layout.subheadingSize}`}>Gruppe fertig einrichten</span>
                 </div>
-                <p className="text-green-200 text-xs text-center leading-relaxed">
+                <p className={`text-green-200 ${layout.miniTextSize} text-center leading-relaxed`}>
                   Schliesse die Gruppeneinstellungen ab und lade mindestens drei weitere Mitspieler ein!
                 </p>
                 <div className="mt-2 text-center">
-                  <span className="text-green-400 text-xs">
+                  <span className={`text-green-400 ${layout.miniTextSize}`}>
                     {members.length}/4 Mitglieder
                   </span>
                 </div>
@@ -918,26 +927,28 @@ export const GroupView: React.FC<GroupViewProps> = ({
           <div className="flex gap-2 justify-center mb-4">
             <Button
               onClick={handleUpload}
+              size={layout.buttonSize}
               className="bg-green-600 hover:bg-green-700 flex items-center gap-1"
               disabled={!selectedFile || isUploading}
             >
               {isUploading ? (
                 <>
-                  <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-1"></div>
+                  <div className={`${layout.spinnerSize} rounded-full border-2 border-white border-t-transparent animate-spin mr-1`}></div>
                   Hochladen...
                 </>
               ) : (
                 <>
-                  <Upload size={16} /> Hochladen
+                  <Upload size={layout.buttonIconSize} /> Hochladen
                 </>
               )}
             </Button>
             <Button
               onClick={handleCancelSelection}
+              size={layout.buttonSize}
               className="bg-gray-600 hover:bg-gray-700 flex items-center gap-1"
               disabled={isUploading}
             >
-              <X size={16} /> Abbrechen
+              <X size={layout.buttonIconSize} /> Abbrechen
             </Button>
           </div>
         )}
@@ -946,7 +957,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
           {isAdmin && (
             <Button
               variant="ghost" 
-              size="sm" 
+              size={layout.buttonSize}
               onClick={handleInviteClick}
               className={`transition-all duration-200 hover:scale-105 ${
                 members.length < 4 
@@ -967,13 +978,13 @@ export const GroupView: React.FC<GroupViewProps> = ({
               } : undefined}
               title="Teilnehmer einladen"
             >
-              <UserPlus className="h-4 w-4 mr-1.5" /> Einladen
+              <UserPlus size={layout.buttonIconSize} className="mr-1.5" /> Einladen
             </Button>
           )}
           {isAdmin && (
             <Button
               variant="ghost" 
-              size="sm" 
+              size={layout.buttonSize}
               onClick={() => router.push("/groups/settings")}
               className={`transition-all duration-200 hover:scale-105 ${
                 members.length < 4 
@@ -994,7 +1005,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
               } : undefined}
               title="Einstellungen"
             >
-              <Settings className="h-4 w-4 mr-1.5" /> Einstellungen
+              <Settings size={layout.buttonIconSize} className="mr-1.5" /> Einstellungen
             </Button>
           )}
         </div>
@@ -1014,33 +1025,33 @@ export const GroupView: React.FC<GroupViewProps> = ({
           }} 
           className="w-full"
         >
-          <TabsList className="grid w-full grid-cols-3 bg-gray-800 p-1 rounded-lg mb-4 sticky top-0 z-30 backdrop-blur-md">
+          <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.mainTabContainerPadding} rounded-lg mb-4 sticky top-0 z-30 backdrop-blur-md`}>
             <TabsTrigger 
               value="statistics" 
-              className="data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md py-2.5 text-sm font-medium"
+              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-medium`}
               style={{
                 backgroundColor: activeMainTab === 'statistics' ? getTabActiveColor(groupTheme) : 'transparent'
               }}
             >
-              <BarChart className="w-4 h-4 mr-2" /> Statistik
+              <BarChart size={layout.mainTabIconSize} className="mr-2" /> Statistik
             </TabsTrigger>
             <TabsTrigger 
               value="archive"
-              className="data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md py-2.5 text-sm font-medium"
+              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-medium`}
               style={{
                 backgroundColor: activeMainTab === 'archive' ? getTabActiveColor(groupTheme) : 'transparent'
               }}
             >
-              <Archive className="w-4 h-4 mr-2" /> Archiv
+              <Archive size={layout.mainTabIconSize} className="mr-2" /> Archiv
             </TabsTrigger>
             <TabsTrigger
               value="members" 
-              className="data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md py-2.5 text-sm font-medium"
+              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-medium`}
               style={{
                 backgroundColor: activeMainTab === 'members' ? getTabActiveColor(groupTheme) : 'transparent'
               }}
             >
-              <Users className="w-4 h-4 mr-2" /> Mitglieder
+              <Users size={layout.mainTabIconSize} className="mr-2" /> Mitglieder
             </TabsTrigger>
           </TabsList>
 
@@ -1052,14 +1063,14 @@ export const GroupView: React.FC<GroupViewProps> = ({
             style={{ display: activeMainTab !== 'statistics' ? 'none' : 'block' }}
           >
             {statsError && !statsLoading && (
-              <div className="text-red-400 text-sm text-center p-4 bg-red-900/30 rounded-md mb-4">
+              <div className={`text-red-400 ${layout.bodySize} text-center ${layout.cardPadding} bg-red-900/30 rounded-md mb-4`}>
                 Fehler beim Laden der Statistiken: {statsError}
               </div>
             )}
             {statsLoading ? (
               <div className="flex justify-center items-center py-10">
-                <div className="h-8 w-8 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
-                <span className="ml-3 text-gray-300">Lade Statistiken...</span>
+                <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
+                <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Statistiken...</span>
               </div>
             ) : (
               <Tabs 
@@ -1072,38 +1083,38 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 }} 
                 className="w-full"
               >
-                {/* Kleinerer Abstand (8px statt 16px) */}
-                <div className="h-2"></div>
+              {/* Responsiver Abstand: Desktop weniger (16px), Mobile weniger (8px) */}
+              <div className={layout.isDesktop ? "h-4" : "h-2"}></div>
                 
                 {/* Sticky Container für Sub-Tabs */}
-                <div className="sticky top-[44px] z-20 bg-gray-900 pt-0 pb-4">
-                  <TabsList className="grid w-full grid-cols-3 bg-gray-800 p-1 rounded-lg backdrop-blur-md">
+                <div className={`sticky ${layout.isDesktop ? "top-[60px]" : "top-[44px]"} z-20 bg-gray-900 pt-2 pb-4`}>
+                  <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.subTabContainerPadding} rounded-lg backdrop-blur-md`}>
                     <TabsTrigger 
                       value="overview" 
-                      className="data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md py-1.5 text-sm font-medium"
+                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium`}
                       style={{
                         backgroundColor: activeStatsSubTab === 'overview' ? getTabActiveColor(groupTheme) : 'transparent'
                       }}
                     >
-                      <BarChart2 className="w-4 h-5 mr-1.5"/> Übersicht
+                      <BarChart2 size={layout.subTabIconSize} className="mr-1.5"/> Übersicht
                     </TabsTrigger>
                     <TabsTrigger 
                       value="players" 
-                      className="data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md py-1.5 text-sm font-medium"
+                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium`}
                       style={{
                         backgroundColor: activeStatsSubTab === 'players' ? getTabActiveColor(groupTheme) : 'transparent'
                       }}
                     >
-                      <Users className="w-4 h-5 mr-1.5"/> Spieler
+                      <User size={layout.subTabIconSize} className="mr-1.5"/> Spieler
                     </TabsTrigger>
                     <TabsTrigger 
                       value="teams" 
-                      className="data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md py-1.5 text-sm font-medium"
+                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium`}
                       style={{
                         backgroundColor: activeStatsSubTab === 'teams' ? getTabActiveColor(groupTheme) : 'transparent'
                       }}
                     >
-                      <Users className="w-4 h-5 mr-1.5"/> Teams
+                      <Users size={layout.subTabIconSize} className="mr-1.5"/> Teams
                     </TabsTrigger>
                   </TabsList>
                 </div>
@@ -1112,28 +1123,28 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 <TabsContent 
                   value="overview"
                   forceMount
-                  className={activeStatsSubTab !== 'overview' ? 'hidden' : 'w-full bg-gray-800/50 rounded-lg p-4'}
+                  className={activeStatsSubTab !== 'overview' ? 'hidden' : `w-full bg-gray-800/50 rounded-lg ${layout.cardPadding}`}
                   style={{ display: activeStatsSubTab !== 'overview' ? 'none' : 'block' }}
                 >
-                  <div className="space-y-3 text-sm">
+                  <div className={`${layout.sectionSpacing} ${layout.bodySize}`}>
                     {/* 1. Spielerstärke (Jass-Elo) - NEUE REIHENFOLGE */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center justify-between border-b border-gray-700/50 px-4 py-3">
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center justify-between border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className="flex items-center">
-                          <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                          <h3 className="text-base font-semibold text-white">🏆 Spielerstärke (Jass-Elo)</h3>
+                          <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                          <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Spielerstärke (Jass-Elo)</h3>
                         </div>
                         <a 
                           href="https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/Jass-Elo_%20Ein%20Elo-basiertes%20Bewertungssystem%20fu%CC%88r%20den%20Schieber.pdf?alt=media&token=5db3a7af-1725-4d2d-a7dd-d68a9db9dfbb" 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-700/50 hover:bg-gray-600/70 border border-gray-600/40 hover:border-gray-500/60 transition-all duration-200 hover:scale-105"
+                          className={`flex items-center justify-center rounded-full bg-gray-700/50 hover:bg-gray-600/70 border border-gray-600/40 hover:border-gray-500/60 transition-all duration-200 hover:scale-105 ${layout.actionButtonPadding}`}
                           title="Jass-Elo Whitepaper öffnen"
                         >
-                          <Info size={18} className="text-gray-300 hover:text-white" />
+                          <Info size={layout.iconSize} className="text-gray-300 hover:text-white" />
                         </a>
                       </div>
-                      <div ref={overviewMostGamesRef} className="p-4 space-y-2 pr-2">
+                      <div ref={overviewMostGamesRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
                         {(() => {
                           // Erstelle sortierte Liste aus Elo-Ratings
                           const ratingsArray = Array.from(playerRatings.values())
@@ -1146,28 +1157,28 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               const playerId = rating.id;
                               return (
                                 <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=overview` : '#'} key={`eloRating-${rating.id}`} isClickable={!!playerId} className="block rounded-md">
-                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                  <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                                     <div className="flex items-center">
-                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
                                       <ProfileImage 
                                         src={playerData?.photoURL} 
                                         alt={rating.displayName || 'Spieler'} 
-                                        size="sm"
+                                        size={layout.profileImageListSize}
                                         className={`mr-2 ${theme.profileImage}`}
-                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                         fallbackText={rating.displayName ? rating.displayName.charAt(0).toUpperCase() : '?'}
                                         context="list"
                                       />
-                                      <span className="text-gray-300">{rating.displayName}</span>
+                                      <span className={`${layout.bodySize} text-gray-300`}>{rating.displayName}</span>
                                     </div>
                                     <div className="flex items-center">
-                                      <span className="text-white text-lg font-medium mr-2">
+                                      <span className={`text-white ${layout.valueSize} font-medium mr-2`}>
                                         {Math.round(rating.rating)}
                                         {(() => {
                                           const delta = playerDeltas.get(rating.id);
                                           if (delta !== undefined) {
                                             return (
-                                              <span className={`ml-1 text-sm ${delta > 0 ? 'text-green-400' : delta < 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                                              <span className={`ml-1 ${layout.smallTextSize} ${delta > 0 ? 'text-green-400' : delta < 0 ? 'text-red-400' : 'text-gray-400'}`}>
                                                 ({delta > 0 ? '+' : ''}{Math.round(delta)})
                                               </span>
                                             );
@@ -1175,26 +1186,26 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                           return null;
                                         })()}
                                       </span>
-                                      <span className="text-lg">{rating.tierEmoji}</span>
+                                      <span className={`${layout.eloEmojiSize}`}>{rating.tierEmoji}</span>
                                     </div>
                                   </div>
                                 </StatLink>
                               );
                             });
                           } else {
-                            return <div className="text-gray-400 text-center py-2">Noch keine Elo-Ratings verfügbar</div>;
+                            return <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Noch keine Elo-Ratings verfügbar</div>;
                           }
                         })()}
                       </div>
                     </div>
 
                     {/* 2. Rundentempo - NEUE REIHENFOLGE */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">Rundentempo</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Rundentempo</h3>
                       </div>
-                      <div ref={playerRoundTimeRef} className="p-4 space-y-2 pr-2">
+                      <div ref={playerRoundTimeRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
                         {(() => {
                           if (groupStats?.playerAllRoundTimes && groupStats.playerAllRoundTimes.length > 0) {
                             // Filter: Nur Spieler mit gültigen Rundendaten anzeigen
@@ -1206,41 +1217,41 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               const playerId = playerData?.id || playerStat.playerId;
                               return (
                                 <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=overview` : '#'} key={`roundTime-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
-                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                  <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                                     <div className="flex items-center">
-                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                       <ProfileImage 
                                         src={playerData?.photoURL} 
                                         alt={playerStat.playerName} 
-                                        size="sm"
-                                        className={`mr-2 ${theme.profileImage}`}
-                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        size={layout.profileImageListSize}
+                                        className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                        fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                         fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
                                         context="list"
                                       />
-                                      <span className="text-gray-300">{playerStat.playerName}</span>
+                                      <span className={`${layout.bodySize} text-gray-300`}>{playerStat.playerName}</span>
                                     </div>
                                     <div className="flex items-center">
-                                      <span className="text-white text-lg font-medium text-right whitespace-nowrap">{formatMillisecondsDuration(playerStat.value)}</span>
+                                      <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{formatMillisecondsDuration(playerStat.value)}</span>
                                     </div>
                                   </div>
                                 </StatLink>
                               );
                             });
                           } else {
-                            return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
+                            return <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine aktiven Spieler verfügbar</div>;
                           }
                         })()}
                       </div>
                     </div>
 
                     {/* 3. Trumpfansagen - NEUE REIHENFOLGE */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">Trumpfansagen</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Trumpfansagen</h3>
                       </div>
-                      <div ref={overviewTrumpfRef} className="p-4 space-y-2 pr-2">
+                      <div ref={overviewTrumpfRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
                         {trumpfStatistikArray.length > 0 ? (
                           trumpfStatistikArray.map((item, index) => {
                             // NEU: Logik für dynamische Anzeige
@@ -1249,102 +1260,102 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             const displayName = CARD_SYMBOL_MAPPINGS[mappedColorKey as JassColor]?.[cardStyle] ?? mappedColorKey;
                             
                             return (
-                              <div key={`trumpf-${item.farbe}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                              <div key={`trumpf-${item.farbe}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                                 <div className="flex items-center">
-                                  <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                  <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
                                   <FarbePictogram 
                                     farbe={normalizeJassColor(item.farbe)} 
                                     mode="svg" 
                                     cardStyle={cardStyle} // cardStyle übergeben
-                                    className="h-8 w-8 mr-2"
+                                    className={layout.isDesktop ? "h-12 w-12 mr-2" : "h-8 w-8 mr-2"}
                                   />
-                                  <span className="text-gray-300 capitalize">{displayName}</span>
+                                  <span className={`${layout.bodySize} text-gray-300 capitalize`}>{displayName}</span>
                                 </div>
                                 <span className="text-white font-medium mr-2">
-                                  <span className="text-gray-400 mr-1 text-sm">({item.anzahl})</span>
-                                  <span className="text-lg font-medium">{(item.anteil * 100).toFixed(1)}%</span>
+                                  <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>({item.anzahl})</span>
+                                  <span className={`${layout.valueSize} font-medium`}>{(item.anteil * 100).toFixed(1)}%</span>
                                 </span>
                               </div>
                             );
                           })
                         ) : (
-                          <div className="text-gray-400 text-center py-2">Keine Trumpfstatistik verfügbar</div>
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine Trumpfstatistik verfügbar</div>
                         )}
                       </div>
                     </div>
 
                     {/* 4. Durchschnittswerte & Details - NEUE REIHENFOLGE */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">Durchschnittswerte & Details</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Durchschnittswerte & Details</h3>
                       </div>
-                      <div className="p-4 space-y-2">
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Ø Dauer pro Partie:</span>
-                          <span className="text-gray-100 text-lg font-medium">{groupStats?.avgSessionDuration || '-'}</span>
+                      <div className={`${layout.cardPadding} space-y-2`}>
+                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                          <span className={`${layout.labelSize} font-medium text-gray-300`}>Ø Dauer pro Partie:</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.avgSessionDuration || '-'}</span>
                         </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Ø Dauer pro Spiel:</span>
-                          <span className="text-gray-100 text-lg font-medium">{groupStats?.avgGameDuration || '-'}</span>
+                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                          <span className={`${layout.labelSize} font-medium text-gray-300`}>Ø Dauer pro Spiel:</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.avgGameDuration || '-'}</span>
                         </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Ø Spiele pro Partie:</span>
-                          <span className="text-gray-100 text-lg font-medium">{groupStats?.avgGamesPerSession ? groupStats.avgGamesPerSession.toFixed(1) : '-'}</span>
+                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                          <span className={`${layout.labelSize} font-medium text-gray-300`}>Ø Spiele pro Partie:</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.avgGamesPerSession ? groupStats.avgGamesPerSession.toFixed(1) : '-'}</span>
                         </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Ø Runden pro Spiel:</span>
-                          <span className="text-gray-100 text-lg font-medium">{groupStats?.avgRoundsPerGame ? groupStats.avgRoundsPerGame.toFixed(1) : '-'}</span>
+                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                          <span className={`${layout.labelSize} font-medium text-gray-300`}>Ø Runden pro Spiel:</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.avgRoundsPerGame ? groupStats.avgRoundsPerGame.toFixed(1) : '-'}</span>
                         </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Ø Matsch pro Spiel:</span>
-                          <span className="text-gray-100 text-lg font-medium">{groupStats?.avgMatschPerGame ? groupStats.avgMatschPerGame.toFixed(2) : '-'}</span>
+                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                          <span className={`${layout.labelSize} font-medium text-gray-300`}>Ø Matsch pro Spiel:</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.avgMatschPerGame ? groupStats.avgMatschPerGame.toFixed(2) : '-'}</span>
                         </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Ø Rundentempo:</span>
-                          <span className="text-gray-100 text-lg font-medium">{groupStats?.avgRoundDuration || '-'}</span>
+                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                          <span className={`${layout.labelSize} font-medium text-gray-300`}>Ø Rundentempo:</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.avgRoundDuration || '-'}</span>
                         </div>
                       </div>
                     </div>
 
                     {/* 5. Gruppenübersicht - NEUE REIHENFOLGE */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">Gruppenübersicht</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Gruppenübersicht</h3>
                       </div>
-                      <div className="p-4 space-y-2">
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Mitglieder:</span>
-                          <span className="text-gray-100 text-lg font-medium">{groupStats?.memberCount || 0}</span>
+                      <div className={`${layout.cardPadding} space-y-2`}>
+                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                          <span className={`${layout.labelSize} font-medium text-gray-300`}>Mitglieder:</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.memberCount || 0}</span>
                         </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Anzahl Partien:</span>
-                          <span className="text-gray-100 text-lg font-medium">{groupStats?.sessionCount || 0}</span>
+                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                          <span className={`${layout.labelSize} font-medium text-gray-300`}>Anzahl Partien:</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.sessionCount || 0}</span>
                         </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Anzahl Turniere:</span>
-                          <span className="text-gray-100 text-lg font-medium">{groupStats?.tournamentCount || 0}</span>
+                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                          <span className={`${layout.labelSize} font-medium text-gray-300`}>Anzahl Turniere:</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.tournamentCount || 0}</span>
                         </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Anzahl Spiele:</span>
-                          <span className="text-gray-100 text-lg font-medium">{groupStats?.gameCount || 0}</span>
+                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                          <span className={`${layout.labelSize} font-medium text-gray-300`}>Anzahl Spiele:</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.gameCount || 0}</span>
                         </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Gesamte Jass-Zeit:</span>
-                          <span className="text-gray-100 text-lg font-medium">{groupStats?.totalPlayTime || '-'}</span>
+                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                          <span className={`${layout.labelSize} font-medium text-gray-300`}>Gesamte Jass-Zeit:</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.totalPlayTime || '-'}</span>
                         </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Erster Jass:</span>
-                          <span className="text-gray-100 text-lg font-medium">{groupStats?.firstJassDate || '-'}</span>
+                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                          <span className={`${layout.labelSize} font-medium text-gray-300`}>Erster Jass:</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.firstJassDate || '-'}</span>
                         </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Letzter Jass:</span>
-                          <span className="text-gray-100 text-lg font-medium">{groupStats?.lastJassDate || '-'}</span>
+                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                          <span className={`${layout.labelSize} font-medium text-gray-300`}>Letzter Jass:</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.lastJassDate || '-'}</span>
                         </div>
-                        <div className="flex justify-between bg-gray-700/30 px-2 py-1.5 rounded-md">
-                          <span className="font-medium text-gray-300">Hauptspielort:</span>
-                          <span className="text-gray-100 text-lg font-medium">
+                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                          <span className={`${layout.labelSize} font-medium text-gray-300`}>Hauptspielort:</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>
                             {(() => {
                               const plz = (currentGroup as any)?.mainLocationZip;
                               if (!plz) return 'Nicht angegeben';
@@ -1363,17 +1374,17 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 <TabsContent 
                   value="players"
                   forceMount
-                  className={activeStatsSubTab !== 'players' ? 'hidden' : 'w-full bg-gray-800/50 rounded-lg p-4'}
+                  className={activeStatsSubTab !== 'players' ? 'hidden' : `w-full bg-gray-800/50 rounded-lg ${layout.cardPadding}`}
                   style={{ display: activeStatsSubTab !== 'players' ? 'none' : 'block' }}
                 >
-                  <div className="space-y-3 text-sm">
+                  <div className={`${layout.sectionSpacing} ${layout.bodySize}`}>
                     {/* 1. Strichdifferenz */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">Strichdifferenz</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Strichdifferenz</h3>
                       </div>
-                      <div ref={playerStricheDiffRef} className="p-4 space-y-2 pr-2">
+                      <div ref={playerStricheDiffRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
                         {(() => {
                           if (groupStats?.playerWithHighestStricheDiff && groupStats.playerWithHighestStricheDiff.length > 0) {
                             // Filter: Nur Spieler mit gespielten Spielen anzeigen
@@ -1387,25 +1398,25 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               const playerId = playerData?.id || playerData?.userId;
                               return (
                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`stricheDiff-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
-                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                                   <div className="flex items-center">
-                                    <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
                                     <ProfileImage 
                                       src={playerData?.photoURL} 
                                       alt={playerStat.playerName} 
-                                      size="sm"
+                                      size={layout.profileImageListSize}
                                       className={`mr-2 ${theme.profileImage}`}
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                       fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
                                     />
-                                    <span className="text-gray-300">{playerStat.playerName}</span>
+                                    <span className={`${layout.bodySize} text-gray-300`}>{playerStat.playerName}</span>
                                   </div>
                                   <div className="flex items-center">
                                     <span className="text-white font-medium mr-2">
-                                      <span className="text-gray-400 mr-1 text-sm">
+                                      <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                         ({playerStat.eventsPlayed || 0})
                                       </span>
-                                      <span className="text-lg font-medium">
+                                      <span className={`${layout.valueSize} font-medium`}>
                                         {playerStat.value > 0 ? '+' : ''}{Math.trunc(playerStat.value)}
                                       </span>
                                     </span>
@@ -1415,19 +1426,19 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             );
                           });
                           } else {
-                            return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
+                            return <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine aktiven Spieler verfügbar</div>;
                           }
                         })()}
                       </div>
                     </div>
 
                     {/* 2. Punktedifferenz */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">Punktedifferenz</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Punktedifferenz</h3>
                       </div>
-                      <div ref={playerPointsDiffRef} className="p-4 space-y-2 pr-2">
+                      <div ref={playerPointsDiffRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
                         {(() => {
                           if (groupStats?.playerWithHighestPointsDiff && groupStats.playerWithHighestPointsDiff.length > 0) {
                             // Filter: Nur Spieler mit gespielten Spielen anzeigen
@@ -1441,26 +1452,26 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               const playerId = playerData?.id || playerStat.playerId;
                               return (
                                 <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`pointsDiff-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
-                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                  <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                                     <div className="flex items-center">
-                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                       <ProfileImage 
                                         src={playerData?.photoURL} 
                                         alt={playerStat.playerName} 
-                                        size="sm"
-                                        className={`mr-2 ${theme.profileImage}`}
-                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        size={layout.profileImageListSize}
+                                        className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                        fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                         fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
                                         context="list"
                                       />
-                                      <span className="text-gray-300">{playerStat.playerName}</span>
+                                      <span className={`${layout.bodySize} text-gray-300`}>{playerStat.playerName}</span>
                                     </div>
                                     <div className="flex items-center">
                                       <span className="text-white font-medium mr-2">
-                                        <span className="text-gray-400 mr-1 text-sm">
+                                        <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                           ({playerStat.eventsPlayed || 0})
                                         </span>
-                                        <span className="text-lg font-medium">
+                                        <span className={`${layout.valueSize} font-medium`}>
                                           {playerStat.value > 0 ? '+' : ''}{Math.trunc(playerStat.value)}
                                         </span>
                                       </span>
@@ -1470,19 +1481,19 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               );
                             });
                           } else {
-                            return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
+                            return <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine aktiven Spieler verfügbar</div>;
                           }
                         })()}
                       </div>
                     </div>
 
                     {/* 3. Siegquote Partie */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">Siegquote Partie</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Siegquote Partie</h3>
                       </div>
-                      <div ref={playerWinRateSessionRef} className="p-4 space-y-2 pr-2">
+                      <div ref={playerWinRateSessionRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
                         {(() => {
                           if (groupStats?.playerWithHighestWinRateSession && groupStats.playerWithHighestWinRateSession.length > 0) {
                             // Filter: Nur Spieler mit gespielten Partien anzeigen
@@ -1495,29 +1506,29 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               const playerId = playerData?.id || playerStat.playerId;
                               return (
                                 <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`winRateSession-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
-                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                  <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                                     <div className="flex items-center">
-                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                       <ProfileImage 
                                         src={playerData?.photoURL} 
                                         alt={playerStat.playerName} 
-                                        size="sm"
-                                        className={`mr-2 ${theme.profileImage}`}
-                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        size={layout.profileImageListSize}
+                                        className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                        fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                         fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
                                         context="list"
                                       />
-                                      <span className="text-gray-300">{playerStat.playerName}</span>
+                                      <span className={`${layout.bodySize} text-gray-300`}>{playerStat.playerName}</span>
                                     </div>
                                     <div className="flex items-center">
                                       {/* ✅ KORREKT: Klammerwerte zeigen nur entschiedene Sessions (eventsPlayed wurde im Backend korrigiert) */}
                                       <span className="text-white font-medium mr-2">
                                         {(typeof playerStat.value === 'number' && playerStat.eventsPlayed && playerStat.eventsPlayed > 0) && (
-                                          <span className="text-gray-400 mr-1 text-sm">
+                                          <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                             ({Math.round(playerStat.value * playerStat.eventsPlayed)}/{playerStat.eventsPlayed})
                                           </span>
                                         )}
-                                        <span className="text-lg font-medium">
+                                        <span className={`${layout.valueSize} font-medium`}>
                                           {(typeof playerStat.value === 'number' ? playerStat.value * 100 : 0).toFixed(1)}%
                                         </span>
                                       </span>
@@ -1527,19 +1538,19 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               );
                             });
                           } else {
-                            return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
+                            return <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine aktiven Spieler verfügbar</div>;
                           }
                         })()}
                       </div>
                     </div>
 
                     {/* 4. Siegquote Spiel */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">Siegquote Spiel</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Siegquote Spiel</h3>
                       </div>
-                      <div ref={playerWinRateGameRef} className="p-4 space-y-2 pr-2">
+                      <div ref={playerWinRateGameRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
                         {(() => {
                           if (groupStats?.playerWithHighestWinRateGame && groupStats.playerWithHighestWinRateGame.length > 0) {
                             // Filter: Nur Spieler mit gespielten Spielen anzeigen
@@ -1551,28 +1562,28 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               const playerId = playerData?.id || playerStat.playerId;
                               return (
                                 <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`winRateGame-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
-                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                  <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                                     <div className="flex items-center">
-                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                       <ProfileImage 
                                         src={playerData?.photoURL} 
                                         alt={playerStat.playerName} 
-                                        size="sm"
-                                        className={`mr-2 ${theme.profileImage}`}
-                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        size={layout.profileImageListSize}
+                                        className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                        fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                         fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
                                         context="list"
                                       />
-                                      <span className="text-gray-300">{playerStat.playerName}</span>
+                                      <span className={`${layout.bodySize} text-gray-300`}>{playerStat.playerName}</span>
                                     </div>
                                     <div className="flex items-center">
                                       <span className="text-white font-medium mr-2">
                                         {(typeof playerStat.value === 'number' && playerStat.eventsPlayed && playerStat.eventsPlayed > 0) && (
-                                          <span className="text-gray-400 mr-1 text-sm">
+                                          <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                             ({Math.round(playerStat.value * playerStat.eventsPlayed)}/{playerStat.eventsPlayed})
                                           </span>
                                         )}
-                                        <span className="text-lg font-medium">
+                                        <span className={`${layout.valueSize} font-medium`}>
                                           {(typeof playerStat.value === 'number' ? playerStat.value * 100 : 0).toFixed(1)}%
                                         </span>
                                       </span>
@@ -1582,19 +1593,19 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               );
                             });
                           } else {
-                            return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
+                            return <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine aktiven Spieler verfügbar</div>;
                           }
                         })()}
                       </div>
                     </div>
 
                     {/* 5. Matsch-Bilanz */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">Matsch-Bilanz</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Matsch-Bilanz</h3>
                       </div>
-                      <div ref={playerMatschRateRef} className="p-4 space-y-2 pr-2">
+                      <div ref={playerMatschRateRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
                         {(() => {
                           if (groupStats?.playerWithHighestMatschBilanz && groupStats.playerWithHighestMatschBilanz.length > 0) {
                             // Filter: Nur Spieler mit Matsch-Erfahrung anzeigen
@@ -1607,26 +1618,26 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               const playerId = playerData?.id || playerStat.playerId;
                               return (
                                 <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`matschBilanz-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
-                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                  <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                                     <div className="flex items-center">
-                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                       <ProfileImage 
                                         src={playerData?.photoURL} 
                                         alt={playerStat.playerName} 
-                                        size="sm"
-                                        className={`mr-2 ${theme.profileImage}`}
-                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        size={layout.profileImageListSize}
+                                        className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                        fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                         fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
                                         context="list"
                                       />
-                                      <span className="text-gray-300">{playerStat.playerName}</span>
+                                      <span className={`${layout.bodySize} text-gray-300`}>{playerStat.playerName}</span>
                                     </div>
                                     <div className="flex items-center">
                                       <span className="text-white font-medium mr-2">
-                                        <span className="text-gray-400 mr-1 text-sm">
+                                        <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                           ({playerStat.eventsMade || 0}/{playerStat.eventsReceived || 0})
                                         </span>
-                                        <span className="text-lg font-medium">
+                                        <span className={`${layout.valueSize} font-medium`}>
                                           {playerStat.value > 0 ? '+' : ''}{playerStat.value}
                                         </span>
                                       </span>
@@ -1636,19 +1647,19 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               );
                             });
                           } else {
-                            return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
+                            return <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine aktiven Spieler verfügbar</div>;
                           }
                         })()}
                       </div>
                     </div>
 
                     {/* 6. Schneider-Bilanz */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">Schneider-Bilanz</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Schneider-Bilanz</h3>
                       </div>
-                      <div ref={playerSchneiderRateRef} className="p-4 space-y-2 pr-2">
+                      <div ref={playerSchneiderRateRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
                         {(() => {
                           if (groupStats?.playerWithHighestSchneiderBilanz && groupStats.playerWithHighestSchneiderBilanz.length > 0) {
                             // Filter: Nur Spieler mit Schneider-Erfahrung anzeigen
@@ -1661,26 +1672,26 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               const playerId = playerData?.id || playerStat.playerId;
                               return (
                                 <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`schneiderBilanz-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
-                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                  <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                                     <div className="flex items-center">
-                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                       <ProfileImage 
                                         src={playerData?.photoURL} 
                                         alt={playerStat.playerName} 
-                                        size="sm"
-                                        className={`mr-2 ${theme.profileImage}`}
-                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        size={layout.profileImageListSize}
+                                        className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                        fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                         fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
                                         context="list"
                                       />
-                                      <span className="text-gray-300">{playerStat.playerName}</span>
+                                      <span className={`${layout.bodySize} text-gray-300`}>{playerStat.playerName}</span>
                                     </div>
                                     <div className="flex items-center">
                                       <span className="text-white font-medium mr-2">
-                                        <span className="text-gray-400 mr-1 text-sm">
+                                        <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                           ({playerStat.eventsMade || 0}/{playerStat.eventsReceived || 0})
                                         </span>
-                                        <span className="text-lg font-medium">
+                                        <span className={`${layout.valueSize} font-medium`}>
                                           {playerStat.value > 0 ? '+' : ''}{playerStat.value}
                                         </span>
                                       </span>
@@ -1690,19 +1701,19 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               );
                             });
                           } else {
-                            return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
+                            return <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine aktiven Spieler verfügbar</div>;
                           }
                         })()}
                       </div>
                     </div>
 
                     {/* 7. Kontermatsch-Bilanz */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">Kontermatsch-Bilanz</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Kontermatsch-Bilanz</h3>
                       </div>
-                      <div className="p-4 space-y-2 pr-2">
+                      <div className={`${layout.cardPadding} space-y-2 pr-2`}>
                         {(() => {
                           if (groupStats?.playerWithHighestKontermatschBilanz && groupStats.playerWithHighestKontermatschBilanz.length > 0) {
                             // Filter: Nur Spieler mit Kontermatsch-Erfahrung anzeigen
@@ -1715,25 +1726,25 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               const playerId = playerData?.id || playerStat.playerId;
                               return (
                                 <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`kontermatschBilanz-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
-                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                  <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                                     <div className="flex items-center">
-                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
                                       <ProfileImage
                                         src={playerData?.photoURL}
                                         alt={playerStat.playerName}
-                                        size="sm"
+                                        size={layout.profileImageListSize}
                                         className={`mr-2 ${theme.profileImage}`}
-                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                         fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
                                       />
-                                      <span className="text-gray-300">{playerStat.playerName}</span>
+                                      <span className={`${layout.bodySize} text-gray-300`}>{playerStat.playerName}</span>
                                     </div>
                                     <div className="flex items-center">
                                       <span className="text-white font-medium mr-2">
-                                        <span className="text-gray-400 mr-1 text-sm">
+                                        <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                           ({playerStat.eventsMade || 0}/{playerStat.eventsReceived || 0})
                                         </span>
-                                        <span className="text-lg font-medium">
+                                        <span className={`${layout.valueSize} font-medium`}>
                                           {playerStat.value > 0 ? '+' : ''}{playerStat.value}
                                         </span>
                                       </span>
@@ -1743,19 +1754,19 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               );
                             });
                           } else {
-                            return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
+                            return <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine aktiven Spieler verfügbar</div>;
                           }
                         })()}
                       </div>
                     </div>
 
                     {/* 8. Weis-Durchschnitt */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">Weis-Durchschnitt</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Weis-Durchschnitt</h3>
                       </div>
-                      <div ref={playerWeisAvgRef} className="p-4 space-y-2 pr-2">
+                      <div ref={playerWeisAvgRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
                         {(() => {
                           if (groupStats?.playerWithMostWeisPointsAvg && groupStats.playerWithMostWeisPointsAvg.length > 0) {
                             // Filter: Nur Spieler mit Weis-Punkten anzeigen
@@ -1767,29 +1778,29 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               const playerId = playerData?.id || playerStat.playerId;
                               return (
                                 <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`weisPoints-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
-                                  <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                  <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                                     <div className="flex items-center">
-                                      <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
+                                      <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                       <ProfileImage 
                                         src={playerData?.photoURL} 
                                         alt={playerStat.playerName} 
-                                        size="sm"
-                                        className={`mr-2 ${theme.profileImage}`}
-                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        size={layout.profileImageListSize}
+                                        className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                        fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                         fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
                                         context="list"
                                       />
-                                      <span className="text-gray-300">{playerStat.playerName}</span>
+                                      <span className={`${layout.bodySize} text-gray-300`}>{playerStat.playerName}</span>
                                     </div>
                                     <div className="flex items-center">
-                                      <span className="text-white text-lg font-medium mr-2">{Math.round(Number(playerStat.value))}</span>
+                                      <span className={`text-white ${layout.valueSize} font-medium mr-2`}>{Math.round(Number(playerStat.value))}</span>
                                     </div>
                                   </div>
                                 </StatLink>
                               );
                             });
                           } else {
-                            return <div className="text-gray-400 text-center py-2">Keine aktiven Spieler verfügbar</div>;
+                            return <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine aktiven Spieler verfügbar</div>;
                           }
                         })()}
                       </div>
@@ -1801,17 +1812,17 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 <TabsContent 
                   value="teams"
                   forceMount
-                  className={activeStatsSubTab !== 'teams' ? 'hidden' : 'w-full bg-gray-800/50 rounded-lg p-4'}
+                  className={activeStatsSubTab !== 'teams' ? 'hidden' : `w-full bg-gray-800/50 rounded-lg ${layout.cardPadding}`}
                   style={{ display: activeStatsSubTab !== 'teams' ? 'none' : 'block' }}
                 >
-                  <div className="space-y-3 text-sm">
+                  <div className={`${layout.sectionSpacing} ${layout.bodySize}`}>
                     {/* 1. Strichdifferenz */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">Strichdifferenz</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Strichdifferenz</h3>
                       </div>
-                      <div ref={teamStricheDiffRef} className="p-4 space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2">
+                      <div ref={teamStricheDiffRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {groupStats?.teamWithHighestStricheDiff && groupStats.teamWithHighestStricheDiff.length > 0 ? (
                           groupStats.teamWithHighestStricheDiff
                             .filter(team => 
@@ -1819,54 +1830,56 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               (team.value && team.value !== 0)
                             )
                             .map((team, index) => (
-                            <div key={`team-${team.names.join('-')}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                            <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                               <div className="flex items-center">
-                                <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                <div className="flex -space-x-2 mr-2">
+                                <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
+                                <div className="flex mr-2">
                                   <ProfileImage 
                                     src={findPlayerPhotoByName(team.names[0], members)} 
                                     alt={team.names[0]} 
-                                    size="sm"
+                                    size={layout.profileImageListSize}
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                    fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                    style={{ zIndex: 1 }}
+                                    fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                     fallbackText={team.names[0].charAt(0).toUpperCase()}
                                     context="list"
                                   />
                                   <ProfileImage 
                                     src={findPlayerPhotoByName(team.names[1], members)} 
                                     alt={team.names[1]} 
-                                    size="sm"
+                                    size={layout.profileImageListSize}
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                    fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                    style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
+                                    fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                     fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
                                     context="list"
                                   />
                                 </div>
-                                <span className="text-gray-300">{team.names.join(' & ')}</span>
+                                <span className={`${layout.bodySize} text-gray-300`}>{team.names.join(' & ')}</span>
                               </div>
                               <span className="text-white font-medium mr-2">
-                                <span className="text-gray-400 mr-1 text-sm">
+                                <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                   ({team.eventsPlayed || 0})
                                 </span>
-                                <span className="text-lg font-medium">
+                                <span className={`${layout.valueSize} font-medium`}>
                                   {Math.round(Number(team.value)) > 0 ? '+' : ''}{Math.round(Number(team.value))}
                                 </span>
                               </span>
                             </div>
                           ))
                         ) : (
-                          <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div>
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine Daten verfügbar</div>
                         )}
                       </div>
                     </div>
 
                     {/* 2. Punktedifferenz */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">Punktedifferenz</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Punktedifferenz</h3>
                       </div>
-                      <div ref={teamPointsDiffRef} className="p-4 space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2">
+                      <div ref={teamPointsDiffRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {groupStats?.teamWithHighestPointsDiff && groupStats.teamWithHighestPointsDiff.length > 0 ? (
                           groupStats.teamWithHighestPointsDiff
                             .filter(team => 
@@ -1874,166 +1887,172 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               (team.value && team.value !== 0)
                             )
                             .map((team, index) => (
-                            <div key={`team-${team.names.join('-')}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                            <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                               <div className="flex items-center">
-                                <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                <div className="flex -space-x-2 mr-2">
+                                <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
+                                <div className="flex mr-2">
                                   <ProfileImage 
                                     src={findPlayerPhotoByName(team.names[0], members)} 
                                     alt={team.names[0]} 
-                                    size="sm"
+                                    size={layout.profileImageListSize}
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                    fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                    style={{ zIndex: 1 }}
+                                    fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                     fallbackText={team.names[0].charAt(0).toUpperCase()}
                                     context="list"
                                   />
                                   <ProfileImage 
                                     src={findPlayerPhotoByName(team.names[1], members)} 
                                     alt={team.names[1]} 
-                                    size="sm"
+                                    size={layout.profileImageListSize}
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                    fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                    style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
+                                    fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                     fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
                                     context="list"
                                   />
                                 </div>
-                                <span className="text-gray-300">{team.names.join(' & ')}</span>
+                                <span className={`${layout.bodySize} text-gray-300`}>{team.names.join(' & ')}</span>
                               </div>
                               <span className="text-white font-medium mr-2">
-                                <span className="text-gray-400 mr-1 text-sm">
+                                <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                   ({team.eventsPlayed || 0})
                                 </span>
-                                <span className="text-lg font-medium">
+                                <span className={`${layout.valueSize} font-medium`}>
                                   {Math.round(Number(team.value)) > 0 ? '+' : ''}{Math.round(Number(team.value))}
                                 </span>
                               </span>
                             </div>
                           ))
                         ) : (
-                          <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div>
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine Daten verfügbar</div>
                         )}
                       </div>
                     </div>
 
                     {/* 3. Siegquote (Partien) - ✅ KORREKT: eventsPlayed zeigt nur entschiedene Sessions */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">Siegquote (Partien)</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Siegquote (Partien)</h3>
                       </div>
-                      <div ref={teamWinRateSessionRef} className="p-4 space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2">
+                      <div ref={teamWinRateSessionRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {groupStats?.teamWithHighestWinRateSession && groupStats.teamWithHighestWinRateSession.length > 0 ? (
                           groupStats.teamWithHighestWinRateSession
                             .filter(team => 
                               team.eventsPlayed && team.eventsPlayed > 0
                             )
                             .map((team, index) => (
-                            <div key={`team-${team.names.join('-')}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                            <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                               <div className="flex items-center">
-                                <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                <div className="flex -space-x-2 mr-2">
+                                <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
+                                <div className="flex mr-2">
                                   <ProfileImage 
                                     src={findPlayerPhotoByName(team.names[0], members)} 
                                     alt={team.names[0]} 
-                                    size="sm"
+                                    size={layout.profileImageListSize}
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                    fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                    style={{ zIndex: 1 }}
+                                    fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                     fallbackText={team.names[0].charAt(0).toUpperCase()}
                                     context="list"
                                   />
                                   <ProfileImage 
                                     src={findPlayerPhotoByName(team.names[1], members)} 
                                     alt={team.names[1]} 
-                                    size="sm"
+                                    size={layout.profileImageListSize}
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                    fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                    style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
+                                    fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                     fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
                                     context="list"
                                   />
                                 </div>
-                                <span className="text-gray-300">{team.names.join(' & ')}</span>
+                                <span className={`${layout.bodySize} text-gray-300`}>{team.names.join(' & ')}</span>
                               </div>
                               <span className="text-white font-medium mr-2">
                                 {(typeof team.value === 'number' && team.eventsPlayed && team.eventsPlayed > 0) && (
-                                  <span className="text-gray-400 mr-1 text-sm">
+                                  <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                     ({Math.round(team.value * team.eventsPlayed)}/{team.eventsPlayed})
                                   </span>
                                 )}
-                                <span className="text-lg font-medium">
+                                <span className={`${layout.valueSize} font-medium`}>
                                   {(Number(team.value) * 100).toFixed(1)}%
                                 </span>
                               </span>
                             </div>
                           ))
                         ) : (
-                          <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div>
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine Daten verfügbar</div>
                         )}
                       </div>
                     </div>
 
                     {/* 4. Siegquote (Spiele) */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">Siegquote (Spiele)</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Siegquote (Spiele)</h3>
                       </div>
-                      <div ref={teamWinRateGameRef} className="p-4 space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2">
+                      <div ref={teamWinRateGameRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {groupStats?.teamWithHighestWinRateGame && groupStats.teamWithHighestWinRateGame.length > 0 ? (
                           groupStats.teamWithHighestWinRateGame
                             .filter(team => 
                               team.eventsPlayed && team.eventsPlayed > 0
                             )
                             .map((team, index) => (
-                            <div key={`team-${team.names.join('-')}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                            <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                               <div className="flex items-center">
-                                <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                <div className="flex -space-x-2 mr-2">
+                                <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
+                                <div className="flex mr-2">
                                   <ProfileImage 
                                     src={findPlayerPhotoByName(team.names[0], members)} 
                                     alt={team.names[0]} 
-                                    size="sm"
+                                    size={layout.profileImageListSize}
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                    fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                    style={{ zIndex: 1 }}
+                                    fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                     fallbackText={team.names[0].charAt(0).toUpperCase()}
                                     context="list"
                                   />
                                   <ProfileImage 
                                     src={findPlayerPhotoByName(team.names[1], members)} 
                                     alt={team.names[1]} 
-                                    size="sm"
+                                    size={layout.profileImageListSize}
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                    fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                    style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
+                                    fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                     fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
                                     context="list"
                                   />
                                 </div>
-                                <span className="text-gray-300">{team.names.join(' & ')}</span>
+                                <span className={`${layout.bodySize} text-gray-300`}>{team.names.join(' & ')}</span>
                               </div>
                               <span className="text-white font-medium mr-2">
                                 {(typeof team.value === 'number' && team.eventsPlayed && team.eventsPlayed > 0) && (
-                                  <span className="text-gray-400 mr-1 text-sm">
+                                  <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                     ({Math.round(team.value * team.eventsPlayed)}/{team.eventsPlayed})
                                   </span>
                                 )}
-                                <span className="text-lg font-medium">
+                                <span className={`${layout.valueSize} font-medium`}>
                                   {(Number(team.value) * 100).toFixed(1)}%
                                 </span>
                               </span>
                             </div>
                           ))
                         ) : (
-                          <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div>
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine Daten verfügbar</div>
                         )}
                       </div>
                     </div>
 
                     {/* 5. Matsch-Bilanz */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">Matsch-Bilanz</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Matsch-Bilanz</h3>
                       </div>
-                      <div ref={teamMatschRateRef} className="p-4 space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2">
+                      <div ref={teamMatschRateRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {(() => {
                           // ✅ KORRIGIERT: Verwende teamWithHighestMatschBilanz statt teamWithHighestMatschRate
                           const teamMatschData = groupStats?.teamWithHighestMatschBilanz || groupStats?.teamWithHighestMatschRate;
@@ -2045,35 +2064,37 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               (team.value && team.value !== 0)
                             );
                             return teamsWithMatschEvents.map((team, index) => (
-                              <div key={`team-${team.names.join('-')}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                              <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                                 <div className="flex items-center">
-                                  <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                  <div className="flex -space-x-2 mr-2">
+                                  <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
+                                  <div className="flex mr-2">
                                     <ProfileImage 
                                       src={findPlayerPhotoByName(team.names[0], members)} 
                                       alt={team.names[0]} 
-                                      size="sm"
+                                      size={layout.profileImageListSize}
                                       className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                      style={{ zIndex: 1 }}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                       fallbackText={team.names[0].charAt(0).toUpperCase()}
                                     />
                                     <ProfileImage 
                                       src={findPlayerPhotoByName(team.names[1], members)} 
                                       alt={team.names[1]} 
-                                      size="sm"
+                                      size={layout.profileImageListSize}
                                       className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                    style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                       fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
                                     />
                                   </div>
-                                  <span className="text-gray-300">{team.names.join(' & ')}</span>
+                                  <span className={`${layout.bodySize} text-gray-300`}>{team.names.join(' & ')}</span>
                                 </div>
                                 <div className="flex items-center">
                                   <span className="text-white font-medium mr-2">
-                                    <span className="text-gray-400 mr-1 text-sm">
+                                    <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                       ({team.eventsMade || 0}/{team.eventsReceived || 0})
                                     </span>
-                                    <span className="text-lg font-medium">
+                                    <span className={`${layout.valueSize} font-medium`}>
                                       {team.value > 0 ? '+' : ''}{Math.round(Number(team.value))}
                                     </span>
                                   </span>
@@ -2088,12 +2109,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* 6. Schneider-Bilanz */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">Schneider-Bilanz</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Schneider-Bilanz</h3>
                       </div>
-                      <div ref={teamSchneiderRateRef} className="p-4 space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2">
+                      <div ref={teamSchneiderRateRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {(() => {
                           // ✅ KORRIGIERT: Verwende teamWithHighestSchneiderBilanz statt teamWithHighestSchneiderRate
                           const teamSchneiderData = groupStats?.teamWithHighestSchneiderBilanz || groupStats?.teamWithHighestSchneiderRate;
@@ -2105,35 +2126,37 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               (team.value && team.value !== 0)
                             );
                             return teamsWithSchneiderEvents.map((team, index) => (
-                              <div key={`team-${team.names.join('-')}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                              <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                                 <div className="flex items-center">
-                                  <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                  <div className="flex -space-x-2 mr-2">
+                                  <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
+                                  <div className="flex mr-2">
                                     <ProfileImage 
                                       src={findPlayerPhotoByName(team.names[0], members)} 
                                       alt={team.names[0]} 
-                                      size="sm"
+                                      size={layout.profileImageListSize}
                                       className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                      style={{ zIndex: 1 }}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                       fallbackText={team.names[0].charAt(0).toUpperCase()}
                                     />
                                     <ProfileImage 
                                       src={findPlayerPhotoByName(team.names[1], members)} 
                                       alt={team.names[1]} 
-                                      size="sm"
+                                      size={layout.profileImageListSize}
                                       className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                      fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                    style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                       fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
                                     />
                                   </div>
-                                  <span className="text-gray-300">{team.names.join(' & ')}</span>
+                                  <span className={`${layout.bodySize} text-gray-300`}>{team.names.join(' & ')}</span>
                                 </div>
                                 <div className="flex items-center">
                                   <span className="text-white font-medium mr-2">
-                                    <span className="text-gray-400 mr-1 text-sm">
+                                    <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                       ({team.eventsMade || 0}/{team.eventsReceived || 0})
                                     </span>
-                                    <span className="text-lg font-medium">
+                                    <span className={`${layout.valueSize} font-medium`}>
                                       {team.value > 0 ? '+' : ''}{Math.round(Number(team.value))}
                                     </span>
                                   </span>
@@ -2148,12 +2171,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* 7. Kontermatsch-Bilanz */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">Kontermatsch-Bilanz</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Kontermatsch-Bilanz</h3>
                       </div>
-                      <div className="p-4 space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2">
+                      <div className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {(() => {
                           const teamKontermatschData = groupStats?.teamWithHighestKontermatschBilanz || groupStats?.teamWithHighestKontermatschRate;
                           if (teamKontermatschData && teamKontermatschData.length > 0) {
@@ -2167,35 +2190,37 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             
                             if (teamsWithKontermatsch.length > 0) {
                               return teamsWithKontermatsch.map((team, index) => (
-                                <div key={`team-${team.names.join('-')}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                                   <div className="flex items-center">
-                                    <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                    <div className="flex -space-x-2 mr-2">
+                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
+                                    <div className="flex mr-2">
                                       <ProfileImage 
                                         src={findPlayerPhotoByName(team.names[0], members)} 
                                         alt={team.names[0]} 
-                                        size="sm"
+                                        size={layout.profileImageListSize}
                                         className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                        style={{ zIndex: 1 }}
+                                        fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                         fallbackText={team.names[0].charAt(0).toUpperCase()}
                                       />
-                                      <ProfileImage 
+                                        <ProfileImage 
                                         src={findPlayerPhotoByName(team.names[1], members)} 
                                         alt={team.names[1]} 
-                                        size="sm"
+                                        size={layout.profileImageListSize}
                                         className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                        fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                    style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
+                                        fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                         fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
                                       />
                                     </div>
-                                    <span className="text-gray-300">{team.names.join(' & ')}</span>
+                                    <span className={`${layout.bodySize} text-gray-300`}>{team.names.join(' & ')}</span>
                                   </div>
                                   <div className="flex items-center">
                                     <span className="text-white font-medium mr-2">
-                                      <span className="text-gray-400 mr-1 text-sm">
+                                      <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                         ({team.eventsMade || 0}/{team.eventsReceived || 0})
                                       </span>
-                                      <span className="text-lg font-medium">
+                                      <span className={`${layout.valueSize} font-medium`}>
                                         {team.value > 0 ? '+' : ''}{Math.round(Number(team.value))}
                                       </span>
                                     </span>
@@ -2213,95 +2238,99 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* 8. Weis-Durchschnitt */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">Weis-Durchschnitt</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Weis-Durchschnitt</h3>
                       </div>
-                      <div ref={teamWeisAvgRef} className="p-4 space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2">
+                      <div ref={teamWeisAvgRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {groupStats?.teamWithMostWeisPointsAvg && groupStats.teamWithMostWeisPointsAvg.length > 0 ? (
                           groupStats.teamWithMostWeisPointsAvg
                             .filter(team => 
                               team.value && team.value > 0
                             )
                             .map((team, index) => (
-                            <div key={`team-${team.names.join('-')}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                            <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                               <div className="flex items-center">
-                                <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                <div className="flex -space-x-2 mr-2">
+                                <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
+                                <div className="flex mr-2">
                                   <ProfileImage 
                                     src={findPlayerPhotoByName(team.names[0], members)} 
                                     alt={team.names[0]} 
-                                    size="sm"
+                                    size={layout.profileImageListSize}
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                    fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                    style={{ zIndex: 1 }}
+                                    fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                     fallbackText={team.names[0].charAt(0).toUpperCase()}
                                     context="list"
                                   />
                                   <ProfileImage 
                                     src={findPlayerPhotoByName(team.names[1], members)} 
                                     alt={team.names[1]} 
-                                    size="sm"
+                                    size={layout.profileImageListSize}
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                    fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                    style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
+                                    fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                     fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
                                     context="list"
                                   />
                                 </div>
-                                <span className="text-gray-300">{team.names.join(' & ')}</span>
+                                <span className={`${layout.bodySize} text-gray-300`}>{team.names.join(' & ')}</span>
                               </div>
-                              <span className="text-white text-lg font-medium">{Math.round(Number(team.value))}</span>
+                              <span className={`text-white ${layout.valueSize} font-medium`}>{Math.round(Number(team.value))}</span>
                             </div>
                           ))
                         ) : (
-                          <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div>
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine Daten verfügbar</div>
                         )}
                       </div>
                     </div>
 
                     {/* 9. Rundentempo */}
-                    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className={`w-1 h-6 ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className="text-base font-semibold text-white">Rundentempo</h3>
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Rundentempo</h3>
                       </div>
-                      <div ref={teamRoundTimeRef} className="p-4 space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2">
+                      <div ref={teamRoundTimeRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {groupStats?.teamWithFastestRounds && groupStats.teamWithFastestRounds.length > 0 ? (
                           groupStats.teamWithFastestRounds
                             .filter(team => 
                               team.value && team.value > 0
                             )
                             .map((team, index) => (
-                            <div key={`team-${team.names.join('-')}`} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                            <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                               <div className="flex items-center">
-                                <span className="text-gray-400 min-w-5 mr-2">{index + 1}.</span>
-                                <div className="flex -space-x-2 mr-2">
+                                <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
+                                <div className="flex mr-2">
                                   <ProfileImage 
                                     src={findPlayerPhotoByName(team.names[0], members)} 
                                     alt={team.names[0]} 
-                                    size="sm"
+                                    size={layout.profileImageListSize}
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                    fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                    style={{ zIndex: 1 }}
+                                    fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                     fallbackText={team.names[0].charAt(0).toUpperCase()}
                                     context="list"
                                   />
                                   <ProfileImage 
                                     src={findPlayerPhotoByName(team.names[1], members)} 
                                     alt={team.names[1]} 
-                                    size="sm"
+                                    size={layout.profileImageListSize}
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                    fallbackClassName="bg-gray-700 text-gray-300 text-sm"
+                                    style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
+                                    fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                     fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
                                     context="list"
                                   />
                                 </div>
-                                <span className="text-gray-300">{team.names.join(' & ')}</span>
+                                <span className={`${layout.bodySize} text-gray-300`}>{team.names.join(' & ')}</span>
                               </div>
-                              <span className="text-white text-lg font-medium text-right whitespace-nowrap">{formatMillisecondsDuration(Number(team.value))}</span>
+                              <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{formatMillisecondsDuration(Number(team.value))}</span>
                             </div>
                           ))
                         ) : (
-                          <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div>
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine Daten verfügbar</div>
                         )}
                       </div>
                     </div>
@@ -2312,13 +2341,13 @@ export const GroupView: React.FC<GroupViewProps> = ({
           </TabsContent>
 
           {/* ARCHIV TAB */}
-          <TabsContent value="archive" className="w-full bg-gray-800/50 rounded-lg p-4 mb-8">
+          <TabsContent value="archive" className={`w-full bg-gray-800/50 rounded-lg ${layout.cardPadding} mb-8`}>
             {/* FEHLER CASE: Sessions Error UND leeres Archiv */}
             {sessionsError && !sessionsLoading && !tournamentsLoading && combinedArchiveItems.length === 0 && (
                 <div className="text-center text-gray-400 py-6 px-4 bg-gray-800/30 rounded-md">
                     <Archive size={32} className="mx-auto mb-3 text-gray-500" />
-                    <p className="font-semibold text-gray-300">Keine Einträge im Archiv</p>
-                    <p className="text-sm">Abgeschlossene Partien und Turniere werden hier angezeigt.</p>
+                    <p className={`font-semibold text-gray-300 ${layout.bodySize}`}>Keine Einträge im Archiv</p>
+                    <p className={`${layout.smallTextSize}`}>Abgeschlossene Partien und Turniere werden hier angezeigt.</p>
                 </div>
             )}
             
@@ -2326,7 +2355,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
             {(sessionsLoading || tournamentsLoading) && (!sessionsError && !tournamentsError) && (
               <div className="flex justify-center items-center py-10">
                 <div className="h-8 w-8 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
-                <span className="ml-3 text-gray-300">Lade Archiv...</span>
+                <span className={`ml-3 text-gray-300 ${layout.bodySize}`}>Lade Archiv...</span>
               </div>
             )}
             
@@ -2334,8 +2363,8 @@ export const GroupView: React.FC<GroupViewProps> = ({
             {!sessionsLoading && !tournamentsLoading && combinedArchiveItems.length === 0 && !sessionsError && !tournamentsError && (
                 <div className="text-center text-gray-400 py-6 px-4 bg-gray-800/30 rounded-md">
                     <Archive size={32} className="mx-auto mb-3 text-gray-500" />
-                    <p className="font-semibold text-gray-300">Keine Einträge im Archiv</p>
-                    <p className="text-sm">Abgeschlossene Partien und Turniere werden hier angezeigt.</p>
+                    <p className={`font-semibold text-gray-300 ${layout.bodySize}`}>Keine Einträge im Archiv</p>
+                    <p className={`${layout.smallTextSize}`}>Abgeschlossene Partien und Turniere werden hier angezeigt.</p>
                 </div>
             )}
             
@@ -2343,9 +2372,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
             {((sessionsError && completedSessions.length === 0) || (tournamentsError && groupTournaments.length === 0)) && !sessionsLoading && !tournamentsLoading && (
               <div className="text-center text-red-400 py-6 px-4 bg-red-900/20 rounded-md">
                 <AlertTriangle size={32} className="mx-auto mb-3 text-red-500" />
-                <p className="font-semibold text-red-300">Fehler beim Laden des Archivs</p>
-                {sessionsError && <p className="text-sm">Sessions: {sessionsError}</p>}
-                {tournamentsError && <p className="text-sm">Turniere: {tournamentsError}</p>}
+                <p className={`font-semibold text-red-300 ${layout.bodySize}`}>Fehler beim Laden des Archivs</p>
+                {sessionsError && <p className={`${layout.smallTextSize}`}>Sessions: {sessionsError}</p>}
+                {tournamentsError && <p className={`${layout.smallTextSize}`}>Turniere: {tournamentsError}</p>}
               </div>
             )}
             
@@ -2354,7 +2383,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
               <div className="space-y-4">
                 {sortedYears.map(year => (
                   <div key={year}>
-                    <h3 className="text-lg font-semibold text-white mb-3 text-center">{year}</h3>
+                    <h3 className={`${layout.headingSize} font-semibold text-white mb-3 text-center`}>{year}</h3>
                     <div className="space-y-2">
                       {groupedArchiveByYear[year].map(renderArchiveItem)}
                     </div>
@@ -2368,11 +2397,11 @@ export const GroupView: React.FC<GroupViewProps> = ({
           <TabsContent 
             value="members" 
             forceMount
-            className={activeMainTab !== 'members' ? 'hidden' : 'w-full bg-gray-800/50 rounded-lg p-4 mb-8'}
+            className={activeMainTab !== 'members' ? 'hidden' : `w-full bg-gray-800/50 rounded-lg ${layout.cardPadding} mb-8`}
             style={{ display: activeMainTab !== 'members' ? 'none' : 'block' }}
           >
             {membersError && !membersLoading && (
-                <div className="text-red-400 text-sm text-center p-4 bg-red-900/30 rounded-md">
+                <div className={`text-red-400 ${layout.smallTextSize} text-center p-4 bg-red-900/30 rounded-md`}>
                     Fehler: {membersError}
                 </div>
             )}
@@ -2411,6 +2440,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
           className="hidden"
           disabled={isUploading}
         />
+
+        {/* 🎨 RESPONSIVE CONTAINER WRAPPER CLOSING TAG */}
+        </div>
 
       </div>
 

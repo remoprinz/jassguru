@@ -10,10 +10,11 @@ import { getOptimizedImageUrl } from '@/utils/imageOptimization';
 interface ProfileImageProps {
   src?: string | null;
   alt: string;
-  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'xs' | 'sm' | 'md' | 'md-sm' | 'md-lg' | 'lg' | 'xl';
   fallbackText?: string;
   className?: string;
   fallbackClassName?: string;
+  style?: React.CSSProperties; // Inline styles für explizite Überlappung
   priority?: boolean;
   useNextImage?: boolean; // Option für Next.js Image vs Avatar
   lazy?: boolean; // Lazy Loading Control
@@ -32,6 +33,8 @@ const sizeMapping = {
   xs: { width: 24, height: 24, className: 'h-6 w-6' },
   sm: { width: 32, height: 32, className: 'h-8 w-8' },
   md: { width: 40, height: 40, className: 'h-10 w-10' },
+  'md-sm': { width: 52, height: 52, className: 'h-13 w-13' },
+  'md-lg': { width: 64, height: 64, className: 'h-16 w-16' },
   lg: { width: 80, height: 80, className: 'h-20 w-20' },
   xl: { width: 128, height: 128, className: 'h-32 w-32' },
 };
@@ -43,6 +46,7 @@ const ProfileImage: React.FC<ProfileImageProps> = memo(({
   fallbackText,
   className = '',
   fallbackClassName = '',
+  style,
   priority = false,
   useNextImage = true, // 🔥 WICHTIG: Next.js Image als Standard für bessere Performance
   lazy = true, // Lazy Loading als Standard
@@ -98,6 +102,8 @@ const ProfileImage: React.FC<ProfileImageProps> = memo(({
       xs: '(max-width: 640px) 24px, 24px',
       sm: '(max-width: 640px) 32px, 32px', 
       md: '(max-width: 640px) 40px, 40px',
+      'md-sm': '(max-width: 640px) 44px, 52px',
+      'md-lg': '(max-width: 640px) 48px, 64px',
       lg: '(max-width: 640px) 60px, 80px',
       xl: '(max-width: 640px) 96px, 128px'
     };
@@ -150,7 +156,7 @@ const ProfileImage: React.FC<ProfileImageProps> = memo(({
   if (useNextImage && !useAvatarComponent) {
     // Verwende Next.js Image direkt (für größere Bilder)
     return (
-      <div className={cn(`relative overflow-hidden rounded-full bg-gray-800`, sizeConfig.className, className)}>
+      <div className={cn(`relative overflow-hidden rounded-full bg-gray-800`, sizeConfig.className, className)} style={style}>
         {hasValidSrc ? (
           <Image
             src={optimizedSrc}
@@ -182,7 +188,7 @@ const ProfileImage: React.FC<ProfileImageProps> = memo(({
 
   // Verwende Radix Avatar (Standard)
   return (
-    <Avatar className={cn(sizeConfig.className, className)}>
+    <Avatar className={cn(sizeConfig.className, className)} style={style}>
       {hasValidSrc && (
         <AvatarImage 
           src={optimizedSrc} 
@@ -209,6 +215,7 @@ const ProfileImage: React.FC<ProfileImageProps> = memo(({
          prevProps.size === nextProps.size &&
          prevProps.className === nextProps.className &&
          prevProps.fallbackClassName === nextProps.fallbackClassName &&
+         prevProps.style === nextProps.style &&
          prevProps.priority === nextProps.priority &&
          prevProps.context === nextProps.context &&
          prevProps.optimized === nextProps.optimized &&

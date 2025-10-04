@@ -107,14 +107,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({children}) => {
   const mainPaddingBottom = isCtaVisible ? "pb-44" : (showBottomNav ? "pb-24" : "pb-0");
 
   return (
-    <div className="flex flex-col h-full bg-gray-900 max-w-3xl mx-auto">
+    <div className="flex flex-col h-full bg-gray-900 max-w-3xl lg:max-w-none mx-auto">
       {/* Fixierter Header */}
       <Header />
 
       {/* Hauptinhalt - Scrollbar, flex-1 und dynamisches Padding */}
       <main className={`flex-1 relative overflow-y-auto ${mainPaddingBottom}`}>
-        {/* Container für Padding etc. - KEINE max-width mehr hier */}
-        <div className="w-full px-4">
+        {/* Container für Padding etc. - max-w-3xl zentriert auf Desktop */}
+        <div className="w-full max-w-3xl mx-auto px-4 lg:px-0">
           {children}
         </div>
       </main>

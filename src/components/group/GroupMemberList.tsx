@@ -6,6 +6,7 @@ import type { FirestorePlayer } from '@/types/jass';
 import { cn } from '@/lib/utils'; // Für bedingte Klassen
 import { Award } from 'lucide-react'; // Award Icon importieren
 import ProfileImage from '@/components/ui/ProfileImage';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 
 interface GroupMemberListProps {
   members: FirestorePlayer[];
@@ -16,12 +17,14 @@ interface GroupMemberListProps {
 type PlayerWithPlaceholder = FirestorePlayer & { _isPlaceholder?: boolean };
 
 export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, isLoading }) => {
+  // Responsive Layout Hook
+  const layout = useResponsiveLayout();
 
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-gray-400">
         <Loader2 className="h-8 w-8 animate-spin mb-2" />
-        <span>Lade Mitglieder...</span>
+        <span className={layout.bodySize}>Lade Mitglieder...</span>
       </div>
     );
     // Optional: Skeleton-Loader für ein besseres UX
@@ -45,7 +48,7 @@ export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, isLoa
 
   if (!members || members.length === 0) {
     return (
-      <div className="py-8 text-center text-gray-400">
+      <div className={`py-8 text-center text-gray-400 ${layout.bodySize}`}>
         Noch keine Mitglieder in dieser Gruppe.
       </div>
     );
@@ -63,7 +66,7 @@ export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, isLoa
               href={`/profile/${player.id}`}
               passHref
               className={cn(
-                "flex items-center gap-3 p-3 rounded-md transition-colors duration-150",
+                `flex items-center gap-3 ${layout.listItemPadding} rounded-md transition-colors duration-150`,
                 isPlaceholder ? 'bg-yellow-900/20 hover:bg-yellow-900/40 cursor-default' // Kein Hover-Effekt für Platzhalter? Oder anderer Style?
                 : 'bg-gray-700/50 hover:bg-gray-700/80'
               )}
@@ -72,18 +75,19 @@ export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, isLoa
               <ProfileImage 
                     src={player.photoURL}
                     alt={player.displayName || 'Mitglied'}
-                size="md"
-                className="mr-3 flex-shrink-0"
+                size={layout.profileImageListSize}
+                className={`${layout.listItemImageSpacing} flex-shrink-0`}
                 fallbackClassName={cn(
-                  "bg-gray-700 text-gray-300",
+                  `bg-gray-700 text-gray-300 ${layout.bodySize}`,
                   isPlaceholder && "bg-yellow-700"
                 )}
                 fallbackText={player.displayName?.charAt(0).toUpperCase() || '?'}
+                context="list"
               />
 
               {/* Nickname & Placeholder Info */}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate flex items-center gap-1.5">
+                <p className={`${layout.bodySize} font-medium text-white truncate flex items-center gap-1.5`}>
                   {/* OG Badge Icon (Annahme) - Links vom Namen */}
                   {player?.metadata?.isOG && (
                     <Award className="w-4 h-4 text-yellow-400 flex-shrink-0" />
@@ -91,7 +95,7 @@ export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, isLoa
                   <span>{player.displayName || "Unbekannter Spieler"}</span>
                 </p>
                 {isPlaceholder && (
-                  <p className="text-xs text-yellow-400 truncate">
+                  <p className={`${layout.smallTextSize} text-yellow-400 truncate`}>
                     (Daten unvollständig)
                   </p>
                 )}
@@ -104,9 +108,9 @@ export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, isLoa
               </div>
 
               {/* Games Played (Rechtsbündig) */}
-              <div className="flex-shrink-0 text-sm text-gray-300 font-medium ml-2">
+              <div className={`flex-shrink-0 ${layout.valueSize} text-gray-300 font-medium ml-2`}>
                 {player.stats?.gamesPlayed ?? 0}
-                <span className="text-xs text-gray-400 ml-1">Spiele</span>
+                <span className={`${layout.smallTextSize} text-gray-400 ml-1`}>Spiele</span>
               </div>
             </Link>
           </li>
