@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
+import { SeoHead } from '@/components/layout/SeoHead';
 
 const ClearCachePage: React.FC = () => {
   const [status, setStatus] = useState<'loading' | 'clearing' | 'success' | 'error'>('loading');
@@ -78,14 +79,7 @@ const ClearCachePage: React.FC = () => {
 
   return (
     <>
-      <Head>
-        <title>Cache wird geleert - jassguru.ch</title>
-        <meta name="robots" content="noindex, nofollow" />
-        <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-        <meta httpEquiv="Pragma" content="no-cache" />
-        <meta httpEquiv="Expires" content="0" />
-      </Head>
-      
+      <SeoHead noIndex={true} />
       <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-8">
         <div className="max-w-md w-full bg-gray-800 rounded-lg p-8 text-center shadow-xl">
           

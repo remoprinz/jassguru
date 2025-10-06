@@ -24,6 +24,7 @@ import {useBackgroundOptimization} from '../hooks/useBackgroundOptimization';
 import {UpdateBanner} from '@/components/pwa/UpdateBanner';
 import GlobalLoader from '@/components/layout/GlobalLoader';
 import FullscreenLoader from '@/components/ui/FullscreenLoader';
+import { SeoHead } from "@/components/layout/SeoHead";
 
 // App-Watchdog in index.html verschoben für frühere Ausführung
 
@@ -307,26 +308,8 @@ const MyApp = ({Component, pageProps}: AppProps) => {
         <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
         <meta httpEquiv="Pragma" content="no-cache" />
         <meta httpEquiv="Expires" content="0" />
-
-        {/* SEO & Branding Meta Tags */}
-        <title>Jassguru.ch - Die Jass-Community in deiner Tasche</title>
-        <meta name="description" content="Schneller, smarter, vernetzter Jassen. Deine digitale Jasstafel für Ranglisten, Statistiken und Turniere. Werde Teil der Jass-Community!" />
-        <meta name="keywords" content="Jassen, Jass, Jass-Community, Jasstafel, Jasszähler, Rangliste, Statistik, Tabelle, Turnier, Schieber, Coiffeur, Differenzler, Schweizer Jass" />
-        <link rel="canonical" href="https://www.jassguru.ch" />
-
-        {/* Open Graph / Facebook Meta Tags */}
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://www.jassguru.ch/" />
-        <meta property="og:title" content="Jassguru.ch - Die Jass-Community in deiner Tasche" />
-        <meta property="og:description" content="Schneller, smarter, vernetzter Jassen. Deine digitale Jasstafel für Ranglisten, Statistiken und Turniere." />
-        <meta property="og:image" content="https://www.jassguru.ch/apple-touch-icon.png" />
-
-        {/* Twitter Meta Tags */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Jassguru.ch - Die Jass-Community in deiner Tasche" />
-        <meta name="twitter:description" content="Schneller, smarter, vernetzter Jassen mit digitalen Ranglisten und Statistiken." />
-        <meta name="twitter:image" content="https://www.jassguru.ch/apple-touch-icon.png" />
       </Head>
+      <SeoHead />
       <AuthProvider>
         <UserProvider>
           <FirestoreSyncProvider>

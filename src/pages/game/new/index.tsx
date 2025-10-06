@@ -15,6 +15,7 @@ import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
 import { useOnboardingFlow } from '@/hooks/useOnboardingFlow';
 import { shouldShowBrowserOnboarding } from '@/utils/devUtils';
 import type { BrowserOnboardingStep } from '@/constants/onboardingContent';
+import { SeoHead } from '@/components/layout/SeoHead';
 
 const NewGamePage: React.FC = () => {
   const router = useRouter();
@@ -156,6 +157,7 @@ const NewGamePage: React.FC = () => {
 
   return (
     <MainLayout>
+      <SeoHead noIndex={true} />
       <StartScreen onCancel={handleCancel} members={members} />
     </MainLayout>
   );

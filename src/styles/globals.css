@@ -184,12 +184,15 @@ body.lexikon-page div[id="__next"] {
   color: #e5e7eb; /* Helles Grau für Text */
 }
 
+/* Listen - Überschreibt alle Prose-Klassen */
+.prose ul,
 .content-formatting ul {
   margin: 1.5rem 0;
   padding-left: 0;
   list-style: none;
 }
 
+.prose ul li,
 .content-formatting ul li {
   position: relative;
   padding-left: 2rem;
@@ -199,10 +202,13 @@ body.lexikon-page div[id="__next"] {
   color: #e5e7eb; /* Helles Grau für Listen */
 }
 
+/* Bullet Points - Überschreibt alle Prose-Klassen */
+.prose ul li::before,
 .content-formatting ul li::before {
   content: "•";
   position: absolute;
   left: 0.5rem;
+  top: -0.25em;
   color: #10b981; /* Jassguru Grün für Bullets */
   font-weight: bold;
   font-size: 1.25rem;
@@ -265,6 +271,13 @@ body.lexikon-page div[id="__next"] {
       padding-right: env(safe-area-inset-right);
     }
     
+    /* 🎯 LEXIKON HEADER: Perfektes Spacing für iOS PWA */
+    .lexikon-header-pwa {
+      /* iOS Safe Area (ca. 47px auf iPhone) + nur 12px extra = perfekter Abstand */
+      padding-top: calc(env(safe-area-inset-top) + 0.75rem);
+      padding-bottom: 2rem; /* pb-8 = 2rem */
+    }
+    
     /* PWA: Vollscreen für Jass-App ohne Safe Area Padding */
     body:not(.lexikon-page) {
       background-color: black;
@@ -275,6 +288,31 @@ body.lexikon-page div[id="__next"] {
     
     body:not(.lexikon-page) #__next {
       height: 100vh !important;
+    }
+  }
+}
+
+/* Fallback für PWA ohne @supports - iOS < 11.0 und Android */
+@media (display-mode: standalone) {
+  .lexikon-header-pwa {
+    /* Universeller Fallback: ~40px Statusleiste + 12px extra = 52px */
+    padding-top: 3.25rem; /* 52px - funktioniert für beide Plattformen */
+    padding-bottom: 2rem;
+  }
+  
+  /* Android-spezifische Erkennung und Anpassung */
+  @media screen and (max-width: 768px) {
+    .lexikon-header-pwa {
+      /* Android: Kleinere Statusleisten (~24px) + 12px extra = 36px */
+      padding-top: 2.25rem; /* 36px */
+    }
+    
+    /* iOS-Erkennung: Größere Statusleisten */
+    @supports (-webkit-touch-callout: none) {
+      .lexikon-header-pwa {
+        /* iOS: Größere Statusleisten (~47px) + 12px extra = 59px */
+        padding-top: 3.75rem; /* 60px */
+      }
     }
   }
 }

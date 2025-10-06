@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { redeemTournamentInvite } from '@/services/tournamentService';
 import { getGroupToken, getTournamentToken, clearGroupToken, clearTournamentToken } from '@/utils/tokenStorage';
 import GlobalLoader from "@/components/layout/GlobalLoader";
+import { SeoHead } from "@/components/layout/SeoHead";
 
 type JoinPageStatus = "idle" | "processing" | "success" | "error";
 

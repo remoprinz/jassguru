@@ -783,6 +783,7 @@ async function saveRatings(playerRatings, playerGroupsMap) {
     // NEU: Spiegeln in Gruppen-Subcollections
     const groupsSet = playerGroupsMap?.get(rating.id);
     if (groupsSet && groupsSet.size > 0) {
+      console.log(`   📁 Spieler ${ratingWithName.displayName} -> ${groupsSet.size} Gruppen-Subcollection(s)`);
       for (const groupId of groupsSet) {
         const groupDocRef = db.collection(`groups/${groupId}/playerRatings`).doc(rating.id);
         batch.set(groupDocRef, ratingWithName);

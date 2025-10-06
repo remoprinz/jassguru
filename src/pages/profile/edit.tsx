@@ -15,6 +15,7 @@ import { CURRENT_PROFILE_THEME, THEME_COLORS, type ThemeColor, getCurrentProfile
 import { getPlayerByUserId } from '@/services/playerService';
 import type { FirestorePlayer } from '@/types/jass';
 import { sanitizeInput } from "@/utils/sanitize";
+import { SeoHead } from '@/components/layout/SeoHead';
 
 const EditProfilePage: React.FC = () => {
   const {user, status, isAuthenticated, updateProfile} = useAuthStore();
@@ -169,6 +170,7 @@ const EditProfilePage: React.FC = () => {
 
   return (
     <MainLayout>
+      <SeoHead noIndex={true} />
       <div className="flex flex-col items-center bg-gray-900 p-4 text-white relative">
         {/* Back Button */}
         <Link href="/profile" passHref legacyBehavior>

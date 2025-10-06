@@ -3,15 +3,16 @@ import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { toSlug } from '@/lib/utils';
-import allContent from '@/data/jass-lexikon.json';
+import allContent from '@/data/jass-content-v2.json';
 import { JassContentRecord, JassContentItem } from '@/types/jass-lexikon';
 
-// Erstelle eine Map für schnellen Zugriff auf Link-Ziele
+// Erstelle eine Map für schnellen Zugriff auf Link-Ziele (3-Ebenen URLs)
 const linkMap = new Map<string, string>();
 Object.values(allContent as JassContentRecord).forEach(item => {
     const mainCatSlug = toSlug(item.metadata.category.main);
+    const subCatSlug = toSlug(item.metadata.category.sub);
     const topicSlug = toSlug(item.metadata.category.topic);
-    const path = `/wissen/${mainCatSlug}/${topicSlug}`;
+    const path = `/wissen/${mainCatSlug}/${subCatSlug}/${topicSlug}`;
 
     // Hauptthema als Schlüssel
     linkMap.set(item.metadata.category.topic.toLowerCase(), path);
@@ -25,51 +26,61 @@ interface InternalLinkerProps {
   text: string;
 }
 
+/**
+ * Component, der Text rendert und automatisch interne Links zu anderen Wissensartikeln erstellt
+ */
 export const InternalLinker: React.FC<InternalLinkerProps> = ({ text }) => {
+  // Verwende ReactMarkdown für Markdown-Rendering
   return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
-      components={{
-        a: ({ node, ...props }) => {
-          // Behalte externe Links bei
-          if (props.href && (props.href.startsWith('http') || props.href.startsWith('mailto'))) {
-            return <a {...props} target="_blank" rel="noopener noreferrer" />;
-          }
-          // Interne Links aus dem Markdown
-          return <Link href={props.href || ''} legacyBehavior><a {...props} /></Link>;
-        },
-        p: ({ children }) => {
-          const processedChildren = React.Children.toArray(children).flatMap((child) => {
-            if (typeof child === 'string') {
-              const words = child.split(/(\s+)/);
-              return words.map((word, index) => {
-                const cleanWord = word.replace(/[.,!?:;()"“”]/g, '').toLowerCase();
-                if (linkMap.has(cleanWord)) {
-                  return (
-                    <Link href={linkMap.get(cleanWord)!} legacyBehavior key={index}>
-                      <a className="text-white hover:text-green-400 underline decoration-1 underline-offset-2 font-medium transition-colors">{word}</a>
-                    </Link>
-                  );
-                }
-                return word;
-              });
+    <div className="prose prose-invert prose-lg max-w-none">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          // Custom renderer für Links
+          a: ({ node, href, children, ...props }) => {
+            // Prüfe ob es ein externer Link ist
+            if (href?.startsWith('http')) {
+              return (
+                <a href={href} target="_blank" rel="noopener noreferrer" className="text-green-400 hover:text-green-300 underline" {...props}>
+                  {children}
+                </a>
+              );
             }
-            return child;
-          });
-          return <p className="mb-4">{processedChildren}</p>;
-        },
-        // Weitere Komponenten für bessere Formatierung
-        h1: ({ children }) => <h1 className="text-3xl font-bold mb-6 text-gray-900">{children}</h1>,
-        h2: ({ children }) => <h2 className="text-2xl font-bold mb-4 mt-8 text-gray-800">{children}</h2>,
-        h3: ({ children }) => <h3 className="text-xl font-semibold mb-3 mt-6 text-gray-700">{children}</h3>,
-        ul: ({ children }) => <ul className="space-y-2 mb-6">{children}</ul>,
-        ol: ({ children }) => <ol className="space-y-2 mb-6">{children}</ol>,
-        li: ({ children }) => <li className="flex items-start">{children}</li>,
-        strong: ({ children }) => <strong className="font-bold text-gray-900">{children}</strong>,
-        em: ({ children }) => <em className="italic text-gray-700">{children}</em>,
-      }}
-    >
-      {text}
-    </ReactMarkdown>
+            
+            // Interner Link
+            return (
+              <Link href={href || '#'} className="text-green-400 hover:text-green-300 underline">
+                {children}
+              </Link>
+            );
+          },
+          // Formatiere Listen besser
+          ul: ({ node, children, ...props }) => (
+            <ul className="list-disc list-inside space-y-2 my-4" {...props}>
+              {children}
+            </ul>
+          ),
+          ol: ({ node, children, ...props }) => (
+            <ol className="list-decimal list-inside space-y-2 my-4" {...props}>
+              {children}
+            </ol>
+          ),
+          // Formatiere Überschriften
+          h2: ({ node, children, ...props }) => (
+            <h2 className="text-2xl font-bold mt-8 mb-4 text-white" {...props}>
+              {children}
+            </h2>
+          ),
+          h3: ({ node, children, ...props }) => (
+            <h3 className="text-xl font-bold mt-6 mb-3 text-white" {...props}>
+              {children}
+            </h3>
+          ),
+        }}
+      >
+        {text}
+      </ReactMarkdown>
+    </div>
   );
-}; 
+};
+

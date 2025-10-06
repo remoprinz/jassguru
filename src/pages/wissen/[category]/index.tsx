@@ -3,9 +3,10 @@ import { GetStaticPaths, GetStaticProps } from 'next';
 import { useRouter } from 'next/router';
 import { LexikonLayout } from '@/components/layout/LexikonLayout';
 import Link from 'next/link';
-import allContent from '@/data/jass-lexikon.json';
+import allContent from '@/data/jass-content-v2.json';
 import { JassContentRecord, JassContentItem } from '@/types/jass-lexikon';
 import { toSlug } from '@/lib/utils';
+import { SeoHead } from '@/components/layout/SeoHead';
 
 // Funktion zur schönen Formatierung von Topic-Namen
 const formatTopicName = (name: string): string => {
@@ -28,17 +29,24 @@ const formatTopicName = (name: string): string => {
     .replace(/STOECK/g, 'Stöck');
 };
 
-// Helper to get topics for a specific category
-const getTopicsForCategory = (content: JassContentRecord, categorySlug: string): string[] => {
-  const topics = new Set<string>();
+// Helper to get subcategories for a specific category
+const getSubcategoriesForCategory = (content: JassContentRecord, categorySlug: string): Array<{name: string, slug: string, count: number}> => {
+  const subcategories = new Map<string, number>();
   
   (Object.values(content) as JassContentItem[]).forEach(item => {
     if (toSlug(item.metadata.category.main) === categorySlug) {
-      topics.add(item.metadata.category.topic);
+      const subName = item.metadata.category.sub;
+      subcategories.set(subName, (subcategories.get(subName) || 0) + 1);
     }
   });
   
-  return Array.from(topics).sort();
+  return Array.from(subcategories.entries())
+    .map(([name, count]) => ({
+      name,
+      slug: toSlug(name),
+      count
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'de'));
 };
 
 // Helper to deslugify
@@ -52,10 +60,10 @@ const deslugify = (slug: string): string => {
 interface CategoryPageProps {
   category: string;
   categorySlug: string;
-  topics: string[];
+  subcategories: Array<{name: string, slug: string, count: number}>;
 }
 
-const CategoryPage: React.FC<CategoryPageProps> = ({ category, categorySlug, topics }) => {
+const CategoryPage: React.FC<CategoryPageProps> = ({ category, categorySlug, subcategories = [] }) => {
   const router = useRouter();
   const breadcrumbItems = [
     { name: 'Wissen', href: '/wissen' },
@@ -73,13 +81,31 @@ const CategoryPage: React.FC<CategoryPageProps> = ({ category, categorySlug, top
     };
   }, []);
 
-  // If router is not ready yet
-  if (router.isFallback) {
+  // If router is not ready yet or no data
+  if (router.isFallback || !category || subcategories.length === 0) {
     return <div>Lade...</div>;
   }
 
+  // SEO-optimierte Descriptions pro Kategorie
+  const categoryDescriptions: Record<string, string> = {
+    'Geschichte': 'Entdecke die faszinierende Geschichte des Schweizer Jass: Von mittelalterlichen Ursprüngen bis zur modernen Kulturikone. Erfahre alles über die Entwicklung des Nationalspiel.',
+    'Grundlagen & Kultur': 'Lerne die Grundlagen des Jassens: Kartenwerte, Spielablauf, Verteilmethoden und die kulturelle Bedeutung des Schweizer Nationalspiel.',
+    'Weis-Regeln': 'Meistere die Weis-Regeln: Dreiblatt, Vierblatt, Stöck und mehr. Alle offiziellen Weis-Kategorien und Punktewertungen verständlich erklärt.',
+    'Schieber': 'Werde zum Schieber-Profi: Taktiken, Konventionen und Strategien für die beliebteste Jassvariante der Schweiz.',
+    'Begriffe': 'Das komplette Jass-ABC: Von Ablupf bis Weis - alle Fachbegriffe des Schweizer Jass verständlich erklärt.',
+    'Varianten': 'Entdecke die Vielfalt: Coiffeur, Differenzler, Molotov und über 40 weitere Jass-Varianten im Detail erklärt.',
+    'Regeln': 'Alle offiziellen Jass-Regeln: Bergpreis, Matsch, Ausmacharegel und Sonderregeln - klar strukturiert und verständlich.',
+    'Referenzen': 'Quellen, Literatur und Expertenwissen: Die wissenschaftliche Grundlage unseres Jass-Portals.'
+  };
+
+  const seoDescription = categoryDescriptions[category] || `Alle Jass-Artikel in der Kategorie ${category} auf Jassguru.ch. Entdecke Regeln, Begriffe und Varianten.`;
+
   return (
     <LexikonLayout breadcrumbItems={breadcrumbItems}>
+      <SeoHead
+        title={`${category} | Jass-Wissen | Jassguru.ch`}
+        description={seoDescription}
+      />
       <div className="space-y-6 sm:space-y-8">
         {/* Category Header */}
         <div className="text-center">
@@ -87,26 +113,31 @@ const CategoryPage: React.FC<CategoryPageProps> = ({ category, categorySlug, top
             {category}
           </h1>
           <p className="text-lg sm:text-xl text-gray-300 leading-relaxed max-w-2xl mx-auto">
-            Wähle ein Thema aus, um mehr zu erfahren:
+            {subcategories.length} {subcategories.length === 1 ? 'Themenbereich' : 'Themenbereiche'} mit insgesamt {subcategories.reduce((sum, sub) => sum + sub.count, 0)} Artikeln
           </p>
         </div>
         
-        {/* Topics Grid */}
+        {/* Unterkategorien Grid */}
         <div className="grid gap-4 sm:gap-6">
-          {topics.map((topic) => (
+          {subcategories.map((subcategory) => (
             <Link 
-              key={topic}
-              href={`/wissen/${categorySlug}/${toSlug(topic)}`}
+              key={subcategory.slug}
+              href={`/wissen/${categorySlug}/${subcategory.slug}`}
               className="group block"
             >
               <div className="bg-gray-800 border border-gray-700 rounded-xl hover:border-green-500 hover:shadow-xl transition-all duration-300 p-6 sm:p-8 hover:scale-[1.02]">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <h3 className="text-xl sm:text-2xl font-bold text-white group-hover:text-green-400 transition-colors mb-2">
-                      {formatTopicName(topic)}
-                    </h3>
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-xl sm:text-2xl font-bold text-white group-hover:text-green-400 transition-colors">
+                        {subcategory.name}
+                      </h3>
+                      <span className="px-2 py-1 bg-green-600 text-white rounded-full text-xs font-medium">
+                        {subcategory.count} {subcategory.count === 1 ? 'Artikel' : 'Artikel'}
+                      </span>
+                    </div>
                     <p className="text-base sm:text-lg text-gray-300">
-                      Alles über {formatTopicName(topic).toLowerCase()} im Detail
+                      Alle Artikel über {subcategory.name} im Detail
                     </p>
                   </div>
                   <div className="ml-4 text-green-400 group-hover:translate-x-1 transition-transform">
@@ -171,13 +202,13 @@ export const getStaticProps: GetStaticProps<CategoryPageProps> = async ({ params
     return { notFound: true };
   }
   
-  const topics = getTopicsForCategory(allContent, categorySlug);
+  const subcategories = getSubcategoriesForCategory(allContent, categorySlug);
   
   return {
     props: {
       category: categoryName,
       categorySlug,
-      topics
+      subcategories
     }
   };
 };

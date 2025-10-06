@@ -8,7 +8,7 @@ Dieses Projekt ist auf GitHub gehostet: [https://github.com/remo/jassguru.ch/tre
 
 ## Produktive App
 
-Die produktive Version der App ist unter [https://jassguru.web.app/](https://jassguru.web.app/) gehostet.
+Die produktive Version der App ist unter [https://jassguru.ch/](https://jassguru.ch/) gehostet.
 
 ## Technische Spezifikation
 

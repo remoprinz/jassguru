@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
 import { LexikonLayout } from '@/components/layout/LexikonLayout';
 import Link from 'next/link';
-import { ChevronRight, BookOpen, Users, Trophy, Zap } from 'lucide-react';
+import { ChevronRight, BookOpen, Users, Trophy, Zap, Scale, FileText } from 'lucide-react';
+import { SearchBar } from '@/components/wissen/SearchBar';
 
 const WissenHomePage = () => {
     const breadcrumbItems = [{ name: 'Wissen', href: '/wissen' }];
@@ -59,6 +60,20 @@ const WissenHomePage = () => {
             description: 'Coiffeur, Differenzler & Co. - entdecke die Vielfalt des Jassens',
             icon: Users,
             color: 'bg-indigo-500'
+        },
+        { 
+            slug: 'regeln', 
+            name: 'Regeln',
+            description: 'Alle offiziellen Spielregeln, Sonderregeln und Ausnahmefälle im Detail',
+            icon: Scale,
+            color: 'bg-orange-500'
+        },
+        { 
+            slug: 'referenzen', 
+            name: 'Referenzen',
+            description: 'Quellen, Literatur und Experten rund um das Jassen',
+            icon: FileText,
+            color: 'bg-gray-500'
         }
     ];
 
@@ -79,9 +94,12 @@ const WissenHomePage = () => {
                 <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4">
                     Jass-Wissen für alle
                 </h1>
-                <p className="text-lg sm:text-xl text-gray-300 leading-relaxed max-w-2xl mx-auto">
+                <p className="text-lg sm:text-xl text-gray-300 leading-relaxed max-w-2xl mx-auto mb-8">
                     Von den Grundlagen bis zu Profi-Strategien - hier findest du alles über das Schweizer Nationalspiel.
                 </p>
+                
+                {/* Suchfunktion */}
+                <SearchBar />
             </div>
 
             {/* Main Categories Grid */}
@@ -158,6 +176,9 @@ const WissenHomePage = () => {
                     </Link>
                     <Link href="/wissen/begriffe" className="px-4 py-2 bg-gray-700 text-gray-200 rounded-full hover:bg-gray-600 hover:text-white transition-colors text-sm sm:text-base border border-gray-600">
                         Jass-ABC
+                    </Link>
+                    <Link href="/quellen" className="px-4 py-2 bg-gray-700 text-gray-200 rounded-full hover:bg-gray-600 hover:text-white transition-colors text-sm sm:text-base border border-gray-600">
+                        📚 Quellen & Literatur
                     </Link>
                 </div>
             </div>

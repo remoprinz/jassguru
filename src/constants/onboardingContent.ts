@@ -93,7 +93,7 @@ export const BROWSER_ONBOARDING = {
     INSTALL_SHARE: {
       title: "Schritt 1",
       message: "Tippe auf das Teilen-Symbol.",
-      image: "/onboarding_pics/pfeilchenbox.png",
+      image: "/onboarding_pics/pfeilchenbox_desktop.png",
     },
     INSTALL_HOME: {
       title: "Schritt 2",
@@ -129,13 +129,13 @@ export const BROWSER_ONBOARDING = {
       icon: IoIosDownload,
       image: "/welcome-guru.png",
       desktopTitle: "Mobile App installieren",
-      desktopMessage: "Jassguru ist eine Mobile App. Scanne einfach diesen QR-Code mit der Kamera deines Telefons.",
+      desktopMessage: "Jassguru ist eine moderne Webapp, die ganz ohne App Store funktioniert. Scanne einfach diesen QR-Code mit der Kamera deines Telefons.",
       desktopSecondaryMessage: "Die App wird direkt in deinem Browser geöffnet, wo du sie mit wenigen Klicks installieren kannst.",
     },
     INSTALL_SHARE: {
       title: "Schritt 1",
       message: "Klicke auf die drei Punkte.",
-      image: "/onboarding_pics/android_menu.png",
+      image: "/onboarding_pics/android_menu_desktop.png",
     },
     INSTALL_HOME: {
       title: "Schritt 2",

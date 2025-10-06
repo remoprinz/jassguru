@@ -28,7 +28,7 @@ function isDesktopDevice() {
 }
 
 // QR-Code URL
-const QR_CODE_URL = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent("https://jassguru.web.app")}`;
+const QR_CODE_URL = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent("https://jassguru.ch")}`;
 
 interface OnboardingFlowProps {
   show: boolean;

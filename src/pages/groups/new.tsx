@@ -29,6 +29,7 @@ import type { FirestoreGroup } from "@/types/jass";
 import imageCompression from "browser-image-compression";
 import ImageCropModal from "@/components/ui/ImageCropModal";
 import { getFunctions, httpsCallable } from "firebase/functions";
+import { SeoHead } from '@/components/layout/SeoHead';
 
 // Zod Schema für die Formularvalidierung
 const createGroupSchema = z.object({
@@ -314,6 +315,7 @@ const CreateGroupPage: React.FC = () => {
 
   return (
     <MainLayout>
+      <SeoHead noIndex={true} />
       <div className="flex flex-1 flex-col items-center bg-gray-900 p-4 text-white relative">
         {/* Back Button */}
         <Button

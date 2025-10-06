@@ -295,7 +295,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                 <div className="text-left">
                   <div className="mb-4">
                     Erstelle dein Profil, gründe eine Gruppe oder trete einer bei. 
-                    Jassen war noch nie so schnell, smart und vernetzt.
+                    Jassen am Tisch mit deinen Jassfreunden war noch nie so schnell, smart und vernetzt.
                   </div>
                   
                   <div className="mb-4">
