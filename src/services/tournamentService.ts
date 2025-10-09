@@ -715,9 +715,10 @@ export const fetchTournamentParticipants = async (
     
     const participantsWithPassesCount: ParticipantWithProgress[] = validParticipants.map(participant => {
       // Zähle abgeschlossene Passen für diesen Spieler
-      // WICHTIG: Verwende playerId (Player Document ID) für Spiele-Matching
+      // 🚨 KRITISCHER FIX: Verwende die korrekte UID für das Matching!
       const completedPassesForPlayer = completedGames.filter(game => {
-        // Verwende nur participantUidsForPasse, da playerId undefined ist
+        // Verwende participantUidsForPasse (Firebase Auth UIDs) für das Matching
+        // participant.userId ist die Firebase Auth UID, participant.id ist die Player Document ID
         return game.participantUidsForPasse?.includes(participant.userId || '');
       }).length;
       
@@ -725,8 +726,8 @@ export const fetchTournamentParticipants = async (
       console.log(`[tournamentService] Player ${participant.displayName}: ${completedPassesForPlayer} completed passes`);
       
       return {
-        uid: participant.userId || '', // Auth UID für Berechtigung
-        playerId: participant.id || undefined, // 🔧 FIX: Verwende 'id' statt 'playerId'!
+        uid: participant.userId || '', // 🚨 KRITISCHER FIX: Verwende participant.userId (Firebase Auth UID)
+        playerId: participant.id || undefined, // Player Document ID
         displayName: participant.displayName,
         photoURL: participant.photoURL || undefined,
         completedPassesCount: completedPassesForPlayer,

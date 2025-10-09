@@ -349,7 +349,7 @@ const PlayerProfilePage = () => {
       );
     } else if (item.type === 'tournament') {
       const tournament = item;
-      const { id, name, instanceDate, status: tournamentStatus, createdAt, participantUids, playerStats } = tournament;
+      const { id, name, instanceDate, status: tournamentStatus, createdAt } = tournament;
       
       const dateToDisplay = instanceDate ?? createdAt;
       let formattedDate: string | null = null;
@@ -359,40 +359,6 @@ const PlayerProfilePage = () => {
           formattedDate = format(new Date(dateToDisplay), 'dd.MM.yyyy');
       }
 
-      // 🏆 TURNIER-RANKING BERECHNEN
-      const calculateTournamentRanking = () => {
-        if (!playerStats || tournamentStatus !== 'completed') return { topThree: [], allParticipants: [] };
-        
-        // Konvertiere playerStats zu Array und sortiere nach Punkten
-        const playersArray = Object.entries(playerStats).map(([playerId, stats]) => {
-          // Finde den Spieler in den Mitgliedern
-          const member = members?.find(m => m.id === playerId || m.userId === playerId);
-          return {
-            playerId,
-            displayName: member?.displayName || `Spieler_${playerId.slice(0,6)}`,
-            photoURL: member?.photoURL,
-            totalScore: stats.totalScore || 0,
-            totalStriche: stats.totalStriche || 0
-          };
-        });
-        
-        // Sortiere nach Punkten absteigend, dann nach Strichen
-        playersArray.sort((a, b) => {
-          if (b.totalScore !== a.totalScore) {
-            return b.totalScore - a.totalScore;
-          }
-          return b.totalStriche - a.totalStriche;
-        });
-        
-        return {
-          topThree: playersArray.slice(0, 3),
-          allParticipants: playersArray
-        };
-      };
-
-      const { topThree, allParticipants } = calculateTournamentRanking();
-      const isFourPlayerTournament = allParticipants.length === 4;
-
       const statusText = tournamentStatus === 'completed' ? 'Abgeschlossen' :
                          tournamentStatus === 'active' ? 'Aktiv' : 'Archiviert';
       const statusClass = tournamentStatus === 'completed' ? 'bg-gray-600 text-gray-300' :
@@ -401,8 +367,7 @@ const PlayerProfilePage = () => {
       return (
         <Link href={`/view/tournament/${id}`} key={`tournament-${id}`} passHref>
           <div className="px-3 py-2 lg:px-6 lg:py-3 bg-purple-900/30 rounded-lg hover:bg-purple-800/40 transition-colors duration-150 cursor-pointer mb-2 border border-purple-700/50">
-            {/* 🎯 HEADER: Turniername und Status */}
-            <div className="flex justify-between items-center mb-3">
+            <div className="flex justify-between items-center">
               <div className="flex items-center space-x-3">
                 <AwardIcon className="w-6 h-6 lg:w-8 lg:h-8 text-purple-400 flex-shrink-0" />
                 <div className="flex flex-col">
@@ -416,44 +381,6 @@ const PlayerProfilePage = () => {
                 {statusText}
               </span>
             </div>
-
-            {/* 🏆 PLATZIERUNGEN: Erste drei Plätze (oder alle vier bei 4er-Turnier) */}
-            {tournamentStatus === 'completed' && (topThree.length > 0 || isFourPlayerTournament) && (
-              <div className="mb-3">
-                <div className="flex items-center space-x-4">
-                  {(isFourPlayerTournament ? allParticipants : topThree).map((player, index) => (
-                    <div key={player.playerId} className="flex items-center space-x-2">
-                      <span className="text-sm font-medium text-gray-300">
-                        {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`}
-                      </span>
-                      <span className="text-sm text-white">{player.displayName}</span>
-                      <span className="text-xs text-gray-400">({player.totalScore})</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 👥 ALLE TEILNEHMER: Avatare nebeneinander */}
-            {allParticipants.length > 0 && (
-              <div className="flex items-center space-x-1">
-                <span className="text-xs text-gray-400 mr-2">Teilnehmer:</span>
-                <div className="flex -space-x-1">
-                  {allParticipants.map((player) => (
-                    <ProfileImage
-                      key={player.playerId}
-                      src={player.photoURL}
-                      alt={player.displayName}
-                      size="xs"
-                      className="border-2 border-gray-600"
-                      fallbackClassName="bg-gray-700 text-gray-300 text-xs"
-                      fallbackText={player.displayName.charAt(0).toUpperCase()}
-                      context="list"
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </Link>
       );
