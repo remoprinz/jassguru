@@ -510,7 +510,7 @@ const ProfilePage: React.FC = () => {
                    <span className="text-base lg:text-xl font-medium mr-2" style={{ color: `${THEME_COLORS[profileTheme || 'blue']?.accentHex || '#3b82f6'}` }}>
                      {title}
                    </span>
-                   <span className="text-sm text-white mr-2">-</span>
+                   <span className="text-sm text-white mr-2">|</span>
                    <span className="text-sm text-white">{formattedDate}</span>
                    <div className="flex-shrink-0 ml-2">
                       {sessionStatusIcon}

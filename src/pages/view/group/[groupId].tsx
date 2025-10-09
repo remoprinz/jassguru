@@ -342,7 +342,7 @@ const PublicGroupPage = () => {
                 <span className="text-base md:text-lg lg:text-xl font-medium mr-2" style={{ color: `${THEME_COLORS[currentGroup?.theme || 'purple']?.accentHex || '#a855f7'}` }}>
                   {title}
                 </span>
-                <span className="text-sm text-white mr-2">-</span>
+                <span className="text-sm text-white mr-2">|</span>
                 <span className="text-sm text-white">{formattedDate}</span>
                 <div className="flex-shrink-0 ml-2">
                   {sessionStatusIcon}

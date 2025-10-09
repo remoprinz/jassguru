@@ -99,7 +99,7 @@ const TournamentPasseArchive: React.FC<TournamentPasseArchiveProps> = ({
                     {/* 🆕 DUALE NUMMERIERUNG: Zeige passeLabel (z.B. "1A", "1B") */}
                     Passe {game.passeLabel || `${game.passeNumber}`}
                   </span>
-                  <span className="text-sm text-white mr-2">-</span>
+                                <span className="text-sm text-white mr-2">|</span>
                   <span className="text-sm text-white">{completedTime}</span>
                   <div className="flex-shrink-0 ml-2">
                     <CheckCircle className="w-4 h-4 text-green-500" />
