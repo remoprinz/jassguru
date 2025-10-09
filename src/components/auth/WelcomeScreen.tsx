@@ -403,14 +403,30 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           
           {/* Divider and Link to Knowledge Hub */}
           <div className="pt-6 mt-6 border-t border-gray-700/50">
-            <Link href="/wissen" className="group block text-center transition-transform hover:scale-105">
-              <span className="text-lg font-semibold text-gray-200 group-hover:text-green-400 transition-colors">
-                Das Schweizer Jass-Lexikon
-              </span>
-              <p className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors mt-1">
-                Regeln, Strategien & mehr →
-              </p>
-            </Link>
+            {displayMode === "pwa" ? (
+              <Link href="/wissen" className="group block text-center transition-transform hover:scale-105">
+                <span className="text-lg font-semibold text-gray-200 group-hover:text-green-400 transition-colors">
+                  Jass-Wikipedia
+                </span>
+                <p className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors mt-1">
+                  Regeln, Strategien & mehr →
+                </p>
+              </Link>
+            ) : (
+              <a 
+                href="https://jasswiki.ch" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="group block text-center transition-transform hover:scale-105"
+              >
+                <span className="text-lg font-semibold text-gray-200 group-hover:text-green-400 transition-colors">
+                  Jass-Wikipedia
+                </span>
+                <p className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors mt-1">
+                  Regeln, Strategien & mehr →
+                </p>
+              </a>
+            )}
           </div>
         </motion.div>
 

@@ -36,7 +36,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({children}) => {
       
     if (jassSessionId) {
       if (process.env.NODE_ENV === 'development') {
-        console.log(`[MainLayout EFFECT] 🔥 STABILISIERT: jassSessionId found (${jassSessionId}). Calling subscribeToSession.`);
+        // Debug-Logging entfernt - zu viele repetitive Logs
       }
       subscribeToSession(jassSessionId);
     } else {
@@ -52,7 +52,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({children}) => {
     return () => {
       if (sessionUnsubscribe) {
         if (process.env.NODE_ENV === 'development') {
-          console.log("[MainLayout EFFECT Cleanup] Unmounting MainLayout. Unsubscribing from session listener.");
+          // Debug-Logging entfernt - zu viele repetitive Logs
         }
         sessionUnsubscribe();
       }

@@ -1,44 +1,35 @@
-import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { allJassContent } from '../../jassguruchat/src/data/jassContent/index.ts';
 
 const main = async () => {
-  console.log('🚀 Starting content migration (V2)...');
+  console.log('🚀 Starting content synchronization...');
 
   try {
-    // Führe das neue Migrations-Skript aus
-    execSync('node scripts/migrate-content-v2.mjs', { 
-      stdio: 'inherit',
-      cwd: path.resolve(__dirname, '..')
-    });
+    const outputDir = path.resolve(process.cwd(), 'src/data');
+    const outputFile = path.resolve(outputDir, 'jass-lexikon.json');
 
-    // Prüfe, ob die Migration erfolgreich war
-    const v2File = path.resolve(__dirname, '../src/data/jass-content-v2.json');
-    if (!fs.existsSync(v2File)) {
-      throw new Error('Migration failed: jass-content-v2.json was not created!');
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+      console.log(`✅ Created directory: ${outputDir}`);
     }
 
-    const v2Content = JSON.parse(fs.readFileSync(v2File, 'utf-8'));
-    const articleCount = Object.keys(v2Content).length;
+    // Prepare content for JSON serialization
+    const contentAsJson = JSON.stringify(allJassContent, null, 2);
 
-    console.log(`✅ Successfully migrated ${articleCount} content items.`);
-    console.log(`📝 Content written to: ${v2File}`);
-    
-    // WICHTIG: Kopiere v2 nach jass-lexikon.json für Backward Compatibility
-    const lexikonFile = path.resolve(__dirname, '../src/data/jass-lexikon.json');
-    fs.copyFileSync(v2File, lexikonFile);
-    console.log(`📝 Copied to: ${lexikonFile} (for backward compatibility)`);
+    // Write to file
+    fs.writeFileSync(outputFile, contentAsJson, 'utf-8');
+
+    console.log(`✅ Successfully synchronized ${Object.keys(allJassContent).length} content items.`);
+    console.log(`📝 Content written to: ${outputFile}`);
     
   } catch (error) {
-    console.error('🔥 Error during content migration:', error);
+    console.error('🔥 Error during content synchronization:', error);
     process.exit(1);
   }
 
-  console.log('🎉 Content migration finished.');
+  console.log('🎉 Content synchronization finished.');
 };
 
 main(); 

@@ -65,7 +65,7 @@ const TournamentParticipantsList: React.FC<TournamentParticipantsListProps> = ({
         <CardHeader className="pb-3 pt-4 px-4 md:px-5">
           <CardTitle className="text-lg text-white">Teilnehmer ({participantsWithCorrectPassesCounts.length})</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 px-2 py-2 md:px-4 md:pb-4 max-h-[400px] overflow-y-auto">
+        <CardContent className="space-y-3 px-2 py-2 md:px-4 md:pb-4">
           {participantsWithCorrectPassesCounts.map((player) => {
             const playerId = player.uid;
             

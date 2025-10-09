@@ -337,10 +337,20 @@ const ResultatKreidetafel = ({
     if (!currentSession?.isTournamentSession) return undefined;
     
     // Extrahiere Tournament Instance ID aus der Session-ID
-    // Format: 'tournament_INSTANCE_ID_passe_NUMBER'
+    // Format: 'tournament_INSTANCE_ID_passe_NUMBER' oder 'tournament_INSTANCE_ID_passe_NaN'
     const sessionId = currentSession.id ?? '';
-    const tournamentMatch = sessionId.match(/^tournament_(.+)_passe_\d+$/);
-    return tournamentMatch ? tournamentMatch[1] : undefined;
+    
+    // ROBUSTER REGEX: Akzeptiert auch NaN als Passe-Nummer
+    const tournamentMatch = sessionId.match(/^tournament_(.+)_passe_(.+)$/);
+    const extractedId = tournamentMatch ? tournamentMatch[1] : undefined;
+    
+    // DEBUGGING: Log die Extraktion
+    console.log("[ResultatKreidetafel] Tournament ID Extraction:");
+    console.log("- sessionId:", sessionId);
+    console.log("- tournamentMatch:", tournamentMatch);
+    console.log("- extractedId:", extractedId);
+    
+    return extractedId;
   }, [currentSession]);
 
   // 2. Gruppen & Settings
@@ -2232,8 +2242,20 @@ const ResultatKreidetafel = ({
 
   // NEU: Handler für den Abschluss einer Turnierpasse (Implementierung)
   const handleCompletePasseClick = useCallback(async () => {
+    // DEBUGGING: Detaillierte Logs für das zweite Device
+    console.log("[ResultatKreidetafel] DEBUG - Passe Completion Check:");
+    console.log("- isTournamentPasse:", isTournamentPasse);
+    console.log("- gameStoreActiveGameId:", gameStoreActiveGameId);
+    console.log("- tournamentInstanceId:", tournamentInstanceId);
+    console.log("- currentSession:", currentSession);
+    console.log("- currentSession.id:", currentSession?.id);
+    console.log("- currentSession.isTournamentSession:", currentSession?.isTournamentSession);
+    
     if (!isTournamentPasse || !gameStoreActiveGameId || !tournamentInstanceId) {
       console.error("[ResultatKreidetafel] Incomplete data for completing passe.");
+      console.error("- Missing isTournamentPasse:", !isTournamentPasse);
+      console.error("- Missing gameStoreActiveGameId:", !gameStoreActiveGameId);
+      console.error("- Missing tournamentInstanceId:", !tournamentInstanceId);
       useUIStore.getState().showNotification({ type: 'error', message: 'Fehlende Daten zum Abschließen der Passe.' });
       return;
     }

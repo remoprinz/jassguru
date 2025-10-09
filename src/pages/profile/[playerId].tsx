@@ -16,6 +16,7 @@ import { Timestamp, FieldValue } from 'firebase/firestore';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { CheckCircle, XCircle, Award as AwardIcon, Archive } from 'lucide-react';
+import ProfileImage from '@/components/ui/ProfileImage';
 
 // PlayerProfilePageStats ist jetzt der primäre Typ für transformierte Statistiken
 interface PlayerProfilePageStats extends TransformedPlayerStats {
@@ -270,36 +271,77 @@ const PlayerProfilePage = () => {
             <div className="px-3 py-2 lg:px-6 lg:py-3 bg-gray-700/50 rounded-lg hover:bg-gray-600/50 transition-colors duration-150 cursor-pointer mb-2">
               <div className="flex justify-between items-center mb-1.5">
                  <div className="flex items-center flex-grow"> 
-                   <span className="text-base lg:text-xl font-medium text-white mr-2"> 
-                     {title} - {formattedDate} 
-                      </span>
-                   <div className="flex-shrink-0">
+                   <span className="text-base lg:text-xl font-medium mr-2" style={{ color: `${THEME_COLORS[activeTheme || 'blue']?.accentHex || '#3b82f6'}CC` }}>
+                     {title}
+                   </span>
+                   <span className="text-sm text-white mr-2">-</span>
+                   <span className="text-sm text-white">{formattedDate}</span>
+                   <div className="flex-shrink-0 ml-2">
                       {sessionStatusIcon}
                    </div>
                  </div>
               </div>
               <div className="space-y-1">
-                <div className="flex justify-between items-center text-sm lg:text-base text-gray-400">
-                  <div>
-                     <span className="block">
-                        Team 1:&nbsp; 
-                        <span className="text-white">{playerNames['1'] || '?'} + {playerNames['3'] || '?'}</span>
-                     </span>
+                {/* Team Bottom */}
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center">
+                    {/* 🎨 AVATAR-PAIR: Wie im GroupView Teams-Tab */}
+                    <div className="flex mr-2">
+                      <ProfileImage
+                        src={members?.find(m => m.displayName === playerNames['1'])?.photoURL}
+                        alt={playerNames['1'] || 'Spieler'}
+                        size="sm"
+                        className="border-2 border-gray-800"
+                        style={{ zIndex: 1 }}
+                        fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                        fallbackText={playerNames['1']?.charAt(0).toUpperCase() || '?'}
+                        context="list"
+                      />
+                      <ProfileImage
+                        src={members?.find(m => m.displayName === playerNames['3'])?.photoURL}
+                        alt={playerNames['3'] || 'Spieler'}
+                        size="sm"
+                        className="border-2 border-gray-800 -ml-2"
+                        style={{ zIndex: 0 }}
+                        fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                        fallbackText={playerNames['3']?.charAt(0).toUpperCase() || '?'}
+                        context="list"
+                      />
+                    </div>
+                    <span className="text-sm text-gray-300 truncate pr-2">{playerNames['1'] || '?'} & {playerNames['3'] || '?'}</span>
                   </div>
-                  <span className="text-lg lg:text-2xl font-semibold text-white pl-2">
-                    {totalStricheBottom !== null ? totalStricheBottom : '-'}
-                  </span>
+                  <span className="text-lg font-medium text-white">{totalStricheBottom !== null ? totalStricheBottom : '-'}</span>
                 </div>
-                <div className="flex justify-between items-center text-sm lg:text-base text-gray-400">
-                  <div>
-                     <span className="block">
-                        Team 2:&nbsp; 
-                        <span className="text-white">{playerNames['2'] || '?'} + {playerNames['3'] || '?'}</span>
-                     </span>
+                
+                {/* Team Top */}
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center">
+                    {/* 🎨 AVATAR-PAIR: Wie im GroupView Teams-Tab */}
+                    <div className="flex mr-2">
+                      <ProfileImage
+                        src={members?.find(m => m.displayName === playerNames['2'])?.photoURL}
+                        alt={playerNames['2'] || 'Spieler'}
+                        size="sm"
+                        className="border-2 border-gray-800"
+                        style={{ zIndex: 1 }}
+                        fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                        fallbackText={playerNames['2']?.charAt(0).toUpperCase() || '?'}
+                        context="list"
+                      />
+                      <ProfileImage
+                        src={members?.find(m => m.displayName === playerNames['4'])?.photoURL}
+                        alt={playerNames['4'] || 'Spieler'}
+                        size="sm"
+                        className="border-2 border-gray-800 -ml-2"
+                        style={{ zIndex: 0 }}
+                        fallbackClassName="bg-gray-700 text-gray-300 text-xs"
+                        fallbackText={playerNames['4']?.charAt(0).toUpperCase() || '?'}
+                        context="list"
+                      />
+                    </div>
+                    <span className="text-sm text-gray-300 truncate pr-2">{playerNames['2'] || '?'} & {playerNames['4'] || '?'}</span>
                   </div>
-                  <span className="text-lg lg:text-2xl font-semibold text-white pl-2">
-                    {totalStricheTop !== null ? totalStricheTop : '-'}
-                  </span>
+                  <span className="text-lg font-medium text-white">{totalStricheTop !== null ? totalStricheTop : '-'}</span>
                 </div>
                   </div>
               </div>

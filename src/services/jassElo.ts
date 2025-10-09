@@ -13,7 +13,7 @@
  * - 15-Tier System (👑 Legendary bis 🥚 Neuling)
  * - Zero-sum garantiert (Rating-Erhaltung)
  * 
- * 📚 BASIS: Klassisches Elo-System (Wikipedia)
+ *  BASIS: Klassisches Elo-System (Wikipedia)
  * 🎮 JASS-ANPASSUNG: Score S = Striche-Anteil statt Win/Loss
  * 🔧 K-RAMPE: DEAKTIVIERT (alle K=32)
  * 

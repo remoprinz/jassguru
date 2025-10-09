@@ -1,0 +1,13 @@
+# *
+User-agent: *
+Allow: /
+
+# *
+User-agent: *
+Allow: /wissen/
+
+# Host
+Host: https://jassguru.ch
+
+# Sitemaps
+Sitemap: https://jassguru.ch/sitemap.xml

@@ -19,11 +19,11 @@ export const hochSprueche: SpruchGenerator[] = [
   }),
   (params) => ({
     text: `Eine Jass-Lektion von ${params.winnerNames.join(" & ")}!`,
-    icon: "📚",
+    icon: "",
   }),
   (params) => ({
     text: `${params.loserNames.join(" & ")} hatten heute keine Chance gegen diese Kartenkunst!`,
-    icon: "🎴",
+    icon: "",
   }),
   (params) => ({
     text: `${params.winnerNames.join(" & ")} haben die Karten heute tanzen lassen!`,

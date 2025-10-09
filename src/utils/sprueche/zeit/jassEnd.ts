@@ -95,7 +95,7 @@ export const jassEndZeitSprueche: Record<SpieltempoKategorie, SpruchGenerator[]>
     ),
     createZeitSpruch(
       (time) => `Ein Marathon-Jass für die Geschichtsbücher: ${time}!`,
-      "📚"
+      ""
     ),
   ],
 };

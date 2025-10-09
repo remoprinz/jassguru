@@ -4,20 +4,28 @@ import { LexikonLayout } from '@/components/layout/LexikonLayout';
 import { SeoHead } from '@/components/layout/SeoHead';
 import { Book, ExternalLink, Users, FileText, Globe } from 'lucide-react';
 import Link from 'next/link';
+import { useEffect } from 'react';
 
 const QuellenPage: NextPage = () => {
   const breadcrumbItems = [
-    { name: 'Wissen', href: '/wissen' },
+    { name: 'Jass-Wiki', href: '/wissen' },
     { name: 'Quellen', href: '/quellen' },
   ];
 
+  // Scrolling für diese Seite aktivieren, genau wie bei allen anderen Wissensseiten
+  useEffect(() => {
+    document.body.classList.add('lexikon-page');
+    return () => {
+      document.body.classList.remove('lexikon-page');
+    };
+  }, []);
+
   return (
-    <>
-      <SeoHead
-        title="Quellen & Literatur | Jassguru.ch"
-        description="Alle Quellen und wissenschaftlichen Grundlagen für das Jass-Wissen auf Jassguru.ch. Fundiert, transparent und nachvollziehbar."
-      />
       <LexikonLayout breadcrumbItems={breadcrumbItems}>
+        <SeoHead
+          title="Quellen & Literatur | Das Schweizer Jass-Wiki"
+          description="Alle Quellen und wissenschaftlichen Grundlagen für das Jass-Wiki. Fundiert, transparent und nachvollziehbar."
+        />
         <div className="space-y-8">
           {/* Header */}
           <div className="text-center">
@@ -28,7 +36,7 @@ const QuellenPage: NextPage = () => {
               Quellen & Literatur
             </h1>
             <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              Unser Jass-Wissen basiert auf fundierten Quellen und wurde sorgfältig recherchiert. 
+              Unser Jass-Wiki basiert auf fundierten Quellen und wurde sorgfältig recherchiert. 
               Transparenz und Nachvollziehbarkeit sind uns wichtig.
             </p>
           </div>
@@ -179,7 +187,7 @@ const QuellenPage: NextPage = () => {
                 <strong>Website zitieren:</strong>
               </p>
               <p className="text-green-400">
-                Jassguru.ch (2025). "Das digitale Jass-Wissensportal". 
+                Jassguru.ch (2025). "Das digitale Jass-Wikisportal". 
                 https://jassguru.ch
               </p>
             </div>
@@ -207,12 +215,11 @@ const QuellenPage: NextPage = () => {
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-              Zurück zum Jass-Wissen
+              Zurück zum Jass-Wiki
             </Link>
           </div>
         </div>
       </LexikonLayout>
-    </>
   );
 };
 

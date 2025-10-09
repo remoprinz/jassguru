@@ -22,10 +22,15 @@ export interface TournamentInstance {
   description?: string; // Optional: Beschreibung des Turniers
   logoUrl?: string | null; // Optional: Logo-URL
   instanceDate?: Timestamp | null; // Optionales Datum des Turniers
-  status: 'upcoming' | 'active' | 'completed' | 'archived'; // Status des Turniers
+  status: 'upcoming' | 'active' | 'paused' | 'completed' | 'archived'; // 🆕 Status erweitert um 'paused'
   createdBy: string; // User ID des Erstellers
   adminIds: string[]; // User IDs der Turnier-Admins
   participantUids: string[]; // User IDs aller Teilnehmer
+  
+  // 🆕 DUALE NUMMERIERUNG & TURNIERMODUS
+  tournamentMode: 'spontaneous' | 'planned';  // Spontan oder geplant
+  currentRound: number;                       // Aktuelle Turnier-Runde (1, 2, 3...)
+  
   settings?: TournamentSettings; // Turnier-spezifisch
   createdAt: Timestamp | FieldValue; // Zeitstempel der Erstellung
   updatedAt: Timestamp | FieldValue; // Zeitstempel der letzten Änderung
@@ -48,7 +53,7 @@ export interface PlayerPasseResult {
 
 // NEU: Ergebnis eines einzelnen Spielers IN DIESER PASSE
 export interface PassePlayerDetail {
-  playerId: string;         // UID des Spielers
+  playerId: string;         // 🆕 Player Document ID (NICHT UID!) - für Stats-Kompatibilität
   playerName: string;       // Name des Spielers zum Zeitpunkt der Passe
   seat: PlayerNumber;       // Auf welcher Position (1-4) saß der Spieler
   team: TeamPosition;       // In welchem Team (top/bottom) war der Spieler
@@ -61,17 +66,48 @@ export interface PassePlayerDetail {
 export interface TournamentGame {
   passeId: string;                    // ID des ursprünglichen activeGame-Dokuments
   tournamentInstanceId: string;
-  passeNumber: number;
+  
+  // 🆕 DUALE NUMMERIERUNG
+  passeNumber: number;                // Legacy: Einfache durchlaufende Nummer (wird durch passeLabel ersetzt)
+  tournamentRound: number;            // Globale Turnier-Runde (1, 2, 3...)
+  passeInRound: string;               // Passe innerhalb der Runde ("A", "B", "C"...)
+  passeLabel: string;                 // Kombinierte Anzeige ("1A", "1B", "2A"...)
+  
+  // 🆕 TURNIERMODUS
+  tournamentMode: 'spontaneous' | 'planned';  // Spontan oder geplant
+  
   startedAt?: Timestamp | FieldValue;   // Zeitstempel, wann die Passe gestartet wurde (aus activeGame.createdAt)
   completedAt: Timestamp | FieldValue;  // Zeitstempel, wann die Passe abgeschlossen wurde
   durationMillis: number;             // Dauer der Passe in Millisekunden
   startingPlayer: PlayerNumber;       // Spieler, der diese Passe begonnen hat
-  participantUidsForPasse: string[];  // NEU: Flache Liste der Spieler-UIDs DIESER Passe
+  
+  // 🆕 PLAYER IDS FÜR STATS (KRITISCH!)
+  participantUidsForPasse: string[];  // Firebase Auth UIDs der Spieler DIESER Passe
+  participantPlayerIds: string[];     // Player Document IDs (für Stats-Kompatibilität!)
+  
   playerDetails: PassePlayerDetail[]; // Detaillierte Ergebnisse pro Spieler in dieser Passe
   teamScoresPasse: TeamScores;        // Team-Gesamtpunkte (Jass + Weis) in dieser Passe
   teamStrichePasse: {                // Team-Striche in dieser Passe
     top: StricheRecord;
     bottom: StricheRecord;
+  };
+  
+  // 🆕 EVENT COUNTS FÜR STATS (KRITISCH!)
+  eventCounts?: {
+    bottom: {
+      sieg: number;
+      berg: number;
+      matsch: number;
+      kontermatsch: number;
+      schneider: number;
+    };
+    top: {
+      sieg: number;
+      berg: number;
+      matsch: number;
+      kontermatsch: number;
+      schneider: number;
+    };
   };
   
   // Einstellungen, die für diese Passe galten (Kopie aus activeGame)

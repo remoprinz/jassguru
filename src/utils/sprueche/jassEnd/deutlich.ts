@@ -11,7 +11,7 @@ export const deutlichSprueche: SpruchGenerator[] = [
   }),
   (params) => ({
     text: `Klarer Sieg für ${params.winnerNames.join(" & ")} - die Karten haben heute gesprochen!`,
-    icon: "🎴",
+    icon: "",
   }),
   (params) => ({
     text: `${params.winnerNames.join(" & ")} haben den Jass im Griff gehabt!`,

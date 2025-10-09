@@ -66,7 +66,7 @@ interface CategoryPageProps {
 const CategoryPage: React.FC<CategoryPageProps> = ({ category, categorySlug, subcategories = [] }) => {
   const router = useRouter();
   const breadcrumbItems = [
-    { name: 'Wissen', href: '/wissen' },
+    { name: 'Jass-Wiki', href: '/wissen' },
     { name: category, href: `/wissen/${categorySlug}` }
   ];
 
@@ -98,19 +98,25 @@ const CategoryPage: React.FC<CategoryPageProps> = ({ category, categorySlug, sub
     'Referenzen': 'Quellen, Literatur und Expertenwissen: Die wissenschaftliche Grundlage unseres Jass-Portals.'
   };
 
-  const seoDescription = categoryDescriptions[category] || `Alle Jass-Artikel in der Kategorie ${category} auf Jassguru.ch. Entdecke Regeln, Begriffe und Varianten.`;
+  const categoryTitles: Record<string, string> = {
+    'Regeln': 'Alle Jassregeln im Detail: Offizielles Regelwerk & Sonderfälle | Jass-Wiki',
+    'Weis-Regeln': 'Jassregeln zum Weisen: Alle Weispunkte, Stöck & Bock erklärt | Jass-Wiki',
+    'Schieber': 'Jassregeln für Schieber: Taktiken & Strategien erklärt | Jass-Wiki',
+  };
+  const seoTitle = categoryTitles[category] || `${category} | Das Schweizer Jass-Wiki`;
+  const seoDescription = categoryDescriptions[category] || `Alle Jass-Artikel in der Kategorie ${category} im Jass-Wiki. Entdecke Regeln, Begriffe und Varianten.`;
 
   return (
     <LexikonLayout breadcrumbItems={breadcrumbItems}>
       <SeoHead
-        title={`${category} | Jass-Wissen | Jassguru.ch`}
+        title={seoTitle}
         description={seoDescription}
       />
       <div className="space-y-6 sm:space-y-8">
         {/* Category Header */}
         <div className="text-center">
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4">
-            {category}
+            {categorySlug === 'regeln' ? 'Jassregeln' : category}
           </h1>
           <p className="text-lg sm:text-xl text-gray-300 leading-relaxed max-w-2xl mx-auto">
             {subcategories.length} {subcategories.length === 1 ? 'Themenbereich' : 'Themenbereiche'} mit insgesamt {subcategories.reduce((sum, sub) => sum + sub.count, 0)} Artikeln

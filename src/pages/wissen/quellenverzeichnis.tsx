@@ -5,7 +5,7 @@ import { SeoHead } from '@/components/layout/SeoHead';
 
 const SourcesPage: NextPage = () => {
   const breadcrumbItems = [
-    { name: 'Wissen', href: '/wissen' },
+    { name: 'Jass-Wiki', href: '/wissen' },
     { name: 'Quellen', href: '/wissen/quellen' }
   ];
 
@@ -51,7 +51,7 @@ const SourcesPage: NextPage = () => {
               Quellen und Referenzen
             </h1>
             <p className="text-lg sm:text-xl text-gray-300 leading-relaxed max-w-2xl mx-auto">
-              Die Grundlage für unser Jass-Wissen bilden diese vertrauenswürdigen Quellen
+              Die Grundlage für unser Jass-Wiki bilden diese vertrauenswürdigen Quellen
             </p>
           </div>
 

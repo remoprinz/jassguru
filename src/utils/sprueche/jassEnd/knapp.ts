@@ -3,7 +3,7 @@ import type {SpruchGenerator} from "../../../types/sprueche";
 export const knappSprueche: SpruchGenerator[] = [
   (params) => ({
     text: `${params.winnerNames.join(" & ")} haben den Jass knapp für sich entschieden!`,
-    icon: "🎴",
+    icon: "",
   }),
   (params) => ({
     text: `Die Würfel sind knapp zu Gunsten von ${params.winnerNames.join(" & ")} gefallen!`,
@@ -27,7 +27,7 @@ export const knappSprueche: SpruchGenerator[] = [
   }),
   (params) => ({
     text: `${params.winnerNames.join(" & ")} haben etwas besser abglupft!`,
-    icon: "🎴",
+    icon: "",
   }),
   (params) => ({
     text: `${params.winnerNames.join(" & ")} haben die wichtigen Trümpfe zur richtigen Zeit gespielt!`,

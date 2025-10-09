@@ -23,6 +23,9 @@ export const LexikonLayout: React.FC<LexikonLayoutProps> = ({ children, breadcru
   // Prüfe ob wir in der PWA sind für spezifisches Styling
   const [isPWA, setIsPWA] = useState(false);
   
+  // Prüfe ob wir auf jasswiki.ch sind und auf der Hauptseite
+  const [isWikiHomepage, setIsWikiHomepage] = useState(false);
+  
   useEffect(() => {
     const checkPWA = () => {
       // Sicherheitsprüfung für Browser-APIs
@@ -34,19 +37,31 @@ export const LexikonLayout: React.FC<LexikonLayoutProps> = ({ children, breadcru
       setIsPWA(pwaCheck);
     };
     
+    const checkWikiHomepage = () => {
+      // Sicherheitsprüfung für Browser-APIs
+      if (typeof window === 'undefined') return;
+      
+      // Prüfe ob wir auf jasswiki.ch sind UND auf der Hauptseite (/)
+      const isWikiDomain = window.location.hostname === 'jasswiki.ch';
+      const isHomepage = router.pathname === '/wissen' || router.pathname === '/';
+      
+      setIsWikiHomepage(isWikiDomain && isHomepage);
+    };
+    
     checkPWA();
+    checkWikiHomepage();
     
     // Prüfe auch bei Resize (falls sich der Modus ändert)
     if (typeof window !== 'undefined') {
       window.addEventListener('resize', checkPWA);
       return () => window.removeEventListener('resize', checkPWA);
     }
-  }, []);
+  }, [router.pathname]);
 
-  // Bestimme das Zurück-Ziel basierend auf der aktuellen Route und PWA-Status
-  const getBackHref = () => {
+  // Elegante Zurück-Navigation mit Browser-History
+  const handleBackClick = () => {
     // Sicherheitsprüfung für Browser-APIs
-    if (typeof window === 'undefined') return '/wissen';
+    if (typeof window === 'undefined') return;
     
     // Prüfe ob wir in der PWA sind (Standalone-Modus)
     const isPWACheck = window.matchMedia('(display-mode: standalone)').matches || 
@@ -55,14 +70,23 @@ export const LexikonLayout: React.FC<LexikonLayoutProps> = ({ children, breadcru
     
     // Wenn wir uns auf der Wissens-Hauptseite befinden
     if (router.pathname === '/wissen') {
-      return isPWACheck ? '/start' : '/'; // PWA → GroupView, Web → Homepage
+      // Fallback für PWA/Web
+      const fallbackHref = isPWACheck ? '/start' : '/';
+      router.push(fallbackHref);
+      return;
     }
-    // Wenn wir uns auf einer Wissens-Unterseite befinden, gehe zur Wissens-Hauptseite zurück
-    return '/wissen';
+    
+    // Für alle anderen Wissens-Seiten: Browser-History verwenden
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      // Fallback falls keine History vorhanden
+      router.push('/wissen');
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 overflow-y-auto">
+    <div className="min-h-screen bg-gray-900">
       {/* Mobile Header */}
       <div 
         className={`lg:hidden bg-gray-800 border-b border-gray-700 sticky top-0 z-40 ${
@@ -70,10 +94,19 @@ export const LexikonLayout: React.FC<LexikonLayoutProps> = ({ children, breadcru
         }`}
       >
         <div className="flex items-center justify-between px-4">
-          <Link href={getBackHref()} className="flex items-center text-green-400 hover:text-green-300 transition-colors">
-            <ChevronLeft className="w-5 h-5 mr-1" />
-            <span className="font-medium">Zurück</span>
-          </Link>
+          {/* Zeige Zurück-Button nur wenn NICHT auf jasswiki.ch Hauptseite */}
+          {!isWikiHomepage && (
+            <button 
+              onClick={handleBackClick}
+              className="flex items-center text-green-400 hover:text-green-300 transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5 mr-1" />
+              <span className="font-medium">Zurück</span>
+            </button>
+          )}
+          
+          {/* Wenn auf jasswiki.ch Hauptseite, zeige leeren Platz für Alignment */}
+          {isWikiHomepage && <div className="w-20"></div>}
           
           <button
             onClick={() => setSidebarOpen(true)}
@@ -107,16 +140,27 @@ export const LexikonLayout: React.FC<LexikonLayoutProps> = ({ children, breadcru
 
       {/* Desktop Layout */}
       <div className="hidden lg:block w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
-        {/* Persistent Search Bar - Always visible */}
-        <div className="mb-6">
-          <SearchBar />
+        {/* Search Bar and Breadcrumbs - positioned over right container only */}
+        <div className="flex flex-row gap-8">
+          {/* Empty space for left container alignment */}
+          <div className="w-1/4"></div>
+          
+          {/* Search Bar - Only over the right container */}
+          <div className="w-3/4 mb-6">
+            <SearchBar />
+          </div>
         </div>
 
-        {/* Breadcrumbs */}
-        <div className="mb-4 sm:mb-6">
-          <Breadcrumbs items={breadcrumbItems} />
+        <div className="flex flex-row gap-8">
+          {/* Empty space for left container alignment */}
+          <div className="w-1/4"></div>
+          
+          {/* Breadcrumbs - Only over the right container */}
+          <div className="w-3/4 mb-4 sm:mb-6">
+            <Breadcrumbs items={breadcrumbItems} />
+          </div>
         </div>
-        
+
         {/* Desktop: Side by side */}
         <div className="flex flex-row gap-8">
           {/* Desktop Sidebar */}
@@ -128,7 +172,7 @@ export const LexikonLayout: React.FC<LexikonLayoutProps> = ({ children, breadcru
           
           {/* Main content */}
           <main className="w-3/4">
-            <article className="bg-gray-800 rounded-xl shadow-lg p-8 border border-gray-700 overflow-y-auto">
+            <article className="bg-gray-800 rounded-xl shadow-lg p-8 border border-gray-700">
               <div className="prose prose-lg max-w-none">
                 {children}
               </div>
@@ -151,7 +195,7 @@ export const LexikonLayout: React.FC<LexikonLayoutProps> = ({ children, breadcru
         
         {/* Mobile Main content - Full width */}
         <main className="w-full">
-          <article className="bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-700 overflow-y-auto">
+          <article className="bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-700">
             <div className="prose prose-sm sm:prose-base max-w-none">
               {children}
             </div>

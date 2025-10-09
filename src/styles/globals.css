@@ -2,6 +2,55 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Browser-spezifische Schriftgrößen-Korrektur */
+html {
+  /* Standard-Schriftgröße für alle Browser */
+  font-size: 16px;
+  
+  /* Chrome-spezifische Korrektur */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Chrome-spezifische Zoom-Korrektur */
+@supports (-webkit-appearance: none) {
+  body {
+    /* Verhindere automatische Schriftgrößen-Anpassung in Chrome */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+}
+
+/* Chrome-spezifische Anpassungen */
+.chrome-browser {
+  /* Chrome-spezifische Schriftgrößen-Korrektur */
+  font-size: 16px !important;
+  
+  /* Verhindere automatische Zoom-Anpassung */
+  zoom: 1.0 !important;
+  
+  /* Chrome-spezifische Text-Rendering-Optimierung */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Chrome-spezifische Button-Größen-Korrektur */
+.chrome-browser button {
+  min-height: 44px; /* iOS/Android Touch-Target-Größe */
+}
+
+.chrome-browser .text-sm {
+  font-size: 0.875rem !important; /* 14px */
+}
+
+.chrome-browser .text-base {
+  font-size: 1rem !important; /* 16px */
+}
+
+.chrome-browser .text-lg {
+  font-size: 1.125rem !important; /* 18px */
+}
+
 :root {
   --background: 0 0% 100%;
   --foreground: 0 0% 3.9%;

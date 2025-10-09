@@ -44,24 +44,48 @@ const TournamentRankingList: React.FC<TournamentRankingListProps> = ({
   const playerTotals = useMemo(() => {
     const totals: Record<string, PlayerTotals> = {};
 
-    // Initialisiere für jeden Teilnehmer
+    // 🔧 KORREKTUR: Verwende Firebase Auth UIDs wie in GroupView.tsx!
+    // Initialisiere für jeden Teilnehmer (nach uid indiziert)
     participants.forEach(p => {
       if (p?.uid) {
         totals[p.uid] = { score: 0, striche: 0, weis: 0 };
       }
     });
 
+    console.log('[TournamentRankingList] 🎯 Initialized totals for', Object.keys(totals).length, 'players');
+
     // Iteriere über alle abgeschlossenen Spiele (Passen)
     if (Array.isArray(games)) {
       games.forEach(game => {
+        console.log('[TournamentRankingList] 📊 Processing game:', game.passeLabel, 'with', game.playerDetails?.length, 'players');
+        
         // Iteriere über die Details jedes Spielers in dieser Passe
         if (Array.isArray(game.playerDetails)) {
           game.playerDetails.forEach((detail: PassePlayerDetail) => {
-            const playerUid = detail.playerId;
+            const playerDocId = detail.playerId; // Player Document ID
+            
+            // 🔧 KRITISCHER FIX: Mappe playerId → uid
+            // Finde den Teilnehmer mit dieser playerId
+            const participant = participants.find(p => p.playerId === playerDocId);
+            const playerUid = participant?.uid;
+            
+            console.log('[TournamentRankingList] 🎮 Processing player:', {
+              playerName: detail.playerName,
+              playerDocId,
+              mappedUid: playerUid,
+              hasTotals: !!totals[playerUid || '']
+            });
+            
             // Prüfe, ob der Spieler bekannt ist und Details vorhanden sind
             if (playerUid && totals[playerUid] && detail) {
-              // Addiere Punkte und Weis
-              totals[playerUid].score += detail.scoreInPasse || 0;
+              // 🔧 FIX: Verwende teamScoresPasse (bereits korrekte finale Punkte)
+              // teamScoresPasse enthält bereits Jass-Punkte + Striche-Boni
+              const teamScore = detail.team && game.teamScoresPasse 
+                ? (game.teamScoresPasse[detail.team] || 0) 
+                : (detail.scoreInPasse || 0);
+              
+              // 🔧 FIX: Beide Spieler bekommen die VOLLE Punktzahl!
+              totals[playerUid].score += teamScore;
               totals[playerUid].weis += detail.weisInPasse || 0;
 
               // KORRIGIERT: Verwende Team-Striche statt individuelle Spieler-Striche
@@ -73,17 +97,27 @@ const TournamentRankingList: React.FC<TournamentRankingListProps> = ({
               }
               // Addiere zur Gesamtzahl der Striche
               totals[playerUid].striche += stricheSumInPasse;
+              
+              console.log('[TournamentRankingList] ✅ Updated totals for', detail.playerName, ':', totals[playerUid]);
+            } else {
+              console.warn('[TournamentRankingList] ⚠️ Could not find totals for player:', {
+                playerName: detail.playerName,
+                playerDocId,
+                mappedUid: playerUid
+              });
             }
           });
         }
       });
     }
+    
+    console.log('[TournamentRankingList] 🏁 Final totals:', totals);
     return totals;
   }, [participants, games]); // Abhängigkeiten: Teilnehmerliste und Spieleliste
 
   // Schritt 2.3: Rangliste erstellen und sortieren
   const rankedPlayers = useMemo(() => {
-    console.log('[TournamentRankingList] Ranking Mode from settings:', settings?.rankingMode);
+    // Debug-Logging entfernt - zu viele repetitive Logs
     // Kombiniere Teilnehmerdaten mit ihren Gesamtständen
     const playersWithTotals = participants
       .map(p => ({

@@ -89,7 +89,7 @@ const getNavigationStructure = (content: JassContentRecord) => {
 
       // Spezielle Sortierung für Weis-Regeln
       if (catSlug === 'weis-regeln') {
-        // Definiere die logische Reihenfolge für Weis-Arten
+        // Definiere die logische Reihenfolge für Weis-Arten (3-9 Blatt hintereinander)
         const weisOrder = [
           'Grundregeln',
           'Dreiblatt',
@@ -110,35 +110,42 @@ const getNavigationStructure = (content: JassContentRecord) => {
         ];
 
         subcat.topics.sort((a, b) => {
-          // Normalisiere die Namen für Vergleich
-          const normalizeWeisName = (name: string) => {
-            return name
-              .replace(/BLATT/g, 'blatt')
-              .replace(/VIER_GLEICHE/g, 'Vier gleiche')
-              .replace(/FUENFBLATT/g, 'Fünfblatt')
-              .replace(/SECHSBLATT/g, 'Sechsblatt')
-              .replace(/SIEBENBLATT/g, 'Siebenblatt')
-              .replace(/ACHTBLATT/g, 'Achtblatt')
-              .replace(/NEUNBLATT/g, 'Neunblatt')
-              .replace(/DREIBLATT/g, 'Dreiblatt')
-              .replace(/VIERBLATT/g, 'Vierblatt')
-              .replace(/Zahlendarstellung/g, 'Zahlendarstellung');
+          // Erstelle eine Mapping-Funktion für die Artikel-Titel
+          const getWeisOrderIndex = (name: string) => {
+            const lowerName = name.toLowerCase();
+            
+            // Spezielle Mappings für die verschiedenen Artikel-Titel
+            if (lowerName.includes('dreiblatt') || lowerName.includes('3 blatt')) return 1;
+            if (lowerName.includes('vierblatt') || lowerName.includes('4 blatt')) return 2;
+            if (lowerName.includes('fünfblatt') || lowerName.includes('5 blatt')) return 3;
+            if (lowerName.includes('sechsblatt') || lowerName.includes('6 blatt')) return 4;
+            if (lowerName.includes('siebenblatt') || lowerName.includes('7 blatt')) return 5;
+            if (lowerName.includes('achtblatt') || lowerName.includes('8 blatt')) return 6;
+            if (lowerName.includes('neunblatt') || lowerName.includes('9 blatt')) return 7;
+            if (lowerName.includes('vier gleiche')) return 8;
+            if (lowerName.includes('stöck')) return 9;
+            if (lowerName.includes('reihenfolge')) return 10;
+            if (lowerName.includes('schneider')) return 11;
+            if (lowerName.includes('korrekturen')) return 12;
+            if (lowerName.includes('zahlendarstellung')) return 13;
+            if (lowerName.includes('frühzeitiges bedanken')) return 14;
+            if (lowerName.includes('bedanken')) return 15;
+            if (lowerName.includes('allgemeine weis') || lowerName.includes('grundregeln')) return 0;
+            if (lowerName.includes('ausmachen')) return 16;
+            
+            // Fallback für unbekannte Artikel
+            return 999;
           };
 
-          const normalizedA = normalizeWeisName(a.name);
-          const normalizedB = normalizeWeisName(b.name);
+          const indexA = getWeisOrderIndex(a.name);
+          const indexB = getWeisOrderIndex(b.name);
 
-          const indexA = weisOrder.findIndex(item => normalizedA.toLowerCase().includes(item.toLowerCase()));
-          const indexB = weisOrder.findIndex(item => normalizedB.toLowerCase().includes(item.toLowerCase()));
-
-          // Wenn beide in der Liste sind, nach Index sortieren
-          if (indexA !== -1 && indexB !== -1) {
+          // Sortiere nach Index
+          if (indexA !== indexB) {
             return indexA - indexB;
           }
-          // Wenn nur einer in der Liste ist, den in der Liste zuerst
-          if (indexA !== -1) return -1;
-          if (indexB !== -1) return 1;
-          // Sonst alphabetisch
+          
+          // Falls gleicher Index, alphabetisch sortieren
           return a.name.localeCompare(b.name);
         });
       } else {
@@ -148,7 +155,34 @@ const getNavigationStructure = (content: JassContentRecord) => {
     });
   });
 
-  return structure;
+  // Sortiere Hauptkategorien: Regeln zuerst, dann alphabetisch
+  const sortedStructure: Record<string, {
+    name: string;
+    subcategories: Record<string, {
+      name: string;
+      slug: string;
+      topics: { name: string; slug: string }[];
+    }>;
+  }> = {};
+  
+  // Definiere die gewünschte Reihenfolge (mit optimiertem Farbverlauf)
+  const categoryOrder = ['regeln', 'weis-regeln', 'geschichte', 'grundlagen-kultur', 'schieber', 'begriffe', 'varianten', 'jassapps', 'referenzen'];
+  
+  // Füge Kategorien in der gewünschten Reihenfolge hinzu
+  categoryOrder.forEach(catSlug => {
+    if (structure[catSlug]) {
+      sortedStructure[catSlug] = structure[catSlug];
+    }
+  });
+  
+  // Füge alle anderen Kategorien alphabetisch hinzu
+  Object.keys(structure).forEach(catSlug => {
+    if (!categoryOrder.includes(catSlug)) {
+      sortedStructure[catSlug] = structure[catSlug];
+    }
+  });
+
+  return sortedStructure;
 };
 
 
@@ -160,7 +194,11 @@ export const LexikonSidebar = () => {
 
   return (
     <div>
-      <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 text-white border-b border-gray-600 pb-2">Jass-Wissen</h3>
+      <Link href="/wissen" legacyBehavior>
+        <a className="block">
+          <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 text-white border-b border-gray-600 pb-2 hover:text-green-400 transition-colors cursor-pointer">Jass-Wiki</h3>
+        </a>
+      </Link>
       <nav>
         <ul className="space-y-2">
           {Object.entries(navigationStructure).map(([catSlug, categoryData]) => {

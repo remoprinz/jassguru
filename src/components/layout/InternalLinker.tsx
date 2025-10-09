@@ -30,7 +30,10 @@ interface InternalLinkerProps {
  * Component, der Text rendert und automatisch interne Links zu anderen Wissensartikeln erstellt
  */
 export const InternalLinker: React.FC<InternalLinkerProps> = ({ text }) => {
-  // Verwende ReactMarkdown für Markdown-Rendering
+  // Pre-Process: Konvertiere • (Unicode Bullet) zu - (Markdown Bullet)
+  // Damit ReactMarkdown die Listen korrekt als <ul> rendert
+  const markdownText = text.replace(/^•\s/gm, '- ');
+  
   return (
     <div className="prose prose-invert prose-lg max-w-none">
       <ReactMarkdown
@@ -78,7 +81,7 @@ export const InternalLinker: React.FC<InternalLinkerProps> = ({ text }) => {
           ),
         }}
       >
-        {text}
+        {markdownText}
       </ReactMarkdown>
     </div>
   );

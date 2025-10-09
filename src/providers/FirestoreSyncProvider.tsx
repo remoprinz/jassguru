@@ -684,9 +684,7 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
   useEffect(() => {
     // KORREKTUR: Abhängigkeit von jassSessionId statt activeGameId
     if (!jassSessionId || syncStatus.isPaused) { 
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`[SyncProvider] Skipping completedGames listener setup (jassSessionId: ${jassSessionId}, paused: ${syncStatus.isPaused})`);
-        }
+        // Debug-Logging entfernt - zu viele repetitive Logs
         return; // Frühzeitig beenden, wenn keine Session-ID oder Sync pausiert
     }
 

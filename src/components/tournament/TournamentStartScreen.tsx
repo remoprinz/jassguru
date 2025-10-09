@@ -57,6 +57,21 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
   
   // NEU: Zustand für die Überprüfung, ob der aktuelle Benutzer Teil der ausgewählten Spieler ist
   const [isCurrentUserInSelectedPasse, setIsCurrentUserInSelectedPasse] = useState(false);
+  
+  // EINFACHE LÖSUNG: Dynamische Passe-Nummer basierend auf ausgewählten Spielern
+  const dynamicPasseNumber = React.useMemo(() => {
+    const selectedPlayers = Object.values(selectedGamePlayers).filter(p => p !== null);
+    if (selectedPlayers.length === 0) {
+      // Keine Spieler ausgewählt → Zeige die Standard-Nummer vom Parent
+      return currentPasseNumber;
+    }
+    // Spieler ausgewählt → Zeige IHRE nächste Passe (Minimum der completedPassesCount + 1)
+    const completedCounts = selectedPlayers.map(p => {
+      const participant = tournamentParticipants.find(tp => tp.uid === p!.uid);
+      return participant?.completedPassesCount || 0;
+    });
+    return Math.min(...completedCounts) + 1;
+  }, [selectedGamePlayers, currentPasseNumber, tournamentParticipants]);
 
   useEffect(() => {
     if (!isVisible) {
@@ -72,26 +87,16 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
   // NEU: Effekt, um isCurrentUserInSelectedPasse zu aktualisieren, wenn sich selectedGamePlayers oder user ändern
   useEffect(() => {
     if (user?.uid) {
-      // Debug-Logging
-      console.log("[TournamentStartScreen] Prüfe Teilnahme:", {
-        userUid: user.uid,
-        selectedPlayers: Object.values(selectedGamePlayers).map(p => p?.type === 'member' ? { uid: p.uid, name: p.name } : null).filter(Boolean)
-      });
+      // Debug-Logging entfernt - zu viele repetitive Logs
       
-      // Verbesserte Überprüfung mit Stringvergleich und zusätzlichem Logging
+      // Verbesserte Überprüfung mit Stringvergleich
       const isUserSelected = Object.values(selectedGamePlayers).some(p => {
-        const isMatch = p?.type === 'member' && p.uid && p.uid.toString() === user.uid.toString();
-        if (isMatch) {
-          console.log(`[TournamentStartScreen] Benutzer ${user.uid} nimmt an Passe teil als ${p.name}`);
-        }
-        return isMatch;
+        return p?.type === 'member' && p.uid && p.uid.toString() === user.uid.toString();
       });
       
       setIsCurrentUserInSelectedPasse(isUserSelected);
-      console.log(`[TournamentStartScreen] isCurrentUserInSelectedPasse gesetzt auf: ${isUserSelected}`);
     } else {
       setIsCurrentUserInSelectedPasse(false);
-      console.log("[TournamentStartScreen] Kein Benutzer angemeldet, isCurrentUserInSelectedPasse = false");
     }
   }, [selectedGamePlayers, user]);
 
@@ -344,7 +349,7 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
               }
             >
               {isLoading ? <Loader2 className="animate-spin mr-2" /> : null}
-              {currentPasseNumber}. Passe starten
+              {dynamicPasseNumber}. Passe starten
             </motion.button>
             
             {!isCurrentUserInSelectedPasse && areAllSlotsFilled() && hasSelectedStartingPlayer && (

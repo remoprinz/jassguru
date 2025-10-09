@@ -190,17 +190,33 @@ const WelcomeBox: React.FC<WelcomeBoxProps> = ({
 
       {/* Divider and Link to Knowledge Hub */}
       <div className="pt-8 mt-8 border-t border-gray-700/50">
-        <Link
-          href="/wissen"
-          className="group block text-center transition-transform hover:scale-105"
-        >
-          <span className="text-2xl font-semibold text-gray-200 group-hover:text-green-400 transition-colors">
-            Das Schweizer Jass-Lexikon
-          </span>
-          <p className="text-lg text-gray-400 group-hover:text-gray-300 transition-colors mt-2">
-            Regeln, Strategien & mehr →
-          </p>
-        </Link>
+        {displayMode === 'pwa' ? (
+          <Link
+            href="/wissen"
+            className="group block text-center transition-transform hover:scale-105"
+          >
+            <span className="text-2xl font-semibold text-gray-200 group-hover:text-green-400 transition-colors">
+              Jass-Wikipedia
+            </span>
+            <p className="text-lg text-gray-400 group-hover:text-gray-300 transition-colors mt-2">
+              Regeln, Strategien & mehr →
+            </p>
+          </Link>
+        ) : (
+          <a
+            href="https://jasswiki.ch"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group block text-center transition-transform hover:scale-105"
+          >
+            <span className="text-2xl font-semibold text-gray-200 group-hover:text-green-400 transition-colors">
+              Jass-Wikipedia
+            </span>
+            <p className="text-lg text-gray-400 group-hover:text-gray-300 transition-colors mt-2">
+              Regeln, Strategien & mehr →
+            </p>
+          </a>
+        )}
       </div>
     </motion.div>
   );

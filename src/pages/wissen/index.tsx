@@ -3,9 +3,10 @@ import { LexikonLayout } from '@/components/layout/LexikonLayout';
 import Link from 'next/link';
 import { ChevronRight, BookOpen, Users, Trophy, Zap, Scale, FileText } from 'lucide-react';
 import { SearchBar } from '@/components/wissen/SearchBar';
+import { SeoHead } from '@/components/layout/SeoHead';
 
 const WissenHomePage = () => {
-    const breadcrumbItems = [{ name: 'Wissen', href: '/wissen' }];
+    const breadcrumbItems = [{ name: 'Jass-Wiki', href: '/wissen' }];
 
     // Enable scrolling for knowledge pages
     useEffect(() => {
@@ -20,86 +21,86 @@ const WissenHomePage = () => {
 
     const categories = [
         { 
-            slug: 'geschichte', 
-            name: 'Geschichte',
-            description: 'Wie entstand das Jassen? Erfahre alles über die Wurzeln des Schweizer Nationalspiel',
-            icon: BookOpen,
-            color: 'bg-amber-500'
-        },
-        { 
-            slug: 'grundlagen-kultur', 
-            name: 'Grundlagen & Kultur',
-            description: 'Kartenwerte, Spielablauf und die kulturelle Bedeutung des Jassens in der Schweiz',
-            icon: Users,
-            color: 'bg-blue-500'
-        },
-        { 
-            slug: 'schieber', 
-            name: 'Schieber',
-            description: 'Die beliebteste Jassvariante im Detail - Regeln, Strategien und Tipps',
-            icon: Zap,
-            color: 'bg-green-500'
+            slug: 'regeln', 
+            name: 'Regeln',
+            description: 'Alle offiziellen Spielregeln, Sonderregeln und Ausnahmefälle im Detail',
+            icon: Scale,
+            color: 'bg-red-500' // Rot - höchste Priorität
         },
         { 
             slug: 'weis-regeln', 
             name: 'Weis-Regeln',
             description: 'Alles über Weis, Stöck und Punktezählung - werde zum Weis-Experten',
             icon: Trophy,
-            color: 'bg-purple-500'
+            color: 'bg-orange-500' // Orange - zweithöchste Priorität
+        },
+        { 
+            slug: 'geschichte', 
+            name: 'Geschichte',
+            description: 'Wie entstand das Jassen? Erfahre alles über die Wurzeln des Schweizer Nationalspiel',
+            icon: BookOpen,
+            color: 'bg-amber-500' // Gelb - warme Farbe
+        },
+        { 
+            slug: 'grundlagen-kultur', 
+            name: 'Grundlagen & Kultur',
+            description: 'Kartenwerte, Spielablauf und die kulturelle Bedeutung des Jassens in der Schweiz',
+            icon: Users,
+            color: 'bg-green-500' // Grün - natürliche Farbe
+        },
+        { 
+            slug: 'schieber', 
+            name: 'Schieber',
+            description: 'Die beliebteste Jassvariante im Detail - Regeln, Strategien und Tipps',
+            icon: Zap,
+            color: 'bg-blue-500' // Blau - kühle Farbe
         },
         { 
             slug: 'begriffe', 
             name: 'Jass-Begriffe',
             description: 'Von "Bock" bis "Stöck" - alle wichtigen Jass-Ausdrücke erklärt',
             icon: BookOpen,
-            color: 'bg-red-500'
+            color: 'bg-indigo-500' // Indigo - tiefe Farbe
         },
         { 
             slug: 'varianten', 
             name: 'Jass-Varianten',
             description: 'Coiffeur, Differenzler & Co. - entdecke die Vielfalt des Jassens',
             icon: Users,
-            color: 'bg-indigo-500'
+            color: 'bg-purple-500' // Lila - kreative Farbe
         },
         { 
-            slug: 'regeln', 
-            name: 'Regeln',
-            description: 'Alle offiziellen Spielregeln, Sonderregeln und Ausnahmefälle im Detail',
-            icon: Scale,
-            color: 'bg-orange-500'
+            slug: 'jassapps', 
+            name: 'Jassapps',
+            description: 'Digitale Jasstafeln und Online-Jass-Apps - die besten Tools für Jasser',
+            icon: Zap,
+            color: 'bg-cyan-500' // Cyan - moderne Farbe
         },
         { 
             slug: 'referenzen', 
             name: 'Referenzen',
             description: 'Quellen, Literatur und Experten rund um das Jassen',
             icon: FileText,
-            color: 'bg-gray-500'
+            color: 'bg-gray-500' // Grau - neutrale Farbe
         }
     ];
 
     return (
         <LexikonLayout breadcrumbItems={breadcrumbItems}>
-            {/* Zurück zur App Link */}
-            <div className="mb-6">
-                <Link href="/" className="inline-flex items-center text-green-400 hover:text-green-300 transition-colors">
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                    </svg>
-                    Zurück zur Jassguru App
-                </Link>
-            </div>
+            <SeoHead
+                title="Jass-Wiki: Alle offiziellen Jassregeln der Schweiz | Das komplette Nachschlagewerk"
+                description="Von den Grundlagen bis zu Profi-Strategien - hier findest du alles über das Schweizer Nationalspiel. Das umfassendste Jass-Regelwerk online."
+            />
 
             {/* Hero Section */}
             <div className="text-center mb-8 sm:mb-12">
                 <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4">
-                    Jass-Wissen für alle
+                    Das Wiki für Jasser
                 </h1>
                 <p className="text-lg sm:text-xl text-gray-300 leading-relaxed max-w-2xl mx-auto mb-8">
                     Von den Grundlagen bis zu Profi-Strategien - hier findest du alles über das Schweizer Nationalspiel.
                 </p>
                 
-                {/* Suchfunktion */}
-                <SearchBar />
             </div>
 
             {/* Main Categories Grid */}
@@ -178,7 +179,7 @@ const WissenHomePage = () => {
                         Jass-ABC
                     </Link>
                     <Link href="/quellen" className="px-4 py-2 bg-gray-700 text-gray-200 rounded-full hover:bg-gray-600 hover:text-white transition-colors text-sm sm:text-base border border-gray-600">
-                        📚 Quellen & Literatur
+                        Quellen & Literatur
                     </Link>
                 </div>
             </div>

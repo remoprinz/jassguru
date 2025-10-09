@@ -398,11 +398,19 @@ const TournamentViewPage: React.FC = () => {
       return;
     }
 
-    // Lade Gruppenmitglieder bevor der StartScreen angezeigt wird
+    // KRITISCHER FIX: Lade sowohl Gruppenmitglieder als auch Turnierteilnehmer
     setIsLoadingMembersForPasse(true);
     try {
+      // 1. Lade Gruppenmitglieder
       const fetchedMembers = await getGroupMembersSortedByGames(tournament.groupId);
       setMembersForPasse(fetchedMembers);
+      
+      // 2. Stelle sicher, dass Turnierteilnehmer mit korrekten completedPassesCount geladen sind
+      if (participantsStatus !== 'success') {
+        console.log("[TournamentViewPage] Loading participants before starting passe...");
+        await loadTournamentParticipants(instanceId);
+      }
+      
       setShowStartPasseScreen(true);
     } catch (error) {
       console.error("Fehler beim Laden der Gruppenmitglieder für Passe:", error);
@@ -418,7 +426,58 @@ const TournamentViewPage: React.FC = () => {
   const isLoadingParticipants = participantsStatus === 'loading';
   const isLoadingDetails = isLoading || isLoadingParticipants;
   const isCurrentUserAdmin = !!tournament && !!user && tournament.adminIds?.includes(user.uid);
-  const nextPasseNumber = (currentTournamentGames?.length || 0) + 1;
+  
+  // 🆕 Berechne nächste Passe-Nummer UND Label
+  const { nextPasseNumber, nextPasseLabel } = useMemo(() => {
+    if (!tournamentParticipants || tournamentParticipants.length === 0 || !tournament) {
+      return { nextPasseNumber: 1, nextPasseLabel: '1A' };
+    }
+    
+    // ROBUSTER ALGORITHMUS für alle Szenarien:
+    // 1. Ermittle die maximale Anzahl abgeschlossener Passen aller Spieler
+    const completedPassesCounts = tournamentParticipants.map(p => p.completedPassesCount || 0);
+    const maxCompletedPasses = Math.max(...completedPassesCounts);
+    
+    // 2. Zusätzliche Sicherheitsprüfung für Edge Cases:
+    // - Ungerade Spielerzahlen (9, 10, 11 Spieler)
+    // - Spieler, die Runden aussetzen
+    // - Unregelmäßige Spielabfolgen
+    
+    // Wenn alle Spieler die gleiche Anzahl haben, ist das die aktuelle Runde
+    const allHaveSamePasses = completedPassesCounts.every(count => count === maxCompletedPasses);
+    
+    const nextNumber = allHaveSamePasses ? maxCompletedPasses + 1 : maxCompletedPasses + 1;
+    
+    // 🔧 KORREKTUR: Berechne Passe-Label basierend auf DEM SPIELER
+    // Jeder Spieler durchläuft: 1A → 2A → 3A → 4A...
+    // Der Buchstabe zeigt nur, welche parallele Gruppe gerade spielt
+    
+    // Ermittle die nächste Runde für diesen Spieler
+    const nextRound = maxCompletedPasses + 1;
+    
+    // Ermittle, wie viele PARALLELE Gruppen bereits diese Runde spielen
+    const parallelGroupsInNextRound = currentTournamentGames?.filter(game => 
+      game.tournamentRound === nextRound
+    ).length || 0;
+    
+    // Berechne Buchstaben basierend auf parallelen Gruppen
+    const nextLetter = String.fromCharCode(65 + parallelGroupsInNextRound); // 65 = 'A'
+    const nextLabel = `${nextRound}${nextLetter}`;
+    
+    console.log(`[TournamentViewPage] 🎯 Button Label Calculation (PER PLAYER):`, {
+      maxCompletedPasses,
+      nextRound,
+      parallelGroupsInNextRound,
+      nextLabel,
+      currentUserUid: user?.uid,
+      allGamesInNextRound: currentTournamentGames?.filter(g => g.tournamentRound === nextRound).map(g => g.passeLabel)
+    });
+    
+    return { 
+      nextPasseNumber: nextNumber, 
+      nextPasseLabel: nextLabel 
+    };
+  }, [tournamentParticipants, tournament, currentTournamentGames, user]);
   const activeStrokeSettings: StrokeSettings = tournament?.settings?.strokeSettings || DEFAULT_STROKE_SETTINGS;
   const activeScoreSettings: ScoreSettings = {
     ...DEFAULT_SCORE_SETTINGS,
@@ -648,7 +707,7 @@ const TournamentViewPage: React.FC = () => {
 
   return ( 
     <MainLayout>
-      <div className="flex flex-col min-h-screen bg-gray-900 text-white pt-8 pb-20">
+      <div className="flex flex-col min-h-screen bg-gray-900 text-white pt-8 pb-32">
         {tournament && (
           <div className="flex flex-col items-center mb-4 mt-12">
             <div 
@@ -853,38 +912,6 @@ const TournamentViewPage: React.FC = () => {
           </div>
         </Tabs>
         
-        {tournament.status === 'active' && (
-            <div className="sticky bottom-0 left-0 right-0 p-3 bg-gray-900/90 backdrop-blur-sm border-t border-gray-700/60">
-                {isCheckingForResumablePasse ? (
-                    <Button 
-                        className="w-full bg-gray-600 hover:bg-gray-500 text-white py-3 px-6 rounded-lg shadow-lg text-base font-semibold flex items-center justify-center transition-colors duration-150 ease-in-out"
-                        disabled
-                    >
-                        <Loader2 className="animate-spin h-5 w-5 mr-2" />
-                        Suche laufende Passe...
-                    </Button>
-                ) : resumablePasseId ? (
-                    <Button 
-                        onClick={() => router.push(`/game/${resumablePasseId}`)}
-                        className="w-full h-14 text-lg font-bold rounded-xl shadow-lg bg-blue-600 hover:bg-blue-700 border-b-4 border-blue-900 text-white active:scale-95 transition duration-100 ease-in-out"
-                    >
-                        <PlayCircle className="h-5 w-5 mr-2" />
-                        Aktive Passe fortsetzen
-                    </Button>
-                ) : (
-                    <Button 
-                        onClick={handleStartNextPasse}
-                        className="w-full h-14 text-lg font-bold rounded-xl shadow-lg bg-green-600 hover:bg-green-700 border-b-4 border-green-900 text-white active:scale-95 transition duration-100 ease-in-out"
-                        disabled={participantsStatus === 'loading' || tournamentParticipants.length < 1 || isLoadingDetails}
-                    >
-                        {(participantsStatus === 'loading' || isLoadingDetails) && <Loader2 className="animate-spin h-5 w-5 mr-2" />}
-                        {nextPasseNumber}. Passe starten
-                        {(participantsStatus !== 'loading' && !isLoadingDetails && tournamentParticipants.length < 1) && " (Benötigt Teilnehmer)"}
-                    </Button>
-                 )
-            }
-            </div>
-        )}
 
         {tournament.status === 'upcoming' && (
           <div className="sticky bottom-0 left-0 right-0 p-4 bg-gray-800 border-t border-gray-700 text-center">
@@ -970,6 +997,42 @@ const TournamentViewPage: React.FC = () => {
           </Dialog>
         )}
       </div>
+      
+      {/* BUTTON AUSSERHALB DES MAINLAYOUT FÜR VOLLE BREITE */}
+      {tournament?.status === 'active' && (
+          <div className="fixed bottom-24 left-0 right-0 z-50 bg-gray-900/90 backdrop-blur-sm border-t border-gray-700/60 p-4">
+              <div className="w-full">
+                  {isCheckingForResumablePasse ? (
+                      <Button 
+                          className="w-full bg-gray-600 hover:bg-gray-500 text-white py-3 px-6 rounded-lg shadow-lg text-base font-semibold flex items-center justify-center transition-colors duration-150 ease-in-out"
+                          disabled
+                      >
+                          <Loader2 className="animate-spin h-5 w-5 mr-2" />
+                          Suche laufende Passe...
+                      </Button>
+                  ) : resumablePasseId ? (
+                      <Button 
+                          onClick={() => router.push(`/game/${resumablePasseId}`)}
+                          className="w-full h-14 text-lg font-bold rounded-xl shadow-lg bg-blue-600 hover:bg-blue-700 border-b-4 border-blue-900 text-white active:scale-95 transition duration-100 ease-in-out"
+                      >
+                          <PlayCircle className="h-5 w-5 mr-2" />
+                          Aktive Passe fortsetzen
+                      </Button>
+                  ) : (
+                      <Button 
+                          onClick={handleStartNextPasse}
+                          className="w-full h-14 text-lg font-bold rounded-xl shadow-lg bg-blue-600 hover:bg-blue-700 border-b-4 border-blue-900 text-white active:scale-95 transition duration-100 ease-in-out"
+                          disabled={participantsStatus === 'loading' || tournamentParticipants.length < 1 || isLoadingDetails}
+                      >
+                          {(participantsStatus === 'loading' || isLoadingDetails) && <Loader2 className="animate-spin h-5 w-5 mr-2" />}
+                          {/* 🆕 Zeige Passe-Label (z.B. "1A") statt nur Nummer */}
+                          Passe {nextPasseLabel} starten
+                          {(participantsStatus !== 'loading' && !isLoadingDetails && tournamentParticipants.length < 1) && " (Benötigt Teilnehmer)"}
+                      </Button>
+                  )}
+              </div>
+          </div>
+      )}
     </MainLayout>
   );
 };

@@ -309,7 +309,7 @@ export const matchDetailsSprueche = [
             },
             {
               text: `Eine Matsch-Lektion von ${teamWithMore.join(" & ")}! ${moreMatsch}:${lessMatsch}!`,
-              icon: "📚",
+              icon: "",
             },
           ]);
         }

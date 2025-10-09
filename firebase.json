@@ -1,31 +1,32 @@
 {
-  "hosting": {
-    "site": "jassguru",
-    "public": "out",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
-    "rewrites": [
-      {
-        "source": "/agb",
-        "destination": "/agb.html"
-      },
-      {
-        "source": "/datenschutz",
-        "destination": "/datenschutz.html"
-      },
-      {
-        "source": "/impressum",
-        "destination": "/impressum.html"
-      },
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
-    ],
-    "headers": [
+  "hosting": [
+    {
+      "target": "jassguru",
+      "public": "out",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "/agb",
+          "destination": "/agb.html"
+        },
+        {
+          "source": "/datenschutz",
+          "destination": "/datenschutz.html"
+        },
+        {
+          "source": "/impressum",
+          "destination": "/impressum.html"
+        },
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ],
+      "headers": [
       {
         "source": "**/*.css",
         "headers": [
@@ -216,7 +217,56 @@
         ]
       }
     ]
-  },
+    },
+    {
+      "target": "jasswiki",
+      "public": "out-wiki",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "/",
+          "destination": "/index.html"
+        },
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ],
+      "headers": [
+        {
+          "source": "**/*.css",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "text/css; charset=utf-8"
+            }
+          ]
+        },
+        {
+          "source": "**/*.js",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/javascript; charset=utf-8"
+            }
+          ]
+        },
+        {
+          "source": "**",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=3600"
+            }
+          ]
+        }
+      ]
+    }
+  ],
   "functions": [
     {
       "source": "functions",

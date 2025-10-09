@@ -370,25 +370,10 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
     try {
       const participantsFromService = await fetchTournamentParticipants(instanceId);
       const participantsWithProgress = participantsFromService.map(p_service => {
-        const p_base = p_service as FirestorePlayerFromService & { userId?: string };
-        
-        // KORREKTUR: Strikte Trennung zwischen userId (Firebase Auth) und playerId (Player Document)
-        const userId = p_base.userId; // Firebase Auth UID
-        const playerId = p_base.id; // Player Document ID
-        
-        if (!userId) {
-          console.error(`[TournamentStore] loadTournamentParticipants: Player ${p_base.displayName} (ID: ${playerId}) has no userId. Skipping.`);
-          return null; // Überspringe Spieler ohne userId
-        }
-        
-        return {
-          ...p_base,
-          uid: userId, // Firebase Auth UID
-          playerId: playerId, // Player Document ID
-          completedPassesCount: p_base.completedPassesCount || 0,
-          currentPasseNumberForPlayer: p_base.currentPasseNumberForPlayer || 1,
-        } as ParticipantWithProgress;
-      }).filter((p): p is ParticipantWithProgress => p !== null); // Filtere null-Werte heraus
+        // KORREKTUR: Direkte Verwendung von ParticipantWithProgress aus dem Service
+        // Der Service gibt bereits ParticipantWithProgress[] zurück, keine weitere Konvertierung nötig
+        return p_service as ParticipantWithProgress;
+      });
       
       set({ tournamentParticipants: participantsWithProgress, status: 'success', participantsStatus: 'success' });
     } catch (error) {
@@ -434,7 +419,32 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
       set({ status: 'error', error: errorMsg });
       return null;
     }
-    const passeTournamentNumber = 1 + Math.min(...players.map(p => p.completedPassesCount));
+    // EINFACHE LÖSUNG: Die Passe-Nummer für diese Gruppe ist das Minimum + 1
+    // Das funktioniert für alle Szenarien (8, 12, 16, 20, 83 Spieler, etc.)
+    // Spieler mit 0 Passen → Passe 1
+    // Spieler mit 1 Passe → Passe 2
+    // Wenn Spieler unterschiedliche Anzahl haben → Die kleinste + 1
+    
+    // KRITISCHER FIX: Sicherstellen, dass alle completedPassesCount Zahlen sind
+    const validPassesCounts = players.map(p => {
+      const count = p.completedPassesCount;
+      return typeof count === 'number' && !isNaN(count) ? count : 0;
+    });
+    
+    const passeTournamentNumber = 1 + Math.min(...validPassesCounts);
+    
+    // DEBUGGING: Log die Berechnung
+    console.log("[TournamentStore] Passe Number Calculation:");
+    console.log("- players:", players.map(p => ({ uid: p.uid, name: p.name, completedPassesCount: p.completedPassesCount })));
+    console.log("- validPassesCounts:", validPassesCounts);
+    console.log("- passeTournamentNumber:", passeTournamentNumber);
+    
+    // KRITISCHER DEBUG: Prüfe ob passeTournamentNumber NaN ist
+    if (isNaN(passeTournamentNumber)) {
+      console.error("[TournamentStore] CRITICAL: passeTournamentNumber is NaN!");
+      console.error("- players:", players);
+      console.error("- validPassesCounts:", validPassesCounts);
+    }
 
     const numericStartingPlayer = Number(startingPlayer) as PlayerNumber;
     const playersWithNumericPositions = players.map(p => ({

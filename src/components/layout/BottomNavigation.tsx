@@ -1,4 +1,4 @@
-import {Home, MessageCircle, ClipboardList, User, Award, Info} from "lucide-react";
+import {Home, MessageCircle, ClipboardList, User, Award, Info, BookOpen} from "lucide-react";
 import Link from "next/link";
 import {useRouter} from "next/router";
 import {cn} from "@/lib/utils";
@@ -43,11 +43,10 @@ export function BottomNavigation() {
       itemTournamentStatus: null,
     },
     {
-      name: "Regelchat",
-      href: "https://chat.jassguru.ch",
-      icon: MessageCircle,
-      active: false,
-      external: true,
+      name: "Jass-Wiki",
+      href: "/wissen",
+      icon: BookOpen,
+      active: currentPath.startsWith("/wissen"),
       itemTournamentStatus: null,
     },
   ];

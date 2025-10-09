@@ -102,23 +102,14 @@ export const SearchBar: React.FC = () => {
   return (
     <div ref={searchRef} className="relative w-full max-w-2xl mx-auto">
       {/* Suchfeld */}
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+      <div className="relative flex items-center">
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Suche nach Begriffen, Regeln, Varianten..."
-          className="w-full pl-12 pr-12 py-4 bg-gray-800 text-white rounded-xl border border-gray-700 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all text-base sm:text-lg"
+          placeholder="🔍 Suche nach Begriffen, Regeln, Varianten..."
+          className="w-full pl-8 pr-4 py-4 bg-gray-800 text-white rounded-xl border border-gray-700 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all text-base sm:text-lg"
         />
-        {query && (
-          <button
-            onClick={handleClear}
-            className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        )}
       </div>
 
       {/* Ergebnisse Dropdown */}

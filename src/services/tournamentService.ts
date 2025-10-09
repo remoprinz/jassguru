@@ -28,6 +28,7 @@ import type {
   TournamentPlayerStats,
   PassePlayerDetail, // Sicherstellen, dass dieser Import vorhanden ist
 } from '../types/tournament';
+import type { ParticipantWithProgress } from '../store/tournamentStore';
 import type { PlayerNumber, PlayerNames, TeamPosition, FirestorePlayer, ActiveGame, TeamScores, StricheRecord, RoundEntry, ScoreSettings, StrokeSettings, GamePlayers, FarbeSettings, MemberInfo } from '../types/jass';
 import { isJassRoundEntry } from '../types/jass'; // isJassRoundEntry importieren
 import { firebaseApp } from './firebaseInit'; // firebaseApp importieren für Functions
@@ -39,6 +40,135 @@ import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObjec
 import { DEFAULT_SCORE_SETTINGS } from '@/config/ScoreSettings';
 import { DEFAULT_STROKE_SETTINGS } from '@/config/GameSettings';
 import { DEFAULT_FARBE_SETTINGS } from '@/config/FarbeSettings';
+
+// --- 🆕 HELPER FUNCTIONS FÜR DUALE NUMMERIERUNG ---
+
+/**
+ * Konvertiert eine Nummer in einen Buchstaben (0 -> A, 1 -> B, etc.)
+ */
+function numberToLetter(num: number): string {
+  return String.fromCharCode(65 + num); // 65 = 'A'
+}
+
+/**
+ * Berechnet die nächste verfügbare Passe-ID innerhalb einer Runde.
+ * @param tournamentId ID der Turnierinstanz
+ * @param roundNumber Nummer der Turnier-Runde
+ * @returns Nächster verfügbarer Buchstabe ("A", "B", "C"...)
+ */
+async function getNextPasseLetterInRound(tournamentId: string, roundNumber: number): Promise<string> {
+  try {
+    const gamesColRef = collection(db, 'tournaments', tournamentId, 'games');
+    
+    // 🔧 FIX: Keine orderBy nötig - lade alle Passen dieser Runde und zähle
+    const roundQuery = query(
+      gamesColRef, 
+      where('tournamentRound', '==', roundNumber)
+    );
+    
+    const querySnapshot = await getDocs(roundQuery);
+    
+    if (querySnapshot.empty) {
+      // Erste Passe in dieser Runde
+      return 'A';
+    }
+    
+    // Sammle alle verwendeten Buchstaben
+    const usedLetters = new Set<string>();
+    querySnapshot.docs.forEach(doc => {
+      const data = doc.data();
+      if (data.passeInRound) {
+        usedLetters.add(data.passeInRound);
+      }
+    });
+    
+    // Finde den nächsten freien Buchstaben
+    let nextCharCode = 65; // 'A'
+    while (usedLetters.has(String.fromCharCode(nextCharCode))) {
+      nextCharCode++;
+    }
+    
+    const nextLetter = String.fromCharCode(nextCharCode);
+    console.log(`[tournamentService] Round ${roundNumber}: Used letters: ${Array.from(usedLetters).join(', ')}, Next: ${nextLetter}`);
+    
+    return nextLetter;
+    
+  } catch (error) {
+    console.error('[tournamentService] Error getting next passe letter:', error);
+    return 'A'; // Fallback
+  }
+}
+
+/**
+ * Berechnet eventCounts aus finalStriche und roundHistory
+ */
+function calculateEventCounts(
+  finalStriche: { top: StricheRecord; bottom: StricheRecord },
+  roundHistory: RoundEntry[]
+): {
+  bottom: { sieg: number; berg: number; matsch: number; kontermatsch: number; schneider: number };
+  top: { sieg: number; berg: number; matsch: number; kontermatsch: number; schneider: number };
+} {
+  const bottomEvents = { sieg: 0, berg: 0, matsch: 0, kontermatsch: 0, schneider: 0 };
+  const topEvents = { sieg: 0, berg: 0, matsch: 0, kontermatsch: 0, schneider: 0 };
+
+  // 1. Matsch/Kontermatsch aus roundHistory
+  if (roundHistory && Array.isArray(roundHistory)) {
+    roundHistory.forEach(round => {
+      // Type Guard: Nur JassRoundEntry hat strichInfo
+      if (isJassRoundEntry(round) && round.strichInfo && round.strichInfo.type && round.strichInfo.team) {
+        const teamKey = round.strichInfo.team;
+        if (round.strichInfo.type === 'matsch') {
+          if (teamKey === 'bottom') bottomEvents.matsch++;
+          else if (teamKey === 'top') topEvents.matsch++;
+        } else if (round.strichInfo.type === 'kontermatsch') {
+          if (teamKey === 'bottom') bottomEvents.kontermatsch++;
+          else if (teamKey === 'top') topEvents.kontermatsch++;
+        }
+      }
+    });
+  }
+
+  // 2. Sieg, Berg, Schneider aus finalStriche
+  if (finalStriche) {
+    if (finalStriche.bottom?.sieg > 0) bottomEvents.sieg = 1;
+    if (finalStriche.top?.sieg > 0) topEvents.sieg = 1;
+    if (finalStriche.bottom?.berg > 0) bottomEvents.berg = 1;
+    if (finalStriche.top?.berg > 0) topEvents.berg = 1;
+    if (finalStriche.bottom?.schneider > 0) bottomEvents.schneider = 1;
+    if (finalStriche.top?.schneider > 0) topEvents.schneider = 1;
+  }
+
+  return { bottom: bottomEvents, top: topEvents };
+}
+
+/**
+ * Holt Player Document IDs für eine Liste von UIDs
+ */
+async function getPlayerIdsForUids(uids: string[]): Promise<string[]> {
+  const playerIds: string[] = [];
+  
+  for (const uid of uids) {
+    try {
+      // Query players collection für diesen userId
+      const playersRef = collection(db, 'players');
+      const q = query(playersRef, where('userId', '==', uid), limit(1));
+      const snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        playerIds.push(snapshot.docs[0].id);
+      } else {
+        console.warn(`[tournamentService] No player document found for UID: ${uid}`);
+        playerIds.push(uid); // Fallback: Verwende UID als playerId
+      }
+    } catch (error) {
+      console.error(`[tournamentService] Error fetching playerId for UID ${uid}:`, error);
+      playerIds.push(uid); // Fallback
+    }
+  }
+  
+  return playerIds;
+}
 
 // --- Turnier Instanz Operationen ---
 
@@ -79,6 +209,11 @@ export const createTournamentInstance = async (
       createdBy: creatorUid,
       adminIds: adminIds, // KORREKT VERWENDET
       participantUids: finalParticipantUids,
+      
+      // 🆕 DUALE NUMMERIERUNG & TURNIERMODUS
+      tournamentMode: 'spontaneous', // Default: Spontan-Modus
+      currentRound: 1,                // Starte mit Runde 1
+      
       settings, // Hier sollten die Defaults bereits im Aufrufer (Store) verarbeitet worden sein
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -556,11 +691,11 @@ export const leaveTournament = async (
 /**
  * Ruft die Teilnehmerdaten für ein Turnier ab.
  * @param instanceId ID der Turnierinstanz.
- * @returns Ein Array von FirestorePlayer-Objekten oder eine leere Liste bei Fehlern.
+ * @returns Ein Array von ParticipantWithProgress-Objekten mit completedPassesCount oder eine leere Liste bei Fehlern.
  */
 export const fetchTournamentParticipants = async (
   instanceId: string
-): Promise<FirestorePlayer[]> => {
+): Promise<ParticipantWithProgress[]> => {
   try {
     // 1. Turnierinstanz laden, um Teilnehmer-UIDs zu bekommen
     const tournament = await fetchTournamentInstanceDetails(instanceId);
@@ -575,11 +710,35 @@ export const fetchTournamentParticipants = async (
     // 2. Rufe alle Spielerprofile auf einmal mit der neuen Service-Funktion ab.
     const validParticipants = await getPublicPlayerProfilesByUserIds(participantUids);
 
-    // Optional: Sortiere die Teilnehmer nach Namen
-    validParticipants.sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
+    // 3. KRITISCHER FIX: Berechne completedPassesCount für jeden Spieler
+    const completedGames = await fetchTournamentGames(instanceId);
+    
+    const participantsWithPassesCount: ParticipantWithProgress[] = validParticipants.map(participant => {
+      // Zähle abgeschlossene Passen für diesen Spieler
+      // WICHTIG: Verwende playerId (Player Document ID) für Spiele-Matching
+      const completedPassesForPlayer = completedGames.filter(game => {
+        // Verwende nur participantUidsForPasse, da playerId undefined ist
+        return game.participantUidsForPasse?.includes(participant.userId || '');
+      }).length;
+      
+      // DEBUG: Log für jeden Spieler (vereinfacht)
+      console.log(`[tournamentService] Player ${participant.displayName}: ${completedPassesForPlayer} completed passes`);
+      
+      return {
+        uid: participant.userId || '', // Auth UID für Berechtigung
+        playerId: participant.id || undefined, // 🔧 FIX: Verwende 'id' statt 'playerId'!
+        displayName: participant.displayName,
+        photoURL: participant.photoURL || undefined,
+        completedPassesCount: completedPassesForPlayer,
+        currentPasseNumberForPlayer: completedPassesForPlayer + 1
+      };
+    });
 
-    console.log(`[tournamentService] Fetched ${validParticipants.length} detailed participant profiles for tournament ${instanceId}.`);
-    return validParticipants;
+    // Optional: Sortiere die Teilnehmer nach Namen
+    participantsWithPassesCount.sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
+
+    console.log(`[tournamentService] Fetched ${participantsWithPassesCount.length} detailed participant profiles for tournament ${instanceId}.`);
+    return participantsWithPassesCount;
 
   } catch (error) {
     console.error(`[tournamentService] Error fetching participants for tournament ${instanceId}:`, error);
@@ -1234,7 +1393,42 @@ export const completeAndRecordTournamentPasse = async (
 
     // --- Schritt C.2: Daten-Transformation zu TournamentGame --- 
     // console.log("[tournamentService] Transforming data to TournamentGame format..."); // DEBUG-LOG ENTFERNT
-    const passeNumber = activeGameData.currentGameNumber;
+    
+    // KRITISCHER FIX: Berechne passeNumber dynamisch für die beteiligten Spieler
+    // Verwende die bereits berechnete passeNumber aus dem activeGame (die sollte korrekt sein)
+    let passeNumber = activeGameData.currentGameNumber;
+    
+    // Fallback: Falls currentGameNumber NaN oder undefined ist, berechne es neu
+    if (!passeNumber || isNaN(passeNumber)) {
+      console.warn(`[tournamentService] currentGameNumber is ${passeNumber}, calculating fallback...`);
+      
+      // Hole alle bereits abgeschlossenen Spiele für dieses Turnier (direkt aus Firestore)
+      const gamesColRef = collection(db, 'tournaments', tournamentInstanceId, 'games');
+      const gamesQuery = query(gamesColRef, orderBy("passeNumber", "asc"));
+      const gamesSnapshot = await getDocs(gamesQuery);
+      
+      // Extrahiere die UIDs der Spieler in dieser Passe
+      const currentPassePlayerUids = activeGameData.participantUids || [];
+      
+      // Zähle, wie viele Spiele jeder dieser Spieler bereits absolviert hat
+      const completedGamesPerPlayer = currentPassePlayerUids.map(uid => {
+        return gamesSnapshot.docs.filter(doc => {
+          const gameData = doc.data();
+          // Verwende nur participantUidsForPasse, da playerId undefined ist
+          return gameData.participantUidsForPasse?.includes(uid);
+        }).length;
+      });
+      
+      // Die Passe-Nummer für diese Gruppe ist das Minimum + 1
+      passeNumber = completedGamesPerPlayer.length > 0 
+        ? Math.min(...completedGamesPerPlayer) + 1 
+        : 1;
+      
+      console.log(`[tournamentService] Fallback calculated passeNumber: ${passeNumber} for players with completed games:`, completedGamesPerPlayer);
+    } else {
+      console.log(`[tournamentService] Using existing passeNumber: ${passeNumber}`);
+    }
+    
     const instanceId = tournamentInstanceId;
     const playerDetails: PassePlayerDetail[] = [];
 
@@ -1243,35 +1437,50 @@ export const completeAndRecordTournamentPasse = async (
     const lastJassRound = [...roundHistoryData].reverse().find(isJassRoundEntry);
     const weisPointsPasse = lastJassRound?.weisPoints ?? { top: 0, bottom: 0 };
 
+    // 🆕 SCHRITT 1: Sammle zuerst alle UIDs
+    const playerUidsInGame: string[] = [];
+    const playerSeats: Array<{ seat: PlayerNumber; uid: string; name: string; team: TeamPosition }> = [];
+    
     for (const pNum of [1, 2, 3, 4]) {
       const seat = pNum as PlayerNumber;
       const gamePlayerEntry = activeGameData.gamePlayers?.[seat];
       if (!gamePlayerEntry) {
         console.warn(`[tournamentService] Missing gamePlayer entry for seat ${seat} in activeGame ${activePasseId}`);
-        continue; // Spieler nicht gefunden?
+        continue;
       }
       
-      // Type Guard für MemberInfo, bevor auf uid zugegriffen wird
+      // Type Guard für MemberInfo
       if (gamePlayerEntry.type !== 'member') {
           console.warn(`[tournamentService] Skipping player at seat ${seat} because they are not a 'member' type.`);
           continue;
       }
 
-      // Jetzt ist der Zugriff auf uid sicher
-      const playerId = gamePlayerEntry.uid;
+      const playerUid = gamePlayerEntry.uid;
       const playerName = gamePlayerEntry.name;
-      // Finde das Team für den Spieler basierend auf der Aufstellung in activeGameData
       const team: TeamPosition = activeGameData.teams.top.includes(seat) ? 'top' : 'bottom';
+      
+      playerUidsInGame.push(playerUid);
+      playerSeats.push({ seat, uid: playerUid, name: playerName, team });
+    }
+
+    // 🆕 SCHRITT 2: Konvertiere alle UIDs zu Player Document IDs
+    console.log('[tournamentService] 🔍 Getting player document IDs for stats...');
+    const playerDocumentIds = await getPlayerIdsForUids(playerUidsInGame);
+    console.log('[tournamentService] ✅ Player IDs retrieved:', playerDocumentIds);
+
+    // 🆕 SCHRITT 3: Erstelle playerDetails mit Player Document IDs
+    for (let i = 0; i < playerSeats.length; i++) {
+      const { seat, name, team } = playerSeats[i];
+      const playerDocId = playerDocumentIds[i]; // Entsprechende Player Document ID
       
       // Score und Striche des Teams in dieser Passe
       const scoreInPasse = activeGameData.scores[team];
       const stricheInPasse = activeGameData.striche[team];
-      // Weispunkte des Teams in dieser Passe (aus letzter Runde extrahiert)
       const weisInPasse = weisPointsPasse[team] ?? 0;
 
       playerDetails.push({ 
-        playerId, 
-        playerName, 
+        playerId: playerDocId,  // 🆕 KRITISCH: Player Document ID (nicht UID!)
+        playerName: name, 
         seat, 
         team, 
         scoreInPasse, 
@@ -1280,8 +1489,69 @@ export const completeAndRecordTournamentPasse = async (
       });
     }
 
-    // NEU: Extrahieren der UIDs für participantUidsForPasse
-    const participantUidsForPasse = playerDetails.map(pd => pd.playerId);
+    // NEU: Extrahieren der UIDs für participantUidsForPasse (für Abwärtskompatibilität)
+    const participantUidsForPasse = playerUidsInGame;
+    
+    // 🆕 participantPlayerIds für Stats-Kompatibilität
+    const participantPlayerIds = playerDocumentIds;
+
+    // 🆕 Hole Tournament Daten für Modus und Runde
+    const tournamentDocSnap = await getDoc(tournamentDocRef);
+    if (!tournamentDocSnap.exists()) {
+      throw new Error('Tournament document not found');
+    }
+    const tournamentData = tournamentDocSnap.data() as TournamentInstance;
+    const tournamentMode = tournamentData.tournamentMode || 'spontaneous';
+
+    // 🔧 KRITISCHER FIX: Berechne die Runde basierend auf den TEILNEHMERN dieser Passe
+    // Die Runde ist das MINIMUM der completedPassesCount aller Spieler in dieser Passe + 1
+    const playersInThisPasse = playerUidsInGame;
+    
+    // Hole die Spieler-Daten vom Tournament
+    const participantUidsFromTournament = tournamentData.participantUids || [];
+    
+    // Ermittle, wie viele Passen jeder Spieler in dieser Gruppe bereits gespielt hat
+    // Dafür zählen wir die bereits abgeschlossenen Games
+    const gamesColRef = collection(db, 'tournaments', tournamentInstanceId, 'games');
+    const existingGamesSnap = await getDocs(gamesColRef);
+    
+    const playerPasseCounts: Record<string, number> = {};
+    playersInThisPasse.forEach(uid => {
+      playerPasseCounts[uid] = 0;
+    });
+    
+    existingGamesSnap.docs.forEach(doc => {
+      const gameData = doc.data();
+      if (gameData.participantUidsForPasse) {
+        gameData.participantUidsForPasse.forEach((uid: string) => {
+          if (playerPasseCounts[uid] !== undefined) {
+            playerPasseCounts[uid]++;
+          }
+        });
+      }
+    });
+    
+    // Die aktuelle Runde für diese Gruppe ist das Minimum + 1
+    const passeCounts = Object.values(playerPasseCounts);
+    const minPasseCount = passeCounts.length > 0 ? Math.min(...passeCounts) : 0;
+    const currentRound = minPasseCount + 1;
+    
+    console.log(`[tournamentService] 📍 Calculated currentRound for passe:`, {
+      playersInThisPasse,
+      playerPasseCounts,
+      minPasseCount,
+      currentRound
+    });
+
+    // 🆕 Berechne duale Nummerierung
+    const passeInRound = await getNextPasseLetterInRound(tournamentInstanceId, currentRound);
+    const passeLabel = `${currentRound}${passeInRound}`;
+    
+    console.log(`[tournamentService] 📍 Passe numbering - Round: ${currentRound}, Letter: ${passeInRound}, Label: ${passeLabel}`);
+
+    // 🆕 KRITISCH: Berechne eventCounts für Stats
+    const eventCounts = calculateEventCounts(activeGameData.striche, roundHistoryData);
+    console.log('[tournamentService] 📊 EventCounts calculated:', eventCounts);
 
     // Berechne Dauer, falls createdAt vorhanden ist
     let durationMillis: number | undefined = undefined;
@@ -1299,18 +1569,47 @@ export const completeAndRecordTournamentPasse = async (
     // NEU: Sicherstellen, dass durationMillis immer eine Zahl ist
     const finalDurationMillis = typeof durationMillis === 'number' ? durationMillis : 0;
 
+    // 🔧 FIX: Verwende die bereits korrekt berechneten Punkte aus activeGameData.scores
+    // Die Striche-Boni sind bereits in den Jass-Punkten enthalten!
+    // Wir müssen NICHT nochmal Boni addieren!
+    const finalTeamScores: TeamScores = {
+      top: activeGameData.scores.top,
+      bottom: activeGameData.scores.bottom
+    };
+    
+    console.log(`[tournamentService] 🎯 Using existing scores (Striche-Boni already included):`, finalTeamScores);
+    console.log(`  - Bottom: ${finalTeamScores.bottom} (Jass + Striche-Boni bereits enthalten)`);
+    console.log(`  - Top: ${finalTeamScores.top} (Jass + Striche-Boni bereits enthalten)`);
+
     const tournamentGameData: TournamentGame = {
       passeId: activePasseId,
       tournamentInstanceId: instanceId,
-      passeNumber: passeNumber,
+      
+      // 🆕 DUALE NUMMERIERUNG
+      passeNumber: passeNumber,           // Legacy (wird noch verwendet)
+      tournamentRound: currentRound,      // Globale Turnier-Runde
+      passeInRound: passeInRound,         // Buchstabe ("A", "B", "C"...)
+      passeLabel: passeLabel,             // Kombinierte Anzeige ("1A", "1B"...)
+      
+      // 🆕 TURNIERMODUS
+      tournamentMode: tournamentMode,     // "spontaneous" oder "planned"
+      
       completedAt: serverTimestamp(), // Wird beim Schreiben gesetzt
       startedAt: startedAtTimestamp, // Optionaler Startzeitstempel
       durationMillis: finalDurationMillis, // Verwende den finalen numerischen Wert
       startingPlayer: activeGameData.initialStartingPlayer, // Wer hat die Passe gestartet
-      participantUidsForPasse: participantUidsForPasse, // NEUES FELD HINZUGEFÜGT
+      
+      // 🆕 PLAYER IDS FÜR STATS (KRITISCH!)
+      participantUidsForPasse: participantUidsForPasse,   // Firebase Auth UIDs
+      participantPlayerIds: participantPlayerIds,         // Player Document IDs (für Stats!)
+      
       playerDetails: playerDetails,
-      teamScoresPasse: activeGameData.scores, // Direkte Übernahme der Team-Scores der Passe
+      teamScoresPasse: finalTeamScores, // 🔧 FIX: Verwende finale Punkte (Jass + Boni)
       teamStrichePasse: activeGameData.striche, // Direkte Übernahme der Team-Striche der Passe
+      
+      // 🆕 EVENT COUNTS FÜR STATS (KRITISCH!)
+      eventCounts: eventCounts,
+      
       // Kopieren der Einstellungen, die für diese Passe galten
       activeScoreSettings: activeGameData.activeScoreSettings ?? DEFAULT_SCORE_SETTINGS, // Fallback auf Defaults
       activeStrokeSettings: activeGameData.activeStrokeSettings ?? DEFAULT_STROKE_SETTINGS,
@@ -1334,6 +1633,11 @@ export const completeAndRecordTournamentPasse = async (
 
     // --- Schritt C.5: Tournament Instanz Dokument aktualisieren --- 
     // console.log(`[tournamentService] Updating tournament instance document ${tournamentInstanceId}.`); // DEBUG-LOG ENTFERNT
+    
+    // KRITISCHER FIX: Die completedPassesCount wird nicht im Tournament-Dokument gespeichert,
+    // sondern dynamisch aus den abgeschlossenen Spielen berechnet.
+    // Das ist korrekt, weil das TournamentInstance Interface nur participantUids hat, nicht participants.
+    
     await updateDoc(tournamentDocRef, {
       completedPasseCount: increment(1),
       currentActiveGameId: null, // Zurücksetzen, da keine Passe mehr aktiv ist

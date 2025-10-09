@@ -47,7 +47,7 @@ const SubcategoryPage: React.FC<SubcategoryPageProps> = ({
   const router = useRouter();
   
   const breadcrumbItems = [
-    { name: 'Wissen', href: '/wissen' },
+    { name: 'Jass-Wiki', href: '/wissen' },
     { name: category, href: `/wissen/${categorySlug}` },
     { name: subcategory, href: `/wissen/${categorySlug}/${subcategorySlug}` }
   ];

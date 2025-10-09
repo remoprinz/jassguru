@@ -25,6 +25,8 @@ import {UpdateBanner} from '@/components/pwa/UpdateBanner';
 import GlobalLoader from '@/components/layout/GlobalLoader';
 import FullscreenLoader from '@/components/ui/FullscreenLoader';
 import { SeoHead } from "@/components/layout/SeoHead";
+import { fixChromeScaling, detectBrowserScaling } from '../utils/browserFix';
+import { CanonicalLink } from '@/components/seo/CanonicalLink';
 
 // App-Watchdog in index.html verschoben für frühere Ausführung
 
@@ -117,6 +119,15 @@ const MyApp = ({Component, pageProps}: AppProps) => {
   // Client-seitige Initialisierung & stabiler Auth-Listener
   useEffect(() => {
     setIsClient(true);
+    
+    // 🔧 Browser-spezifische Fixes (Chrome-Skalierung)
+    fixChromeScaling();
+    
+    // Debug: Browser-Info loggen
+    const browserInfo = detectBrowserScaling();
+    if (browserInfo) {
+      console.log('🌐 Browser erkannt:', browserInfo);
+    }
     
     // 🚨 NEU: Robuster, globaler onAuthStateChanged Listener
     const auth = getAuth();
@@ -309,6 +320,7 @@ const MyApp = ({Component, pageProps}: AppProps) => {
         <meta httpEquiv="Pragma" content="no-cache" />
         <meta httpEquiv="Expires" content="0" />
       </Head>
+      <CanonicalLink />
       <SeoHead />
       <AuthProvider>
         <UserProvider>

@@ -1,13 +1,13 @@
 {
   "general_introduction": {
     "id": "general_introduction",
-    "text": "Willkommen in der faszinierenden Welt von jassguru.ch! 🎴\n\nDer Jass ist weit mehr als ein Kartenspiel - er ist das Schweizer Nationalspiel und ein lebendiges Stück Kultur. Mit 36 Karten werden unzählige Geschichten erzählt, Freundschaften geknüpft und Traditionen weitergegeben.\n\nDie wichtigsten Grundregeln sind überraschend einfach:\n• Farbe bekennen\n• Gut Mischen\n• Im Gegenuhzeigersinn spielen\n• Niemals schorren – das machen höchstens die Zürcher.\n\nVon der gemütlichen Beiz bis zum Familientisch, vom entspannten Feierabendjass bis zum spannenden Turnier - der Jass verbindet Menschen aller Altersgruppen und Regionen der Schweiz.",
+    "text": "Willkommen in der faszinierenden Welt von jassguru.ch! \n\nDer Jass ist weit mehr als ein Kartenspiel - er ist das Schweizer Nationalspiel und ein lebendiges Stück Kultur. Mit 36 Karten werden unzählige Geschichten erzählt, Freundschaften geknüpft und Traditionen weitergegeben.\n\nDie wichtigsten Grundregeln sind überraschend einfach:\n• Farbe bekennen\n• Gut Mischen\n• Im Gegenuhzeigersinn spielen\n• Niemals schorren – das machen höchstens die Zürcher.\n\nVon der gemütlichen Beiz bis zum Familientisch, vom entspannten Feierabendjass bis zum spannenden Turnier - der Jass verbindet Menschen aller Altersgruppen und Regionen der Schweiz.",
     "metadata": {
       "id": "general_introduction_meta",
       "category": {
         "main": "Grundlagen & Kultur",
         "sub": "Überblick",
-        "topic": "Willkommen in der faszinierenden Welt von jassguru.ch! 🎴"
+        "topic": "Willkommen bei Jassguru.ch"
       },
       "keywords": [
         "einführung",
@@ -22,6 +22,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Schweizer Jassreglement",
@@ -37,13 +45,13 @@
   },
   "general_culture": {
     "id": "general_culture",
-    "text": "Der Jass ist ein Kulturgut von nationaler Bedeutung. 🇨🇭\n\nSeit dem 18. Jahrhundert hat sich der Jass in der Schweiz entwickelt und dabei jede Region geprägt:\n\n• Deutschschweiz: Der Schieber dominiert, gespielt mit deutschen Karten\n• Romandie: Französische Karten und eigene Traditionen prägen das Spiel\n• Tessin: Einzigartige Varianten mit italienischem Einfluss\n• Graubünden: Reiche Jasstraditionen in allen Talschaften\n\nOb in traditionellen Beizen, modernen Clubs oder am heimischen Tisch - der Jass ist lebendig wie eh und je. Heute verbindet er Tradition mit Moderne, etwa durch digitale Zählapp wie Jassguru.ch.",
+    "text": "Der Jass ist ein Kulturgut von nationaler Bedeutung. \n\nSeit dem 18. Jahrhundert hat sich der Jass in der Schweiz entwickelt und dabei jede Region geprägt:\n\n• Deutschschweiz: Der Schieber dominiert, gespielt mit deutschen Karten\n• Romandie: Französische Karten und eigene Traditionen prägen das Spiel\n• Tessin: Einzigartige Varianten mit italienischem Einfluss\n• Graubünden: Reiche Jasstraditionen in allen Talschaften\n\nOb in traditionellen Beizen, modernen Clubs oder am heimischen Tisch - der Jass ist lebendig wie eh und je. Heute verbindet er Tradition mit Moderne, etwa durch digitale Zählapp wie Jassguru.ch.",
     "metadata": {
       "id": "general_culture_meta",
       "category": {
         "main": "Grundlagen & Kultur",
         "sub": "Kulturelle Bedeutung",
-        "topic": "Der Jass ist ein Kulturgut von nationaler Bedeutung. 🇨🇭"
+        "topic": "Kulturelle Bedeutung des Jass"
       },
       "keywords": [
         "kultur",
@@ -58,6 +66,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.8,
       "difficulty": 2,
       "source": "Schweizer Spielkartenmuseum",
@@ -79,7 +95,7 @@
       "category": {
         "main": "Grundlagen & Kultur",
         "sub": "Spielvarianten",
-        "topic": "Die Vielfalt der Jassvarianten macht das Spiel so besonders"
+        "topic": "Grundlegender Spielablauf"
       },
       "keywords": [
         "varianten",
@@ -94,6 +110,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "Schweizer Jassreglement",
@@ -109,13 +133,13 @@
   },
   "general_materials": {
     "id": "general_materials",
-    "text": "Das Herzstück des Jass sind die 36 Karten, die es in zwei Hauptvarianten gibt:\n\nDeutschschweizer Karten:\n• 4 Farben: Schellen, Schilten, Rosen, Eicheln\n• 9 Karten pro Farbe: 6, 7, 8, 9, 10, Under, Ober, König, Ass\n\nFranzösische Karten:\n• 4 Farben: Kreuz, Schaufel, Herz, Ecke\n\nGrundausstattung für einen gelungenen Jass:\n• Ein kompletter Kartensatz (deutsch oder französisch)\n• Ein Jassteppich\n• Schreibzeug für die Punktezählung oder noch besser die App von Jassguru.ch\n• 2-6 Spieler (je nach Variante)\n• Etwas Zeit und gute Laune 😊",
+    "text": "Das Herzstück des Jass sind die 36 Karten, die es in zwei Hauptvarianten gibt:\n\nDeutschschweizer Karten:\n• 4 Farben: Schellen, Schilten, Rosen, Eicheln\n• 9 Karten pro Farbe: 6, 7, 8, 9, 10, Under, Ober, König, Ass\n\nFranzösische Karten:\n• 4 Farben: Kreuz, Schaufel, Herz, Ecke\n\nGrundausstattung für einen gelungenen Jass:\n**Ein kompletter Kartensatz (deutsch oder französisch)**\n• Ein Jassteppich\n• Schreibzeug für die Punktezählung oder noch besser die App von Jassguru.ch\n• 2-6 Spieler (je nach Variante)\n• Etwas Zeit und gute Laune 😊",
     "metadata": {
       "id": "general_materials_meta",
       "category": {
         "main": "Grundlagen & Kultur",
         "sub": "Spielmaterial",
-        "topic": "Das Herzstück des Jass sind die 36 Karten, die es in zwei Hauptvarianten gibt"
+        "topic": "Jasskarten (36 Karten)"
       },
       "keywords": [
         "karten",
@@ -130,6 +154,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -151,7 +183,7 @@
       "category": {
         "main": "Grundlagen & Kultur",
         "sub": "Kartenfarben",
-        "topic": "Die Schweizer Jasskarten gibt es in zwei Varianten"
+        "topic": "Jasskarten (36 Karten)"
       },
       "keywords": [
         "karten",
@@ -170,6 +202,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -191,7 +231,7 @@
       "category": {
         "main": "Grundlagen & Kultur",
         "sub": "Kartenwerte",
-        "topic": "Jede Farbe besteht aus 9 Karten mit den folgenden Grundwerten"
+        "topic": "Jasskarten (36 Karten)"
       },
       "keywords": [
         "werte",
@@ -208,6 +248,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -229,7 +277,7 @@
       "category": {
         "main": "Grundlagen & Kultur",
         "sub": "Trumpfwerte",
-        "topic": "Im Trumpf-Spiel gelten Spezialwerte"
+        "topic": "Grundlegender Spielablauf"
       },
       "keywords": [
         "trumpf",
@@ -244,6 +292,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -259,13 +315,13 @@
   },
   "general_special_games": {
     "id": "general_special_games",
-    "text": "Bei Obenabe und Undenufe gelten spezielle Regeln:\n\nUndenufe-Spiel:\n• Sechser: 11 Punkte (höchste Stechkarte!)\n• Zehner beziehungsweise Banner: 10 Punkte\n• Achter: 8 Punkte\n• König: 4 Punkte\n• Ober beziehungsweise Dame: 3 Punkte\n• Under beziehungsweise Buur: 2 Punkte\n• Neuner: 0 Punkte\n• Siebner: 0 Punkte\n\nWichtige Regeln für Undenufe:\n• Die Sechser sind die höchsten Stechkarten\n• Karten können nur Karten ihrer eigenen Farbe stechen\n• Die Achter werden mit 8 Punkten gewertet, da es keine Trumpf-Spezialwerte gibt\n• Der letzte Stich zählt zusätzlich 5 Punkte\n\nObenabe-Spiel:\n• Ass: 11 Punkte (höchste Stechkarte!)\n• König: 4 Punkte\n• Ober beziehungsweise Dame: 3 Punkte\n• Under beziehungsweise Buur: 2 Punkte\n• Zehner beziehungsweise Banner: 10 Punkte\n• Neuner: 0 Punkte\n• Achter: 8 Punkte\n• Siebner: 0 Punkte\n• Sechser: 0 Punkte\n\nBesonderheit: Da es keine Trumpf-Spezialwerte (Puur und Näll) gibt, werden die Achter mit je 8 Punkten gewertet.\n\nBeim Obenabe sind die Asse die höchsten Stechkarten.\nBeim Undenufe sind die Sechser die höchsten Stechkarten.",
+    "text": "Bei Obenabe und Undenufe gelten spezielle Regeln:\n\nUndenufe-Spiel:\n**Sechser: 11 Punkte (höchste Stechkarte!)• \n• Zehner beziehungsweise Banner: 10 Punkte\n• Achter: 8 Punkte\n• König: 4 Punkte\n• Ober beziehungsweise Dame: 3 Punkte\n• Under beziehungsweise Buur: 2 Punkte\n• Neuner: 0 Punkte\n• Siebner: 0 Punkte\n\nWichtige Regeln für Undenufe:\n• Die Sechser sind die höchsten Stechkarten\n• Karten können nur Karten ihrer eigenen Farbe stechen\n• Die Achter werden mit 8 Punkten gewertet, da es keine Trumpf-Spezialwerte gibt\n• Der letzte Stich zählt zusätzlich 5 Punkte\n\nObenabe-Spiel:\nAss: 11 Punkte (höchste Stechkarte!)**\n• König: 4 Punkte\n• Ober beziehungsweise Dame: 3 Punkte\n• Under beziehungsweise Buur: 2 Punkte\n• Zehner beziehungsweise Banner: 10 Punkte\n• Neuner: 0 Punkte\n• Achter: 8 Punkte\n• Siebner: 0 Punkte\n• Sechser: 0 Punkte\n\nBesonderheit: Da es keine Trumpf-Spezialwerte (Puur und Näll) gibt, werden die Achter mit je 8 Punkten gewertet.\n\nBeim Obenabe sind die Asse die höchsten Stechkarten.\nBeim Undenufe sind die Sechser die höchsten Stechkarten.",
     "metadata": {
       "id": "general_special_games_meta",
       "category": {
         "main": "Grundlagen & Kultur",
         "sub": "Spezialspiele",
-        "topic": "Bei Obenabe und Undenufe gelten spezielle Regeln"
+        "topic": "Grundregeln"
       },
       "keywords": [
         "obenabe",
@@ -280,6 +336,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -316,6 +380,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -336,8 +408,8 @@
       "id": "general_dealing_meta",
       "category": {
         "main": "Grundlagen & Kultur",
-        "sub": "Kartenverteilung",
-        "topic": "Das korrekte Austeilen der Karten ist wichtig für einen fairen Jass"
+        "sub": "Kartenverteilen",
+        "topic": "Jasskarten (36 Karten)"
       },
       "keywords": [
         "austeilen",
@@ -351,6 +423,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -372,7 +452,7 @@
       "category": {
         "main": "Grundlagen & Kultur",
         "sub": "Grundregeln Verteilen",
-        "topic": "Das Spielverteilen folgt klaren Regeln"
+        "topic": "Grundlegender Spielablauf"
       },
       "keywords": [
         "verteilen",
@@ -386,6 +466,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -407,7 +495,7 @@
       "category": {
         "main": "Grundlagen & Kultur",
         "sub": "Verteilmethoden",
-        "topic": "Die Anzahl der verteilten Karten variiert je nach Spielart"
+        "topic": "Jasskarten (36 Karten)"
       },
       "keywords": [
         "verteilen",
@@ -420,6 +508,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -441,7 +537,7 @@
       "category": {
         "main": "Grundlagen & Kultur",
         "sub": "Fehlerregeln",
-        "topic": "Unrichtiges Verteilen hat Konsequenzen"
+        "topic": "Fehlerhafte Kartenverteilung"
       },
       "keywords": [
         "fehler",
@@ -455,6 +551,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -476,7 +580,7 @@
       "category": {
         "main": "Grundlagen & Kultur",
         "sub": "Spezialregeln",
-        "topic": "Wichtige Sonderregeln beim Verteilen"
+        "topic": "Sonderregeln beim Verteilen"
       },
       "keywords": [
         "sonderregeln",
@@ -490,6 +594,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.8,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -510,8 +622,8 @@
       "id": "general_gameplay_meta",
       "category": {
         "main": "Grundlagen & Kultur",
-        "sub": "Spielablauf",
-        "topic": "Der grundlegende Spielablauf beim Jassen"
+        "sub": "Spielverlauf",
+        "topic": "Grundlegender Spielablauf"
       },
       "keywords": [
         "ablauf",
@@ -525,6 +637,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -546,7 +666,7 @@
       "category": {
         "main": "Grundlagen & Kultur",
         "sub": "Regionale Unterschiede",
-        "topic": "Der Jass wird in der ganzen Schweiz gespielt, mit regionalen Besonderheiten"
+        "topic": "Regionale Unterschiede"
       },
       "keywords": [
         "regionen",
@@ -561,6 +681,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.7,
       "difficulty": 2,
       "source": "Schweizer Spielkartenmuseum",
@@ -581,7 +709,7 @@
       "id": "general_geography_regions_meta",
       "category": {
         "main": "Grundlagen & Kultur",
-        "sub": "Kartenverteilung",
+        "sub": "Kartenverteilen",
         "topic": "Der Jass"
       },
       "keywords": [
@@ -602,6 +730,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.8,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -617,13 +753,13 @@
   },
   "general_card_systems": {
     "id": "general_card_systems",
-    "text": "Die Kartensysteme\n\nBeide Systeme sind in Aufbau und Bewertung praktisch identisch:\n\nFranzösische Karten:\n• Herz (Coeur)\n• Kreuz (Trèfle)\n• Karo (Carreau)\n• Pik (Pique)\n\nDeutschschweizer Karten:\n• Rosen\n• Schilten\n• Schellen\n• Eicheln",
+    "text": "Die Kartensysteme\n\nBeide Systeme sind in Aufbau und Bewertung praktisch identisch:\n\nFranzösische Karten:\n**Herz (Coeur)**\n**Kreuz (Trèfle)**\n**Karo (Carreau)**\n**Pik (Pique)**\n\nDeutschschweizer Karten:\n• Rosen\n• Schilten\n• Schellen\n• Eicheln",
     "metadata": {
       "id": "general_card_systems_meta",
       "category": {
         "main": "Grundlagen & Kultur",
         "sub": "Kartensysteme",
-        "topic": "Die Kartensysteme"
+        "topic": "Kartensysteme"
       },
       "keywords": [
         "französisch",
@@ -646,6 +782,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -667,7 +811,7 @@
       "category": {
         "main": "Grundlagen & Kultur",
         "sub": "Grundbegriffe",
-        "topic": "Wichtige Grundbegriffe beim Jassen"
+        "topic": "Grundbegriffe beim Jassen"
       },
       "keywords": [
         "begriffe",
@@ -682,6 +826,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -703,7 +855,7 @@
       "category": {
         "main": "Grundlagen & Kultur",
         "sub": "Spielbegriffe",
-        "topic": "Die wichtigsten Spielbegriffe im Jass"
+        "topic": "Grundlegender Spielablauf"
       },
       "keywords": [
         "partie",
@@ -718,6 +870,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -739,7 +899,7 @@
       "category": {
         "main": "Grundlagen & Kultur",
         "sub": "Spielfehler",
-        "topic": "Wichtige Regeln zu Spielfehlern"
+        "topic": "Grundlegender Spielablauf"
       },
       "keywords": [
         "fehler",
@@ -753,6 +913,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -774,7 +942,7 @@
       "category": {
         "main": "Grundlagen & Kultur",
         "sub": "Spielende",
-        "topic": "Regeln zum Spielende und zur Punktezählung"
+        "topic": "Grundlegender Spielablauf"
       },
       "keywords": [
         "ende",
@@ -789,6 +957,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -804,13 +980,13 @@
   },
   "general_most_important_rules": {
     "id": "general_most_important_rules",
-    "text": "Die drei wichtigsten Grundregeln beim Jassen:\n\n1. Gutes Abheben (\"Ablupfen\") ist das wichtigste!\n• Wird wichtiger, je höher das Spielniveau. Wenn keine Fehler passieren, muss man es übers Ablupfen machen.\n• Mit Gefühl und voller Konzentration abheben, vielleicht noch kombiniert mit einem kleinen Aberglauen, führen zum Erfolg.\n• Niemals die Nerven beim Abheben verlieren\n\n2. Gründliches Mischen ist das zweitwichtige!\n• Zwei- bis dreimal Durchmischen reicht nicht\n• Nach einem Spiel liegen die Farben zusammen und man will keine \"Kartenwand\" für die Gegner verteilen\n• Aber achtung: Es sind auch schon Jasser beim Mischeln gestorben. Das wollen wir niemandem zumuten!\n\n3. Gutes Ansagen ist das drittwichtige!\n• Das Optimum aus dem Blatt herausholen\n• Nicht zu schnell aus Angst schieben\n• Offensives Ansagen lohnt sich langfristig\n• Mit Erfahrung kommt die richtige Balance\n\nEin Jass-Meister erkennt man nicht an seinen Karten, sondern an seinem Ablupf! 🎴",
+    "text": "Die drei wichtigsten Grundregeln beim Jassen:\n\n1. Gutes Abheben (\"Ablupfen\") ist das wichtigste!\n• Wird wichtiger, je höher das Spielniveau. Wenn keine Fehler passieren, muss man es übers Ablupfen machen.\n• Mit Gefühl und voller Konzentration abheben, vielleicht noch kombiniert mit einem kleinen Aberglauen, führen zum Erfolg.\n• Niemals die Nerven beim Abheben verlieren\n\n2. Gründliches Mischen ist das zweitwichtige!\n• Zwei- bis dreimal Durchmischen reicht nicht\n• Nach einem Spiel liegen die Farben zusammen und man will keine \"Kartenwand\" für die Gegner verteilen\n• Aber achtung: Es sind auch schon Jasser beim Mischeln gestorben. Das wollen wir niemandem zumuten!\n\n3. Gutes Ansagen ist das drittwichtige!\n• Das Optimum aus dem Blatt herausholen\n• Nicht zu schnell aus Angst schieben\n• Offensives Ansagen lohnt sich langfristig\n• Mit Erfahrung kommt die richtige Balance\n\nEin Jass-Meister erkennt man nicht an seinen Karten, sondern an seinem Ablupf! ",
     "metadata": {
       "id": "general_most_important_rules_meta",
       "category": {
         "main": "Grundlagen & Kultur",
         "sub": "Wichtigste Regeln",
-        "topic": "Die drei wichtigsten Grundregeln beim Jassen"
+        "topic": "Drei Grundregeln"
       },
       "keywords": [
         "abheben",
@@ -827,6 +1003,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Jassguru Expertenwissen",
@@ -842,13 +1026,13 @@
   },
   "general_european_context": {
     "id": "general_european_context",
-    "text": "Der Jass im europäischen Kontext ist einzigartig:\n\n• Die Schweiz ist das einzige Land, in dem gegen den Uhrzeigersinn gespielt wird\n• In den meisten europäischen Ländern wird mit zweiunddreissig statt sechsunddreissig Karten gespielt\n• Der letzte Stich zählt international meist zehn Punkte, in der Schweiz nur fünf\n• Besondere Schweizer Spielarten:\n  - Undenufe und Obenabe sind Schweizer Erfindungen\n  - Der Schieber ist eine typisch schweizerische Variante\n  - Die Wertigkeit des Zehners beziehungsweise Banners unterscheidet sich von europäischen Regeln\n\nRegionale Besonderheiten:\n• Westschweiz: Näher an französischen Traditionen (beispielsweise Belote)\n• Deutschschweiz: Eigene Entwicklung mit Schieber als Hauptvariante\n• Tessin: Mischung aus schweizerischen sowie italienischen Einflüssen",
+    "text": "Der Jass im europäischen Kontext ist einzigartig:\n\n• Die Schweiz ist das einzige Land, in dem gegen den Uhrzeigersinn gespielt wird\n• In den meisten europäischen Ländern wird mit zweiunddreissig statt sechsunddreissig Karten gespielt\n• Der letzte Stich zählt international meist zehn Punkte, in der Schweiz nur fünf\n• Besondere Schweizer Spielarten:• \n- Undenufe und Obenabe sind Schweizer Erfindungen\n- Der Schieber ist eine typisch schweizerische Variante\n- Die Wertigkeit des Zehners beziehungsweise Banners unterscheidet sich von europäischen Regeln\n\nRegionale Besonderheiten:\nWestschweiz: Näher an französischen Traditionen (beispielsweise Belote)\n• Deutschschweiz: Eigene Entwicklung mit Schieber als Hauptvariante\n• Tessin: Mischung aus schweizerischen sowie italienischen Einflüssen",
     "metadata": {
       "id": "general_european_context_meta",
       "category": {
         "main": "Grundlagen & Kultur",
         "sub": "Europäischer Kontext",
-        "topic": "Der Jass im europäischen Kontext ist einzigartig"
+        "topic": "Jass im europäischen Kontext"
       },
       "keywords": [
         "europa",
@@ -863,6 +1047,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.8,
       "difficulty": 2,
       "source": "Offizielles Jassreglement und Europäische Spielkartenverbände",
@@ -884,7 +1076,7 @@
       "category": {
         "main": "Weis-Regeln",
         "sub": "Weis-Arten",
-        "topic": "Die Schreibweise"
+        "topic": "Schreibweise"
       },
       "keywords": [
         "notation",
@@ -899,6 +1091,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 1,
       "source": "Offizielles Jassreglement",
@@ -920,7 +1120,7 @@
       "category": {
         "main": "Weis-Regeln",
         "sub": "Weis-Arten",
-        "topic": "Auf der rechten Tafelseite darf jeweils nur eine Zahl stehen (zum Beispiel 8 oder"
+        "topic": "Rechte Tafelseite"
       },
       "keywords": [
         "zahlen",
@@ -935,6 +1135,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 1,
       "source": "Offizielles Jassreglement",
@@ -956,7 +1164,7 @@
       "category": {
         "main": "Weis-Regeln",
         "sub": "Weis-Arten",
-        "topic": "CorrectionRules"
+        "topic": "Korrekturregeln"
       },
       "keywords": [
         "korrektur",
@@ -971,6 +1179,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 1,
       "source": "Offizielles Jassreglement",
@@ -1006,6 +1222,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 1,
       "source": "Offizielles Jassreglement",
@@ -1027,7 +1251,7 @@
       "category": {
         "main": "Weis-Regeln",
         "sub": "Weis-Arten",
-        "topic": "AusmachenOrder"
+        "topic": "Ausmach-Reihenfolge"
       },
       "keywords": [
         "reihenfolge",
@@ -1042,6 +1266,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 1,
       "source": "Offizielles Jassreglement",
@@ -1063,7 +1295,7 @@
       "category": {
         "main": "Weis-Regeln",
         "sub": "Weis-Arten",
-        "topic": "AusmachenThanking"
+        "topic": "Bedanken beendet Partie"
       },
       "keywords": [
         "bedanken",
@@ -1078,6 +1310,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 1,
       "source": "Offizielles Jassreglement",
@@ -1114,6 +1354,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.8,
       "difficulty": 1,
       "source": "Offizielles Jassreglement",
@@ -1150,6 +1398,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 1,
       "source": "Offizielles Jassreglement",
@@ -1171,7 +1427,7 @@
       "category": {
         "main": "Weis-Regeln",
         "sub": "Weis-Arten",
-        "topic": "Die Stöcke"
+        "topic": "Stöcke"
       },
       "keywords": [
         "stock",
@@ -1191,6 +1447,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 1,
       "source": "Offizielles Jassreglement",
@@ -1231,6 +1495,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 1,
       "source": "Offizielles Jassreglement",
@@ -1270,6 +1542,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 1,
       "source": "Offizielles Jassreglement",
@@ -1309,6 +1589,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 1,
       "source": "Offizielles Jassreglement",
@@ -1348,6 +1636,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 1,
       "source": "Offizielles Jassreglement",
@@ -1387,6 +1683,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 1,
       "source": "Offizielles Jassreglement",
@@ -1426,6 +1730,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 1,
       "source": "Offizielles Jassreglement",
@@ -1465,6 +1777,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 1,
       "source": "Offizielles Jassreglement",
@@ -1506,6 +1826,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 1,
       "source": "Offizielles Jassreglement",
@@ -1541,6 +1869,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.8,
       "difficulty": 1,
       "source": "Offizielles Jassreglement",
@@ -1577,6 +1913,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 1,
       "source": "Offizielles Jassreglement",
@@ -1613,6 +1957,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 1,
       "source": "Jassguru.ch",
@@ -1649,6 +2001,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 1,
       "source": "Jassguru.ch",
@@ -1664,13 +2024,13 @@
   },
   "schieber_taktiken_anziehen": {
     "id": "schieber_taktiken_anziehen",
-    "text": "ANZIEHEN - Die wichtigsten Taktiken\n\nAnziehen und Verwerfen sind die wichtigsten Mittel, mit seinen Karten zu kommunizieren. Anziehen gilt vor allem für jenes Team das am Drücker ist, also den Trumpf angesagt hat.\n\nWichtigste Konventionen beim Anziehen:\n• Die Farbe von der ersten Karte, die ein Spieler anzieht, ist die Farbe bei der er stark ist. Das gilt ohne Ausnahme\n• WICHTIG: Man zieht NICHT mit der höchsten Karte an! Es sei denn, man hat Ass und König von der gleichen Farbe - wenn man dann das Ass spielt wird signalsiert, dass man auch den König in der Hand hält.\n• Bei mehreren hohen Karten (zum Beispiel König, Under, Siebner) mit dem Under anziehen\n• Der Under ist die ideale Karte zum Anziehen:\n  - Hoch genug um wichtige Karten zu locken\n  - Tief genug um später noch höhere Karten zu haben\n• Anziehen mit Under verhindert billige Stiche (zum Beispiel Banner)\n• Ist die angezogene Farbe durch, wiederholt sich das Spiel und man zieht seine zweitstärkste Farbe an",
+    "text": "Anziehen und Verwerfen sind die wichtigsten Mittel, mit seinen Karten zu kommunizieren. Anziehen gilt vor allem für jenes Team das am Drücker ist, also den Trumpf angesagt hat.\n\nWichtigste Konventionen beim Anziehen:\n• Die Farbe von der ersten Karte, die ein Spieler anzieht, ist die Farbe bei der er stark ist. Das gilt ohne Ausnahme\n• WICHTIG: Man zieht NICHT mit der höchsten Karte an! Es sei denn, man hat Ass und König von der gleichen Farbe - wenn man dann das Ass spielt wird signalsiert, dass man auch den König in der Hand hält.\n• Bei mehreren hohen Karten (zum Beispiel König, Under, Siebner) mit dem Under anziehen\n• Der Under ist die ideale Karte zum Anziehen:• \n- Hoch genug um wichtige Karten zu locken\n- Tief genug um später noch höhere Karten zu haben\nAnziehen mit Under verhindert billige Stiche (zum Beispiel Banner)\n• Ist die angezogene Farbe durch, wiederholt sich das Spiel und man zieht seine zweitstärkste Farbe an",
     "metadata": {
       "id": "schieber_taktiken_anziehen_meta",
       "category": {
         "main": "Schieber",
         "sub": "Schieber-Taktiken",
-        "topic": "ANZIEHEN"
+        "topic": "Anziehen"
       },
       "keywords": [
         "anziehen",
@@ -1690,6 +2050,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 1,
       "source": "Jassguru.ch",
@@ -1705,13 +2073,13 @@
   },
   "schieber_taktiken_verwerfen": {
     "id": "schieber_taktiken_verwerfen",
-    "text": "VERWERFEN (auch \"VERRÜHREN\" genannt) - Zentrale Taktiken\n\nNeben Anziehen ist Verwerfen das wichtigste Element beim Schieber, um zu kommunizieren.\n\nOffensives Team (Trumpf-Ansager):\n• Die Farbe die man als erstes verwirft/verrührt, ist die schwächste Farbe des Spielers\n• Gilt ohne Ausnahme und ohne Wenn und Aber!\n• Ist einmal eine Farbe verworfen, interpretiert das der Partner als \"tote Farbe\"\n• Partner wird diese Farbe nicht mehr anziehen (ausser er ist selber gut bestückt und Partner hält noch Trumpf)\n\nDefensives Team:\n• Grundsätzlich auch schwächste Farbe verwerfen\n• Teams in der Defensive kommunizieren so ihre Stärken/Schwächen\n• Gegen Ende einer Runde essenziell für Matsch-Verteidigung\n• Nichts dümmeres als wenn ein Team dieselbe Farbe hält\n• Beispiel: Wenn Partner alles ausser Rosen verworfen hat, eigenen Rosen-Bock aufgeben und zweite Farbe verteidigen\n\nVerwerfen als List:\n• In Taktikrunden kann Verwerfen als Täuschung eingesetzt werden\n• Nur wenn Partner nicht in die Irre geführt wird\n• Beispiel: Strasse vom Schellen Ass verwerfen um Gegner zu täuschen",
+    "text": "Neben Anziehen ist Verwerfen das wichtigste Element beim Schieber, um zu kommunizieren.\n\nOffensives Team (Trumpf-Ansager):\n• Die Farbe die man als erstes verwirft/verrührt, ist die schwächste Farbe des Spielers\n• Gilt ohne Ausnahme und ohne Wenn und Aber!\n• Ist einmal eine Farbe verworfen, interpretiert das der Partner als \"tote Farbe\"\n• Partner wird diese Farbe nicht mehr anziehen (ausser er ist selber gut bestückt und Partner hält noch Trumpf)\n\nDefensives Team:\n• Grundsätzlich auch schwächste Farbe verwerfen\n• Teams in der Defensive kommunizieren so ihre Stärken/Schwächen\n• Gegen Ende einer Runde essenziell für Matsch-Verteidigung\n• Nichts dümmeres als wenn ein Team dieselbe Farbe hält\n• Beispiel: Wenn Partner alles ausser Rosen verworfen hat, eigenen Rosen-Bock aufgeben und zweite Farbe verteidigen\n\nVerwerfen als List:\n• In Taktikrunden kann Verwerfen als Täuschung eingesetzt werden\n• Nur wenn Partner nicht in die Irre geführt wird\n• Beispiel: Strasse vom Schellen Ass verwerfen um Gegner zu täuschen",
     "metadata": {
       "id": "schieber_taktiken_verwerfen_meta",
       "category": {
         "main": "Schieber",
         "sub": "Schieber-Taktiken",
-        "topic": "VERWERFEN (auch \"VERRÜHREN\" genannt)"
+        "topic": "Verwerfen"
       },
       "keywords": [
         "verwerfen",
@@ -1729,6 +2097,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 1,
       "source": "Jassguru.ch",
@@ -1767,6 +2143,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.8,
       "difficulty": 2,
       "source": "Jassguru.ch",
@@ -1807,6 +2191,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 1,
       "source": "Offizielles Jassreglement",
@@ -1847,6 +2239,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.95,
       "difficulty": 1,
       "source": "Jassguru.ch",
@@ -1891,6 +2291,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 1,
       "source": "Jassguru.ch",
@@ -1931,6 +2339,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "Jassguru.ch",
@@ -1971,6 +2387,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "Jassguru.ch",
@@ -2018,6 +2442,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 1,
       "source": "Offizielles Schweizer Jassreglement",
@@ -2039,7 +2471,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Lernspiel",
-        "topic": "Spiel zu viert mit Bodentrumpf"
+        "topic": "Bodentrumpf (4 Spieler)"
       },
       "keywords": [
         "bodentrumpf",
@@ -2066,6 +2498,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 1,
       "source": "Offizielles Schweizer Jassreglement",
@@ -2112,6 +2552,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.8,
       "difficulty": 1,
       "source": "Offizielles Schweizer Jassreglement",
@@ -2148,6 +2596,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.7,
       "difficulty": 1,
       "source": "Offizielles Schweizer Jassreglement",
@@ -2169,7 +2625,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Königsspiel",
-        "topic": "Aucho für 4 Spieler"
+        "topic": "Aucho (4 Spieler)"
       },
       "keywords": [
         "aucho",
@@ -2189,6 +2645,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 8,
       "difficulty": 5,
       "source": "Jassbuch",
@@ -2210,7 +2674,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Königsspiel",
-        "topic": "Aucho für 3 Spieler"
+        "topic": "Aucho (3 Spieler)"
       },
       "keywords": [
         "aucho drei",
@@ -2226,6 +2690,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 7,
       "difficulty": 4,
       "source": "Jassbuch",
@@ -2247,7 +2719,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Königsspiel",
-        "topic": "Aucho für 2 Spieler"
+        "topic": "Aucho (2 Spieler)"
       },
       "keywords": [
         "aucho zwei",
@@ -2264,6 +2736,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 6,
       "difficulty": 4,
       "source": "Jassbuch",
@@ -2285,7 +2765,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Bietspiel",
-        "topic": "Bieter (Steiger) für 3 Spieler"
+        "topic": "Bieter (3 Spieler)"
       },
       "keywords": [
         "bieter",
@@ -2305,6 +2785,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 8,
       "difficulty": 5,
       "source": "Jassbuch",
@@ -2326,7 +2814,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Bietspiel",
-        "topic": "Bieter (Steiger) für 4 Spieler"
+        "topic": "Bieter (4 Spieler)"
       },
       "keywords": [
         "bieter",
@@ -2343,6 +2831,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 7,
       "difficulty": 5,
       "source": "Jassbuch",
@@ -2389,6 +2885,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "Offizielles Schweizer Jassreglement",
@@ -2425,6 +2929,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.8,
       "difficulty": 2,
       "source": "Offizielles Schweizer Jassreglement",
@@ -2446,7 +2958,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Königsspiel",
-        "topic": "Bieder (Steiger)"
+        "topic": "Bieter"
       },
       "keywords": [
         "bieter",
@@ -2461,6 +2973,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.7,
       "difficulty": 2,
       "source": "Offizielles Schweizer Jassreglement",
@@ -2482,7 +3002,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Bietspiel",
-        "topic": "Bieter (Steiger) für 5 Spieler"
+        "topic": "Bieter (5 Spieler)"
       },
       "keywords": [
         "bieter fünf",
@@ -2499,6 +3019,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 7,
       "difficulty": 5,
       "source": "Jassbuch",
@@ -2520,7 +3048,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Doppelkart-Schieber",
-        "topic": "Bolschewik für 4 Spieler"
+        "topic": "Bolschewik (4 Spieler)"
       },
       "keywords": [
         "bolschewik",
@@ -2539,6 +3067,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 6,
       "difficulty": 5,
       "source": "Jassbuch",
@@ -2576,6 +3112,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 6,
       "difficulty": 3,
       "source": "Jassbuch",
@@ -2597,7 +3141,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Schätzspiel",
-        "topic": "Differenzler mit offener Ansage für 3 Spieler"
+        "topic": "Varianten-Taktiken"
       },
       "keywords": [
         "differenzler drei",
@@ -2613,6 +3157,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 7,
       "difficulty": 4,
       "source": "Jassbuch",
@@ -2634,7 +3186,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Einfacher Jass",
-        "topic": "Glücksjass für 4 oder 3 Spieler"
+        "topic": "Varianten-Taktiken"
       },
       "keywords": [
         "glücksjass",
@@ -2651,6 +3203,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 5,
       "difficulty": 1,
       "source": "Jassbuch",
@@ -2672,7 +3232,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Serienjass",
-        "topic": "Guggitaler für 3 oder 4 Spieler"
+        "topic": "Varianten-Taktiken"
       },
       "keywords": [
         "guggitaler",
@@ -2690,6 +3250,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 6,
       "difficulty": 3,
       "source": "Jassbuch",
@@ -2711,7 +3279,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Handjass",
-        "topic": "Handjass mit \"Blindem\" für 3 Spieler"
+        "topic": "Varianten-Taktiken"
       },
       "keywords": [
         "handjass blinder",
@@ -2727,6 +3295,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 6,
       "difficulty": 4,
       "source": "Jassbuch",
@@ -2748,7 +3324,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Handjass",
-        "topic": "Handjass mit \"Bessern\" für 3 Spieler"
+        "topic": "Varianten-Taktiken"
       },
       "keywords": [
         "handjass bessern",
@@ -2763,6 +3339,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 6,
       "difficulty": 5,
       "source": "Jassbuch",
@@ -2784,7 +3368,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Handjass",
-        "topic": "Handjass mit \"Bessern\" für 2 Spieler"
+        "topic": "Varianten-Taktiken"
       },
       "keywords": [
         "handjass bessern zwei",
@@ -2800,6 +3384,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 5,
       "difficulty": 5,
       "source": "Jassbuch",
@@ -2837,6 +3429,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 7,
       "difficulty": 4,
       "source": "Jassbuch",
@@ -2881,6 +3481,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.8,
       "difficulty": 1,
       "source": "Offizielles Schweizer Jassreglement",
@@ -2916,6 +3524,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.6,
       "difficulty": 1,
       "source": "Offizielles Schweizer Jassreglement",
@@ -2950,6 +3566,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.6,
       "difficulty": 1,
       "source": "Offizielles Schweizer Jassreglement",
@@ -2985,6 +3609,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.7,
       "difficulty": 1,
       "source": "Offizielles Schweizer Jassreglement",
@@ -3006,7 +3638,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Schätzspiel",
-        "topic": "Differenzler mit offener Ansage"
+        "topic": "Differenzler (offen)"
       },
       "keywords": [
         "differenzler",
@@ -3030,6 +3662,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.8,
       "difficulty": 1,
       "source": "Offizielles Schweizer Jassreglement",
@@ -3051,7 +3691,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Schätzspiel",
-        "topic": "Differenzler mit verdeckter Ansage"
+        "topic": "Differenzler (verdeckt)"
       },
       "keywords": [
         "differenzler",
@@ -3065,6 +3705,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.7,
       "difficulty": 2,
       "source": "Offizielles Schweizer Jassreglement",
@@ -3100,6 +3748,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.5,
       "difficulty": 1,
       "source": "Offizielles Schweizer Jassreglement",
@@ -3136,6 +3792,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.6,
       "difficulty": 1,
       "source": "Offizielles Schweizer Jassreglement",
@@ -3171,6 +3835,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.6,
       "difficulty": 1,
       "source": "Offizielles Schweizer Jassreglement",
@@ -3192,7 +3864,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Einzelspiel",
-        "topic": "Handjass/Butzer/Sackjass/Schläger"
+        "topic": "Handjass"
       },
       "keywords": [
         "handjass",
@@ -3217,6 +3889,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.8,
       "difficulty": 1,
       "source": "Offizielles Schweizer Jassreglement",
@@ -3253,6 +3933,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.6,
       "difficulty": 1,
       "source": "Offizielles Schweizer Jassreglement",
@@ -3289,6 +3977,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.5,
       "difficulty": 1,
       "source": "Offizielles Schweizer Jassreglement",
@@ -3325,6 +4021,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.6,
       "difficulty": 1,
       "source": "Offizielles Schweizer Jassreglement",
@@ -3362,6 +4066,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 6,
       "difficulty": 4,
       "source": "Jassbuch",
@@ -3383,7 +4095,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Weis-Spiel",
-        "topic": "Molotow für 5 oder 6 Spieler"
+        "topic": "Molotow (5-6 Spieler)"
       },
       "keywords": [
         "molotow fünf",
@@ -3400,6 +4112,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 5,
       "difficulty": 5,
       "source": "Jassbuch",
@@ -3439,6 +4159,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 7,
       "difficulty": 5,
       "source": "Jassbuch",
@@ -3460,7 +4188,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Königsspiel",
-        "topic": "Pandur für 3 Spieler"
+        "topic": "Pandur (3 Spieler)"
       },
       "keywords": [
         "pandur drei",
@@ -3476,6 +4204,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 6,
       "difficulty": 5,
       "source": "Jassbuch",
@@ -3497,7 +4233,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Königsspiel",
-        "topic": "Pandur für 2 Spieler"
+        "topic": "Pandur (2 Spieler)"
       },
       "keywords": [
         "pandur zwei",
@@ -3513,6 +4249,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 5,
       "difficulty": 5,
       "source": "Jassbuch",
@@ -3534,7 +4278,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Königsspiel",
-        "topic": "Schafhauser für 3 Spieler"
+        "topic": "Schafhauser (3 Spieler)"
       },
       "keywords": [
         "schafhauser",
@@ -3552,6 +4296,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 6,
       "difficulty": 5,
       "source": "Jassbuch",
@@ -3591,6 +4343,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 5,
       "difficulty": 5,
       "source": "Jassbuch",
@@ -3629,6 +4389,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 5,
       "difficulty": 4,
       "source": "Jassbuch",
@@ -3650,7 +4418,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Feste Trumpffarbe",
-        "topic": "Schellenjass für 3 oder 4 Spieler"
+        "topic": "Varianten-Taktiken"
       },
       "keywords": [
         "schellenjass",
@@ -3666,6 +4434,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 6,
       "difficulty": 2,
       "source": "Jassbuch",
@@ -3687,7 +4463,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Stock-Spiel",
-        "topic": "Schnüffler für 2 Spieler"
+        "topic": "Schnüffler (2 Spieler)"
       },
       "keywords": [
         "schnüffler",
@@ -3703,6 +4479,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 5,
       "difficulty": 5,
       "source": "Jassbuch",
@@ -3740,6 +4524,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 5,
       "difficulty": 4,
       "source": "Jassbuch",
@@ -3761,7 +4553,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Einsatz-Spiel",
-        "topic": "Ufgleit für 2 oder 3 Spieler"
+        "topic": "Ufgleit (2-3 Spieler)"
       },
       "keywords": [
         "ufgleit",
@@ -3778,6 +4570,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 5,
       "difficulty": 4,
       "source": "Jassbuch",
@@ -3799,7 +4599,7 @@
       "category": {
         "main": "Varianten",
         "sub": "Schreibspiel",
-        "topic": "Zuger für 3 Spieler"
+        "topic": "Zuger (3 Spieler)"
       },
       "keywords": [
         "zuger drei",
@@ -3816,6 +4616,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 4,
       "difficulty": 4,
       "source": "Jassbuch",
@@ -3846,6 +4654,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -3875,6 +4691,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -3906,6 +4730,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -3937,6 +4769,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -3966,6 +4806,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -3995,6 +4843,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4024,6 +4880,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4053,6 +4917,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4082,6 +4954,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4111,6 +4991,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4140,6 +5028,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4169,6 +5065,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4198,6 +5102,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4227,6 +5139,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4242,13 +5162,13 @@
   },
   "expressions_basic_terms": {
     "id": "expressions_basic_terms",
-    "text": "Grundlegende Jass-Ausdrücke 📚",
+    "text": "Grundlegende Jass-Ausdrücke ",
     "metadata": {
       "id": "expressions_basic_terms_meta",
       "category": {
         "main": "Begriffe",
         "sub": "Grundbegriffe",
-        "topic": "Grundlegende Jass"
+        "topic": "Grundlagen"
       },
       "keywords": [
         "grundbegriffe",
@@ -4258,6 +5178,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4289,6 +5217,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4319,6 +5255,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4348,6 +5292,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4377,6 +5329,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.8,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4407,6 +5367,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4436,6 +5404,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.8,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4465,6 +5441,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4495,6 +5479,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4524,6 +5516,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4553,6 +5553,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.8,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4582,6 +5590,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4611,6 +5627,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4640,6 +5664,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4669,6 +5701,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.8,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4698,6 +5738,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4728,6 +5776,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4758,6 +5814,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4792,6 +5856,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4807,7 +5879,7 @@
   },
   "expressions_kartenfarben": {
     "id": "expressions_kartenfarben",
-    "text": "Kartenfarben:\n• Deutschschweizerisch: \n  - Schellen\n  - Schilten\n  - Rosen\n  - Eichel\n• Französisch: \n  - Ecken\n  - Schaufel\n  - Herz\n  - Kreuz",
+    "text": "Kartenfarben:\n\n**Deutschschweizerisch:**\n- Schellen\n- Schilten\n- Rosen\n- Eichel\n\n**Französisch:**\n- Ecken\n- Schaufel\n- Herz\n- Kreuz",
     "metadata": {
       "id": "expressions_kartenfarben_meta",
       "category": {
@@ -4829,6 +5901,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4860,6 +5940,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4890,6 +5978,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4920,6 +6016,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4952,6 +6056,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -4967,7 +6079,7 @@
   },
   "expressions_bauernpartei": {
     "id": "expressions_bauernpartei",
-    "text": "Bauernpartei:\n• Gegnerisches Team des Meistbietenden bei der Jassart Bieter (Steiger)\n• Wichtige taktische Rolle im Spielverlauf",
+    "text": "Bauernpartei:\n**Gegnerisches Team des Meistbietenden bei der Jassart Bieter (Steiger)**\n• Wichtige taktische Rolle im Spielverlauf",
     "metadata": {
       "id": "expressions_bauernpartei_meta",
       "category": {
@@ -4983,6 +6095,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5014,6 +6134,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5043,6 +6171,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5073,6 +6209,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5104,6 +6248,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5136,6 +6288,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5165,6 +6325,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5195,6 +6363,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5225,6 +6401,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5254,6 +6438,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5283,6 +6475,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5312,6 +6512,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5344,6 +6552,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5374,6 +6590,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5405,6 +6629,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5434,6 +6666,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5463,6 +6703,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5492,6 +6740,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5522,6 +6778,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.8,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5551,6 +6815,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5581,6 +6853,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5613,6 +6893,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5643,6 +6931,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5673,6 +6969,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5688,7 +6992,7 @@
   },
   "expressions_trumpf_bauer": {
     "id": "expressions_trumpf_bauer",
-    "text": "Trumpf-Bauer:\n• Bezeichnung für Trumpf-Under (Trumpf-Bube)\n• Wert- und stechmässig höchste Karte einer Trumpffarbe",
+    "text": "Trumpf-Bauer:\n**Bezeichnung für Trumpf-Under (Trumpf-Bube)**\n• Wert- und stechmässig höchste Karte einer Trumpffarbe",
     "metadata": {
       "id": "expressions_trumpf_bauer_meta",
       "category": {
@@ -5704,6 +7008,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5737,6 +7049,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5768,6 +7088,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5799,6 +7127,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5829,6 +7165,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5859,6 +7203,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5890,6 +7242,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5921,6 +7281,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5936,7 +7304,7 @@
   },
   "expressions_weis": {
     "id": "expressions_weis",
-    "text": "Weis:\n• Aufeinanderfolgende Karten der gleichen Farbe (z.B. Ober, König, Ass)\n• 4 Karten mit gleichen Bildern (zum Beispiel 4 Siebner)\n• Weismeldung: Ansage der Weishöhe\n• Weisdeklaration: Bekanntgabe der Kartenkombination\n• Weispunkte: Bewertung des Weises",
+    "text": "Weis:\n**Aufeinanderfolgende Karten der gleichen Farbe (z.B. Ober, König, Ass)**\n• 4 Karten mit gleichen Bildern (zum Beispiel 4 Siebner)\n• Weismeldung: Ansage der Weishöhe\n• Weisdeklaration: Bekanntgabe der Kartenkombination\n• Weispunkte: Bewertung des Weises",
     "metadata": {
       "id": "expressions_weis_meta",
       "category": {
@@ -5954,6 +7322,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -5985,6 +7361,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -6015,6 +7399,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -6047,6 +7439,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -6062,7 +7462,7 @@
   },
   "expressions_rampo": {
     "id": "expressions_rampo",
-    "text": "Rampo:\n• Notierter Querstrich bei der Jassart Schellenjass (Herzjass)\n• Wird notiert, wenn mindestens zwei Spieler gleich viele Schellenkarten stechen müssen",
+    "text": "Rampo:\n**Notierter Querstrich bei der Jassart Schellenjass (Herzjass)**\n• Wird notiert, wenn mindestens zwei Spieler gleich viele Schellenkarten stechen müssen",
     "metadata": {
       "id": "expressions_rampo_meta",
       "category": {
@@ -6078,6 +7478,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.8,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -6109,6 +7517,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -6139,6 +7555,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -6170,6 +7594,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -6200,6 +7632,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -6232,6 +7672,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -6261,6 +7709,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -6290,6 +7746,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -6319,6 +7783,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -6350,6 +7822,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -6381,6 +7861,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -6412,6 +7900,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH – der neue Schweizer Jassführer",
@@ -6427,13 +7923,13 @@
   },
   "history_introduction": {
     "id": "history_introduction",
-    "text": "Eine Liebeserklärung an das Jassen 🎴\n\nDer Jass ist des Schweizers liebster Sport - eine Disziplin, in der die Eidgenossen unschlagbar sind. Was für Laien wie Fremdwörter klingen - Differenzler, Schieber, Coiffeur, Molotow, Pandur - ist für eingefleischte Spieler eine eigene Sprache.\n\nBeeindruckende Fakten:\n• Über 3 Millionen aktive Jasser in der Schweiz\n• Seit 2011 auf der UNESCO-Liste der \"Lebendigen Traditionen\"\n• In jeder Lebenslage präsent: Schule, Pfadilager, Militär, gemütliche Runden\n• Teil der ureidgenössischen Kultur wie Alphornblasen oder Fahnenschwingen\n\nHistorischer Meilenstein:\nDer Begriff \"Jassen\" wurde erstmals 1796 in einem Schaffhauser Ratsprotokoll erwähnt - als Warnung an Bürger, die gegen das Kartenspielmandat verstiessen.",
+    "text": "Die kulturelle Bedeutung des Jassens \n\nDer Jass ist in der Schweiz überaus beliebt und gilt als nationales Kartenspiel. In den unzählbaren Spielstunden einer langen Tradition wurden die Jasskarten mit dem magischen Duft gemütlicher Geselligkeit aufgeladen: sei's am Stammtisch im «Rössli», «Hirschen» oder «Bären», sei's zuhause in der warmen Stube, wenn es draussen Bindfäden regnet und Katzen hagelt, oder sei's unterwegs in der Bahn zum Zeitvertreib.\n\nJassen verbindet und bereitet Vergnügen. Das Spiel hat einen hohen Unterhaltungswert, verjagt Alltagsstress und Langeweile. Und beim Jassen ist Hirntätigkeit gefordert. Das Ziel, eine Partie zu gewinnen, ist nicht allein durch zugewiesene gute Karten zu erreichen. Für den Ausgang des Spiels sind gute Konzentration und Übung entscheidend.\n\nWichtige Zahlen und Fakten:\n• Schätzungsweise drei Millionen Jasserinnen und Jasser spielen es regelmässig\n• Seit 2011 Teil der UNESCO-Liste \"Lebendige Traditionen\"\n• Bis in die hintersten Täler der Schweiz verbreitet\n• Von Alt und Jung, von Männern, Frauen und Kindern gern gespielt\n\nGehirntraining und Sozialkompetenz:\nBeim Jassen ist Hirntätigkeit gefordert. Das Ziel des Spiels, möglichst viele Punkte zu sammeln, ist nicht allein durch gute Karten zu erreichen, die beim Austeilen zufällig zugewiesen werden. Den Ausgang des Spiels prägen aber gute Konzentration und Übung entscheidend mit. Der Jass verlangt Konzentration, vorausdenkende Kombination und trainiert Kopfrechnen. Das Spiel regt logisches Denken an.\n\nJassen schult komplexe Wahrnehmung; die Spielenden müssen sich um Verständnis bemühen, ja gar um Einfühlung in das Gegenüber. Es lohnt sich, scharf zu beobachten und die Körpersprache der Mitspielenden, insbesondere auch der Gegnerschaft zu registrieren. Die eigenen Gefühle möglichst im Zaum zu halten, ist ein nicht zu vernachlässigender Teil der Übung.\n\nDemokratisches Spiel:\nDer Jass wird von Alt und Jung, von Menschen unterschiedlichster sozialer Herkunft, in der Stadt, auf dem Land und in den hintersten Tälern gern gespielt. Ob Grossvater oder Enkelin, Bauer oder Bischof, Hebamme oder Gemeindepräsidentin, Studentin oder Lehrling – am Kartentisch sind alle gleich. Der Jass ist ein demokratisches Spiel. Es ist regional ausdifferenziert und doch von gesamtschweizerischer Bedeutung.\n\nGeschichtlicher Hintergrund:\nDas Wort \"Jassen\" tauchte erstmals 1796 in einem Schaffhauser Ratsprotokoll auf - als Mahnung an Bürger, die gegen das damalige Kartenspielverbot verstiessen.",
     "metadata": {
       "id": "history_introduction_meta",
       "category": {
         "main": "Geschichte",
         "sub": "Kulturelle Bedeutung",
-        "topic": "Eine Liebeserklärung an das Jassen 🎴"
+        "topic": "Kulturelle Bedeutung des Jassens"
       },
       "keywords": [
         "tradition",
@@ -6448,6 +7944,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "STÖCK WYS STICH - Der neue Schweizer Jassführer (Dani Müller)",
@@ -6463,13 +7967,13 @@
   },
   "history_origin": {
     "id": "history_origin",
-    "text": "Die Ursprünge des Kartenspiels 🌏\n\nDie Reise der Spielkarten:\n• Vermutete Ursprungsländer: China, Indien oder Persien\n• Verbreitung über die Seidenstrasse und Seewege\n• Älteste Funde: China und Korea (12. Jahrhundert)\n• Erste europäische Funde: ca. 300 Jahre später\n\nFrühe Entwicklung:\n• Möglicherweise bereits um die Zeitenwende bekannt\n• Entstehung in frühen Hochkulturen\n• \"Schneller als die Pest\" - rasante Verbreitung im Mittelalter\n• Erste Schweizer Verbote: Bern 1367 (ältester dokumentierter Hinweis)\n\nBezeichnungen:\n• \"Gebetbuch des Teufels\" (mittelalterliche Bezeichnung)\n• Frühe Kritik von Kirche und Obrigkeit\n• Trotz Verboten: Schnelle Verbreitung in allen Volksschichten",
+    "text": "Die Ursprünge des Kartenspiels \n\nDie Reise der Spielkarten:\n• Vermutete Ursprungsländer: China, Indien oder Persien\n• Verbreitung über die Seidenstrasse und Seewege\n• Älteste Funde: China und Korea (12. Jahrhundert)• \n• Erste europäische Funde: ca. 300 Jahre später\n\nFrühe Entwicklung:\n• Möglicherweise bereits um die Zeitenwende bekannt\n• Entstehung in frühen Hochkulturen\n• \"Schneller als die Pest\" - rasante Verbreitung im Mittelalter\nErste Schweizer Verbote: Bern 1367 (ältester dokumentierter Hinweis)\n\nBezeichnungen:\n• \"Gebetbuch des Teufels\" (mittelalterliche Bezeichnung)\n• Frühe Kritik von Kirche und Obrigkeit\n• Trotz Verboten: Schnelle Verbreitung in allen Volksschichten",
     "metadata": {
       "id": "history_origin_meta",
       "category": {
         "main": "Geschichte",
         "sub": "Herkunft",
-        "topic": "Die Ursprünge des Kartenspiels 🌏"
+        "topic": "Jasskarten (36 Karten)"
       },
       "keywords": [
         "seidenstrasse",
@@ -6488,6 +7992,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "STÖCK WYS STICH - Kulturgeschichte von Erika Lüscher",
@@ -6503,13 +8015,13 @@
   },
   "history_medieval": {
     "id": "history_medieval",
-    "text": "Die mittelalterliche Entwicklung des Kartenspiels 🏰\n\nJohannes von Rheinfelden's \"Ludus cartularum moralisatus\" (1377):\n• Erste ausführliche Beschreibung eines Florentiner Kartenspiels\n• Original nicht erhalten, aber mehrere ergänzte Abschriften existieren\n• Beschreibt detailliert:\n  - Spielregeln verschiedener Varianten\n  - 4 x 13-Blatt System (teilweise bis heute gebräuchlich)\n  - Bevorzugte 60-Karten Variante mit speziellen Hofkarten\n\nHofkarten nach von Rheinfelden:\n• König (höchster Rang)\n• Dame (zweithöchster Rang)\n• Marschall (dritthöchster Rang)\n• Dienerin (niederster Hofrang)\n\nSymbolische Bedeutung:\n• Karten als Abbild der göttlichen Weltordnung\n• Verschiedene Farben als moralische Lehre für:\n  - Herrschende Klasse\n  - Einfaches Volk\n• Religiöse und gesellschaftliche Interpretationen\n\nFrühe Gestaltung:\n• Handgefertigte, kunstvoll gestaltete Kartenblätter\n• Motive aus dem höfischen Leben\n• Darstellungen von:\n  - Soldaten\n  - Fahrendem Volk\n  - Tieren\n  - Blumen\n  - Wappen\n  - Helmen\n\nSoziale Aspekte:\n• Hohe Kosten der handgefertigten Karten\n• Limitierter Zugang für wohlhabende Schichten\n• Später: Demokratisierung durch neue Drucktechniken",
+    "text": "Die mittelalterliche Entwicklung des Kartenspiels \n\nJohannes von Rheinfelden's \"Ludus cartularum moralisatus\" (1377):\n• Erste ausführliche Beschreibung eines Florentiner Kartenspiels\n• Original nicht erhalten, aber mehrere ergänzte Abschriften existieren\n• Beschreibt detailliert:• \n- Spielregeln verschiedener Varianten\n- 4 x 13-Blatt System (teilweise bis heute gebräuchlich)\n- Bevorzugte 60-Karten Variante mit speziellen Hofkarten\n\nHofkarten nach von Rheinfelden:\nKönig (höchster Rang)\n**Dame (zweithöchster Rang)**\n**Marschall (dritthöchster Rang)**\n**Dienerin (niederster Hofrang)**\n\nSymbolische Bedeutung:\n• Karten als Abbild der göttlichen Weltordnung\n• Verschiedene Farben als moralische Lehre für:• \n- Herrschende Klasse\n- Einfaches Volk\n• Religiöse und gesellschaftliche Interpretationen\n\nFrühe Gestaltung:\n• Handgefertigte, kunstvoll gestaltete Kartenblätter\n• Motive aus dem höfischen Leben\nDarstellungen von:\n- Soldaten\n- Fahrendem Volk\n- Tieren\n- Blumen\n- Wappen\n- Helmen\n\nSoziale Aspekte:\n• Hohe Kosten der handgefertigten Karten\n• Limitierter Zugang für wohlhabende Schichten\n• Später: Demokratisierung durch neue Drucktechniken",
     "metadata": {
       "id": "history_medieval_meta",
       "category": {
         "main": "Geschichte",
         "sub": "Mittelalter",
-        "topic": "Die mittelalterliche Entwicklung des Kartenspiels 🏰"
+        "topic": "Jasskarten (36 Karten)"
       },
       "keywords": [
         "johannes von rheinfelden",
@@ -6528,6 +8040,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.8,
       "difficulty": 2,
       "source": "STÖCK WYS STICH - Der neue Schweizer Jassführer (Dani Müller)",
@@ -6543,13 +8063,13 @@
   },
   "history_swiss_production": {
     "id": "history_swiss_production",
-    "text": "Die Schweizer Kartenproduktion 🏭\n\nFrühe Schweizer Produktion:\n• Ältestes erhaltenes Schweizer Kartenspiel: Basel 1470\n• Früher Export über Landesgrenzen hinaus\n• Basel als wichtiges Produktionszentrum im 15. Jahrhundert\n\nBedeutende Kartenmacher:\n1. Familie Burdel in Freiburg:\n   • Ursprung: Frankreich\n   • Niederlassung in Fribourg: 1749\n   • Drei Generationen Kartenproduktion\n   • Berühmt für \"Freiburger Karten\"\n   • Produktion von:\n     - Tarock\n     - Deutschschweizer Spielkarten\n     - Als schönste Karten ihrer Zeit bekannt\n\n2. Schaffhauser Produktion:\n   • David Hurter (ab 1802)\n   • Johann Bernhard Zündel (ab 1828):\n     - Ehemaliger holländischer Söldner\n     - Brachte neue Impulse mit\n   • Johannes Müller I:\n     - Übernahme 1838\n     - Lernte bei Zündel\n     - Vereinigung der Betriebe\n     - Spätere Monopolstellung\n\nQualitätsmerkmale:\n• Hochwertige Handwerkskunst\n• Regionale Stilunterschiede\n• Vielfältige Motivwahl\n• Technische Innovationen",
+    "text": "Die Schweizer Kartenproduktion \n\nFrühe Schweizer Produktion:\n• Ältestes erhaltenes Schweizer Kartenspiel: Basel 1470\n• Früher Export über Landesgrenzen hinaus\n• Basel als wichtiges Produktionszentrum im 15. Jahrhundert\n\nBedeutende Kartenmacher:\n1. Familie Burdel in Freiburg:\n• Ursprung: Frankreich\n• Niederlassung in Fribourg: 1749\n• Drei Generationen Kartenproduktion\n• Berühmt für \"Freiburger Karten\"\n• Produktion von:• \n- Tarock\n- Deutschschweizer Spielkarten\n- Als schönste Karten ihrer Zeit bekannt\n\n2. Schaffhauser Produktion:\nDavid Hurter (ab 1802)\n**Johann Bernhard Zündel (ab 1828)**\n- Ehemaliger holländischer Söldner\n- Brachte neue Impulse mit\n**Johannes Müller I:**\n- Übernahme 1838\n- Lernte bei Zündel\n- Vereinigung der Betriebe\n- Spätere Monopolstellung\n\nQualitätsmerkmale:\n• Hochwertige Handwerkskunst\n• Regionale Stilunterschiede\n• Vielfältige Motivwahl\n• Technische Innovationen",
     "metadata": {
       "id": "history_swiss_production_meta",
       "category": {
         "main": "Geschichte",
         "sub": "Schweizer Kartenherstellung",
-        "topic": "Die Schweizer Kartenproduktion 🏭"
+        "topic": "Jasskarten (36 Karten)"
       },
       "keywords": [
         "schweiz",
@@ -6566,6 +8086,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.7,
       "difficulty": 2,
       "source": "STÖCK WYS STICH - Der neue Schweizer Jassführer (Dani Müller)",
@@ -6581,13 +8109,13 @@
   },
   "history_etymology": {
     "id": "history_etymology",
-    "text": "Die Herkunft des Wortes \"Jass\" 📚\n\nEtymologische Wurzeln:\n• Niederländischer Ursprung: \"Jas\" = Bezeichnung für den Trumpfbauer\n• Erste schriftliche Erwähnung: Schaffhauser Ratsprotokoll 1796\n• Parallele Entwicklung: \"Nell\" ebenfalls aus dem niederländischen Sprachraum\n\nHistorische Verbreitung:\n• Durch Schweizer Söldner in niederländischen Diensten\n• Mehrere Jahrhunderte lange Militärpräsenz in den Niederlanden\n• Übernahme der Spielregeln und Terminologie\n\nSprachliche Entwicklung:\n• Ursprüngliche Form: \"Jas\" (niederländisch)\n• Eindeutschung zu \"Jass\"\n• Regionale Varianten:\n  - \"Jassen\" (Verb)\n  - \"Jasser\" (Spieler)\n  - \"Jassete\" (Jasstreffen)\n\nKulturelle Integration:\n• Entwicklung einer eigenen Jass-Terminologie\n• Verschmelzung mit lokalen Dialekten\n• Entstehung regionaler Begriffsvarianten",
+    "text": "Die Herkunft des Wortes \"Jass\" \n\nEtymologische Wurzeln:\n• Niederländischer Ursprung: \"Jas\" = Bezeichnung für den Trumpfbauer\n• Erste schriftliche Erwähnung: Schaffhauser Ratsprotokoll 1796\n• Parallele Entwicklung: \"Nell\" ebenfalls aus dem niederländischen Sprachraum\n\nHistorische Verbreitung:\n• Durch Schweizer Söldner in niederländischen Diensten\n• Mehrere Jahrhunderte lange Militärpräsenz in den Niederlanden\n• Übernahme der Spielregeln und Terminologie\n\nSprachliche Entwicklung:\n**Ursprüngliche Form: \"Jas\" (niederländisch)**\n• Eindeutschung zu \"Jass\"\n• Regionale Varianten:\n- \"Jassen\" (Verb)\n- \"Jasser\" (Spieler)\n- \"Jassete\" (Jasstreffen)\n\nKulturelle Integration:\n• Entwicklung einer eigenen Jass-Terminologie\n• Verschmelzung mit lokalen Dialekten\n• Entstehung regionaler Begriffsvarianten",
     "metadata": {
       "id": "history_etymology_meta",
       "category": {
         "main": "Geschichte",
         "sub": "Wortherkunft",
-        "topic": "Die Herkunft des Wortes \"Jass\" 📚"
+        "topic": "Herkunft des Wortes \"Jass\""
       },
       "keywords": [
         "etymologie",
@@ -6606,6 +8134,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.8,
       "difficulty": 2,
       "source": "STÖCK WYS STICH - Der neue Schweizer Jassführer (Dani Müller)",
@@ -6621,13 +8157,13 @@
   },
   "history_industrialization": {
     "id": "history_industrialization",
-    "text": "Die Industrialisierung des Kartenspiels 🏭\n\nTechnische Revolution:\n• Einführung des Stahlstichverfahrens\n• Entwicklung des günstigeren Holzschnitts\n• Mechanisierung der Produktion\n• Standardisierung der Designs\n\nMüller'sche Monopolstellung (ab 1890):\n• Übernahme kleinerer Produktionen\n• Straffung des Sortiments\n• Vereinheitlichung der Motive\n• Qualitätssicherung durch Industriestandards\n\nAuswirkungen der Industrialisierung:\n• Deutlich günstigere Produktion\n• Breitere Verfügbarkeit für alle Gesellschaftsschichten\n• Verlust regionaler Motivvielfalt\n• Entstehung des \"Schweizer Standard-Designs\"\n\nModerne Entwicklung:\n• Digitaldruck und neue Technologien\n• Spezialauflagen und Sammlerkarten\n• Balance zwischen Tradition und Innovation\n• Erhalt historischer Drucktechniken",
+    "text": "Die Industrialisierung des Kartenspiels \n\nTechnische Revolution:\n• Einführung des Stahlstichverfahrens\n• Entwicklung des günstigeren Holzschnitts\n• Mechanisierung der Produktion\n• Standardisierung der Designs\n\nMüller'sche Monopolstellung (ab 1890):\n• Übernahme kleinerer Produktionen\n• Straffung des Sortiments\n• Vereinheitlichung der Motive\n• Qualitätssicherung durch Industriestandards\n\nAuswirkungen der Industrialisierung:\n• Deutlich günstigere Produktion\n• Breitere Verfügbarkeit für alle Gesellschaftsschichten\n• Verlust regionaler Motivvielfalt\n• Entstehung des \"Schweizer Standard-Designs\"\n\nModerne Entwicklung:\n• Digitaldruck und neue Technologien\n• Spezialauflagen und Sammlerkarten\n• Balance zwischen Tradition und Innovation\n• Erhalt historischer Drucktechniken",
     "metadata": {
       "id": "history_industrialization_meta",
       "category": {
         "main": "Geschichte",
         "sub": "Industrialisierung",
-        "topic": "Die Industrialisierung des Kartenspiels 🏭"
+        "topic": "Jasskarten (36 Karten)"
       },
       "keywords": [
         "industrie",
@@ -6646,6 +8182,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.7,
       "difficulty": 2,
       "source": "STÖCK WYS STICH - Der neue Schweizer Jassführer (Dani Müller)",
@@ -6661,13 +8205,13 @@
   },
   "history_linguistics": {
     "id": "history_linguistics",
-    "text": "Die Sprache des Jassens 🗣️\n\nEntwicklung der Jasssprache:\n• Entstehung einer eigenständigen Fachsprache\n• Vermischung verschiedener Spracheinflüsse:\n  - Niederländische Ursprünge (Jas, Nell)\n  - Französische Einflüsse (Carreau, Pique)\n  - Italienische Begriffe (Marcio/Matsch)\n  - Deutsche Kartenbezeichnungen\n\nRegionale Unterschiede:\n• Deutschschweiz:\n  - \"Schilten\" statt \"Schaufeln\"\n  - \"Rosen\" statt \"Herz\"\n• Romandie:\n  - Französische Kartenbezeichnungen\n  - Eigene Spielbegriffe\n• Tessin:\n  - Italienische Terminologie\n  - Vermischung mit Schweizer Begriffen\n\nBesondere Sprachphänomene:\n• Entwicklung eigener Redewendungen\n• Jassbegriffe im Alltag:\n  - \"Trumpf ausspielen\"\n  - \"Die besseren Karten haben\"\n• Entstehung von Jass-Metaphern",
+    "text": "Die Sprache des Jassens \n\nEntwicklung der Jasssprache:\n• Entstehung einer eigenständigen Fachsprache\n• Vermischung verschiedener Spracheinflüsse:• \n- Niederländische Ursprünge (Jas, Nell)\n- Französische Einflüsse (Carreau, Pique)\n- Italienische Begriffe (Marcio/Matsch)\n- Deutsche Kartenbezeichnungen\n\nRegionale Unterschiede:\nDeutschschweiz:\n- \"Schilten\" statt \"Schaufeln\"\n- \"Rosen\" statt \"Herz\"\n**Romandie:**\n- Französische Kartenbezeichnungen\n- Eigene Spielbegriffe\n**Tessin:• \n- Italienische Terminologie\n- Vermischung mit Schweizer Begriffen\n\nBesondere Sprachphänomene:\n• Entwicklung eigener Redewendungen\nJassbegriffe im Alltag:**\n- \"Trumpf ausspielen\"\n- \"Die besseren Karten haben\"\n• Entstehung von Jass-Metaphern",
     "metadata": {
       "id": "history_linguistics_meta",
       "category": {
         "main": "Geschichte",
         "sub": "Sprachentwicklung",
-        "topic": "Die Sprache des Jassens 🗣️"
+        "topic": "Sprache des Jassens"
       },
       "keywords": [
         "sprache",
@@ -6685,6 +8229,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.6,
       "difficulty": 2,
       "source": "STÖCK WYS STICH - Kulturgeschichte von Erika Lüscher",
@@ -6700,13 +8252,13 @@
   },
   "history_etymology_matsch": {
     "id": "history_etymology_matsch",
-    "text": "Die faszinierende Geschichte des Begriffs \"Matsch\" im Schweizer Jass 🎴\n\nDefinition & Bedeutung heute:\n• In Deutschschweizer Kartenspielen bedeutet \"en Matsch mache\" alle Stiche eines Spiels zu machen\n• Beim Schieber zu viert: 100 Punkte Bonus für alle neun Stiche\n• Ausnahme: An Turnieren wird dieser Bonus meist nicht gewährt\n\nEtymologischer Ursprung:\n• Italienische Wurzel: Adjektiv \"marcio\" (verfault, morsch, verrottet)\n• Vermutete Übernahme-Wege:\n  - Haupttheorie: Spielersprache italienischer Arbeiter (2. Hälfte 19. Jahrhundert)\n  - Alternative 1: Transfer über gehobene Spielsalons\n  - Alternative 2: Einfluss durch Österreichs Herrschaft in Norditalien\n\nHistorische Entwicklung:\n1. Ursprüngliche Form & Bedeutung:\n   • Erste Verwendung als \"Martsch\"\n   • Bedeutete zunächst den VERLUST aller Stiche\n   • \"matsch si/werde\" (fare marcio): verloren/vernichtet sein\n   • \"en Matsch mache\": einen Schicksalsschlag erleiden\n   • \"den anderen den Matsch machen\" (dare marcio)\n\n2. Parallelen in anderen Sprachräumen:\n   • Deutsche Kartenspiele: Verlierende sind \"im Matsch\"\n   • Österreichische Tradition: Nach Verlust \"ist man Matsch\"\n\n3. Sprachliche Besonderheit:\n   • Zweite Wortbedeutung: breiartige, weiche Masse (nasse Erde, verregneter Schnee)\n   • Ursprung: lautmalerisches Wort \"mantschen\"\n   • Ungeklärt: Mögliche Verflechtung des deutschen Stamms mit dem Spielerbegriff\n\nTransformation im 20. Jahrhundert:\n1. Erste Hälfte 20. Jahrhundert:\n   • Bedeutungsverschiebung: Von Verlust zu Gewinn aller Stiche\n   • Koexistenz beider Bedeutungen über Jahrzehnte\n   • Historischer Beleg: Werbung 1949 - \"Der [Stumpen] wird euch so vortrefflich schmecken, dass ihr ganz vergessen werdet, dass ihr vorhin Match geworden seid.\"\n\n2. Anglisierung (ab 1930er):\n   • Zunehmende Schreibweise als \"Match\"\n   • Einfluss englischer Sportbegriffe:\n     - \"Matchball\"\n     - \"sportlicher Wettkampf\"\n     - Englisch als globale Lingua franca\n\nAktuelle Situation:\n1. Offizielle Verwendung:\n   • \"Match\"-Schreibweise dominiert bei:\n     - Jassturnieren\n     - Staatsfernsehen (SRF)\n     - \"Puur Näll Ass\" (offizielles Schweizer Jassreglement von Göpf Egg)\n\n2. Föderalistische Vielfalt:\n   • Wikipedia-Artikel: Beide Schreibweisen\n   • Lokale Gruppen & Vereine:\n     - Teils \"Matsch\" aus Zufall\n     - Teils aus Eigensinn\n     - Teils aus etymologischem Bewusstsein\n   • Lebendiger Föderalismus in der Jasssprache",
+    "text": "Die faszinierende Geschichte des Begriffs \"Matsch\" im Schweizer Jass \n\nDefinition & Bedeutung heute:\n• In Deutschschweizer Kartenspielen bedeutet \"en Matsch mache\" alle Stiche eines Spiels zu machen\n• Beim Schieber zu viert: 100 Punkte Bonus für alle neun Stiche\n• Ausnahme: An Turnieren wird dieser Bonus meist nicht gewährt\n\nEtymologischer Ursprung:\n**Italienische Wurzel: Adjektiv \"marcio\" (verfault, morsch, verrottet)**\n**Vermutete Übernahme-Wege:\\n- Haupttheorie: Spielersprache italienischer Arbeiter (2. Hälfte 19. Jahrhundert)\n- Alternative 1: Transfer über gehobene Spielsalons\n- Alternative 2: Einfluss durch Österreichs Herrschaft in Norditalien\n\nHistorische Entwicklung:\n1. Ursprüngliche Form & Bedeutung:\n• Erste Verwendung als \"Martsch\"\n• Bedeutete zunächst den VERLUST aller Stiche\n• \"matsch si/werde\" (fare marcio): verloren/vernichtet sein\n• \"en Matsch mache\": einen Schicksalsschlag erleiden\n• \"den anderen den Matsch machen\" (dare marcio)\n\n2. Parallelen in anderen Sprachräumen:\n• Deutsche Kartenspiele: Verlierende sind \"im Matsch\"\n• Österreichische Tradition: Nach Verlust \"ist man Matsch\"\n\n3. Sprachliche Besonderheit:\nZweite Wortbedeutung: breiartige, weiche Masse (nasse Erde, verregneter Schnee)• \n• Ursprung: lautmalerisches Wort \"mantschen\"\n• Ungeklärt: Mögliche Verflechtung des deutschen Stamms mit dem Spielerbegriff\n\nTransformation im 20. Jahrhundert:\n1. Erste Hälfte 20. Jahrhundert:\n• Bedeutungsverschiebung: Von Verlust zu Gewinn aller Stiche\n• Koexistenz beider Bedeutungen über Jahrzehnte\n• Historischer Beleg: Werbung 1949 - \"Der [Stumpen] wird euch so vortrefflich schmecken, dass ihr ganz vergessen werdet, dass ihr vorhin Match geworden seid.\"\n\n2. Anglisierung (ab 1930er):\n• Zunehmende Schreibweise als \"Match\"\nEinfluss englischer Sportbegriffe:\\n- \"Matchball\"\n- \"sportlicher Wettkampf\"\n- Englisch als globale Lingua franca\n\nAktuelle Situation:\n1. Offizielle Verwendung:\n• \"Match\"-Schreibweise dominiert bei:\n- Jassturnieren\n- Staatsfernsehen (SRF)\n- \"Puur Näll Ass\" (offizielles Schweizer Jassreglement von Göpf Egg)\n\n2. Föderalistische Vielfalt:\n• Wikipedia-Artikel: Beide Schreibweisen\nLokale Gruppen & Vereine:\\n- Teils \"Matsch\" aus Zufall\n- Teils aus Eigensinn\n- Teils aus etymologischem Bewusstsein\n• Lebendiger Föderalismus in der Jasssprache\n\n---\n\n**Quelle:**\nMichael Koller (Historiker und Berufsschullehrer) - Expertise in Etymologie des Jass",
     "metadata": {
       "id": "history_etymology_matsch_meta",
       "category": {
         "main": "Geschichte",
         "sub": "Wortherkunft",
-        "topic": "Die faszinierende Geschichte des Begriffs \"Matsch\" im Schweizer Jass 🎴"
+        "topic": "Geschichte des Matsch-Begriffs"
       },
       "keywords": [
         "matsch",
@@ -6732,6 +8284,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "Unbekannt",
@@ -6747,13 +8307,13 @@
   },
   "history_terminology": {
     "id": "history_terminology",
-    "text": "Die Geschichte des \"Matsch\"-Begriffs 📖\n\nDefinition & Bedeutung heute:\n• In Deutschschweizer Kartenspielen bedeutet \"en Matsch mache\" alle Stiche eines Spiels zu machen\n• Beim Schieber zu viert: 100 Punkte Bonus für alle neun Stiche\n• Ausnahme: An Turnieren wird dieser Bonus meist nicht gewährt\n\nEtymologischer Ursprung:\n• Italienische Wurzel: Adjektiv \"marcio\" (verfault, morsch, verrottet)\n• Vermutete Übernahme-Wege:\n  - Haupttheorie: Spielersprache italienischer Arbeiter (2. Hälfte 19. Jahrhundert)\n  - Alternative 1: Transfer über gehobene Spielsalons\n  - Alternative 2: Einfluss durch Österreichs Herrschaft in Norditalien\n\nHistorische Entwicklung:\n1. Ursprüngliche Form & Bedeutung:\n   • Erste Verwendung als \"Martsch\"\n   • Bedeutete zunächst den VERLUST aller Stiche\n   • \"matsch si/werde\" (fare marcio): verloren/vernichtet sein\n   • \"en Matsch mache\": einen Schicksalsschlag erleiden\n   • \"den anderen den Matsch machen\" (dare marcio)\n\n2. Parallelen in anderen Sprachräumen:\n   • Deutsche Kartenspiele: Verlierende sind \"im Matsch\"\n   • Österreichische Tradition: Nach Verlust \"ist man Matsch\"\n\n3. Sprachliche Besonderheit:\n   • Zweite Wortbedeutung: breiartige, weiche Masse (nasse Erde, verregneter Schnee)\n   • Ursprung: lautmalerisches Wort \"mantschen\"\n   • Ungeklärt: Mögliche Verflechtung des deutschen Stamms mit dem Spielerbegriff\n\nTransformation im 20. Jahrhundert:\n1. Erste Hälfte 20. Jahrhundert:\n   • Bedeutungsverschiebung: Von Verlust zu Gewinn aller Stiche\n   • Koexistenz beider Bedeutungen über Jahrzehnte\n   • Historischer Beleg: Werbung 1949 - \"Der [Stumpen] wird euch so vortrefflich schmecken, dass ihr ganz vergessen werdet, dass ihr vorhin Match geworden seid.\"\n\n2. Anglisierung (ab 1930er):\n   • Zunehmende Schreibweise als \"Match\"\n   • Einfluss englischer Sportbegriffe:\n     - \"Matchball\"\n     - \"sportlicher Wettkampf\"\n     - Englisch als globale Lingua franca\n\nAktuelle Situation:\n1. Offizielle Verwendung:\n   • \"Match\"-Schreibweise dominiert bei:\n     - Jassturnieren\n     - Staatsfernsehen (SRF)\n     - \"Puur Näll Ass\" (offizielles Schweizer Jassreglement von Göpf Egg)\n\n2. Föderalistische Vielfalt:\n   • Wikipedia-Artikel: Beide Schreibweisen\n   • Lokale Gruppen & Vereine:\n     - Teils \"Matsch\" aus Zufall\n     - Teils aus Eigensinn\n     - Teils aus etymologischem Bewusstsein\n   • Lebendiger Föderalismus in der Jasssprache",
+    "text": "Die Geschichte des \"Matsch\"-Begriffs 📖\n\nDefinition & Bedeutung heute:\n• In Deutschschweizer Kartenspielen bedeutet \"en Matsch mache\" alle Stiche eines Spiels zu machen\n• Beim Schieber zu viert: 100 Punkte Bonus für alle neun Stiche\n• Ausnahme: An Turnieren wird dieser Bonus meist nicht gewährt\n\nEtymologischer Ursprung:\n**Italienische Wurzel: Adjektiv \"marcio\" (verfault, morsch, verrottet)**\n**Vermutete Übernahme-Wege:\\n- Haupttheorie: Spielersprache italienischer Arbeiter (2. Hälfte 19. Jahrhundert)\n- Alternative 1: Transfer über gehobene Spielsalons\n- Alternative 2: Einfluss durch Österreichs Herrschaft in Norditalien\n\nHistorische Entwicklung:\n1. Ursprüngliche Form & Bedeutung:\n• Erste Verwendung als \"Martsch\"\n• Bedeutete zunächst den VERLUST aller Stiche\n• \"matsch si/werde\" (fare marcio): verloren/vernichtet sein\n• \"en Matsch mache\": einen Schicksalsschlag erleiden\n• \"den anderen den Matsch machen\" (dare marcio)\n\n2. Parallelen in anderen Sprachräumen:\n• Deutsche Kartenspiele: Verlierende sind \"im Matsch\"\n• Österreichische Tradition: Nach Verlust \"ist man Matsch\"\n\n3. Sprachliche Besonderheit:\nZweite Wortbedeutung: breiartige, weiche Masse (nasse Erde, verregneter Schnee)• \n• Ursprung: lautmalerisches Wort \"mantschen\"\n• Ungeklärt: Mögliche Verflechtung des deutschen Stamms mit dem Spielerbegriff\n\nTransformation im 20. Jahrhundert:\n1. Erste Hälfte 20. Jahrhundert:\n• Bedeutungsverschiebung: Von Verlust zu Gewinn aller Stiche\n• Koexistenz beider Bedeutungen über Jahrzehnte\n• Historischer Beleg: Werbung 1949 - \"Der [Stumpen] wird euch so vortrefflich schmecken, dass ihr ganz vergessen werdet, dass ihr vorhin Match geworden seid.\"\n\n2. Anglisierung (ab 1930er):\n• Zunehmende Schreibweise als \"Match\"\nEinfluss englischer Sportbegriffe:\\n- \"Matchball\"\n- \"sportlicher Wettkampf\"\n- Englisch als globale Lingua franca\n\nAktuelle Situation:\n1. Offizielle Verwendung:\n• \"Match\"-Schreibweise dominiert bei:\n- Jassturnieren\n- Staatsfernsehen (SRF)\n- \"Puur Näll Ass\" (offizielles Schweizer Jassreglement von Göpf Egg)\n\n2. Föderalistische Vielfalt:\n• Wikipedia-Artikel: Beide Schreibweisen\nLokale Gruppen & Vereine:**\n- Teils \"Matsch\" aus Zufall\n- Teils aus Eigensinn\n- Teils aus etymologischem Bewusstsein\n• Lebendiger Föderalismus in der Jasssprache\n\n---\n\n**Quelle:**\nMichael Koller (Historiker und Berufsschullehrer) - Expertise in Etymologie des Jass",
     "metadata": {
       "id": "history_terminology_meta",
       "category": {
         "main": "Geschichte",
         "sub": "Terminologie",
-        "topic": "Die Geschichte des \"Matsch\""
+        "topic": "Geschichte \"Matsch\""
       },
       "keywords": [
         "matsch",
@@ -6779,9 +8339,87 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
       "source": "Unbekannt",
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      }
+    }
+  },
+  "regeln_tischregel": {
+    "id": "regeln_tischregel",
+    "text": "Die Tischregeln sind die Regeln, die unter Jassern für ihre persönliche Jassrunde an diesem Tisch abgemacht wurden. Sie haben gegenüber allen anderen Regeln immer den Vorrang.",
+    "metadata": {
+      "id": "regeln_tischregel_meta",
+      "category": {
+        "main": "Regeln",
+        "sub": "Tischregel",
+        "topic": "Tischregel"
+      },
+      "difficulty": 1,
+      "importance": 3,
+      "source": "Jassguru.ch",
+      "keywords": [
+        "tischregel",
+        "hausregel",
+        "vereinbarung",
+        "vorrang",
+        "jassrunde"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      }
+    }
+  },
+  "regeln_offizielles_regelwerk": {
+    "id": "regeln_offizielles_regelwerk",
+    "text": "Lange galt das Werk von Göpf Egg und Albert Hagenbucher «Puur, Nell, Ass – Offizielles Schweizer Jassreglement» als Standardwerk für die Jassregeln. Es hat aber unscharfe Formulierungen und selbst in der 10. Auflage hat es immer noch typografische Fehler drin. Auch sind manche Regeln schlicht unklar. Dem hat Dani Müller mit «Stöck, Wys, Stich: Der neue Schweizer Jassführer» mit der SRG als Mitherausgeber Abhilfe geschaffen. Deshalb sollte sich jeder moderne Jasser am neuen, gut gemachten und klar formulierten Regelwerk von Müller orientieren.\n\nZum Beispiel ist «Nichtfarben» bei Müller klar geregelt – wenn die Regel auch hart ist für manchen Hobbyjasser. Das Gute: Die «Tischregel» hat immer vorrang und somit kann jeder jassen wie er will. Aber bei Turnieren und Meisterschaften müssen die Regeln eindeutig sein.",
+    "metadata": {
+      "id": "regeln_offizielles_regelwerk_meta",
+      "category": {
+        "main": "Regeln",
+        "sub": "Offizielles Regelwerk",
+        "topic": "Offizielles Regelwerk"
+      },
+      "difficulty": 2,
+      "importance": 5,
+      "source": "Jassguru.ch",
+      "keywords": [
+        "regelwerk",
+        "müller",
+        "egg",
+        "hagenbucher",
+        "puur nell ass",
+        "stöck wys stich",
+        "srg",
+        "nichtfarben",
+        "tischregel"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
       "chunkInfo": {
         "isPartOfSequence": false,
         "sequenceId": null,
@@ -6799,7 +8437,7 @@
       "id": "abheben_meta",
       "category": {
         "main": "Regeln",
-        "sub": "Kartenverteilung",
+        "sub": "Kartenverteilen",
         "topic": "Abheben"
       },
       "keywords": [
@@ -6813,6 +8451,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -6834,7 +8480,7 @@
       "category": {
         "main": "Regeln",
         "sub": "Punktezählung",
-        "topic": "Die allgemeine Ausmachregel lautet «Stöck"
+        "topic": "Ausmachregel Stöck"
       },
       "keywords": [
         "ausmachregel",
@@ -6848,6 +8494,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -6868,7 +8522,7 @@
       "id": "ausspiel_meta",
       "category": {
         "main": "Regeln",
-        "sub": "Spielablauf",
+        "sub": "Spielverlauf",
         "topic": "Ausspiel"
       },
       "keywords": [
@@ -6882,6 +8536,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -6902,7 +8564,7 @@
       "id": "mischen_meta",
       "category": {
         "main": "Regeln",
-        "sub": "Kartenverteilung",
+        "sub": "Kartenverteilen",
         "topic": "Mischen"
       },
       "keywords": [
@@ -6913,6 +8575,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -6934,7 +8604,7 @@
       "category": {
         "main": "Regeln",
         "sub": "Punktezählung",
-        "topic": "Sobald sich ein Team oder ein Spieler in Worten bedankt, ist die Partie zu Ende (Ausnahme"
+        "topic": "Grundlegender Spielablauf"
       },
       "keywords": [
         "bedanken",
@@ -6948,6 +8618,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -6983,6 +8661,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7003,7 +8689,7 @@
       "id": "bodentrumpf_meta",
       "category": {
         "main": "Regeln",
-        "sub": "Spielablauf",
+        "sub": "Spielverlauf",
         "topic": "Bodentrumpf"
       },
       "keywords": [
@@ -7016,6 +8702,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7036,8 +8730,8 @@
       "id": "falscher_spieler_meta",
       "category": {
         "main": "Regeln",
-        "sub": "Spielablauf",
-        "topic": "Falscher_spieler"
+        "sub": "Spielverlauf",
+        "topic": "Falscher Spieler"
       },
       "keywords": [
         "falscher spieler",
@@ -7049,6 +8743,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7069,8 +8771,8 @@
       "id": "fehlende_karte_meta",
       "category": {
         "main": "Regeln",
-        "sub": "Spielablauf",
-        "topic": "Fehlende_karte"
+        "sub": "Spielverlauf",
+        "topic": "Fehlende Karte"
       },
       "keywords": [
         "fehlende karte",
@@ -7081,6 +8783,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7102,7 +8812,7 @@
       "category": {
         "main": "Regeln",
         "sub": "Punktezählung",
-        "topic": "Kartenpunkte_nicht_gezaehlt"
+        "topic": "Kartenpunkte nicht gezählt"
       },
       "keywords": [
         "kartenpunkte",
@@ -7114,6 +8824,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7134,8 +8852,8 @@
       "id": "kartenspiel_nicht_komplett_meta",
       "category": {
         "main": "Regeln",
-        "sub": "Spielablauf",
-        "topic": "Kartenspiel_nicht_komplett"
+        "sub": "Spielverlauf",
+        "topic": "Kartenspiel nicht komplett"
       },
       "keywords": [
         "kartenspiel",
@@ -7147,6 +8865,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7167,8 +8893,8 @@
       "id": "karte_zu_frueh_meta",
       "category": {
         "main": "Regeln",
-        "sub": "Spielablauf",
-        "topic": "Karte_zu_frueh"
+        "sub": "Spielverlauf",
+        "topic": "Karte zu früh"
       },
       "keywords": [
         "karte",
@@ -7179,6 +8905,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7212,6 +8946,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7233,7 +8975,7 @@
       "category": {
         "main": "Regeln",
         "sub": "Punktezählung",
-        "topic": "Letzter_stich"
+        "topic": "Letzter Stich"
       },
       "keywords": [
         "letzter stich",
@@ -7244,6 +8986,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7264,8 +9014,8 @@
       "id": "liegengelassene_stiche_meta",
       "category": {
         "main": "Regeln",
-        "sub": "Spielablauf",
-        "topic": "Liegengelassene_stiche"
+        "sub": "Spielverlauf",
+        "topic": "Liegengelassene Stiche"
       },
       "keywords": [
         "stiche",
@@ -7277,6 +9027,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7298,7 +9056,7 @@
       "category": {
         "main": "Regeln",
         "sub": "Punktezählung",
-        "topic": "Wer beim Schieber, Varianten"
+        "topic": "Schieber-Varianten"
       },
       "keywords": [
         "matsch",
@@ -7310,6 +9068,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7330,7 +9096,7 @@
       "id": "untertrumpfen_meta",
       "category": {
         "main": "Regeln",
-        "sub": "Spielablauf",
+        "sub": "Spielverlauf",
         "topic": "Untertrumpfen"
       },
       "keywords": [
@@ -7344,6 +9110,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7364,7 +9138,7 @@
       "id": "vorspielen_meta",
       "category": {
         "main": "Regeln",
-        "sub": "Spielablauf",
+        "sub": "Spielverlauf",
         "topic": "Vorspielen"
       },
       "keywords": [
@@ -7379,6 +9153,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7399,7 +9181,7 @@
       "id": "zusammenwerfen_meta",
       "category": {
         "main": "Regeln",
-        "sub": "Spielablauf",
+        "sub": "Spielverlauf",
         "topic": "Zusammenwerfen"
       },
       "keywords": [
@@ -7412,6 +9194,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7432,8 +9222,8 @@
       "id": "zwei_karten_spielen_meta",
       "category": {
         "main": "Regeln",
-        "sub": "Spielablauf",
-        "topic": "Zwei_karten_spielen"
+        "sub": "Spielverlauf",
+        "topic": "Zwei Karten spielen"
       },
       "keywords": [
         "zwei karten",
@@ -7445,6 +9235,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7465,8 +9263,8 @@
       "id": "bemerkungen_meta",
       "category": {
         "main": "Regeln",
-        "sub": "Spielablauf",
-        "topic": "Siehe Abschnitt «Spielverrat»."
+        "sub": "Spielverlauf",
+        "topic": "Spielverrat"
       },
       "keywords": [
         "bemerkungen",
@@ -7477,6 +9275,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7497,8 +9303,8 @@
       "id": "bock_erwaehnen_meta",
       "category": {
         "main": "Regeln",
-        "sub": "Spielablauf",
-        "topic": "Siehe Abschnitt «Spielverrat»."
+        "sub": "Spielverlauf",
+        "topic": "Spielverrat"
       },
       "keywords": [
         "bock",
@@ -7508,6 +9314,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7528,8 +9342,8 @@
       "id": "bemerkungen_schnorren_meta",
       "category": {
         "main": "Regeln",
-        "sub": "Spielablauf",
-        "topic": "Bemerkungen_schnorren"
+        "sub": "Spielverlauf",
+        "topic": "Bemerkungen/Schnorren"
       },
       "keywords": [
         "bemerkungen",
@@ -7544,6 +9358,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7564,8 +9386,8 @@
       "id": "fragen_waehrend_spiel_meta",
       "category": {
         "main": "Regeln",
-        "sub": "Spielablauf",
-        "topic": "Fragen_waehrend_spiel"
+        "sub": "Spielverlauf",
+        "topic": "Fragen während Spiel"
       },
       "keywords": [
         "fragen",
@@ -7576,6 +9398,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7596,7 +9426,7 @@
       "id": "klopfen_meta",
       "category": {
         "main": "Regeln",
-        "sub": "Spielablauf",
+        "sub": "Spielverlauf",
         "topic": "Klopfen"
       },
       "keywords": [
@@ -7609,9 +9439,17 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
-      "source": "Offizielles Jassreglement",
+      "source": "Stöck, Stich, Wys: Der neue Schweizer Jassführer",
       "chunkInfo": {
         "isPartOfSequence": false,
         "sequenceId": null,
@@ -7629,8 +9467,8 @@
       "id": "nachschauen_gekehrter_stiche_meta",
       "category": {
         "main": "Regeln",
-        "sub": "Spielablauf",
-        "topic": "Nachschauen_gekehrter_stiche"
+        "sub": "Spielverlauf",
+        "topic": "Nachschauen gekehrter Stiche"
       },
       "keywords": [
         "stiche",
@@ -7643,6 +9481,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7658,12 +9504,12 @@
   },
   "nichtfarben": {
     "id": "nichtfarben",
-    "text": "Wer im laufenden Stich eine oder mehrere Karten von der ausgespielten Farbe hat, muss diese spielen, das heisst Farbe bekennen beziehungsweise «farben» oder angeben. Mit einer Trumpfkarte darf gestochen werden.\n\nWenn ein Spieler nicht farbt und der laufende Stich noch offen da liegt, gehört dieser Stich dem Gegner. Die falsch gespielte Karte wird mit der irrtümlich zurückbehaltenen ausgetauscht und beide Karten verlieren den Stechwert, aber nicht den Zählwert (siehe Abschnitt «Stechwert verlieren»).\n\nBesitzt ein Spieler von der irrtümlich zurückbehaltenen Farbe mehrere Karten, verliert die stechhöchste Karte (ausser Trumpf-Bauer, wenn Trumpf ausgespielt wurde) den Stechwert und muss dem laufenden Stich beigegeben werden. Zum nächsten Stich, falls ein solcher gespielt werden muss, spielt der vom fehlbaren Spieler rechts sitzende Jasser aus.\n\nWichtig: Wird ein Nichtfarben erst nach dem Kehren eines Stichs beziehungsweise im weiteren Spielverlauf bemerkt, darf der Stich nicht mehr aufgedeckt werden. Gekehrte Stiche bleiben gekehrt. Das Spiel wird zu Ende gespielt und erst danach werden die Karten kontrolliert. Kann ein Nichtfarben festgestellt werden, gehören der betreffende Stich und alle darauffolgenden Stiche dem korrekt spielenden Team beziehungsweise Spieler, auch wenn sich dadurch ein Matsch ergibt.\n\nAusnahme: Beim Differenzler, Hindersi, Molotow, Schellenjass und so weiter, also bei allen Jassarten, bei denen ein Stechverlust zum Vorteil des fehlbaren Spielers ist, gelten diese Regeln betreffend Nichtfarben nicht.",
+    "text": "Wer im laufenden Stich eine oder mehrere Karten von der ausgespielten Farbe hat, muss diese spielen, das heisst Farbe bekennen beziehungsweise «farben» oder angeben. Mit einer Trumpfkarte darf gestochen werden.\n\nWenn ein Spieler nicht farbt und der laufende Stich noch offen da liegt, gehört dieser Stich dem Gegner. Die falsch gespielte Karte wird mit der irrtümlich zurückbehaltenen ausgetauscht und beide Karten verlieren den Stechwert, aber nicht den Zählwert (siehe Abschnitt «Stechwert verlieren»).\n\nBesitzt ein Spieler von der irrtümlich zurückbehaltenen Farbe mehrere Karten, verliert die stechhöchste Karte (ausser Trumpf-Bauer, wenn Trumpf ausgespielt wurde) den Stechwert und muss dem laufenden Stich beigegeben werden. Zum nächsten Stich, falls ein solcher gespielt werden muss, spielt der vom fehlbaren Spieler rechts sitzende Jasser aus.\n\nWichtig: Wird ein Nichtfarben erst nach dem Kehren eines Stichs beziehungsweise im weiteren Spielverlauf bemerkt, darf der Stich nicht mehr aufgedeckt werden. Gekehrte Stiche bleiben gekehrt. Das Spiel wird zu Ende gespielt und erst danach werden die Karten kontrolliert. Kann ein Nichtfarben festgestellt werden, gehören der betreffende Stich und alle darauffolgenden Stiche dem korrekt spielenden Team beziehungsweise Spieler, auch wenn sich dadurch ein Matsch ergibt.\n\nAusnahme: Beim Differenzler, Hindersi, Molotow, Schellenjass und so weiter, also bei allen Jassarten, bei denen ein Stechverlust zum Vorteil des fehlbaren Spielers ist, gelten diese Regeln betreffend Nichtfarben nicht.\n\nHinweis: Das absichtliche Nichtfarben wird als «Verschlagen» bezeichnet und ist ausdrücklich verboten (siehe Abschnitt «Verschlagen»).",
     "metadata": {
       "id": "nichtfarben_meta",
       "category": {
         "main": "Regeln",
-        "sub": "Spielablauf",
+        "sub": "Spielverlauf",
         "topic": "Nichtfarben"
       },
       "keywords": [
@@ -7683,14 +9529,59 @@
         "stich",
         "farbe nicht bekennen",
         "falsche farbe spielen",
-        "falsche karte"
+        "falsche karte",
+        "verschlagen"
       ],
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      }
+    }
+  },
+  "regeln_verschlagen": {
+    "id": "regeln_verschlagen",
+    "text": "Unter Verschlagen versteht man das absichtliche Nichtfarben, um die Regel auszunutzen, dass die falsch gespielte Karte ihren Stechwert verliert. Das kommt vor, wenn ein Spieler feststellt, dass er einen blutten Bock hat und sein Partner den Rest. Er \"verschlägt\" dann diesen Bock absichtlich, um dem Partner den Weg zu ebnen.\n\nWeder das Regelwerk «Puur, Nell, Ass» noch «Stöck, Stich, Wys» erwähnen diesen Sonderfall, weshalb die Nichtfarben-Regel ausgenutzt wird. Das ist ein eindeutiges Manko. Verschlagen gehört ausdrücklich verboten!",
+    "metadata": {
+      "id": "regeln_verschlagen_meta",
+      "category": {
+        "main": "Regeln",
+        "sub": "Spielverlauf",
+        "topic": "Verschlagen"
+      },
+      "difficulty": 3,
+      "importance": 4,
+      "source": "Fabian Cadonau",
+      "keywords": [
+        "verschlagen",
+        "nichtfarben",
+        "blutten bock",
+        "stechwert",
+        "regelwerk",
+        "puur nell ass",
+        "stöck stich wys",
+        "verboten"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
       "chunkInfo": {
         "isPartOfSequence": false,
         "sequenceId": null,
@@ -7708,8 +9599,8 @@
       "id": "platztausch_meta",
       "category": {
         "main": "Regeln",
-        "sub": "Spielablauf",
-        "topic": "Während einer Partie werden die Plätze nicht mehr getauscht."
+        "sub": "Spielverlauf",
+        "topic": "Plätze tauschen"
       },
       "keywords": [
         "platztausch",
@@ -7719,6 +9610,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7739,8 +9638,8 @@
       "id": "rest_machen_meta",
       "category": {
         "main": "Regeln",
-        "sub": "Spielablauf",
-        "topic": "Rest_machen"
+        "sub": "Spielverlauf",
+        "topic": "Rest machen"
       },
       "keywords": [
         "rest machen",
@@ -7752,6 +9651,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 2,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7773,7 +9680,7 @@
       "category": {
         "main": "Regeln",
         "sub": "Punktezählung",
-        "topic": "Schieber, Kreuzjass, Bieter (Steiger) und Sidi"
+        "topic": "Schneider"
       },
       "keywords": [
         "schneider",
@@ -7785,6 +9692,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 2,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7818,6 +9733,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7838,8 +9761,8 @@
       "id": "spiel_annullieren_meta",
       "category": {
         "main": "Regeln",
-        "sub": "Spielablauf",
-        "topic": "Spiel_annullieren"
+        "sub": "Spielverlauf",
+        "topic": "Spiel annullieren"
       },
       "keywords": [
         "annullieren",
@@ -7851,6 +9774,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 2,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7871,8 +9802,8 @@
       "id": "trumpf_bauer_meta",
       "category": {
         "main": "Regeln",
-        "sub": "Spielablauf",
-        "topic": "Der Trumpf-Bauer muss bei einem Trumpfspiel nicht angegeben werden (Ausnahme"
+        "sub": "Spielverlauf",
+        "topic": "Trumpf-Bauer-Angabe"
       },
       "keywords": [
         "trumpf",
@@ -7890,6 +9821,14 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 1,
       "difficulty": 2,
       "source": "Offizielles Jassreglement",
@@ -7905,13 +9844,13 @@
   },
   "references_books": {
     "id": "references_books",
-    "text": "Wichtige Bücher zum Schweizer Jass:\n\n• \"Puur Näll Ass\" von Göpf Egg & Albert Hagenbucher\n  - Offizielles Schweizer Jassreglement\n  - Standardwerk für Regeln und Konventionen\n  - Basis für offizielle Turniere und Wettkämpfe\n  - Leider veraltet und teilweise kompliziert\n\n• \"STÖCK WYS STICH - Der neue Schweizer Jassführer\" von Dani Müller\n  - Praktischer Leitfaden für Jassspieler\n  - Detaillierte Spielregeln und Taktiken\n  - Referenz für moderne Spielvarianten\n  - Am modernsten, logischsten und am besten formulierte Regelwerke\n  - DIE REFERENZ für die Jassguru.ch Sprachmodelle\n\n• \"STÖCK WYS STICH - Kulturgeschichte\" von Erika Lüscher\n  - Umfassende kulturhistorische Analyse des Jassens\n  - Fokus auf Entwicklung und Tradition\n  - Besonders relevant für historische und kulturelle Aspekte",
+    "text": "Wichtige Bücher zum Schweizer Jass:\n\n**\"Puur Näll Ass\" von Göpf Egg & Albert Hagenbucher**\n- Offizielles Schweizer Jassreglement\n- Standardwerk für Regeln und Konventionen\n- Basis für offizielle Turniere und Wettkämpfe\n- Leider veraltet und teilweise kompliziert\n\n**\"STÖCK WYS STICH - Der neue Schweizer Jassführer\" von Dani Müller**\n- Praktischer Leitfaden für Jassspieler\n- Detaillierte Spielregeln und Taktiken\n- Referenz für moderne Spielvarianten\n- Am modernsten, logischsten und am besten formulierte Regelwerke\n- DIE REFERENZ für die Jassguru.ch Sprachmodelle\n\n**\"STÖCK WYS STICH - Kulturgeschichte\" von Erika Lüscher**\n- Umfassende kulturhistorische Analyse des Jassens\n- Fokus auf Entwicklung und Tradition\n- Besonders relevant für historische und kulturelle Aspekte\n\n**\"Trumpf As\" von Fabian Cadonau**\n- Herausgeber und Veranstalter von Jassturnieren\n- Praktische Tipps und Turniererfahrungen\n- Moderne Jass-Publikation\n\n**\"Atlas der Schweizerischen Volkskunde\"**\n- Wissenschaftliche Quelle zur Jass-Geschichte\n- Dokumentation der Verbreitung des Jass\n- Historische Entwicklung der Spielkarten\n\n**Weitere wichtige Quellen:**\n- Schaffhauser Ratsprotokolle (1796)\n- NZZ-Archive (1918, 1949)\n- Bundesamt für Kultur (BAK): \"Lebendige Traditionen - Jassen\"\n- Idiotikon.ch: Etymologische Forschung\n- Kluge (2011): Etymologisches Wörterbuch",
     "metadata": {
       "id": "references_books_meta",
       "category": {
         "main": "Referenzen",
         "sub": "Quellen",
-        "topic": "Wichtige Bücher zum Schweizer Jass"
+        "topic": "Bücher zum Schweizer Jass"
       },
       "keywords": [
         "bücher",
@@ -7926,9 +9865,16 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.8,
       "difficulty": 2,
-      "source": "Jassguru Bibliographie",
       "chunkInfo": {
         "isPartOfSequence": false,
         "sequenceId": null,
@@ -7941,7 +9887,7 @@
   },
   "references_experts": {
     "id": "references_experts",
-    "text": "Experten und Fachleute:\n\n• Remo Prinz\n  - Jass-Experte und Entwickler des Jassguru-Sprachmodells\n  - Spezialist für digitale Applikationen und KI-Modelle\n\n• Michael Koller (Historiker und Berufsschullehrer)\n  - Expertise in Etymologie des Jass\n  - Forschung zur Geschichte des \"Matsch\"-Begriffs\n\n• Göpf Egg & Albert Hagenbucher\n  - Autoren des offiziellen Schweizer Jassreglements\n  - Autoritäten für Regelauslegungen\n  - Experten für Turnierjass",
+    "text": "Experten und Fachleute:\n\n**Fabian Cadonau**\n- Herausgeber von Trumpf As\n- Veranstalter von hunderten von Jassturnieren\n\n**Göpf Egg & Albert Hagenbucher**\n- Autoren des offiziellen Schweizer Jassreglements\n- Autoritäten für Regelauslegungen\n- Experten für Turnierjass\n\n**Michael Koller (Historiker und Berufsschullehrer)**\n- Expertise in Etymologie des Jass\n- Forschung zur Geschichte des \"Matsch\"-Begriffs\n\n**Dani Müller**\n- Autor von \"Stöck, Stich, Wys: Der neue Schweizer Jassführer\"\n- Mitherausgeber mit der SRG\n- Experte für moderne Jassregeln\n\n**Remo Prinz**\n- Gründer von jassguru.ch und Programmierer der Jassguru App\n- Hat mit seinen Jassfreunden (u.a. mit Michael Koller) tausende Jass-Spiele festgehalten unter [jassstatistik.ch](https://jassstatistik.ch)",
     "metadata": {
       "id": "references_experts_meta",
       "category": {
@@ -7958,9 +9904,16 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.8,
       "difficulty": 2,
-      "source": "Jassguru.ch Quellenverzeichnis",
       "chunkInfo": {
         "isPartOfSequence": false,
         "sequenceId": null,
@@ -7973,13 +9926,13 @@
   },
   "references_documents": {
     "id": "references_documents",
-    "text": "Wichtige Dokumente und Quellen:\n\n• Offizielle Dokumente:\n  - Offizielles Schweizer Jassreglement \"Puur Näll Ass\"\n  - Schaffhauser Ratsprotokolle (1796)\n  - NZZ-Archive (1918, 1949)\n\n• Wissenschaftliche Quellen:\n  - Idiotikon.ch: Etymologische Forschung zum Begriff \"Matsch\"\n  - Kluge (2011): Etymologisches Wörterbuch\n  - Duden.de: Sprachliche Entwicklung\n  - Wikipedia: \"Schneider (Kartenspiel)\"",
+    "text": "Wichtige Dokumente und Quellen:\n\n**Offizielle Dokumente:• \n- Offizielles Schweizer Jassreglement \"Puur Näll Ass\"\n- Schaffhauser Ratsprotokolle (1796)\n- NZZ-Archive (1918, 1949)\n- Bundesamt für Kultur (BAK): \"Lebendige Traditionen - Jassen\" (lebendige-traditionen.ch)\n\nWissenschaftliche Quellen:**\n- Idiotikon.ch: Etymologische Forschung zum Begriff \"Matsch\"\n- Kluge (2011): Etymologisches Wörterbuch\n- Duden.de: Sprachliche Entwicklung\n- Wikipedia: \"Schneider (Kartenspiel)\"",
     "metadata": {
       "id": "references_documents_meta",
       "category": {
         "main": "Referenzen",
         "sub": "Dokumente",
-        "topic": "Wichtige Dokumente und Quellen"
+        "topic": "Dokumente und Quellen"
       },
       "keywords": [
         "dokumente",
@@ -7991,9 +9944,16 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.9,
       "difficulty": 2,
-      "source": "Jassguru.ch Quellenverzeichnis",
       "chunkInfo": {
         "isPartOfSequence": false,
         "sequenceId": null,
@@ -8006,7 +9966,7 @@
   },
   "references_usage": {
     "id": "references_usage",
-    "text": "Quellenverwendung im Kontext:\n\n• Regeln & Spielweise:\n  - \"Puur Näll Ass\" (Egg/Hagenbucher): Basis aller offiziellen Spielregeln\n  - Dani Müller: Moderne Spieltaktiken und Varianten\n  - Remo Prinz: Digitale Umsetzung und praktische Anwendung\n\n• Geschichte & Kultur:\n  - Erika Lüscher: Kulturhistorische Entwicklung\n  - Michael Koller: Etymologie und historische Forschung\n  - Historische Dokumente (NZZ, Ratsprotokolle): Zeitgenössische Belege\n\n• Sprachforschung:\n  - Idiotikon.ch, Duden.de: Sprachliche Entwicklung\n  - Kluge (2011): Etymologische Grundlagen\n  - Wikipedia: Ergänzende Informationen",
+    "text": "Quellenverwendung im Kontext:\n\n**Regeln & Spielweise:• \n- \"Puur Näll Ass\" (Egg/Hagenbucher): Basis aller offiziellen Spielregeln\n- Dani Müller: Moderne Spieltaktiken und Varianten\n- Remo Prinz: Digitale Umsetzung und praktische Anwendung\n\nGeschichte & Kultur:• \n- Erika Lüscher: Kulturhistorische Entwicklung\n- Michael Koller: Etymologie und historische Forschung\n- Historische Dokumente (NZZ, Ratsprotokolle): Zeitgenössische Belege\n\nSprachforschung:**\n- Idiotikon.ch, Duden.de: Sprachliche Entwicklung\n- Kluge (2011): Etymologische Grundlagen\n- Wikipedia: Ergänzende Informationen",
     "metadata": {
       "id": "references_usage_meta",
       "category": {
@@ -8023,9 +9983,16 @@
       "situations": [
         "LEARNING"
       ],
+      "chunkInfo": {
+        "isPartOfSequence": false,
+        "sequenceId": null,
+        "index": null,
+        "total": null,
+        "previousChunkId": null,
+        "nextChunkId": null
+      },
       "importance": 0.8,
       "difficulty": 2,
-      "source": "Jassguru.ch Quellenverzeichnis",
       "chunkInfo": {
         "isPartOfSequence": false,
         "sequenceId": null,

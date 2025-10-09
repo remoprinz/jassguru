@@ -1,8 +1,11 @@
 /** @type {import('next-sitemap').IConfig} */
 module.exports = {
-  siteUrl: process.env.SITE_URL || 'https://jassguru.ch',
+  siteUrl: 'https://jassguru.ch',
   generateRobotsTxt: true,
   outDir: './out',
+  // Der Dateiname wird jetzt manuell im package.json-Skript umbenannt
+  // sitemapName: 'sitemap-guru.xml', 
+  exclude: ['/wissen', '/wissen/*'], // Schliesse Wiki-Seiten aus
   // Verhindert das Aufteilen in mehrere sitemap-*.xml Dateien
   generateIndexSitemap: false,
   // SEO-Optimierung für Wissen-Seiten

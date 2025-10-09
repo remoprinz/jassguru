@@ -9,8 +9,8 @@ export interface JassContentMetadata {
   situations: string[];
   importance: number;
   difficulty: number;
-  source: string;
-  chunkInfo: {
+  source?: string;
+  chunkInfo?: {
     isPartOfSequence: boolean;
     sequenceId: string | null;
     index: number | null;
