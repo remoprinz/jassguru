@@ -458,7 +458,7 @@ async function calculateRatingsFromGames(games, { freshStart = false, sessions =
          timestamp = session.startedAt;
        }
      }
-     // 3. Fallback: createdAt
+     // 3. Fallback: createdAt (DEPRECATED - wird durch startedAt ersetzt)
      else if (session.createdAt) {
        if (typeof session.createdAt === 'object' && session.createdAt.toMillis) {
          timestamp = session.createdAt.toMillis();
@@ -467,6 +467,11 @@ async function calculateRatingsFromGames(games, { freshStart = false, sessions =
        } else if (typeof session.createdAt === 'number') {
          timestamp = session.createdAt;
        }
+     }
+     // 4. Letzter Fallback: Aktuelle Zeit (statt createdAt)
+     else {
+       console.warn(`⚠️ Session ${session.id} hat keinen verwertbaren Timestamp, verwende aktuelle Zeit`);
+       timestamp = Date.now();
      }
      
      if (timestamp > 0) {

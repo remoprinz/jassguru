@@ -219,7 +219,7 @@ const PlayerProfilePage = () => {
 
   const groupedArchiveByYear = useMemo(() => {
       return combinedArchiveItems.reduce<Record<string, ArchiveItem[]>>((acc, item) => {
-        const dateToSort = item.type === 'session' ? item.startedAt : (item.instanceDate ?? item.createdAt);
+        const dateToSort = item.type === 'session' ? item.startedAt : (item.instanceDate ?? item.startedAt);
         let year = 'Unbekannt';
         if (isFirestoreTimestamp(dateToSort)) {
             year = dateToSort.toDate().getFullYear().toString();
