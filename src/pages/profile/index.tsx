@@ -507,7 +507,7 @@ const ProfilePage: React.FC = () => {
             <div className="px-3 py-2 lg:px-6 lg:py-3 bg-gray-700/50 rounded-lg hover:bg-gray-600/50 transition-colors duration-150 cursor-pointer mb-2">
               <div className="flex justify-between items-center mb-1.5">
                  <div className="flex items-center flex-grow"> 
-                   <span className="text-base lg:text-xl font-medium mr-2" style={{ color: `${THEME_COLORS[profileTheme || 'blue']?.accentHex || '#3b82f6'}CC` }}>
+                   <span className="text-base lg:text-xl font-medium mr-2" style={{ color: `${THEME_COLORS[profileTheme || 'blue']?.accentHex || '#3b82f6'}` }}>
                      {title}
                    </span>
                    <span className="text-sm text-white mr-2">-</span>
