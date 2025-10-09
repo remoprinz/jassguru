@@ -17,22 +17,12 @@ interface TournamentPasseArchiveProps {
   playerNamesMapping: Record<string, string>;
 }
 
-// Hilfsfunktion zur Zeitformatierung mit Von-Bis Zeit
-const formatPasseTime = (startTimestamp: Timestamp | FieldValue | undefined, endTimestamp: Timestamp | FieldValue | undefined): string => {
-  if (startTimestamp instanceof Timestamp && endTimestamp instanceof Timestamp) {
-    const startDate = startTimestamp.toDate();
-    const endDate = endTimestamp.toDate();
-    const startTime = format(startDate, 'HH:mm');
-    const endTime = format(endDate, 'HH:mm');
-    const dateStr = format(endDate, 'dd.MM.yy');
-    return `${dateStr}, ${startTime}-${endTime}`;
+// Hilfsfunktion zur Zeitformatierung
+const formatPasseTime = (timestamp: Timestamp | FieldValue | undefined): string => {
+  if (timestamp instanceof Timestamp) {
+    return format(timestamp.toDate(), 'dd.MM.yy, HH:mm');
   }
-  
-  // Fallback: Nur Endzeit anzeigen
-  if (endTimestamp instanceof Timestamp) {
-    return format(endTimestamp.toDate(), 'dd.MM.yy, HH:mm');
-  }
-  
+  // Handle FieldValue oder undefined?
   return '-'; // Fallback
 };
 
@@ -94,7 +84,7 @@ const TournamentPasseArchive: React.FC<TournamentPasseArchiveProps> = ({
             ? (bottomStriche.sieg || 0) + (bottomStriche.berg || 0) + (bottomStriche.matsch || 0) + (bottomStriche.schneider || 0) + (bottomStriche.kontermatsch || 0)
             : 0;
           
-          const completedTime = formatPasseTime(game.startedAt, game.completedAt);
+          const completedTime = formatPasseTime(game.completedAt);
 
           return (
             <button 

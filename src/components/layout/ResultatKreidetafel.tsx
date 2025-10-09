@@ -1034,7 +1034,12 @@ const ResultatKreidetafel = ({
                   const startedAtValue = jassStore.currentSession?.startedAt;
                   if (startedAtValue instanceof Timestamp) return startedAtValue;
                   if (typeof startedAtValue === 'number') return startedAtValue;
-                  return Date.now(); // Fallback für FieldValue oder undefined
+                  // 🚨 KRITISCHER FIX: Verwende die ursprüngliche Session-Startzeit statt aktueller Zeit!
+                  // Wenn startedAt ein FieldValue ist, verwende die Zeit des ersten Spiels
+                  const firstGameTime = jassStore.games[0]?.timestamp;
+                  if (typeof firstGameTime === 'number') return firstGameTime;
+                  // Nur als allerletzter Fallback die aktuelle Zeit
+                  return Date.now();
                 })(),
                 teams: sessionTeamsData.teams,
                 pairingIdentifiers: sessionTeamsData.pairingIdentifiers
@@ -1916,7 +1921,17 @@ const ResultatKreidetafel = ({
                             if (sessionSnap.exists()) {
                               const sessionData = sessionSnap.data();
                               participantPlayerIdsFromFirestore = sessionData.participantPlayerIds || [];
-                              sessionStartedAtFromFirestore = sessionData.startedAt; // ✅ HINZUGEFÜGT
+                              // ✅ KORREKTUR: Konvertiere FieldValue zu Timestamp/number
+                              const startedAtFromFirestore = sessionData.startedAt;
+                              if (startedAtFromFirestore instanceof Timestamp) {
+                                sessionStartedAtFromFirestore = startedAtFromFirestore;
+                              } else if (typeof startedAtFromFirestore === 'number') {
+                                sessionStartedAtFromFirestore = startedAtFromFirestore;
+                              } else if (startedAtFromFirestore && typeof startedAtFromFirestore.toMillis === 'function') {
+                                // Firestore Timestamp-ähnliches Objekt
+                                sessionStartedAtFromFirestore = startedAtFromFirestore.toMillis();
+                              }
+                              // Wenn es ein FieldValue ist, bleibt es undefined und wir verwenden den Fallback
 
                             } else {
                               console.warn(`[ResultatKreidetafel] Session-Dokument ${currentSessionIdFromStore} nicht gefunden in Firestore`);
@@ -1946,7 +1961,12 @@ const ResultatKreidetafel = ({
                               const startedAtValue = jassStore.currentSession?.startedAt;
                               if (startedAtValue instanceof Timestamp) return startedAtValue;
                               if (typeof startedAtValue === 'number') return startedAtValue;
-                              return Date.now(); // Fallback für FieldValue oder undefined
+                              // 🚨 KRITISCHER FIX: Verwende die ursprüngliche Session-Startzeit statt aktueller Zeit!
+                              // Wenn startedAt ein FieldValue ist, verwende die Zeit des ersten Spiels
+                              const firstGameTime = jassStore.games[0]?.timestamp;
+                              if (typeof firstGameTime === 'number') return firstGameTime;
+                              // Nur als allerletzter Fallback die aktuelle Zeit
+                              return Date.now();
                             })(),
                             teams: sessionTeamsData.teams,
                             pairingIdentifiers: sessionTeamsData.pairingIdentifiers

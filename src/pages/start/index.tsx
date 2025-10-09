@@ -1539,36 +1539,15 @@ const StartPage = () => {
           : null;
       
       let displayDateValue: number | Timestamp | FieldValue | undefined | null = null;
-      let endDateValue: number | Timestamp | FieldValue | undefined | null = null;
-      
       if (sessionStatus === 'completed' && session.endedAt && isFirestoreTimestamp(session.endedAt)) {
           displayDateValue = session.endedAt;
-          endDateValue = session.endedAt;
       } else if (session.startedAt) {
           displayDateValue = session.startedAt;
       }
 
       const displayDate = isFirestoreTimestamp(displayDateValue) ? displayDateValue.toDate() : 
                          (typeof displayDateValue === 'number' ? new Date(displayDateValue) : null);
-      const endDate = isFirestoreTimestamp(endDateValue) ? endDateValue.toDate() : 
-                     (typeof endDateValue === 'number' ? new Date(endDateValue) : null);
-      
-      // Formatierung für Von-Bis Zeit
-      let formattedDate: string;
-      if (session.startedAt && session.endedAt && sessionStatus === 'completed') {
-        const startDate = isFirestoreTimestamp(session.startedAt) ? session.startedAt.toDate() : 
-                         (typeof session.startedAt === 'number' ? new Date(session.startedAt) : null);
-        if (startDate && endDate) {
-          const startTime = format(startDate, 'HH:mm');
-          const endTime = format(endDate, 'HH:mm');
-          const dateStr = format(endDate, 'dd.MM.yy');
-          formattedDate = `${dateStr}, ${startTime}-${endTime}`;
-        } else {
-          formattedDate = displayDate ? format(displayDate, 'dd.MM.yy, HH:mm') : 'Unbekannt';
-        }
-      } else {
-        formattedDate = displayDate ? format(displayDate, 'dd.MM.yy, HH:mm') : 'Unbekannt';
-      }
+      const formattedDate = displayDate ? format(displayDate, 'dd.MM.yy, HH:mm') : 'Unbekannt';
 
       return (
         <Link href={`/view/session/${id}`} key={`session-${id}`} passHref>
