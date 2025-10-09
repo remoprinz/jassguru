@@ -498,9 +498,28 @@ const ProfilePage: React.FC = () => {
       const totalStricheBottom = status === 'completed' && finalStriche ? calculateTotalStriche(finalStriche.bottom) : null;
       const totalStricheTop = status === 'completed' && finalStriche ? calculateTotalStriche(finalStriche.top) : null;
 
-      const displayDate = isFirestoreTimestamp(startedAt) ? startedAt.toDate() :
-                         (typeof startedAt === 'number' ? new Date(startedAt) : null);
-      const formattedDate = displayDate ? format(displayDate, 'dd.MM.yy, HH:mm') : 'Unbekannt';
+      // Formatierung für Von-Bis Zeit
+      let formattedDate: string;
+      if (session.startedAt && session.endedAt && status === 'completed') {
+        const startDate = isFirestoreTimestamp(session.startedAt) ? session.startedAt.toDate() : 
+                         (typeof session.startedAt === 'number' ? new Date(session.startedAt) : null);
+        const endDate = isFirestoreTimestamp(session.endedAt) ? session.endedAt.toDate() : 
+                       (typeof session.endedAt === 'number' ? new Date(session.endedAt) : null);
+        if (startDate && endDate) {
+          const startTime = format(startDate, 'HH:mm');
+          const endTime = format(endDate, 'HH:mm');
+          const dateStr = format(endDate, 'dd.MM.yy');
+          formattedDate = `${dateStr}, ${startTime}-${endTime}`;
+        } else {
+          const displayDate = isFirestoreTimestamp(startedAt) ? startedAt.toDate() :
+                             (typeof startedAt === 'number' ? new Date(startedAt) : null);
+          formattedDate = displayDate ? format(displayDate, 'dd.MM.yy, HH:mm') : 'Unbekannt';
+        }
+      } else {
+        const displayDate = isFirestoreTimestamp(startedAt) ? startedAt.toDate() :
+                           (typeof startedAt === 'number' ? new Date(startedAt) : null);
+        formattedDate = displayDate ? format(displayDate, 'dd.MM.yy, HH:mm') : 'Unbekannt';
+      }
 
       return (
           <Link href={`/view/session/public/${id}?groupId=${session.groupId || session.gruppeId || ''}&returnTo=/profile&returnMainTab=archive`} key={`session-${id}`} passHref>
