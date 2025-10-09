@@ -44,6 +44,9 @@ src/build-info.json
 
 # firebase
 /.firebase/
+serviceAccountKey.json
+firebase-service-account.json
+*serviceAccount*.json
 
 # typescript
 *.tsbuildinfo
