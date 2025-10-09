@@ -93,7 +93,7 @@ const TournamentPasseArchive: React.FC<TournamentPasseArchiveProps> = ({
               className="block w-full text-left px-3 py-2 lg:px-6 lg:py-3 bg-gray-700/50 rounded-lg hover:bg-gray-600/50 transition-colors duration-150 cursor-pointer mb-2"
             >
               {/* 🎨 HEADER: Größer wie im GroupView */}
-              <div className="flex justify-between items-center mb-1.5">
+              <div className="flex justify-between items-center mb-3">
                 <div className="flex items-center flex-grow"> 
                   <span className="text-base lg:text-xl font-medium text-purple-300 mr-2"> 
                     {/* 🆕 DUALE NUMMERIERUNG: Zeige passeLabel (z.B. "1A", "1B") */}

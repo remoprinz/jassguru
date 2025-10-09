@@ -1552,7 +1552,7 @@ const StartPage = () => {
       return (
         <Link href={`/view/session/${id}`} key={`session-${id}`} passHref>
           <div className="px-3 py-2 md:px-4 md:py-2.5 lg:px-6 lg:py-3 bg-gray-700/50 rounded-lg hover:bg-gray-600/50 transition-colors duration-150 cursor-pointer mb-2">
-            <div className="flex justify-between items-center mb-1.5">
+            <div className="flex justify-between items-center mb-3">
               <div className="flex items-center flex-grow">
                 <span className="text-base md:text-lg lg:text-xl font-medium mr-2" style={{ color: `${THEME_COLORS[currentGroup?.theme || 'purple']?.accentHex || '#a855f7'}` }}>
                   {title}

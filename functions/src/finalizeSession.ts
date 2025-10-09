@@ -387,6 +387,7 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
       
       // ✅ KORREKTUR: createdAt NICHT überschreiben - es repräsentiert den Session-Start
       // Wenn bereits vorhanden, behalten wir es. Nur bei neuen Sessions setzen wir es.
+      const createdAtTimestamp = existingSummaryData?.createdAt || startedAtTimestamp;
 
       // Aggregation der Daten
       let totalPointsTeamTop = 0;
@@ -729,6 +730,7 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
 
       // Base update data (ohne undefined Werte)
       const baseUpdateData = {
+        createdAt: createdAtTimestamp,
         startedAt: startedAtTimestamp,
         endedAt: now,
         lastActivity: now,

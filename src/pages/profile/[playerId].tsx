@@ -219,7 +219,7 @@ const PlayerProfilePage = () => {
 
   const groupedArchiveByYear = useMemo(() => {
       return combinedArchiveItems.reduce<Record<string, ArchiveItem[]>>((acc, item) => {
-        const dateToSort = item.type === 'session' ? item.startedAt : (item.instanceDate ?? item.startedAt);
+        const dateToSort = item.type === 'session' ? item.startedAt : (item.instanceDate ?? item.createdAt);
         let year = 'Unbekannt';
         if (isFirestoreTimestamp(dateToSort)) {
             year = dateToSort.toDate().getFullYear().toString();
@@ -269,7 +269,7 @@ const PlayerProfilePage = () => {
       return (
           <Link href={`/view/session/public/${id}?groupId=${session.groupId || session.gruppeId || ''}&returnTo=/profile/${player?.id}&returnMainTab=archive`} key={`session-${id}`} passHref>
             <div className="px-3 py-2 lg:px-6 lg:py-3 bg-gray-700/50 rounded-lg hover:bg-gray-600/50 transition-colors duration-150 cursor-pointer mb-2">
-              <div className="flex justify-between items-center mb-1.5">
+              <div className="flex justify-between items-center mb-3">
                  <div className="flex items-center flex-grow"> 
                    <span className="text-base lg:text-xl font-medium mr-2" style={{ color: `${THEME_COLORS[activeTheme || 'blue']?.accentHex || '#3b82f6'}` }}>
                      {title}
