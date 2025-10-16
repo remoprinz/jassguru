@@ -81,6 +81,7 @@ export interface RoundDurationsByPlayer {
   [playerId: string]: {
     totalDuration: number;
     roundCount: number;
+    roundDurations: number[]; // ✅ NEU: Array aller Rundenzeiten für Median-Berechnung
   };
 }
 
@@ -410,7 +411,11 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
       participantPlayerIds.forEach((playerId, index) => {
         playerNumberToIdMap.set(index + 1, playerId); // PlayerNumber ist 1-basiert
         // Initialisiere Rundenzeiten für jeden Spieler
-        aggregatedRoundDurations[playerId] = { totalDuration: 0, roundCount: 0 };
+        aggregatedRoundDurations[playerId] = { 
+          totalDuration: 0, 
+          roundCount: 0,
+          roundDurations: [] // ✅ NEU: Array für Median-Berechnung
+        };
       });
 
       // ✅ NEU: Arrays für Spiel-Ergebnisse und Aggregate initialisieren
@@ -501,14 +506,19 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
         if ('Rosen10player' in game) {
           updateData.Rosen10player = admin.firestore.FieldValue.delete();
         }
-        transaction.update(gameDocRef, updateData);
         
         // ✅ NEU: Runden für die Session-Statistik direkt hier aufsummieren
         if (game.roundHistory && Array.isArray(game.roundHistory)) {
           sessionTotalRounds += game.roundHistory.length;
         }
 
-        // ✅ Trumpf-Aggregation aus roundHistory
+        // ✅ PHASE 3: roundDurationsByPlayer pro Game berechnen
+        const gameRoundDurationsByPlayer: { [playerId: string]: number[] } = {};
+        participantPlayerIds.forEach(playerId => {
+          gameRoundDurationsByPlayer[playerId] = [];
+        });
+
+        // ✅ Trumpf-Aggregation aus roundHistory + roundDurations pro Game
         if (game.roundHistory && Array.isArray(game.roundHistory)) {
           game.roundHistory.forEach((round, roundIndex) => {
             // ✅ KRITISCHER FIX: Trumpf-Aggregation - der trumpfansagende Spieler ist der startingPlayer!
@@ -596,13 +606,31 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
                 
                 // Füge die Rundendauer zum Spieler hinzu (falls > 0 und realistisch)
                 if (roundDuration >= 120000 && roundDuration < 900000) { // Filter: 2min <= duration < 15min
+                  // ✅ Session-weit (wie bisher)
                   aggregatedRoundDurations[roundPlayerId].totalDuration += roundDuration;
                   aggregatedRoundDurations[roundPlayerId].roundCount += 1;
+                  aggregatedRoundDurations[roundPlayerId].roundDurations.push(roundDuration);
+                  
+                  // ✅ PHASE 3: Pro Game
+                  gameRoundDurationsByPlayer[roundPlayerId].push(roundDuration);
                 }
               }
             }
           });
         }
+        
+        // ✅ PHASE 3: Speichere roundDurationsByPlayer im completedGame
+        if (Object.keys(gameRoundDurationsByPlayer).length > 0) {
+          const hasValidRoundTimes = Object.values(gameRoundDurationsByPlayer).some(
+            durations => durations.length > 0
+          );
+          if (hasValidRoundTimes) {
+            updateData.roundDurationsByPlayer = gameRoundDurationsByPlayer;
+          }
+        }
+        
+        // Update completedGame Dokument
+        transaction.update(gameDocRef, updateData);
 
         // ✅ NEU: Extrahiere Spiel-Ergebnisse aus completedGames
         if (game.finalScores && typeof game.gameNumber === 'number') {

@@ -831,6 +831,10 @@ export const joinGroupByToken = onCall<JoinGroupByTokenData>(async (request) => 
 // --- finalizeSession (Callable Function wird exportiert) ---
 export const finalizeSession = finalizeSessionLogic.finalizeSession;
 
+// --- 🆕 migrateRoundDurations (Callable Function) ---
+import * as migrateRoundDurationsLogic from './migrateRoundDurations';
+export const migrateRoundDurations = migrateRoundDurationsLogic.migrateRoundDurations;
+
 // --- NEU: cleanupAbortedSession (Callable Function) ---
 /**
  * Löscht eine abgebrochene Session und alle zugehörigen activeGames-Einträge.
@@ -1958,29 +1962,58 @@ export const onGroupDocumentUpdated = onDocumentUpdated(
 
     // Prüfe, ob sich der name geändert hat
     const nameChanged = beforeData?.name !== afterData?.name;
+    
+    // ✅ NEU: Prüfe auch ob Stats-Neuberechnung angefordert wurde
+    const needsStatsRecalc = afterData?.needsStatsRecalculation === true;
 
-    if (!nameChanged) {
-      logger.info(`[onGroupDocumentUpdated] No name change for group ${groupId}. Skipping.`);
+    if (!nameChanged && !needsStatsRecalc) {
+      logger.info(`[onGroupDocumentUpdated] No relevant changes for group ${groupId}. Skipping.`);
       return;
     }
 
-    const newName = afterData?.name || null;
-    logger.info(`[onGroupDocumentUpdated] Group ${groupId} name changed from "${beforeData?.name}" to "${newName}". Updating stats.`);
+    // ✅ HANDLE NAME CHANGE
+    if (nameChanged) {
+      const newName = afterData?.name || null;
+      logger.info(`[onGroupDocumentUpdated] Group ${groupId} name changed from "${beforeData?.name}" to "${newName}". Updating stats.`);
 
-    try {
-      // 🚀 NEUE ARCHITEKTUR: Aktualisiere GroupStats mit neuem Namen
-      const updateData = {
-        groupName: newName,
-        lastUpdateTimestamp: admin.firestore.Timestamp.now()
-      };
+      try {
+        // 🚀 NEUE ARCHITEKTUR: Aktualisiere GroupStats mit neuem Namen
+        const updateData = {
+          groupName: newName,
+          lastUpdateTimestamp: admin.firestore.Timestamp.now()
+        };
+        
+        logger.info(`[NEW ARCHITECTURE] 📊 Update GroupName für Gruppe ${groupId} zu "${newName}"`);
+        const statsRef = db.collection('groups').doc(groupId).collection('stats').doc('computed');
+        await statsRef.update(updateData);
+
+        logger.info(`[onGroupDocumentUpdated] Successfully updated groupName for ${groupId} to "${newName}"`);
+      } catch (error) {
+        logger.error(`[onGroupDocumentUpdated] Error updating groupName for ${groupId}:`, error);
+      }
+    }
+    
+    // ✅ HANDLE STATS RECALCULATION
+    if (needsStatsRecalc) {
+      logger.info(`[onGroupDocumentUpdated] Stats recalculation requested for group ${groupId}. Triggering full recalculation.`);
       
-      logger.info(`[NEW ARCHITECTURE] 📊 Update GroupName für Gruppe ${groupId} zu "${newName}"`);
-      const statsRef = db.collection('groups').doc(groupId).collection('stats').doc('computed');
-      await statsRef.update(updateData);
-
-      logger.info(`[onGroupDocumentUpdated] Successfully updated groupName for ${groupId} to "${newName}"`);
-    } catch (error) {
-      logger.error(`[onGroupDocumentUpdated] Error updating groupName for ${groupId}:`, error);
+      try {
+        // Rufe updateGroupComputedStatsAfterSession auf
+        await updateGroupComputedStatsAfterSession(groupId);
+        
+        // Entferne das Flag nach erfolgreicher Berechnung
+        await db.collection('groups').doc(groupId).update({
+          needsStatsRecalculation: admin.firestore.FieldValue.delete(),
+          lastStatsRecalcTrigger: admin.firestore.FieldValue.delete()
+        });
+        
+        logger.info(`[onGroupDocumentUpdated] Successfully recalculated stats for group ${groupId}`);
+      } catch (error) {
+        logger.error(`[onGroupDocumentUpdated] Error recalculating stats for ${groupId}:`, error);
+      }
     }
   }
 );
+
+// ✅ NEU: Export finalizeTournament
+export { finalizeTournament } from './finalizeTournament';

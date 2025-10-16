@@ -31,6 +31,12 @@ function extractPlayerDocIdsFromSessionSimple(sessionData: any): string[] {
   return [];
 }
 
+// ✅ PHASE 3 IMPLEMENTIERT: Tournament-Rundenzeiten pro Team
+// - Tournament Games haben roundDurationsByPlayer pro Game
+// - Diese werden in processTournamentCompletion.ts beim Game-Abschluss berechnet
+// - groupStatsCalculator lädt sie via passeNumber-Query aus tournaments/{tournamentId}/games
+// - Einfach, elegant, robust! ✅
+
 // ✅ VEREINFACHT: Extrahiere Team-Zuordnungen direkt als top/bottom
 function extractTeamsWithPlayerDocIds(sessionData: any): { top: string[], bottom: string[] } {
   const top: string[] = [];
@@ -150,6 +156,26 @@ function createCanonicalTeamKey(playerIds: string[]): string {
   // Dadurch wird sichergestellt, dass ["id_A", "id_B"] und ["id_B", "id_A"] 
   // immer denselben Schlüssel "id_A_id_B" ergeben
   return [...playerIds].sort().join('_');
+}
+
+/**
+ * Berechnet den Median eines Arrays von Zahlen
+ * Robuster als Durchschnitt gegen Ausreißer (z.B. unterbrochene Runden)
+ * @param values - Array von Zahlen
+ * @returns Median-Wert oder 0 bei leerem Array
+ */
+function calculateMedian(values: number[]): number {
+  if (values.length === 0) return 0;
+  
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  
+  if (sorted.length % 2 === 0) {
+    // Bei gerader Anzahl: Durchschnitt der beiden mittleren Werte
+    return (sorted[mid - 1] + sorted[mid]) / 2;
+  }
+  // Bei ungerader Anzahl: Mittlerer Wert
+  return sorted[mid];
 }
 
 export async function calculateGroupStatisticsInternal(groupId: string): Promise<GroupComputedStats> {
@@ -619,23 +645,27 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
             weisStats.made += sessionData.sessionTotalWeisPoints[playerTeamForGameStats] || 0;
           }
 
-          // ✅ OPTIMIERT: Verwende Session-Level Rundendauer-Aggregation wenn verfügbar
+          // ✅ OPTIMIERT: Verwende roundDurations Array direkt (Median-optimiert)
           if (sessionData.aggregatedRoundDurationsByPlayer && sessionData.aggregatedRoundDurationsByPlayer[playerId]) {
             if (!playerRoundTimes.has(playerId)) {
               playerRoundTimes.set(playerId, []);
             }
             
             const playerRoundDurations = sessionData.aggregatedRoundDurationsByPlayer[playerId];
-            const avgRoundDuration = playerRoundDurations.roundCount > 0 
-              ? playerRoundDurations.totalDuration / playerRoundDurations.roundCount 
-              : 0;
             
             // Addiere zur Session-Total-Rundendauer
             totalRoundDurationMillis += playerRoundDurations.totalDuration;
                 
-            // Füge die durchschnittliche Rundendauer für alle Runden dieser Session hinzu
-            for (let i = 0; i < playerRoundDurations.roundCount; i++) {
-              playerRoundTimes.get(playerId)!.push(avgRoundDuration);
+            // ✅ MEDIAN: Verwende roundDurations Array (falls vorhanden)
+            if (playerRoundDurations.roundDurations && Array.isArray(playerRoundDurations.roundDurations)) {
+              // NEU: Direkt das gespeicherte Array verwenden
+              playerRoundTimes.get(playerId)!.push(...playerRoundDurations.roundDurations);
+            } else if (playerRoundDurations.roundCount > 0) {
+              // FALLBACK: Alte Daten ohne roundDurations Array (für Migration-Übergangszeit)
+              const avgRoundDuration = playerRoundDurations.totalDuration / playerRoundDurations.roundCount;
+              for (let i = 0; i < playerRoundDurations.roundCount; i++) {
+                playerRoundTimes.get(playerId)!.push(avgRoundDuration);
+              }
             }
           }
         }
@@ -920,24 +950,25 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
     playerWeisAvgList.sort((a, b) => b.value - a.value);
     calculatedStats.playerWithMostWeisPointsAvg = playerWeisAvgList;
 
-    // Spieler-Rundenzeiten (alle Zeiten für Durchschnitt)
+    // ✅ MEDIAN: Spieler-Rundenzeiten (Median statt Durchschnitt - robuster gegen Ausreißer)
     const playerAllRoundTimesList: GroupStatHighlightPlayer[] = [];
     playerRoundTimes.forEach((times, playerId) => {
       const lastActivity = playerLastActivity.get(playerId);
-      if (lastActivity && lastActivity.toMillis() >= oneYearAgo && times.length >= 1) { // KEINE Mindestanforderung mehr!
-        const avgTime = times.reduce((sum, time) => sum + time, 0) / times.length;
+      if (lastActivity && lastActivity.toMillis() >= oneYearAgo && times.length >= 1) {
+        // ✅ MEDIAN statt Durchschnitt: Robuster gegen Ausreißer (z.B. unterbrochene Runden)
+        const medianTime = calculateMedian(times);
         const playerName = playerIdToNameMap.get(playerId) || groupData.players[playerId]?.displayName || "Unbekannter Jasser";
         playerAllRoundTimesList.push({
           playerId,
           playerName: playerName,
-          value: Math.round(avgTime),
-          eventsPlayed: times.length,
+          value: Math.round(medianTime),
+          eventsPlayed: times.length, // Anzahl Sessions mit Rundenzeiten
           lastPlayedTimestamp: lastActivity,
-          displayValue: `${Math.round(avgTime / 1000)}s`,
+          displayValue: `${Math.round(medianTime / 1000)}s`,
         });
       }
     });
-    playerAllRoundTimesList.sort((a, b) => a.value - b.value); // Aufsteigend für Durchschnittszeit
+    playerAllRoundTimesList.sort((a, b) => a.value - b.value); // Aufsteigend für schnellste → langsamste
     calculatedStats.playerAllRoundTimes = playerAllRoundTimesList;
 
     // Schnellste und langsamste Spieler
@@ -1079,12 +1110,16 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
       if (sessionData.aggregatedRoundDurationsByPlayer) {
         topPlayerIds.forEach(playerId => {
           const playerRoundData = sessionData.aggregatedRoundDurationsByPlayer[playerId];
-          if (playerRoundData && playerRoundData.roundCount > 0) {
-            const avgRoundDuration = playerRoundData.totalDuration / playerRoundData.roundCount;
-            
-            // Füge durchschnittliche Rundendauer für alle Runden dieser Session hinzu
-            for (let i = 0; i < playerRoundData.roundCount; i++) {
-              topStats.roundTimes.push(avgRoundDuration);
+          if (playerRoundData) {
+            // ✅ MEDIAN-KORREKTUR: Verwende roundDurations Array falls vorhanden
+            if (playerRoundData.roundDurations && Array.isArray(playerRoundData.roundDurations)) {
+              topStats.roundTimes.push(...playerRoundData.roundDurations);
+            } else if (playerRoundData.roundCount > 0) {
+              // Fallback für alte Daten ohne roundDurations Array
+              const avgRoundDuration = playerRoundData.totalDuration / playerRoundData.roundCount;
+              for (let i = 0; i < playerRoundData.roundCount; i++) {
+                topStats.roundTimes.push(avgRoundDuration);
+              }
             }
           }
         });
@@ -1178,12 +1213,16 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
       if (sessionData.aggregatedRoundDurationsByPlayer) {
         bottomPlayerIds.forEach(playerId => {
           const playerRoundData = sessionData.aggregatedRoundDurationsByPlayer[playerId];
-          if (playerRoundData && playerRoundData.roundCount > 0) {
-            const avgRoundDuration = playerRoundData.totalDuration / playerRoundData.roundCount;
-            
-            // Füge durchschnittliche Rundendauer für alle Runden dieser Session hinzu
-            for (let i = 0; i < playerRoundData.roundCount; i++) {
-              bottomStats.roundTimes.push(avgRoundDuration);
+          if (playerRoundData) {
+            // ✅ MEDIAN-KORREKTUR: Verwende roundDurations Array falls vorhanden
+            if (playerRoundData.roundDurations && Array.isArray(playerRoundData.roundDurations)) {
+              bottomStats.roundTimes.push(...playerRoundData.roundDurations);
+            } else if (playerRoundData.roundCount > 0) {
+              // Fallback für alte Daten ohne roundDurations Array
+              const avgRoundDuration = playerRoundData.totalDuration / playerRoundData.roundCount;
+              for (let i = 0; i < playerRoundData.roundCount; i++) {
+                bottomStats.roundTimes.push(avgRoundDuration);
+              }
             }
           }
         });
@@ -1191,20 +1230,23 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
     });
 
     // ✅ SCHRITT 2: Tournament Sessions - verwende gameResults für Team-Zuordnungen
-    tournamentSessions.forEach(sessionDoc => {
+    // ✅ WICHTIG: for...of statt forEach um async/await zu ermöglichen
+    for (const sessionDoc of tournamentSessions) {
       const sessionData = sessionDoc.data();
-      if (!validateSessionDataEnhanced(sessionData)) return;
+      if (!validateSessionDataEnhanced(sessionData)) continue;
       
       // ✅ NEU: Tournament-Sessions verwenden gameResults für Team-Statistiken
       if (sessionData.gameResults && Array.isArray(sessionData.gameResults)) {
-        sessionData.gameResults.forEach((game: any, gameIndex: number) => {
+        // ✅ WICHTIG: for...of statt forEach um async/await zu ermöglichen
+        for (let gameIndex = 0; gameIndex < sessionData.gameResults.length; gameIndex++) {
+          const game: any = sessionData.gameResults[gameIndex];
           if (game.teams?.top?.players && game.teams?.bottom?.players) {
             const gameTopPlayerIds = game.teams.top.players.map((p: any) => p.playerId).filter(Boolean);
             const gameBottomPlayerIds = game.teams.bottom.players.map((p: any) => p.playerId).filter(Boolean);
             
             if (gameTopPlayerIds.length !== 2 || gameBottomPlayerIds.length !== 2) {
               logger.warn(`Tournament session ${sessionDoc.id} game ${gameIndex + 1} hat ungültige Team-Struktur, überspringe`);
-              return;
+              continue;
             }
             
             const topNames = gameTopPlayerIds.map((id: string) => playerIdToNameMap.get(id) || 'Unbekannt');
@@ -1285,6 +1327,37 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
                 // Events bleiben auf 0 wenn eventCounts fehlt
               }
             }
+            
+            // ✅ PHASE 3: Tournament-Rundenzeiten – zuerst direkt aus Summary lesen
+            if (game.roundDurationsByPlayer && typeof game.roundDurationsByPlayer === 'object') {
+              gameTopPlayerIds.forEach((playerId: string) => {
+                const durations = game.roundDurationsByPlayer[playerId];
+                if (durations && Array.isArray(durations) && durations.length > 0) {
+                  topStats.roundTimes.push(...durations);
+                }
+              });
+            } else if (sessionData.tournamentId) {
+              // Fallback: Aus tournaments/{id}/games laden (passeNumber == gameNumber)
+              try {
+                const gameSnap = await db.collection(`tournaments/${sessionData.tournamentId}/games`)
+                  .where('passeNumber', '==', game.gameNumber)
+                  .limit(1)
+                  .get();
+                if (!gameSnap.empty) {
+                  const gameData = gameSnap.docs[0].data();
+                  if (gameData.roundDurationsByPlayer) {
+                    gameTopPlayerIds.forEach((playerId: string) => {
+                      const durations = gameData.roundDurationsByPlayer[playerId];
+                      if (durations && Array.isArray(durations) && durations.length > 0) {
+                        topStats.roundTimes.push(...durations);
+                      }
+                    });
+                  }
+                }
+              } catch (error) {
+                logger.warn(`[groupStatsCalculator] Could not load tournament game ${game.gameNumber} from tournament ${sessionData.tournamentId}:`, error);
+              }
+            }
 
             // ✅ NEU: Bottom Team für Tournament-Spiel (identische Logik)
             if (!teamPairings.has(bottomKey)) {
@@ -1358,10 +1431,41 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
                 // Events bleiben auf 0 wenn eventCounts fehlt
               }
             }
+            
+            // ✅ PHASE 3: Tournament-Rundenzeiten – zuerst direkt aus Summary lesen (Bottom)
+            if (game.roundDurationsByPlayer && typeof game.roundDurationsByPlayer === 'object') {
+              gameBottomPlayerIds.forEach((playerId: string) => {
+                const durations = game.roundDurationsByPlayer[playerId];
+                if (durations && Array.isArray(durations) && durations.length > 0) {
+                  bottomStats.roundTimes.push(...durations);
+                }
+              });
+            } else if (sessionData.tournamentId) {
+              // Fallback: Aus tournaments/{id}/games laden (passeNumber == gameNumber)
+              try {
+                const gameSnap = await db.collection(`tournaments/${sessionData.tournamentId}/games`)
+                  .where('passeNumber', '==', game.gameNumber)
+                  .limit(1)
+                  .get();
+                if (!gameSnap.empty) {
+                  const gameData = gameSnap.docs[0].data();
+                  if (gameData.roundDurationsByPlayer) {
+                    gameBottomPlayerIds.forEach((playerId: string) => {
+                      const durations = gameData.roundDurationsByPlayer[playerId];
+                      if (durations && Array.isArray(durations) && durations.length > 0) {
+                        bottomStats.roundTimes.push(...durations);
+                      }
+                    });
+                  }
+                }
+              } catch (error) {
+                logger.warn(`[groupStatsCalculator] Could not load tournament game ${game.gameNumber} from tournament ${sessionData.tournamentId}:`, error);
+              }
+            }
           }
-        });
+        }
       }
-    });
+    }
 
     // Team mit höchster Gewinnrate (Spiele)
     const teamWinRateList: GroupStatHighlightTeam[] = [];
@@ -1567,10 +1671,11 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
         return lastActivity ? lastActivity.toMillis() >= oneYearAgo : false;
       });
       if (stats.roundTimes.length >= 1 && isTeamActive) {
-        const avgTime = stats.roundTimes.reduce((sum, time) => sum + time, 0) / stats.roundTimes.length;
+        // ✅ KORRIGIERT: Median statt Durchschnitt für konsistente Berechnung
+        const medianTime = calculateMedian(stats.roundTimes);
                 teamFastestRoundsList.push({
           names: stats.playerNames,
-          value: Math.round(avgTime),
+          value: Math.round(medianTime),
           eventsPlayed: stats.roundTimes.length,
                 });
             }

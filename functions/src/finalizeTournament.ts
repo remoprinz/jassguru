@@ -8,6 +8,21 @@ import { saveRatingHistorySnapshot } from './ratingHistoryService'; // 🆕 Rati
 
 const db = admin.firestore();
 
+// ✅ NEU: Hilfsfunktion zur Konvertierung von Firebase UID zu Player Document ID
+async function getPlayerIdForUser(userId: string): Promise<string | null> {
+  try {
+    const playerQuery = db.collection('players').where('userId', '==', userId).limit(1);
+    const playerSnap = await playerQuery.get();
+    if (playerSnap.empty) {
+      return null;
+    }
+    return playerSnap.docs[0].id;
+  } catch (error) {
+    logger.error(`[getPlayerIdForUser] Error fetching player for userId ${userId}:`, error);
+    return null;
+  }
+}
+
 // ✅ NEU: EventCounts-Interface (muss eventuell aus finalizeSession.ts importiert werden)
 interface EventCountRecord {
   sieg: number;
@@ -175,6 +190,41 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
         return { success: true, message: "Keine Teilnehmer im Turnier, Abschluss ohne Ranking."};
       }
 
+      // ✅ KRITISCH: Konvertiere Firebase UIDs zu Player Document IDs
+      logger.info(`[finalizeTournament] Converting ${participantUidsInTournament.length} Firebase UIDs to Player Document IDs...`);
+      const uidToPlayerIdMap = new Map<string, string>();
+      const participantPlayerIds: string[] = [];
+      
+      for (const uid of participantUidsInTournament) {
+        try {
+          const playerId = await getPlayerIdForUser(uid);
+          if (playerId) {
+            uidToPlayerIdMap.set(uid, playerId);
+            participantPlayerIds.push(playerId);
+            logger.debug(`[finalizeTournament] Mapped UID ${uid} → Player ID ${playerId}`);
+          } else {
+            logger.warn(`[finalizeTournament] Could not find Player ID for UID ${uid}`);
+          }
+        } catch (error) {
+          logger.error(`[finalizeTournament] Error converting UID ${uid} to Player ID:`, error);
+        }
+      }
+      
+      if (participantPlayerIds.length === 0) {
+        logger.error(`[finalizeTournament] No valid Player IDs found for tournament ${tournamentId}`);
+        await tournamentRef.update({ 
+            status: 'completed', 
+            finalizedAt: admin.firestore.FieldValue.serverTimestamp(), 
+            lastError: "Keine gültigen Player IDs gefunden.",
+            totalRankedEntities: 0,
+            rankedPlayerUids: [],
+            rankingSystemUsed: rankingModeToStore
+        });
+        return { success: true, message: "Keine gültigen Player IDs gefunden, Abschluss ohne Ranking."};
+      }
+      
+      logger.info(`[finalizeTournament] Successfully converted ${participantPlayerIds.length}/${participantUidsInTournament.length} UIDs to Player IDs`);
+
       // 1. Alle abgeschlossenen Spiele/Passen des Turniers laden
       const gamesRef = tournamentRef.collection("games");
       const gamesSnap = await gamesRef.where("status", "==", "completed").get();
@@ -230,13 +280,17 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
       switch (tournamentMode) {
         case 'single': {
           logger.info(`Handling 'single' tournament mode for ${tournamentId}.`);
-          const playerScores: { [uid: string]: { score: number; gamesPlayed: number; wins: number; } } = {};
-          participantUidsInTournament.forEach(uid => {
-            playerScores[uid] = { score: 0, gamesPlayed: 0, wins: 0 };
+          const playerScores: { [playerId: string]: { score: number; gamesPlayed: number; wins: number; } } = {};
+          participantPlayerIds.forEach(playerId => {
+            playerScores[playerId] = { score: 0, gamesPlayed: 0, wins: 0 };
           });
 
-          const calculateStricheForGame = (game: TournamentGameData, playerUid: string): number => {
+          const calculateStricheForGame = (game: TournamentGameData, playerId: string): number => {
             let striche = 0;
+            // ✅ KORRIGIERT: Konvertiere Player ID zurück zu UID für Game-Team-Zuordnung
+            const playerUid = Array.from(uidToPlayerIdMap.entries()).find(([uid, pid]) => pid === playerId)?.[0];
+            if (!playerUid) return 0;
+            
             const team = game.teams?.top?.playerUids?.includes(playerUid) ? 'top' : 
                          (game.teams?.bottom?.playerUids?.includes(playerUid) ? 'bottom' : null);
             if (team && game.finalStriche?.[team]) {
@@ -252,35 +306,41 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
 
           for (const game of tournamentGames) {
             const gameParticipants = game.participantUids || [];
-            for (const playerUid of gameParticipants) {
-              if (!playerScores[playerUid]) continue; // Nur Spieler verarbeiten, die im Turnier registriert sind
+            for (const gameParticipantUid of gameParticipants) {
+              // ✅ KORRIGIERT: Konvertiere Game UID zu Player ID
+              const playerId = uidToPlayerIdMap.get(gameParticipantUid);
+              if (!playerId || !playerScores[playerId]) continue; // Nur Spieler verarbeiten, die im Turnier registriert sind
 
-              playerScores[playerUid].gamesPlayed++;
+              playerScores[playerId].gamesPlayed++;
               let gameContribution = 0;
-              const playerTeam = game.teams?.top?.playerUids?.includes(playerUid) ? 'top' :
-                                 (game.teams?.bottom?.playerUids?.includes(playerUid) ? 'bottom' : null);
+              const playerTeam = game.teams?.top?.playerUids?.includes(gameParticipantUid) ? 'top' :
+                                 (game.teams?.bottom?.playerUids?.includes(gameParticipantUid) ? 'bottom' : null);
 
               if (playerTeam) {
                 if (rankingModeToStore === 'striche') {
-                  gameContribution = calculateStricheForGame(game, playerUid);
+                  gameContribution = calculateStricheForGame(game, playerId);
                   // Sieg-Zählung für Striche-Ranking (optional, hier: Sieg wenn mehr Striche)
                   const opponentTeam = playerTeam === 'top' ? 'bottom' : 'top';
-                  const opponentStriche = calculateStricheForGame(game, game.teams?.[opponentTeam]?.playerUids?.[0] || ''); // Annahme: mindestens 1 Gegner
-                  if (gameContribution > opponentStriche) playerScores[playerUid].wins++;
+                  const opponentUid = game.teams?.[opponentTeam]?.playerUids?.[0];
+                  const opponentPlayerId = opponentUid ? uidToPlayerIdMap.get(opponentUid) : null;
+                  if (opponentPlayerId) {
+                    const opponentStriche = calculateStricheForGame(game, opponentPlayerId);
+                    if (gameContribution > opponentStriche) playerScores[playerId].wins++;
+                  }
                 } else { // Default: total_points oder anderer Punkte-basierter Modus
                   gameContribution = game.finalScores[playerTeam] || 0;
                   const opponentTeam = playerTeam === 'top' ? 'bottom' : 'top';
                   if (game.finalScores[playerTeam] > game.finalScores[opponentTeam]) {
-                    playerScores[playerUid].wins++;
+                    playerScores[playerId].wins++;
                   }
                 }
-                playerScores[playerUid].score += gameContribution;
+                playerScores[playerId].score += gameContribution;
               }
             }
           }
 
           const rankedPlayers = Object.entries(playerScores)
-            .map(([uid, data]) => ({ uid, ...data }))
+            .map(([playerId, data]) => ({ playerId, ...data }))
             .sort((a, b) => {
               if (b.score !== a.score) return b.score - a.score;
               return a.gamesPlayed - b.gamesPlayed; 
@@ -291,13 +351,13 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
           // PlayerComputedStats aktualisieren UND PlayerRankings speichern
           const singleModePromises = rankedPlayers.map(async (player, index) => {
             const rank = index + 1;
-            allRankedPlayerUidsForTournamentDoc.add(player.uid);
-            const playerStatsRef = db.collection("playerComputedStats").doc(player.uid);
+            allRankedPlayerUidsForTournamentDoc.add(player.playerId);
+            const playerStatsRef = db.collection("playerComputedStats").doc(player.playerId);
             
             // Speichere detailliertes Ranking für diesen Spieler
-            const playerRankingDocRef = playerRankingsColRef.doc(player.uid);
+            const playerRankingDocRef = playerRankingsColRef.doc(player.playerId);
             const rankingData: TournamentPlayerRankingData = {
-                playerId: player.uid,
+                playerId: player.playerId,
                 rank: rank,
                 score: player.score,
                 gamesPlayed: player.gamesPlayed,
@@ -341,7 +401,7 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
                 transaction.set(playerStatsRef, stats, { merge: true });
               });
             } catch (txError) {
-              logger.error(`Transaction failed for player ${player.uid} in tournament ${tournamentId}:`, txError);
+              logger.error(`Transaction failed for player ${player.playerId} in tournament ${tournamentId}:`, txError);
             }
           });
           await Promise.all(singleModePromises);
@@ -442,10 +502,17 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
             const team = rankedTeams[i];
             const rank = i + 1;
             for (const playerUid of team.playerUids) {
-              allRankedPlayerUidsForTournamentDoc.add(playerUid);
-              const playerRankingDocRef = playerRankingsColRef.doc(playerUid);
+              // ✅ KORRIGIERT: Konvertiere UID zu Player ID für Stats
+              const playerId = uidToPlayerIdMap.get(playerUid);
+              if (!playerId) {
+                logger.warn(`[finalizeTournament] Could not find Player ID for UID ${playerUid} in doubles mode`);
+                continue;
+              }
+              
+              allRankedPlayerUidsForTournamentDoc.add(playerId);
+              const playerRankingDocRef = playerRankingsColRef.doc(playerId);
               const rankingData: TournamentPlayerRankingData = {
-                  playerId: playerUid,
+                  playerId: playerId,
                   rank: rank,
                   score: team.score, 
                   gamesPlayed: team.gamesPlayed, 
@@ -460,7 +527,7 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
               };
               playerRankingBatch.set(playerRankingDocRef, rankingData);
               
-              const playerStatsRef = db.collection("playerComputedStats").doc(playerUid);
+              const playerStatsRef = db.collection("playerComputedStats").doc(playerId);
               doublesPlayerStatsUpdatePromises.push(
                 db.runTransaction(async (transaction) => {
                   const playerStatsDoc = await transaction.get(playerStatsRef);
@@ -637,10 +704,17 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
             const group = rankedGroups[i];
             const rank = i + 1;
             for (const playerUid of group.playerUids) {
-              allRankedPlayerUidsForTournamentDoc.add(playerUid);
-              const playerRankingDocRef = playerRankingsColRef.doc(playerUid);
+              // ✅ KORRIGIERT: Konvertiere UID zu Player ID für Stats
+              const playerId = uidToPlayerIdMap.get(playerUid);
+              if (!playerId) {
+                logger.warn(`[finalizeTournament] Could not find Player ID for UID ${playerUid} in groupVsGroup mode`);
+                continue;
+              }
+              
+              allRankedPlayerUidsForTournamentDoc.add(playerId);
+              const playerRankingDocRef = playerRankingsColRef.doc(playerId);
               const rankingData: TournamentPlayerRankingData = {
-                  playerId: playerUid,
+                  playerId: playerId,
                   rank: rank,
                   score: group.score, 
                   gamesPlayed: group.gamesPlayed, 
@@ -655,7 +729,7 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
               };
               playerRankingBatch.set(playerRankingDocRef, rankingData);
 
-              const playerStatsRef = db.collection("playerComputedStats").doc(playerUid);
+              const playerStatsRef = db.collection("playerComputedStats").doc(playerId);
               groupPlayerStatsUpdatePromises.push(
                 db.runTransaction(async (transaction) => {
                   const playerStatsDoc = await transaction.get(playerStatsRef);

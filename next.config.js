@@ -11,6 +11,9 @@ const nextConfig = {
   output: 'export',
   trailingSlash: true,
   outputFileTracingRoot: __dirname, // Verhindert Workspace Root Verwirrung
+  experimental: {
+    appDir: false,
+  },
   exportPathMap: async function (defaultPathMap) {
     return {
       ...defaultPathMap,

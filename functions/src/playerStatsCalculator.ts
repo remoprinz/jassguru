@@ -25,6 +25,30 @@ const db = admin.firestore();
 const PLAYER_COMPUTED_STATS_COLLECTION = 'playerComputedStats';
 
 // =================================================================================================
+// === HELPER FUNCTIONS                                                                         ===
+// =================================================================================================
+
+/**
+ * Berechnet den Median eines Arrays von Zahlen
+ * Robuster als Durchschnitt gegen Ausreißer (z.B. unterbrochene Runden)
+ * @param values - Array von Zahlen
+ * @returns Median-Wert oder 0 bei leerem Array
+ */
+function calculateMedian(values: number[]): number {
+  if (values.length === 0) return 0;
+  
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  
+  if (sorted.length % 2 === 0) {
+    // Bei gerader Anzahl: Durchschnitt der beiden mittleren Werte
+    return (sorted[mid - 1] + sorted[mid]) / 2;
+  }
+  // Bei ungerader Anzahl: Mittlerer Wert
+  return sorted[mid];
+}
+
+// =================================================================================================
 // === INTERNAL CALCULATION LOGIC                                                               ===
 // =================================================================================================
 
@@ -199,9 +223,8 @@ async function calculatePlayerStatisticsInternal(
   const gameResults: { won: boolean; date: admin.firestore.Timestamp, sessionId: string, gameNumber: number }[] = [];
   const sessionResults: { won: boolean; tied: boolean; date: admin.firestore.Timestamp, sessionId: string }[] = [];
 
-  // ✅ NEU: Sammlung für Rundentempo-Berechnung
-  let totalRoundDurationMillis = 0;
-  let totalRoundsCount = 0;
+  // ✅ MEDIAN: Sammlung aller Session-Durchschnittszeiten für Median-Berechnung
+  const allSessionRoundDurations: number[] = [];
 
   // Session-Level Highlights tracking
   let highestPointsSession: { value: number; sessionId: string; date: admin.firestore.Timestamp } | null = null;
@@ -809,14 +832,22 @@ async function calculatePlayerStatisticsInternal(
     // --- Aggregate Basic Stats ---
     stats.totalPlayTimeSeconds += session.durationSeconds || 0;
 
-    // ✅ NEU: Rundentempo-Daten sammeln (analog zu groupStatsCalculator)
-    if (session.aggregatedRoundDurationsByPlayer && session.aggregatedRoundDurationsByPlayer[playerId]) {
-      const playerRoundData = session.aggregatedRoundDurationsByPlayer[playerId];
-      if (playerRoundData.roundCount > 0) {
-        totalRoundDurationMillis += playerRoundData.totalDuration;
-        totalRoundsCount += playerRoundData.roundCount;
+      // ✅ OPTIMIERT: Rundentempo - Verwende roundDurations Array direkt (Median-optimiert)
+      if (session.aggregatedRoundDurationsByPlayer && session.aggregatedRoundDurationsByPlayer[playerId]) {
+        const playerRoundData = session.aggregatedRoundDurationsByPlayer[playerId];
+        
+        // ✅ MEDIAN: Verwende roundDurations Array (falls vorhanden)
+        if (playerRoundData.roundDurations && Array.isArray(playerRoundData.roundDurations)) {
+          // NEU: Direkt das gespeicherte Array verwenden
+          allSessionRoundDurations.push(...playerRoundData.roundDurations);
+        } else if (playerRoundData.roundCount > 0) {
+          // FALLBACK: Alte Daten ohne roundDurations Array (für Migration-Übergangszeit)
+          const avgRoundDuration = playerRoundData.totalDuration / playerRoundData.roundCount;
+          for (let i = 0; i < playerRoundData.roundCount; i++) {
+            allSessionRoundDurations.push(avgRoundDuration);
+          }
+        }
       }
-    }
 
     // --- Session-Level Highlights tracking ---
     if (pointsMade > (highestPointsSession?.value || 0)) {
@@ -910,9 +941,9 @@ async function calculatePlayerStatisticsInternal(
     stats.avgKontermatschPerGame = (stats.totalKontermatschEventsMade - stats.totalKontermatschEventsReceived) / stats.totalGames;
   }
   
-  // ✅ NEU: Rundentempo-Berechnung
-  if (totalRoundsCount > 0) {
-    stats.avgRoundDurationMilliseconds = totalRoundDurationMillis / totalRoundsCount;
+  // ✅ MEDIAN: Rundentempo-Berechnung (Median statt Durchschnitt - robuster gegen Ausreißer)
+  if (allSessionRoundDurations.length > 0) {
+    stats.avgRoundDurationMilliseconds = calculateMedian(allSessionRoundDurations);
   }
   
   // --- Calculate Streaks ---
