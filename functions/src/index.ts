@@ -18,6 +18,7 @@ try {
 // import * as archiveLogic from './archiveGame'; // ENTFERNT
 // import * as cleanupFunctions from './cleanupRounds'; // <-- ENTFERNT/AUSKOMMENTIERT
 // --- Import für neue HTTPS Callable Function ---
+import { runAddTournamentNameScript } from './scripts/addTournamentName';
 import * as finalizeSessionLogic from './finalizeSession'; // <-- WIEDER AKTIV
 // import * as finalizeSessionLogicV2 from "./finalizeSession_v2"; // <-- ENTFERNT
 // --- NEUE IMPORTE ---
@@ -2017,3 +2018,6 @@ export const onGroupDocumentUpdated = onDocumentUpdated(
 
 // ✅ NEU: Export finalizeTournament
 export { finalizeTournament } from './finalizeTournament';
+
+// ✅ NEU: Export addTournamentName Script
+export { runAddTournamentNameScript };

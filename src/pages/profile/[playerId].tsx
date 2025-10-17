@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { getPublicPlayerProfile, getGroupMembersSortedByGames } from '@/services/playerService';
+import { getGroupMembersOptimized } from '@/services/groupService';
 import type { FirestorePlayer } from '@/types/jass';
 import { getPublicProfileTheme, THEME_COLORS } from '@/config/theme';
 import { ProfileView } from '@/components/profile/ProfileView';
@@ -9,14 +10,15 @@ import { ClipLoader } from 'react-spinners';
 import { usePlayerStatsStore } from '@/store/playerStatsStore';
 import { transformComputedStatsToExtended, type TransformedPlayerStats } from '@/utils/statsTransformer';
 import type { FrontendPartnerAggregate, FrontendOpponentAggregate } from '@/types/computedStats';
-import { fetchCompletedSessionsForUser, fetchCompletedSessionsForPlayer, SessionSummary } from '@/services/sessionService';
-import { fetchTournamentsForUser } from '@/services/tournamentService';
+import { fetchCompletedSessionsForPlayer, SessionSummary } from '@/services/sessionService';
+import { fetchTournamentInstancesForGroup } from '@/services/tournamentService';
 import type { TournamentInstance } from '@/types/tournament';
 import { Timestamp, FieldValue } from 'firebase/firestore';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { CheckCircle, XCircle, Award as AwardIcon, Archive } from 'lucide-react';
 import ProfileImage from '@/components/ui/ProfileImage';
+import AvatarPreloader from '@/components/ui/AvatarPreloader';
 
 // PlayerProfilePageStats ist jetzt der primäre Typ für transformierte Statistiken
 interface PlayerProfilePageStats extends TransformedPlayerStats {
@@ -133,7 +135,7 @@ const PlayerProfilePage = () => {
     }
   }, [rawPlayerStats, player?.groupIds]);
 
-  // Members laden für Profilbilder
+  // Members laden für Profilbilder (alle Gruppen des Spielers, dedupliziert)
   useEffect(() => {
     const loadMembers = async () => {
       if (!player?.groupIds || player.groupIds.length === 0) {
@@ -142,17 +144,42 @@ const PlayerProfilePage = () => {
       }
       setMembersLoading(true);
       try {
-        const primaryGroupId = player.groupIds[0];
-        const fetchedMembers = await getGroupMembersSortedByGames(primaryGroupId);
-        setMembers(fetchedMembers);
+        const allMembers: FirestorePlayer[] = [];
+        const seenPlayerIds = new Set<string>();
+        for (const groupId of player.groupIds) {
+          try {
+            const groupMembers = await getGroupMembersOptimized(groupId);
+            groupMembers.forEach(member => {
+              const pid = member.id || member.userId;
+              if (pid && !seenPlayerIds.has(pid)) {
+                seenPlayerIds.add(pid);
+                allMembers.push(member);
+              }
+            });
+          } catch (e) {
+            // Fallback: versuche sortedByGames, falls optimized fehlschlägt
+            try {
+              const groupMembersFallback = await getGroupMembersSortedByGames(groupId);
+              groupMembersFallback.forEach(member => {
+                const pid = member.id || member.userId;
+                if (pid && !seenPlayerIds.has(pid)) {
+                  seenPlayerIds.add(pid);
+                  allMembers.push(member);
+                }
+              });
+            } catch (ignored) {}
+          }
+        }
+        setMembers(allMembers);
       } catch (error) {
         console.error("Fehler beim Laden der Gruppenmitglieder für Profilbilder:", error);
+        setMembers([]);
       } finally {
         setMembersLoading(false);
       }
     };
     if (player) {
-    loadMembers();
+      loadMembers();
     }
   }, [player]);
 
@@ -173,13 +200,8 @@ const PlayerProfilePage = () => {
 
       setTournamentsLoading(true);
       try {
-        if (!player.userId) {
-          console.warn('Player userId not available for tournaments loading');
-          setUserTournaments([]);
-          return;
-        }
-        const tournaments = await fetchTournamentsForUser(player.userId);
-        setUserTournaments(tournaments);
+        // 🚨 KEINE TURNIER-INSTANZEN MEHR: Nur Turnier-Sessions aus jassGameSummaries
+        setUserTournaments([]);
       } catch (e) { 
         console.error("Fehler beim Laden der Turniere für öffentliches Profil:", e);
         setTournamentsError("Turniere konnten nicht geladen werden."); 
@@ -193,25 +215,76 @@ const PlayerProfilePage = () => {
   }, [player]);
 
   // ===== ARCHIV-VERARBEITUNG (IDENTISCH ZU INDEX.TSX) =====
+  // 🔥 Sammle alle Photo-URLs, die im UI auftauchen, damit der Preloader sie dekodieren kann
+  const profileAvatarPhotoURLs = useMemo(() => {
+    const urls: (string | undefined | null)[] = [];
+
+    // Aktueller Spieler
+    if (player?.photoURL) {
+      urls.push(player.photoURL);
+    }
+
+    // Mitglieder (für Statistiken)
+    if (members) {
+      urls.push(...members.map((m) => m.photoURL));
+    }
+
+    return Array.from(new Set(urls.filter((url): url is string => typeof url === 'string' && url.trim() !== '')));
+  }, [player, members]);
+
   const combinedArchiveItems = useMemo(() => {
-    const sessionsWithType: ArchiveItem[] = completedSessions.map(s => ({ ...s, type: 'session' }));
-    const tournamentsWithType: ArchiveItem[] = userTournaments.map(t => ({ ...t, type: 'tournament' }));
+    // 🎯 IDENTISCH ZU GROUPVIEW: Trennung zwischen normalen Sessions und Turnier-Sessions
+    const normalSessions = completedSessions.filter(session => 
+      (session.status === 'completed' || session.status === 'completed_empty') &&
+      !session.tournamentId // Nur normale Sessions (OHNE tournamentId)
+    );
+    
+    const tournamentSessions = completedSessions.filter(session =>
+      (session.status === 'completed' || session.status === 'completed_empty') &&
+      session.tournamentId // Sessions die Teil eines Turniers sind
+    );
+
+    const sessionsWithType: ArchiveItem[] = normalSessions.map(s => ({ ...s, type: 'session' }));
+    
+        // 🚨 EXAKT WIE PRIVATE PROFILEVIEW: Alle Turniere anzeigen, nicht nur die mit Sessions
+        const relevantTournaments = userTournaments;
+    const tournamentsWithType: ArchiveItem[] = relevantTournaments.map(t => ({ ...t, type: 'tournament' }));
 
     const combined = [...sessionsWithType, ...tournamentsWithType];
 
     combined.sort((a, b) => {
-      const dateA = a.type === 'session' ? a.startedAt : (a.instanceDate ?? a.createdAt);
-      const dateB = b.type === 'session' ? b.startedAt : (b.instanceDate ?? b.createdAt);
+      // 🎯 IDENTISCH ZU GROUPVIEW: Einheitliche Datums-Extraktion für alle Typen
+      let dateAValue: number | Timestamp | FieldValue | undefined | null;
+      let dateBValue: number | Timestamp | FieldValue | undefined | null;
 
-      const timeA = isFirestoreTimestamp(dateA) ? dateA.toMillis() :
-                    (typeof dateA === 'number' ? dateA : 0);
-      const timeB = isFirestoreTimestamp(dateB) ? dateB.toMillis() :
-                    (typeof dateB === 'number' ? dateB : 0);
+      if (a.type === 'session') {
+        dateAValue = a.startedAt;
+      } else if ('tournamentId' in a && 'startedAt' in a) {
+        // Turnier-Session: verwende startedAt
+        dateAValue = (a as any).startedAt;
+      } else {
+        // 🚨 EXAKT WIE STARTSEITE: Nur instanceDate und createdAt für Sortierung
+        dateAValue = (a as any).instanceDate ?? (a as any).createdAt;
+      }
 
-      const validTimeA = timeA || 0;
-      const validTimeB = timeB || 0;
+      if (b.type === 'session') {
+        dateBValue = b.startedAt;
+      } else if ('tournamentId' in b && 'startedAt' in b) {
+        // Turnier-Session: verwende startedAt
+        dateBValue = (b as any).startedAt;
+      } else {
+        // 🚨 EXAKT WIE STARTSEITE: Nur instanceDate und createdAt für Sortierung
+        dateBValue = (b as any).instanceDate ?? (b as any).createdAt;
+      }
 
-      return validTimeB - validTimeA;
+    const timeA = isFirestoreTimestamp(dateAValue) ? dateAValue.toMillis() :
+                  (typeof dateAValue === 'number' ? dateAValue : 0);
+      
+    const timeB = isFirestoreTimestamp(dateBValue) ? dateBValue.toMillis() :
+                  (typeof dateBValue === 'number' ? dateBValue : 0);
+
+      // 🎯 IDENTISCH ZU GROUPVIEW: Absteigende Sortierung (neueste zuerst)
+      return timeB - timeA;
     });
 
     return combined;
@@ -219,13 +292,21 @@ const PlayerProfilePage = () => {
 
   const groupedArchiveByYear = useMemo(() => {
       return combinedArchiveItems.reduce<Record<string, ArchiveItem[]>>((acc, item) => {
-        const dateToSort = item.type === 'session' ? item.startedAt : (item.instanceDate ?? item.createdAt);
-        let year = 'Unbekannt';
-        if (isFirestoreTimestamp(dateToSort)) {
-            year = dateToSort.toDate().getFullYear().toString();
-        } else if (typeof dateToSort === 'number' && dateToSort > 0) {
-            year = new Date(dateToSort).getFullYear().toString();
+        // 🎯 IDENTISCH ZU GROUPVIEW: Für Turnier-Sessions auch startedAt verwenden
+        let dateToSort;
+        if (item.type === 'session') {
+          dateToSort = item.startedAt;
+        } else if ('tournamentId' in item && 'startedAt' in item) {
+          // Turnier-Session: verwende startedAt
+          dateToSort = (item as any).startedAt;
+        } else {
+          // 🚨 FIX: Echte Tournament-Instance - Enddatum bevorzugen (identisch zu GroupView!)
+          dateToSort = (item as any).finalizedAt ?? (item as any).instanceDate ?? (item as any).createdAt;
         }
+        
+        const year = isFirestoreTimestamp(dateToSort) ? dateToSort.toDate().getFullYear().toString() :
+                     (typeof dateToSort === 'number' ? new Date(dateToSort).getFullYear().toString() :
+                     '2025'); // Fallback zu 2025 statt 'Unbekannt'
         
         if (!acc[year]) {
             acc[year] = [];
@@ -266,6 +347,24 @@ const PlayerProfilePage = () => {
                          (typeof startedAt === 'number' ? new Date(startedAt) : null);
       const formattedDate = displayDate ? format(displayDate, 'dd.MM.yy, HH:mm') : 'Unbekannt';
 
+      // 🚨 ENDGÜLTIG FIX: Spieler-IDs aus der KORREKTEN teams.teamA/teamB-Struktur extrahieren
+      const teamAPlayer1Id = session.teams?.teamA?.players?.[0]?.playerId;
+      const teamAPlayer2Id = session.teams?.teamA?.players?.[1]?.playerId;
+      const teamBPlayer1Id = session.teams?.teamB?.players?.[0]?.playerId;
+      const teamBPlayer2Id = session.teams?.teamB?.players?.[1]?.playerId;
+
+      // 🚨 ENDGÜLTIG FIX: Spieler-Objekte anhand der playerId suchen
+      const teamAPlayer1 = members?.find(m => m.id === teamAPlayer1Id || m.userId === teamAPlayer1Id);
+      const teamAPlayer2 = members?.find(m => m.id === teamAPlayer2Id || m.userId === teamAPlayer2Id);
+      const teamBPlayer1 = members?.find(m => m.id === teamBPlayer1Id || m.userId === teamBPlayer1Id);
+      const teamBPlayer2 = members?.find(m => m.id === teamBPlayer2Id || m.userId === teamBPlayer2Id);
+
+      // Fallback-Namen, falls Spieler nicht gefunden werden
+      const player1Name = teamAPlayer1?.displayName || playerNames['1'] || 'Spieler 1';
+      const player3Name = teamAPlayer2?.displayName || playerNames['3'] || 'Spieler 3';
+      const player2Name = teamBPlayer1?.displayName || playerNames['2'] || 'Spieler 2';
+      const player4Name = teamBPlayer2?.displayName || playerNames['4'] || 'Spieler 4';
+
       return (
           <Link href={`/view/session/public/${id}?groupId=${session.groupId || session.gruppeId || ''}&returnTo=/profile/${player?.id}&returnMainTab=archive`} key={`session-${id}`} passHref>
             <div className="px-3 py-2 lg:px-6 lg:py-3 bg-gray-700/50 rounded-lg hover:bg-gray-600/50 transition-colors duration-150 cursor-pointer mb-2">
@@ -288,27 +387,27 @@ const PlayerProfilePage = () => {
                     {/* 🎨 AVATAR-PAIR: Wie im GroupView Teams-Tab */}
                     <div className="flex mr-2">
                       <ProfileImage
-                        src={members?.find(m => m.displayName === playerNames['1'])?.photoURL}
-                        alt={playerNames['1'] || 'Spieler'}
+                        src={teamAPlayer1?.photoURL}
+                        alt={player1Name}
                         size="sm"
                         className="border-2 border-gray-800"
                         style={{ zIndex: 1 }}
                         fallbackClassName="bg-gray-700 text-gray-300 text-xs"
-                        fallbackText={playerNames['1']?.charAt(0).toUpperCase() || '?'}
+                        fallbackText={player1Name.charAt(0).toUpperCase()}
                         context="list"
                       />
                       <ProfileImage
-                        src={members?.find(m => m.displayName === playerNames['3'])?.photoURL}
-                        alt={playerNames['3'] || 'Spieler'}
+                        src={teamAPlayer2?.photoURL}
+                        alt={player3Name}
                         size="sm"
                         className="border-2 border-gray-800 -ml-2"
                         style={{ zIndex: 0 }}
                         fallbackClassName="bg-gray-700 text-gray-300 text-xs"
-                        fallbackText={playerNames['3']?.charAt(0).toUpperCase() || '?'}
+                        fallbackText={player3Name.charAt(0).toUpperCase()}
                         context="list"
                       />
                     </div>
-                    <span className="text-sm text-gray-300 truncate pr-2">{playerNames['1'] || '?'} & {playerNames['3'] || '?'}</span>
+                    <span className="text-sm text-gray-300 truncate pr-2">{player1Name} & {player3Name}</span>
                   </div>
                   <span className="text-lg font-medium text-white">{totalStricheBottom !== null ? totalStricheBottom : '-'}</span>
                 </div>
@@ -319,27 +418,27 @@ const PlayerProfilePage = () => {
                     {/* 🎨 AVATAR-PAIR: Wie im GroupView Teams-Tab */}
                     <div className="flex mr-2">
                       <ProfileImage
-                        src={members?.find(m => m.displayName === playerNames['2'])?.photoURL}
-                        alt={playerNames['2'] || 'Spieler'}
+                        src={teamBPlayer1?.photoURL}
+                        alt={player2Name}
                         size="sm"
                         className="border-2 border-gray-800"
                         style={{ zIndex: 1 }}
                         fallbackClassName="bg-gray-700 text-gray-300 text-xs"
-                        fallbackText={playerNames['2']?.charAt(0).toUpperCase() || '?'}
+                        fallbackText={player2Name.charAt(0).toUpperCase()}
                         context="list"
                       />
                       <ProfileImage
-                        src={members?.find(m => m.displayName === playerNames['4'])?.photoURL}
-                        alt={playerNames['4'] || 'Spieler'}
+                        src={teamBPlayer2?.photoURL}
+                        alt={player4Name}
                         size="sm"
                         className="border-2 border-gray-800 -ml-2"
                         style={{ zIndex: 0 }}
                         fallbackClassName="bg-gray-700 text-gray-300 text-xs"
-                        fallbackText={playerNames['4']?.charAt(0).toUpperCase() || '?'}
+                        fallbackText={player4Name.charAt(0).toUpperCase()}
                         context="list"
                       />
                     </div>
-                    <span className="text-sm text-gray-300 truncate pr-2">{playerNames['2'] || '?'} & {playerNames['4'] || '?'}</span>
+                    <span className="text-sm text-gray-300 truncate pr-2">{player2Name} & {player4Name}</span>
                   </div>
                   <span className="text-lg font-medium text-white">{totalStricheTop !== null ? totalStricheTop : '-'}</span>
                 </div>
@@ -348,45 +447,75 @@ const PlayerProfilePage = () => {
           </Link>
       );
     } else if (item.type === 'tournament') {
-      const tournament = item;
-      const { id, name, instanceDate, status: tournamentStatus, createdAt } = tournament;
+      // 🎯 EXAKT WIE GROUPVIEW: Unterscheidung zwischen Turnier-Instanz und Turnier-Session
+      const isTournamentSession = 'tournamentId' in item && 'startedAt' in item;
       
-      const dateToDisplay = instanceDate ?? createdAt;
-      let formattedDate: string | null = null;
-      if (isFirestoreTimestamp(dateToDisplay)) {
-          formattedDate = format(dateToDisplay.toDate(), 'dd.MM.yyyy');
-      } else if (typeof dateToDisplay === 'number') {
-          formattedDate = format(new Date(dateToDisplay), 'dd.MM.yyyy');
-      }
-
-      const statusText = tournamentStatus === 'completed' ? 'Abgeschlossen' :
-                         tournamentStatus === 'active' ? 'Aktiv' : 'Archiviert';
-      const statusClass = tournamentStatus === 'completed' ? 'bg-gray-600 text-gray-300' :
-                          tournamentStatus === 'active' ? 'bg-green-600 text-white' : 'bg-yellow-600 text-black';
-
-      return (
-        <Link href={`/view/tournament/${id}`} key={`tournament-${id}`} passHref>
-          <div className="px-3 py-2 lg:px-6 lg:py-3 bg-purple-900/30 rounded-lg hover:bg-purple-800/40 transition-colors duration-150 cursor-pointer mb-2 border border-purple-700/50">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center space-x-3">
-                <AwardIcon className="w-6 h-6 lg:w-8 lg:h-8 text-purple-400 flex-shrink-0" />
-                <div className="flex flex-col">
-                  <span className="text-base lg:text-xl font-medium text-white">{name}</span>
-                  {formattedDate && (
-                    <span className="text-sm lg:text-base text-gray-400">{formattedDate}</span>
-                  )}
+      if (isTournamentSession) {
+        // Dies ist ein jassGameSummary mit tournamentId (Turnier-Session)
+        const session = item as any;
+        const tournamentId = session.tournamentId;
+        // 🚨 ENDDATUM: endedAt ist das korrekte Enddatum aus jassGameSummaries
+        const rawDate: any = (session as any).endedAt ?? null;
+        const displayDate = rawDate instanceof Timestamp ? rawDate.toDate() : (typeof rawDate === 'number' ? new Date(rawDate) : null);
+        const formattedDate = displayDate ? format(displayDate, 'dd.MM.yyyy') : null;
+        
+        // 🚨 TURNIERNAME: Direkt aus jassGameSummaries
+        const tournamentName = (session as any).tournamentName || 'Turnier';
+        
+        return (
+          <Link href={`/view/tournament/${tournamentId}`} key={`tournament-session-${session.id}`} passHref>
+            <div className="px-3 py-2 lg:px-6 lg:py-3 bg-purple-900/30 rounded-lg hover:bg-purple-800/40 transition-colors duration-150 cursor-pointer mb-2 border border-purple-700/50">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center space-x-3">
+                  <AwardIcon className="w-6 h-6 lg:w-8 lg:h-8 text-purple-400 flex-shrink-0" />
+                  <div className="flex flex-col">
+                    <span className="text-base lg:text-xl font-medium text-white">{tournamentName}</span>
+                    {formattedDate && (
+                      <span className="text-sm lg:text-base text-gray-400">{formattedDate}</span>
+                    )}
+                  </div>
                 </div>
+                <span className={`text-xs px-2 py-1 rounded-full bg-gray-600 text-gray-300`}>
+                  Abgeschlossen
+                </span>
               </div>
-              <span className={`text-sm lg:text-base px-2 py-0.5 rounded-full ${statusClass}`}>
-                {statusText}
-              </span>
             </div>
-          </div>
-        </Link>
-      );
+          </Link>
+        );
+      } else {
+        // Dies ist eine echte TournamentInstance aus tournaments Collection
+        const tournament = item;
+        const { id, name, instanceDate, status: tournamentStatus } = tournament;
+        
+        // 🚨 ENDDATUM: endedAt ist das korrekte Enddatum aus jassGameSummaries
+        const rawDate: any = (tournament as any).endedAt ?? null;
+        const displayDate = rawDate instanceof Timestamp ? rawDate.toDate() : (typeof rawDate === 'number' ? new Date(rawDate) : null);
+        const formattedDate = displayDate ? format(displayDate, 'dd.MM.yyyy') : null;
+
+        return (
+          <Link href={`/view/tournament/${id}`} key={`tournament-${id}`} passHref>
+            <div className="px-3 py-2 lg:px-6 lg:py-3 bg-purple-900/30 rounded-lg hover:bg-purple-800/40 transition-colors duration-150 cursor-pointer mb-2 border border-purple-700/50">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center space-x-3">
+                  <AwardIcon className="w-6 h-6 lg:w-8 lg:h-8 text-purple-400 flex-shrink-0" />
+                  <div className="flex flex-col">
+                    <span className="text-base lg:text-xl font-medium text-white">{(tournament as any).tournamentName || name || 'Turnier'}</span>
+                    {formattedDate && (
+                      <span className="text-sm lg:text-base text-gray-400">{formattedDate}</span>
+                    )}
+                  </div>
+                </div>
+                <span className={`text-xs px-2 py-1 rounded-full ${tournamentStatus === 'completed' ? 'bg-gray-600 text-gray-300' : (tournamentStatus === 'active' ? 'bg-green-600 text-white' : 'bg-blue-500 text-white')}`}>
+                  {tournamentStatus === 'completed' ? 'Abgeschlossen' : (tournamentStatus === 'active' ? 'Aktiv' : 'Anstehend')}
+                </span>
+              </div>
+            </div>
+          </Link>
+        );
+      }
     }
     return null;
-  }, [player?.id]);
+  }, [player?.id, members]);
 
   // 🚨 LOADING (EXAKT WIE GROUPVIEW)
   if (isLoading) {
@@ -432,7 +561,13 @@ const PlayerProfilePage = () => {
   const activeThemeColors = THEME_COLORS[activeTheme] || THEME_COLORS.blue;
 
   return (
-    <ProfileView
+    <>
+      {/* 🚀 AVATAR PRELOADER: Lädt alle relevanten Avatare unsichtbar vor */}
+      {profileAvatarPhotoURLs.length > 0 && (
+        <AvatarPreloader photoURLs={profileAvatarPhotoURLs} />
+      )}
+      
+      <ProfileView
       user={player}
       player={player}
       isPublicView={true}
@@ -459,6 +594,7 @@ const PlayerProfilePage = () => {
       theme={activeThemeColors}
       profileTheme={activeTheme}
     />
+    </>
   );
 };
 

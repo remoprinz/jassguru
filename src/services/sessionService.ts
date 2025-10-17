@@ -29,6 +29,8 @@ export interface SessionSummary {
   isTournamentSession?: boolean;
   tournamentInstanceId?: string | null;
   tournamentId?: string | null; // ✅ NEU: Für Turnier-Sessions aus jassGameSummaries
+  // 🚨 NEU: Turniername für Archiv-Anzeige
+  tournamentName?: string;
   metadata?: any; // Die genaue Struktur aus jass.ts
 }
 
@@ -126,6 +128,8 @@ export const fetchCompletedSessionsForUser = async (userId: string): Promise<Ses
               isTournamentSession: data.isTournamentSession || false,
               tournamentInstanceId: data.tournamentInstanceId || null,
               tournamentId: data.tournamentId || null,
+              // 🚨 NEU: Turniername für Archiv-Anzeige
+              tournamentName: data.tournamentName || null,
               metadata: data.metadata || {},
             });
           }
@@ -213,8 +217,8 @@ export const fetchCompletedSessionsForPlayer = async (playerId: string): Promise
         querySnapshot.forEach((docSnap) => {
           const data = docSnap.data();
           
-          // ✅ CLIENT-SEITIGE FILTERUNG: Nur abgeschlossene Sessions UND keine Tournament-Sessions
-          if ((data.status === 'completed' || data.status === 'completed_empty') && !data.tournamentId) {
+          // ✅ CLIENT-SEITIGE FILTERUNG: Nur abgeschlossene Sessions (inklusive Turnier-Sessions)
+          if (data.status === 'completed' || data.status === 'completed_empty') {
             groupSessions.push({
               id: docSnap.id,
               startedAt: parseTimestampToMillis(data.startedAt),
@@ -234,6 +238,8 @@ export const fetchCompletedSessionsForPlayer = async (playerId: string): Promise
               isTournamentSession: data.isTournamentSession || false,
               tournamentInstanceId: data.tournamentInstanceId || null,
               tournamentId: data.tournamentId || null,
+              // 🚨 NEU: Turniername für Archiv-Anzeige
+              tournamentName: data.tournamentName || null,
               metadata: data.metadata || {},
             });
           }
@@ -366,6 +372,8 @@ export const fetchAllGroupSessions = async (groupId: string): Promise<SessionSum
           isTournamentSession: sessionData.isTournamentSession || false,
           tournamentInstanceId: sessionData.tournamentInstanceId || null,
           tournamentId: sessionData.tournamentId || null,
+          // 🚨 NEU: Turniername für Archiv-Anzeige
+          tournamentName: sessionData.tournamentName || null,
           metadata: sessionData.metadata || {},
         });
       }

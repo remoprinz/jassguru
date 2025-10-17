@@ -79,6 +79,8 @@ interface JassGameSummary {
   status: 'completed';
   tournamentId: string;
   tournamentInstanceNumber?: number; // 🆕 Austragungsnummer (1, 2, 3...) für römische Ziffern im Archiv
+  // 🚨 NEU: Turniername für Archiv-Anzeige
+  tournamentName?: string;
   // ❌ Optional Session-Level Felder (nicht für Tournaments):
   eventCounts?: { [team: string]: { [event: string]: number } };
   finalScores?: { top: number; bottom: number };
@@ -224,13 +226,10 @@ export const aggregateTournamentIntoSummary = onDocumentWritten(
             tournamentId: tournamentId,
             tournamentInstanceNumber: tournamentData.currentInstanceNumber || 1, // 🆕 AUSTRAGUNGSNUMMER
             gameWinsByTeam: { top: 0, bottom: 0, ties: 0 },
+            // 🚨 NEU: Turniername für Archiv-Anzeige
+            tournamentName: tournamentData.name || `Turnier ${tournamentId}`,
             
-            // ❌ BEWUSST ENTFERNT: Session-Level Felder sind bei wechselnden Teams irreführend
-            // eventCounts: Teams wechseln pro Spiel → Session-Level Events sind sinnlos
-            // finalScores: Teams wechseln pro Spiel → Session-Level Scores sind sinnlos
-            // finalStriche: Teams wechseln pro Spiel → Session-Level Striche sind sinnlos
-            // teams: Teams wechseln pro Spiel → Session-Level Teams sind sinnlos
-            // winnerTeamKey: Teams wechseln pro Spiel → Session-Level Winner ist sinnlos
+
         };
 
         let totalDurationMillis = 0;

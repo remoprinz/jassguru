@@ -365,12 +365,8 @@ const StartPage = () => {
         setTournamentsLoading(true);
         setTournamentsError(null);
         try {
-          const tournaments = await fetchTournamentInstancesForGroup(currentGroup.id);
-          setGroupTournaments(tournaments.filter(t => 
-            t.status === 'active' || 
-            t.status === 'upcoming' || 
-            t.status === 'completed'
-          )); 
+          // 🚨 KEINE TURNIER-INSTANZEN MEHR: Nur Turnier-Sessions aus jassGameSummaries
+          setGroupTournaments([]);
         } catch (error) {
           console.error("Fehler beim Laden der Gruppen-Turniere:", error);
           const message = error instanceof Error ? error.message : "Turniere konnten nicht geladen werden.";
@@ -1406,34 +1402,52 @@ const StartPage = () => {
   };
 
   const combinedArchiveItems = useMemo(() => {
-    // Die Filterung ist jetzt einfacher, da fetchAllGroupSessions bereits die richtigen Sessions liefert.
-    const filteredUserSessions = completedSessions.filter(session => 
+    // 🎯 KORRIGIERT: Trennung zwischen normalen Sessions und Turnier-Sessions
+    const normalSessions = completedSessions.filter(session => 
       (session.status === 'completed' || session.status === 'completed_empty') &&
-      !session.tournamentId 
+      !session.tournamentId // Nur normale Sessions (OHNE tournamentId)
+    );
+    
+    const tournamentSessions = completedSessions.filter(session =>
+      (session.status === 'completed' || session.status === 'completed_empty') &&
+      session.tournamentId // Sessions die Teil eines Turniers sind
     );
 
-    const sessionsWithType: ArchiveItem[] = filteredUserSessions.map(s => ({ ...s, type: 'session' }));
+    const sessionsWithType: ArchiveItem[] = normalSessions.map(s => ({ ...s, type: 'session' }));
     
-    // Die Filterung der Turniere geschieht nun bereits beim Laden in setGroupTournaments.
-    // Daher können wir groupTournaments hier direkt verwenden.
-    const tournamentsWithType: ArchiveItem[] = groupTournaments.map(t => ({ ...t, type: 'tournament' }));
+    // 🎯 KORRIGIERT: Turnier-Sessions als type: 'tournament' markieren
+    const tournamentSessionsWithType: ArchiveItem[] = tournamentSessions.map(s => ({ ...s, type: 'tournament' }));
+    
+    // 🎯 KORRIGIERT: Nur echte Tournament-Instances hinzufügen, die NICHT bereits als Sessions existieren
+    const tournamentIdsFromSessions = new Set(tournamentSessions.map(s => s.tournamentId).filter(Boolean));
+    const uniqueTournaments = groupTournaments.filter(t => !tournamentIdsFromSessions.has(t.id));
+    const tournamentsWithType: ArchiveItem[] = uniqueTournaments.map(t => ({ ...t, type: 'tournament' }));
 
-    const combined = [...sessionsWithType, ...tournamentsWithType];
+    const combined = [...sessionsWithType, ...tournamentSessionsWithType, ...tournamentsWithType];
 
     combined.sort((a, b) => {
+      // 🎯 KORRIGIERT: Einheitliche Datums-Extraktion für alle Typen
       let dateAValue: number | Timestamp | FieldValue | undefined | null;
       let dateBValue: number | Timestamp | FieldValue | undefined | null;
 
       if (a.type === 'session') {
         dateAValue = a.startedAt;
-      } else { 
-        dateAValue = a.instanceDate ?? a.createdAt;
+      } else if ('tournamentId' in a && 'startedAt' in a) {
+        // Turnier-Session: verwende startedAt
+        dateAValue = (a as any).startedAt;
+      } else {
+        // Echte Tournament-Instance: verwende instanceDate oder createdAt
+        dateAValue = (a as any).instanceDate ?? (a as any).createdAt;
       }
 
       if (b.type === 'session') {
         dateBValue = b.startedAt;
-      } else { 
-        dateBValue = b.instanceDate ?? b.createdAt;
+      } else if ('tournamentId' in b && 'startedAt' in b) {
+        // Turnier-Session: verwende startedAt
+        dateBValue = (b as any).startedAt;
+      } else {
+        // Echte Tournament-Instance: verwende instanceDate oder createdAt
+        dateBValue = (b as any).instanceDate ?? (b as any).createdAt;
       }
 
       const timeA = isFirestoreTimestamp(dateAValue) ? dateAValue.toMillis() :
@@ -1444,6 +1458,7 @@ const StartPage = () => {
                     (typeof dateBValue === 'number' ? dateBValue :
                     (dateBValue && typeof (dateBValue as Timestamp).isEqual === 'function') ? Date.now() : 0);
 
+      // 🎯 KORRIGIERT: Absteigende Sortierung (neueste zuerst)
       return timeB - timeA;
     });
 
@@ -1451,10 +1466,21 @@ const StartPage = () => {
   }, [completedSessions, groupTournaments]); // Abhängigkeit von currentGroup entfernt, da completedSessions bereits korrekt ist
 
   const groupedArchiveByYear = combinedArchiveItems.reduce<Record<string, ArchiveItem[]>>((acc, item) => {
-    const dateToSort = item.type === 'session' ? item.startedAt : (item.instanceDate ?? item.createdAt);
+    // 🎯 KORRIGIERT: Für Turnier-Sessions auch startedAt verwenden
+    let dateToSort;
+    if (item.type === 'session') {
+      dateToSort = item.startedAt;
+    } else if ('tournamentId' in item && 'startedAt' in item) {
+      // Turnier-Session: verwende startedAt
+      dateToSort = (item as any).startedAt;
+    } else {
+      // Echte Tournament-Instance: verwende instanceDate oder createdAt
+      dateToSort = (item as any).instanceDate ?? (item as any).createdAt;
+    }
+    
     const year = isFirestoreTimestamp(dateToSort) ? dateToSort.toDate().getFullYear().toString() :
                  (typeof dateToSort === 'number' ? new Date(dateToSort).getFullYear().toString() :
-                 'Unbekannt');
+                 '2025'); // Fallback zu 2025 statt 'Unbekannt'
     if (!acc[year]) {
       acc[year] = [];
     }
@@ -1631,31 +1657,71 @@ const StartPage = () => {
         </Link>
       );
     } else if (item.type === 'tournament') {
-      const tournament = item;
-      const { id, name, instanceDate, status: tournamentStatus } = tournament;
-      const displayDate = instanceDate instanceof Timestamp ? instanceDate.toDate() : (typeof instanceDate === 'number' ? new Date(instanceDate) : null);
-      const formattedDate = displayDate ? format(displayDate, 'dd.MM.yyyy') : null;
-
-      return (
-        <Link href={`/view/tournament/${id}`} key={`tournament-${id}`} passHref>
-          <div className="px-3 py-2 md:px-4 md:py-2.5 lg:px-6 lg:py-3 bg-purple-900/30 rounded-lg hover:bg-purple-800/40 transition-colors duration-150 cursor-pointer mb-2 border border-purple-700/50">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center space-x-3">
-                <AwardIcon className="w-6 h-6 md:w-7 md:h-7 lg:w-9 lg:h-9 text-purple-400 flex-shrink-0" />
-                <div className="flex flex-col">
-                  <span className="text-base md:text-lg lg:text-xl font-medium text-white">{name}</span>
-                  {formattedDate && (
-                    <span className="text-base md:text-lg lg:text-xl text-gray-400">{formattedDate}</span>
-                  )}
+      // 🎯 KORRIGIERT: Unterscheidung zwischen Turnier-Instanz und Turnier-Session
+      const isTournamentSession = 'tournamentId' in item && 'startedAt' in item;
+      
+      if (isTournamentSession) {
+        // Dies ist ein jassGameSummary mit tournamentId (Turnier-Session)
+        const session = item as any;
+        const tournamentId = session.tournamentId;
+        // 🚨 ENDDATUM: endedAt ist das korrekte Enddatum aus jassGameSummaries
+        const rawDate: any = (session as any).endedAt ?? null;
+        const displayDate = rawDate instanceof Timestamp ? rawDate.toDate() : (typeof rawDate === 'number' ? new Date(rawDate) : null);
+        const formattedDate = displayDate ? format(displayDate, 'dd.MM.yyyy') : null;
+        
+        // 🚨 TURNIERNAME: Direkt aus jassGameSummaries
+        const tournamentName = (session as any).tournamentName || 'Turnier';
+        
+        return (
+          <Link href={`/view/tournament/${tournamentId}`} key={`tournament-session-${session.id}`} passHref>
+            <div className="px-3 py-2 lg:px-6 lg:py-3 bg-purple-900/30 rounded-lg hover:bg-purple-800/40 transition-colors duration-150 cursor-pointer mb-2 border border-purple-700/50">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center space-x-3">
+                  <AwardIcon className="w-6 h-6 lg:w-8 lg:h-8 text-purple-400 flex-shrink-0" />
+                  <div className="flex flex-col">
+                    <span className="text-base lg:text-xl font-medium text-white">{tournamentName}</span>
+                    {formattedDate && (
+                      <span className="text-sm lg:text-base text-gray-400">{formattedDate}</span>
+                    )}
+                  </div>
                 </div>
+                <span className={`text-sm lg:text-base px-2 py-0.5 rounded-full bg-gray-600 text-gray-300`}>
+                  Abgeschlossen
+                </span>
               </div>
-              <span className={`text-base md:text-lg lg:text-xl px-2 py-0.5 rounded-full ${tournamentStatus === 'completed' ? 'bg-gray-600 text-gray-300' : (tournamentStatus === 'active' ? 'bg-green-600 text-white' : 'bg-blue-500 text-white')}`}>
-                {tournamentStatus === 'completed' ? 'Abgeschlossen' : (tournamentStatus === 'active' ? 'Aktiv' : 'Anstehend')}
-              </span>
             </div>
-          </div>
-        </Link>
-      );
+          </Link>
+        );
+      } else {
+        // Dies ist eine echte TournamentInstance aus tournaments Collection
+        const tournament = item;
+        const { id, name, instanceDate, status: tournamentStatus } = tournament;
+        // 🚨 ENDDATUM: endedAt ist das korrekte Enddatum aus jassGameSummaries
+        const rawDate: any = (tournament as any).endedAt ?? null;
+        const displayDate = rawDate instanceof Timestamp ? rawDate.toDate() : (typeof rawDate === 'number' ? new Date(rawDate) : null);
+        const formattedDate = displayDate ? format(displayDate, 'dd.MM.yyyy') : null;
+
+        return (
+          <Link href={`/view/tournament/${id}`} key={`tournament-${id}`} passHref>
+            <div className="px-3 py-2 lg:px-6 lg:py-3 bg-purple-900/30 rounded-lg hover:bg-purple-800/40 transition-colors duration-150 cursor-pointer mb-2 border border-purple-700/50">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center space-x-3">
+                  <AwardIcon className="w-6 h-6 lg:w-8 lg:h-8 text-purple-400 flex-shrink-0" />
+                  <div className="flex flex-col">
+                    <span className="text-base lg:text-xl font-medium text-white">{(tournament as any).tournamentName || name || 'Turnier'}</span>
+                    {formattedDate && (
+                      <span className="text-sm lg:text-base text-gray-400">{formattedDate}</span>
+                    )}
+                  </div>
+                </div>
+                <span className={`text-sm lg:text-base px-2 py-0.5 rounded-full ${tournamentStatus === 'completed' ? 'bg-gray-600 text-gray-300' : (tournamentStatus === 'active' ? 'bg-green-600 text-white' : 'bg-blue-500 text-white')}`}>
+                  {tournamentStatus === 'completed' ? 'Abgeschlossen' : (tournamentStatus === 'active' ? 'Aktiv' : 'Anstehend')}
+                </span>
+              </div>
+            </div>
+          </Link>
+        );
+      }
     }
     return null;
   };

@@ -30,6 +30,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { loadPlayerRatings, loadGroupLeaderboard, type PlayerRatingWithTier } from '@/services/jassElo';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/services/firebaseInit';
+// NEU: Chart-Komponenten
+import PowerRatingChart from '@/components/charts/PowerRatingChart';
+import { getGroupRatingTimeSeries } from '@/services/ratingHistoryService';
+import { getChartData } from '@/services/chartDataService'; // 🎯 Pre-computed Chart Data
 
 // Props für Schritt 4: Komplette Statistik-Inhalte
 interface GroupViewProps {
@@ -233,6 +237,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
   const [playerRatings, setPlayerRatings] = useState<Map<string, PlayerRatingWithTier>>(new Map());
   // NEU: State für Elo-Deltas
   const [playerDeltas, setPlayerDeltas] = useState<Map<string, number>>(new Map());
+  // NEU: State für Chart-Daten
+  const [chartData, setChartData] = useState<{
+    labels: string[];
+    datasets: any[];
+  } | null>(null);
+  const [chartLoading, setChartLoading] = useState(false);
 
   // ===== REFS FÜR SCROLLBARE STATISTIK-CONTAINER (IDENTISCH ZUM ORIGINAL) =====
   // Übersicht
@@ -667,6 +677,24 @@ export const GroupView: React.FC<GroupViewProps> = ({
       })
       .catch(e => console.warn('Elo (group subcollection) konnte nicht geladen werden:', (e as any)?.message));
   }, [currentGroup?.id, isPublicView, members]);
+
+  // 🚀 NEU: Lade Chart-Daten für Power-Rating Zeitreihen
+  React.useEffect(() => {
+    if (!currentGroup?.id) return;
+    
+    setChartLoading(true);
+    getChartData(currentGroup.id) // 🎯 Pre-computed Chart Data für sofortige Performance
+      .then((data) => {
+        setChartData(data);
+      })
+      .catch(error => {
+        console.warn('Fehler beim Laden der Chart-Daten:', error);
+        setChartData(null);
+      })
+      .finally(() => {
+        setChartLoading(false);
+      });
+  }, [currentGroup?.id]);
 
   if (groupStatus === 'loading' && !currentGroup) {
     return (
@@ -1199,7 +1227,37 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                     </div>
 
-                    {/* 2. Rundentempo - NEUE REIHENFOLGE */}
+                    {/* 2. Power-Rating Zeitreihen Chart - NEUE REIHENFOLGE */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Elo-Rating Entwicklung</h3>
+                      </div>
+                      <div className={`${layout.cardPadding}`}>
+                        {chartLoading ? (
+                          <div className="flex justify-center items-center py-10">
+                            <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
+                            <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Chart-Daten...</span>
+                          </div>
+                        ) : chartData && chartData.datasets.length > 0 ? (
+                          <PowerRatingChart 
+                            data={chartData}
+                            title="Elo-Rating"
+                            height={layout.isDesktop ? 400 : 300}
+                            theme={groupTheme}
+                            isDarkMode={true}
+                          />
+                        ) : (
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                            <p>Noch keine Rating-Daten verfügbar</p>
+                            <p className={`${layout.smallTextSize} mt-1`}>Chart wird angezeigt, sobald Spieler Rating-Historie haben</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 3. Rundentempo - NEUE REIHENFOLGE */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
@@ -1245,7 +1303,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                     </div>
 
-                    {/* 3. Trumpfansagen - NEUE REIHENFOLGE */}
+                    {/* 4. Trumpfansagen - NEUE REIHENFOLGE */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
@@ -1284,7 +1342,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                     </div>
 
-                    {/* 4. Durchschnittswerte & Details - NEUE REIHENFOLGE */}
+                    {/* 5. Durchschnittswerte & Details - NEUE REIHENFOLGE */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
@@ -1318,7 +1376,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                     </div>
 
-                    {/* 5. Gruppenübersicht - NEUE REIHENFOLGE */}
+                    {/* 6. Gruppenübersicht - NEUE REIHENFOLGE */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>

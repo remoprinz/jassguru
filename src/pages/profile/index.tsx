@@ -8,7 +8,7 @@ import {useUIStore} from "@/store/uiStore";
 import {fetchCompletedSessionsForUser, fetchCompletedSessionsForPlayer, SessionSummary} from '@/services/sessionService';
 import Link from 'next/link';
 import {format} from 'date-fns';
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp, FieldValue } from 'firebase/firestore';
 import type { StricheRecord, FirestorePlayer } from '@/types/jass';
 import {fetchTournamentInstancesForGroup } from '@/services/tournamentService';
 import type { TournamentInstance } from '@/types/tournament';
@@ -195,24 +195,8 @@ const ProfilePage: React.FC = () => {
         setTournamentsLoading(true);
         setTournamentsError(null);
         try {
-          const allTournaments: TournamentInstance[] = [];
-          const groupIds = currentPlayerData.groupIds || [];
-
-          if (groupIds.length > 0) {
-            for (const groupId of groupIds) {
-              try {
-                const groupTournaments = await fetchTournamentInstancesForGroup(groupId);
-                allTournaments.push(...groupTournaments.filter(t => 
-                  t.status === 'active' || 
-                  t.status === 'upcoming' || 
-                  t.status === 'completed'
-                ));
-              } catch (groupError) {
-                console.warn(`Fehler beim Laden der Turniere für Gruppe ${groupId}:`, groupError);
-              }
-            }
-          }
-          setUserTournaments(allTournaments);
+          // 🚨 KEINE TURNIER-INSTANZEN MEHR: Nur Turnier-Sessions aus jassGameSummaries
+          setUserTournaments([]);
         } catch (error) {
            console.error("Fehler beim Laden der Turniere im Profil:", error);
            const message = error instanceof Error ? error.message : "Turniere konnten nicht geladen werden.";
@@ -315,19 +299,58 @@ const ProfilePage: React.FC = () => {
   }, [user?.uid]);
 
   const combinedArchiveItems = useMemo(() => {
-    const sessionsWithType: ArchiveItem[] = completedSessions.map(s => ({ ...s, type: 'session' }));
-    const tournamentsWithType: ArchiveItem[] = userTournaments.map(t => ({ ...t, type: 'tournament' }));
+    // 🎯 IDENTISCH ZU GROUPVIEW: Trennung zwischen normalen Sessions und Turnier-Sessions
+    const normalSessions = completedSessions.filter(session => 
+      (session.status === 'completed' || session.status === 'completed_empty') &&
+      !session.tournamentId // Nur normale Sessions (OHNE tournamentId)
+    );
+    
+    const tournamentSessions = completedSessions.filter(session =>
+      (session.status === 'completed' || session.status === 'completed_empty') &&
+      session.tournamentId // Sessions die Teil eines Turniers sind
+    );
 
-    const combined = [...sessionsWithType, ...tournamentsWithType];
+    const sessionsWithType: ArchiveItem[] = normalSessions.map(s => ({ ...s, type: 'session' }));
+    
+    // 🎯 IDENTISCH ZU GROUPVIEW: Turnier-Sessions als type: 'tournament' markieren
+    const tournamentSessionsWithType: ArchiveItem[] = tournamentSessions.map(s => ({ ...s, type: 'tournament' } as any));
+    
+    // 🎯 IDENTISCH ZU GROUPVIEW: Nur echte Tournament-Instances hinzufügen, die NICHT bereits als Sessions existieren
+    const tournamentIdsFromSessions = new Set(tournamentSessions.map(s => s.tournamentId).filter(Boolean));
+    const uniqueTournaments = userTournaments.filter(t => !tournamentIdsFromSessions.has(t.id));
+    const tournamentsWithType: ArchiveItem[] = uniqueTournaments.map(t => ({ ...t, type: 'tournament' }));
+
+    const combined = [...sessionsWithType, ...tournamentSessionsWithType, ...tournamentsWithType];
 
     combined.sort((a, b) => {
-      const dateA = a.type === 'session' ? a.startedAt : (a.instanceDate ?? a.createdAt);
-      const dateB = b.type === 'session' ? b.startedAt : (b.instanceDate ?? b.createdAt);
+      // 🎯 EXAKT WIE GROUPVIEW: Einheitliche Datums-Extraktion für alle Typen
+      let dateAValue: number | Timestamp | FieldValue | undefined | null;
+      let dateBValue: number | Timestamp | FieldValue | undefined | null;
 
-      const timeA = isFirestoreTimestamp(dateA) ? dateA.toMillis() :
-                    (typeof dateA === 'number' ? dateA : 0);
-      const timeB = isFirestoreTimestamp(dateB) ? dateB.toMillis() :
-                    (typeof dateB === 'number' ? dateB : 0);
+      if (a.type === 'session') {
+        dateAValue = a.startedAt;
+      } else if ('tournamentId' in a && 'startedAt' in a) {
+        // Turnier-Session: verwende endedAt
+        dateAValue = (a as any).endedAt ?? (a as any).startedAt;
+      } else {
+        // Echte Tournament-Instance: Enddatum bevorzugen
+        dateAValue = (a as any).instanceDate ?? (a as any).createdAt;
+      }
+
+      if (b.type === 'session') {
+        dateBValue = b.startedAt;
+      } else if ('tournamentId' in b && 'startedAt' in b) {
+        // Turnier-Session: verwende endedAt
+        dateBValue = (b as any).endedAt ?? (b as any).startedAt;
+      } else {
+        // Echte Tournament-Instance: Enddatum bevorzugen
+        dateBValue = (b as any).instanceDate ?? (b as any).createdAt;
+      }
+
+      const timeA = isFirestoreTimestamp(dateAValue) ? dateAValue.toMillis() :
+                    (typeof dateAValue === 'number' ? dateAValue : 0);
+      const timeB = isFirestoreTimestamp(dateBValue) ? dateBValue.toMillis() :
+                    (typeof dateBValue === 'number' ? dateBValue : 0);
 
       const validTimeA = timeA || 0;
       const validTimeB = timeB || 0;
@@ -340,7 +363,18 @@ const ProfilePage: React.FC = () => {
 
   const groupedArchiveByYear = useMemo(() => {
       return combinedArchiveItems.reduce<Record<string, ArchiveItem[]>>((acc, item) => {
-        const dateToSort = item.type === 'session' ? item.startedAt : (item.instanceDate ?? item.createdAt);
+        // 🎯 EXAKT WIE GROUPVIEW: Für Turnier-Sessions auch endedAt verwenden
+        let dateToSort;
+        if (item.type === 'session') {
+          dateToSort = item.startedAt;
+        } else if ('tournamentId' in item && 'startedAt' in item) {
+          // Turnier-Session: verwende endedAt für Gruppierung
+          dateToSort = (item as any).endedAt ?? (item as any).startedAt;
+        } else {
+          // Echte Tournament-Instance: verwende instanceDate mit createdAt Fallback
+          dateToSort = (item as any).instanceDate ?? (item as any).createdAt;
+        }
+        
         let year = 'Unbekannt';
         if (isFirestoreTimestamp(dateToSort)) {
             year = dateToSort.toDate().getFullYear().toString();
@@ -584,42 +618,72 @@ const ProfilePage: React.FC = () => {
           </Link>
       );
     } else if (item.type === 'tournament') {
-      const tournament = item;
-      const { id, name, instanceDate, status: tournamentStatus, createdAt } = tournament;
+      // 🎯 EXAKT WIE GROUPVIEW: Unterscheidung zwischen Turnier-Instanz und Turnier-Session
+      const isTournamentSession = 'tournamentId' in item && 'startedAt' in item;
       
-      const dateToDisplay = instanceDate ?? createdAt;
-      let formattedDate: string | null = null;
-      if (isFirestoreTimestamp(dateToDisplay)) {
-          formattedDate = format(dateToDisplay.toDate(), 'dd.MM.yyyy');
-      } else if (typeof dateToDisplay === 'number') {
-          formattedDate = format(new Date(dateToDisplay), 'dd.MM.yyyy');
-      }
+      if (isTournamentSession) {
+        // Dies ist ein jassGameSummary mit tournamentId (Turnier-Session)
+        const session = item as any;
+        const tournamentId = session.tournamentId;
+        // 🚨 ENDDATUM: endedAt ist das korrekte Enddatum aus jassGameSummaries
+        const rawDate: any = (session as any).endedAt ?? null;
+        const displayDate = rawDate instanceof Timestamp ? rawDate.toDate() : (typeof rawDate === 'number' ? new Date(rawDate) : null);
+        const formattedDate = displayDate ? format(displayDate, 'dd.MM.yyyy') : null;
+        
+        // 🚨 TURNIERNAME: Direkt aus jassGameSummaries
+        const tournamentName = (session as any).tournamentName || 'Turnier';
+        
+        return (
+          <Link href={`/view/tournament/${tournamentId}`} key={`tournament-session-${session.id}`} passHref>
+            <div className="px-3 py-2 lg:px-6 lg:py-3 bg-purple-900/30 rounded-lg hover:bg-purple-800/40 transition-colors duration-150 cursor-pointer mb-2 border border-purple-700/50">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center space-x-3">
+                  <AwardIcon className="w-6 h-6 lg:w-8 lg:h-8 text-purple-400 flex-shrink-0" />
+                  <div className="flex flex-col">
+                    <span className="text-base lg:text-xl font-medium text-white">{tournamentName}</span>
+                    {formattedDate && (
+                      <span className="text-sm lg:text-base text-gray-400">{formattedDate}</span>
+                    )}
+                  </div>
+                </div>
+                <span className="text-xs px-2 py-1 rounded-full bg-gray-600 text-gray-300">
+                  Abgeschlossen
+                </span>
+              </div>
+            </div>
+          </Link>
+        );
+      } else {
+        // Dies ist eine echte TournamentInstance aus tournaments Collection
+        const tournament = item;
+        const { id, name, instanceDate, status: tournamentStatus } = tournament;
+        
+        // 🚨 ENDDATUM: endedAt ist das korrekte Enddatum aus jassGameSummaries
+        const rawDate: any = (tournament as any).endedAt ?? null;
+        const displayDate = rawDate instanceof Timestamp ? rawDate.toDate() : (typeof rawDate === 'number' ? new Date(rawDate) : null);
+        const formattedDate = displayDate ? format(displayDate, 'dd.MM.yyyy') : null;
 
-      const statusText = tournamentStatus === 'completed' ? 'Abgeschlossen' :
-                         tournamentStatus === 'active' ? 'Aktiv' : 'Archiviert';
-      const statusClass = tournamentStatus === 'completed' ? 'bg-gray-600 text-gray-300' :
-                          tournamentStatus === 'active' ? 'bg-green-600 text-white' : 'bg-yellow-600 text-black';
-
-      return (
-        <Link href={`/view/tournament/${id}`} key={`tournament-${id}`} passHref>
+        return (
+          <Link href={`/view/tournament/${id}`} key={`tournament-${id}`} passHref>
           <div className="px-3 py-2 lg:px-6 lg:py-3 bg-purple-900/30 rounded-lg hover:bg-purple-800/40 transition-colors duration-150 cursor-pointer mb-2 border border-purple-700/50">
             <div className="flex justify-between items-center">
               <div className="flex items-center space-x-3">
                 <AwardIcon className="w-6 h-6 lg:w-8 lg:h-8 text-purple-400 flex-shrink-0" />
                 <div className="flex flex-col">
-                  <span className="text-base lg:text-xl font-medium text-white">{name}</span>
+                  <span className="text-base lg:text-xl font-medium text-white">{(tournament as any).tournamentName || name || 'Turnier'}</span>
                   {formattedDate && (
                     <span className="text-sm lg:text-base text-gray-400">{formattedDate}</span>
                   )}
                 </div>
               </div>
-              <span className={`text-sm lg:text-base px-2 py-0.5 rounded-full ${statusClass}`}>
-                {statusText}
+              <span className={`text-xs px-2 py-1 rounded-full ${tournamentStatus === 'completed' ? 'bg-gray-600 text-gray-300' : (tournamentStatus === 'active' ? 'bg-green-600 text-white' : 'bg-blue-500 text-white')}`}>
+                {tournamentStatus === 'completed' ? 'Abgeschlossen' : (tournamentStatus === 'active' ? 'Aktiv' : 'Anstehend')}
               </span>
             </div>
           </div>
         </Link>
       );
+      }
     }
     return null;
   };

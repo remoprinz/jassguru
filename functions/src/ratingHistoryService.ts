@@ -4,17 +4,45 @@ import { getRatingTier } from './shared/rating-tiers';
 
 const db = admin.firestore();
 
-// ✅ Interfaces für Rating-Historie
+// ✅ Interfaces für Rating-Historie V2
 export interface RatingHistoryEntry {
-  rating: number;
-  delta: number;
-  gamesPlayed: number;
-  sessionId?: string;
-  tournamentId?: string;
-  context: 'session_end' | 'tournament_end' | 'manual_recalc' | 'initial';
+  // 🔑 IDENTIFIERS
   createdAt: admin.firestore.Timestamp;
+  playerId: string;
+  groupId: string;
+  
+  // 🎮 EVENT CONTEXT
+  eventType: 'session_end' | 'tournament_passe' | 'tournament_end' | 'manual_recalc' | 'initial';
+  eventId: string;
+  
+  // 📊 SNAPSHOT (aktueller Stand NACH diesem Event)
+  rating: number;
+  gamesPlayed: number;
   tier: string;
   tierEmoji: string;
+  
+  // 🎯 DELTA (Änderungen durch dieses Event)
+  delta: {
+    rating: number;
+    striche: number;
+    games: number;
+    wins: number;
+    losses: number;
+    points: number;
+  };
+  
+  // 🔢 CUMULATIVE (Gesamtwerte bis jetzt)
+  cumulative?: {
+    striche: number;
+    wins: number;
+    losses: number;
+    points: number;
+  };
+  
+  // 🔄 BACKWARDS COMPATIBILITY
+  sessionId?: string;
+  tournamentId?: string;
+  context?: 'session_end' | 'tournament_end' | 'manual_recalc' | 'initial';
 }
 
 export interface RatingSnapshot {
@@ -22,6 +50,105 @@ export interface RatingSnapshot {
   currentRating: number;
   previousRating?: number;
   gamesPlayed: number;
+}
+
+/**
+ * 🔧 Hilfsfunktion: Berechne Gesamtstriche aus StricheRecord
+ */
+function calculateTotalStriche(stricheRecord: any): number {
+  if (!stricheRecord) return 0;
+  return (stricheRecord.berg || 0) +
+         (stricheRecord.sieg || 0) +
+         (stricheRecord.matsch || 0) +
+         (stricheRecord.schneider || 0) +
+         (stricheRecord.kontermatsch || 0);
+}
+
+/**
+ * 🔧 Hilfsfunktion: Berechne Delta-Werte aus einer Session
+ * 
+ * @param groupId - Gruppen-ID
+ * @param sessionId - Session-ID
+ * @param playerId - Spieler-ID
+ * @returns Delta-Objekt mit striche, games, wins, losses, points
+ */
+async function calculateSessionDelta(
+  groupId: string,
+  sessionId: string,
+  playerId: string
+): Promise<{
+  striche: number;
+  games: number;
+  wins: number;
+  losses: number;
+  points: number;
+}> {
+  try {
+    // Lade SessionSummary
+    const sessionRef = db.collection(`groups/${groupId}/jassGameSummaries`).doc(sessionId);
+    const sessionDoc = await sessionRef.get();
+    
+    if (!sessionDoc.exists) {
+      logger.warn(`[RatingHistory] Session ${sessionId} not found`);
+      return { striche: 0, games: 0, wins: 0, losses: 0, points: 0 };
+    }
+    
+    const session = sessionDoc.data();
+    
+    if (!session) {
+      return { striche: 0, games: 0, wins: 0, losses: 0, points: 0 };
+    }
+    
+    // Finde Team des Spielers
+    const isTopTeam = session.teams?.top?.players?.some((p: any) => p.playerId === playerId);
+    const isBottomTeam = session.teams?.bottom?.players?.some((p: any) => p.playerId === playerId);
+    
+    if (!isTopTeam && !isBottomTeam) {
+      logger.warn(`[RatingHistory] Player ${playerId} not found in session ${sessionId} teams`);
+      return { striche: 0, games: 0, wins: 0, losses: 0, points: 0 };
+    }
+    
+    const playerTeam = isTopTeam ? 'top' : 'bottom';
+    const opponentTeam = playerTeam === 'top' ? 'bottom' : 'top';
+    
+    // Berechne Striche (eigene - gegner)
+    const ownStriche = calculateTotalStriche(session.finalStriche?.[playerTeam]);
+    const opponentStriche = calculateTotalStriche(session.finalStriche?.[opponentTeam]);
+    const stricheDelta = ownStriche - opponentStriche;
+    
+    // Berechne Wins/Losses aus gameResults
+    let wins = 0;
+    let losses = 0;
+    
+    if (session.gameResults && Array.isArray(session.gameResults)) {
+      session.gameResults.forEach((game: any) => {
+        if (game.winnerTeam === playerTeam) {
+          wins++;
+        } else if (game.winnerTeam === opponentTeam) {
+          losses++;
+        }
+      });
+    }
+    
+    // Punkte
+    const points = session.finalScores?.[playerTeam] || 0;
+    
+    // Anzahl Spiele
+    const games = session.gamesPlayed || 0;
+    
+    logger.debug(`[RatingHistory] Session delta for player ${playerId}: striche=${stricheDelta}, wins=${wins}, losses=${losses}, games=${games}`);
+    
+    return {
+      striche: stricheDelta,
+      games,
+      wins,
+      losses,
+      points
+    };
+  } catch (error) {
+    logger.error(`[RatingHistory] Error calculating session delta for player ${playerId}:`, error);
+    return { striche: 0, games: 0, wins: 0, losses: 0, points: 0 };
+  }
 }
 
 /**
@@ -71,44 +198,99 @@ export async function saveRatingHistorySnapshot(
         const currentRating = currentRatingData?.rating || 100;
         const currentGamesPlayed = currentRatingData?.gamesPlayed || 0;
 
-        // Hole das letzte Historie-Entry um Delta zu berechnen
+        // Hole das letzte Historie-Entry für kumulative Werte und Rating-Delta
         const historyRef = playerRatingRef.collection('history');
         const lastHistorySnap = await historyRef
           .orderBy('createdAt', 'desc')
           .limit(1)
           .get();
 
-        let previousRating = 100; // Default Startrating (neue Skala)
+        let previousRating = 100; // Default Startrating
+        let previousCumulative = {
+          striche: 0,
+          wins: 0,
+          losses: 0,
+          points: 0
+        };
+        
         if (!lastHistorySnap.empty) {
           const lastEntry = lastHistorySnap.docs[0].data() as RatingHistoryEntry;
           previousRating = lastEntry.rating;
+          
+          // Hole kumulative Werte aus letztem Snapshot (falls vorhanden)
+          if (lastEntry.cumulative) {
+            previousCumulative = lastEntry.cumulative;
+          }
         }
 
-        const delta = currentRating - previousRating;
+        const ratingDelta = currentRating - previousRating;
 
-        // Nur speichern wenn sich Rating geändert hat oder es der erste Eintrag ist
-        if (delta !== 0 || lastHistorySnap.empty || context === 'manual_recalc') {
+        // 🆕 V2: Berechne Session-Deltas (nur bei session_end)
+        let sessionDelta = {
+          striche: 0,
+          games: 0,
+          wins: 0,
+          losses: 0,
+          points: 0
+        };
+        
+        if (context === 'session_end' && sessionId) {
+          sessionDelta = await calculateSessionDelta(groupId, sessionId, playerId);
+        }
+
+        // 🆕 V2: Berechne neue kumulative Werte
+        const newCumulative = {
+          striche: previousCumulative.striche + sessionDelta.striche,
+          wins: previousCumulative.wins + sessionDelta.wins,
+          losses: previousCumulative.losses + sessionDelta.losses,
+          points: previousCumulative.points + sessionDelta.points
+        };
+
+        // Nur speichern wenn sich Rating geändert hat, Session-Delta vorhanden ist, oder es der erste Eintrag ist
+        const hasChanges = ratingDelta !== 0 || 
+                          sessionDelta.games > 0 || 
+                          lastHistorySnap.empty || 
+                          context === 'manual_recalc';
+
+        if (hasChanges) {
           // Berechne Tier und Emoji
           const tierInfo = getRatingTier(currentRating);
           
-          // Erstelle neuen Historie-Eintrag
+          // 🆕 V2: Erstelle neuen Historie-Eintrag mit erweitertem Schema
           const historyEntry: RatingHistoryEntry = {
-            rating: currentRating,
-            delta: delta,
-            gamesPlayed: currentGamesPlayed,
-            context: context,
+            // 🔑 IDENTIFIERS
             createdAt: now,
+            playerId,
+            groupId,
+            
+            // 🎮 EVENT CONTEXT
+            eventType: context,
+            eventId: sessionId || tournamentId || 'unknown',
+            
+            // 📊 SNAPSHOT
+            rating: currentRating,
+            gamesPlayed: currentGamesPlayed,
             tier: tierInfo.name,
-            tierEmoji: tierInfo.emoji
+            tierEmoji: tierInfo.emoji,
+            
+            // 🎯 DELTA
+            delta: {
+              rating: ratingDelta,
+              striche: sessionDelta.striche,
+              games: sessionDelta.games,
+              wins: sessionDelta.wins,
+              losses: sessionDelta.losses,
+              points: sessionDelta.points
+            },
+            
+            // 🔢 CUMULATIVE
+            cumulative: newCumulative,
+            
+            // 🔄 BACKWARDS COMPATIBILITY
+            sessionId: sessionId || undefined,
+            tournamentId: tournamentId || undefined,
+            context: context
           };
-
-          // Füge kontext-spezifische Daten hinzu
-          if (sessionId) {
-            historyEntry.sessionId = sessionId;
-          }
-          if (tournamentId) {
-            historyEntry.tournamentId = tournamentId;
-          }
 
           // Nutze Timestamp als Document-ID für chronologische Sortierung
           const timestampId = now.toMillis().toString();
@@ -117,13 +299,15 @@ export async function saveRatingHistorySnapshot(
           batch.set(historyDocRef, historyEntry);
           snapshotsCreated++;
 
-          logger.info(`[RatingHistory] Queued snapshot for player ${playerId}: ${previousRating} → ${currentRating} (Δ${delta >= 0 ? '+' : ''}${delta})`, {
+          logger.info(`[RatingHistory] Queued snapshot for player ${playerId}: Rating ${previousRating} → ${currentRating} (Δ${ratingDelta >= 0 ? '+' : ''}${ratingDelta}), Striche: ${sessionDelta.striche >= 0 ? '+' : ''}${sessionDelta.striche}`, {
             tier: tierInfo.name,
             gamesPlayed: currentGamesPlayed,
-            context
+            context,
+            wins: sessionDelta.wins,
+            losses: sessionDelta.losses
           });
         } else {
-          logger.debug(`[RatingHistory] Skipping snapshot for player ${playerId} - no rating change (${currentRating})`);
+          logger.debug(`[RatingHistory] Skipping snapshot for player ${playerId} - no changes (Rating: ${currentRating})`);
         }
       } catch (playerError) {
         logger.error(`[RatingHistory] Error processing player ${playerId}:`, playerError);

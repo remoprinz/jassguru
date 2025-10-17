@@ -5,6 +5,7 @@ import { updatePlayerStats } from './playerStatsCalculator'; // NEU: Import der 
 import { updateGroupComputedStatsAfterSession } from './groupStatsCalculator'; // NEU: Import für Gruppenstatistiken
 import { updateEloForSession } from './jassEloUpdater'; // NEU: Elo-Update
 import { saveRatingHistorySnapshot } from './ratingHistoryService'; // 🆕 Rating-Historie
+import { saveChartDataSnapshot } from './chartDataService'; // 🎯 Pre-computed Chart Data
 
 const db = admin.firestore();
 
@@ -899,6 +900,15 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
       logger.info(`[finalizeSession] Rating history snapshot completed for session ${sessionId}`);
     } catch (e) {
       logger.error(`[finalizeSession] Rating history snapshot failed for session ${sessionId}:`, e);
+    }
+
+    // 🎯 Pre-computed Chart Data für sofortige PWA-Performance
+    try {
+      logger.info(`[finalizeSession] Calculating chart data for group ${groupId}`);
+      await saveChartDataSnapshot(groupId);
+      logger.info(`[finalizeSession] Chart data calculation completed for group ${groupId}`);
+    } catch (e) {
+      logger.error(`[finalizeSession] Chart data calculation failed for group ${groupId}:`, e);
     }
 
     // ✅ KRITISCHE KORREKTUR: Gruppenstatistiken nach erfolgreicher Session-Finalisierung aktualisieren

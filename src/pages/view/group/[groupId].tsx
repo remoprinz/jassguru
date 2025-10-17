@@ -17,13 +17,12 @@ import type {
 } from '@/types/jass';
 import type { TournamentInstance } from '@/types/tournament';
 import { subscribeToGroupStatistics, GroupStatistics } from '@/services/statisticsService';
-import { DEFAULT_SCORE_SETTINGS } from '@/config/ScoreSettings';
-import { DEFAULT_FARBE_SETTINGS } from '@/config/FarbeSettings';
-import { DEFAULT_STROKE_SETTINGS } from '@/config/GameSettings';
+
 import { THEME_COLORS } from '@/config/theme';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import ProfileImage from '@/components/ui/ProfileImage';
+import AvatarPreloader from '@/components/ui/AvatarPreloader';
 import { CheckCircle, XCircle, MinusCircle, Award as AwardIcon } from 'lucide-react';
 
 // Typ-Guard für Firestore Timestamp
@@ -85,6 +84,95 @@ const PublicGroupPage = () => {
 
   // 🚀 PERFORMANCE-OPTIMIERUNG: Member-Map für schnellen Zugriff
   const memberMap = useMemberMap(members);
+
+  // 🔥 Sammle alle Photo-URLs, die im UI auftauchen, damit der Preloader sie dekodieren kann
+  const groupAvatarPhotoURLs = useMemo(() => {
+    const urls: (string | undefined | null)[] = [];
+
+    // Mitglieder
+    if (members) {
+      urls.push(...members.map((m) => m.photoURL));
+    }
+
+    // Statistiken: Elo (playerRatings)
+    // playerRatings.forEach((rating) => {
+    //   if (!rating?.id) return;
+    //   const member = members?.find((m) => (m.id || m.userId) === rating.id);
+    //   if (member?.photoURL) {
+    //     urls.push(member.photoURL);
+    //   }
+    // });
+
+    const pushMemberPhotoByName = (playerName?: string, fallbackId?: string) => {
+      if (!playerName && !fallbackId) return;
+      const normalizedName = playerName?.toLowerCase();
+      const member = members?.find((m) => {
+        const matchById = fallbackId && (m.id === fallbackId || m.userId === fallbackId);
+        if (matchById) return true;
+        const displayName = m.displayName?.toLowerCase();
+        return normalizedName && displayName === normalizedName;
+      });
+      if (member?.photoURL) {
+        urls.push(member.photoURL);
+      }
+    };
+
+    const safeStatsArray = <T extends { playerName?: string; playerId?: string; names?: string[]; }>(arr?: T[]) => Array.isArray(arr) ? arr : [];
+
+    safeStatsArray(groupStats?.playerAllRoundTimes).forEach((stat) => {
+      pushMemberPhotoByName(stat.playerName, stat.playerId);
+    });
+
+    safeStatsArray(groupStats?.playerWithHighestStricheDiff).forEach((stat) => {
+      pushMemberPhotoByName(stat.playerName, stat.playerId);
+    });
+
+    safeStatsArray(groupStats?.playerWithHighestPointsDiff).forEach((stat) => {
+      pushMemberPhotoByName(stat.playerName, stat.playerId);
+    });
+
+    safeStatsArray(groupStats?.playerWithHighestWinRateSession).forEach((stat) => {
+      pushMemberPhotoByName(stat.playerName, stat.playerId);
+    });
+
+    safeStatsArray(groupStats?.playerWithHighestWinRateGame).forEach((stat) => {
+      pushMemberPhotoByName(stat.playerName, stat.playerId);
+    });
+
+    safeStatsArray(groupStats?.playerWithHighestMatschBilanz).forEach((stat) => {
+      pushMemberPhotoByName(stat.playerName, stat.playerId);
+    });
+
+    safeStatsArray(groupStats?.playerWithHighestSchneiderBilanz).forEach((stat) => {
+      pushMemberPhotoByName(stat.playerName, stat.playerId);
+    });
+
+    safeStatsArray(groupStats?.playerWithHighestKontermatschBilanz).forEach((stat) => {
+      pushMemberPhotoByName(stat.playerName, stat.playerId);
+    });
+
+    safeStatsArray(groupStats?.playerWithMostWeisPointsAvg).forEach((stat) => {
+      pushMemberPhotoByName(stat.playerName, stat.playerId);
+    });
+
+    const collectTeamPhotos = (teams?: { names: string[] }[]) => {
+      safeStatsArray(teams).forEach((team) => {
+        team.names?.forEach((name) => pushMemberPhotoByName(name));
+      });
+    };
+
+    collectTeamPhotos(groupStats?.teamWithHighestStricheDiff);
+    collectTeamPhotos(groupStats?.teamWithHighestPointsDiff);
+    collectTeamPhotos(groupStats?.teamWithHighestWinRateSession);
+    collectTeamPhotos(groupStats?.teamWithHighestWinRateGame);
+    collectTeamPhotos(groupStats?.teamWithHighestMatschBilanz || groupStats?.teamWithHighestMatschRate);
+    collectTeamPhotos(groupStats?.teamWithHighestSchneiderBilanz || groupStats?.teamWithHighestSchneiderRate);
+    collectTeamPhotos(groupStats?.teamWithHighestKontermatschBilanz || groupStats?.teamWithHighestKontermatschRate);
+    collectTeamPhotos(groupStats?.teamWithMostWeisPointsAvg);
+    collectTeamPhotos(groupStats?.teamWithFastestRounds);
+
+    return Array.from(new Set(urls.filter((url): url is string => typeof url === 'string' && url.trim() !== '')));
+  }, [members, groupStats]);
 
   // ===== THEME SYSTEM =====
   const groupTheme = currentGroup?.theme || 'yellow';
@@ -219,12 +307,8 @@ const PublicGroupPage = () => {
           setTournamentsLoading(true);
           setTournamentsError(null);
       try {
-        const tournaments = await fetchTournamentInstancesForGroup(currentGroup.id);
-        setGroupTournaments(tournaments.filter(t => 
-          t.status === 'active' || 
-          t.status === 'upcoming' || 
-          t.status === 'completed'
-        )); 
+        // 🚨 KEINE TURNIER-INSTANZEN MEHR: Nur Turnier-Sessions aus jassGameSummaries
+        setGroupTournaments([]); 
       } catch (error) {
         console.error("Fehler beim Laden der Gruppen-Turniere:", error);
         setTournamentsError('Turniere konnten nicht geladen werden.');
@@ -238,52 +322,83 @@ const PublicGroupPage = () => {
 
   // ===== ARCHIV-KOMBINIERUNG =====
   const combinedArchiveItems = useMemo(() => {
-    const filteredUserSessions = currentGroup
-      ? completedSessions.filter(session => 
-          session.groupId === currentGroup.id && 
-          (session.status === 'completed' || session.status === 'completed_empty') &&
-          !session.tournamentId
-        )
-      : [];
+    // 🎯 IDENTISCH ZU GROUPVIEW: Trennung zwischen normalen Sessions und Turnier-Sessions
+    // ✅ KORRIGIERT: fetchAllGroupSessions lädt bereits gruppenspezifische Sessions, kein zusätzlicher Filter nötig!
+    const allGroupSessions = completedSessions.filter(session => 
+      (session.status === 'completed' || session.status === 'completed_empty')
+    );
+    
+    const normalSessions = allGroupSessions.filter(session => !session.tournamentId);
+    const tournamentSessions = allGroupSessions.filter(session => session.tournamentId);
 
-    const sessionsWithType: ArchiveItemType[] = filteredUserSessions.map(s => ({ ...s, type: 'session' }));
-    const tournamentsWithType: ArchiveItemType[] = groupTournaments.map(t => ({ ...t, type: 'tournament' }));
+    const sessionsWithType: ArchiveItemType[] = normalSessions.map(s => ({ ...s, type: 'session' }));
+    
+    // 🎯 IDENTISCH ZU GROUPVIEW: Turnier-Sessions als type: 'tournament' markieren
+    const tournamentSessionsWithType: ArchiveItemType[] = tournamentSessions.map(s => ({ ...s, type: 'tournament' } as any));
+    
+    // 🎯 IDENTISCH ZU GROUPVIEW: Nur echte Tournament-Instances hinzufügen, die NICHT bereits als Sessions existieren
+    const tournamentIdsFromSessions = new Set(tournamentSessions.map(s => s.tournamentId).filter(Boolean));
+    const uniqueTournaments = groupTournaments.filter(t => !tournamentIdsFromSessions.has(t.id));
+    const tournamentsWithType: ArchiveItemType[] = uniqueTournaments.map(t => ({ ...t, type: 'tournament' }));
 
-    const combined = [...sessionsWithType, ...tournamentsWithType];
+    const combined = [...sessionsWithType, ...tournamentSessionsWithType, ...tournamentsWithType];
 
     combined.sort((a, b) => {
+      // 🎯 IDENTISCH ZU GROUPVIEW: Einheitliche Datums-Extraktion für alle Typen
       let dateAValue: number | Timestamp | FieldValue | undefined | null;
       let dateBValue: number | Timestamp | FieldValue | undefined | null;
 
       if (a.type === 'session') {
         dateAValue = a.startedAt;
-      } else { 
-        dateAValue = a.instanceDate ?? a.createdAt;
+      } else if ('tournamentId' in a && 'startedAt' in a) {
+        // Turnier-Session: verwende startedAt
+        dateAValue = (a as any).startedAt;
+      } else {
+        // Echte Tournament-Instance: Enddatum bevorzugen
+        dateAValue = (a as any).finalizedAt ?? (a as any).instanceDate ?? (a as any).createdAt;
       }
 
       if (b.type === 'session') {
         dateBValue = b.startedAt;
-      } else { 
-        dateBValue = b.instanceDate ?? b.createdAt;
+      } else if ('tournamentId' in b && 'startedAt' in b) {
+        // Turnier-Session: verwende startedAt
+        dateBValue = (b as any).startedAt;
+      } else {
+        // Echte Tournament-Instance: Enddatum bevorzugen
+        dateBValue = (b as any).finalizedAt ?? (b as any).instanceDate ?? (b as any).createdAt;
       }
 
       const timeA = isFirestoreTimestamp(dateAValue) ? dateAValue.toMillis() :
-                    (typeof dateAValue === 'number' ? dateAValue : 0);
+                    (typeof dateAValue === 'number' ? dateAValue :
+                    (dateAValue && typeof (dateAValue as Timestamp).isEqual === 'function') ? Date.now() : 0);
       
       const timeB = isFirestoreTimestamp(dateBValue) ? dateBValue.toMillis() :
-                    (typeof dateBValue === 'number' ? dateBValue : 0);
+                    (typeof dateBValue === 'number' ? dateBValue :
+                    (dateBValue && typeof (dateBValue as Timestamp).isEqual === 'function') ? Date.now() : 0);
 
+      // 🎯 IDENTISCH ZU GROUPVIEW: Absteigende Sortierung (neueste zuerst)
       return timeB - timeA;
     });
 
     return combined;
-  }, [completedSessions, groupTournaments, currentGroup?.id]);
+  }, [completedSessions, groupTournaments]);
 
   const groupedArchiveByYear = combinedArchiveItems.reduce<Record<string, ArchiveItemType[]>>((acc, item) => {
-    const dateToSort = item.type === 'session' ? item.startedAt : (item.instanceDate ?? item.createdAt);
+    // 🎯 IDENTISCH ZU GROUPVIEW: Für Turnier-Sessions auch startedAt verwenden
+    let dateToSort;
+    if (item.type === 'session') {
+      dateToSort = item.startedAt;
+    } else if ('tournamentId' in item && 'startedAt' in item) {
+      // Turnier-Session: verwende startedAt
+      dateToSort = (item as any).startedAt;
+    } else {
+      // Echte Tournament-Instance: Enddatum bevorzugen
+      dateToSort = (item as any).finalizedAt ?? (item as any).instanceDate ?? (item as any).createdAt;
+    }
+    
     const year = isFirestoreTimestamp(dateToSort) ? dateToSort.toDate().getFullYear().toString() :
                  (typeof dateToSort === 'number' ? new Date(dateToSort).getFullYear().toString() :
-                 'Unbekannt');
+                 '2025'); // Fallback zu 2025 statt 'Unbekannt'
     if (!acc[year]) {
       acc[year] = [];
     }
@@ -295,7 +410,41 @@ const PublicGroupPage = () => {
 
   // ===== ARCHIV ITEM RENDERER =====
   const renderArchiveItem = useCallback((item: ArchiveItemType) => {
-    if (item.type === 'session') {
+    // 🎯 EXAKT WIE STARTPAGE: Prüfe ZUERST den Typ, dann ob es eine Turnier-Session ist
+    if (item.type === 'tournament') {
+      const isTournamentSession = 'tournamentId' in item && 'startedAt' in item;
+      
+      if (isTournamentSession) {
+      // Dies ist ein jassGameSummary mit tournamentId (Turnier-Session)
+      const session = item as any;
+      const tournamentId = session.tournamentId;
+      // 🚨 ENDDATUM: endedAt ist das korrekte Enddatum aus jassGameSummaries
+      const rawDate: any = (session as any).endedAt ?? null;
+      const displayDate = rawDate instanceof Timestamp ? rawDate.toDate() : (typeof rawDate === 'number' ? new Date(rawDate) : null);
+      const formattedDate = displayDate ? format(displayDate, 'dd.MM.yyyy') : null;
+      
+      return (
+        <Link href={`/view/tournament/${tournamentId}`} key={`tournament-${tournamentId}`} passHref>
+          <div className="px-3 py-2 lg:px-6 lg:py-3 bg-purple-900/30 rounded-lg hover:bg-purple-800/40 transition-colors duration-150 cursor-pointer mb-2 border border-purple-700/50">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center space-x-3">
+                <AwardIcon className="w-6 h-6 lg:w-8 lg:h-8 text-purple-400 flex-shrink-0" />
+                <div className="flex flex-col">
+                  <span className="text-base lg:text-xl font-medium text-white">{(session as any).tournamentName || 'Turnier'}</span>
+                  {formattedDate && (
+                    <span className="text-sm lg:text-base text-gray-400">{formattedDate}</span>
+                  )}
+                </div>
+              </div>
+              <span className="text-xs px-2 py-1 rounded-full bg-gray-600 text-gray-300">
+                Abgeschlossen
+              </span>
+            </div>
+          </div>
+        </Link>
+      );
+      }
+    } else if (item.type === 'session') {
       const session = item;
       const { id, startedAt, playerNames, finalScores, status: sessionStatus, finalStriche: sessionFinalStriche } = session; 
 
@@ -334,6 +483,24 @@ const PublicGroupPage = () => {
                          (typeof displayDateValue === 'number' ? new Date(displayDateValue) : null);
       const formattedDate = displayDate ? format(displayDate, 'dd.MM.yy, HH:mm') : 'Unbekannt';
 
+      // 🚨 ENDGÜLTIG FIX: Spieler-IDs aus der KORREKTEN teams.teamA/teamB-Struktur extrahieren
+      const teamAPlayer1Id = session.teams?.teamA?.players?.[0]?.playerId;
+      const teamAPlayer2Id = session.teams?.teamA?.players?.[1]?.playerId;
+      const teamBPlayer1Id = session.teams?.teamB?.players?.[0]?.playerId;
+      const teamBPlayer2Id = session.teams?.teamB?.players?.[1]?.playerId;
+
+      // 🚨 ENDGÜLTIG FIX: Spieler-Objekte anhand der playerId suchen
+      const teamAPlayer1 = members?.find(m => m.id === teamAPlayer1Id || m.userId === teamAPlayer1Id);
+      const teamAPlayer2 = members?.find(m => m.id === teamAPlayer2Id || m.userId === teamAPlayer2Id);
+      const teamBPlayer1 = members?.find(m => m.id === teamBPlayer1Id || m.userId === teamBPlayer1Id);
+      const teamBPlayer2 = members?.find(m => m.id === teamBPlayer2Id || m.userId === teamBPlayer2Id);
+
+      // Fallback-Namen, falls Spieler nicht gefunden werden
+      const player1Name = teamAPlayer1?.displayName || playerNames['1'] || 'Spieler 1';
+      const player3Name = teamAPlayer2?.displayName || playerNames['3'] || 'Spieler 3';
+      const player2Name = teamBPlayer1?.displayName || playerNames['2'] || 'Spieler 2';
+      const player4Name = teamBPlayer2?.displayName || playerNames['4'] || 'Spieler 4';
+
       return (
         <Link href={`/view/session/public/${id}?groupId=${currentGroup?.id || groupId}`} key={`session-${id}`} passHref>
           <div className="px-3 py-2 md:px-4 md:py-2.5 lg:px-6 lg:py-3 bg-gray-700/50 rounded-lg hover:bg-gray-600/50 transition-colors duration-150 cursor-pointer mb-2">
@@ -356,27 +523,27 @@ const PublicGroupPage = () => {
                   {/* 🎨 AVATAR-PAIR: Wie im GroupView Teams-Tab */}
                   <div className="flex mr-2">
                     <ProfileImage
-                      src={members?.find(m => m.displayName === playerNames['1'])?.photoURL}
-                      alt={playerNames['1'] || 'Spieler'}
+                      src={teamAPlayer1?.photoURL}
+                      alt={player1Name}
                       size="sm"
                       className="border-2 border-gray-800"
                       style={{ zIndex: 1 }}
                       fallbackClassName="bg-gray-700 text-gray-300 text-xs"
-                      fallbackText={playerNames['1']?.charAt(0).toUpperCase() || '?'}
+                      fallbackText={player1Name.charAt(0).toUpperCase()}
                       context="list"
                     />
                     <ProfileImage
-                      src={members?.find(m => m.displayName === playerNames['3'])?.photoURL}
-                      alt={playerNames['3'] || 'Spieler'}
+                      src={teamAPlayer2?.photoURL}
+                      alt={player3Name}
                       size="sm"
                       className="border-2 border-gray-800 -ml-2"
                       style={{ zIndex: 0 }}
                       fallbackClassName="bg-gray-700 text-gray-300 text-xs"
-                      fallbackText={playerNames['3']?.charAt(0).toUpperCase() || '?'}
+                      fallbackText={player3Name.charAt(0).toUpperCase()}
                       context="list"
                     />
                   </div>
-                  <span className="text-sm text-gray-300 truncate pr-2">{playerNames['1'] || '?'} & {playerNames['3'] || '?'}</span>
+                  <span className="text-sm text-gray-300 truncate pr-2">{player1Name} & {player3Name}</span>
                 </div>
                 <span className="text-lg font-medium text-white">{totalStricheBottom !== null ? totalStricheBottom : '-'}</span>
               </div>
@@ -387,27 +554,27 @@ const PublicGroupPage = () => {
                   {/* 🎨 AVATAR-PAIR: Wie im GroupView Teams-Tab */}
                   <div className="flex mr-2">
                     <ProfileImage
-                      src={members?.find(m => m.displayName === playerNames['2'])?.photoURL}
-                      alt={playerNames['2'] || 'Spieler'}
+                      src={teamBPlayer1?.photoURL}
+                      alt={player2Name}
                       size="sm"
                       className="border-2 border-gray-800"
                       style={{ zIndex: 1 }}
                       fallbackClassName="bg-gray-700 text-gray-300 text-xs"
-                      fallbackText={playerNames['2']?.charAt(0).toUpperCase() || '?'}
+                      fallbackText={player2Name.charAt(0).toUpperCase()}
                       context="list"
                     />
                     <ProfileImage
-                      src={members?.find(m => m.displayName === playerNames['4'])?.photoURL}
-                      alt={playerNames['4'] || 'Spieler'}
+                      src={teamBPlayer2?.photoURL}
+                      alt={player4Name}
                       size="sm"
                       className="border-2 border-gray-800 -ml-2"
                       style={{ zIndex: 0 }}
                       fallbackClassName="bg-gray-700 text-gray-300 text-xs"
-                      fallbackText={playerNames['4']?.charAt(0).toUpperCase() || '?'}
+                      fallbackText={player4Name.charAt(0).toUpperCase()}
                       context="list"
                     />
                   </div>
-                  <span className="text-sm text-gray-300 truncate pr-2">{playerNames['2'] || '?'} & {playerNames['4'] || '?'}</span>
+                  <span className="text-sm text-gray-300 truncate pr-2">{player2Name} & {player4Name}</span>
                 </div>
                 <span className="text-lg font-medium text-white">{totalStricheTop !== null ? totalStricheTop : '-'}</span>
               </div>
@@ -416,34 +583,46 @@ const PublicGroupPage = () => {
         </Link>
       );
     } else if (item.type === 'tournament') {
-      const tournament = item;
-      const { id, name, instanceDate, status: tournamentStatus } = tournament;
-      const displayDate = instanceDate instanceof Timestamp ? instanceDate.toDate() : (typeof instanceDate === 'number' ? new Date(instanceDate) : null);
-      const formattedDate = displayDate ? format(displayDate, 'dd.MM.yyyy') : null;
-
-      return (
-        <Link href={`/view/tournament/${id}`} key={`tournament-${id}`} passHref>
-          <div className="px-3 py-2 md:px-4 md:py-2.5 lg:px-6 lg:py-3 bg-purple-900/30 rounded-lg hover:bg-purple-800/40 transition-colors duration-150 cursor-pointer mb-2 border border-purple-700/50">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center space-x-3">
-                <AwardIcon className="w-6 h-6 md:w-7 md:h-7 lg:w-9 lg:h-9 text-purple-400 flex-shrink-0" />
-                <div className="flex flex-col">
-                  <span className="text-base md:text-lg lg:text-xl font-medium text-white">{name}</span>
-                  {formattedDate && (
-                    <span className="text-base md:text-lg lg:text-xl text-gray-400">{formattedDate}</span>
-                  )}
+      // 🎯 IDENTISCH ZU GROUPVIEW: Unterscheidung zwischen Turnier-Instanz und Turnier-Session
+      const isTournamentSession = 'tournamentId' in item && 'startedAt' in item;
+      
+      if (isTournamentSession) {
+        // Dies ist ein jassGameSummary mit tournamentId (Turnier-Session)
+        const session = item as any;
+        const tournamentId = session.tournamentId;
+        // 🚨 NUR ENDDATUM: finalizedAt ist das korrekte Enddatum
+        const rawDate: any = (session as any).finalizedAt ?? null;
+        const displayDate = rawDate instanceof Timestamp ? rawDate.toDate() : (typeof rawDate === 'number' ? new Date(rawDate) : null);
+        
+        const formattedDate = displayDate ? format(displayDate, 'dd.MM.yyyy') : null;
+        
+        // Versuche Tournament-Name aus groupTournaments zu laden
+        const tournamentName = groupTournaments.find((t: any) => t.id === tournamentId)?.name || 'Turnier';
+        
+        return (
+          <Link href={`/view/tournament/${tournamentId}`} key={`tournament-session-${session.id}`} passHref>
+            <div className="px-3 py-2 lg:px-6 lg:py-3 bg-purple-900/30 rounded-lg hover:bg-purple-800/40 transition-colors duration-150 cursor-pointer mb-2 border border-purple-700/50">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center space-x-3">
+                  <AwardIcon className="w-6 h-6 lg:w-8 lg:h-8 text-purple-400 flex-shrink-0" />
+                  <div className="flex flex-col">
+                    <span className="text-base lg:text-xl font-medium text-white">{tournamentName}</span>
+                    {formattedDate && (
+                      <span className="text-sm lg:text-base text-gray-400">{formattedDate}</span>
+                    )}
+                  </div>
                 </div>
+                <span className={`text-xs px-2 py-1 rounded-full bg-gray-600 text-gray-300`}>
+                  Abgeschlossen
+                </span>
               </div>
-              <span className={`text-base md:text-lg lg:text-xl px-2 py-0.5 rounded-full ${tournamentStatus === 'completed' ? 'bg-gray-600 text-gray-300' : (tournamentStatus === 'active' ? 'bg-green-600 text-white' : 'bg-blue-500 text-white')}`}>
-                {tournamentStatus === 'completed' ? 'Abgeschlossen' : (tournamentStatus === 'active' ? 'Aktiv' : 'Anstehend')}
-              </span>
             </div>
-          </div>
-        </Link>
-      );
+          </Link>
+        );
+      }
     }
     return null;
-  }, [currentGroup?.id]);
+  }, [currentGroup?.id, members]);
 
   // ===== TAB HANDLING =====
   const { mainTab, statsSubTab } = router.query;
@@ -503,7 +682,13 @@ const PublicGroupPage = () => {
 
   // ===== VOLLSTÄNDIGE ÖFFENTLICHE ANSICHT MIT GROUPVIEW =====
   return (
-    <GroupView 
+    <>
+      {/* 🚀 AVATAR PRELOADER: Lädt alle relevanten Avatare unsichtbar vor */}
+      {groupAvatarPhotoURLs.length > 0 && (
+        <AvatarPreloader photoURLs={groupAvatarPhotoURLs} />
+      )}
+      
+      <GroupView 
       // ===== GUEST-PROPS (ÖFFENTLICHE ANSICHT) =====
       currentGroup={currentGroup}
       user={null} // Kein User in öffentlicher Ansicht
@@ -576,6 +761,7 @@ const PublicGroupPage = () => {
       isGeneratingInvite={false}
       handleGenerateNewInvite={noOpFunction}
     />
+    </>
   );
 };
 
