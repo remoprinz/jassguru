@@ -261,7 +261,7 @@ export const fetchCompletedSessionsForPlayer = async (playerId: string): Promise
     // 4. Sortierung nach startedAt absteigend
     allSessions.sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0));
     
-    console.log(`[fetchCompletedSessionsForPlayer] Found ${allSessions.length} sessions for player: ${playerId} across ${groupIds.length} groups`);
+    // console.log(`[fetchCompletedSessionsForPlayer] Found ${allSessions.length} sessions for player: ${playerId} across ${groupIds.length} groups`);
     return allSessions;
   } catch (error) {
     console.error(`[fetchCompletedSessionsForPlayer] Error fetching sessions for player ${playerId}:`, error);

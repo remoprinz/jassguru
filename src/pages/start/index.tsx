@@ -361,12 +361,13 @@ const StartPage = () => {
           setSessionsLoading(false);
         }
 
-        // Turniere der Gruppe laden (bleibt unverändert)
+        // Turniere der Gruppe laden
         setTournamentsLoading(true);
         setTournamentsError(null);
         try {
-          // 🚨 KEINE TURNIER-INSTANZEN MEHR: Nur Turnier-Sessions aus jassGameSummaries
-          setGroupTournaments([]);
+          // ✅ TURNIERE WIEDER LADEN: Alle Turniere (inklusive unterbrochene)
+          const tournaments = await fetchTournamentInstancesForGroup(currentGroup.id);
+          setGroupTournaments(tournaments);
         } catch (error) {
           console.error("Fehler beim Laden der Gruppen-Turniere:", error);
           const message = error instanceof Error ? error.message : "Turniere konnten nicht geladen werden.";
@@ -508,7 +509,7 @@ const StartPage = () => {
               const isRealGame = hasGameContent || hasGameActivity;
               
               if (!isRealGame) {
-                console.log(`[StartPage] ⚠️ EMPTY GAME DETECTED: Game ${gameId} appears to be empty, marking as aborted and skipping`);
+                // Empty game detected
                 
                 // Markiere das leere Spiel als aborted (aber warte nicht darauf)
                 import('@/services/gameService').then(({ updateGameStatus }) => {
@@ -564,9 +565,7 @@ const StartPage = () => {
           }
           
           // No active games found, clear any stored ID
-          if (process.env.NODE_ENV === 'development') {
-            console.log(`[StartPage] No resumable games found for user ${user.uid}`);
-          }
+          // No resumable games found
                     clearResumableGameId();
           try {
             sessionStorage.removeItem(`resumableGameId_${user.uid}`);
@@ -675,7 +674,7 @@ const StartPage = () => {
                   const isRealGame = hasGameContent || hasGameActivity;
                   
                   if (!isRealGame) {
-                    console.log(`[StartPage] Real-time: Empty game ${gameId} detected (no content AND no activity), marking as aborted`);
+                    // Empty game detected
                     
                     // Markiere als aborted
                     import('@/services/gameService').then(({ updateGameStatus }) => {
@@ -704,9 +703,7 @@ const StartPage = () => {
                   }
                 }
               } else {
-                if (process.env.NODE_ENV === 'development') {
-                  console.log(`[StartPage] Real-time update: No resumable games found`);
-                }
+                // Real-time update processed
               clearResumableGameId();
                 try {
                   sessionStorage.removeItem(`resumableGameId_${user.uid}`);
@@ -715,9 +712,7 @@ const StartPage = () => {
                 }
               }
             } else {
-              if (process.env.NODE_ENV === 'development') {
-                console.log(`[StartPage] Real-time update: No active games found`);
-              }
+              // Real-time update processed
           clearResumableGameId();
               try {
                 sessionStorage.removeItem(`resumableGameId_${user.uid}`);
@@ -1402,28 +1397,19 @@ const StartPage = () => {
   };
 
   const combinedArchiveItems = useMemo(() => {
-    // 🎯 KORRIGIERT: Trennung zwischen normalen Sessions und Turnier-Sessions
+    // ✅ FILTER: Nur normale Sessions (OHNE tournamentId UND OHNE isTournamentSession)
     const normalSessions = completedSessions.filter(session => 
       (session.status === 'completed' || session.status === 'completed_empty') &&
-      !session.tournamentId // Nur normale Sessions (OHNE tournamentId)
-    );
-    
-    const tournamentSessions = completedSessions.filter(session =>
-      (session.status === 'completed' || session.status === 'completed_empty') &&
-      session.tournamentId // Sessions die Teil eines Turniers sind
+      !session.tournamentId && // Keine Turnier-Sessions
+      !session.isTournamentSession // Keine jassGameSummaries mit isTournamentSession: true
     );
 
     const sessionsWithType: ArchiveItem[] = normalSessions.map(s => ({ ...s, type: 'session' }));
     
-    // 🎯 KORRIGIERT: Turnier-Sessions als type: 'tournament' markieren
-    const tournamentSessionsWithType: ArchiveItem[] = tournamentSessions.map(s => ({ ...s, type: 'tournament' }));
-    
-    // 🎯 KORRIGIERT: Nur echte Tournament-Instances hinzufügen, die NICHT bereits als Sessions existieren
-    const tournamentIdsFromSessions = new Set(tournamentSessions.map(s => s.tournamentId).filter(Boolean));
-    const uniqueTournaments = groupTournaments.filter(t => !tournamentIdsFromSessions.has(t.id));
-    const tournamentsWithType: ArchiveItem[] = uniqueTournaments.map(t => ({ ...t, type: 'tournament' }));
+    // ✅ ALLE TURNIERE: Zeige alle Tournament-Instances (inklusive unterbrochene)
+    const tournamentsWithType: ArchiveItem[] = groupTournaments.map(t => ({ ...t, type: 'tournament' }));
 
-    const combined = [...sessionsWithType, ...tournamentSessionsWithType, ...tournamentsWithType];
+    const combined = [...sessionsWithType, ...tournamentsWithType];
 
     combined.sort((a, b) => {
       // 🎯 KORRIGIERT: Einheitliche Datums-Extraktion für alle Typen
@@ -1696,9 +1682,20 @@ const StartPage = () => {
         // Dies ist eine echte TournamentInstance aus tournaments Collection
         const tournament = item;
         const { id, name, instanceDate, status: tournamentStatus } = tournament;
-        // 🚨 ENDDATUM: endedAt ist das korrekte Enddatum aus jassGameSummaries
-        const rawDate: any = (tournament as any).endedAt ?? null;
-        const displayDate = rawDate instanceof Timestamp ? rawDate.toDate() : (typeof rawDate === 'number' ? new Date(rawDate) : null);
+        // ✅ ROBUSTE DATUMS-LÖSUNG: Fallback-Kette für verschiedene Datumstypen
+        let displayDate = null;
+        
+        if (instanceDate && isFirestoreTimestamp(instanceDate)) {
+          // 1. Priorität: instanceDate (Turnier-Datum)
+          displayDate = instanceDate.toDate();
+        } else if ((tournament as any).createdAt && isFirestoreTimestamp((tournament as any).createdAt)) {
+          // 2. Fallback: createdAt (Erstellungsdatum)
+          displayDate = (tournament as any).createdAt.toDate();
+        } else if (tournamentStatus === 'completed' && (tournament as any).completedAt && isFirestoreTimestamp((tournament as any).completedAt)) {
+          // 3. Fallback für abgeschlossene: completedAt
+          displayDate = (tournament as any).completedAt.toDate();
+        }
+        
         const formattedDate = displayDate ? format(displayDate, 'dd.MM.yyyy') : null;
 
         return (
@@ -1714,8 +1711,23 @@ const StartPage = () => {
                     )}
                   </div>
                 </div>
-                <span className={`text-sm lg:text-base px-2 py-0.5 rounded-full ${tournamentStatus === 'completed' ? 'bg-gray-600 text-gray-300' : (tournamentStatus === 'active' ? 'bg-green-600 text-white' : 'bg-blue-500 text-white')}`}>
-                  {tournamentStatus === 'completed' ? 'Abgeschlossen' : (tournamentStatus === 'active' ? 'Aktiv' : 'Anstehend')}
+                <span className={`text-sm lg:text-base px-2 py-0.5 rounded-full ${
+                  tournamentStatus === 'completed' 
+                    ? 'bg-gray-600 text-gray-300' 
+                    : tournamentStatus === 'active' 
+                      ? (tournament as any).pausedAt 
+                        ? 'bg-yellow-600 text-white' 
+                        : 'bg-green-600 text-white'
+                      : 'bg-blue-500 text-white'
+                }`}>
+                  {tournamentStatus === 'completed' 
+                    ? 'Abgeschlossen' 
+                    : tournamentStatus === 'active' 
+                      ? (tournament as any).pausedAt 
+                        ? 'Pausiert' 
+                        : 'Aktiv'
+                      : 'Anstehend'
+                  }
                 </span>
               </div>
             </div>

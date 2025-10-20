@@ -94,35 +94,52 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
 
   // Actions
   startJassTimer: () => {
+    const now = Date.now();
+    const state = get();
+    
+    // ✅ FIX: Verwende Game-time für Konsistenz
+    const gameTime = now - state.totalPausedTime;
+    
     set((state) => ({
       ...state,
-      jassStartTime: Date.now(),
+      jassStartTime: gameTime,
       history: {
         ...state.history,
-        jass: [...state.history.jass, {startTime: Date.now()}],
+        jass: [...state.history.jass, {startTime: gameTime}],
       },
     }));
   },
 
   startGameTimer: () => {
+    const now = Date.now();
+    const state = get();
+    
+    // ✅ FIX: Verwende Game-time für Konsistenz
+    const gameTime = now - state.totalPausedTime;
+    
     set((state) => ({
       ...state,
-      gameStartTime: Date.now(),
+      gameStartTime: gameTime,
       history: {
         ...state.history,
-        games: [...state.history.games, {startTime: Date.now()}],
+        games: [...state.history.games, {startTime: gameTime}],
       },
     }));
   },
 
   startRoundTimer: () => {
     const now = Date.now();
+    const state = get();
+    
+    // ✅ FIX: Verwende Game-time statt Real-time für Konsistenz
+    const gameTime = now - state.totalPausedTime;
+    
     set((state) => ({
       ...state,
-      roundStartTime: now,
+      roundStartTime: gameTime,
       history: {
         ...state.history,
-        rounds: [...state.history.rounds, {startTime: now}],
+        rounds: [...state.history.rounds, {startTime: gameTime}],
       },
     }));
   },
@@ -375,14 +392,17 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
 
       // WICHTIG: jassStartTime beibehalten, falls bereits gesetzt
       const existingJassStartTime = state.jassStartTime;
+      
+      // ✅ FIX: Verwende Game-time für Konsistenz
+      const gameTime = now - state.totalPausedTime;
 
       return {
         ...state,
         gameTimers: newTimers,
         activeGameId: gameId,
         // Diese beiden Timer IMMER aktualisieren, wie bei "Neues Spiel"
-        gameStartTime: now,
-        roundStartTime: now,
+        gameStartTime: gameTime,
+        roundStartTime: gameTime,
         // jassStartTime NICHT überschreiben, wenn bereits gesetzt
         jassStartTime: existingJassStartTime,
         // Pausenstatus zurücksetzen
@@ -429,12 +449,15 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
       // WICHTIG: jassStartTime beibehalten
       const existingJassStartTime = state.jassStartTime;
 
+      // ✅ FIX: Verwende Game-time für Konsistenz
+      const gameTime = now - state.totalPausedTime;
+      
       return {
         ...state,
         gameTimers: newTimers,
         activeGameId: gameId,
-        gameStartTime: now,
-        roundStartTime: now,
+        gameStartTime: gameTime,
+        roundStartTime: gameTime,
         isPaused: false,
         pauseStartTime: null,
         // jassStartTime NICHT überschreiben, wenn bereits gesetzt
@@ -446,8 +469,20 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
   // NEU: Implementierung der restoreTimers Action
   restoreTimers: (jassStart, gameStart) => {
     const now = Date.now();
-    const roundStart = now; // Beginne die neue Runde jetzt
-    set({ jassStartTime: jassStart, gameStartTime: gameStart, roundStartTime: roundStart });
-    return { jassStartTime: jassStart, gameStartTime: gameStart, roundStartTime: roundStart };
+    const state = get();
+    
+    // ✅ FIX: Verwende Game-time für roundStartTime Konsistenz
+    const gameTime = now - state.totalPausedTime;
+    
+    set({ 
+      jassStartTime: jassStart, 
+      gameStartTime: gameStart, 
+      roundStartTime: gameTime // ✅ Game-time statt Real-time
+    });
+    return { 
+      jassStartTime: jassStart, 
+      gameStartTime: gameStart, 
+      roundStartTime: gameTime 
+    };
   },
 }));

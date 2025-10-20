@@ -11,9 +11,7 @@ const nextConfig = {
   output: 'export',
   trailingSlash: true,
   outputFileTracingRoot: __dirname, // Verhindert Workspace Root Verwirrung
-  experimental: {
-    appDir: false,
-  },
+  // ✅ appDir ist in Next.js 15.5.2 standardmäßig aktiviert - keine experimentelle Konfiguration nötig
   exportPathMap: async function (defaultPathMap) {
     return {
       ...defaultPathMap,
@@ -60,8 +58,8 @@ const withPWA = withPWAInit({
   dest: 'public',
   disable: process.env.NODE_ENV === 'development',
   register: false, // WICHTIG: Wir nutzen unseren eigenen Service für die Registrierung
-  skipWaiting: false, // 🛡️ FIXED: Kontrollierte Updates verhindern Chunk-Mismatches
-  clientsClaim: false, // 🛡️ FIXED: Nicht aggressiv claimen, um Race-Conditions zu vermeiden
+  skipWaiting: false, // 🛡️ KONTROLLIERTE Updates verhindern Race Conditions
+  clientsClaim: false, // 🛡️ Nicht aggressiv claimen, um Chunk-Mismatches zu vermeiden
   importScripts: ['/sw-ext.js'], // 🛡️ Extension für kontrollierte Updates
   // 🛡️ Vereinfachte Konfiguration für next-pwa v5.6.0
   runtimeCaching: [
@@ -174,10 +172,10 @@ const withPWA = withPWAInit({
           },
         },
       },
-      // 🛡️ JS/CSS ausserhalb von /_next/static: konservativ, aber ohne HTML-Fallback
+      // 🛡️ JS/CSS ausserhalb von /_next/static: NetworkFirst für Updates
       {
         urlPattern: /\.(?:js|css)$/i,
-        handler: 'StaleWhileRevalidate',
+        handler: 'NetworkFirst', // 🚀 FIXED: NetworkFirst verhindert HTML-Fallback
         options: {
           cacheName: `static-js-css-assets-v${APP_VERSION}`, // 🛡️ BULLETPROOF: Automatisch synchronisierte Version
           expiration: {
@@ -187,7 +185,13 @@ const withPWA = withPWAInit({
           cacheableResponse: {
             statuses: [0, 200],
           },
-          plugins: []
+          // 🛡️ KRITISCH: Verhindert HTML-Fallback bei JS/CSS
+          plugins: [{
+            handlerDidError: async ({ request }) => {
+              // Bei Fehlern: Kein Fallback, sondern Fehler
+              throw new Error(`Failed to load ${request.url}`);
+            }
+          }]
         },
       },
       // ⚠️ WICHTIG: Keine generische Caching-Regel für *.googleapis.com,

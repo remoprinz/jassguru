@@ -291,7 +291,7 @@ export const getPlayerIdForUser = async (userId: string, displayName: string | n
   // 🚀 ELEGANT SOLUTION: With deterministic IDs, we don't need complex locking
   // Multiple calls will all try to create the same document, which is safe with Firestore
   if (process.env.NODE_ENV === 'development') {
-    console.log(`[getPlayerIdForUser] Processing userId ${userId} with deterministic approach`);
+    // Player ID verarbeitet
   }
   
   try {

@@ -41,13 +41,7 @@ export async function getPrecomputedChartData(groupId: string): Promise<ChartDat
     
     const chartData = chartDataSnap.data() as ChartDataSnapshot;
     
-    console.log(`[ChartData] Loaded pre-computed chart data for group ${groupId}:`, {
-      players: chartData.totalPlayers,
-      sessions: chartData.totalSessions,
-      dataPoints: chartData.labels.length,
-      datasets: chartData.datasets.length,
-      lastUpdated: chartData.lastUpdated?.toDate?.() || 'unknown'
-    });
+    // Chart-Daten geladen
     
     return chartData;
     

@@ -76,7 +76,7 @@ const useWelcomeScreenLogic = () => {
   useEffect(() => {
     // 🚨 KORRIGIERT: Leite eingeloggte Benutzer zur App weiter, anstatt sie auszuloggen.
     if (isClient && status === 'authenticated' && user && !isGuest) {
-      welcomeLogger.debug('Eingeloggter Benutzer auf WelcomeScreen erkannt. Leite zu /start weiter...');
+      // Eingeloggter Benutzer erkannt
       router.push('/start');
     }
   }, [isClient, status, user, isGuest, router]); // router als Abhängigkeit hinzugefügt
@@ -99,7 +99,7 @@ const useWelcomeScreenLogic = () => {
       
       if (comingFromStartScreen && guestFromWelcome !== 'true') {
         sessionStorage.removeItem('comingFromStartScreen');
-        welcomeLogger.debug("Weiterleitung unterdrückt, da von StartScreen zurückkommend");
+        // Weiterleitung unterdrückt
         return false; // Keine Weiterleitung
       }
 

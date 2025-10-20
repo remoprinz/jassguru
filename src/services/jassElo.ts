@@ -35,6 +35,8 @@ export interface PlayerRating {
   gamesPlayed: number;
   lastUpdated: number;
   lastDelta?: number;
+  // 🆕 SESSION-DELTA TRACKING
+  lastSessionDelta?: number;  // Delta der letzten Session (Summe aller Spiele)
   // 🆕 PEAK/LOW TRACKING
   peakRating?: number;
   peakRatingDate?: number;
@@ -55,6 +57,31 @@ export const JASS_ELO_CONFIG = {
 // ===== HILFSFUNKTIONEN =====
 
 // ❌ ENTFERNT: expectedScore, teamRating, stricheScore - Scripts haben eigene Implementierungen
+
+function getTierForRating(rating: number): { name: string; emoji: string } {
+  if (rating >= 150) return { name: 'Göpf Egg', emoji: '👼' };
+  if (rating >= 145) return { name: 'Jassgott', emoji: '🔱' };
+  if (rating >= 140) return { name: 'Jasskönig', emoji: '👑' };
+  if (rating >= 135) return { name: 'Grossmeister', emoji: '🏆' };
+  if (rating >= 130) return { name: 'Jasser mit Auszeichnung', emoji: '🎖' };
+  if (rating >= 125) return { name: 'Diamantjasser II', emoji: '💎' };
+  if (rating >= 120) return { name: 'Diamantjasser I', emoji: '💍' };
+  if (rating >= 115) return { name: 'Goldjasser', emoji: '🥇' };
+  if (rating >= 110) return { name: 'Silberjasser', emoji: '🥈' };
+  if (rating >= 105) return { name: 'Bronzejasser', emoji: '🥉' };
+  if (rating >= 100) return { name: 'Jassstudent (START)', emoji: '👨‍🎓' };
+  if (rating >= 95) return { name: 'Kleeblatt vierblättrig', emoji: '🍀' };
+  if (rating >= 90) return { name: 'Kleeblatt dreiblättrig', emoji: '☘' };
+  if (rating >= 85) return { name: 'Sprössling', emoji: '🌱' };
+  if (rating >= 80) return { name: 'Hahn', emoji: '🐓' };
+  if (rating >= 75) return { name: 'Huhn', emoji: '🐔' };
+  if (rating >= 70) return { name: 'Kücken', emoji: '🐥' };
+  if (rating >= 65) return { name: 'Chlaus', emoji: '🎅' };
+  if (rating >= 60) return { name: 'Chäs', emoji: '🧀' };
+  if (rating >= 55) return { name: 'Ente', emoji: '🦆' };
+  if (rating >= 50) return { name: 'Gurke', emoji: '🥒' };
+  return { name: 'Just Egg', emoji: '🥚' };
+}
 
 
 // ===== HAUPTFUNKTION =====
@@ -144,35 +171,34 @@ export async function loadPlayerRatings(playerIds: string[]): Promise<Map<string
     }
     
     for (const batch of batches) {
-      const ratingsQuery = query(
-        collection(db, 'playerRatings'),
+      const playersQuery = query(
+        collection(db, 'players'),
         where(documentId(), 'in', batch)
       );
-      
-      const snapshot = await getDocs(ratingsQuery);
+      const snapshot = await getDocs(playersQuery);
       
       snapshot.forEach(doc => {
         const data: any = doc.data();
-        const ratingValRaw = data?.rating;
+        const ratingValRaw = data?.globalRating;
         const ratingVal = typeof ratingValRaw === 'number' ? ratingValRaw : (Number(ratingValRaw) || JASS_ELO_CONFIG.DEFAULT_RATING);
-        const gamesPlayedVal = typeof data?.gamesPlayed === 'number' ? data.gamesPlayed : (Number(data?.gamesPlayed) || 0);
-
+        const gamesPlayedValRaw = data?.totalGamesPlayed;
+        const gamesPlayedVal = typeof gamesPlayedValRaw === 'number' ? gamesPlayedValRaw : (Number(gamesPlayedValRaw) || 0);
+        const lastUpdatedTs = data?.lastGlobalRatingUpdate;
+        const lastUpdated = lastUpdatedTs?.toMillis ? lastUpdatedTs.toMillis() : Date.now();
+        const name = data?.displayName || `Spieler_${doc.id.slice(0, 6)}`;
+        const tierInfo = getTierForRating(ratingVal);
         
         ratings.set(doc.id, {
           id: doc.id,
           rating: ratingVal,
           gamesPlayed: gamesPlayedVal,
-          lastUpdated: (typeof data?.lastUpdated === 'number' ? data.lastUpdated : Date.now()),
-          displayName: data?.displayName || `Spieler_${doc.id.slice(0, 6)}`,
-          // ✅ Direkt aus Firebase übernehmen - dort sind sie korrekt!
-          tier: data?.tier || 'Just Egg',
-          tierEmoji: data?.tierEmoji || '🥚',
-          lastDelta: (typeof data?.lastDelta === 'number' ? data.lastDelta : undefined),
-          // 🆕 PEAK/LOW TRACKING
-          peakRating: (typeof data?.peakRating === 'number' ? data.peakRating : undefined),
-          peakRatingDate: (typeof data?.peakRatingDate === 'number' ? data.peakRatingDate : undefined),
-          lowestRating: (typeof data?.lowestRating === 'number' ? data.lowestRating : undefined),
-          lowestRatingDate: (typeof data?.lowestRatingDate === 'number' ? data.lowestRatingDate : undefined),
+          lastUpdated,
+          displayName: name,
+          tier: tierInfo.name,
+          tierEmoji: tierInfo.emoji,
+          lastDelta: data?.lastDelta || 0, // Game-Delta
+          // 🆕 SESSION-DELTA: Lade lastSessionDelta aus players/{playerId}
+          lastSessionDelta: data?.lastSessionDelta || data?.lastDelta || 0,
         });
       });
     }

@@ -417,21 +417,21 @@ export async function getGroupRatingTimeSeries(
       if (historySnap.empty) continue;
 
       const historyMap = new Map<string, number>();
-      let currentRating = playerData.rating || 100; // Fallback
+      let currentRating = playerData.globalRating || playerData.rating || 100; // 🎯 AKTUELLES RATING aus players-Collection
       
       historySnap.forEach(doc => {
         const data = doc.data() as RatingHistoryEntry;
         const date = data.createdAt.toDate();
         const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
         historyMap.set(dateKey, data.rating);
-        currentRating = data.rating; // Letztes Rating ist das aktuelle
+        // currentRating bleibt das aktuelle globalRating - nicht überschreiben!
       });
 
       // Nur Spieler mit mehr als einem Datenpunkt speichern
       if (historyMap.size > 1) {
         playerHistories.set(playerId, {
           displayName: playerData.displayName || `Spieler_${playerId.slice(0,6)}`,
-          currentRating,
+          currentRating, // 🎯 Das aktuelle globalRating für Sortierung
           history: historyMap
         });
       }

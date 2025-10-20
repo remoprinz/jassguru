@@ -126,7 +126,7 @@ const MyApp = ({Component, pageProps}: AppProps) => {
     // Debug: Browser-Info loggen
     const browserInfo = detectBrowserScaling();
     if (browserInfo) {
-      console.log('🌐 Browser erkannt:', browserInfo);
+      // Browser erkannt
     }
     
     // 🚨 NEU: Robuster, globaler onAuthStateChanged Listener

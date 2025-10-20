@@ -157,8 +157,6 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
 
   // Callback zum Anwenden von Server-Updates auf den lokalen Store
   const applyServerUpdate = useCallback((serverData: ActiveGame, serverRounds: RoundEntry[] | null = null) => {
-      // console.log('[FirestoreSync applyServerUpdate] Received server data:', serverData);
-      // console.log('[FirestoreSync applyServerUpdate] Received server rounds:', serverRounds?.length);
       
       // NEU: Prüfe, ob das Spiel bereits als beendet behandelt wurde
       const currentActiveGameId = useGameStore.getState().activeGameId;
@@ -169,7 +167,6 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
       
       // --- NEU: Initialen Sync erkennen ---
       if (isInitialSyncRef.current) {
-          console.log(`[FirestoreSync applyServerUpdate] Applying INITIAL sync for game ${activeGameIdFromJassStore}. Overwriting state...`);
           
           // Bestimme den korrekten Startspieler
           const initialStarter = serverData.initialStartingPlayer ?? 1;
@@ -178,7 +175,6 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
           
           // --- KORREKTUR: Server-Daten HIER bereinigen ---
           const sanitizedData = sanitizeDataForFirestore(serverData);
-          console.log('[FirestoreSync applyServerUpdate] Initial sync data sanitized:', sanitizedData);
           
           // --- KORREKTUR: gameStoreSetState ohne replace=true, nur Datenfelder übergeben ---
           // 🔥 INITIAL SYNC: Hier ist komplette Überschreibung OK, da es der erste Load ist
@@ -208,7 +204,6 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
 
           // Setze das Ref zurück nach dem ersten Sync
           isInitialSyncRef.current = false;
-          console.log('[FirestoreSync applyServerUpdate] Initial sync applied. isInitialSyncRef set to false.');
           return; // Beende hier, kein Merging beim ersten Mal
       }
       // --- ENDE NEU: Initialen Sync ---
@@ -232,7 +227,6 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
       // Grund: Könnte ebenfalls Cross-Client-Updates blockieren
       const isNavigatingHistory = useUIStore.getState().isNavigatingHistory;
       if (isNavigatingHistory) {
-          console.log("[FirestoreSync applyServerUpdate] ⚠️ Currently navigating history, but applying server update anyway for cross-client sync.");
     }
 
       // --- KORREKTUR: Server-Daten HIER bereinigen ---
@@ -248,7 +242,6 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
         : (sanitizedServerData.weisPoints ?? { top: 0, bottom: 0 });
       
               if (process.env.NODE_ENV === 'development') {
-          console.log(`[FirestoreSync applyServerUpdate] WeisPoints handling: isRoundCompleted=${sanitizedServerData.isRoundCompleted}, shouldReset=${shouldResetWeisPoints}, finalWeisPoints=${JSON.stringify(finalWeisPoints)}`);
         }
       
       // 🔥 KRITISCHER FIX: State-Preservation - roundHistory bewahren!
@@ -489,14 +482,12 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
     // --- NEU: Asynchrone Funktion für initiales Laden und Listener-Setup ---
     const performInitialLoadAndSetupListeners = async (newGameId: string) => {
       if (process.env.NODE_ENV === 'development') {
-        console.log(`[FirestoreSyncProvider LOAD] Starting initial load for game ID: ${newGameId}`);
       }
       setSyncStatus(prev => ({ ...prev, isSyncing: true, syncError: null }));
       try {
         // 1. Lade Haupt-Spieldaten
         const gameDocRef = doc(db, 'activeGames', newGameId);
         if (process.env.NODE_ENV === 'development') {
-          console.log(`[FirestoreSyncProvider LOAD] Attempting to get game document: activeGames/${newGameId}`);
         }
         const gameDocSnap = await getDoc(gameDocRef);
         
@@ -506,16 +497,13 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
         }
         const gameData = gameDocSnap.data() as ActiveGame;
         if (process.env.NODE_ENV === 'development') {
-          console.log(`[FirestoreSyncProvider LOAD] Initial game data loaded successfully. Round: ${gameData.currentRound}, Scores: T${gameData.scores?.top}/B${gameData.scores?.bottom}`);
         }
 
         // 2. Lade Runden-Daten
         if (process.env.NODE_ENV === 'development') {
-          console.log(`[FirestoreSyncProvider LOAD] Attempting to load rounds for game ${newGameId}`);
         }
         const roundsData = await loadRoundsFromFirestore(newGameId);
         if (process.env.NODE_ENV === 'development') {
-          console.log(`[FirestoreSyncProvider LOAD] Initial rounds data loaded successfully: ${roundsData.length} rounds found.`);
         }
 
         // 3. Setze den gameStore State EINMALIG und VOLLSTÄNDIG
@@ -525,7 +513,6 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
         const lastActiveIndex = roundsData.findLastIndex(r => r.isActive === undefined || r.isActive === true);
         
         if (process.env.NODE_ENV === 'development') {
-          console.log(`[FirestoreSyncProvider LOAD] Preparing to set initial gameStore state. Target gameId: ${newGameId}, Rounds count: ${roundsData.length}, Target history index: ${lastActiveIndex}`);
         }
         
         // KRITISCHER FIX: weisPoints auch beim initialen Load korrekt handhaben
@@ -535,7 +522,6 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
           : (gameData.weisPoints ?? { top: 0, bottom: 0 });
         
         if (process.env.NODE_ENV === 'development') {
-          console.log(`[FirestoreSyncProvider LOAD] WeisPoints handling: isRoundCompleted=${gameData.isRoundCompleted}, shouldReset=${shouldResetWeisPointsInitial}, finalWeisPoints=${JSON.stringify(finalWeisPointsInitial)}`);
         }
         
         gameStoreSetState({
@@ -562,12 +548,10 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
         // Verify state after setting
         const newState = useGameStore.getState();
         if (process.env.NODE_ENV === 'development') {
-          console.log(`[FirestoreSyncProvider LOAD] Initial gameStore state SET. Verified activeGameId: ${newState.activeGameId}, History length: ${newState.roundHistory.length}, Index: ${newState.currentHistoryIndex}`);
         }
 
         // 4. Setze Listener für zukünftige Updates auf
         if (process.env.NODE_ENV === 'development') {
-          console.log(`[FirestoreSyncProvider LOAD] Proceeding to set up listeners for game ${newGameId}`);
         }
         setupListeners(newGameId);
 

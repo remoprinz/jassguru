@@ -88,12 +88,7 @@ export const useAuthStore = create<AuthStore>()(
         userDocUnsubscribe = null;
         playerDocUnsubscribe = null;
 
-        if (process.env.NODE_ENV === 'development') {
-          console.log('AUTH_STORE: setAuthUser called for:', {
-            uid: firebaseUser.uid,
-            email: firebaseUser.email,
-          });
-        }
+        // Email-Logs entfernt aus Sicherheitsgründen
         
         const initialMappedUser = mapUserToAuthUser(firebaseUser, null);
         set({

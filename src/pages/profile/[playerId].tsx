@@ -233,22 +233,17 @@ const PlayerProfilePage = () => {
   }, [player, members]);
 
   const combinedArchiveItems = useMemo(() => {
-    // 🎯 IDENTISCH ZU GROUPVIEW: Trennung zwischen normalen Sessions und Turnier-Sessions
+    // ✅ FILTER: Nur normale Sessions (OHNE tournamentId UND OHNE isTournamentSession)
     const normalSessions = completedSessions.filter(session => 
       (session.status === 'completed' || session.status === 'completed_empty') &&
-      !session.tournamentId // Nur normale Sessions (OHNE tournamentId)
-    );
-    
-    const tournamentSessions = completedSessions.filter(session =>
-      (session.status === 'completed' || session.status === 'completed_empty') &&
-      session.tournamentId // Sessions die Teil eines Turniers sind
+      !session.tournamentId && // Keine Turnier-Sessions
+      !session.isTournamentSession // Keine jassGameSummaries mit isTournamentSession: true
     );
 
     const sessionsWithType: ArchiveItem[] = normalSessions.map(s => ({ ...s, type: 'session' }));
     
-        // 🚨 EXAKT WIE PRIVATE PROFILEVIEW: Alle Turniere anzeigen, nicht nur die mit Sessions
-        const relevantTournaments = userTournaments;
-    const tournamentsWithType: ArchiveItem[] = relevantTournaments.map(t => ({ ...t, type: 'tournament' }));
+    // ✅ ALLE TURNIERE: Zeige alle Tournament-Instances (inklusive unterbrochene)
+    const tournamentsWithType: ArchiveItem[] = userTournaments.map(t => ({ ...t, type: 'tournament' }));
 
     const combined = [...sessionsWithType, ...tournamentsWithType];
 
@@ -487,9 +482,20 @@ const PlayerProfilePage = () => {
         const tournament = item;
         const { id, name, instanceDate, status: tournamentStatus } = tournament;
         
-        // 🚨 ENDDATUM: endedAt ist das korrekte Enddatum aus jassGameSummaries
-        const rawDate: any = (tournament as any).endedAt ?? null;
-        const displayDate = rawDate instanceof Timestamp ? rawDate.toDate() : (typeof rawDate === 'number' ? new Date(rawDate) : null);
+        // ✅ ROBUSTE DATUMS-LÖSUNG: Fallback-Kette für verschiedene Datumstypen
+        let displayDate = null;
+        
+        if (instanceDate && isFirestoreTimestamp(instanceDate)) {
+          // 1. Priorität: instanceDate (Turnier-Datum)
+          displayDate = instanceDate.toDate();
+        } else if ((tournament as any).createdAt && isFirestoreTimestamp((tournament as any).createdAt)) {
+          // 2. Fallback: createdAt (Erstellungsdatum)
+          displayDate = (tournament as any).createdAt.toDate();
+        } else if (tournamentStatus === 'completed' && (tournament as any).completedAt && isFirestoreTimestamp((tournament as any).completedAt)) {
+          // 3. Fallback für abgeschlossene: completedAt
+          displayDate = (tournament as any).completedAt.toDate();
+        }
+        
         const formattedDate = displayDate ? format(displayDate, 'dd.MM.yyyy') : null;
 
         return (
@@ -505,8 +511,23 @@ const PlayerProfilePage = () => {
                     )}
                   </div>
                 </div>
-                <span className={`text-xs px-2 py-1 rounded-full ${tournamentStatus === 'completed' ? 'bg-gray-600 text-gray-300' : (tournamentStatus === 'active' ? 'bg-green-600 text-white' : 'bg-blue-500 text-white')}`}>
-                  {tournamentStatus === 'completed' ? 'Abgeschlossen' : (tournamentStatus === 'active' ? 'Aktiv' : 'Anstehend')}
+                <span className={`text-xs px-2 py-1 rounded-full ${
+                  tournamentStatus === 'completed' 
+                    ? 'bg-gray-600 text-gray-300' 
+                    : tournamentStatus === 'active' 
+                      ? (tournament as any).pausedAt 
+                        ? 'bg-yellow-600 text-white' 
+                        : 'bg-green-600 text-white'
+                      : 'bg-blue-500 text-white'
+                }`}>
+                  {tournamentStatus === 'completed' 
+                    ? 'Abgeschlossen' 
+                    : tournamentStatus === 'active' 
+                      ? (tournament as any).pausedAt 
+                        ? 'Pausiert' 
+                        : 'Aktiv'
+                      : 'Anstehend'
+                  }
                 </span>
               </div>
             </div>

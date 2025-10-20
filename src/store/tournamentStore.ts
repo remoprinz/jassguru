@@ -26,6 +26,8 @@ import {
   markTournamentAsCompletedService,
   updateTournamentBaseDetails as updateTournamentBaseDetailsService,
   activateTournamentService,
+  pauseTournamentService,
+  resumeTournamentService,
 } from '../services/tournamentService';
 import { Timestamp, doc, getDoc, getDocs, collection, query, where, orderBy, addDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp, runTransaction } from 'firebase/firestore';
 import { db } from '@/services/firebaseInit';
@@ -156,6 +158,8 @@ interface TournamentActions {
   clearTournamentListener: () => void;
 
   activateTournament: (instanceId: string) => Promise<boolean>;
+  pauseTournament: (instanceId: string) => Promise<boolean>;
+  resumeTournament: (instanceId: string) => Promise<boolean>;
 
   recordPasseCompletion: (
     tournamentId: string,
@@ -258,9 +262,8 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
       return;
     }
     
-    console.log(`[TournamentStore] Fetching details for tournament: ${instanceId}`);
+    // ✅ Logs aufgeräumt: Nur bei echten Problemen loggen
     if (state.currentTournamentInstance?.id !== instanceId || !state.currentTournamentInstance) {
-      console.log(`[TournamentStore] Instance ID changed or no current instance. Clearing games and participants for ${instanceId}.`);
       set({
         currentTournamentGames: [],
         gamesStatus: 'idle',
@@ -312,12 +315,7 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
           settings: normalizedSettings
         };
 
-        // Log für Debugging
-        console.log(`[TournamentStore] Normalisierte Turniereinstellungen für ${instanceId}:`, {
-          hat_settings: !!normalizedInstance.settings,
-          hat_farbeSettings: !!normalizedInstance.settings?.farbeSettings,
-          cardStyle: normalizedInstance.settings?.farbeSettings?.cardStyle
-        });
+        // ✅ Logs aufgeräumt: Settings-Log entfernt
         
         if (get().loadingInstanceId === instanceId) {
           set({ 
@@ -345,7 +343,7 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
 
   loadTournamentGames: async (instanceId) => {
     if (get().gamesStatus === 'loading') {
-      console.log(`[TournamentStore] Games for ${instanceId} are already loading. Skipping redundant fetch.`);
+      // ✅ Logs aufgeräumt: Redundant fetch-Log entfernt
       return;
     }
     
@@ -362,7 +360,7 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
 
   loadTournamentParticipants: async (instanceId) => {
     if (get().participantsStatus === 'loading') {
-      console.log(`[TournamentStore] Participants for ${instanceId} are already loading. Skipping redundant fetch.`);
+      // ✅ Logs aufgeräumt: Redundant fetch-Log entfernt
       return;
     }
   
@@ -800,11 +798,11 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
   },
 
   clearCurrentTournamentInstance: () => {
-    console.log("[TournamentStore] Clearing current tournament instance and related data.");
+    // ✅ Logs aufgeräumt: Clearing-Log entfernt
     
     const unsubscribe = get().tournamentListenerUnsubscribe;
     if (unsubscribe) {
-      console.log("[TournamentStore] Removing tournament listener.");
+      // ✅ Logs aufgeräumt: Listener-Log entfernt
       unsubscribe();
     }
     
@@ -979,7 +977,7 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
   setupTournamentListener: (instanceId) => {
     const currentUnsubscribe = get().tournamentListenerUnsubscribe;
     if (currentUnsubscribe && get().currentTournamentInstance?.id === instanceId) {
-      console.log(`[TournamentStore] Listener already exists for tournament ${instanceId}, skipping setup`);
+      // ✅ Logs aufgeräumt: Listener-Setup-Log entfernt
       return;
     }
 
@@ -987,7 +985,7 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
       currentUnsubscribe();
     }
 
-    console.log(`[TournamentStore] Setting up real-time listener for tournament ${instanceId}`);
+    // ✅ Logs aufgeräumt: Listener-Setup-Log entfernt
     const tournamentDocRef = doc(db, 'tournaments', instanceId);
     
     const unsubscribe = onSnapshot(
@@ -1039,18 +1037,18 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
               currentTournament.settings?.logoUrl !== newData.settings?.logoUrl;
 
             if (hasRelevantChanges) {
-              console.log(`[TournamentStore] Relevant changes detected for tournament ${instanceId}, updating state`);
+              // ✅ Logs aufgeräumt: Changes-Log entfernt
               set({
                 currentTournamentInstance: newData,
                 detailsStatus: 'success',
               });
               
               if (currentTournament.completedPasseCount !== newData.completedPasseCount) {
-                console.log(`[TournamentStore] Detected completedPasseCount change, reloading games...`);
+                // ✅ Logs aufgeräumt: PasseCount-Log entfernt
                 get().loadTournamentGames(instanceId);
               }
             } else {
-              console.log(`[TournamentStore] No relevant changes for tournament ${instanceId}, skipping update`);
+              // ✅ Logs aufgeräumt: No-Changes-Log entfernt
             }
           } else {
             set({
@@ -1114,6 +1112,48 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Fehler beim Aktivieren des Turniers.';
       console.error(`[TournamentStore] Error activating tournament ${instanceId}:`, error);
+      set({ status: 'error', error: message });
+      return false;
+    }
+  },
+
+  pauseTournament: async (instanceId: string) => {
+    set({ status: 'updating-settings', error: null });
+    try {
+      await pauseTournamentService(instanceId);
+
+      await get().fetchTournamentInstanceDetails(instanceId);
+      
+      if (get().detailsStatus === 'error') {
+        return false;
+      }
+      
+      set({ status: 'success' });
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Fehler beim Unterbrechen des Turniers.';
+      console.error(`[TournamentStore] Error pausing tournament ${instanceId}:`, error);
+      set({ status: 'error', error: message });
+      return false;
+    }
+  },
+
+  resumeTournament: async (instanceId: string) => {
+    set({ status: 'updating-settings', error: null });
+    try {
+      await resumeTournamentService(instanceId);
+
+      await get().fetchTournamentInstanceDetails(instanceId);
+      
+      if (get().detailsStatus === 'error') {
+        return false;
+      }
+      
+      set({ status: 'success' });
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Fehler beim Fortsetzen des Turniers.';
+      console.error(`[TournamentStore] Error resuming tournament ${instanceId}:`, error);
       set({ status: 'error', error: message });
       return false;
     }

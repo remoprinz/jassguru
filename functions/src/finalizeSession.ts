@@ -49,6 +49,7 @@ export interface Round {
   durationMillis?: number;
   startTime?: number;
   endTime?: number;
+  wasPaused?: boolean; // Flag für pausierte Runden (für Statistiken)
 }
 
 export interface TeamScores {
@@ -184,6 +185,9 @@ export interface SessionSummary {
     winnerTeam: 'top' | 'bottom';
     topScore: number;
     bottomScore: number;
+    // 🆕 NEU: Vollständige Game-Daten für Auswertungen
+    teams?: SessionTeams;
+    finalStriche?: { top: StricheRecord; bottom: StricheRecord };
   }>;
   
   // ✅ NEU: Vorberechnete Aggregate für Performance
@@ -425,6 +429,8 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
         winnerTeam: 'top' | 'bottom';
         topScore: number;
         bottomScore: number;
+        teams?: SessionTeams;
+        finalStriche?: { top: StricheRecord; bottom: StricheRecord };
       }> = [];
       
       const gameWinsByTeam = { top: 0, bottom: 0 };
@@ -606,7 +612,7 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
                 }
                 
                 // Füge die Rundendauer zum Spieler hinzu (falls > 0 und realistisch)
-                if (roundDuration >= 120000 && roundDuration < 900000) { // Filter: 2min <= duration < 15min
+                if (roundDuration >= 60000 && roundDuration < 720000 && !round.wasPaused) { // Filter: 1min <= duration < 12min UND nicht pausiert
                   // ✅ Session-weit (wie bisher)
                   aggregatedRoundDurations[roundPlayerId].totalDuration += roundDuration;
                   aggregatedRoundDurations[roundPlayerId].roundCount += 1;
@@ -653,6 +659,12 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
             winnerTeam,
             topScore,
             bottomScore,
+            // 🆕 NEU: Schreibe vollständige Game-Daten
+            teams: initialDataFromClient.teams || undefined,
+            finalStriche: game.finalStriche || {
+              top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
+              bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }
+            }
           });
           
           // Aktualisiere Spieler-Statistiken basierend auf Team-Zuordnung

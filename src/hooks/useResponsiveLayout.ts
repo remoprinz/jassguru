@@ -279,7 +279,7 @@ export function useResponsiveLayout(): ResponsiveLayoutConfig {
       
       // Layout
       containerMaxWidth: 'max-w-none',
-      containerPadding: 'px-4 py-4',
+      containerPadding: 'px-2 py-4',
       sectionSpacing: 'space-y-3',
       cardPadding: 'p-4',
       cardInnerPadding: 'px-4 py-3',

@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useState } from "react";
+import React, { useRef, useMemo, useState, useEffect } from "react";
 import Image from "next/image";
 import MainLayout from "@/components/layout/MainLayout";
 import { GroupSelector } from "@/components/group/GroupSelector";
@@ -27,13 +27,16 @@ import { getOrtNameByPlz } from '@/utils/locationUtils';
 import { generateBlurPlaceholder } from '@/utils/imageOptimization';
 import { Skeleton } from '@/components/ui/skeleton';
 // NEU: Jass-Elo Service
-import { loadPlayerRatings, loadGroupLeaderboard, type PlayerRatingWithTier } from '@/services/jassElo';
+import { loadPlayerRatings, type PlayerRatingWithTier } from '@/services/jassElo';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/services/firebaseInit';
 // NEU: Chart-Komponenten
 import PowerRatingChart from '@/components/charts/PowerRatingChart';
-import { getGroupRatingTimeSeries } from '@/services/ratingHistoryService';
+
 import { getChartData } from '@/services/chartDataService'; // 🎯 Pre-computed Chart Data
+import { getGroupStricheTimeSeries } from '@/services/stricheHistoryService'; // 🎯 Strichdifferenz-Verlauf
+import { getGroupPointsTimeSeries } from '@/services/pointsHistoryService'; // 🎯 Punktedifferenz-Verlauf
+import { Trophy } from 'lucide-react';
 
 // Props für Schritt 4: Komplette Statistik-Inhalte
 interface GroupViewProps {
@@ -243,6 +246,20 @@ export const GroupView: React.FC<GroupViewProps> = ({
     datasets: any[];
   } | null>(null);
   const [chartLoading, setChartLoading] = useState(false);
+  
+  // NEU: State für Strichdifferenz-Chart
+  const [stricheChartData, setStricheChartData] = useState<{
+    labels: string[];
+    datasets: any[];
+  } | null>(null);
+  const [stricheChartLoading, setStricheChartLoading] = useState(false);
+
+  // NEU: State für Punktedifferenz-Chart
+  const [pointsChartData, setPointsChartData] = useState<{
+    labels: string[];
+    datasets: any[];
+  } | null>(null);
+  const [pointsChartLoading, setPointsChartLoading] = useState(false);
 
   // ===== REFS FÜR SCROLLBARE STATISTIK-CONTAINER (IDENTISCH ZUM ORIGINAL) =====
   // Übersicht
@@ -605,34 +622,28 @@ export const GroupView: React.FC<GroupViewProps> = ({
     }
   }, [groupStatus, currentGroup]);
 
-  // 🚀 PERFORMANCE: Lade Elo-Ratings für Gruppenmitglieder (optimiert)
+  // 🌍 GLOBAL ELO: Lade globale Elo-Ratings für Gruppenmitglieder
   React.useEffect(() => {
-    if (!currentGroup?.id) return;
+    if (!currentGroup?.id || !members || members.length === 0) return;
     
-    // 🚀 PERFORMANCE: Lade voraggregiertes Leaderboard statt N einzelne playerRatings
-    loadGroupLeaderboard(currentGroup.id)
-      .then((ratingsMap) => {
-        if (ratingsMap.size === 0 && members && members.length > 0) {
-          // Fallback auf alte Methode falls kein Leaderboard existiert
-          const playerIds = members.map(m => m.id || m.userId).filter(Boolean);
-          return loadPlayerRatings(playerIds);
-        }
-        return ratingsMap;
-      })
+    // ✅ IMMER globale Ratings laden (über alle Gruppen hinweg)
+    const playerIds = members.map(m => m.id || m.userId).filter(Boolean);
+    loadPlayerRatings(playerIds)
       .then((ratingsMap) => {
         setPlayerRatings(ratingsMap);
         
         // ✅ OPTIMIERT: Delta ist bereits in playerRatings verfügbar!
         const deltaMap = new Map<string, number>();
         ratingsMap.forEach((rating, playerId) => {
-          deltaMap.set(playerId, rating?.lastDelta || 0);
+          // 🆕 SESSION-DELTA: Verwende lastSessionDelta statt lastDelta
+          deltaMap.set(playerId, rating?.lastSessionDelta || rating?.lastDelta || 0);
         });
         setPlayerDeltas(deltaMap);
       })
       .catch(error => console.warn('Fehler beim Laden der Elo-Ratings:', error));
   }, [members, currentGroup?.id]);
 
-  // 🚀 PERFORMANCE: Öffentliche Gruppenansicht – lade Leaderboard statt N playerRatings  
+  // 🌍 GLOBAL ELO: Öffentliche Gruppenansicht - lade globale Ratings
   React.useEffect(() => {
     const groupId = currentGroup?.id;
     if (!groupId) return;
@@ -640,61 +651,93 @@ export const GroupView: React.FC<GroupViewProps> = ({
     // ✅ NUR für öffentliche Ansicht oder wenn members leer ist!
     if (!isPublicView && members && members.length > 0) return;
     
-    // 🚀 PERFORMANCE: Auch für öffentliche Ansicht Leaderboard verwenden
-    loadGroupLeaderboard(groupId)
-      .then((ratingsMap) => {
-        if (ratingsMap.size === 0) {
-          // Fallback: Direkt aus group-Subcollection laden
-          return getDocs(collection(db, `groups/${groupId}/playerRatings`))
-            .then((snap) => {
-              const map = new Map<string, PlayerRatingWithTier>();
-              snap.forEach(doc => {
-                const data: any = doc.data();
-                map.set(doc.id, {
-                  id: doc.id,
-                  rating: typeof data.rating === 'number' ? data.rating : 100,
-                  gamesPlayed: data.gamesPlayed || 0,
-                  lastUpdated: data.lastUpdated || Date.now(),
-                  displayName: data.displayName || `Spieler_${doc.id.slice(0,6)}`,
-                  tier: data.tier || 'Just Egg',
-                  tierEmoji: data.tierEmoji || '🥚',
-                  lastDelta: data.lastDelta || 0
-                });
-              });
-              return map;
-            });
-        }
-        return ratingsMap;
+    // 🌍 Für öffentliche Ansicht: Lade Mitglieder und dann globale Ratings
+    getDocs(collection(db, `groups/${groupId}/members`))
+      .then((membersSnap) => {
+        const playerIds = membersSnap.docs.map(doc => doc.id);
+        return loadPlayerRatings(playerIds);
       })
       .then((ratingsMap) => {
         setPlayerRatings(ratingsMap);
         
         const deltaMap = new Map<string, number>();
         ratingsMap.forEach((rating, playerId) => {
-          deltaMap.set(playerId, rating?.lastDelta || 0);
+          // 🆕 SESSION-DELTA: Verwende lastSessionDelta statt lastDelta
+          deltaMap.set(playerId, rating?.lastSessionDelta || rating?.lastDelta || 0);
         });
         setPlayerDeltas(deltaMap);
       })
-      .catch(e => console.warn('Elo (group subcollection) konnte nicht geladen werden:', (e as any)?.message));
+      .catch(e => console.warn('Fehler beim Laden der globalen Elo-Ratings für öffentliche Ansicht:', (e as any)?.message));
   }, [currentGroup?.id, isPublicView, members]);
 
-  // 🚀 NEU: Lade Chart-Daten für Power-Rating Zeitreihen
+  // 🚀 NEU: Lade Chart-Daten für Power-Rating Zeitreihen (verzögert für bessere UX)
   React.useEffect(() => {
     if (!currentGroup?.id) return;
     
-    setChartLoading(true);
-    getChartData(currentGroup.id) // 🎯 Pre-computed Chart Data für sofortige Performance
-      .then((data) => {
-        setChartData(data);
-      })
-      .catch(error => {
-        console.warn('Fehler beim Laden der Chart-Daten:', error);
-        setChartData(null);
-      })
-      .finally(() => {
-        setChartLoading(false);
-      });
+    // ✅ Verzögerung um 1-2 Frames nach Tab-Expandieren für smooth Chart-Rendering
+    const timer = setTimeout(() => {
+      setChartLoading(true);
+      getChartData(currentGroup.id) // 🎯 Pre-computed Chart Data für sofortige Performance
+        .then((data) => {
+          setChartData(data);
+        })
+        .catch(error => {
+          console.warn('Fehler beim Laden der Chart-Daten:', error);
+          setChartData(null);
+        })
+        .finally(() => {
+          setChartLoading(false);
+        });
+    }, 50); // 50ms Verzögerung für bessere UX
+    
+    return () => clearTimeout(timer);
   }, [currentGroup?.id]);
+  
+  // 🚀 NEU: Lade Strichdifferenz-Verlauf für alle Spieler (verzögert für bessere UX)
+  React.useEffect(() => {
+    if (!currentGroup?.id) return;
+    
+    // ✅ Verzögerung für smooth Chart-Rendering
+    const timer = setTimeout(() => {
+      setStricheChartLoading(true);
+      getGroupStricheTimeSeries(currentGroup.id, currentGroup.theme || 'yellow')
+        .then((data) => {
+          setStricheChartData(data);
+        })
+        .catch(error => {
+          console.warn('Fehler beim Laden der Strichdifferenz-Chart-Daten:', error);
+          setStricheChartData(null);
+        })
+        .finally(() => {
+          setStricheChartLoading(false);
+        });
+    }, 50);
+    
+    return () => clearTimeout(timer);
+  }, [currentGroup?.id, currentGroup?.theme]);
+
+  // 🚀 NEU: Lade Punktedifferenz-Verlauf für alle Spieler (verzögert für bessere UX)
+  React.useEffect(() => {
+    if (!currentGroup?.id) return;
+    
+    // ✅ Verzögerung für smooth Chart-Rendering
+    const timer = setTimeout(() => {
+      setPointsChartLoading(true);
+      getGroupPointsTimeSeries(currentGroup.id, currentGroup.theme || 'yellow')
+        .then((data) => {
+          setPointsChartData(data);
+        })
+        .catch(error => {
+          console.warn('Fehler beim Laden der Punktedifferenz-Chart-Daten:', error);
+          setPointsChartData(null);
+        })
+        .finally(() => {
+          setPointsChartLoading(false);
+        });
+    }, 50);
+    
+    return () => clearTimeout(timer);
+  }, [currentGroup?.id, currentGroup?.theme]);
 
   if (groupStatus === 'loading' && !currentGroup) {
     return (
@@ -1083,12 +1126,11 @@ export const GroupView: React.FC<GroupViewProps> = ({
             </TabsTrigger>
           </TabsList>
 
-          {/* STATISTIK TAB - forceMount für instant Avatar-Loading */}
+          {/* STATISTIK TAB - forceMount für Data-Preloading */}
           <TabsContent 
             value="statistics" 
             forceMount
             className={activeMainTab !== 'statistics' ? 'hidden' : 'w-full mb-8'}
-            style={{ display: activeMainTab !== 'statistics' ? 'none' : 'block' }}
           >
             {statsError && !statsLoading && (
               <div className={`text-red-400 ${layout.bodySize} text-center ${layout.cardPadding} bg-red-900/30 rounded-md mb-4`}>
@@ -1150,17 +1192,48 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 {/* ÜBERSICHT TAB - MIT ECHTEN INHALTEN UND REFS */}
                 <TabsContent 
                   value="overview"
-                  forceMount
-                  className={activeStatsSubTab !== 'overview' ? 'hidden' : `w-full bg-gray-800/50 rounded-lg ${layout.cardPadding}`}
-                  style={{ display: activeStatsSubTab !== 'overview' ? 'none' : 'block' }}
+                  className={`w-full bg-gray-800/50 rounded-lg ${layout.cardPadding}`}
                 >
                   <div className={`${layout.sectionSpacing} ${layout.bodySize}`}>
-                    {/* 1. Spielerstärke (Jass-Elo) - NEUE REIHENFOLGE */}
+                    {/* 1. Elo Verlauf - NEUE REIHENFOLGE */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Jass-Elo Verlauf</h3>
+                      </div>
+                      <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                        {chartLoading ? (
+                          <div className="flex justify-center items-center py-10">
+                            <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
+                            <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Chart-Daten...</span>
+                          </div>
+                        ) : chartData && chartData.datasets.length > 0 ? (
+                          <PowerRatingChart 
+                            data={chartData}
+                            title="Elo-Rating"
+                            height={layout.isDesktop ? 400 : 300}
+                            theme={groupTheme}
+                            isDarkMode={true}
+                            showBaseline={true} // 🎯 100er-Linie weiß bei Elo
+                            activeTab={activeMainTab} // ✅ Tab-Wechsel-Reset für Animationen
+                            activeSubTab={activeStatsSubTab} // ✅ Sub-Tab-Wechsel-Reset für Animationen
+                          />
+                        ) : (
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                            <p>Noch keine Rating-Daten verfügbar</p>
+                            <p className={`${layout.smallTextSize} mt-1`}>Chart wird angezeigt, sobald Spieler Rating-Historie haben</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 2. Elo Rangliste - NEUE REIHENFOLGE */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center justify-between border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className="flex items-center">
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                          <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Spielerstärke (Jass-Elo)</h3>
+                          <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Jass-Elo Rangliste</h3>
                         </div>
                         <a 
                           href="https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/Jass-Elo_%20Ein%20Elo-basiertes%20Bewertungssystem%20fu%CC%88r%20den%20Schieber.pdf?alt=media&token=5db3a7af-1725-4d2d-a7dd-d68a9db9dfbb" 
@@ -1227,35 +1300,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                     </div>
 
-                    {/* 2. Power-Rating Zeitreihen Chart - NEUE REIHENFOLGE */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
-                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Elo-Rating Entwicklung</h3>
-                      </div>
-                      <div className={`${layout.cardPadding}`}>
-                        {chartLoading ? (
-                          <div className="flex justify-center items-center py-10">
-                            <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
-                            <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Chart-Daten...</span>
-                          </div>
-                        ) : chartData && chartData.datasets.length > 0 ? (
-                          <PowerRatingChart 
-                            data={chartData}
-                            title="Elo-Rating"
-                            height={layout.isDesktop ? 400 : 300}
-                            theme={groupTheme}
-                            isDarkMode={true}
-                          />
-                        ) : (
-                          <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
-                            <p>Noch keine Rating-Daten verfügbar</p>
-                            <p className={`${layout.smallTextSize} mt-1`}>Chart wird angezeigt, sobald Spieler Rating-Historie haben</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
 
                     {/* 3. Rundentempo - NEUE REIHENFOLGE */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
@@ -1431,16 +1475,48 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 {/* SPIELER TAB - ALLE 8 ECHTEN STATISTIKEN */}
                 <TabsContent 
                   value="players"
-                  forceMount
-                  className={activeStatsSubTab !== 'players' ? 'hidden' : `w-full bg-gray-800/50 rounded-lg ${layout.cardPadding}`}
-                  style={{ display: activeStatsSubTab !== 'players' ? 'none' : 'block' }}
+                  className={`w-full bg-gray-800/50 rounded-lg ${layout.cardPadding}`}
                 >
                   <div className={`${layout.sectionSpacing} ${layout.bodySize}`}>
-                    {/* 1. Strichdifferenz */}
+                    {/* 1. Strichdifferenz Verlauf - NEUE REIHENFOLGE */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Strichdifferenz</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Strichdifferenz Verlauf</h3>
+                      </div>
+                      <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                        {stricheChartLoading ? (
+                          <div className="flex justify-center items-center py-10">
+                            <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
+                            <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Chart-Daten...</span>
+                          </div>
+                        ) : stricheChartData && stricheChartData.datasets.length > 0 ? (
+                          <PowerRatingChart 
+                            data={stricheChartData}
+                            title="Strichdifferenz"
+                            height={layout.isDesktop ? 400 : 300}
+                            theme={groupTheme}
+                            isDarkMode={true}
+                            showBaseline={false} // 🎯 0er-Linie weiß bei Strichdifferenz
+                            hideLegend={false}
+                            activeTab={activeMainTab} // ✅ Tab-Wechsel-Reset für Animationen
+                            activeSubTab={activeStatsSubTab} // ✅ Sub-Tab-Wechsel-Reset für Animationen
+                          />
+                        ) : (
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                            <p>Noch keine Strichdifferenz-Daten verfügbar</p>
+                            <p className={`${layout.smallTextSize} mt-1`}>Chart wird angezeigt, sobald Spieler mindestens 2 Sessions haben</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 2. Strichdifferenz Rangliste - NEUE REIHENFOLGE */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Strichdifferenz Rangliste</h3>
                       </div>
                       <div ref={playerStricheDiffRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
                         {(() => {
@@ -1490,11 +1566,45 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                     </div>
 
-                    {/* 2. Punktedifferenz */}
+                    {/* 3. Punktedifferenz Verlauf - NEUE REIHENFOLGE */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Punktedifferenz</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Punktedifferenz Verlauf</h3>
+                      </div>
+                      <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                        {pointsChartLoading ? (
+                          <div className="flex justify-center items-center py-10">
+                            <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
+                            <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Chart-Daten...</span>
+                          </div>
+                        ) : pointsChartData && pointsChartData.datasets.length > 0 ? (
+                          <PowerRatingChart 
+                            data={pointsChartData}
+                            title="Punktedifferenz"
+                            height={layout.isDesktop ? 400 : 300}
+                            theme={groupTheme}
+                            isDarkMode={true}
+                            showBaseline={false} // 🎯 0er-Linie weiß bei Punktedifferenz
+                            hideLegend={false}
+                            activeTab={activeMainTab} // ✅ Tab-Wechsel-Reset für Animationen
+                            activeSubTab={activeStatsSubTab} // ✅ Sub-Tab-Wechsel-Reset für Animationen
+                          />
+                        ) : (
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                            <p>Noch keine Punktedifferenz-Daten verfügbar</p>
+                            <p className={`${layout.smallTextSize} mt-1`}>Chart wird angezeigt, sobald Spieler mindestens 2 Sessions haben</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 4. Punktedifferenz Rangliste - KORREKTE REIHENFOLGE */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Punktedifferenz Rangliste</h3>
                       </div>
                       <div ref={playerPointsDiffRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
                         {(() => {
@@ -1540,6 +1650,69 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             });
                           } else {
                             return <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine aktiven Spieler verfügbar</div>;
+                          }
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* 5. Siegquote Rangliste - REPARIERT */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Rangliste</h3>
+                      </div>
+                      <div ref={playerWinRateSessionRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
+                        {(() => {
+                          if (groupStats?.playerWithHighestWinRateSession && groupStats.playerWithHighestWinRateSession.length > 0) {
+                            // Filter: Nur Spieler mit gespielten Spielen anzeigen
+                            const playersWithGames = groupStats.playerWithHighestWinRateSession.filter(player => 
+                              (player.eventsPlayed && player.eventsPlayed > 0) || 
+                              (player.gamesPlayed && player.gamesPlayed > 0) || 
+                              (player.sessionCount && player.sessionCount > 0)
+                            );
+                            return playersWithGames.map((playerStat, index) => {
+                              const playerData = findPlayerByName(playerStat.playerName, members);
+                              const playerId = playerData?.id || playerStat.playerId;
+                              return (
+                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`winRate-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
+                                  <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                                    <div className="flex items-center">
+                                      <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
+                                      <ProfileImage 
+                                        src={playerData?.photoURL} 
+                                        alt={playerStat.playerName} 
+                                        size={layout.profileImageListSize}
+                                        className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                        fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
+                                        fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
+                                        context="list"
+                                      />
+                                      <span className={`${layout.bodySize} text-gray-300`}>{playerStat.playerName}</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <span className="text-white font-medium mr-2">
+                                        {(typeof playerStat.value === 'number' && playerStat.eventsPlayed && playerStat.eventsPlayed > 0) && (
+                                          <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
+                                            ({Math.round(playerStat.value * playerStat.eventsPlayed)}/{playerStat.eventsPlayed})
+                                          </span>
+                                        )}
+                                        <span className={`${layout.valueSize} font-medium`}>
+                                          {(typeof playerStat.value === 'number' ? playerStat.value * 100 : 0).toFixed(1)}%
+                                        </span>
+                                      </span>
+                                    </div>
+                                  </div>
+                                </StatLink>
+                              );
+                            });
+                          } else {
+                            return (
+                              <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                                <Trophy size={32} className="mx-auto mb-3 text-gray-500" />
+                                <p>Noch keine Siegquote-Daten verfügbar</p>
+                                <p className={`${layout.smallTextSize} mt-1`}>Rangliste wird angezeigt, sobald Spieler Spiele gespielt haben</p>
+                              </div>
+                            );
                           }
                         })()}
                       </div>
@@ -1869,16 +2042,14 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 {/* TEAMS TAB - ALLE 9 ECHTEN STATISTIKEN */}
                 <TabsContent 
                   value="teams"
-                  forceMount
-                  className={activeStatsSubTab !== 'teams' ? 'hidden' : `w-full bg-gray-800/50 rounded-lg ${layout.cardPadding}`}
-                  style={{ display: activeStatsSubTab !== 'teams' ? 'none' : 'block' }}
+                  className={`w-full bg-gray-800/50 rounded-lg ${layout.cardPadding}`}
                 >
                   <div className={`${layout.sectionSpacing} ${layout.bodySize}`}>
                     {/* 1. Strichdifferenz */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Strichdifferenz</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Strichdifferenz Rangliste</h3>
                       </div>
                       <div ref={teamStricheDiffRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {groupStats?.teamWithHighestStricheDiff && groupStats.teamWithHighestStricheDiff.length > 0 ? (
@@ -1935,7 +2106,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Punktedifferenz</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Punktedifferenz Rangliste</h3>
                       </div>
                       <div ref={teamPointsDiffRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {groupStats?.teamWithHighestPointsDiff && groupStats.teamWithHighestPointsDiff.length > 0 ? (
@@ -2392,6 +2563,58 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         )}
                       </div>
                     </div>
+
+                    {/* 5. Siegquote Rangliste - NEUER CHART */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Rangliste</h3>
+                      </div>
+                      <div ref={teamWinRateSessionRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
+                        {groupStats?.teamWithHighestWinRateSession && groupStats.teamWithHighestWinRateSession.length > 0 ? (
+                          groupStats.teamWithHighestWinRateSession
+                            .filter(team => 
+                              (team.eventsPlayed && team.eventsPlayed > 0) || 
+                              (team.value && team.value !== 0)
+                            )
+                            .map((team, index) => (
+                            <div key={`team-winrate-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                              <div className="flex items-center">
+                                <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
+                                <div className="flex mr-2">
+                                  <ProfileImage 
+                                    src={findPlayerPhotoByName(team.names[0], members)} 
+                                    alt={team.names[0]} 
+                                    size={layout.profileImageListSize}
+                                    className={`border-2 border-gray-800 ${theme.profileImage}`}
+                                    style={{ zIndex: 1 }}
+                                    fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
+                                    fallbackText={team.names[0].charAt(0).toUpperCase()}
+                                    context="list"
+                                  />
+                                  <ProfileImage 
+                                    src={findPlayerPhotoByName(team.names[1], members)} 
+                                    alt={team.names[1]} 
+                                    size={layout.profileImageListSize}
+                                    className={`border-2 border-gray-800 ${theme.profileImage}`}
+                                    style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
+                                    fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
+                                    fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
+                                    context="list"
+                                  />
+                                </div>
+                                <span className={`${layout.bodySize} text-gray-300`}>{team.names.join(' & ')}</span>
+                              </div>
+                              <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
+                                {team.value ? `${team.value.toFixed(1)}%` : '0.0%'}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine Daten verfügbar</div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </TabsContent>
                 </Tabs>
@@ -2454,9 +2677,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
           {/* MITGLIEDER TAB */}
           <TabsContent 
             value="members" 
-            forceMount
-            className={activeMainTab !== 'members' ? 'hidden' : `w-full bg-gray-800/50 rounded-lg ${layout.cardPadding} mb-8`}
-            style={{ display: activeMainTab !== 'members' ? 'none' : 'block' }}
+            className={`w-full bg-gray-800/50 rounded-lg ${layout.cardPadding} mb-8`}
           >
             {membersError && !membersLoading && (
                 <div className={`text-red-400 ${layout.smallTextSize} text-center p-4 bg-red-900/30 rounded-md`}>

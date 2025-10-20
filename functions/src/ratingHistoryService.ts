@@ -186,21 +186,22 @@ export async function saveRatingHistorySnapshot(
     // Verarbeite jeden Spieler einzeln
     for (const playerId of playerIds) {
       try {
-        const playerRatingRef = db.collection(`groups/${groupId}/playerRatings`).doc(playerId);
-        const playerRatingDoc = await playerRatingRef.get();
+        // 🌍 NUR NOCH: GLOBALE Player-Daten lesen
+        const playerRef = db.collection('players').doc(playerId);
+        const playerDoc = await playerRef.get();
 
-        if (!playerRatingDoc.exists) {
-          logger.warn(`[RatingHistory] Player rating not found for ${playerId} in group ${groupId}`);
+        if (!playerDoc.exists) {
+          logger.warn(`[RatingHistory] Player not found for ${playerId}`);
           continue;
         }
 
-        const currentRatingData = playerRatingDoc.data();
+        const currentRatingData = playerDoc.data();
         const currentRating = currentRatingData?.rating || 100;
         const currentGamesPlayed = currentRatingData?.gamesPlayed || 0;
 
         // Hole das letzte Historie-Entry für kumulative Werte und Rating-Delta
-        const historyRef = playerRatingRef.collection('history');
-        const lastHistorySnap = await historyRef
+        const globalHistoryRef = db.collection(`players/${playerId}/ratingHistory`);
+        const lastHistorySnap = await globalHistoryRef
           .orderBy('createdAt', 'desc')
           .limit(1)
           .get();
@@ -294,9 +295,11 @@ export async function saveRatingHistorySnapshot(
 
           // Nutze Timestamp als Document-ID für chronologische Sortierung
           const timestampId = now.toMillis().toString();
-          const historyDocRef = historyRef.doc(timestampId);
           
-          batch.set(historyDocRef, historyEntry);
+          // 🌍 NUR NOCH: GLOBALE Historie (für spieler-übergreifende Charts)
+          const globalHistoryRef = db.collection(`players/${playerId}/ratingHistory`).doc(timestampId);
+          batch.set(globalHistoryRef, historyEntry);
+          
           snapshotsCreated++;
 
           logger.info(`[RatingHistory] Queued snapshot for player ${playerId}: Rating ${previousRating} → ${currentRating} (Δ${ratingDelta >= 0 ? '+' : ''}${ratingDelta}), Striche: ${sessionDelta.striche >= 0 ? '+' : ''}${sessionDelta.striche}`, {
@@ -349,10 +352,11 @@ async function cleanupOldHistoryEntries(
 
     for (const playerId of playerIds) {
       try {
-        const historyRef = db.collection(`groups/${groupId}/playerRatings/${playerId}/history`);
+        // 🌍 NUR NOCH: GLOBALE Historie bereinigen
+        const globalHistoryRef = db.collection(`players/${playerId}/ratingHistory`);
         
         // Hole alle Einträge chronologisch sortiert
-        const allEntriesSnap = await historyRef
+        const allEntriesSnap = await globalHistoryRef
           .orderBy('createdAt', 'desc')
           .get();
 
@@ -374,7 +378,7 @@ async function cleanupOldHistoryEntries(
 
     if (totalDeleted > 0) {
       await cleanupBatch.commit();
-      logger.info(`[RatingHistory] Cleanup completed: deleted ${totalDeleted} old entries from group ${groupId}`);
+      logger.info(`[RatingHistory] Cleanup completed: deleted ${totalDeleted} old entries from global history`);
     }
   } catch (cleanupError) {
     logger.warn(`[RatingHistory] Cleanup failed for group ${groupId}:`, cleanupError);
@@ -383,7 +387,7 @@ async function cleanupOldHistoryEntries(
 }
 
 /**
- * 📊 Query-Funktion: Hole Rating-Historie für einen Spieler
+ * 📊 Query-Funktion: Hole Rating-Historie für einen Spieler (NUR NOCH GLOBAL)
  */
 export async function getRatingHistory(
   groupId: string,
@@ -391,8 +395,9 @@ export async function getRatingHistory(
   limit: number = 50
 ): Promise<RatingHistoryEntry[]> {
   try {
-    const historyRef = db.collection(`groups/${groupId}/playerRatings/${playerId}/history`);
-    const historySnap = await historyRef
+    // 🌍 NUR NOCH: GLOBALE Historie lesen
+    const globalHistoryRef = db.collection(`players/${playerId}/ratingHistory`);
+    const historySnap = await globalHistoryRef
       .orderBy('createdAt', 'desc')
       .limit(limit)
       .get();
@@ -404,7 +409,34 @@ export async function getRatingHistory(
 
     return history;
   } catch (error) {
-    logger.error(`[RatingHistory] Error fetching history for player ${playerId} in group ${groupId}:`, error);
+    logger.error(`[RatingHistory] Error fetching global history for player ${playerId}:`, error);
+    return [];
+  }
+}
+
+/**
+ * 🌍 Query-Funktion: Hole GLOBALE Rating-Historie für einen Spieler (über alle Gruppen)
+ */
+export async function getGlobalRatingHistory(
+  playerId: string,
+  limit: number = 100
+): Promise<RatingHistoryEntry[]> {
+  try {
+    const globalHistoryRef = db.collection(`players/${playerId}/ratingHistory`);
+    const historySnap = await globalHistoryRef
+      .orderBy('createdAt', 'desc')
+      .limit(limit)
+      .get();
+
+    const history: RatingHistoryEntry[] = [];
+    historySnap.forEach(doc => {
+      history.push(doc.data() as RatingHistoryEntry);
+    });
+
+    logger.info(`[RatingHistory] Loaded ${history.length} global history entries for player ${playerId}`);
+    return history;
+  } catch (error) {
+    logger.error(`[RatingHistory] Error fetching global history for player ${playerId}:`, error);
     return [];
   }
 }

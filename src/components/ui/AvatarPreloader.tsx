@@ -41,7 +41,7 @@ export const AvatarPreloader: React.FC<AvatarPreloaderProps> = ({ photoURLs }) =
 
     // Alle Bilder parallel laden
     Promise.allSettled(imagePromises).then(() => {
-      console.log(`[AvatarPreloader] ${validURLs.length} Avatare preloaded`);
+      // Avatare preloaded
     });
 
   }, [photoURLs]);

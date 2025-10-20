@@ -589,23 +589,38 @@ export const fetchCompletedGamesFromFirestore = async (
   }
   const db = getFirestore(firebaseApp);
   try {
-    // 🚀 NEUE ARCHITEKTUR: GroupId aus Session ermitteln (OHNE Fallback)
-    const sessionDoc = await getDoc(doc(db, 'sessions', sessionId));
-    let groupId: string | null = null;
+    let resolvedGroupId: string | null = null;
     
-    if (sessionDoc.exists()) {
-      const sessionData = sessionDoc.data();
-      groupId = sessionData?.groupId || sessionData?.gruppeId || null;
+    // ✅ ELEGANTE LÖSUNG: Ermittle groupId aus Session ODER Tournament
+    const isTournamentSession = sessionId.startsWith('tournament_');
+    
+    if (isTournamentSession) {
+      // ✅ ROBUST: Extrahiere Tournament-ID aus Session-ID
+      const tournamentIdMatch = sessionId.match(/^tournament_([^_]+)_passe_/);
+      if (tournamentIdMatch) {
+        const tournamentId = tournamentIdMatch[1];
+        
+        // ✅ ELEGANT: Hole groupId direkt aus Tournament-Dokument
+        const tournamentDoc = await getDoc(doc(db, 'tournaments', tournamentId));
+        if (tournamentDoc.exists()) {
+          resolvedGroupId = tournamentDoc.data()?.groupId || null;
+        }
+      }
+    } else {
+      // Normale Session: Hole groupId aus Session-Dokument
+      const sessionDoc = await getDoc(doc(db, 'sessions', sessionId));
+      if (sessionDoc.exists()) {
+        const sessionData = sessionDoc.data();
+        resolvedGroupId = sessionData?.groupId || sessionData?.gruppeId || null;
+      }
     }
     
-    if (!groupId) {
+    if (!resolvedGroupId) {
       console.error(`[fetchCompletedGamesFromFirestore] No groupId found for session ${sessionId}`);
       return [];
     }
-    
 
-    const completedGamesRef = collection(db, 'groups', groupId, 'jassGameSummaries', sessionId, 'completedGames');
-    
+    const completedGamesRef = collection(db, 'groups', resolvedGroupId, 'jassGameSummaries', sessionId, 'completedGames');
     const q = query(completedGamesRef, orderBy('gameNumber', 'asc'));
     const querySnapshot = await getDocs(q);
     
@@ -641,21 +656,39 @@ export const loadCompletedGamesFromFirestore = (
 ): Unsubscribe => {
   if (!sessionId) {
     console.error("[GameService] loadCompletedGamesFromFirestore aufgerufen ohne sessionId.");
-    return () => {}; // Leere Unsubscribe-Funktion zurückgeben
+    return () => {};
   }
   
   const db = getFirestore(firebaseApp);
   let unsubscribeFunction: Unsubscribe = () => {};
   
-  // 🚀 NEUE ARCHITEKTUR: GroupId aus Session ermitteln und dann Listener einrichten
+  // ✅ ELEGANTE LÖSUNG: Ermittle groupId aus Session ODER Tournament
   const setupListener = async () => {
     try {
-      const sessionDoc = await getDoc(doc(db, 'sessions', sessionId));
       let groupId: string | null = null;
       
-      if (sessionDoc.exists()) {
-        const sessionData = sessionDoc.data();
-        groupId = sessionData?.groupId || sessionData?.gruppeId || null;
+      // 1. Prüfe, ob es eine Turnier-Session ist (Format: tournament_{tournamentId}_passe_{n})
+      const isTournamentSession = sessionId.startsWith('tournament_');
+      
+      if (isTournamentSession) {
+        // ✅ ROBUST: Extrahiere Tournament-ID aus Session-ID
+        const tournamentIdMatch = sessionId.match(/^tournament_([^_]+)_passe_/);
+        if (tournamentIdMatch) {
+          const tournamentId = tournamentIdMatch[1];
+          
+          // ✅ ELEGANT: Hole groupId direkt aus Tournament-Dokument
+          const tournamentDoc = await getDoc(doc(db, 'tournaments', tournamentId));
+          if (tournamentDoc.exists()) {
+            groupId = tournamentDoc.data()?.groupId || null;
+          }
+        }
+      } else {
+        // 2. Normale Session: Hole groupId aus Session-Dokument
+        const sessionDoc = await getDoc(doc(db, 'sessions', sessionId));
+        if (sessionDoc.exists()) {
+          const sessionData = sessionDoc.data();
+          groupId = sessionData?.groupId || sessionData?.gruppeId || null;
+        }
       }
       
       if (!groupId) {
@@ -663,10 +696,8 @@ export const loadCompletedGamesFromFirestore = (
         onUpdate([]);
         return;
       }
-      
 
       const gamesRef = collection(db, 'groups', groupId, 'jassGameSummaries', sessionId, 'completedGames');
-      
       const q = query(gamesRef, orderBy('gameNumber', 'asc'));
 
       unsubscribeFunction = onSnapshot(q, (querySnapshot) => {
@@ -689,10 +720,7 @@ export const loadCompletedGamesFromFirestore = (
     }
   };
   
-  // Setup asynchron starten
   setupListener();
-  
-  // Return-Funktion die den tatsächlichen unsubscribe aufruft
   return () => unsubscribeFunction();
 };
 

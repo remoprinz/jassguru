@@ -44,6 +44,7 @@ interface TournamentGame {
     strichInfo?: { type?: string; team?: 'top' | 'bottom' }; 
     timestamp?: admin.firestore.Timestamp | number; 
     startingPlayer?: number; 
+    wasPaused?: boolean; // Flag für pausierte Runden (für Statistiken)
   }>;
   finalStriche?: { 
     top: { sieg: number; berg: number; schneider: number };
@@ -305,8 +306,8 @@ export const aggregateTournamentIntoSummary = onDocumentWritten(
                     ) {
                         const roundDuration = currentTimestamp - previousTimestamp;
 
-                        // Filter: 2min <= duration < 15min
-                        if (roundDuration >= 120000 && roundDuration < 900000) {
+                        // Filter: 1min <= duration < 12min UND nicht pausiert
+                        if (roundDuration >= 60000 && roundDuration < 720000 && !round.wasPaused) {
                             // Map Player Number → Player ID
                             const playerDetail = game.playerDetails[startingPlayer - 1]; // 0-basiert
                             if (playerDetail) {

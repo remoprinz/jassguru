@@ -62,6 +62,7 @@ export interface TournamentGameData { // EXPORTIERT
   status?: string;
   roundHistory?: any[]; // ✅ NEU: Für eventCounts-Berechnung
   eventCounts?: EventCounts; // ✅ NEU: Berechnete eventCounts
+  playerDetails?: Array<{ uid: string; weisPoints?: number }>; // ✅ NEU: Für Weis-Points
   // Weitere relevante Felder eines Spiels...
 }
 
@@ -280,9 +281,58 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
       switch (tournamentMode) {
         case 'single': {
           logger.info(`Handling 'single' tournament mode for ${tournamentId}.`);
-          const playerScores: { [playerId: string]: { score: number; gamesPlayed: number; wins: number; } } = {};
+          
+          // ✅ ERWEITERTE PLAYER-STATISTIK-STRUKTUR
+          interface PlayerStats {
+            // Scores
+            pointsScored: number;
+            pointsReceived: number;
+            stricheScored: number;
+            stricheReceived: number;
+            score: number; // Legacy für Ranking
+            
+            // Game Stats
+            gamesPlayed: number;
+            wins: number;
+            losses: number;
+            draws: number;
+            
+            // Event Counts (nur sinnvolle!)
+            eventCounts: {
+              matschMade: number;
+              matschReceived: number;
+              schneiderMade: number;
+              schneiderReceived: number;
+              kontermatschMade: number;
+              kontermatschReceived: number;
+            };
+            
+            // Weis
+            totalWeisPoints: number;
+          }
+          
+          const playerScores: { [playerId: string]: PlayerStats } = {};
           participantPlayerIds.forEach(playerId => {
-            playerScores[playerId] = { score: 0, gamesPlayed: 0, wins: 0 };
+            playerScores[playerId] = {
+              pointsScored: 0,
+              pointsReceived: 0,
+              stricheScored: 0,
+              stricheReceived: 0,
+              score: 0,
+              gamesPlayed: 0,
+              wins: 0,
+              losses: 0,
+              draws: 0,
+              eventCounts: {
+                matschMade: 0,
+                matschReceived: 0,
+                schneiderMade: 0,
+                schneiderReceived: 0,
+                kontermatschMade: 0,
+                kontermatschReceived: 0
+              },
+              totalWeisPoints: 0
+            };
           });
 
           const calculateStricheForGame = (game: TournamentGameData, playerId: string): number => {
@@ -304,37 +354,80 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
             return striche;
           };
 
+          // ✅ NEU: Iteriere über alle Games und sammle ALLE Statistiken
           for (const game of tournamentGames) {
             const gameParticipants = game.participantUids || [];
+            
             for (const gameParticipantUid of gameParticipants) {
-              // ✅ KORRIGIERT: Konvertiere Game UID zu Player ID
+              // Konvertiere Game UID zu Player ID
               const playerId = uidToPlayerIdMap.get(gameParticipantUid);
-              if (!playerId || !playerScores[playerId]) continue; // Nur Spieler verarbeiten, die im Turnier registriert sind
+              if (!playerId || !playerScores[playerId]) continue;
 
               playerScores[playerId].gamesPlayed++;
-              let gameContribution = 0;
+              
               const playerTeam = game.teams?.top?.playerUids?.includes(gameParticipantUid) ? 'top' :
                                  (game.teams?.bottom?.playerUids?.includes(gameParticipantUid) ? 'bottom' : null);
-
-              if (playerTeam) {
-                if (rankingModeToStore === 'striche') {
-                  gameContribution = calculateStricheForGame(game, playerId);
-                  // Sieg-Zählung für Striche-Ranking (optional, hier: Sieg wenn mehr Striche)
-                  const opponentTeam = playerTeam === 'top' ? 'bottom' : 'top';
-                  const opponentUid = game.teams?.[opponentTeam]?.playerUids?.[0];
-                  const opponentPlayerId = opponentUid ? uidToPlayerIdMap.get(opponentUid) : null;
-                  if (opponentPlayerId) {
-                    const opponentStriche = calculateStricheForGame(game, opponentPlayerId);
-                    if (gameContribution > opponentStriche) playerScores[playerId].wins++;
-                  }
-                } else { // Default: total_points oder anderer Punkte-basierter Modus
-                  gameContribution = game.finalScores[playerTeam] || 0;
-                  const opponentTeam = playerTeam === 'top' ? 'bottom' : 'top';
-                  if (game.finalScores[playerTeam] > game.finalScores[opponentTeam]) {
-                    playerScores[playerId].wins++;
-                  }
+              
+              if (!playerTeam) continue;
+              
+              const opponentTeam = playerTeam === 'top' ? 'bottom' : 'top';
+              
+              // ===== 1. PUNKTE SAMMELN =====
+              const playerPoints = game.finalScores[playerTeam] || 0;
+              const opponentPoints = game.finalScores[opponentTeam] || 0;
+              playerScores[playerId].pointsScored += playerPoints;
+              playerScores[playerId].pointsReceived += opponentPoints;
+              
+              // ===== 2. STRICHE SAMMELN =====
+              const playerStriche = calculateStricheForGame(game, playerId);
+              // Berechne Gegner-Striche für "received"
+              const opponentUid = game.teams?.[opponentTeam]?.playerUids?.[0];
+              const opponentPlayerId = opponentUid ? uidToPlayerIdMap.get(opponentUid) : null;
+              const opponentStriche = opponentPlayerId ? calculateStricheForGame(game, opponentPlayerId) : 0;
+              
+              playerScores[playerId].stricheScored += playerStriche;
+              playerScores[playerId].stricheReceived += opponentStriche;
+              
+              // ===== 3. WINS/LOSSES/DRAWS =====
+              if (playerPoints > opponentPoints) {
+                playerScores[playerId].wins++;
+              } else if (playerPoints < opponentPoints) {
+                playerScores[playerId].losses++;
+              } else {
+                playerScores[playerId].draws++;
+              }
+              
+              // ===== 4. EVENT COUNTS (nur sinnvolle!) =====
+              if (game.eventCounts && game.eventCounts[playerTeam]) {
+                const teamEvents = game.eventCounts[playerTeam];
+                const opponentEvents = game.eventCounts[opponentTeam];
+                
+                // Events die man MACHT
+                playerScores[playerId].eventCounts.matschMade += teamEvents.matsch || 0;
+                playerScores[playerId].eventCounts.schneiderMade += teamEvents.schneider || 0;
+                playerScores[playerId].eventCounts.kontermatschMade += teamEvents.kontermatsch || 0;
+                
+                // Events die man EMPFÄNGT (vom Gegner)
+                playerScores[playerId].eventCounts.matschReceived += opponentEvents.matsch || 0;
+                playerScores[playerId].eventCounts.schneiderReceived += opponentEvents.schneider || 0;
+                playerScores[playerId].eventCounts.kontermatschReceived += opponentEvents.kontermatsch || 0;
+                
+                // NICHT: berg/sieg (redundant - ist bereits in striche bzw. wins)
+              }
+              
+              // ===== 5. WEIS POINTS (falls verfügbar in playerDetails) =====
+              if (game.playerDetails && Array.isArray(game.playerDetails)) {
+                const playerDetail = game.playerDetails.find(pd => pd.uid === gameParticipantUid);
+                if (playerDetail && playerDetail.weisPoints) {
+                  playerScores[playerId].totalWeisPoints += playerDetail.weisPoints;
                 }
-                playerScores[playerId].score += gameContribution;
+              }
+              
+              // ===== 6. LEGACY SCORE für Ranking =====
+              if (rankingModeToStore === 'striche') {
+                playerScores[playerId].score += playerStriche;
+              } else {
+                playerScores[playerId].score += playerPoints;
               }
             }
           }
@@ -354,20 +447,55 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
             allRankedPlayerUidsForTournamentDoc.add(player.playerId);
             const playerStatsRef = db.collection("playerComputedStats").doc(player.playerId);
             
-            // Speichere detailliertes Ranking für diesen Spieler
+            // ✅ Speichere ERWEITERTE Ranking-Daten für diesen Spieler
             const playerRankingDocRef = playerRankingsColRef.doc(player.playerId);
             const rankingData: TournamentPlayerRankingData = {
+                // Identifikation
                 playerId: player.playerId,
-                rank: rank,
-                score: player.score,
-                gamesPlayed: player.gamesPlayed,
-                rawWins: player.wins, // Direkte Siege aus dem Ranking-Modus
                 tournamentId: tournamentId,
                 tournamentName: tournamentName,
+                tournamentFinalizedAt: admin.firestore.Timestamp.now(),
+                createdAt: admin.firestore.Timestamp.now(),
+                
+                // Ranking
+                rank: rank,
                 totalRankedEntities: rankedPlayers.length,
                 rankingSystemUsed: rankingModeToStore,
-                tournamentFinalizedAt: admin.firestore.Timestamp.now() // Zeitstempel des Rankings
+                
+                // ✅ SCORES MIT DIFFERENZEN
+                // Punkte
+                pointsScored: player.pointsScored,
+                pointsReceived: player.pointsReceived,
+                pointsDifference: player.pointsScored - player.pointsReceived,
+                totalPoints: player.pointsScored, // Legacy
+                
+                // Striche
+                stricheScored: player.stricheScored,
+                stricheReceived: player.stricheReceived,
+                stricheDifference: player.stricheScored - player.stricheReceived,
+                totalStriche: player.stricheScored, // Legacy
+                
+                score: player.score, // Legacy: Haupt-Score für Ranking
+                
+                // ✅ SPIEL-STATISTIKEN
+                gamesPlayed: player.gamesPlayed,
+                gamesWon: player.wins,
+                gamesLost: player.losses,
+                gamesDraw: player.draws,
+                rawWins: player.wins, // Legacy
+                
+                // ✅ EVENT COUNTS
+                eventCounts: player.eventCounts,
+                
+                // ✅ WEIS-STATISTIKEN
+                totalWeisPoints: player.totalWeisPoints,
+                averageWeisPerGame: player.gamesPlayed > 0 ? player.totalWeisPoints / player.gamesPlayed : 0
             };
+            
+            logger.info(`[finalizeTournament] Saving ranking for player ${player.playerId} (rank ${rank}): ` +
+                       `Points ${player.pointsScored}/${player.pointsReceived} (${player.pointsScored - player.pointsReceived}), ` +
+                       `Striche ${player.stricheScored}/${player.stricheReceived} (${player.stricheScored - player.stricheReceived})`);
+            
             playerRankingBatch.set(playerRankingDocRef, rankingData);
 
             try {
@@ -423,9 +551,64 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
             return { success: true, message: "Keine Teams für Doppelmodus definiert, Abschluss ohne Ranking." };
           }
 
-          const teamScores: { [teamDataId: string]: { id: string; score: number; gamesPlayed: number; wins: number; teamName: string; playerUids: string[] } } = {};
+          // ✅ ERWEITERTE TEAM-STATISTIK-STRUKTUR für doubles
+          interface TeamStats {
+            id: string;
+            teamName: string;
+            playerUids: string[];
+            
+            // Scores
+            pointsScored: number;
+            pointsReceived: number;
+            stricheScored: number;
+            stricheReceived: number;
+            score: number; // Legacy für Ranking
+            
+            // Game Stats
+            gamesPlayed: number;
+            wins: number;
+            losses: number;
+            draws: number;
+            
+            // Event Counts (nur sinnvolle!)
+            eventCounts: {
+              matschMade: number;
+              matschReceived: number;
+              schneiderMade: number;
+              schneiderReceived: number;
+              kontermatschMade: number;
+              kontermatschReceived: number;
+            };
+            
+            // Weis
+            totalWeisPoints: number;
+          }
+
+          const teamScores: { [teamDataId: string]: TeamStats } = {};
           tournamentData.teams.forEach(team => {
-            teamScores[team.id] = { id: team.id, score: 0, gamesPlayed: 0, wins: 0, teamName: team.name, playerUids: team.playerUids };
+            teamScores[team.id] = { 
+              id: team.id, 
+              teamName: team.name, 
+              playerUids: team.playerUids,
+              pointsScored: 0,
+              pointsReceived: 0,
+              stricheScored: 0,
+              stricheReceived: 0,
+              score: 0,
+              gamesPlayed: 0,
+              wins: 0,
+              losses: 0,
+              draws: 0,
+              eventCounts: {
+                matschMade: 0,
+                matschReceived: 0,
+                schneiderMade: 0,
+                schneiderReceived: 0,
+                kontermatschMade: 0,
+                kontermatschReceived: 0
+              },
+              totalWeisPoints: 0
+            };
           });
 
           const calculateStricheForTeamInGame = (game: TournamentGameData, teamPlayerUids: string[]): number => {
@@ -443,6 +626,7 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
             return striche;
           };
           
+          // ✅ NEU: Iteriere über alle Games und sammle ALLE Statistiken für Teams
           for (const game of tournamentGames) {
             // Identifiziere die teilnehmenden Turnier-Teams in diesem Spiel
             const playingTournamentTeams: {teamId: string, teamKeyInGame: 'top' | 'bottom', playerUids: string[]}[] = [];
@@ -471,22 +655,86 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
             teamScores[teamA.teamId].gamesPlayed++;
             teamScores[teamB.teamId].gamesPlayed++;
 
-            let scoreTeamA = 0;
-            let scoreTeamB = 0;
-
-            if (rankingModeToStore === 'striche') {
-              scoreTeamA = calculateStricheForTeamInGame(game, teamA.playerUids);
-              scoreTeamB = calculateStricheForTeamInGame(game, teamB.playerUids);
-              if (scoreTeamA > scoreTeamB) teamScores[teamA.teamId].wins++;
-              if (scoreTeamB > scoreTeamA) teamScores[teamB.teamId].wins++;
-            } else { // Default: total_points
-              scoreTeamA = game.finalScores[teamA.teamKeyInGame] || 0;
-              scoreTeamB = game.finalScores[teamB.teamKeyInGame] || 0;
-              if (scoreTeamA > scoreTeamB) teamScores[teamA.teamId].wins++;
-              if (scoreTeamB > scoreTeamA) teamScores[teamB.teamId].wins++;
+            // ===== 1. PUNKTE SAMMELN =====
+            const teamAPoints = game.finalScores[teamA.teamKeyInGame] || 0;
+            const teamBPoints = game.finalScores[teamB.teamKeyInGame] || 0;
+            teamScores[teamA.teamId].pointsScored += teamAPoints;
+            teamScores[teamA.teamId].pointsReceived += teamBPoints;
+            teamScores[teamB.teamId].pointsScored += teamBPoints;
+            teamScores[teamB.teamId].pointsReceived += teamAPoints;
+            
+            // ===== 2. STRICHE SAMMELN =====
+            const teamAStriche = calculateStricheForTeamInGame(game, teamA.playerUids);
+            const teamBStriche = calculateStricheForTeamInGame(game, teamB.playerUids);
+            teamScores[teamA.teamId].stricheScored += teamAStriche;
+            teamScores[teamA.teamId].stricheReceived += teamBStriche;
+            teamScores[teamB.teamId].stricheScored += teamBStriche;
+            teamScores[teamB.teamId].stricheReceived += teamAStriche;
+            
+            // ===== 3. WINS/LOSSES/DRAWS =====
+            if (teamAPoints > teamBPoints) {
+              teamScores[teamA.teamId].wins++;
+              teamScores[teamB.teamId].losses++;
+            } else if (teamBPoints > teamAPoints) {
+              teamScores[teamB.teamId].wins++;
+              teamScores[teamA.teamId].losses++;
+            } else {
+              teamScores[teamA.teamId].draws++;
+              teamScores[teamB.teamId].draws++;
             }
-            teamScores[teamA.teamId].score += scoreTeamA;
-            teamScores[teamB.teamId].score += scoreTeamB;
+            
+            // ===== 4. EVENT COUNTS (nur sinnvolle!) =====
+            if (game.eventCounts) {
+              const teamAEvents = game.eventCounts[teamA.teamKeyInGame];
+              const teamBEvents = game.eventCounts[teamB.teamKeyInGame];
+              
+              if (teamAEvents && teamBEvents) {
+                // Events die Team A MACHT
+                teamScores[teamA.teamId].eventCounts.matschMade += teamAEvents.matsch || 0;
+                teamScores[teamA.teamId].eventCounts.schneiderMade += teamAEvents.schneider || 0;
+                teamScores[teamA.teamId].eventCounts.kontermatschMade += teamAEvents.kontermatsch || 0;
+                
+                // Events die Team A EMPFÄNGT (von Team B)
+                teamScores[teamA.teamId].eventCounts.matschReceived += teamBEvents.matsch || 0;
+                teamScores[teamA.teamId].eventCounts.schneiderReceived += teamBEvents.schneider || 0;
+                teamScores[teamA.teamId].eventCounts.kontermatschReceived += teamBEvents.kontermatsch || 0;
+                
+                // Events die Team B MACHT
+                teamScores[teamB.teamId].eventCounts.matschMade += teamBEvents.matsch || 0;
+                teamScores[teamB.teamId].eventCounts.schneiderMade += teamBEvents.schneider || 0;
+                teamScores[teamB.teamId].eventCounts.kontermatschMade += teamBEvents.kontermatsch || 0;
+                
+                // Events die Team B EMPFÄNGT (von Team A)
+                teamScores[teamB.teamId].eventCounts.matschReceived += teamAEvents.matsch || 0;
+                teamScores[teamB.teamId].eventCounts.schneiderReceived += teamAEvents.schneider || 0;
+                teamScores[teamB.teamId].eventCounts.kontermatschReceived += teamAEvents.kontermatsch || 0;
+              }
+            }
+            
+            // ===== 5. WEIS POINTS (falls verfügbar in playerDetails) =====
+            if (game.playerDetails && Array.isArray(game.playerDetails)) {
+              for (const playerUid of teamA.playerUids) {
+                const playerDetail = game.playerDetails.find(pd => pd.uid === playerUid);
+                if (playerDetail && playerDetail.weisPoints) {
+                  teamScores[teamA.teamId].totalWeisPoints += playerDetail.weisPoints;
+                }
+              }
+              for (const playerUid of teamB.playerUids) {
+                const playerDetail = game.playerDetails.find(pd => pd.uid === playerUid);
+                if (playerDetail && playerDetail.weisPoints) {
+                  teamScores[teamB.teamId].totalWeisPoints += playerDetail.weisPoints;
+                }
+              }
+            }
+            
+            // ===== 6. LEGACY SCORE für Ranking =====
+            if (rankingModeToStore === 'striche') {
+              teamScores[teamA.teamId].score += teamAStriche;
+              teamScores[teamB.teamId].score += teamBStriche;
+            } else {
+              teamScores[teamA.teamId].score += teamAPoints;
+              teamScores[teamB.teamId].score += teamBPoints;
+            }
           }
 
           const rankedTeams = Object.values(teamScores)
@@ -511,20 +759,59 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
               
               allRankedPlayerUidsForTournamentDoc.add(playerId);
               const playerRankingDocRef = playerRankingsColRef.doc(playerId);
+              
+              // ✅ Speichere ERWEITERTE Ranking-Daten für diesen Spieler im Team
               const rankingData: TournamentPlayerRankingData = {
+                  // Identifikation
                   playerId: playerId,
-                  rank: rank,
-                  score: team.score, 
-                  gamesPlayed: team.gamesPlayed, 
-                  rawWins: team.wins, 
-                  teamId: team.id,
-                  teamName: team.teamName,
                   tournamentId: tournamentId,
                   tournamentName: tournamentName,
+                  tournamentFinalizedAt: admin.firestore.Timestamp.now(),
+                  createdAt: admin.firestore.Timestamp.now(),
+                  
+                  // Ranking
+                  rank: rank,
                   totalRankedEntities: rankedTeams.length,
                   rankingSystemUsed: rankingModeToStore,
-                  tournamentFinalizedAt: admin.firestore.Timestamp.now()
+                  
+                  // Team-Info
+                  teamId: team.id,
+                  teamName: team.teamName,
+                  
+                  // ✅ SCORES MIT DIFFERENZEN (vom Team)
+                  // Punkte
+                  pointsScored: team.pointsScored,
+                  pointsReceived: team.pointsReceived,
+                  pointsDifference: team.pointsScored - team.pointsReceived,
+                  totalPoints: team.pointsScored, // Legacy
+                  
+                  // Striche
+                  stricheScored: team.stricheScored,
+                  stricheReceived: team.stricheReceived,
+                  stricheDifference: team.stricheScored - team.stricheReceived,
+                  totalStriche: team.stricheScored, // Legacy
+                  
+                  score: team.score, // Legacy: Haupt-Score für Ranking
+                  
+                  // ✅ SPIEL-STATISTIKEN (vom Team)
+                  gamesPlayed: team.gamesPlayed,
+                  gamesWon: team.wins,
+                  gamesLost: team.losses,
+                  gamesDraw: team.draws,
+                  rawWins: team.wins, // Legacy
+                  
+                  // ✅ EVENT COUNTS (vom Team)
+                  eventCounts: team.eventCounts,
+                  
+                  // ✅ WEIS-STATISTIKEN (vom Team)
+                  totalWeisPoints: team.totalWeisPoints,
+                  averageWeisPerGame: team.gamesPlayed > 0 ? team.totalWeisPoints / team.gamesPlayed : 0
               };
+              
+              logger.info(`[finalizeTournament] Saving doubles ranking for player ${playerId} (Team: ${team.teamName}, rank ${rank}): ` +
+                         `Points ${team.pointsScored}/${team.pointsReceived} (${team.pointsScored - team.pointsReceived}), ` +
+                         `Striche ${team.stricheScored}/${team.stricheReceived} (${team.stricheScored - team.stricheReceived})`);
+              
               playerRankingBatch.set(playerRankingDocRef, rankingData);
               
               const playerStatsRef = db.collection("playerComputedStats").doc(playerId);
@@ -596,25 +883,64 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
             return { success: true, message: "Nicht genügend Gruppen (min. 2) für groupVsGroup-Modus definiert, Abschluss ohne Ranking." };
           }
 
-          interface GroupTournamentStats {
+          // ✅ ERWEITERTE GRUPPEN-STATISTIK-STRUKTUR für groupVsGroup
+          interface GroupStats {
             groupId: string;
             groupName: string;
             playerUids: string[];
-            score: number; // Gesamtpunkte oder Striche der Gruppe im Turnier
-            wins: number;    // Anzahl gewonnener Spiele/Begegnungen der Gruppe
+            
+            // Scores
+            pointsScored: number;
+            pointsReceived: number;
+            stricheScored: number;
+            stricheReceived: number;
+            score: number; // Legacy für Ranking
+            
+            // Game Stats
             gamesPlayed: number;
+            wins: number;
+            losses: number;
+            draws: number;
+            
+            // Event Counts (nur sinnvolle!)
+            eventCounts: {
+              matschMade: number;
+              matschReceived: number;
+              schneiderMade: number;
+              schneiderReceived: number;
+              kontermatschMade: number;
+              kontermatschReceived: number;
+            };
+            
+            // Weis
+            totalWeisPoints: number;
           }
 
-          const groupStats: { [groupId: string]: GroupTournamentStats } = {};
+          const groupStats: { [groupId: string]: GroupStats } = {};
           // Expliziter Typ für group
           tournamentData.groups.forEach((group: TournamentGroupDefinition) => { 
             groupStats[group.id] = { 
               groupId: group.id,
               groupName: group.name,
               playerUids: group.playerUids || [], // Spieler der Gruppe
+              pointsScored: 0,
+              pointsReceived: 0,
+              stricheScored: 0,
+              stricheReceived: 0,
               score: 0,
-              wins: 0,
               gamesPlayed: 0,
+              wins: 0,
+              losses: 0,
+              draws: 0,
+              eventCounts: {
+                matschMade: 0,
+                matschReceived: 0,
+                schneiderMade: 0,
+                schneiderReceived: 0,
+                kontermatschMade: 0,
+                kontermatschReceived: 0
+              },
+              totalWeisPoints: 0
             };
           });
 
@@ -634,9 +960,10 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
             return striche;
           };
 
+          // ✅ NEU: Iteriere über alle Games und sammle ALLE Statistiken für Gruppen
           for (const game of tournamentGames) {
             // Finde die zwei Gruppen, die in diesem Spiel gegeneinander gespielt haben
-            const involvedGroupsInGame: GroupTournamentStats[] = [];
+            const involvedGroupsInGame: GroupStats[] = [];
             const gameParticipantUids = new Set(game.participantUids || []);
 
             for (const groupId in groupStats) {
@@ -660,9 +987,6 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
             groupStats[groupA.groupId].gamesPlayed++;
             groupStats[groupB.groupId].gamesPlayed++;
 
-            let scoreGroupA = 0;
-            let scoreGroupB = 0;
-            
             // Bestimme, welches Team (top/bottom) im Spiel zu welcher Gruppe gehört
             const groupATeamKey = game.teams?.top?.playerUids?.some(uid => groupA.playerUids.includes(uid)) ? 'top' :
                                  (game.teams?.bottom?.playerUids?.some(uid => groupA.playerUids.includes(uid)) ? 'bottom' : null);
@@ -673,23 +997,86 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
                 continue;
             }
 
-            if (rankingModeToStore === 'striche') {
-              scoreGroupA = calculateStricheForGroupInGame(game, groupA.playerUids);
-              scoreGroupB = calculateStricheForGroupInGame(game, groupB.playerUids);
-              // Direkte Zuweisung der Striche als Score der Gruppe in diesem Spiel
-            } else { // Default: total_points
-              scoreGroupA = game.finalScores[groupATeamKey] || 0;
-              scoreGroupB = game.finalScores[groupBTeamKey] || 0;
-            }
-
-            groupStats[groupA.groupId].score += scoreGroupA;
-            groupStats[groupB.groupId].score += scoreGroupB;
-
-            if (scoreGroupA > scoreGroupB) {
+            // ===== 1. PUNKTE SAMMELN =====
+            const groupAPoints = game.finalScores[groupATeamKey] || 0;
+            const groupBPoints = game.finalScores[groupBTeamKey] || 0;
+            groupStats[groupA.groupId].pointsScored += groupAPoints;
+            groupStats[groupA.groupId].pointsReceived += groupBPoints;
+            groupStats[groupB.groupId].pointsScored += groupBPoints;
+            groupStats[groupB.groupId].pointsReceived += groupAPoints;
+            
+            // ===== 2. STRICHE SAMMELN =====
+            const groupAStriche = calculateStricheForGroupInGame(game, groupA.playerUids);
+            const groupBStriche = calculateStricheForGroupInGame(game, groupB.playerUids);
+            groupStats[groupA.groupId].stricheScored += groupAStriche;
+            groupStats[groupA.groupId].stricheReceived += groupBStriche;
+            groupStats[groupB.groupId].stricheScored += groupBStriche;
+            groupStats[groupB.groupId].stricheReceived += groupAStriche;
+            
+            // ===== 3. WINS/LOSSES/DRAWS =====
+            if (groupAPoints > groupBPoints) {
               groupStats[groupA.groupId].wins++;
-            } else if (scoreGroupB > scoreGroupA) {
+              groupStats[groupB.groupId].losses++;
+            } else if (groupBPoints > groupAPoints) {
               groupStats[groupB.groupId].wins++;
-            } // Bei Gleichstand keinem einen Sieg zuweisen
+              groupStats[groupA.groupId].losses++;
+            } else {
+              groupStats[groupA.groupId].draws++;
+              groupStats[groupB.groupId].draws++;
+            }
+            
+            // ===== 4. EVENT COUNTS (nur sinnvolle!) =====
+            if (game.eventCounts) {
+              const groupAEvents = game.eventCounts[groupATeamKey];
+              const groupBEvents = game.eventCounts[groupBTeamKey];
+              
+              if (groupAEvents && groupBEvents) {
+                // Events die Gruppe A MACHT
+                groupStats[groupA.groupId].eventCounts.matschMade += groupAEvents.matsch || 0;
+                groupStats[groupA.groupId].eventCounts.schneiderMade += groupAEvents.schneider || 0;
+                groupStats[groupA.groupId].eventCounts.kontermatschMade += groupAEvents.kontermatsch || 0;
+                
+                // Events die Gruppe A EMPFÄNGT (von Gruppe B)
+                groupStats[groupA.groupId].eventCounts.matschReceived += groupBEvents.matsch || 0;
+                groupStats[groupA.groupId].eventCounts.schneiderReceived += groupBEvents.schneider || 0;
+                groupStats[groupA.groupId].eventCounts.kontermatschReceived += groupBEvents.kontermatsch || 0;
+                
+                // Events die Gruppe B MACHT
+                groupStats[groupB.groupId].eventCounts.matschMade += groupBEvents.matsch || 0;
+                groupStats[groupB.groupId].eventCounts.schneiderMade += groupBEvents.schneider || 0;
+                groupStats[groupB.groupId].eventCounts.kontermatschMade += groupBEvents.kontermatsch || 0;
+                
+                // Events die Gruppe B EMPFÄNGT (von Gruppe A)
+                groupStats[groupB.groupId].eventCounts.matschReceived += groupAEvents.matsch || 0;
+                groupStats[groupB.groupId].eventCounts.schneiderReceived += groupAEvents.schneider || 0;
+                groupStats[groupB.groupId].eventCounts.kontermatschReceived += groupAEvents.kontermatsch || 0;
+              }
+            }
+            
+            // ===== 5. WEIS POINTS (falls verfügbar in playerDetails) =====
+            if (game.playerDetails && Array.isArray(game.playerDetails)) {
+              for (const playerUid of groupA.playerUids) {
+                const playerDetail = game.playerDetails.find(pd => pd.uid === playerUid);
+                if (playerDetail && playerDetail.weisPoints) {
+                  groupStats[groupA.groupId].totalWeisPoints += playerDetail.weisPoints;
+                }
+              }
+              for (const playerUid of groupB.playerUids) {
+                const playerDetail = game.playerDetails.find(pd => pd.uid === playerUid);
+                if (playerDetail && playerDetail.weisPoints) {
+                  groupStats[groupB.groupId].totalWeisPoints += playerDetail.weisPoints;
+                }
+              }
+            }
+            
+            // ===== 6. LEGACY SCORE für Ranking =====
+            if (rankingModeToStore === 'striche') {
+              groupStats[groupA.groupId].score += groupAStriche;
+              groupStats[groupB.groupId].score += groupBStriche;
+            } else {
+              groupStats[groupA.groupId].score += groupAPoints;
+              groupStats[groupB.groupId].score += groupBPoints;
+            }
           }
 
           const rankedGroups = Object.values(groupStats)
@@ -713,20 +1100,59 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
               
               allRankedPlayerUidsForTournamentDoc.add(playerId);
               const playerRankingDocRef = playerRankingsColRef.doc(playerId);
+              
+              // ✅ Speichere ERWEITERTE Ranking-Daten für diesen Spieler in der Gruppe
               const rankingData: TournamentPlayerRankingData = {
+                  // Identifikation
                   playerId: playerId,
-                  rank: rank,
-                  score: group.score, 
-                  gamesPlayed: group.gamesPlayed, 
-                  rawWins: group.wins, 
-                  teamId: group.groupId,
-                  teamName: group.groupName,
                   tournamentId: tournamentId,
                   tournamentName: tournamentName,
+                  tournamentFinalizedAt: admin.firestore.Timestamp.now(),
+                  createdAt: admin.firestore.Timestamp.now(),
+                  
+                  // Ranking
+                  rank: rank,
                   totalRankedEntities: rankedGroups.length,
                   rankingSystemUsed: rankingModeToStore,
-                  tournamentFinalizedAt: admin.firestore.Timestamp.now()
+                  
+                  // Team-Info (hier: Gruppe)
+                  teamId: group.groupId,
+                  teamName: group.groupName,
+                  
+                  // ✅ SCORES MIT DIFFERENZEN (von der Gruppe)
+                  // Punkte
+                  pointsScored: group.pointsScored,
+                  pointsReceived: group.pointsReceived,
+                  pointsDifference: group.pointsScored - group.pointsReceived,
+                  totalPoints: group.pointsScored, // Legacy
+                  
+                  // Striche
+                  stricheScored: group.stricheScored,
+                  stricheReceived: group.stricheReceived,
+                  stricheDifference: group.stricheScored - group.stricheReceived,
+                  totalStriche: group.stricheScored, // Legacy
+                  
+                  score: group.score, // Legacy: Haupt-Score für Ranking
+                  
+                  // ✅ SPIEL-STATISTIKEN (von der Gruppe)
+                  gamesPlayed: group.gamesPlayed,
+                  gamesWon: group.wins,
+                  gamesLost: group.losses,
+                  gamesDraw: group.draws,
+                  rawWins: group.wins, // Legacy
+                  
+                  // ✅ EVENT COUNTS (von der Gruppe)
+                  eventCounts: group.eventCounts,
+                  
+                  // ✅ WEIS-STATISTIKEN (von der Gruppe)
+                  totalWeisPoints: group.totalWeisPoints,
+                  averageWeisPerGame: group.gamesPlayed > 0 ? group.totalWeisPoints / group.gamesPlayed : 0
               };
+              
+              logger.info(`[finalizeTournament] Saving groupVsGroup ranking for player ${playerId} (Group: ${group.groupName}, rank ${rank}): ` +
+                         `Points ${group.pointsScored}/${group.pointsReceived} (${group.pointsScored - group.pointsReceived}), ` +
+                         `Striche ${group.stricheScored}/${group.stricheReceived} (${group.stricheScored - group.stricheReceived})`);
+              
               playerRankingBatch.set(playerRankingDocRef, rankingData);
 
               const playerStatsRef = db.collection("playerComputedStats").doc(playerId);

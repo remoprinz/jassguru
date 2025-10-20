@@ -848,7 +848,10 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
 
 
       } else {
-        console.warn(`[jassStore] Session-Dokument ${sessionId} nicht gefunden.`);
+        // ✅ Logs aufgeräumt: Session-Dokument-Warnung nur für normale Sessions (nicht Turniere)
+        if (!sessionId.startsWith('tournament_')) {
+          console.warn(`[jassStore] Session-Dokument ${sessionId} nicht gefunden.`);
+        }
       }
     }, (error) => {
        console.error(`[jassStore] Fehler im Session-Listener für ${sessionId}:`, error);

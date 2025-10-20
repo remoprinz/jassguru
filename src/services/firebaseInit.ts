@@ -151,7 +151,7 @@ try {
       // Vereinheitlichte, robuste Initialisierung: immer Standard-Cache
       // Begründung: persistentLocalCache verursacht in WebViews/Private-Browsern (z.B. iOS/WhatsApp) sporadische IDB-Crashes
       // und führte zu "can't access property 'Pe', e is null". Für Stabilität verzichten wir auf persistente IDB-Caches.
-      console.log('[Firestore] Verwende Standard-Cache (persistente IDB-Cache deaktiviert)');
+      // Standard-Cache verwendet
       db = getFirestore(app);
       // console.log("✅ Firestore initialisiert mit Multi-Tab Offline-Persistenz und unlimitiertem Cache.");
     } else {

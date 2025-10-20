@@ -42,8 +42,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 // NEU: Chart-Komponenten
 import PowerRatingChart from '@/components/charts/PowerRatingChart';
-import { getPlayerRatingTimeSeries } from '@/services/ratingHistoryService';
-import { getChartData } from '@/services/chartDataService'; // 🎯 Pre-computed Chart Data
+import { getGlobalPlayerRatingTimeSeries } from '@/services/globalRatingHistoryService'; // 🎯 GLOBALE Spieler-Chart-Daten (über alle Gruppen)
 
 // Types
 interface ExpectedPlayerStatsWithAggregates {
@@ -421,17 +420,30 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     return Array.from(new Set(urls.filter((url): url is string => typeof url === 'string' && url.trim() !== '')));
   }, [members, currentPlayer, playerStats?.partnerAggregates, playerStats?.opponentAggregates]);
 
+  // Einheitliche, autoritative Bestimmung der anzuzeigenden Spieler-ID
+  const viewPlayerId = useMemo(() => {
+    if (isPublicView) {
+      const qid = router?.query?.playerId;
+      if (typeof qid === 'string' && qid.trim().length > 0) return qid;
+    }
+    const candidate = (currentPlayer as any)?.id || (currentPlayer as any)?.userId || (user as any)?.playerId || (user as any)?.uid;
+    return candidate ? String(candidate) : null;
+  }, [isPublicView, router?.query?.playerId, currentPlayer, user]);
+
   // NEU: Lade Elo-Rating für aktuellen Spieler (einheitlich via loadPlayerRatings)
   React.useEffect(() => {
-    const playerId = (currentPlayer as any)?.id || (currentPlayer as any)?.userId || (user as any)?.playerId || (user as any)?.uid || (isPublicView ? router?.query?.playerId : null);
-    if (!playerId) return;
+    if (!viewPlayerId) return;
     (async () => {
       try {
-        const map = await loadPlayerRatings([String(playerId)]);
-        const rating = map.get(String(playerId));
+        const map = await loadPlayerRatings([viewPlayerId]);
+        const rating = map.get(viewPlayerId);
         if (rating) {
           setPlayerRating(rating);
-          if (typeof rating.lastDelta === 'number') {
+          // 🆕 SESSION-DELTA: Verwende lastSessionDelta statt lastDelta
+          if (typeof rating.lastSessionDelta === 'number') {
+            setPlayerDelta(rating.lastSessionDelta);
+          } else if (typeof rating.lastDelta === 'number') {
+            // Fallback für alte Daten ohne lastSessionDelta
             setPlayerDelta(rating.lastDelta);
           } else {
             setPlayerDelta(null);
@@ -441,28 +453,30 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         console.warn('Fehler beim Laden des Elo-Ratings via loadPlayerRatings:', e);
       }
     })();
-  }, [currentPlayer, user, isPublicView, router?.query?.playerId]);
+  }, [viewPlayerId]);
 
-  // 🚀 NEU: Lade Chart-Daten für Power-Rating Zeitreihen
+  // 🚀 NEU: Lade Chart-Daten für Power-Rating Zeitreihen (GLOBAL über alle Gruppen, verzögert für bessere UX!)
   React.useEffect(() => {
-    const playerId = (currentPlayer as any)?.id || (currentPlayer as any)?.userId || (user as any)?.playerId || (user as any)?.uid || (isPublicView ? router?.query?.playerId : null);
-    const groupId = (currentPlayer as any)?.groupId || (user as any)?.groupId;
+    if (!viewPlayerId) return;
     
-    if (!playerId || !groupId) return;
+    // ✅ Verzögerung um 1-2 Frames nach Tab-Expandieren für smooth Chart-Rendering
+    const timer = setTimeout(() => {
+      setChartLoading(true);
+      getGlobalPlayerRatingTimeSeries(viewPlayerId, 100, profileTheme || 'yellow')
+        .then((data) => {
+          setChartData(data);
+        })
+        .catch(error => {
+          console.warn('Fehler beim Laden der Chart-Daten:', error);
+          setChartData(null);
+        })
+        .finally(() => {
+          setChartLoading(false);
+        });
+    }, 50); // 50ms Verzögerung für bessere UX
     
-    setChartLoading(true);
-    getChartData(groupId) // 🎯 Pre-computed Chart Data für sofortige Performance
-      .then((data) => {
-        setChartData(data);
-      })
-      .catch(error => {
-        console.warn('Fehler beim Laden der Chart-Daten:', error);
-        setChartData(null);
-      })
-      .finally(() => {
-        setChartLoading(false);
-      });
-  }, [currentPlayer, user, isPublicView, router?.query?.playerId]);
+    return () => clearTimeout(timer);
+  }, [viewPlayerId, profileTheme]);
 
   // ===== LOKALE TAB-COLOR FUNKTION (IDENTISCH ZU GROUPVIEW) =====
   const getTabActiveColor = (themeKey: string): string => {
@@ -648,7 +662,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           )}
           
           <div className={`${layout.subtitleSize} text-gray-300 mx-auto max-w-xl break-words mt-3`}>
-            <p className="text-center">{statsLoading ? <Skeleton className={`${layout.skeletonTextHeight} w-64 mx-auto`} /> : jassSpruch}</p>
+            <div className="text-center">{statsLoading ? <Skeleton className={`${layout.skeletonTextHeight} w-64 mx-auto`} /> : jassSpruch}</div>
           </div>
         </div>
 
@@ -685,7 +699,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
         {/* Navigation Buttons (nur private Profile) */}
         {!isPublicView && (
-          <div className="flex justify-center items-center gap-3 mb-6 px-4">
+          <div className="flex justify-center items-center gap-3 mb-6 px-8">
             <Button
               variant="ghost" 
               size={layout.buttonSize}
@@ -886,7 +900,40 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   </div>
                 ) : playerStats ? (
                   <div className={`${layout.sectionSpacing} ${layout.bodySize}`}> 
-                    {/* Block 1: Spielerübersicht */}
+                    {/* Block 1: Power-Rating Zeitreihen Chart - AN OBERSTER STELLE */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Jass-Elo Verlauf {playerRating?.tierEmoji}</h3>
+                      </div>
+                      <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                        {chartLoading ? (
+                          <div className="flex justify-center items-center py-10">
+                            <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
+                            <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Chart-Daten...</span>
+                          </div>
+                        ) : chartData && chartData.datasets.length > 0 ? (
+                          <PowerRatingChart 
+                            data={chartData}
+                            title="Elo-Rating"
+                            height={layout.isDesktop ? 400 : 300}
+                            theme={profileTheme || 'blue'}
+                            isDarkMode={true}
+                            hideLegend={true} // ✅ Legende für ProfileView verstecken
+                            activeTab={activeMainTab} // ✅ Tab-Wechsel-Reset für Animationen
+                            activeSubTab={activeStatsSubTab} // ✅ Sub-Tab-Wechsel-Reset für Animationen
+                          />
+                        ) : (
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                            <p>Noch keine Rating-Daten verfügbar</p>
+                            <p className={`${layout.smallTextSize} mt-1`}>Chart wird angezeigt, sobald Spieler Rating-Historie haben</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Block 2: Spielerübersicht */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -921,36 +968,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           <span className={`${layout.bodySize} font-medium text-gray-300`}>Letzter Jass:</span>
                           <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.lastJassDate || '-'}</span>
                         </div>
-                      </div>
-                    </div>
-
-                    {/* Block 2: Power-Rating Zeitreihen Chart */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
-                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Elo-Rating Entwicklung</h3>
-                      </div>
-                      <div className={`${layout.cardPadding}`}>
-                        {chartLoading ? (
-                          <div className="flex justify-center items-center py-10">
-                            <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
-                            <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Chart-Daten...</span>
-                          </div>
-                        ) : chartData && chartData.datasets.length > 0 ? (
-                          <PowerRatingChart 
-                            data={chartData}
-                            title="Elo-Rating"
-                            height={layout.isDesktop ? 400 : 300}
-                            theme={profileTheme || 'blue'}
-                            isDarkMode={true}
-                          />
-                        ) : (
-                          <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
-                            <p>Noch keine Rating-Daten verfügbar</p>
-                            <p className={`${layout.smallTextSize} mt-1`}>Chart wird angezeigt, sobald Rating-Historie vorhanden ist</p>
-                          </div>
-                        )}
                       </div>
                     </div>
 
@@ -1059,7 +1076,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Block 3: Trumpfansagen */}
+                    {/* Block 4: Trumpfansagen */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -1086,7 +1103,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Block 4: 🏆 Highlights */}
+                    {/* Block 5: 🏆 Highlights */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -1228,7 +1245,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Block 5: 👎 Lowlights */}
+                    {/* Block 6: 👎 Lowlights */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>

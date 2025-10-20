@@ -196,6 +196,9 @@ export const createTournamentInstance = async (
     // Stelle sicher, dass participantUids ein gültiges Array ist, auch wenn leer übergeben
     const finalParticipantUids = Array.isArray(participantUids) ? [...new Set([creatorUid, ...participantUids])] : [creatorUid];
     
+    // ✅ NEU: Konvertiere UIDs zu Player Document IDs
+    const participantPlayerIds = await getPlayerIdsForUids(finalParticipantUids);
+    
     // Stelle sicher, dass adminIds korrekt initialisiert wird
     const adminIds = [creatorUid]; // Der Ersteller ist immer der erste Admin
 
@@ -209,6 +212,7 @@ export const createTournamentInstance = async (
       createdBy: creatorUid,
       adminIds: adminIds, // KORREKT VERWENDET
       participantUids: finalParticipantUids,
+      participantPlayerIds: participantPlayerIds, // ✅ NEU: Player Document IDs
       
       // 🆕 DUALE NUMMERIERUNG & TURNIERMODUS
       tournamentMode: 'spontaneous', // Default: Spontan-Modus
@@ -705,7 +709,7 @@ export const fetchTournamentParticipants = async (
     }
 
     const participantUids = tournament.participantUids;
-    console.log(`[tournamentService] Found ${participantUids.length} participant UIDs for tournament ${instanceId}:`, participantUids);
+    // ✅ Logs aufgeräumt: Participant-Log entfernt
 
     // 2. Rufe alle Spielerprofile auf einmal mit der neuen Service-Funktion ab.
     const validParticipants = await getPublicPlayerProfilesByUserIds(participantUids);
@@ -723,7 +727,7 @@ export const fetchTournamentParticipants = async (
       }).length;
       
       // DEBUG: Log für jeden Spieler (vereinfacht)
-      console.log(`[tournamentService] Player ${participant.displayName}: ${completedPassesForPlayer} completed passes`);
+      // ✅ Logs aufgeräumt: Player-Passes-Log entfernt
       
       return {
         uid: participant.userId || '', // 🚨 KRITISCHER FIX: Verwende participant.userId (Firebase Auth UID)
@@ -738,7 +742,7 @@ export const fetchTournamentParticipants = async (
     // Optional: Sortiere die Teilnehmer nach Namen
     participantsWithPassesCount.sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
 
-    console.log(`[tournamentService] Fetched ${participantsWithPassesCount.length} detailed participant profiles for tournament ${instanceId}.`);
+    // ✅ Logs aufgeräumt: Participants-Log entfernt
     return participantsWithPassesCount;
 
   } catch (error) {
@@ -850,24 +854,8 @@ export const startTournamentPasseService = async (
         jassStartTime: serverTimestamp()
       });
 
-      const sessionDocRef = doc(db, 'sessions', instanceId);
-      const sessionData = {
-        gruppeId: tournamentData.groupId,
-        startedAt: tournamentData.createdAt ?? serverTimestamp(),
-        playerNames: playerNames,
-        participantUids: tournamentData.participantUids,
-        status: 'active',
-        isTournamentSession: true,
-        currentActiveGameId: activeGameDocRef.id,
-        tournamentInstanceId: instanceId,
-        lastActivity: serverTimestamp(),
-      };
-      
-      try {
-        await setDoc(sessionDocRef, sessionData, { merge: true });
-      } catch (sessionError) {
-        console.error(`[tournamentService] Error creating/updating session document ${instanceId}:`, sessionError);
-      }
+      // ✅ ELEGANT: Session-Dokumente werden NICHT mehr benötigt!
+      // groupId wird direkt aus Tournament-Dokument geladen (siehe gameService.ts)
       
       const tournamentDocRef = doc(db, 'tournaments', instanceId);
       try {
@@ -1051,7 +1039,7 @@ export const fetchTournamentGames = async (
       games.push({ passeId: doc.id, ...doc.data() } as TournamentGame);
     });
     
-    console.log(`[tournamentService] Fetched ${games.length} completed games/passen for tournament ${instanceId}.`);
+    // ✅ Logs aufgeräumt: Games-Log entfernt
     return games;
   } catch (error) {
     console.error(`[tournamentService] Error fetching completed games for tournament ${instanceId}:`, error);
@@ -1221,38 +1209,50 @@ export const uploadTournamentLogoFirebase = async (tournamentId: string, file: F
 
 /**
  * Ruft alle Turnierinstanzen ab, an denen ein bestimmter User teilnimmt.
- * @param userId ID des Benutzers.
+ * @param playerId ID des Spielers (Player Document ID).
  * @returns Ein Array von TournamentInstance-Objekten.
  */
 export const fetchTournamentsForUser = async (
-  userId: string
+  playerId: string
 ): Promise<TournamentInstance[]> => {
-  if (!userId) {
-    console.warn("[tournamentService] fetchTournamentsForUser called without userId.");
+  if (!playerId) {
+    console.warn("[tournamentService] fetchTournamentsForUser called without playerId.");
     return [];
   }
   try {
     const tournamentsCol = collection(db, 'tournaments');
-    // Abfrage nach Turnieren, bei denen der User in participantUids enthalten ist
-    const q = query(
-      tournamentsCol,
-      where("participantUids", "array-contains", userId)
-      // Folgende Zeilen für Testzwecke auskommentiert:
-      // where("status", "!=", "archived"), 
-      // orderBy("status"), 
-      // orderBy("createdAt", "desc")
-    );
-    const querySnapshot = await getDocs(q);
-    const instances: TournamentInstance[] = [];
-    querySnapshot.forEach((doc) => {
-      instances.push({ id: doc.id, ...doc.data() } as TournamentInstance);
-    });
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[tournamentService] Fetched ${instances.length} tournament instances for user ${userId}.`);
+    
+    // ✅ ROBUSTE LÖSUNG: Hole Player-Dokument um userId zu bekommen
+    const playerDoc = await getDoc(doc(db, 'players', playerId));
+    const userId = playerDoc.exists() ? playerDoc.data()?.userId : null;
+    
+    // ✅ DOPPELTE ABFRAGE: Sowohl participantPlayerIds ALS AUCH participantUids (Fallback)
+    const queries = [
+      query(tournamentsCol, where("participantPlayerIds", "array-contains", playerId))
+    ];
+    
+    // Fallback für alte Turniere ohne participantPlayerIds
+    if (userId) {
+      queries.push(query(tournamentsCol, where("participantUids", "array-contains", userId)));
     }
+    
+    const results = await Promise.all(queries.map(q => getDocs(q)));
+    const instances: TournamentInstance[] = [];
+    const seenIds = new Set<string>();
+    
+    results.forEach(querySnapshot => {
+      querySnapshot.forEach((doc) => {
+        if (!seenIds.has(doc.id)) {
+          seenIds.add(doc.id);
+          instances.push({ id: doc.id, ...doc.data() } as TournamentInstance);
+        }
+      });
+    });
+    
+    // ✅ Logs aufgeräumt: Tournaments-Log entfernt
     return instances;
   } catch (error) {
-    console.error(`[tournamentService] Error fetching tournaments for user ${userId}:`, error);
+    console.error(`[tournamentService] Error fetching tournaments for playerId ${playerId}:`, error);
     
     // ✅ ELEGANTE LÖSUNG: Unterscheide zwischen echten Fehlern und normalen Zuständen
     if (error && typeof error === 'object' && 'code' in error) {
@@ -1262,7 +1262,7 @@ export const fetchTournamentsForUser = async (
       if (firebaseError.code === 'permission-denied' || 
           firebaseError.code === 'not-found' ||
           firebaseError.code === 'failed-precondition') {
-        console.log(`[tournamentService] Normal state: No tournaments accessible for user ${userId} (${firebaseError.code})`);
+        console.log(`[tournamentService] Normal state: No tournaments accessible for playerId ${playerId} (${firebaseError.code})`);
         return []; // Leere Liste statt Fehler
       }
     }
@@ -1465,9 +1465,8 @@ export const completeAndRecordTournamentPasse = async (
     }
 
     // 🆕 SCHRITT 2: Konvertiere alle UIDs zu Player Document IDs
-    console.log('[tournamentService] 🔍 Getting player document IDs for stats...');
+    // ✅ Logs aufgeräumt: Player-IDs-Logs entfernt
     const playerDocumentIds = await getPlayerIdsForUids(playerUidsInGame);
-    console.log('[tournamentService] ✅ Player IDs retrieved:', playerDocumentIds);
 
     // 🆕 SCHRITT 3: Erstelle playerDetails mit Player Document IDs
     for (let i = 0; i < playerSeats.length; i++) {
@@ -1548,11 +1547,11 @@ export const completeAndRecordTournamentPasse = async (
     const passeInRound = await getNextPasseLetterInRound(tournamentInstanceId, currentRound);
     const passeLabel = `${currentRound}${passeInRound}`;
     
-    console.log(`[tournamentService] 📍 Passe numbering - Round: ${currentRound}, Letter: ${passeInRound}, Label: ${passeLabel}`);
+    // ✅ Logs aufgeräumt: Passe-Numbering-Log entfernt
 
     // 🆕 KRITISCH: Berechne eventCounts für Stats
     const eventCounts = calculateEventCounts(activeGameData.striche, roundHistoryData);
-    console.log('[tournamentService] 📊 EventCounts calculated:', eventCounts);
+    // ✅ Logs aufgeräumt: EventCounts-Log entfernt
 
     // Berechne Dauer, falls createdAt vorhanden ist
     let durationMillis: number | undefined = undefined;
@@ -1578,9 +1577,7 @@ export const completeAndRecordTournamentPasse = async (
       bottom: activeGameData.scores.bottom
     };
     
-    console.log(`[tournamentService] 🎯 Using existing scores (Striche-Boni already included):`, finalTeamScores);
-    console.log(`  - Bottom: ${finalTeamScores.bottom} (Jass + Striche-Boni bereits enthalten)`);
-    console.log(`  - Top: ${finalTeamScores.top} (Jass + Striche-Boni bereits enthalten)`);
+    // ✅ Logs aufgeräumt: Scores-Log entfernt
 
     const tournamentGameData: TournamentGame = {
       passeId: activePasseId,
@@ -1751,6 +1748,121 @@ export const activateTournamentService = async (instanceId: string): Promise<voi
   } catch (error) {
     console.error(`[tournamentService] Error activating tournament ${instanceId}:`, error);
     const message = error instanceof Error ? error.message : "Turnier konnte nicht aktiviert werden.";
+    throw new Error(message);
+  }
+};
+
+/**
+ * Unterbricht ein aktives Turnier und erstellt einen jassGameSummaries Eintrag.
+ * Das Turnier bleibt im Status 'active', kann aber später fortgesetzt werden.
+ * @param instanceId ID der zu unterbrechenden Turnierinstanz.
+ * @returns Promise<void>
+ */
+export const pauseTournamentService = async (instanceId: string): Promise<void> => {
+  console.log(`[tournamentService] Pausing tournament instance ${instanceId}.`);
+  const tournamentDocRef = doc(db, 'tournaments', instanceId);
+  
+  try {
+    // 1. Turnier-Daten laden
+    const tournamentSnap = await getDoc(tournamentDocRef);
+    if (!tournamentSnap.exists()) {
+      throw new Error("Turnier nicht gefunden.");
+    }
+    
+    const tournamentData = tournamentSnap.data();
+    if (tournamentData.status !== 'active') {
+      throw new Error("Nur aktive Turniere können unterbrochen werden.");
+    }
+
+    // 2. Alle abgeschlossenen Spiele des Turniers sammeln
+    const gamesSnapshot = await getDocs(collection(db, 'tournaments', instanceId, 'games'));
+    const completedGames = gamesSnapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .filter(game => {
+        // ✅ KORRIGIERT: Prüfe auf completedAt statt status
+        return (game as any).completedAt !== null && (game as any).completedAt !== undefined;
+      });
+
+    // ✅ FLEXIBEL: Auch wenn keine Spiele vorhanden sind, können wir das Turnier unterbrechen
+    // (z.B. wenn es noch nie gespielt wurde, aber trotzdem pausiert werden soll)
+    console.log(`[tournamentService] Found ${completedGames.length} completed games for tournament ${instanceId}`);
+    
+    // Wenn keine Spiele vorhanden sind, erstellen wir trotzdem einen leeren jassGameSummaries Eintrag
+    if (completedGames.length === 0) {
+      console.log(`[tournamentService] No completed games found, creating empty session for tournament ${instanceId}`);
+    }
+
+    // 3. Teilnehmer-Daten laden
+    const participants = await fetchTournamentParticipants(instanceId);
+    
+    // 4. jassGameSummaries Eintrag erstellen
+    const sessionId = `tournament_${instanceId}_${Date.now()}`;
+    const sessionData = {
+      sessionId,
+      tournamentId: instanceId,
+      tournamentName: tournamentData.name,
+      groupId: tournamentData.groupId,
+      participantPlayerIds: participants.map(p => p.playerId).filter(Boolean),
+      gameResults: completedGames,
+      createdAt: serverTimestamp(),
+      endedAt: serverTimestamp(),
+      isTournamentSession: true,
+      tournamentSessionNumber: 1, // TODO: Dynamisch berechnen basierend auf existierenden Sessions
+    };
+
+    // 5. jassGameSummaries Dokument erstellen
+    const sessionDocRef = doc(db, 'groups', tournamentData.groupId, 'jassGameSummaries', sessionId);
+    await setDoc(sessionDocRef, sessionData);
+
+    // 6. Turnier als "unterbrochen" markieren (Status bleibt 'active')
+    await updateDoc(tournamentDocRef, {
+      pausedAt: serverTimestamp(),
+      lastSessionId: sessionId,
+      updatedAt: serverTimestamp(),
+    });
+
+    console.log(`[tournamentService] Tournament ${instanceId} successfully paused. Session created: ${sessionId}`);
+    
+  } catch (error) {
+    console.error(`[tournamentService] Error pausing tournament ${instanceId}:`, error);
+    const message = error instanceof Error ? error.message : "Turnier konnte nicht unterbrochen werden.";
+    throw new Error(message);
+  }
+};
+
+/**
+ * Setzt ein unterbrochenes Turnier fort.
+ * @param instanceId ID der fortzusetzenden Turnierinstanz.
+ * @returns Promise<void>
+ */
+export const resumeTournamentService = async (instanceId: string): Promise<void> => {
+  console.log(`[tournamentService] Resuming tournament instance ${instanceId}.`);
+  const tournamentDocRef = doc(db, 'tournaments', instanceId);
+  
+  try {
+    // 1. Turnier-Daten laden
+    const tournamentSnap = await getDoc(tournamentDocRef);
+    if (!tournamentSnap.exists()) {
+      throw new Error("Turnier nicht gefunden.");
+    }
+    
+    const tournamentData = tournamentSnap.data();
+    if (tournamentData.status !== 'active') {
+      throw new Error("Nur aktive Turniere können fortgesetzt werden.");
+    }
+
+    // 2. Turnier als "fortgesetzt" markieren
+    await updateDoc(tournamentDocRef, {
+      pausedAt: null, // Unterbrechung aufheben
+      resumedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    console.log(`[tournamentService] Tournament ${instanceId} successfully resumed.`);
+    
+  } catch (error) {
+    console.error(`[tournamentService] Error resuming tournament ${instanceId}:`, error);
+    const message = error instanceof Error ? error.message : "Turnier konnte nicht fortgesetzt werden.";
     throw new Error(message);
   }
 };

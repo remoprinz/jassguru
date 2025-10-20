@@ -8,11 +8,7 @@
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log",
-    "tournament-fix": "ts-node -r tsconfig-paths/register src/scripts/runTournamentFix.ts",
-    "user-migration": "ts-node -r tsconfig-paths/register src/scripts/migrateUserDocument.ts",
-    "backfill-rating-history": "ts-node -r tsconfig-paths/register src/scripts/runBackfillRatingHistory.ts",
-    "analyze-player-history": "ts-node -r tsconfig-paths/register src/scripts/analyzePlayerChronologicalHistory.ts"
+    "logs": "firebase functions:log"
   },
   "engines": {
     "node": "20"

@@ -65,10 +65,10 @@ function isFirestoreTimestamp(value: any): value is Timestamp {
 }
 
 // NEUE HILFSFUNKTION
-const getGermanTournamentStatus = (status: string): string => {
+const getGermanTournamentStatus = (status: string, tournament?: any): string => {
   switch (status.toLowerCase()) {
     case 'active':
-      return 'Aktiv';
+      return tournament?.pausedAt ? 'Pausiert' : 'Aktiv';
     case 'completed':
       return 'Abgeschlossen';
     case 'upcoming': 
@@ -464,14 +464,7 @@ const TournamentViewPage: React.FC = () => {
     const nextLetter = String.fromCharCode(65 + parallelGroupsInNextRound); // 65 = 'A'
     const nextLabel = `${nextRound}${nextLetter}`;
     
-    console.log(`[TournamentViewPage] 🎯 Button Label Calculation (PER PLAYER):`, {
-      maxCompletedPasses,
-      nextRound,
-      parallelGroupsInNextRound,
-      nextLabel,
-      currentUserUid: user?.uid,
-      allGamesInNextRound: currentTournamentGames?.filter(g => g.tournamentRound === nextRound).map(g => g.passeLabel)
-    });
+    // ✅ Logs aufgeräumt: Button-Label-Debug-Log entfernt
     
     return { 
       nextPasseNumber: nextNumber, 
@@ -819,15 +812,18 @@ const TournamentViewPage: React.FC = () => {
                 tournament.status === 'completed' && "text-blue-400",
                 tournament.status === 'archived' && "text-gray-500",
               )}>
-                {getGermanTournamentStatus(tournament.status)}
+                {getGermanTournamentStatus(tournament.status, tournament)}
               </span>
             </span>
             {tournament.instanceDate && isFirestoreTimestamp(tournament.instanceDate) && (
               <span className="ml-3">{format(tournament.instanceDate.toDate(), 'dd.MM.yyyy')}</span>
             )}
             {tournament.status === 'completed' && tournament.completedAt && isFirestoreTimestamp(tournament.completedAt) && (
-                <span className="ml-1">{`(Abgeschlossen am ${format(tournament.completedAt.toDate(), 'dd.MM.yyyy')})`}</span>
+                <span className="ml-1">{`(${format(tournament.completedAt.toDate(), 'dd.MM.yyyy')})`}</span>
             )}
+        {tournament.status === 'active' && tournament.pausedAt && isFirestoreTimestamp(tournament.pausedAt) && (
+            <span className="ml-1 text-gray-400">{`(${format(tournament.pausedAt.toDate(), 'dd.MM.yyyy')})`}</span>
+        )}
           </div>
         )}
 
@@ -1019,16 +1015,19 @@ const TournamentViewPage: React.FC = () => {
                           Aktive Passe fortsetzen
                       </Button>
                   ) : (
-                      <Button 
-                          onClick={handleStartNextPasse}
-                          className="w-full h-14 text-lg font-bold rounded-xl shadow-lg bg-blue-600 hover:bg-blue-700 border-b-4 border-blue-900 text-white active:scale-95 transition duration-100 ease-in-out"
-                          disabled={participantsStatus === 'loading' || tournamentParticipants.length < 1 || isLoadingDetails}
-                      >
-                          {(participantsStatus === 'loading' || isLoadingDetails) && <Loader2 className="animate-spin h-5 w-5 mr-2" />}
-                          {/* 🆕 Zeige Passe-Label (z.B. "1A") statt nur Nummer */}
-                          Passe {nextPasseLabel} starten
-                          {(participantsStatus !== 'loading' && !isLoadingDetails && tournamentParticipants.length < 1) && " (Benötigt Teilnehmer)"}
-                      </Button>
+                      // ✅ Button nur anzeigen wenn Turnier aktiv UND nicht pausiert UND Modal nicht geöffnet
+                      !tournament?.pausedAt && !showStartPasseScreen && (
+                          <Button 
+                              onClick={handleStartNextPasse}
+                              className="w-full h-14 text-lg font-bold rounded-xl shadow-lg bg-blue-600 hover:bg-blue-700 border-b-4 border-blue-900 text-white active:scale-95 transition duration-100 ease-in-out"
+                              disabled={participantsStatus === 'loading' || tournamentParticipants.length < 1 || isLoadingDetails}
+                          >
+                              {(participantsStatus === 'loading' || isLoadingDetails) && <Loader2 className="animate-spin h-5 w-5 mr-2" />}
+                              {/* 🆕 Zeige Passe-Label (z.B. "1A") statt nur Nummer */}
+                              Passe {nextPasseLabel} starten
+                              {(participantsStatus !== 'loading' && !isLoadingDetails && tournamentParticipants.length < 1) && " (Benötigt Teilnehmer)"}
+                          </Button>
+                      )
                   )}
               </div>
           </div>

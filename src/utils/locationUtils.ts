@@ -9,16 +9,10 @@ export const getOrtNameByPlz = (plz: string | null | undefined): string | null =
   const ortName = postalCodes[plz];
   
   if (ortName) {
-    // Debug-Logging nur in Development-Mode
-    if (process.env.NODE_ENV === 'development') {
-    console.log(`[LocationUtils] PLZ ${plz} => ${ortName}`);
-    }
+    // Debug-Logging entfernt
     return ortName;
   } else {
-    // Warnung nur bei unbekannten PLZ in Development
-    if (process.env.NODE_ENV === 'development') {
-    console.log(`[LocationUtils] PLZ ${plz} nicht in der Datenbank gefunden`);
-    }
+    // Debug-Logging entfernt
     return null;
   }
 }; 

@@ -22,7 +22,7 @@ export function useWakeLock(type: WakeLockType = "screen") {
         setIsLocked(true);
         // Wake Lock erfolgreich aktiviert (nur in Development-Modus loggen)
         if (type === "screen" && process.env.NODE_ENV === 'development') {
-          console.log("✅ Wake Lock aktiviert - Bildschirm bleibt aktiv", {type, timestamp: new Date().toISOString()});
+          // Wake Lock aktiviert
         }
       } else if (process.env.NODE_ENV === 'development') {
         console.warn("Wake Lock API wird nicht unterstützt", {timestamp: new Date().toISOString()});

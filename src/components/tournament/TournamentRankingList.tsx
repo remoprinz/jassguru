@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import type { TournamentInstance, TournamentSettings, TournamentGame, PassePlayerDetail } from '@/types/tournament';
 import type { StricheRecord } from '@/types/jass';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -8,6 +8,8 @@ import Image from 'next/image';
 import { ParticipantWithProgress } from '@/store/tournamentStore';
 import { cn } from '@/lib/utils';
 import ProfileImage from '@/components/ui/ProfileImage';
+import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
+import { firebaseApp } from '@/services/firebaseInit';
 
 interface TournamentRankingListProps {
   instanceId: string;
@@ -15,6 +17,32 @@ interface TournamentRankingListProps {
   participants: ParticipantWithProgress[];
   games: TournamentGame[];
   onParticipantClick?: (participant: ParticipantWithProgress) => void;
+}
+
+// ✅ NEU: Typ für PlayerRanking-Daten aus der Datenbank
+interface PlayerRankingData {
+  playerId: string;
+  rank: number;
+  pointsScored?: number;
+  pointsReceived?: number;
+  pointsDifference?: number;
+  stricheScored?: number;
+  stricheReceived?: number;
+  stricheDifference?: number;
+  gamesPlayed?: number;
+  gamesWon?: number;
+  gamesLost?: number;
+  gamesDraw?: number;
+  eventCounts?: {
+    matschMade: number;
+    matschReceived: number;
+    schneiderMade: number;
+    schneiderReceived: number;
+    kontermatschMade: number;
+    kontermatschReceived: number;
+  };
+  totalWeisPoints?: number;
+  averageWeisPerGame?: number;
 }
 
 // NEU: Typ für die aggregierten Spielergebnisse
@@ -40,53 +68,117 @@ const TournamentRankingList: React.FC<TournamentRankingListProps> = ({
   onParticipantClick,
 }) => {
 
+  // ✅ NEU: State für PlayerRanking-Daten
+  const [playerRankings, setPlayerRankings] = useState<PlayerRankingData[]>([]);
+  const [isLoadingRankings, setIsLoadingRankings] = useState(false);
+
+  // ✅ NEU: Lade PlayerRanking-Daten für abgeschlossene Turniere
+  useEffect(() => {
+    const loadPlayerRankings = async () => {
+      // Prüfe, ob das Turnier abgeschlossen ist (über games-Länge und andere Indikatoren)
+      // Ein Turnier ist abgeschlossen, wenn es Games gibt und alle Games completedAt haben
+      const isCompletedTournament = games.length > 0 && games.every(game => game.completedAt);
+      
+      if (isCompletedTournament) {
+        setIsLoadingRankings(true);
+        
+        try {
+          const db = getFirestore(firebaseApp);
+          const rankingsRef = collection(db, 'tournaments', instanceId, 'playerRankings');
+          const rankingsSnap = await getDocs(rankingsRef);
+          
+          const rankings: PlayerRankingData[] = [];
+          rankingsSnap.forEach(doc => {
+            const data = doc.data();
+            rankings.push({
+              playerId: doc.id,
+              rank: data.rank || 0,
+              pointsScored: data.pointsScored,
+              pointsReceived: data.pointsReceived,
+              pointsDifference: data.pointsDifference,
+              stricheScored: data.stricheScored,
+              stricheReceived: data.stricheReceived,
+              stricheDifference: data.stricheDifference,
+              gamesPlayed: data.gamesPlayed,
+              gamesWon: data.gamesWon,
+              gamesLost: data.gamesLost,
+              gamesDraw: data.gamesDraw,
+              eventCounts: data.eventCounts,
+              totalWeisPoints: data.totalWeisPoints,
+              averageWeisPerGame: data.averageWeisPerGame
+            });
+          });
+          
+          rankings.sort((a, b) => a.rank - b.rank);
+          setPlayerRankings(rankings);
+        } catch (error) {
+          console.error('[TournamentRankingList] Error loading player rankings:', error);
+          setPlayerRankings([]);
+        } finally {
+          setIsLoadingRankings(false);
+        }
+      } else {
+        setPlayerRankings([]);
+      }
+    };
+
+    loadPlayerRankings();
+  }, [instanceId, games]);
+
   // Schritt 2.1 & 2.2: Berechne die Gesamtstände pro Spieler
   const playerTotals = useMemo(() => {
     const totals: Record<string, PlayerTotals> = {};
 
-    // 🔧 KORREKTUR: Verwende Firebase Auth UIDs wie in GroupView.tsx!
-    // Initialisiere für jeden Teilnehmer (nach uid indiziert)
+    // ✅ INTELLIGENTE DATENQUELLE: Verwende PlayerRankings für abgeschlossene Turniere
+    if (playerRankings.length > 0) {
+      // Initialisiere für jeden Teilnehmer (nach Player Document ID indiziert)
+      participants.forEach(p => {
+        if (p?.playerId) {
+          totals[p.playerId] = { score: 0, striche: 0, weis: 0 };
+        }
+      });
+
+      // Lade Daten aus PlayerRankings (direkt, ohne Mapping!)
+      playerRankings.forEach(ranking => {
+        if (totals[ranking.playerId]) {
+          totals[ranking.playerId].score = ranking.pointsScored || 0;
+          totals[ranking.playerId].striche = ranking.stricheScored || 0;
+          totals[ranking.playerId].weis = ranking.totalWeisPoints || 0;
+        }
+      });
+      
+      return totals;
+    }
+
+    // ✅ FALLBACK: Live-Berechnung für aktive Turniere
+    // Initialisiere für jeden Teilnehmer (nach Player Document ID indiziert)
     participants.forEach(p => {
-      if (p?.uid) {
-        totals[p.uid] = { score: 0, striche: 0, weis: 0 };
+      if (p?.playerId) {
+        totals[p.playerId] = { score: 0, striche: 0, weis: 0 };
       }
     });
-
-    console.log('[TournamentRankingList] 🎯 Initialized totals for', Object.keys(totals).length, 'players');
 
     // Iteriere über alle abgeschlossenen Spiele (Passen)
     if (Array.isArray(games)) {
       games.forEach(game => {
-        console.log('[TournamentRankingList] 📊 Processing game:', game.passeLabel, 'with', game.playerDetails?.length, 'players');
-        
         // Iteriere über die Details jedes Spielers in dieser Passe
         if (Array.isArray(game.playerDetails)) {
           game.playerDetails.forEach((detail: PassePlayerDetail) => {
             const playerDocId = detail.playerId; // Player Document ID
             
-            // 🔧 KRITISCHER FIX: Mappe playerId → uid
-            // Finde den Teilnehmer mit dieser playerId
-            const participant = participants.find(p => p.playerId === playerDocId);
-            const playerUid = participant?.uid;
-            
-            console.log('[TournamentRankingList] 🎮 Processing player:', {
-              playerName: detail.playerName,
-              playerDocId,
-              mappedUid: playerUid,
-              hasTotals: !!totals[playerUid || '']
-            });
-            
+            // ✅ NUR NOCH PLAYER DOCUMENT IDs verwenden!
             // Prüfe, ob der Spieler bekannt ist und Details vorhanden sind
-            if (playerUid && totals[playerUid] && detail) {
+            if (playerDocId && totals[playerDocId] && detail) {
               // 🔧 FIX: Verwende teamScoresPasse (bereits korrekte finale Punkte)
               // teamScoresPasse enthält bereits Jass-Punkte + Striche-Boni
               const teamScore = detail.team && game.teamScoresPasse 
                 ? (game.teamScoresPasse[detail.team] || 0) 
                 : (detail.scoreInPasse || 0);
               
+              // ✅ NUR NOCH PLAYER DOCUMENT IDs verwenden!
               // 🔧 FIX: Beide Spieler bekommen die VOLLE Punktzahl!
-              totals[playerUid].score += teamScore;
-              totals[playerUid].weis += detail.weisInPasse || 0;
+              totals[playerDocId].score += teamScore;
+              totals[playerDocId].weis += detail.weisInPasse || 0;
 
               // KORRIGIERT: Verwende Team-Striche statt individuelle Spieler-Striche
               let stricheSumInPasse = 0;
@@ -96,35 +188,53 @@ const TournamentRankingList: React.FC<TournamentRankingListProps> = ({
                 stricheSumInPasse = Object.values(teamStriche).reduce((sum, val) => sum + (val || 0), 0);
               }
               // Addiere zur Gesamtzahl der Striche
-              totals[playerUid].striche += stricheSumInPasse;
-              
-              console.log('[TournamentRankingList] ✅ Updated totals for', detail.playerName, ':', totals[playerUid]);
-            } else {
-              console.warn('[TournamentRankingList] ⚠️ Could not find totals for player:', {
-                playerName: detail.playerName,
-                playerDocId,
-                mappedUid: playerUid
-              });
+              totals[playerDocId].striche += stricheSumInPasse;
             }
           });
         }
       });
     }
     
-    console.log('[TournamentRankingList] 🏁 Final totals:', totals);
     return totals;
-  }, [participants, games]); // Abhängigkeiten: Teilnehmerliste und Spieleliste
+  }, [participants, games, playerRankings]); // ✅ NEU: playerRankings als Abhängigkeit
 
   // Schritt 2.3: Rangliste erstellen und sortieren
   const rankedPlayers = useMemo(() => {
-    // Debug-Logging entfernt - zu viele repetitive Logs
+    // ✅ INTELLIGENTE SORTIERUNG: Verwende PlayerRankings für abgeschlossene Turniere
+    if (playerRankings.length > 0) {
+      // ✅ NUR NOCH PLAYER DOCUMENT IDs verwenden!
+      const playersWithRankings = participants
+        .map(p => {
+          // Finde das Ranking basierend auf der Player Document ID des Teilnehmers
+          const ranking = playerRankings.find(r => r.playerId === p.playerId);
+          
+          if (!ranking) return null;
+          
+          return {
+            ...p,
+            rank: ranking.rank,
+            totals: {
+              score: ranking.pointsScored || 0,
+              striche: ranking.stricheScored || 0,
+              weis: ranking.totalWeisPoints || 0
+            }
+          };
+        })
+        .filter(p => p !== null)
+        .sort((a, b) => a.rank - b.rank) as RankingEntry[]; // ✅ KRITISCH: Sortiere nach Rang!
+      
+      return playersWithRankings;
+    }
+
+    // ✅ FALLBACK: Live-Sortierung für aktive Turniere
+    // ✅ NUR NOCH PLAYER DOCUMENT IDs verwenden!
     // Kombiniere Teilnehmerdaten mit ihren Gesamtständen
     const playersWithTotals = participants
       .map(p => ({
         ...p,
-        totals: p?.uid ? playerTotals[p.uid] : { score: 0, striche: 0, weis: 0 }, // Fallback für fehlende uid
+        totals: p?.playerId ? playerTotals[p.playerId] : { score: 0, striche: 0, weis: 0 }, // Fallback für fehlende playerId
       }))
-      .filter(p => p.uid); // Nur Teilnehmer mit gültiger uid berücksichtigen
+      .filter(p => p.playerId); // Nur Teilnehmer mit gültiger playerId berücksichtigen
 
     // Sortierlogik basierend auf rankingMode
     playersWithTotals.sort((a, b) => {
@@ -174,7 +284,7 @@ const TournamentRankingList: React.FC<TournamentRankingListProps> = ({
       }
       return { ...player, rank };
     });
-  }, [participants, playerTotals, settings]);
+  }, [participants, playerTotals, settings, playerRankings]); // ✅ NEU: playerRankings als Abhängigkeit
 
   // NEU: Hilfsfunktion um zu prüfen, ob Striche aktiv sind
   const areStrokesVisible = useMemo(() => {
@@ -187,6 +297,19 @@ const TournamentRankingList: React.FC<TournamentRankingListProps> = ({
       onParticipantClick(participant);
     }
   };
+
+  // ✅ NEU: Loading-State für PlayerRankings
+  if (isLoadingRankings) {
+    return (
+      <div className="bg-gray-800/50 p-4 rounded-lg shadow-inner border border-gray-700/50">
+        <h3 className="text-lg font-semibold text-center mb-4 text-purple-300">Rangliste</h3>
+        <div className="flex justify-center items-center p-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
+          <span className="ml-3 text-gray-400">Lade Turnier-Rankings...</span>
+        </div>
+      </div>
+    );
+  }
 
   // Schritt 2.4: Rendern der Tabelle
   return (
@@ -210,7 +333,7 @@ const TournamentRankingList: React.FC<TournamentRankingListProps> = ({
           <tbody>
             {rankedPlayers.map((player) => (
               <tr 
-                key={player.uid} 
+                key={player.playerId || player.uid} 
                 onClick={() => handleItemClick(player)}
                 className={cn("border-b border-gray-700/50 hover:bg-gray-700/60 transition-colors", onParticipantClick ? "cursor-pointer" : "")}
               >

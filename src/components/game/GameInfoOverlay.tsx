@@ -126,6 +126,26 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
   const handlePauseClick = () => {
     pauseTimer();
     pauseGame();
+    
+    // Markiere aktuelle Runde als "pausiert" für Statistiken
+    const gameStore = useGameStore.getState();
+    if (gameStore.currentRound && gameStore.roundHistory.length > 0) {
+      const currentRoundIndex = gameStore.currentHistoryIndex;
+      if (currentRoundIndex >= 0 && currentRoundIndex < gameStore.roundHistory.length) {
+        // Markiere die aktuelle Runde als pausiert
+        const updatedRoundHistory = [...gameStore.roundHistory];
+        updatedRoundHistory[currentRoundIndex] = {
+          ...updatedRoundHistory[currentRoundIndex],
+          wasPaused: true // Flag für Statistiken
+        };
+        
+        useGameStore.setState({
+          roundHistory: updatedRoundHistory
+        });
+        
+        console.log(`[GameInfoOverlay] Runde ${gameStore.currentRound} als pausiert markiert`);
+      }
+    }
   };
 
   const handleResumeClick = () => {

@@ -94,7 +94,7 @@ class OfflineSyncEngine {
   }
 
   stop(): void {
-    console.log('[SyncEngine] 🛑 Stopping sync engine');
+    // Sync Engine gestoppt
     this.pause();
     
     if (this.networkCheckInterval) {

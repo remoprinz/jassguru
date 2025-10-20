@@ -25,7 +25,8 @@ export interface TournamentInstance {
   status: 'upcoming' | 'active' | 'paused' | 'completed' | 'archived'; // 🆕 Status erweitert um 'paused'
   createdBy: string; // User ID des Erstellers
   adminIds: string[]; // User IDs der Turnier-Admins
-  participantUids: string[]; // User IDs aller Teilnehmer
+  participantUids: string[]; // User IDs aller Teilnehmer (Legacy)
+  participantPlayerIds?: string[]; // ✅ NEU: Player Document IDs aller Teilnehmer
   
   // 🆕 DUALE NUMMERIERUNG & TURNIERMODUS
   tournamentMode: 'spontaneous' | 'planned';  // Spontan oder geplant
@@ -36,6 +37,9 @@ export interface TournamentInstance {
   updatedAt: Timestamp | FieldValue; // Zeitstempel der letzten Änderung
   completedPasseCount: number; // Anzahl abgeschlossener Passen (für 6-Passen-Regel)
   completedAt?: Timestamp | FieldValue | null; // Wann wurde es abgeschlossen?
+  pausedAt?: Timestamp | FieldValue | null; // NEU: Wann wurde es unterbrochen?
+  resumedAt?: Timestamp | FieldValue | null; // NEU: Wann wurde es fortgesetzt?
+  lastSessionId?: string | null; // NEU: ID der letzten jassGameSummaries Session
   currentActiveGameId?: string | null; // NEU: ID des aktuellen aktiven Spiels (Passe)
   lastActivity?: Timestamp | FieldValue | null; // NEU: Wann war die letzte Aktivität
   // Optional: Aggregierte Statistiken (für schnelle Ranglisten)

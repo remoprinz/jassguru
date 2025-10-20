@@ -31,6 +31,17 @@ service cloud.firestore {
       allow delete: if request.auth != null &&
                        (resource.data.userId == request.auth.uid || 
                         resource.data.isGuest == true);
+
+      // =====================================================================
+      // PLAYER RATING HISTORY - Globale Rating-Historie
+      // =====================================================================
+      match /ratingHistory/{historyId} {
+        // Jeder darf die globale Rating-Historie lesen (für Charts)
+        allow read: if true;
+        
+        // Schreiben: Nur Backend (Cloud Functions)
+        allow write: if false;
+      }
     }
 
     // =====================================================================
@@ -109,7 +120,8 @@ service cloud.firestore {
         allow read, list: if get(/databases/$(database)/documents/groups/$(groupId)).data.isPublic == true ||
                            (request.auth != null && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.playerIds);
         allow create, update: if request.auth != null &&
-                                request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.playerIds;
+                                (request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.playerIds ||
+                                 request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.adminIds);
         allow delete: if false;
         
         // CompletedGames in einer Session - participantUids aus sessions/{sessionId} holen!
@@ -168,6 +180,18 @@ service cloud.firestore {
           allow read: if true; // Öffentlich lesbar für Rating-Verlaufskurven
           allow write: if false; // Nur für Cloud Functions und Scripts
         }
+      }
+
+      // 🆕 Aggregated Chart Data für Pre-computed Charts
+      match /aggregated/chartData {
+        allow read: if true; // Öffentlich lesbar für Chart-Darstellung
+        allow write: if false; // Nur für Cloud Functions und Scripts
+      }
+
+      // 🆕 Aggregated Leaderboard für Performance-Optimierung
+      match /aggregated/leaderboard {
+        allow read: if true; // Öffentlich lesbar für Leaderboard-Darstellung
+        allow write: if false; // Nur für Cloud Functions und Scripts
       }
     }
 

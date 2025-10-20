@@ -141,6 +141,8 @@ const TournamentSettingsPage: React.FC = () => {
     makeParticipantAdmin,
     removeParticipantAdmin,
     completeTournament: completeTournamentAction,
+    pauseTournament,
+    resumeTournament,
     loadTournamentParticipants,
     updateTournamentDetails,
     updateTournamentSettings,
@@ -804,6 +806,9 @@ const TournamentSettingsPage: React.FC = () => {
 
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [showPauseDialog, setShowPauseDialog] = useState(false);
+  const [isPausing, setIsPausing] = useState(false);
+  const [isResuming, setIsResuming] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
@@ -833,6 +838,60 @@ const TournamentSettingsPage: React.FC = () => {
     } finally {
       setIsCompleting(false);
       setShowCompleteDialog(false);
+    }
+  };
+
+  const handlePauseTournament = async () => {
+    if (!instanceId || typeof instanceId !== 'string' || !tournament) {
+      toast.error("Turnierdetails nicht gefunden.");
+      return;
+    }
+    if (tournament.status !== 'active') {
+      toast.info("Nur aktive Turniere können unterbrochen werden.");
+      setShowPauseDialog(false);
+      return;
+    }
+
+    setIsPausing(true);
+    try {
+      const success = await pauseTournament(instanceId);
+      if (success) {
+        toast.success("Turnier erfolgreich unterbrochen! Ein jassGameSummaries Eintrag wurde erstellt.");
+      } else {
+        toast.error(tournamentError || "Fehler beim Unterbrechen des Turniers.");
+      }
+    } catch (error) {
+      console.error("Fehler beim Unterbrechen des Turniers:", error);
+      toast.error("Ein unerwarteter Fehler ist aufgetreten.");
+    } finally {
+      setIsPausing(false);
+      setShowPauseDialog(false);
+    }
+  };
+
+  const handleResumeTournament = async () => {
+    if (!instanceId || typeof instanceId !== 'string' || !tournament) {
+      toast.error("Turnierdetails nicht gefunden.");
+      return;
+    }
+    if (tournament.status !== 'active') {
+      toast.info("Nur aktive Turniere können fortgesetzt werden.");
+      return;
+    }
+
+    setIsResuming(true);
+    try {
+      const success = await resumeTournament(instanceId);
+      if (success) {
+        toast.success("Turnier erfolgreich fortgesetzt!");
+      } else {
+        toast.error(tournamentError || "Fehler beim Fortsetzen des Turniers.");
+      }
+    } catch (error) {
+      console.error("Fehler beim Fortsetzen des Turniers:", error);
+      toast.error("Ein unerwarteter Fehler ist aufgetreten.");
+    } finally {
+      setIsResuming(false);
     }
   };
 
@@ -1170,13 +1229,21 @@ const TournamentSettingsPage: React.FC = () => {
                       <h4 className="font-medium text-gray-200">Aktueller Status</h4>
                       <p className="text-lg font-semibold mt-1">
                         {tournament?.status === 'upcoming' && <span className="text-yellow-400">Anstehend</span>}
-                        {tournament?.status === 'active' && <span className="text-green-400">Aktiv</span>}
+                        {tournament?.status === 'active' && (
+                          <span className="text-green-400">
+                            {(tournament as any).pausedAt ? 'Aktiv (unterbrochen)' : 'Aktiv'}
+                          </span>
+                        )}
                         {tournament?.status === 'completed' && <span className="text-blue-400">Abgeschlossen</span>}
                         {tournament?.status === 'archived' && <span className="text-gray-500">Archiviert</span>}
                       </p>
                       {tournament?.status === 'completed' && tournament.completedAt && typeof (tournament.completedAt as any).toDate === 'function' && (
                         // @ts-ignore
                         <p className="text-xs text-gray-400">Abgeschlossen am {new Date((tournament.completedAt as any).toDate()).toLocaleDateString('de-CH')}</p>
+                      )}
+                      {tournament?.status === 'active' && (tournament as any).pausedAt && typeof ((tournament as any).pausedAt as any).toDate === 'function' && (
+                        // @ts-ignore
+                        <p className="text-xs text-yellow-400">Unterbrochen am {new Date(((tournament as any).pausedAt as any).toDate()).toLocaleDateString('de-CH')}</p>
                       )}
                     </div>
                     
@@ -1201,52 +1268,131 @@ const TournamentSettingsPage: React.FC = () => {
                       </div>
                     )}
 
-                    {/* Turnier abschliessen nur anzeigen, wenn aktiv */} 
+                    {/* Turnier unterbrechen/fortsetzen nur anzeigen, wenn aktiv */} 
                     {tournament?.status === 'active' && (
-                      <div>
-                        <h4 className="font-medium text-gray-200">Turnier abschliessen</h4>
-                        <p className="text-sm text-gray-400 mt-1 mb-3">Markiere dieses Turnier als abgeschlossen. Dies kann in der Regel nicht
-                           rückgängig gemacht werden. Abgeschlossene Turniere bleiben zur
-                           Ansicht im Archiv.</p>
-                        <Dialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>
-                          <DialogTrigger asChild>
-                            <Button variant="outline">Turnier abschliessen</Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Turnier wirklich abschliessen?</DialogTitle>
-                              <DialogDescription>
-                                Wenn du dieses Turnier abschliesst, wird es als beendet
-                                markiert und ist nicht mehr aktiv. Möchtest du
-                                fortfahren?
-                              </DialogDescription>
-                            </DialogHeader>
-                            <DialogFooter>
-                              <Button
-                                variant="outline"
-                                onClick={() => setShowCompleteDialog(false)}
-                                disabled={isCompleting}
-                                className="border-red-700 bg-red-900/50 hover:bg-red-800 text-white"
-                              >
-                                Abbrechen
+                      <div className="space-y-4">
+                        {/* Unterbrechen */}
+                        <div>
+                          <h4 className="font-medium text-gray-200">Turnier unterbrechen</h4>
+                          <p className="text-sm text-gray-400 mt-1 mb-3">
+                            Unterbricht das Turnier und erstellt einen jassGameSummaries Eintrag. 
+                            Das Turnier bleibt aktiv und kann später fortgesetzt werden.
+                          </p>
+                          <Dialog open={showPauseDialog} onOpenChange={setShowPauseDialog}>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" className="border-yellow-700 bg-yellow-900/50 hover:bg-yellow-800 text-yellow-300">
+                                Turnier unterbrechen
                               </Button>
-                              <Button
-                                variant="destructive"
-                                onClick={handleCompleteTournament}
-                                disabled={isCompleting}
-                              >
-                                {isCompleting ? (
-                                  <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Wird abgeschlossen...
-                                  </>
-                                ) : (
-                                  'Abschliessen'
-                                )}
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Turnier wirklich unterbrechen?</DialogTitle>
+                                <DialogDescription>
+                                  Das Turnier wird unterbrochen und ein jassGameSummaries Eintrag wird erstellt. 
+                                  Das Turnier bleibt aktiv und kann später fortgesetzt werden.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <DialogFooter>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => setShowPauseDialog(false)}
+                                  disabled={isPausing}
+                                  className="border-gray-700 bg-gray-900/50 hover:bg-gray-800 text-white"
+                                >
+                                  Abbrechen
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  onClick={handlePauseTournament}
+                                  disabled={isPausing}
+                                  className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                                >
+                                  {isPausing ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Wird unterbrochen...
+                                    </>
+                                  ) : (
+                                    'Unterbrechen'
+                                  )}
+                                </Button>
+                              </DialogFooter>
+                            </DialogContent>
+                          </Dialog>
+                        </div>
+
+                        {/* Fortsetzen (nur wenn unterbrochen) */}
+                        {(tournament as any).pausedAt && (
+                          <div>
+                            <h4 className="font-medium text-gray-200">Turnier fortsetzen</h4>
+                            <p className="text-sm text-gray-400 mt-1 mb-3">
+                              Setzt das unterbrochene Turnier fort. Neue Passen können gestartet werden.
+                            </p>
+                            <Button 
+                              onClick={handleResumeTournament}
+                              disabled={isResuming || isLoadingGlobal}
+                              className="w-full bg-green-600 hover:bg-green-700 text-white"
+                            >
+                              {isResuming ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Wird fortgesetzt...
+                                </>
+                              ) : (
+                                "Turnier fortsetzen"
+                              )}
+                            </Button>
+                          </div>
+                        )}
+
+                        {/* Abschließen (Legacy-Option) */}
+                        <div className="border-t border-gray-600/40 pt-4">
+                          <h4 className="font-medium text-gray-200">Turnier endgültig abschliessen</h4>
+                          <p className="text-sm text-gray-400 mt-1 mb-3">
+                            Markiere dieses Turnier als abgeschlossen. Dies kann nicht rückgängig gemacht werden.
+                          </p>
+                          <Dialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" className="border-red-700 bg-red-900/50 hover:bg-red-800 text-red-300">
+                                Turnier abschliessen
                               </Button>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Turnier wirklich abschliessen?</DialogTitle>
+                                <DialogDescription>
+                                  Wenn du dieses Turnier abschliesst, wird es als beendet
+                                  markiert und ist nicht mehr aktiv. Möchtest du
+                                  fortfahren?
+                                </DialogDescription>
+                              </DialogHeader>
+                              <DialogFooter>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => setShowCompleteDialog(false)}
+                                  disabled={isCompleting}
+                                  className="border-gray-700 bg-gray-900/50 hover:bg-gray-800 text-white"
+                                >
+                                  Abbrechen
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  onClick={handleCompleteTournament}
+                                  disabled={isCompleting}
+                                >
+                                  {isCompleting ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Wird abgeschlossen...
+                                    </>
+                                  ) : (
+                                    'Abschliessen'
+                                  )}
+                                </Button>
+                              </DialogFooter>
+                            </DialogContent>
+                          </Dialog>
+                        </div>
                       </div>
                     )}
                     {/* Info anzeigen, wenn abgeschlossen */} 

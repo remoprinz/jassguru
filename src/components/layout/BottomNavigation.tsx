@@ -53,8 +53,8 @@ export function BottomNavigation() {
 
   const tournamentToDisplay = useMemo(() => {
     if (userTournamentInstances && userTournamentInstances.length > 0) {
-      const oneWeekAgo = new Date();
-      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      const oneDayAgo = new Date();
+      oneDayAgo.setDate(oneDayAgo.getDate() - 1); // ✅ GEÄNDERT: Nur 24 Stunden statt 7 Tage
 
       const relevantTournaments = userTournamentInstances
         .filter(t => {
@@ -63,7 +63,7 @@ export function BottomNavigation() {
           }
           if (t.status === 'completed') {
             const completedDate = t.completedAt instanceof Timestamp ? t.completedAt.toDate() : (typeof t.completedAt === 'number' ? new Date(t.completedAt) : new Date(0)); // Fallback for safety, use completedAt
-            return completedDate >= oneWeekAgo;
+            return completedDate >= oneDayAgo; // ✅ GEÄNDERT: Nur 24 Stunden
           }
           return false;
         })
@@ -86,7 +86,7 @@ export function BottomNavigation() {
             return dateA - dateB; // Earliest upcoming first
           }
           
-          // Priority 3: Recently Completed (within 7 days)
+          // Priority 3: Recently Completed (within 24 hours)
           if (a.status === 'completed' && b.status === 'completed') {
             const dateA = a.completedAt instanceof Timestamp ? a.completedAt.toMillis() : (typeof a.completedAt === 'number' ? a.completedAt : 0);
             const dateB = b.completedAt instanceof Timestamp ? b.completedAt.toMillis() : (typeof b.completedAt === 'number' ? b.completedAt : 0);

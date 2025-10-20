@@ -14,13 +14,8 @@ try {
   console.info("Firebase Admin SDK already initialized.");
 }
 
-// --- NEU: Import für v2 Firestore Trigger ---
-// import * as archiveLogic from './archiveGame'; // ENTFERNT
-// import * as cleanupFunctions from './cleanupRounds'; // <-- ENTFERNT/AUSKOMMENTIERT
 // --- Import für neue HTTPS Callable Function ---
-import { runAddTournamentNameScript } from './scripts/addTournamentName';
-import * as finalizeSessionLogic from './finalizeSession'; // <-- WIEDER AKTIV
-// import * as finalizeSessionLogicV2 from "./finalizeSession_v2"; // <-- ENTFERNT
+import * as finalizeSessionLogic from './finalizeSession';
 // --- NEUE IMPORTE ---
 import * as userManagementLogic from './userManagement'; // WIEDER HINZUGEFÜGT
 import * as scheduledTaskLogic from './scheduledTasks'; // WIEDER HINZUGEFÜGT
@@ -147,9 +142,6 @@ interface GenerateTournamentTokenData {
 interface AcceptTournamentInviteData {
   token: string;
 }
-
-// Importiere die neue Funktion
-// import * as tournamentGameLogic from "./tournamentGameProcessing";
 
 // NEU: Import für Google Sheets API
 import { google } from "googleapis";
@@ -964,9 +956,6 @@ export const cleanupAbortedSession = onCall(async (request) => {
     }
   }
 });
-
-// --- archivecompletedgame (Trigger wird exportiert) - NUR EINMAL! ---
-// export const archivecompletedgame = archiveLogic.archivecompletedgame; // ENTFERNT
 
 // --- cleanupOldData (Scheduled Function) ---
 export const cleanupOldData = scheduledTaskLogic.cleanupOldData; 
@@ -2020,4 +2009,3 @@ export const onGroupDocumentUpdated = onDocumentUpdated(
 export { finalizeTournament } from './finalizeTournament';
 
 // ✅ NEU: Export addTournamentName Script
-export { runAddTournamentNameScript };

@@ -10,7 +10,7 @@ import Link from 'next/link';
 import {format} from 'date-fns';
 import { Timestamp, FieldValue } from 'firebase/firestore';
 import type { StricheRecord, FirestorePlayer } from '@/types/jass';
-import {fetchTournamentInstancesForGroup } from '@/services/tournamentService';
+import {fetchTournamentInstancesForGroup, fetchTournamentsForUser } from '@/services/tournamentService';
 import type { TournamentInstance } from '@/types/tournament';
 import { usePlayerStatsStore } from '@/store/playerStatsStore';
 import { transformComputedStatsToExtended, type TransformedPlayerStats } from '@/utils/statsTransformer';
@@ -195,8 +195,9 @@ const ProfilePage: React.FC = () => {
         setTournamentsLoading(true);
         setTournamentsError(null);
         try {
-          // 🚨 KEINE TURNIER-INSTANZEN MEHR: Nur Turnier-Sessions aus jassGameSummaries
-          setUserTournaments([]);
+          // ✅ TURNIERE WIEDER LADEN: Alle Turniere des Spielers (inklusive unterbrochene)
+          const tournaments = await fetchTournamentsForUser(currentPlayerData.id);
+          setUserTournaments(tournaments);
         } catch (error) {
            console.error("Fehler beim Laden der Turniere im Profil:", error);
            const message = error instanceof Error ? error.message : "Turniere konnten nicht geladen werden.";
@@ -299,28 +300,19 @@ const ProfilePage: React.FC = () => {
   }, [user?.uid]);
 
   const combinedArchiveItems = useMemo(() => {
-    // 🎯 IDENTISCH ZU GROUPVIEW: Trennung zwischen normalen Sessions und Turnier-Sessions
+    // ✅ FILTER: Nur normale Sessions (OHNE tournamentId UND OHNE isTournamentSession)
     const normalSessions = completedSessions.filter(session => 
       (session.status === 'completed' || session.status === 'completed_empty') &&
-      !session.tournamentId // Nur normale Sessions (OHNE tournamentId)
-    );
-    
-    const tournamentSessions = completedSessions.filter(session =>
-      (session.status === 'completed' || session.status === 'completed_empty') &&
-      session.tournamentId // Sessions die Teil eines Turniers sind
+      !session.tournamentId && // Keine Turnier-Sessions
+      !session.isTournamentSession // Keine jassGameSummaries mit isTournamentSession: true
     );
 
     const sessionsWithType: ArchiveItem[] = normalSessions.map(s => ({ ...s, type: 'session' }));
     
-    // 🎯 IDENTISCH ZU GROUPVIEW: Turnier-Sessions als type: 'tournament' markieren
-    const tournamentSessionsWithType: ArchiveItem[] = tournamentSessions.map(s => ({ ...s, type: 'tournament' } as any));
-    
-    // 🎯 IDENTISCH ZU GROUPVIEW: Nur echte Tournament-Instances hinzufügen, die NICHT bereits als Sessions existieren
-    const tournamentIdsFromSessions = new Set(tournamentSessions.map(s => s.tournamentId).filter(Boolean));
-    const uniqueTournaments = userTournaments.filter(t => !tournamentIdsFromSessions.has(t.id));
-    const tournamentsWithType: ArchiveItem[] = uniqueTournaments.map(t => ({ ...t, type: 'tournament' }));
+    // ✅ ALLE TURNIERE: Zeige alle Tournament-Instances (inklusive unterbrochene)
+    const tournamentsWithType: ArchiveItem[] = userTournaments.map(t => ({ ...t, type: 'tournament' }));
 
-    const combined = [...sessionsWithType, ...tournamentSessionsWithType, ...tournamentsWithType];
+    const combined = [...sessionsWithType, ...tournamentsWithType];
 
     combined.sort((a, b) => {
       // 🎯 EXAKT WIE GROUPVIEW: Einheitliche Datums-Extraktion für alle Typen
@@ -658,9 +650,20 @@ const ProfilePage: React.FC = () => {
         const tournament = item;
         const { id, name, instanceDate, status: tournamentStatus } = tournament;
         
-        // 🚨 ENDDATUM: endedAt ist das korrekte Enddatum aus jassGameSummaries
-        const rawDate: any = (tournament as any).endedAt ?? null;
-        const displayDate = rawDate instanceof Timestamp ? rawDate.toDate() : (typeof rawDate === 'number' ? new Date(rawDate) : null);
+        // ✅ ROBUSTE DATUMS-LÖSUNG: Fallback-Kette für verschiedene Datumstypen
+        let displayDate = null;
+        
+        if (instanceDate && isFirestoreTimestamp(instanceDate)) {
+          // 1. Priorität: instanceDate (Turnier-Datum)
+          displayDate = instanceDate.toDate();
+        } else if ((tournament as any).createdAt && isFirestoreTimestamp((tournament as any).createdAt)) {
+          // 2. Fallback: createdAt (Erstellungsdatum)
+          displayDate = (tournament as any).createdAt.toDate();
+        } else if (tournamentStatus === 'completed' && (tournament as any).completedAt && isFirestoreTimestamp((tournament as any).completedAt)) {
+          // 3. Fallback für abgeschlossene: completedAt
+          displayDate = (tournament as any).completedAt.toDate();
+        }
+        
         const formattedDate = displayDate ? format(displayDate, 'dd.MM.yyyy') : null;
 
         return (
@@ -676,8 +679,23 @@ const ProfilePage: React.FC = () => {
                   )}
                 </div>
               </div>
-              <span className={`text-xs px-2 py-1 rounded-full ${tournamentStatus === 'completed' ? 'bg-gray-600 text-gray-300' : (tournamentStatus === 'active' ? 'bg-green-600 text-white' : 'bg-blue-500 text-white')}`}>
-                {tournamentStatus === 'completed' ? 'Abgeschlossen' : (tournamentStatus === 'active' ? 'Aktiv' : 'Anstehend')}
+              <span className={`text-xs px-2 py-1 rounded-full ${
+                tournamentStatus === 'completed' 
+                  ? 'bg-gray-600 text-gray-300' 
+                  : tournamentStatus === 'active' 
+                    ? (tournament as any).pausedAt 
+                      ? 'bg-yellow-600 text-white' 
+                      : 'bg-green-600 text-white'
+                    : 'bg-blue-500 text-white'
+              }`}>
+                {tournamentStatus === 'completed' 
+                  ? 'Abgeschlossen' 
+                  : tournamentStatus === 'active' 
+                    ? (tournament as any).pausedAt 
+                      ? 'Pausiert' 
+                      : 'Aktiv'
+                    : 'Anstehend'
+                }
               </span>
             </div>
           </div>

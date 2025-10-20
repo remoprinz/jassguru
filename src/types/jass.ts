@@ -345,6 +345,7 @@ export interface BaseRoundEntry {
   striche: StricheState;
   timerSnapshot?: TimerSnapshot;
   actionType: "weis" | "jass";
+  wasPaused?: boolean; // Flag für pausierte Runden (für Statistiken)
 }
 
 // Spezifische Typen für Weis und Jass
