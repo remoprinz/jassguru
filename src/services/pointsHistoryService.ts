@@ -44,9 +44,8 @@ interface PointsTimeSeriesData {
     data: (number | null)[];
     borderColor: string;
     backgroundColor: string;
-    pointRadius: number;
-    pointHoverRadius: number;
     spanGaps: boolean;
+    // ✅ Chart-Parameter werden jetzt zentral in PowerRatingChart.tsx definiert!
   }>;
 }
 
@@ -285,9 +284,8 @@ export async function getGroupPointsTimeSeries(
         data: player.dataPoints,
         borderColor: colors.border,
         backgroundColor: colors.background,
-        pointRadius: 2,
-        pointHoverRadius: 4,
         spanGaps: true, // Verbinde Punkte über Lücken hinweg
+        // ✅ Chart-Parameter werden jetzt zentral in PowerRatingChart.tsx definiert!
       };
     });
     

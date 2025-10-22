@@ -61,8 +61,26 @@ export interface PlayerStats {
   /** Gesamt-Weis-Punkte */
   weisPointsTotal: number;
   
+  /** Gesamt-Weis-Punkte gemacht */
+  weisPointsMade: number;
+  
+  /** Gesamt-Weis-Punkte erhalten */
+  weisPointsReceived: number;
+  
+  /** Weis-Punkte Differenz (gemacht - erhalten) */
+  weisDifference: number;
+  
   /** Durchschnittliche Weis-Punkte pro Spiel */
   weisPointsAvg: number;
+  
+  /** Matsch-Bilanz (gemacht - erhalten) */
+  matschBilanz: number;
+  
+  /** Schneider-Bilanz (gemacht - erhalten) */
+  schneiderBilanz: number;
+  
+  /** Kontermatsch-Bilanz (gemacht - erhalten) */
+  kontermatschBilanz: number;
   
   /** Peak-Rating in dieser Gruppe */
   peakRating: number;

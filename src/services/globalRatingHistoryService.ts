@@ -25,6 +25,8 @@ export async function getGlobalPlayerRatingTimeSeries(
     data: number[];
     borderColor: string;
     backgroundColor: string;
+    tierEmojis?: (string | null)[]; // 🆕 NEU: Tier-Emojis für jeden Datenpunkt
+    deltas?: (number | null)[]; // 🆕 NEU: Delta-Werte für jeden Datenpunkt
   }[];
 }> {
   try {
@@ -44,7 +46,7 @@ export async function getGlobalPlayerRatingTimeSeries(
     }
 
     // 🎯 SCHRITT 2: Sammle alle Datenpunkte (keine Deduplizierung nötig!)
-    const historyEntries: { date: Date; rating: number }[] = [];
+    const historyEntries: { date: Date; rating: number; delta: number }[] = [];
     
       historySnap.forEach(doc => {
         const data = doc.data();
@@ -74,7 +76,8 @@ export async function getGlobalPlayerRatingTimeSeries(
           
           historyEntries.push({
             date: date,
-            rating: data.rating
+            rating: data.rating,
+            delta: data.delta || 0
           });
         } else {
           console.warn(`[GlobalChart] Fehlende Daten für Eintrag ${doc.id}:`, { createdAt: data.createdAt, rating: data.rating });
@@ -87,7 +90,13 @@ export async function getGlobalPlayerRatingTimeSeries(
       return { labels: [], datasets: [] };
     }
 
-    // 🎯 SCHRITT 3: Erstelle Chart-Datasets (bereits chronologisch sortiert!)
+    // 🎯 SCHRITT 3: Filtere Spieler mit nur einem Event heraus
+    if (historyEntries.length < 2) {
+      console.log(`[GlobalChart] Spieler ${playerId} hat nur ${historyEntries.length} Event(s) - wird herausgefiltert`);
+      return { labels: [], datasets: [] };
+    }
+    
+    // 🎯 SCHRITT 4: Erstelle Chart-Datasets (bereits chronologisch sortiert!)
     const labels = historyEntries.map(entry => {
       return entry.date.toLocaleDateString('de-DE', {
         day: '2-digit',
@@ -97,6 +106,12 @@ export async function getGlobalPlayerRatingTimeSeries(
     });
     
     const ratings = historyEntries.map(entry => entry.rating);
+    
+    // 🆕 NEU: Berechne Emojis für jeden Datenpunkt
+    const tierEmojis = historyEntries.map(entry => getTierEmojiForRating(entry.rating));
+    
+    // 🆕 NEU: Extrahiere Delta-Werte für jeden Datenpunkt
+    const deltas = historyEntries.map(entry => entry.delta);
     
     // Theme-basierte Farben
     const themeColors = {
@@ -113,13 +128,41 @@ export async function getGlobalPlayerRatingTimeSeries(
     
     const colors = themeColors[profileTheme as keyof typeof themeColors] || themeColors.yellow;
 
+    // 🎯 Tier-Emoji basierend auf Rating (KORREKTE JASSGURU-TIERE)
+    function getTierEmojiForRating(rating: number): string {
+      if (rating >= 150) return '👼';      // Göpf Egg
+      if (rating >= 145) return '🔱';      // Jassgott
+      if (rating >= 140) return '👑';      // Jasskönig
+      if (rating >= 135) return '🏆';      // Grossmeister
+      if (rating >= 130) return '🎖️';      // Jasser mit Auszeichnung
+      if (rating >= 125) return '💎';      // Diamantjasser II
+      if (rating >= 120) return '💍';      // Diamantjasser I
+      if (rating >= 115) return '🥇';      // Goldjasser
+      if (rating >= 110) return '🥈';      // Silberjasser
+      if (rating >= 105) return '🥉';      // Bronzejasser
+      if (rating >= 100) return '👨‍🎓';      // Jassstudent (START)
+      if (rating >= 95) return '🍀';       // Kleeblatt vierblättrig
+      if (rating >= 90) return '☘️';       // Kleeblatt dreiblättrig
+      if (rating >= 85) return '🌱';       // Sprössling
+      if (rating >= 80) return '🐓';       // Hahn
+      if (rating >= 75) return '🐔';       // Huhn
+      if (rating >= 70) return '🐥';       // Kücken
+      if (rating >= 65) return '🎅';       // Chlaus
+      if (rating >= 60) return '🧀';       // Chäs
+      if (rating >= 55) return '🦆';       // Ente
+      if (rating >= 50) return '🥒';       // Gurke
+      return '🥚';                         // Just Egg
+    }
+
     return {
       labels,
       datasets: [{
         label: 'Elo-Rating',
         data: ratings,
         borderColor: colors.border,
-        backgroundColor: colors.background
+        backgroundColor: colors.background,
+        tierEmojis: tierEmojis, // 🆕 NEU: Tier-Emojis für jeden Datenpunkt
+        deltas: deltas // 🆕 NEU: Delta-Werte für jeden Datenpunkt
       }]
     };
   } catch (error) {

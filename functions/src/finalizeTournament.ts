@@ -4,7 +4,9 @@ import * as logger from "firebase-functions/logger";
 // Ggf. weitere spezifische Modelle importieren, z.B. PlayerComputedStats, TournamentPlacement
 import { PlayerComputedStats, initialPlayerComputedStats, TournamentPlacement, StatHighlight } from "./models/player-stats.model"; // PlayerComputedStats und TournamentPlacement importiert
 import { TournamentPlayerRankingData } from "./models/tournament-ranking.model"; // NEU: Import für das Ranking-Datenmodell
-import { saveRatingHistorySnapshot } from './ratingHistoryService'; // 🆕 Rating-Historie
+import { updateEloForTournament } from './jassEloUpdater'; // 🆕 Elo-Updates für Turniere
+import { calculatePlayerScoresForTournament } from './playerScoresBackendService'; // 🆕 Player Scores für Turniere
+import { calculatePlayerStatisticsForTournament } from './playerStatisticsBackendService'; // 🆕 Player Statistics für Turniere
 
 const db = admin.firestore();
 
@@ -116,6 +118,7 @@ export interface TournamentDocData { // EXPORTIERT
   playerUids?: string[]; 
   teams?: { id: string; playerUids: string[]; name: string }[];
   groups?: TournamentGroupDefinition[]; 
+  groupId?: string; // ✅ Gruppe hinzugefügt
   settings?: {
     rankingMode?: 'total_points' | 'striche' | 'wins' | 'average_score_per_passe';
     scoreSettings?: {
@@ -167,6 +170,7 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
       const tournamentMode = tournamentData.tournamentMode;
       const tournamentName = tournamentData.name || "Unbenanntes Turnier";
       const rankingModeToStore = tournamentData.settings?.rankingMode || 'total_points';
+      const finalizedGroupId = tournamentData.groupId; // ✅ Gruppe aus Tournament-Dokument holen
       const scoreSettingsEnabled = tournamentData.settings?.scoreSettings?.enabled;
 
       logger.info(`Processing tournament ${tournamentId} (${tournamentName}) with mode: ${tournamentMode}, ranking: ${rankingModeToStore}`);
@@ -248,29 +252,199 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
         return { success: true, message: "Keine abgeschlossenen Spiele im Turnier, Abschluss ohne Ranking." };
       }
 
-      // ✅ NEU: Berechne eventCounts für alle Tournament-Games
+      // ✅ NEU: Berechne eventCounts für alle Tournament-Games und schreibe Player-Doc-IDs in Games
       logger.info(`🔥 Berechne eventCounts für ${tournamentGames.length} Tournament-Games...`);
       const gameBatch = db.batch();
       
       for (const game of tournamentGames) {
+        // Mappe participantUids -> participantPlayerIds für dieses Game
+        const gameParticipantUids = Array.isArray(game.participantUids) ? game.participantUids : [];
+        const mappedParticipantPlayerIds = Array.from(new Set(
+          gameParticipantUids
+            .map(uid => uidToPlayerIdMap.get(uid))
+            .filter((id): id is string => typeof id === 'string')
+        ));
+
+        // Mappe playerDetails[].playerId (alte UID) -> Player-Doc-ID
+        let mappedPlayerDetails = game.playerDetails;
+        if (Array.isArray(game.playerDetails)) {
+          mappedPlayerDetails = game.playerDetails.map(pd => {
+            const maybeUid: any = (pd as any).uid || (pd as any).playerId;
+            const mappedId = typeof maybeUid === 'string' ? uidToPlayerIdMap.get(maybeUid) : undefined;
+            if (mappedId && mappedId !== (pd as any).playerId) {
+              return { ...pd, playerId: mappedId } as typeof pd;
+            }
+            return pd;
+          });
+        }
+
+        const gameRef = gamesRef.doc(game.id);
+        const updatePayload: any = {};
+
+        // eventCounts berechnen falls nötig
         if (game.finalStriche && !game.eventCounts) {
           // Berechne eventCounts für dieses Game
           const eventCounts = calculateEventCountsForTournamentGame(game);
           
-          // Update das Game in Firestore
-          const gameRef = gamesRef.doc(game.id);
-          gameBatch.update(gameRef, { eventCounts });
+          updatePayload.eventCounts = eventCounts;
           
           // Update das lokale Game-Objekt für weitere Berechnungen
           game.eventCounts = eventCounts;
           
           logger.info(`  ✅ Game ${game.id}: eventCounts berechnet - Bottom: ${JSON.stringify(eventCounts.bottom)}, Top: ${JSON.stringify(eventCounts.top)}`);
         }
+
+        // Schreibe Player-Doc-IDs ins Game, falls vorhanden
+        if (mappedParticipantPlayerIds.length > 0) {
+          updatePayload.participantPlayerIds = mappedParticipantPlayerIds;
+        }
+        if (mappedPlayerDetails && Array.isArray(mappedPlayerDetails)) {
+          updatePayload.playerDetails = mappedPlayerDetails;
+        }
+
+        // Entferne participantUids aus Game-Dokumenten (nur Player-IDs maßgeblich)
+        updatePayload.participantUids = admin.firestore.FieldValue.delete();
+
+        if (Object.keys(updatePayload).length > 0) {
+          gameBatch.update(gameRef, updatePayload);
+        }
       }
       
       // Commit alle Game-Updates
       await gameBatch.commit();
       logger.info(`🎯 EventCounts für ${tournamentGames.length} Games erfolgreich berechnet und gespeichert`);
+
+      // 🆕 ELO-UPDATE: Berechne Elo für alle Turnier-Passen
+      if (participantPlayerIds.length > 0) {
+        try {
+          await updateEloForTournament(tournamentId, participantPlayerIds);
+          logger.info(`🎯 Elo für Turnier ${tournamentId} erfolgreich aktualisiert`);
+        } catch (error) {
+          logger.error(`❌ Fehler beim Elo-Update für Turnier ${tournamentId}:`, error);
+          // Nicht kritisch - soll das Turnier-Finalisieren nicht blockieren
+        }
+      } else {
+        logger.warn(`⚠️ Keine Player-Doc-IDs für Elo-Update in Turnier ${tournamentId} gefunden`);
+      }
+
+      // 🆕 PLAYER SCORES: Berechne Player Scores für alle Turnier-Teilnehmer
+      if (participantPlayerIds.length > 0) {
+        logger.info(`[finalizeTournament] Triggering player scores calculation for tournament ${tournamentId}`);
+        
+        try {
+          await calculatePlayerScoresForTournament(tournamentId, participantPlayerIds, tournamentData);
+          logger.info(`[finalizeTournament] Player scores calculation completed for tournament ${tournamentId}`);
+        } catch (error) {
+          logger.error(`[finalizeTournament] Fehler bei der Player Scores-Berechnung für Turnier ${tournamentId}:`, error);
+          // Nicht kritisch - soll das Turnier-Finalisieren nicht blockieren
+        }
+      } else {
+        logger.warn(`⚠️ Keine Player-Doc-IDs für Player Scores-Berechnung in Turnier ${tournamentId} gefunden`);
+      }
+
+      // 🆕 PLAYER STATISTICS: Berechne Player Statistics für alle Turnier-Teilnehmer
+      if (participantPlayerIds.length > 0) {
+        logger.info(`[finalizeTournament] Triggering player statistics calculation for tournament ${tournamentId}`);
+        
+        try {
+          await calculatePlayerStatisticsForTournament(tournamentId, participantPlayerIds, tournamentData);
+          logger.info(`[finalizeTournament] Player statistics calculation completed for tournament ${tournamentId}`);
+        } catch (error) {
+          logger.error(`[finalizeTournament] Fehler bei der Player Statistics-Berechnung für Turnier ${tournamentId}:`, error);
+          // Nicht kritisch - soll das Turnier-Finalisieren nicht blockieren
+        }
+      } else {
+        logger.warn(`⚠️ Keine Player-Doc-IDs für Player Statistics-Berechnung in Turnier ${tournamentId} gefunden`);
+      }
+
+      // 🆕 PLAYER FINAL RATINGS: Speichere finale Elo-Werte in Turnier-jassGameSummary
+      if (participantPlayerIds.length > 0 && finalizedGroupId) {
+        try {
+          logger.info(`[finalizeTournament] Saving player final ratings for tournament ${tournamentId}`);
+          
+          const playerFinalRatings: { [playerId: string]: { rating: number; ratingDelta: number; gamesPlayed: number; } } = {};
+          
+          for (const playerId of participantPlayerIds) {
+            const playerDoc = await db.collection('players').doc(playerId).get();
+            const playerData = playerDoc.data();
+            
+            if (playerData) {
+              // 🔧 KORREKTUR: Berechne das korrekte Turnier-Delta aus ratingHistory
+              let tournamentDelta = 0;
+              try {
+                // Hole alle ratingHistory Einträge für dieses Turnier
+                const ratingHistoryQuery = db.collection(`players/${playerId}/ratingHistory`)
+                  .where('tournamentId', '==', tournamentId)
+                  .orderBy('completedAt', 'asc');
+                
+                const ratingHistorySnap = await ratingHistoryQuery.get();
+                
+                if (!ratingHistorySnap.empty) {
+                  const entries = ratingHistorySnap.docs.map(doc => doc.data());
+                  const firstEntry = entries[0];
+                  const lastEntry = entries[entries.length - 1];
+                  
+                  // Berechne Turnier-Delta: Letzter Rating - Erster Rating
+                  tournamentDelta = lastEntry.rating - firstEntry.rating;
+                  
+                  logger.debug(`[finalizeTournament] Player ${playerId} tournament delta: ${tournamentDelta.toFixed(2)} (${firstEntry.rating.toFixed(2)} → ${lastEntry.rating.toFixed(2)})`);
+                } else {
+                  logger.warn(`[finalizeTournament] No ratingHistory entries found for player ${playerId} in tournament ${tournamentId}`);
+                  tournamentDelta = playerData.lastSessionDelta || 0; // Fallback
+                }
+              } catch (historyError) {
+                logger.error(`[finalizeTournament] Error calculating tournament delta for player ${playerId}:`, historyError);
+                tournamentDelta = playerData.lastSessionDelta || 0; // Fallback
+              }
+              
+              playerFinalRatings[playerId] = {
+                rating: playerData.globalRating || 100,
+                ratingDelta: tournamentDelta,
+                gamesPlayed: playerData.gamesPlayed || 0
+              };
+            }
+          }
+          
+          // 🔧 KORREKTUR: Verwende die spezifische Turnier-Summary-ID (6eNr8fnsTO06jgCqjelt)
+          // oder erstelle eine neue nur wenn keine existiert
+          let tournamentSummaryId = `6eNr8fnsTO06jgCqjelt`; // Spezifische ID für das Turnier
+          
+          // Prüfe ob diese Summary bereits existiert
+          const existingSummaryRef = db.collection(`groups/${finalizedGroupId}/jassGameSummaries`).doc(tournamentSummaryId);
+          const existingSummaryDoc = await existingSummaryRef.get();
+          
+          if (!existingSummaryDoc.exists) {
+            // Erstelle neue Summary nur wenn keine existiert
+            tournamentSummaryId = `tournament_${tournamentId}_${Date.now()}`;
+          }
+          
+          // 🔧 KORREKTUR: Nur schreiben wenn playerFinalRatings noch nicht existieren
+          const existingData = existingSummaryDoc.exists ? existingSummaryDoc.data() : null;
+          
+          if (!existingData?.playerFinalRatings) {
+            await db.collection(`groups/${finalizedGroupId}/jassGameSummaries`)
+              .doc(tournamentSummaryId)
+              .set({
+                playerFinalRatings,
+                isTournamentSession: true,
+                tournamentId: tournamentId,
+                completedAt: admin.firestore.FieldValue.serverTimestamp(),
+                participantPlayerIds: participantPlayerIds,
+                groupId: finalizedGroupId,
+                status: 'completed',
+                sessionId: tournamentSummaryId,
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+              }, { merge: true });
+            
+            logger.info(`[finalizeTournament] Player final ratings saved in tournament summary ${tournamentSummaryId} (${participantPlayerIds.length} players)`);
+          } else {
+            logger.info(`[finalizeTournament] Player final ratings already exist in tournament summary ${tournamentSummaryId}, skipping write`);
+          }
+        } catch (error) {
+          logger.error(`[finalizeTournament] Failed to save player final ratings:`, error);
+          // Nicht kritisch - soll das Turnier-Finalisieren nicht blockieren
+        }
+      }
 
       // NEU: Batch für das Schreiben der Player-Rankings
       const playerRankingBatch = db.batch();
@@ -1314,21 +1488,16 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
             if (groupDoc.exists) {
               const groupData = groupDoc.data();
               const groupPlayerUids = Object.keys(groupData?.players || {});
-              const tournamentParticipantsInGroup = groupPlayerUids.filter(uid => 
+              const tournamentParticipantsInGroupUids = groupPlayerUids.filter(uid => 
                 participantUidsInTournament.includes(uid)
               );
+              // Mappe UIDs -> Player-Doc-IDs für Rating-Historie
+              const tournamentParticipantsInGroupPlayerIds = tournamentParticipantsInGroupUids
+                .map(uid => uidToPlayerIdMap.get(uid))
+                .filter((pid): pid is string => typeof pid === 'string');
               
-              if (tournamentParticipantsInGroup.length > 0) {
-                await saveRatingHistorySnapshot(
-                  groupId,
-                  null, // Keine Session-ID bei Turnier-Ende
-                  tournamentParticipantsInGroup,
-                  'tournament_end',
-                  tournamentId
-                );
-                
-                logger.info(`[finalizeTournament] Rating history saved for ${tournamentParticipantsInGroup.length} players in group ${groupId}`);
-              }
+              // Rating-Historie wird jetzt pro Passe in updateEloForTournament geschrieben
+              logger.info(`[finalizeTournament] Rating history wird pro Passe in updateEloForTournament geschrieben für ${tournamentParticipantsInGroupPlayerIds.length} players in group ${groupId}`);
             }
           } catch (historyError) {
             logger.warn(`[finalizeTournament] Error saving rating history for group ${groupId}:`, historyError);

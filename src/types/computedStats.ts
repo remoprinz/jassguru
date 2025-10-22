@@ -120,12 +120,19 @@ export interface FrontendPlayerComputedStats {
   totalPointsDifference: number;
 
   playerTotalWeisMade: number; 
+  playerTotalWeisReceived: number; // 🆕 Weis-Punkte erhalten
+  weisDifference: number; // 🆕 Weis-Punkte Differenz
 
   totalMatschGamesMade: number; 
   totalSchneiderGamesMade: number;
 
   totalKontermatschGamesMade: number;
   totalKontermatschGamesReceived: number;
+  
+  // 🆕 Event-Bilanzen
+  matschBilanz: number; // Matsch gemacht - Matsch erhalten
+  schneiderBilanz: number; // Schneider gemacht - Schneider erhalten
+  kontermatschBilanz: number; // Kontermatsch gemacht - Kontermatsch erhalten
 
   // === Aktuelle Spiel-Streaks ===
   currentGameWinStreak: number;
@@ -212,10 +219,15 @@ export const initialFrontendPlayerComputedStats: FrontendPlayerComputedStats = {
   totalPointsReceived: 0,
   totalPointsDifference: 0,
   playerTotalWeisMade: 0,
+  playerTotalWeisReceived: 0, // 🆕 Weis-Punkte erhalten
+  weisDifference: 0, // 🆕 Weis-Punkte Differenz
   totalMatschGamesMade: 0,
   totalSchneiderGamesMade: 0,
   totalKontermatschGamesMade: 0,
   totalKontermatschGamesReceived: 0,
+  matschBilanz: 0, // 🆕 Event-Bilanzen
+  schneiderBilanz: 0,
+  kontermatschBilanz: 0,
   currentGameWinStreak: 0,
   currentGameLossStreak: 0,
   currentGameWinlessStreak: 0,

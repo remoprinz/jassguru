@@ -6,8 +6,8 @@ const db = admin.firestore();
 
 // Elo-Parameter (synchron zum Frontend/Script)
 const JASS_ELO_CONFIG = {
-  K_TARGET: 15,           // ✅ ANGEPASST: K=15 für moderate Änderungen
-  DEFAULT_RATING: 100,    // ✅ ANGEPASST: Startwert bei 100 (neue Skala)
+  K_TARGET: 10,          // 🔧 KORREKTUR: Synchronisiert mit cleanRebuildRatingHistoryFinal.ts
+  DEFAULT_RATING: 100,   
   ELO_SCALE: 1000,        // Beibehalten: Skala 1000 für optimale Spreizung
 } as const;
 
@@ -197,8 +197,8 @@ export async function updateEloForSession(groupId: string, sessionId: string): P
     const newPeak = Math.max(val.rating, currentPeak);
     const newLow = Math.min(val.rating, currentLow);
     
-    const docData: PlayerRatingDoc = {
-      rating: val.rating,
+    const docData: any = {
+      globalRating: val.rating, // ✅ KUMULATIVE GLOBAL RATING!
       gamesPlayed: val.gamesPlayed,
       lastUpdated: Date.now(),
       displayName: val.displayName,
@@ -209,10 +209,22 @@ export async function updateEloForSession(groupId: string, sessionId: string): P
       lastSessionDelta: sessionDelta,
       // 🆕 PEAK/LOW TRACKING: Immer die korrekten Werte setzen
       peakRating: newPeak,
-      peakRatingDate: newPeak > currentPeak ? Date.now() : val.peakRatingDate,
       lowestRating: newLow,
-      lowestRatingDate: newLow < currentLow ? Date.now() : val.lowestRatingDate,
     };
+    
+    // Füge peakRatingDate nur hinzu, wenn es einen Wert hat
+    if (newPeak > currentPeak) {
+      docData.peakRatingDate = Date.now();
+    } else if (val.peakRatingDate) {
+      docData.peakRatingDate = val.peakRatingDate;
+    }
+    
+    // Füge lowestRatingDate nur hinzu, wenn es einen Wert hat
+    if (newLow < currentLow) {
+      docData.lowestRatingDate = Date.now();
+    } else if (val.lowestRatingDate) {
+      docData.lowestRatingDate = val.lowestRatingDate;
+    }
     // ✅ SINGLE SOURCE OF TRUTH: Schreibe nur noch in players/*
     batch.set(db.collection('players').doc(pid), docData, { merge: true });
     // ❌ ENTFERNT: Gruppen-spezifische Kopie - nicht mehr nötig!
@@ -423,6 +435,244 @@ async function updateGroupChartData(groupId: string): Promise<void> {
     logger.error(`[ChartData] Failed to update for group ${groupId}:`, error);
     // Nicht kritisch - soll das Elo-Update nicht blockieren
   }
+}
+
+export async function updateEloForTournament(tournamentId: string, participantPlayerIds: string[]): Promise<void> {
+  logger.info(`[Elo] Start update for tournament ${tournamentId} with ${participantPlayerIds.length} participants`);
+
+  // Alle Passen des Turniers laden
+  const tournamentRef = db.doc(`tournaments/${tournamentId}`);
+  const gamesSnap = await tournamentRef.collection('games').orderBy('completedAt', 'asc').get();
+  
+  if (gamesSnap.empty) {
+    logger.warn(`[Elo] No games found for tournament ${tournamentId}`);
+    return;
+  }
+
+  const games = gamesSnap.docs.map(doc => ({
+    id: doc.id,
+    data: doc.data(),
+    completedAt: doc.data().completedAt
+  }));
+
+  logger.info(`[Elo] Found ${games.length} passes for tournament ${tournamentId}`);
+
+  // Ratings laden (global)
+  const displayNameMap = await loadDisplayNames(participantPlayerIds);
+  const ratingMap = new Map<string, PlayerRatingDoc & { oldRating: number }>();
+  
+  for (const pid of participantPlayerIds) {
+    const snap = await db.collection('players').doc(pid).get();
+    if (snap.exists) {
+      const d = snap.data();
+      const currentRating = d?.globalRating || JASS_ELO_CONFIG.DEFAULT_RATING;
+      ratingMap.set(pid, {
+        rating: currentRating,
+        oldRating: currentRating,
+        gamesPlayed: d?.totalGamesPlayed || 0,
+        lastUpdated: d?.lastGlobalRatingUpdate?.toMillis() || Date.now(),
+        displayName: d?.displayName || displayNameMap.get(pid),
+        peakRating: d?.peakRating || currentRating,
+        peakRatingDate: d?.peakRatingDate,
+        lowestRating: d?.lowestRating || currentRating,
+        lowestRatingDate: d?.lowestRatingDate,
+      });
+    } else {
+      ratingMap.set(pid, {
+        rating: JASS_ELO_CONFIG.DEFAULT_RATING,
+        oldRating: JASS_ELO_CONFIG.DEFAULT_RATING,
+        gamesPlayed: 0,
+        lastUpdated: Date.now(),
+        displayName: displayNameMap.get(pid),
+        peakRating: JASS_ELO_CONFIG.DEFAULT_RATING,
+        peakRatingDate: Date.now(),
+        lowestRating: JASS_ELO_CONFIG.DEFAULT_RATING,
+        lowestRatingDate: Date.now(),
+      });
+    }
+  }
+
+  // Elo passe-für-passe berechnen
+  const tournamentDeltaMap = new Map<string, number>();
+  
+  for (const game of games) {
+    const gameData = game.data;
+    
+    // Teams aus playerDetails extrahieren
+    const playerDetails = gameData.playerDetails || [];
+    if (playerDetails.length !== 4) {
+      logger.warn(`[Elo] Invalid playerDetails length for game ${game.id} in tournament ${tournamentId}`);
+      continue;
+    }
+
+    // Teams basierend auf team-Feld bilden
+    const topPlayers: string[] = [];
+    const bottomPlayers: string[] = [];
+    
+    playerDetails.forEach((player: any) => {
+      if (player.team === 'top') {
+        topPlayers.push(player.playerId);
+      } else if (player.team === 'bottom') {
+        bottomPlayers.push(player.playerId);
+      }
+    });
+
+    if (topPlayers.length !== 2 || bottomPlayers.length !== 2) {
+      logger.warn(`[Elo] Invalid team structure for game ${game.id} in tournament ${tournamentId}`);
+      continue;
+    }
+
+    // Striche aus teamStrichePasse extrahieren
+    const teamStriche = gameData.teamStrichePasse || {};
+    const stricheTop = sumStriche(teamStriche.top);
+    const stricheBottom = sumStriche(teamStriche.bottom);
+
+    // Aktuelle Team-Ratings vor dieser Passe
+    const teamTopRating = topPlayers.reduce((sum, pid) => sum + (ratingMap.get(pid)?.rating || JASS_ELO_CONFIG.DEFAULT_RATING), 0) / topPlayers.length;
+    const teamBottomRating = bottomPlayers.reduce((sum, pid) => sum + (ratingMap.get(pid)?.rating || JASS_ELO_CONFIG.DEFAULT_RATING), 0) / bottomPlayers.length;
+
+    const expectedTop = expectedScore(teamTopRating, teamBottomRating);
+    const actualTop = stricheScore(stricheTop, stricheBottom);
+
+    const delta = JASS_ELO_CONFIG.K_TARGET * (actualTop - expectedTop);
+    const deltaPerTopPlayer = delta / topPlayers.length;
+    const deltaPerBottomPlayer = -delta / bottomPlayers.length;
+
+    // Update Ratings für diese Passe
+    for (const pid of topPlayers) {
+      const r = ratingMap.get(pid)!;
+      r.rating = r.rating + deltaPerTopPlayer;
+      r.gamesPlayed += 1;
+      r.lastUpdated = Date.now();
+      ratingMap.set(pid, r);
+      
+      // Tournament-Delta akkumulieren
+      tournamentDeltaMap.set(pid, (tournamentDeltaMap.get(pid) || 0) + deltaPerTopPlayer);
+    }
+    
+    for (const pid of bottomPlayers) {
+      const r = ratingMap.get(pid)!;
+      r.rating = r.rating + deltaPerBottomPlayer;
+      r.gamesPlayed += 1;
+      r.lastUpdated = Date.now();
+      ratingMap.set(pid, r);
+      
+      // Tournament-Delta akkumulieren
+      tournamentDeltaMap.set(pid, (tournamentDeltaMap.get(pid) || 0) + deltaPerBottomPlayer);
+    }
+  }
+
+  // Schreiben: global + rating history
+  const batch = db.batch();
+  ratingMap.forEach((val, pid) => {
+    const tierInfo = getRatingTier(val.rating);
+    
+    const totalDelta = Math.round(val.rating - val.oldRating);
+    const tournamentDelta = Math.round(tournamentDeltaMap.get(pid) || 0);
+    
+    // Peak/Low tracking
+    const currentPeak = val.peakRating || 100;
+    const currentLow = val.lowestRating || 100;
+    const newPeak = Math.max(val.rating, currentPeak);
+    const newLow = Math.min(val.rating, currentLow);
+    
+    const docData: PlayerRatingDoc = {
+      rating: val.rating,
+      gamesPlayed: val.gamesPlayed,
+      lastUpdated: Date.now(),
+      displayName: val.displayName,
+      tier: tierInfo.name,
+      tierEmoji: tierInfo.emoji,
+      lastDelta: totalDelta,
+      lastSessionDelta: tournamentDelta, // Für Turniere auch als "Session-Delta" gespeichert
+      peakRating: newPeak,
+      peakRatingDate: newPeak > currentPeak ? Date.now() : val.peakRatingDate,
+      lowestRating: newLow,
+      lowestRatingDate: newLow < currentLow ? Date.now() : val.lowestRatingDate,
+    };
+    
+    batch.set(db.collection('players').doc(pid), docData, { merge: true });
+  });
+
+  // Rating-History: Erstelle Passe-by-Passe History für alle Spieler
+  for (let gameIndex = 0; gameIndex < games.length; gameIndex++) {
+    const game = games[gameIndex];
+    const gameData = game.data;
+    const passeNumber = gameData.passeNumber || (gameIndex + 1);
+    
+    // Teams für diese Passe
+    const playerDetails = gameData.playerDetails || [];
+    const topPlayers: string[] = [];
+    const bottomPlayers: string[] = [];
+    
+    playerDetails.forEach((player: any) => {
+      if (player.team === 'top') {
+        topPlayers.push(player.playerId);
+      } else if (player.team === 'bottom') {
+        bottomPlayers.push(player.playerId);
+      }
+    });
+
+    if (topPlayers.length !== 2 || bottomPlayers.length !== 2) continue;
+
+    // Striche für diese Passe
+    const teamStriche = gameData.teamStrichePasse || {};
+    const stricheTop = sumStriche(teamStriche.top);
+    const stricheBottom = sumStriche(teamStriche.bottom);
+
+    // Rating-History für Top-Team
+    for (const pid of topPlayers) {
+      const playerRating = ratingMap.get(pid);
+      if (playerRating) {
+        const teamTopRating = topPlayers.reduce((sum, p) => sum + (ratingMap.get(p)?.rating || JASS_ELO_CONFIG.DEFAULT_RATING), 0) / topPlayers.length;
+        const teamBottomRating = bottomPlayers.reduce((sum, p) => sum + (ratingMap.get(p)?.rating || JASS_ELO_CONFIG.DEFAULT_RATING), 0) / bottomPlayers.length;
+        const expectedTop = expectedScore(teamTopRating, teamBottomRating);
+        const actualTop = stricheScore(stricheTop, stricheBottom);
+        const delta = JASS_ELO_CONFIG.K_TARGET * (actualTop - expectedTop);
+        const deltaPerPlayer = delta / topPlayers.length;
+        
+        const historyData = {
+          rating: playerRating.rating + deltaPerPlayer,
+          delta: deltaPerPlayer,
+          eventType: 'tournament_passe',
+          eventId: `tournament_${tournamentId}_passe_${passeNumber}`,
+          createdAt: game.completedAt,
+          tournamentId: tournamentId,
+          passeNumber: passeNumber,
+        };
+        
+        batch.set(db.collection(`players/${pid}/ratingHistory`).doc(), historyData);
+      }
+    }
+    
+    // Rating-History für Bottom-Team
+    for (const pid of bottomPlayers) {
+      const playerRating = ratingMap.get(pid);
+      if (playerRating) {
+        const teamTopRating = topPlayers.reduce((sum, p) => sum + (ratingMap.get(p)?.rating || JASS_ELO_CONFIG.DEFAULT_RATING), 0) / topPlayers.length;
+        const teamBottomRating = bottomPlayers.reduce((sum, p) => sum + (ratingMap.get(p)?.rating || JASS_ELO_CONFIG.DEFAULT_RATING), 0) / bottomPlayers.length;
+        const expectedTop = expectedScore(teamTopRating, teamBottomRating);
+        const actualTop = stricheScore(stricheTop, stricheBottom);
+        const delta = JASS_ELO_CONFIG.K_TARGET * (actualTop - expectedTop);
+        const deltaPerPlayer = -delta / bottomPlayers.length;
+        
+        const historyData = {
+          rating: playerRating.rating + deltaPerPlayer,
+          delta: deltaPerPlayer,
+          eventType: 'tournament_passe',
+          eventId: `tournament_${tournamentId}_passe_${passeNumber}`,
+          createdAt: game.completedAt,
+          tournamentId: tournamentId,
+          passeNumber: passeNumber,
+        };
+        
+        batch.set(db.collection(`players/${pid}/ratingHistory`).doc(), historyData);
+      }
+    }
+  }
+
+  await batch.commit();
+  logger.info(`[Elo] Successfully updated Elo for tournament ${tournamentId} with ${participantPlayerIds.length} participants`);
 }
 
 

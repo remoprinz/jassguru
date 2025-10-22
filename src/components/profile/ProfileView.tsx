@@ -43,6 +43,12 @@ import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 // NEU: Chart-Komponenten
 import PowerRatingChart from '@/components/charts/PowerRatingChart';
 import { getGlobalPlayerRatingTimeSeries } from '@/services/globalRatingHistoryService'; // 🎯 GLOBALE Spieler-Chart-Daten (über alle Gruppen)
+import { getGlobalPlayerStricheTimeSeries } from '@/services/globalStricheHistoryService'; // 🎯 STRICH-DIFFERENZ Chart
+import { getGlobalPlayerPointsTimeSeries } from '@/services/globalPointsHistoryService'; // 🎯 PUNKT-DIFFERENZ Chart
+import { getGlobalPlayerMatschTimeSeries } from '@/services/globalMatschHistoryService'; // 🎯 MATSCH-BILANZ Chart
+import { getGlobalPlayerSchneiderTimeSeries } from '@/services/globalSchneiderHistoryService'; // 🎯 SCHNEIDER-BILANZ Chart
+import { getGlobalPlayerKontermatschTimeSeries } from '@/services/globalKontermatschHistoryService'; // 🎯 KONTERMATSCH-BILANZ Chart
+import { getGlobalPlayerWeisTimeSeries } from '@/services/globalWeisHistoryService'; // 🎯 WEIS-PUNKTE Chart (3 Kurven!)
 
 // Types
 interface ExpectedPlayerStatsWithAggregates {
@@ -179,6 +185,43 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     datasets: any[];
   } | null>(null);
   const [chartLoading, setChartLoading] = useState(false);
+
+  // 🆕 NEUE STATES FÜR ALLE CHARTS
+  const [stricheChartData, setStricheChartData] = useState<{
+    labels: string[];
+    datasets: any[];
+  } | null>(null);
+  const [stricheChartLoading, setStricheChartLoading] = useState(false);
+
+  const [pointsChartData, setPointsChartData] = useState<{
+    labels: string[];
+    datasets: any[];
+  } | null>(null);
+  const [pointsChartLoading, setPointsChartLoading] = useState(false);
+
+  const [matschChartData, setMatschChartData] = useState<{
+    labels: string[];
+    datasets: any[];
+  } | null>(null);
+  const [matschChartLoading, setMatschChartLoading] = useState(false);
+
+  const [schneiderChartData, setSchneiderChartData] = useState<{
+    labels: string[];
+    datasets: any[];
+  } | null>(null);
+  const [schneiderChartLoading, setSchneiderChartLoading] = useState(false);
+
+  const [kontermatschChartData, setKontermatschChartData] = useState<{
+    labels: string[];
+    datasets: any[];
+  } | null>(null);
+  const [kontermatschChartLoading, setKontermatschChartLoading] = useState(false);
+
+  const [weisChartData, setWeisChartData] = useState<{
+    labels: string[];
+    datasets: any[];
+  } | null>(null);
+  const [weisChartLoading, setWeisChartLoading] = useState(false);
 
   // Memoized color computation - optimiert für Performance
   const accentColor = useMemo(() => {
@@ -462,7 +505,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     // ✅ Verzögerung um 1-2 Frames nach Tab-Expandieren für smooth Chart-Rendering
     const timer = setTimeout(() => {
       setChartLoading(true);
-      getGlobalPlayerRatingTimeSeries(viewPlayerId, 100, profileTheme || 'yellow')
+      getGlobalPlayerRatingTimeSeries(viewPlayerId, 100, profileTheme || 'blue')
         .then((data) => {
           setChartData(data);
         })
@@ -477,6 +520,138 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     
     return () => clearTimeout(timer);
   }, [viewPlayerId, profileTheme]);
+
+  // 🆕 STRICH-DIFFERENZ CHART
+  React.useEffect(() => {
+    if (!viewPlayerId) return;
+    
+    const timer = setTimeout(() => {
+      setStricheChartLoading(true);
+      getGlobalPlayerStricheTimeSeries(viewPlayerId, 100, profileTheme || 'blue')
+        .then((data) => {
+          setStricheChartData(data);
+        })
+        .catch(error => {
+          console.warn('Fehler beim Laden der Strich-Chart-Daten:', error);
+          setStricheChartData(null);
+        })
+        .finally(() => {
+          setStricheChartLoading(false);
+        });
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [viewPlayerId, profileTheme]);
+
+  // 🆕 PUNKT-DIFFERENZ CHART
+  React.useEffect(() => {
+    if (!viewPlayerId) return;
+    
+    const timer = setTimeout(() => {
+      setPointsChartLoading(true);
+      getGlobalPlayerPointsTimeSeries(viewPlayerId, 100, profileTheme || 'blue')
+        .then((data) => {
+          setPointsChartData(data);
+        })
+        .catch(error => {
+          console.warn('Fehler beim Laden der Punkte-Chart-Daten:', error);
+          setPointsChartData(null);
+        })
+        .finally(() => {
+          setPointsChartLoading(false);
+        });
+    }, 150);
+    
+    return () => clearTimeout(timer);
+  }, [viewPlayerId, profileTheme]);
+
+  // 🆕 MATSCH-BILANZ CHART
+  React.useEffect(() => {
+    if (!viewPlayerId) return;
+    
+    const timer = setTimeout(() => {
+      setMatschChartLoading(true);
+      getGlobalPlayerMatschTimeSeries(viewPlayerId, 100, profileTheme || 'blue')
+        .then((data) => {
+          setMatschChartData(data);
+        })
+        .catch(error => {
+          console.warn('Fehler beim Laden der Matsch-Chart-Daten:', error);
+          setMatschChartData(null);
+        })
+        .finally(() => {
+          setMatschChartLoading(false);
+        });
+    }, 200);
+    
+    return () => clearTimeout(timer);
+  }, [viewPlayerId]);
+
+  // 🆕 SCHNEIDER-BILANZ CHART
+  React.useEffect(() => {
+    if (!viewPlayerId) return;
+    
+    const timer = setTimeout(() => {
+      setSchneiderChartLoading(true);
+      getGlobalPlayerSchneiderTimeSeries(viewPlayerId, 100, profileTheme || 'blue')
+        .then((data) => {
+          setSchneiderChartData(data);
+        })
+        .catch(error => {
+          console.warn('Fehler beim Laden der Schneider-Chart-Daten:', error);
+          setSchneiderChartData(null);
+        })
+        .finally(() => {
+          setSchneiderChartLoading(false);
+        });
+    }, 250);
+    
+    return () => clearTimeout(timer);
+  }, [viewPlayerId]);
+
+  // 🆕 KONTERMATSCH-BILANZ CHART
+  React.useEffect(() => {
+    if (!viewPlayerId) return;
+    
+    const timer = setTimeout(() => {
+      setKontermatschChartLoading(true);
+      getGlobalPlayerKontermatschTimeSeries(viewPlayerId, 100, profileTheme || 'blue')
+        .then((data) => {
+          setKontermatschChartData(data);
+        })
+        .catch(error => {
+          console.warn('Fehler beim Laden der Kontermatsch-Chart-Daten:', error);
+          setKontermatschChartData(null);
+        })
+        .finally(() => {
+          setKontermatschChartLoading(false);
+        });
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [viewPlayerId]);
+
+  // 🆕 WEIS-PUNKTE CHART (3 KURVEN!)
+  React.useEffect(() => {
+    if (!viewPlayerId) return;
+    
+    const timer = setTimeout(() => {
+      setWeisChartLoading(true);
+      getGlobalPlayerWeisTimeSeries(viewPlayerId, 100, profileTheme || 'blue')
+        .then((data) => {
+          setWeisChartData(data);
+        })
+        .catch(error => {
+          console.warn('Fehler beim Laden der Weis-Chart-Daten:', error);
+          setWeisChartData(null);
+        })
+        .finally(() => {
+          setWeisChartLoading(false);
+        });
+    }, 350);
+    
+    return () => clearTimeout(timer);
+  }, [viewPlayerId]);
 
   // ===== LOKALE TAB-COLOR FUNKTION (IDENTISCH ZU GROUPVIEW) =====
   const getTabActiveColor = (themeKey: string): string => {
@@ -904,7 +1079,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Jass-Elo Verlauf {playerRating?.tierEmoji}</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>
+                          Jass-Elo: <span className={playerRating && playerRating.rating >= 100 ? 'text-green-400' : 'text-red-400'}>{playerRating ? Math.round(playerRating.rating) : 'N/A'}</span> {playerRating?.tierEmoji}
+                        </h3>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {chartLoading ? (
@@ -920,6 +1097,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             theme={profileTheme || 'blue'}
                             isDarkMode={true}
                             hideLegend={true} // ✅ Legende für ProfileView verstecken
+                            showBaseline={true} // ✅ 100er-Linie für Elo-Chart
+                            isEloChart={true} // ✅ Explizit als Elo-Chart markieren
                             activeTab={activeMainTab} // ✅ Tab-Wechsel-Reset für Animationen
                             activeSubTab={activeStatsSubTab} // ✅ Sub-Tab-Wechsel-Reset für Animationen
                           />
@@ -928,6 +1107,266 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
                             <p>Noch keine Rating-Daten verfügbar</p>
                             <p className={`${layout.smallTextSize} mt-1`}>Chart wird angezeigt, sobald Spieler Rating-Historie haben</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 🆕 STRICH-DIFFERENZ CHART */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>
+                          Strichdifferenz: 
+                          <span className={`ml-2 ${playerStats?.totalStrichesDifference && playerStats.totalStrichesDifference > 0 ? 'text-green-400' : playerStats?.totalStrichesDifference && playerStats.totalStrichesDifference < 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                            {playerStats?.totalStrichesDifference && playerStats.totalStrichesDifference > 0 ? '+' : ''}
+                            {playerStats?.totalStrichesDifference || 0}
+                          </span>
+                        </h3>
+                      </div>
+                      <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                        {stricheChartLoading ? (
+                          <div className="flex justify-center items-center py-10">
+                            <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
+                            <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Strich-Chart...</span>
+                          </div>
+                        ) : stricheChartData && stricheChartData.datasets.length > 0 ? (
+                          <PowerRatingChart 
+                            data={stricheChartData}
+                            title="Strichdifferenz"
+                            height={layout.isDesktop ? 400 : 250}
+                            theme={profileTheme || 'blue'}
+                            isDarkMode={true}
+                            hideLegend={true}
+                            showBaseline={true} // ✅ 0-Linie für Differenz-Charts
+                            isEloChart={false} // ✅ Nicht-ELO-Chart
+                            activeTab={activeMainTab}
+                            activeSubTab={activeStatsSubTab}
+                          />
+                        ) : (
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                            <p>Noch keine Strich-Daten verfügbar</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 🆕 PUNKT-DIFFERENZ CHART */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>
+                          Punktdifferenz: 
+                          <span className={`ml-2 ${playerStats?.totalPointsDifference && playerStats.totalPointsDifference > 0 ? 'text-green-400' : playerStats?.totalPointsDifference && playerStats.totalPointsDifference < 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                            {playerStats?.totalPointsDifference && playerStats.totalPointsDifference > 0 ? '+' : ''}
+                            {playerStats?.totalPointsDifference || 0}
+                          </span>
+                        </h3>
+                      </div>
+                      <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                        {pointsChartLoading ? (
+                          <div className="flex justify-center items-center py-10">
+                            <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
+                            <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Punkte-Chart...</span>
+                          </div>
+                        ) : pointsChartData && pointsChartData.datasets.length > 0 ? (
+                          <PowerRatingChart 
+                            data={pointsChartData}
+                            title="Punktdifferenz"
+                            height={layout.isDesktop ? 400 : 250}
+                            theme={profileTheme || 'blue'}
+                            isDarkMode={true}
+                            hideLegend={true}
+                            showBaseline={true} // ✅ 0-Linie für Differenz-Charts
+                            isEloChart={false} // ✅ Nicht-ELO-Chart
+                            activeTab={activeMainTab}
+                            activeSubTab={activeStatsSubTab}
+                          />
+                        ) : (
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                            <p>Noch keine Punkte-Daten verfügbar</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 🆕 MATSCH-BILANZ CHART (nur wenn Bilanz ≠ 0) */}
+                    {playerStats?.matschBilanz !== 0 && (
+                      <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                        <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                          <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                          <h3 className={`${layout.headingSize} font-semibold text-white`}>
+                            Matsch-Bilanz: 
+                            <span className={`ml-2 ${playerStats?.matschBilanz && playerStats.matschBilanz > 0 ? 'text-green-400' : playerStats?.matschBilanz && playerStats.matschBilanz < 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                              {playerStats?.matschBilanz && playerStats.matschBilanz > 0 ? '+' : ''}
+                              {playerStats?.matschBilanz || 0}
+                            </span>
+                          </h3>
+                        </div>
+                        <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                          {matschChartLoading ? (
+                            <div className="flex justify-center items-center py-10">
+                              <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
+                              <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Matsch-Chart...</span>
+                            </div>
+                          ) : matschChartData && matschChartData.datasets.length > 0 ? (
+                            <PowerRatingChart 
+                              data={matschChartData}
+                              title="Matsch-Bilanz"
+                              height={layout.isDesktop ? 400 : 250}
+                              theme={profileTheme || 'blue'}
+                              isDarkMode={true}
+                              hideLegend={true}
+                              showBaseline={true} // ✅ 0-Linie für Bilanz-Charts
+                              isEloChart={false} // ✅ Nicht-ELO-Chart
+                              activeTab={activeMainTab}
+                              activeSubTab={activeStatsSubTab}
+                            />
+                          ) : (
+                            <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                              <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                              <p>Noch keine Matsch-Daten verfügbar</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 🆕 SCHNEIDER-BILANZ CHART (nur wenn Bilanz ≠ 0) */}
+                    {playerStats?.schneiderBilanz !== 0 && (
+                      <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                        <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                          <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                          <h3 className={`${layout.headingSize} font-semibold text-white`}>
+                            Schneider-Bilanz: 
+                            <span className={`ml-2 ${playerStats?.schneiderBilanz && playerStats.schneiderBilanz > 0 ? 'text-green-400' : playerStats?.schneiderBilanz && playerStats.schneiderBilanz < 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                              {playerStats?.schneiderBilanz && playerStats.schneiderBilanz > 0 ? '+' : ''}
+                              {playerStats?.schneiderBilanz || 0}
+                            </span>
+                          </h3>
+                        </div>
+                        <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                          {schneiderChartLoading ? (
+                            <div className="flex justify-center items-center py-10">
+                              <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
+                              <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Schneider-Chart...</span>
+                            </div>
+                          ) : schneiderChartData && schneiderChartData.datasets.length > 0 ? (
+                            <PowerRatingChart 
+                              data={schneiderChartData}
+                              title="Schneider-Bilanz"
+                              height={layout.isDesktop ? 400 : 250}
+                              theme={profileTheme || 'blue'}
+                              isDarkMode={true}
+                              hideLegend={true}
+                              showBaseline={true} // ✅ 0-Linie für Bilanz-Charts
+                              isEloChart={false} // ✅ Nicht-ELO-Chart
+                              collapseIfSinglePoint={true} // ✅ Einklappen bei nur einem Datenpunkt
+                              activeTab={activeMainTab}
+                              activeSubTab={activeStatsSubTab}
+                            />
+                          ) : (
+                            <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                              <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                              <p>Noch keine Schneider-Daten verfügbar</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 🆕 KONTERMATSCH-BILANZ CHART (nur wenn Events vorhanden) */}
+                    {(playerStats?.totalKontermatschEventsMade && playerStats.totalKontermatschEventsMade > 0) || (playerStats?.totalKontermatschEventsReceived && playerStats.totalKontermatschEventsReceived > 0) ? (
+                      <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                        <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                          <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                          <h3 className={`${layout.headingSize} font-semibold text-white`}>
+                            Kontermatsch-Bilanz: 
+                            <span className={`ml-2 ${playerStats?.kontermatschBilanz && playerStats.kontermatschBilanz > 0 ? 'text-green-400' : playerStats?.kontermatschBilanz && playerStats.kontermatschBilanz < 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                              {playerStats?.kontermatschBilanz && playerStats.kontermatschBilanz > 0 ? '+' : ''}
+                              {playerStats?.kontermatschBilanz || 0}
+                            </span>
+                          </h3>
+                        </div>
+                        <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                          {kontermatschChartLoading ? (
+                            <div className="flex justify-center items-center py-10">
+                              <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
+                              <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Kontermatsch-Chart...</span>
+                            </div>
+                          ) : kontermatschChartData && kontermatschChartData.datasets.length > 0 ? (
+                            <PowerRatingChart 
+                              data={kontermatschChartData}
+                              title="Kontermatsch-Bilanz"
+                              height={layout.isDesktop ? 400 : 250}
+                              theme={profileTheme || 'blue'}
+                              isDarkMode={true}
+                              hideLegend={true}
+                              showBaseline={true} // ✅ 0-Linie für Bilanz-Charts
+                              isEloChart={false} // ✅ Nicht-ELO-Chart
+                              collapseIfSinglePoint={true} // ✅ Einklappen bei nur einem Datenpunkt
+                              activeTab={activeMainTab}
+                              activeSubTab={activeStatsSubTab}
+                            />
+                          ) : (
+                            <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                              <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                              <p>Noch keine Kontermatsch-Daten verfügbar</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {/* 🆕 WEIS-DIFFERENZ CHART */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>
+                          Weisdifferenz: 
+                          <span className={`ml-2 ${
+                            weisChartData && weisChartData.datasets[0]?.data?.length > 0 
+                              ? (weisChartData.datasets[0].data[weisChartData.datasets[0].data.length - 1] > 0 
+                                  ? 'text-green-400' 
+                                  : weisChartData.datasets[0].data[weisChartData.datasets[0].data.length - 1] < 0 
+                                    ? 'text-red-400' 
+                                    : 'text-gray-400')
+                              : 'text-gray-400'
+                          }`}>
+                            {weisChartData && weisChartData.datasets[0]?.data?.length > 0 
+                              ? (weisChartData.datasets[0].data[weisChartData.datasets[0].data.length - 1] > 0 ? '+' : '') 
+                              : ''}
+                            {weisChartData && weisChartData.datasets[0]?.data?.length > 0 
+                              ? weisChartData.datasets[0].data[weisChartData.datasets[0].data.length - 1] 
+                              : 0}
+                          </span>
+                        </h3>
+                      </div>
+                      <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                        {weisChartLoading ? (
+                          <div className="flex justify-center items-center py-10">
+                            <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
+                            <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Weis-Chart...</span>
+                          </div>
+                        ) : weisChartData && weisChartData.datasets.length > 0 ? (
+                          <PowerRatingChart 
+                            data={weisChartData}
+                            title="Weisdifferenz"
+                            height={layout.isDesktop ? 400 : 250}
+                            theme={profileTheme || 'blue'}
+                            isDarkMode={true}
+                            hideLegend={true} // ✅ Einfach wie Punktdifferenz
+                            showBaseline={true} // ✅ 0-Linie für Differenz-Charts
+                            isEloChart={false} // ✅ Nicht-ELO-Chart
+                            activeTab={activeMainTab}
+                            activeSubTab={activeStatsSubTab}
+                          />
+                        ) : (
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                            <p>Noch keine Weis-Daten verfügbar</p>
                           </div>
                         )}
                       </div>

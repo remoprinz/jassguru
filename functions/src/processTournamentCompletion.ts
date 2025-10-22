@@ -82,6 +82,8 @@ interface JassGameSummary {
   tournamentInstanceNumber?: number; // 🆕 Austragungsnummer (1, 2, 3...) für römische Ziffern im Archiv
   // 🚨 NEU: Turniername für Archiv-Anzeige
   tournamentName?: string;
+  // 🎯 NEU: Finale Elo-Werte der Spieler nach Turnier-Ende (für Gruppen-Charts)
+  finalEloRatings?: { [playerId: string]: number };
   // ❌ Optional Session-Level Felder (nicht für Tournaments):
   eventCounts?: { [team: string]: { [event: string]: number } };
   finalScores?: { top: number; bottom: number };
@@ -374,6 +376,25 @@ export const aggregateTournamentIntoSummary = onDocumentWritten(
             });
             
             (summary as any).aggregatedRoundDurationsByPlayer = aggregatedRoundDurations;
+        }
+        
+        // 🎯 NEU: Lade finale Elo-Werte für alle Teilnehmer nach Turnier-Ende
+        const finalEloRatings: { [playerId: string]: number } = {};
+        try {
+            for (const playerId of Array.from(allPlayerIds)) {
+                const playerDoc = await db.collection("players").doc(playerId).get();
+                if (playerDoc.exists) {
+                    const playerData = playerDoc.data();
+                    finalEloRatings[playerId] = playerData?.globalRating || 100;
+                }
+            }
+            if (Object.keys(finalEloRatings).length > 0) {
+                summary.finalEloRatings = finalEloRatings;
+                logger.info(`✅ Final Elo ratings added to tournament summary for ${Object.keys(finalEloRatings).length} players`);
+            }
+        } catch (eloError) {
+            logger.warn(`⚠️ Could not load final Elo ratings for tournament ${tournamentId}:`, eloError);
+            // Nicht kritisch - Summary wird trotzdem geschrieben
         }
         
         // 4. ✅ KRITISCHER FIX: Write to group's jassGameSummaries subcollection!

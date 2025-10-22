@@ -5,6 +5,7 @@ import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 import { QueryDocumentSnapshot } from "firebase-admin/firestore";
 import {randomBytes} from "crypto";
+import { getRandomProfileThemeServer } from "./utils/randomTheme";
 
 const db = admin.firestore();
 
@@ -246,6 +247,8 @@ const createInitialPlayerData = (
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     groupIds: [],
+    // 🎨 NEU: Zufällige Profilfarbe für neue Spieler
+    profileTheme: getRandomProfileThemeServer(),
     // 🔧 OPTIMIZATION: Stats werden nicht mehr initial erstellt - werden bei Bedarf hinzugefügt
     metadata: {isOG: false},
   };

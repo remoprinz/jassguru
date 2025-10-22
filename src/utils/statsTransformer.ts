@@ -46,12 +46,15 @@ export interface TransformedPlayerStats {
   matschBilanz?: number;
   schneiderBilanz?: number;
   kontermatschBilanz?: number;
+  weisDifference?: number; // 🆕 Weis-Punkte Differenz
   totalMatschEventsMade?: number;
   totalMatschEventsReceived?: number;
   totalSchneiderEventsMade?: number;
   totalSchneiderEventsReceived?: number;
   totalKontermatschEventsMade?: number;
   totalKontermatschEventsReceived?: number;
+  totalWeisPointsMade?: number; // 🆕 Weis-Punkte gemacht
+  totalWeisPointsReceived?: number; // 🆕 Weis-Punkte erhalten
 
   // Partner- und Gegner-Aggregate mit erweiterten WinRateInfo
   partnerAggregates?: Array<{
@@ -278,12 +281,15 @@ export const transformComputedStatsToExtended = (
     matschBilanz: rawStats.matschBilanz,
     schneiderBilanz: rawStats.schneiderBilanz,
     kontermatschBilanz: rawStats.kontermatschBilanz,
+    weisDifference: rawStats.weisDifference, // 🆕 Weis-Punkte Differenz
     totalMatschEventsMade: rawStats.totalMatschEventsMade,
     totalMatschEventsReceived: rawStats.totalMatschEventsReceived,
     totalSchneiderEventsMade: rawStats.totalSchneiderEventsMade,
     totalSchneiderEventsReceived: rawStats.totalSchneiderEventsReceived,
     totalKontermatschEventsMade: rawStats.totalKontermatschEventsMade,
     totalKontermatschEventsReceived: rawStats.totalKontermatschEventsReceived,
+    totalWeisPointsMade: rawStats.totalWeisPointsMade, // 🆕 Weis-Punkte gemacht
+    totalWeisPointsReceived: rawStats.totalWeisPointsReceived, // 🆕 Weis-Punkte erhalten
 
     // Partner- und Gegner-Aggregate mit erweiterten WinRateInfo
     partnerAggregates: rawStats.partnerAggregates || [],

@@ -353,10 +353,8 @@ export async function getGroupStricheTimeSeries(
         backgroundColor: colors.background,
         playerId: playerId,
         displayName: playerData.displayName,
-        tension: 0.1,
-        pointRadius: 2,
-        pointHoverRadius: 4,
         spanGaps: true, // Wie Elo-Chart: Verbinde über null-Werte
+        // ✅ Chart-Parameter werden jetzt zentral in PowerRatingChart.tsx definiert!
       });
     });
     

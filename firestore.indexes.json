@@ -1,4 +1,62 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "games",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "participantPlayerIds", "arrayConfig": "CONTAINS"},
+        {"fieldPath": "completedAt", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "jassGameSummaries",
+      "queryScope": "COLLECTION", 
+      "fields": [
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "createdAt", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "jassGameSummaries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "participantPlayerIds", "arrayConfig": "CONTAINS"},
+        {"fieldPath": "completedAt", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "jassGameSummaries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "completedAt", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "ratingHistory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "eventType", "order": "ASCENDING"},
+        {"fieldPath": "createdAt", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "tournaments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "groupId", "order": "ASCENDING"},
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "finalizedAt", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "jassGameSummaries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "endedAt", "order": "ASCENDING"}
+      ]
+    }
+  ],
   "fieldOverrides": []
 }

@@ -28,12 +28,12 @@ import { generateBlurPlaceholder } from '@/utils/imageOptimization';
 import { Skeleton } from '@/components/ui/skeleton';
 // NEU: Jass-Elo Service
 import { loadPlayerRatings, type PlayerRatingWithTier } from '@/services/jassElo';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/services/firebaseInit';
 // NEU: Chart-Komponenten
 import PowerRatingChart from '@/components/charts/PowerRatingChart';
 
-import { getChartData } from '@/services/chartDataService'; // 🎯 Pre-computed Chart Data
+// import { getChartData } from '@/services/chartDataService'; // 🎯 Pre-computed Chart Data - ENTFERNT
 import { getGroupStricheTimeSeries } from '@/services/stricheHistoryService'; // 🎯 Strichdifferenz-Verlauf
 import { getGroupPointsTimeSeries } from '@/services/pointsHistoryService'; // 🎯 Punktedifferenz-Verlauf
 import { Trophy } from 'lucide-react';
@@ -238,7 +238,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
   
   // NEU: State für Elo-Ratings
   const [playerRatings, setPlayerRatings] = useState<Map<string, PlayerRatingWithTier>>(new Map());
-  // NEU: State für Elo-Deltas
+  // NEU: State für Elo-Deltas (aus jassGameSummaries)
   const [playerDeltas, setPlayerDeltas] = useState<Map<string, number>>(new Map());
   // NEU: State für Chart-Daten
   const [chartData, setChartData] = useState<{
@@ -631,17 +631,75 @@ export const GroupView: React.FC<GroupViewProps> = ({
     loadPlayerRatings(playerIds)
       .then((ratingsMap) => {
         setPlayerRatings(ratingsMap);
-        
-        // ✅ OPTIMIERT: Delta ist bereits in playerRatings verfügbar!
-        const deltaMap = new Map<string, number>();
-        ratingsMap.forEach((rating, playerId) => {
-          // 🆕 SESSION-DELTA: Verwende lastSessionDelta statt lastDelta
-          deltaMap.set(playerId, rating?.lastSessionDelta || rating?.lastDelta || 0);
-        });
-        setPlayerDeltas(deltaMap);
       })
       .catch(error => console.warn('Fehler beim Laden der Elo-Ratings:', error));
   }, [members, currentGroup?.id]);
+
+  // 🆕 NEU: Lade letzte Session-Deltas für JEDEN Spieler aus jassGameSummaries
+  React.useEffect(() => {
+    if (!currentGroup?.id || !members || members.length === 0) return;
+    
+    const loadLastDeltasForAllPlayers = async () => {
+      try {
+        // Hole ALLE Sessions aus jassGameSummaries, sortiert nach Datum
+        const summariesRef = collection(db, `groups/${currentGroup.id}/jassGameSummaries`);
+        const summariesQuery = query(
+          summariesRef,
+          where('status', '==', 'completed'),
+          orderBy('completedAt', 'desc')
+        );
+        
+        const summariesSnap = await getDocs(summariesQuery);
+        
+        // Map für die letzten Deltas jedes Spielers
+        const lastDeltaMap = new Map<string, number>();
+        
+        // Durchsuche alle Sessions chronologisch und sammle die letzten Deltas
+        for (const summaryDoc of summariesSnap.docs) {
+          const summaryData = summaryDoc.data();
+          const playerFinalRatings = summaryData.playerFinalRatings;
+          
+          if (playerFinalRatings && Object.keys(playerFinalRatings).length > 0) {
+            // Für jeden Spieler in dieser Session
+            Object.entries(playerFinalRatings).forEach(([playerId, ratingData]: [string, any]) => {
+              if (ratingData?.ratingDelta !== undefined) {
+                // Finde den entsprechenden Member
+                const member = members.find(m => 
+                  (m.id === playerId || m.userId === playerId) ||
+                  (ratingData.displayName && m.displayName?.toLowerCase() === ratingData.displayName.toLowerCase())
+                );
+                
+                if (member) {
+                  const memberId = member.id || member.userId;
+                  
+                  // Nur hinzufügen, wenn wir noch kein Delta für diesen Spieler haben
+                  // (da Sessions nach Datum sortiert sind, ist das erste gefundene Delta das neueste)
+                  if (!lastDeltaMap.has(memberId)) {
+                    lastDeltaMap.set(memberId, ratingData.ratingDelta);
+                    
+                    // Zusätzlich mit der ursprünglichen playerId als Schlüssel
+                    lastDeltaMap.set(playerId, ratingData.ratingDelta);
+                  }
+                }
+              }
+            });
+          }
+        }
+        
+        console.log('📊 Letzte Deltas für alle Spieler geladen:', {
+          totalPlayers: lastDeltaMap.size,
+          deltaMap: Object.fromEntries(lastDeltaMap),
+          sessionsChecked: summariesSnap.docs.length
+        });
+        
+        setPlayerDeltas(lastDeltaMap);
+      } catch (error) {
+        console.warn('Fehler beim Laden der letzten Session-Deltas:', error);
+      }
+    };
+    
+    loadLastDeltasForAllPlayers();
+  }, [currentGroup?.id, members]);
 
   // 🌍 GLOBAL ELO: Öffentliche Gruppenansicht - lade globale Ratings
   React.useEffect(() => {
@@ -659,13 +717,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
       })
       .then((ratingsMap) => {
         setPlayerRatings(ratingsMap);
-        
-        const deltaMap = new Map<string, number>();
-        ratingsMap.forEach((rating, playerId) => {
-          // 🆕 SESSION-DELTA: Verwende lastSessionDelta statt lastDelta
-          deltaMap.set(playerId, rating?.lastSessionDelta || rating?.lastDelta || 0);
-        });
-        setPlayerDeltas(deltaMap);
+        // Session-Deltas werden separat geladen (siehe useEffect oben)
       })
       .catch(e => console.warn('Fehler beim Laden der globalen Elo-Ratings für öffentliche Ansicht:', (e as any)?.message));
   }, [currentGroup?.id, isPublicView, members]);
@@ -677,17 +729,21 @@ export const GroupView: React.FC<GroupViewProps> = ({
     // ✅ Verzögerung um 1-2 Frames nach Tab-Expandieren für smooth Chart-Rendering
     const timer = setTimeout(() => {
       setChartLoading(true);
-      getChartData(currentGroup.id) // 🎯 Pre-computed Chart Data für sofortige Performance
-        .then((data) => {
-          setChartData(data);
-        })
-        .catch(error => {
-          console.warn('Fehler beim Laden der Chart-Daten:', error);
-          setChartData(null);
-        })
-        .finally(() => {
-          setChartLoading(false);
-        });
+      // getChartData(currentGroup.id) // 🎯 Pre-computed Chart Data - ENTFERNT
+      //   .then((data) => {
+      //     setChartData(data);
+      //   })
+      //   .catch(error => {
+      //     console.warn('Fehler beim Laden der Chart-Daten:', error);
+      //     setChartData(null);
+      //   })
+      //   .finally(() => {
+      //     setChartLoading(false);
+      //   });
+      
+      // Temporärer Fallback - Chart-Daten werden nicht mehr geladen
+      setChartData(null);
+      setChartLoading(false);
     }, 50); // 50ms Verzögerung für bessere UX
     
     return () => clearTimeout(timer);
@@ -1249,7 +1305,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         {(() => {
                           // Erstelle sortierte Liste aus Elo-Ratings
                           const ratingsArray = Array.from(playerRatings.values())
-                            .filter(rating => rating.gamesPlayed > 0) // Nur Spieler mit Spielen
+                            .filter(rating => rating && rating.rating > 0) // Nur Spieler mit Rating > 0
                             .sort((a, b) => b.rating - a.rating); // Nach Rating sortiert
                           
                           if (ratingsArray.length > 0) {
@@ -1276,7 +1332,27 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                       <span className={`text-white ${layout.valueSize} font-medium mr-2`}>
                                         {Math.round(rating.rating)}
                                         {(() => {
-                                          const delta = playerDeltas.get(rating.id);
+                                          // 🚨 KORREKTUR: Versuche verschiedene Schlüssel für die Delta-Zuordnung
+                                          let delta = playerDeltas.get(rating.id);
+                                          
+                                          // Fallback 1: Suche über Member-ID
+                                          if (delta === undefined) {
+                                            const member = members.find(m => (m.id || m.userId) === rating.id);
+                                            if (member) {
+                                              delta = playerDeltas.get(member.id || member.userId);
+                                            }
+                                          }
+                                          
+                                          // Fallback 2: Suche über displayName
+                                          if (delta === undefined && rating.displayName) {
+                                            const member = members.find(m => 
+                                              m.displayName?.toLowerCase() === rating.displayName.toLowerCase()
+                                            );
+                                            if (member) {
+                                              delta = playerDeltas.get(member.id || member.userId);
+                                            }
+                                          }
+                                          
                                           if (delta !== undefined) {
                                             return (
                                               <span className={`ml-1 ${layout.smallTextSize} ${delta > 0 ? 'text-green-400' : delta < 0 ? 'text-red-400' : 'text-gray-400'}`}>
@@ -1284,7 +1360,13 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                               </span>
                                             );
                                           }
-                                          return null;
+                                          
+                                          // 🚨 NEU: Zeige (0) in grau für Spieler ohne Delta
+                                          return (
+                                            <span className={`ml-1 ${layout.smallTextSize} text-gray-400`}>
+                                              (0)
+                                            </span>
+                                          );
                                         })()}
                                       </span>
                                       <span className={`${layout.eloEmojiSize}`}>{rating.tierEmoji}</span>

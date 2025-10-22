@@ -463,10 +463,8 @@ export async function getGroupRatingTimeSeries(
         backgroundColor: colors[colorIndex % colors.length].background,
         playerId,
         displayName: player.displayName,
-        tension: 0.1, // Glatte Linien
-        pointRadius: 2,
-        pointHoverRadius: 4,
         spanGaps: true, // ✅ WICHTIG: Verbinde Datenpunkte auch wenn Lücken existieren
+        // ✅ Chart-Parameter werden jetzt zentral in PowerRatingChart.tsx definiert!
       });
     });
 
@@ -543,9 +541,7 @@ export async function getPlayerRatingTimeSeries(
       data: playerHistory.map(h => h.rating),
       borderColor: '#059669',
       backgroundColor: 'rgba(5, 150, 105, 0.1)',
-      tension: 0.1,
-      pointRadius: 3,
-      pointHoverRadius: 5,
+      // ✅ Chart-Parameter werden jetzt zentral in PowerRatingChart.tsx definiert!
     }];
 
     return { labels, datasets };

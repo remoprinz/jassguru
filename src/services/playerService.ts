@@ -25,6 +25,7 @@ import type { AuthUser } from "@/types/auth";
 import type { FirestorePlayer } from "@/types/jass";
 import {nanoid} from "nanoid";
 import {PLAYERS_COLLECTION, USERS_COLLECTION} from "../constants/firestore";
+import { getRandomProfileTheme } from "../utils/randomTheme";
 
 // Collection-Namen für die Locks
 const PLAYER_LOCKS_COLLECTION = 'player-locks';
@@ -112,6 +113,8 @@ export const createPlayer = async (
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       groupIds: initialGroupId ? [initialGroupId] : [],
+      // 🎨 NEU: Zufällige Profilfarbe für neue Spieler
+      profileTheme: getRandomProfileTheme(),
       // 🔧 OPTIMIZATION: Stats werden nicht mehr initial erstellt - werden bei Bedarf hinzugefügt
       metadata: {
         isOG: true, // Original Jasster Auszeichnung für frühe Nutzer
@@ -268,6 +271,8 @@ const createInitialPlayerData = (playerId: string, userId: string, displayNameIn
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
     groupIds: [],
+    // 🎨 NEU: Zufällige Profilfarbe für neue Spieler
+    profileTheme: getRandomProfileTheme(),
     // 🔧 OPTIMIZATION: Stats werden nicht mehr initial erstellt - werden bei Bedarf hinzugefügt
     metadata: { isOG: false }, // Neue Spieler sind nicht OG
   };

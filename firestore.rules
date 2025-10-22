@@ -42,6 +42,82 @@ service cloud.firestore {
         // Schreiben: Nur Backend (Cloud Functions)
         allow write: if false;
       }
+
+      // =====================================================================
+      // PLAYER SCORES - Neue Multi-Level Scores
+      // =====================================================================
+      match /currentScores/{scoreId} {
+        // Jeder darf die aktuellen Scores lesen (für Charts und Profile)
+        allow read: if true;
+        
+        // Schreiben: Nur Backend (Cloud Functions)
+        allow write: if false;
+      }
+
+      match /scoresHistory/{historyId} {
+        // Jeder darf die Score-Historie lesen (für Charts)
+        allow read: if true;
+        
+        // Schreiben: Nur Backend (Cloud Functions)
+        allow write: if false;
+      }
+
+      // =====================================================================
+      // PLAYER STATISTICS - Neue Multi-Level Statistiken
+      // =====================================================================
+      match /currentStatistics/{statId} {
+        // Jeder darf die aktuellen Statistiken lesen (für Profile)
+        allow read: if true;
+        
+        // Schreiben: Nur Backend (Cloud Functions)
+        allow write: if false;
+      }
+      
+      match /statisticsHistory/{historyId} {
+        // Jeder darf die Statistiken-Historie lesen (für Charts)
+        allow read: if true;
+        
+        // Schreiben: Nur Backend (Cloud Functions)
+        allow write: if false;
+      }
+
+      // =====================================================================
+      // PLAYER SESSION ARCHIVE - Neue Multi-Level Session Archive
+      // =====================================================================
+      match /currentSessionArchive/{archiveId} {
+        // Jeder darf das aktuelle Session-Archive lesen (für Profile)
+        allow read: if true;
+        
+        // Schreiben: Nur Backend (Cloud Functions)
+        allow write: if false;
+      }
+      
+      match /sessionArchiveHistory/{historyId} {
+        // Jeder darf die Session-Archive-Historie lesen (für Charts)
+        allow read: if true;
+        
+        // Schreiben: Nur Backend (Cloud Functions)
+        allow write: if false;
+      }
+
+      // =====================================================================
+      // PLAYER CHART DATA - Neue Multi-Level Chart Daten
+      // =====================================================================
+      match /currentChartData/{chartId} {
+        // Jeder darf die aktuellen Chart-Daten lesen (für Charts)
+        allow read: if true;
+        
+        // Schreiben: Nur Backend (Cloud Functions)
+        allow write: if false;
+      }
+      
+      match /chartDataHistory/{historyId} {
+        // Jeder darf die Chart-Daten-Historie lesen (für Charts)
+        allow read: if true;
+        
+        // Schreiben: Nur Backend (Cloud Functions)
+        allow write: if false;
+      }
     }
 
     // =====================================================================

@@ -8,7 +8,13 @@
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log"
+    "logs": "firebase functions:log",
+    "migrate-player-scores": "ts-node --project tsconfig.json scripts/migrateAllPlayerScores.ts",
+    "backfill-player-scores": "ts-node --project tsconfig.json scripts/backfillPlayerScores.ts",
+    "test-player-event-metrics": "ts-node --project tsconfig.json scripts/testPlayerEventMetrics.ts",
+    "debug-session-data": "ts-node --project tsconfig.json scripts/debugSessionData.ts",
+    "migrate-profileview-data": "ts-node --project tsconfig.json scripts/migrateAllProfileViewData.ts",
+    "test-profileview-migration": "ts-node --project tsconfig.json scripts/testProfileViewMigration.ts"
   },
   "engines": {
     "node": "20"

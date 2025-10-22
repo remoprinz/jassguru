@@ -4,6 +4,7 @@ import { onDocumentUpdated, onDocumentWritten, Change, FirestoreEvent, QueryDocu
 import * as admin from "firebase-admin";
 import * as crypto from "crypto";
 import * as logger from "firebase-functions/logger";
+import { getRandomProfileThemeServer } from "./utils/randomTheme";
 // GELÖSCHT: Unbenutzter Import von PlayerComputedStats etc.
 // import { FirestoreGroup } from "../../src/types/group"; // <-- Entfernt wegen Modul-Konflikt
 
@@ -18,6 +19,7 @@ try {
 import * as finalizeSessionLogic from './finalizeSession';
 // --- NEUE IMPORTE ---
 import * as userManagementLogic from './userManagement'; // WIEDER HINZUGEFÜGT
+// 🆕 Player Scores Migration wird direkt exportiert
 import * as scheduledTaskLogic from './scheduledTasks'; // WIEDER HINZUGEFÜGT
 import * as batchUpdateLogic from './batchUpdateGroupStats'; // NEU: Batch-Update für Gruppenstatistiken
 import * as updateGroupStatsLogic from './updateGroupStats'; // NEU: Manuelle Gruppenstatistik-Aktualisierung
@@ -395,6 +397,8 @@ const getPlayerIdForUserInternal = async (userId: string, displayName: string | 
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       groupIds: [],
+      // 🎨 NEU: Zufällige Profilfarbe für neue Spieler
+      profileTheme: getRandomProfileThemeServer(),
       stats: { gamesPlayed: 0, wins: 0, totalScore: 0 },
       metadata: { isOG: false },
     };
@@ -2008,4 +2012,10 @@ export const onGroupDocumentUpdated = onDocumentUpdated(
 // ✅ NEU: Export finalizeTournament
 export { finalizeTournament } from './finalizeTournament';
 
+// ✅ NEU: Export Player Scores Migration
+export { backfillAllPlayerScores } from './backfillAllPlayerScores';
+
 // ✅ NEU: Export addTournamentName Script
+
+// ✅ NEU: Export Master Fix Function
+export { masterFix } from './masterFixFunction';

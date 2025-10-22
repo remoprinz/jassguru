@@ -234,12 +234,10 @@ export async function getGroupWinRateTimeSeries(groupId: string) {
         data: player.dataPoints,
         borderColor: colors.border,
         backgroundColor: colors.background,
-        tension: 0.1,
-        pointRadius: 2,
-        pointHoverRadius: 4,
         spanGaps: true, // Verbinde Punkte über Lücken hinweg
         playerId: player.playerId,
         displayName: player.playerName
+        // ✅ Chart-Parameter werden jetzt zentral in PowerRatingChart.tsx definiert!
       };
     });
     

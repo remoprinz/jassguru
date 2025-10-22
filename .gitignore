@@ -126,3 +126,9 @@ comprehensive-*.js
 local-test-*.js
 frontend-stats-verification.*
 
+# Sicherheitskritische Debug-Logs und Skripte
+firebase-debug.log
+firebase-debug.*.log
+callMasterFix.js
+getRemoStricheDifferenzVerlauf.ts
+

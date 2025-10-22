@@ -1,15 +1,41 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, query, orderBy, limit, getDocs, doc, getDoc } from 'firebase/firestore';
 
-// Firebase-Konfiguration
+/**
+ * 🔍 REMO STRICHE-DIFFERENZ-VERLAUF SCRIPT (SICHERE VERSION)
+ * 
+ * ✅ SICHERHEIT: Verwendet Umgebungsvariablen statt hardcodierte API Keys
+ */
+
+// Firebase-Konfiguration aus Umgebungsvariablen
 const firebaseConfig = {
-  apiKey: "AIzaSyB8Q8Q8Q8Q8Q8Q8Q8Q8Q8Q8Q8Q8Q8Q8Q8",
-  authDomain: "jasstafel.firebaseapp.com",
-  projectId: "jasstafel",
-  storageBucket: "jasstafel.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "1:123456789:web:abcdefghijklmnop"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
+
+// Validierung der Umgebungsvariablen
+function validateConfig() {
+  const requiredVars = [
+    'NEXT_PUBLIC_FIREBASE_API_KEY',
+    'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN',
+    'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
+    'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET',
+    'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
+    'NEXT_PUBLIC_FIREBASE_APP_ID'
+  ];
+
+  const missingVars = requiredVars.filter(varName => !process.env[varName]);
+  
+  if (missingVars.length > 0) {
+    console.error('❌ Fehlende Umgebungsvariablen:', missingVars.join(', '));
+    console.error('💡 Bitte setzen Sie diese Variablen in Ihrer .env Datei');
+    process.exit(1);
+  }
+}
 
 // Firebase initialisieren
 const app = initializeApp(firebaseConfig);
@@ -137,4 +163,11 @@ async function getRemoStricheDifferenzVerlauf() {
 }
 
 // Script ausführen
-getRemoStricheDifferenzVerlauf();
+if (require.main === module) {
+  // Umgebungsvariablen validieren
+  validateConfig();
+  
+  getRemoStricheDifferenzVerlauf();
+}
+
+export { getRemoStricheDifferenzVerlauf };

@@ -71,7 +71,7 @@ function getTierForRating(rating: number): { name: string; emoji: string } {
   if (rating >= 105) return { name: 'Bronzejasser', emoji: '🥉' };
   if (rating >= 100) return { name: 'Jassstudent (START)', emoji: '👨‍🎓' };
   if (rating >= 95) return { name: 'Kleeblatt vierblättrig', emoji: '🍀' };
-  if (rating >= 90) return { name: 'Kleeblatt dreiblättrig', emoji: '☘' };
+  if (rating >= 90) return { name: 'Kleeblatt dreiblättrig', emoji: '☘️' };
   if (rating >= 85) return { name: 'Sprössling', emoji: '🌱' };
   if (rating >= 80) return { name: 'Hahn', emoji: '🐓' };
   if (rating >= 75) return { name: 'Huhn', emoji: '🐔' };

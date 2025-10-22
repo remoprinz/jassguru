@@ -35,6 +35,8 @@ interface PowerRatingChartProps {
       backgroundColor: string;
       playerId?: string;
       displayName?: string;
+      tierEmojis?: (string | null)[]; // 🆕 NEU: Emojis für jeden Datenpunkt
+      deltas?: (number | null)[]; // 🆕 NEU: Delta-Werte für jeden Datenpunkt
       tension?: number;
       pointRadius?: number;
       pointHoverRadius?: number;
@@ -46,6 +48,8 @@ interface PowerRatingChartProps {
   isDarkMode?: boolean;
   hideLegend?: boolean; // ✅ NEU: Für ProfileView ohne Legende
   showBaseline?: boolean; // 🎯 NEU: Steuert ob 100er-Linie angezeigt wird
+  isEloChart?: boolean; // 🎯 NEU: Explizit markiert Elo-Charts für korrekte weiße Linien
+  collapseIfSinglePoint?: boolean; // 🎯 NEU: Einklappen wenn nur ein Datenpunkt
   activeTab?: string; // ✅ NEU: Für Tab-Wechsel-Reset der Animationen
   activeSubTab?: string; // ✅ NEU: Für Sub-Tab-Wechsel-Reset der Animationen
 }
@@ -58,12 +62,22 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
   isDarkMode = true,
   hideLegend = false, // ✅ NEU: Standardmäßig Legende anzeigen
   showBaseline = true, // 🎯 NEU: Standardmäßig true für ProfileView
+  isEloChart = false, // 🎯 NEU: Standardmäßig false (nur Elo-Charts sind true)
+  collapseIfSinglePoint = false, // 🎯 NEU: Standardmäßig false
   activeTab, // ✅ NEU: Tab-Wechsel-Reset
   activeSubTab, // ✅ NEU: Sub-Tab-Wechsel-Reset
 }) => {
     // 🎯 INTELLIGENTE ANIMATION-KONTROLLE: Intersection Observer + Tab-Wechsel-Reset
     const [hasAnimated, setHasAnimated] = React.useState(false);
     const [isVisible, setIsVisible] = React.useState(false);
+    
+    // 🎯 PRÜFE OB NUR EIN DATENPUNKT VORHANDEN IST
+    const hasOnlySinglePoint = React.useMemo(() => {
+      if (!collapseIfSinglePoint || !data?.datasets?.length) return false;
+      
+      const allDataPoints = data.datasets.flatMap(dataset => dataset.data).filter(point => point !== null && point !== undefined);
+      return allDataPoints.length === 1;
+    }, [data, collapseIfSinglePoint]);
     const [shouldRender, setShouldRender] = React.useState(false); // ✅ NEU: Kontrolliert ob Chart gerendert werden soll
     const chartRef = React.useRef<HTMLDivElement>(null);
 
@@ -163,7 +177,7 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
     responsive: true,
     maintainAspectRatio: false,
     animation: {
-      duration: hasAnimated ? 0 : 250, // 🎯 Nur beim ersten Laden animieren
+      duration: hasAnimated ? 0 : 350, // 🎯 Nur beim ersten Laden animieren
       easing: 'easeOutQuart' as const, // 🎯 Schneller Start, sanfter End
       // ✅ Resize-Animation deaktivieren für smooth Chart-Updates
       resize: {
@@ -171,25 +185,30 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
       },
       // ✅ Punkte starten von der Hauptlinie (100er bei Elo, 0er bei Strichdifferenz)
       x: {
-        duration: hasAnimated ? 0 : 250,
+        duration: hasAnimated ? 0 : 350,
         easing: 'easeOutQuart' as const,
         from: 0, // Start von links
         delay: 0,
       },
       y: {
-        duration: hasAnimated ? 0 : 250,
+        duration: hasAnimated ? 0 : 350,
         easing: 'easeOutQuart' as const,
-        // 🎯 Start von der Hauptlinie: 100 für Elo-Charts, 0 für Strichdifferenz-Charts
+        // 🎯 Start von der Hauptlinie: 100 für Elo-Charts, 0 für alle anderen Charts
         from: (context: { chart: { scales: { y: { min: number, max: number } } } }) => {
           const chart = context.chart;
           const yScale = chart.scales.y;
           
           // Bestimme die Hauptlinie basierend auf dem Chart-Typ
           if (showBaseline) {
-            // Elo-Chart: Start von 100er-Linie
-            return 100;
+            if (isEloChart) {
+              // Elo-Chart: Start von 100er-Linie
+              return 100;
+            } else {
+              // Alle anderen Charts: Start von 0er-Linie
+              return 0;
+            }
           } else {
-            // Strichdifferenz-Chart: Start von 0er-Linie
+            // Fallback: Start von 0er-Linie
             return 0;
           }
         },
@@ -245,6 +264,10 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
             const dataset = context.dataset;
             const value = context.parsed.y;
             const playerName = dataset.displayName || dataset.label;
+            // 🆕 NEU: Hole Emoji für diesen spezifischen Datenpunkt
+            const tierEmoji = dataset.tierEmojis?.[context.dataIndex] || '';
+            // 🆕 NEU: Hole Delta für diesen spezifischen Datenpunkt
+            const delta = dataset.deltas?.[context.dataIndex];
             
             // 🎯 KOMPAKTE TOOLTIP-WERTE: 1k, 2k, 10k statt 1000, 2000, 10000
             let formattedValue: string;
@@ -255,7 +278,14 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
               formattedValue = Math.round(value).toString();
             }
             
-            return `${playerName}: ${formattedValue}`;
+            // 🆕 NEU: Formatiere Delta-Wert
+            let deltaText = '';
+            if (delta !== null && delta !== undefined) {
+              const deltaSign = delta >= 0 ? '+' : '';
+              deltaText = ` (${deltaSign}${Math.round(delta)})`;
+            }
+            
+            return `${tierEmoji ? tierEmoji + ' ' : ''}${playerName}: ${formattedValue}${deltaText}`;
           }
         }
       }
@@ -293,12 +323,12 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
           },
         grid: {
           color: function(context: { tick?: { value: number } }) {
-            // 🎯 ELO-CHART: Nur 100er-Linie weiß
-            if (showBaseline && context.tick?.value === 100) {
+            // 🎯 ELO-CHART: Nur 100er-Linie weiß (isEloChart = true)
+            if (isEloChart && context.tick?.value === 100) {
               return isDarkMode ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
             }
-            // 🎯 ALLE ANDEREN CHARTS: Nur 0er-Linie weiß
-            if (!showBaseline && context.tick?.value === 0) {
+            // 🎯 ALLE ANDEREN CHARTS: Nur 0er-Linie weiß (isEloChart = false)
+            if (!isEloChart && context.tick?.value === 0) {
               return isDarkMode ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
             }
             return isDarkMode ? 'rgba(75, 85, 99, 0.3)' : 'rgba(156, 163, 175, 0.3)';
@@ -309,12 +339,12 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
         },
         ticks: {
           color: function(context: { tick?: { value: number } }) {
-            // 🎯 ELO-CHART: Nur 100er-Label weiß
-            if (showBaseline && context.tick?.value === 100) {
+            // 🎯 ELO-CHART: Nur 100er-Label weiß (isEloChart = true)
+            if (isEloChart && context.tick?.value === 100) {
               return isDarkMode ? '#ffffff' : '#000000';
             }
-            // 🎯 ALLE ANDEREN CHARTS: Nur 0er-Label weiß
-            if (!showBaseline && context.tick?.value === 0) {
+            // 🎯 ALLE ANDEREN CHARTS: Nur 0er-Label weiß (isEloChart = false)
+            if (!isEloChart && context.tick?.value === 0) {
               return isDarkMode ? '#ffffff' : '#000000';
             }
             return isDarkMode ? '#9ca3af' : '#6b7280';
@@ -323,10 +353,10 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
             size: 11,
             family: 'Inter, system-ui, sans-serif',
             weight: function(context: { tick?: { value: number } }) {
-              // 🎯 ELO-CHART: Nur 100er-Label fett
-              if (showBaseline && context.tick?.value === 100) return 'bold';
-              // 🎯 ALLE ANDEREN CHARTS: Nur 0er-Label fett
-              if (!showBaseline && context.tick?.value === 0) return 'bold';
+              // 🎯 ELO-CHART: Nur 100er-Label fett (isEloChart = true)
+              if (isEloChart && context.tick?.value === 100) return 'bold';
+              // 🎯 ALLE ANDEREN CHARTS: Nur 0er-Label fett (isEloChart = false)
+              if (!isEloChart && context.tick?.value === 0) return 'bold';
               return 'normal';
             }
           },
@@ -427,6 +457,14 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
     }
   }), [hasAnimated, theme, isDarkMode, hideLegend, showBaseline]); // ✅ Dependencies für Memoization
 
+  // 🎯 ZENTRALE CHART-PARAMETER: Alle Charts verwenden dieselben Einstellungen
+  const CHART_CONFIG = {
+    tension: 0.1,           // ✅ Einheitlich: Gerade Linien für alle Charts
+    pointRadius: 2,         // ✅ Einheitlich: Kleine Punkte für alle Charts
+    pointHoverRadius: 4,    // ✅ Einheitlich: Hover-Punkte für alle Charts
+    borderWidth: 2,         // ✅ Einheitlich: Linienbreite für alle Charts
+  };
+
   // ✅ MEMOIZED ENHANCED DATA: Verhindert Chart-Flackern durch stabile Daten-Referenzen
   const enhancedData = useMemo(() => ({
     ...data,
@@ -435,10 +473,10 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
       ...dataset,
       data: [...dataset.data, null], // Null-Wert für zusätzlichen Punkt (unsichtbar)
       fill: false,
-      tension: dataset.tension || 0.1,
-      pointRadius: dataset.pointRadius || 2,
-      pointHoverRadius: dataset.pointHoverRadius || 4,
-      borderWidth: 2,
+      tension: CHART_CONFIG.tension,           // ✅ ZENTRAL: Überschreibt dataset.tension
+      pointRadius: CHART_CONFIG.pointRadius,   // ✅ ZENTRAL: Überschreibt dataset.pointRadius
+      pointHoverRadius: CHART_CONFIG.pointHoverRadius, // ✅ ZENTRAL: Überschreibt dataset.pointHoverRadius
+      borderWidth: CHART_CONFIG.borderWidth,   // ✅ ZENTRAL: Einheitliche Linienbreite
       pointBackgroundColor: dataset.borderColor,
       pointBorderColor: dataset.borderColor,
       pointHoverBackgroundColor: '#ffffff',
@@ -447,9 +485,14 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
   }), [data]); // ✅ Nur neu erstellen wenn data-Referenz sich ändert
 
   return (
-    <div ref={chartRef} className="w-full" style={{ height: `${height}px` }}>
-      {/* ✅ Container mit Intersection Observer Ref für intelligente Animationen */}
-      {shouldRender ? (
+    <>
+      {hasOnlySinglePoint ? (
+        // 🎯 EINGEKLAPPT: Komplett nichts rendern, nur Titel-Bar bleibt (gerendert von ProfileView)
+        null
+      ) : (
+        <div ref={chartRef} className="w-full" style={{ height: `${height}px` }}>
+          {/* ✅ Container mit Intersection Observer Ref für intelligente Animationen */}
+          {shouldRender ? (
         <Line 
           data={enhancedData} 
           options={options}
@@ -469,7 +512,9 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
           </div>
         </div>
       )}
-    </div>
+        </div>
+      )}
+    </>
   );
 };
 

@@ -1,11 +1,12 @@
 import * as admin from 'firebase-admin';
 import { HttpsError, onCall, CallableRequest } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
-import { updatePlayerStats } from './playerStatsCalculator'; // NEU: Import der zentralen Funktion
+// import { updatePlayerStats } from './playerStatsCalculator'; // NEU: Import der zentralen Funktion - ENTFERNT
 import { updateGroupComputedStatsAfterSession } from './groupStatsCalculator'; // NEU: Import für Gruppenstatistiken
 import { updateEloForSession } from './jassEloUpdater'; // NEU: Elo-Update
 import { saveRatingHistorySnapshot } from './ratingHistoryService'; // 🆕 Rating-Historie
-import { saveChartDataSnapshot } from './chartDataService'; // 🎯 Pre-computed Chart Data
+import { calculatePlayerScoresForSession } from './playerScoresBackendService'; // 🆕 Player Scores
+import { calculatePlayerStatisticsForSession } from './playerStatisticsBackendService'; // 🆕 Player Statistics
 
 const db = admin.firestore();
 
@@ -636,6 +637,28 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
           }
         }
         
+        // ✅ completedAt für jedes Spiel sicherstellen
+        if (!game.completedAt) {
+          // 1) timestampCompleted
+          let candidateTs: admin.firestore.Timestamp | null = game.timestampCompleted || null;
+          // 2) max(roundHistory[].timestamp | savedAt)
+          if (!candidateTs && game.roundHistory && Array.isArray(game.roundHistory) && game.roundHistory.length > 0) {
+            const millis: number[] = [];
+            game.roundHistory.forEach((r: any) => {
+              if (typeof r?.timestamp === 'number') millis.push(r.timestamp);
+              else if (r?.savedAt && typeof r.savedAt.toMillis === 'function') millis.push(r.savedAt.toMillis());
+              else if (typeof r?.savedAt === 'number') millis.push(r.savedAt);
+            });
+            if (millis.length > 0) {
+              const maxMs = Math.max(...millis);
+              candidateTs = admin.firestore.Timestamp.fromMillis(maxMs);
+            }
+          }
+          // 3) Fallback: now (letzter Sicherheitsschritt in Finalisierung)
+          const safeCompletedAt = candidateTs || now;
+          updateData.completedAt = safeCompletedAt;
+        }
+        
         // Update completedGame Dokument
         transaction.update(gameDocRef, updateData);
 
@@ -774,6 +797,7 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
         createdAt: createdAtTimestamp,
         startedAt: startedAtTimestamp,
         endedAt: now,
+        completedAt: now, // ✅ Summary completedAt = endedAt
         lastActivity: now,
         status: "completed" as const,
         gamesPlayed: completedGames.length,
@@ -782,7 +806,7 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
         finalStriche: { top: totalStricheTopRecord, bottom: totalStricheBottomRecord },
         eventCounts: { top: totalEventCountsTop, bottom: totalEventCountsBottom },
         sessionTotalWeisPoints: sessionTotalWeisPoints,
-        participantUids: initialDataFromClient.participantUids || [], // Speichern, falls vorhanden, sonst leeres Array
+        // Entfernt: participantUids werden nicht mehr persistiert (nur Player-IDs sind maßgeblich)
         participantPlayerIds: participantPlayerIds,
         playerNames: initialDataFromClient.playerNames,
         teams: correctedTeams,
@@ -914,13 +938,65 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
       logger.error(`[finalizeSession] Rating history snapshot failed for session ${sessionId}:`, e);
     }
 
-    // 🎯 Pre-computed Chart Data für sofortige PWA-Performance
+    // 🆕 playerFinalRatings nach Elo-Update in jassGameSummary schreiben
     try {
-      logger.info(`[finalizeSession] Calculating chart data for group ${groupId}`);
-      await saveChartDataSnapshot(groupId);
-      logger.info(`[finalizeSession] Chart data calculation completed for group ${groupId}`);
+      logger.info(`[finalizeSession] Saving player final ratings for session ${sessionId}`);
+      
+      const playerFinalRatings: { [playerId: string]: { rating: number; ratingDelta: number; gamesPlayed: number; } } = {};
+      
+      for (const playerId of participantPlayerIds) {
+        const playerDoc = await db.collection('players').doc(playerId).get();
+        const playerData = playerDoc.data();
+        
+        if (playerData) {
+          // 🔧 KORREKTUR: Berechne das korrekte Session-Delta aus ratingHistory
+          let sessionDelta = 0;
+          try {
+            // Hole alle ratingHistory Einträge für diese Session
+            const ratingHistoryQuery = db.collection(`players/${playerId}/ratingHistory`)
+              .where('sessionId', '==', sessionId)
+              .orderBy('completedAt', 'asc');
+            
+            const ratingHistorySnap = await ratingHistoryQuery.get();
+            
+            if (!ratingHistorySnap.empty) {
+              const entries = ratingHistorySnap.docs.map(doc => doc.data());
+              const firstEntry = entries[0];
+              const lastEntry = entries[entries.length - 1];
+              
+              // Berechne Session-Delta: Letzter Rating - Erster Rating
+              sessionDelta = lastEntry.rating - firstEntry.rating;
+              
+              logger.debug(`[finalizeSession] Player ${playerId} session delta: ${sessionDelta.toFixed(2)} (${firstEntry.rating.toFixed(2)} → ${lastEntry.rating.toFixed(2)})`);
+            } else {
+              logger.warn(`[finalizeSession] No ratingHistory entries found for player ${playerId} in session ${sessionId}`);
+              sessionDelta = playerData.lastSessionDelta || 0; // Fallback
+            }
+          } catch (historyError) {
+            logger.error(`[finalizeSession] Error calculating session delta for player ${playerId}:`, historyError);
+            sessionDelta = playerData.lastSessionDelta || 0; // Fallback
+          }
+          
+          playerFinalRatings[playerId] = {
+            rating: playerData.globalRating || 100,
+            ratingDelta: sessionDelta,
+            gamesPlayed: playerData.gamesPlayed || 0
+          };
+        }
+      }
+      
+      // 🔧 KORREKTUR: Nur schreiben wenn playerFinalRatings noch nicht existieren
+      const summaryDoc = await summaryDocRef.get();
+      const existingData = summaryDoc.data();
+      
+      if (!existingData?.playerFinalRatings) {
+        await summaryDocRef.update({ playerFinalRatings });
+        logger.info(`[finalizeSession] Player final ratings saved for session ${sessionId} (${participantPlayerIds.length} players)`);
+      } else {
+        logger.info(`[finalizeSession] Player final ratings already exist for session ${sessionId}, skipping write`);
+      }
     } catch (e) {
-      logger.error(`[finalizeSession] Chart data calculation failed for group ${groupId}:`, e);
+      logger.error(`[finalizeSession] Failed to save player final ratings for session ${sessionId}:`, e);
     }
 
     // ✅ KRITISCHE KORREKTUR: Gruppenstatistiken nach erfolgreicher Session-Finalisierung aktualisieren
@@ -937,18 +1013,28 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
       logger.info(`[finalizeSession] No group ID provided, skipping group statistics update`);
     }
 
-    // ✅ ZUKUNFT: Player-Statistiken könnten hier auch ausgelöst werden
+    // 🆕 PLAYER SCORES: Berechne Player Scores für alle Teilnehmer
     if (participantPlayerIds && participantPlayerIds.length > 0) {
-      logger.info(`[finalizeSession] Triggering player statistics update for ${participantPlayerIds.length} players`);
+      logger.info(`[finalizeSession] Triggering player scores calculation for ${participantPlayerIds.length} players`);
       
-      // Starte Player-Statistik-Berechnungen im Hintergrund für alle Teilnehmer
-      participantPlayerIds.forEach(playerId => {
-        updatePlayerStats(playerId).catch(error => {
-          logger.error(`[finalizeSession] Fehler bei der Player-Statistik-Berechnung für Player ${playerId}:`, error);
-        });
-      });
+      try {
+        await calculatePlayerScoresForSession(groupId, sessionId, participantPlayerIds, null);
+        logger.info(`[finalizeSession] Player scores calculation completed for session ${sessionId}`);
+      } catch (error) {
+        logger.error(`[finalizeSession] Fehler bei der Player Scores-Berechnung für Session ${sessionId}:`, error);
+      }
+    }
+
+    // 🆕 PLAYER STATISTICS: Berechne Player Statistics für alle Teilnehmer
+    if (participantPlayerIds && participantPlayerIds.length > 0) {
+      logger.info(`[finalizeSession] Triggering player statistics calculation for ${participantPlayerIds.length} players`);
       
-      logger.info(`[finalizeSession] Player statistics updates initiated for ${participantPlayerIds.length} players`);
+      try {
+        await calculatePlayerStatisticsForSession(groupId, sessionId, participantPlayerIds, null);
+        logger.info(`[finalizeSession] Player statistics calculation completed for session ${sessionId}`);
+      } catch (error) {
+        logger.error(`[finalizeSession] Fehler bei der Player Statistics-Berechnung für Session ${sessionId}:`, error);
+      }
     }
 
     // 🚀 ENTFERNT: Die Statistik-Aktualisierung wird jetzt durch einen zentralen Trigger gehandhabt.

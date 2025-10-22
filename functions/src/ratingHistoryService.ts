@@ -160,6 +160,188 @@ async function calculateSessionDelta(
  * @param context - Kontext des Updates
  * @param tournamentId - Turnier-ID (optional, nur bei tournament_end)
  */
+export async function saveRatingHistorySnapshotWithDate(
+  groupId: string,
+  sessionId: string | null,
+  playerIds: string[],
+  context: 'session_end' | 'tournament_end' | 'manual_recalc' | 'initial' = 'session_end',
+  tournamentId?: string,
+  completedAt?: admin.firestore.Timestamp
+): Promise<void> {
+  // Verwende das übergebene completedAt oder den aktuellen Timestamp
+  const timestamp = completedAt || admin.firestore.Timestamp.now();
+  
+  try {
+    logger.info(`[RatingHistory] Starting snapshot for ${playerIds.length} players in group ${groupId}`, {
+      context,
+      sessionId,
+      tournamentId,
+      completedAt: timestamp.toDate()
+    });
+
+    if (!playerIds || playerIds.length === 0) {
+      logger.warn(`[RatingHistory] No players provided for snapshot in group ${groupId}`);
+      return;
+    }
+
+    const batch = db.batch();
+    const now = timestamp; // 🎯 WICHTIG: Verwende das korrekte completedAt
+
+    for (const playerId of playerIds) {
+      try {
+        // Hole aktuelle Spielerdaten
+        const playerDoc = await db.collection('players').doc(playerId).get();
+        
+        if (!playerDoc.exists) {
+          logger.warn(`[RatingHistory] Player ${playerId} not found, skipping`);
+          continue;
+        }
+
+        const playerData = playerDoc.data()!;
+        const currentRating = playerData.globalRating || 100;
+        const currentGamesPlayed = playerData.gamesPlayed || 0;
+
+        // Hole das letzte Historie-Entry für kumulative Werte und Rating-Delta
+        const globalHistoryRef = db.collection(`players/${playerId}/ratingHistory`);
+        const lastHistorySnap = await globalHistoryRef
+          .orderBy('createdAt', 'desc')
+          .limit(1)
+          .get();
+
+        let previousRating = 100; // Default Startrating
+        let previousCumulative = {
+          striche: 0,
+          wins: 0,
+          losses: 0,
+          points: 0
+        };
+        
+        if (!lastHistorySnap.empty) {
+          const lastEntry = lastHistorySnap.docs[0].data() as RatingHistoryEntry;
+          previousRating = lastEntry.rating;
+          
+          // Hole kumulative Werte aus letztem Snapshot (falls vorhanden)
+          if (lastEntry.cumulative) {
+            previousCumulative = lastEntry.cumulative;
+          }
+        }
+
+        const ratingDelta = currentRating - previousRating;
+
+        // 🆕 V2: Berechne Session-Deltas (nur bei session_end)
+        let sessionDelta = {
+          striche: 0,
+          wins: 0,
+          losses: 0,
+          games: 0,
+          points: 0
+        };
+
+        if (context === 'session_end' && playerData.lastSessionDelta !== undefined) {
+          // Hole Session-Daten aus dem Spielerdokument
+          sessionDelta = {
+            striche: playerData.lastSessionDelta || 0,
+            wins: playerData.lastSessionWins || 0,
+            losses: playerData.lastSessionLosses || 0,
+            games: playerData.lastSessionGames || 0,
+            points: playerData.lastSessionPoints || 0
+          };
+        }
+
+        // Berechne neue kumulative Werte
+        const newCumulative = {
+          striche: previousCumulative.striche + sessionDelta.striche,
+          wins: previousCumulative.wins + sessionDelta.wins,
+          losses: previousCumulative.losses + sessionDelta.losses,
+          points: previousCumulative.points + sessionDelta.points
+        };
+
+        // Nur speichern wenn sich Rating geändert hat, Session-Delta vorhanden ist, oder es der erste Eintrag ist
+        const hasChanges = ratingDelta !== 0 || 
+                          sessionDelta.games > 0 || 
+                          lastHistorySnap.empty || 
+                          context === 'manual_recalc';
+
+        if (hasChanges) {
+          // Berechne Tier und Emoji
+          const tierInfo = getRatingTier(currentRating);
+          
+          // 🆕 V2: Erstelle neuen Historie-Eintrag mit erweitertem Schema
+          const historyEntry: any = {
+            // 🔑 IDENTIFIERS
+            createdAt: now,
+            completedAt: now, // 🎯 WICHTIG: Für Charts verwenden wir completedAt
+            playerId,
+            groupId,
+            
+            // 🎮 EVENT CONTEXT
+            eventType: context,
+            eventId: sessionId || tournamentId || 'unknown',
+            
+            // 📊 SNAPSHOT
+            rating: currentRating,
+            gamesPlayed: currentGamesPlayed,
+            tier: tierInfo.name,
+            tierEmoji: tierInfo.emoji,
+            
+            // 🎯 DELTA
+            delta: {
+              rating: ratingDelta,
+              striche: sessionDelta.striche,
+              games: sessionDelta.games,
+              wins: sessionDelta.wins,
+              losses: sessionDelta.losses,
+              points: sessionDelta.points
+            },
+            
+            // 🔢 CUMULATIVE
+            cumulative: newCumulative,
+            
+            // 🔄 BACKWARDS COMPATIBILITY
+            context: context
+          };
+          
+          // Füge sessionId nur hinzu, wenn es einen Wert hat
+          if (sessionId) {
+            historyEntry.sessionId = sessionId;
+          }
+          
+          // Füge tournamentId nur hinzu, wenn es einen Wert hat
+          if (tournamentId) {
+            historyEntry.tournamentId = tournamentId;
+          }
+
+          // Erstelle neuen Historie-Eintrag
+          const historyRef = globalHistoryRef.doc();
+          batch.set(historyRef, historyEntry);
+
+          logger.info(`[RatingHistory] Queued snapshot for player ${playerId}: Rating ${previousRating} → ${currentRating} (Δ${ratingDelta.toFixed(2)}), Striche: ${sessionDelta.striche > 0 ? '+' : ''}${sessionDelta.striche}`, {
+            tier: tierInfo.name,
+            gamesPlayed: currentGamesPlayed,
+            context,
+            wins: sessionDelta.wins,
+            losses: sessionDelta.losses
+          });
+        }
+      } catch (playerError) {
+        logger.error(`[RatingHistory] Error processing player ${playerId}:`, playerError);
+      }
+    }
+
+    // Führe Batch-Operation aus
+    await batch.commit();
+    
+    logger.info(`[RatingHistory] Successfully saved ${playerIds.length} rating snapshots for group ${groupId}`, {
+      context,
+      sessionId,
+      tournamentId
+    });
+  } catch (error) {
+    logger.error(`[RatingHistory] Error saving rating history snapshot:`, error);
+    throw error;
+  }
+}
+
 export async function saveRatingHistorySnapshot(
   groupId: string,
   sessionId: string | null,
@@ -196,7 +378,7 @@ export async function saveRatingHistorySnapshot(
         }
 
         const currentRatingData = playerDoc.data();
-        const currentRating = currentRatingData?.rating || 100;
+        const currentRating = currentRatingData?.globalRating || 100; // ✅ KUMULATIVE GLOBAL RATING
         const currentGamesPlayed = currentRatingData?.gamesPlayed || 0;
 
         // Hole das letzte Historie-Entry für kumulative Werte und Rating-Delta
@@ -258,9 +440,10 @@ export async function saveRatingHistorySnapshot(
           const tierInfo = getRatingTier(currentRating);
           
           // 🆕 V2: Erstelle neuen Historie-Eintrag mit erweitertem Schema
-          const historyEntry: RatingHistoryEntry = {
+          const historyEntry: any = {
             // 🔑 IDENTIFIERS
             createdAt: now,
+            completedAt: now, // 🎯 WICHTIG: Für Charts verwenden wir completedAt
             playerId,
             groupId,
             
@@ -288,10 +471,18 @@ export async function saveRatingHistorySnapshot(
             cumulative: newCumulative,
             
             // 🔄 BACKWARDS COMPATIBILITY
-            sessionId: sessionId || undefined,
-            tournamentId: tournamentId || undefined,
             context: context
           };
+          
+          // Füge sessionId nur hinzu, wenn es einen Wert hat
+          if (sessionId) {
+            historyEntry.sessionId = sessionId;
+          }
+          
+          // Füge tournamentId nur hinzu, wenn es einen Wert hat
+          if (tournamentId) {
+            historyEntry.tournamentId = tournamentId;
+          }
 
           // Nutze Timestamp als Document-ID für chronologische Sortierung
           const timestampId = now.toMillis().toString();
