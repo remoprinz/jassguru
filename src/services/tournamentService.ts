@@ -765,7 +765,7 @@ export const fetchTournamentParticipants = async (
 export const startTournamentPasseService = async (
   instanceId: string,
   passeNumber: number,
-  players: { uid: string; name: string; playerNumber: PlayerNumber }[],
+  players: { uid: string; playerId?: string; name: string; playerNumber: PlayerNumber }[], // ✅ playerId hinzugefügt
   startingPlayer: PlayerNumber
 ): Promise<ActiveGame | null> => {
   const db = getFirestore(firebaseApp);
@@ -798,11 +798,32 @@ export const startTournamentPasseService = async (
 
     const passeParticipantUids = players.map(p => p.uid);
 
+    // ✅ FIX: Verwende Player IDs statt nur UIDs
     const gamePlayers: GamePlayers = {
-      1: players.find(p => p.playerNumber === 1) ? { type: 'member', uid: players.find(p => p.playerNumber === 1)!.uid, name: players.find(p => p.playerNumber === 1)!.name } : null,
-      2: players.find(p => p.playerNumber === 2) ? { type: 'member', uid: players.find(p => p.playerNumber === 2)!.uid, name: players.find(p => p.playerNumber === 2)!.name } : null,
-      3: players.find(p => p.playerNumber === 3) ? { type: 'member', uid: players.find(p => p.playerNumber === 3)!.uid, name: players.find(p => p.playerNumber === 3)!.name } : null,
-      4: players.find(p => p.playerNumber === 4) ? { type: 'member', uid: players.find(p => p.playerNumber === 4)!.uid, name: players.find(p => p.playerNumber === 4)!.name } : null,
+      1: players.find(p => p.playerNumber === 1) ? { 
+        type: 'member', 
+        uid: players.find(p => p.playerNumber === 1)!.uid, 
+        playerId: players.find(p => p.playerNumber === 1)!.playerId || players.find(p => p.playerNumber === 1)!.uid, // ✅ Player ID hinzugefügt
+        name: players.find(p => p.playerNumber === 1)!.name 
+      } : null,
+      2: players.find(p => p.playerNumber === 2) ? { 
+        type: 'member', 
+        uid: players.find(p => p.playerNumber === 2)!.uid, 
+        playerId: players.find(p => p.playerNumber === 2)!.playerId || players.find(p => p.playerNumber === 2)!.uid, // ✅ Player ID hinzugefügt
+        name: players.find(p => p.playerNumber === 2)!.name 
+      } : null,
+      3: players.find(p => p.playerNumber === 3) ? { 
+        type: 'member', 
+        uid: players.find(p => p.playerNumber === 3)!.uid, 
+        playerId: players.find(p => p.playerNumber === 3)!.playerId || players.find(p => p.playerNumber === 3)!.uid, // ✅ Player ID hinzugefügt
+        name: players.find(p => p.playerNumber === 3)!.name 
+      } : null,
+      4: players.find(p => p.playerNumber === 4) ? { 
+        type: 'member', 
+        uid: players.find(p => p.playerNumber === 4)!.uid, 
+        playerId: players.find(p => p.playerNumber === 4)!.playerId || players.find(p => p.playerNumber === 4)!.uid, // ✅ Player ID hinzugefügt
+        name: players.find(p => p.playerNumber === 4)!.name 
+      } : null,
     };
 
     const scoreSettings: ScoreSettings = tournamentData.settings?.scoreSettings ?? DEFAULT_SCORE_SETTINGS;
@@ -817,7 +838,8 @@ export const startTournamentPasseService = async (
       sessionId: instanceId, 
       tournamentInstanceId: instanceId, 
       status: 'live',
-      participantUids: passeParticipantUids,
+      participantUids: passeParticipantUids, // ✅ Für Backend-Kompatibilität
+      participantPlayerIds: players.map(p => p.playerId || p.uid), // ✅ NEU: Player IDs für moderne Verarbeitung
       playerNames,
       gamePlayers, 
       teams: { 
@@ -1440,7 +1462,7 @@ export const completeAndRecordTournamentPasse = async (
 
     // 🆕 SCHRITT 1: Sammle zuerst alle UIDs
     const playerUidsInGame: string[] = [];
-    const playerSeats: Array<{ seat: PlayerNumber; uid: string; name: string; team: TeamPosition }> = [];
+    const playerSeats: Array<{ seat: PlayerNumber; uid: string; playerId: string; name: string; team: TeamPosition }> = [];
     
     for (const pNum of [1, 2, 3, 4]) {
       const seat = pNum as PlayerNumber;
@@ -1457,21 +1479,18 @@ export const completeAndRecordTournamentPasse = async (
       }
 
       const playerUid = gamePlayerEntry.uid;
+      // ✅ FIX: PlayerID direkt aus gamePlayers holen, da sie dort korrekt gespeichert ist
+      const playerId = (gamePlayerEntry as MemberInfo & { playerId: string }).playerId || playerUid;
       const playerName = gamePlayerEntry.name;
       const team: TeamPosition = activeGameData.teams.top.includes(seat) ? 'top' : 'bottom';
       
       playerUidsInGame.push(playerUid);
-      playerSeats.push({ seat, uid: playerUid, name: playerName, team });
+      playerSeats.push({ seat, uid: playerUid, playerId, name: playerName, team });
     }
 
-    // 🆕 SCHRITT 2: Konvertiere alle UIDs zu Player Document IDs
-    // ✅ Logs aufgeräumt: Player-IDs-Logs entfernt
-    const playerDocumentIds = await getPlayerIdsForUids(playerUidsInGame);
-
     // 🆕 SCHRITT 3: Erstelle playerDetails mit Player Document IDs
-    for (let i = 0; i < playerSeats.length; i++) {
-      const { seat, name, team } = playerSeats[i];
-      const playerDocId = playerDocumentIds[i]; // Entsprechende Player Document ID
+    for (const playerSeat of playerSeats) {
+      const { seat, name, team, playerId } = playerSeat;
       
       // Score und Striche des Teams in dieser Passe
       const scoreInPasse = activeGameData.scores[team];
@@ -1479,7 +1498,7 @@ export const completeAndRecordTournamentPasse = async (
       const weisInPasse = weisPointsPasse[team] ?? 0;
 
       playerDetails.push({ 
-        playerId: playerDocId,  // 🆕 KRITISCH: Player Document ID (nicht UID!)
+        playerId: playerId,  // 🆕 KRITISCH: Player Document ID (nicht UID!)
         playerName: name, 
         seat, 
         team, 
@@ -1489,11 +1508,25 @@ export const completeAndRecordTournamentPasse = async (
       });
     }
 
+    // ✅ FIX: Erstelle das fehlende 'teams'-Objekt mit der verschachtelten Spielerstruktur
+    const teamsForGameDoc = {
+      top: {
+        players: playerSeats
+          .filter(p => p.team === 'top')
+          .map(p => ({ playerId: p.playerId, displayName: p.name }))
+      },
+      bottom: {
+        players: playerSeats
+          .filter(p => p.team === 'bottom')
+          .map(p => ({ playerId: p.playerId, displayName: p.name }))
+      }
+    };
+
     // NEU: Extrahieren der UIDs für participantUidsForPasse (für Abwärtskompatibilität)
     const participantUidsForPasse = playerUidsInGame;
     
     // 🆕 participantPlayerIds für Stats-Kompatibilität
-    const participantPlayerIds = playerDocumentIds;
+    const participantPlayerIds = playerSeats.map(p => p.playerId);
 
     // 🆕 Hole Tournament Daten für Modus und Runde
     const tournamentDocSnap = await getDoc(tournamentDocRef);
@@ -1601,9 +1634,14 @@ export const completeAndRecordTournamentPasse = async (
       participantUidsForPasse: participantUidsForPasse,   // Firebase Auth UIDs
       participantPlayerIds: participantPlayerIds,         // Player Document IDs (für Stats!)
       
+      // ✅ FIX: Füge das korrekte 'teams'-Objekt hinzu
+      teams: teamsForGameDoc,
+
       playerDetails: playerDetails,
       teamScoresPasse: finalTeamScores, // 🔧 FIX: Verwende finale Punkte (Jass + Boni)
+      finalScores: finalTeamScores, // ✅ BACKEND-KOMPATIBILITÄT: Für finalizeTournament.ts
       teamStrichePasse: activeGameData.striche, // Direkte Übernahme der Team-Striche der Passe
+      finalStriche: activeGameData.striche, // ✅ BACKEND-KOMPATIBILITÄT: Für finalizeTournament.ts
       
       // 🆕 EVENT COUNTS FÜR STATS (KRITISCH!)
       eventCounts: eventCounts,
@@ -1667,12 +1705,36 @@ export const markTournamentAsCompletedService = async (
   console.log(`[tournamentService] Marking tournament instance ${instanceId} as completed.`);
   const docRef = doc(db, 'tournaments', instanceId);
   try {
+    // 1. Turnier als "completed" markieren
     await updateDoc(docRef, {
       status: 'completed',
       completedAt: serverTimestamp(),
-      updatedAt: serverTimestamp(), // Auch updatedAt aktualisieren
+      updatedAt: serverTimestamp(),
     });
     console.log(`[tournamentService] Tournament instance ${instanceId} successfully marked as completed.`);
+    
+    // 2. 🆕 NEU: Rufe finalizeTournament auf, um alle Metriken zu berechnen
+    console.log(`[tournamentService] Calling finalizeTournament to create complete jassGameSummaries...`);
+    
+    try {
+      const functions = getFunctions(firebaseApp, 'europe-west1');
+      const finalizeTournamentCallable = httpsCallable(functions, 'finalizeTournament');
+      const result = await finalizeTournamentCallable({ tournamentId: instanceId });
+      
+      console.log(`[tournamentService] finalizeTournament result:`, result.data);
+      
+      if (!(result.data as any).success) {
+        console.error(`[tournamentService] finalizeTournament returned success=false:`, result.data);
+        // Nicht werfen, da das Turnier bereits als completed markiert ist
+      } else {
+        console.log(`[tournamentService] Tournament ${instanceId} successfully completed with all metrics.`);
+      }
+    } catch (finalizeError) {
+      console.error(`[tournamentService] Error calling finalizeTournament (non-critical):`, finalizeError);
+      // Nicht werfen, da das Turnier bereits als completed markiert ist
+      // Der Admin kann später manuell finalizeTournament aufrufen
+    }
+    
   } catch (error) {
     console.error(`[tournamentService] Error marking tournament ${instanceId} as completed:`, error);
     throw new Error("Turnier konnte nicht als abgeschlossen markiert werden.");
@@ -1774,54 +1836,37 @@ export const pauseTournamentService = async (instanceId: string): Promise<void> 
       throw new Error("Nur aktive Turniere können unterbrochen werden.");
     }
 
-    // 2. Alle abgeschlossenen Spiele des Turniers sammeln
-    const gamesSnapshot = await getDocs(collection(db, 'tournaments', instanceId, 'games'));
-    const completedGames = gamesSnapshot.docs
-      .map(doc => ({ id: doc.id, ...doc.data() }))
-      .filter(game => {
-        // ✅ KORRIGIERT: Prüfe auf completedAt statt status
-        return (game as any).completedAt !== null && (game as any).completedAt !== undefined;
-      });
-
-    // ✅ FLEXIBEL: Auch wenn keine Spiele vorhanden sind, können wir das Turnier unterbrechen
-    // (z.B. wenn es noch nie gespielt wurde, aber trotzdem pausiert werden soll)
-    console.log(`[tournamentService] Found ${completedGames.length} completed games for tournament ${instanceId}`);
-    
-    // Wenn keine Spiele vorhanden sind, erstellen wir trotzdem einen leeren jassGameSummaries Eintrag
-    if (completedGames.length === 0) {
-      console.log(`[tournamentService] No completed games found, creating empty session for tournament ${instanceId}`);
-    }
-
-    // 3. Teilnehmer-Daten laden
-    const participants = await fetchTournamentParticipants(instanceId);
-    
-    // 4. jassGameSummaries Eintrag erstellen
-    const sessionId = `tournament_${instanceId}_${Date.now()}`;
-    const sessionData = {
-      sessionId,
-      tournamentId: instanceId,
-      tournamentName: tournamentData.name,
-      groupId: tournamentData.groupId,
-      participantPlayerIds: participants.map(p => p.playerId).filter(Boolean),
-      gameResults: completedGames,
-      createdAt: serverTimestamp(),
-      endedAt: serverTimestamp(),
-      isTournamentSession: true,
-      tournamentSessionNumber: 1, // TODO: Dynamisch berechnen basierend auf existierenden Sessions
-    };
-
-    // 5. jassGameSummaries Dokument erstellen
-    const sessionDocRef = doc(db, 'groups', tournamentData.groupId, 'jassGameSummaries', sessionId);
-    await setDoc(sessionDocRef, sessionData);
-
-    // 6. Turnier als "unterbrochen" markieren (Status bleibt 'active')
+    // 2. Turnier als "unterbrochen" markieren (Status bleibt 'active')
     await updateDoc(tournamentDocRef, {
       pausedAt: serverTimestamp(),
-      lastSessionId: sessionId,
       updatedAt: serverTimestamp(),
     });
 
-    console.log(`[tournamentService] Tournament ${instanceId} successfully paused. Session created: ${sessionId}`);
+    // 3. 🆕 NEU: Rufe finalizeTournament auf, um alle Metriken zu berechnen
+    // Das wird ein vollständiges jassGameSummaries Dokument mit allen Metriken erstellen
+    console.log(`[tournamentService] Calling finalizeTournament to create complete jassGameSummaries...`);
+    
+    try {
+      const functions = getFunctions(firebaseApp, 'europe-west1');
+      const finalizeTournamentCallable = httpsCallable(functions, 'finalizeTournament');
+      const result = await finalizeTournamentCallable({ tournamentId: instanceId });
+      
+      console.log(`[tournamentService] finalizeTournament result:`, result.data);
+      
+      if (!(result.data as any).success) {
+        throw new Error((result.data as any).message || "finalizeTournament returned success=false");
+      }
+      
+      console.log(`[tournamentService] Tournament ${instanceId} successfully paused with complete metrics.`);
+    } catch (finalizeError) {
+      console.error(`[tournamentService] Error calling finalizeTournament:`, finalizeError);
+      // Rollback: Entferne pausedAt wieder
+      await updateDoc(tournamentDocRef, {
+        pausedAt: null,
+        updatedAt: serverTimestamp(),
+      });
+      throw new Error(`Fehler beim Finalisieren: ${finalizeError instanceof Error ? finalizeError.message : String(finalizeError)}`);
+    }
     
   } catch (error) {
     console.error(`[tournamentService] Error pausing tournament ${instanceId}:`, error);

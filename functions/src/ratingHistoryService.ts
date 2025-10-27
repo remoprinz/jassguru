@@ -311,6 +311,30 @@ export async function saveRatingHistorySnapshotWithDate(
             historyEntry.tournamentId = tournamentId;
           }
 
+          // ✅ FIX: Entferne undefined Werte
+          Object.keys(historyEntry).forEach(key => {
+            if (historyEntry[key] === undefined) {
+              delete historyEntry[key];
+            }
+          });
+          
+          // ✅ FIX: Entferne undefined Werte aus verschachtelten Objekten
+          if (historyEntry.delta) {
+            Object.keys(historyEntry.delta).forEach(key => {
+              if (historyEntry.delta[key] === undefined) {
+                delete historyEntry.delta[key];
+              }
+            });
+          }
+          
+          if (historyEntry.cumulative) {
+            Object.keys(historyEntry.cumulative).forEach(key => {
+              if (historyEntry.cumulative[key] === undefined) {
+                delete historyEntry.cumulative[key];
+              }
+            });
+          }
+
           // Erstelle neuen Historie-Eintrag
           const historyRef = globalHistoryRef.doc();
           batch.set(historyRef, historyEntry);
@@ -692,38 +716,4 @@ export async function getRatingTrend(
   }
 }
 
-/**
- * 🏆 Peak-Rating-Funktion: Finde höchstes je erreichtes Rating
- */
-export async function getPlayerPeakRating(
-  groupId: string,
-  playerId: string
-): Promise<{
-  rating: number;
-  date: admin.firestore.Timestamp;
-  tier: string;
-  tierEmoji: string;
-} | null> {
-  try {
-    const historyRef = db.collection(`groups/${groupId}/playerRatings/${playerId}/history`);
-    const allHistorySnap = await historyRef
-      .orderBy('rating', 'desc')
-      .limit(1)
-      .get();
-
-    if (allHistorySnap.empty) {
-      return null;
-    }
-
-    const peakEntry = allHistorySnap.docs[0].data() as RatingHistoryEntry;
-    return {
-      rating: peakEntry.rating,
-      date: peakEntry.createdAt,
-      tier: peakEntry.tier,
-      tierEmoji: peakEntry.tierEmoji
-    };
-  } catch (error) {
-    logger.error(`[RatingHistory] Error fetching peak rating for player ${playerId}:`, error);
-    return null;
-  }
-}
+// ❌ ENTFERNT: getPlayerPeakRating() (nicht mehr verwendet, Werte aus players/{playerId}.tier & tierEmoji)

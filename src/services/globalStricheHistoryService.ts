@@ -1,9 +1,9 @@
 import { db } from '@/services/firebaseInit';
-import { doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 
 /**
  * 🌍 GLOBALE STRICH-DIFFERENZ ZEITREIHE - Über alle Gruppen & Turniere hinweg
- * Quelle: playerScores/{playerId}.global.history (stricheDiff)
+ * Quelle: players/{playerId}/scoresHistory (neue unified Struktur)
  * SCHNELL: Direkt aus Precomputed-Daten!
  */
 export async function getGlobalPlayerStricheTimeSeries(
@@ -20,55 +20,46 @@ export async function getGlobalPlayerStricheTimeSeries(
   }[];
 }> {
   try {
-    // 📊 Direkt aus playerScores.global.history lesen
-    const playerScoresDoc = await getDoc(doc(db, 'playerScores', playerId));
+    // 📊 NEUE STRUKTUR: Aus players/{playerId}/scoresHistory lesen
+    const scoresHistorySnapshot = await getDocs(
+      collection(db, 'players', playerId, 'scoresHistory')
+    );
     
-    if (!playerScoresDoc.exists()) {
-      console.warn(`[getGlobalPlayerStricheTimeSeries] Player Scores nicht gefunden für ${playerId}`);
+    if (scoresHistorySnapshot.empty) {
+      console.warn(`[getGlobalPlayerStricheTimeSeries] Keine ScoresHistory für ${playerId}`);
       return {
         labels: [],
         datasets: []
       };
     }
 
-    const playerScores = playerScoresDoc.data();
-    const history = playerScores?.global?.history || [];
-
-    if (history.length === 0) {
-      console.warn(`[getGlobalPlayerStricheTimeSeries] Keine History-Daten für ${playerId}`);
-      return {
-        labels: [],
-        datasets: []
-      };
-    }
-
-    // Sortiere nach Datum (sollte bereits sortiert sein, aber sicherheitshalber)
-    const sortedHistory = [...history].sort((a, b) => {
-      const dateA = a.createdAt?.seconds ? new Date(a.createdAt.seconds * 1000) : new Date(0);
-      const dateB = b.createdAt?.seconds ? new Date(b.createdAt.seconds * 1000) : new Date(0);
+    // Konvertiere zu Array und sortiere nach completedAt
+    const historyEntries = scoresHistorySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as any)).sort((a, b) => {
+      const dateA = a.completedAt?.toDate ? a.completedAt.toDate() : new Date(0);
+      const dateB = b.completedAt?.toDate ? b.completedAt.toDate() : new Date(0);
       return dateA.getTime() - dateB.getTime();
     });
 
     // Begrenze auf die neuesten Einträge
-    const limitedHistory = sortedHistory.slice(-limitCount);
+    const limitedHistory = historyEntries.slice(-limitCount);
 
-    // Berechne kumulative Werte - NUR bei Events (stricheDiff !== 0)
-    let cumulativeStricheDiff = 0;
+    // Extrahiere Strichdifferenz-Daten (PRO-SPIEL - nicht kumulativ!)
     const stricheDiffData: number[] = [];
     const filteredLabels: string[] = [];
+    let cumulativeStricheDiff = 0;
     
     limitedHistory.forEach(entry => {
-      const stricheDiff = entry.stricheDiff || 0;
-      // 🎯 NUR BEI EVENTS: Striche-Differenz ungleich 0
-      if (stricheDiff !== 0) {
-        cumulativeStricheDiff += stricheDiff;
-        stricheDiffData.push(cumulativeStricheDiff);
-        filteredLabels.push(entry.createdAt?.seconds ? new Date(entry.createdAt.seconds * 1000).toLocaleDateString('de-DE', { 
-          day: '2-digit', 
-          month: '2-digit',
-          year: '2-digit'
-        }) : '');
-      }
+      // ✅ KUMULATIVE LOGIK: Addiere Pro-Spiel-Entries
+      cumulativeStricheDiff += entry.stricheDiff || 0;
+      
+      stricheDiffData.push(cumulativeStricheDiff);
+      filteredLabels.push(entry.completedAt?.toDate ? 
+        entry.completedAt.toDate().toLocaleDateString('de-DE') : 
+        'Unbekannt'
+      );
     });
 
     // Theme-Farben (identisch mit PowerRatingChart)
@@ -87,14 +78,12 @@ export async function getGlobalPlayerStricheTimeSeries(
 
     return {
       labels: filteredLabels,
-      datasets: [
-        {
-          label: 'Strich-Differenz',
-          data: stricheDiffData,
-          borderColor: colors.border,
-          backgroundColor: colors.background
-        }
-      ]
+      datasets: [{
+        label: 'Strichdifferenz',
+        data: stricheDiffData,
+        borderColor: colors.border,
+        backgroundColor: colors.background
+      } as any]
     };
 
   } catch (error) {

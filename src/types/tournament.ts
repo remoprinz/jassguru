@@ -113,6 +113,28 @@ export interface TournamentGame {
       schneider: number;
     };
   };
+
+  // 🆕 TEAMS FÜR BACKEND-KOMPATIBILITÄT
+  teams?: {
+    top: {
+      players: { playerId: string; displayName: string; }[];
+    };
+    bottom: {
+      players: { playerId: string; displayName: string; }[];
+    };
+  };
+
+  // 🆕 FINAL SCORES FÜR BACKEND-KOMPATIBILITÄT
+  finalScores?: {
+    top: number;
+    bottom: number;
+  };
+
+  // 🆕 FINAL STRICHE FÜR BACKEND-KOMPATIBILITÄT
+  finalStriche?: {
+    top: StricheRecord;
+    bottom: StricheRecord;
+  };
   
   // Einstellungen, die für diese Passe galten (Kopie aus activeGame)
   activeScoreSettings: ScoreSettings;

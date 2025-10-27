@@ -56,6 +56,14 @@
         {"fieldPath": "status", "order": "ASCENDING"},
         {"fieldPath": "endedAt", "order": "ASCENDING"}
       ]
+    },
+    {
+      "collectionGroup": "jassGameSummaries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "completedAt", "order": "DESCENDING"}
+      ]
     }
   ],
   "fieldOverrides": []

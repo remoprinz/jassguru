@@ -204,6 +204,7 @@ export interface GroupStatistics {
   playerWithHighestMatschBilanz?: any[];
   playerWithHighestSchneiderBilanz?: any[];
   playerWithHighestKontermatschBilanz?: any[];
+  playerWithHighestWeisDifference?: any[];
   playerWithMostWeisPointsAvg?: any[];
   playerWithFastestRounds?: any[];
   playerWithSlowestRounds?: any[];
@@ -257,6 +258,7 @@ export const initialGroupStatistics: GroupStatistics = {
   playerWithHighestMatschBilanz: [],
   playerWithHighestSchneiderBilanz: [],
   playerWithHighestKontermatschBilanz: [],
+  playerWithHighestWeisDifference: [],
   playerWithMostWeisPointsAvg: [],
   playerWithFastestRounds: [],
   playerWithSlowestRounds: [],
@@ -390,6 +392,7 @@ export const fetchGroupStatistics = async (groupId: string, groupMainLocationZip
       playerWithHighestMatschBilanz: transformPlayerHighlights(backendData.playerWithHighestMatschBilanz),
       playerWithHighestSchneiderBilanz: transformPlayerHighlights(backendData.playerWithHighestSchneiderBilanz),
       playerWithHighestKontermatschBilanz: transformPlayerHighlights(backendData.playerWithHighestKontermatschBilanz),
+      playerWithHighestWeisDifference: transformPlayerHighlights(backendData.playerWithHighestWeisDifference),
       playerWithMostWeisPointsAvg: transformPlayerHighlights(backendData.playerWithMostWeisPointsAvg),
       playerAllRoundTimes: transformPlayerHighlights(backendData.playerAllRoundTimes),
       playerWithFastestRounds: transformPlayerHighlights(backendData.playerWithFastestRounds),

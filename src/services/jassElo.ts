@@ -37,11 +37,6 @@ export interface PlayerRating {
   lastDelta?: number;
   // 🆕 SESSION-DELTA TRACKING
   lastSessionDelta?: number;  // Delta der letzten Session (Summe aller Spiele)
-  // 🆕 PEAK/LOW TRACKING
-  peakRating?: number;
-  peakRatingDate?: number;
-  lowestRating?: number;
-  lowestRatingDate?: number;
 }
 
 // ❌ ENTFERNT: Team, MatchInput, PlayerUpdate, MatchResult - nur noch für Scripts/Backend relevant

@@ -7,6 +7,7 @@ import {
   limit, 
   where, 
   getDocs, 
+  getDoc,
   Timestamp 
 } from 'firebase/firestore';
 
@@ -61,13 +62,7 @@ export interface RatingTrend {
   description: string;
 }
 
-export interface PeakRating {
-  rating: number;
-  date: Timestamp;
-  tier: string;
-  tierEmoji: string;
-  daysAgo: number;
-}
+// ❌ ENTFERNT: PeakRating interface (nicht mehr verwendet)
 
 /**
  * 📊 Hole Rating-Historie für einen Spieler in einer Gruppe
@@ -228,47 +223,7 @@ export async function getRatingTrend(
   }
 }
 
-/**
- * 🏆 Finde höchstes je erreichtes Rating
- */
-export async function getPlayerPeakRating(
-  groupId: string,
-  playerId: string
-): Promise<PeakRating | null> {
-  try {
-    const historyRef = collection(
-      db, 
-      `groups/${groupId}/playerRatings/${playerId}/history`
-    );
-    
-    const peakQuery = query(
-      historyRef,
-      orderBy('rating', 'desc'),
-      limit(1)
-    );
-
-    const peakSnap = await getDocs(peakQuery);
-    
-    if (peakSnap.empty) {
-      return null;
-    }
-
-    const peakData = peakSnap.docs[0].data() as RatingHistoryEntry;
-    const daysAgo = Math.floor((Date.now() - peakData.createdAt.toMillis()) / (24 * 60 * 60 * 1000));
-
-    return {
-      rating: peakData.rating,
-      date: peakData.createdAt,
-      tier: peakData.tier,
-      tierEmoji: peakData.tierEmoji,
-      daysAgo
-    };
-
-  } catch (error) {
-    console.error(`[RatingHistory] Error fetching peak rating for player ${playerId}:`, error);
-    return null;
-  }
-}
+// ❌ ENTFERNT: getPlayerPeakRating() (nicht mehr verwendet, Werte aus players/{playerId}.tier & tierEmoji)
 
 /**
  * 📉 Hole Rating-Historie für Chart-Darstellung (vereinfacht)
@@ -361,11 +316,11 @@ export async function getGroupRatingTimeSeries(
   }[];
 }> {
   try {
-    // Hole alle Spieler der Gruppe
-    const playersRef = collection(db, `groups/${groupId}/playerRatings`);
-    const playersSnap = await getDocs(playersRef);
+    // Hole alle Mitglieder der Gruppe
+    const membersRef = collection(db, `groups/${groupId}/members`);
+    const membersSnap = await getDocs(membersRef);
     
-    if (playersSnap.empty) {
+    if (membersSnap.empty) {
       return { labels: [], datasets: [] };
     }
 
@@ -396,17 +351,14 @@ export async function getGroupRatingTimeSeries(
       history: Map<string, number>; // dateKey -> rating
     }>();
 
-    // Hole Rating-Historie für jeden Spieler
-    for (let i = 0; i < playersSnap.docs.length; i++) {
-      const playerDoc = playersSnap.docs[i];
-      const playerId = playerDoc.id;
-      const playerData = playerDoc.data();
+    // Hole Rating-Historie für jeden Spieler aus der globalen players-Collection
+    for (let i = 0; i < membersSnap.docs.length; i++) {
+      const memberDoc = membersSnap.docs[i];
+      const playerId = memberDoc.id;
+      const memberData = memberDoc.data();
       
-      const historyRef = collection(
-        db, 
-        `groups/${groupId}/playerRatings/${playerId}/history`
-      );
-      
+      // Hole globale Rating-Historie aus players/{playerId}/ratingHistory
+      const historyRef = collection(db, `players/${playerId}/ratingHistory`);
       const chartQuery = query(
         historyRef,
         orderBy('createdAt', 'asc')
@@ -417,20 +369,43 @@ export async function getGroupRatingTimeSeries(
       if (historySnap.empty) continue;
 
       const historyMap = new Map<string, number>();
-      let currentRating = playerData.globalRating || playerData.rating || 100; // 🎯 AKTUELLES RATING aus players-Collection
+      
+      // Hole aktuelles Rating aus der players-Collection
+      const playerDocRef = doc(db, 'players', playerId);
+      const playerDocSnap = await getDoc(playerDocRef);
+      let currentRating = 100; // Default
+      
+      if (playerDocSnap.exists()) {
+        const playerData = playerDocSnap.data();
+        currentRating = playerData?.globalRating || playerData?.rating || 100;
+      }
       
       historySnap.forEach(doc => {
-        const data = doc.data() as RatingHistoryEntry;
-        const date = data.createdAt.toDate();
-        const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
-        historyMap.set(dateKey, data.rating);
-        // currentRating bleibt das aktuelle globalRating - nicht überschreiben!
+        const data = doc.data();
+        if (data.createdAt && data.rating) {
+          // Handle Firestore Timestamp
+          let date: Date;
+          if (data.createdAt.toDate && typeof data.createdAt.toDate === 'function') {
+            date = data.createdAt.toDate();
+          } else if (data.createdAt instanceof Date) {
+            date = data.createdAt;
+          } else if (typeof data.createdAt === 'object' && '_seconds' in data.createdAt) {
+            const seconds = (data.createdAt as any)._seconds;
+            const nanoseconds = (data.createdAt as any)._nanoseconds || 0;
+            date = new Date(seconds * 1000 + nanoseconds / 1000000);
+          } else {
+            return; // Skip invalid timestamps
+          }
+          
+          const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
+          historyMap.set(dateKey, data.rating);
+        }
       });
 
       // Nur Spieler mit mehr als einem Datenpunkt speichern
       if (historyMap.size > 1) {
         playerHistories.set(playerId, {
-          displayName: playerData.displayName || `Spieler_${playerId.slice(0,6)}`,
+          displayName: memberData.displayName || `Spieler_${playerId.slice(0,6)}`,
           currentRating, // 🎯 Das aktuelle globalRating für Sortierung
           history: historyMap
         });

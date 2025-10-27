@@ -162,11 +162,11 @@ export function useResponsiveLayout(): ResponsiveLayoutConfig {
         eloEmojiSize: 'text-3xl',
         
         // Tabs
-        mainTabPadding: 'py-3',     // Reduziert von py-4
+        mainTabPadding: 'py-4',     // Moderater Höhenunterschied
         mainTabTextSize: 'text-xl',
         mainTabIconSize: 24,
         mainTabContainerPadding: 'p-2',
-        subTabPadding: 'py-1',      // Reduziert von py-2.5 für weniger Abstand
+        subTabPadding: 'py-1',      // Beibehalten für Kontrast
         subTabTextSize: 'text-lg',
         subTabIconSize: 22,
         subTabContainerPadding: 'p-1.5',
@@ -238,11 +238,11 @@ export function useResponsiveLayout(): ResponsiveLayoutConfig {
         eloEmojiSize: 'text-2xl',
         
         // Tabs
-        mainTabPadding: 'py-3',
+        mainTabPadding: 'py-3.5',   // Moderater Höhenunterschied
         mainTabTextSize: 'text-base',
         mainTabIconSize: 20,
         mainTabContainerPadding: 'p-1.5',
-        subTabPadding: 'py-2',
+        subTabPadding: 'py-2',      // Beibehalten für Kontrast
         subTabTextSize: 'text-base',
         subTabIconSize: 20,
         subTabContainerPadding: 'p-1',
@@ -313,11 +313,11 @@ export function useResponsiveLayout(): ResponsiveLayoutConfig {
       eloEmojiSize: 'text-lg',
       
       // Tabs
-      mainTabPadding: 'py-2.5',
+      mainTabPadding: 'py-3',     // Moderater Höhenunterschied
       mainTabTextSize: 'text-sm',
       mainTabIconSize: 16,
       mainTabContainerPadding: 'p-1',
-      subTabPadding: 'py-1.5',
+      subTabPadding: 'py-2',      // Beibehalten für Kontrast
       subTabTextSize: 'text-sm',
       subTabIconSize: 18,
       subTabContainerPadding: 'p-1',

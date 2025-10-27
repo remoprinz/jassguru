@@ -82,18 +82,6 @@ export interface PlayerStats {
   /** Kontermatsch-Bilanz (gemacht - erhalten) */
   kontermatschBilanz: number;
   
-  /** Peak-Rating in dieser Gruppe */
-  peakRating: number;
-  
-  /** Datum des Peak-Ratings */
-  peakRatingDate: Timestamp;
-  
-  /** Niedrigstes Rating in dieser Gruppe */
-  lowestRating: number;
-  
-  /** Datum des niedrigsten Ratings */
-  lowestRatingDate: Timestamp;
-  
   /** Peak-Striche in dieser Gruppe */
   peakStriche: number;
   

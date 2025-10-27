@@ -250,7 +250,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
     const playerMatschStats = new Map<string, { made: number; received: number; games: number }>();
     const playerSchneiderStats = new Map<string, { made: number; received: number; games: number }>();
     const playerKontermatschStats = new Map<string, { made: number; received: number; games: number }>();
-    const playerWeisStats = new Map<string, { made: number; games: number }>();
+    const playerWeisStats = new Map<string, { made: number; received: number; games: number }>();
     const playerRoundTimes = new Map<string, number[]>();
     const trumpfCounts = new Map<string, number>();
 
@@ -636,13 +636,14 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
           // ✅ OPTIMIERT: Verwende Session-Level Weis-Aggregation wenn verfügbar
           if (sessionData.sessionTotalWeisPoints) {
             if (!playerWeisStats.has(playerId)) {
-              playerWeisStats.set(playerId, { made: 0, games: 0 });
+              playerWeisStats.set(playerId, { made: 0, received: 0, games: 0 });
             }
             const weisStats = playerWeisStats.get(playerId)!;
             weisStats.games += sessionData.gamesPlayed || 0; // Anzahl Spiele der Session
                 
             // VEREINFACHT: Direkte top/bottom Zuordnung
             weisStats.made += sessionData.sessionTotalWeisPoints[playerTeamForGameStats] || 0;
+            weisStats.received += sessionData.sessionTotalWeisPoints[playerTeamForGameStats === 'top' ? 'bottom' : 'top'] || 0;
           }
 
           // ✅ OPTIMIERT: Verwende roundDurations Array direkt (Median-optimiert)
@@ -1767,6 +1768,28 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
     });
     playerKontermatschBilanzList.sort((a, b) => b.value - a.value);
     calculatedStats.playerWithHighestKontermatschBilanz = playerKontermatschBilanzList;
+
+    // Spieler mit höchster Weis-Differenz
+    const playerWeisDifferenceList: GroupStatHighlightPlayer[] = [];
+    playerWeisStats.forEach((stats, playerId) => {
+      const lastActivity = playerLastActivity.get(playerId);
+      // ✅ SMART: Nur Spieler mit Weis-Erfahrung anzeigen
+      if (lastActivity && lastActivity.toMillis() >= oneYearAgo && (stats.made > 0 || stats.received > 0)) {
+        const weisDifference = stats.made - stats.received;
+        const playerName = playerIdToNameMap.get(playerId) || groupData.players[playerId]?.displayName || "Unbekannter Jasser";
+        playerWeisDifferenceList.push({
+          playerId,
+          playerName: playerName,
+          value: weisDifference, // ✅ Absolute Differenz statt Durchschnitt
+          eventsPlayed: stats.games,
+          eventsMade: stats.made, // ✅ NEU: Für Bilanz-Details
+          eventsReceived: stats.received, // ✅ NEU: Für Bilanz-Details
+          lastPlayedTimestamp: lastActivity,
+        });
+      }
+    });
+    playerWeisDifferenceList.sort((a, b) => b.value - a.value);
+    calculatedStats.playerWithHighestWeisDifference = playerWeisDifferenceList;
 
     logger.info(`[calculateGroupStatisticsInternal] Calculation completed for groupId: ${groupId}`);
     return calculatedStats;

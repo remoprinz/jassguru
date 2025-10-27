@@ -1,5 +1,8 @@
 import * as admin from "firebase-admin";
 
+// 🆕 Import RoundResult from finalizeTournament
+import type { RoundResult } from '../finalizeTournament';
+
 /**
  * ✅ ERWEITERTE Turnier-Ranking-Daten (Version 2.0)
  * 
@@ -65,4 +68,7 @@ export interface TournamentPlayerRankingData {
     // ===== WEIS-STATISTIKEN =====
     totalWeisPoints?: number;        // ✅ NEU: Gesamte Weis-Punkte
     averageWeisPerGame?: number;     // ✅ NEU: Durchschnitt pro Spiel
+    
+    // 🆕 NEU: ROUND-LEVEL DETAILS =====
+    roundResults?: RoundResult[];    // ✅ NEU: Detaillierte Ergebnisse pro Passe
 } 

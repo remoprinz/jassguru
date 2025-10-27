@@ -14,7 +14,10 @@
     "test-player-event-metrics": "ts-node --project tsconfig.json scripts/testPlayerEventMetrics.ts",
     "debug-session-data": "ts-node --project tsconfig.json scripts/debugSessionData.ts",
     "migrate-profileview-data": "ts-node --project tsconfig.json scripts/migrateAllProfileViewData.ts",
-    "test-profileview-migration": "ts-node --project tsconfig.json scripts/testProfileViewMigration.ts"
+    "test-profileview-migration": "ts-node --project tsconfig.json scripts/testProfileViewMigration.ts",
+    "debug-finalize-tournament": "ts-node --project tsconfig.json scripts/debugFinalizeTournament.ts",
+    "backfill-player-data": "ts-node --project tsconfig.json scripts/backfillPlayerDataFromSummaries.ts",
+    "backfill-player-data-dry": "ts-node --project tsconfig.json scripts/backfillPlayerDataFromSummaries.ts --dry-run"
   },
   "engines": {
     "node": "20"

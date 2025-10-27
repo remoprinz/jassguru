@@ -1,5 +1,5 @@
 import { db } from '@/services/firebaseInit';
-import { collection, doc, getDoc, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 
 /**
  * 🌍 GLOBALE ELO-RATING ZEITREIHE - Über alle Gruppen & Turniere hinweg
@@ -46,45 +46,68 @@ export async function getGlobalPlayerRatingTimeSeries(
     }
 
     // 🎯 SCHRITT 2: Sammle alle Datenpunkte (keine Deduplizierung nötig!)
-    const historyEntries: { date: Date; rating: number; delta: number }[] = [];
+    const historyEntries: { date: Date; rating: number; delta: number; gameNumber?: number; sessionId?: string }[] = [];
     
       historySnap.forEach(doc => {
         const data = doc.data();
-        if (data.createdAt && data.rating) {
+        
+        // ✅ WICHTIG: Verwende completedAt (Spiel-abschluss) statt createdAt (Dokument-Erstellung)
+        const timestamp = data.completedAt || data.createdAt;
+        
+        if (timestamp && data.rating) {
           // Handle Firestore Timestamp
           let date: Date;
-          if (data.createdAt.toDate && typeof data.createdAt.toDate === 'function') {
+          if (timestamp.toDate && typeof timestamp.toDate === 'function') {
             // Native Firestore Timestamp
-            date = data.createdAt.toDate();
-          } else if (data.createdAt instanceof Date) {
+            date = timestamp.toDate();
+          } else if (timestamp instanceof Date) {
             // Already a Date
-            date = data.createdAt;
-          } else if (typeof data.createdAt === 'object' && '_seconds' in data.createdAt) {
+            date = timestamp;
+          } else if (typeof timestamp === 'object' && '_seconds' in timestamp) {
             // Plain object with _seconds and _nanoseconds (from serialized Timestamp)
-            const seconds = (data.createdAt as any)._seconds;
-            const nanoseconds = (data.createdAt as any)._nanoseconds || 0;
+            const seconds = (timestamp as any)._seconds;
+            const nanoseconds = (timestamp as any)._nanoseconds || 0;
             date = new Date(seconds * 1000 + nanoseconds / 1000000);
-          } else if (typeof data.createdAt === 'object' && 'seconds' in data.createdAt) {
+          } else if (typeof timestamp === 'object' && 'seconds' in timestamp) {
             // Plain object with seconds and nanoseconds
-            const seconds = (data.createdAt as any).seconds;
-            const nanoseconds = (data.createdAt as any).nanoseconds || 0;
+            const seconds = (timestamp as any).seconds;
+            const nanoseconds = (timestamp as any).nanoseconds || 0;
             date = new Date(seconds * 1000 + nanoseconds / 1000000);
           } else {
-            console.warn(`[GlobalChart] Ungültiger Timestamp für Eintrag ${doc.id}:`, data.createdAt);
+            console.warn(`[GlobalChart] Ungültiger Timestamp für Eintrag ${doc.id}:`, timestamp);
             return;
           }
           
           historyEntries.push({
             date: date,
             rating: data.rating,
-            delta: data.delta || 0
+            delta: data.delta || 0,
+            gameNumber: data.gameNumber || 0,
+            sessionId: data.sessionId || ''
           });
         } else {
-          console.warn(`[GlobalChart] Fehlende Daten für Eintrag ${doc.id}:`, { createdAt: data.createdAt, rating: data.rating });
+          console.warn(`[GlobalChart] Fehlende Daten für Eintrag ${doc.id}:`, { timestamp, rating: data.rating });
         }
       });
     
-    // Datenpunkte geladen
+    // ✅ KORREKTUR: Sortiere nach Spielnummer innerhalb jeder Session
+    historyEntries.sort((a, b) => {
+      // Hauptsortierung nach Datum
+      const dateDiff = a.date.getTime() - b.date.getTime();
+      if (dateDiff !== 0) return dateDiff;
+      
+      // Tie-Breaker: Sortiere nach sessionId, dann nach gameNumber
+      if (a.sessionId && b.sessionId && a.sessionId !== b.sessionId) {
+        return a.sessionId.localeCompare(b.sessionId);
+      }
+      
+      // Innerhalb der gleichen Session: nach gameNumber sortieren
+      const gameNumA = a.gameNumber || 0;
+      const gameNumB = b.gameNumber || 0;
+      return gameNumA - gameNumB;
+    });
+    
+    // Datenpunkte geladen und sortiert
     
     if (historyEntries.length === 0) {
       return { labels: [], datasets: [] };
@@ -118,7 +141,7 @@ export async function getGlobalPlayerRatingTimeSeries(
       blue: { border: '#3B82F6', background: 'rgba(59, 130, 246, 0.1)' },
       green: { border: '#10B981', background: 'rgba(16, 185, 129, 0.1)' },
       purple: { border: '#8B5CF6', background: 'rgba(139, 92, 246, 0.1)' },
-      orange: { border: '#F59E0B', background: 'rgba(245, 158, 11, 0.1)' },
+      orange: { border: '#f97316', background: 'rgba(249, 115, 22, 0.1)' },
       red: { border: '#EF4444', background: 'rgba(239, 68, 68, 0.1)' },
       yellow: { border: '#EAB308', background: 'rgba(234, 179, 8, 0.1)' },
       pink: { border: '#EC4899', background: 'rgba(236, 72, 153, 0.1)' },

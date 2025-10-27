@@ -22,18 +22,6 @@ export interface GlobalPlayerRating {
   /** Letztes Event, das das Rating beeinflusst hat */
   lastEventId: string;
   
-  /** Peak-Rating über alle Gruppen */
-  peakRating: number;
-  
-  /** Datum des Peak-Ratings */
-  peakRatingDate: Timestamp;
-  
-  /** Niedrigstes Rating über alle Gruppen */
-  lowestRating: number;
-  
-  /** Datum des niedrigsten Ratings */
-  lowestRatingDate: Timestamp;
-  
   /** Letzte Rating-Änderung */
   lastDelta: number;
 }

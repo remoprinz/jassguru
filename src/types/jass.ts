@@ -1046,7 +1046,8 @@ export interface ActiveGame {
   sessionId: string; // << NEU: Eindeutige ID der übergeordneten Jass-Session
   tournamentInstanceId?: string; // NEU: Optional, für Turnier-Passen
   currentGameNumber: number; // Spielnummer (oder Passe-Nummer im Turnier)
-  participantUids: string[];
+  participantUids: string[]; // ✅ Für Backend-Kompatibilität
+  participantPlayerIds?: string[]; // ✅ NEU: Player Document IDs für moderne Verarbeitung
   status: 'live' | 'completed' | 'aborted';
   playerNames: PlayerNames;
   teams: {

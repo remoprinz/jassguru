@@ -1,14 +1,14 @@
 import * as admin from 'firebase-admin';
 import { HttpsError, onCall, CallableRequest } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
-// import { updatePlayerStats } from './playerStatsCalculator'; // NEU: Import der zentralen Funktion - ENTFERNT
-import { updateGroupComputedStatsAfterSession } from './groupStatsCalculator'; // NEU: Import für Gruppenstatistiken
-import { updateEloForSession } from './jassEloUpdater'; // NEU: Elo-Update
-import { saveRatingHistorySnapshot } from './ratingHistoryService'; // 🆕 Rating-Historie
-import { calculatePlayerScoresForSession } from './playerScoresBackendService'; // 🆕 Player Scores
-import { calculatePlayerStatisticsForSession } from './playerStatisticsBackendService'; // 🆕 Player Statistics
+import { updateGroupComputedStatsAfterSession } from './groupStatsCalculator'; // Gruppenstatistiken
+import { updateEloForSession } from './jassEloUpdater'; // Elo-Update
+import { saveRatingHistorySnapshot } from './ratingHistoryService'; // Rating-Historie
+import { updatePlayerDataAfterSession } from './unifiedPlayerDataService'; // ✅ UNIFIED Player Data Service (ersetzt 3 alte Services)
+import { updateChartsAfterSession } from './chartDataUpdater'; // 🆕 Chart-Updates
 
 const db = admin.firestore();
+
 
 const COMPLETED_GAMES_SUBCOLLECTION = 'completedGames';
 
@@ -203,6 +203,9 @@ export interface SessionSummary {
       losses: number;
     };
   };
+  
+  // ❌ ENTFERNT: playerCumulativeStats wird nicht mehr in jassGameSummaries gespeichert
+  // Stattdessen: Verwende groups/{groupId}/aggregated/chartData_* (siehe chartDataService.ts)
 }
 
 export const finalizeSession = onCall({ region: "europe-west1" }, async (request: CallableRequest<FinalizeSessionData>) => {
@@ -341,7 +344,7 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
                   weisPoints: activeGameData.weisPoints || { top: 0, bottom: 0 },
                   durationMillis: gameDuration,
                   completedAt: activeGameData.lastUpdated || admin.firestore.Timestamp.now(),
-                  participantUids: activeGameData.participantUids || [],
+                  // ✅ ENTFERNT: participantUids werden nicht mehr geschrieben (nur participantPlayerIds)
                   playerNames: activeGameData.playerNames || {},
                   sessionId: sessionId,
                 };
@@ -791,6 +794,9 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
 
       // Sortiere gameResults nach gameNumber für chronologische Reihenfolge
       gameResults.sort((a, b) => a.gameNumber - b.gameNumber);
+      
+      // ❌ ENTFERNT: playerCumulativeStats wird nicht mehr in jassGameSummaries gespeichert
+      // Stattdessen: Verwende groups/{groupId}/aggregated/chartData_* (siehe chartDataService.ts)
 
       // Base update data (ohne undefined Werte)
       const baseUpdateData = {
@@ -854,6 +860,9 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
         finalUpdateData.gameWinsByTeam = gameWinsByTeam;
         finalUpdateData.gameWinsByPlayer = gameWinsByPlayer;
       }
+      
+      // ❌ ENTFERNT: playerCumulativeStats wird nicht mehr hinzugefügt
+      // Stattdessen: Verwende groups/{groupId}/aggregated/chartData_* (siehe chartDataService.ts)
       
       // 🚀 NEUE ARCHITEKTUR: Direkte Speicherung in neuer Struktur
       logger.info(`[finalizeSession] 📊 Writing session ${sessionId} to NEW structure: groups/${groupId}/jassGameSummaries`);
@@ -961,13 +970,13 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
             
             if (!ratingHistorySnap.empty) {
               const entries = ratingHistorySnap.docs.map(doc => doc.data());
-              const firstEntry = entries[0];
-              const lastEntry = entries[entries.length - 1];
               
-              // Berechne Session-Delta: Letzter Rating - Erster Rating
-              sessionDelta = lastEntry.rating - firstEntry.rating;
+              // ✅ KORREKT: Summiere ALLE Game-Deltas in dieser Session
+              sessionDelta = entries.reduce((sum: number, entry: any) => {
+                return sum + (entry.delta || 0);
+              }, 0);
               
-              logger.debug(`[finalizeSession] Player ${playerId} session delta: ${sessionDelta.toFixed(2)} (${firstEntry.rating.toFixed(2)} → ${lastEntry.rating.toFixed(2)})`);
+              logger.debug(`[finalizeSession] Player ${playerId} session delta: ${sessionDelta.toFixed(2)} (sum of ${entries.length} games)`);
             } else {
               logger.warn(`[finalizeSession] No ratingHistory entries found for player ${playerId} in session ${sessionId}`);
               sessionDelta = playerData.lastSessionDelta || 0; // Fallback
@@ -980,7 +989,7 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
           playerFinalRatings[playerId] = {
             rating: playerData.globalRating || 100,
             ratingDelta: sessionDelta,
-            gamesPlayed: playerData.gamesPlayed || 0
+            gamesPlayed: playerData.gamesPlayed || 0,
           };
         }
       }
@@ -1013,31 +1022,38 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
       logger.info(`[finalizeSession] No group ID provided, skipping group statistics update`);
     }
 
-    // 🆕 PLAYER SCORES: Berechne Player Scores für alle Teilnehmer
-    if (participantPlayerIds && participantPlayerIds.length > 0) {
-      logger.info(`[finalizeSession] Triggering player scores calculation for ${participantPlayerIds.length} players`);
-      
+    // ✅ UNIFIED PLAYER DATA: Aktualisiere alle Spieler-Daten (Scores, Stats, Partner, Opponents)
+    logger.info(`[finalizeSession] Triggering unified player data update for ${participantPlayerIds.length} players`);
+    
+    // ✅ SINGLE SOURCE OF TRUTH: Nur noch EIN Service-Aufruf statt 3!
+    updatePlayerDataAfterSession(
+      initialDataFromClient.gruppeId,
+      sessionId,
+      participantPlayerIds,
+      null // Sessions haben kein tournamentId - nur Turniere haben das
+    ).catch(error => {
+      logger.error(`[finalizeSession] Fehler beim unified player data update:`, error);
+    });
+    
+    logger.info(`[finalizeSession] Unified player data update initiated for ${participantPlayerIds.length} players`);
+
+    // 🆕 CHART-DATA UPDATES: Aktualisiere alle Chart-Dokumente
+    if (initialDataFromClient.gruppeId) {
       try {
-        await calculatePlayerScoresForSession(groupId, sessionId, participantPlayerIds, null);
-        logger.info(`[finalizeSession] Player scores calculation completed for session ${sessionId}`);
-      } catch (error) {
-        logger.error(`[finalizeSession] Fehler bei der Player Scores-Berechnung für Session ${sessionId}:`, error);
+        logger.info(`[finalizeSession] Triggering chart data update for session ${sessionId}`);
+        await updateChartsAfterSession(
+          initialDataFromClient.gruppeId,
+          sessionId,
+          false // Nicht-regular Sessions sind keine Turniere
+        );
+        logger.info(`[finalizeSession] Chart data update completed for session ${sessionId}`);
+      } catch (chartError) {
+        logger.error(`[finalizeSession] Error updating chart data:`, chartError);
+        // Nicht kritisch - soll Session-Finalisierung nicht blockieren
       }
     }
 
-    // 🆕 PLAYER STATISTICS: Berechne Player Statistics für alle Teilnehmer
-    if (participantPlayerIds && participantPlayerIds.length > 0) {
-      logger.info(`[finalizeSession] Triggering player statistics calculation for ${participantPlayerIds.length} players`);
-      
-      try {
-        await calculatePlayerStatisticsForSession(groupId, sessionId, participantPlayerIds, null);
-        logger.info(`[finalizeSession] Player statistics calculation completed for session ${sessionId}`);
-      } catch (error) {
-        logger.error(`[finalizeSession] Fehler bei der Player Statistics-Berechnung für Session ${sessionId}:`, error);
-      }
-    }
-
-    // 🚀 ENTFERNT: Die Statistik-Aktualisierung wird jetzt durch einen zentralen Trigger gehandhabt.
+    // ✅ MIGRATION ABGESCHLOSSEN: Alte Services erfolgreich durch unified Service ersetzt!
     // if (participantPlayerIds && participantPlayerIds.length > 0) {
     //   // ...
     // }

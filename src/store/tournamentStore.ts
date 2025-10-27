@@ -121,7 +121,7 @@ interface TournamentActions {
   loadTournamentParticipants: (instanceId: string) => Promise<void>;
   startNewPasse: (
     instanceId: string,
-    players: Array<{ uid: string; name: string; playerNumber: PlayerNumber; completedPassesCount: number; photoURL?: string; }>,
+    players: Array<{ uid: string; playerId: string; name: string; playerNumber: PlayerNumber; completedPassesCount: number; photoURL?: string; }>,
     startingPlayer: PlayerNumber
   ) => Promise<string | null>;
   updateActivePasse: (passeData: Partial<ActiveGame>) => void;
@@ -450,27 +450,34 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
       playerNumber: Number(p.playerNumber) as PlayerNumber
     }));
 
-    // LOGGING: Welche Spielerdaten kommen in startNewPasse an?
+    // ✅ LOGGING: Welche Spielerdaten kommen in startNewPasse an?
     console.log("[TournamentStore] startNewPasse - Übergebene Spieler (Input):");
-    players.forEach(p => console.log(`  - UID: ${p.uid}, Name: ${p.name}, PlayerNum: ${p.playerNumber}, completedPasses: ${p.completedPassesCount}` ) );
+    players.forEach(p => console.log(`  - UID: ${p.uid}, PlayerID: ${p.playerId}, Name: ${p.name}, PlayerNum: ${p.playerNumber}, completedPasses: ${p.completedPassesCount}` ) );
 
     const playerNamesForGame: PlayerNames = playersWithNumericPositions.reduce((acc, p) => {
       acc[p.playerNumber] = p.name;
       return acc;
     }, {} as PlayerNames);
     
-    // KRITISCHE STELLE: Sicherstellen, dass hier die korrekten UIDs (Firebase Auth UIDs der spielenden User) verwendet werden.
-    // Die 'players' Variable, die in startNewPasse ankommt, sollte bereits die korrekten Firebase Auth UIDs enthalten.
+    // ✅ FIX: Verwende Player IDs statt UIDs für gamePlayersForGame
     const gamePlayersForGame: GamePlayers = playersWithNumericPositions.reduce((acc, p) => {
-      // p.uid SOLLTE die Firebase Auth UID des Spielers sein.
-      // Stelle sicher, dass photoURL nicht undefined ist, sondern null, falls nicht vorhanden.
-      acc[p.playerNumber] = { type: 'member', uid: p.uid, name: p.name, photoURL: p.photoURL || null } as MemberInfo;
+      // ✅ FIX: Verwende playerId statt uid für MemberInfo
+      acc[p.playerNumber] = { 
+        type: 'member', 
+        uid: p.uid, 
+        playerId: p.playerId, // ✅ Player ID hinzugefügt
+        name: p.name, 
+        photoURL: p.photoURL || null 
+      } as MemberInfo & { playerId: string };
       return acc;
     }, {} as GamePlayers);
 
-    // LOGGING: Welche UIDs landen in gamePlayersForGame?
+    // ✅ LOGGING: Welche Player IDs landen in gamePlayersForGame?
     console.log("[TournamentStore] startNewPasse - gamePlayersForGame erstellt:");
-    Object.entries(gamePlayersForGame).forEach(([num, player]) => console.log(`  - Player ${num}: UID: ${(player as MemberInfo).uid}, Name: ${(player as MemberInfo).name}`));
+    Object.entries(gamePlayersForGame).forEach(([num, player]) => {
+      const memberPlayer = player as MemberInfo & { playerId: string };
+      console.log(`  - Player ${num}: UID: ${memberPlayer.uid}, PlayerID: ${memberPlayer.playerId}, Name: ${memberPlayer.name}`);
+    });
 
     // TeamConfig aus den Spieler-Nummern ableiten
     const DEFAULT_TEAM_CONFIG = {
@@ -498,7 +505,8 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
       lastUpdated: serverTimestamp() as Timestamp,
       // Bestehende Felder beibehalten
       tournamentInstanceId: instanceId,
-      participantUids: players.map(p => p.uid),
+      participantUids: players.map(p => p.uid), // ✅ Für Backend-Kompatibilität
+      participantPlayerIds: players.map(p => p.playerId), // ✅ NEU: Player IDs für moderne Verarbeitung
       playerNames: playerNamesForGame,
       gamePlayers: gamePlayersForGame,
       startingPlayer: numericStartingPlayer,

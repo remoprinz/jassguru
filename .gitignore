@@ -132,3 +132,9 @@ firebase-debug.*.log
 callMasterFix.js
 getRemoStricheDifferenzVerlauf.ts
 
+# E-Mail PDF-Extraktor sensible Dateien
+credentials.json
+token.json
+email-pdf-config.json
+temp-pdfs/
+

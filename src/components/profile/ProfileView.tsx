@@ -30,6 +30,7 @@ import { useClickAndScrollHandler } from '@/hooks/useClickAndScrollHandler';
 import { StatLink } from '@/components/statistics/StatLink';
 import {fetchCompletedSessionsForUser, fetchCompletedSessionsForPlayer, SessionSummary} from '@/services/sessionService';
 import { LegalFooter } from '@/components/layout/LegalFooter';
+import { PublicViewTopBar } from '@/components/layout/PublicViewTopBar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import type { ThemeColor } from '@/config/theme';
@@ -235,7 +236,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       'orange': '#f97316',  // orange-500
       'cyan': '#06b6d4',    // cyan-500
     };
-    const theme = profileTheme || 'yellow';
+    const theme = profileTheme || 'blue';
     return accentColorMap[theme as ThemeColor] || accentColorMap.yellow;
   }, [profileTheme]);
 
@@ -251,7 +252,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       'orange': '249, 115, 22',
       'cyan': '6, 182, 212',
     };
-    const theme = profileTheme || 'yellow';
+    const theme = profileTheme || 'blue';
     return rgbMap[theme as ThemeColor] || rgbMap.yellow;
   }, [profileTheme]);
 
@@ -267,7 +268,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       'orange': '#f97316',
       'cyan': '#06b6d4',
     };
-    const theme = profileTheme || 'yellow';
+    const theme = profileTheme || 'blue';
     return hexMap[theme as ThemeColor] || hexMap.yellow;
   }, [profileTheme]);
 
@@ -283,7 +284,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       'orange': 'rgba(249, 115, 22, 0.2)',
       'cyan': 'rgba(6, 182, 212, 0.2)',
     };
-    const theme = profileTheme || 'yellow';
+    const theme = profileTheme || 'blue';
     return glowMap[theme as ThemeColor] || glowMap.yellow;
   }, [profileTheme]);
 
@@ -668,6 +669,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     return colorMap[themeKey] || '#ca8a04'; // Fallback zu Standard-Gelb (yellow-600)
   };
 
+  // 🎨 NEU: Farbkodierung für Win-Rate Werte
+  const getWinRateColor = (winRate: number): string => {
+    // Für Win-Rate: >50% = grün, <50% = rot, =50% = weiß
+    if (winRate > 0.5) return 'text-green-400';
+    if (winRate < 0.5) return 'text-red-400';
+    return 'text-white';
+  };
+
+  // 🎨 NEU: Farbkodierung für Differenz-Werte (Strichdifferenz, Punktdifferenz, Bilanz etc.)
+  const getDifferenceColor = (value: number): string => {
+    // Für Differenzen: >0 = grün, <0 = rot, =0 = weiß
+    if (value > 0) return 'text-green-400';
+    if (value < 0) return 'text-red-400';
+    return 'text-white';
+  };
+
   if (!currentPlayer && !statsLoading) {
     return (
       <MainLayout>
@@ -681,7 +698,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   }
 
   return (
-    <MainLayout>
+    <>
+      {/* 🚀 NEU: Public View Top-Bar nur bei Mobile */}
+      {isPublicView && !layout.isDesktop && <PublicViewTopBar />}
+      
+      <MainLayout>
       <div className={`flex flex-col items-center justify-start bg-gray-900 text-white ${layout.containerPadding} relative pt-8 pb-20 lg:w-full lg:px-0`}>
         {/* Responsive Container Wrapper */}
         <div className={`w-full ${layout.containerMaxWidth} mx-auto lg:px-12 lg:py-8`}>
@@ -827,7 +848,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <span className={`${layout.headingSize} font-semibold text-white`}>
                 {Math.round(playerRating.rating)}
                 {playerDelta !== null && (
-                  <span className={`ml-1 ${layout.bodySize} ${playerDelta > 0 ? 'text-green-400' : playerDelta < 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                  <span className={`ml-1 ${layout.bodySize} ${playerDelta > 0 ? 'text-green-400' : playerDelta < 0 ? 'text-red-400' : 'text-white'}`}>
                     ({playerDelta > 0 ? '+' : ''}{Math.round(playerDelta)})
                   </span>
                 )}
@@ -980,10 +1001,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           }}
           className="w-full"
         >
-          <TabsList className={`grid w-full grid-cols-2 bg-gray-800 ${layout.mainTabContainerPadding} rounded-lg mb-4 sticky top-0 z-30 backdrop-blur-md`}>
+          <TabsList className={`grid w-full grid-cols-2 bg-gray-800 ${layout.mainTabContainerPadding} rounded-lg sticky ${isPublicView ? 'top-[env(safe-area-inset-top,0px)]' : 'top-0'} z-30 backdrop-blur-md shadow-lg`}>
             <TabsTrigger 
               value="stats" 
-              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-medium`}
+              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center`}
               style={{
                 backgroundColor: activeMainTab === 'stats' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
               }}
@@ -992,7 +1013,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </TabsTrigger> 
             <TabsTrigger 
               value="archive" 
-              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-medium`}
+              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center`}
               style={{
                 backgroundColor: activeMainTab === 'archive' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
               }}
@@ -1018,15 +1039,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               }}
               className="w-full"
             >
-              {/* Responsiver Abstand: Desktop weniger (16px), Mobile weniger (8px) */}
-              <div className={layout.isDesktop ? "h-4" : "h-2"}></div>
-              
-              {/* Sticky Container für Sub-Tabs */}
-              <div className={`sticky ${layout.isDesktop ? "top-[60px]" : "top-[44px]"} z-20 bg-gray-900 pt-0 pb-4`}>
-                <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.subTabContainerPadding} rounded-lg backdrop-blur-md`}>
+              {/* Sticky Container für Sub-Tabs - mit 3px Abstand */}
+              <div className={`sticky ${isPublicView ? (layout.isDesktop ? "top-[calc(env(safe-area-inset-top,0px)+68px)]" : "top-[calc(env(safe-area-inset-top,0px)+52px)]") : (layout.isDesktop ? "top-[68px]" : "top-[52px]")} z-20 bg-gray-900`}>
+                <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.subTabContainerPadding} rounded-lg backdrop-blur-md shadow-lg`}>
                   <TabsTrigger
                     value="individual"
-                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium`}
+                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium flex items-center justify-center`}
                     style={{
                       backgroundColor: activeStatsSubTab === 'individual' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
                     }}
@@ -1036,7 +1054,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   </TabsTrigger>
                   <TabsTrigger
                     value="partner"
-                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium`}
+                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium flex items-center justify-center`}
                     style={{
                       backgroundColor: activeStatsSubTab === 'partner' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
                     }}
@@ -1046,7 +1064,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   </TabsTrigger>
                   <TabsTrigger
                     value="opponent"
-                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium`}
+                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium flex items-center justify-center`}
                     style={{
                       backgroundColor: activeStatsSubTab === 'opponent' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
                     }}
@@ -1093,7 +1111,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           <PowerRatingChart 
                             data={chartData}
                             title="Elo-Rating"
-                            height={layout.isDesktop ? 400 : 300}
+                            height={220} // ✅ NEU: Einheitliche Höhe für alle Charts
                             theme={profileTheme || 'blue'}
                             isDarkMode={true}
                             hideLegend={true} // ✅ Legende für ProfileView verstecken
@@ -1101,6 +1119,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             isEloChart={true} // ✅ Explizit als Elo-Chart markieren
                             activeTab={activeMainTab} // ✅ Tab-Wechsel-Reset für Animationen
                             activeSubTab={activeStatsSubTab} // ✅ Sub-Tab-Wechsel-Reset für Animationen
+                            animateImmediately={true} // 🚀 Oberster Chart animiert sofort
                           />
                         ) : (
                           <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
@@ -1118,9 +1137,24 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
                         <h3 className={`${layout.headingSize} font-semibold text-white`}>
                           Strichdifferenz: 
-                          <span className={`ml-2 ${playerStats?.totalStrichesDifference && playerStats.totalStrichesDifference > 0 ? 'text-green-400' : playerStats?.totalStrichesDifference && playerStats.totalStrichesDifference < 0 ? 'text-red-400' : 'text-gray-400'}`}>
-                            {playerStats?.totalStrichesDifference && playerStats.totalStrichesDifference > 0 ? '+' : ''}
-                            {playerStats?.totalStrichesDifference || 0}
+                          <span className={`ml-2 ${(() => {
+                            // ✅ Verwende Chart-Daten statt playerStats
+                            if (!stricheChartData || !stricheChartData.datasets || stricheChartData.datasets.length === 0) {
+                              return 'text-white';
+                            }
+                            const lastValue = stricheChartData.datasets[0].data[stricheChartData.datasets[0].data.length - 1];
+                            const currentValue = Math.trunc(lastValue || 0);
+                            return currentValue > 0 ? 'text-green-400' : currentValue < 0 ? 'text-red-400' : 'text-white';
+                          })()}`}>
+                            {(() => {
+                              // ✅ Verwende Chart-Daten statt playerStats
+                              if (!stricheChartData || !stricheChartData.datasets || stricheChartData.datasets.length === 0) {
+                                return '0';
+                              }
+                              const lastValue = stricheChartData.datasets[0].data[stricheChartData.datasets[0].data.length - 1];
+                              const currentValue = Math.trunc(lastValue || 0);
+                              return currentValue > 0 ? `+${currentValue}` : `${currentValue}`;
+                            })()}
                           </span>
                         </h3>
                       </div>
@@ -1134,7 +1168,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           <PowerRatingChart 
                             data={stricheChartData}
                             title="Strichdifferenz"
-                            height={layout.isDesktop ? 400 : 250}
+                            height={220} // ✅ NEU: Einheitliche Höhe für alle Charts
                             theme={profileTheme || 'blue'}
                             isDarkMode={true}
                             hideLegend={true}
@@ -1142,6 +1176,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             isEloChart={false} // ✅ Nicht-ELO-Chart
                             activeTab={activeMainTab}
                             activeSubTab={activeStatsSubTab}
+                            animateImmediately={false} // 🚀 Nur oberster Chart animiert sofort
                           />
                         ) : (
                           <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
@@ -1158,9 +1193,24 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
                         <h3 className={`${layout.headingSize} font-semibold text-white`}>
                           Punktdifferenz: 
-                          <span className={`ml-2 ${playerStats?.totalPointsDifference && playerStats.totalPointsDifference > 0 ? 'text-green-400' : playerStats?.totalPointsDifference && playerStats.totalPointsDifference < 0 ? 'text-red-400' : 'text-gray-400'}`}>
-                            {playerStats?.totalPointsDifference && playerStats.totalPointsDifference > 0 ? '+' : ''}
-                            {playerStats?.totalPointsDifference || 0}
+                          <span className={`ml-2 ${(() => {
+                            // ✅ Verwende Chart-Daten statt playerStats
+                            if (!pointsChartData || !pointsChartData.datasets || pointsChartData.datasets.length === 0) {
+                              return 'text-white';
+                            }
+                            const lastValue = pointsChartData.datasets[0].data[pointsChartData.datasets[0].data.length - 1];
+                            const currentValue = Math.trunc(lastValue || 0);
+                            return currentValue > 0 ? 'text-green-400' : currentValue < 0 ? 'text-red-400' : 'text-white';
+                          })()}`}>
+                            {(() => {
+                              // ✅ Verwende Chart-Daten statt playerStats
+                              if (!pointsChartData || !pointsChartData.datasets || pointsChartData.datasets.length === 0) {
+                                return '0';
+                              }
+                              const lastValue = pointsChartData.datasets[0].data[pointsChartData.datasets[0].data.length - 1];
+                              const currentValue = Math.trunc(lastValue || 0);
+                              return currentValue > 0 ? `+${currentValue}` : `${currentValue}`;
+                            })()}
                           </span>
                         </h3>
                       </div>
@@ -1174,7 +1224,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           <PowerRatingChart 
                             data={pointsChartData}
                             title="Punktdifferenz"
-                            height={layout.isDesktop ? 400 : 250}
+                            height={220} // ✅ NEU: Einheitliche Höhe für alle Charts
                             theme={profileTheme || 'blue'}
                             isDarkMode={true}
                             hideLegend={true}
@@ -1182,6 +1232,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             isEloChart={false} // ✅ Nicht-ELO-Chart
                             activeTab={activeMainTab}
                             activeSubTab={activeStatsSubTab}
+                            animateImmediately={false} // 🚀 Nur oberster Chart animiert sofort
                           />
                         ) : (
                           <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
@@ -1199,7 +1250,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
                           <h3 className={`${layout.headingSize} font-semibold text-white`}>
                             Matsch-Bilanz: 
-                            <span className={`ml-2 ${playerStats?.matschBilanz && playerStats.matschBilanz > 0 ? 'text-green-400' : playerStats?.matschBilanz && playerStats.matschBilanz < 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                            <span className={`ml-2 ${playerStats?.matschBilanz && playerStats.matschBilanz > 0 ? 'text-green-400' : playerStats?.matschBilanz && playerStats.matschBilanz < 0 ? 'text-red-400' : 'text-white'}`}>
                               {playerStats?.matschBilanz && playerStats.matschBilanz > 0 ? '+' : ''}
                               {playerStats?.matschBilanz || 0}
                             </span>
@@ -1215,7 +1266,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             <PowerRatingChart 
                               data={matschChartData}
                               title="Matsch-Bilanz"
-                              height={layout.isDesktop ? 400 : 250}
+                              height={220} // ✅ NEU: Einheitliche Höhe für alle Charts
                               theme={profileTheme || 'blue'}
                               isDarkMode={true}
                               hideLegend={true}
@@ -1241,7 +1292,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
                           <h3 className={`${layout.headingSize} font-semibold text-white`}>
                             Schneider-Bilanz: 
-                            <span className={`ml-2 ${playerStats?.schneiderBilanz && playerStats.schneiderBilanz > 0 ? 'text-green-400' : playerStats?.schneiderBilanz && playerStats.schneiderBilanz < 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                            <span className={`ml-2 ${playerStats?.schneiderBilanz && playerStats.schneiderBilanz > 0 ? 'text-green-400' : playerStats?.schneiderBilanz && playerStats.schneiderBilanz < 0 ? 'text-red-400' : 'text-white'}`}>
                               {playerStats?.schneiderBilanz && playerStats.schneiderBilanz > 0 ? '+' : ''}
                               {playerStats?.schneiderBilanz || 0}
                             </span>
@@ -1257,7 +1308,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             <PowerRatingChart 
                               data={schneiderChartData}
                               title="Schneider-Bilanz"
-                              height={layout.isDesktop ? 400 : 250}
+                              height={220} // ✅ NEU: Einheitliche Höhe für alle Charts
                               theme={profileTheme || 'blue'}
                               isDarkMode={true}
                               hideLegend={true}
@@ -1284,7 +1335,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
                           <h3 className={`${layout.headingSize} font-semibold text-white`}>
                             Kontermatsch-Bilanz: 
-                            <span className={`ml-2 ${playerStats?.kontermatschBilanz && playerStats.kontermatschBilanz > 0 ? 'text-green-400' : playerStats?.kontermatschBilanz && playerStats.kontermatschBilanz < 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                            <span className={`ml-2 ${playerStats?.kontermatschBilanz && playerStats.kontermatschBilanz > 0 ? 'text-green-400' : playerStats?.kontermatschBilanz && playerStats.kontermatschBilanz < 0 ? 'text-red-400' : 'text-white'}`}>
                               {playerStats?.kontermatschBilanz && playerStats.kontermatschBilanz > 0 ? '+' : ''}
                               {playerStats?.kontermatschBilanz || 0}
                             </span>
@@ -1300,7 +1351,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             <PowerRatingChart 
                               data={kontermatschChartData}
                               title="Kontermatsch-Bilanz"
-                              height={layout.isDesktop ? 400 : 250}
+                              height={220} // ✅ NEU: Einheitliche Höhe für alle Charts
                               theme={profileTheme || 'blue'}
                               isDarkMode={true}
                               hideLegend={true}
@@ -1354,7 +1405,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           <PowerRatingChart 
                             data={weisChartData}
                             title="Weisdifferenz"
-                            height={layout.isDesktop ? 400 : 250}
+                            height={220} // ✅ NEU: Einheitliche Höhe für alle Charts
                             theme={profileTheme || 'blue'}
                             isDarkMode={true}
                             hideLegend={true} // ✅ Einfach wie Punktdifferenz
@@ -1883,7 +1934,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                           ({partner.sessionsWonWith}/{partner.sessionsPlayedWith})
                           </span>
                                       )}
-                                      <span className={`${layout.valueSize} font-medium`}>
+                                      <span className={`${getWinRateColor(partner.sessionWinRate || 0)} ${layout.valueSize} font-medium`}>
                                         {getWinRateDisplay(
                                           partner.sessionWinRateInfo,
                                           partner.sessionsWonWith,
@@ -1942,7 +1993,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                           ({partner.gamesWonWith}/{partner.gamesPlayedWith})
                                         </span>
                                       )}
-                                      <span className={`${layout.valueSize} font-medium`}>
+                                      <span className={`${getWinRateColor(partner.gameWinRate || 0)} ${layout.valueSize} font-medium`}>
                                         {getWinRateDisplay(
                                           partner.gameWinRateInfo,
                                           partner.gamesWonWith,
@@ -2002,7 +2053,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                           ({partner.gamesPlayedWith})
                                         </span>
                                       )}
-                                      {partner.totalStricheDifferenceWith > 0 ? '+' : ''}{partner.totalStricheDifferenceWith}
+                                      <span className={`${getDifferenceColor(partner.totalStricheDifferenceWith)}`}>
+                                        {partner.totalStricheDifferenceWith > 0 ? '+' : ''}{partner.totalStricheDifferenceWith}
+                                      </span>
                                     </span>
                   </div>
                                 </div>
@@ -2053,7 +2106,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                           ({partner.gamesPlayedWith})
                             </span>
                                       )}
-                                      {partner.totalPointsDifferenceWith > 0 ? '+' : ''}{partner.totalPointsDifferenceWith}
+                                      <span className={`${getDifferenceColor(partner.totalPointsDifferenceWith)}`}>
+                                        {partner.totalPointsDifferenceWith > 0 ? '+' : ''}{partner.totalPointsDifferenceWith}
+                                      </span>
                             </span>
                       </div>
                                 </div>
@@ -2102,7 +2157,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                       <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                         ({partner.matschEventsMadeWith || 0}/{(partner.matschEventsReceivedWith || 0)})
                                       </span>
-                                      <span className={`${layout.valueSize} font-medium`}>
+                                      <span className={`${getDifferenceColor(partner.matschBilanz || 0)} ${layout.valueSize} font-medium`}>
                                         {(partner.matschBilanz || 0) > 0 ? '+' : ''}
                                         {partner.matschBilanz || 0}
                                       </span>
@@ -2157,7 +2212,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                       <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                         ({partner.schneiderEventsMadeWith || 0}/{(partner.schneiderEventsReceivedWith || 0)})
                                       </span>
-                                      <span className={`${layout.valueSize} font-medium`}>
+                                      <span className={`${getDifferenceColor(partner.schneiderBilanz || 0)} ${layout.valueSize} font-medium`}>
                                         {(partner.schneiderBilanz || 0) > 0 ? '+' : ''}
                                         {partner.schneiderBilanz || 0}
                                       </span>
@@ -2212,7 +2267,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                       <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                         ({partner.kontermatschEventsMadeWith || 0}/{(partner.kontermatschEventsReceivedWith || 0)})
                                       </span>
-                                      <span className={`${layout.valueSize} font-medium`}>
+                                      <span className={`${getDifferenceColor(partner.kontermatschBilanz || 0)} ${layout.valueSize} font-medium`}>
                                         {(partner.kontermatschBilanz || 0) > 0 ? '+' : ''}
                                         {partner.kontermatschBilanz || 0}
                                       </span>
@@ -2224,6 +2279,65 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           })}
                         {(playerStats as any).partnerAggregates.filter((p: any) => p.gamesPlayedWith >= 1 && ((p.kontermatschEventsMadeWith || 0) > 0 || (p.kontermatschEventsReceivedWith || 0) > 0)).length === 0 && (
                           <div className="text-gray-400 text-center py-2">Keine Partner mit Kontermatsch-Ereignissen</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Trumpfansagen-Block */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Trumpfansagen</h3>
+                      </div>
+                      <div className="p-4 space-y-2 pr-2">
+                        {(playerStats as any).partnerAggregates
+                          .filter((partner: any) => partner.gamesPlayedWith >= 1 && partner.trumpfStatistikWith && Object.keys(partner.trumpfStatistikWith).length > 0)
+                          .sort((a: any, b: any) => {
+                            const aTotal = Object.values(a.trumpfStatistikWith || {}).reduce((sum: number, val: any) => sum + (Number(val) || 0), 0);
+                            const bTotal = Object.values(b.trumpfStatistikWith || {}).reduce((sum: number, val: any) => sum + (Number(val) || 0), 0);
+                            return Number(bTotal) - Number(aTotal);
+                          })
+                          .slice(0, 10)
+                          .map((partner: any, index: number) => {
+                            const playerData = members?.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
+                            const totalTrumpfs = Object.values(partner.trumpfStatistikWith || {}).reduce((sum: number, val: any) => sum + (Number(val) || 0), 0);
+                            return (
+                              <StatLink 
+                                key={`partner-trumpf-${partner.partnerId}`} 
+                                href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`} 
+                                isClickable={!!partner.partnerId}
+                                className="block rounded-md"
+                              >
+                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                  <div className="flex items-center">
+                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
+                                    <ProfileImage 
+                                      src={playerData?.photoURL || undefined} 
+                                      alt={partner.partnerDisplayName} 
+                                      size={layout.profileImageListSize}
+                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
+                                      fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
+                                      context="list"
+                                    />
+                                    <span className={`text-gray-300 ${layout.bodySize}`}>{partner.partnerDisplayName}</span>
+                                  </div>
+                                  <div className="flex items-center">
+                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
+                                      <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
+                                        ({Number(totalTrumpfs)})
+                                      </span>
+                                      <span className={`${layout.valueSize} font-medium`}>
+                                        {Number(totalTrumpfs)}
+                                      </span>
+                                    </span>
+                                  </div>
+                                </div>
+                              </StatLink>
+                            );
+                          })}
+                        {(playerStats as any).partnerAggregates.filter((p: any) => p.gamesPlayedWith >= 1 && p.trumpfStatistikWith && Object.keys(p.trumpfStatistikWith).length > 0).length === 0 && (
+                          <div className="text-gray-400 text-center py-2">Keine Partner mit Trumpfansagen</div>
                         )}
                       </div>
                     </div>
@@ -2283,7 +2397,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                           ({opponent.sessionsWonAgainst}/{opponent.sessionsPlayedAgainst})
                                         </span>
                                       )}
-                                      <span className={`${layout.valueSize} font-medium`}>
+                                      <span className={`${getWinRateColor(opponent.sessionWinRate || 0)} ${layout.valueSize} font-medium`}>
                                         {getWinRateDisplay(
                                           opponent.sessionWinRateInfo,
                                           opponent.sessionsWonAgainst,
@@ -2342,7 +2456,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                           ({opponent.gamesWonAgainst}/{opponent.gamesPlayedAgainst})
                                         </span>
                                       )}
-                                      <span className={`${layout.valueSize} font-medium`}>
+                                      <span className={`${getWinRateColor(opponent.gameWinRate || 0)} ${layout.valueSize} font-medium`}>
                                         {getWinRateDisplay(
                                           opponent.gameWinRateInfo,
                                           opponent.gamesWonAgainst,
@@ -2402,7 +2516,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                           ({opponent.gamesPlayedAgainst})
                                         </span>
                                       )}
-                                      {opponent.totalStricheDifferenceAgainst > 0 ? '+' : ''}{opponent.totalStricheDifferenceAgainst}
+                                      <span className={`${getDifferenceColor(opponent.totalStricheDifferenceAgainst)}`}>
+                                        {opponent.totalStricheDifferenceAgainst > 0 ? '+' : ''}{opponent.totalStricheDifferenceAgainst}
+                                      </span>
                                     </span>
                                   </div>
                                 </div>
@@ -2453,7 +2569,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                           ({opponent.gamesPlayedAgainst})
                                         </span>
                                       )}
-                                      {opponent.totalPointsDifferenceAgainst > 0 ? '+' : ''}{opponent.totalPointsDifferenceAgainst}
+                                      <span className={`${getDifferenceColor(opponent.totalPointsDifferenceAgainst)}`}>
+                                        {opponent.totalPointsDifferenceAgainst > 0 ? '+' : ''}{opponent.totalPointsDifferenceAgainst}
+                                      </span>
                                     </span>
                                   </div>
                                 </div>
@@ -2502,7 +2620,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                       <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                         ({opponent.matschEventsMadeAgainst || 0}/{(opponent.matschEventsReceivedAgainst || 0)})
                                       </span>
-                                      <span className={`${layout.valueSize} font-medium`}>
+                                      <span className={`${getDifferenceColor(opponent.matschBilanz || 0)} ${layout.valueSize} font-medium`}>
                                         {(opponent.matschBilanz || 0) > 0 ? '+' : ''}
                                         {opponent.matschBilanz || 0}
                                       </span>
@@ -2557,7 +2675,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                       <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                         ({opponent.schneiderEventsMadeAgainst || 0}/{(opponent.schneiderEventsReceivedAgainst || 0)})
                                       </span>
-                                      <span className={`${layout.valueSize} font-medium`}>
+                                      <span className={`${getDifferenceColor(opponent.schneiderBilanz || 0)} ${layout.valueSize} font-medium`}>
                                         {(opponent.schneiderBilanz || 0) > 0 ? '+' : ''}
                                         {opponent.schneiderBilanz || 0}
                                       </span>
@@ -2612,7 +2730,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                       <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                         ({opponent.kontermatschEventsMadeAgainst || 0}/{(opponent.kontermatschEventsReceivedAgainst || 0)})
                                       </span>
-                                      <span className={`${layout.valueSize} font-medium`}>
+                                      <span className={`${getDifferenceColor(opponent.kontermatschBilanz || 0)} ${layout.valueSize} font-medium`}>
                                         {(opponent.kontermatschBilanz || 0) > 0 ? '+' : ''}
                                         {opponent.kontermatschBilanz || 0}
                                       </span>
@@ -2624,6 +2742,66 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           })}
                         {(playerStats as any).opponentAggregates.filter((o: any) => o.gamesPlayedAgainst >= 1 && ((o.kontermatschEventsMadeAgainst || 0) > 0 || (o.kontermatschEventsReceivedAgainst || 0) > 0)).length === 0 && (
                           <div className="text-gray-400 text-center py-2">Keine Gegner mit Kontermatsch-Ereignissen</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Trumpfansagen-Block */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Trumpfansagen</h3>
+                      </div>
+                      <div className="p-4 space-y-2 pr-2">
+                        {(playerStats as any).opponentAggregates
+                          .filter((opponent: any) => opponent.gamesPlayedAgainst >= 1 && opponent.trumpfStatistikAgainst && Object.keys(opponent.trumpfStatistikAgainst).length > 0)
+                          .sort((a: any, b: any) => {
+                            const aTotal = Object.values(a.trumpfStatistikAgainst || {}).reduce((sum: number, val: any) => sum + (Number(val) || 0), 0);
+                            const bTotal = Object.values(b.trumpfStatistikAgainst || {}).reduce((sum: number, val: any) => sum + (Number(val) || 0), 0);
+                            return Number(bTotal) - Number(aTotal);
+                          })
+                          .slice(0, 10)
+                          .map((opponent: any, index: number) => {
+                            const playerData = members?.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
+                            const totalTrumpfs = Object.values(opponent.trumpfStatistikAgainst || {}).reduce((sum: number, val: any) => sum + (Number(val) || 0), 0);
+                            const totalTrumpfsNum = Number(totalTrumpfs);
+                            return (
+                              <StatLink 
+                                key={`opponent-trumpf-${opponent.opponentId}`} 
+                                href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
+                                isClickable={!!opponent.opponentId}
+                                className="block rounded-md"
+                              >
+                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                  <div className="flex items-center">
+                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
+                                    <ProfileImage 
+                                      src={playerData?.photoURL || undefined} 
+                                      alt={opponent.opponentDisplayName} 
+                                      size={layout.profileImageListSize}
+                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
+                                      fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
+                                      context="list"
+                                    />
+                                    <span className={`text-gray-300 ${layout.bodySize}`}>{opponent.opponentDisplayName}</span>
+                                  </div>
+                                  <div className="flex items-center">
+                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
+                                      <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
+                                        ({totalTrumpfsNum})
+                                      </span>
+                                      <span className={`${layout.valueSize} font-medium`}>
+                                        {totalTrumpfsNum}
+                                      </span>
+                                    </span>
+                                  </div>
+                                </div>
+                              </StatLink>
+                            );
+                          })}
+                        {(playerStats as any).opponentAggregates.filter((o: any) => o.gamesPlayedAgainst >= 1 && o.trumpfStatistikAgainst && Object.keys(o.trumpfStatistikAgainst).length > 0).length === 0 && (
+                          <div className="text-gray-400 text-center py-2">Keine Gegner mit Trumpfansagen</div>
                         )}
                       </div>
                     </div>
@@ -2679,5 +2857,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         </div> {/* End Responsive Container Wrapper */}
       </div>
     </MainLayout>
+    </>
   );
 }; 

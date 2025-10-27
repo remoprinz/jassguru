@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { getFirestore, doc, onSnapshot, Timestamp } from 'firebase/firestore';
+import { getFirestore, doc, onSnapshot, collection, getDocs, Timestamp } from 'firebase/firestore';
 import { firebaseApp } from '@/services/firebaseInit'; 
 import type { FrontendPlayerComputedStats, FrontendStatHighlight, FrontendStatStreak, FrontendTournamentPlacement } from '@/types/computedStats';
 import { initialFrontendPlayerComputedStats } from '@/types/computedStats';
@@ -13,7 +13,7 @@ interface PlayerStatsState {
 }
 
 interface PlayerStatsActions {
-  subscribeToPlayerStats: (playerId: string) => void;
+  subscribeToPlayerStats: (playerId: string) => Promise<void>;
   unsubscribePlayerStats: () => void;
   clearError: () => void;
 }
@@ -46,8 +46,7 @@ export const usePlayerStatsStore = create<PlayerStatsState & PlayerStatsActions>
     error: null,
     activeListenerUnsubscribe: null,
 
-    subscribeToPlayerStats: (playerId) => {
-      // console.log(`[PlayerStatsStore] Attempting to subscribe for playerId: ${playerId}`);
+    subscribeToPlayerStats: async (playerId) => {
       if (!playerId) {
         console.error("[PlayerStatsStore] Player ID is undefined or null. Subscription aborted.");
         set((state) => {
@@ -65,51 +64,195 @@ export const usePlayerStatsStore = create<PlayerStatsState & PlayerStatsActions>
       set((state) => {
         state.isLoading = true;
         state.error = null;
-        state.stats = null; // Reset stats on new subscription
+        state.stats = null;
       });
 
       const db = getFirestore(firebaseApp);
-      const playerStatsRef = doc(db, 'playerComputedStats', playerId);
-
-      // console.log(`[PlayerStatsStore] Setting up listener for playerComputedStats/${playerId}`);
-
-      const unsubscribe = onSnapshot(
-        playerStatsRef,
-        (docSnap) => {
-          // console.log(`[PlayerStatsStore] Listener for playerComputedStats/${playerId} received data. Doc exists: ${docSnap.exists()}`);
-          if (docSnap.exists()) {
-            const rawData = docSnap.data();
-            // console.log("[PlayerStatsStore] Raw data from Firestore:", JSON.parse(JSON.stringify(rawData)));
-            const dataWithDates = convertTimestampsToDates(rawData) as FrontendPlayerComputedStats;
-            // console.log("[PlayerStatsStore] Data after timestamp conversion:", JSON.parse(JSON.stringify(dataWithDates)));
-            set((state) => {
-              state.stats = dataWithDates;
-              state.isLoading = false;
-              state.error = null;
-            });
-          } else {
-            set((state) => {
-              state.stats = initialFrontendPlayerComputedStats; // Set to initial if no data
-              console.warn(`[PlayerStatsStore] Document for playerComputedStats/${playerId} does not exist. Setting initial stats.`);
-              state.isLoading = false;
-              state.error = null; // No error, just no data or initial data
-            });
-          }
-        },
-        (err) => {
-          console.error(`[PlayerStatsStore] Error in Firestore listener for ${playerId}:`, err);
+      
+      try {
+        // ✅ NEUE ARCHITEKTUR: Lade aus players/{playerId} UND Subcollections
+        const playerRootRef = doc(db, 'players', playerId);
+        const playerDoc = await getDocs(collection(db, 'players'));
+        const playerDataDoc = playerDoc.docs.find(d => d.id === playerId);
+        
+        if (!playerDataDoc || !playerDataDoc.exists()) {
+          console.warn(`[PlayerStatsStore] Player ${playerId} not found`);
           set((state) => {
-            state.error = "Spielerstatistiken konnten nicht geladen werden.";
+            state.stats = initialFrontendPlayerComputedStats;
             state.isLoading = false;
-            state.stats = null;
           });
+          return;
         }
-      );
-
-      set((state) => {
-        state.activeListenerUnsubscribe = unsubscribe;
-        // console.log(`[PlayerStatsStore] Listener setup complete for ${playerId}.`);
-      });
+        
+        const playerData = playerDataDoc.data() as any;
+        const globalStats = playerData.globalStats?.current || {};
+        
+        // Lade Partner Stats aus neuer Struktur
+        const partnerStatsSnap = await getDocs(collection(db, `players/${playerId}/partnerStats`));
+        const partnerAggregates = partnerStatsSnap.docs.map(doc => {
+          const data = doc.data();
+          return {
+            partnerId: data.partnerId || doc.id,
+            partnerDisplayName: data.partnerDisplayName || doc.id,
+            sessionsPlayedWith: data.sessionsPlayedWith || 0,
+            sessionsWonWith: data.sessionsWonWith || 0,
+            gamesPlayedWith: data.gamesPlayedWith || data.gamesPlayed || 0,
+            gamesWonWith: data.gamesWonWith || data.wins || 0,
+            totalStricheDifferenceWith: data.totalStricheDifferenceWith || 0,
+            totalPointsWith: 0,
+            totalPointsDifferenceWith: data.totalPointsDifferenceWith || 0,
+            matschGamesWonWith: 0,
+            schneiderGamesWonWith: 0,
+            kontermatschGamesWonWith: 0,
+            matschBilanz: data.matschBilanzWith || 0,
+            schneiderBilanz: data.schneiderBilanzWith || 0,
+            kontermatschBilanz: data.kontermatschBilanzWith || 0,
+            matschEventsMadeWith: data.matschEventsMadeWith || 0,
+            matschEventsReceivedWith: data.matschEventsReceivedWith || 0,
+            schneiderEventsMadeWith: data.schneiderEventsMadeWith || 0,
+            schneiderEventsReceivedWith: data.schneiderEventsReceivedWith || 0,
+            kontermatschEventsMadeWith: data.kontermatschEventsMadeWith || 0,
+            kontermatschEventsReceivedWith: data.kontermatschEventsReceivedWith || 0,
+            sessionWinRate: data.sessionWinRateWith || 0,
+            gameWinRate: data.gameWinRateWith || 0,
+            // ✅ NEU: Rundentempo & Trumpfansagen
+            trumpfStatistikWith: data.trumpfStatistikWith || {},
+            avgRoundDurationWith: data.avgRoundDurationWith || 0,
+          };
+        });
+        
+        // Lade Opponent Stats aus neuer Struktur
+        const opponentStatsSnap = await getDocs(collection(db, `players/${playerId}/opponentStats`));
+        const opponentAggregates = opponentStatsSnap.docs.map(doc => {
+          const data = doc.data();
+          return {
+            opponentId: data.opponentId || doc.id,
+            opponentDisplayName: data.opponentDisplayName || doc.id,
+            sessionsPlayedAgainst: data.sessionsPlayedAgainst || 0,
+            sessionsWonAgainst: data.sessionsWonAgainst || 0,
+            gamesPlayedAgainst: data.gamesPlayedAgainst || data.gamesPlayed || 0,
+            gamesWonAgainst: data.gamesWonAgainst || data.wins || 0,
+            totalStricheDifferenceAgainst: data.totalStricheDifferenceAgainst || 0,
+            totalPointsScoredWhenOpponent: 0,
+            totalPointsDifferenceAgainst: data.totalPointsDifferenceAgainst || 0,
+            matschGamesWonAgainstOpponentTeam: 0,
+            schneiderGamesWonAgainstOpponentTeam: 0,
+            kontermatschGamesWonAgainstOpponentTeam: 0,
+            matschBilanz: data.matschBilanzAgainst || 0,
+            schneiderBilanz: data.schneiderBilanzAgainst || 0,
+            kontermatschBilanz: data.kontermatschBilanzAgainst || 0,
+            matschEventsMadeAgainst: data.matschEventsMadeAgainst || 0,
+            matschEventsReceivedAgainst: data.matschEventsReceivedAgainst || 0,
+            schneiderEventsMadeAgainst: data.schneiderEventsMadeAgainst || 0,
+            schneiderEventsReceivedAgainst: data.schneiderEventsReceivedAgainst || 0,
+            kontermatschEventsMadeAgainst: data.kontermatschEventsMadeAgainst || 0,
+            kontermatschEventsReceivedAgainst: data.kontermatschEventsReceivedAgainst || 0,
+            sessionWinRate: data.sessionWinRateAgainst || 0,
+            gameWinRate: data.gameWinRateAgainst || 0,
+            // ✅ NEU: Rundentempo & Trumpfansagen
+            trumpfStatistikAgainst: data.trumpfStatistikAgainst || {},
+            avgRoundDurationAgainst: data.avgRoundDurationAgainst || 0,
+          };
+        });
+        
+        // Kombiniere alle Daten zu FrontendPlayerComputedStats
+        const combinedStats: FrontendPlayerComputedStats = {
+          lastUpdateTimestamp: globalStats.lastUpdated || null,
+          firstJassTimestamp: globalStats.firstJassTimestamp || null,
+          lastJassTimestamp: globalStats.lastJassTimestamp || null,
+          totalSessions: globalStats.totalSessions || 0,
+          totalGames: globalStats.totalGames || 0,
+          totalPlayTimeSeconds: globalStats.totalPlayTimeSeconds || 0,
+          sessionWins: globalStats.sessionsWon || 0,
+          sessionTies: globalStats.sessionsDraw || 0,
+          sessionLosses: globalStats.sessionsLost || 0,
+          gameWins: globalStats.gamesWon || 0,
+          gameLosses: globalStats.gamesLost || 0,
+          totalStricheMade: globalStats.totalStricheMade || 0,
+          totalStricheReceived: globalStats.totalStricheReceived || 0,
+          totalStricheDifference: globalStats.stricheDifference || 0,
+          totalPointsMade: globalStats.totalPointsMade || 0,
+          totalPointsReceived: globalStats.totalPointsReceived || 0,
+          totalPointsDifference: globalStats.pointsDifference || 0,
+          playerTotalWeisMade: globalStats.totalWeisPoints || 0,
+          playerTotalWeisReceived: globalStats.totalWeisReceived || 0,
+          weisDifference: globalStats.weisDifference || 0,
+          totalMatschGamesMade: 0,
+          totalSchneiderGamesMade: 0,
+          totalKontermatschGamesMade: 0,
+          totalKontermatschGamesReceived: 0,
+          matschBilanz: globalStats.matschBilanz || 0,
+          schneiderBilanz: globalStats.schneiderBilanz || 0,
+          kontermatschBilanz: globalStats.kontermatschBilanz || 0,
+          currentGameWinStreak: 0,
+          currentGameLossStreak: 0,
+          currentGameWinlessStreak: 0,
+          currentSessionWinStreak: 0,
+          currentSessionLossStreak: 0,
+          currentSessionWinlessStreak: 0,
+          avgPointsPerGame: globalStats.avgPointsPerGame || 0,
+          avgStrichePerGame: globalStats.avgStrichePerGame || 0,
+          avgMatschPerGame: 0,
+          avgSchneiderPerGame: 0,
+          avgWeisPointsPerGame: globalStats.avgWeisPerGame || 0,
+          avgKontermatschPerGame: 0,
+          totalTournamentsParticipated: 0,
+          totalTournamentGamesPlayed: 0,
+          tournamentWins: 0,
+          bestTournamentPlacement: null,
+          tournamentPlacements: [],
+          highestPointsGame: null,
+          highestStricheGame: null,
+          mostMatschGame: null,
+          mostSchneiderGame: null,
+          mostWeisPointsGame: null,
+          mostKontermatschMadeGame: null,
+          longestWinStreakGames: null,
+          lowestPointsGame: null,
+          highestStricheReceivedGame: null,
+          mostMatschReceivedGame: null,
+          mostSchneiderReceivedGame: null,
+          mostKontermatschReceivedGame: null,
+          mostWeisPointsReceivedGame: null,
+          longestLossStreakGames: null,
+          longestWinlessStreakGames: null,
+          highestPointsSession: null,
+          highestStricheSession: null,
+          longestWinStreakSessions: null,
+          lowestPointsSession: null,
+          highestStricheReceivedSession: null,
+          mostMatschReceivedSession: null,
+          mostWeisPointsReceivedSession: null,
+          longestLossStreakSessions: null,
+          longestWinlessStreakSessions: null,
+          highlights: [],
+          partnerAggregates,
+          opponentAggregates,
+        };
+        
+        set((state) => {
+          state.stats = combinedStats;
+          state.isLoading = false;
+          state.error = null;
+        });
+        
+        // Setup listener für Real-Time Updates
+        const unsubscribe = onSnapshot(playerRootRef, (docSnap) => {
+          // TODO: Update logic für Real-Time Updates
+        });
+        
+        set((state) => {
+          state.activeListenerUnsubscribe = unsubscribe;
+        });
+        
+      } catch (err: any) {
+        console.error(`[PlayerStatsStore] Error loading stats for ${playerId}:`, err);
+        set((state) => {
+          state.error = "Spielerstatistiken konnten nicht geladen werden.";
+          state.isLoading = false;
+          state.stats = null;
+        });
+      }
     },
 
     unsubscribePlayerStats: () => {

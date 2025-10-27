@@ -219,7 +219,9 @@ const ProfilePage: React.FC = () => {
 
   useEffect(() => {
     if (status === 'authenticated' && user?.playerId) {
-      subscribeToPlayerStats(user.playerId);
+      subscribeToPlayerStats(user.playerId).catch(err => {
+        console.error('Error subscribing to player stats:', err);
+      });
     }
     
     // Cleanup für Listener

@@ -1,12 +1,13 @@
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 import { getRatingTier } from './shared/rating-tiers';
+import { ScoresHistoryEntry } from './models/unified-player-data.model';
 
 const db = admin.firestore();
 
 // Elo-Parameter (synchron zum Frontend/Script)
 const JASS_ELO_CONFIG = {
-  K_TARGET: 10,          // 🔧 KORREKTUR: Synchronisiert mit cleanRebuildRatingHistoryFinal.ts
+  K_TARGET: 15,          // 🔧 KORREKTUR: Synchronisiert mit recalculateEloRatingHistoryV2.ts
   DEFAULT_RATING: 100,   
   ELO_SCALE: 1000,        // Beibehalten: Skala 1000 für optimale Spreizung
 } as const;
@@ -14,18 +15,11 @@ const JASS_ELO_CONFIG = {
 type PlayerRatingDoc = {
   rating: number;
   gamesPlayed: number;
-  lastUpdated: number;
   displayName?: string;
   tier?: string;
   tierEmoji?: string;
-  lastDelta?: number;
-  // 🆕 SESSION-DELTA TRACKING
+  // ✅ SESSION-DELTA TRACKING
   lastSessionDelta?: number;  // Delta der letzten Session (Summe aller Spiele)
-  // 🆕 PEAK/LOW TRACKING
-  peakRating?: number;        // Höchste je erreichte Wertung
-  peakRatingDate?: number;    // Timestamp wann Peak erreicht wurde
-  lowestRating?: number;      // Tiefste je erreichte Wertung  
-  lowestRatingDate?: number;  // Timestamp wann Low erreicht wurde
 };
 
 function expectedScore(ratingA: number, ratingB: number): number {
@@ -79,7 +73,8 @@ export async function updateEloForSession(groupId: string, sessionId: string): P
   }
 
   // Spiele laden: bevorzugt completedGames Subcollection, sonst gameResults
-  const games: Array<{ stricheTop: number; stricheBottom: number; }> = [];
+  const games: Array<{ stricheTop: number; stricheBottom: number; completedAt: admin.firestore.Timestamp | null; }> = [];
+  const completedGames: any[] = []; // ✅ NEU: Vollständige Game-Daten für ScoresHistory
 
   // completedGames
   const cgSnap = await summaryRef.collection('completedGames').orderBy('gameNumber', 'asc').get();
@@ -88,14 +83,17 @@ export async function updateEloForSession(groupId: string, sessionId: string): P
       const g = doc.data() as any;
       const stricheTop = sumStriche(g.finalStriche?.top);
       const stricheBottom = sumStriche(g.finalStriche?.bottom);
-      games.push({ stricheTop, stricheBottom });
+      // ✅ KORREKTUR: Lade auch completedAt Timestamp!
+      const completedAt = g.completedAt || g.timestampCompleted || null;
+      games.push({ stricheTop, stricheBottom, completedAt });
+      completedGames.push(g); // ✅ NEU: Speichere vollständiges Game
     });
   } else if (Array.isArray(summary?.gameResults) && summary?.finalStriche) {
     // Fallback: Session-Level gameResults + finale Striche summieren
     // Wenn finalStriche auf Spielebene fehlen, nehmen wir am Ende wenigstens eine Session-aggregierte Bewertung vor: 1 Spiel
     const stricheTop = sumStriche(summary.finalStriche?.top);
     const stricheBottom = sumStriche(summary.finalStriche?.bottom);
-    games.push({ stricheTop, stricheBottom });
+    games.push({ stricheTop, stricheBottom, completedAt: null });
   }
 
   if (games.length === 0) {
@@ -114,30 +112,23 @@ export async function updateEloForSession(groupId: string, sessionId: string): P
     if (snap.exists) {
       const d = snap.data();
       const currentRating = d?.globalRating || JASS_ELO_CONFIG.DEFAULT_RATING;
-      ratingMap.set(pid, {
+      
+      // ✅ FIX: Erstelle sauberes Objekt ohne alte Felder
+      const cleanRatingData: PlayerRatingDoc & { oldRating: number } = {
         rating: currentRating,
         oldRating: currentRating, // ✅ Ursprüngliches Rating merken
         gamesPlayed: d?.totalGamesPlayed || 0,
-        lastUpdated: d?.lastGlobalRatingUpdate?.toMillis() || Date.now(),
         displayName: d?.displayName || displayNameMap.get(pid),
-        // 🆕 PEAK/LOW Werte laden (falls vorhanden)
-        peakRating: d?.peakRating || currentRating,
-        peakRatingDate: d?.peakRatingDate,
-        lowestRating: d?.lowestRating || currentRating,
-        lowestRatingDate: d?.lowestRatingDate,
-      });
+        // ✅ Explizit KEINE peak/low Felder mehr laden
+      };
+      
+      ratingMap.set(pid, cleanRatingData);
     } else {
       ratingMap.set(pid, {
         rating: JASS_ELO_CONFIG.DEFAULT_RATING,
         oldRating: JASS_ELO_CONFIG.DEFAULT_RATING, // ✅ Ursprüngliches Rating merken
         gamesPlayed: 0,
-        lastUpdated: Date.now(),
         displayName: displayNameMap.get(pid),
-        // 🆕 PEAK/LOW für neue Spieler: Start bei DEFAULT_RATING
-        peakRating: JASS_ELO_CONFIG.DEFAULT_RATING,
-        peakRatingDate: Date.now(),
-        lowestRating: JASS_ELO_CONFIG.DEFAULT_RATING,
-        lowestRatingDate: Date.now(),
       });
     }
   }
@@ -158,27 +149,25 @@ export async function updateEloForSession(groupId: string, sessionId: string): P
     const deltaPerTopPlayer = delta / topPlayers.length;
     const deltaPerBottomPlayer = -delta / bottomPlayers.length;
 
-    // Update Ratings für dieses Spiel
-    for (const pid of topPlayers) {
-      const r = ratingMap.get(pid)!;
-      r.rating = r.rating + deltaPerTopPlayer;
-      r.gamesPlayed += 1;
-      r.lastUpdated = Date.now();
-      ratingMap.set(pid, r);
-      
-      // 🆕 SESSION-DELTA: Akkumuliere Delta für Session
-      sessionDeltaMap.set(pid, (sessionDeltaMap.get(pid) || 0) + deltaPerTopPlayer);
-    }
-    for (const pid of bottomPlayers) {
-      const r = ratingMap.get(pid)!;
-      r.rating = r.rating + deltaPerBottomPlayer;
-      r.gamesPlayed += 1;
-      r.lastUpdated = Date.now();
-      ratingMap.set(pid, r);
-      
-      // 🆕 SESSION-DELTA: Akkumuliere Delta für Session
-      sessionDeltaMap.set(pid, (sessionDeltaMap.get(pid) || 0) + deltaPerBottomPlayer);
-    }
+  // Update Ratings für dieses Spiel
+  for (const pid of topPlayers) {
+    const r = ratingMap.get(pid)!;
+    r.rating = r.rating + deltaPerTopPlayer;
+    r.gamesPlayed += 1;
+    ratingMap.set(pid, r);
+    
+    // 🆕 SESSION-DELTA: Akkumuliere Delta für Session
+    sessionDeltaMap.set(pid, (sessionDeltaMap.get(pid) || 0) + deltaPerTopPlayer);
+  }
+  for (const pid of bottomPlayers) {
+    const r = ratingMap.get(pid)!;
+    r.rating = r.rating + deltaPerBottomPlayer;
+    r.gamesPlayed += 1;
+    ratingMap.set(pid, r);
+    
+    // 🆕 SESSION-DELTA: Akkumuliere Delta für Session
+    sessionDeltaMap.set(pid, (sessionDeltaMap.get(pid) || 0) + deltaPerBottomPlayer);
+  }
   }
 
   // Schreiben: global + gruppenspezifisch
@@ -187,111 +176,173 @@ export async function updateEloForSession(groupId: string, sessionId: string): P
     // 🆕 Tier berechnen für aktuelles Rating
     const tierInfo = getRatingTier(val.rating);
     
-    // ✅ KORRIGIERT: Delta berechnen - GESAMTES DELTA DER SESSION!
-    const totalDelta = Math.round(val.rating - val.oldRating);
+    // ✅ SESSION-DELTA: Summe aller Spiele in dieser Session
     const sessionDelta = Math.round(sessionDeltaMap.get(pid) || 0);
-    
-    // 🆕 PEAK/LOW TRACKING
-    const currentPeak = val.peakRating || 100;
-    const currentLow = val.lowestRating || 100;
-    const newPeak = Math.max(val.rating, currentPeak);
-    const newLow = Math.min(val.rating, currentLow);
     
     const docData: any = {
       globalRating: val.rating, // ✅ KUMULATIVE GLOBAL RATING!
-      gamesPlayed: val.gamesPlayed,
-      lastUpdated: Date.now(),
+      totalGamesPlayed: val.gamesPlayed, // ✅ KONSISTENT: Vereinheitlicht mit Tournaments
       displayName: val.displayName,
       tier: tierInfo.name,
       tierEmoji: tierInfo.emoji,
-      lastDelta: totalDelta,
-      // 🆕 SESSION-DELTA: Speichere Session-Delta separat
+      // ✅ SESSION-DELTA: Speichere Session-Delta (für Profilbild-Anzeige)
       lastSessionDelta: sessionDelta,
-      // 🆕 PEAK/LOW TRACKING: Immer die korrekten Werte setzen
-      peakRating: newPeak,
-      lowestRating: newLow,
+      // ✅ GLOBAL-RATING-UPDATE: Timestamp des letzten Elo-Updates
+      lastGlobalRatingUpdate: admin.firestore.Timestamp.now(),
     };
     
-    // Füge peakRatingDate nur hinzu, wenn es einen Wert hat
-    if (newPeak > currentPeak) {
-      docData.peakRatingDate = Date.now();
-    } else if (val.peakRatingDate) {
-      docData.peakRatingDate = val.peakRatingDate;
-    }
-    
-    // Füge lowestRatingDate nur hinzu, wenn es einen Wert hat
-    if (newLow < currentLow) {
-      docData.lowestRatingDate = Date.now();
-    } else if (val.lowestRatingDate) {
-      docData.lowestRatingDate = val.lowestRatingDate;
-    }
     // ✅ SINGLE SOURCE OF TRUTH: Schreibe nur noch in players/*
     batch.set(db.collection('players').doc(pid), docData, { merge: true });
     // ❌ ENTFERNT: Gruppen-spezifische Kopie - nicht mehr nötig!
   });
 
   // 🆕 RATING-HISTORY: Erstelle Game-by-Game History für alle Spieler
+  // ✅ KORRIGIERT: Verwende bereits aktualisierte Ratings aus der Hauptschleife
+  
+  // Erstelle temporäre Map für Game-by-Game Ratings
+  const gameByGameRatings = new Map<string, Array<{rating: number, delta: number, gameNumber: number}>>();
+  
+  // Initialisiere für alle Spieler
+  [...topPlayers, ...bottomPlayers].forEach(pid => {
+    gameByGameRatings.set(pid, []);
+  });
+  
+  // Simuliere Game-by-Game Rating-Updates
+  const tempRatingMap = new Map<string, {rating: number, gamesPlayed: number}>();
+  [...topPlayers, ...bottomPlayers].forEach(pid => {
+    const initialRating = ratingMap.get(pid)?.rating || JASS_ELO_CONFIG.DEFAULT_RATING;
+    tempRatingMap.set(pid, {rating: initialRating, gamesPlayed: 0});
+  });
+  
   for (let gameIndex = 0; gameIndex < games.length; gameIndex++) {
     const game = games[gameIndex];
     const gameNumber = gameIndex + 1;
     
-    // Timestamp für dieses Spiel interpolieren
-    const sessionStart = summary?.startedAt?.toDate?.() || new Date();
-    const sessionEnd = summary?.endedAt?.toDate?.() || new Date();
-    const sessionDuration = sessionEnd.getTime() - sessionStart.getTime();
-    const gameTimestamp = new Date(sessionStart.getTime() + (sessionDuration * gameIndex / games.length));
+    // Berechne Team-Ratings vor diesem Spiel
+    const teamTopRating = topPlayers.reduce((sum, pid) => sum + tempRatingMap.get(pid)!.rating, 0) / topPlayers.length;
+    const teamBottomRating = bottomPlayers.reduce((sum, pid) => sum + tempRatingMap.get(pid)!.rating, 0) / bottomPlayers.length;
     
-    // Rating-History für Top-Team
+    const expectedTop = expectedScore(teamTopRating, teamBottomRating);
+    const actualTop = stricheScore(game.stricheTop, game.stricheBottom);
+    const delta = JASS_ELO_CONFIG.K_TARGET * (actualTop - expectedTop);
+    const deltaPerTopPlayer = delta / topPlayers.length;
+    const deltaPerBottomPlayer = -delta / bottomPlayers.length;
+    
+    // Update temporäre Ratings und sammle History-Daten
     for (const pid of topPlayers) {
-      const playerRating = ratingMap.get(pid);
-      if (playerRating) {
-        // Berechne Rating nach diesem Spiel
-        const teamTopRating = topPlayers.reduce((sum, p) => sum + (ratingMap.get(p)?.rating || JASS_ELO_CONFIG.DEFAULT_RATING), 0) / topPlayers.length;
-        const teamBottomRating = bottomPlayers.reduce((sum, p) => sum + (ratingMap.get(p)?.rating || JASS_ELO_CONFIG.DEFAULT_RATING), 0) / bottomPlayers.length;
-        const expectedTop = expectedScore(teamTopRating, teamBottomRating);
-        const actualTop = stricheScore(game.stricheTop, game.stricheBottom);
-        const delta = JASS_ELO_CONFIG.K_TARGET * (actualTop - expectedTop);
-        const deltaPerPlayer = delta / topPlayers.length;
-        
-        const historyData = {
-          rating: playerRating.rating + deltaPerPlayer,
-          delta: deltaPerPlayer,
-          eventType: 'game',
-          gameNumber: gameNumber,
-          createdAt: admin.firestore.Timestamp.fromDate(gameTimestamp),
-          sessionId: sessionId,
-          groupId: groupId,
-        };
-        
-        batch.set(db.collection(`players/${pid}/ratingHistory`).doc(), historyData);
-      }
+      const currentRating = tempRatingMap.get(pid)!;
+      currentRating.rating += deltaPerTopPlayer;
+      currentRating.gamesPlayed += 1;
+      
+      gameByGameRatings.get(pid)!.push({
+        rating: currentRating.rating,
+        delta: deltaPerTopPlayer,
+        gameNumber: gameNumber
+      });
     }
     
-    // Rating-History für Bottom-Team
     for (const pid of bottomPlayers) {
-      const playerRating = ratingMap.get(pid);
-      if (playerRating) {
-        // Berechne Rating nach diesem Spiel
-        const teamTopRating = topPlayers.reduce((sum, p) => sum + (ratingMap.get(p)?.rating || JASS_ELO_CONFIG.DEFAULT_RATING), 0) / topPlayers.length;
-        const teamBottomRating = bottomPlayers.reduce((sum, p) => sum + (ratingMap.get(p)?.rating || JASS_ELO_CONFIG.DEFAULT_RATING), 0) / bottomPlayers.length;
-        const expectedTop = expectedScore(teamTopRating, teamBottomRating);
-        const actualTop = stricheScore(game.stricheTop, game.stricheBottom);
-        const delta = JASS_ELO_CONFIG.K_TARGET * (actualTop - expectedTop);
-        const deltaPerPlayer = -delta / bottomPlayers.length;
+      const currentRating = tempRatingMap.get(pid)!;
+      currentRating.rating += deltaPerBottomPlayer;
+      currentRating.gamesPlayed += 1;
+      
+      gameByGameRatings.get(pid)!.push({
+        rating: currentRating.rating,
+        delta: deltaPerBottomPlayer,
+        gameNumber: gameNumber
+      });
+    }
+  }
+  
+  // Schreibe Rating-History & Scores-History Einträge (PRO SPIEL!)
+  for (let gameIndex = 0; gameIndex < games.length; gameIndex++) {
+    const game = games[gameIndex];
+    const completedGame = completedGames[gameIndex]; // ✅ Vollständige Game-Daten
+    
+    // ✅ KORREKTUR: Verwende echte completedAt Timestamp aus completedGames!
+    let gameTimestamp: Date;
+    
+    if (game.completedAt) {
+      // Verwende echten Timestamp aus completedGames
+      gameTimestamp = game.completedAt.toDate();
+    } else {
+      // Fallback: Interpoliere nur wenn kein completedAt verfügbar
+      logger.warn(`[Elo] No completedAt for game ${gameIndex + 1}, falling back to interpolation`);
+      const sessionStart = summary?.startedAt?.toDate?.() || new Date();
+      const sessionEnd = summary?.endedAt?.toDate?.() || new Date();
+      const sessionDuration = sessionEnd.getTime() - sessionStart.getTime();
+      gameTimestamp = new Date(sessionStart.getTime() + (sessionDuration * gameIndex / games.length));
+    }
+    
+    const gameTimestampFirestore = admin.firestore.Timestamp.fromDate(gameTimestamp);
+    
+    // Schreibe Rating-History & Scores-History für alle Spieler
+    [...topPlayers, ...bottomPlayers].forEach(pid => {
+      const gameData = gameByGameRatings.get(pid)![gameIndex];
+      if (!gameData) return;
+      
+      const isTopPlayer = topPlayers.includes(pid);
+      const teamKey = isTopPlayer ? 'top' : 'bottom';
+      const opponentTeamKey = isTopPlayer ? 'bottom' : 'top';
+      
+      // ✅ RATING-HISTORY (existing)
+      const ratingHistoryData = {
+        rating: gameData.rating,
+        delta: gameData.delta,
+        eventType: 'game',
+        gameNumber: gameData.gameNumber,
+        createdAt: gameTimestampFirestore,
+        completedAt: gameTimestampFirestore,
+        sessionId: sessionId,
+        groupId: groupId,
+      };
+      batch.set(db.collection(`players/${pid}/ratingHistory`).doc(), ratingHistoryData);
+      
+      // ✅ SCORES-HISTORY (NEU!)
+      if (completedGame) {
+        // Striche-Differenz
+        const playerStriche = sumStriche(completedGame.finalStriche?.[teamKey]);
+        const opponentStriche = sumStriche(completedGame.finalStriche?.[opponentTeamKey]);
+        const stricheDiff = playerStriche - opponentStriche;
         
-        const historyData = {
-          rating: playerRating.rating + deltaPerPlayer,
-          delta: deltaPerPlayer,
+        // Punkte-Differenz
+        const playerPoints = completedGame.finalScores?.[teamKey] || 0;
+        const opponentPoints = completedGame.finalScores?.[opponentTeamKey] || 0;
+        const pointsDiff = playerPoints - opponentPoints;
+        
+        // Win/Loss (NO draw on game level!)
+        const wins = pointsDiff > 0 ? 1 : 0;
+        const losses = pointsDiff < 0 ? 1 : 0;
+        
+        // Event-Bilanz
+        const playerEvents = completedGame.eventCounts?.[teamKey];
+        const opponentEvents = completedGame.eventCounts?.[opponentTeamKey];
+        const matschBilanz = (playerEvents?.matsch || 0) - (opponentEvents?.matsch || 0);
+        const schneiderBilanz = (playerEvents?.schneider || 0) - (opponentEvents?.schneider || 0);
+        const kontermatschBilanz = (playerEvents?.kontermatsch || 0) - (opponentEvents?.kontermatsch || 0);
+        
+        // Weis-Differenz (TODO: Weis pro Player aus completedGame extrahieren)
+        const weisDifference = 0; // Placeholder
+        
+        const scoresEntry: ScoresHistoryEntry = {
+          completedAt: gameTimestampFirestore,
+          groupId,
+          tournamentId: null,
+          gameNumber: gameData.gameNumber,
+          stricheDiff,
+          pointsDiff,
+          wins,
+          losses,
+          matschBilanz,
+          schneiderBilanz,
+          kontermatschBilanz,
+          weisDifference,
           eventType: 'game',
-          gameNumber: gameNumber,
-          createdAt: admin.firestore.Timestamp.fromDate(gameTimestamp),
-          sessionId: sessionId,
-          groupId: groupId,
         };
         
-        batch.set(db.collection(`players/${pid}/ratingHistory`).doc(), historyData);
+        batch.set(db.collection(`players/${pid}/scoresHistory`).doc(), scoresEntry);
       }
-    }
+    });
   }
 
   // Marker an Session
@@ -319,77 +370,78 @@ async function updateGroupChartData(groupId: string): Promise<void> {
       return;
     }
     
-    // Chart-Daten aus players/{playerId}/ratingHistory generieren
+    // 🎯 NEUE METHODE: Chart-Daten aus jassGameSummaries generieren
+    const sessionsSnap = await db.collection(`groups/${groupId}/jassGameSummaries`)
+      .orderBy('completedAt', 'asc')
+      .get();
+    
+    if (sessionsSnap.empty) {
+      logger.warn(`[ChartData] No sessions found for group ${groupId}`);
+      return;
+    }
+    
+    // Spieler-Daten sammeln
+    const playerDataMap = new Map<string, {
+      memberId: string;
+      memberData: any;
+      currentRating: number;
+      ratings: number[];
+    }>();
+    const allLabels = new Set<string>();
+    
+    // Initialisiere alle Spieler
+    for (const memberId of memberIds) {
+      const memberDoc = membersSnap.docs.find(doc => doc.id === memberId);
+      const memberData = memberDoc?.data();
+      
+      // Aktuelles Rating aus players-Collection holen
+      const playerDoc = await db.collection('players').doc(memberId).get();
+      const playerDocData = playerDoc.data();
+      const currentRating = playerDocData?.globalRating || playerDocData?.rating || 100;
+      
+      playerDataMap.set(memberId, {
+        memberId,
+        memberData,
+        currentRating,
+        ratings: []
+      });
+    }
+    
+    // Durch alle Sessions gehen und finale Ratings sammeln
+    sessionsSnap.docs.forEach(doc => {
+      const sessionData = doc.data();
+      const playerFinalRatings = sessionData.playerFinalRatings || {};
+      const sessionDate = sessionData.completedAt?.toDate?.() || new Date();
+      const label = sessionDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
+      
+      allLabels.add(label);
+      
+      // Für jeden Spieler den finalen Rating-Wert nehmen
+      Object.entries(playerFinalRatings).forEach(([playerId, ratingData]) => {
+        const playerData = playerDataMap.get(playerId);
+        if (playerData && ratingData && typeof ratingData === 'object' && 'rating' in ratingData && typeof ratingData.rating === 'number') {
+          playerData.ratings.push(ratingData.rating);
+        }
+      });
+    });
+    
+    // ✅ Chart-Datasets generieren OHNE Farben (Farben werden im Frontend generiert)
     const playerData: Array<{
       memberId: string;
       memberData: any;
       currentRating: number;
       dataset: any;
     }> = [];
-    const allLabels = new Set<string>();
     
-    for (const memberId of memberIds) {
-      const memberDoc = membersSnap.docs.find(doc => doc.id === memberId);
-      const memberData = memberDoc?.data();
-      
-      // 🎯 AKTUELLES RATING aus players-Collection holen
-      const playerDoc = await db.collection('players').doc(memberId).get();
-      const playerDocData = playerDoc.data();
-      const currentRating = playerDocData?.globalRating || playerDocData?.rating || 100;
-      
-      // Rating-Historie für diesen Spieler laden
-      const historySnap = await db.collection(`players/${memberId}/ratingHistory`)
-        .orderBy('createdAt', 'asc')
-        .get();
-      
-      if (historySnap.empty) {
-        continue; // Spieler ohne Historie überspringen
-      }
-      
-      // Datenpunkte sammeln
-      const dataPoints: (number | null)[] = [];
-      const labels: string[] = [];
-      
-      historySnap.docs.forEach(doc => {
-        const data = doc.data();
-        const rating = data.rating;
-        const timestamp = data.createdAt;
-        
-        if (typeof rating === 'number' && timestamp) {
-          const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-          const label = date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
-          
-          dataPoints.push(rating);
-          labels.push(label);
-          allLabels.add(label);
-        }
-      });
-      
-      if (dataPoints.length > 0) {
-        // Farbe basierend auf Spieler-Index
-        const colors = [
-          { bg: 'rgba(5, 150, 105, 0.1)', border: '#059669' }, // Grün
-          { bg: 'rgba(234, 88, 12, 0.1)', border: '#ea580c' }, // Orange
-          { bg: 'rgba(59, 130, 246, 0.1)', border: '#3b82f6' }, // Blau
-          { bg: 'rgba(220, 38, 38, 0.1)', border: '#dc2626' }, // Rot
-          { bg: 'rgba(147, 51, 234, 0.1)', border: '#9333ea' }, // Lila
-          { bg: 'rgba(236, 72, 153, 0.1)', border: '#ec4899' }, // Pink
-          { bg: 'rgba(245, 158, 11, 0.1)', border: '#f59e0b' }, // Gelb
-          { bg: 'rgba(16, 185, 129, 0.1)', border: '#10b981' }, // Türkis
-          { bg: 'rgba(139, 92, 246, 0.1)', border: '#8b5cf6' }, // Violett
-          { bg: 'rgba(239, 68, 68, 0.1)', border: '#ef4444' }, // Rot-Orange
-        ];
-        
-        const colorIndex = playerData.length % colors.length;
-        const color = colors[colorIndex];
-        
+    playerDataMap.forEach((playerDataItem, memberId) => {
+      if (playerDataItem.ratings.length > 0) {
+        // ✅ KEINE Farben mehr - Frontend übernimmt das!
         const dataset = {
-          label: memberData?.displayName || `Spieler_${memberId.slice(0, 6)}`,
-          data: dataPoints,
-          backgroundColor: color.bg,
-          borderColor: color.border,
+          label: playerDataItem.memberData?.displayName || `Spieler_${memberId.slice(0, 6)}`,
+          data: playerDataItem.ratings,
           playerId: memberId,
-          displayName: memberData?.displayName || `Spieler_${memberId.slice(0, 6)}`,
+          displayName: playerDataItem.memberData?.displayName || `Spieler_${memberId.slice(0, 6)}`,
+          // ℹ️ Farben werden im Frontend basierend auf Theme generiert
           pointRadius: 2,
           pointHoverRadius: 4,
           tension: 0.1,
@@ -398,12 +450,12 @@ async function updateGroupChartData(groupId: string): Promise<void> {
         
         playerData.push({
           memberId,
-          memberData,
-          currentRating,
+          memberData: playerDataItem.memberData,
+          currentRating: playerDataItem.currentRating,
           dataset
         });
       }
-    }
+    });
     
     // 🎯 SORTIERE Spieler nach aktuellem Rating (höchstes zuerst)
     playerData.sort((a, b) => b.currentRating - a.currentRating);
@@ -429,7 +481,7 @@ async function updateGroupChartData(groupId: string): Promise<void> {
       totalSessions: sortedLabels.length,
     };
     
-    await db.doc(`groups/${groupId}/aggregated/chartData`).set(chartData);
+    await db.doc(`groups/${groupId}/aggregated/chartData_elo`).set(chartData);
     logger.info(`[ChartData] Updated for group ${groupId} with ${chartDatasets.length} players and ${sortedLabels.length} sessions`);
   } catch (error) {
     logger.error(`[ChartData] Failed to update for group ${groupId}:`, error);
@@ -470,24 +522,14 @@ export async function updateEloForTournament(tournamentId: string, participantPl
         rating: currentRating,
         oldRating: currentRating,
         gamesPlayed: d?.totalGamesPlayed || 0,
-        lastUpdated: d?.lastGlobalRatingUpdate?.toMillis() || Date.now(),
         displayName: d?.displayName || displayNameMap.get(pid),
-        peakRating: d?.peakRating || currentRating,
-        peakRatingDate: d?.peakRatingDate,
-        lowestRating: d?.lowestRating || currentRating,
-        lowestRatingDate: d?.lowestRatingDate,
       });
     } else {
       ratingMap.set(pid, {
         rating: JASS_ELO_CONFIG.DEFAULT_RATING,
         oldRating: JASS_ELO_CONFIG.DEFAULT_RATING,
         gamesPlayed: 0,
-        lastUpdated: Date.now(),
         displayName: displayNameMap.get(pid),
-        peakRating: JASS_ELO_CONFIG.DEFAULT_RATING,
-        peakRatingDate: Date.now(),
-        lowestRating: JASS_ELO_CONFIG.DEFAULT_RATING,
-        lowestRatingDate: Date.now(),
       });
     }
   }
@@ -543,7 +585,6 @@ export async function updateEloForTournament(tournamentId: string, participantPl
       const r = ratingMap.get(pid)!;
       r.rating = r.rating + deltaPerTopPlayer;
       r.gamesPlayed += 1;
-      r.lastUpdated = Date.now();
       ratingMap.set(pid, r);
       
       // Tournament-Delta akkumulieren
@@ -554,7 +595,6 @@ export async function updateEloForTournament(tournamentId: string, participantPl
       const r = ratingMap.get(pid)!;
       r.rating = r.rating + deltaPerBottomPlayer;
       r.gamesPlayed += 1;
-      r.lastUpdated = Date.now();
       ratingMap.set(pid, r);
       
       // Tournament-Delta akkumulieren
@@ -567,34 +607,24 @@ export async function updateEloForTournament(tournamentId: string, participantPl
   ratingMap.forEach((val, pid) => {
     const tierInfo = getRatingTier(val.rating);
     
-    const totalDelta = Math.round(val.rating - val.oldRating);
+    // ✅ TOURNAMENT-DELTA: Summe aller Passen in diesem Turnier
     const tournamentDelta = Math.round(tournamentDeltaMap.get(pid) || 0);
     
-    // Peak/Low tracking
-    const currentPeak = val.peakRating || 100;
-    const currentLow = val.lowestRating || 100;
-    const newPeak = Math.max(val.rating, currentPeak);
-    const newLow = Math.min(val.rating, currentLow);
-    
-    const docData: PlayerRatingDoc = {
-      rating: val.rating,
-      gamesPlayed: val.gamesPlayed,
-      lastUpdated: Date.now(),
+    const docData: any = {
+      globalRating: val.rating,
+      totalGamesPlayed: val.gamesPlayed,
       displayName: val.displayName,
       tier: tierInfo.name,
       tierEmoji: tierInfo.emoji,
-      lastDelta: totalDelta,
-      lastSessionDelta: tournamentDelta, // Für Turniere auch als "Session-Delta" gespeichert
-      peakRating: newPeak,
-      peakRatingDate: newPeak > currentPeak ? Date.now() : val.peakRatingDate,
-      lowestRating: newLow,
-      lowestRatingDate: newLow < currentLow ? Date.now() : val.lowestRatingDate,
+      // ✅ TOURNAMENT-DELTA: Speichere als "Session-Delta" (für Profilbild-Anzeige)
+      lastSessionDelta: tournamentDelta,
+      lastGlobalRatingUpdate: admin.firestore.Timestamp.now(),
     };
     
     batch.set(db.collection('players').doc(pid), docData, { merge: true });
   });
 
-  // Rating-History: Erstelle Passe-by-Passe History für alle Spieler
+  // Rating-History & Scores-History: Erstelle Passe-by-Passe History für alle Spieler (PRO SPIEL!)
   for (let gameIndex = 0; gameIndex < games.length; gameIndex++) {
     const game = games[gameIndex];
     const gameData = game.data;
@@ -619,60 +649,223 @@ export async function updateEloForTournament(tournamentId: string, participantPl
     const teamStriche = gameData.teamStrichePasse || {};
     const stricheTop = sumStriche(teamStriche.top);
     const stricheBottom = sumStriche(teamStriche.bottom);
-
-    // Rating-History für Top-Team
-    for (const pid of topPlayers) {
-      const playerRating = ratingMap.get(pid);
-      if (playerRating) {
-        const teamTopRating = topPlayers.reduce((sum, p) => sum + (ratingMap.get(p)?.rating || JASS_ELO_CONFIG.DEFAULT_RATING), 0) / topPlayers.length;
-        const teamBottomRating = bottomPlayers.reduce((sum, p) => sum + (ratingMap.get(p)?.rating || JASS_ELO_CONFIG.DEFAULT_RATING), 0) / bottomPlayers.length;
-        const expectedTop = expectedScore(teamTopRating, teamBottomRating);
-        const actualTop = stricheScore(stricheTop, stricheBottom);
-        const delta = JASS_ELO_CONFIG.K_TARGET * (actualTop - expectedTop);
-        const deltaPerPlayer = delta / topPlayers.length;
-        
-        const historyData = {
-          rating: playerRating.rating + deltaPerPlayer,
-          delta: deltaPerPlayer,
-          eventType: 'tournament_passe',
-          eventId: `tournament_${tournamentId}_passe_${passeNumber}`,
-          createdAt: game.completedAt,
-          tournamentId: tournamentId,
-          passeNumber: passeNumber,
-        };
-        
-        batch.set(db.collection(`players/${pid}/ratingHistory`).doc(), historyData);
-      }
-    }
     
-    // Rating-History für Bottom-Team
-    for (const pid of bottomPlayers) {
+    // Punkte für diese Passe
+    const pointsTop = gameData.finalScores?.top || 0;
+    const pointsBottom = gameData.finalScores?.bottom || 0;
+
+    // Rating-History & Scores-History für ALLE Spieler (Top + Bottom)
+    [...topPlayers, ...bottomPlayers].forEach(pid => {
       const playerRating = ratingMap.get(pid);
-      if (playerRating) {
-        const teamTopRating = topPlayers.reduce((sum, p) => sum + (ratingMap.get(p)?.rating || JASS_ELO_CONFIG.DEFAULT_RATING), 0) / topPlayers.length;
-        const teamBottomRating = bottomPlayers.reduce((sum, p) => sum + (ratingMap.get(p)?.rating || JASS_ELO_CONFIG.DEFAULT_RATING), 0) / bottomPlayers.length;
-        const expectedTop = expectedScore(teamTopRating, teamBottomRating);
-        const actualTop = stricheScore(stricheTop, stricheBottom);
-        const delta = JASS_ELO_CONFIG.K_TARGET * (actualTop - expectedTop);
-        const deltaPerPlayer = -delta / bottomPlayers.length;
-        
-        const historyData = {
-          rating: playerRating.rating + deltaPerPlayer,
-          delta: deltaPerPlayer,
-          eventType: 'tournament_passe',
-          eventId: `tournament_${tournamentId}_passe_${passeNumber}`,
-          createdAt: game.completedAt,
-          tournamentId: tournamentId,
-          passeNumber: passeNumber,
-        };
-        
-        batch.set(db.collection(`players/${pid}/ratingHistory`).doc(), historyData);
-      }
-    }
+      if (!playerRating) return;
+      
+      const isTopPlayer = topPlayers.includes(pid);
+      const teamKey = isTopPlayer ? 'top' : 'bottom';
+      const opponentTeamKey = isTopPlayer ? 'bottom' : 'top';
+      
+      // Rating-Delta berechnen
+      const teamTopRating = topPlayers.reduce((sum, p) => sum + (ratingMap.get(p)?.rating || JASS_ELO_CONFIG.DEFAULT_RATING), 0) / topPlayers.length;
+      const teamBottomRating = bottomPlayers.reduce((sum, p) => sum + (ratingMap.get(p)?.rating || JASS_ELO_CONFIG.DEFAULT_RATING), 0) / bottomPlayers.length;
+      const expectedTop = expectedScore(teamTopRating, teamBottomRating);
+      const actualTop = stricheScore(stricheTop, stricheBottom);
+      const delta = JASS_ELO_CONFIG.K_TARGET * (actualTop - expectedTop);
+      const deltaPerPlayer = isTopPlayer ? (delta / topPlayers.length) : (-delta / bottomPlayers.length);
+      
+      // ✅ RATING-HISTORY (existing)
+      const ratingHistoryData = {
+        rating: playerRating.rating + deltaPerPlayer,
+        delta: deltaPerPlayer,
+        eventType: 'tournament_passe',
+        eventId: `tournament_${tournamentId}_passe_${passeNumber}`,
+        createdAt: game.completedAt,
+        completedAt: game.completedAt,
+        tournamentId: tournamentId,
+        passeNumber: passeNumber,
+      };
+      batch.set(db.collection(`players/${pid}/ratingHistory`).doc(), ratingHistoryData);
+      
+      // ✅ SCORES-HISTORY (NEU!)
+      // Striche-Differenz
+      const playerStriche = isTopPlayer ? stricheTop : stricheBottom;
+      const opponentStriche = isTopPlayer ? stricheBottom : stricheTop;
+      const stricheDiff = playerStriche - opponentStriche;
+      
+      // Punkte-Differenz
+      const playerPoints = isTopPlayer ? pointsTop : pointsBottom;
+      const opponentPoints = isTopPlayer ? pointsBottom : pointsTop;
+      const pointsDiff = playerPoints - opponentPoints;
+      
+      // Win/Loss (NO draw on game level!)
+      const wins = pointsDiff > 0 ? 1 : 0;
+      const losses = pointsDiff < 0 ? 1 : 0;
+      
+      // Event-Bilanz
+      const playerEvents = gameData.eventCounts?.[teamKey];
+      const opponentEvents = gameData.eventCounts?.[opponentTeamKey];
+      const matschBilanz = (playerEvents?.matsch || 0) - (opponentEvents?.matsch || 0);
+      const schneiderBilanz = (playerEvents?.schneider || 0) - (opponentEvents?.schneider || 0);
+      const kontermatschBilanz = (playerEvents?.kontermatsch || 0) - (opponentEvents?.kontermatsch || 0);
+      
+      // Weis-Differenz (TODO: Weis pro Player extrahieren)
+      const weisDifference = 0; // Placeholder
+      
+      const scoresEntry: ScoresHistoryEntry = {
+        completedAt: game.completedAt,
+        groupId: '',
+        tournamentId: tournamentId,
+        gameNumber: passeNumber,
+        stricheDiff,
+        pointsDiff,
+        wins,
+        losses,
+        matschBilanz,
+        schneiderBilanz,
+        kontermatschBilanz,
+        weisDifference,
+        eventType: 'game',
+      };
+      
+      batch.set(db.collection(`players/${pid}/scoresHistory`).doc(), scoresEntry);
+    });
   }
 
   await batch.commit();
   logger.info(`[Elo] Successfully updated Elo for tournament ${tournamentId} with ${participantPlayerIds.length} participants`);
+}
+
+/**
+ * 🆕 Aktualisiert Elo für eine einzelne Tournament-Passe (wird nach jeder Passe getriggert)
+ * Analog zu updateEloForSession, aber für eine einzelne Turnier-Passe
+ */
+export async function updateEloForSingleTournamentPasse(
+  tournamentId: string,
+  passeId: string
+): Promise<void> {
+  logger.info(`[Elo] Updating Elo for tournament ${tournamentId} passe ${passeId}`);
+
+  // Lade Passe-Daten
+  const passeRef = db.doc(`tournaments/${tournamentId}/games/${passeId}`);
+  const passeSnap = await passeRef.get();
+  
+  if (!passeSnap.exists) {
+    logger.warn(`[Elo] Passe ${passeId} not found in tournament ${tournamentId}`);
+    return;
+  }
+
+  const passeData = passeSnap.data() as any;
+  const passeNumber = passeData.passeNumber || 0;
+  
+  // Extrahiere Spieler-IDs und Teams
+  const topPlayers: string[] = passeData.teams?.top?.players?.map((p: any) => p.playerId).filter(Boolean) || [];
+  const bottomPlayers: string[] = passeData.teams?.bottom?.players?.map((p: any) => p.playerId).filter(Boolean) || [];
+  
+  if (topPlayers.length !== 2 || bottomPlayers.length !== 2) {
+    logger.warn(`[Elo] Invalid team structure for passe ${passeId}`);
+    return;
+  }
+
+  // Hole aktuelle Ratings für alle 4 Spieler
+  const allPlayers = [...topPlayers, ...bottomPlayers];
+  const displayNameMap = await loadDisplayNames(allPlayers);
+  const ratingMap = new Map<string, PlayerRatingDoc & { oldRating: number }>();
+  
+  for (const pid of allPlayers) {
+    const snap = await db.collection('players').doc(pid).get();
+    if (snap.exists) {
+      const d = snap.data();
+      const currentRating = d?.globalRating || JASS_ELO_CONFIG.DEFAULT_RATING;
+      ratingMap.set(pid, {
+        rating: currentRating,
+        oldRating: currentRating,
+        gamesPlayed: d?.gamesPlayed || 0,
+        displayName: d?.displayName || displayNameMap.get(pid),
+      });
+    } else {
+      ratingMap.set(pid, {
+        rating: JASS_ELO_CONFIG.DEFAULT_RATING,
+        oldRating: JASS_ELO_CONFIG.DEFAULT_RATING,
+        gamesPlayed: 0,
+        displayName: displayNameMap.get(pid),
+      });
+    }
+  }
+
+  // Berechne Striche für Teams
+  const stricheTop = sumStriche(passeData.finalStriche?.top);
+  const stricheBottom = sumStriche(passeData.finalStriche?.bottom);
+
+  // Berechne Team-Ratings
+  const teamTopRating = topPlayers.reduce((sum, pid) => sum + (ratingMap.get(pid)?.rating || JASS_ELO_CONFIG.DEFAULT_RATING), 0) / topPlayers.length;
+  const teamBottomRating = bottomPlayers.reduce((sum, pid) => sum + (ratingMap.get(pid)?.rating || JASS_ELO_CONFIG.DEFAULT_RATING), 0) / bottomPlayers.length;
+
+  // Berechne Elo-Änderung
+  const expectedTop = expectedScore(teamTopRating, teamBottomRating);
+  const actualTop = stricheScore(stricheTop, stricheBottom);
+  const delta = JASS_ELO_CONFIG.K_TARGET * (actualTop - expectedTop);
+  const deltaPerTopPlayer = delta / topPlayers.length;
+  const deltaPerBottomPlayer = -delta / bottomPlayers.length;
+
+  // Update Ratings in-memory
+  for (const pid of topPlayers) {
+    const r = ratingMap.get(pid)!;
+    r.rating = r.rating + deltaPerTopPlayer;
+    r.gamesPlayed += 1;
+    ratingMap.set(pid, r);
+  }
+  for (const pid of bottomPlayers) {
+    const r = ratingMap.get(pid)!;
+    r.rating = r.rating + deltaPerBottomPlayer;
+    r.gamesPlayed += 1;
+    ratingMap.set(pid, r);
+  }
+
+  // Schreibe zu Firestore
+  const batch = db.batch();
+  
+  // Update Player Documents
+  ratingMap.forEach((val, pid) => {
+    const tierInfo = getRatingTier(val.rating);
+    
+    // ✅ PASSE-DELTA: Gesamtänderung durch diese Passe (für Profilbild-Anzeige)
+    const passeDelta = Math.round(val.rating - val.oldRating);
+    
+    const docData: any = {
+      globalRating: val.rating,
+      totalGamesPlayed: val.gamesPlayed,
+      displayName: val.displayName,
+      tier: tierInfo.name,
+      tierEmoji: tierInfo.emoji,
+      // ✅ PASSE-DELTA: Speichere als "Session-Delta" für Profilbild-Anzeige
+      lastSessionDelta: passeDelta,
+      lastGlobalRatingUpdate: admin.firestore.Timestamp.now(),
+    };
+    
+    batch.set(db.collection('players').doc(pid), docData, { merge: true });
+  });
+
+  // Rating-History für alle Spieler
+  const completedAt = passeData.completedAt || admin.firestore.Timestamp.now();
+  
+  for (const pid of allPlayers) {
+    const playerRating = ratingMap.get(pid);
+    if (playerRating) {
+      const historyData = {
+        rating: playerRating.rating,
+        delta: Math.round(playerRating.rating - playerRating.oldRating),
+        eventType: 'tournament_passe',
+        eventId: `tournament_${tournamentId}_passe_${passeNumber}`,
+        createdAt: completedAt,
+        completedAt: completedAt,
+        tournamentId: tournamentId,
+        passeNumber: passeNumber,
+      };
+      
+      batch.set(db.collection(`players/${pid}/ratingHistory`).doc(), historyData);
+    }
+  }
+
+  await batch.commit();
+  logger.info(`[Elo] ✅ Successfully updated Elo for tournament ${tournamentId} passe ${passeNumber}`);
 }
 
 

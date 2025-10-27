@@ -1,9 +1,9 @@
 import { db } from '@/services/firebaseInit';
-import { doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 
 /**
  * 🌍 GLOBALE SCHNEIDER-BILANZ ZEITREIHE - Über alle Gruppen & Turniere hinweg
- * Quelle: playerScores/{playerId}.global.history (schneiderBilanz)
+ * Quelle: players/{playerId}/scoresHistory (neue unified Struktur)
  * SCHNELL: Direkt aus Precomputed-Daten!
  */
 export async function getGlobalPlayerSchneiderTimeSeries(
@@ -20,55 +20,46 @@ export async function getGlobalPlayerSchneiderTimeSeries(
   }[];
 }> {
   try {
-    // 📊 Direkt aus playerScores.global.history lesen
-    const playerScoresDoc = await getDoc(doc(db, 'playerScores', playerId));
+    // 📊 NEUE STRUKTUR: Aus players/{playerId}/scoresHistory lesen
+    const scoresHistorySnapshot = await getDocs(
+      collection(db, 'players', playerId, 'scoresHistory')
+    );
     
-    if (!playerScoresDoc.exists()) {
-      console.warn(`[getGlobalPlayerSchneiderTimeSeries] Player Scores nicht gefunden für ${playerId}`);
+    if (scoresHistorySnapshot.empty) {
+      console.warn(`[getGlobalPlayerSchneiderTimeSeries] Keine ScoresHistory für ${playerId}`);
       return {
         labels: [],
         datasets: []
       };
     }
 
-    const playerScores = playerScoresDoc.data();
-    const history = playerScores?.global?.history || [];
-
-    if (history.length === 0) {
-      console.warn(`[getGlobalPlayerSchneiderTimeSeries] Keine History-Daten für ${playerId}`);
-      return {
-        labels: [],
-        datasets: []
-      };
-    }
-
-    // Sortiere nach Datum (sollte bereits sortiert sein, aber sicherheitshalber)
-    const sortedHistory = [...history].sort((a, b) => {
-      const dateA = a.createdAt?.seconds ? new Date(a.createdAt.seconds * 1000) : new Date(0);
-      const dateB = b.createdAt?.seconds ? new Date(b.createdAt.seconds * 1000) : new Date(0);
+    // Konvertiere zu Array und sortiere nach completedAt
+    const historyEntries = scoresHistorySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as any)).sort((a, b) => {
+      const dateA = a.completedAt?.toDate ? a.completedAt.toDate() : new Date(0);
+      const dateB = b.completedAt?.toDate ? b.completedAt.toDate() : new Date(0);
       return dateA.getTime() - dateB.getTime();
     });
 
     // Begrenze auf die neuesten Einträge
-    const limitedHistory = sortedHistory.slice(-limitCount);
+    const limitedHistory = historyEntries.slice(-limitCount);
 
-    // Berechne kumulative Werte - NUR bei Events (schneiderBilanz !== 0)
-    let cumulativeSchneiderBilanz = 0;
+    // Extrahiere Schneider-Bilanz-Daten (PRO-SPIEL - nicht kumulativ!)
     const schneiderBilanzData: number[] = [];
     const filteredLabels: string[] = [];
+    let cumulativeSchneiderBilanz = 0;
     
     limitedHistory.forEach(entry => {
-      const schneiderBilanz = entry.schneiderBilanz || 0;
-      // 🎯 NUR BEI EVENTS: Schneider-Bilanz ungleich 0
-      if (schneiderBilanz !== 0) {
-        cumulativeSchneiderBilanz += schneiderBilanz;
-        schneiderBilanzData.push(cumulativeSchneiderBilanz);
-        filteredLabels.push(entry.createdAt?.seconds ? new Date(entry.createdAt.seconds * 1000).toLocaleDateString('de-DE', { 
-          day: '2-digit', 
-          month: '2-digit',
-          year: '2-digit'
-        }) : '');
-      }
+      // ✅ KUMULATIVE LOGIK: Addiere Pro-Spiel-Entries
+      cumulativeSchneiderBilanz += entry.schneiderBilanz || 0;
+      
+      schneiderBilanzData.push(cumulativeSchneiderBilanz);
+      filteredLabels.push(entry.completedAt?.toDate ? 
+        entry.completedAt.toDate().toLocaleDateString('de-DE') : 
+        'Unbekannt'
+      );
     });
 
     // Theme-Farben (identisch mit PowerRatingChart)
@@ -87,14 +78,12 @@ export async function getGlobalPlayerSchneiderTimeSeries(
 
     return {
       labels: filteredLabels,
-      datasets: [
-        {
-          label: 'Schneider-Bilanz',
-          data: schneiderBilanzData,
-          borderColor: colors.border,
-          backgroundColor: colors.background
-        }
-      ]
+      datasets: [{
+        label: 'Schneider-Bilanz',
+        data: schneiderBilanzData,
+        borderColor: colors.border,
+        backgroundColor: colors.background
+      } as any]
     };
 
   } catch (error) {

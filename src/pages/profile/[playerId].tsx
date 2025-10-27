@@ -108,7 +108,9 @@ const PlayerProfilePage = () => {
   // Statistik-Abonnement
   useEffect(() => {
     if (typeof playerId === 'string' && playerId) {
-      subscribeToPlayerStats(playerId);
+      subscribeToPlayerStats(playerId).catch(err => {
+        console.error('Error subscribing to player stats:', err);
+      });
     }
     return () => {
       unsubscribePlayerStats(); 

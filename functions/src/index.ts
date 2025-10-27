@@ -1,6 +1,6 @@
 import { setGlobalOptions } from "firebase-functions/v2";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
-import { onDocumentUpdated, onDocumentWritten, Change, FirestoreEvent, QueryDocumentSnapshot, DocumentSnapshot, DocumentOptions } from "firebase-functions/v2/firestore";
+import { onDocumentCreated, onDocumentUpdated, onDocumentWritten, Change, FirestoreEvent, QueryDocumentSnapshot, DocumentSnapshot, DocumentOptions } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as crypto from "crypto";
 import * as logger from "firebase-functions/logger";
@@ -24,9 +24,8 @@ import * as scheduledTaskLogic from './scheduledTasks'; // WIEDER HINZUGEFÜGT
 import * as batchUpdateLogic from './batchUpdateGroupStats'; // NEU: Batch-Update für Gruppenstatistiken
 import * as updateGroupStatsLogic from './updateGroupStats'; // NEU: Manuelle Gruppenstatistik-Aktualisierung
 import * as rateLimiterCleanupLogic from './rateLimiterCleanup'; // NEU: Rate-Limiter Cleanup
-import * as tournamentCompletionLogic from './processTournamentCompletion'; // NEU: Turnier-Aggregation
-import { updatePlayerStats } from './playerStatsCalculator'; // NEU: Import der zentralen Funktion
 import { updateGroupComputedStatsAfterSession } from './groupStatsCalculator'; // NEU: Import für Gruppenstatistiken
+import { updateEloForSingleTournamentPasse } from './jassEloUpdater'; // NEU: Elo-Update für einzelne Tournament-Passe
 // ------------------------------------------
 
 // --- Globale Optionen für Gen 2 setzen --- 
@@ -1718,83 +1717,6 @@ export const updateGroupStats = updateGroupStatsLogic.updateGroupStats;
 // Rate-Limiter Cleanup
 export const cleanupRateLimitsScheduled = rateLimiterCleanupLogic.cleanupRateLimitsScheduled;
 
-// NEU: Turnier-Aggregation
-export const aggregateTournamentIntoSummary = tournamentCompletionLogic.aggregateTournamentIntoSummary;
-
-// NEU: Manuelle Spielerstatistik-Aktualisierung (Callable Function)
-/* SICHERHEITS-FIX: Diese Funktion wurde entfernt.
- * Sie stellte eine hohe Sicherheitslücke dar (Denial of Service), da sie von jedem
- * authentifizierten Benutzer für jeden beliebigen Spieler ohne Berechtigungsprüfung
- * aufgerufen werden konnte.
- * Die Statistik-Aktualisierung erfolgt nun ausschliesslich und sicher über den
- * onJassGameSummaryWritten-Trigger nach Abschluss eines Spiels.
-export const updatePlayerStatsFunction = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError("unauthenticated", "Authentifizierung erforderlich.");
-  }
-
-  const playerId = request.data?.playerId;
-  if (!playerId || typeof playerId !== 'string') {
-    throw new HttpsError("invalid-argument", "Gültige playerId erforderlich.");
-  }
-
-  try {
-    await updatePlayerStats(playerId);
-    return { success: true, message: `Statistiken für Spieler ${playerId} erfolgreich aktualisiert.` };
-  } catch (error) {
-    logger.error(`[updatePlayerStatsFunction] Error updating stats for player ${playerId}:`, error);
-    throw new HttpsError("internal", `Fehler beim Aktualisieren der Statistiken für Spieler ${playerId}.`);
-  }
-});
-*/
-
-// 🚀 NEUE ARCHITEKTUR: ZENTRALER TRIGGER FÜR NEUE STRUKTUR
-export const onGroupJassGameSummaryWritten = onDocumentWritten(
-  "groups/{groupId}/jassGameSummaries/{sessionId}",
-  async (event) => {
-    const dataAfter = event.data?.after.data();
-    const participantPlayerIds = dataAfter?.participantPlayerIds || [];
-    const groupId = event.params.groupId; // Direkt aus dem Pfad
-    const sessionId = event.params.sessionId;
-    const statusAfter = dataAfter?.status;
-
-    logger.info(`[NEW ARCHITECTURE] 🚀 Session ${sessionId} in group ${groupId} triggered stats update`);
-
-    // Nur bei completed Sessions Statistiken aktualisieren
-    if (statusAfter !== 'completed') {
-      logger.info(`[NEW ARCHITECTURE] Session ${sessionId} status is '${statusAfter}', not 'completed'. Skipping stats update.`);
-      return;
-    }
-
-    // 1. Spielerstatistiken aktualisieren
-    if (participantPlayerIds.length > 0) {
-      logger.info(`[NEW ARCHITECTURE] Triggering stats update for ${participantPlayerIds.length} players.`);
-      
-      const updatePlayerPromises = participantPlayerIds.map((playerId: string) => {
-        return updatePlayerStats(playerId).catch(err => {
-          logger.error(`[NEW ARCHITECTURE] Failed to update stats for player ${playerId} from session ${sessionId}`, err);
-        });
-      });
-
-      await Promise.all(updatePlayerPromises);
-      logger.info(`[NEW ARCHITECTURE] All player stats updates for session ${sessionId} completed.`);
-    } else {
-      logger.info(`[NEW ARCHITECTURE] No participants found in summary ${sessionId}. No player stats to update.`);
-    }
-
-    // 2. Gruppenstatistiken aktualisieren
-    if (groupId) {
-      try {
-        logger.info(`[NEW ARCHITECTURE] Triggering group stats update for group ${groupId} after session ${sessionId} completion.`);
-        await updateGroupComputedStatsAfterSession(groupId);
-        logger.info(`[NEW ARCHITECTURE] Group stats update for group ${groupId} completed successfully.`);
-      } catch (error) {
-        logger.error(`[NEW ARCHITECTURE] Failed to update group stats for group ${groupId} from session ${sessionId}`, error);
-      }
-    }
-  }
-);
-
 export {handleUserCreation} from "./userManagement";
 
 // ============================================
@@ -1941,6 +1863,37 @@ export const onPlayerDocumentUpdated = onDocumentUpdated(
  * Synchronisiert Gruppennamen-Änderungen zu groupComputedStats
  * Wird ausgelöst, wenn sich das name Feld in einem groups Dokument ändert
  */
+/**
+ * 🆕 Tournament Passe Elo-Update
+ * Wird ausgelöst, wenn eine neue Passe in tournaments/.../games/ geschrieben wird
+ * Aktualisiert automatisch die Elo-Ratings für alle 4 Spieler
+ */
+export const onTournamentPasseCompleted = onDocumentCreated(
+  "tournaments/{tournamentId}/games/{passeId}",
+  async (event) => {
+    const tournamentId = event.params.tournamentId;
+    const passeId = event.params.passeId;
+    const gameData = event.data?.data();
+
+    if (!gameData) {
+      logger.warn(`[onTournamentPasseCompleted] No data for passe ${passeId}`);
+      return;
+    }
+
+    try {
+      logger.info(`[onTournamentPasseCompleted] Updating Elo for tournament ${tournamentId} passe ${passeId}`);
+      await updateEloForSingleTournamentPasse(tournamentId, passeId);
+      logger.info(`[onTournamentPasseCompleted] ✅ Elo updated successfully`);
+    } catch (error) {
+      logger.error(`[onTournamentPasseCompleted] Failed to update Elo:`, error);
+    }
+  }
+);
+
+/**
+ * Synchronisiert Gruppennamen-Änderungen zu groupComputedStats
+ * Wird ausgelöst, wenn sich das name Feld in einem groups Dokument ändert
+ */
 export const onGroupDocumentUpdated = onDocumentUpdated(
   "groups/{groupId}",
   async (event) => {
@@ -2019,3 +1972,6 @@ export { backfillAllPlayerScores } from './backfillAllPlayerScores';
 
 // ✅ NEU: Export Master Fix Function
 export { masterFix } from './masterFixFunction';
+
+// ✅ NEU: Export Cleanup Old Rating Fields
+export { cleanupOldRatingFields } from './cleanupOldRatingFields';

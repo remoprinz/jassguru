@@ -1,10 +1,10 @@
 import { db } from '@/services/firebaseInit';
-import { doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 
 /**
  * 🌍 GLOBALE WEIS-DIFFERENZ ZEITREIHE - Über alle Gruppen & Turniere hinweg
- * Quelle: playerScores/{playerId}.global.history (weisDifference)
- * SCHNELL: Direkt aus Precomputed-Daten!
+ * Quelle: groups/{groupId}/jassGameSummaries.sessionTotalWeisPoints
+ * BESONDERHEIT: Berechnet auf SESSION-Level (nicht Game-Level)
  */
 export async function getGlobalPlayerWeisTimeSeries(
   playerId: string,
@@ -20,55 +20,126 @@ export async function getGlobalPlayerWeisTimeSeries(
   }[];
 }> {
   try {
-    // 📊 Direkt aus playerScores.global.history lesen
-    const playerScoresDoc = await getDoc(doc(db, 'playerScores', playerId));
+    // 📊 Neue Struktur: Lade alle jassGameSummaries für diesen Spieler
+    const playerDoc = await getDoc(doc(db, 'players', playerId));
+    const playerData = playerDoc.data();
+    const groupIds = playerData?.groupIds || [];
     
-    if (!playerScoresDoc.exists()) {
-      console.warn(`[getGlobalPlayerWeisTimeSeries] Player Scores nicht gefunden für ${playerId}`);
+    if (groupIds.length === 0) {
+      console.warn(`[getGlobalPlayerWeisTimeSeries] Keine Gruppen für ${playerId}`);
       return {
         labels: [],
         datasets: []
       };
     }
-
-    const playerScores = playerScoresDoc.data();
-    const history = playerScores?.global?.history || [];
-
-    if (history.length === 0) {
-      console.warn(`[getGlobalPlayerWeisTimeSeries] Keine History-Daten für ${playerId}`);
+    
+    // Sammle alle Sessions aus allen Gruppen
+    const allSessions: any[] = [];
+    
+    for (const groupId of groupIds) {
+      const sessionsQuery = query(
+        collection(db, `groups/${groupId}/jassGameSummaries`),
+        where('participantPlayerIds', 'array-contains', playerId),
+        where('status', '==', 'completed')
+      );
+      
+      const sessionsSnapshot = await getDocs(sessionsQuery);
+      
+      sessionsSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        
+        allSessions.push({
+          ...data,
+          groupId,
+          sessionId: doc.id
+        });
+      });
+    }
+    
+    if (allSessions.length === 0) {
       return {
         labels: [],
         datasets: []
       };
     }
-
-    // Sortiere nach Datum (sollte bereits sortiert sein, aber sicherheitshalber)
-    const sortedHistory = [...history].sort((a, b) => {
-      const dateA = a.createdAt?.seconds ? new Date(a.createdAt.seconds * 1000) : new Date(0);
-      const dateB = b.createdAt?.seconds ? new Date(b.createdAt.seconds * 1000) : new Date(0);
+    
+    // Sortiere nach completedAt
+    allSessions.sort((a, b) => {
+      const dateA = a.completedAt?.toDate ? a.completedAt.toDate() : new Date(0);
+      const dateB = b.completedAt?.toDate ? b.completedAt.toDate() : new Date(0);
       return dateA.getTime() - dateB.getTime();
     });
-
+    
     // Begrenze auf die neuesten Einträge
-    const limitedHistory = sortedHistory.slice(-limitCount);
-
-    // Berechne kumulative Werte - NUR bei Events (weisDifference !== 0)
-    let cumulativeWeisDiff = 0;
+    const limitedSessions = allSessions.slice(-limitCount);
+    
+    // Berechne WeisDifference pro Session
     const weisDiffData: number[] = [];
     const filteredLabels: string[] = [];
+    let cumulativeWeisDiff = 0;
     
-    limitedHistory.forEach(entry => {
-      const weisDiff = entry.weisDifference || 0;
-      // 🎯 NUR BEI EVENTS: Weis-Differenz ungleich 0
-      if (weisDiff !== 0) {
-        cumulativeWeisDiff += weisDiff;
-        weisDiffData.push(cumulativeWeisDiff);
-        filteredLabels.push(entry.createdAt?.seconds ? new Date(entry.createdAt.seconds * 1000).toLocaleDateString('de-DE', { 
-          day: '2-digit', 
-          month: '2-digit',
-          year: '2-digit'
-        }) : '');
+    limitedSessions.forEach(session => {
+      let sessionWeisDiff = 0;
+      
+      // ✅ UNTERSCHEIDUNG: Regular Sessions vs Tournaments
+      if (session.tournamentId || session.isTournamentSession) {
+        // Tournament: Verwende sessionTotalWeisPoints (bereits aggregiert!)
+        const sessionTotalWeisPoints = session.sessionTotalWeisPoints || { top: 0, bottom: 0 };
+        const teams = session.teams || {};
+        const topPlayers = teams.top?.players || [];
+        const bottomPlayers = teams.bottom?.players || [];
+        
+        const isTopPlayer = topPlayers.some(p => p.playerId === playerId);
+        const isBottomPlayer = bottomPlayers.some(p => p.playerId === playerId);
+        
+        if (!isTopPlayer && !isBottomPlayer) {
+          weisDiffData.push(cumulativeWeisDiff);
+          filteredLabels.push(session.completedAt?.toDate ? 
+            session.completedAt.toDate().toLocaleDateString('de-DE') : 
+            'Unbekannt'
+          );
+          return;
+        }
+        
+        const teamKey = isTopPlayer ? 'top' : 'bottom';
+        const opponentTeamKey = isTopPlayer ? 'bottom' : 'top';
+        const playerWeis = sessionTotalWeisPoints[teamKey] || 0;
+        const opponentWeis = sessionTotalWeisPoints[opponentTeamKey] || 0;
+        sessionWeisDiff = playerWeis - opponentWeis;
+      } else {
+        // Regular Session: Verwende sessionTotalWeisPoints
+        const sessionTotalWeisPoints = session.sessionTotalWeisPoints || { top: 0, bottom: 0 };
+        const teams = session.teams || {};
+        const topPlayers = teams.top?.players || [];
+        const bottomPlayers = teams.bottom?.players || [];
+        
+        const isTopPlayer = topPlayers.some(p => p.playerId === playerId);
+        const isBottomPlayer = bottomPlayers.some(p => p.playerId === playerId);
+        
+        if (!isTopPlayer && !isBottomPlayer) {
+          // Spieler nicht in dieser Session
+          weisDiffData.push(cumulativeWeisDiff);
+          filteredLabels.push(session.completedAt?.toDate ? 
+            session.completedAt.toDate().toLocaleDateString('de-DE') : 
+            'Unbekannt'
+          );
+          return;
+        }
+        
+        // Berechne WeisDifference für diese Session
+        const teamKey = isTopPlayer ? 'top' : 'bottom';
+        const opponentTeamKey = isTopPlayer ? 'bottom' : 'top';
+        const playerWeis = sessionTotalWeisPoints[teamKey] || 0;
+        const opponentWeis = sessionTotalWeisPoints[opponentTeamKey] || 0;
+        sessionWeisDiff = playerWeis - opponentWeis;
       }
+      
+      cumulativeWeisDiff += sessionWeisDiff;
+      weisDiffData.push(cumulativeWeisDiff);
+      filteredLabels.push(session.completedAt?.toDate ? 
+        session.completedAt.toDate().toLocaleDateString('de-DE') : 
+        'Unbekannt'
+      );
     });
 
     // Theme-Farben (identisch mit PowerRatingChart)
@@ -87,14 +158,12 @@ export async function getGlobalPlayerWeisTimeSeries(
 
     return {
       labels: filteredLabels,
-      datasets: [
-        {
-          label: 'Weis-Differenz',
-          data: weisDiffData,
-          borderColor: colors.border,
-          backgroundColor: colors.background
-        }
-      ]
+      datasets: [{
+        label: 'Weisdifferenz',
+        data: weisDiffData,
+        borderColor: colors.border,
+        backgroundColor: colors.background
+      } as any]
     };
 
   } catch (error) {

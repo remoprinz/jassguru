@@ -51,6 +51,7 @@ export interface GroupComputedStats {
   playerWithHighestMatschBilanz: GroupStatHighlightPlayer[] | null;
   playerWithHighestSchneiderBilanz: GroupStatHighlightPlayer[] | null;
   playerWithHighestKontermatschBilanz: GroupStatHighlightPlayer[] | null;
+  playerWithHighestWeisDifference: GroupStatHighlightPlayer[] | null;
   playerWithMostWeisPointsAvg: GroupStatHighlightPlayer[] | null;
   playerWithFastestRounds: GroupStatHighlightPlayer[] | null;
   playerWithSlowestRounds: GroupStatHighlightPlayer[] | null;
@@ -98,6 +99,7 @@ export const initialGroupComputedStats: GroupComputedStats = {
   playerWithHighestMatschBilanz: null,
   playerWithHighestSchneiderBilanz: null,
   playerWithHighestKontermatschBilanz: null,
+  playerWithHighestWeisDifference: null,
   playerWithMostWeisPointsAvg: null,
   playerWithFastestRounds: null,
   playerWithSlowestRounds: null,

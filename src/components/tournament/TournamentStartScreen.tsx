@@ -20,10 +20,10 @@ const screenVariants = {
 };
 
 type TournamentGamePlayers = {
-  1: MemberInfo | null;
-  2: MemberInfo | null;
-  3: MemberInfo | null;
-  4: MemberInfo | null;
+  1: (MemberInfo & { playerId: string }) | null;
+  2: (MemberInfo & { playerId: string }) | null;
+  3: (MemberInfo & { playerId: string }) | null;
+  4: (MemberInfo & { playerId: string }) | null;
 };
 
 interface TournamentStartScreenProps {
@@ -113,7 +113,16 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
       showNotification({ type: 'warning', message: 'Dieser Spieler ist bereits einem anderen Slot zugewiesen.' });
       return;
     }
-    setSelectedGamePlayers(prev => ({ ...prev, [slotNumber]: { type: 'member', uid: participant.uid, name: participant.displayName || `Spieler ${slotNumber}` } }));
+    // ✅ FIX: Verwende playerId statt nur uid
+    setSelectedGamePlayers(prev => ({ 
+      ...prev, 
+      [slotNumber]: { 
+        type: 'member', 
+        uid: participant.uid, 
+        playerId: participant.playerId || participant.uid, // ✅ Player ID hinzugefügt
+        name: participant.displayName || `Spieler ${slotNumber}` 
+      } 
+    }));
   };
 
   const handleRemovePlayer = (slot: PlayerNumber) => {
@@ -201,6 +210,7 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
           
           return { 
             uid: p_val.uid, 
+            playerId: p_val.playerId, // ✅ FIX: Player ID hinzugefügt
             name: p_val.name, 
             playerNumber: Number(slotKey) as PlayerNumber,
             completedPassesCount: participant.completedPassesCount || 0,
