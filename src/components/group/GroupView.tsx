@@ -22,20 +22,32 @@ import AvatarPreloader from '@/components/ui/AvatarPreloader';
 import InviteModal from '@/components/group/InviteModal';
 import ImageCropModal from '@/components/ui/ImageCropModal';
 import { LegalFooter } from '@/components/layout/LegalFooter';
+import { PublicViewTopBar } from '@/components/layout/PublicViewTopBar';
 // NEU: PLZ-Service für Hauptspielort-Anzeige
 import { getOrtNameByPlz } from '@/utils/locationUtils';
 import { generateBlurPlaceholder } from '@/utils/imageOptimization';
 import { Skeleton } from '@/components/ui/skeleton';
 // NEU: Jass-Elo Service
 import { loadPlayerRatings, type PlayerRatingWithTier } from '@/services/jassElo';
-import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, limit, getDoc, doc } from 'firebase/firestore';
 import { db } from '@/services/firebaseInit';
 // NEU: Chart-Komponenten
 import PowerRatingChart from '@/components/charts/PowerRatingChart';
 
-// import { getChartData } from '@/services/chartDataService'; // 🎯 Pre-computed Chart Data - ENTFERNT
-import { getGroupStricheTimeSeries } from '@/services/stricheHistoryService'; // 🎯 Strichdifferenz-Verlauf
-import { getGroupPointsTimeSeries } from '@/services/pointsHistoryService'; // 🎯 Punktedifferenz-Verlauf
+  // 🚀 OPTIMIERTE CHART-SERVICES: Backfill-Daten mit Fallback
+import { 
+  getOptimizedRatingChart, 
+  getOptimizedStricheChart, 
+  getOptimizedPointsChart,
+  getOptimizedMatschChart,
+  getOptimizedSchneiderChart,
+  getOptimizedTeamStricheChart,
+  getOptimizedTeamPointsChart,
+  getOptimizedTeamMatschChart,
+  getBackfillStatus 
+} from '@/services/chartDataService';
+// ✅ NEU: Hilfsfunktion für Ranglisten aus Backfill-Daten
+import { getRankingFromChartData } from '@/utils/chartRankingUtils';
 import { Trophy } from 'lucide-react';
 
 // Props für Schritt 4: Komplette Statistik-Inhalte
@@ -261,6 +273,41 @@ export const GroupView: React.FC<GroupViewProps> = ({
   } | null>(null);
   const [pointsChartLoading, setPointsChartLoading] = useState(false);
 
+  // NEU: State für Matsch-Chart
+  const [matschChartData, setMatschChartData] = useState<{
+    labels: string[];
+    datasets: any[];
+  } | null>(null);
+  const [matschChartLoading, setMatschChartLoading] = useState(false);
+
+  // NEU: State für Schneider-Chart
+  const [schneiderChartData, setSchneiderChartData] = useState<{
+    labels: string[];
+    datasets: any[];
+  } | null>(null);
+  const [schneiderChartLoading, setSchneiderChartLoading] = useState(false);
+
+  // NEU: State für Team-Strichdifferenz-Chart
+  const [teamStricheChartData, setTeamStricheChartData] = useState<{
+    labels: string[];
+    datasets: any[];
+  } | null>(null);
+  const [teamStricheChartLoading, setTeamStricheChartLoading] = useState(false);
+
+  // NEU: State für Team-Punktedifferenz-Chart
+  const [teamPointsChartData, setTeamPointsChartData] = useState<{
+    labels: string[];
+    datasets: any[];
+  } | null>(null);
+  const [teamPointsChartLoading, setTeamPointsChartLoading] = useState(false);
+
+  // NEU: State für Team-Matsch-Bilanz-Chart
+  const [teamMatschChartData, setTeamMatschChartData] = useState<{
+    labels: string[];
+    datasets: any[];
+  } | null>(null);
+  const [teamMatschChartLoading, setTeamMatschChartLoading] = useState(false);
+
   // ===== REFS FÜR SCROLLBARE STATISTIK-CONTAINER (IDENTISCH ZUM ORIGINAL) =====
   // Übersicht
   const overviewMostGamesRef = useRef<HTMLDivElement>(null);
@@ -479,6 +526,163 @@ export const GroupView: React.FC<GroupViewProps> = ({
 
   const themeStyles = useMemo(() => getThemeStyles(groupTheme), [groupTheme]);
 
+  // ✅ NEU: Lade playerStats für Ranglisten
+  const [playerStats, setPlayerStats] = React.useState<any>({});
+  
+  React.useEffect(() => {
+    if (!members || members.length === 0) return;
+    
+    const loadPlayerStats = async () => {
+      const stats: any = {};
+      
+      for (const member of members) {
+        try {
+          const playerId = member.id || member.userId;
+          if (playerId) {
+            const playerDoc = await getDoc(doc(db, 'players', playerId));
+            if (playerDoc.exists()) {
+              const playerData = playerDoc.data();
+              console.log(`[DEBUG] Loaded stats for ${member.displayName}:`, playerData?.globalStats?.current?.gamesPlayed);
+              
+              if (playerData?.globalStats?.current?.totalGames) {
+                stats[playerId] = {
+                  gamesPlayed: playerData.globalStats.current.totalGames,
+                  // ✅ NEU: Session-Statistiken direkt aus globalStats.current lesen
+                  sessionStats: {
+                    wins: playerData.globalStats.current.sessionsWon || 0,
+                    losses: playerData.globalStats.current.sessionsLost || 0,
+                    draws: playerData.globalStats.current.sessionsDraw || 0
+                  },
+                  // ✅ NEU: Game-Statistiken aus globalStats.current lesen
+                  gameStats: {
+                    wins: playerData.globalStats.current.gamesWon || 0,
+                    losses: playerData.globalStats.current.gamesLost || 0
+                  }
+                };
+                console.log(`[DEBUG] Session stats for ${member.displayName}:`, stats[playerId].sessionStats);
+                console.log(`[DEBUG] Game stats for ${member.displayName}:`, stats[playerId].gameStats);
+              }
+            } else {
+              console.warn(`[DEBUG] Player document not found for ${member.displayName} (${playerId})`);
+            }
+          }
+        } catch (error) {
+          console.warn(`Fehler beim Laden der Stats für ${member.displayName}:`, error);
+        }
+      }
+      
+      console.log('[DEBUG] Final playerStats:', stats);
+      setPlayerStats(stats);
+    };
+    
+    loadPlayerStats();
+  }, [members]);
+  
+
+  // ✅ NEU: Session Win Rate Ranking aus playerStats (globalStats.current)
+  const sessionWinRateRanking = useMemo(() => {
+    if (Object.keys(playerStats || {}).length === 0 || !members) {
+      return [];
+    }
+
+    const ranking = members
+      .filter(m => {
+        const playerId = m.id || m.userId;
+        return playerStats[playerId] && playerStats[playerId].sessionStats;
+      })
+      .map(m => {
+        const playerId = m.id || m.userId;
+        const stats = playerStats[playerId].sessionStats;
+        const totalSessions = stats.wins + stats.losses;
+        
+        return {
+          playerId,
+          playerName: m.displayName,
+          playerData: m,
+          wins: stats.wins,
+          losses: stats.losses,
+          draws: stats.draws,
+          totalSessions,
+          winRate: totalSessions > 0 ? stats.wins / totalSessions : 0
+        };
+      })
+      .sort((a, b) => b.winRate - a.winRate); // Sort by win rate descending
+
+    return ranking;
+  }, [members, playerStats]);
+
+  // ✅ NEU: Game Win Rate Ranking aus globalStats.current (gamesWon/gamesLost)
+  const gameWinRateRanking = useMemo(() => {
+    if (Object.keys(playerStats || {}).length === 0 || !members) {
+      return [];
+    }
+
+    const ranking = members
+      .filter(m => {
+        const playerId = m.id || m.userId;
+        return playerStats[playerId] && playerStats[playerId].gameStats;
+      })
+      .map(m => {
+        const playerId = m.id || m.userId;
+        const stats = playerStats[playerId].gameStats;
+        const totalGames = stats.wins + stats.losses; // Nur entschiedene Spiele
+        
+        return {
+          playerId,
+          playerName: m.displayName,
+          playerData: m,
+          wins: stats.wins,
+          losses: stats.losses,
+          totalGames,
+          winRate: totalGames > 0 ? stats.wins / totalGames : 0
+        };
+      })
+      .filter(Boolean) // Remove null entries
+      .sort((a, b) => b.winRate - a.winRate); // Sort by win rate descending
+
+    return ranking;
+  }, [members, playerStats]);
+
+  // ✅ NEU: Ranglisten aus Backfill-Daten (statt groupStats)
+  const stricheRanking = useMemo(() => {
+    console.log('[DEBUG] stricheRanking useMemo called with:', {
+      stricheChartData: stricheChartData?.datasets?.length,
+      membersCount: members?.length,
+      playerStatsKeys: playerStats ? Object.keys(playerStats) : 'undefined',
+      playerStatsEmpty: Object.keys(playerStats || {}).length === 0
+    });
+    
+    if (Object.keys(playerStats || {}).length === 0) {
+      console.log('[DEBUG] playerStats is empty, returning empty ranking');
+      return [];
+    }
+    
+    return getRankingFromChartData(stricheChartData, members, playerStats);
+  }, [stricheChartData, members, playerStats]);
+  
+  const pointsRanking = useMemo(() => {
+    if (Object.keys(playerStats || {}).length === 0) {
+      return [];
+    }
+    return getRankingFromChartData(pointsChartData, members, playerStats);
+  }, [pointsChartData, members, playerStats]);
+  
+  const eloRanking = useMemo(() => {
+    if (Object.keys(playerStats || {}).length === 0) {
+      return [];
+    }
+    return getRankingFromChartData(chartData, members, playerStats);
+  }, [chartData, members, playerStats]);
+
+  // ✅ NEU: Hilfsfunktion um aktuellen Wert aus Chart-Daten zu holen
+  const getCurrentValueFromChart = (chartData: any, playerId: string): number => {
+    if (!chartData || !chartData.datasets) return 0;
+    const dataset = chartData.datasets.find((ds: any) => ds.playerId === playerId);
+    if (!dataset || !dataset.data) return 0;
+    const lastValue = dataset.data[dataset.data.length - 1];
+    return Math.trunc(lastValue || 0);
+  };
+
   // 🔥 Sammle alle Photo-URLs, die im UI auftauchen, damit der Preloader sie dekodieren kann
   const groupAvatarPhotoURLs = useMemo(() => {
     const urls: (string | undefined | null)[] = [];
@@ -541,10 +745,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
       pushMemberPhotoByName(stat.playerName, stat.playerId);
     });
 
-    safeStatsArray(groupStats?.playerWithHighestKontermatschBilanz).forEach((stat) => {
-      pushMemberPhotoByName(stat.playerName, stat.playerId);
-    });
-
     safeStatsArray(groupStats?.playerWithMostWeisPointsAvg).forEach((stat) => {
       pushMemberPhotoByName(stat.playerName, stat.playerId);
     });
@@ -561,7 +761,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
     collectTeamPhotos(groupStats?.teamWithHighestWinRateGame);
     collectTeamPhotos(groupStats?.teamWithHighestMatschBilanz || groupStats?.teamWithHighestMatschRate);
     collectTeamPhotos(groupStats?.teamWithHighestSchneiderBilanz || groupStats?.teamWithHighestSchneiderRate);
-    collectTeamPhotos(groupStats?.teamWithHighestKontermatschBilanz || groupStats?.teamWithHighestKontermatschRate);
     collectTeamPhotos(groupStats?.teamWithMostWeisPointsAvg);
     collectTeamPhotos(groupStats?.teamWithFastestRounds);
 
@@ -592,6 +791,29 @@ export const GroupView: React.FC<GroupViewProps> = ({
     const mixedB = Math.round(255 * whitePercent + b * mixPercent);
     
     return `rgb(${mixedR}, ${mixedG}, ${mixedB})`;
+  };
+
+  // 🎨 NEU: Hilfsfunktion für Farbkodierung von Werten
+  const getValueColor = (value: number, isPercentage: boolean = false): string => {
+    if (isPercentage) {
+      // Für Prozentwerte: >50% = grün, <50% = rot, =50% = weiß
+      if (value > 50) return 'text-green-400';
+      if (value < 50) return 'text-red-400';
+      return 'text-white';
+    } else {
+      // Für Differenzen/Bilanzen: >0 = grün, <0 = rot, =0 = weiß
+      if (value > 0) return 'text-green-400';
+      if (value < 0) return 'text-red-400';
+      return 'text-white';
+    }
+  };
+
+  // 🎨 NEU: Spezielle Farbkodierung für Weisdifferenz (höher = besser)
+  const getWeisDifferenceColor = (value: number): string => {
+    // Für Weisdifferenz: >0 = grün, <0 = rot, =0 = weiß
+    if (value > 0) return 'text-green-400';
+    if (value < 0) return 'text-red-400';
+    return 'text-white';
   };
   
   // 🚨 WATCHDOG: Automatischer Reset wenn GroupView zu lange lädt
@@ -686,12 +908,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
           }
         }
         
-        console.log('📊 Letzte Deltas für alle Spieler geladen:', {
-          totalPlayers: lastDeltaMap.size,
-          deltaMap: Object.fromEntries(lastDeltaMap),
-          sessionsChecked: summariesSnap.docs.length
-        });
-        
         setPlayerDeltas(lastDeltaMap);
       } catch (error) {
         console.warn('Fehler beim Laden der letzten Session-Deltas:', error);
@@ -722,43 +938,45 @@ export const GroupView: React.FC<GroupViewProps> = ({
       .catch(e => console.warn('Fehler beim Laden der globalen Elo-Ratings für öffentliche Ansicht:', (e as any)?.message));
   }, [currentGroup?.id, isPublicView, members]);
 
-  // 🚀 NEU: Lade Chart-Daten für Power-Rating Zeitreihen (verzögert für bessere UX)
+  // 🚀 OPTIMIERT: Lade Elo-Rating-Chart-Daten mit Backfill-Priorität
   React.useEffect(() => {
     if (!currentGroup?.id) return;
     
     // ✅ Verzögerung um 1-2 Frames nach Tab-Expandieren für smooth Chart-Rendering
     const timer = setTimeout(() => {
       setChartLoading(true);
-      // getChartData(currentGroup.id) // 🎯 Pre-computed Chart Data - ENTFERNT
-      //   .then((data) => {
-      //     setChartData(data);
-      //   })
-      //   .catch(error => {
-      //     console.warn('Fehler beim Laden der Chart-Daten:', error);
-      //     setChartData(null);
-      //   })
-      //   .finally(() => {
-      //     setChartLoading(false);
-      //   });
-      
-      // Temporärer Fallback - Chart-Daten werden nicht mehr geladen
-      setChartData(null);
-      setChartLoading(false);
+      getOptimizedRatingChart(currentGroup.id)
+        .then((result) => {
+          setChartData({
+            labels: result.labels,
+            datasets: result.datasets
+          });
+        })
+        .catch(error => {
+          console.warn('Fehler beim Laden der Elo-Rating-Chart-Daten:', error);
+          setChartData(null);
+        })
+        .finally(() => {
+          setChartLoading(false);
+        });
     }, 50); // 50ms Verzögerung für bessere UX
     
     return () => clearTimeout(timer);
   }, [currentGroup?.id]);
   
-  // 🚀 NEU: Lade Strichdifferenz-Verlauf für alle Spieler (verzögert für bessere UX)
+  // 🚀 OPTIMIERT: Lade Strichdifferenz-Verlauf mit Backfill-Priorität
   React.useEffect(() => {
     if (!currentGroup?.id) return;
     
     // ✅ Verzögerung für smooth Chart-Rendering
     const timer = setTimeout(() => {
       setStricheChartLoading(true);
-      getGroupStricheTimeSeries(currentGroup.id, currentGroup.theme || 'yellow')
-        .then((data) => {
-          setStricheChartData(data);
+      getOptimizedStricheChart(currentGroup.id)
+        .then((result) => {
+          setStricheChartData({
+            labels: result.labels,
+            datasets: result.datasets
+          });
         })
         .catch(error => {
           console.warn('Fehler beim Laden der Strichdifferenz-Chart-Daten:', error);
@@ -770,18 +988,21 @@ export const GroupView: React.FC<GroupViewProps> = ({
     }, 50);
     
     return () => clearTimeout(timer);
-  }, [currentGroup?.id, currentGroup?.theme]);
+  }, [currentGroup?.id]);
 
-  // 🚀 NEU: Lade Punktedifferenz-Verlauf für alle Spieler (verzögert für bessere UX)
+  // 🚀 OPTIMIERT: Lade Punktedifferenz-Verlauf mit Backfill-Priorität
   React.useEffect(() => {
     if (!currentGroup?.id) return;
     
     // ✅ Verzögerung für smooth Chart-Rendering
     const timer = setTimeout(() => {
       setPointsChartLoading(true);
-      getGroupPointsTimeSeries(currentGroup.id, currentGroup.theme || 'yellow')
-        .then((data) => {
-          setPointsChartData(data);
+      getOptimizedPointsChart(currentGroup.id)
+        .then((result) => {
+          setPointsChartData({
+            labels: result.labels,
+            datasets: result.datasets
+          });
         })
         .catch(error => {
           console.warn('Fehler beim Laden der Punktedifferenz-Chart-Daten:', error);
@@ -793,7 +1014,134 @@ export const GroupView: React.FC<GroupViewProps> = ({
     }, 50);
     
     return () => clearTimeout(timer);
-  }, [currentGroup?.id, currentGroup?.theme]);
+  }, [currentGroup?.id]);
+
+  // 🚀 OPTIMIERT: Lade Matsch-Verlauf mit Backfill-Priorität
+  React.useEffect(() => {
+    if (!currentGroup?.id) return;
+    
+    // ✅ Verzögerung für smooth Chart-Rendering
+    const timer = setTimeout(() => {
+      setMatschChartLoading(true);
+      getOptimizedMatschChart(currentGroup.id)
+        .then((result) => {
+          setMatschChartData({
+            labels: result.labels,
+            datasets: result.datasets
+          });
+        })
+        .catch(error => {
+          console.warn('Fehler beim Laden der Matsch-Chart-Daten:', error);
+          setMatschChartData(null);
+        })
+        .finally(() => {
+          setMatschChartLoading(false);
+        });
+    }, 50);
+    
+    return () => clearTimeout(timer);
+  }, [currentGroup?.id]);
+
+  // 🚀 OPTIMIERT: Lade Schneider-Verlauf mit Backfill-Priorität
+  React.useEffect(() => {
+    if (!currentGroup?.id) return;
+    
+    // ✅ Verzögerung für smooth Chart-Rendering
+    const timer = setTimeout(() => {
+      setSchneiderChartLoading(true);
+      getOptimizedSchneiderChart(currentGroup.id)
+        .then((result) => {
+          setSchneiderChartData({
+            labels: result.labels,
+            datasets: result.datasets
+          });
+        })
+        .catch(error => {
+          console.warn('Fehler beim Laden der Schneider-Chart-Daten:', error);
+          setSchneiderChartData(null);
+        })
+        .finally(() => {
+          setSchneiderChartLoading(false);
+        });
+    }, 50);
+    
+    return () => clearTimeout(timer);
+  }, [currentGroup?.id]);
+
+  // 🚀 OPTIMIERT: Lade Team-Strichdifferenz-Verlauf
+  React.useEffect(() => {
+    if (!currentGroup?.id) return;
+    
+    const timer = setTimeout(() => {
+      setTeamStricheChartLoading(true);
+      getOptimizedTeamStricheChart(currentGroup.id)
+        .then((result) => {
+          setTeamStricheChartData({
+            labels: result.labels,
+            datasets: result.datasets
+          });
+        })
+        .catch(error => {
+          console.warn('Fehler beim Laden der Team-Strichdifferenz-Chart-Daten:', error);
+          setTeamStricheChartData(null);
+        })
+        .finally(() => {
+          setTeamStricheChartLoading(false);
+        });
+    }, 50);
+    
+    return () => clearTimeout(timer);
+  }, [currentGroup?.id]);
+
+  // 🚀 OPTIMIERT: Lade Team-Punktedifferenz-Verlauf
+  React.useEffect(() => {
+    if (!currentGroup?.id) return;
+    
+    const timer = setTimeout(() => {
+      setTeamPointsChartLoading(true);
+      getOptimizedTeamPointsChart(currentGroup.id)
+        .then((result) => {
+          setTeamPointsChartData({
+            labels: result.labels,
+            datasets: result.datasets
+          });
+        })
+        .catch(error => {
+          console.warn('Fehler beim Laden der Team-Punktedifferenz-Chart-Daten:', error);
+          setTeamPointsChartData(null);
+        })
+        .finally(() => {
+          setTeamPointsChartLoading(false);
+        });
+    }, 50);
+    
+    return () => clearTimeout(timer);
+  }, [currentGroup?.id]);
+
+  // 🚀 OPTIMIERT: Lade Team-Matsch-Bilanz-Verlauf
+  React.useEffect(() => {
+    if (!currentGroup?.id) return;
+    
+    const timer = setTimeout(() => {
+      setTeamMatschChartLoading(true);
+      getOptimizedTeamMatschChart(currentGroup.id)
+        .then((result) => {
+          setTeamMatschChartData({
+            labels: result.labels,
+            datasets: result.datasets
+          });
+        })
+        .catch(error => {
+          console.warn('Fehler beim Laden der Team-Matsch-Bilanz-Chart-Daten:', error);
+          setTeamMatschChartData(null);
+        })
+        .finally(() => {
+          setTeamMatschChartLoading(false);
+        });
+    }, 50);
+    
+    return () => clearTimeout(timer);
+  }, [currentGroup?.id]);
 
   if (groupStatus === 'loading' && !currentGroup) {
     return (
@@ -915,7 +1263,11 @@ export const GroupView: React.FC<GroupViewProps> = ({
 
   // ===== HAUPT-UI MIT KOMPLETTEM TAB-SYSTEM =====
   return (
-    <MainLayout>
+    <>
+      {/* 🚀 NEU: Public View Top-Bar nur bei Mobile */}
+      {isPublicView && !layout.isDesktop && <PublicViewTopBar />}
+      
+      <MainLayout>
       <div id="group-view-container" className={`flex flex-col items-center justify-start bg-gray-900 text-white ${layout.containerPadding} relative pt-8 pb-20 lg:w-full lg:px-0`}>
         
         {/* 🎨 RESPONSIVE CONTAINER WRAPPER */}
@@ -1152,10 +1504,10 @@ export const GroupView: React.FC<GroupViewProps> = ({
           }} 
           className="w-full"
         >
-          <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.mainTabContainerPadding} rounded-lg mb-4 sticky top-0 z-30 backdrop-blur-md`}>
+          <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.mainTabContainerPadding} rounded-lg sticky ${isPublicView ? 'top-[env(safe-area-inset-top,0px)]' : 'top-0'} z-30 backdrop-blur-md shadow-lg`}>
             <TabsTrigger 
               value="statistics" 
-              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-medium`}
+              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center`}
               style={{
                 backgroundColor: activeMainTab === 'statistics' ? getTabActiveColor(groupTheme) : 'transparent'
               }}
@@ -1164,7 +1516,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
             </TabsTrigger>
             <TabsTrigger 
               value="archive"
-              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-medium`}
+              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center`}
               style={{
                 backgroundColor: activeMainTab === 'archive' ? getTabActiveColor(groupTheme) : 'transparent'
               }}
@@ -1173,7 +1525,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
             </TabsTrigger>
             <TabsTrigger
               value="members" 
-              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-medium`}
+              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center`}
               style={{
                 backgroundColor: activeMainTab === 'members' ? getTabActiveColor(groupTheme) : 'transparent'
               }}
@@ -1209,15 +1561,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 }} 
                 className="w-full"
               >
-              {/* Responsiver Abstand: Desktop weniger (16px), Mobile weniger (8px) */}
-              <div className={layout.isDesktop ? "h-4" : "h-2"}></div>
-                
-                {/* Sticky Container für Sub-Tabs */}
-                <div className={`sticky ${layout.isDesktop ? "top-[60px]" : "top-[44px]"} z-20 bg-gray-900 pt-2 pb-4`}>
-                  <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.subTabContainerPadding} rounded-lg backdrop-blur-md`}>
+                {/* Sticky Container für Sub-Tabs - mit 3px Abstand */}
+                <div className={`sticky ${isPublicView ? (layout.isDesktop ? "top-[calc(env(safe-area-inset-top,0px)+68px)]" : "top-[calc(env(safe-area-inset-top,0px)+52px)]") : (layout.isDesktop ? "top-[68px]" : "top-[52px]")} z-20 bg-gray-900`}>
+                  <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.subTabContainerPadding} rounded-lg backdrop-blur-md shadow-lg`}>
                     <TabsTrigger 
                       value="overview" 
-                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium`}
+                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium flex items-center justify-center`}
                       style={{
                         backgroundColor: activeStatsSubTab === 'overview' ? getTabActiveColor(groupTheme) : 'transparent'
                       }}
@@ -1226,7 +1575,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </TabsTrigger>
                     <TabsTrigger 
                       value="players" 
-                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium`}
+                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium flex items-center justify-center`}
                       style={{
                         backgroundColor: activeStatsSubTab === 'players' ? getTabActiveColor(groupTheme) : 'transparent'
                       }}
@@ -1235,7 +1584,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </TabsTrigger>
                     <TabsTrigger 
                       value="teams" 
-                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium`}
+                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium flex items-center justify-center`}
                       style={{
                         backgroundColor: activeStatsSubTab === 'teams' ? getTabActiveColor(groupTheme) : 'transparent'
                       }}
@@ -1270,9 +1619,10 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             height={layout.isDesktop ? 400 : 300}
                             theme={groupTheme}
                             isDarkMode={true}
-                            showBaseline={true} // 🎯 100er-Linie weiß bei Elo
+                            isEloChart={true} // 🎯 100er-Linie weiß bei Elo
                             activeTab={activeMainTab} // ✅ Tab-Wechsel-Reset für Animationen
                             activeSubTab={activeStatsSubTab} // ✅ Sub-Tab-Wechsel-Reset für Animationen
+                            animateImmediately={true} // 🚀 Oberster Chart animiert sofort
                           />
                         ) : (
                           <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
@@ -1355,7 +1705,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                           
                                           if (delta !== undefined) {
                                             return (
-                                              <span className={`ml-1 ${layout.smallTextSize} ${delta > 0 ? 'text-green-400' : delta < 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                                              <span className={`ml-1 ${layout.smallTextSize} ${delta > 0 ? 'text-green-400' : delta < 0 ? 'text-red-400' : 'text-white'}`}>
                                                 ({delta > 0 ? '+' : ''}{Math.round(delta)})
                                               </span>
                                             );
@@ -1383,7 +1733,46 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
 
-                    {/* 3. Rundentempo - NEUE REIHENFOLGE */}
+                    {/* 3. Trumpfansagen - NEUE REIHENFOLGE */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Trumpfansagen</h3>
+                      </div>
+                      <div ref={overviewTrumpfRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
+                        {trumpfStatistikArray.length > 0 ? (
+                          trumpfStatistikArray.map((item, index) => {
+                            // NEU: Logik für dynamische Anzeige
+                            const cardStyle = currentGroup?.farbeSettings?.cardStyle || 'DE';
+                            const mappedColorKey = toTitleCase(item.farbe);
+                            const displayName = CARD_SYMBOL_MAPPINGS[mappedColorKey as JassColor]?.[cardStyle] ?? mappedColorKey;
+                            
+                            return (
+                              <div key={`trumpf-${item.farbe}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                                <div className="flex items-center">
+                                  <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
+                                  <FarbePictogram 
+                                    farbe={normalizeJassColor(item.farbe)} 
+                                    mode="svg" 
+                                    cardStyle={cardStyle} // cardStyle übergeben
+                                    className={layout.isDesktop ? "h-12 w-12 mr-2" : "h-8 w-8 mr-2"}
+                                  />
+                                  <span className={`${layout.bodySize} text-gray-300 capitalize`}>{displayName}</span>
+                                </div>
+                                <span className="text-white font-medium mr-2">
+                                  <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>({item.anzahl})</span>
+                                  <span className={`${layout.valueSize} font-medium`}>{(item.anteil * 100).toFixed(1)}%</span>
+                                </span>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine Trumpfstatistik verfügbar</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 4. Rundentempo - NEUE REIHENFOLGE */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
@@ -1426,45 +1815,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             return <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine aktiven Spieler verfügbar</div>;
                           }
                         })()}
-                      </div>
-                    </div>
-
-                    {/* 4. Trumpfansagen - NEUE REIHENFOLGE */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
-                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Trumpfansagen</h3>
-                      </div>
-                      <div ref={overviewTrumpfRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
-                        {trumpfStatistikArray.length > 0 ? (
-                          trumpfStatistikArray.map((item, index) => {
-                            // NEU: Logik für dynamische Anzeige
-                            const cardStyle = currentGroup?.farbeSettings?.cardStyle || 'DE';
-                            const mappedColorKey = toTitleCase(item.farbe);
-                            const displayName = CARD_SYMBOL_MAPPINGS[mappedColorKey as JassColor]?.[cardStyle] ?? mappedColorKey;
-                            
-                            return (
-                              <div key={`trumpf-${item.farbe}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
-                                <div className="flex items-center">
-                                  <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
-                                  <FarbePictogram 
-                                    farbe={normalizeJassColor(item.farbe)} 
-                                    mode="svg" 
-                                    cardStyle={cardStyle} // cardStyle übergeben
-                                    className={layout.isDesktop ? "h-12 w-12 mr-2" : "h-8 w-8 mr-2"}
-                                  />
-                                  <span className={`${layout.bodySize} text-gray-300 capitalize`}>{displayName}</span>
-                                </div>
-                                <span className="text-white font-medium mr-2">
-                                  <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>({item.anzahl})</span>
-                                  <span className={`${layout.valueSize} font-medium`}>{(item.anteil * 100).toFixed(1)}%</span>
-                                </span>
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine Trumpfstatistik verfügbar</div>
-                        )}
                       </div>
                     </div>
 
@@ -1579,10 +1929,11 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             height={layout.isDesktop ? 400 : 300}
                             theme={groupTheme}
                             isDarkMode={true}
-                            showBaseline={false} // 🎯 0er-Linie weiß bei Strichdifferenz
+                            isEloChart={false} // 🎯 0er-Linie weiß bei Strichdifferenz
                             hideLegend={false}
                             activeTab={activeMainTab} // ✅ Tab-Wechsel-Reset für Animationen
                             activeSubTab={activeStatsSubTab} // ✅ Sub-Tab-Wechsel-Reset für Animationen
+                            animateImmediately={false} // ✅ Animation beim Tab-Wechsel
                           />
                         ) : (
                           <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
@@ -1601,50 +1952,38 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Strichdifferenz Rangliste</h3>
                       </div>
                       <div ref={playerStricheDiffRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
-                        {(() => {
-                          if (groupStats?.playerWithHighestStricheDiff && groupStats.playerWithHighestStricheDiff.length > 0) {
-                            // Filter: Nur Spieler mit gespielten Spielen anzeigen
-                            const playersWithGames = groupStats.playerWithHighestStricheDiff.filter(player => 
-                              (player.eventsPlayed && player.eventsPlayed > 0) || 
-                              (player.gamesPlayed && player.gamesPlayed > 0) || 
-                              (player.sessionCount && player.sessionCount > 0)
-                            );
-                            return playersWithGames.map((playerStat, index) => {
-                              const playerData = findPlayerByName(playerStat.playerName, members);
-                              const playerId = playerData?.id || playerData?.userId;
-                              return (
-                               <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`stricheDiff-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
-                                <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
-                                  <div className="flex items-center">
-                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
-                                    <ProfileImage 
-                                      src={playerData?.photoURL} 
-                                      alt={playerStat.playerName} 
-                                      size={layout.profileImageListSize}
-                                      className={`mr-2 ${theme.profileImage}`}
-                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                      fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
-                                    />
-                                    <span className={`${layout.bodySize} text-gray-300`}>{playerStat.playerName}</span>
-                                  </div>
-                                  <div className="flex items-center">
-                                    <span className="text-white font-medium mr-2">
-                                      <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                        ({playerStat.eventsPlayed || 0})
-                                      </span>
-                                      <span className={`${layout.valueSize} font-medium`}>
-                                        {playerStat.value > 0 ? '+' : ''}{Math.trunc(playerStat.value)}
-                                      </span>
-                                    </span>
-                                  </div>
+                        {stricheRanking.length > 0 ? (
+                          stricheRanking.map((player) => (
+                            <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`stricheDiff-${player.playerId}`} isClickable={!!player.playerId} className="block rounded-md">
+                              <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                                <div className="flex items-center">
+                                  <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{player.rank}.</span>
+                                  <ProfileImage 
+                                    src={player.playerData?.photoURL} 
+                                    alt={player.playerName} 
+                                    size={layout.profileImageListSize}
+                                    className={`mr-2 ${theme.profileImage}`}
+                                    fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
+                                    fallbackText={player.playerName ? player.playerName.charAt(0).toUpperCase() : '?'}
+                                  />
+                                  <span className={`${layout.bodySize} text-gray-300`}>{player.playerName}</span>
                                 </div>
-                              </StatLink>
-                            );
-                          });
-                          } else {
-                            return <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine aktiven Spieler verfügbar</div>;
-                          }
-                        })()}
+                                <div className="flex items-center">
+                                  <span className="font-medium mr-2">
+                                    <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
+                                      ({player.gamesPlayed || player.dataPoints})
+                                    </span>
+                                    <span className={`${getValueColor(player.currentValue, false)} ${layout.valueSize} font-medium`}>
+                                      {player.currentValue > 0 ? '+' : ''}{player.currentValue}
+                                    </span>
+                                  </span>
+                                </div>
+                              </div>
+                            </StatLink>
+                          ))
+                        ) : (
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine Strichdifferenz-Daten verfügbar</div>
+                        )}
                       </div>
                     </div>
 
@@ -1667,10 +2006,11 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             height={layout.isDesktop ? 400 : 300}
                             theme={groupTheme}
                             isDarkMode={true}
-                            showBaseline={false} // 🎯 0er-Linie weiß bei Punktedifferenz
+                            isEloChart={false} // 🎯 0er-Linie weiß bei Punktedifferenz
                             hideLegend={false}
                             activeTab={activeMainTab} // ✅ Tab-Wechsel-Reset für Animationen
                             activeSubTab={activeStatsSubTab} // ✅ Sub-Tab-Wechsel-Reset für Animationen
+                            animateImmediately={false} // ✅ Animation beim Tab-Wechsel
                           />
                         ) : (
                           <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
@@ -1689,40 +2029,80 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Punktedifferenz Rangliste</h3>
                       </div>
                       <div ref={playerPointsDiffRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
+                        {pointsRanking.length > 0 ? (
+                          pointsRanking.map((player) => (
+                            <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`pointsDiff-${player.playerId}`} isClickable={!!player.playerId} className="block rounded-md">
+                              <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                                <div className="flex items-center">
+                                  <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{player.rank}.</span>
+                                  <ProfileImage 
+                                    src={player.playerData?.photoURL} 
+                                    alt={player.playerName} 
+                                    size={layout.profileImageListSize}
+                                    className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                    fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
+                                    fallbackText={player.playerName ? player.playerName.charAt(0).toUpperCase() : '?'}
+                                    context="list"
+                                  />
+                                  <span className={`${layout.bodySize} text-gray-300`}>{player.playerName}</span>
+                                </div>
+                                <div className="flex items-center">
+                                  <span className="font-medium mr-2">
+                                    <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
+                                      ({player.gamesPlayed || player.dataPoints})
+                                    </span>
+                                    <span className={`${getValueColor(player.currentValue, false)} ${layout.valueSize} font-medium`}>
+                                      {player.currentValue > 0 ? '+' : ''}{player.currentValue}
+                                    </span>
+                                  </span>
+                                </div>
+                              </div>
+                            </StatLink>
+                          ))
+                        ) : (
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine Punktedifferenz-Daten verfügbar</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 5. Siegquote Spiel - ✅ KORREKT: Verwende gameWinRateRanking (globalStats.current) */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Siegquote Spiel</h3>
+                      </div>
+                      <div ref={playerWinRateGameRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
                         {(() => {
-                          if (groupStats?.playerWithHighestPointsDiff && groupStats.playerWithHighestPointsDiff.length > 0) {
-                            // Filter: Nur Spieler mit gespielten Spielen anzeigen
-                            const playersWithGames = groupStats.playerWithHighestPointsDiff.filter(player => 
-                              (player.eventsPlayed && player.eventsPlayed > 0) || 
-                              (player.gamesPlayed && player.gamesPlayed > 0) || 
-                              (player.sessionCount && player.sessionCount > 0)
+                          if (gameWinRateRanking && gameWinRateRanking.length > 0) {
+                            // Filter: Nur Spieler mit Spielen anzeigen
+                            const playersWithGames = gameWinRateRanking.filter(player => 
+                              player.totalGames > 0
                             );
-                            return playersWithGames.map((playerStat, index) => {
-                              const playerData = findPlayerByName(playerStat.playerName, members);
-                              const playerId = playerData?.id || playerStat.playerId;
+                            return playersWithGames.map((player, index) => {
                               return (
-                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`pointsDiff-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
+                                <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`winRateGame-${player.playerId}`} isClickable={!!player.playerId} className="block rounded-md">
                                   <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                                     <div className="flex items-center">
                                       <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                       <ProfileImage 
-                                        src={playerData?.photoURL} 
-                                        alt={playerStat.playerName} 
+                                        src={player.playerData?.photoURL} 
+                                        alt={player.playerName} 
                                         size={layout.profileImageListSize}
                                         className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
                                         fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                        fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
+                                        fallbackText={player.playerName ? player.playerName.charAt(0).toUpperCase() : '?'}
                                         context="list"
                                       />
-                                      <span className={`${layout.bodySize} text-gray-300`}>{playerStat.playerName}</span>
+                                      <span className={`${layout.bodySize} text-gray-300`}>{player.playerName}</span>
                                     </div>
                                     <div className="flex items-center">
-                                      <span className="text-white font-medium mr-2">
+                                      {/* ✅ KORREKT: Format (wins/losses) z.B. (47/40) */}
+                                      <span className="font-medium mr-2">
                                         <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                          ({playerStat.eventsPlayed || 0})
+                                          ({player.wins}/{player.losses})
                                         </span>
-                                        <span className={`${layout.valueSize} font-medium`}>
-                                          {playerStat.value > 0 ? '+' : ''}{Math.trunc(playerStat.value)}
+                                        <span className={`${getValueColor((player.winRate * 100), true)} ${layout.valueSize} font-medium`}>
+                                          {(player.winRate * 100).toFixed(1)}%
                                         </span>
                                       </span>
                                     </div>
@@ -1737,70 +2117,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                     </div>
 
-                    {/* 5. Siegquote Rangliste - REPARIERT */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
-                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Rangliste</h3>
-                      </div>
-                      <div ref={playerWinRateSessionRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
-                        {(() => {
-                          if (groupStats?.playerWithHighestWinRateSession && groupStats.playerWithHighestWinRateSession.length > 0) {
-                            // Filter: Nur Spieler mit gespielten Spielen anzeigen
-                            const playersWithGames = groupStats.playerWithHighestWinRateSession.filter(player => 
-                              (player.eventsPlayed && player.eventsPlayed > 0) || 
-                              (player.gamesPlayed && player.gamesPlayed > 0) || 
-                              (player.sessionCount && player.sessionCount > 0)
-                            );
-                            return playersWithGames.map((playerStat, index) => {
-                              const playerData = findPlayerByName(playerStat.playerName, members);
-                              const playerId = playerData?.id || playerStat.playerId;
-                              return (
-                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`winRate-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
-                                  <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
-                                    <div className="flex items-center">
-                                      <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
-                                      <ProfileImage 
-                                        src={playerData?.photoURL} 
-                                        alt={playerStat.playerName} 
-                                        size={layout.profileImageListSize}
-                                        className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
-                                        fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                        fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
-                                        context="list"
-                                      />
-                                      <span className={`${layout.bodySize} text-gray-300`}>{playerStat.playerName}</span>
-                                    </div>
-                                    <div className="flex items-center">
-                                      <span className="text-white font-medium mr-2">
-                                        {(typeof playerStat.value === 'number' && playerStat.eventsPlayed && playerStat.eventsPlayed > 0) && (
-                                          <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                            ({Math.round(playerStat.value * playerStat.eventsPlayed)}/{playerStat.eventsPlayed})
-                                          </span>
-                                        )}
-                                        <span className={`${layout.valueSize} font-medium`}>
-                                          {(typeof playerStat.value === 'number' ? playerStat.value * 100 : 0).toFixed(1)}%
-                                        </span>
-                                      </span>
-                                    </div>
-                                  </div>
-                                </StatLink>
-                              );
-                            });
-                          } else {
-                            return (
-                              <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                                <Trophy size={32} className="mx-auto mb-3 text-gray-500" />
-                                <p>Noch keine Siegquote-Daten verfügbar</p>
-                                <p className={`${layout.smallTextSize} mt-1`}>Rangliste wird angezeigt, sobald Spieler Spiele gespielt haben</p>
-                              </div>
-                            );
-                          }
-                        })()}
-                      </div>
-                    </div>
-
-                    {/* 3. Siegquote Partie */}
+                    {/* 3. Siegquote Partie - ✅ KORREKT: Verwende playerStats statt groupStats */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
@@ -1808,41 +2125,36 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                       <div ref={playerWinRateSessionRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
                         {(() => {
-                          if (groupStats?.playerWithHighestWinRateSession && groupStats.playerWithHighestWinRateSession.length > 0) {
-                            // Filter: Nur Spieler mit gespielten Partien anzeigen
-                            const playersWithSessions = groupStats.playerWithHighestWinRateSession.filter(player => 
-                              player.eventsPlayed && player.eventsPlayed > 0
+                          if (sessionWinRateRanking && sessionWinRateRanking.length > 0) {
+                            // Filter: Nur Spieler mit Sessions anzeigen
+                            const playersWithSessions = sessionWinRateRanking.filter(player => 
+                              player.totalSessions > 0
                             );
-                            return playersWithSessions.map((playerStat, index) => {
-                              const playerData = findPlayerByName(playerStat.playerName, members);
-                              // KORREKTUR: Verwende die playerId aus der Statistik als Fallback
-                              const playerId = playerData?.id || playerStat.playerId;
+                            return playersWithSessions.map((player, index) => {
                               return (
-                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`winRateSession-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
+                                <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`winRateSession-${player.playerId}`} isClickable={!!player.playerId} className="block rounded-md">
                                   <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                                     <div className="flex items-center">
                                       <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                       <ProfileImage 
-                                        src={playerData?.photoURL} 
-                                        alt={playerStat.playerName} 
+                                        src={player.playerData?.photoURL} 
+                                        alt={player.playerName} 
                                         size={layout.profileImageListSize}
                                         className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
                                         fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                        fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
+                                        fallbackText={player.playerName ? player.playerName.charAt(0).toUpperCase() : '?'}
                                         context="list"
                                       />
-                                      <span className={`${layout.bodySize} text-gray-300`}>{playerStat.playerName}</span>
+                                      <span className={`${layout.bodySize} text-gray-300`}>{player.playerName}</span>
                                     </div>
                                     <div className="flex items-center">
-                                      {/* ✅ KORREKT: Klammerwerte zeigen nur entschiedene Sessions (eventsPlayed wurde im Backend korrigiert) */}
-                                      <span className="text-white font-medium mr-2">
-                                        {(typeof playerStat.value === 'number' && playerStat.eventsPlayed && playerStat.eventsPlayed > 0) && (
-                                          <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                            ({Math.round(playerStat.value * playerStat.eventsPlayed)}/{playerStat.eventsPlayed})
-                                          </span>
-                                        )}
-                                        <span className={`${layout.valueSize} font-medium`}>
-                                          {(typeof playerStat.value === 'number' ? playerStat.value * 100 : 0).toFixed(1)}%
+                                      {/* ✅ KORREKT: Format (wins/losses/draws) z.B. (14/7/1) */}
+                                      <span className="font-medium mr-2">
+                                        <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
+                                          ({player.wins}/{player.losses}/{player.draws})
+                                        </span>
+                                        <span className={`${getValueColor((player.winRate * 100), true)} ${layout.valueSize} font-medium`}>
+                                          {(player.winRate * 100).toFixed(1)}%
                                         </span>
                                       </span>
                                     </div>
@@ -1890,13 +2202,13 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                       <span className={`${layout.bodySize} text-gray-300`}>{playerStat.playerName}</span>
                                     </div>
                                     <div className="flex items-center">
-                                      <span className="text-white font-medium mr-2">
+                                      <span className="font-medium mr-2">
                                         {(typeof playerStat.value === 'number' && playerStat.eventsPlayed && playerStat.eventsPlayed > 0) && (
                                           <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                             ({Math.round(playerStat.value * playerStat.eventsPlayed)}/{playerStat.eventsPlayed})
                                           </span>
                                         )}
-                                        <span className={`${layout.valueSize} font-medium`}>
+                                        <span className={`${getValueColor((typeof playerStat.value === 'number' ? playerStat.value * 100 : 0), true)} ${layout.valueSize} font-medium`}>
                                           {(typeof playerStat.value === 'number' ? playerStat.value * 100 : 0).toFixed(1)}%
                                         </span>
                                       </span>
@@ -1912,11 +2224,46 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                     </div>
 
-                    {/* 5. Matsch-Bilanz */}
+                    {/* 5. Matsch-Chart */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Matsch-Bilanz</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Matsch Bilanz Verlauf</h3>
+                      </div>
+                      <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                        {matschChartLoading ? (
+                          <div className="flex justify-center items-center py-10">
+                            <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
+                            <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Chart-Daten...</span>
+                          </div>
+                        ) : matschChartData && matschChartData.datasets.length > 0 ? (
+                          <PowerRatingChart 
+                            data={matschChartData}
+                            title="Matsch Bilanz"
+                            height={layout.isDesktop ? 400 : 300}
+                            theme={groupTheme}
+                            isDarkMode={true}
+                            isEloChart={false} // 🎯 0er-Linie weiß bei Matsch Bilanz
+                            hideLegend={false}
+                            activeTab={activeMainTab} // ✅ Tab-Wechsel-Reset für Animationen
+                            activeSubTab={activeStatsSubTab} // ✅ Sub-Tab-Wechsel-Reset für Animationen
+                            animateImmediately={false} // ✅ Animation beim Tab-Wechsel
+                          />
+                        ) : (
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                            <p>Noch keine Matsch-Bilanz-Daten verfügbar</p>
+                            <p className={`${layout.smallTextSize} mt-1`}>Chart wird angezeigt, sobald Spieler mindestens 2 Sessions haben</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Matsch-Bilanz Rangliste */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Matsch-Bilanz Rangliste</h3>
                       </div>
                       <div ref={playerMatschRateRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
                         {(() => {
@@ -1946,11 +2293,11 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                       <span className={`${layout.bodySize} text-gray-300`}>{playerStat.playerName}</span>
                                     </div>
                                     <div className="flex items-center">
-                                      <span className="text-white font-medium mr-2">
+                                      <span className="font-medium mr-2">
                                         <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                           ({playerStat.eventsMade || 0}/{playerStat.eventsReceived || 0})
                                         </span>
-                                        <span className={`${layout.valueSize} font-medium`}>
+                                        <span className={`${getValueColor(playerStat.value, false)} ${layout.valueSize} font-medium`}>
                                           {playerStat.value > 0 ? '+' : ''}{playerStat.value}
                                         </span>
                                       </span>
@@ -1966,11 +2313,46 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                     </div>
 
-                    {/* 6. Schneider-Bilanz */}
+                    {/* 6. Schneider-Chart */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Schneider-Bilanz</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Schneider Bilanz Verlauf</h3>
+                      </div>
+                      <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                        {schneiderChartLoading ? (
+                          <div className="flex justify-center items-center py-10">
+                            <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
+                            <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Chart-Daten...</span>
+                          </div>
+                        ) : schneiderChartData && schneiderChartData.datasets.length > 0 ? (
+                          <PowerRatingChart 
+                            data={schneiderChartData}
+                            title="Schneider Bilanz"
+                            height={layout.isDesktop ? 400 : 300}
+                            theme={groupTheme}
+                            isDarkMode={true}
+                            isEloChart={false} // 🎯 0er-Linie weiß bei Schneider Bilanz
+                            hideLegend={false}
+                            activeTab={activeMainTab} // ✅ Tab-Wechsel-Reset für Animationen
+                            activeSubTab={activeStatsSubTab} // ✅ Sub-Tab-Wechsel-Reset für Animationen
+                            animateImmediately={false} // ✅ Animation beim Tab-Wechsel
+                          />
+                        ) : (
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                            <p>Noch keine Schneider-Bilanz-Daten verfügbar</p>
+                            <p className={`${layout.smallTextSize} mt-1`}>Chart wird angezeigt, sobald Spieler mindestens 2 Sessions haben</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Schneider-Bilanz Rangliste */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Schneider-Bilanz Rangliste</h3>
                       </div>
                       <div ref={playerSchneiderRateRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
                         {(() => {
@@ -2000,11 +2382,11 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                       <span className={`${layout.bodySize} text-gray-300`}>{playerStat.playerName}</span>
                                     </div>
                                     <div className="flex items-center">
-                                      <span className="text-white font-medium mr-2">
+                                      <span className="font-medium mr-2">
                                         <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                           ({playerStat.eventsMade || 0}/{playerStat.eventsReceived || 0})
                                         </span>
-                                        <span className={`${layout.valueSize} font-medium`}>
+                                        <span className={`${getValueColor(playerStat.value, false)} ${layout.valueSize} font-medium`}>
                                           {playerStat.value > 0 ? '+' : ''}{playerStat.value}
                                         </span>
                                       </span>
@@ -2020,77 +2402,25 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                     </div>
 
-                    {/* 7. Kontermatsch-Bilanz */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
-                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Kontermatsch-Bilanz</h3>
-                      </div>
-                      <div className={`${layout.cardPadding} space-y-2 pr-2`}>
+                     {/* 7. Weisdifferenz */}
+                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                         <h3 className={`${layout.headingSize} font-semibold text-white`}>Weisdifferenz</h3>
+                       </div>
+                       <div ref={playerWeisAvgRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
                         {(() => {
-                          if (groupStats?.playerWithHighestKontermatschBilanz && groupStats.playerWithHighestKontermatschBilanz.length > 0) {
-                            // Filter: Nur Spieler mit Kontermatsch-Erfahrung anzeigen
-                            const playersWithKontermatschEvents = groupStats.playerWithHighestKontermatschBilanz.filter(player =>
-                              (player.eventsMade && player.eventsMade > 0) ||
+                          if (groupStats?.playerWithHighestWeisDifference && groupStats.playerWithHighestWeisDifference.length > 0) {
+                            // Filter: Nur Spieler mit Weis-Erfahrung anzeigen
+                            const playersWithWeisExperience = groupStats.playerWithHighestWeisDifference.filter(player => 
+                              (player.eventsMade && player.eventsMade > 0) || 
                               (player.eventsReceived && player.eventsReceived > 0)
                             );
-                            return playersWithKontermatschEvents.map((playerStat, index) => {
+                            return playersWithWeisExperience.map((playerStat, index) => {
                               const playerData = findPlayerByName(playerStat.playerName, members);
                               const playerId = playerData?.id || playerStat.playerId;
                               return (
-                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`kontermatschBilanz-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
-                                  <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
-                                    <div className="flex items-center">
-                                      <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
-                                      <ProfileImage
-                                        src={playerData?.photoURL}
-                                        alt={playerStat.playerName}
-                                        size={layout.profileImageListSize}
-                                        className={`mr-2 ${theme.profileImage}`}
-                                        fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                        fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
-                                      />
-                                      <span className={`${layout.bodySize} text-gray-300`}>{playerStat.playerName}</span>
-                                    </div>
-                                    <div className="flex items-center">
-                                      <span className="text-white font-medium mr-2">
-                                        <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                          ({playerStat.eventsMade || 0}/{playerStat.eventsReceived || 0})
-                                        </span>
-                                        <span className={`${layout.valueSize} font-medium`}>
-                                          {playerStat.value > 0 ? '+' : ''}{playerStat.value}
-                                        </span>
-                                      </span>
-                                    </div>
-                                  </div>
-                                </StatLink>
-                              );
-                            });
-                          } else {
-                            return <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine aktiven Spieler verfügbar</div>;
-                          }
-                        })()}
-                      </div>
-                    </div>
-
-                    {/* 8. Weis-Durchschnitt */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
-                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Weis-Durchschnitt</h3>
-                      </div>
-                      <div ref={playerWeisAvgRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
-                        {(() => {
-                          if (groupStats?.playerWithMostWeisPointsAvg && groupStats.playerWithMostWeisPointsAvg.length > 0) {
-                            // Filter: Nur Spieler mit Weis-Punkten anzeigen
-                            const playersWithWeisPoints = groupStats.playerWithMostWeisPointsAvg.filter(player => 
-                              player.value && player.value > 0
-                            );
-                            return playersWithWeisPoints.map((playerStat, index) => {
-                              const playerData = findPlayerByName(playerStat.playerName, members);
-                              const playerId = playerData?.id || playerStat.playerId;
-                              return (
-                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`weisPoints-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
+                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`weisDifference-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
                                   <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                                     <div className="flex items-center">
                                       <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
@@ -2106,7 +2436,14 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                       <span className={`${layout.bodySize} text-gray-300`}>{playerStat.playerName}</span>
                                     </div>
                                     <div className="flex items-center">
-                                      <span className={`text-white ${layout.valueSize} font-medium mr-2`}>{Math.round(Number(playerStat.value))}</span>
+                                      <span className="font-medium mr-2">
+                                        <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
+                                          ({playerStat.eventsMade || 0}/{playerStat.eventsReceived || 0})
+                                        </span>
+                                        <span className={`${getValueColor(playerStat.value, false)} ${layout.valueSize} font-medium`}>
+                                          {playerStat.value > 0 ? '+' : ''}{playerStat.value}
+                                        </span>
+                                      </span>
                                     </div>
                                   </div>
                                 </StatLink>
@@ -2127,7 +2464,42 @@ export const GroupView: React.FC<GroupViewProps> = ({
                   className={`w-full bg-gray-800/50 rounded-lg ${layout.cardPadding}`}
                 >
                   <div className={`${layout.sectionSpacing} ${layout.bodySize}`}>
-                    {/* 1. Strichdifferenz */}
+                    {/* 1. Team-Strichdifferenz Chart */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Team Strichdifferenz Verlauf</h3>
+                      </div>
+                      <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                        {teamStricheChartLoading ? (
+                          <div className="flex justify-center items-center py-10">
+                            <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
+                            <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Chart-Daten...</span>
+                          </div>
+                        ) : teamStricheChartData && teamStricheChartData.datasets.length > 0 ? (
+                          <PowerRatingChart 
+                            data={teamStricheChartData}
+                            title="Team Strichdifferenz"
+                            height={layout.isDesktop ? 400 : 300}
+                            theme={groupTheme}
+                            isDarkMode={true}
+                            isEloChart={false} // 🎯 0er-Linie weiß bei Strichdifferenz
+                            hideLegend={false}
+                            activeTab={activeMainTab} // ✅ Tab-Wechsel-Reset für Animationen
+                            activeSubTab={activeStatsSubTab} // ✅ Sub-Tab-Wechsel-Reset für Animationen
+                            animateImmediately={false} // ✅ Animation beim Tab-Wechsel
+                          />
+                        ) : (
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                            <p>Noch keine Team-Strichdifferenz-Daten verfügbar</p>
+                            <p className={`${layout.smallTextSize} mt-1`}>Chart wird angezeigt, sobald Teams mindestens 2 Sessions haben</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Team-Strichdifferenz Rangliste */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
@@ -2168,11 +2540,11 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                 </div>
                                 <span className={`${layout.bodySize} text-gray-300`}>{team.names.join(' & ')}</span>
                               </div>
-                              <span className="text-white font-medium mr-2">
+                              <span className="font-medium mr-2">
                                 <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                   ({team.eventsPlayed || 0})
                                 </span>
-                                <span className={`${layout.valueSize} font-medium`}>
+                                <span className={`${getValueColor(Math.round(Number(team.value)), false)} ${layout.valueSize} font-medium`}>
                                   {Math.round(Number(team.value)) > 0 ? '+' : ''}{Math.round(Number(team.value))}
                                 </span>
                               </span>
@@ -2184,7 +2556,42 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                     </div>
 
-                    {/* 2. Punktedifferenz */}
+                    {/* 2. Team-Punktedifferenz Chart */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Team Punktedifferenz Verlauf</h3>
+                      </div>
+                      <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                        {teamPointsChartLoading ? (
+                          <div className="flex justify-center items-center py-10">
+                            <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
+                            <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Chart-Daten...</span>
+                          </div>
+                        ) : teamPointsChartData && teamPointsChartData.datasets.length > 0 ? (
+                          <PowerRatingChart 
+                            data={teamPointsChartData}
+                            title="Team Punktedifferenz"
+                            height={layout.isDesktop ? 400 : 300}
+                            theme={groupTheme}
+                            isDarkMode={true}
+                            isEloChart={false} // 🎯 0er-Linie weiß bei Punktedifferenz
+                            hideLegend={false}
+                            activeTab={activeMainTab} // ✅ Tab-Wechsel-Reset für Animationen
+                            activeSubTab={activeStatsSubTab} // ✅ Sub-Tab-Wechsel-Reset für Animationen
+                            animateImmediately={false} // ✅ Animation beim Tab-Wechsel
+                          />
+                        ) : (
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                            <p>Noch keine Team-Punktedifferenz-Daten verfügbar</p>
+                            <p className={`${layout.smallTextSize} mt-1`}>Chart wird angezeigt, sobald Teams mindestens 2 Sessions haben</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Team-Punktedifferenz Rangliste */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
@@ -2225,11 +2632,11 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                 </div>
                                 <span className={`${layout.bodySize} text-gray-300`}>{team.names.join(' & ')}</span>
                               </div>
-                              <span className="text-white font-medium mr-2">
+                              <span className="font-medium mr-2">
                                 <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                   ({team.eventsPlayed || 0})
                                 </span>
-                                <span className={`${layout.valueSize} font-medium`}>
+                                <span className={`${getValueColor(Math.round(Number(team.value)), false)} ${layout.valueSize} font-medium`}>
                                   {Math.round(Number(team.value)) > 0 ? '+' : ''}{Math.round(Number(team.value))}
                                 </span>
                               </span>
@@ -2245,7 +2652,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Siegquote (Partien)</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Siegquote Partie</h3>
                       </div>
                       <div ref={teamWinRateSessionRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {groupStats?.teamWithHighestWinRateSession && groupStats.teamWithHighestWinRateSession.length > 0 ? (
@@ -2287,7 +2694,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     ({Math.round(team.value * team.eventsPlayed)}/{team.eventsPlayed})
                                   </span>
                                 )}
-                                <span className={`${layout.valueSize} font-medium`}>
+                                <span className={`${getValueColor((Number(team.value) * 100), true)} ${layout.valueSize} font-medium`}>
                                   {(Number(team.value) * 100).toFixed(1)}%
                                 </span>
                               </span>
@@ -2303,7 +2710,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Siegquote (Spiele)</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Siegquote Spiel</h3>
                       </div>
                       <div ref={teamWinRateGameRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {groupStats?.teamWithHighestWinRateGame && groupStats.teamWithHighestWinRateGame.length > 0 ? (
@@ -2345,7 +2752,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     ({Math.round(team.value * team.eventsPlayed)}/{team.eventsPlayed})
                                   </span>
                                 )}
-                                <span className={`${layout.valueSize} font-medium`}>
+                                <span className={`${getValueColor((Number(team.value) * 100), true)} ${layout.valueSize} font-medium`}>
                                   {(Number(team.value) * 100).toFixed(1)}%
                                 </span>
                               </span>
@@ -2357,7 +2764,42 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                     </div>
 
-                    {/* 5. Matsch-Bilanz */}
+                    {/* 5. Team-Matsch-Bilanz Chart */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Team Matsch Bilanz Verlauf</h3>
+                      </div>
+                      <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                        {teamMatschChartLoading ? (
+                          <div className="flex justify-center items-center py-10">
+                            <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
+                            <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Chart-Daten...</span>
+                          </div>
+                        ) : teamMatschChartData && teamMatschChartData.datasets.length > 0 ? (
+                          <PowerRatingChart 
+                            data={teamMatschChartData}
+                            title="Team Matsch Bilanz"
+                            height={layout.isDesktop ? 400 : 300}
+                            theme={groupTheme}
+                            isDarkMode={true}
+                            isEloChart={false} // 🎯 0er-Linie weiß bei Matsch Bilanz
+                            hideLegend={false}
+                            activeTab={activeMainTab} // ✅ Tab-Wechsel-Reset für Animationen
+                            activeSubTab={activeStatsSubTab} // ✅ Sub-Tab-Wechsel-Reset für Animationen
+                            animateImmediately={false} // ✅ Animation beim Tab-Wechsel
+                          />
+                        ) : (
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                            <p>Noch keine Team-Matsch-Bilanz-Daten verfügbar</p>
+                            <p className={`${layout.smallTextSize} mt-1`}>Chart wird angezeigt, sobald Teams mindestens 2 Sessions haben</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Team-Matsch-Bilanz Rangliste */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
@@ -2405,7 +2847,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                       ({team.eventsMade || 0}/{team.eventsReceived || 0})
                                     </span>
-                                    <span className={`${layout.valueSize} font-medium`}>
+                                    <span className={`${getValueColor(Math.round(Number(team.value)), false)} ${layout.valueSize} font-medium`}>
                                       {team.value > 0 ? '+' : ''}{Math.round(Number(team.value))}
                                     </span>
                                   </span>
@@ -2467,7 +2909,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                       ({team.eventsMade || 0}/{team.eventsReceived || 0})
                                     </span>
-                                    <span className={`${layout.valueSize} font-medium`}>
+                                    <span className={`${getValueColor(Math.round(Number(team.value)), false)} ${layout.valueSize} font-medium`}>
                                       {team.value > 0 ? '+' : ''}{Math.round(Number(team.value))}
                                     </span>
                                   </span>
@@ -2481,80 +2923,13 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                     </div>
 
-                    {/* 7. Kontermatsch-Bilanz */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
-                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Kontermatsch-Bilanz</h3>
-                      </div>
-                      <div className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
-                        {(() => {
-                          const teamKontermatschData = groupStats?.teamWithHighestKontermatschBilanz || groupStats?.teamWithHighestKontermatschRate;
-                          if (teamKontermatschData && teamKontermatschData.length > 0) {
-                            // ✅ KORRIGIERT: Filtere Teams mit Kontermatsch-Erfahrung basierend auf value statt eventsMade/eventsReceived
-                            const teamsWithKontermatsch = teamKontermatschData.filter(team => 
-                              // Für Teams: Wenn eventsMade/eventsReceived verfügbar, verwende diese, sonst verwende value != 0
-                              (team.eventsMade !== undefined && team.eventsReceived !== undefined) 
-                                ? ((team.eventsMade && team.eventsMade > 0) || (team.eventsReceived && team.eventsReceived > 0))
-                                : (team.value !== 0) // Fallback: Zeige Teams mit Bilanz != 0
-                            );
-                            
-                            if (teamsWithKontermatsch.length > 0) {
-                              return teamsWithKontermatsch.map((team, index) => (
-                                <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
-                                  <div className="flex items-center">
-                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
-                                    <div className="flex mr-2">
-                                      <ProfileImage 
-                                        src={findPlayerPhotoByName(team.names[0], members)} 
-                                        alt={team.names[0]} 
-                                        size={layout.profileImageListSize}
-                                        className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                        style={{ zIndex: 1 }}
-                                        fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                        fallbackText={team.names[0].charAt(0).toUpperCase()}
-                                      />
-                                        <ProfileImage 
-                                        src={findPlayerPhotoByName(team.names[1], members)} 
-                                        alt={team.names[1]} 
-                                        size={layout.profileImageListSize}
-                                        className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                    style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
-                                        fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                        fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                      />
-                                    </div>
-                                    <span className={`${layout.bodySize} text-gray-300`}>{team.names.join(' & ')}</span>
-                                  </div>
-                                  <div className="flex items-center">
-                                    <span className="text-white font-medium mr-2">
-                                      <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                        ({team.eventsMade || 0}/{team.eventsReceived || 0})
-                                      </span>
-                                      <span className={`${layout.valueSize} font-medium`}>
-                                        {team.value > 0 ? '+' : ''}{Math.round(Number(team.value))}
-                                      </span>
-                                    </span>
-                                  </div>
-                                </div>
-                              ));
-                            } else {
-                              return <div className="text-gray-400 text-center py-2">Keine Kontermatsch-Erfahrung vorhanden</div>;
-                            }
-                          } else {
-                            return <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div>;
-                          }
-                        })()}
-                      </div>
-                    </div>
-
-                    {/* 8. Weis-Durchschnitt */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
-                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Weis-Durchschnitt</h3>
-                      </div>
-                      <div ref={teamWeisAvgRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
+                     {/* 7. Weisdifferenz */}
+                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                         <h3 className={`${layout.headingSize} font-semibold text-white`}>Weisdifferenz</h3>
+                       </div>
+                       <div ref={teamWeisAvgRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {groupStats?.teamWithMostWeisPointsAvg && groupStats.teamWithMostWeisPointsAvg.length > 0 ? (
                           groupStats.teamWithMostWeisPointsAvg
                             .filter(team => 
@@ -2588,7 +2963,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                 </div>
                                 <span className={`${layout.bodySize} text-gray-300`}>{team.names.join(' & ')}</span>
                               </div>
-                              <span className={`text-white ${layout.valueSize} font-medium`}>{Math.round(Number(team.value))}</span>
+                               <span className={`${getWeisDifferenceColor(Math.round(Number(team.value)))} ${layout.valueSize} font-medium`}>{Math.round(Number(team.value)) > 0 ? '+' : ''}{Math.round(Number(team.value))}</span>
                             </div>
                           ))
                         ) : (
@@ -2638,58 +3013,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                 <span className={`${layout.bodySize} text-gray-300`}>{team.names.join(' & ')}</span>
                               </div>
                               <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{formatMillisecondsDuration(Number(team.value))}</span>
-                            </div>
-                          ))
-                        ) : (
-                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine Daten verfügbar</div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* 5. Siegquote Rangliste - NEUER CHART */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
-                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Rangliste</h3>
-                      </div>
-                      <div ref={teamWinRateSessionRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
-                        {groupStats?.teamWithHighestWinRateSession && groupStats.teamWithHighestWinRateSession.length > 0 ? (
-                          groupStats.teamWithHighestWinRateSession
-                            .filter(team => 
-                              (team.eventsPlayed && team.eventsPlayed > 0) || 
-                              (team.value && team.value !== 0)
-                            )
-                            .map((team, index) => (
-                            <div key={`team-winrate-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
-                              <div className="flex items-center">
-                                <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
-                                <div className="flex mr-2">
-                                  <ProfileImage 
-                                    src={findPlayerPhotoByName(team.names[0], members)} 
-                                    alt={team.names[0]} 
-                                    size={layout.profileImageListSize}
-                                    className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                    style={{ zIndex: 1 }}
-                                    fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                    fallbackText={team.names[0].charAt(0).toUpperCase()}
-                                    context="list"
-                                  />
-                                  <ProfileImage 
-                                    src={findPlayerPhotoByName(team.names[1], members)} 
-                                    alt={team.names[1]} 
-                                    size={layout.profileImageListSize}
-                                    className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                    style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
-                                    fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                    fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                    context="list"
-                                  />
-                                </div>
-                                <span className={`${layout.bodySize} text-gray-300`}>{team.names.join(' & ')}</span>
-                              </div>
-                              <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
-                                {team.value ? `${team.value.toFixed(1)}%` : '0.0%'}
-                              </span>
                             </div>
                           ))
                         ) : (
@@ -2830,5 +3153,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
       <LegalFooter />
 
     </MainLayout>
+    </>
   );
 };
