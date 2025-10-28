@@ -313,9 +313,9 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
       }
     },
     animation: {
-      duration: hasAnimated ? 0 : 1200, // ✅ Nur beim ersten Laden animieren
-      easing: 'easeOutQuad' as const,
-      delay: (context: { dataIndex: number }) => hasAnimated ? 0 : context.dataIndex * 50,
+      duration: hasAnimated ? 0 : 350, // ✅ Nur beim ersten Laden animieren (gleich wie PowerRatingChart)
+      easing: 'easeOutQuart' as const, // ✅ Gleich wie PowerRatingChart
+      delay: (context: { dataIndex: number }) => hasAnimated ? 0 : context.dataIndex * 20, // ✅ Schnellere Delays
     },
     plugins: {
       legend: {
