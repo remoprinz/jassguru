@@ -175,6 +175,23 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
     // 🚀 NEU: Auto-Hide Timer für Tooltips
     const tooltipTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
     
+    // 🎯 NEU: Scroll-Erkennung um Tooltip bei Scroll zu verhindern
+    const isScrollingRef = React.useRef(false);
+    const scrollTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+    
+    // 🎯 NEU: Starte Scroll-Timer
+    const handleScrollStart = () => {
+      isScrollingRef.current = true;
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      
+      // Nach Scroll-Ende (300ms keine Bewegung) → Tooltip wieder erlauben
+      scrollTimeoutRef.current = setTimeout(() => {
+        isScrollingRef.current = false;
+      }, 300);
+    };
+    
     // 🚀 NEU: Hilfsfunktion für Auto-Hide Tooltips
     const hideTooltipAfterDelay = (chart: any) => {
       // Clear existing timeout
@@ -262,6 +279,26 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
         if (tooltipTimeoutRef.current) {
           clearTimeout(tooltipTimeoutRef.current);
         }
+        if (scrollTimeoutRef.current) {
+          clearTimeout(scrollTimeoutRef.current);
+        }
+      };
+    }, []);
+    
+    // 🎯 NEU: Scroll-Listener für Chart-Container
+    React.useEffect(() => {
+      const currentChartRef = chartRef.current;
+      if (!currentChartRef) return;
+      
+      const handleWheel = () => handleScrollStart();
+      const handleTouchMove = () => handleScrollStart();
+      
+      currentChartRef.addEventListener('wheel', handleWheel, { passive: true });
+      currentChartRef.addEventListener('touchmove', handleTouchMove, { passive: true });
+      
+      return () => {
+        currentChartRef.removeEventListener('wheel', handleWheel);
+        currentChartRef.removeEventListener('touchmove', handleTouchMove);
       };
     }, []);
 
@@ -608,6 +645,17 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
     // 🎯 MOBILE & DESKTOP: Touch/Click Handling
     onHover: (event: any, activeElements: any[]) => {
       const chart = event.chart;
+      
+      // 🎯 NEU: Verhindere Tooltip wenn User scrollt
+      if (isScrollingRef.current) {
+        if (chart.tooltip) {
+          chart.tooltip.opacity = 0;
+          chart.setActiveElements([]);
+          chart.update('none');
+        }
+        return;
+      }
+      
       // Clear existing timeout wenn User interagiert
       if (tooltipTimeoutRef.current) {
         clearTimeout(tooltipTimeoutRef.current);
