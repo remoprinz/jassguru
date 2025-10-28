@@ -1579,7 +1579,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
               >
                 {/* Sticky Container für Sub-Tabs - mit 3px Abstand */}
                 <div className={`sticky ${isPublicView ? (layout.isDesktop ? "top-[calc(env(safe-area-inset-top,0px)+80px)]" : "top-[calc(env(safe-area-inset-top,0px)+64px)]") : (layout.isDesktop ? "top-[80px]" : "top-[64px]")} z-30 bg-gray-900`}>
-                  <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.subTabContainerPadding} rounded-xl backdrop-blur-md shadow-lg`}>
+                  <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.subTabContainerPadding} rounded-full backdrop-blur-md shadow-lg`}>
                     <TabsTrigger 
                       value="overview" 
                       className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3`}
