@@ -62,7 +62,9 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<HTMLDivElement>(null);
-  const [isInView, setIsInView] = useState(animateImmediately);
+  const [hasAnimated, setHasAnimated] = React.useState(false);
+  const [isInView, setIsInView] = React.useState(false);
+  const [shouldRender, setShouldRender] = React.useState(false);
   
   // 🎯 Scroll-Erkennung um Tooltip bei Scroll zu verhindern
   const isScrollingRef = React.useRef(false);
@@ -99,48 +101,56 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
     }, 500);
   };
 
-  // Reset Animation bei Tab-Wechsel
-  useEffect(() => {
+  // ✅ Tab-Wechsel-Reset: Animation und Rendering zurücksetzen bei Tab-Wechsel
+  React.useEffect(() => {
+    setHasAnimated(false);
     setIsInView(false);
+    setShouldRender(false);
     
-    // Animation nach Tab-Wechsel neu starten
+    // 🚀 SOFORTIGE ANIMATION: Wenn animateImmediately=true, sofort animieren
     if (animateImmediately) {
-      setTimeout(() => setIsInView(true), 100);
+      setShouldRender(true);
+      setIsInView(true);
+      setTimeout(() => setHasAnimated(true), 50);
     }
   }, [activeTab, activeSubTab, animateImmediately]);
 
-  // Intersection Observer für Animation beim Scrollen
-  useEffect(() => {
-    if (animateImmediately) return;
+  // ✅ Intersection Observer: Rendering und Animation nur bei vollständig sichtbaren Charts
+  React.useEffect(() => {
+    if (!containerRef.current || animateImmediately) return;
     
-    let observer: IntersectionObserver | null = null;
-    
-    // ✅ Warte auf nächsten Frame, damit Ref gesetzt ist
-    const frameId = requestAnimationFrame(() => {
-      const currentContainer = containerRef.current;
-      if (!currentContainer) return;
-      
-      observer = new IntersectionObserver(
-        (entries) => {
-          entries.forEach(entry => {
-            if (entry.isIntersecting && entry.intersectionRatio >= animationThreshold) {
-              setIsInView(true);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        // 🎯 WICHTIG: Prüfe ob Element wirklich sichtbar ist
+        if (entry.target && entry.target instanceof Element) {
+          const element = entry.target as HTMLElement;
+          const computedStyle = window.getComputedStyle(element);
+          const isVisible = computedStyle.display !== 'none' && 
+                           computedStyle.visibility !== 'hidden' &&
+                           computedStyle.opacity !== '0';
+          
+          if (entry.isIntersecting && isVisible) {
+            setIsInView(true);
+            setShouldRender(true);
+            // Animation nur starten wenn Chart vollständig sichtbar UND noch nicht animiert
+            if (!hasAnimated) {
+              setTimeout(() => setHasAnimated(true), 50);
             }
-          });
-        },
-        { threshold: animationThreshold, rootMargin: '50px' } // ✅ NEU: rootMargin für frühere Erkennung
-      );
-
-      observer.observe(currentContainer);
-    });
-
-    return () => {
-      cancelAnimationFrame(frameId);
-      if (observer) {
-        observer.disconnect();
+          } else {
+            setIsInView(false);
+          }
+        }
+      },
+      { 
+        threshold: animationThreshold,
+        rootMargin: '0px'
       }
-    };
-  }, [animateImmediately, animationThreshold]);
+    );
+    
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [hasAnimated, activeTab, activeSubTab, animateImmediately, animationThreshold]);
   
   // 🚀 NEU: Cleanup Timer beim Unmount
   React.useEffect(() => {
@@ -171,31 +181,6 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
     };
   }, []);
   
-  // 🚀 NEU: Auto-Hide Tooltip nach Delay
-  React.useEffect(() => {
-    const currentChartRef = chartRef.current;
-    if (!currentChartRef) return;
-    
-    const chartInstance = (currentChartRef as any).__chartjs__;
-    if (!chartInstance) return;
-    
-    // Hide tooltip after delay
-    hideTooltipAfterDelay(chartInstance);
-  }, [isInView]);
-  
-  // 🎯 NEU: Trigger Chart-Update wenn isInView sich ändert (für Animation)
-  React.useEffect(() => {
-    if (!isInView) return; // Nur wenn isInView true wird
-    
-    const currentChartRef = chartRef.current;
-    if (!currentChartRef) return;
-    
-    const chartInstance = (currentChartRef as any).__chartjs__;
-    if (!chartInstance) return;
-    
-    // Force Chart to re-render with animation
-    chartInstance.update('show'); // 'show' mode triggert die Animation neu
-  }, [isInView]);
 
   // Vorbereitete Chart-Daten
   const chartData = useMemo(() => {
@@ -328,9 +313,9 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
       }
     },
     animation: {
-      duration: isInView ? 1200 : 0, // ✅ KEINE Animation initial, nur wenn in View
+      duration: hasAnimated ? 0 : 1200, // ✅ Nur beim ersten Laden animieren
       easing: 'easeOutQuad' as const,
-      delay: (context: { dataIndex: number }) => isInView ? context.dataIndex * 50 : 0,
+      delay: (context: { dataIndex: number }) => hasAnimated ? 0 : context.dataIndex * 50,
     },
     plugins: {
       legend: {
@@ -492,7 +477,7 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
         chart.update('none');
       }
     }
-  }), [isDarkMode, isInView, hideLegend, maxValue, chartData, theme]);
+  }), [isDarkMode, hasAnimated, hideLegend, maxValue, chartData, theme]);
 
   // ✅ Custom Plugin für 50%-Linie
   const customPlugin = useMemo(() => ({
@@ -525,7 +510,19 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
       containerRef.current = node;
       chartRef.current = node; // ✅ Setze chartRef auf dasselbe Element
     }} style={{ height: `${height}px`, position: 'relative' }}>
-      <Bar data={chartData} options={options} plugins={[customPlugin]} />
+      {shouldRender ? (
+        <Bar data={chartData} options={options} plugins={[customPlugin]} />
+      ) : (
+        <div 
+          className="flex items-center justify-center bg-gray-800/30 rounded-lg"
+          style={{ height: `${height}px` }}
+        >
+          <div className="text-gray-400 text-center">
+            <div className="animate-pulse">📊</div>
+            <div className="text-sm mt-2">Chart wird geladen...</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
