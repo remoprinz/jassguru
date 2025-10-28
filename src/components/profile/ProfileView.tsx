@@ -1630,7 +1630,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <TabsList className={`grid w-full grid-cols-2 bg-gray-800 ${layout.mainTabContainerPadding} rounded-lg sticky ${isPublicView ? 'top-[env(safe-area-inset-top,0px)]' : 'top-0'} z-30 backdrop-blur-md shadow-lg`}>
             <TabsTrigger 
               value="stats" 
-              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center`}
+              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center py-4`}
               style={{
                 backgroundColor: activeMainTab === 'stats' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
               }}
@@ -1639,7 +1639,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </TabsTrigger> 
             <TabsTrigger 
               value="archive" 
-              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center`}
+              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center py-4`}
               style={{
                 backgroundColor: activeMainTab === 'archive' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
               }}
@@ -1670,12 +1670,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.subTabContainerPadding} rounded-lg backdrop-blur-md shadow-lg`}>
                   <TabsTrigger
                     value="individual"
-                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium flex items-center justify-center relative`}
+                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium flex items-center justify-center py-4`}
                     style={{
-                      backgroundColor: activeStatsSubTab === 'individual' ? getTabActiveColor(profileTheme || 'blue') : 'transparent',
-                      // ✅ Erweitere Klickbereich nach unten (unsichtbar)
-                      paddingBottom: '1.5rem',
-                      marginBottom: '-1.5rem'
+                      backgroundColor: activeStatsSubTab === 'individual' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
                     }}
                   >
                     <User size={layout.subTabIconSize} className="mr-1.5" />
@@ -1683,12 +1680,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   </TabsTrigger>
                   <TabsTrigger
                     value="partner"
-                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium flex items-center justify-center relative`}
+                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium flex items-center justify-center py-4`}
                     style={{
-                      backgroundColor: activeStatsSubTab === 'partner' ? getTabActiveColor(profileTheme || 'blue') : 'transparent',
-                      // ✅ Erweitere Klickbereich nach unten (unsichtbar)
-                      paddingBottom: '1.5rem',
-                      marginBottom: '-1.5rem'
+                      backgroundColor: activeStatsSubTab === 'partner' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
                     }}
                   >
                     <Users size={layout.subTabIconSize} className="mr-1.5" />
@@ -1696,12 +1690,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   </TabsTrigger>
                   <TabsTrigger
                     value="opponent"
-                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium flex items-center justify-center relative`}
+                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium flex items-center justify-center py-4`}
                     style={{
-                      backgroundColor: activeStatsSubTab === 'opponent' ? getTabActiveColor(profileTheme || 'blue') : 'transparent',
-                      // ✅ Erweitere Klickbereich nach unten (unsichtbar)
-                      paddingBottom: '1.5rem',
-                      marginBottom: '-1.5rem'
+                      backgroundColor: activeStatsSubTab === 'opponent' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
                     }}
                   >
                     <Shield size={layout.subTabIconSize} className="mr-1.5" />
