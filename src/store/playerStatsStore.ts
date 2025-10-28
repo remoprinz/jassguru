@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { getFirestore, doc, onSnapshot, collection, getDocs, Timestamp } from 'firebase/firestore';
+import { getFirestore, doc, collection, getDocs, Timestamp, getDoc } from 'firebase/firestore';
 import { firebaseApp } from '@/services/firebaseInit'; 
 import type { FrontendPlayerComputedStats, FrontendStatHighlight, FrontendStatStreak, FrontendTournamentPlacement } from '@/types/computedStats';
 import { initialFrontendPlayerComputedStats } from '@/types/computedStats';
@@ -71,11 +71,10 @@ export const usePlayerStatsStore = create<PlayerStatsState & PlayerStatsActions>
       
       try {
         // ✅ NEUE ARCHITEKTUR: Lade aus players/{playerId} UND Subcollections
-        const playerRootRef = doc(db, 'players', playerId);
-        const playerDoc = await getDocs(collection(db, 'players'));
-        const playerDataDoc = playerDoc.docs.find(d => d.id === playerId);
+        const playerRef = doc(db, 'players', playerId);
+        const playerDoc = await getDoc(playerRef);
         
-        if (!playerDataDoc || !playerDataDoc.exists()) {
+        if (!playerDoc.exists()) {
           console.warn(`[PlayerStatsStore] Player ${playerId} not found`);
           set((state) => {
             state.stats = initialFrontendPlayerComputedStats;
@@ -84,7 +83,7 @@ export const usePlayerStatsStore = create<PlayerStatsState & PlayerStatsActions>
           return;
         }
         
-        const playerData = playerDataDoc.data() as any;
+        const playerData = playerDoc.data() as any;
         const globalStats = playerData.globalStats || {}; // ✅ KORRIGIERT: globalStats direkt, nicht .current
         
         // Lade Partner Stats aus neuer Struktur
@@ -237,15 +236,6 @@ export const usePlayerStatsStore = create<PlayerStatsState & PlayerStatsActions>
           state.stats = combinedStats;
           state.isLoading = false;
           state.error = null;
-        });
-        
-        // Setup listener für Real-Time Updates
-        const unsubscribe = onSnapshot(playerRootRef, (docSnap) => {
-          // TODO: Update logic für Real-Time Updates
-        });
-        
-        set((state) => {
-          state.activeListenerUnsubscribe = unsubscribe;
         });
         
       } catch (err: any) {
