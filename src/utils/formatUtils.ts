@@ -172,3 +172,26 @@ export function getSpieltempoKategorie(durationSeconds: number): SpieltempoKateg
     return 'marathon';
   }
 }
+
+/**
+ * Kürzt Spielernamen für Charts ab
+ * Wenn zwei Namen (Vorname & Nachname): Vorname + erster Buchstabe des Nachnamens + Punkt
+ * Beispiel: "Andy Weiss" → "Andy W."
+ * Wenn nur ein Name oder mehr als zwei Namen: Original bleibt unverändert
+ */
+export function abbreviatePlayerName(name: string): string {
+  if (!name) return '';
+  
+  // Split bei Leerzeichen
+  const parts = name.trim().split(/\s+/);
+  
+  // Wenn genau zwei Teile → Vorname + erster Buchstabe Nachname + Punkt
+  if (parts.length === 2) {
+    const firstName = parts[0];
+    const lastNameInitial = parts[1].charAt(0).toUpperCase();
+    return `${firstName} ${lastNameInitial}.`;
+  }
+  
+  // Alle anderen Fälle: Original zurückgeben
+  return name;
+}

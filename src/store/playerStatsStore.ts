@@ -84,7 +84,7 @@ export const usePlayerStatsStore = create<PlayerStatsState & PlayerStatsActions>
         }
         
         const playerData = playerDoc.data() as any;
-        const globalStats = playerData.globalStats || {}; // ✅ KORRIGIERT: globalStats direkt, nicht .current
+        const globalStats = playerData.globalStats?.current || {}; // ✅ KORRIGIERT: globalStats.current lesen
         
         // Lade Partner Stats aus neuer Struktur
         const partnerStatsSnap = await getDocs(collection(db, `players/${playerId}/partnerStats`));

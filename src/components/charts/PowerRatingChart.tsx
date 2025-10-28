@@ -1,36 +1,6 @@
 import React, { useMemo } from 'react';
-
-/**
- * 🎨 FARBPALETTE für Rankings
- */
-function getRankingColor(rank: number, alpha: number = 1): string {
-  const baseColors = [
-    '#10b981', // Grün
-    '#3b82f6', // Blau
-    '#a855f7', // Lila
-    '#f97316', // Orange
-    '#06b6d4', // Cyan
-    '#ec4899', // Pink
-    '#eab308', // Gelb
-    '#14b8a6', // Teal
-    '#ef4444', // Rot
-    '#6366f1'  // Indigo
-  ];
-  
-  const colorIndex = (rank - 1) % baseColors.length;
-  const color = baseColors[colorIndex];
-  
-  if (alpha === 1) {
-    return color;
-  }
-  
-  // Convert hex to rgba
-  const r = parseInt(color.slice(1, 3), 16);
-  const g = parseInt(color.slice(3, 5), 16);
-  const b = parseInt(color.slice(5, 7), 16);
-  
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
+import { getRankingColor } from '../../config/chartColors';
+import { abbreviatePlayerName } from '../../utils/formatUtils';
 
 /**
  * ✂️ TEAM-NAMEN ABKÜRZEN für kompakte Legend
@@ -760,8 +730,11 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
         
         return {
           ...dataset,
-          // ✅ ABKÜRZUNG: Shorten Team-Namen für kompakte Legend
-          label: abbreviateTeamName(dataset.label || ''),
+          // ✅ ABKÜRZUNG: Shorten Namen für kompakte Legend
+          // Teams: abbreviateTeamName, einzelne Spieler: abbreviatePlayerName
+          label: dataset.label?.includes(' & ') 
+            ? abbreviateTeamName(dataset.label)
+            : abbreviatePlayerName(dataset.label || ''),
           displayName: dataset.displayName || dataset.label,
           // 🎯 KORREKTUR: Chart.js kann nicht mit null umgehen, verwende NaN für fehlende Werte
           data: dataset.data.map(point => point === null ? NaN : point),

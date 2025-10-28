@@ -1,5 +1,6 @@
 import { db } from '@/services/firebaseInit';
 import { doc, getDoc, collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { getRankingColor } from '../config/chartColors';
 
 /**
  * 🎯 CHART DATA SERVICE - AGGREGATED ARCHITEKTUR
@@ -299,35 +300,7 @@ export async function getOptimizedPointsChart(
   }
 }
 
-// 🎨 FARBPALETTE
-function getRankingColor(rank: number, alpha: number = 1): string {
-  const baseColors = [
-    '#10b981', // Grün
-    '#3b82f6', // Blau
-    '#a855f7', // Lila
-    '#f97316', // Orange
-    '#06b6d4', // Cyan
-    '#ec4899', // Pink
-    '#eab308', // Gelb
-    '#14b8a6', // Teal
-    '#ef4444', // Rot
-    '#6366f1'  // Indigo
-  ];
-  
-  const colorIndex = (rank - 1) % baseColors.length;
-  const color = baseColors[colorIndex];
-  
-  if (alpha === 1) {
-    return color;
-  }
-  
-  // Convert hex to rgba
-  const r = parseInt(color.slice(1, 3), 16);
-  const g = parseInt(color.slice(3, 5), 16);
-  const b = parseInt(color.slice(5, 7), 16);
-  
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
+// 🎨 FARBPALETTE wird jetzt aus chartColors.ts importiert
 
 /**
  * 🚀 Lade Matsch-Bilanz-Chart aus aggregated/chartData_matsch
@@ -1066,35 +1039,7 @@ export function getTrumpfDistributionChartData(
     '3x3': '/assets/pictograms/standardDE/3x3.svg'
   };
   
-  // ✅ Verwende GLEICHE Farbreihenfolge wie Verlaufcharts (getRankingColor)
-  function getRankingColor(rank: number, alpha: number = 1): string {
-    const baseColors = [
-      '#10b981', // Grün
-      '#3b82f6', // Blau
-      '#a855f7', // Lila
-      '#f97316', // Orange
-      '#06b6d4', // Cyan
-      '#ec4899', // Pink
-      '#eab308', // Gelb
-      '#14b8a6', // Teal
-      '#ef4444', // Rot
-      '#6366f1'  // Indigo
-    ];
-
-    const colorIndex = (rank - 1) % baseColors.length;
-    const color = baseColors[colorIndex];
-
-    if (alpha === 1) {
-      return color;
-    }
-
-    // Convert hex to rgba
-    const r = parseInt(color.slice(1, 3), 16);
-    const g = parseInt(color.slice(3, 5), 16);
-    const b = parseInt(color.slice(5, 7), 16);
-
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  }
+  // ✅ Verwende GLEICHE Farbreihenfolge wie Verlaufcharts (getRankingColor wird aus chartColors.ts importiert)
   
   // ✅ Farben zuordnen nach Rang (sortiert bereits nach Häufigkeit)
 

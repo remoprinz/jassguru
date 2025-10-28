@@ -44,6 +44,7 @@ import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
   // NEU: Chart-Komponenten
   import PowerRatingChart from '@/components/charts/PowerRatingChart';
   import PieChart from '@/components/charts/PieChart';
+  import WinRateChart from '@/components/charts/WinRateChart';
   import { getGlobalPlayerRatingTimeSeries } from '@/services/globalRatingHistoryService'; // 🎯 GLOBALE Spieler-Chart-Daten (über alle Gruppen)
 import { getGlobalPlayerStricheTimeSeries } from '@/services/globalStricheHistoryService'; // 🎯 STRICH-DIFFERENZ Chart
 import { getGlobalPlayerPointsTimeSeries } from '@/services/globalPointsHistoryService'; // 🎯 PUNKT-DIFFERENZ Chart
@@ -449,7 +450,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     return {
       labels: ['Sieg', 'Niederlage', 'Unentschieden'],
       values: [wins, losses, draws],
-      backgroundColor: ['#22c55e', '#ef4444', '#94a3b8'], // green-500, red-500, slate-400
+      backgroundColor: ['#10b981', '#ef4444', '#94a3b8'], // emerald-500, red-500, slate-400
       percentages: [(wins / total) * 100, (losses / total) * 100, (draws / total) * 100], // Als echte Prozentwerte (0-100)
       pictogramPaths: [null, null, null], // Leer-Array für nur Prozent/Absolute Zahlen
     };
@@ -466,7 +467,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     return {
       labels: ['Sieg', 'Niederlage'],
       values: [wins, losses],
-      backgroundColor: ['#22c55e', '#ef4444'], // green-500, red-500
+      backgroundColor: ['#10b981', '#ef4444'], // emerald-500, red-500
       percentages: [(wins / total) * 100, (losses / total) * 100], // Als echte Prozentwerte (0-100)
       pictogramPaths: [null, null], // Leer-Array für Labels
     };
@@ -1294,19 +1295,19 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     return colorMap[themeKey] || '#ca8a04'; // Fallback zu Standard-Gelb (yellow-600)
   };
 
-  // 🎨 NEU: Farbkodierung für Win-Rate Werte
+  // 🎨 NEU: Farbkodierung für Win-Rate Werte (EMERALD-500 für besseren Kontrast)
   const getWinRateColor = (winRate: number): string => {
     // Für Win-Rate: >50% = grün, <50% = rot, =50% = weiß
-    if (winRate > 0.5) return 'text-green-500';
-    if (winRate < 0.5) return 'text-red-500';
+    if (winRate > 0.5) return 'text-emerald-500'; // ✅ Beste Grün-Farbe
+    if (winRate < 0.5) return 'text-red-500'; // ✅ Beste Rot-Farbe
     return 'text-white';
   };
 
   // 🎨 NEU: Farbkodierung für Differenz-Werte (Strichdifferenz, Punktdifferenz, Bilanz etc.)
   const getDifferenceColor = (value: number): string => {
     // Für Differenzen: >0 = grün, <0 = rot, =0 = weiß
-    if (value > 0) return 'text-green-500';
-    if (value < 0) return 'text-red-500';
+    if (value > 0) return 'text-emerald-500'; // ✅ Beste Grün-Farbe
+    if (value < 0) return 'text-red-500'; // ✅ Beste Rot-Farbe
     return 'text-white';
   };
 
@@ -1473,7 +1474,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <span className={`${layout.headingSize} font-semibold text-white`}>
                 {Math.round(playerRating.rating)}
                 {playerDelta !== null && (
-                  <span className={`ml-1 ${layout.bodySize} ${playerDelta > 0 ? 'text-green-500' : playerDelta < 0 ? 'text-red-500' : 'text-white'}`}>
+                  <span className={`ml-1 ${layout.bodySize} ${playerDelta > 0 ? 'text-emerald-500' : playerDelta < 0 ? 'text-red-500' : 'text-white'}`}>
                     ({playerDelta > 0 ? '+' : ''}{Math.round(playerDelta)})
                   </span>
                 )}
@@ -1723,7 +1724,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
                         <h3 className={`${layout.headingSize} font-semibold text-white`}>
-                          Jass-Elo: <span className={playerRating && playerRating.rating >= 100 ? 'text-green-500' : 'text-red-500'}>{playerRating ? Math.round(playerRating.rating) : 'N/A'}</span> {playerRating?.tierEmoji}
+                          Jass-Elo: <span className={playerRating && playerRating.rating >= 100 ? 'text-emerald-500' : 'text-red-500'}>{playerRating ? Math.round(playerRating.rating) : 'N/A'}</span> {playerRating?.tierEmoji}
                         </h3>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
@@ -1770,7 +1771,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             }
                             const lastValue = stricheChartData.datasets[0].data[stricheChartData.datasets[0].data.length - 1];
                             const currentValue = Math.trunc(lastValue || 0);
-                            return currentValue > 0 ? 'text-green-500' : currentValue < 0 ? 'text-red-500' : 'text-white';
+                            return currentValue > 0 ? 'text-emerald-500' : currentValue < 0 ? 'text-red-500' : 'text-white';
                           })()}`}>
                             {(() => {
                               // ✅ Verwende Chart-Daten statt playerStats
@@ -1827,7 +1828,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             }
                             const lastValue = pointsChartData.datasets[0].data[pointsChartData.datasets[0].data.length - 1];
                             const currentValue = Math.trunc(lastValue || 0);
-                            return currentValue > 0 ? 'text-green-500' : currentValue < 0 ? 'text-red-500' : 'text-white';
+                            return currentValue > 0 ? 'text-emerald-500' : currentValue < 0 ? 'text-red-500' : 'text-white';
                           })()}`}>
                             {(() => {
                               // ✅ Verwende Chart-Daten statt playerStats
@@ -1878,7 +1879,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
                           <h3 className={`${layout.headingSize} font-semibold text-white`}>
                             Matsch-Bilanz: 
-                            <span className={`ml-2 ${playerStats?.matschBilanz && playerStats.matschBilanz > 0 ? 'text-green-500' : playerStats?.matschBilanz && playerStats.matschBilanz < 0 ? 'text-red-500' : 'text-white'}`}>
+                            <span className={`ml-2 ${playerStats?.matschBilanz && playerStats.matschBilanz > 0 ? 'text-emerald-500' : playerStats?.matschBilanz && playerStats.matschBilanz < 0 ? 'text-red-500' : 'text-white'}`}>
                               {playerStats?.matschBilanz && playerStats.matschBilanz > 0 ? '+' : ''}
                               {playerStats?.matschBilanz || 0}
                             </span>
@@ -1921,7 +1922,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
                           <h3 className={`${layout.headingSize} font-semibold text-white`}>
                             Schneider-Bilanz: 
-                            <span className={`ml-2 ${playerStats?.schneiderBilanz && playerStats.schneiderBilanz > 0 ? 'text-green-500' : playerStats?.schneiderBilanz && playerStats.schneiderBilanz < 0 ? 'text-red-500' : 'text-white'}`}>
+                            <span className={`ml-2 ${playerStats?.schneiderBilanz && playerStats.schneiderBilanz > 0 ? 'text-emerald-500' : playerStats?.schneiderBilanz && playerStats.schneiderBilanz < 0 ? 'text-red-500' : 'text-white'}`}>
                               {playerStats?.schneiderBilanz && playerStats.schneiderBilanz > 0 ? '+' : ''}
                               {playerStats?.schneiderBilanz || 0}
                             </span>
@@ -1965,7 +1966,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
                           <h3 className={`${layout.headingSize} font-semibold text-white`}>
                             Kontermatsch-Bilanz: 
-                            <span className={`ml-2 ${playerStats?.kontermatschBilanz && playerStats.kontermatschBilanz > 0 ? 'text-green-500' : playerStats?.kontermatschBilanz && playerStats.kontermatschBilanz < 0 ? 'text-red-500' : 'text-white'}`}>
+                            <span className={`ml-2 ${playerStats?.kontermatschBilanz && playerStats.kontermatschBilanz > 0 ? 'text-emerald-500' : playerStats?.kontermatschBilanz && playerStats.kontermatschBilanz < 0 ? 'text-red-500' : 'text-white'}`}>
                               {playerStats?.kontermatschBilanz && playerStats.kontermatschBilanz > 0 ? '+' : ''}
                               {playerStats?.kontermatschBilanz || 0}
                             </span>
@@ -2003,11 +2004,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     ) : null}
 
                     {/* NEU: Siegquote Partie - PieChart */}
-                    {sessionWinRateData && (
+                    {sessionWinRateData && (() => {
+                      const winRate = sessionWinRateData.percentages[0]; // Win percentage
+                      const color = winRate > 50 ? 'text-emerald-500' : winRate < 50 ? 'text-red-500' : 'text-gray-400';
+                      return (
                       <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                         <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                          <h3 className={`${layout.headingSize} font-semibold text-white`}>Siegquote Partie</h3>
+                          <h3 className={`${layout.headingSize} font-semibold text-white`}>
+                            Siegquote Partie: <span className={color}>{winRate.toFixed(1)}%</span>
+                          </h3>
                         </div>
                         <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                           <PieChart 
@@ -2028,14 +2034,20 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           />
                         </div>
                       </div>
-                    )}
+                      );
+                    })()}
 
                     {/* NEU: Siegquote Spiel - PieChart */}
-                    {gameWinRateData && (
+                    {gameWinRateData && (() => {
+                      const winRate = gameWinRateData.percentages[0]; // Win percentage
+                      const color = winRate > 50 ? 'text-emerald-500' : winRate < 50 ? 'text-red-500' : 'text-gray-400';
+                      return (
                       <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                         <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                          <h3 className={`${layout.headingSize} font-semibold text-white`}>Siegquote Spiel</h3>
+                          <h3 className={`${layout.headingSize} font-semibold text-white`}>
+                            Siegquote Spiel: <span className={color}>{winRate.toFixed(1)}%</span>
+                          </h3>
                         </div>
                         <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                           <PieChart 
@@ -2056,7 +2068,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           />
                         </div>
                       </div>
-                    )}
+                      );
+                    })()}
 
                      {/* NEU: Trumpfansagen Liste */}
                      {trumpfStatistikArray.length > 0 && (
@@ -2133,7 +2146,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           <span className={`ml-2 ${
                             weisChartData && weisChartData.datasets[0]?.data?.length > 0 
                               ? (weisChartData.datasets[0].data[weisChartData.datasets[0].data.length - 1] > 0 
-                                  ? 'text-green-500' 
+                                  ? 'text-emerald-500' 
                                   : weisChartData.datasets[0].data[weisChartData.datasets[0].data.length - 1] < 0 
                                     ? 'text-red-500' 
                                     : 'text-gray-400')
@@ -2674,14 +2687,59 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               </StatLink>
                             );
                           })}
-                      </div>
-                    </div>
+                  </div>
+                </div>
 
-                    {/* Siegquote Partien */}
+                    {/* Siegquote Partien - CHART */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Siegquote Partien</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Siegquote Partien</h3>
+                      </div>
+                      <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                        {(() => {
+                          if ((playerStats as any)?.partnerAggregates && (playerStats as any).partnerAggregates.length > 0) {
+                            const partnersWithSessions = (playerStats as any).partnerAggregates.filter((partner: any) => partner.sessionsPlayedWith >= 1);
+                            const chartData = partnersWithSessions.map((partner: any) => ({
+                              label: partner.partnerDisplayName,
+                              winRate: partner.sessionWinRate || 0,
+                              wins: partner.sessionsWonWith || 0,
+                              losses: partner.sessionsLostWith || 0,
+                              draws: partner.sessionsDrawWith || 0
+                            }));
+
+                            if (chartData.length > 0) {
+                              return (
+                                <WinRateChart 
+                                  data={chartData}
+                                  title="Siegquote Partien"
+                                  height={layout.isDesktop ? 350 : 250}
+                                  theme={profileTheme || 'blue'}
+                                  isDarkMode={true}
+                                  activeTab={activeMainTab}
+                                  activeSubTab={activeStatsSubTab}
+                                  animateImmediately={false}
+                                  hideLegend={true}
+                                  minSessions={1}
+                                />
+                              );
+                            }
+                          }
+                          return (
+                            <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                              <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                              <p>Noch keine Siegquote-Daten verfügbar</p>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Siegquote Partien - Rangliste */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Partien Rangliste</h3>
                       </div>
                       <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).partnerAggregates
@@ -2737,11 +2795,56 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         </div>
                     </div>
 
-                    {/* Siegquote Spiele */}
+                    {/* Siegquote Spiele - CHART */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Siegquote Spiele</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Siegquote Spiele</h3>
+                      </div>
+                      <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                        {(() => {
+                          if ((playerStats as any)?.partnerAggregates && (playerStats as any).partnerAggregates.length > 0) {
+                            const partnersWithGames = (playerStats as any).partnerAggregates.filter((partner: any) => partner.gamesPlayedWith >= 1);
+                            const chartData = partnersWithGames.map((partner: any) => ({
+                              label: partner.partnerDisplayName,
+                              winRate: partner.gameWinRate || 0,
+                              wins: partner.gamesWonWith || 0,
+                              losses: partner.gamesLostWith || 0
+                            }));
+
+                            if (chartData.length > 0) {
+                              return (
+                                <WinRateChart 
+                                  data={chartData}
+                                  title="Siegquote Spiele"
+                                  height={layout.isDesktop ? 350 : 250}
+                                  theme={profileTheme || 'blue'}
+                                  isDarkMode={true}
+                                  activeTab={activeMainTab}
+                                  activeSubTab={activeStatsSubTab}
+                                  animateImmediately={false}
+                                  hideLegend={true}
+                                  minSessions={1}
+                                  isGameWinRate={true}
+                                />
+                              );
+                            }
+                          }
+                          return (
+                            <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                              <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                              <p>Noch keine Siegquote-Daten verfügbar</p>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Siegquote Spiele - Rangliste */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Spiele Rangliste</h3>
                       </div>
                       <div className="p-4 space-y-2  pr-2">
                                                         {(playerStats as any).partnerAggregates
@@ -3159,11 +3262,56 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Siegquote Partien */}
+                    {/* Siegquote Partien - CHART */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Siegquote Partien</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Siegquote Partien</h3>
+                      </div>
+                      <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                        {(() => {
+                          if ((playerStats as any)?.opponentAggregates && (playerStats as any).opponentAggregates.length > 0) {
+                            const opponentsWithSessions = (playerStats as any).opponentAggregates.filter((opponent: any) => opponent.sessionsPlayedAgainst >= 1);
+                            const chartData = opponentsWithSessions.map((opponent: any) => ({
+                              label: opponent.opponentDisplayName,
+                              winRate: opponent.sessionWinRate || 0,
+                              wins: opponent.sessionsWonAgainst || 0,
+                              losses: opponent.sessionsLostAgainst || 0,
+                              draws: opponent.sessionsDrawAgainst || 0
+                            }));
+
+                            if (chartData.length > 0) {
+                              return (
+                                <WinRateChart 
+                                  data={chartData}
+                                  title="Siegquote Partien"
+                                  height={layout.isDesktop ? 350 : 250}
+                                  theme={profileTheme || 'blue'}
+                                  isDarkMode={true}
+                                  activeTab={activeMainTab}
+                                  activeSubTab={activeStatsSubTab}
+                                  animateImmediately={false}
+                                  hideLegend={true}
+                                  minSessions={1}
+                                />
+                              );
+                            }
+                          }
+                          return (
+                            <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                              <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                              <p>Noch keine Siegquote-Daten verfügbar</p>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Siegquote Partien - Rangliste */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Partien Rangliste</h3>
                       </div>
                       <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).opponentAggregates
@@ -3219,11 +3367,56 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Siegquote Spiele */}
+                    {/* Siegquote Spiele - CHART */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Siegquote Spiele</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Siegquote Spiele</h3>
+                      </div>
+                      <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                        {(() => {
+                          if ((playerStats as any)?.opponentAggregates && (playerStats as any).opponentAggregates.length > 0) {
+                            const opponentsWithGames = (playerStats as any).opponentAggregates.filter((opponent: any) => opponent.gamesPlayedAgainst >= 1);
+                            const chartData = opponentsWithGames.map((opponent: any) => ({
+                              label: opponent.opponentDisplayName,
+                              winRate: opponent.gameWinRate || 0,
+                              wins: opponent.gamesWonAgainst || 0,
+                              losses: opponent.gamesLostAgainst || 0
+                            }));
+
+                            if (chartData.length > 0) {
+                              return (
+                                <WinRateChart 
+                                  data={chartData}
+                                  title="Siegquote Spiele"
+                                  height={layout.isDesktop ? 350 : 250}
+                                  theme={profileTheme || 'blue'}
+                                  isDarkMode={true}
+                                  activeTab={activeMainTab}
+                                  activeSubTab={activeStatsSubTab}
+                                  animateImmediately={false}
+                                  hideLegend={true}
+                                  minSessions={1}
+                                  isGameWinRate={true}
+                                />
+                              );
+                            }
+                          }
+                          return (
+                            <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                              <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                              <p>Noch keine Siegquote-Daten verfügbar</p>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Siegquote Spiele - Rangliste */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Spiele Rangliste</h3>
                       </div>
                       <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).opponentAggregates

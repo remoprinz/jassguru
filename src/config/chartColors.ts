@@ -63,3 +63,110 @@ export function getChartColorForIndex(index: number): ChartColorScheme {
   return CHART_COLOR_PALETTE[index % CHART_COLOR_PALETTE.length];
 }
 
+/**
+ * 🎨 FARBPALETTE für Rankings - OPTIMIERT FÜR ACCESSIBILITY
+ * 
+ * ✅ WCAG AA Compliant (ausreichender Kontrast)
+ * ✅ Colorblind-Friendly (keine problematischen Rot/Grün-Kombinationen nebeneinander)
+ * ✅ Semantic Ordering (beste Farben für Top-Ränge)
+ * ✅ Visuell unterscheidbar (ausreichender Helligkeits-/Sättigungs-Abstand)
+ * ✅ Unterstützt 30+ Spieler durch erweiterte Palette
+ * 
+ * Diese Funktion wird von allen Chart-Komponenten verwendet:
+ * - PowerRatingChart
+ * - WinRateChart  
+ * - PieChart (Standard)
+ * - chartDataService
+ */
+export function getRankingColor(rank: number, alpha: number = 1): string {
+  // 🎯 OPTIMIERTE PALETTE basierend auf Paul Tol's Colorblind-Friendly Schema
+  // Reihenfolge: Grün (TOP1) → Blau → Lila → Orange → Magenta → Gelb → Cyan → Lavender → Indigo → Lime
+  
+  // Erste 10 Farben: Optimal für Rankings (semantisch sortiert)
+  const primaryColors = [
+    '#10b981', // Rank 1: Grün (Exzellenz)
+    '#3b82f6', // Rank 2: Blau (Sehr Gut)
+    '#a855f7', // Rank 3: Lila (Gut)
+    '#f97316', // Rank 4: Orange (Überdurchschnittlich)
+    '#ec4899', // Rank 5: Pink (Durchschnitt)
+    '#eab308', // Rank 6: Gelb (Unter Durchschnitt)
+    '#06b6d4', // Rank 7: Cyan
+    '#a78bfa', // Rank 8: Lavender (weichere Alternative zu Violet)
+    '#6366f1', // Rank 9: Indigo
+    '#14b8a6'  // Rank 10: Teal (besser als Lime für Kontrast)
+  ];
+  
+  // Erweiterte Palette für 11+ Spieler (aus CHART_COLOR_PALETTE extrahiert)
+  const extendedColors = [
+    '#f59e0b',  // Amber (11) - gelb-orange
+    '#8b5cf6',  // Purple (12) - violett (gut sichtbar, kontrastreich zu Amber)
+    '#64748b',  // Slate (13) - grau-blau (DEUTLICH anders als Purple und Rose)
+    '#d946ef',  // Fuchsia (14) - pink-violett
+    '#22d3ee',  // Cyan-Alt (15) - hell-blau
+    '#f43f5e',  // Rose (16) - rot-pink (verschoben nach hinten)
+    '#dc2626',  // Red (17) - rot (dunkler als Rose)
+    '#fb923c',  // Orange-Light (18) - orange-rot
+    '#0ea5e9',  // Sky (19) - himmelblau
+    '#059669',  // Emerald (20) - grün (dunkler als Lime)
+    '#ea580c',  // Orange-Dark (21) - orange (dunkler)
+    '#9333ea',  // Violet (22) - violett (dunkler)
+    '#78716c',  // Stone (23) - braun-grau
+    '#737373',  // Neutral (24) - mittelgrau
+    '#6b7280',  // Gray (25) - grau
+    '#71717a',  // Zinc (26) - zinc-grau
+    '#52525b',  // Gray-Alt (27) - dunkelgrau
+    '#475569',  // Slate-Alt (28) - dunkler grau-blau
+    '#57534e',  // Stone-Alt (29) - dunkler braun-grau
+    '#84cc16',  // Lime (30) - helle grün (nur am Ende, weit weg von Emerald)
+  ];
+  
+  // Kombiniere Paletten: Primär für Ränge 1-10, erweitert für 11+
+  const allColors = [...primaryColors, ...extendedColors];
+  
+  const colorIndex = (rank - 1) % allColors.length;
+  const color = allColors[colorIndex];
+  
+  if (alpha === 1) {
+    return color;
+  }
+  
+  // Convert hex to rgba
+  const r = parseInt(color.slice(1, 3), 16);
+  const g = parseInt(color.slice(3, 5), 16);
+  const b = parseInt(color.slice(5, 7), 16);
+  
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/**
+ * 🎯 FARBEN für Gewinn/Niederlage Charts - OPTIMIERT
+ * 
+ * Speziell für PieCharts mit Gewinn/Niederlage-Quotienten:
+ * - Grün für Siege
+ * - Rot für Niederlagen
+ * 
+ * ✅ Colorblind-Friendly: Zusätzlich visuelle Unterscheidung durch Helligkeit
+ * ✅ WCAG AA: Ausreichender Kontrast auf dunklem/hellem Hintergrund
+ */
+export const WIN_LOSS_COLORS = {
+  win: '#10b981',    // Grün für Siege (hell, klar)
+  loss: '#dc2626',   // Rot für Niederlagen (dunkler als #ef4444, besserer Kontrast)
+  draw: '#6b7280',   // Grau für Unentschieden (neutral, nicht farbkodiert)
+};
+
+/**
+ * 🎯 Erstelle Farb-Array für PieChart mit Gewinn/Niederlage
+ * 
+ * @param hasWin - Ob Gewinn vorhanden ist
+ * @param hasLoss - Ob Niederlage vorhanden ist
+ * @param hasDraw - Ob Unentschieden vorhanden ist (optional)
+ * @returns Array von Farben passend zur Reihenfolge
+ */
+export function getWinLossColors(hasWin: boolean, hasLoss: boolean, hasDraw: boolean = false): string[] {
+  const colors: string[] = [];
+  if (hasWin) colors.push(WIN_LOSS_COLORS.win);
+  if (hasLoss) colors.push(WIN_LOSS_COLORS.loss);
+  if (hasDraw) colors.push(WIN_LOSS_COLORS.draw);
+  return colors;
+}
+

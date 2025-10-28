@@ -9,6 +9,8 @@ import {
   Chart as ChartInstanceType
 } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
+import { getRankingColor, WIN_LOSS_COLORS } from '../../config/chartColors';
+import { abbreviatePlayerName } from '../../utils/formatUtils';
 
 // Registriere Chart.js Komponenten (NICHT ChartDataLabels global!)
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -100,24 +102,16 @@ const PieChart: React.FC<PieChartProps> = ({
 
   // Chart-Daten mit nur den animierten Slices
   const chartData = useMemo(() => ({
-    labels: data.labels,
+    labels: data.labels.map(label => abbreviatePlayerName(label)), // ✅ Abkürze Namen
     datasets: [
       {
         data: data.values.map((value, index) => 
           animatedSlices.includes(index) ? value : 0
         ),
-        backgroundColor: data.backgroundColor || [
-          '#10b981', // Grün
-          '#3b82f6', // Blau
-          '#a855f7', // Lila
-          '#f97316', // Orange
-          '#06b6d4', // Cyan
-          '#ec4899', // Pink
-          '#eab308', // Gelb
-          '#14b8a6', // Teal
-          '#ef4444', // Rot
-          '#6366f1'  // Indigo
-        ],
+        // 🎯 Verwende data.backgroundColor falls vorhanden, sonst Ranking-Farben
+        backgroundColor: data.backgroundColor || data.values.map((_, index) => 
+          getRankingColor(index + 1, 1)
+        ),
         borderColor: data.borderColor || '#1f2937',
         borderWidth: data.borderWidth || 2
       }
@@ -289,6 +283,8 @@ const PieChart: React.FC<PieChartProps> = ({
             {data.labels.map((label, idx) => {
               if (data.values[idx] === 0) return null;
               
+              const abbreviatedLabel = abbreviatePlayerName(label); // ✅ Abkürze Namen
+              
               // Berechne korrekten Winkel für Slice-Mittelpunkt
               let startAngle = 0;
               for (let i = 0; i < idx; i++) {
@@ -325,7 +321,7 @@ const PieChart: React.FC<PieChartProps> = ({
                     {pictogramPath && (
                       <img 
                         src={pictogramPath} 
-                        alt={label}
+                        alt={abbreviatedLabel}
                         className={`${isMobile ? 'w-6 h-6' : 'w-8 h-8'} object-contain mb-0.5`}
                       />
                     )}
@@ -344,8 +340,8 @@ const PieChart: React.FC<PieChartProps> = ({
                         <span className="text-gray-400" style={{ fontSize: isMobile ? '14px' : '18px' }}>
                           ({absoluteValue})
                         </span>
-                        {/* Prozent: groß und fett wie zentrale Zahlen */}
-                        <span className="text-white font-bold" style={{ fontSize: isMobile ? '18px' : '32px' }}>
+                        {/* Prozent: dezenter und kleiner */}
+                        <span className="text-white font-medium" style={{ fontSize: isMobile ? '14px' : '16px' }}>
                           {pct.toFixed(1)}%
                         </span>
                       </div>

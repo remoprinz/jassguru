@@ -34,6 +34,7 @@ import { db } from '@/services/firebaseInit';
 // NEU: Chart-Komponenten
 import PowerRatingChart from '@/components/charts/PowerRatingChart';
 import PieChart from '@/components/charts/PieChart';
+import WinRateChart from '@/components/charts/WinRateChart';
 
   // 🚀 OPTIMIERTE CHART-SERVICES: Backfill-Daten mit Fallback
 import { 
@@ -801,17 +802,17 @@ export const GroupView: React.FC<GroupViewProps> = ({
     return `rgb(${mixedR}, ${mixedG}, ${mixedB})`;
   };
 
-  // 🎨 NEU: Hilfsfunktion für Farbkodierung von Werten
+  // 🎨 NEU: Hilfsfunktion für Farbkodierung von Werten (EMERALD-500 für besseren Kontrast)
   const getValueColor = (value: number, isPercentage: boolean = false): string => {
     if (isPercentage) {
       // Für Prozentwerte: >50% = grün, <50% = rot, =50% = weiß
-      if (value > 50) return 'text-green-500';
-      if (value < 50) return 'text-red-500';
+      if (value > 50) return 'text-emerald-500'; // ✅ Beste Grün-Farbe
+      if (value < 50) return 'text-red-500'; // ✅ Beste Rot-Farbe
       return 'text-white';
     } else {
       // Für Differenzen/Bilanzen: >0 = grün, <0 = rot, =0 = weiß
-      if (value > 0) return 'text-green-500';
-      if (value < 0) return 'text-red-500';
+      if (value > 0) return 'text-emerald-500'; // ✅ Beste Grün-Farbe
+      if (value < 0) return 'text-red-500'; // ✅ Beste Rot-Farbe
       return 'text-white';
     }
   };
@@ -819,8 +820,8 @@ export const GroupView: React.FC<GroupViewProps> = ({
   // 🎨 NEU: Spezielle Farbkodierung für Weisdifferenz (höher = besser)
   const getWeisDifferenceColor = (value: number): string => {
     // Für Weisdifferenz: >0 = grün, <0 = rot, =0 = weiß
-    if (value > 0) return 'text-green-500';
-    if (value < 0) return 'text-red-500';
+    if (value > 0) return 'text-emerald-500'; // ✅ Beste Grün-Farbe
+    if (value < 0) return 'text-red-500'; // ✅ Beste Rot-Farbe
     return 'text-white';
   };
   
@@ -1715,7 +1716,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                           
                                           if (delta !== undefined) {
                                             return (
-                                              <span className={`ml-1 ${layout.smallTextSize} ${delta > 0 ? 'text-green-500' : delta < 0 ? 'text-red-500' : 'text-white'}`}>
+                                              <span className={`ml-1 ${layout.smallTextSize} ${delta > 0 ? 'text-emerald-500' : delta < 0 ? 'text-red-500' : 'text-white'}`}>
                                                 ({delta > 0 ? '+' : ''}{Math.round(delta)})
                                               </span>
                                             );
@@ -2109,11 +2110,57 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                     </div>
 
-                    {/* 5. Siegquote Partie - ✅ KORREKT: Verwende playerStats statt groupStats */}
+                    {/* 5. Siegquote Partie - CHART */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Siegquote Partie</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Siegquote Partie</h3>
+                      </div>
+                      <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                        {(() => {
+                          if (sessionWinRateRanking && sessionWinRateRanking.length > 0) {
+                            const playersWithSessions = sessionWinRateRanking.filter(player => player.totalSessions > 0);
+                            const chartData = playersWithSessions.map(player => ({
+                              label: player.playerName,
+                              winRate: player.winRate,
+                              wins: player.wins,
+                              losses: player.losses,
+                              draws: player.draws
+                            }));
+
+                            if (chartData.length > 0) {
+                              return (
+                                <WinRateChart 
+                                  data={chartData}
+                                  title="Siegquote Partie"
+                                  height={layout.isDesktop ? 350 : 250}
+                                  theme={groupTheme}
+                                  isDarkMode={true}
+                                  activeTab={activeMainTab}
+                                  activeSubTab={activeStatsSubTab}
+                                  animateImmediately={false}
+                                  hideLegend={true}
+                                  minSessions={2}
+                                  totalSessionsInGroup={groupStats?.sessionCount}
+                                />
+                              );
+                            }
+                          }
+                          return (
+                            <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                              <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                              <p>Noch keine Siegquote-Daten verfügbar</p>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* 5.1 Siegquote Partie - Rangliste */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Partie Rangliste</h3>
                       </div>
                       <div ref={playerWinRateSessionRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
                         {(() => {
@@ -2161,11 +2208,57 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                     </div>
 
-                    {/* 6. Siegquote Spiel - ✅ KORREKT: Verwende gameWinRateRanking (globalStats.current) */}
+                    {/* 6. Siegquote Spiel - CHART */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Siegquote Spiel</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Siegquote Spiel</h3>
+                      </div>
+                      <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                        {(() => {
+                          if (gameWinRateRanking && gameWinRateRanking.length > 0) {
+                            const playersWithGames = gameWinRateRanking.filter(player => player.totalGames > 0);
+                            const chartData = playersWithGames.map(player => ({
+                              label: player.playerName,
+                              winRate: player.winRate,
+                              wins: player.wins,
+                              losses: player.losses
+                            }));
+
+                            if (chartData.length > 0) {
+                              return (
+                                <WinRateChart 
+                                  data={chartData}
+                                  title="Siegquote Spiel"
+                                  height={layout.isDesktop ? 350 : 250}
+                                  theme={groupTheme}
+                                  isDarkMode={true}
+                                  activeTab={activeMainTab}
+                                  activeSubTab={activeStatsSubTab}
+                                  animateImmediately={false}
+                                  hideLegend={true}
+                                  minSessions={2}
+                                  totalSessionsInGroup={groupStats?.sessionCount}
+                                  isGameWinRate={true}
+                                />
+                              );
+                            }
+                          }
+                          return (
+                            <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                              <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                              <p>Noch keine Siegquote-Daten verfügbar</p>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* 6.1 Siegquote Spiel - Rangliste */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Spiel Rangliste</h3>
                       </div>
                       <div ref={playerWinRateGameRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
                         {(() => {
@@ -2644,11 +2737,56 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                     </div>
 
-                    {/* 3. Siegquote (Partien) - ✅ KORREKT: eventsPlayed zeigt nur entschiedene Sessions */}
+                    {/* 3. Siegquote (Partien) - CHART */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Siegquote Partie</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Siegquote Partie</h3>
+                      </div>
+                      <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                        {(() => {
+                          if (groupStats?.teamWithHighestWinRateSession && groupStats.teamWithHighestWinRateSession.length > 0) {
+                            const teamsWithSessions = groupStats.teamWithHighestWinRateSession.filter(team => team.eventsPlayed && team.eventsPlayed > 0);
+                            const chartData = teamsWithSessions.map(team => ({
+                              label: team.names.join(' & '),
+                              winRate: Number(team.value),
+                              wins: Math.round(Number(team.value) * team.eventsPlayed),
+                              losses: team.eventsPlayed - Math.round(Number(team.value) * team.eventsPlayed)
+                            }));
+
+                            if (chartData.length > 0) {
+                              return (
+                                <WinRateChart 
+                                  data={chartData}
+                                  title="Siegquote Partie"
+                                  height={layout.isDesktop ? 350 : 250}
+                                  theme={groupTheme}
+                                  isDarkMode={true}
+                                  activeTab={activeMainTab}
+                                  activeSubTab={activeStatsSubTab}
+                                  animateImmediately={false}
+                                  hideLegend={true}
+                                  minSessions={2}
+                                  totalSessionsInGroup={groupStats?.sessionCount}
+                                />
+                              );
+                            }
+                          }
+                          return (
+                            <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                              <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                              <p>Noch keine Siegquote-Daten verfügbar</p>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* 3.1 Siegquote (Partien) - Rangliste - ✅ KORREKT: eventsPlayed zeigt nur entschiedene Sessions */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Partie Rangliste</h3>
                       </div>
                       <div ref={teamWinRateSessionRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {groupStats?.teamWithHighestWinRateSession && groupStats.teamWithHighestWinRateSession.length > 0 ? (
@@ -2702,11 +2840,57 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                     </div>
 
-                    {/* 4. Siegquote (Spiele) */}
+                    {/* 4. Siegquote (Spiele) - CHART */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Siegquote Spiel</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Siegquote Spiel</h3>
+                      </div>
+                      <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                        {(() => {
+                          if (groupStats?.teamWithHighestWinRateGame && groupStats.teamWithHighestWinRateGame.length > 0) {
+                            const teamsWithGames = groupStats.teamWithHighestWinRateGame.filter(team => team.eventsPlayed && team.eventsPlayed > 0);
+                            const chartData = teamsWithGames.map(team => ({
+                              label: team.names.join(' & '),
+                              winRate: Number(team.value),
+                              wins: Math.round(Number(team.value) * team.eventsPlayed),
+                              losses: team.eventsPlayed - Math.round(Number(team.value) * team.eventsPlayed)
+                            }));
+
+                            if (chartData.length > 0) {
+                              return (
+                                <WinRateChart 
+                                  data={chartData}
+                                  title="Siegquote Spiel"
+                                  height={layout.isDesktop ? 350 : 250}
+                                  theme={groupTheme}
+                                  isDarkMode={true}
+                                  activeTab={activeMainTab}
+                                  activeSubTab={activeStatsSubTab}
+                                  animateImmediately={false}
+                                  hideLegend={true}
+                                  minSessions={2}
+                                  totalSessionsInGroup={groupStats?.sessionCount}
+                                  isGameWinRate={true}
+                                />
+                              );
+                            }
+                          }
+                          return (
+                            <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                              <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                              <p>Noch keine Siegquote-Daten verfügbar</p>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* 4.1 Siegquote (Spiele) - Rangliste */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Spiel Rangliste</h3>
                       </div>
                       <div ref={teamWinRateGameRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {groupStats?.teamWithHighestWinRateGame && groupStats.teamWithHighestWinRateGame.length > 0 ? (
