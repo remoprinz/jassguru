@@ -19,6 +19,7 @@ import Link from 'next/link';
 import { CheckCircle, XCircle, Award as AwardIcon, Archive } from 'lucide-react';
 import ProfileImage from '@/components/ui/ProfileImage';
 import AvatarPreloader from '@/components/ui/AvatarPreloader';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 
 // PlayerProfilePageStats ist jetzt der primäre Typ für transformierte Statistiken
 interface PlayerProfilePageStats extends TransformedPlayerStats {
@@ -44,6 +45,7 @@ function isFirestoreTimestamp(value: unknown): value is Timestamp {
 const PlayerProfilePage = () => {
   const router = useRouter();
   const { playerId } = router.query;
+  const layout = useResponsiveLayout(); // ✅ NEU: Responsive Layout Hook
 
   const [player, setPlayer] = useState<FirestorePlayer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -375,7 +377,7 @@ const PlayerProfilePage = () => {
                       <ProfileImage
                         src={player1Data?.photoURL}
                         alt={playerNames['1'] || 'Spieler'}
-                        size="sm"
+                        size={layout.profileImageListSize}
                         className="border-2 border-gray-800"
                         style={{ zIndex: 1 }}
                         fallbackClassName="bg-gray-700 text-gray-300 text-xs"
@@ -385,7 +387,7 @@ const PlayerProfilePage = () => {
                       <ProfileImage
                         src={player3Data?.photoURL}
                         alt={playerNames['3'] || 'Spieler'}
-                        size="sm"
+                        size={layout.profileImageListSize}
                         className="border-2 border-gray-800 -ml-2"
                         style={{ zIndex: 0 }}
                         fallbackClassName="bg-gray-700 text-gray-300 text-xs"
@@ -406,7 +408,7 @@ const PlayerProfilePage = () => {
                       <ProfileImage
                         src={player2Data?.photoURL}
                         alt={playerNames['2'] || 'Spieler'}
-                        size="sm"
+                        size={layout.profileImageListSize}
                         className="border-2 border-gray-800"
                         style={{ zIndex: 1 }}
                         fallbackClassName="bg-gray-700 text-gray-300 text-xs"
@@ -416,7 +418,7 @@ const PlayerProfilePage = () => {
                       <ProfileImage
                         src={player4Data?.photoURL}
                         alt={playerNames['4'] || 'Spieler'}
-                        size="sm"
+                        size={layout.profileImageListSize}
                         className="border-2 border-gray-800 -ml-2"
                         style={{ zIndex: 0 }}
                         fallbackClassName="bg-gray-700 text-gray-300 text-xs"
