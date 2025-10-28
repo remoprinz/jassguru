@@ -476,8 +476,9 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
             return '';
           }
         },
-        // ✅ Letzten Datenpunkt auf vertikaler Linie positionieren
-        offset: false
+        // ✅ Mobile-Optimierung: Letzten Datenpunkt klickbar machen
+        offset: true,
+        bounds: 'data' as const // Nur Bereich mit Daten rendern
       },
         y: {
           display: true,
@@ -601,7 +602,7 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
       }
     },
     interaction: {
-      intersect: true, // ✅ NEU: Nur Tooltip wenn Finger direkt auf Datenpunkt
+      intersect: false, // ✅ Mobile-optimiert: Finger kann in der Nähe des Punkts sein
       mode: 'index' as const
     },
     // 🎯 MOBILE & DESKTOP: Touch/Click Handling
@@ -621,7 +622,7 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
       point: {
         hoverBorderWidth: 3,
         hoverBorderColor: '#ffffff',
-        hitRadius: 25, // ✅ NEU: Mobile-freundlicher Touch-Radius
+        hitRadius: 35, // ✅ Mobile-optimiert: Grösserer Touch-Radius für bessere Bedienung
         hoverRadius: 4
       }
     }
