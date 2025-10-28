@@ -113,22 +113,33 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
   useEffect(() => {
     if (animateImmediately) return;
     
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting && entry.intersectionRatio >= animationThreshold) {
-            setIsInView(true);
-          }
-        });
-      },
-      { threshold: animationThreshold }
-    );
+    let observer: IntersectionObserver | null = null;
+    
+    // ✅ Warte auf nächsten Frame, damit Ref gesetzt ist
+    const frameId = requestAnimationFrame(() => {
+      const currentContainer = containerRef.current;
+      if (!currentContainer) return;
+      
+      observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting && entry.intersectionRatio >= animationThreshold) {
+              setIsInView(true);
+            }
+          });
+        },
+        { threshold: animationThreshold, rootMargin: '50px' } // ✅ NEU: rootMargin für frühere Erkennung
+      );
 
-    if (containerRef.current) {
-      observer.observe(containerRef.current);
-    }
+      observer.observe(currentContainer);
+    });
 
-    return () => observer.disconnect();
+    return () => {
+      cancelAnimationFrame(frameId);
+      if (observer) {
+        observer.disconnect();
+      }
+    };
   }, [animateImmediately, animationThreshold]);
   
   // 🚀 NEU: Cleanup Timer beim Unmount
@@ -171,10 +182,24 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
     // Hide tooltip after delay
     hideTooltipAfterDelay(chartInstance);
   }, [isInView]);
+  
+  // 🎯 NEU: Trigger Chart-Update wenn isInView sich ändert (für Animation)
+  React.useEffect(() => {
+    if (!isInView) return; // Nur wenn isInView true wird
+    
+    const currentChartRef = chartRef.current;
+    if (!currentChartRef) return;
+    
+    const chartInstance = (currentChartRef as any).__chartjs__;
+    if (!chartInstance) return;
+    
+    // Force Chart to re-render with animation
+    chartInstance.update('show'); // 'show' mode triggert die Animation neu
+  }, [isInView]);
 
   // Vorbereitete Chart-Daten
   const chartData = useMemo(() => {
-    // ✅ VEREINFACHTE FILTERLOGIK: Nur gültige Daten behalten
+    // ✅ Gültige Daten filtern
     const validData = data.filter(item => {
       // Basis-Filter: Gültige WinRate
       if (
@@ -185,8 +210,6 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
       ) {
         return false;
       }
-      
-      // Alle anderen Daten behalten (keine weiteren Filter)
       return true;
     });
     
@@ -194,8 +217,35 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
       return { labels: [], datasets: [] };
     }
     
+    // 🎯 INTELLIGENTE AKTIVITÄTS-FILTERUNG:
+    // Berechne Gesamtanzahl Events (Partien oder Spiele) für die Gruppe
+    const totalEvents = validData.reduce((sum, item) => {
+      return sum + (item.wins + item.losses + (item.draws || 0));
+    }, 0);
+    
+    // 🎯 KORREKTE SCHWELLENWERTE: 10 Partien = etabliert, ca. 30 Spiele
+    // Partien: 1 Partie im Schnitt = 3.5 Spiele
+    const eventThreshold = isGameWinRate ? 30 : 10; // Für Spiele: 30, für Partien: 10
+    
+    // Filter-Strategie:
+    let activeData = validData;
+    
+    // Wenn die Gruppe bereits etabliert ist (10 Partien ODER 30 Spiele insgesamt UND > 6 Spieler):
+    if (totalEvents > eventThreshold && validData.length > 6) {
+      // Berechne Median-Aktivität
+      const eventsArray = validData.map(item => item.wins + item.losses + (item.draws || 0)).sort((a, b) => a - b);
+      const medianEvents = eventsArray[Math.floor(eventsArray.length / 2)];
+      
+      // 🎯 EINHEITLICHE FILTERLOGIK: Konsistent für Partien UND Spiele
+      // Filtere nur sehr inaktive Spieler (< 20% des Medians ODER < 3 Events)
+      activeData = validData.filter(item => {
+        const events = item.wins + item.losses + (item.draws || 0);
+        return events >= Math.max(3, medianEvents * 0.2); // Mindestens 3 Events ODER 20% des Medians
+      });
+    }
+    
     // Sortiere nach Win Rate (absteigend für vertikale Bars mit Top-Spieler RECHTS)
-    const sortedData = [...validData].sort((a, b) => b.winRate - a.winRate);
+    const sortedData = [...activeData].sort((a, b) => b.winRate - a.winRate);
     
     // ✅ LIMITING: Wenn mehr als 12 Spieler/Teams, zeige nur Top 12 mit meisten Spielen
     let limitedData = sortedData;
@@ -278,9 +328,9 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
       }
     },
     animation: {
-      duration: isInView ? 1200 : 0,
+      duration: isInView ? 1200 : 0, // ✅ KEINE Animation initial, nur wenn in View
       easing: 'easeOutQuad' as const,
-      delay: (context: { dataIndex: number }) => context.dataIndex * 50,
+      delay: (context: { dataIndex: number }) => isInView ? context.dataIndex * 50 : 0,
     },
     plugins: {
       legend: {
@@ -458,9 +508,9 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
 
       if (!chartArea) return;
 
-      // Zeichne dicke weisse Linie bei 50% NACH den Bars (hinter den Bars, aber Tooltips sind darüber)
+      // Zeichne weisse Linie bei 50% NACH den Bars (hinter den Bars, aber Tooltips sind darüber)
       ctx.save();
-      ctx.strokeStyle = isDarkMode ? 'rgba(255, 255, 255, 1)' : 'rgba(0, 0, 0, 1)';
+      ctx.strokeStyle = isDarkMode ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(chartArea.left, yPosition);

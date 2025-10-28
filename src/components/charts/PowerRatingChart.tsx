@@ -756,6 +756,35 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
     };
   }, [data, hideOutliers, useThemeColors, theme]); // ✅ Dependencies hinzugefügt
 
+  // ✅ Custom Plugin für 0er-Linie (nur bei Non-Elo-Charts)
+  const customPlugin = useMemo(() => ({
+    id: 'line0',
+    beforeDatasetsDraw: (chart: any) => {
+      // 🎯 Nur bei Non-Elo-Charts zeichnen
+      if (isEloChart) return;
+      
+      const ctx = chart.ctx;
+      const yScale = chart.scales.y;
+      if (!yScale) return;
+
+      // Berechne Y-Position für 0
+      const yPosition = yScale.getPixelForValue(0);
+      const chartArea = chart.chartArea;
+
+      if (!chartArea) return;
+
+      // Zeichne weisse Linie bei 0 VOR den Lines (im Hintergrund)
+      ctx.save();
+      ctx.strokeStyle = isDarkMode ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(chartArea.left, yPosition);
+      ctx.lineTo(chartArea.right, yPosition);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }), [isDarkMode, isEloChart]);
+
   return (
     <>
       {hasOnlySinglePoint ? (
@@ -768,6 +797,7 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
         <Line 
           data={enhancedData} 
           options={options}
+          plugins={[customPlugin]}
           style={{ 
             height: `${height}px`,
             backgroundColor: 'transparent'

@@ -253,6 +253,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
   
   // NEU: State für Elo-Ratings
   const [playerRatings, setPlayerRatings] = useState<Map<string, PlayerRatingWithTier>>(new Map());
+  const [eloRatingsLoading, setEloRatingsLoading] = useState(false); // ✅ NEU: Loading-State für Elo-Ratings
   // NEU: State für Elo-Deltas (aus jassGameSummaries)
   const [playerDeltas, setPlayerDeltas] = useState<Map<string, number>>(new Map());
   // NEU: State für Chart-Daten
@@ -857,13 +858,19 @@ export const GroupView: React.FC<GroupViewProps> = ({
   React.useEffect(() => {
     if (!currentGroup?.id || !members || members.length === 0) return;
     
+    // ✅ NEU: Setze Loading-State auf true
+    setEloRatingsLoading(true);
+    
     // ✅ IMMER globale Ratings laden (über alle Gruppen hinweg)
     const playerIds = members.map(m => m.id || m.userId).filter(Boolean);
     loadPlayerRatings(playerIds)
       .then((ratingsMap) => {
         setPlayerRatings(ratingsMap);
       })
-      .catch(error => console.warn('Fehler beim Laden der Elo-Ratings:', error));
+      .catch(error => console.warn('Fehler beim Laden der Elo-Ratings:', error))
+      .finally(() => {
+        setEloRatingsLoading(false); // ✅ Loading-State auf false setzen
+      });
   }, [members, currentGroup?.id]);
 
   // 🆕 NEU: Lade letzte Session-Deltas für JEDEN Spieler aus jassGameSummaries
@@ -1664,6 +1671,16 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                       <div ref={overviewMostGamesRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
                         {(() => {
+                          // ✅ NEU: Zeige Ladebalken während Elo-Ratings geladen werden
+                          if (eloRatingsLoading) {
+                            return (
+                              <div className="flex flex-col items-center justify-center py-8">
+                                <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin mb-3`}></div>
+                                <p className={`${layout.bodySize} text-gray-400`}>Lade Jass-Elo Ratings...</p>
+                              </div>
+                            );
+                          }
+                          
                           // Erstelle sortierte Liste aus Elo-Ratings
                           const ratingsArray = Array.from(playerRatings.values())
                             .filter(rating => rating && rating.rating > 0) // Nur Spieler mit Rating > 0

@@ -1,5 +1,6 @@
 import { db } from '@/services/firebaseInit';
 import { doc, getDoc, collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { getRankingColor } from '../config/chartColors';
 
 /**
  * 🎯 CHART DATA SERVICE - NEUE ARCHITEKTUR
@@ -199,68 +200,9 @@ export async function getOptimizedRatingChart(
   }
 }
 
-// 🎨 FARBPALETTE (identisch zur alten Version)
-function getRankingColor(rank: number, alpha: number = 1): string {
-  const baseColors = [
-    '#10b981', // Grün
-    '#3b82f6', // Blau
-    '#a855f7', // Lila
-    '#f97316', // Orange
-    '#06b6d4', // Cyan
-    '#ec4899', // Pink
-    '#eab308', // Gelb
-    '#14b8a6', // Teal
-    '#ef4444', // Rot
-    '#6366f1'  // Indigo
-  ];
-  
-  const baseIndex = (rank - 1) % baseColors.length;
-  const round = Math.floor((rank - 1) / baseColors.length);
-  
-  let color = baseColors[baseIndex];
-  
-  if (round === 1) {
-    color = darkenColor(color, 20);
-  } else if (round === 2) {
-    color = lightenColor(color, 20);
-  } else if (round === 3) {
-    color = darkenColor(color, 40);
-  } else if (round >= 4) {
-    color = darkenColor(color, 60);
-  }
-  
-  if (alpha < 1) {
-    return color.replace('rgb', 'rgba').replace(')', `, ${alpha})`);
-  }
-  
-  return color;
-}
-
-function darkenColor(color: string, percent: number): string {
-  const hex = color.replace('#', '');
-  const r = parseInt(hex.substr(0, 2), 16);
-  const g = parseInt(hex.substr(2, 2), 16);
-  const b = parseInt(hex.substr(4, 2), 16);
-  
-  const newR = Math.max(0, Math.floor(r * (1 - percent / 100)));
-  const newG = Math.max(0, Math.floor(g * (1 - percent / 100)));
-  const newB = Math.max(0, Math.floor(b * (1 - percent / 100)));
-  
-  return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
-}
-
-function lightenColor(color: string, percent: number): string {
-  const hex = color.replace('#', '');
-  const r = parseInt(hex.substr(0, 2), 16);
-  const g = parseInt(hex.substr(2, 2), 16);
-  const b = parseInt(hex.substr(4, 2), 16);
-  
-  const newR = Math.min(255, Math.floor(r + (255 - r) * percent / 100));
-  const newG = Math.min(255, Math.floor(g + (255 - g) * percent / 100));
-  const newB = Math.min(255, Math.floor(b + (255 - b) * percent / 100));
-  
-  return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
-}
+// 🎨 FARBPALETTE wird jetzt aus chartColors.ts importiert
+// Hinweis: Diese Datei hatte Darkening/Lightening für viele Spieler (>10), aber die 
+// zentrale Version in chartColors.ts verwendet jetzt die einfachere zyklische Wiederholung
 
 // Backfill-Status (für Kompatibilität)
 export async function getBackfillStatus(groupId: string): Promise<{
