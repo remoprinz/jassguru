@@ -47,7 +47,10 @@
     "backfill-player-data": "ts-node functions/scripts/backfillPlayerDataFromSummaries.ts",
     "backfill-player-data-dry": "ts-node functions/scripts/backfillPlayerDataFromSummaries.ts --dry-run",
     "backfill-player-data-group": "ts-node functions/scripts/backfillPlayerDataFromSummaries.ts --group-id=Tz0wgIHMTlhvTtFastiJ",
-    "backfill-player-data-player": "ts-node functions/scripts/backfillPlayerDataFromSummaries.ts --player-id="
+    "backfill-player-data-player": "ts-node functions/scripts/backfillPlayerDataFromSummaries.ts --player-id=",
+    "restore-globalStats-current": "cd functions && ts-node --project tsconfig.json scripts/restore-globalStats-current.ts",
+    "restore-globalStats-current-dry": "cd functions && ts-node --project tsconfig.json scripts/restore-globalStats-current.ts --dry-run",
+    "check-globalStats": "cd functions && ts-node --project tsconfig.json scripts/check-globalStats.ts"
   },
   "engines": {
     "node": ">=18.0.0 <23.0.0",
@@ -149,6 +152,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.17",
     "clean-webpack-plugin": "^4.0.0",
+    "commander": "^14.0.2",
     "dotenv": "^16.6.1",
     "eslint": "^8.57.1",
     "eslint-config-google": "^0.14.0",
