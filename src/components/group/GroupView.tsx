@@ -1582,27 +1582,36 @@ export const GroupView: React.FC<GroupViewProps> = ({
                   <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.subTabContainerPadding} rounded-lg backdrop-blur-md shadow-lg`}>
                     <TabsTrigger 
                       value="overview" 
-                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium flex items-center justify-center`}
+                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium flex items-center justify-center relative`}
                       style={{
-                        backgroundColor: activeStatsSubTab === 'overview' ? getTabActiveColor(groupTheme) : 'transparent'
+                        backgroundColor: activeStatsSubTab === 'overview' ? getTabActiveColor(groupTheme) : 'transparent',
+                        // ✅ Erweitere Klickbereich nach unten (unsichtbar)
+                        paddingBottom: '1.5rem',
+                        marginBottom: '-1.5rem'
                       }}
                     >
                       <BarChart2 size={layout.subTabIconSize} className="mr-1.5"/> Übersicht
                     </TabsTrigger>
                     <TabsTrigger 
                       value="players" 
-                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium flex items-center justify-center`}
+                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium flex items-center justify-center relative`}
                       style={{
-                        backgroundColor: activeStatsSubTab === 'players' ? getTabActiveColor(groupTheme) : 'transparent'
+                        backgroundColor: activeStatsSubTab === 'players' ? getTabActiveColor(groupTheme) : 'transparent',
+                        // ✅ Erweitere Klickbereich nach unten (unsichtbar)
+                        paddingBottom: '1.5rem',
+                        marginBottom: '-1.5rem'
                       }}
                     >
                       <User size={layout.subTabIconSize} className="mr-1.5"/> Spieler
                     </TabsTrigger>
                     <TabsTrigger 
                       value="teams" 
-                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium flex items-center justify-center`}
+                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium flex items-center justify-center relative`}
                       style={{
-                        backgroundColor: activeStatsSubTab === 'teams' ? getTabActiveColor(groupTheme) : 'transparent'
+                        backgroundColor: activeStatsSubTab === 'teams' ? getTabActiveColor(groupTheme) : 'transparent',
+                        // ✅ Erweitere Klickbereich nach unten (unsichtbar)
+                        paddingBottom: '1.5rem',
+                        marginBottom: '-1.5rem'
                       }}
                     >
                       <Users size={layout.subTabIconSize} className="mr-1.5"/> Teams
