@@ -388,8 +388,8 @@ const PlayerProfilePage = () => {
                         src={player3Data?.photoURL}
                         alt={playerNames['3'] || 'Spieler'}
                         size={layout.profileImageListSize}
-                        className="border-2 border-gray-800"
-                        style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
+                        className="border-2 border-gray-800 -ml-2"
+                        style={{ zIndex: 0 }}
                         fallbackClassName="bg-gray-700 text-gray-300 text-xs"
                         fallbackText={playerNames['3']?.charAt(0).toUpperCase() || '?'}
                         context="list"
@@ -419,8 +419,8 @@ const PlayerProfilePage = () => {
                         src={player4Data?.photoURL}
                         alt={playerNames['4'] || 'Spieler'}
                         size={layout.profileImageListSize}
-                        className="border-2 border-gray-800"
-                        style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
+                        className="border-2 border-gray-800 -ml-2"
+                        style={{ zIndex: 0 }}
                         fallbackClassName="bg-gray-700 text-gray-300 text-xs"
                         fallbackText={playerNames['4']?.charAt(0).toUpperCase() || '?'}
                         context="list"
