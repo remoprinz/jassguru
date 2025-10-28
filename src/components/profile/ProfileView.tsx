@@ -1630,21 +1630,21 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <TabsList className={`grid w-full grid-cols-2 bg-gray-800 ${layout.mainTabContainerPadding} rounded-lg sticky ${isPublicView ? 'top-[env(safe-area-inset-top,0px)]' : 'top-0'} z-30 backdrop-blur-md shadow-lg`}>
             <TabsTrigger 
               value="stats" 
-              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center py-4`}
+              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} text-lg font-semibold min-h-[44px] flex items-center justify-center py-5`}
               style={{
                 backgroundColor: activeMainTab === 'stats' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
               }}
             > 
-              <BarChart3 size={layout.mainTabIconSize} className="mr-2" /> Statistik 
+              <BarChart3 size={20} className="mr-2" /> Statistik 
             </TabsTrigger> 
             <TabsTrigger 
               value="archive" 
-              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center py-4`}
+              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} text-lg font-semibold min-h-[44px] flex items-center justify-center py-5`}
               style={{
                 backgroundColor: activeMainTab === 'archive' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
               }}
             > 
-              <Archive size={layout.mainTabIconSize} className="mr-2" /> Archiv 
+              <Archive size={20} className="mr-2" /> Archiv 
             </TabsTrigger>
           </TabsList>
 
@@ -1670,32 +1670,32 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.subTabContainerPadding} rounded-lg backdrop-blur-md shadow-lg`}>
                   <TabsTrigger
                     value="individual"
-                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium flex items-center justify-center py-4`}
+                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3`}
                     style={{
                       backgroundColor: activeStatsSubTab === 'individual' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
                     }}
                   >
-                    <User size={layout.subTabIconSize} className="mr-1.5" />
+                    <User size={16} className="mr-1.5" />
                     Individuell
                   </TabsTrigger>
                   <TabsTrigger
                     value="partner"
-                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium flex items-center justify-center py-4`}
+                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3`}
                     style={{
                       backgroundColor: activeStatsSubTab === 'partner' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
                     }}
                   >
-                    <Users size={layout.subTabIconSize} className="mr-1.5" />
+                    <Users size={16} className="mr-1.5" />
                     Partner
                   </TabsTrigger>
                   <TabsTrigger
                     value="opponent"
-                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium flex items-center justify-center py-4`}
+                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3`}
                     style={{
                       backgroundColor: activeStatsSubTab === 'opponent' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
                     }}
                   >
-                    <Shield size={layout.subTabIconSize} className="mr-1.5" />
+                    <Shield size={16} className="mr-1.5" />
                     Gegner
                   </TabsTrigger>
                 </TabsList>

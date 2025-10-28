@@ -1523,30 +1523,30 @@ export const GroupView: React.FC<GroupViewProps> = ({
           <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.mainTabContainerPadding} rounded-lg sticky ${isPublicView ? 'top-[env(safe-area-inset-top,0px)]' : 'top-0'} z-30 backdrop-blur-md shadow-lg`}>
             <TabsTrigger 
               value="statistics" 
-              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center py-4`}
+              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} text-lg font-semibold min-h-[44px] flex items-center justify-center py-5`}
               style={{
                 backgroundColor: activeMainTab === 'statistics' ? getTabActiveColor(groupTheme) : 'transparent'
               }}
             >
-              <BarChart size={layout.mainTabIconSize} className="mr-2" /> Statistik
+              <BarChart size={20} className="mr-2" /> Statistik
             </TabsTrigger>
             <TabsTrigger 
               value="archive"
-              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center py-4`}
+              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} text-lg font-semibold min-h-[44px] flex items-center justify-center py-5`}
               style={{
                 backgroundColor: activeMainTab === 'archive' ? getTabActiveColor(groupTheme) : 'transparent'
               }}
             >
-              <Archive size={layout.mainTabIconSize} className="mr-2" /> Archiv
+              <Archive size={20} className="mr-2" /> Archiv
             </TabsTrigger>
             <TabsTrigger
               value="members" 
-              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center py-4`}
+              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} text-lg font-semibold min-h-[44px] flex items-center justify-center py-5`}
               style={{
                 backgroundColor: activeMainTab === 'members' ? getTabActiveColor(groupTheme) : 'transparent'
               }}
             >
-              <Users size={layout.mainTabIconSize} className="mr-2" /> Mitglieder
+              <Users size={20} className="mr-2" /> Mitglieder
             </TabsTrigger>
           </TabsList>
 
@@ -1582,30 +1582,30 @@ export const GroupView: React.FC<GroupViewProps> = ({
                   <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.subTabContainerPadding} rounded-lg backdrop-blur-md shadow-lg`}>
                     <TabsTrigger 
                       value="overview" 
-                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium flex items-center justify-center py-4`}
+                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3`}
                       style={{
                         backgroundColor: activeStatsSubTab === 'overview' ? getTabActiveColor(groupTheme) : 'transparent'
                       }}
                     >
-                      <BarChart2 size={layout.subTabIconSize} className="mr-1.5"/> Übersicht
+                      <BarChart2 size={16} className="mr-1.5"/> Übersicht
                     </TabsTrigger>
                     <TabsTrigger 
                       value="players" 
-                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium flex items-center justify-center py-4`}
+                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3`}
                       style={{
                         backgroundColor: activeStatsSubTab === 'players' ? getTabActiveColor(groupTheme) : 'transparent'
                       }}
                     >
-                      <User size={layout.subTabIconSize} className="mr-1.5"/> Spieler
+                      <User size={16} className="mr-1.5"/> Spieler
                     </TabsTrigger>
                     <TabsTrigger 
                       value="teams" 
-                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} ${layout.subTabTextSize} font-medium flex items-center justify-center py-4`}
+                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3`}
                       style={{
                         backgroundColor: activeStatsSubTab === 'teams' ? getTabActiveColor(groupTheme) : 'transparent'
                       }}
                     >
-                      <Users size={layout.subTabIconSize} className="mr-1.5"/> Teams
+                      <Users size={16} className="mr-1.5"/> Teams
                     </TabsTrigger>
                   </TabsList>
                 </div>
