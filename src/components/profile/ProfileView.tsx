@@ -1627,10 +1627,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           }}
           className="w-full"
         >
-          <TabsList className={`grid w-full grid-cols-2 bg-gray-800 ${layout.mainTabContainerPadding} rounded-lg sticky ${isPublicView ? 'top-[env(safe-area-inset-top,0px)]' : 'top-0'} z-30 backdrop-blur-md shadow-lg`}>
+          <TabsList className={`grid w-full grid-cols-2 bg-gray-800 ${layout.mainTabContainerPadding} rounded-xl sticky ${isPublicView ? 'top-[env(safe-area-inset-top,0px)]' : 'top-0'} z-30 backdrop-blur-md shadow-lg`}>
             <TabsTrigger 
               value="stats" 
-              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center py-5`}
+              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-xl ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center py-5`}
               style={{
                 backgroundColor: activeMainTab === 'stats' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
               }}
@@ -1639,7 +1639,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </TabsTrigger> 
             <TabsTrigger 
               value="archive" 
-              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center py-5`}
+              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-xl ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center py-5`}
               style={{
                 backgroundColor: activeMainTab === 'archive' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
               }}
@@ -1667,7 +1667,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             >
               {/* Sticky Container für Sub-Tabs - mit 3px Abstand */}
               <div className={`sticky ${isPublicView ? (layout.isDesktop ? "top-[calc(env(safe-area-inset-top,0px)+80px)]" : "top-[calc(env(safe-area-inset-top,0px)+64px)]") : (layout.isDesktop ? "top-[80px]" : "top-[64px]")} z-30 bg-gray-900`}>
-                <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.subTabContainerPadding} rounded-full backdrop-blur-md shadow-lg`}>
+                <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.subTabContainerPadding} rounded-xl backdrop-blur-md shadow-lg`}>
                   <TabsTrigger
                     value="individual"
                     className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-xl ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3`}
