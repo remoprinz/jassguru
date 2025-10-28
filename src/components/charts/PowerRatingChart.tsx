@@ -1,6 +1,38 @@
 import React, { useMemo } from 'react';
 
 /**
+ * 🎨 FARBPALETTE für Rankings
+ */
+function getRankingColor(rank: number, alpha: number = 1): string {
+  const baseColors = [
+    '#10b981', // Grün
+    '#3b82f6', // Blau
+    '#a855f7', // Lila
+    '#f97316', // Orange
+    '#06b6d4', // Cyan
+    '#ec4899', // Pink
+    '#eab308', // Gelb
+    '#14b8a6', // Teal
+    '#ef4444', // Rot
+    '#6366f1'  // Indigo
+  ];
+  
+  const colorIndex = (rank - 1) % baseColors.length;
+  const color = baseColors[colorIndex];
+  
+  if (alpha === 1) {
+    return color;
+  }
+  
+  // Convert hex to rgba
+  const r = parseInt(color.slice(1, 3), 16);
+  const g = parseInt(color.slice(3, 5), 16);
+  const b = parseInt(color.slice(5, 7), 16);
+  
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/**
  * ✂️ TEAM-NAMEN ABKÜRZEN für kompakte Legend
  * - Standard: Erste 2 Buchstaben
  * - "Sch" + 1 Buchstabe (z.B. "Schm" für Schmuuuudiii)
@@ -115,6 +147,8 @@ interface PowerRatingChartProps {
   activeSubTab?: string; // ✅ NEU: Für Sub-Tab-Wechsel-Reset der Animationen
   animateImmediately?: boolean; // 🚀 NEU: Animation sofort starten (für oberste Charts)
   hideOutliers?: boolean; // 🎯 NEU: Versteckt Punkte von Spielern mit nur einem Datenpunkt
+  useThemeColors?: boolean; // 🎨 NEU: Verwendet Theme-Farben statt Ranking-Farben (für ProfileView)
+  animationThreshold?: number; // 🎯 NEU: Custom threshold für Animation (default: 0.4)
 }
 
 export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
@@ -131,6 +165,8 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
   activeSubTab, // ✅ NEU: Sub-Tab-Wechsel-Reset
   animateImmediately = false, // 🚀 NEU: Standardmäßig false (normale Intersection Observer Logik)
   hideOutliers = true, // 🎯 NEU: Standardmäßig verstecke Outlier-Punkte
+  useThemeColors = false, // 🎨 NEU: Standardmäßig false (Ranking-Farben)
+  animationThreshold = 0.4, // 🎯 NEU: Default threshold 40%
 }) => {
     // 🎯 INTELLIGENTE ANIMATION-KONTROLLE: Intersection Observer + Tab-Wechsel-Reset
     const [hasAnimated, setHasAnimated] = React.useState(false);
@@ -188,28 +224,37 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
       const observer = new IntersectionObserver(
         (entries) => {
           const entry = entries[0];
-          if (entry.isIntersecting) {
-            setIsVisible(true);
-            setShouldRender(true); // ✅ Chart wird gerendert
-            // Animation nur starten wenn Chart vollständig sichtbar UND noch nicht animiert
-            if (!hasAnimated) {
-              setTimeout(() => setHasAnimated(true), 50); // 50ms Verzögerung für smooth Animation
+          // 🎯 WICHTIG: Prüfe ob Element wirklich sichtbar ist (nicht hidden durch Tab-System)
+          if (!entry.target || entry.target instanceof Element) {
+            const element = entry.target as HTMLElement;
+            const computedStyle = window.getComputedStyle(element);
+            const isVisible = computedStyle.display !== 'none' && 
+                             computedStyle.visibility !== 'hidden' &&
+                             computedStyle.opacity !== '0';
+            
+            if (entry.isIntersecting && isVisible) {
+              setIsVisible(true);
+              setShouldRender(true); // ✅ Chart wird gerendert
+              // Animation nur starten wenn Chart vollständig sichtbar UND noch nicht animiert
+              if (!hasAnimated) {
+                setTimeout(() => setHasAnimated(true), 50); // 50ms Verzögerung für smooth Animation
+              }
+            } else {
+              setIsVisible(false);
+              // ✅ Optional: Chart nicht mehr rendern wenn nicht sichtbar (für Performance)
+              // setShouldRender(false);
             }
-          } else {
-            setIsVisible(false);
-            // ✅ Optional: Chart nicht mehr rendern wenn nicht sichtbar (für Performance)
-            // setShouldRender(false);
           }
         },
         { 
-          threshold: 0.4, // ✅ Animation startet bei ersten Pixel (0%)
+          threshold: animationThreshold, // ✅ Custom threshold für Animation
           rootMargin: '0px' // ✅ Kein Vorlauf - erst wenn komplett sichtbar
         }
       );
       
       observer.observe(chartRef.current);
       return () => observer.disconnect();
-    }, [hasAnimated, activeTab, activeSubTab, animateImmediately]);
+    }, [hasAnimated, activeTab, activeSubTab, animateImmediately, animationThreshold]);
 
     // 🚀 NEU: Cleanup Timer beim Unmount
     React.useEffect(() => {
@@ -602,7 +647,7 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
         })
       : data.datasets;
     
-    // ✅ LEGEND-SORTIERUNG: Sortiere Datasets nach dem letzten Wert (höchster zuoberst)
+    // ✅ SORTIERE DATASETS NACH LETZTEM WERT (für korrekte Legend-Reihenfolge)
     const sortedDatasets = [...filteredDatasets].sort((a, b) => {
       // Finde den letzten gültigen Wert für jedes Dataset
       let lastValueA = null;
@@ -634,11 +679,35 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
     
     return {
       ...data,
-      // 🎯 KORREKTUR: Keine zusätzlichen Labels - verwende originale Labels
       labels: data.labels,
-      datasets: sortedDatasets.map(dataset => {
-        // 🎯 NEU: Erstelle Array von pointRadius-Werten (jetzt immer normal, da Outlier bereits gefiltert)
+      datasets: sortedDatasets.map((dataset, index) => {
+        // 🎯 NEU: Erstelle Array von pointRadius-Werten
         const pointRadii = dataset.data.map(() => CHART_CONFIG.pointRadius);
+        
+        // 🎨 FARBEN: Theme-Farben oder Ranking-Farben
+        let borderColor: string;
+        let backgroundColor: string;
+        
+        if (useThemeColors) {
+          // 🎨 THEME-FARBEN: Verwende die Theme-Farbe des Spielers
+          const themeColorMap: Record<string, string> = {
+            'green': '#10b981',
+            'blue': '#3b82f6',
+            'purple': '#a855f7',
+            'orange': '#f97316',
+            'cyan': '#06b6d4',
+            'pink': '#ec4899',
+            'yellow': '#eab308',
+            'teal': '#14b8a6',
+          };
+          borderColor = themeColorMap[theme] || themeColorMap.blue;
+          backgroundColor = borderColor + '1A'; // 10% Alpha
+        } else {
+          // ✅ RANKING-FARBEN: Basierend auf Sortierung
+          const rank = index + 1;
+          borderColor = getRankingColor(rank);
+          backgroundColor = getRankingColor(rank, 0.1);
+        }
         
         return {
           ...dataset,
@@ -646,21 +715,24 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
           label: abbreviateTeamName(dataset.label || ''),
           displayName: dataset.displayName || dataset.label,
           // 🎯 KORREKTUR: Chart.js kann nicht mit null umgehen, verwende NaN für fehlende Werte
-          data: dataset.data.map(point => point === null ? NaN : point), // Nur NaN-Konvertierung, keine zusätzlichen Punkte
+          data: dataset.data.map(point => point === null ? NaN : point),
           fill: false,
-          tension: CHART_CONFIG.tension,           // ✅ ZENTRAL: Überschreibt dataset.tension
-          pointRadius: pointRadii,                 // 🎯 NEU: Array für unterschiedliche Radien
-          pointHoverRadius: CHART_CONFIG.pointHoverRadius, // ✅ ZENTRAL: Überschreibt dataset.pointHoverRadius
-          borderWidth: CHART_CONFIG.borderWidth,   // ✅ ZENTRAL: Einheitliche Linienbreite
-          pointBackgroundColor: dataset.borderColor,
-          pointBorderColor: dataset.borderColor,
+          tension: CHART_CONFIG.tension,
+          pointRadius: pointRadii,
+          pointHoverRadius: CHART_CONFIG.pointHoverRadius,
+          borderWidth: CHART_CONFIG.borderWidth,
+          // ✅ FARBEN: Theme-Farben oder Ranking-Farben
+          borderColor,
+          backgroundColor,
+          pointBackgroundColor: borderColor,
+          pointBorderColor: borderColor,
           pointHoverBackgroundColor: '#ffffff',
-          pointHoverBorderColor: dataset.borderColor,
-          spanGaps: dataset.spanGaps ?? true, // ✅ WICHTIG: Respektiere Dataset-Einstellung (default: true für Elo)
+          pointHoverBorderColor: borderColor,
+          spanGaps: dataset.spanGaps ?? true,
         };
       })
     };
-  }, [data, hideOutliers]); // ✅ Dependencies hinzugefügt
+  }, [data, hideOutliers, useThemeColors, theme]); // ✅ Dependencies hinzugefügt
 
   return (
     <>

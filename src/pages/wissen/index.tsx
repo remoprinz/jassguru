@@ -88,17 +88,17 @@ const WissenHomePage = () => {
     return (
         <LexikonLayout breadcrumbItems={breadcrumbItems}>
             <SeoHead
-                title="Jass-Wiki: Alle offiziellen Jassregeln der Schweiz | Das komplette Nachschlagewerk"
-                description="Von den Grundlagen bis zu Profi-Strategien - hier findest du alles über das Schweizer Nationalspiel. Das umfassendste Jass-Regelwerk online."
+                title="Jassregeln: Alle offiziellen Jassregeln der Schweiz | Kompletter Guide 2025"
+                description="Die vollständigen Jassregeln für alle Varianten: Schieber, Coiffeur & Co. Offizielles Regelwerk, Weis, Punktzählung und Taktiken verständlich erklärt."
             />
 
             {/* Hero Section */}
             <div className="text-center mb-8 sm:mb-12">
                 <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4">
-                    Das Wiki für Jasser
+                    Jassregeln: Das offizielle Nachschlagewerk
                 </h1>
                 <p className="text-lg sm:text-xl text-gray-300 leading-relaxed max-w-2xl mx-auto mb-8">
-                    Von den Grundlagen bis zu Profi-Strategien - hier findest du alles über das Schweizer Nationalspiel.
+                    Alle offiziellen Jassregeln der Schweiz in einem Wiki. Von Grundlagen bis zu Profi-Strategien - hier findest du alles übers Schweizer Nationalspiel.
                 </p>
                 
             </div>

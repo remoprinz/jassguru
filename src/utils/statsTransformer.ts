@@ -240,7 +240,7 @@ export const transformComputedStatsToExtended = (
 
   const transformed: TransformedPlayerStats = {
     totalSessions: rawStats.totalSessions || 0,
-    totalTournaments: rawStats.totalTournamentsParticipated || 0,
+    totalTournaments: rawStats.totalTournaments || rawStats.totalTournamentsParticipated || 0,
     totalGames: rawStats.totalGames || 0,
     totalPlayTime: formatDuration(rawStats.totalPlayTimeSeconds || 0),
     firstJassDate: formatDateSafely(rawStats.firstJassTimestamp),

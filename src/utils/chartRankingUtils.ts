@@ -91,3 +91,62 @@ export const getRankingFromChartData = (chartData: any, members: any[], playerSt
 //
 // // Elo Rangliste
 // const eloRanking = getRankingFromChartData(chartData, members);
+
+/**
+ * 🎯 TEAM-RANKING aus Chart-Daten
+ * Analog zu getRankingFromChartData, aber für Team-Datasets
+ */
+export const getTeamRankingFromChartData = (
+  chartData: any,
+  members: any[]
+): Array<{
+  rank: number;
+  teamId: string;
+  teamName: string;
+  currentValue: number;
+  gamesPlayed?: number;
+  dataPoints: number;
+}> => {
+  if (!chartData || !chartData.datasets || chartData.datasets.length === 0) {
+    return [];
+  }
+
+  // ✅ Hilfsfunktion: Finde letzten nicht-null Wert
+  const getLastNonNullValue = (data: any[]): number => {
+    for (let i = data.length - 1; i >= 0; i--) {
+      if (data[i] !== null && data[i] !== undefined && !isNaN(data[i])) {
+        return data[i];
+      }
+    }
+    return 0;
+  };
+
+  // Sortiere Datasets nach letztem nicht-null Wert
+  const sortedDatasets = chartData.datasets
+    .map(dataset => ({
+      ...dataset,
+      currentValue: getLastNonNullValue(dataset.data),
+      dataPoints: dataset.data.filter(d => d !== null && d !== undefined && !isNaN(d)).length
+    }))
+    .sort((a, b) => b.currentValue - a.currentValue);
+
+  return sortedDatasets.map((dataset, index) => {
+    // Extrahiere Team-Info aus Dataset
+    const teamName = dataset.displayName || dataset.label;
+    const teamId = dataset.teamId || '';
+    
+    // Berechne Anzahl Spiele für dieses Team
+    // Dazu müssten wir alle Sessions durchgehen und zählen wie oft dieses Team gespielt hat
+    // Für jetzt: Verwende dataPoints als Approximation
+    const gamesPlayed = dataset.dataPoints;
+
+    return {
+      rank: index + 1,
+      teamId,
+      teamName,
+      currentValue: Math.trunc(dataset.currentValue),
+      dataPoints: dataset.dataPoints,
+      gamesPlayed
+    };
+  });
+};

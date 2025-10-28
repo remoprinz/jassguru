@@ -178,12 +178,19 @@ try {
       analytics = null; // Kein Analytics in lokaler Entwicklung
     } else {
       // Nur im Browser und in Produktion Analytics initialisieren
+      // WICHTIG: Try-catch um Analytics-Initialisierung, damit App auch bei 403-Fehlern lädt
       isSupported().then((supported) => {
         if (supported) {
-          analytics = getAnalytics(app);
+          try {
+            analytics = getAnalytics(app);
+          } catch (error) {
+            console.warn("Analytics-Initialisierung fehlgeschlagen, aber App lädt weiter:", error);
+            analytics = null; // App kann ohne Analytics weiterlaufen
+          }
         }
       }).catch((error) => {
-        console.error("Analytics nicht unterstützt:", error);
+        console.warn("Analytics nicht unterstützt:", error);
+        analytics = null;
       });
     }
   }

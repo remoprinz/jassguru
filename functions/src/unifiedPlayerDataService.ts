@@ -181,7 +181,7 @@ async function updatePlayerData(
     
     // 3. Update Global Stats
     const currentGlobalStats = playerData?.globalStats || getDefaultGlobalPlayerStats();
-    const updatedGlobalStats = updateGlobalStats(currentGlobalStats, sessionDelta, sessionData);
+    const updatedGlobalStats = updateGlobalStats(currentGlobalStats, sessionDelta, sessionData, tournamentId);
     
     // 4. Update Root Document
     const rootUpdate: Partial<PlayerRootDocument> = {
@@ -446,8 +446,10 @@ function sumStriche(stricheRecord: any): number {
 function updateGlobalStats(
   current: GlobalPlayerStats,
   delta: SessionDelta,
-  sessionData: any
+  sessionData: any,
+  tournamentId: string | null
 ): GlobalPlayerStats {
+  const isTournament = Boolean(tournamentId);
   const updated: GlobalPlayerStats = {
     ...current,
     
@@ -456,6 +458,9 @@ function updateGlobalStats(
     sessionsWon: current.sessionsWon + delta.sessionsWon,
     sessionsLost: current.sessionsLost + delta.sessionsLost,
     sessionsDraw: current.sessionsDraw + delta.sessionsDraw,
+    
+    // TOURNAMENTS
+    totalTournaments: current.totalTournaments || 0,
     
     // GAMES
     totalGames: current.totalGames + delta.gamesPlayed,
@@ -518,6 +523,11 @@ function updateGlobalStats(
     updated.firstJassTimestamp = sessionData.startedAt || admin.firestore.Timestamp.now();
   } else {
     updated.firstJassTimestamp = current.firstJassTimestamp;
+  }
+  
+  // ✅ NEU: Inkrementiere totalTournaments wenn es ein Turnier ist
+  if (isTournament) {
+    updated.totalTournaments = (current.totalTournaments || 0) + 1;
   }
   
   return updated;

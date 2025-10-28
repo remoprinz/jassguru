@@ -141,12 +141,7 @@ export async function getOptimizedRatingChart(
       return bValue - aValue; // Absteigend
     });
     
-    // ✅ WEISE RANKING-BASIERTE FARBEN ZU
-    datasets.forEach((dataset, index) => {
-      const rank = index + 1;
-      dataset.borderColor = getRankingColor(rank);
-      dataset.backgroundColor = getRankingColor(rank, 0.1);
-    });
+    // ✅ Farbzuweisung passiert im Frontend (PowerRatingChart.tsx)
     
     return {
       labels: sortedLabels,
@@ -511,7 +506,7 @@ export async function getBackfillStatus(groupId: string): Promise<{
 
 /**
  * 🚀 Lade Team-Matsch-Bilanz-Chart
- * Teams als "playerId1-playerId2" (sortiert) - nur Top 10 Teams
+ * Teams als "playerId1-playerId2" (sortiert) - nur Top 15 Teams
  */
 export async function getOptimizedTeamMatschChart(
   groupId: string,
@@ -610,8 +605,8 @@ export async function getOptimizedTeamMatschChart(
       }))
       .filter(t => t.sessions > 0);
     
-    // 🔥 TOP 10 TEAMS nach Session-Anzahl
-    const topTeams = teamsArray.sort((a, b) => b.sessions - a.sessions).slice(0, 10);
+    // 🔥 TOP 15 TEAMS nach Session-Anzahl
+    const topTeams = teamsArray.sort((a, b) => b.sessions - a.sessions).slice(0, 15);
     
     // Erstelle Datasets mit null-Werten für Sessions wo Team nicht gespielt hat
     const datasets = topTeams.map(team => {
@@ -675,7 +670,7 @@ export async function getOptimizedTeamMatschChart(
 
 /**
  * 🚀 Lade Team-Strichdifferenz-Chart
- * Teams als "playerId1-playerId2" (sortiert) - nur Top 10 Teams
+ * Teams als "playerId1-playerId2" (sortiert) - nur Top 15 Teams
  */
 export async function getOptimizedTeamStricheChart(
   groupId: string,
@@ -778,8 +773,8 @@ export async function getOptimizedTeamStricheChart(
       }))
       .filter(t => t.sessions > 0);
     
-    // 🔥 TOP 10 TEAMS nach Session-Anzahl
-    const topTeams = teamsArray.sort((a, b) => b.sessions - a.sessions).slice(0, 10);
+    // 🔥 TOP 15 TEAMS nach Session-Anzahl
+    const topTeams = teamsArray.sort((a, b) => b.sessions - a.sessions).slice(0, 15);
     
     // Erstelle Datasets mit null-Werten für Sessions wo Team nicht gespielt hat
     const datasets = topTeams.map(team => {
@@ -843,7 +838,7 @@ export async function getOptimizedTeamStricheChart(
 
 /**
  * 🚀 Lade Team-Punktedifferenz-Chart
- * Teams als "playerId1-playerId2" (sortiert) - nur Top 10 Teams
+ * Teams als "playerId1-playerId2" (sortiert) - nur Top 15 Teams
  */
 export async function getOptimizedTeamPointsChart(
   groupId: string,
@@ -939,8 +934,8 @@ export async function getOptimizedTeamPointsChart(
       }))
       .filter(t => t.sessions > 0);
     
-    // 🔥 TOP 10 TEAMS nach Session-Anzahl
-    const topTeams = teamsArray.sort((a, b) => b.sessions - a.sessions).slice(0, 10);
+    // 🔥 TOP 15 TEAMS nach Session-Anzahl
+    const topTeams = teamsArray.sort((a, b) => b.sessions - a.sessions).slice(0, 15);
     
     // Erstelle Datasets mit null-Werten für Sessions wo Team nicht gespielt hat
     const datasets = topTeams.map(team => {
@@ -1000,4 +995,135 @@ export async function getOptimizedTeamPointsChart(
       lastUpdated: new Date()
     };
   }
+}
+
+/**
+ * 🎯 TRUMPF-VERTEILUNG zu Chart-Daten transformieren
+ * Wandelt trumpfStatistik (groupStats) in PieChart-Format um
+ */
+export interface TrumpfDistributionData {
+  labels: string[];
+  values: number[];
+  backgroundColor?: string[];
+  pictogramPaths?: string[]; // ✅ NEU: Pfade zu Bild-Pictogrammen
+  percentages?: number[]; // ✅ NEU: Prozentsätze (sortiert nach Häufigkeit)
+}
+
+export function getTrumpfDistributionChartData(
+  trumpfStatistik: { [farbe: string]: number },
+  totalTrumpfCount: number
+): TrumpfDistributionData | null {
+  if (!trumpfStatistik || totalTrumpfCount === 0) {
+    return null;
+  }
+
+  // ✅ KORREKTUR: Duplikate zusammenfassen (eichel+eicheln, unde+une) - WIE IN GROUPVIEW!
+  const consolidatedStats: Record<string, number> = {};
+  
+  Object.entries(trumpfStatistik).forEach(([farbe, anzahl]) => {
+    const normalizedFarbe = farbe.toLowerCase();
+    
+    // Mapping für Duplikate
+    let mappedFarbe = normalizedFarbe;
+    if (normalizedFarbe === 'eicheln') {
+      mappedFarbe = 'eichel';
+    } else if (normalizedFarbe === 'une') {
+      mappedFarbe = 'unde';
+    }
+    
+    // Zusammenfassen
+    consolidatedStats[mappedFarbe] = (consolidatedStats[mappedFarbe] || 0) + anzahl;
+  });
+  
+  // ✅ Verwende konsolidierte Stats
+  const trumpfStatistikConsolidated = consolidatedStats;
+
+  // Pictogramm-Pfade für Trumpffarben (DE + FR)
+  const trumpfPictogramMap: { [key: string]: string } = {
+    // Deutsche Farben (PNG-Dateien)
+    'eichel': '/assets/pictograms/standardDE/eichel.png',
+    'eicheln': '/assets/pictograms/standardDE/eichel.png',
+    'rosen': '/assets/pictograms/standardDE/rosen.png',
+    'rose': '/assets/pictograms/standardDE/rosen.png',
+    'schellen': '/assets/pictograms/standardDE/schellen.png',
+    'schelle': '/assets/pictograms/standardDE/schellen.png',
+    'schilten': '/assets/pictograms/standardDE/schilten.png',
+    'schilte': '/assets/pictograms/standardDE/schilten.png',
+    // Französische Farben (PNG-Dateien)
+    'gras': '/assets/pictograms/standardFR/schaufel.png',
+    'schaufel': '/assets/pictograms/standardFR/schaufel.png',
+    'herz': '/assets/pictograms/standardFR/herz.png',
+    'kreuz': '/assets/pictograms/standardFR/kreuz.png',
+    'ecke': '/assets/pictograms/standardFR/ecke.png',
+    // Spezielle Trumpf-Typen (SVG-Dateien)
+    'unde': '/assets/pictograms/standardDE/unde.svg',
+    'une': '/assets/pictograms/standardDE/unde.svg',
+    'obe': '/assets/pictograms/standardDE/obe.svg',
+    'quer': '/assets/pictograms/standardDE/quer.svg',
+    'misère': '/assets/pictograms/standardDE/misere.svg',
+    'misèrefr': '/assets/pictograms/standardFR/misereFR.svg',
+    'slalom': '/assets/pictograms/standardDE/slalom.svg',
+    '3x3': '/assets/pictograms/standardDE/3x3.svg'
+  };
+  
+  // ✅ Verwende GLEICHE Farbreihenfolge wie Verlaufcharts (getRankingColor)
+  function getRankingColor(rank: number, alpha: number = 1): string {
+    const baseColors = [
+      '#10b981', // Grün
+      '#3b82f6', // Blau
+      '#a855f7', // Lila
+      '#f97316', // Orange
+      '#06b6d4', // Cyan
+      '#ec4899', // Pink
+      '#eab308', // Gelb
+      '#14b8a6', // Teal
+      '#ef4444', // Rot
+      '#6366f1'  // Indigo
+    ];
+
+    const colorIndex = (rank - 1) % baseColors.length;
+    const color = baseColors[colorIndex];
+
+    if (alpha === 1) {
+      return color;
+    }
+
+    // Convert hex to rgba
+    const r = parseInt(color.slice(1, 3), 16);
+    const g = parseInt(color.slice(3, 5), 16);
+    const b = parseInt(color.slice(5, 7), 16);
+
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  
+  // ✅ Farben zuordnen nach Rang (sortiert bereits nach Häufigkeit)
+
+  // Sortiere nach Häufigkeit (höchste zuerst) - ✅ Verwende konsolidierte Stats!
+  const sortedEntries = Object.entries(trumpfStatistikConsolidated)
+    .map(([farbe, anzahl]) => ({
+      farbe: farbe.toLowerCase(),
+      anzahl,
+      percentage: (anzahl / totalTrumpfCount) * 100
+    }))
+    .sort((a, b) => b.anzahl - a.anzahl);
+
+  // Nur Farben mit Daten
+  const filteredEntries = sortedEntries.filter(entry => entry.anzahl > 0);
+
+  if (filteredEntries.length === 0) {
+    return null;
+  }
+
+  return {
+    labels: filteredEntries.map(entry => entry.farbe.charAt(0).toUpperCase() + entry.farbe.slice(1)),
+    values: filteredEntries.map(entry => entry.anzahl),
+    percentages: filteredEntries.map(entry => entry.percentage), // ✅ NEU: Bereits berechnete Prozentsätze
+    // ✅ Farben basierend auf Rang (sortiert nach Häufigkeit)
+    backgroundColor: filteredEntries.map((entry, idx) => 
+      getRankingColor(idx + 1) // Rank 1, 2, 3, ... (Grün, Blau, Lila, ...)
+    ),
+    pictogramPaths: filteredEntries.map(entry => 
+      trumpfPictogramMap[entry.farbe.toLowerCase()] || '' // ✅ NEU: Pictogramm-Pfade
+    )
+  };
 }

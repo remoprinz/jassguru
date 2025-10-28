@@ -246,9 +246,9 @@ export interface PlayerComputedStats {
   trumpfStatistik: { [key: string]: number };
   totalTrumpfCount: number;
 
-  // NEU: Initialisierung für Partner- und Gegnerstatistiken
-  partnerAggregates?: PartnerAggregate[];
-  opponentAggregates?: OpponentAggregate[];
+  // ❌ ENTFERNT: Initialisierung für Partner- und Gegnerstatistiken (redundant, Frontend liest aus Subcollections)
+  // partnerAggregates?: PartnerAggregate[];
+  // opponentAggregate?: OpponentAggregate[];
 }
 
 // Initialwerte für PlayerComputedStats
@@ -340,9 +340,9 @@ export const initialPlayerComputedStats: PlayerComputedStats = {
   trumpfStatistik: {},
   totalTrumpfCount: 0,
 
-  // NEU: Initialisierung für Partner- und Gegnerstatistiken
-  partnerAggregates: [],
-  opponentAggregates: [],
+  // ❌ ENTFERNT: Initialisierung für Partner- und Gegnerstatistiken (redundant, Frontend liest aus Subcollections)
+  // partnerAggregates: [],
+  // opponentAggregates: [],
 
   // === Win-Rates (KRITISCH: Unentschieden werden ausgeschlossen) ===
   sessionWinRate: 0,

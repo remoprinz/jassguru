@@ -93,7 +93,6 @@ export async function updateChartsAfterSession(
     logger.info(`[updateChartsAfterSession] ✅ Updated ${chartsUpdated.length}/5 charts`);
     
     return { success: true, chartsUpdated };
-    
   } catch (error) {
     logger.error(`[updateChartsAfterSession] Error updating charts:`, error);
     return { success: false, chartsUpdated: [], error: error instanceof Error ? error.message : String(error) };

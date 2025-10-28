@@ -197,6 +197,10 @@ export interface FrontendPlayerComputedStats {
   // === NEU: Partner- und Gegner-Aggregate ===
   partnerAggregates?: FrontendPartnerAggregate[];
   opponentAggregates?: FrontendOpponentAggregate[];
+  
+  // === NEU: Trumpfansagen-Statistiken ===
+  trumpfStatistik?: { [key: string]: number };
+  totalTrumpfCount?: number;
 }
 
 // Initialwerte für FrontendPlayerComputedStats (optional, aber hilfreich für Tests/Defaults)

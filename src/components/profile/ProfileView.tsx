@@ -41,17 +41,21 @@ import { db } from '@/services/firebaseInit';
 import { doc, getDoc } from 'firebase/firestore';
 // NEU: Responsive Layout Hook
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
-// NEU: Chart-Komponenten
-import PowerRatingChart from '@/components/charts/PowerRatingChart';
-import { getGlobalPlayerRatingTimeSeries } from '@/services/globalRatingHistoryService'; // 🎯 GLOBALE Spieler-Chart-Daten (über alle Gruppen)
+  // NEU: Chart-Komponenten
+  import PowerRatingChart from '@/components/charts/PowerRatingChart';
+  import PieChart from '@/components/charts/PieChart';
+  import { getGlobalPlayerRatingTimeSeries } from '@/services/globalRatingHistoryService'; // 🎯 GLOBALE Spieler-Chart-Daten (über alle Gruppen)
 import { getGlobalPlayerStricheTimeSeries } from '@/services/globalStricheHistoryService'; // 🎯 STRICH-DIFFERENZ Chart
 import { getGlobalPlayerPointsTimeSeries } from '@/services/globalPointsHistoryService'; // 🎯 PUNKT-DIFFERENZ Chart
 import { getGlobalPlayerMatschTimeSeries } from '@/services/globalMatschHistoryService'; // 🎯 MATSCH-BILANZ Chart
 import { getGlobalPlayerSchneiderTimeSeries } from '@/services/globalSchneiderHistoryService'; // 🎯 SCHNEIDER-BILANZ Chart
-import { getGlobalPlayerKontermatschTimeSeries } from '@/services/globalKontermatschHistoryService'; // 🎯 KONTERMATSCH-BILANZ Chart
-import { getGlobalPlayerWeisTimeSeries } from '@/services/globalWeisHistoryService'; // 🎯 WEIS-PUNKTE Chart (3 Kurven!)
-
-// Types
+  import { getGlobalPlayerKontermatschTimeSeries } from '@/services/globalKontermatschHistoryService'; // 🎯 KONTERMATSCH-BILANZ Chart
+  import { getGlobalPlayerWeisTimeSeries } from '@/services/globalWeisHistoryService'; // 🎯 WEIS-PUNKTE Chart (3 Kurven!)
+  import { getTrumpfDistributionChartData } from '@/services/chartDataService'; // 🎯 TRUMPFVERTEILUNG CHART
+  import { CARD_SYMBOL_MAPPINGS } from '@/config/CardStyles';
+  import { toTitleCase } from '@/utils/formatUtils';
+  
+  // Types
 interface ExpectedPlayerStatsWithAggregates {
   [key: string]: any;
   partnerAggregates?: FrontendPartnerAggregate[];
@@ -224,6 +228,34 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   } | null>(null);
   const [weisChartLoading, setWeisChartLoading] = useState(false);
 
+  // NEU: Partner-Chart-Daten (aus aggregated)
+  const [partnerStricheChartData, setPartnerStricheChartData] = useState<{
+    labels: string[];
+    datasets: any[];
+  } | null>(null);
+  const [partnerPointsChartData, setPartnerPointsChartData] = useState<{
+    labels: string[];
+    datasets: any[];
+  } | null>(null);
+  const [partnerMatschChartData, setPartnerMatschChartData] = useState<{
+    labels: string[];
+    datasets: any[];
+  } | null>(null);
+
+  // NEU: Gegner-Chart-Daten (aus jassGameSummaries)
+  const [opponentStricheChartData, setOpponentStricheChartData] = useState<{
+    labels: string[];
+    datasets: any[];
+  } | null>(null);
+  const [opponentPointsChartData, setOpponentPointsChartData] = useState<{
+    labels: string[];
+    datasets: any[];
+  } | null>(null);
+  const [opponentMatschChartData, setOpponentMatschChartData] = useState<{
+    labels: string[];
+    datasets: any[];
+  } | null>(null);
+
   // Memoized color computation - optimiert für Performance
   const accentColor = useMemo(() => {
     const accentColorMap: Record<ThemeColor, string> = {
@@ -361,42 +393,84 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       } catch (clipboardError) {
         console.error("❌ Auch Zwischenablage fehlgeschlagen:", clipboardError);
       }
-    }
-  };
-
-  // NEU: Trumpfstatistik-Array für die Anzeige
+      }
+    };
+  
+    // NEU: Trumpfverteilung-Daten für PieChart
+    const trumpfDistributionData = useMemo(() => {
+      if (!playerStats?.trumpfStatistik || !playerStats.totalTrumpfCount || playerStats.totalTrumpfCount === 0) {
+        return null;
+      }
+      return getTrumpfDistributionChartData(playerStats.trumpfStatistik, playerStats.totalTrumpfCount);
+    }, [playerStats]);
+  
+    // NEU: Trumpfstatistik-Array für die Anzeige
   const trumpfStatistikArray = useMemo(() => {
-    if (!playerStats?.trumpfStatistik || !playerStats.totalTrumpfCount || playerStats.totalTrumpfCount === 0) {
+    if (!playerStats?.trumpfStatistik || playerStats.totalTrumpfCount === 0) {
       return [];
     }
     
-    // Normalisiere und merge ähnliche Trumpffarben
-    const normalizedStats: { [key: string]: number } = {};
+    // KORREKTUR: Duplikate zusammenfassen (eichel+eicheln, unde+une)
+    const consolidatedStats: Record<string, number> = {};
     
     Object.entries(playerStats.trumpfStatistik).forEach(([farbe, anzahl]) => {
-      let normalizedFarbe = farbe;
+      const normalizedFarbe = farbe.toLowerCase();
       
-      // Merge "Eicheln" mit "Eichel"
-      if (farbe.toLowerCase() === 'eicheln') {
-        normalizedFarbe = 'eichel';
-      }
-      // Merge "Une" mit "Unde"  
-      else if (farbe.toLowerCase() === 'une') {
-        normalizedFarbe = 'unde';
+      // Mapping für Duplikate
+      let mappedFarbe = normalizedFarbe;
+      if (normalizedFarbe === 'eicheln') {
+        mappedFarbe = 'eichel';
+      } else if (normalizedFarbe === 'une') {
+        mappedFarbe = 'unde';
       }
       
-      // Akkumuliere die Werte
-      normalizedStats[normalizedFarbe] = (normalizedStats[normalizedFarbe] || 0) + anzahl;
+      // Zusammenfassen
+      consolidatedStats[mappedFarbe] = (consolidatedStats[mappedFarbe] || 0) + anzahl;
     });
     
-    return Object.entries(normalizedStats)
+    return Object.entries(consolidatedStats)
       .map(([farbe, anzahl]) => ({
         farbe,
         anzahl,
-        anteil: anzahl / (playerStats.totalTrumpfCount ?? 1),
+        anteil: anzahl / playerStats.totalTrumpfCount,
       }))
       .sort((a, b) => b.anzahl - a.anzahl);
   }, [playerStats]);
+
+  // NEU: Siegquote Partie - PieChart Daten
+  const sessionWinRateData = useMemo(() => {
+    const wins = playerStats?.sessionsWon || 0;
+    const losses = playerStats?.sessionsLost || 0;
+    const draws = playerStats?.sessionsTied || 0;
+    
+    const total = wins + losses + draws;
+    if (total === 0) return null;
+    
+    return {
+      labels: ['Sieg', 'Niederlage', 'Unentschieden'],
+      values: [wins, losses, draws],
+      backgroundColor: ['#22c55e', '#ef4444', '#94a3b8'], // green-500, red-500, slate-400
+      percentages: [(wins / total) * 100, (losses / total) * 100, (draws / total) * 100], // Als echte Prozentwerte (0-100)
+      pictogramPaths: [null, null, null], // Leer-Array für nur Prozent/Absolute Zahlen
+    };
+  }, [playerStats?.sessionsWon, playerStats?.sessionsLost, playerStats?.sessionsTied]);
+
+  // NEU: Siegquote Spiel - PieChart Daten
+  const gameWinRateData = useMemo(() => {
+    const wins = playerStats?.gamesWon || 0;
+    const losses = playerStats?.gamesLost || 0;
+    
+    const total = wins + losses;
+    if (total === 0) return null;
+    
+    return {
+      labels: ['Sieg', 'Niederlage'],
+      values: [wins, losses],
+      backgroundColor: ['#22c55e', '#ef4444'], // green-500, red-500
+      percentages: [(wins / total) * 100, (losses / total) * 100], // Als echte Prozentwerte (0-100)
+      pictogramPaths: [null, null], // Leer-Array für Labels
+    };
+  }, [playerStats?.gamesWon, playerStats?.gamesLost]);
 
   // Bestimme den aktuellen Player (für Public View aus props, für Private View verwende bevorzugt den Firestore-Player aus props)
   const currentPlayer = useMemo(() => {
@@ -654,6 +728,557 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     return () => clearTimeout(timer);
   }, [viewPlayerId]);
 
+  // NEU: Lade Partner-Chart-Daten aus jassGameSummaries
+  React.useEffect(() => {
+    if (!viewPlayerId || !playerStats?.partnerAggregates || playerStats.partnerAggregates.length === 0) {
+      return;
+    }
+
+    const loadPartnerChartsFromSummaries = async () => {
+      try {
+        // 1. Ermittle alle Gruppen, in denen dieser Spieler Mitglied ist
+        const currentPlayerDoc = await getDoc(doc(db, 'players', viewPlayerId));
+        if (!currentPlayerDoc.exists()) return;
+        
+        const groupIds = currentPlayerDoc.data().groupIds || [];
+        if (groupIds.length === 0) return;
+
+        // 2. Lade jassGameSummaries aus ALLEN Gruppen
+        const allSummaries: any[] = [];
+        
+        for (const groupId of groupIds) {
+          try {
+            const { collection, getDocs } = await import('firebase/firestore');
+            const summariesRef = collection(db, `groups/${groupId}/jassGameSummaries`);
+            const summariesSnapshot = await getDocs(summariesRef);
+            summariesSnapshot.forEach(doc => {
+              allSummaries.push({ id: doc.id, ...doc.data() });
+            });
+          } catch (error) {
+            console.warn(`Fehler beim Laden von jassGameSummaries für Gruppe ${groupId}:`, error);
+          }
+        }
+
+        // 3. Erstelle Partner-spezifische Chart-Daten
+        const stricheDataByPartner: Record<string, { labels: string[], data: number[] }> = {};
+        const pointsDataByPartner: Record<string, { labels: string[], data: number[] }> = {};
+        const matschDataByPartner: Record<string, { labels: string[], data: number[] }> = {};
+
+        // Für jeden Partner
+        for (const partner of playerStats.partnerAggregates) {
+          const partnerId = partner.partnerId;
+          stricheDataByPartner[partnerId] = { labels: [], data: [] };
+          pointsDataByPartner[partnerId] = { labels: [], data: [] };
+          matschDataByPartner[partnerId] = { labels: [], data: [] };
+        }
+
+        // Kumulative Werte pro Partner
+        const cumulativeStricheByPartner: Record<string, number> = {};
+        const cumulativePointsByPartner: Record<string, number> = {};
+        const cumulativeMatschByPartner: Record<string, number> = {};
+
+        // 4. Sortiere Summaries nach Datum (älteste zuerst für kumulative Berechnung)
+        allSummaries.sort((a, b) => {
+          const dateA = a.completedAt?.toDate?.() || new Date(a.completedAt?._seconds * 1000);
+          const dateB = b.completedAt?.toDate?.() || new Date(b.completedAt?._seconds * 1000);
+          return dateA.getTime() - dateB.getTime();
+        });
+
+        // 5. Iteriere über alle Summaries und filtere nach Partner
+        for (const summary of allSummaries) {
+          if (!summary.gameResults || !Array.isArray(summary.gameResults)) continue;
+
+          const sessionDate = summary.completedAt?.toDate?.() || new Date(summary.completedAt?._seconds * 1000);
+          const label = sessionDate.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: '2-digit' });
+
+          // Tracking: Welche Partner waren in dieser Session aktiv und deren Differenzen
+          const partnersInSession = new Map<string, { stricheDiff: number, pointsDiff: number, matschDiff: number }>();
+
+          // Session-level Matsch-Bilanz (nur einmal pro Session, nicht pro Spiel!)
+          let sessionMatschDiff = 0;
+          let sessionMatschCalculated = false;
+
+          for (const game of summary.gameResults) {
+            if (!game.teams?.top?.players || !game.teams?.bottom?.players) continue;
+
+            // Prüfe ob Spieler überhaupt in diesem Spiel war
+            const playerInTop = game.teams.top.players.some((p: any) => p.playerId === viewPlayerId);
+            const playerInBottom = game.teams.bottom.players.some((p: any) => p.playerId === viewPlayerId);
+            if (!playerInTop && !playerInBottom) continue;
+
+            const playerTeam = playerInTop ? 'top' : 'bottom';
+            
+            // Matsch-Bilanz EINMAL pro Session berechnen (nicht pro Spiel!)
+            if (!sessionMatschCalculated && summary.eventCounts) {
+              const sessionTeamEvents = playerTeam === 'top' ? summary.eventCounts.top : summary.eventCounts.bottom;
+              const sessionOpponentEvents = playerTeam === 'top' ? summary.eventCounts.bottom : summary.eventCounts.top;
+              sessionMatschDiff = sessionTeamEvents && sessionOpponentEvents ? 
+                ((sessionTeamEvents.matsch || 0) - (sessionOpponentEvents.matsch || 0)) : 0;
+              sessionMatschCalculated = true;
+            }
+
+            // Für jeden Partner: Prüfe ob Partner war
+            for (const partner of playerStats.partnerAggregates) {
+              const partnerId = partner.partnerId;
+              const partnerInTop = game.teams.top.players.some((p: any) => p.playerId === partnerId);
+              const partnerInBottom = game.teams.bottom.players.some((p: any) => p.playerId === partnerId);
+
+              const arePartners = (playerInTop && partnerInTop) || (playerInBottom && partnerInBottom);
+              if (!arePartners) continue;
+
+              const playerScore = playerTeam === 'top' ? game.topScore : game.bottomScore;
+              const opponentScore = playerTeam === 'top' ? game.bottomScore : game.topScore;
+              const pointsDiff = playerScore - opponentScore;
+
+              const playerStriche = playerTeam === 'top' ? game.finalStriche?.top : game.finalStriche?.bottom;
+              const opponentStriche = playerTeam === 'top' ? game.finalStriche?.bottom : game.finalStriche?.top;
+              const stricheDiff = playerStriche && opponentStriche ? 
+                (playerStriche.berg + playerStriche.sieg + playerStriche.matsch + playerStriche.schneider + playerStriche.kontermatsch) -
+                (opponentStriche.berg + opponentStriche.sieg + opponentStriche.matsch + opponentStriche.schneider + opponentStriche.kontermatsch) : 0;
+
+              // Initialisiere falls nötig
+              if (!partnersInSession.has(partnerId)) {
+                partnersInSession.set(partnerId, { stricheDiff: 0, pointsDiff: 0, matschDiff: 0 });
+              }
+
+              // Addiere zu Session-Differenzen (Matsch NUR beim ersten Spiel mit diesem Partner)
+              const current = partnersInSession.get(partnerId)!;
+              current.stricheDiff += stricheDiff;
+              current.pointsDiff += pointsDiff;
+              // Matsch-Bilanz wird nur einmal pro Partner pro Session gesetzt
+              if (current.matschDiff === 0 && sessionMatschCalculated) {
+                current.matschDiff = sessionMatschDiff;
+              }
+            }
+          }
+
+          // NACH allen Games in dieser Session: Kumuliere für jeden Partner
+          for (const [partnerId, diffs] of partnersInSession) {
+            // Initialisiere kumulative Werte falls nötig
+            if (cumulativeStricheByPartner[partnerId] === undefined) cumulativeStricheByPartner[partnerId] = 0;
+            if (cumulativePointsByPartner[partnerId] === undefined) cumulativePointsByPartner[partnerId] = 0;
+            if (cumulativeMatschByPartner[partnerId] === undefined) cumulativeMatschByPartner[partnerId] = 0;
+
+            // Kumuliere Werte
+            cumulativeStricheByPartner[partnerId] += diffs.stricheDiff;
+            cumulativePointsByPartner[partnerId] += diffs.pointsDiff;
+            cumulativeMatschByPartner[partnerId] += diffs.matschDiff;
+
+            // Füge Datenpunkte hinzu
+            stricheDataByPartner[partnerId].labels.push(label);
+            stricheDataByPartner[partnerId].data.push(cumulativeStricheByPartner[partnerId]);
+
+            pointsDataByPartner[partnerId].labels.push(label);
+            pointsDataByPartner[partnerId].data.push(cumulativePointsByPartner[partnerId]);
+
+            matschDataByPartner[partnerId].labels.push(label);
+            matschDataByPartner[partnerId].data.push(cumulativeMatschByPartner[partnerId]);
+          }
+        }
+
+        // 6. Erstelle gemeinsames Label-Array (chronologisch sortiert)
+        const allLabelsSet = new Set<string>();
+        for (const summary of allSummaries) {
+          if (!summary.gameResults || !Array.isArray(summary.gameResults)) continue;
+          const sessionDate = summary.completedAt?.toDate?.() || new Date(summary.completedAt?._seconds * 1000);
+          const label = sessionDate.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: '2-digit' });
+          allLabelsSet.add(label);
+        }
+        const allLabels = Array.from(allLabelsSet).sort((a, b) => {
+          // Parse DD.MM.YY format
+          const [dayA, monthA, yearA] = a.split('.');
+          const [dayB, monthB, yearB] = b.split('.');
+          const dateA = new Date(2000 + parseInt(yearA), parseInt(monthA) - 1, parseInt(dayA));
+          const dateB = new Date(2000 + parseInt(yearB), parseInt(monthB) - 1, parseInt(dayB));
+          return dateA.getTime() - dateB.getTime();
+        });
+
+        // 7. Erstelle Datasets für jeden Partner mit sortierten Labels
+        const stricheDatasets: any[] = [];
+        const pointsDatasets: any[] = [];
+        const matschDatasets: any[] = [];
+
+        for (const partner of playerStats.partnerAggregates) {
+          const partnerId = partner.partnerId;
+          const stricheData = stricheDataByPartner[partnerId];
+          const pointsData = pointsDataByPartner[partnerId];
+          const matschData = matschDataByPartner[partnerId];
+
+          // Erstelle Data-Map: label -> value
+          const stricheMap = new Map<string, number>();
+          const pointsMap = new Map<string, number>();
+          const matschMap = new Map<string, number>();
+
+          if (stricheData && stricheData.labels.length > 0) {
+            for (let i = 0; i < stricheData.labels.length; i++) {
+              stricheMap.set(stricheData.labels[i], stricheData.data[i]);
+            }
+          }
+
+          if (pointsData && pointsData.labels.length > 0) {
+            for (let i = 0; i < pointsData.labels.length; i++) {
+              pointsMap.set(pointsData.labels[i], pointsData.data[i]);
+            }
+          }
+
+          if (matschData && matschData.labels.length > 0) {
+            for (let i = 0; i < matschData.labels.length; i++) {
+              matschMap.set(matschData.labels[i], matschData.data[i]);
+            }
+          }
+
+          // Erstelle Data-Arrays für alle Labels (mit null für fehlende Werte)
+          const stricheArray: (number | null)[] = [];
+          const pointsArray: (number | null)[] = [];
+          const matschArray: (number | null)[] = [];
+
+          for (const label of allLabels) {
+            stricheArray.push(stricheMap.has(label) ? stricheMap.get(label)! : null);
+            pointsArray.push(pointsMap.has(label) ? pointsMap.get(label)! : null);
+            matschArray.push(matschMap.has(label) ? matschMap.get(label)! : null);
+          }
+
+          // Nur hinzufügen wenn mindestens ein Wert existiert
+          if (stricheArray.some(v => v !== null)) {
+            stricheDatasets.push({
+              label: partner.partnerDisplayName,
+              displayName: partner.partnerDisplayName,
+              data: stricheArray,
+              playerId: partnerId,
+              borderColor: '',
+              backgroundColor: ''
+            });
+          }
+
+          if (pointsArray.some(v => v !== null)) {
+            pointsDatasets.push({
+              label: partner.partnerDisplayName,
+              displayName: partner.partnerDisplayName,
+              data: pointsArray,
+              playerId: partnerId,
+              borderColor: '',
+              backgroundColor: ''
+            });
+          }
+
+          if (matschArray.some(v => v !== null)) {
+            matschDatasets.push({
+              label: partner.partnerDisplayName,
+              displayName: partner.partnerDisplayName,
+              data: matschArray,
+              playerId: partnerId,
+              borderColor: '',
+              backgroundColor: ''
+            });
+          }
+        }
+
+        // 8. Setze Chart-Daten
+        if (stricheDatasets.length > 0) {
+          setPartnerStricheChartData({
+            labels: allLabels,
+            datasets: stricheDatasets
+          });
+        }
+
+        if (pointsDatasets.length > 0) {
+          setPartnerPointsChartData({
+            labels: allLabels,
+            datasets: pointsDatasets
+          });
+        }
+
+        if (matschDatasets.length > 0) {
+          setPartnerMatschChartData({
+            labels: allLabels,
+            datasets: matschDatasets
+          });
+        }
+
+      } catch (error) {
+        console.error('Fehler beim Laden der Partner-Chart-Daten aus jassGameSummaries:', error);
+      }
+    };
+
+    loadPartnerChartsFromSummaries();
+  }, [viewPlayerId, playerStats?.partnerAggregates]);
+
+  // NEU: Lade Gegner-Chart-Daten aus jassGameSummaries
+  React.useEffect(() => {
+    if (!viewPlayerId || !playerStats?.opponentAggregates || playerStats.opponentAggregates.length === 0) {
+      return;
+    }
+
+    const loadOpponentChartsFromSummaries = async () => {
+      try {
+        // 1. Ermittle alle Gruppen, in denen dieser Spieler Mitglied ist
+        const currentPlayerDoc = await getDoc(doc(db, 'players', viewPlayerId));
+        if (!currentPlayerDoc.exists()) return;
+        
+        const groupIds = currentPlayerDoc.data().groupIds || [];
+        if (groupIds.length === 0) return;
+
+        // 2. Lade jassGameSummaries aus ALLEN Gruppen
+        const allSummaries: any[] = [];
+        
+        for (const groupId of groupIds) {
+          try {
+            const { collection, getDocs } = await import('firebase/firestore');
+            const summariesRef = collection(db, `groups/${groupId}/jassGameSummaries`);
+            const summariesSnapshot = await getDocs(summariesRef);
+            summariesSnapshot.forEach(doc => {
+              allSummaries.push({ id: doc.id, ...doc.data() });
+            });
+          } catch (error) {
+            console.warn(`Fehler beim Laden von jassGameSummaries für Gruppe ${groupId}:`, error);
+          }
+        }
+
+        // 3. Erstelle Gegner-spezifische Chart-Daten
+        const stricheDataByOpponent: Record<string, { labels: string[], data: number[] }> = {};
+        const pointsDataByOpponent: Record<string, { labels: string[], data: number[] }> = {};
+        const matschDataByOpponent: Record<string, { labels: string[], data: number[] }> = {};
+
+        // Für jeden Gegner
+        for (const opponent of playerStats.opponentAggregates) {
+          const opponentId = opponent.opponentId;
+          stricheDataByOpponent[opponentId] = { labels: [], data: [] };
+          pointsDataByOpponent[opponentId] = { labels: [], data: [] };
+          matschDataByOpponent[opponentId] = { labels: [], data: [] };
+        }
+
+        // Kumulative Werte pro Gegner
+        const cumulativeStricheByOpponent: Record<string, number> = {};
+        const cumulativePointsByOpponent: Record<string, number> = {};
+        const cumulativeMatschByOpponent: Record<string, number> = {};
+
+        // 4. Sortiere Summaries nach Datum (älteste zuerst für kumulative Berechnung)
+        allSummaries.sort((a, b) => {
+          const dateA = a.completedAt?.toDate?.() || new Date(a.completedAt?._seconds * 1000);
+          const dateB = b.completedAt?.toDate?.() || new Date(b.completedAt?._seconds * 1000);
+          return dateA.getTime() - dateB.getTime();
+        });
+
+        // 5. Iteriere über alle Summaries und filtere nach Gegner
+        for (const summary of allSummaries) {
+          if (!summary.gameResults || !Array.isArray(summary.gameResults)) continue;
+
+          const sessionDate = summary.completedAt?.toDate?.() || new Date(summary.completedAt?._seconds * 1000);
+          const label = sessionDate.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: '2-digit' });
+
+          // Tracking: Welche Gegner waren in dieser Session aktiv und deren Differenzen
+          const opponentsInSession = new Map<string, { stricheDiff: number, pointsDiff: number, matschDiff: number }>();
+
+          // Session-level Matsch-Bilanz (nur einmal pro Session, nicht pro Spiel!)
+          let sessionMatschDiff = 0;
+          let sessionMatschCalculated = false;
+
+          for (const game of summary.gameResults) {
+            if (!game.teams?.top?.players || !game.teams?.bottom?.players) continue;
+
+            // Prüfe ob Spieler überhaupt in diesem Spiel war
+            const playerInTop = game.teams.top.players.some((p: any) => p.playerId === viewPlayerId);
+            const playerInBottom = game.teams.bottom.players.some((p: any) => p.playerId === viewPlayerId);
+            if (!playerInTop && !playerInBottom) continue;
+
+            const playerTeam = playerInTop ? 'top' : 'bottom';
+            
+            // Matsch-Bilanz EINMAL pro Session berechnen (nicht pro Spiel!)
+            if (!sessionMatschCalculated && summary.eventCounts) {
+              const sessionTeamEvents = playerTeam === 'top' ? summary.eventCounts.top : summary.eventCounts.bottom;
+              const sessionOpponentEvents = playerTeam === 'top' ? summary.eventCounts.bottom : summary.eventCounts.top;
+              sessionMatschDiff = sessionTeamEvents && sessionOpponentEvents ? 
+                ((sessionTeamEvents.matsch || 0) - (sessionOpponentEvents.matsch || 0)) : 0;
+              sessionMatschCalculated = true;
+            }
+
+            // Für jeden Gegner: Prüfe ob Gegner war (GEGNERISCHES Team!)
+            for (const opponent of playerStats.opponentAggregates) {
+              const opponentId = opponent.opponentId;
+              const opponentInTop = game.teams.top.players.some((p: any) => p.playerId === opponentId);
+              const opponentInBottom = game.teams.bottom.players.some((p: any) => p.playerId === opponentId);
+
+              // Gegner sind im ANDEREN Team!
+              const areOpponents = (playerInTop && opponentInBottom) || (playerInBottom && opponentInTop);
+              if (!areOpponents) continue;
+
+              const playerScore = playerTeam === 'top' ? game.topScore : game.bottomScore;
+              const opponentScore = playerTeam === 'top' ? game.bottomScore : game.topScore;
+              const pointsDiff = playerScore - opponentScore;
+
+              const playerStriche = playerTeam === 'top' ? game.finalStriche?.top : game.finalStriche?.bottom;
+              const opponentStriche = playerTeam === 'top' ? game.finalStriche?.bottom : game.finalStriche?.top;
+              const stricheDiff = playerStriche && opponentStriche ? 
+                (playerStriche.berg + playerStriche.sieg + playerStriche.matsch + playerStriche.schneider + playerStriche.kontermatsch) -
+                (opponentStriche.berg + opponentStriche.sieg + opponentStriche.matsch + opponentStriche.schneider + opponentStriche.kontermatsch) : 0;
+
+              // Initialisiere falls nötig
+              if (!opponentsInSession.has(opponentId)) {
+                opponentsInSession.set(opponentId, { stricheDiff: 0, pointsDiff: 0, matschDiff: 0 });
+              }
+
+              // Addiere zu Session-Differenzen (Matsch NUR beim ersten Spiel mit diesem Gegner)
+              const current = opponentsInSession.get(opponentId)!;
+              current.stricheDiff += stricheDiff;
+              current.pointsDiff += pointsDiff;
+              // Matsch-Bilanz wird nur einmal pro Gegner pro Session gesetzt
+              if (current.matschDiff === 0 && sessionMatschCalculated) {
+                current.matschDiff = sessionMatschDiff;
+              }
+            }
+          }
+
+          // NACH allen Games in dieser Session: Kumuliere für jeden Gegner
+          for (const [opponentId, diffs] of opponentsInSession) {
+            // Initialisiere kumulative Werte falls nötig
+            if (cumulativeStricheByOpponent[opponentId] === undefined) cumulativeStricheByOpponent[opponentId] = 0;
+            if (cumulativePointsByOpponent[opponentId] === undefined) cumulativePointsByOpponent[opponentId] = 0;
+            if (cumulativeMatschByOpponent[opponentId] === undefined) cumulativeMatschByOpponent[opponentId] = 0;
+
+            // Kumuliere Werte
+            cumulativeStricheByOpponent[opponentId] += diffs.stricheDiff;
+            cumulativePointsByOpponent[opponentId] += diffs.pointsDiff;
+            cumulativeMatschByOpponent[opponentId] += diffs.matschDiff;
+
+            // Füge Datenpunkte hinzu
+            stricheDataByOpponent[opponentId].labels.push(label);
+            stricheDataByOpponent[opponentId].data.push(cumulativeStricheByOpponent[opponentId]);
+
+            pointsDataByOpponent[opponentId].labels.push(label);
+            pointsDataByOpponent[opponentId].data.push(cumulativePointsByOpponent[opponentId]);
+
+            matschDataByOpponent[opponentId].labels.push(label);
+            matschDataByOpponent[opponentId].data.push(cumulativeMatschByOpponent[opponentId]);
+          }
+        }
+
+        // 6. Erstelle gemeinsames Label-Array (chronologisch sortiert)
+        const allLabelsSet = new Set<string>();
+        for (const summary of allSummaries) {
+          if (!summary.gameResults || !Array.isArray(summary.gameResults)) continue;
+          const sessionDate = summary.completedAt?.toDate?.() || new Date(summary.completedAt?._seconds * 1000);
+          const label = sessionDate.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: '2-digit' });
+          allLabelsSet.add(label);
+        }
+        const allLabels = Array.from(allLabelsSet).sort((a, b) => {
+          // Parse DD.MM.YY format
+          const [dayA, monthA, yearA] = a.split('.');
+          const [dayB, monthB, yearB] = b.split('.');
+          const dateA = new Date(2000 + parseInt(yearA), parseInt(monthA) - 1, parseInt(dayA));
+          const dateB = new Date(2000 + parseInt(yearB), parseInt(monthB) - 1, parseInt(dayB));
+          return dateA.getTime() - dateB.getTime();
+        });
+
+        // 7. Erstelle Datasets für jeden Gegner mit sortierten Labels
+        const stricheDatasets: any[] = [];
+        const pointsDatasets: any[] = [];
+        const matschDatasets: any[] = [];
+
+        for (const opponent of playerStats.opponentAggregates) {
+          const opponentId = opponent.opponentId;
+          const stricheData = stricheDataByOpponent[opponentId];
+          const pointsData = pointsDataByOpponent[opponentId];
+          const matschData = matschDataByOpponent[opponentId];
+
+          // Erstelle Data-Map: label -> value
+          const stricheMap = new Map<string, number>();
+          const pointsMap = new Map<string, number>();
+          const matschMap = new Map<string, number>();
+
+          if (stricheData && stricheData.labels.length > 0) {
+            for (let i = 0; i < stricheData.labels.length; i++) {
+              stricheMap.set(stricheData.labels[i], stricheData.data[i]);
+            }
+          }
+
+          if (pointsData && pointsData.labels.length > 0) {
+            for (let i = 0; i < pointsData.labels.length; i++) {
+              pointsMap.set(pointsData.labels[i], pointsData.data[i]);
+            }
+          }
+
+          if (matschData && matschData.labels.length > 0) {
+            for (let i = 0; i < matschData.labels.length; i++) {
+              matschMap.set(matschData.labels[i], matschData.data[i]);
+            }
+          }
+
+          // Erstelle Data-Arrays für alle Labels (mit null für fehlende Werte)
+          const stricheArray: (number | null)[] = [];
+          const pointsArray: (number | null)[] = [];
+          const matschArray: (number | null)[] = [];
+
+          for (const label of allLabels) {
+            stricheArray.push(stricheMap.has(label) ? stricheMap.get(label)! : null);
+            pointsArray.push(pointsMap.has(label) ? pointsMap.get(label)! : null);
+            matschArray.push(matschMap.has(label) ? matschMap.get(label)! : null);
+          }
+
+          // Nur hinzufügen wenn mindestens ein Wert existiert
+          if (stricheArray.some(v => v !== null)) {
+            stricheDatasets.push({
+              label: opponent.opponentDisplayName,
+              displayName: opponent.opponentDisplayName,
+              data: stricheArray,
+              playerId: opponentId,
+              borderColor: '',
+              backgroundColor: ''
+            });
+          }
+
+          if (pointsArray.some(v => v !== null)) {
+            pointsDatasets.push({
+              label: opponent.opponentDisplayName,
+              displayName: opponent.opponentDisplayName,
+              data: pointsArray,
+              playerId: opponentId,
+              borderColor: '',
+              backgroundColor: ''
+            });
+          }
+
+          if (matschArray.some(v => v !== null)) {
+            matschDatasets.push({
+              label: opponent.opponentDisplayName,
+              displayName: opponent.opponentDisplayName,
+              data: matschArray,
+              playerId: opponentId,
+              borderColor: '',
+              backgroundColor: ''
+            });
+          }
+        }
+
+        // 8. Setze Chart-Daten
+        if (stricheDatasets.length > 0) {
+          setOpponentStricheChartData({
+            labels: allLabels,
+            datasets: stricheDatasets
+          });
+        }
+
+        if (pointsDatasets.length > 0) {
+          setOpponentPointsChartData({
+            labels: allLabels,
+            datasets: pointsDatasets
+          });
+        }
+
+        if (matschDatasets.length > 0) {
+          setOpponentMatschChartData({
+            labels: allLabels,
+            datasets: matschDatasets
+          });
+        }
+
+      } catch (error) {
+        console.error('Fehler beim Laden der Gegner-Chart-Daten aus jassGameSummaries:', error);
+      }
+    };
+
+    loadOpponentChartsFromSummaries();
+  }, [viewPlayerId, playerStats?.opponentAggregates]);
+
   // ===== LOKALE TAB-COLOR FUNKTION (IDENTISCH ZU GROUPVIEW) =====
   const getTabActiveColor = (themeKey: string): string => {
     const colorMap: Record<string, string> = {
@@ -672,16 +1297,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   // 🎨 NEU: Farbkodierung für Win-Rate Werte
   const getWinRateColor = (winRate: number): string => {
     // Für Win-Rate: >50% = grün, <50% = rot, =50% = weiß
-    if (winRate > 0.5) return 'text-green-400';
-    if (winRate < 0.5) return 'text-red-400';
+    if (winRate > 0.5) return 'text-green-500';
+    if (winRate < 0.5) return 'text-red-500';
     return 'text-white';
   };
 
   // 🎨 NEU: Farbkodierung für Differenz-Werte (Strichdifferenz, Punktdifferenz, Bilanz etc.)
   const getDifferenceColor = (value: number): string => {
     // Für Differenzen: >0 = grün, <0 = rot, =0 = weiß
-    if (value > 0) return 'text-green-400';
-    if (value < 0) return 'text-red-400';
+    if (value > 0) return 'text-green-500';
+    if (value < 0) return 'text-red-500';
     return 'text-white';
   };
 
@@ -848,7 +1473,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <span className={`${layout.headingSize} font-semibold text-white`}>
                 {Math.round(playerRating.rating)}
                 {playerDelta !== null && (
-                  <span className={`ml-1 ${layout.bodySize} ${playerDelta > 0 ? 'text-green-400' : playerDelta < 0 ? 'text-red-400' : 'text-white'}`}>
+                  <span className={`ml-1 ${layout.bodySize} ${playerDelta > 0 ? 'text-green-500' : playerDelta < 0 ? 'text-red-500' : 'text-white'}`}>
                     ({playerDelta > 0 ? '+' : ''}{Math.round(playerDelta)})
                   </span>
                 )}
@@ -1079,8 +1704,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <TabsContent 
                 value="individual"
                 forceMount
-            className={activeStatsSubTab !== 'individual' ? 'hidden' : `w-full bg-gray-800/50 rounded-lg ${layout.cardPadding}`}
-            style={{ display: activeStatsSubTab !== 'individual' ? 'none' : 'block' }}
+                className={activeStatsSubTab !== 'individual' ? 'hidden' : `w-full bg-gray-800/50 rounded-lg ${layout.cardPadding}`}
+                style={{ display: activeStatsSubTab !== 'individual' ? 'none' : 'block' }}
               >
                 {statsLoading ? (
                   <div className="flex justify-center items-center py-10">
@@ -1098,7 +1723,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
                         <h3 className={`${layout.headingSize} font-semibold text-white`}>
-                          Jass-Elo: <span className={playerRating && playerRating.rating >= 100 ? 'text-green-400' : 'text-red-400'}>{playerRating ? Math.round(playerRating.rating) : 'N/A'}</span> {playerRating?.tierEmoji}
+                          Jass-Elo: <span className={playerRating && playerRating.rating >= 100 ? 'text-green-500' : 'text-red-500'}>{playerRating ? Math.round(playerRating.rating) : 'N/A'}</span> {playerRating?.tierEmoji}
                         </h3>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
@@ -1120,6 +1745,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             activeTab={activeMainTab} // ✅ Tab-Wechsel-Reset für Animationen
                             activeSubTab={activeStatsSubTab} // ✅ Sub-Tab-Wechsel-Reset für Animationen
                             animateImmediately={true} // 🚀 Oberster Chart animiert sofort
+                            useThemeColors={true} // 🎨 NEU: Verwende Theme-Farben
                           />
                         ) : (
                           <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
@@ -1144,7 +1770,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             }
                             const lastValue = stricheChartData.datasets[0].data[stricheChartData.datasets[0].data.length - 1];
                             const currentValue = Math.trunc(lastValue || 0);
-                            return currentValue > 0 ? 'text-green-400' : currentValue < 0 ? 'text-red-400' : 'text-white';
+                            return currentValue > 0 ? 'text-green-500' : currentValue < 0 ? 'text-red-500' : 'text-white';
                           })()}`}>
                             {(() => {
                               // ✅ Verwende Chart-Daten statt playerStats
@@ -1177,6 +1803,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             activeTab={activeMainTab}
                             activeSubTab={activeStatsSubTab}
                             animateImmediately={false} // 🚀 Nur oberster Chart animiert sofort
+                            useThemeColors={true} // 🎨 NEU: Verwende Theme-Farben
                           />
                         ) : (
                           <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
@@ -1200,7 +1827,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             }
                             const lastValue = pointsChartData.datasets[0].data[pointsChartData.datasets[0].data.length - 1];
                             const currentValue = Math.trunc(lastValue || 0);
-                            return currentValue > 0 ? 'text-green-400' : currentValue < 0 ? 'text-red-400' : 'text-white';
+                            return currentValue > 0 ? 'text-green-500' : currentValue < 0 ? 'text-red-500' : 'text-white';
                           })()}`}>
                             {(() => {
                               // ✅ Verwende Chart-Daten statt playerStats
@@ -1233,6 +1860,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             activeTab={activeMainTab}
                             activeSubTab={activeStatsSubTab}
                             animateImmediately={false} // 🚀 Nur oberster Chart animiert sofort
+                            useThemeColors={true} // 🎨 NEU: Verwende Theme-Farben
                           />
                         ) : (
                           <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
@@ -1250,7 +1878,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
                           <h3 className={`${layout.headingSize} font-semibold text-white`}>
                             Matsch-Bilanz: 
-                            <span className={`ml-2 ${playerStats?.matschBilanz && playerStats.matschBilanz > 0 ? 'text-green-400' : playerStats?.matschBilanz && playerStats.matschBilanz < 0 ? 'text-red-400' : 'text-white'}`}>
+                            <span className={`ml-2 ${playerStats?.matschBilanz && playerStats.matschBilanz > 0 ? 'text-green-500' : playerStats?.matschBilanz && playerStats.matschBilanz < 0 ? 'text-red-500' : 'text-white'}`}>
                               {playerStats?.matschBilanz && playerStats.matschBilanz > 0 ? '+' : ''}
                               {playerStats?.matschBilanz || 0}
                             </span>
@@ -1274,6 +1902,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               isEloChart={false} // ✅ Nicht-ELO-Chart
                               activeTab={activeMainTab}
                               activeSubTab={activeStatsSubTab}
+                              useThemeColors={true} // 🎨 NEU: Verwende Theme-Farben
                             />
                           ) : (
                             <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
@@ -1292,7 +1921,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
                           <h3 className={`${layout.headingSize} font-semibold text-white`}>
                             Schneider-Bilanz: 
-                            <span className={`ml-2 ${playerStats?.schneiderBilanz && playerStats.schneiderBilanz > 0 ? 'text-green-400' : playerStats?.schneiderBilanz && playerStats.schneiderBilanz < 0 ? 'text-red-400' : 'text-white'}`}>
+                            <span className={`ml-2 ${playerStats?.schneiderBilanz && playerStats.schneiderBilanz > 0 ? 'text-green-500' : playerStats?.schneiderBilanz && playerStats.schneiderBilanz < 0 ? 'text-red-500' : 'text-white'}`}>
                               {playerStats?.schneiderBilanz && playerStats.schneiderBilanz > 0 ? '+' : ''}
                               {playerStats?.schneiderBilanz || 0}
                             </span>
@@ -1317,6 +1946,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               collapseIfSinglePoint={true} // ✅ Einklappen bei nur einem Datenpunkt
                               activeTab={activeMainTab}
                               activeSubTab={activeStatsSubTab}
+                              useThemeColors={true} // 🎨 NEU: Verwende Theme-Farben
                             />
                           ) : (
                             <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
@@ -1335,7 +1965,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
                           <h3 className={`${layout.headingSize} font-semibold text-white`}>
                             Kontermatsch-Bilanz: 
-                            <span className={`ml-2 ${playerStats?.kontermatschBilanz && playerStats.kontermatschBilanz > 0 ? 'text-green-400' : playerStats?.kontermatschBilanz && playerStats.kontermatschBilanz < 0 ? 'text-red-400' : 'text-white'}`}>
+                            <span className={`ml-2 ${playerStats?.kontermatschBilanz && playerStats.kontermatschBilanz > 0 ? 'text-green-500' : playerStats?.kontermatschBilanz && playerStats.kontermatschBilanz < 0 ? 'text-red-500' : 'text-white'}`}>
                               {playerStats?.kontermatschBilanz && playerStats.kontermatschBilanz > 0 ? '+' : ''}
                               {playerStats?.kontermatschBilanz || 0}
                             </span>
@@ -1360,6 +1990,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               collapseIfSinglePoint={true} // ✅ Einklappen bei nur einem Datenpunkt
                               activeTab={activeMainTab}
                               activeSubTab={activeStatsSubTab}
+                              useThemeColors={true} // 🎨 NEU: Verwende Theme-Farben
                             />
                           ) : (
                             <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
@@ -1371,6 +2002,128 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       </div>
                     ) : null}
 
+                    {/* NEU: Siegquote Partie - PieChart */}
+                    {sessionWinRateData && (
+                      <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                        <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                          <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                          <h3 className={`${layout.headingSize} font-semibold text-white`}>Siegquote Partie</h3>
+                        </div>
+                        <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                          <PieChart 
+                            data={{
+                              labels: sessionWinRateData.labels,
+                              values: sessionWinRateData.values,
+                              backgroundColor: sessionWinRateData.backgroundColor,
+                              percentages: sessionWinRateData.percentages
+                            }}
+                            height={layout.isDesktop ? 300 : 250}
+                            isDarkMode={true}
+                            centerText={`${sessionWinRateData.values[0] + sessionWinRateData.values[1] + sessionWinRateData.values[2]}`}
+                            hideLegend={false}
+                            legendPosition="right"
+                            activeTab={activeMainTab}
+                            activeSubTab={activeStatsSubTab}
+                            animateImmediately={false}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* NEU: Siegquote Spiel - PieChart */}
+                    {gameWinRateData && (
+                      <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                        <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                          <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                          <h3 className={`${layout.headingSize} font-semibold text-white`}>Siegquote Spiel</h3>
+                        </div>
+                        <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                          <PieChart 
+                            data={{
+                              labels: gameWinRateData.labels,
+                              values: gameWinRateData.values,
+                              backgroundColor: gameWinRateData.backgroundColor,
+                              percentages: gameWinRateData.percentages
+                            }}
+                            height={layout.isDesktop ? 300 : 250}
+                            isDarkMode={true}
+                            centerText={`${gameWinRateData.values[0] + gameWinRateData.values[1]}`}
+                            hideLegend={false}
+                            legendPosition="right"
+                            activeTab={activeMainTab}
+                            activeSubTab={activeStatsSubTab}
+                            animateImmediately={false}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                     {/* NEU: Trumpfansagen Liste */}
+                     {trumpfStatistikArray.length > 0 && (
+                       <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                         <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                           <h3 className={`${layout.headingSize} font-semibold text-white`}>Trumpfansagen Liste</h3>
+                         </div>
+                         <div ref={trumpfStatistikRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
+                           {trumpfStatistikArray.map((item, index) => {
+                             // NEU: Logik für dynamische Anzeige
+                             const cardStyle = 'DE'; // Standard card style
+                             const mappedColorKey = toTitleCase(item.farbe);
+                             const displayName = CARD_SYMBOL_MAPPINGS[mappedColorKey as JassColor]?.[cardStyle] ?? mappedColorKey;
+                             
+                             return (
+                               <div key={`trumpf-${item.farbe}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                                 <div className="flex items-center">
+                                   <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
+                                   <FarbePictogram 
+                                     farbe={normalizeJassColor(item.farbe)} 
+                                     mode="svg" 
+                                     cardStyle={cardStyle} // cardStyle übergeben
+                                     className={layout.isDesktop ? "h-12 w-12 mr-2" : "h-8 w-8 mr-2"}
+                                   />
+                                   <span className={`${layout.bodySize} text-gray-300 capitalize`}>{displayName}</span>
+                                 </div>
+                                 <span className="text-white font-medium mr-2">
+                                   <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>({item.anzahl})</span>
+                                   <span className={`${layout.valueSize} font-medium`}>{(item.anteil * 100).toFixed(1)}%</span>
+                                 </span>
+                               </div>
+                             );
+                           })}
+                         </div>
+                       </div>
+                     )}
+
+                     {/* NEU: Trumpfverteilung - Chart */}
+                     {trumpfDistributionData && (
+                       <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                         <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                           <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Trumpfansagen Total</h3>
+                         </div>
+                         <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                           <PieChart 
+                             data={{
+                               labels: trumpfDistributionData.labels,
+                               values: trumpfDistributionData.values,
+                               backgroundColor: trumpfDistributionData.backgroundColor,
+                               pictogramPaths: trumpfDistributionData.pictogramPaths,
+                               percentages: trumpfDistributionData.percentages
+                             }}
+                             height={layout.isDesktop ? 300 : 250}
+                             isDarkMode={true}
+                             centerText={playerStats?.totalTrumpfCount ? `${playerStats.totalTrumpfCount}` : undefined}
+                             hideLegend={false}
+                             legendPosition="right"
+                             activeTab={activeMainTab}
+                             activeSubTab={activeStatsSubTab}
+                             animateImmediately={false}
+                           />
+                         </div>
+                       </div>
+                     )}
+
                     {/* 🆕 WEIS-DIFFERENZ CHART */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
@@ -1380,9 +2133,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           <span className={`ml-2 ${
                             weisChartData && weisChartData.datasets[0]?.data?.length > 0 
                               ? (weisChartData.datasets[0].data[weisChartData.datasets[0].data.length - 1] > 0 
-                                  ? 'text-green-400' 
+                                  ? 'text-green-500' 
                                   : weisChartData.datasets[0].data[weisChartData.datasets[0].data.length - 1] < 0 
-                                    ? 'text-red-400' 
+                                    ? 'text-red-500' 
                                     : 'text-gray-400')
                               : 'text-gray-400'
                           }`}>
@@ -1413,6 +2166,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             isEloChart={false} // ✅ Nicht-ELO-Chart
                             activeTab={activeMainTab}
                             activeSubTab={activeStatsSubTab}
+                            useThemeColors={true} // 🎨 NEU: Verwende Theme-Farben
                           />
                         ) : (
                           <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
@@ -1461,139 +2215,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Block 3: Bilanzen */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
-                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Bilanzen</h3>
-                      </div>
-                      <div className={`${layout.cardPadding} space-y-2`}>
-                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
-                          <span className={`${layout.bodySize} font-medium text-gray-300`}>Strichdifferenz:</span>
-                          <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
-                            <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                              ({playerStats?.totalStricheMade || 0}/{playerStats?.totalStricheReceived || 0})
-                            </span>
-                            <span className={`${layout.valueSize} font-medium`}>
-                              {playerStats?.totalStrichesDifference !== undefined && playerStats.totalStrichesDifference > 0 ? '+' : ''}
-                              {playerStats?.totalStrichesDifference || 0}
-                            </span>
-                          </span>
-                        </div>
-                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
-                          <span className={`${layout.bodySize} font-medium text-gray-300`}>Punktdifferenz:</span>
-                          <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
-                            <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                              ({(() => {
-                                const formatLargeNumber = (num: number): string => {
-                                  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-                                  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-                                  return num.toString();
-                                };
-                                return `${formatLargeNumber(playerStats?.totalPointsMade || 0)}/${formatLargeNumber(playerStats?.totalPointsReceived || 0)}`;
-                              })()})
-                            </span>
-                            <span className={`${layout.valueSize} font-medium`}>
-                              {playerStats?.totalPointsDifference !== undefined && playerStats.totalPointsDifference > 0 ? '+' : ''}
-                              {playerStats?.totalPointsDifference || 0}
-                            </span>
-                          </span>
-                        </div>
-                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
-                          <span className={`${layout.bodySize} font-medium text-gray-300`}>Siegquote Partien:</span>
-                          <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
-                            <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                              ({playerStats?.sessionsWon || 0}/{playerStats?.sessionsLost || 0}/{playerStats?.sessionsTied || 0})
-                            </span>
-                            <span className={`${layout.valueSize} font-medium`}>
-                              {playerStats?.sessionWinRate !== undefined ? `${(playerStats.sessionWinRate * 100).toFixed(1)}%` : '0.0%'}
-                            </span>
-                          </span>
-                        </div>
-                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
-                          <span className={`${layout.bodySize} font-medium text-gray-300`}>Siegquote Spiele:</span>
-                          <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
-                            <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                              ({playerStats?.gamesWon || 0}/{playerStats?.gamesLost || 0})
-                            </span>
-                            <span className={`${layout.valueSize} font-medium`}>
-                              {playerStats?.gameWinRate !== undefined ? `${(playerStats.gameWinRate * 100).toFixed(1)}%` : '0.0%'}
-                            </span>
-                          </span>
-                        </div>
-                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
-                          <span className={`${layout.bodySize} font-medium text-gray-300`}>Matsch-Bilanz:</span>
-                          <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
-                            {playerStats?.totalMatschEventsMade !== undefined && playerStats?.totalMatschEventsReceived !== undefined && (
-                              <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                ({playerStats.totalMatschEventsMade}/{playerStats.totalMatschEventsReceived})
-                              </span>
-                            )}
-                            <span className={`${layout.valueSize} font-medium`}>
-                              {playerStats?.matschBilanz !== undefined && playerStats.matschBilanz > 0 ? '+' : ''}
-                              {playerStats?.matschBilanz || 0}
-                            </span>
-                          </span>
-                        </div>
-                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
-                          <span className={`${layout.bodySize} font-medium text-gray-300`}>Schneider-Bilanz:</span>
-                          <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
-                            {playerStats?.totalSchneiderEventsMade !== undefined && playerStats?.totalSchneiderEventsReceived !== undefined && (
-                              <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                ({playerStats.totalSchneiderEventsMade}/{playerStats.totalSchneiderEventsReceived})
-                              </span>
-                            )}
-                            <span className={`${layout.valueSize} font-medium`}>
-                              {playerStats?.schneiderBilanz !== undefined && playerStats.schneiderBilanz > 0 ? '+' : ''}
-                              {playerStats?.schneiderBilanz || 0}
-                            </span>
-                          </span>
-                        </div>
-                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
-                          <span className={`${layout.bodySize} font-medium text-gray-300`}>Ø Kontermatsch-Bilanz:</span>
-                          <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
-                            {playerStats?.totalKontermatschEventsMade !== undefined && playerStats?.totalKontermatschEventsReceived !== undefined && (
-                              <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                ({playerStats.totalKontermatschEventsMade}/{playerStats.totalKontermatschEventsReceived})
-                              </span>
-                            )}
-                            <span className={`${layout.valueSize} font-medium`}>
-                              {playerStats?.kontermatschBilanz !== undefined && playerStats.kontermatschBilanz > 0 ? '+' : ''}
-                              {playerStats?.kontermatschBilanz || 0}
-                            </span>
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Block 4: Trumpfansagen */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
-                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Trumpfansagen</h3>
-                      </div>
-                      <div ref={trumpfStatistikRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
-                        {trumpfStatistikArray.length > 0 ? (
-                          trumpfStatistikArray.map((item, index) => (
-                            <div key={`trumpf-${item.farbe}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
-                              <div className="flex items-center">
-                                <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
-                                <FarbePictogram farbe={normalizeJassColor(item.farbe)} mode="svg" className={layout.isDesktop ? "h-12 w-12 mr-2" : "h-8 w-8 mr-2"} />
-                                <span className={`${layout.bodySize} text-gray-300 capitalize`}>{item.farbe}</span>
-                              </div>
-                              <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
-                                <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>({item.anzahl})</span>
-                                <span className={`${layout.valueSize} font-medium`}>{(item.anteil * 100).toFixed(1)}%</span>
-                              </span>
-                            </div>
-                          ))
-                        ) : (
-                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine Trumpfstatistik verfügbar</div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Block 5: 🏆 Highlights */}
+                    {/* Block 3: 🏆 Highlights */}
+                    {false && (
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -1734,8 +2357,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         </div>
                       </div>
                     </div>
+                    )}
 
                     {/* Block 6: 👎 Lowlights */}
+                    {false && (
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -1876,6 +2501,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         </div>
                       </div>
                     </div>
+                    )}
                   </div>
                 ) : (
                   <div className="text-gray-400 text-center py-10">
@@ -1893,6 +2519,164 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               >
                 {(playerStats as any)?.partnerAggregates && (playerStats as any).partnerAggregates.length > 0 ? (
                   <>
+                    {/* Strichdifferenz Verlauf */}
+                    {partnerStricheChartData && partnerStricheChartData.datasets.some((d: any) => d.data.length > 1) && (
+                      <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                        <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                          <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                          <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Strichdifferenz Verlauf</h3>
+                        </div>
+                        <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                          <PowerRatingChart 
+                            data={partnerStricheChartData}
+                            title="Strichdifferenz"
+                            height={layout.isDesktop ? 400 : 300}
+                            theme={profileTheme || 'blue'}
+                            isDarkMode={true}
+                            isEloChart={false}
+                            hideLegend={false}
+                            showBaseline={true}
+                            useThemeColors={false}
+                            activeTab={activeMainTab}
+                            activeSubTab={activeStatsSubTab}
+                            animateImmediately={false}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Strichdifferenz Rangliste */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Strichdifferenz Rangliste</h3>
+                      </div>
+                      <div className="p-4 space-y-2  pr-2">
+                        {(playerStats as any).partnerAggregates
+                          .filter((partner: any) => partner.gamesPlayedWith >= 1)
+                          .sort((a: any, b: any) => b.totalStricheDifferenceWith - a.totalStricheDifferenceWith)
+                          .slice(0, 10)
+                          .map((partner: any, index: number) => {
+                            const playerData = members?.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
+                            return (
+                            <StatLink 
+                                key={`partner-striche-${partner.partnerId}`} 
+                                href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`} 
+                                isClickable={!!partner.partnerId}
+                                className="block rounded-md"
+                              >
+                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                  <div className="flex items-center">
+                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
+                                    <ProfileImage 
+                                      src={playerData?.photoURL || undefined} 
+                                      alt={partner.partnerDisplayName} 
+                                      size={layout.profileImageListSize}
+                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
+                                      fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
+                                      context="list"
+                                    />
+                                    <span className={`text-gray-300 ${layout.bodySize}`}>{partner.partnerDisplayName}</span>
+                                  </div>
+                                  <div className="flex items-center">
+                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
+                                      {partner.gamesPlayedWith > 0 && (
+                                        <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
+                                          ({partner.gamesPlayedWith})
+                                        </span>
+                                      )}
+                                      <span className={`${getDifferenceColor(partner.totalStricheDifferenceWith)}`}>
+                                        {partner.totalStricheDifferenceWith > 0 ? '+' : ''}{partner.totalStricheDifferenceWith}
+                                      </span>
+                                    </span>
+                  </div>
+                                </div>
+                              </StatLink>
+                            );
+                          })}
+                  </div>
+                </div>
+
+                    {/* Punktedifferenz Verlauf */}
+                    {partnerPointsChartData && partnerPointsChartData.datasets.some((d: any) => d.data.length > 1) && (
+                      <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                        <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                          <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                          <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Punktedifferenz Verlauf</h3>
+                        </div>
+                        <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                          <PowerRatingChart 
+                            data={partnerPointsChartData}
+                            title="Punktedifferenz"
+                            height={layout.isDesktop ? 400 : 300}
+                            theme={profileTheme || 'blue'}
+                            isDarkMode={true}
+                            isEloChart={false}
+                            hideLegend={false}
+                            showBaseline={true}
+                            useThemeColors={false}
+                            activeTab={activeMainTab}
+                            activeSubTab={activeStatsSubTab}
+                            animateImmediately={false}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Punktdifferenz Rangliste */}
+                <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                  <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Punktdifferenz Rangliste</h3>
+                  </div>
+                      <div className="p-4 space-y-2  pr-2">
+                        {(playerStats as any).partnerAggregates
+                          .filter((partner: any) => partner.gamesPlayedWith >= 1)
+                          .sort((a: any, b: any) => b.totalPointsDifferenceWith - a.totalPointsDifferenceWith)
+                          .slice(0, 10)
+                          .map((partner: any, index: number) => {
+                            const playerData = members?.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
+                            return (
+                            <StatLink 
+                                key={`partner-points-${partner.partnerId}`} 
+                                href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`} 
+                                isClickable={!!partner.partnerId}
+                                className="block rounded-md"
+                              >
+                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                  <div className="flex items-center">
+                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
+                                    <ProfileImage 
+                                      src={playerData?.photoURL || undefined} 
+                                      alt={partner.partnerDisplayName} 
+                                      size={layout.profileImageListSize}
+                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
+                                      fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
+                                      context="list"
+                                    />
+                                    <span className={`text-gray-300 ${layout.bodySize}`}>{partner.partnerDisplayName}</span>
+                          </div>
+                                  <div className="flex items-center">
+                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
+                                      {partner.gamesPlayedWith > 0 && (
+                                        <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
+                                          ({partner.gamesPlayedWith})
+                            </span>
+                                      )}
+                                      <span className={`${getDifferenceColor(partner.totalPointsDifferenceWith)}`}>
+                                        {partner.totalPointsDifferenceWith > 0 ? '+' : ''}{partner.totalPointsDifferenceWith}
+                                      </span>
+                            </span>
+                      </div>
+                                </div>
+                              </StatLink>
+                            );
+                          })}
+                      </div>
+                    </div>
+
                     {/* Siegquote Partien */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
@@ -2012,117 +2796,37 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Strichdifferenz */}
+                    {/* Matsch-Bilanz Verlauf */}
+                    {partnerMatschChartData && partnerMatschChartData.datasets.some((d: any) => d.data.length > 1) && (
+                      <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                        <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                          <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                          <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Matsch-Bilanz Verlauf</h3>
+                        </div>
+                        <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                          <PowerRatingChart 
+                            data={partnerMatschChartData}
+                            title="Matsch Bilanz"
+                            height={layout.isDesktop ? 400 : 300}
+                            theme={profileTheme || 'blue'}
+                            isDarkMode={true}
+                            isEloChart={false}
+                            hideLegend={false}
+                            showBaseline={true}
+                            useThemeColors={false}
+                            activeTab={activeMainTab}
+                            activeSubTab={activeStatsSubTab}
+                            animateImmediately={false}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Matsch-Bilanz Rangliste */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Strichdifferenz</h3>
-                      </div>
-                      <div className="p-4 space-y-2  pr-2">
-                        {(playerStats as any).partnerAggregates
-                          .filter((partner: any) => partner.gamesPlayedWith >= 1)
-                          .sort((a: any, b: any) => b.totalStricheDifferenceWith - a.totalStricheDifferenceWith)
-                          .slice(0, 10)
-                          .map((partner: any, index: number) => {
-                            const playerData = members?.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
-                            return (
-                            <StatLink 
-                                key={`partner-striche-${partner.partnerId}`} 
-                                href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`} 
-                                isClickable={!!partner.partnerId}
-                                className="block rounded-md"
-                              >
-                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                  <div className="flex items-center">
-                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
-                                    <ProfileImage 
-                                      src={playerData?.photoURL || undefined} 
-                                      alt={partner.partnerDisplayName} 
-                                      size={layout.profileImageListSize}
-                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
-                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                      fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
-                                      context="list"
-                                    />
-                                    <span className={`text-gray-300 ${layout.bodySize}`}>{partner.partnerDisplayName}</span>
-                                  </div>
-                                  <div className="flex items-center">
-                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
-                                      {partner.gamesPlayedWith > 0 && (
-                                        <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                          ({partner.gamesPlayedWith})
-                                        </span>
-                                      )}
-                                      <span className={`${getDifferenceColor(partner.totalStricheDifferenceWith)}`}>
-                                        {partner.totalStricheDifferenceWith > 0 ? '+' : ''}{partner.totalStricheDifferenceWith}
-                                      </span>
-                                    </span>
-                  </div>
-                                </div>
-                              </StatLink>
-                            );
-                          })}
-                  </div>
-                </div>
-
-                    {/* Punktdifferenz */}
-                <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                  <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
-                        <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Punktdifferenz</h3>
-                  </div>
-                      <div className="p-4 space-y-2  pr-2">
-                        {(playerStats as any).partnerAggregates
-                          .filter((partner: any) => partner.gamesPlayedWith >= 1)
-                          .sort((a: any, b: any) => b.totalPointsDifferenceWith - a.totalPointsDifferenceWith)
-                          .slice(0, 10)
-                          .map((partner: any, index: number) => {
-                            const playerData = members?.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
-                            return (
-                            <StatLink 
-                                key={`partner-points-${partner.partnerId}`} 
-                                href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`} 
-                                isClickable={!!partner.partnerId}
-                                className="block rounded-md"
-                              >
-                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                  <div className="flex items-center">
-                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
-                                    <ProfileImage 
-                                      src={playerData?.photoURL || undefined} 
-                                      alt={partner.partnerDisplayName} 
-                                      size={layout.profileImageListSize}
-                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
-                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                      fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
-                                      context="list"
-                                    />
-                                    <span className={`text-gray-300 ${layout.bodySize}`}>{partner.partnerDisplayName}</span>
-                          </div>
-                                  <div className="flex items-center">
-                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
-                                      {partner.gamesPlayedWith > 0 && (
-                                        <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                          ({partner.gamesPlayedWith})
-                            </span>
-                                      )}
-                                      <span className={`${getDifferenceColor(partner.totalPointsDifferenceWith)}`}>
-                                        {partner.totalPointsDifferenceWith > 0 ? '+' : ''}{partner.totalPointsDifferenceWith}
-                                      </span>
-                            </span>
-                      </div>
-                                </div>
-                              </StatLink>
-                            );
-                          })}
-                      </div>
-                    </div>
-
-                    {/* Matsch-Bilanz */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
-                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Matsch-Bilanz</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Matsch-Bilanz Rangliste</h3>
                       </div>
                       <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).partnerAggregates
@@ -2282,65 +2986,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         )}
                       </div>
                     </div>
-
-                    {/* Trumpfansagen-Block */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
-                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Trumpfansagen</h3>
-                      </div>
-                      <div className="p-4 space-y-2 pr-2">
-                        {(playerStats as any).partnerAggregates
-                          .filter((partner: any) => partner.gamesPlayedWith >= 1 && partner.trumpfStatistikWith && Object.keys(partner.trumpfStatistikWith).length > 0)
-                          .sort((a: any, b: any) => {
-                            const aTotal = Object.values(a.trumpfStatistikWith || {}).reduce((sum: number, val: any) => sum + (Number(val) || 0), 0);
-                            const bTotal = Object.values(b.trumpfStatistikWith || {}).reduce((sum: number, val: any) => sum + (Number(val) || 0), 0);
-                            return Number(bTotal) - Number(aTotal);
-                          })
-                          .slice(0, 10)
-                          .map((partner: any, index: number) => {
-                            const playerData = members?.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
-                            const totalTrumpfs = Object.values(partner.trumpfStatistikWith || {}).reduce((sum: number, val: any) => sum + (Number(val) || 0), 0);
-                            return (
-                              <StatLink 
-                                key={`partner-trumpf-${partner.partnerId}`} 
-                                href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`} 
-                                isClickable={!!partner.partnerId}
-                                className="block rounded-md"
-                              >
-                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                  <div className="flex items-center">
-                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
-                                    <ProfileImage 
-                                      src={playerData?.photoURL || undefined} 
-                                      alt={partner.partnerDisplayName} 
-                                      size={layout.profileImageListSize}
-                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
-                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                      fallbackText={partner.partnerDisplayName ? partner.partnerDisplayName.charAt(0).toUpperCase() : '?'}
-                                      context="list"
-                                    />
-                                    <span className={`text-gray-300 ${layout.bodySize}`}>{partner.partnerDisplayName}</span>
-                                  </div>
-                                  <div className="flex items-center">
-                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
-                                      <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                        ({Number(totalTrumpfs)})
-                                      </span>
-                                      <span className={`${layout.valueSize} font-medium`}>
-                                        {Number(totalTrumpfs)}
-                                      </span>
-                                    </span>
-                                  </div>
-                                </div>
-                              </StatLink>
-                            );
-                          })}
-                        {(playerStats as any).partnerAggregates.filter((p: any) => p.gamesPlayedWith >= 1 && p.trumpfStatistikWith && Object.keys(p.trumpfStatistikWith).length > 0).length === 0 && (
-                          <div className="text-gray-400 text-center py-2">Keine Partner mit Trumpfansagen</div>
-                        )}
-                      </div>
-                    </div>
                   </>
                 ) : (
                   <div className="text-center text-gray-400 py-10">Keine Partnerstatistiken verfügbar.</div>
@@ -2356,6 +3001,164 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               >
                 {(playerStats as any)?.opponentAggregates && (playerStats as any).opponentAggregates.length > 0 ? (
                   <>
+                    {/* Strichdifferenz Verlauf */}
+                    {opponentStricheChartData && opponentStricheChartData.datasets.some((d: any) => d.data.length > 1) && (
+                      <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                        <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                          <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                          <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Strichdifferenz Verlauf</h3>
+                        </div>
+                        <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                          <PowerRatingChart 
+                            data={opponentStricheChartData}
+                            title="Strichdifferenz"
+                            height={layout.isDesktop ? 400 : 300}
+                            theme={profileTheme || 'blue'}
+                            isDarkMode={true}
+                            isEloChart={false}
+                            hideLegend={false}
+                            showBaseline={true}
+                            useThemeColors={false}
+                            activeTab={activeMainTab}
+                            activeSubTab={activeStatsSubTab}
+                            animateImmediately={false}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Strichdifferenz Rangliste */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Strichdifferenz Rangliste</h3>
+                      </div>
+                      <div className="p-4 space-y-2  pr-2">
+                        {(playerStats as any).opponentAggregates
+                          .filter((opponent: any) => opponent.gamesPlayedAgainst >= 1)
+                          .sort((a: any, b: any) => b.totalStricheDifferenceAgainst - a.totalStricheDifferenceAgainst)
+                          .slice(0, 10)
+                          .map((opponent: any, index: number) => {
+                            const playerData = members?.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
+                            return (
+                              <StatLink 
+                                key={`opponent-striche-${opponent.opponentId}`} 
+                                href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
+                                isClickable={!!opponent.opponentId}
+                                className="block rounded-md"
+                              >
+                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                  <div className="flex items-center">
+                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
+                                    <ProfileImage 
+                                      src={playerData?.photoURL || undefined} 
+                                      alt={opponent.opponentDisplayName} 
+                                      size={layout.profileImageListSize}
+                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
+                                      fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
+                                      context="list"
+                                    />
+                                    <span className={`text-gray-300 ${layout.bodySize}`}>{opponent.opponentDisplayName}</span>
+                                  </div>
+                                  <div className="flex items-center">
+                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
+                                      {opponent.gamesPlayedAgainst > 0 && (
+                                        <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
+                                          ({opponent.gamesPlayedAgainst})
+                                        </span>
+                                      )}
+                                      <span className={`${getDifferenceColor(opponent.totalStricheDifferenceAgainst)}`}>
+                                        {opponent.totalStricheDifferenceAgainst > 0 ? '+' : ''}{opponent.totalStricheDifferenceAgainst}
+                                      </span>
+                                    </span>
+                                  </div>
+                                </div>
+                              </StatLink>
+                            );
+                          })}
+                      </div>
+                    </div>
+
+                    {/* Punktedifferenz Verlauf */}
+                    {opponentPointsChartData && opponentPointsChartData.datasets.some((d: any) => d.data.length > 1) && (
+                      <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                        <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                          <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                          <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Punktedifferenz Verlauf</h3>
+                        </div>
+                        <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                          <PowerRatingChart 
+                            data={opponentPointsChartData}
+                            title="Punktedifferenz"
+                            height={layout.isDesktop ? 400 : 300}
+                            theme={profileTheme || 'blue'}
+                            isDarkMode={true}
+                            isEloChart={false}
+                            hideLegend={false}
+                            showBaseline={true}
+                            useThemeColors={false}
+                            activeTab={activeMainTab}
+                            activeSubTab={activeStatsSubTab}
+                            animateImmediately={false}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Punktdifferenz Rangliste */}
+                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Punktdifferenz Rangliste</h3>
+                      </div>
+                      <div className="p-4 space-y-2  pr-2">
+                        {(playerStats as any).opponentAggregates
+                          .filter((opponent: any) => opponent.gamesPlayedAgainst >= 1)
+                          .sort((a: any, b: any) => b.totalPointsDifferenceAgainst - a.totalPointsDifferenceAgainst)
+                          .slice(0, 10)
+                          .map((opponent: any, index: number) => {
+                            const playerData = members?.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
+                            return (
+                              <StatLink 
+                                key={`opponent-points-${opponent.opponentId}`} 
+                                href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
+                                isClickable={!!opponent.opponentId}
+                                className="block rounded-md"
+                              >
+                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                  <div className="flex items-center">
+                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
+                                    <ProfileImage 
+                                      src={playerData?.photoURL || undefined} 
+                                      alt={opponent.opponentDisplayName} 
+                                      size={layout.profileImageListSize}
+                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
+                                      fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
+                                      context="list"
+                                    />
+                                    <span className={`text-gray-300 ${layout.bodySize}`}>{opponent.opponentDisplayName}</span>
+                                  </div>
+                                  <div className="flex items-center">
+                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
+                                      {opponent.gamesPlayedAgainst > 0 && (
+                                        <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
+                                          ({opponent.gamesPlayedAgainst})
+                                        </span>
+                                      )}
+                                      <span className={`${getDifferenceColor(opponent.totalPointsDifferenceAgainst)}`}>
+                                        {opponent.totalPointsDifferenceAgainst > 0 ? '+' : ''}{opponent.totalPointsDifferenceAgainst}
+                                      </span>
+                                    </span>
+                                  </div>
+                                </div>
+                              </StatLink>
+                            );
+                          })}
+                      </div>
+                    </div>
+
                     {/* Siegquote Partien */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
@@ -2439,14 +3242,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                 <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
                                   <div className="flex items-center">
                                     <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
-                                                                        <ProfileImage 
+                                    <ProfileImage 
                                       src={playerData?.photoURL || undefined} 
                                       alt={opponent.opponentDisplayName} 
                                       size={layout.profileImageListSize}
                                       className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
                                       fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                       fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
-    />
+                                      context="list"
+                                    />
                                     <span className={`text-gray-300 ${layout.bodySize}`}>{opponent.opponentDisplayName}</span>
                                   </div>
                                   <div className="flex items-center">
@@ -2475,117 +3279,37 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Strichdifferenz */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
-                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Strichdifferenz</h3>
+                    {/* Matsch-Bilanz Verlauf */}
+                    {opponentMatschChartData && opponentMatschChartData.datasets.some((d: any) => d.data.length > 1) && (
+                      <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
+                        <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                          <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                          <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Matsch-Bilanz Verlauf</h3>
+                        </div>
+                        <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                          <PowerRatingChart 
+                            data={opponentMatschChartData}
+                            title="Matsch Bilanz"
+                            height={layout.isDesktop ? 400 : 300}
+                            theme={profileTheme || 'blue'}
+                            isDarkMode={true}
+                            isEloChart={false}
+                            hideLegend={false}
+                            showBaseline={true}
+                            useThemeColors={false}
+                            activeTab={activeMainTab}
+                            activeSubTab={activeStatsSubTab}
+                            animateImmediately={false}
+                          />
+                        </div>
                       </div>
-                      <div className="p-4 space-y-2  pr-2">
-                        {(playerStats as any).opponentAggregates
-                          .filter((opponent: any) => opponent.gamesPlayedAgainst >= 1)
-                          .sort((a: any, b: any) => b.totalStricheDifferenceAgainst - a.totalStricheDifferenceAgainst)
-                          .slice(0, 10)
-                          .map((opponent: any, index: number) => {
-                            const playerData = members?.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
-                            return (
-                              <StatLink 
-                                key={`opponent-striche-${opponent.opponentId}`} 
-                                href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
-                                isClickable={!!opponent.opponentId}
-                                className="block rounded-md"
-                              >
-                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                  <div className="flex items-center">
-                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
-                                    <ProfileImage 
-                                      src={playerData?.photoURL || undefined} 
-                                      alt={opponent.opponentDisplayName} 
-                                      size={layout.profileImageListSize}
-                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
-                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                      fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
-                                      context="list"
-                                    />
-                                    <span className={`text-gray-300 ${layout.bodySize}`}>{opponent.opponentDisplayName}</span>
-                                  </div>
-                                  <div className="flex items-center">
-                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
-                                      {opponent.gamesPlayedAgainst > 0 && (
-                                        <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                          ({opponent.gamesPlayedAgainst})
-                                        </span>
-                                      )}
-                                      <span className={`${getDifferenceColor(opponent.totalStricheDifferenceAgainst)}`}>
-                                        {opponent.totalStricheDifferenceAgainst > 0 ? '+' : ''}{opponent.totalStricheDifferenceAgainst}
-                                      </span>
-                                    </span>
-                                  </div>
-                                </div>
-                              </StatLink>
-                            );
-                          })}
-                      </div>
-                    </div>
+                    )}
 
-                    {/* Punktdifferenz */}
+                    {/* Matsch-Bilanz Rangliste */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Punktdifferenz</h3>
-                      </div>
-                      <div className="p-4 space-y-2  pr-2">
-                        {(playerStats as any).opponentAggregates
-                          .filter((opponent: any) => opponent.gamesPlayedAgainst >= 1)
-                          .sort((a: any, b: any) => b.totalPointsDifferenceAgainst - a.totalPointsDifferenceAgainst)
-                          .slice(0, 10)
-                          .map((opponent: any, index: number) => {
-                            const playerData = members?.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
-                            return (
-                              <StatLink 
-                                key={`opponent-points-${opponent.opponentId}`} 
-                                href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
-                                isClickable={!!opponent.opponentId}
-                                className="block rounded-md"
-                              >
-                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                  <div className="flex items-center">
-                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
-                                    <ProfileImage 
-                                      src={playerData?.photoURL || undefined} 
-                                      alt={opponent.opponentDisplayName} 
-                                      size={layout.profileImageListSize}
-                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
-                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                      fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
-                                      context="list"
-                                    />
-                                    <span className={`text-gray-300 ${layout.bodySize}`}>{opponent.opponentDisplayName}</span>
-                                  </div>
-                                  <div className="flex items-center">
-                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
-                                      {opponent.gamesPlayedAgainst > 0 && (
-                                        <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                          ({opponent.gamesPlayedAgainst})
-                                        </span>
-                                      )}
-                                      <span className={`${getDifferenceColor(opponent.totalPointsDifferenceAgainst)}`}>
-                                        {opponent.totalPointsDifferenceAgainst > 0 ? '+' : ''}{opponent.totalPointsDifferenceAgainst}
-                                      </span>
-                                    </span>
-                                  </div>
-                                </div>
-                              </StatLink>
-                            );
-                          })}
-                      </div>
-                    </div>
-
-                    {/* Matsch-Bilanz */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
-                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Matsch-Bilanz</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Matsch-Bilanz Rangliste</h3>
                       </div>
                       <div className="p-4 space-y-2  pr-2">
                         {(playerStats as any).opponentAggregates
@@ -2742,66 +3466,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           })}
                         {(playerStats as any).opponentAggregates.filter((o: any) => o.gamesPlayedAgainst >= 1 && ((o.kontermatschEventsMadeAgainst || 0) > 0 || (o.kontermatschEventsReceivedAgainst || 0) > 0)).length === 0 && (
                           <div className="text-gray-400 text-center py-2">Keine Gegner mit Kontermatsch-Ereignissen</div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Trumpfansagen-Block */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
-                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Trumpfansagen</h3>
-                      </div>
-                      <div className="p-4 space-y-2 pr-2">
-                        {(playerStats as any).opponentAggregates
-                          .filter((opponent: any) => opponent.gamesPlayedAgainst >= 1 && opponent.trumpfStatistikAgainst && Object.keys(opponent.trumpfStatistikAgainst).length > 0)
-                          .sort((a: any, b: any) => {
-                            const aTotal = Object.values(a.trumpfStatistikAgainst || {}).reduce((sum: number, val: any) => sum + (Number(val) || 0), 0);
-                            const bTotal = Object.values(b.trumpfStatistikAgainst || {}).reduce((sum: number, val: any) => sum + (Number(val) || 0), 0);
-                            return Number(bTotal) - Number(aTotal);
-                          })
-                          .slice(0, 10)
-                          .map((opponent: any, index: number) => {
-                            const playerData = members?.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
-                            const totalTrumpfs = Object.values(opponent.trumpfStatistikAgainst || {}).reduce((sum: number, val: any) => sum + (Number(val) || 0), 0);
-                            const totalTrumpfsNum = Number(totalTrumpfs);
-                            return (
-                              <StatLink 
-                                key={`opponent-trumpf-${opponent.opponentId}`} 
-                                href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
-                                isClickable={!!opponent.opponentId}
-                                className="block rounded-md"
-                              >
-                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
-                                  <div className="flex items-center">
-                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
-                                    <ProfileImage 
-                                      src={playerData?.photoURL || undefined} 
-                                      alt={opponent.opponentDisplayName} 
-                                      size={layout.profileImageListSize}
-                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
-                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                      fallbackText={opponent.opponentDisplayName ? opponent.opponentDisplayName.charAt(0).toUpperCase() : '?'}
-                                      context="list"
-                                    />
-                                    <span className={`text-gray-300 ${layout.bodySize}`}>{opponent.opponentDisplayName}</span>
-                                  </div>
-                                  <div className="flex items-center">
-                                    <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
-                                      <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                        ({totalTrumpfsNum})
-                                      </span>
-                                      <span className={`${layout.valueSize} font-medium`}>
-                                        {totalTrumpfsNum}
-                                      </span>
-                                    </span>
-                                  </div>
-                                </div>
-                              </StatLink>
-                            );
-                          })}
-                        {(playerStats as any).opponentAggregates.filter((o: any) => o.gamesPlayedAgainst >= 1 && o.trumpfStatistikAgainst && Object.keys(o.trumpfStatistikAgainst).length > 0).length === 0 && (
-                          <div className="text-gray-400 text-center py-2">Keine Gegner mit Trumpfansagen</div>
                         )}
                       </div>
                     </div>

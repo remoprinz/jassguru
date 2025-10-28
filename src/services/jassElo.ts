@@ -1,148 +1,155 @@
-/**
- * 🎯 JASS-ELO RATING SYSTEM - FINALE VERSION
- * ==========================================
- * 
- * Produktives Elo-System für Jassguru, optimiert für Jass-Spiele.
- * 
- * ✅ KERN-EIGENSCHAFTEN:
- * - Team-basierte Bewertung (2vs2)  
- * - Striche-basierte Performance (nicht Win/Loss)
- * - Konstanter K-Faktor K=32 für alle Spieler
- * - Elo-Skala 300 für ausgewogene Reaktivität
- * - Start-Rating 1000 (psychologisch klar)
- * - 15-Tier System (👑 Legendary bis 🥚 Neuling)
- * - Zero-sum garantiert (Rating-Erhaltung)
- * 
- *  BASIS: Klassisches Elo-System (Wikipedia)
- * 🎮 JASS-ANPASSUNG: Score S = Striche-Anteil statt Win/Loss
- * 🔧 K-RAMPE: DEAKTIVIERT (alle K=32)
- * 
- * 🚀 VERWENDUNG:
- * - Frontend: loadPlayerRatings(), getRatingTier()
- * - Scripts: calculateRatingsPerGame.cjs, auditAndFixEloSystem.cjs  
- * - Cloud Functions: updateEloForSession()
- */
-
+import { getFirestore, collection, query, where, getDocs, documentId, orderBy, limit, limitToLast } from 'firebase/firestore';  
 import { db } from '@/services/firebaseInit';
-// ❌ ENTFERNT: getRatingTier Import - wird nicht mehr im Frontend berechnet
-import { collection, query, where, getDocs, documentId } from 'firebase/firestore';
+import { getRatingTier } from '@/shared/rating-tiers';
+import type { ThemeColor } from '@/config/theme';
 
-// ===== TYPEN =====
+const JASS_ELO_CONFIG = {
+  DEFAULT_RATING: 100,
+  ELO_SCALE: 1000,
+};
 
-export interface PlayerRating {
+export interface PlayerRatingWithTier {
   id: string;
   rating: number;
   gamesPlayed: number;
   lastUpdated: number;
-  lastDelta?: number;
-  // 🆕 SESSION-DELTA TRACKING
-  lastSessionDelta?: number;  // Delta der letzten Session (Summe aller Spiele)
-}
-
-// ❌ ENTFERNT: Team, MatchInput, PlayerUpdate, MatchResult - nur noch für Scripts/Backend relevant
-
-// ===== KONSTANTEN =====
-
-export const JASS_ELO_CONFIG = {
-  K_TARGET: 15,           // FINAL: K=15 (moderate Änderungen)
-  DEFAULT_RATING: 100,    // Startwert bei 100 (neue Skala)
-  ELO_SCALE: 1000,        // FINAL: Skala=1000 (optimale Spreizung)
-} as const;
-
-// ===== HILFSFUNKTIONEN =====
-
-// ❌ ENTFERNT: expectedScore, teamRating, stricheScore - Scripts haben eigene Implementierungen
-
-function getTierForRating(rating: number): { name: string; emoji: string } {
-  if (rating >= 150) return { name: 'Göpf Egg', emoji: '👼' };
-  if (rating >= 145) return { name: 'Jassgott', emoji: '🔱' };
-  if (rating >= 140) return { name: 'Jasskönig', emoji: '👑' };
-  if (rating >= 135) return { name: 'Grossmeister', emoji: '🏆' };
-  if (rating >= 130) return { name: 'Jasser mit Auszeichnung', emoji: '🎖' };
-  if (rating >= 125) return { name: 'Diamantjasser II', emoji: '💎' };
-  if (rating >= 120) return { name: 'Diamantjasser I', emoji: '💍' };
-  if (rating >= 115) return { name: 'Goldjasser', emoji: '🥇' };
-  if (rating >= 110) return { name: 'Silberjasser', emoji: '🥈' };
-  if (rating >= 105) return { name: 'Bronzejasser', emoji: '🥉' };
-  if (rating >= 100) return { name: 'Jassstudent (START)', emoji: '👨‍🎓' };
-  if (rating >= 95) return { name: 'Kleeblatt vierblättrig', emoji: '🍀' };
-  if (rating >= 90) return { name: 'Kleeblatt dreiblättrig', emoji: '☘️' };
-  if (rating >= 85) return { name: 'Sprössling', emoji: '🌱' };
-  if (rating >= 80) return { name: 'Hahn', emoji: '🐓' };
-  if (rating >= 75) return { name: 'Huhn', emoji: '🐔' };
-  if (rating >= 70) return { name: 'Kücken', emoji: '🐥' };
-  if (rating >= 65) return { name: 'Chlaus', emoji: '🎅' };
-  if (rating >= 60) return { name: 'Chäs', emoji: '🧀' };
-  if (rating >= 55) return { name: 'Ente', emoji: '🦆' };
-  if (rating >= 50) return { name: 'Gurke', emoji: '🥒' };
-  return { name: 'Just Egg', emoji: '🥚' };
-}
-
-
-// ===== HAUPTFUNKTION =====
-
-// ❌ ENTFERNT: updateMatchRatings() - wird nur von Scripts/Backend verwendet, nicht vom Frontend
-
-// ===== HILFSFUNKTIONEN FÜR SCRIPTS =====
-
-/**
- * Erstellt Default-Rating für neuen Spieler
- */
-export function createDefaultPlayerRating(playerId: string): PlayerRating {
-  return {
-    id: playerId,
-    rating: JASS_ELO_CONFIG.DEFAULT_RATING,
-    gamesPlayed: 0,
-    lastUpdated: Date.now(),
-  };
-}
-
-// ❌ ENTFERNT: validateZeroSum - verwendet PlayerUpdate Type der nicht mehr existiert
-
-// ===== FRONTEND UTILITIES =====
-
-export interface PlayerRatingWithTier extends PlayerRating {
-  displayName?: string;
+  displayName: string;
   tier: string;
   tierEmoji: string;
+  lastDelta: number; // ✅ Alte Game-Delta (für Kompatibilität)
+  lastSessionDelta?: number; // 🆕 SESSION-DELTA: Delta der letzten Session
 }
 
-// ❌ ENTFERNT: getRatingTier Re-Export - Frontend verwendet Firebase-Daten direkt
+/**
+ * 🆕 NEU: Berechnet das Delta zwischen vorletzter und letzter Session
+ * Gibt das Rating-Delta zwischen den letzten beiden Sessions zurück
+ */
+async function calculateLastSessionRatingDelta(playerId: string): Promise<number | null> {
+  try {
+    // Lade die letzten 2 Sessions aus ratingHistory
+    const ratingHistoryRef = collection(db, `players/${playerId}/ratingHistory`);
+    
+    // Hole die letzten 30 Einträge (chronologisch sortiert)
+    // ✅ OPTIMIERT: 30 Einträge = sicher alle Events der letzten 2 Sessions (10 Games × 3 Sessions = 30 max)
+    // Wir brauchen nur die letzten Events von letzten 2 Sessions, aber müssen erstmal identifizieren welche das sind
+    const historyQuery = query(
+      ratingHistoryRef,
+      orderBy('completedAt', 'desc'),
+      limit(30)
+    );
+    
+    const historySnap = await getDocs(historyQuery);
+    
+    if (historySnap.empty || historySnap.docs.length < 2) {
+      return null; // Keine ausreichenden Daten
+    }
+    
+    // Gruppiere nach Session/Tournament
+    const sessionMap = new Map<string, Array<{ rating: number; completedAt: any }>>();
+    
+    historySnap.docs.forEach(doc => {
+      const data = doc.data();
+      const sessionKey = data.sessionId || data.tournamentId || 'unknown';
+      
+      if (!sessionMap.has(sessionKey)) {
+        sessionMap.set(sessionKey, []);
+      }
+      
+      sessionMap.get(sessionKey)!.push({
+        rating: data.rating,
+        completedAt: data.completedAt
+      });
+    });
+    
+    // Sortiere Sessions nach Datum (nur Sessions MIT completedAt)
+    const validSessions = Array.from(sessionMap.entries()).filter(entry => {
+      const latest = entry[1][0].completedAt;
+      return latest && (latest.toMillis || latest instanceof Date || typeof latest === 'number');
+    });
+    
+    const sortedSessions = validSessions.sort((a, b) => {
+      const aLatest = a[1][0].completedAt;
+      const bLatest = b[1][0].completedAt;
+      
+      const aTime = aLatest instanceof Date ? aLatest.getTime() : 
+                   (aLatest as any)?.toMillis ? (aLatest as any).toMillis() : 0;
+      const bTime = bLatest instanceof Date ? bLatest.getTime() : 
+                   (bLatest as any)?.toMillis ? (bLatest as any).toMillis() : 0;
+      
+      return bTime - aTime; // Neueste zuerst
+    });
+    
+    if (sortedSessions.length < 2) {
+      return null; // Brauchen mindestens 2 Sessions
+    }
+    
+    // Letzte Session: Neuestes Rating
+    const lastSessionLatestRating = sortedSessions[0][1][0].rating;
+    
+    // Vorletzte Session: Neuestes Rating
+    const secondLastSessionLatestRating = sortedSessions[1][1][0].rating;
+    
+    // Delta = Letzte Session Rating - Vorletzte Session Rating
+    const delta = lastSessionLatestRating - secondLastSessionLatestRating;
+    
+    return delta;
+    
+  } catch (error) {
+    console.warn(`[jassElo] Fehler beim Berechnen von lastSessionRatingDelta für ${playerId}:`, error);
+    return null;
+  }
+}
 
 /**
- * 🚀 PERFORMANCE: Lädt das voraggregierte Leaderboard einer Gruppe
+ * 🆕 NEU: Optimierte Batch-Berechnung für mehrere Spieler gleichzeitig
  */
+async function calculateLastSessionRatingDeltasBatch(playerIds: string[]): Promise<Map<string, number | null>> {
+  const results = new Map<string, number | null>();
+  
+  // Berechne für alle Spieler parallel (aber nicht alle auf einmal!)
+  const batchSize = 5;
+  for (let i = 0; i < playerIds.length; i += batchSize) {
+    const batch = playerIds.slice(i, i + batchSize);
+    
+    await Promise.all(
+      batch.map(async (playerId) => {
+        const delta = await calculateLastSessionRatingDelta(playerId);
+        results.set(playerId, delta);
+      })
+    );
+  }
+  
+  return results;
+}
+
 export async function loadGroupLeaderboard(groupId: string): Promise<Map<string, PlayerRatingWithTier>> {
   const ratings = new Map<string, PlayerRatingWithTier>();
   
   try {
-    const leaderboardRef = collection(db, `groups/${groupId}/aggregated`);
-    const snapshot = await getDocs(leaderboardRef);
+    const membersRef = collection(db, `groups/${groupId}/members`);
+    const snapshot = await getDocs(membersRef);
+    const playerIds: string[] = [];
     
-    const leaderboardDoc = snapshot.docs.find(doc => doc.id === 'leaderboard');
-    if (!leaderboardDoc) {
-      console.warn(`Kein Leaderboard für Gruppe ${groupId} gefunden - Fallback auf loadPlayerRatings`);
-      return ratings;
-    }
-    
-    const data = leaderboardDoc.data();
-    const entries = data?.entries || [];
-    
-    entries.forEach((entry: any) => {
-      ratings.set(entry.playerId, {
-        id: entry.playerId,
-        rating: entry.rating || JASS_ELO_CONFIG.DEFAULT_RATING,
-        gamesPlayed: entry.gamesPlayed || 0,
-        lastUpdated: Date.now(),
-        displayName: entry.displayName || `Spieler_${entry.playerId.slice(0, 6)}`,
-        tier: entry.tier || 'Just Egg',
-        tierEmoji: entry.tierEmoji || '🥚',
-        lastDelta: entry.lastDelta || 0,
-        // photoURL ist schon in der Leaderboard-Struktur verfügbar, aber nicht im PlayerRatingWithTier Interface
-      });
+    snapshot.forEach(doc => {
+      playerIds.push(doc.id);
     });
     
-    console.log(`Leaderboard für Gruppe ${groupId} geladen: ${entries.length} Einträge`);
+    if (playerIds.length === 0) return ratings;
+    
+    // Lade alle Spieler-Ratings parallel
+    const allRatings = await loadPlayerRatings(playerIds);
+    
+    // Sortiere nach Rating (höchstes zuerst)
+    const sortedRatings = Array.from(allRatings.entries()).sort((a, b) => {
+      const ratingDiff = b[1].rating - a[1].rating;
+      if (Math.abs(ratingDiff) > 0.001) return ratingDiff;
+      return b[1].gamesPlayed - a[1].gamesPlayed;
+    });
+    
+    sortedRatings.forEach(([playerId, rating]) => {
+      ratings.set(playerId, rating);
+    });
+    
   } catch (error) {
     console.warn('Fehler beim Laden des Leaderboards:', error);
   }
@@ -151,7 +158,7 @@ export async function loadGroupLeaderboard(groupId: string): Promise<Map<string,
 }
 
 /**
- * Lädt Elo-Ratings für eine Liste von Spieler-IDs
+ * 🆕 ERWEITERT: Lädt Elo-Ratings UND berechnet das Delta zwischen vorletzter und letzter Session
  */
 export async function loadPlayerRatings(playerIds: string[]): Promise<Map<string, PlayerRatingWithTier>> {
   const ratings = new Map<string, PlayerRatingWithTier>();
@@ -181,7 +188,7 @@ export async function loadPlayerRatings(playerIds: string[]): Promise<Map<string
         const lastUpdatedTs = data?.lastGlobalRatingUpdate;
         const lastUpdated = lastUpdatedTs?.toMillis ? lastUpdatedTs.toMillis() : Date.now();
         const name = data?.displayName || `Spieler_${doc.id.slice(0, 6)}`;
-        const tierInfo = getTierForRating(ratingVal);
+        const tierInfo = getRatingTier(ratingVal);
         
         ratings.set(doc.id, {
           id: doc.id,
@@ -191,17 +198,26 @@ export async function loadPlayerRatings(playerIds: string[]): Promise<Map<string
           displayName: name,
           tier: tierInfo.name,
           tierEmoji: tierInfo.emoji,
-          lastDelta: data?.lastDelta || 0, // Game-Delta
-          // 🆕 SESSION-DELTA: Lade lastSessionDelta aus players/{playerId}
-          lastSessionDelta: data?.lastSessionDelta || data?.lastDelta || 0,
+          lastDelta: data?.lastDelta || 0, // Game-Delta (für Kompatibilität)
+          lastSessionDelta: data?.lastSessionDelta || data?.lastDelta || 0, // Session-Delta (Fallback)
         });
       });
     }
+    
+    // 🆕 NEU: Berechne live das Delta zwischen vorletzter und letzter Session
+    const deltaResults = await calculateLastSessionRatingDeltasBatch(playerIds);
+    
+    // Ersetze lastSessionDelta mit den berechneten Werten
+    deltaResults.forEach((delta, playerId) => {
+      const rating = ratings.get(playerId);
+      if (rating && delta !== null) {
+        rating.lastSessionDelta = delta;
+      }
+    });
+    
   } catch (error) {
     console.warn('Fehler beim Laden der Elo-Ratings:', error);
   }
   
   return ratings;
 }
-
-// ❌ ENTFERNT: getLatestRatingDelta() - nicht mehr nötig, da lastDelta direkt im Rating gespeichert wird

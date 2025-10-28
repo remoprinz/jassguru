@@ -66,6 +66,9 @@ export interface GlobalPlayerStats {
   sessionsDraw: number;
   sessionWinRate: number;
   
+  // ✅ TOURNAMENTS
+  totalTournaments?: number; // ✅ NEU: Anzahl gespielter Turniere
+  
   // ✅ GAMES
   totalGames: number;
   gamesWon: number;

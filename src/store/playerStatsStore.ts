@@ -85,7 +85,7 @@ export const usePlayerStatsStore = create<PlayerStatsState & PlayerStatsActions>
         }
         
         const playerData = playerDataDoc.data() as any;
-        const globalStats = playerData.globalStats?.current || {};
+        const globalStats = playerData.globalStats || {}; // ✅ KORRIGIERT: globalStats direkt, nicht .current
         
         // Lade Partner Stats aus neuer Struktur
         const partnerStatsSnap = await getDocs(collection(db, `players/${playerId}/partnerStats`));
@@ -196,7 +196,7 @@ export const usePlayerStatsStore = create<PlayerStatsState & PlayerStatsActions>
           avgSchneiderPerGame: 0,
           avgWeisPointsPerGame: globalStats.avgWeisPerGame || 0,
           avgKontermatschPerGame: 0,
-          totalTournamentsParticipated: 0,
+          totalTournamentsParticipated: globalStats.totalTournaments || 0,
           totalTournamentGamesPlayed: 0,
           tournamentWins: 0,
           bestTournamentPlacement: null,
@@ -228,6 +228,9 @@ export const usePlayerStatsStore = create<PlayerStatsState & PlayerStatsActions>
           highlights: [],
           partnerAggregates,
           opponentAggregates,
+          // NEU: Trumpfstatistiken aus globalStats
+          trumpfStatistik: globalStats.trumpfStatistik || {},
+          totalTrumpfCount: globalStats.totalTrumpfCount || 0,
         };
         
         set((state) => {
