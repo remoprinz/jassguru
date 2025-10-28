@@ -1582,7 +1582,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                   <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.subTabContainerPadding} rounded-full backdrop-blur-md shadow-lg`}>
                     <TabsTrigger 
                       value="overview" 
-                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3`}
+                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-full ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3`}
                       style={{
                         backgroundColor: activeStatsSubTab === 'overview' ? getTabActiveColor(groupTheme) : 'transparent'
                       }}
@@ -1591,7 +1591,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </TabsTrigger>
                     <TabsTrigger 
                       value="players" 
-                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3`}
+                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-full ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3`}
                       style={{
                         backgroundColor: activeStatsSubTab === 'players' ? getTabActiveColor(groupTheme) : 'transparent'
                       }}
@@ -1600,7 +1600,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </TabsTrigger>
                     <TabsTrigger 
                       value="teams" 
-                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3`}
+                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-full ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3`}
                       style={{
                         backgroundColor: activeStatsSubTab === 'teams' ? getTabActiveColor(groupTheme) : 'transparent'
                       }}

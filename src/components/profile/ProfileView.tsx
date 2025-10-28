@@ -1670,7 +1670,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.subTabContainerPadding} rounded-full backdrop-blur-md shadow-lg`}>
                   <TabsTrigger
                     value="individual"
-                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3`}
+                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-full ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3`}
                     style={{
                       backgroundColor: activeStatsSubTab === 'individual' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
                     }}
@@ -1680,7 +1680,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   </TabsTrigger>
                   <TabsTrigger
                     value="partner"
-                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3`}
+                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-full ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3`}
                     style={{
                       backgroundColor: activeStatsSubTab === 'partner' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
                     }}
@@ -1690,7 +1690,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   </TabsTrigger>
                   <TabsTrigger
                     value="opponent"
-                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-md ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3`}
+                    className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-full ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3`}
                     style={{
                       backgroundColor: activeStatsSubTab === 'opponent' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
                     }}
