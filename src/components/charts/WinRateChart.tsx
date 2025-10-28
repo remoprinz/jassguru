@@ -54,7 +54,7 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
   activeTab,
   activeSubTab,
   animateImmediately = false,
-  animationThreshold = 0.4,
+  animationThreshold = 0.7,
   hideLegend = false,
   minSessions = 2, // Standard: Mindestens 2 Sessions
   totalSessionsInGroup, // Gesamtanzahl Sessions in der Gruppe
