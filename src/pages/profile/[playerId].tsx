@@ -344,23 +344,12 @@ const PlayerProfilePage = () => {
                          (typeof startedAt === 'number' ? new Date(startedAt) : null);
       const formattedDate = displayDate ? format(displayDate, 'dd.MM.yy, HH:mm') : 'Unbekannt';
 
-      // 🚨 ENDGÜLTIG FIX: Spieler-IDs aus der KORREKTEN teams.teamA/teamB-Struktur extrahieren
-      const teamAPlayer1Id = session.teams?.teamA?.players?.[0]?.playerId;
-      const teamAPlayer2Id = session.teams?.teamA?.players?.[1]?.playerId;
-      const teamBPlayer1Id = session.teams?.teamB?.players?.[0]?.playerId;
-      const teamBPlayer2Id = session.teams?.teamB?.players?.[1]?.playerId;
-
-      // 🚨 ENDGÜLTIG FIX: Spieler-Objekte anhand der playerId suchen
-      const teamAPlayer1 = members?.find(m => m.id === teamAPlayer1Id || m.userId === teamAPlayer1Id);
-      const teamAPlayer2 = members?.find(m => m.id === teamAPlayer2Id || m.userId === teamAPlayer2Id);
-      const teamBPlayer1 = members?.find(m => m.id === teamBPlayer1Id || m.userId === teamBPlayer1Id);
-      const teamBPlayer2 = members?.find(m => m.id === teamBPlayer2Id || m.userId === teamBPlayer2Id);
-
-      // Fallback-Namen, falls Spieler nicht gefunden werden
-      const player1Name = teamAPlayer1?.displayName || playerNames['1'] || 'Spieler 1';
-      const player3Name = teamAPlayer2?.displayName || playerNames['3'] || 'Spieler 3';
-      const player2Name = teamBPlayer1?.displayName || playerNames['2'] || 'Spieler 2';
-      const player4Name = teamBPlayer2?.displayName || playerNames['4'] || 'Spieler 4';
+      // ✅ FIX: Verwende die GLEICHE Methode wie im privaten Modus (robuster!)
+      // Suche Spieler direkt nach displayName aus playerNames (wie in /profile/index.tsx)
+      const player1Data = members?.find(m => m.displayName === playerNames['1']);
+      const player2Data = members?.find(m => m.displayName === playerNames['2']);
+      const player3Data = members?.find(m => m.displayName === playerNames['3']);
+      const player4Data = members?.find(m => m.displayName === playerNames['4']);
 
       return (
           <Link href={`/view/session/public/${id}?groupId=${session.groupId || session.gruppeId || ''}&returnTo=/profile/${player?.id}&returnMainTab=archive`} key={`session-${id}`} passHref>
@@ -384,27 +373,27 @@ const PlayerProfilePage = () => {
                     {/* 🎨 AVATAR-PAIR: Wie im GroupView Teams-Tab */}
                     <div className="flex mr-2">
                       <ProfileImage
-                        src={teamAPlayer1?.photoURL}
-                        alt={player1Name}
+                        src={player1Data?.photoURL}
+                        alt={playerNames['1'] || 'Spieler'}
                         size="sm"
                         className="border-2 border-gray-800"
                         style={{ zIndex: 1 }}
                         fallbackClassName="bg-gray-700 text-gray-300 text-xs"
-                        fallbackText={player1Name.charAt(0).toUpperCase()}
+                        fallbackText={playerNames['1']?.charAt(0).toUpperCase() || '?'}
                         context="list"
                       />
                       <ProfileImage
-                        src={teamAPlayer2?.photoURL}
-                        alt={player3Name}
+                        src={player3Data?.photoURL}
+                        alt={playerNames['3'] || 'Spieler'}
                         size="sm"
                         className="border-2 border-gray-800 -ml-2"
                         style={{ zIndex: 0 }}
                         fallbackClassName="bg-gray-700 text-gray-300 text-xs"
-                        fallbackText={player3Name.charAt(0).toUpperCase()}
+                        fallbackText={playerNames['3']?.charAt(0).toUpperCase() || '?'}
                         context="list"
                       />
                     </div>
-                    <span className="text-sm text-gray-300 truncate pr-2">{player1Name} & {player3Name}</span>
+                    <span className="text-sm text-gray-300 truncate pr-2">{playerNames['1'] || '?'} & {playerNames['3'] || '?'}</span>
                   </div>
                   <span className="text-lg font-medium text-white">{totalStricheBottom !== null ? totalStricheBottom : '-'}</span>
                 </div>
@@ -415,27 +404,27 @@ const PlayerProfilePage = () => {
                     {/* 🎨 AVATAR-PAIR: Wie im GroupView Teams-Tab */}
                     <div className="flex mr-2">
                       <ProfileImage
-                        src={teamBPlayer1?.photoURL}
-                        alt={player2Name}
+                        src={player2Data?.photoURL}
+                        alt={playerNames['2'] || 'Spieler'}
                         size="sm"
                         className="border-2 border-gray-800"
                         style={{ zIndex: 1 }}
                         fallbackClassName="bg-gray-700 text-gray-300 text-xs"
-                        fallbackText={player2Name.charAt(0).toUpperCase()}
+                        fallbackText={playerNames['2']?.charAt(0).toUpperCase() || '?'}
                         context="list"
                       />
                       <ProfileImage
-                        src={teamBPlayer2?.photoURL}
-                        alt={player4Name}
+                        src={player4Data?.photoURL}
+                        alt={playerNames['4'] || 'Spieler'}
                         size="sm"
                         className="border-2 border-gray-800 -ml-2"
                         style={{ zIndex: 0 }}
                         fallbackClassName="bg-gray-700 text-gray-300 text-xs"
-                        fallbackText={player4Name.charAt(0).toUpperCase()}
+                        fallbackText={playerNames['4']?.charAt(0).toUpperCase() || '?'}
                         context="list"
                       />
                     </div>
-                    <span className="text-sm text-gray-300 truncate pr-2">{player2Name} & {player4Name}</span>
+                    <span className="text-sm text-gray-300 truncate pr-2">{playerNames['2'] || '?'} & {playerNames['4'] || '?'}</span>
                   </div>
                   <span className="text-lg font-medium text-white">{totalStricheTop !== null ? totalStricheTop : '-'}</span>
                 </div>

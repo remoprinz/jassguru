@@ -9,11 +9,6 @@ export const getRankingFromChartData = (chartData: any, members: any[], playerSt
     return [];
   }
 
-  console.log('[DEBUG] getRankingFromChartData called with:', {
-    chartDataDatasets: chartData.datasets.length,
-    membersCount: members.length,
-    playerStatsKeys: playerStats ? Object.keys(playerStats) : 'undefined'
-  });
 
   // ✅ Hilfsfunktion: Finde letzten nicht-null Wert (optimiert!)
   const getLastNonNullValue = (data: any[]): number => {
@@ -41,20 +36,10 @@ export const getRankingFromChartData = (chartData: any, members: any[], playerSt
     // ✅ KORREKTUR: Verwende gamesPlayed aus playerStats (Anzahl Spiele, nicht Sessions!)
     let gamesPlayed = dataset.dataPoints; // Fallback: Sessions als Anzahl
     
-    console.log(`[DEBUG] Processing ${dataset.label} (${dataset.playerId}):`, {
-      dataPoints: dataset.dataPoints,
-      playerStatsValue: playerStats?.[dataset.playerId]?.gamesPlayed,
-      globalStatsValue: playerData?.globalStats?.current?.gamesPlayed
-    });
-    
     if (playerStats && playerStats[dataset.playerId]) {
       gamesPlayed = playerStats[dataset.playerId].gamesPlayed || dataset.dataPoints;
-      console.log(`[DEBUG] Using playerStats for ${dataset.label}: ${gamesPlayed}`);
     } else if (playerData && playerData.globalStats?.current?.gamesPlayed) {
       gamesPlayed = playerData.globalStats.current.gamesPlayed;
-      console.log(`[DEBUG] Using globalStats for ${dataset.label}: ${gamesPlayed}`);
-    } else {
-      console.log(`[DEBUG] Using fallback for ${dataset.label}: ${gamesPlayed}`);
     }
     
     // ✅ NEU: Session-Siege/Niederlagen/Unentschiedene für Siegquote

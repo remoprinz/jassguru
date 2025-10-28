@@ -1,0 +1,2409 @@
+{
+  "timestamp": "2025-10-26T16:14:29.011Z",
+  "players": {
+    "sampleDocs": [
+      {
+        "id": "1sDvqN_kvqZLB-4eSZFqZ",
+        "fields": {
+          "isGuest": {
+            "type": "boolean",
+            "value": false
+          },
+          "createdAt": {
+            "type": "object",
+            "value": "Timestamp(2025-05-01T17:16:03.070Z)"
+          },
+          "displayName": {
+            "type": "string",
+            "value": "Marc"
+          },
+          "photoURL": {
+            "type": "string",
+            "value": "https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/profilePictures%2FJmluPJeG6wbQzLkoJjlU7uVVYyw1%2Fprofile.jpeg?alt=media&token=b25bb3d2-70d3-4808-9a31-4581df77761f"
+          },
+          "statusMessage": {
+            "type": "string",
+            "value": "Ass müend uf em Tisch verrecke, Banner mached s‘Spil verruckt. "
+          },
+          "lastActivity": {
+            "type": "object",
+            "value": "Timestamp(2025-07-06T22:29:07.301Z)"
+          },
+          "isActive": {
+            "type": "boolean",
+            "value": true
+          },
+          "email": {
+            "type": "string",
+            "value": "slarti@gmx.ch"
+          },
+          "groupIds": {
+            "type": "object",
+            "value": "Array[1]"
+          },
+          "userId": {
+            "type": "string",
+            "value": "JmluPJeG6wbQzLkoJjlU7uVVYyw1"
+          },
+          "tier": {
+            "type": "string",
+            "value": "Goldjasser"
+          },
+          "tierEmoji": {
+            "type": "string",
+            "value": "🥇"
+          },
+          "lastSessionDelta": {
+            "type": "number",
+            "value": 5.206401753512804
+          },
+          "profileTheme": {
+            "type": "string",
+            "value": "purple"
+          },
+          "migratedPhase1": {
+            "type": "boolean",
+            "value": true
+          },
+          "migratedPhase1At": {
+            "type": "object",
+            "value": "Timestamp(2025-10-25T18:41:43.183Z)"
+          },
+          "globalStats": {
+            "type": "object",
+            "value": "Object(1 keys)"
+          },
+          "totalGamesPlayed": {
+            "type": "number",
+            "value": 27
+          },
+          "lastGlobalRatingUpdate": {
+            "type": "object",
+            "value": "Timestamp(2025-10-26T14:57:44.426Z)"
+          },
+          "globalRating": {
+            "type": "number",
+            "value": 106.58825976267875
+          }
+        },
+        "rawData": {
+          "isGuest": false,
+          "createdAt": {
+            "_seconds": 1746119763,
+            "_nanoseconds": 70000000
+          },
+          "displayName": "Marc",
+          "photoURL": "https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/profilePictures%2FJmluPJeG6wbQzLkoJjlU7uVVYyw1%2Fprofile.jpeg?alt=media&token=b25bb3d2-70d3-4808-9a31-4581df77761f",
+          "statusMessage": "Ass müend uf em Tisch verrecke, Banner mached s‘Spil verruckt. ",
+          "lastActivity": {
+            "_seconds": 1751840947,
+            "_nanoseconds": 301000000
+          },
+          "isActive": true,
+          "email": "slarti@gmx.ch",
+          "groupIds": [
+            "Tz0wgIHMTlhvTtFastiJ"
+          ],
+          "userId": "JmluPJeG6wbQzLkoJjlU7uVVYyw1",
+          "tier": "Goldjasser",
+          "tierEmoji": "🥇",
+          "lastSessionDelta": 5.206401753512804,
+          "profileTheme": "purple",
+          "migratedPhase1": true,
+          "migratedPhase1At": {
+            "_seconds": 1761417703,
+            "_nanoseconds": 183000000
+          },
+          "globalStats": {
+            "current": {
+              "totalSessions": 8,
+              "sessionsWon": 3,
+              "sessionsLost": 5,
+              "sessionsDraw": 0,
+              "sessionWinRate": 0.375,
+              "totalGames": 29,
+              "gamesWon": 15,
+              "gamesLost": 13,
+              "gamesDraw": 0,
+              "gameWinRate": 0.5172413793103449,
+              "totalPointsMade": 133991,
+              "totalPointsReceived": 128805,
+              "pointsDifference": 5186,
+              "avgPointsPerGame": 178.82758620689654,
+              "totalStricheMade": 73,
+              "totalStricheReceived": 61,
+              "stricheDifference": 12,
+              "avgStrichePerGame": 0.41379310344827586,
+              "totalWeisPoints": 1700,
+              "totalWeisReceived": 0,
+              "weisDifference": 0,
+              "avgWeisPerGame": 0,
+              "matschEventsMade": 19,
+              "matschEventsReceived": 0,
+              "matschBilanz": 0,
+              "schneiderEventsMade": 2,
+              "schneiderEventsReceived": 0,
+              "schneiderBilanz": 0,
+              "kontermatschEventsMade": 1,
+              "kontermatschEventsReceived": 0,
+              "kontermatschBilanz": 0,
+              "trumpfStatistik": {
+                "3x3": 13,
+                "slalom": 10,
+                "eichel": 7,
+                "quer": 13,
+                "rosen": 6,
+                "misère": 5,
+                "schellen": 4,
+                "schilten": 2,
+                "unde": 4,
+                "obe": 2
+              },
+              "totalTrumpfCount": 66,
+              "totalPlayTimeSeconds": 19628,
+              "avgRoundDurationMilliseconds": 676827.5862068966,
+              "firstJassTimestamp": {
+                "seconds": 1747331316,
+                "nanoseconds": 584000000
+              },
+              "lastJassTimestamp": {
+                "_seconds": 1759438303,
+                "_nanoseconds": 486000000
+              }
+            }
+          },
+          "totalGamesPlayed": 27,
+          "lastGlobalRatingUpdate": {
+            "_seconds": 1761490664,
+            "_nanoseconds": 426000000
+          },
+          "globalRating": 106.58825976267875
+        },
+        "subcollections": {
+          "groupStats": {
+            "count": 1,
+            "samples": [
+              {
+                "id": "Tz0wgIHMTlhvTtFastiJ",
+                "fields": [
+                  "groupId",
+                  "gamesPlayed",
+                  "wins",
+                  "losses",
+                  "winRate",
+                  "totalScore",
+                  "averageScore",
+                  "totalPointsMade",
+                  "totalPointsReceived",
+                  "pointsDifference",
+                  "totalStricheMade",
+                  "totalStricheReceived",
+                  "stricheDifference"
+                ]
+              }
+            ]
+          },
+          "opponentStats": {
+            "count": 3,
+            "samples": [
+              {
+                "id": "9K2d1OQ1mCXddko7ft6y",
+                "fields": [
+                  "opponentId",
+                  "gamesPlayed",
+                  "wins",
+                  "losses",
+                  "winRate"
+                ]
+              },
+              {
+                "id": "EvX9acReG6t45Ws7ZJ1F",
+                "fields": [
+                  "opponentId",
+                  "gamesPlayed",
+                  "wins",
+                  "losses",
+                  "winRate"
+                ]
+              },
+              {
+                "id": "F1uwdthL6zu7F0cYf1jbe",
+                "fields": [
+                  "opponentId",
+                  "gamesPlayed",
+                  "wins",
+                  "losses",
+                  "winRate"
+                ]
+              }
+            ]
+          },
+          "partnerStats": {
+            "count": 3,
+            "samples": [
+              {
+                "id": "9K2d1OQ1mCXddko7ft6y",
+                "fields": [
+                  "partnerId",
+                  "gamesPlayed",
+                  "wins",
+                  "losses",
+                  "winRate"
+                ]
+              },
+              {
+                "id": "F1uwdthL6zu7F0cYf1jbe",
+                "fields": [
+                  "partnerId",
+                  "gamesPlayed",
+                  "wins",
+                  "losses",
+                  "winRate"
+                ]
+              },
+              {
+                "id": "b16c1120111b7d9e7d733837",
+                "fields": [
+                  "partnerId",
+                  "gamesPlayed",
+                  "wins",
+                  "losses",
+                  "winRate"
+                ]
+              }
+            ]
+          },
+          "ratingHistory": {
+            "count": 3,
+            "samples": [
+              {
+                "id": "1wgWJpUs0E7EIqOMAWun",
+                "fields": [
+                  "playerId",
+                  "rating",
+                  "delta",
+                  "completedAt",
+                  "eventType",
+                  "sessionId",
+                  "gameNumber",
+                  "groupId",
+                  "createdAt"
+                ]
+              },
+              {
+                "id": "3vIS0RQ4tJaUv6kOhJex",
+                "fields": [
+                  "playerId",
+                  "rating",
+                  "delta",
+                  "completedAt",
+                  "eventType",
+                  "sessionId",
+                  "gameNumber",
+                  "groupId",
+                  "createdAt"
+                ]
+              },
+              {
+                "id": "4dBpVtj7oP0w9KhCRiSu",
+                "fields": [
+                  "playerId",
+                  "rating",
+                  "delta",
+                  "completedAt",
+                  "eventType",
+                  "sessionId",
+                  "gameNumber",
+                  "groupId",
+                  "createdAt"
+                ]
+              }
+            ]
+          },
+          "scoresHistory": {
+            "count": 3,
+            "samples": [
+              {
+                "id": "6jJ7YlSnPLBp4mD1mglP",
+                "fields": [
+                  "timestamp",
+                  "eventType",
+                  "sessionId",
+                  "groupId",
+                  "globalStatsSnapshot",
+                  "groupStatsSnapshot"
+                ]
+              },
+              {
+                "id": "8m8BPpEQBfB0o3HmZaIN",
+                "fields": [
+                  "timestamp",
+                  "eventType",
+                  "sessionId",
+                  "groupId",
+                  "globalStatsSnapshot",
+                  "groupStatsSnapshot"
+                ]
+              },
+              {
+                "id": "KCJvJbAAAKnhQqqlT4Gu",
+                "fields": [
+                  "timestamp",
+                  "eventType",
+                  "sessionId",
+                  "groupId",
+                  "globalStatsSnapshot",
+                  "groupStatsSnapshot"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "3b25c2e2c8bb4a2a3dbf3f2e",
+        "fields": {
+          "userId": {
+            "type": "string",
+            "value": "gFzjpFZBxkVWfxwDRRn3Wye6LoZ2"
+          },
+          "isGuest": {
+            "type": "boolean",
+            "value": false
+          },
+          "createdAt": {
+            "type": "object",
+            "value": "Timestamp(2025-07-11T20:25:53.939Z)"
+          },
+          "migrationDate": {
+            "type": "object",
+            "value": "Timestamp(2025-07-12T11:57:37.057Z)"
+          },
+          "displayName": {
+            "type": "string",
+            "value": "Nick"
+          },
+          "groupIds": {
+            "type": "object",
+            "value": "Array[1]"
+          },
+          "lastSessionDelta": {
+            "type": "number",
+            "value": 0
+          },
+          "profileTheme": {
+            "type": "string",
+            "value": "orange"
+          },
+          "globalStats": {
+            "type": "object",
+            "value": "Object(1 keys)"
+          },
+          "totalGamesPlayed": {
+            "type": "number",
+            "value": 2
+          },
+          "globalRating": {
+            "type": "number",
+            "value": 92.52094665346394
+          },
+          "lastGlobalRatingUpdate": {
+            "type": "object",
+            "value": "Timestamp(2025-10-26T13:53:29.131Z)"
+          }
+        },
+        "rawData": {
+          "userId": "gFzjpFZBxkVWfxwDRRn3Wye6LoZ2",
+          "isGuest": false,
+          "createdAt": {
+            "_seconds": 1752265553,
+            "_nanoseconds": 939000000
+          },
+          "migrationDate": {
+            "_seconds": 1752321457,
+            "_nanoseconds": 57000000
+          },
+          "displayName": "Nick",
+          "groupIds": [
+            "BhEdUmwb7tb4ka8BLUfM"
+          ],
+          "lastSessionDelta": 0,
+          "profileTheme": "orange",
+          "globalStats": {
+            "current": {
+              "totalSessions": 1,
+              "sessionsWon": 0,
+              "sessionsLost": 1,
+              "sessionsDraw": 0,
+              "sessionWinRate": 0,
+              "totalGames": 2,
+              "gamesWon": 0,
+              "gamesLost": 2,
+              "gamesDraw": 0,
+              "gameWinRate": 0,
+              "totalPointsMade": 0,
+              "totalPointsReceived": 2056,
+              "pointsDifference": -2056,
+              "avgPointsPerGame": -1028,
+              "totalStricheMade": 0,
+              "totalStricheReceived": 13,
+              "stricheDifference": -13,
+              "avgStrichePerGame": -6.5,
+              "totalWeisPoints": 0,
+              "totalWeisReceived": 0,
+              "weisDifference": 0,
+              "avgWeisPerGame": 0,
+              "matschEventsMade": 0,
+              "matschEventsReceived": 0,
+              "matschBilanz": 0,
+              "schneiderEventsMade": 0,
+              "schneiderEventsReceived": 0,
+              "schneiderBilanz": 0,
+              "kontermatschEventsMade": 0,
+              "kontermatschEventsReceived": 0,
+              "kontermatschBilanz": 0,
+              "trumpfStatistik": {},
+              "totalTrumpfCount": 0,
+              "totalPlayTimeSeconds": 0,
+              "avgRoundDurationMilliseconds": 0,
+              "firstJassTimestamp": {
+                "_seconds": 1760020651,
+                "_nanoseconds": 793000000
+              },
+              "lastJassTimestamp": {
+                "_seconds": 1760020651,
+                "_nanoseconds": 793000000
+              }
+            }
+          },
+          "totalGamesPlayed": 2,
+          "globalRating": 92.52094665346394,
+          "lastGlobalRatingUpdate": {
+            "_seconds": 1761486809,
+            "_nanoseconds": 131000000
+          }
+        },
+        "subcollections": {
+          "groupStats": {
+            "count": 1,
+            "samples": [
+              {
+                "id": "BhEdUmwb7tb4ka8BLUfM",
+                "fields": [
+                  "groupId",
+                  "gamesPlayed",
+                  "wins",
+                  "losses",
+                  "winRate",
+                  "totalScore",
+                  "averageScore",
+                  "totalPointsMade",
+                  "totalPointsReceived",
+                  "pointsDifference",
+                  "totalStricheMade",
+                  "totalStricheReceived",
+                  "stricheDifference"
+                ]
+              }
+            ]
+          },
+          "opponentStats": {
+            "count": 2,
+            "samples": [
+              {
+                "id": "4ixOg5n0DcQmg028WPtvF",
+                "fields": [
+                  "opponentId",
+                  "gamesPlayed",
+                  "wins",
+                  "losses",
+                  "winRate"
+                ]
+              },
+              {
+                "id": "NCxBGZgxncpY36QL_qZVX",
+                "fields": [
+                  "opponentId",
+                  "gamesPlayed",
+                  "wins",
+                  "losses",
+                  "winRate"
+                ]
+              }
+            ]
+          },
+          "partnerStats": {
+            "count": 1,
+            "samples": [
+              {
+                "id": "ICazX3cA5s5fJ6nGGxnJV",
+                "fields": [
+                  "partnerId",
+                  "gamesPlayed",
+                  "wins",
+                  "losses",
+                  "winRate"
+                ]
+              }
+            ]
+          },
+          "scoresHistory": {
+            "count": 1,
+            "samples": [
+              {
+                "id": "Usmo0OzHcLgBheg44Wqj",
+                "fields": [
+                  "timestamp",
+                  "eventType",
+                  "sessionId",
+                  "groupId",
+                  "globalStatsSnapshot",
+                  "groupStatsSnapshot"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "4ixOg5n0DcQmg028WPtvF",
+        "fields": {
+          "userId": {
+            "type": "string",
+            "value": "WddRqzVvSDOFymuTKLPR8ZI7kv33"
+          },
+          "isGuest": {
+            "type": "boolean",
+            "value": false
+          },
+          "createdAt": {
+            "type": "object",
+            "value": "Timestamp(2025-09-05T09:59:20.720Z)"
+          },
+          "groupIds": {
+            "type": "object",
+            "value": "Array[1]"
+          },
+          "profileTheme": {
+            "type": "string",
+            "value": "cyan"
+          },
+          "photoURL": {
+            "type": "string",
+            "value": "https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/profilePictures%2FWddRqzVvSDOFymuTKLPR8ZI7kv33%2Fprofile.png?alt=media&token=db596ffb-21dd-4690-9b1b-8d7696181226"
+          },
+          "displayName": {
+            "type": "string",
+            "value": "Jassguru"
+          },
+          "statusMessage": {
+            "type": "string",
+            "value": "bin guruguru."
+          },
+          "tier": {
+            "type": "string",
+            "value": "Jassstudent"
+          },
+          "lastSessionDelta": {
+            "type": "number",
+            "value": 4
+          },
+          "tierEmoji": {
+            "type": "string",
+            "value": "👨‍🎓"
+          },
+          "globalStats": {
+            "type": "object",
+            "value": "Object(1 keys)"
+          },
+          "totalGamesPlayed": {
+            "type": "number",
+            "value": 10
+          },
+          "globalRating": {
+            "type": "number",
+            "value": 116.34941529636723
+          },
+          "lastGlobalRatingUpdate": {
+            "type": "object",
+            "value": "Timestamp(2025-10-26T13:53:29.131Z)"
+          }
+        },
+        "rawData": {
+          "userId": "WddRqzVvSDOFymuTKLPR8ZI7kv33",
+          "isGuest": false,
+          "createdAt": {
+            "_seconds": 1757066360,
+            "_nanoseconds": 720000000
+          },
+          "groupIds": [
+            "BhEdUmwb7tb4ka8BLUfM"
+          ],
+          "profileTheme": "cyan",
+          "photoURL": "https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/profilePictures%2FWddRqzVvSDOFymuTKLPR8ZI7kv33%2Fprofile.png?alt=media&token=db596ffb-21dd-4690-9b1b-8d7696181226",
+          "displayName": "Jassguru",
+          "statusMessage": "bin guruguru.",
+          "tier": "Jassstudent",
+          "lastSessionDelta": 4,
+          "tierEmoji": "👨‍🎓",
+          "globalStats": {
+            "current": {
+              "totalSessions": 7,
+              "sessionsWon": 5,
+              "sessionsLost": 1,
+              "sessionsDraw": 1,
+              "sessionWinRate": 0.7142857142857143,
+              "totalGames": 10,
+              "gamesWon": 8,
+              "gamesLost": 2,
+              "gamesDraw": 0,
+              "gameWinRate": 0.8,
+              "totalPointsMade": 20793,
+              "totalPointsReceived": 15231,
+              "pointsDifference": 5562,
+              "avgPointsPerGame": 556.2,
+              "totalStricheMade": 43,
+              "totalStricheReceived": 16,
+              "stricheDifference": 27,
+              "avgStrichePerGame": 2.7,
+              "totalWeisPoints": 300,
+              "totalWeisReceived": 0,
+              "weisDifference": 0,
+              "avgWeisPerGame": 0,
+              "matschEventsMade": 11,
+              "matschEventsReceived": 0,
+              "matschBilanz": 0,
+              "schneiderEventsMade": 4,
+              "schneiderEventsReceived": 0,
+              "schneiderBilanz": 0,
+              "kontermatschEventsMade": 1,
+              "kontermatschEventsReceived": 0,
+              "kontermatschBilanz": 0,
+              "trumpfStatistik": {
+                "obe": 2,
+                "3x3": 2,
+                "misère": 1,
+                "rosen": 4,
+                "schellen": 2,
+                "unde": 1,
+                "eichel": 1
+              },
+              "totalTrumpfCount": 13,
+              "totalPlayTimeSeconds": 281,
+              "avgRoundDurationMilliseconds": 28100,
+              "firstJassTimestamp": {
+                "_seconds": 1757071111,
+                "_nanoseconds": 553000000
+              },
+              "lastJassTimestamp": {
+                "_seconds": 1761227109,
+                "_nanoseconds": 725000000
+              }
+            }
+          },
+          "totalGamesPlayed": 10,
+          "globalRating": 116.34941529636723,
+          "lastGlobalRatingUpdate": {
+            "_seconds": 1761486809,
+            "_nanoseconds": 131000000
+          }
+        }
+      },
+      {
+        "id": "6lZDAx654XCapQq2fNkD1",
+        "fields": {
+          "userId": {
+            "type": "string",
+            "value": "SdOFSW1vA8hUPxUAFa5k98JOS3j2"
+          },
+          "isGuest": {
+            "type": "boolean",
+            "value": false
+          },
+          "createdAt": {
+            "type": "object",
+            "value": "Timestamp(2025-05-26T09:25:09.730Z)"
+          },
+          "displayName": {
+            "type": "string",
+            "value": "Leni"
+          },
+          "photoURL": {
+            "type": "string",
+            "value": "https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/profilePictures%2FSdOFSW1vA8hUPxUAFa5k98JOS3j2%2Fprofile.jpeg?alt=media&token=5031fcf0-ea85-48b6-a0bc-97db0a650d05"
+          },
+          "groupIds": {
+            "type": "object",
+            "value": "Array[3]"
+          },
+          "profileTheme": {
+            "type": "string",
+            "value": "pink"
+          },
+          "tier": {
+            "type": "string",
+            "value": "Jassstudent"
+          },
+          "lastSessionDelta": {
+            "type": "number",
+            "value": 4
+          },
+          "tierEmoji": {
+            "type": "string",
+            "value": "👨‍🎓"
+          },
+          "globalStats": {
+            "type": "object",
+            "value": "Object(1 keys)"
+          },
+          "totalGamesPlayed": {
+            "type": "number",
+            "value": 4
+          },
+          "globalRating": {
+            "type": "number",
+            "value": 108.89707079482216
+          },
+          "lastGlobalRatingUpdate": {
+            "type": "object",
+            "value": "Timestamp(2025-10-26T13:53:29.131Z)"
+          }
+        },
+        "rawData": {
+          "userId": "SdOFSW1vA8hUPxUAFa5k98JOS3j2",
+          "isGuest": false,
+          "createdAt": {
+            "_seconds": 1748251509,
+            "_nanoseconds": 730000000
+          },
+          "displayName": "Leni",
+          "photoURL": "https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/profilePictures%2FSdOFSW1vA8hUPxUAFa5k98JOS3j2%2Fprofile.jpeg?alt=media&token=5031fcf0-ea85-48b6-a0bc-97db0a650d05",
+          "groupIds": [
+            "UYYJnqdIOhZlygFG2lMo",
+            "eo5jfvXPTLEYHWsgZcrP",
+            "BhEdUmwb7tb4ka8BLUfM"
+          ],
+          "profileTheme": "pink",
+          "tier": "Jassstudent",
+          "lastSessionDelta": 4,
+          "tierEmoji": "👨‍🎓",
+          "globalStats": {
+            "current": {
+              "totalSessions": 37,
+              "sessionsWon": 2,
+              "sessionsLost": 1,
+              "sessionsDraw": 0,
+              "sessionWinRate": 0.6666666666666666,
+              "totalGames": 47,
+              "gamesWon": 8,
+              "gamesLost": 4,
+              "gamesDraw": 0,
+              "gameWinRate": 0.1702127659574468,
+              "totalPointsMade": 7163,
+              "totalPointsReceived": 3630,
+              "pointsDifference": 3533,
+              "avgPointsPerGame": 75.17021276595744,
+              "totalStricheMade": 21,
+              "totalStricheReceived": 5,
+              "stricheDifference": 16,
+              "avgStrichePerGame": 0.3404255319148936,
+              "totalWeisPoints": 100,
+              "totalWeisReceived": 0,
+              "weisDifference": 0,
+              "avgWeisPerGame": 0,
+              "matschEventsMade": 7,
+              "matschEventsReceived": 0,
+              "matschBilanz": 0,
+              "schneiderEventsMade": 2,
+              "schneiderEventsReceived": 0,
+              "schneiderBilanz": 0,
+              "kontermatschEventsMade": 0,
+              "kontermatschEventsReceived": 0,
+              "kontermatschBilanz": 0,
+              "trumpfStatistik": {
+                "schilten": 1,
+                "unde": 3,
+                "rosen": 2
+              },
+              "totalTrumpfCount": 6,
+              "totalPlayTimeSeconds": 0,
+              "avgRoundDurationMilliseconds": 0,
+              "firstJassTimestamp": {
+                "_seconds": 1757539440,
+                "_nanoseconds": 404000000
+              },
+              "lastJassTimestamp": {
+                "_seconds": 1761227109,
+                "_nanoseconds": 725000000
+              }
+            }
+          },
+          "totalGamesPlayed": 4,
+          "globalRating": 108.89707079482216,
+          "lastGlobalRatingUpdate": {
+            "_seconds": 1761486809,
+            "_nanoseconds": 131000000
+          }
+        }
+      },
+      {
+        "id": "8f45eac1b70c8ad7a9a9d9cb",
+        "fields": {
+          "userId": {
+            "type": "string",
+            "value": "0QXvICHVH9cW60EQyZsNs1CRjtI2"
+          },
+          "isGuest": {
+            "type": "boolean",
+            "value": false
+          },
+          "createdAt": {
+            "type": "object",
+            "value": "Timestamp(2025-07-11T15:05:53.898Z)"
+          },
+          "displayName": {
+            "type": "string",
+            "value": "Karim"
+          },
+          "id": {
+            "type": "string",
+            "value": "Tz0wgIHMTlhvTtFastiJ"
+          },
+          "groupIds": {
+            "type": "object",
+            "value": "Array[1]"
+          },
+          "photoURL": {
+            "type": "string",
+            "value": "https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/profilePictures%2F0QXvICHVH9cW60EQyZsNs1CRjtI2%2Fkarim.jpg?alt=media&token=90479fec-14a4-43fc-ad29-453e5af14d35"
+          },
+          "profileTheme": {
+            "type": "string",
+            "value": "green"
+          },
+          "statusMessage": {
+            "type": "string",
+            "value": "Schieben ist wie selber machen. Nur krasser. "
+          },
+          "tier": {
+            "type": "string",
+            "value": "Jassstudent"
+          },
+          "tierEmoji": {
+            "type": "string",
+            "value": "👨‍🎓"
+          },
+          "lastSessionDelta": {
+            "type": "number",
+            "value": 4.869993254001891
+          },
+          "migratedPhase1": {
+            "type": "boolean",
+            "value": true
+          },
+          "migratedPhase1At": {
+            "type": "object",
+            "value": "Timestamp(2025-10-25T18:41:46.470Z)"
+          },
+          "globalStats": {
+            "type": "object",
+            "value": "Object(1 keys)"
+          },
+          "totalGamesPlayed": {
+            "type": "number",
+            "value": 6
+          },
+          "lastGlobalRatingUpdate": {
+            "type": "object",
+            "value": "Timestamp(2025-10-26T14:57:44.426Z)"
+          },
+          "globalRating": {
+            "type": "number",
+            "value": 109.63865540644
+          }
+        },
+        "rawData": {
+          "userId": "0QXvICHVH9cW60EQyZsNs1CRjtI2",
+          "isGuest": false,
+          "createdAt": {
+            "_seconds": 1752246353,
+            "_nanoseconds": 898000000
+          },
+          "displayName": "Karim",
+          "id": "Tz0wgIHMTlhvTtFastiJ",
+          "groupIds": [
+            "Tz0wgIHMTlhvTtFastiJ"
+          ],
+          "photoURL": "https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/profilePictures%2F0QXvICHVH9cW60EQyZsNs1CRjtI2%2Fkarim.jpg?alt=media&token=90479fec-14a4-43fc-ad29-453e5af14d35",
+          "profileTheme": "green",
+          "statusMessage": "Schieben ist wie selber machen. Nur krasser. ",
+          "tier": "Jassstudent",
+          "tierEmoji": "👨‍🎓",
+          "lastSessionDelta": 4.869993254001891,
+          "migratedPhase1": true,
+          "migratedPhase1At": {
+            "_seconds": 1761417706,
+            "_nanoseconds": 470000000
+          },
+          "globalStats": {
+            "current": {
+              "totalSessions": 2,
+              "sessionsWon": 2,
+              "sessionsLost": 0,
+              "sessionsDraw": 0,
+              "sessionWinRate": 1,
+              "totalGames": 6,
+              "gamesWon": 4,
+              "gamesLost": 2,
+              "gamesDraw": 0,
+              "gameWinRate": 0.6666666666666666,
+              "totalPointsMade": 28081,
+              "totalPointsReceived": 23469,
+              "pointsDifference": 4612,
+              "avgPointsPerGame": 768.6666666666666,
+              "totalStricheMade": 22,
+              "totalStricheReceived": 8,
+              "stricheDifference": 14,
+              "avgStrichePerGame": 2.3333333333333335,
+              "totalWeisPoints": 60,
+              "totalWeisReceived": 0,
+              "weisDifference": 0,
+              "avgWeisPerGame": 0,
+              "matschEventsMade": 7,
+              "matschEventsReceived": 0,
+              "matschBilanz": 0,
+              "schneiderEventsMade": 1,
+              "schneiderEventsReceived": 0,
+              "schneiderBilanz": 0,
+              "kontermatschEventsMade": 0,
+              "kontermatschEventsReceived": 0,
+              "kontermatschBilanz": 0,
+              "trumpfStatistik": {
+                "slalom": 1,
+                "unde": 1,
+                "quer": 3,
+                "schellen": 1,
+                "schilten": 2,
+                "eichel": 2,
+                "rosen": 1,
+                "3x3": 1
+              },
+              "totalTrumpfCount": 12,
+              "totalPlayTimeSeconds": 3564,
+              "avgRoundDurationMilliseconds": 594000,
+              "firstJassTimestamp": {
+                "_seconds": 1752800279,
+                "_nanoseconds": 199000000
+              },
+              "lastJassTimestamp": {
+                "_seconds": 1758230045,
+                "_nanoseconds": 637000000
+              }
+            }
+          },
+          "totalGamesPlayed": 6,
+          "lastGlobalRatingUpdate": {
+            "_seconds": 1761490664,
+            "_nanoseconds": 426000000
+          },
+          "globalRating": 109.63865540644
+        }
+      }
+    ],
+    "stats": {
+      "totalDocs": 32,
+      "isEmpty": false
+    }
+  },
+  "groups": {
+    "sampleDocs": [
+      {
+        "id": "BhEdUmwb7tb4ka8BLUfM",
+        "fields": {
+          "name": {
+            "type": "string",
+            "value": "Testgruppe"
+          },
+          "createdBy": {
+            "type": "string",
+            "value": "6v6wL4GXzuOzCNCPNne9Uyzawp72"
+          },
+          "isPublic": {
+            "type": "boolean",
+            "value": true
+          },
+          "strokeSettings": {
+            "type": "object",
+            "value": "Object(2 keys)"
+          },
+          "createdAt": {
+            "type": "object",
+            "value": "Timestamp(2025-07-05T11:11:18.997Z)"
+          },
+          "description": {
+            "type": "string",
+            "value": "🙏✌️"
+          },
+          "theme": {
+            "type": "string",
+            "value": "pink"
+          },
+          "logoUrl": {
+            "type": "string",
+            "value": "https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/groupLogos%2FAaTUBO0SbWVfStdHmD7zi3qAMww2%2FBhEdUmwb7tb4ka8BLUfM%2Flogo.jpg?alt=media&token=3e9c360e-c28a-4dcb-856f-1c3d14ac8f72"
+          },
+          "adminIds": {
+            "type": "object",
+            "value": "Array[5]"
+          },
+          "mainLocationZip": {
+            "type": "string",
+            "value": "8032"
+          },
+          "farbeSettings": {
+            "type": "object",
+            "value": "Object(2 keys)"
+          },
+          "scoreSettings": {
+            "type": "object",
+            "value": "Object(3 keys)"
+          },
+          "players": {
+            "type": "object",
+            "value": "Object(14 keys)"
+          },
+          "playerIds": {
+            "type": "object",
+            "value": "Array[13]"
+          },
+          "updatedAt": {
+            "type": "object",
+            "value": "Timestamp(2025-10-02T04:12:27.444Z)"
+          },
+          "publicStats": {
+            "type": "object",
+            "value": "Object(1 keys)"
+          },
+          "privateStats": {
+            "type": "object",
+            "value": "Object(1 keys)"
+          },
+          "lastStatsUpdate": {
+            "type": "object",
+            "value": "Timestamp(2025-10-15T21:21:08.651Z)"
+          }
+        },
+        "rawData": {
+          "name": "Testgruppe",
+          "createdBy": "6v6wL4GXzuOzCNCPNne9Uyzawp72",
+          "isPublic": true,
+          "strokeSettings": {
+            "schneider": 2,
+            "kontermatsch": 2
+          },
+          "createdAt": {
+            "_seconds": 1751713878,
+            "_nanoseconds": 997000000
+          },
+          "description": "🙏✌️",
+          "theme": "pink",
+          "logoUrl": "https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/groupLogos%2FAaTUBO0SbWVfStdHmD7zi3qAMww2%2FBhEdUmwb7tb4ka8BLUfM%2Flogo.jpg?alt=media&token=3e9c360e-c28a-4dcb-856f-1c3d14ac8f72",
+          "adminIds": [
+            "6v6wL4GXzuOzCNCPNne9Uyzawp72",
+            "AaTUBO0SbWVfStdHmD7zi3qAMww2",
+            "u98KjZYxThTuyH6h4e9b47gMTPj2",
+            "WddRqzVvSDOFymuTKLPR8ZI7kv33",
+            "jVp7vxcvy2OVJ6dnY1S45fuVMDU2"
+          ],
+          "mainLocationZip": "8032",
+          "farbeSettings": {
+            "cardStyle": "DE",
+            "values": {
+              "une": 4,
+              "misère": 0,
+              "obe": 3,
+              "schilten": 2,
+              "eicheln": 1,
+              "schellen": 2,
+              "quer": 0,
+              "rosen": 1,
+              "dreimal": 0,
+              "slalom": 0
+            }
+          },
+          "scoreSettings": {
+            "values": {
+              "berg": 500,
+              "sieg": 2000,
+              "schneider": 1000
+            },
+            "enabled": {
+              "schneider": true,
+              "sieg": true,
+              "berg": true
+            },
+            "matschBonus": true
+          },
+          "players": {
+            "6lZDAx654XCapQq2fNkD1": {
+              "displayName": "Leni",
+              "email": "leni.j.prinz@gmail.com",
+              "joinedAt": {
+                "_seconds": 1751844153,
+                "_nanoseconds": 648000000
+              }
+            },
+            "MNLQRZRirIXKBi2fQCL9": {
+              "displayName": "Tester",
+              "email": "tschaenu@hotmail.com",
+              "joinedAt": {
+                "_seconds": 1751844153,
+                "_nanoseconds": 648000000
+              }
+            },
+            "b16c1120111b7d9e7d733837": {
+              "displayName": "Remo",
+              "email": "r.prinz@gmx.net",
+              "joinedAt": {
+                "_seconds": 1751844153,
+                "_nanoseconds": 648000000
+              }
+            },
+            "sbEM2opX_F0bNzpOq1Pi0": {
+              "displayName": "Seri Wada",
+              "email": "seri.wada@gmail.com",
+              "joinedAt": {
+                "_seconds": 1751844153,
+                "_nanoseconds": 648000000
+              }
+            },
+            "NCxBGZgxncpY36QL_qZVX": {
+              "displayName": "Aljoscha Schlemmer",
+              "email": "schlemmer760@gmail.com",
+              "joinedAt": {
+                "_seconds": 1751844153,
+                "_nanoseconds": 648000000
+              }
+            },
+            "PoVrb2h1kwnytbSiUvW07": {
+              "displayName": "Robert",
+              "email": "robertkiesbueye@yahoo.dk",
+              "joinedAt": {
+                "_seconds": 1751844153,
+                "_nanoseconds": 648000000
+              }
+            },
+            "UYXGeUkMNNW5bsxBOCqIm": {
+              "displayName": "Myrna",
+              "email": "myrna@example.com",
+              "joinedAt": {
+                "_seconds": 1751844153,
+                "_nanoseconds": 648000000
+              }
+            },
+            "OmWAsCjbe-XORVIORwvLW": {
+              "displayName": "Martin Widmer",
+              "email": "martin@gobeyonddigital.ch",
+              "joinedAt": {
+                "_seconds": 1751844153,
+                "_nanoseconds": 648000000
+              }
+            },
+            "3b25c2e2c8bb4a2a3dbf3f2e": {
+              "displayName": "Nick",
+              "joinedAt": {
+                "_seconds": 1752325157,
+                "_nanoseconds": 350000000
+              }
+            },
+            "n4Rqdm4o8Q5_QQaIXDk7U": {
+              "displayName": "Winner Roger",
+              "joinedAt": {
+                "_seconds": 1752698842,
+                "_nanoseconds": 212000000
+              }
+            },
+            "ICazX3cA5s5fJ6nGGxnJV": {
+              "joinedAt": {
+                "_seconds": 1757070721,
+                "_nanoseconds": 862000000
+              },
+              "displayName": "Jaaaaasser"
+            },
+            "NEROr2WAYG41YEiV9v4ba": {
+              "displayName": "Fabinski",
+              "joinedAt": {
+                "_seconds": 1757345617,
+                "_nanoseconds": 623000000
+              }
+            },
+            "4ixOg5n0DcQmg028WPtvF": {
+              "joinedAt": {
+                "_seconds": 1757066538,
+                "_nanoseconds": 671000000
+              },
+              "displayName": "Jassguru"
+            },
+            "EvX9acReG6t45Ws7ZJ1F": {
+              "displayName": "Toby",
+              "joinedAt": {
+                "_seconds": 1759378347,
+                "_nanoseconds": 415000000
+              }
+            }
+          },
+          "playerIds": [
+            "6lZDAx654XCapQq2fNkD1",
+            "OmWAsCjbe-XORVIORwvLW",
+            "NCxBGZgxncpY36QL_qZVX",
+            "UYXGeUkMNNW5bsxBOCqIm",
+            "b16c1120111b7d9e7d733837",
+            "PoVrb2h1kwnytbSiUvW07",
+            "sbEM2opX_F0bNzpOq1Pi0",
+            "MNLQRZRirIXKBi2fQCL9",
+            "3b25c2e2c8bb4a2a3dbf3f2e",
+            "n4Rqdm4o8Q5_QQaIXDk7U",
+            "4ixOg5n0DcQmg028WPtvF",
+            "ICazX3cA5s5fJ6nGGxnJV",
+            "EvX9acReG6t45Ws7ZJ1F"
+          ],
+          "updatedAt": {
+            "_seconds": 1759378347,
+            "_nanoseconds": 444000000
+          },
+          "publicStats": {
+            "avgRoundDurationMs": 143186
+          },
+          "privateStats": {
+            "avgRoundDurationMs": 143186
+          },
+          "lastStatsUpdate": {
+            "_seconds": 1760563268,
+            "_nanoseconds": 651000000
+          }
+        },
+        "subcollections": {
+          "aggregated": {
+            "count": 3,
+            "samples": [
+              {
+                "id": "chartData_elo",
+                "fields": [
+                  "datasets",
+                  "labels",
+                  "lastUpdated",
+                  "totalPlayers",
+                  "totalSessions"
+                ]
+              },
+              {
+                "id": "chartData_points",
+                "fields": [
+                  "labels",
+                  "datasets",
+                  "lastUpdated",
+                  "totalSessions",
+                  "totalPlayers"
+                ]
+              },
+              {
+                "id": "chartData_striche",
+                "fields": [
+                  "labels",
+                  "datasets",
+                  "lastUpdated",
+                  "totalSessions",
+                  "totalPlayers"
+                ]
+              }
+            ]
+          },
+          "invites": {
+            "count": 2,
+            "samples": [
+              {
+                "id": "QIfC29xntCF72auEFAFC",
+                "fields": [
+                  "token",
+                  "expiresAt",
+                  "isValid",
+                  "generatedBy",
+                  "createdAt"
+                ]
+              },
+              {
+                "id": "XUPhQ7XR2RMAAVF0Mvaw",
+                "fields": [
+                  "token",
+                  "expiresAt",
+                  "isValid",
+                  "generatedBy",
+                  "createdAt"
+                ]
+              }
+            ]
+          },
+          "jassGameSummaries": {
+            "count": 3,
+            "samples": [
+              {
+                "id": "4JrE3dnoJ4RKFnlXLK1Pa",
+                "fields": [
+                  "notes",
+                  "Rosen10player",
+                  "durationSeconds",
+                  "startedAt",
+                  "winnerTeamKey",
+                  "createdAt",
+                  "gameResults",
+                  "gameWinsByPlayer",
+                  "participantUids",
+                  "gamesPlayed",
+                  "finalScores",
+                  "participantPlayerIds",
+                  "playerNames",
+                  "sessionTotalWeisPoints",
+                  "teams",
+                  "totalRounds",
+                  "finalStriche",
+                  "eventCounts",
+                  "pairingIdentifiers",
+                  "endedAt",
+                  "gameWinsByTeam",
+                  "lastActivity",
+                  "status",
+                  "_trumpfRecalculatedBy",
+                  "aggregatedTrumpfCountsByPlayer",
+                  "_trumpfRecalculated",
+                  "_statsRecalcTrigger",
+                  "_triggeredBy",
+                  "_forPlayer",
+                  "aggregatedRoundDurationsByPlayer"
+                ]
+              },
+              {
+                "id": "81_KEUVLxHvQFjudGgNLf",
+                "fields": [
+                  "notes",
+                  "Rosen10player",
+                  "teams",
+                  "durationSeconds",
+                  "totalRounds",
+                  "startedAt",
+                  "finalStriche",
+                  "eventCounts",
+                  "winnerTeamKey",
+                  "pairingIdentifiers",
+                  "createdAt",
+                  "gameResults",
+                  "gameWinsByPlayer",
+                  "participantUids",
+                  "gamesPlayed",
+                  "finalScores",
+                  "endedAt",
+                  "gameWinsByTeam",
+                  "participantPlayerIds",
+                  "lastActivity",
+                  "playerNames",
+                  "sessionTotalWeisPoints",
+                  "status",
+                  "_trumpfRecalculatedBy",
+                  "aggregatedTrumpfCountsByPlayer",
+                  "_trumpfRecalculated",
+                  "_statsRecalcTrigger",
+                  "_triggeredBy",
+                  "_forPlayer"
+                ]
+              },
+              {
+                "id": "IXm_aKqYP7xLV1LU5mnjR",
+                "fields": [
+                  "notes",
+                  "Rosen10player",
+                  "durationSeconds",
+                  "startedAt",
+                  "winnerTeamKey",
+                  "createdAt",
+                  "gameResults",
+                  "gameWinsByPlayer",
+                  "participantUids",
+                  "aggregatedRoundDurationsByPlayer",
+                  "gamesPlayed",
+                  "finalScores",
+                  "aggregatedTrumpfCountsByPlayer",
+                  "participantPlayerIds",
+                  "playerNames",
+                  "sessionTotalWeisPoints",
+                  "teams",
+                  "totalRounds",
+                  "finalStriche",
+                  "eventCounts",
+                  "pairingIdentifiers",
+                  "endedAt",
+                  "gameWinsByTeam",
+                  "lastActivity",
+                  "status",
+                  "eloUpdatedAt"
+                ]
+              }
+            ]
+          },
+          "members": {
+            "count": 3,
+            "samples": [
+              {
+                "id": "3b25c2e2c8bb4a2a3dbf3f2e",
+                "fields": [
+                  "playerId",
+                  "displayName",
+                  "photoURL",
+                  "email",
+                  "role",
+                  "joinedAt",
+                  "lastActivity"
+                ]
+              },
+              {
+                "id": "4ixOg5n0DcQmg028WPtvF",
+                "fields": [
+                  "photoURL",
+                  "joinedAt",
+                  "displayName"
+                ]
+              },
+              {
+                "id": "6lZDAx654XCapQq2fNkD1",
+                "fields": [
+                  "playerId",
+                  "displayName",
+                  "photoURL",
+                  "email",
+                  "role",
+                  "joinedAt",
+                  "lastActivity"
+                ]
+              }
+            ]
+          },
+          "stats": {
+            "count": 1,
+            "samples": [
+              {
+                "id": "computed",
+                "fields": [
+                  "groupId",
+                  "hauptspielortName",
+                  "groupName",
+                  "memberCount",
+                  "firstJassTimestamp",
+                  "teamWithFastestRounds",
+                  "teamWithHighestStricheDiff",
+                  "avgMatschPerGame",
+                  "teamWithHighestWinRateSession",
+                  "totalPlayTimeSeconds",
+                  "playerWithHighestStricheDiff",
+                  "trumpfStatistik",
+                  "playerWithHighestMatschBilanz",
+                  "playerWithHighestPointsDiff",
+                  "tournamentCount",
+                  "playerAllRoundTimes",
+                  "teamWithHighestMatschBilanz",
+                  "avgGameDurationSeconds",
+                  "avgRoundsPerGame",
+                  "sessionCount",
+                  "teamWithHighestWinRateGame",
+                  "totalTrumpfCount",
+                  "playerWithHighestSchneiderBilanz",
+                  "playerWithHighestWeisDifference",
+                  "playerWithFastestRounds",
+                  "playerWithHighestWinRateSession",
+                  "gameCount",
+                  "lastJassTimestamp",
+                  "playerWithSlowestRounds",
+                  "avgGamesPerSession",
+                  "avgSessionDurationSeconds",
+                  "teamWithMostWeisPointsAvg",
+                  "teamWithHighestPointsDiff",
+                  "teamWithHighestKontermatschBilanz",
+                  "playerWithHighestWinRateGame",
+                  "playerWithMostGames",
+                  "teamWithHighestSchneiderBilanz",
+                  "avgRoundDurationSeconds",
+                  "playerWithHighestKontermatschBilanz",
+                  "playerWithMostWeisPointsAvg",
+                  "lastUpdateTimestamp"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "Bsgfd7Qt5ez1Hh8ytZGc",
+        "fields": {
+          "adminIds": {
+            "type": "object",
+            "value": "Array[1]"
+          },
+          "logoUrl": {
+            "type": "object",
+            "value": null
+          },
+          "playerIds": {
+            "type": "object",
+            "value": "Array[1]"
+          },
+          "name": {
+            "type": "string",
+            "value": "Stöck, Bier, Stich"
+          },
+          "createdBy": {
+            "type": "string",
+            "value": "ISf5VIg6ePXuogwdbU2IYY6NNyJ2"
+          },
+          "description": {
+            "type": "string",
+            "value": "Willkommen in unserer Jassrunde!"
+          },
+          "isPublic": {
+            "type": "boolean",
+            "value": true
+          },
+          "createdAt": {
+            "type": "object",
+            "value": "Timestamp(2025-06-07T04:47:15.819Z)"
+          },
+          "mainLocationZip": {
+            "type": "string",
+            "value": "5082"
+          },
+          "farbeSettings": {
+            "type": "object",
+            "value": "Object(2 keys)"
+          },
+          "players": {
+            "type": "object",
+            "value": "Object(1 keys)"
+          },
+          "updatedAt": {
+            "type": "object",
+            "value": "Timestamp(2025-06-11T18:09:13.100Z)"
+          },
+          "strokeSettings": {
+            "type": "object",
+            "value": "Object(2 keys)"
+          },
+          "scoreSettings": {
+            "type": "object",
+            "value": "Object(3 keys)"
+          }
+        },
+        "rawData": {
+          "adminIds": [
+            "ISf5VIg6ePXuogwdbU2IYY6NNyJ2"
+          ],
+          "logoUrl": null,
+          "playerIds": [
+            "ATnXN-vAzhPC_M1iEoDmh"
+          ],
+          "name": "Stöck, Bier, Stich",
+          "createdBy": "ISf5VIg6ePXuogwdbU2IYY6NNyJ2",
+          "description": "Willkommen in unserer Jassrunde!",
+          "isPublic": true,
+          "createdAt": {
+            "_seconds": 1749271635,
+            "_nanoseconds": 819000000
+          },
+          "mainLocationZip": "5082",
+          "farbeSettings": {
+            "cardStyle": "FR",
+            "values": {
+              "rosen": 2,
+              "dreimal": 0,
+              "schellen": 1,
+              "slalom": 0,
+              "une": 3,
+              "schilten": 1,
+              "obeabe": 0,
+              "uneufe": 0,
+              "eicheln": 2,
+              "misère": 0,
+              "quer": 0,
+              "obe": 3
+            }
+          },
+          "players": {
+            "ATnXN-vAzhPC_M1iEoDmh": {
+              "displayName": "Slowga",
+              "email": "oliver.gut@baz.ch",
+              "joinedAt": {
+                "_seconds": 1749271635,
+                "_nanoseconds": 819000000
+              }
+            }
+          },
+          "updatedAt": {
+            "_seconds": 1749665353,
+            "_nanoseconds": 100000000
+          },
+          "strokeSettings": {
+            "kontermatsch": 2,
+            "schneider": 2
+          },
+          "scoreSettings": {
+            "values": {
+              "sieg": 2500,
+              "schneider": 1250,
+              "berg": 1250
+            },
+            "enabled": {
+              "sieg": true,
+              "schneider": true,
+              "berg": true
+            },
+            "matschBonus": true
+          }
+        },
+        "subcollections": {
+          "aggregated": {
+            "count": 3,
+            "samples": [
+              {
+                "id": "chartData_points",
+                "fields": [
+                  "labels",
+                  "datasets",
+                  "lastUpdated",
+                  "totalSessions",
+                  "totalPlayers"
+                ]
+              },
+              {
+                "id": "chartData_striche",
+                "fields": [
+                  "labels",
+                  "datasets",
+                  "lastUpdated",
+                  "totalSessions",
+                  "totalPlayers"
+                ]
+              },
+              {
+                "id": "leaderboard",
+                "fields": [
+                  "entries",
+                  "lastUpdated",
+                  "totalMembers",
+                  "migratedAt"
+                ]
+              }
+            ]
+          },
+          "members": {
+            "count": 1,
+            "samples": [
+              {
+                "id": "ATnXN-vAzhPC_M1iEoDmh",
+                "fields": [
+                  "playerId",
+                  "displayName",
+                  "photoURL",
+                  "email",
+                  "role",
+                  "joinedAt",
+                  "lastActivity"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "Tz0wgIHMTlhvTtFastiJ",
+        "fields": {
+          "name": {
+            "type": "string",
+            "value": "fürDich OGs"
+          },
+          "createdBy": {
+            "type": "string",
+            "value": "AaTUBO0SbWVfStdHmD7zi3qAMww2"
+          },
+          "isPublic": {
+            "type": "boolean",
+            "value": true
+          },
+          "createdAt": {
+            "type": "object",
+            "value": "Timestamp(2025-04-09T17:47:02.628Z)"
+          },
+          "farbeSettings": {
+            "type": "object",
+            "value": "Object(2 keys)"
+          },
+          "strokeSettings": {
+            "type": "object",
+            "value": "Object(2 keys)"
+          },
+          "adminIds": {
+            "type": "object",
+            "value": "Array[5]"
+          },
+          "mainLocationZip": {
+            "type": "string",
+            "value": "8004"
+          },
+          "scoreSettings": {
+            "type": "object",
+            "value": "Object(3 keys)"
+          },
+          "playerIds": {
+            "type": "object",
+            "value": "Array[14]"
+          },
+          "logoUrl": {
+            "type": "string",
+            "value": "https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/groupLogos%2FAaTUBO0SbWVfStdHmD7zi3qAMww2%2FTz0wgIHMTlhvTtFastiJ%2Flogo.jpg?alt=media&token=662bfe14-734c-49e0-a73f-f09b5c2efd8b"
+          },
+          "description": {
+            "type": "string",
+            "value": "Jassstatistik seit 2008 👨‍🎓\n👉 www.jassstatistik.ch"
+          },
+          "_statsRecalcReasonVersion": {
+            "type": "number",
+            "value": 2
+          },
+          "publicStats": {
+            "type": "object",
+            "value": "Object(1 keys)"
+          },
+          "privateStats": {
+            "type": "object",
+            "value": "Object(1 keys)"
+          },
+          "computedStats": {
+            "type": "object",
+            "value": "Object(14 keys)"
+          },
+          "lastStatsUpdate": {
+            "type": "object",
+            "value": "Timestamp(2025-10-15T21:57:50.509Z)"
+          },
+          "players": {
+            "type": "object",
+            "value": "Object(13 keys)"
+          },
+          "theme": {
+            "type": "string",
+            "value": "yellow"
+          },
+          "updatedAt": {
+            "type": "object",
+            "value": "Timestamp(2025-10-19T20:30:16.369Z)"
+          }
+        },
+        "rawData": {
+          "name": "fürDich OGs",
+          "createdBy": "AaTUBO0SbWVfStdHmD7zi3qAMww2",
+          "isPublic": true,
+          "createdAt": {
+            "_seconds": 1744220822,
+            "_nanoseconds": 628000000
+          },
+          "farbeSettings": {
+            "cardStyle": "DE",
+            "values": {
+              "dreimal": 4,
+              "quer": 7,
+              "eicheln": 7,
+              "schilten": 3,
+              "misère": 1,
+              "obe": 5,
+              "slalom": 7,
+              "schellen": 2,
+              "une": 6,
+              "rosen": 4
+            }
+          },
+          "strokeSettings": {
+            "kontermatsch": 2,
+            "schneider": 2
+          },
+          "adminIds": [
+            "AaTUBO0SbWVfStdHmD7zi3qAMww2",
+            "fJ6UUEcdzXXwY4G8Oh49dQw3yXE2",
+            "R16Pv2RKBwaYtSGyL7UMThIyALg1",
+            "WQSNHuoqtBen2D3E1bu4OLgx4aI3",
+            "Nk5u0FrF2FdC2536HpAjD1bhmyb2"
+          ],
+          "mainLocationZip": "8004",
+          "scoreSettings": {
+            "values": {
+              "schneider": 2500,
+              "sieg": 5000,
+              "berg": 2500
+            },
+            "enabled": {
+              "berg": true,
+              "schneider": true,
+              "sieg": true
+            },
+            "matschBonus": true
+          },
+          "playerIds": [
+            "TPBwj8bP9W59n5LoGWP5",
+            "b16c1120111b7d9e7d733837",
+            "9K2d1OQ1mCXddko7ft6y",
+            "EvX9acReG6t45Ws7ZJ1F",
+            "xr0atZ7eLJgr7egkAfrE",
+            "MNLQRZRirIXKBi2fQCL9",
+            "F1uwdthL6zu7F0cYf1jbe",
+            "1sDvqN_kvqZLB-4eSZFqZ",
+            "PLaDRlPBo91yu5Ij8MOT2",
+            "lW2UwWY80w3q8pyj4xufu",
+            "wB38EQUw11AWUyAGahP8c",
+            "8f45eac1b70c8ad7a9a9d9cb",
+            "ReAJOjR_k9eA1p5Ufbh8I",
+            "oPKfSqoZE1p2M5PUiJk88"
+          ],
+          "logoUrl": "https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/groupLogos%2FAaTUBO0SbWVfStdHmD7zi3qAMww2%2FTz0wgIHMTlhvTtFastiJ%2Flogo.jpg?alt=media&token=662bfe14-734c-49e0-a73f-f09b5c2efd8b",
+          "description": "Jassstatistik seit 2008 👨‍🎓\n👉 www.jassstatistik.ch",
+          "_statsRecalcReasonVersion": 2,
+          "publicStats": {
+            "avgRoundDurationMs": 331759
+          },
+          "privateStats": {
+            "avgRoundDurationMs": 331759
+          },
+          "computedStats": {
+            "b16c1120111b7d9e7d733837": {
+              "totalSessions": 19,
+              "totalGames": 0,
+              "totalRounds": 141,
+              "totalScore": 0,
+              "wins": 0,
+              "winRate": 0,
+              "averageScore": 0,
+              "roundTempoMedian": 327895.5,
+              "roundTempoAverage": 338110.244934993
+            },
+            "lW2UwWY80w3q8pyj4xufu": {
+              "totalSessions": 8,
+              "totalGames": 0,
+              "totalRounds": 61,
+              "totalScore": 0,
+              "wins": 0,
+              "winRate": 0,
+              "averageScore": 0,
+              "roundTempoMedian": 368808,
+              "roundTempoAverage": 371949.53725179035
+            },
+            "8f45eac1b70c8ad7a9a9d9cb": {
+              "totalSessions": 2,
+              "totalGames": 0,
+              "totalRounds": 11,
+              "totalScore": 0,
+              "wins": 0,
+              "winRate": 0,
+              "averageScore": 0,
+              "roundTempoMedian": 349557,
+              "roundTempoAverage": 394683
+            },
+            "9K2d1OQ1mCXddko7ft6y": {
+              "totalSessions": 12,
+              "totalGames": 0,
+              "totalRounds": 85,
+              "totalScore": 0,
+              "wins": 0,
+              "winRate": 0,
+              "averageScore": 0,
+              "roundTempoMedian": 349003.46252441406,
+              "roundTempoAverage": 377945.0526561248
+            },
+            "xr0atZ7eLJgr7egkAfrE": {
+              "totalSessions": 10,
+              "totalGames": 0,
+              "totalRounds": 82,
+              "totalScore": 0,
+              "wins": 0,
+              "winRate": 0,
+              "averageScore": 0,
+              "roundTempoMedian": 314319,
+              "roundTempoAverage": 329844.85507246375
+            },
+            "TPBwj8bP9W59n5LoGWP5": {
+              "totalSessions": 4,
+              "totalGames": 0,
+              "totalRounds": 29,
+              "totalScore": 0,
+              "wins": 0,
+              "winRate": 0,
+              "averageScore": 0,
+              "roundTempoMedian": 359310,
+              "roundTempoAverage": 380923.8620689655
+            },
+            "C0yNpZF8CRdgqKVuWAPmhpwnrD92": {
+              "totalSessions": 1,
+              "totalGames": 0,
+              "totalRounds": 8,
+              "totalScore": 0,
+              "wins": 0,
+              "winRate": 0,
+              "averageScore": 0,
+              "roundTempoMedian": 491828,
+              "roundTempoAverage": 532356.125
+            },
+            "EvX9acReG6t45Ws7ZJ1F": {
+              "totalSessions": 5,
+              "totalGames": 0,
+              "totalRounds": 38,
+              "totalScore": 0,
+              "wins": 0,
+              "winRate": 0,
+              "averageScore": 0,
+              "roundTempoMedian": 340056,
+              "roundTempoAverage": 360865.1842105263
+            },
+            "F1uwdthL6zu7F0cYf1jbe": {
+              "totalSessions": 11,
+              "totalGames": 0,
+              "totalRounds": 78,
+              "totalScore": 0,
+              "wins": 0,
+              "winRate": 0,
+              "averageScore": 0,
+              "roundTempoMedian": 337224.5,
+              "roundTempoAverage": 356182.07555782434
+            },
+            "PLaDRlPBo91yu5Ij8MOT2": {
+              "totalSessions": 4,
+              "totalGames": 0,
+              "totalRounds": 24,
+              "totalScore": 0,
+              "wins": 0,
+              "winRate": 0,
+              "averageScore": 0,
+              "roundTempoMedian": 336558,
+              "roundTempoAverage": 365447.77777777775
+            },
+            "1sDvqN_kvqZLB-4eSZFqZ": {
+              "totalSessions": 8,
+              "totalGames": 0,
+              "totalRounds": 67,
+              "totalScore": 0,
+              "wins": 0,
+              "winRate": 0,
+              "averageScore": 0,
+              "roundTempoMedian": 287157.5,
+              "roundTempoAverage": 306317.9259259259
+            },
+            "wB38EQUw11AWUyAGahP8c": {
+              "totalSessions": 1,
+              "totalGames": 0,
+              "totalRounds": 9,
+              "totalScore": 0,
+              "wins": 0,
+              "winRate": 0,
+              "averageScore": 0,
+              "roundTempoMedian": 327896,
+              "roundTempoAverage": 321623.6666666667
+            },
+            "oPKfSqoZE1p2M5PUiJk88": {
+              "totalSessions": 1,
+              "totalGames": 0,
+              "totalRounds": 6,
+              "totalScore": 0,
+              "wins": 0,
+              "winRate": 0,
+              "averageScore": 0,
+              "roundTempoMedian": 362734,
+              "roundTempoAverage": 380026.5
+            },
+            "ReAJOjR_k9eA1p5Ufbh8I": {
+              "totalSessions": 1,
+              "totalGames": 0,
+              "totalRounds": 6,
+              "totalScore": 0,
+              "wins": 0,
+              "winRate": 0,
+              "averageScore": 0,
+              "roundTempoMedian": 255916,
+              "roundTempoAverage": 255636.33333333334
+            }
+          },
+          "lastStatsUpdate": {
+            "_seconds": 1760565470,
+            "_nanoseconds": 509000000
+          },
+          "players": {
+            "lW2UwWY80w3q8pyj4xufu": {
+              "displayName": "Roger",
+              "joinedAt": {
+                "_seconds": 1746723672,
+                "_nanoseconds": 697000000
+              }
+            },
+            "TPBwj8bP9W59n5LoGWP5": {
+              "displayName": "Schmuuuudii",
+              "email": null,
+              "joinedAt": {
+                "_seconds": 1750536548,
+                "_nanoseconds": 384000000
+              }
+            },
+            "b16c1120111b7d9e7d733837": {
+              "displayName": "Remo",
+              "joinedAt": {
+                "_seconds": 1744294070,
+                "_nanoseconds": 67000000
+              }
+            },
+            "1sDvqN_kvqZLB-4eSZFqZ": {
+              "displayName": "Marc",
+              "joinedAt": {
+                "_seconds": 1746120391,
+                "_nanoseconds": 961000000
+              }
+            },
+            "F1uwdthL6zu7F0cYf1jbe": {
+              "joinedAt": {
+                "_seconds": 1745323738,
+                "_nanoseconds": 537000000
+              },
+              "displayName": "Frank"
+            },
+            "PLaDRlPBo91yu5Ij8MOT2": {
+              "joinedAt": {
+                "_seconds": 1746720111,
+                "_nanoseconds": 575000000
+              },
+              "displayName": "Studi"
+            },
+            "wB38EQUw11AWUyAGahP8c": {
+              "joinedAt": {
+                "_seconds": 1748538123,
+                "_nanoseconds": 432000000
+              },
+              "displayName": "Thomas"
+            },
+            "xr0atZ7eLJgr7egkAfrE": {
+              "joinedAt": {
+                "_seconds": 1744307942,
+                "_nanoseconds": 506000000
+              },
+              "displayName": "Claudia"
+            },
+            "8f45eac1b70c8ad7a9a9d9cb": {
+              "displayName": "Karim",
+              "joinedAt": {
+                "_seconds": 1752324648,
+                "_nanoseconds": 595000000
+              }
+            },
+            "ReAJOjR_k9eA1p5Ufbh8I": {
+              "joinedAt": {
+                "_seconds": 1758124376,
+                "_nanoseconds": 966000000
+              },
+              "displayName": "Mirjam"
+            },
+            "oPKfSqoZE1p2M5PUiJk88": {
+              "displayName": "Andy Woerlen",
+              "joinedAt": {
+                "_seconds": 1758821262,
+                "_nanoseconds": 231000000
+              }
+            },
+            "EvX9acReG6t45Ws7ZJ1F": {
+              "joinedAt": {
+                "_seconds": 1744301594,
+                "_nanoseconds": 112000000
+              },
+              "displayName": "Toby"
+            },
+            "9K2d1OQ1mCXddko7ft6y": {
+              "joinedAt": {
+                "_seconds": 1744298235,
+                "_nanoseconds": 275000000
+              },
+              "displayName": "Michael"
+            }
+          },
+          "theme": "yellow",
+          "updatedAt": {
+            "_seconds": 1760905816,
+            "_nanoseconds": 369000000
+          }
+        }
+      },
+      {
+        "id": "XHQrUd44yG5FBDyMhgwd",
+        "fields": {
+          "name": {
+            "type": "string",
+            "value": "creme de la creme"
+          },
+          "description": {
+            "type": "string",
+            "value": "Willkommen in unserer Jassrunde!"
+          },
+          "createdBy": {
+            "type": "string",
+            "value": "6WR8tAS4CpaKz7Lyjap6FBOxrHN2"
+          },
+          "adminIds": {
+            "type": "object",
+            "value": "Array[1]"
+          },
+          "isPublic": {
+            "type": "boolean",
+            "value": true
+          },
+          "createdAt": {
+            "type": "object",
+            "value": "Timestamp(2025-06-30T13:56:40.421Z)"
+          },
+          "farbeSettings": {
+            "type": "object",
+            "value": "Object(2 keys)"
+          },
+          "strokeSettings": {
+            "type": "object",
+            "value": "Object(2 keys)"
+          },
+          "logoUrl": {
+            "type": "string",
+            "value": "https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/groupLogos%2F6WR8tAS4CpaKz7Lyjap6FBOxrHN2%2FXHQrUd44yG5FBDyMhgwd%2Flogo.jpg?alt=media&token=9a9910fd-0eb3-446f-9275-2b5df5c1e71e"
+          },
+          "players": {
+            "type": "object",
+            "value": "Object(2 keys)"
+          },
+          "playerIds": {
+            "type": "object",
+            "value": "Array[2]"
+          },
+          "updatedAt": {
+            "type": "object",
+            "value": "Timestamp(2025-07-01T19:32:28.542Z)"
+          },
+          "scoreSettings": {
+            "type": "object",
+            "value": "Object(3 keys)"
+          }
+        },
+        "rawData": {
+          "name": "creme de la creme",
+          "description": "Willkommen in unserer Jassrunde!",
+          "createdBy": "6WR8tAS4CpaKz7Lyjap6FBOxrHN2",
+          "adminIds": [
+            "6WR8tAS4CpaKz7Lyjap6FBOxrHN2"
+          ],
+          "isPublic": true,
+          "createdAt": {
+            "_seconds": 1751291800,
+            "_nanoseconds": 421000000
+          },
+          "farbeSettings": {
+            "values": {
+              "eicheln": 7,
+              "rosen": 2,
+              "schellen": 3,
+              "schilten": 4,
+              "obe": 5,
+              "une": 6,
+              "misère": 0,
+              "dreimal": 0,
+              "quer": 0,
+              "slalom": 0
+            },
+            "cardStyle": "DE"
+          },
+          "strokeSettings": {
+            "kontermatsch": 2,
+            "schneider": 2
+          },
+          "logoUrl": "https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/groupLogos%2F6WR8tAS4CpaKz7Lyjap6FBOxrHN2%2FXHQrUd44yG5FBDyMhgwd%2Flogo.jpg?alt=media&token=9a9910fd-0eb3-446f-9275-2b5df5c1e71e",
+          "players": {
+            "9bspc-F7wAolW8uQug1Va": {
+              "displayName": "Robert0711",
+              "email": "weinertrobert@yahoo.com",
+              "joinedAt": {
+                "_seconds": 1751396457,
+                "_nanoseconds": 204000000
+              }
+            },
+            "RwiMTA-M_GIlrMakf5DJB": {
+              "displayName": "Massu",
+              "email": "massu@gmx.ch",
+              "joinedAt": {
+                "_seconds": 1751398348,
+                "_nanoseconds": 517000000
+              }
+            }
+          },
+          "playerIds": [
+            "9bspc-F7wAolW8uQug1Va",
+            "RwiMTA-M_GIlrMakf5DJB"
+          ],
+          "updatedAt": {
+            "_seconds": 1751398348,
+            "_nanoseconds": 542000000
+          },
+          "scoreSettings": {
+            "values": {
+              "berg": 2500,
+              "schneider": 2500,
+              "sieg": 5000
+            },
+            "enabled": {
+              "sieg": true,
+              "schneider": true,
+              "berg": true
+            },
+            "matschBonus": true
+          }
+        }
+      },
+      {
+        "id": "e5cv3F1Llw7a6totFIky",
+        "fields": {
+          "name": {
+            "type": "string",
+            "value": "Jass Herrliberg"
+          },
+          "description": {
+            "type": "string",
+            "value": "Willkommen in unserer Jassrunde!"
+          },
+          "isPublic": {
+            "type": "boolean",
+            "value": true
+          },
+          "createdAt": {
+            "type": "object",
+            "value": "Timestamp(2025-09-11T16:02:07.366Z)"
+          },
+          "createdBy": {
+            "type": "string",
+            "value": "i4ij3QCqKSbjPbx2hetwWlaQhlw2"
+          },
+          "playerIds": {
+            "type": "object",
+            "value": "Array[1]"
+          },
+          "adminIds": {
+            "type": "object",
+            "value": "Array[1]"
+          },
+          "players": {
+            "type": "object",
+            "value": "Object(1 keys)"
+          },
+          "mainLocationZip": {
+            "type": "string",
+            "value": "8704"
+          },
+          "farbeSettings": {
+            "type": "object",
+            "value": "Object(2 keys)"
+          },
+          "strokeSettings": {
+            "type": "object",
+            "value": "Object(2 keys)"
+          },
+          "updatedAt": {
+            "type": "object",
+            "value": "Timestamp(2025-09-11T16:07:16.939Z)"
+          },
+          "scoreSettings": {
+            "type": "object",
+            "value": "Object(3 keys)"
+          }
+        },
+        "rawData": {
+          "name": "Jass Herrliberg",
+          "description": "Willkommen in unserer Jassrunde!",
+          "isPublic": true,
+          "createdAt": {
+            "_seconds": 1757606527,
+            "_nanoseconds": 366000000
+          },
+          "createdBy": "i4ij3QCqKSbjPbx2hetwWlaQhlw2",
+          "playerIds": [
+            "TPBwj8bP9W59n5LoGWP5"
+          ],
+          "adminIds": [
+            "i4ij3QCqKSbjPbx2hetwWlaQhlw2"
+          ],
+          "players": {
+            "TPBwj8bP9W59n5LoGWP5": {
+              "displayName": "Schmuuuudii",
+              "joinedAt": {
+                "_seconds": 1757606527,
+                "_nanoseconds": 366000000
+              }
+            }
+          },
+          "mainLocationZip": "8704",
+          "farbeSettings": {
+            "values": {
+              "quer": 0,
+              "slalom": 0,
+              "une": 3,
+              "dreimal": 0,
+              "schellen": 2,
+              "rosen": 1,
+              "eicheln": 1,
+              "misère": 0,
+              "schilten": 2,
+              "obe": 3
+            },
+            "cardStyle": "DE"
+          },
+          "strokeSettings": {
+            "schneider": 2,
+            "kontermatsch": 2
+          },
+          "updatedAt": {
+            "_seconds": 1757606836,
+            "_nanoseconds": 939000000
+          },
+          "scoreSettings": {
+            "enabled": {
+              "schneider": true,
+              "sieg": true,
+              "berg": true
+            },
+            "matschBonus": true,
+            "values": {
+              "sieg": 2500,
+              "berg": 1250,
+              "schneider": 2000
+            }
+          }
+        }
+      }
+    ],
+    "stats": {
+      "totalDocs": 5,
+      "isEmpty": false
+    }
+  },
+  "sessions": {
+    "totalDocs": 3,
+    "isEmpty": false
+  },
+  "tournaments": {
+    "totalDocs": 7,
+    "isEmpty": false
+  },
+  "activeGames": {
+    "totalDocs": 24,
+    "isEmpty": false
+  },
+  "playerComputedStats": {
+    "totalDocs": 34,
+    "isEmpty": false
+  }
+}

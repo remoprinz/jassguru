@@ -15,7 +15,9 @@
   },
   "compileOnSave": true,
   "include": [
-    "src",
+    "src"
+  ],
+  "exclude": [
     "scripts"
   ]
 }

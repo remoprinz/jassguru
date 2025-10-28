@@ -226,17 +226,99 @@
         "**/.*",
         "**/node_modules/**"
       ],
-      "rewrites": [
+      "trailingSlash": true,
+      "headers": [
         {
-          "source": "/",
-          "destination": "/index.html"
+          "source": "/jassapps/**",
+          "headers": [
+            {
+              "key": "X-Robots-Tag",
+              "value": "noindex"
+            },
+            {
+              "key": "Link",
+              "value": "<https://jasswiki.ch/wissen/jassapps/>; rel=\"canonical\""
+            }
+          ]
         },
         {
-          "source": "**",
-          "destination": "/index.html"
-        }
-      ],
-      "headers": [
+          "source": "/begriffe/**",
+          "headers": [
+            {
+              "key": "X-Robots-Tag",
+              "value": "noindex"
+            },
+            {
+              "key": "Link",
+              "value": "<https://jasswiki.ch/wissen/begriffe/>; rel=\"canonical\""
+            }
+          ]
+        },
+        {
+          "source": "/varianten/**",
+          "headers": [
+            {
+              "key": "X-Robots-Tag",
+              "value": "noindex"
+            },
+            {
+              "key": "Link",
+              "value": "<https://jasswiki.ch/wissen/varianten/>; rel=\"canonical\""
+            }
+          ]
+        },
+        {
+          "source": "/regeln/**",
+          "headers": [
+            {
+              "key": "X-Robots-Tag",
+              "value": "noindex"
+            },
+            {
+              "key": "Link",
+              "value": "<https://jasswiki.ch/wissen/regeln/>; rel=\"canonical\""
+            }
+          ]
+        },
+        {
+          "source": "/schieber/**",
+          "headers": [
+            {
+              "key": "X-Robots-Tag",
+              "value": "noindex"
+            },
+            {
+              "key": "Link",
+              "value": "<https://jasswiki.ch/wissen/schieber/>; rel=\"canonical\""
+            }
+          ]
+        },
+        {
+          "source": "/geschichte/**",
+          "headers": [
+            {
+              "key": "X-Robots-Tag",
+              "value": "noindex"
+            },
+            {
+              "key": "Link",
+              "value": "<https://jasswiki.ch/wissen/geschichte/>; rel=\"canonical\""
+            }
+          ]
+        },
+        {
+          "source": "/grundlagen-kultur/**",
+          "headers": [
+            {
+              "key": "X-Robots-Tag",
+              "value": "noindex"
+            },
+            {
+              "key": "Link",
+              "value": "<https://jasswiki.ch/wissen/grundlagen-kultur/>; rel=\"canonical\""
+            }
+          ]
+        },
         {
           "source": "**/*.css",
           "headers": [

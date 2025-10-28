@@ -291,7 +291,7 @@ export function useResponsiveLayout(): ResponsiveLayoutConfig {
       // Avatar
       avatarSize: 'w-32 h-32',
       avatarSizeClass: 'sm',
-      profileImageListSize: 'sm',
+      profileImageListSize: 'md', // ✅ Mobile: Von sm (32px) → md (40px) für bessere Lesbarkeit
       teamAvatarSpacing: '-space-x-2',
       teamAvatarOverlap: '-6px',
       

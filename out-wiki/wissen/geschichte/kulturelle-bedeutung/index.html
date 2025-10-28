@@ -1,0 +1,50 @@
+<!DOCTYPE html><html lang="de"><head><meta charSet="utf-8" data-next-head=""/><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" data-next-head=""/><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" data-next-head=""/><meta http-equiv="Pragma" content="no-cache" data-next-head=""/><meta http-equiv="Expires" content="0" data-next-head=""/><title data-next-head="">Jassguru.ch - Die Jass-Community in deiner Tasche</title><meta name="description" content="Schneller, smarter, vernetzter Jassen. Deine digitale Jasstafel für Ranglisten, Statistiken und Turniere. Werde Teil der Jass-Community!" data-next-head=""/><link rel="canonical" href="https://jassguru.ch/wissen/geschichte/kulturelle-bedeutung/" data-next-head=""/><meta property="og:site_name" content="Jassguru" data-next-head=""/><meta property="og:type" content="website" data-next-head=""/><meta property="og:title" content="Jassguru.ch - Die Jass-Community in deiner Tasche" data-next-head=""/><meta property="og:description" content="Schneller, smarter, vernetzter Jassen. Deine digitale Jasstafel für Ranglisten, Statistiken und Turniere. Werde Teil der Jass-Community!" data-next-head=""/><meta property="og:url" content="https://jassguru.ch/wissen/geschichte/kulturelle-bedeutung/" data-next-head=""/><meta property="og:image" content="https://jassguru.ch/apple-touch-icon.png" data-next-head=""/><meta name="twitter:card" content="summary_large_image" data-next-head=""/><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/><meta name="application-name" content="jassguru.ch"/><meta name="apple-mobile-web-app-capable" content="yes"/><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/><meta name="apple-mobile-web-app-title" content="jassguru.ch"/><meta name="format-detection" content="telephone=no"/><meta name="mobile-web-app-capable" content="yes"/><meta name="theme-color" content="#000000"/><link rel="apple-touch-icon" href="/apple-touch-icon.png"/><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"/><link rel="apple-touch-icon" sizes="167x167" href="/apple-touch-icon.png"/><link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png"/><link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png"/><link rel="icon" href="/favicon.ico"/><link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png"/><link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"/><link rel="manifest" href="/manifest.json"/><link rel="apple-touch-startup-image" href="/splash-640x1136.png" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)"/><link rel="apple-touch-startup-image" href="/splash-750x1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)"/><link rel="apple-touch-startup-image" href="/splash-1242x2208.png" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3)"/><link rel="apple-touch-startup-image" href="/splash-1125x2436.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)"/><link rel="apple-touch-startup-image" href="/splash-1536x2048.png" media="(min-device-width: 768px) and (max-device-width: 1024px) and (-webkit-min-device-pixel-ratio: 2)"/><link rel="apple-touch-startup-image" href="/splash-1668x2224.png" media="(min-device-width: 834px) and (max-device-width: 834px) and (-webkit-min-device-pixel-ratio: 2)"/><link rel="apple-touch-startup-image" href="/splash-2048x2732.png" media="(min-device-width: 1024px) and (max-device-width: 1024px) and (-webkit-min-device-pixel-ratio: 2)"/><meta name="description" content="Schneller, smarter, vernetzter Jassen"/><meta name="apple-touch-fullscreen" content="yes"/><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/><meta http-equiv="Pragma" content="no-cache"/><meta http-equiv="Expires" content="0"/><script>(() => {
+  try {
+    const isStandalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || (typeof navigator !== 'undefined' && navigator && navigator['standalone']);
+
+    // Erlaubt dem App-Code den Timeout abzubrechen, sobald Hydration beginnt
+    window.cancelPwaLoadTimeout = function() {
+      try { clearTimeout(window['__pwaHydrationTimer__']); } catch (e) {}
+    };
+
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('no-sw') === '1') {
+      window['__NO_SW__'] = true;
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(rs){ return Promise.all(rs.map(function(r){ return r.unregister(); })); }).catch(function(){});
+      }
+      if ('caches' in window) {
+        caches.keys().then(function(keys){ return Promise.all(keys.map(function(k){ return caches.delete(k); })); }).catch(function(){});
+      }
+    }
+
+    if (isStandalone) {
+      // Schutz: Nicht erneut triggern, wenn bereits ein SW-Bypass aktiv ist
+      if (window.location.search.includes('no-sw=1') || window.location.search.includes('updated=')) {
+        return;
+      }
+      // Einmaliger Hydration-Fallback mit Session-Guard
+      try {
+        if (sessionStorage.getItem('hydrationReloaded') === '1') {
+          return;
+        }
+      } catch (e) {}
+
+      window['__pwaHydrationTimer__'] = setTimeout(async () => {
+        try {
+          // Wenn bis dahin keine Hydration passierte, härterer Reset
+          if ('serviceWorker' in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map(r => r.unregister()));
+          }
+          const reloadUrl = new URL(window.location.href);
+          if (!reloadUrl.searchParams.get('no-sw')) reloadUrl.searchParams.set('no-sw','1');
+          try { sessionStorage.setItem('hydrationReloaded', '1'); } catch (e) {}
+          window.location.replace(reloadUrl.toString());
+        } catch (e) {
+          window.location.reload();
+        }
+      }, 2000);
+    }
+  } catch (e) {}
+})();</script><link rel="preload" href="/_next/static/css/119566cc4963d944.css" as="style"/><link rel="stylesheet" href="/_next/static/css/119566cc4963d944.css" data-n-g=""/><noscript data-n-css=""></noscript><script defer="" nomodule="" src="/_next/static/chunks/polyfills-42372ed130431b0a.js"></script><script src="/_next/static/chunks/webpack-d891eccef6bf2169.js" defer=""></script><script src="/_next/static/chunks/framework-b9fd9bcc3ecde907.js" defer=""></script><script src="/_next/static/chunks/main-f82f20fd64c98ebc.js" defer=""></script><script src="/_next/static/chunks/pages/_app-25b8f7f64adaebe2.js" defer=""></script><script src="/_next/static/chunks/8230-e6499d1b7ec662b1.js" defer=""></script><script src="/_next/static/chunks/2873-bc52fe365d65b493.js" defer=""></script><script src="/_next/static/chunks/pages/wissen/%5Bcategory%5D/%5Bsubcategory%5D-26234c3fc13b6121.js" defer=""></script><script src="/_next/static/azrr5TcvV4fyGs08AUWGP/_buildManifest.js" defer=""></script><script src="/_next/static/azrr5TcvV4fyGs08AUWGP/_ssgManifest.js" defer=""></script></head><body><div id="__next"><div class="flex flex-1 flex-col items-center justify-center min-h-full bg-gray-900 text-white p-6"><span style="background:transparent !important;width:40px;height:40px;border-radius:100%;border:2px solid;border-top-color:#ffffff;border-bottom-color:transparent;border-left-color:#ffffff;border-right-color:#ffffff;display:inline-block;animation:react-spinners-ClipLoader-clip 0.75s 0s infinite linear;animation-fill-mode:both"></span><p class="mt-4 text-lg">App wird geladen...</p></div> <!-- --> </div><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"category":"Geschichte","categorySlug":"geschichte","subcategory":"Kulturelle Bedeutung","subcategorySlug":"kulturelle-bedeutung","articles":[{"id":"history_introduction","text":"Die kulturelle Bedeutung des Jassens \n\nDer Jass ist in der Schweiz überaus beliebt und gilt als nationales Kartenspiel. In den unzählbaren Spielstunden einer langen Tradition wurden die Jasskarten mit","metadata":{"id":"history_introduction_meta","category":{"main":"Geschichte","sub":"Kulturelle Bedeutung","topic":"Kulturelle Bedeutung des Jassens"},"keywords":["tradition","unesco","kulturerbe","schweiz","geschichte","ursprung","bedeutung","gesellschaft"],"situations":["LEARNING"],"importance":1,"difficulty":2,"source":"STÖCK WYS STICH - Der neue Schweizer Jassführer (Dani Müller)"}}]},"__N_SSG":true},"page":"/wissen/[category]/[subcategory]","query":{"category":"geschichte","subcategory":"kulturelle-bedeutung"},"buildId":"azrr5TcvV4fyGs08AUWGP","isFallback":false,"gsp":true,"scriptLoader":[]}</script></body></html>

@@ -1,1 +1,0 @@
-self.__SSG_MANIFEST=new Set(["\u002Fwissen\u002F[category]","\u002Fwissen\u002F[category]\u002F[subcategory]","\u002Fwissen\u002F[category]\u002F[subcategory]\u002F[topic]","\u002Fwissen\u002Fquellen","\u002Fwissen\u002Fquellenverzeichnis"]);self.__SSG_MANIFEST_CB&&self.__SSG_MANIFEST_CB()

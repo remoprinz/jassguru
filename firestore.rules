@@ -118,6 +118,28 @@ service cloud.firestore {
         // Schreiben: Nur Backend (Cloud Functions)
         allow write: if false;
       }
+
+      // =====================================================================
+      // PLAYER PARTNER STATS - Partner-Statistiken (für ProfileView)
+      // =====================================================================
+      match /partnerStats/{partnerId} {
+        // Jeder darf Partner-Statistiken lesen (für öffentliche Profile)
+        allow read: if true;
+        
+        // Schreiben: Nur Backend (Cloud Functions)
+        allow write: if false;
+      }
+
+      // =====================================================================
+      // PLAYER OPPONENT STATS - Gegner-Statistiken (für ProfileView)
+      // =====================================================================
+      match /opponentStats/{opponentId} {
+        // Jeder darf Gegner-Statistiken lesen (für öffentliche Profile)
+        allow read: if true;
+        
+        // Schreiben: Nur Backend (Cloud Functions)
+        allow write: if false;
+      }
     }
 
     // =====================================================================
@@ -258,16 +280,14 @@ service cloud.firestore {
         }
       }
 
-      // 🆕 Aggregated Chart Data für Pre-computed Charts
-      match /aggregated/chartData {
-        allow read: if true; // Öffentlich lesbar für Chart-Darstellung
-        allow write: if false; // Nur für Cloud Functions und Scripts
-      }
-
-      // 🆕 Aggregated Leaderboard für Performance-Optimierung
-      match /aggregated/leaderboard {
-        allow read: if true; // Öffentlich lesbar für Leaderboard-Darstellung
-        allow write: if false; // Nur für Cloud Functions und Scripts
+      // 🆕 Aggregated Data für Pre-computed Charts und Leaderboards
+      // WICHTIG: Match ALLE Dokumente unter /aggregated/ (nicht nur chartData!)
+      match /aggregated/{document} {
+        // Jeder darf alle aggregierten Daten lesen (Charts, Leaderboards, etc.)
+        allow read: if true;
+        
+        // Schreiben: Nur Backend (Cloud Functions und Scripts)
+        allow write: if false;
       }
     }
 

@@ -552,7 +552,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
             const playerDoc = await getDoc(doc(db, 'players', playerId));
             if (playerDoc.exists()) {
               const playerData = playerDoc.data();
-              console.log(`[DEBUG] Loaded stats for ${member.displayName}:`, playerData?.globalStats?.current?.gamesPlayed);
               
               if (playerData?.globalStats?.current?.totalGames) {
                 stats[playerId] = {
@@ -569,19 +568,13 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     losses: playerData.globalStats.current.gamesLost || 0
                   }
                 };
-                console.log(`[DEBUG] Session stats for ${member.displayName}:`, stats[playerId].sessionStats);
-                console.log(`[DEBUG] Game stats for ${member.displayName}:`, stats[playerId].gameStats);
               }
-            } else {
-              console.warn(`[DEBUG] Player document not found for ${member.displayName} (${playerId})`);
             }
           }
         } catch (error) {
           console.warn(`Fehler beim Laden der Stats für ${member.displayName}:`, error);
         }
       }
-      
-      console.log('[DEBUG] Final playerStats:', stats);
       setPlayerStats(stats);
     };
     
@@ -655,15 +648,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
 
   // ✅ NEU: Ranglisten aus Backfill-Daten (statt groupStats)
   const stricheRanking = useMemo(() => {
-    console.log('[DEBUG] stricheRanking useMemo called with:', {
-      stricheChartData: stricheChartData?.datasets?.length,
-      membersCount: members?.length,
-      playerStatsKeys: playerStats ? Object.keys(playerStats) : 'undefined',
-      playerStatsEmpty: Object.keys(playerStats || {}).length === 0
-    });
-    
     if (Object.keys(playerStats || {}).length === 0) {
-      console.log('[DEBUG] playerStats is empty, returning empty ranking');
       return [];
     }
     

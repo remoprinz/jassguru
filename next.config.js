@@ -12,7 +12,17 @@ const nextConfig = {
   trailingSlash: true,
   outputFileTracingRoot: __dirname, // Verhindert Workspace Root Verwirrung
   // ✅ appDir ist in Next.js 15.5.2 standardmäßig aktiviert - keine experimentelle Konfiguration nötig
-  exportPathMap: async function (defaultPathMap) {
+  exportPathMap: async function (defaultPathMap, { dev, outDir, distDir }) {
+    // Skip dynamic routes during export
+    if (outDir) {
+      delete defaultPathMap['/game/[activeGameId]'];
+      delete defaultPathMap['/groups/[groupId]'];
+      delete defaultPathMap['/tournaments/[tournamentId]'];
+      delete defaultPathMap['/profile/[playerId]'];
+      delete defaultPathMap['/view/session/[sessionId]'];
+      delete defaultPathMap['/view/tournament/[tournamentId]'];
+      delete defaultPathMap['/view/session/public/[sessionId]'];
+    }
     return {
       ...defaultPathMap,
       '/features': { page: '/features' },

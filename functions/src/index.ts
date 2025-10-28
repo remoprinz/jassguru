@@ -1167,6 +1167,20 @@ export const addPlayerToGroup = onCall(async (request) => {
                 updatedAt: admin.firestore.FieldValue.serverTimestamp()
             });
         }
+        
+        // ✅ FIX: Stelle sicher, dass auch members-Subcollection aktualisiert wird
+        const playerRef = db.collection("players").doc(playerDocIdToAdd);
+        const playerSnap = await transaction.get(playerRef);
+        const playerData = playerSnap.data();
+        const playerPhotoURL = playerData?.photoURL ?? null;
+        
+        const memberRef = groupRef.collection("members").doc(playerDocIdToAdd);
+        transaction.set(memberRef, {
+          displayName: playerDisplayName,
+          photoURL: playerPhotoURL, // ✅ FIXED: photoURL auch für bestehende Mitglieder!
+          joinedAt: groupData.players?.[playerDocIdToAdd]?.joinedAt || admin.firestore.Timestamp.now(),
+        }, { merge: true });
+        
         return; // Nichts weiter zu tun, wenn schon Mitglied und Eintrag vorhanden
       }
 
@@ -1188,9 +1202,15 @@ export const addPlayerToGroup = onCall(async (request) => {
       });
 
       // Neu: Member-Subcollection upserten (sichert Anzeige in GroupView & Foto-Sync)
+      // ✅ FIX: Lade photoURL aus dem Player-Dokument
+      const playerSnap = await transaction.get(playerRef);
+      const playerData = playerSnap.data();
+      const playerPhotoURL = playerData?.photoURL ?? null;
+      
       const memberRef = groupRef.collection("members").doc(playerDocIdToAdd);
       transaction.set(memberRef, {
         displayName: playerDisplayName,
+        photoURL: playerPhotoURL, // ✅ FIXED: photoURL jetzt enthalten!
         joinedAt: admin.firestore.Timestamp.now(),
       }, { merge: true });
     });
