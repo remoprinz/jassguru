@@ -931,28 +931,38 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             }
           }
 
-          // Erstelle Data-Arrays für alle Labels (mit null für fehlende Werte)
+          // 🎯 NEU: Finde erstes Datum mit Daten für diesen Partner
+          const firstValidLabel = allLabels.find(label => 
+            stricheMap.has(label) || pointsMap.has(label) || matschMap.has(label)
+          );
+          
+          if (!firstValidLabel) continue; // Skip wenn keine Daten vorhanden
+          
+          const firstValidLabelIndex = allLabels.indexOf(firstValidLabel);
+          const relevantLabels = allLabels.slice(firstValidLabelIndex); // Nur Labels ab erstem Datum
+          
+          // Erstelle Data-Arrays nur für relevante Labels
           const stricheArray: (number | null)[] = [];
           const pointsArray: (number | null)[] = [];
           const matschArray: (number | null)[] = [];
 
-          for (const label of allLabels) {
+          for (const label of relevantLabels) {
             stricheArray.push(stricheMap.has(label) ? stricheMap.get(label)! : null);
             pointsArray.push(pointsMap.has(label) ? pointsMap.get(label)! : null);
             matschArray.push(matschMap.has(label) ? matschMap.get(label)! : null);
           }
 
           // 🎯 NEU: Für Partner mit nur 1 Session: Füge 0-Wert am Anfang hinzu
-          if (sessionsWithPartner === 1 && allLabels.length > 0) {
+          if (sessionsWithPartner === 1 && relevantLabels.length > 0) {
             // Finde das letzte Label (Session-Datum)
-            const lastLabel = allLabels[allLabels.length - 1];
+            const lastLabel = relevantLabels[relevantLabels.length - 1];
             const hasDataAtLastLabel = stricheMap.has(lastLabel) || pointsMap.has(lastLabel) || matschMap.has(lastLabel);
             
             if (hasDataAtLastLabel) {
               // Prüfe ob es ein vorheriges Label gibt (für 0-Wert)
-              const lastLabelIndex = allLabels.indexOf(lastLabel);
+              const lastLabelIndex = relevantLabels.indexOf(lastLabel);
               if (lastLabelIndex > 0) {
-                const previousLabel = allLabels[lastLabelIndex - 1];
+                const previousLabel = relevantLabels[lastLabelIndex - 1];
                 // Setze 0-Wert nur wenn dort noch kein Wert existiert
                 if (!stricheMap.has(previousLabel)) {
                   stricheArray[lastLabelIndex - 1] = 0;
@@ -974,6 +984,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               displayName: partner.partnerDisplayName,
               data: stricheArray,
               playerId: partnerId,
+              labels: relevantLabels, // 🎯 NEU: Eigene Labels für diesen Partner
               borderColor: '',
               backgroundColor: ''
             });
@@ -985,6 +996,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               displayName: partner.partnerDisplayName,
               data: pointsArray,
               playerId: partnerId,
+              labels: relevantLabels, // 🎯 NEU: Eigene Labels für diesen Partner
               borderColor: '',
               backgroundColor: ''
             });
@@ -996,6 +1008,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               displayName: partner.partnerDisplayName,
               data: matschArray,
               playerId: partnerId,
+              labels: relevantLabels, // 🎯 NEU: Eigene Labels für diesen Partner
               borderColor: '',
               backgroundColor: ''
             });
@@ -1004,22 +1017,26 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
         // 8. Setze Chart-Daten
         if (stricheDatasets.length > 0) {
+          // 🎯 NEU: Verwende labels aus dem ersten Dataset (alle haben dieselben Labels)
+          const firstDatasetLabels = stricheDatasets[0]?.labels || [];
           setPartnerStricheChartData({
-            labels: allLabels,
+            labels: firstDatasetLabels,
             datasets: stricheDatasets
           });
         }
 
         if (pointsDatasets.length > 0) {
+          const firstDatasetLabels = pointsDatasets[0]?.labels || [];
           setPartnerPointsChartData({
-            labels: allLabels,
+            labels: firstDatasetLabels,
             datasets: pointsDatasets
           });
         }
 
         if (matschDatasets.length > 0) {
+          const firstDatasetLabels = matschDatasets[0]?.labels || [];
           setPartnerMatschChartData({
-            labels: allLabels,
+            labels: firstDatasetLabels,
             datasets: matschDatasets
           });
         }
@@ -1235,28 +1252,38 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             }
           }
 
-          // Erstelle Data-Arrays für alle Labels (mit null für fehlende Werte)
+          // 🎯 NEU: Finde erstes Datum mit Daten für diesen Gegner
+          const firstValidLabel = allLabels.find(label => 
+            stricheMap.has(label) || pointsMap.has(label) || matschMap.has(label)
+          );
+          
+          if (!firstValidLabel) continue; // Skip wenn keine Daten vorhanden
+          
+          const firstValidLabelIndex = allLabels.indexOf(firstValidLabel);
+          const relevantLabels = allLabels.slice(firstValidLabelIndex); // Nur Labels ab erstem Datum
+          
+          // Erstelle Data-Arrays nur für relevante Labels
           const stricheArray: (number | null)[] = [];
           const pointsArray: (number | null)[] = [];
           const matschArray: (number | null)[] = [];
 
-          for (const label of allLabels) {
+          for (const label of relevantLabels) {
             stricheArray.push(stricheMap.has(label) ? stricheMap.get(label)! : null);
             pointsArray.push(pointsMap.has(label) ? pointsMap.get(label)! : null);
             matschArray.push(matschMap.has(label) ? matschMap.get(label)! : null);
           }
 
           // 🎯 NEU: Für Gegner mit nur 1 Session: Füge 0-Wert am Anfang hinzu
-          if (sessionsWithOpponent === 1 && allLabels.length > 0) {
+          if (sessionsWithOpponent === 1 && relevantLabels.length > 0) {
             // Finde das letzte Label (Session-Datum)
-            const lastLabel = allLabels[allLabels.length - 1];
+            const lastLabel = relevantLabels[relevantLabels.length - 1];
             const hasDataAtLastLabel = stricheMap.has(lastLabel) || pointsMap.has(lastLabel) || matschMap.has(lastLabel);
             
             if (hasDataAtLastLabel) {
               // Prüfe ob es ein vorheriges Label gibt (für 0-Wert)
-              const lastLabelIndex = allLabels.indexOf(lastLabel);
+              const lastLabelIndex = relevantLabels.indexOf(lastLabel);
               if (lastLabelIndex > 0) {
-                const previousLabel = allLabels[lastLabelIndex - 1];
+                const previousLabel = relevantLabels[lastLabelIndex - 1];
                 // Setze 0-Wert nur wenn dort noch kein Wert existiert
                 if (!stricheMap.has(previousLabel)) {
                   stricheArray[lastLabelIndex - 1] = 0;
@@ -1278,6 +1305,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               displayName: opponent.opponentDisplayName,
               data: stricheArray,
               playerId: opponentId,
+              labels: relevantLabels, // 🎯 NEU: Eigene Labels für diesen Gegner
               borderColor: '',
               backgroundColor: ''
             });
@@ -1289,6 +1317,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               displayName: opponent.opponentDisplayName,
               data: pointsArray,
               playerId: opponentId,
+              labels: relevantLabels, // 🎯 NEU: Eigene Labels für diesen Gegner
               borderColor: '',
               backgroundColor: ''
             });
@@ -1300,6 +1329,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               displayName: opponent.opponentDisplayName,
               data: matschArray,
               playerId: opponentId,
+              labels: relevantLabels, // 🎯 NEU: Eigene Labels für diesen Gegner
               borderColor: '',
               backgroundColor: ''
             });
@@ -1308,22 +1338,26 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
         // 8. Setze Chart-Daten
         if (stricheDatasets.length > 0) {
+          // 🎯 NEU: Verwende labels aus dem ersten Dataset (alle haben dieselben Labels)
+          const firstDatasetLabels = stricheDatasets[0]?.labels || [];
           setOpponentStricheChartData({
-            labels: allLabels,
+            labels: firstDatasetLabels,
             datasets: stricheDatasets
           });
         }
 
         if (pointsDatasets.length > 0) {
+          const firstDatasetLabels = pointsDatasets[0]?.labels || [];
           setOpponentPointsChartData({
-            labels: allLabels,
+            labels: firstDatasetLabels,
             datasets: pointsDatasets
           });
         }
 
         if (matschDatasets.length > 0) {
+          const firstDatasetLabels = matschDatasets[0]?.labels || [];
           setOpponentMatschChartData({
-            labels: allLabels,
+            labels: firstDatasetLabels,
             datasets: matschDatasets
           });
         }
