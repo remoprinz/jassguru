@@ -958,32 +958,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             matschArray.push(matschMap.has(label) ? matschMap.get(label)! : null);
           }
 
-          // 🎯 NEU: Für Partner mit nur 1 Session: Füge 0-Wert am Anfang hinzu
-          if (sessionsWithPartner === 1 && relevantLabels.length > 0) {
-            // Finde das letzte Label (Session-Datum)
-            const lastLabel = relevantLabels[relevantLabels.length - 1];
-            const hasDataAtLastLabel = stricheMap.has(lastLabel) || pointsMap.has(lastLabel) || matschMap.has(lastLabel);
-            
-            if (hasDataAtLastLabel) {
-              // Prüfe ob es ein vorheriges Label gibt (für 0-Wert)
-              const lastLabelIndex = relevantLabels.indexOf(lastLabel);
-              if (lastLabelIndex > 0) {
-                const previousLabel = relevantLabels[lastLabelIndex - 1];
-                // Setze 0-Wert nur wenn dort noch kein Wert existiert
-                if (!stricheMap.has(previousLabel)) {
-                  stricheArray[lastLabelIndex - 1] = 0;
-                }
-                if (!pointsMap.has(previousLabel)) {
-                  pointsArray[lastLabelIndex - 1] = 0;
-                }
-                if (!matschMap.has(previousLabel)) {
-                  matschArray[lastLabelIndex - 1] = 0;
-                }
-              }
-            }
-          }
-
-          // 🎯 KORREKTUR: Zähle ECHTE Datenpunkte aus den Maps (NICHT aus Arrays die künstliche 0-Werte enthalten!)
+          // 🎯 KORREKTUR: Zähle ECHTE Datenpunkte aus den Maps (nur echte Sessions!)
           // Die Maps enthalten nur echte Sessions, Arrays können künstliche 0-Werte haben
           const stricheValidDataPoints = stricheMap.size; // Anzahl echter Sessions
           const pointsValidDataPoints = pointsMap.size;   // Anzahl echter Sessions
@@ -1291,32 +1266,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             matschArray.push(matschMap.has(label) ? matschMap.get(label)! : null);
           }
 
-          // 🎯 NEU: Für Gegner mit nur 1 Session: Füge 0-Wert am Anfang hinzu
-          if (sessionsWithOpponent === 1 && relevantLabels.length > 0) {
-            // Finde das letzte Label (Session-Datum)
-            const lastLabel = relevantLabels[relevantLabels.length - 1];
-            const hasDataAtLastLabel = stricheMap.has(lastLabel) || pointsMap.has(lastLabel) || matschMap.has(lastLabel);
-            
-            if (hasDataAtLastLabel) {
-              // Prüfe ob es ein vorheriges Label gibt (für 0-Wert)
-              const lastLabelIndex = relevantLabels.indexOf(lastLabel);
-              if (lastLabelIndex > 0) {
-                const previousLabel = relevantLabels[lastLabelIndex - 1];
-                // Setze 0-Wert nur wenn dort noch kein Wert existiert
-                if (!stricheMap.has(previousLabel)) {
-                  stricheArray[lastLabelIndex - 1] = 0;
-                }
-                if (!pointsMap.has(previousLabel)) {
-                  pointsArray[lastLabelIndex - 1] = 0;
-                }
-                if (!matschMap.has(previousLabel)) {
-                  matschArray[lastLabelIndex - 1] = 0;
-                }
-              }
-            }
-          }
-
-          // 🎯 KORREKTUR: Zähle ECHTE Datenpunkte aus den Maps (NICHT aus Arrays die künstliche 0-Werte enthalten!)
+          // 🎯 KORREKTUR: Zähle ECHTE Datenpunkte aus den Maps (nur echte Sessions!)
           // Die Maps enthalten nur echte Sessions, Arrays können künstliche 0-Werte haben
           const stricheValidDataPoints = stricheMap.size; // Anzahl echter Sessions
           const pointsValidDataPoints = pointsMap.size;   // Anzahl echter Sessions
