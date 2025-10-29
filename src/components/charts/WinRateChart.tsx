@@ -279,9 +279,13 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
       datasets: [
         {
           label: title || 'Siegquote',
-          data: reversedForChart.map(item => item.winRate * 100), // Win Rate Daten
-          // ✅ NEU: Speichere vollständige Spielerdaten für Tooltips
-          playerData: reversedForChart.map(item => item), // Array von vollständigen Spieler-Daten
+          // 🎯 NEU: 0% Werte auf 3% setzen für bessere Sichtbarkeit (nur visuell, nicht in Tooltip)
+          data: reversedForChart.map(item => {
+            const winRatePercent = item.winRate * 100;
+            return winRatePercent === 0 ? 3 : winRatePercent; // Mindestens 3% für 0%-Spieler
+          }),
+          // ✅ NEU: Speichere vollständige Spielerdaten für Tooltips (inkl. original winRate)
+          playerData: reversedForChart.map(item => item), // Array von vollständigen Spieler-Daten (mit original winRate)
           // Farblogik: Index 0 (niedrigster, links) → Rang totalPlayers (niedrig), Index totalPlayers-1 (Top, rechts) → Rang 1 (GRÜN)
           backgroundColor: reversedForChart.map((_, index) => 
             getRankingColor(totalPlayers - index, 0.8)
