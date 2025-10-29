@@ -960,6 +960,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
           // ✅ NEU: ALLE Datasets hinzufügen (Chart filtert selbst!)
           if (stricheArray.some(v => v !== null)) {
+            const validPoints = stricheArray.filter(v => v !== null).length;
+            console.log(`🔧 ProfileView - Adding ${partner.partnerDisplayName}: ${validPoints} valid points, data:`, stricheArray);
+            
             stricheDatasets.push({
               label: partner.partnerDisplayName,
               displayName: partner.partnerDisplayName,

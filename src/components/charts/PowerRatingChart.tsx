@@ -656,6 +656,13 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
 
   // ✅ MEMOIZED ENHANCED DATA: Verhindert Chart-Flackern durch stabile Daten-Referenzen
   const enhancedData = useMemo(() => {
+    console.log('🔍 PowerRatingChart - DEBUG START');
+    console.log('📊 Incoming datasets:', data.datasets.map(d => ({
+      label: d.label,
+      dataLength: d.data.length,
+      data: d.data
+    })));
+    
     // ✅ EINFACHSTE & ELEGANTESTE LÖSUNG: Filtere ALLE Datasets mit nur 1 gültigem Datenpunkt heraus
     const datasetsWithMultiplePoints = data.datasets.filter(dataset => {
       // Zähle nur gültige, sichtbare Datenpunkte
@@ -663,9 +670,14 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
         point !== null && point !== undefined && !isNaN(point as any)
       ).length;
       
+      console.log(`👤 ${dataset.label}: ${validDataPoints} gültige Datenpunkte ${validDataPoints > 1 ? '✅ BEHALTEN' : '❌ ENTFERNT'}`);
+      
       // 🎯 WICHTIG: Nur Datasets mit mehr als 1 Datenpunkt behalten
       return validDataPoints > 1;
     });
+    
+    console.log('📈 Filtered datasets:', datasetsWithMultiplePoints.map(d => d.label));
+    console.log('🔍 PowerRatingChart - DEBUG END\n');
 
     // ✅ SORTIERE DATASETS NACH LETZTEM WERT (für korrekte Legend-Reihenfolge)
     const sortedDatasets = [...datasetsWithMultiplePoints].sort((a, b) => {
