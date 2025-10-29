@@ -656,26 +656,19 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
 
   // ✅ MEMOIZED ENHANCED DATA: Verhindert Chart-Flackern durch stabile Daten-Referenzen
   const enhancedData = useMemo(() => {
-    // 🎯 NEU: Filtere Datasets bei hideOutliers=true
-    const filteredDatasets = hideOutliers 
-      ? data.datasets.filter(dataset => {
-          const validDataPoints = dataset.data.filter(point => 
-            point !== null && point !== undefined && !isNaN(point as any)
-          ).length;
-          return validDataPoints > 1; // Nur Datasets mit mehr als 1 Datenpunkt
-        })
-      : data.datasets;
-    
-    // ✅ ZUSÄTZLICHE SICHERHEIT: Auch wenn hideOutliers=false ist, filtern wir spätestens hier Singles hart heraus
-    const withoutSinglePointDatasets = filteredDatasets.filter(dataset => {
+    // ✅ EINFACHSTE & ELEGANTESTE LÖSUNG: Filtere ALLE Datasets mit nur 1 gültigem Datenpunkt heraus
+    const datasetsWithMultiplePoints = data.datasets.filter(dataset => {
+      // Zähle nur gültige, sichtbare Datenpunkte
       const validDataPoints = dataset.data.filter(point => 
         point !== null && point !== undefined && !isNaN(point as any)
       ).length;
+      
+      // 🎯 WICHTIG: Nur Datasets mit mehr als 1 Datenpunkt behalten
       return validDataPoints > 1;
     });
 
     // ✅ SORTIERE DATASETS NACH LETZTEM WERT (für korrekte Legend-Reihenfolge)
-    const sortedDatasets = [...withoutSinglePointDatasets].sort((a, b) => {
+    const sortedDatasets = [...datasetsWithMultiplePoints].sort((a, b) => {
       // Finde den letzten gültigen Wert für jedes Dataset
       let lastValueA = null;
       let lastValueB = null;
@@ -708,13 +701,8 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
       ...data,
       labels: data.labels,
       datasets: sortedDatasets.map((dataset, index) => {
-        // 🎯 ELEGANTE LÖSUNG: Zähle gültige Datenpunkte und blende Punkte aus wenn nur 1 Datenpunkt
-        const validDataPoints = dataset.data.filter(point => 
-          point !== null && point !== undefined && !isNaN(point as any)
-        ).length;
-        
-        // Wenn nur 1 Datenpunkt: Punkte komplett ausblenden (kein Verlauf möglich)
-        const pointRadii = dataset.data.map(() => validDataPoints <= 1 ? 0 : CHART_CONFIG.pointRadius);
+        // ✅ EINFACH: Alle Datasets die hier ankommen haben bereits mehr als 1 Datenpunkt
+        const pointRadii = dataset.data.map(() => CHART_CONFIG.pointRadius);
         
         // 🎨 FARBEN: Theme-Farben oder Ranking-Farben
         let borderColor: string;
@@ -767,7 +755,7 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
         };
       })
     };
-  }, [data, hideOutliers, useThemeColors, theme]); // ✅ Dependencies hinzugefügt
+  }, [data, useThemeColors, theme]); // ✅ Dependencies hinzugefügt
 
   // ✅ Custom Plugin für 0er-Linie (nur bei Non-Elo-Charts)
   const customPlugin = useMemo(() => ({
