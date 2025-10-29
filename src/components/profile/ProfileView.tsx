@@ -2983,9 +2983,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           <div className="text-gray-400 text-center py-2">Keine Partner mit Matsch-Ereignissen</div>
                         )}
                   </div>
-                </div>
+                  </div>
 
-                    {/* Schneider-Bilanz */}
+                    {/* Schneider-Bilanz - nur anzeigen wenn Ereignisse vorhanden */}
+                    {(playerStats as any).partnerAggregates?.filter((p: any) => p.gamesPlayedWith >= 1 && ((p.schneiderEventsMadeWith || 0) > 0 || (p.schneiderEventsReceivedWith || 0) > 0)).length > 0 && (
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -3039,8 +3040,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         )}
                       </div>
                     </div>
+                    )}
 
-                    {/* Kontermatsch-Bilanz */}
+                    {/* Kontermatsch-Bilanz - nur anzeigen wenn Ereignisse vorhanden */}
+                    {(playerStats as any).partnerAggregates?.filter((p: any) => p.gamesPlayedWith >= 1 && ((p.kontermatschEventsMadeWith || 0) > 0 || (p.kontermatschEventsReceivedWith || 0) > 0)).length > 0 && (
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -3094,6 +3097,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         )}
                       </div>
                     </div>
+                    )}
                   </>
                 ) : (
                   <div className="text-center text-gray-400 py-10">Keine Partnerstatistiken verfügbar.</div>
@@ -3560,7 +3564,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Schneider-Bilanz */}
+                    {/* Schneider-Bilanz - nur anzeigen wenn Ereignisse vorhanden */}
+                    {(playerStats as any).opponentAggregates?.filter((o: any) => o.gamesPlayedAgainst >= 1 && ((o.schneiderEventsMadeAgainst || 0) > 0 || (o.schneiderEventsReceivedAgainst || 0) > 0)).length > 0 && (
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -3614,8 +3619,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         )}
                       </div>
                     </div>
+                    )}
 
-                    {/* Kontermatsch-Bilanz */}
+                    {/* Kontermatsch-Bilanz - nur anzeigen wenn Ereignisse vorhanden */}
+                    {(playerStats as any).opponentAggregates?.filter((o: any) => o.gamesPlayedAgainst >= 1 && ((o.kontermatschEventsMadeAgainst || 0) > 0 || (o.kontermatschEventsReceivedAgainst || 0) > 0)).length > 0 && (
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -3669,6 +3676,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         )}
                       </div>
                     </div>
+                    )}
                   </>
                 ) : (
                   <div className="text-center text-gray-400 py-10">Keine Gegnerstatistiken verfügbar.</div>

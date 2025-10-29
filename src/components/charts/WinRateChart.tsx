@@ -282,7 +282,7 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
           // 🎯 NEU: 0% Werte auf 3% setzen für bessere Sichtbarkeit (nur visuell, nicht in Tooltip)
           data: reversedForChart.map(item => {
             const winRatePercent = item.winRate * 100;
-            return winRatePercent === 0 ? 3 : winRatePercent; // Mindestens 3% für 0%-Spieler
+            return winRatePercent === 0 ? 1.25 : winRatePercent; // Mindestens 3% für 0%-Spieler
           }),
           // ✅ NEU: Speichere vollständige Spielerdaten für Tooltips (inkl. original winRate)
           playerData: reversedForChart.map(item => item), // Array von vollständigen Spieler-Daten (mit original winRate)
