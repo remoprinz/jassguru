@@ -946,13 +946,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           const firstValidLabelIndex = allLabels.indexOf(firstValidLabel);
           const lastValidLabelIndex = allLabels.indexOf(lastValidLabel!);
           
-          // 🎯 NEU: Für Partner mit nur 1 Session: Füge einen zusätzlichen Label-Buffer links hinzu (für 0-Wert)
-          let labelsStartIndex = firstValidLabelIndex;
-          if (sessionsWithPartner === 1 && firstValidLabelIndex > 0) {
-            labelsStartIndex = firstValidLabelIndex - 1; // Include one label before for 0-value
-          }
-          
-          const relevantLabels = allLabels.slice(labelsStartIndex, lastValidLabelIndex + 1); // Nur Labels zwischen erstem und letztem Datum (+ Buffer für 0-Wert)
+          const relevantLabels = allLabels.slice(firstValidLabelIndex, lastValidLabelIndex + 1); // Nur Labels zwischen erstem und letztem Datum
           
           // Erstelle Data-Arrays nur für relevante Labels
           const stricheArray: (number | null)[] = [];
@@ -1280,13 +1274,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           const firstValidLabelIndex = allLabels.indexOf(firstValidLabel);
           const lastValidLabelIndex = allLabels.indexOf(lastValidLabel!);
           
-          // 🎯 NEU: Für Gegner mit nur 1 Session: Füge einen zusätzlichen Label-Buffer links hinzu (für 0-Wert)
-          let labelsStartIndex = firstValidLabelIndex;
-          if (sessionsWithOpponent === 1 && firstValidLabelIndex > 0) {
-            labelsStartIndex = firstValidLabelIndex - 1; // Include one label before for 0-value
-          }
-          
-          const relevantLabels = allLabels.slice(labelsStartIndex, lastValidLabelIndex + 1); // Nur Labels zwischen erstem und letztem Datum (+ Buffer für 0-Wert)
+          const relevantLabels = allLabels.slice(firstValidLabelIndex, lastValidLabelIndex + 1); // Nur Labels zwischen erstem und letztem Datum
           
           // Erstelle Data-Arrays nur für relevante Labels
           const stricheArray: (number | null)[] = [];
