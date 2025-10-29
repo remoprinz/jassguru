@@ -905,6 +905,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           const pointsData = pointsDataByPartner[partnerId];
           const matschData = matschDataByPartner[partnerId];
 
+          // 🎯 NEU: Prüfe ob Partner nur 1 Session hat (für spezielle Behandlung)
+          const sessionsWithPartner = partner.sessionsPlayedWith || 0;
+
           // Erstelle Data-Map: label -> value
           const stricheMap = new Map<string, number>();
           const pointsMap = new Map<string, number>();
@@ -937,6 +940,31 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             stricheArray.push(stricheMap.has(label) ? stricheMap.get(label)! : null);
             pointsArray.push(pointsMap.has(label) ? pointsMap.get(label)! : null);
             matschArray.push(matschMap.has(label) ? matschMap.get(label)! : null);
+          }
+
+          // 🎯 NEU: Für Partner mit nur 1 Session: Füge 0-Wert am Anfang hinzu
+          if (sessionsWithPartner === 1 && allLabels.length > 0) {
+            // Finde das letzte Label (Session-Datum)
+            const lastLabel = allLabels[allLabels.length - 1];
+            const hasDataAtLastLabel = stricheMap.has(lastLabel) || pointsMap.has(lastLabel) || matschMap.has(lastLabel);
+            
+            if (hasDataAtLastLabel) {
+              // Prüfe ob es ein vorheriges Label gibt (für 0-Wert)
+              const lastLabelIndex = allLabels.indexOf(lastLabel);
+              if (lastLabelIndex > 0) {
+                const previousLabel = allLabels[lastLabelIndex - 1];
+                // Setze 0-Wert nur wenn dort noch kein Wert existiert
+                if (!stricheMap.has(previousLabel)) {
+                  stricheArray[lastLabelIndex - 1] = 0;
+                }
+                if (!pointsMap.has(previousLabel)) {
+                  pointsArray[lastLabelIndex - 1] = 0;
+                }
+                if (!matschMap.has(previousLabel)) {
+                  matschArray[lastLabelIndex - 1] = 0;
+                }
+              }
+            }
           }
 
           // Nur hinzufügen wenn mindestens ein Wert existiert
@@ -1181,6 +1209,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           const pointsData = pointsDataByOpponent[opponentId];
           const matschData = matschDataByOpponent[opponentId];
 
+          // 🎯 NEU: Prüfe ob Gegner nur 1 Session hat (für spezielle Behandlung)
+          const sessionsWithOpponent = opponent.sessionsPlayedAgainst || 0;
+
           // Erstelle Data-Map: label -> value
           const stricheMap = new Map<string, number>();
           const pointsMap = new Map<string, number>();
@@ -1213,6 +1244,31 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             stricheArray.push(stricheMap.has(label) ? stricheMap.get(label)! : null);
             pointsArray.push(pointsMap.has(label) ? pointsMap.get(label)! : null);
             matschArray.push(matschMap.has(label) ? matschMap.get(label)! : null);
+          }
+
+          // 🎯 NEU: Für Gegner mit nur 1 Session: Füge 0-Wert am Anfang hinzu
+          if (sessionsWithOpponent === 1 && allLabels.length > 0) {
+            // Finde das letzte Label (Session-Datum)
+            const lastLabel = allLabels[allLabels.length - 1];
+            const hasDataAtLastLabel = stricheMap.has(lastLabel) || pointsMap.has(lastLabel) || matschMap.has(lastLabel);
+            
+            if (hasDataAtLastLabel) {
+              // Prüfe ob es ein vorheriges Label gibt (für 0-Wert)
+              const lastLabelIndex = allLabels.indexOf(lastLabel);
+              if (lastLabelIndex > 0) {
+                const previousLabel = allLabels[lastLabelIndex - 1];
+                // Setze 0-Wert nur wenn dort noch kein Wert existiert
+                if (!stricheMap.has(previousLabel)) {
+                  stricheArray[lastLabelIndex - 1] = 0;
+                }
+                if (!pointsMap.has(previousLabel)) {
+                  pointsArray[lastLabelIndex - 1] = 0;
+                }
+                if (!matschMap.has(previousLabel)) {
+                  matschArray[lastLabelIndex - 1] = 0;
+                }
+              }
+            }
           }
 
           // Nur hinzufügen wenn mindestens ein Wert existiert
