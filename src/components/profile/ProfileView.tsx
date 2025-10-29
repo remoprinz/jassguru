@@ -931,7 +931,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             }
           }
 
-          // 🎯 NEU: Finde erstes und letztes Datum mit Daten für diesen Partner
+          // 🎯 NEU: Finde erstes Datum mit Daten für diesen Partner
           const firstValidLabel = allLabels.find(label => 
             stricheMap.has(label) || pointsMap.has(label) || matschMap.has(label)
           );
@@ -939,16 +939,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           if (!firstValidLabel) continue; // Skip wenn keine Daten vorhanden
           
           const firstValidLabelIndex = allLabels.indexOf(firstValidLabel);
-          
-          // Finde letztes Datum mit Daten für diesen Partner
-          let lastValidLabelIndex = firstValidLabelIndex;
-          for (let i = firstValidLabelIndex; i < allLabels.length; i++) {
-            if (stricheMap.has(allLabels[i]) || pointsMap.has(allLabels[i]) || matschMap.has(allLabels[i])) {
-              lastValidLabelIndex = i;
-            }
-          }
-          
-          const relevantLabels = allLabels.slice(firstValidLabelIndex, lastValidLabelIndex + 1); // Nur Labels zwischen erstem und letztem Datum
+          const relevantLabels = allLabels.slice(firstValidLabelIndex); // Nur Labels ab erstem Datum
           
           // Erstelle Data-Arrays nur für relevante Labels
           const stricheArray: (number | null)[] = [];
@@ -1261,7 +1252,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             }
           }
 
-          // 🎯 NEU: Finde erstes und letztes Datum mit Daten für diesen Gegner
+          // 🎯 NEU: Finde erstes Datum mit Daten für diesen Gegner
           const firstValidLabel = allLabels.find(label => 
             stricheMap.has(label) || pointsMap.has(label) || matschMap.has(label)
           );
@@ -1269,16 +1260,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           if (!firstValidLabel) continue; // Skip wenn keine Daten vorhanden
           
           const firstValidLabelIndex = allLabels.indexOf(firstValidLabel);
-          
-          // Finde letztes Datum mit Daten für diesen Gegner
-          let lastValidLabelIndex = firstValidLabelIndex;
-          for (let i = firstValidLabelIndex; i < allLabels.length; i++) {
-            if (stricheMap.has(allLabels[i]) || pointsMap.has(allLabels[i]) || matschMap.has(allLabels[i])) {
-              lastValidLabelIndex = i;
-            }
-          }
-          
-          const relevantLabels = allLabels.slice(firstValidLabelIndex, lastValidLabelIndex + 1); // Nur Labels zwischen erstem und letztem Datum
+          const relevantLabels = allLabels.slice(firstValidLabelIndex); // Nur Labels ab erstem Datum
           
           // Erstelle Data-Arrays nur für relevante Labels
           const stricheArray: (number | null)[] = [];
@@ -3243,6 +3225,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             hideLegend={false}
                             showBaseline={true}
                             useThemeColors={false}
+                            hideOutliers={true}
                             activeTab={activeMainTab}
                             activeSubTab={activeStatsSubTab}
                             animateImmediately={false}
@@ -3323,6 +3306,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             hideLegend={false}
                             showBaseline={true}
                             useThemeColors={false}
+                            hideOutliers={true}
                             activeTab={activeMainTab}
                             activeSubTab={activeStatsSubTab}
                             animateImmediately={false}
@@ -3615,6 +3599,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             hideLegend={false}
                             showBaseline={true}
                             useThemeColors={false}
+                            hideOutliers={true}
                             activeTab={activeMainTab}
                             activeSubTab={activeStatsSubTab}
                             animateImmediately={false}
