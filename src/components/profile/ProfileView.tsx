@@ -939,11 +939,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           if (!firstValidLabel) continue; // Skip wenn keine Daten vorhanden
           
           const firstValidLabelIndex = allLabels.indexOf(firstValidLabel);
-          
-          // 🎯 NEU: Füge ein Datum VOR dem ersten Datum hinzu (falls vorhanden)
-          const relevantLabels = firstValidLabelIndex > 0 
-            ? allLabels.slice(firstValidLabelIndex - 1) // NOCH EIN DATUM DAVOR!
-            : allLabels.slice(firstValidLabelIndex);
+          const relevantLabels = allLabels.slice(firstValidLabelIndex); // Nur Labels ab erstem Datum
           
           // Erstelle Data-Arrays nur für relevante Labels
           const stricheArray: (number | null)[] = [];
@@ -1021,26 +1017,69 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
         // 8. Setze Chart-Daten
         if (stricheDatasets.length > 0) {
-          // 🎯 NEU: Verwende labels aus dem ersten Dataset (alle haben dieselben Labels)
-          const firstDatasetLabels = stricheDatasets[0]?.labels || [];
+          // 🎯 NEU: Finde das frühste und späteste Datum über ALLE Datasets
+          const allUsedLabels = new Set<string>();
+          stricheDatasets.forEach(ds => {
+            if (ds.labels) {
+              ds.labels.forEach(label => allUsedLabels.add(label));
+            }
+          });
+          
+          // Sortiere und erstelle gemeinsames Label-Array
+          const sortedLabels = Array.from(allUsedLabels).sort((a, b) => {
+            const [dayA, monthA, yearA] = a.split('.');
+            const [dayB, monthB, yearB] = b.split('.');
+            const dateA = new Date(2000 + parseInt(yearA), parseInt(monthA) - 1, parseInt(dayA));
+            const dateB = new Date(2000 + parseInt(yearB), parseInt(monthB) - 1, parseInt(dayB));
+            return dateA.getTime() - dateB.getTime();
+          });
+          
           setPartnerStricheChartData({
-            labels: firstDatasetLabels,
+            labels: sortedLabels,
             datasets: stricheDatasets
           });
         }
 
         if (pointsDatasets.length > 0) {
-          const firstDatasetLabels = pointsDatasets[0]?.labels || [];
+          const allUsedLabels = new Set<string>();
+          pointsDatasets.forEach(ds => {
+            if (ds.labels) {
+              ds.labels.forEach(label => allUsedLabels.add(label));
+            }
+          });
+          
+          const sortedLabels = Array.from(allUsedLabels).sort((a, b) => {
+            const [dayA, monthA, yearA] = a.split('.');
+            const [dayB, monthB, yearB] = b.split('.');
+            const dateA = new Date(2000 + parseInt(yearA), parseInt(monthA) - 1, parseInt(dayA));
+            const dateB = new Date(2000 + parseInt(yearB), parseInt(monthB) - 1, parseInt(dayB));
+            return dateA.getTime() - dateB.getTime();
+          });
+          
           setPartnerPointsChartData({
-            labels: firstDatasetLabels,
+            labels: sortedLabels,
             datasets: pointsDatasets
           });
         }
 
         if (matschDatasets.length > 0) {
-          const firstDatasetLabels = matschDatasets[0]?.labels || [];
+          const allUsedLabels = new Set<string>();
+          matschDatasets.forEach(ds => {
+            if (ds.labels) {
+              ds.labels.forEach(label => allUsedLabels.add(label));
+            }
+          });
+          
+          const sortedLabels = Array.from(allUsedLabels).sort((a, b) => {
+            const [dayA, monthA, yearA] = a.split('.');
+            const [dayB, monthB, yearB] = b.split('.');
+            const dateA = new Date(2000 + parseInt(yearA), parseInt(monthA) - 1, parseInt(dayA));
+            const dateB = new Date(2000 + parseInt(yearB), parseInt(monthB) - 1, parseInt(dayB));
+            return dateA.getTime() - dateB.getTime();
+          });
+          
           setPartnerMatschChartData({
-            labels: firstDatasetLabels,
+            labels: sortedLabels,
             datasets: matschDatasets
           });
         }
@@ -1264,11 +1303,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           if (!firstValidLabel) continue; // Skip wenn keine Daten vorhanden
           
           const firstValidLabelIndex = allLabels.indexOf(firstValidLabel);
-          
-          // 🎯 NEU: Füge ein Datum VOR dem ersten Datum hinzu (falls vorhanden)
-          const relevantLabels = firstValidLabelIndex > 0 
-            ? allLabels.slice(firstValidLabelIndex - 1) // NOCH EIN DATUM DAVOR!
-            : allLabels.slice(firstValidLabelIndex);
+          const relevantLabels = allLabels.slice(firstValidLabelIndex); // Nur Labels ab erstem Datum
           
           // Erstelle Data-Arrays nur für relevante Labels
           const stricheArray: (number | null)[] = [];
@@ -1346,26 +1381,69 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
         // 8. Setze Chart-Daten
         if (stricheDatasets.length > 0) {
-          // 🎯 NEU: Verwende labels aus dem ersten Dataset (alle haben dieselben Labels)
-          const firstDatasetLabels = stricheDatasets[0]?.labels || [];
+          // 🎯 NEU: Finde das frühste und späteste Datum über ALLE Datasets
+          const allUsedLabels = new Set<string>();
+          stricheDatasets.forEach(ds => {
+            if (ds.labels) {
+              ds.labels.forEach(label => allUsedLabels.add(label));
+            }
+          });
+          
+          // Sortiere und erstelle gemeinsames Label-Array
+          const sortedLabels = Array.from(allUsedLabels).sort((a, b) => {
+            const [dayA, monthA, yearA] = a.split('.');
+            const [dayB, monthB, yearB] = b.split('.');
+            const dateA = new Date(2000 + parseInt(yearA), parseInt(monthA) - 1, parseInt(dayA));
+            const dateB = new Date(2000 + parseInt(yearB), parseInt(monthB) - 1, parseInt(dayB));
+            return dateA.getTime() - dateB.getTime();
+          });
+          
           setOpponentStricheChartData({
-            labels: firstDatasetLabels,
+            labels: sortedLabels,
             datasets: stricheDatasets
           });
         }
 
         if (pointsDatasets.length > 0) {
-          const firstDatasetLabels = pointsDatasets[0]?.labels || [];
+          const allUsedLabels = new Set<string>();
+          pointsDatasets.forEach(ds => {
+            if (ds.labels) {
+              ds.labels.forEach(label => allUsedLabels.add(label));
+            }
+          });
+          
+          const sortedLabels = Array.from(allUsedLabels).sort((a, b) => {
+            const [dayA, monthA, yearA] = a.split('.');
+            const [dayB, monthB, yearB] = b.split('.');
+            const dateA = new Date(2000 + parseInt(yearA), parseInt(monthA) - 1, parseInt(dayA));
+            const dateB = new Date(2000 + parseInt(yearB), parseInt(monthB) - 1, parseInt(dayB));
+            return dateA.getTime() - dateB.getTime();
+          });
+          
           setOpponentPointsChartData({
-            labels: firstDatasetLabels,
+            labels: sortedLabels,
             datasets: pointsDatasets
           });
         }
 
         if (matschDatasets.length > 0) {
-          const firstDatasetLabels = matschDatasets[0]?.labels || [];
+          const allUsedLabels = new Set<string>();
+          matschDatasets.forEach(ds => {
+            if (ds.labels) {
+              ds.labels.forEach(label => allUsedLabels.add(label));
+            }
+          });
+          
+          const sortedLabels = Array.from(allUsedLabels).sort((a, b) => {
+            const [dayA, monthA, yearA] = a.split('.');
+            const [dayB, monthB, yearB] = b.split('.');
+            const dateA = new Date(2000 + parseInt(yearA), parseInt(monthA) - 1, parseInt(dayA));
+            const dateB = new Date(2000 + parseInt(yearB), parseInt(monthB) - 1, parseInt(dayB));
+            return dateA.getTime() - dateB.getTime();
+          });
+          
           setOpponentMatschChartData({
-            labels: firstDatasetLabels,
+            labels: sortedLabels,
             datasets: matschDatasets
           });
         }
