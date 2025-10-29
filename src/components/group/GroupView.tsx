@@ -1529,7 +1529,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
               }}
             >
               <BarChart size={18} className="mr-2" /> Statistik
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-gray-600/60"></div>
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-gray-600/30"></div>
             </TabsTrigger>
             <TabsTrigger 
               value="archive"
@@ -1539,7 +1539,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
               }}
             >
               <Archive size={18} className="mr-2" /> Archiv
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-gray-600/60"></div>
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-gray-600/30"></div>
             </TabsTrigger>
             <TabsTrigger
               value="members" 
@@ -1590,7 +1590,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       }}
                     >
                       <BarChart2 size={16} className="mr-1.5"/> Übersicht
-                      <div className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-[1px] bg-gray-600/60"></div>
+                      <div className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-[1px] bg-gray-600/30"></div>
                     </TabsTrigger>
                     <TabsTrigger 
                       value="players" 
@@ -1600,7 +1600,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       }}
                     >
                       <User size={16} className="mr-1.5"/> Spieler
-                      <div className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-[1px] bg-gray-600/60"></div>
+                      <div className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-[1px] bg-gray-600/30"></div>
                     </TabsTrigger>
                     <TabsTrigger 
                       value="teams" 
