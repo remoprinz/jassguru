@@ -666,8 +666,16 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
         })
       : data.datasets;
     
+    // ✅ ZUSÄTZLICHE SICHERHEIT: Auch wenn hideOutliers=false ist, filtern wir spätestens hier Singles hart heraus
+    const withoutSinglePointDatasets = filteredDatasets.filter(dataset => {
+      const validDataPoints = dataset.data.filter(point => 
+        point !== null && point !== undefined && !isNaN(point as any)
+      ).length;
+      return validDataPoints > 1;
+    });
+
     // ✅ SORTIERE DATASETS NACH LETZTEM WERT (für korrekte Legend-Reihenfolge)
-    const sortedDatasets = [...filteredDatasets].sort((a, b) => {
+    const sortedDatasets = [...withoutSinglePointDatasets].sort((a, b) => {
       // Finde den letzten gültigen Wert für jedes Dataset
       let lastValueA = null;
       let lastValueB = null;
