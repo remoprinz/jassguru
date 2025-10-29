@@ -945,7 +945,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           
           const firstValidLabelIndex = allLabels.indexOf(firstValidLabel);
           const lastValidLabelIndex = allLabels.indexOf(lastValidLabel!);
-          const relevantLabels = allLabels.slice(firstValidLabelIndex, lastValidLabelIndex + 1); // Nur Labels zwischen erstem und letztem Datum
+          
+          // 🎯 NEU: Für Partner mit nur 1 Session: Füge einen zusätzlichen Label-Buffer links hinzu (für 0-Wert)
+          let labelsStartIndex = firstValidLabelIndex;
+          if (sessionsWithPartner === 1 && firstValidLabelIndex > 0) {
+            labelsStartIndex = firstValidLabelIndex - 1; // Include one label before for 0-value
+          }
+          
+          const relevantLabels = allLabels.slice(labelsStartIndex, lastValidLabelIndex + 1); // Nur Labels zwischen erstem und letztem Datum (+ Buffer für 0-Wert)
           
           // Erstelle Data-Arrays nur für relevante Labels
           const stricheArray: (number | null)[] = [];
@@ -958,17 +965,39 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             matschArray.push(matschMap.has(label) ? matschMap.get(label)! : null);
           }
 
-          // ✅ NEU: ALLE Datasets hinzufügen (Chart filtert selbst!)
-          if (stricheArray.some(v => v !== null)) {
-            const validPoints = stricheArray.filter(v => v !== null).length;
-            console.log(`🔧 ProfileView - Adding ${partner.partnerDisplayName}: ${validPoints} valid points, data:`, stricheArray);
+          // 🎯 NEU: Für Partner mit nur 1 Session: Füge 0-Wert am Anfang hinzu
+          if (sessionsWithPartner === 1 && relevantLabels.length > 0) {
+            // Finde das letzte Label (Session-Datum)
+            const lastLabel = relevantLabels[relevantLabels.length - 1];
+            const hasDataAtLastLabel = stricheMap.has(lastLabel) || pointsMap.has(lastLabel) || matschMap.has(lastLabel);
             
+            if (hasDataAtLastLabel) {
+              // Prüfe ob es ein vorheriges Label gibt (für 0-Wert)
+              const lastLabelIndex = relevantLabels.indexOf(lastLabel);
+              if (lastLabelIndex > 0) {
+                const previousLabel = relevantLabels[lastLabelIndex - 1];
+                // Setze 0-Wert nur wenn dort noch kein Wert existiert
+                if (!stricheMap.has(previousLabel)) {
+                  stricheArray[lastLabelIndex - 1] = 0;
+                }
+                if (!pointsMap.has(previousLabel)) {
+                  pointsArray[lastLabelIndex - 1] = 0;
+                }
+                if (!matschMap.has(previousLabel)) {
+                  matschArray[lastLabelIndex - 1] = 0;
+                }
+              }
+            }
+          }
+
+          // Nur hinzufügen wenn mindestens ein Wert existiert
+          if (stricheArray.some(v => v !== null)) {
             stricheDatasets.push({
               label: partner.partnerDisplayName,
               displayName: partner.partnerDisplayName,
               data: stricheArray,
               playerId: partnerId,
-              labels: relevantLabels,
+              labels: relevantLabels, // 🎯 NEU: Eigene Labels für diesen Partner
               borderColor: '',
               backgroundColor: ''
             });
@@ -980,7 +1009,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               displayName: partner.partnerDisplayName,
               data: pointsArray,
               playerId: partnerId,
-              labels: relevantLabels,
+              labels: relevantLabels, // 🎯 NEU: Eigene Labels für diesen Partner
               borderColor: '',
               backgroundColor: ''
             });
@@ -992,7 +1021,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               displayName: partner.partnerDisplayName,
               data: matschArray,
               playerId: partnerId,
-              labels: relevantLabels,
+              labels: relevantLabels, // 🎯 NEU: Eigene Labels für diesen Partner
               borderColor: '',
               backgroundColor: ''
             });
@@ -1250,7 +1279,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           
           const firstValidLabelIndex = allLabels.indexOf(firstValidLabel);
           const lastValidLabelIndex = allLabels.indexOf(lastValidLabel!);
-          const relevantLabels = allLabels.slice(firstValidLabelIndex, lastValidLabelIndex + 1); // Nur Labels zwischen erstem und letztem Datum
+          
+          // 🎯 NEU: Für Gegner mit nur 1 Session: Füge einen zusätzlichen Label-Buffer links hinzu (für 0-Wert)
+          let labelsStartIndex = firstValidLabelIndex;
+          if (sessionsWithOpponent === 1 && firstValidLabelIndex > 0) {
+            labelsStartIndex = firstValidLabelIndex - 1; // Include one label before for 0-value
+          }
+          
+          const relevantLabels = allLabels.slice(labelsStartIndex, lastValidLabelIndex + 1); // Nur Labels zwischen erstem und letztem Datum (+ Buffer für 0-Wert)
           
           // Erstelle Data-Arrays nur für relevante Labels
           const stricheArray: (number | null)[] = [];
@@ -1263,14 +1299,39 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             matschArray.push(matschMap.has(label) ? matschMap.get(label)! : null);
           }
 
-          // ✅ NEU: ALLE Datasets hinzufügen (Chart filtert selbst!)
+          // 🎯 NEU: Für Gegner mit nur 1 Session: Füge 0-Wert am Anfang hinzu
+          if (sessionsWithOpponent === 1 && relevantLabels.length > 0) {
+            // Finde das letzte Label (Session-Datum)
+            const lastLabel = relevantLabels[relevantLabels.length - 1];
+            const hasDataAtLastLabel = stricheMap.has(lastLabel) || pointsMap.has(lastLabel) || matschMap.has(lastLabel);
+            
+            if (hasDataAtLastLabel) {
+              // Prüfe ob es ein vorheriges Label gibt (für 0-Wert)
+              const lastLabelIndex = relevantLabels.indexOf(lastLabel);
+              if (lastLabelIndex > 0) {
+                const previousLabel = relevantLabels[lastLabelIndex - 1];
+                // Setze 0-Wert nur wenn dort noch kein Wert existiert
+                if (!stricheMap.has(previousLabel)) {
+                  stricheArray[lastLabelIndex - 1] = 0;
+                }
+                if (!pointsMap.has(previousLabel)) {
+                  pointsArray[lastLabelIndex - 1] = 0;
+                }
+                if (!matschMap.has(previousLabel)) {
+                  matschArray[lastLabelIndex - 1] = 0;
+                }
+              }
+            }
+          }
+
+          // Nur hinzufügen wenn mindestens ein Wert existiert
           if (stricheArray.some(v => v !== null)) {
             stricheDatasets.push({
               label: opponent.opponentDisplayName,
               displayName: opponent.opponentDisplayName,
               data: stricheArray,
               playerId: opponentId,
-              labels: relevantLabels,
+              labels: relevantLabels, // 🎯 NEU: Eigene Labels für diesen Gegner
               borderColor: '',
               backgroundColor: ''
             });
@@ -1282,7 +1343,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               displayName: opponent.opponentDisplayName,
               data: pointsArray,
               playerId: opponentId,
-              labels: relevantLabels,
+              labels: relevantLabels, // 🎯 NEU: Eigene Labels für diesen Gegner
               borderColor: '',
               backgroundColor: ''
             });
@@ -1294,7 +1355,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               displayName: opponent.opponentDisplayName,
               data: matschArray,
               playerId: opponentId,
-              labels: relevantLabels,
+              labels: relevantLabels, // 🎯 NEU: Eigene Labels für diesen Gegner
               borderColor: '',
               backgroundColor: ''
             });
@@ -2609,7 +2670,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             hideLegend={false}
                             showBaseline={true}
                             useThemeColors={false}
-                            hideOutliers={true}
                             activeTab={activeMainTab}
                             activeSubTab={activeStatsSubTab}
                             animateImmediately={false}
@@ -2690,7 +2750,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             hideLegend={false}
                             showBaseline={true}
                             useThemeColors={false}
-                            hideOutliers={true}
                             activeTab={activeMainTab}
                             activeSubTab={activeStatsSubTab}
                             animateImmediately={false}
@@ -2982,7 +3041,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             hideLegend={false}
                             showBaseline={true}
                             useThemeColors={false}
-                            hideOutliers={true}
                             activeTab={activeMainTab}
                             activeSubTab={activeStatsSubTab}
                             animateImmediately={false}
@@ -3193,7 +3251,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             hideLegend={false}
                             showBaseline={true}
                             useThemeColors={false}
-                            hideOutliers={true}
                             activeTab={activeMainTab}
                             activeSubTab={activeStatsSubTab}
                             animateImmediately={false}
@@ -3274,7 +3331,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             hideLegend={false}
                             showBaseline={true}
                             useThemeColors={false}
-                            hideOutliers={true}
                             activeTab={activeMainTab}
                             activeSubTab={activeStatsSubTab}
                             animateImmediately={false}
@@ -3567,7 +3623,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             hideLegend={false}
                             showBaseline={true}
                             useThemeColors={false}
-                            hideOutliers={true}
                             activeTab={activeMainTab}
                             activeSubTab={activeStatsSubTab}
                             animateImmediately={false}

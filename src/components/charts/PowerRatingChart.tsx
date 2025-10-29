@@ -656,31 +656,18 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
 
   // ✅ MEMOIZED ENHANCED DATA: Verhindert Chart-Flackern durch stabile Daten-Referenzen
   const enhancedData = useMemo(() => {
-    console.log('🔍 PowerRatingChart - DEBUG START');
-    console.log('📊 Incoming datasets:', data.datasets.map(d => ({
-      label: d.label,
-      dataLength: d.data.length,
-      data: d.data
-    })));
+    // 🎯 NEU: Filtere Datasets bei hideOutliers=true
+    const filteredDatasets = hideOutliers 
+      ? data.datasets.filter(dataset => {
+          const validDataPoints = dataset.data.filter(point => 
+            point !== null && point !== undefined && !isNaN(point as any)
+          ).length;
+          return validDataPoints > 1; // Nur Datasets mit mehr als 1 Datenpunkt
+        })
+      : data.datasets;
     
-    // ✅ EINFACHSTE & ELEGANTESTE LÖSUNG: Filtere ALLE Datasets mit nur 1 gültigem Datenpunkt heraus
-    const datasetsWithMultiplePoints = data.datasets.filter(dataset => {
-      // Zähle nur gültige, sichtbare Datenpunkte
-      const validDataPoints = dataset.data.filter(point => 
-        point !== null && point !== undefined && !isNaN(point as any)
-      ).length;
-      
-      console.log(`👤 ${dataset.label}: ${validDataPoints} gültige Datenpunkte ${validDataPoints > 1 ? '✅ BEHALTEN' : '❌ ENTFERNT'}`);
-      
-      // 🎯 WICHTIG: Nur Datasets mit mehr als 1 Datenpunkt behalten
-      return validDataPoints > 1;
-    });
-    
-    console.log('📈 Filtered datasets:', datasetsWithMultiplePoints.map(d => d.label));
-    console.log('🔍 PowerRatingChart - DEBUG END\n');
-
     // ✅ SORTIERE DATASETS NACH LETZTEM WERT (für korrekte Legend-Reihenfolge)
-    const sortedDatasets = [...datasetsWithMultiplePoints].sort((a, b) => {
+    const sortedDatasets = [...filteredDatasets].sort((a, b) => {
       // Finde den letzten gültigen Wert für jedes Dataset
       let lastValueA = null;
       let lastValueB = null;
@@ -713,7 +700,7 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
       ...data,
       labels: data.labels,
       datasets: sortedDatasets.map((dataset, index) => {
-        // ✅ EINFACH: Alle Datasets die hier ankommen haben bereits mehr als 1 Datenpunkt
+        // 🎯 NEU: Erstelle Array von pointRadius-Werten
         const pointRadii = dataset.data.map(() => CHART_CONFIG.pointRadius);
         
         // 🎨 FARBEN: Theme-Farben oder Ranking-Farben
@@ -767,7 +754,7 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
         };
       })
     };
-  }, [data, useThemeColors, theme]); // ✅ Dependencies hinzugefügt
+  }, [data, hideOutliers, useThemeColors, theme]); // ✅ Dependencies hinzugefügt
 
   // ✅ Custom Plugin für 0er-Linie (nur bei Non-Elo-Charts)
   const customPlugin = useMemo(() => ({
