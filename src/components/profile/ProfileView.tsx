@@ -988,8 +988,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           const pointsValidDataPoints = pointsArray.filter(v => v !== null).length;
           const matschValidDataPoints = matschArray.filter(v => v !== null).length;
 
-          // Nur hinzufügen wenn mindestens 2 Datenpunkte vorhanden (für Verlauf benötigt)
-          if (stricheValidDataPoints >= 2 && stricheArray.some(v => v !== null)) {
+          // Nur hinzufügen wenn mehr als 1 Datenpunkt vorhanden (für Verlauf benötigt)
+          if (stricheValidDataPoints > 1 && stricheArray.some(v => v !== null)) {
             stricheDatasets.push({
               label: partner.partnerDisplayName,
               displayName: partner.partnerDisplayName,
@@ -1001,7 +1001,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             });
           }
 
-          if (pointsValidDataPoints >= 2 && pointsArray.some(v => v !== null)) {
+          if (pointsValidDataPoints > 1 && pointsArray.some(v => v !== null)) {
             pointsDatasets.push({
               label: partner.partnerDisplayName,
               displayName: partner.partnerDisplayName,
@@ -1013,7 +1013,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             });
           }
 
-          if (matschValidDataPoints >= 2 && matschArray.some(v => v !== null)) {
+          if (matschValidDataPoints > 1 && matschArray.some(v => v !== null)) {
             matschDatasets.push({
               label: partner.partnerDisplayName,
               displayName: partner.partnerDisplayName,
@@ -1320,8 +1320,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           const pointsValidDataPoints = pointsArray.filter(v => v !== null).length;
           const matschValidDataPoints = matschArray.filter(v => v !== null).length;
 
-          // Nur hinzufügen wenn mindestens 2 Datenpunkte vorhanden (für Verlauf benötigt)
-          if (stricheValidDataPoints >= 2 && stricheArray.some(v => v !== null)) {
+          // Nur hinzufügen wenn mehr als 1 Datenpunkt vorhanden (für Verlauf benötigt)
+          if (stricheValidDataPoints > 1 && stricheArray.some(v => v !== null)) {
             stricheDatasets.push({
               label: opponent.opponentDisplayName,
               displayName: opponent.opponentDisplayName,
@@ -1333,7 +1333,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             });
           }
 
-          if (pointsValidDataPoints >= 2 && pointsArray.some(v => v !== null)) {
+          if (pointsValidDataPoints > 1 && pointsArray.some(v => v !== null)) {
             pointsDatasets.push({
               label: opponent.opponentDisplayName,
               displayName: opponent.opponentDisplayName,
@@ -1345,7 +1345,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             });
           }
 
-          if (matschValidDataPoints >= 2 && matschArray.some(v => v !== null)) {
+          if (matschValidDataPoints > 1 && matschArray.some(v => v !== null)) {
             matschDatasets.push({
               label: opponent.opponentDisplayName,
               displayName: opponent.opponentDisplayName,
