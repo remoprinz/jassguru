@@ -983,10 +983,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             }
           }
 
-          // 🎯 NEU: Zähle gültige Datenpunkte (non-null Werte)
-          const stricheValidDataPoints = stricheArray.filter(v => v !== null).length;
-          const pointsValidDataPoints = pointsArray.filter(v => v !== null).length;
-          const matschValidDataPoints = matschArray.filter(v => v !== null).length;
+          // 🎯 NEU: Zähle ONLY ECHTE Datenpunkte aus den Maps (nicht künstlich hinzugefügte 0-Werte)
+          const stricheValidDataPoints = Array.from(stricheMap.keys()).length;
+          const pointsValidDataPoints = Array.from(pointsMap.keys()).length;
+          const matschValidDataPoints = Array.from(matschMap.keys()).length;
 
           // Nur hinzufügen wenn mehr als 1 Datenpunkt vorhanden (für Verlauf benötigt)
           if (stricheValidDataPoints > 1 && stricheArray.some(v => v !== null)) {
@@ -1315,10 +1315,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             }
           }
 
-          // 🎯 NEU: Zähle gültige Datenpunkte (non-null Werte)
-          const stricheValidDataPoints = stricheArray.filter(v => v !== null).length;
-          const pointsValidDataPoints = pointsArray.filter(v => v !== null).length;
-          const matschValidDataPoints = matschArray.filter(v => v !== null).length;
+          // 🎯 NEU: Zähle ONLY ECHTE Datenpunkte aus den Maps (nicht künstlich hinzugefügte 0-Werte)
+          const stricheValidDataPoints = Array.from(stricheMap.keys()).length;
+          const pointsValidDataPoints = Array.from(pointsMap.keys()).length;
+          const matschValidDataPoints = Array.from(matschMap.keys()).length;
 
           // Nur hinzufügen wenn mehr als 1 Datenpunkt vorhanden (für Verlauf benötigt)
           if (stricheValidDataPoints > 1 && stricheArray.some(v => v !== null)) {
