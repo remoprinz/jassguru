@@ -958,44 +958,38 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             matschArray.push(matschMap.has(label) ? matschMap.get(label)! : null);
           }
 
-          // 🎯 KORREKTUR: Zähle ECHTE Datenpunkte aus den Maps (nur echte Sessions!)
-          // Die Maps enthalten nur echte Sessions, Arrays können künstliche 0-Werte haben
-          const stricheValidDataPoints = stricheMap.size; // Anzahl echter Sessions
-          const pointsValidDataPoints = pointsMap.size;   // Anzahl echter Sessions
-          const matschValidDataPoints = matschMap.size;   // Anzahl echter Sessions
-
-          // Nur hinzufügen wenn mehr als 1 ECHTER Datenpunkt vorhanden (für Verlauf benötigt)
-          if (stricheValidDataPoints > 1 && stricheArray.some(v => v !== null)) {
+          // ✅ NEU: ALLE Datasets hinzufügen (Chart filtert selbst!)
+          if (stricheArray.some(v => v !== null)) {
             stricheDatasets.push({
               label: partner.partnerDisplayName,
               displayName: partner.partnerDisplayName,
               data: stricheArray,
               playerId: partnerId,
-              labels: relevantLabels, // 🎯 NEU: Eigene Labels für diesen Partner
+              labels: relevantLabels,
               borderColor: '',
               backgroundColor: ''
             });
           }
 
-          if (pointsValidDataPoints > 1 && pointsArray.some(v => v !== null)) {
+          if (pointsArray.some(v => v !== null)) {
             pointsDatasets.push({
               label: partner.partnerDisplayName,
               displayName: partner.partnerDisplayName,
               data: pointsArray,
               playerId: partnerId,
-              labels: relevantLabels, // 🎯 NEU: Eigene Labels für diesen Partner
+              labels: relevantLabels,
               borderColor: '',
               backgroundColor: ''
             });
           }
 
-          if (matschValidDataPoints > 1 && matschArray.some(v => v !== null)) {
+          if (matschArray.some(v => v !== null)) {
             matschDatasets.push({
               label: partner.partnerDisplayName,
               displayName: partner.partnerDisplayName,
               data: matschArray,
               playerId: partnerId,
-              labels: relevantLabels, // 🎯 NEU: Eigene Labels für diesen Partner
+              labels: relevantLabels,
               borderColor: '',
               backgroundColor: ''
             });
@@ -1266,44 +1260,38 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             matschArray.push(matschMap.has(label) ? matschMap.get(label)! : null);
           }
 
-          // 🎯 KORREKTUR: Zähle ECHTE Datenpunkte aus den Maps (nur echte Sessions!)
-          // Die Maps enthalten nur echte Sessions, Arrays können künstliche 0-Werte haben
-          const stricheValidDataPoints = stricheMap.size; // Anzahl echter Sessions
-          const pointsValidDataPoints = pointsMap.size;   // Anzahl echter Sessions
-          const matschValidDataPoints = matschMap.size;   // Anzahl echter Sessions
-
-          // Nur hinzufügen wenn mehr als 1 ECHTER Datenpunkt vorhanden (für Verlauf benötigt)
-          if (stricheValidDataPoints > 1 && stricheArray.some(v => v !== null)) {
+          // ✅ NEU: ALLE Datasets hinzufügen (Chart filtert selbst!)
+          if (stricheArray.some(v => v !== null)) {
             stricheDatasets.push({
               label: opponent.opponentDisplayName,
               displayName: opponent.opponentDisplayName,
               data: stricheArray,
               playerId: opponentId,
-              labels: relevantLabels, // 🎯 NEU: Eigene Labels für diesen Gegner
+              labels: relevantLabels,
               borderColor: '',
               backgroundColor: ''
             });
           }
 
-          if (pointsValidDataPoints > 1 && pointsArray.some(v => v !== null)) {
+          if (pointsArray.some(v => v !== null)) {
             pointsDatasets.push({
               label: opponent.opponentDisplayName,
               displayName: opponent.opponentDisplayName,
               data: pointsArray,
               playerId: opponentId,
-              labels: relevantLabels, // 🎯 NEU: Eigene Labels für diesen Gegner
+              labels: relevantLabels,
               borderColor: '',
               backgroundColor: ''
             });
           }
 
-          if (matschValidDataPoints > 1 && matschArray.some(v => v !== null)) {
+          if (matschArray.some(v => v !== null)) {
             matschDatasets.push({
               label: opponent.opponentDisplayName,
               displayName: opponent.opponentDisplayName,
               data: matschArray,
               playerId: opponentId,
-              labels: relevantLabels, // 🎯 NEU: Eigene Labels für diesen Gegner
+              labels: relevantLabels,
               borderColor: '',
               backgroundColor: ''
             });
