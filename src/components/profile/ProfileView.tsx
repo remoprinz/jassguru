@@ -983,12 +983,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             }
           }
 
-          // 🎯 NEU: Zähle ONLY ECHTE Datenpunkte aus den Maps (nicht künstlich hinzugefügte 0-Werte)
-          const stricheValidDataPoints = Array.from(stricheMap.keys()).length;
-          const pointsValidDataPoints = Array.from(pointsMap.keys()).length;
-          const matschValidDataPoints = Array.from(matschMap.keys()).length;
+          // 🎯 KORREKTUR: Zähle ECHTE Datenpunkte aus den Maps (NICHT aus Arrays die künstliche 0-Werte enthalten!)
+          // Die Maps enthalten nur echte Sessions, Arrays können künstliche 0-Werte haben
+          const stricheValidDataPoints = stricheMap.size; // Anzahl echter Sessions
+          const pointsValidDataPoints = pointsMap.size;   // Anzahl echter Sessions
+          const matschValidDataPoints = matschMap.size;   // Anzahl echter Sessions
 
-          // Nur hinzufügen wenn mehr als 1 Datenpunkt vorhanden (für Verlauf benötigt)
+          // Nur hinzufügen wenn mehr als 1 ECHTER Datenpunkt vorhanden (für Verlauf benötigt)
           if (stricheValidDataPoints > 1 && stricheArray.some(v => v !== null)) {
             stricheDatasets.push({
               label: partner.partnerDisplayName,
@@ -1315,12 +1316,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             }
           }
 
-          // 🎯 NEU: Zähle ONLY ECHTE Datenpunkte aus den Maps (nicht künstlich hinzugefügte 0-Werte)
-          const stricheValidDataPoints = Array.from(stricheMap.keys()).length;
-          const pointsValidDataPoints = Array.from(pointsMap.keys()).length;
-          const matschValidDataPoints = Array.from(matschMap.keys()).length;
+          // 🎯 KORREKTUR: Zähle ECHTE Datenpunkte aus den Maps (NICHT aus Arrays die künstliche 0-Werte enthalten!)
+          // Die Maps enthalten nur echte Sessions, Arrays können künstliche 0-Werte haben
+          const stricheValidDataPoints = stricheMap.size; // Anzahl echter Sessions
+          const pointsValidDataPoints = pointsMap.size;   // Anzahl echter Sessions
+          const matschValidDataPoints = matschMap.size;   // Anzahl echter Sessions
 
-          // Nur hinzufügen wenn mehr als 1 Datenpunkt vorhanden (für Verlauf benötigt)
+          // Nur hinzufügen wenn mehr als 1 ECHTER Datenpunkt vorhanden (für Verlauf benötigt)
           if (stricheValidDataPoints > 1 && stricheArray.some(v => v !== null)) {
             stricheDatasets.push({
               label: opponent.opponentDisplayName,
