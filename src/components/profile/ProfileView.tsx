@@ -983,8 +983,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             }
           }
 
-          // Nur hinzufügen wenn mindestens ein Wert existiert
-          if (stricheArray.some(v => v !== null)) {
+          // 🎯 NEU: Zähle gültige Datenpunkte (non-null Werte)
+          const stricheValidDataPoints = stricheArray.filter(v => v !== null).length;
+          const pointsValidDataPoints = pointsArray.filter(v => v !== null).length;
+          const matschValidDataPoints = matschArray.filter(v => v !== null).length;
+
+          // Nur hinzufügen wenn mindestens 2 Datenpunkte vorhanden (für Verlauf benötigt)
+          if (stricheValidDataPoints >= 2 && stricheArray.some(v => v !== null)) {
             stricheDatasets.push({
               label: partner.partnerDisplayName,
               displayName: partner.partnerDisplayName,
@@ -996,7 +1001,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             });
           }
 
-          if (pointsArray.some(v => v !== null)) {
+          if (pointsValidDataPoints >= 2 && pointsArray.some(v => v !== null)) {
             pointsDatasets.push({
               label: partner.partnerDisplayName,
               displayName: partner.partnerDisplayName,
@@ -1008,7 +1013,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             });
           }
 
-          if (matschArray.some(v => v !== null)) {
+          if (matschValidDataPoints >= 2 && matschArray.some(v => v !== null)) {
             matschDatasets.push({
               label: partner.partnerDisplayName,
               displayName: partner.partnerDisplayName,
@@ -1310,8 +1315,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             }
           }
 
-          // Nur hinzufügen wenn mindestens ein Wert existiert
-          if (stricheArray.some(v => v !== null)) {
+          // 🎯 NEU: Zähle gültige Datenpunkte (non-null Werte)
+          const stricheValidDataPoints = stricheArray.filter(v => v !== null).length;
+          const pointsValidDataPoints = pointsArray.filter(v => v !== null).length;
+          const matschValidDataPoints = matschArray.filter(v => v !== null).length;
+
+          // Nur hinzufügen wenn mindestens 2 Datenpunkte vorhanden (für Verlauf benötigt)
+          if (stricheValidDataPoints >= 2 && stricheArray.some(v => v !== null)) {
             stricheDatasets.push({
               label: opponent.opponentDisplayName,
               displayName: opponent.opponentDisplayName,
@@ -1323,7 +1333,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             });
           }
 
-          if (pointsArray.some(v => v !== null)) {
+          if (pointsValidDataPoints >= 2 && pointsArray.some(v => v !== null)) {
             pointsDatasets.push({
               label: opponent.opponentDisplayName,
               displayName: opponent.opponentDisplayName,
@@ -1335,7 +1345,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             });
           }
 
-          if (matschArray.some(v => v !== null)) {
+          if (matschValidDataPoints >= 2 && matschArray.some(v => v !== null)) {
             matschDatasets.push({
               label: opponent.opponentDisplayName,
               displayName: opponent.opponentDisplayName,
