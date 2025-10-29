@@ -931,7 +931,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             }
           }
 
-          // 🎯 NEU: Finde erstes Datum mit Daten für diesen Partner
+          // 🎯 NEU: Finde erstes und letztes Datum mit Daten für diesen Partner
           const firstValidLabel = allLabels.find(label => 
             stricheMap.has(label) || pointsMap.has(label) || matschMap.has(label)
           );
@@ -939,7 +939,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           if (!firstValidLabel) continue; // Skip wenn keine Daten vorhanden
           
           const firstValidLabelIndex = allLabels.indexOf(firstValidLabel);
-          const relevantLabels = allLabels.slice(firstValidLabelIndex); // Nur Labels ab erstem Datum
+          
+          // Finde das letzte Datum mit Daten
+          let lastValidLabelIndex = firstValidLabelIndex;
+          for (let i = allLabels.length - 1; i >= firstValidLabelIndex; i--) {
+            const label = allLabels[i];
+            if (stricheMap.has(label) || pointsMap.has(label) || matschMap.has(label)) {
+              lastValidLabelIndex = i;
+              break;
+            }
+          }
+          
+          const relevantLabels = allLabels.slice(firstValidLabelIndex, lastValidLabelIndex + 1); // Nur Labels zwischen erstem und letztem Datum
           
           // Erstelle Data-Arrays nur für relevante Labels
           const stricheArray: (number | null)[] = [];
@@ -1295,7 +1306,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             }
           }
 
-          // 🎯 NEU: Finde erstes Datum mit Daten für diesen Gegner
+          // 🎯 NEU: Finde erstes und letztes Datum mit Daten für diesen Gegner
           const firstValidLabel = allLabels.find(label => 
             stricheMap.has(label) || pointsMap.has(label) || matschMap.has(label)
           );
@@ -1303,7 +1314,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           if (!firstValidLabel) continue; // Skip wenn keine Daten vorhanden
           
           const firstValidLabelIndex = allLabels.indexOf(firstValidLabel);
-          const relevantLabels = allLabels.slice(firstValidLabelIndex); // Nur Labels ab erstem Datum
+          
+          // Finde das letzte Datum mit Daten
+          let lastValidLabelIndex = firstValidLabelIndex;
+          for (let i = allLabels.length - 1; i >= firstValidLabelIndex; i--) {
+            const label = allLabels[i];
+            if (stricheMap.has(label) || pointsMap.has(label) || matschMap.has(label)) {
+              lastValidLabelIndex = i;
+              break;
+            }
+          }
+          
+          const relevantLabels = allLabels.slice(firstValidLabelIndex, lastValidLabelIndex + 1); // Nur Labels zwischen erstem und letztem Datum
           
           // Erstelle Data-Arrays nur für relevante Labels
           const stricheArray: (number | null)[] = [];
