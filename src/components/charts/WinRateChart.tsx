@@ -43,6 +43,7 @@ interface WinRateChartProps {
   minSessions?: number; // Minimale Anzahl Sessions (default: 2)
   totalSessionsInGroup?: number; // Gesamtanzahl Sessions in der Gruppe für intelligentes Filtern
   isGameWinRate?: boolean; // True für "Siegquote Spiel" (Games statt Sessions)
+  disableIntelligentFiltering?: boolean; // NEU: Deaktiviere intelligente Filterung (nur Top 12 Limit anwenden)
 }
 
 const WinRateChart: React.FC<WinRateChartProps> = ({
@@ -59,6 +60,7 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
   minSessions = 2, // Standard: Mindestens 2 Sessions
   totalSessionsInGroup, // Gesamtanzahl Sessions in der Gruppe
   isGameWinRate = false, // Standard: Sessions (Siegquote Partie)
+  disableIntelligentFiltering = false, // NEU: Standardmäßig aktive Filterung
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<HTMLDivElement>(null);
@@ -202,8 +204,38 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
       return { labels: [], datasets: [] };
     }
     
+    // 🎯 INTELLIGENTE AKTIVITÄTS-FILTERUNG (nur wenn NICHT deaktiviert):
+    // Berechne Gesamtanzahl Events (Partien oder Spiele) für die Gruppe
+    const totalEvents = validData.reduce((sum, item) => {
+      return sum + (item.wins + item.losses + (item.draws || 0));
+    }, 0);
+    
+    // Filter-Strategie:
+    let activeData = validData;
+    
+    // 🎯 NEU: Filterung nur anwenden wenn NICHT deaktiviert UND etablierte Gruppe
+    if (!disableIntelligentFiltering) {
+      // 🎯 KORREKTE SCHWELLENWERTE: 10 Partien = etabliert, ca. 30 Spiele
+      // Partien: 1 Partie im Schnitt = 3.5 Spiele
+      const eventThreshold = isGameWinRate ? 30 : 10; // Für Spiele: 30, für Partien: 10
+      
+      // Wenn die Gruppe bereits etabliert ist (10 Partien ODER 30 Spiele insgesamt UND > 6 Spieler):
+      if (totalEvents > eventThreshold && validData.length > 6) {
+        // Berechne Median-Aktivität
+        const eventsArray = validData.map(item => item.wins + item.losses + (item.draws || 0)).sort((a, b) => a - b);
+        const medianEvents = eventsArray[Math.floor(eventsArray.length / 2)];
+        
+        // 🎯 EINHEITLICHE FILTERLOGIK: Konsistent für Partien UND Spiele
+        // Filtere nur sehr inaktive Spieler (< 20% des Medians ODER < 3 Events)
+        activeData = validData.filter(item => {
+          const events = item.wins + item.losses + (item.draws || 0);
+          return events >= Math.max(3, medianEvents * 0.2); // Mindestens 3 Events ODER 20% des Medians
+        });
+      }
+    }
+    
     // Sortiere nach Win Rate (absteigend für vertikale Bars mit Top-Spieler RECHTS)
-    const sortedData = [...validData].sort((a, b) => b.winRate - a.winRate);
+    const sortedData = [...activeData].sort((a, b) => b.winRate - a.winRate);
     
     // ✅ LIMITING: Wenn mehr als 12 Spieler/Teams, zeige nur Top 12 mit meisten Spielen
     let limitedData = sortedData;
@@ -265,7 +297,7 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
       ],
       maxValue: dynamicMax
     };
-  }, [data, title, minSessions, totalSessionsInGroup, isGameWinRate]);
+  }, [data, title, minSessions, totalSessionsInGroup, isGameWinRate, disableIntelligentFiltering]);
 
   const maxValue = chartData.maxValue || 100;
   

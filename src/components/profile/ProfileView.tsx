@@ -2724,6 +2724,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                   animateImmediately={false}
                                   hideLegend={true}
                                   minSessions={1}
+                                  disableIntelligentFiltering={true}
                                 />
                               );
                             }
@@ -2829,6 +2830,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                   hideLegend={true}
                                   minSessions={1}
                                   isGameWinRate={true}
+                                  disableIntelligentFiltering={true}
                                 />
                               );
                             }
@@ -3296,6 +3298,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                   animateImmediately={false}
                                   hideLegend={true}
                                   minSessions={1}
+                                  disableIntelligentFiltering={true}
                                 />
                               );
                             }
@@ -3401,6 +3404,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                   hideLegend={true}
                                   minSessions={1}
                                   isGameWinRate={true}
+                                  disableIntelligentFiltering={true}
                                 />
                               );
                             }
