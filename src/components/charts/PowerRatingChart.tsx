@@ -700,8 +700,13 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
       ...data,
       labels: data.labels,
       datasets: sortedDatasets.map((dataset, index) => {
-        // 🎯 NEU: Erstelle Array von pointRadius-Werten
-        const pointRadii = dataset.data.map(() => CHART_CONFIG.pointRadius);
+        // 🎯 ELEGANTE LÖSUNG: Zähle gültige Datenpunkte und blende Punkte aus wenn nur 1 Datenpunkt
+        const validDataPoints = dataset.data.filter(point => 
+          point !== null && point !== undefined && !isNaN(point as any)
+        ).length;
+        
+        // Wenn nur 1 Datenpunkt: Punkte komplett ausblenden (kein Verlauf möglich)
+        const pointRadii = dataset.data.map(() => validDataPoints <= 1 ? 0 : CHART_CONFIG.pointRadius);
         
         // 🎨 FARBEN: Theme-Farben oder Ranking-Farben
         let borderColor: string;
