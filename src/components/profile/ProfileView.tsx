@@ -939,7 +939,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           if (!firstValidLabel) continue; // Skip wenn keine Daten vorhanden
           
           const firstValidLabelIndex = allLabels.indexOf(firstValidLabel);
-          const relevantLabels = allLabels.slice(firstValidLabelIndex); // Nur Labels ab erstem Datum
+          
+          // 🎯 NEU: Füge ein Datum VOR dem ersten Datum hinzu (falls vorhanden)
+          const relevantLabels = firstValidLabelIndex > 0 
+            ? allLabels.slice(firstValidLabelIndex - 1) // NOCH EIN DATUM DAVOR!
+            : allLabels.slice(firstValidLabelIndex);
           
           // Erstelle Data-Arrays nur für relevante Labels
           const stricheArray: (number | null)[] = [];
@@ -1260,7 +1264,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           if (!firstValidLabel) continue; // Skip wenn keine Daten vorhanden
           
           const firstValidLabelIndex = allLabels.indexOf(firstValidLabel);
-          const relevantLabels = allLabels.slice(firstValidLabelIndex); // Nur Labels ab erstem Datum
+          
+          // 🎯 NEU: Füge ein Datum VOR dem ersten Datum hinzu (falls vorhanden)
+          const relevantLabels = firstValidLabelIndex > 0 
+            ? allLabels.slice(firstValidLabelIndex - 1) // NOCH EIN DATUM DAVOR!
+            : allLabels.slice(firstValidLabelIndex);
           
           // Erstelle Data-Arrays nur für relevante Labels
           const stricheArray: (number | null)[] = [];
@@ -3225,7 +3233,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             hideLegend={false}
                             showBaseline={true}
                             useThemeColors={false}
-                            hideOutliers={true}
                             activeTab={activeMainTab}
                             activeSubTab={activeStatsSubTab}
                             animateImmediately={false}
@@ -3306,7 +3313,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             hideLegend={false}
                             showBaseline={true}
                             useThemeColors={false}
-                            hideOutliers={true}
                             activeTab={activeMainTab}
                             activeSubTab={activeStatsSubTab}
                             animateImmediately={false}
@@ -3599,7 +3605,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             hideLegend={false}
                             showBaseline={true}
                             useThemeColors={false}
-                            hideOutliers={true}
                             activeTab={activeMainTab}
                             activeSubTab={activeStatsSubTab}
                             animateImmediately={false}
