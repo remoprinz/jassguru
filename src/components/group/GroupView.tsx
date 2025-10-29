@@ -1523,21 +1523,23 @@ export const GroupView: React.FC<GroupViewProps> = ({
           <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.mainTabContainerPadding} rounded-xl sticky ${isPublicView ? 'top-[env(safe-area-inset-top,0px)]' : 'top-0'} z-30 backdrop-blur-md shadow-lg`}>
             <TabsTrigger 
               value="statistics" 
-              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-xl ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center py-5`}
+              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-xl ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center py-5 relative`}
               style={{
                 backgroundColor: activeMainTab === 'statistics' ? getTabActiveColor(groupTheme) : 'transparent'
               }}
             >
               <BarChart size={18} className="mr-2" /> Statistik
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-gray-700/50"></div>
             </TabsTrigger>
             <TabsTrigger 
               value="archive"
-              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-xl ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center py-5`}
+              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-xl ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center py-5 relative`}
               style={{
                 backgroundColor: activeMainTab === 'archive' ? getTabActiveColor(groupTheme) : 'transparent'
               }}
             >
               <Archive size={18} className="mr-2" /> Archiv
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-gray-700/50"></div>
             </TabsTrigger>
             <TabsTrigger
               value="members" 
@@ -1582,21 +1584,23 @@ export const GroupView: React.FC<GroupViewProps> = ({
                   <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.subTabContainerPadding} rounded-xl backdrop-blur-md shadow-lg`}>
                     <TabsTrigger 
                       value="overview" 
-                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-xl ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3`}
+                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-xl ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3 relative`}
                       style={{
                         backgroundColor: activeStatsSubTab === 'overview' ? getTabActiveColor(groupTheme) : 'transparent'
                       }}
                     >
                       <BarChart2 size={16} className="mr-1.5"/> Übersicht
+                      <div className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-[1px] bg-gray-700/50"></div>
                     </TabsTrigger>
                     <TabsTrigger 
                       value="players" 
-                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-xl ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3`}
+                      className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-xl ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3 relative`}
                       style={{
                         backgroundColor: activeStatsSubTab === 'players' ? getTabActiveColor(groupTheme) : 'transparent'
                       }}
                     >
                       <User size={16} className="mr-1.5"/> Spieler
+                      <div className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-[1px] bg-gray-700/50"></div>
                     </TabsTrigger>
                     <TabsTrigger 
                       value="teams" 
