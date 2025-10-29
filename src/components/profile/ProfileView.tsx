@@ -2592,7 +2592,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 {(playerStats as any)?.partnerAggregates && (playerStats as any).partnerAggregates.length > 0 ? (
                   <>
                     {/* Strichdifferenz Verlauf */}
-                    {partnerStricheChartData && partnerStricheChartData.datasets.some((d: any) => d.data.length > 1) && (
+                    {partnerStricheChartData && partnerStricheChartData.datasets.some((d: any) => d.data.length > 1) && 
+                     (playerStats as any).partnerAggregates?.some((p: any) => (p.sessionsPlayedWith || 0) >= 2) && (
                       <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                         <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -2671,7 +2672,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 </div>
 
                     {/* Punktedifferenz Verlauf */}
-                    {partnerPointsChartData && partnerPointsChartData.datasets.some((d: any) => d.data.length > 1) && (
+                    {partnerPointsChartData && partnerPointsChartData.datasets.some((d: any) => d.data.length > 1) && 
+                     (playerStats as any).partnerAggregates?.some((p: any) => (p.sessionsPlayedWith || 0) >= 2) && (
                       <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                         <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -2961,7 +2963,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </div>
 
                     {/* Matsch-Bilanz Verlauf */}
-                    {partnerMatschChartData && partnerMatschChartData.datasets.some((d: any) => d.data.length > 1) && (
+                    {partnerMatschChartData && partnerMatschChartData.datasets.some((d: any) => d.data.length > 1) && 
+                     (playerStats as any).partnerAggregates?.some((p: any) => (p.sessionsPlayedWith || 0) >= 2) && (
                       <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                         <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -3170,7 +3173,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 {(playerStats as any)?.opponentAggregates && (playerStats as any).opponentAggregates.length > 0 ? (
                   <>
                     {/* Strichdifferenz Verlauf */}
-                    {opponentStricheChartData && opponentStricheChartData.datasets.some((d: any) => d.data.length > 1) && (
+                    {opponentStricheChartData && opponentStricheChartData.datasets.some((d: any) => d.data.length > 1) && 
+                     (playerStats as any).opponentAggregates?.some((o: any) => (o.sessionsPlayedAgainst || 0) >= 2) && (
                       <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                         <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -3249,7 +3253,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </div>
 
                     {/* Punktedifferenz Verlauf */}
-                    {opponentPointsChartData && opponentPointsChartData.datasets.some((d: any) => d.data.length > 1) && (
+                    {opponentPointsChartData && opponentPointsChartData.datasets.some((d: any) => d.data.length > 1) && 
+                     (playerStats as any).opponentAggregates?.some((o: any) => (o.sessionsPlayedAgainst || 0) >= 2) && (
                       <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                         <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -3540,7 +3545,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </div>
 
                     {/* Matsch-Bilanz Verlauf */}
-                    {opponentMatschChartData && opponentMatschChartData.datasets.some((d: any) => d.data.length > 1) && (
+                    {opponentMatschChartData && opponentMatschChartData.datasets.some((d: any) => d.data.length > 1) && 
+                     (playerStats as any).opponentAggregates?.some((o: any) => (o.sessionsPlayedAgainst || 0) >= 2) && (
                       <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                         <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
