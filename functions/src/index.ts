@@ -1986,7 +1986,7 @@ export const onGroupDocumentUpdated = onDocumentUpdated(
 export { finalizeTournament } from './finalizeTournament';
 
 // ✅ NEU: Export Player Scores Migration
-export { backfillAllPlayerScores } from './backfillAllPlayerScores';
+// ❌ REMOVED: backfillAllPlayerScores.ts (deprecated, replaced by backfillPlayerDataFromSummaries.ts)
 
 // ✅ NEU: Export addTournamentName Script
 
