@@ -58,6 +58,12 @@ jasstafel/Vorlage UI/Examplevideo.mp4
 
 # Jassguru spezifische Dokumentation / Notizen
 docs
+INHALTSSTRUKTUR.md
+
+# Projektpläne (vertrauliche Strategie-Dokumentation)
+*.plan.md
+*.plan
+plan*.md
 
 # Firebase service account keys (security critical)
 /functions/serviceAccountKey.json
@@ -82,10 +88,19 @@ Statuten_Schweizer_Jass_Verband.md
 public/assets/screenshots-backup/
 
 # Temporäre Debug- und Analyse-Skripte (sicherheitshalber)
+# ABER: Backfill-Scripts und wichtige Docs sind erlaubt!
 *.cjs
 *.js
+!functions/scripts/*.cjs
+!backfill-*.cjs
 *.txt
 *.md
+!BACKFILL-README.md
+!RESTORE-*.md
+!LÖSCHUNG-*.md
+!README.md
+!SECURITY.md
+!SPECIFICATION.md
 backup_*.json
 pglite-debug.log
 debug-*.js

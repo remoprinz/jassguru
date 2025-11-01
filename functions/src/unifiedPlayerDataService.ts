@@ -23,12 +23,12 @@ import * as logger from 'firebase-functions/logger';
 import {
   PlayerRootDocument,
   GlobalPlayerStats,
-  GroupPlayerStats,
+  // ❌ ENTFERNT: GroupPlayerStats (wird nicht mehr verwendet)
   PartnerPlayerStats,
   OpponentPlayerStats,
   // ❌ ENTFERNT: ScoresHistoryEntry (wird nur von jassEloUpdater.ts verwendet)
   getDefaultGlobalPlayerStats,
-  getDefaultGroupPlayerStats,
+  // ❌ ENTFERNT: getDefaultGroupPlayerStats (wird nicht mehr verwendet)
 } from './models/unified-player-data.model';
 
 const db = admin.firestore();
@@ -200,8 +200,8 @@ async function updatePlayerData(
     await playerRef.set(rootUpdate, { merge: true });
     logger.info(`[updatePlayerData] ✅ Root Document aktualisiert für ${playerId}`);
     
-    // 5. Update Group Stats
-    await updateGroupStatsSubcollection(playerId, groupId, groupName, sessionDelta, sessionData);
+    // ❌ ENTFERNT: Update Group Stats Subcollection (wird nicht verwendet im Frontend)
+    // await updateGroupStatsSubcollection(playerId, groupId, groupName, sessionDelta, sessionData);
     
     // 6. Update Partner Stats
     await updatePartnerStatsSubcollection(playerId, sessionData, sessionDelta);
@@ -550,62 +550,25 @@ function mergeTrumpfStats(
 }
 
 /**
- * Aktualisiert Group Stats Subcollection
+ * ❌ ENTFERNT: Update Group Stats Subcollection
+ * 
+ * Diese Funktion wurde entfernt, da `players/{playerId}/groupStats/{groupId}` 
+ * NICHT im Frontend verwendet wird. ProfileView.tsx nutzt nur:
+ * - `players/{playerId}/globalStats.current`
+ * - `players/{playerId}/partnerStats/{partnerId}`
+ * - `players/{playerId}/opponentStats/{opponentId}`
+ * 
+ * Die Subcollection kann optional gelöscht werden, da sie keine Funktionalität beeinträchtigt.
  */
-async function updateGroupStatsSubcollection(
-  playerId: string,
-  groupId: string,
-  groupName: string,
-  delta: SessionDelta,
-  sessionData: any
-): Promise<void> {
-  const groupStatsRef = db.collection(`players/${playerId}/groupStats`).doc(groupId);
-  const groupStatsDoc = await groupStatsRef.get();
-  
-  const current: GroupPlayerStats = groupStatsDoc.exists 
-    ? groupStatsDoc.data() as GroupPlayerStats
-    : getDefaultGroupPlayerStats(groupId, groupName);
-  
-  const updated: GroupPlayerStats = {
-    ...current,
-    groupName, // Update name in case it changed
-    
-    sessionsPlayed: current.sessionsPlayed + delta.sessionsPlayed,
-    sessionsWon: current.sessionsWon + delta.sessionsWon,
-    sessionsLost: current.sessionsLost + delta.sessionsLost,
-    sessionsDraw: current.sessionsDraw + delta.sessionsDraw,
-    
-    gamesPlayed: current.gamesPlayed + delta.gamesPlayed,
-    gamesWon: current.gamesWon + delta.gamesWon,
-    gamesLost: current.gamesLost + delta.gamesLost,
-    
-    pointsDifference: current.pointsDifference + delta.pointsDifference,
-    stricheDifference: current.stricheDifference + delta.stricheDifference,
-    
-    matschBilanz: current.matschBilanz + delta.matschBilanz,
-    schneiderBilanz: current.schneiderBilanz + delta.schneiderBilanz,
-    kontermatschBilanz: current.kontermatschBilanz + delta.kontermatschBilanz,
-    
-    weisDifference: current.weisDifference + delta.weisDifference,
-    
-    lastPlayedInGroup: sessionData.endedAt || admin.firestore.Timestamp.now(),
-  };
-  
-  // Berechne Durchschnittswerte
-  if (updated.gamesPlayed > 0) {
-    updated.avgPointsPerGame = updated.pointsDifference / updated.gamesPlayed;
-    updated.avgStrichePerGame = updated.stricheDifference / updated.gamesPlayed;
-    updated.avgWeisPerGame = updated.weisDifference / updated.gamesPlayed;
-  }
-  
-  // Berechne Win Rates
-  const decidedSessions = updated.sessionsWon + updated.sessionsLost;
-  updated.sessionWinRate = decidedSessions > 0 ? updated.sessionsWon / decidedSessions : 0;
-  updated.gameWinRate = updated.gamesPlayed > 0 ? updated.gamesWon / updated.gamesPlayed : 0;
-  
-  await groupStatsRef.set(updated);
-  logger.info(`[updateGroupStatsSubcollection] ✅ Group Stats aktualisiert: ${groupId}`);
-}
+// async function updateGroupStatsSubcollection(
+//   playerId: string,
+//   groupId: string,
+//   groupName: string,
+//   delta: SessionDelta,
+//   sessionData: any
+// ): Promise<void> {
+//   // ... entfernt
+// }
 
 /**
  * Aktualisiert Partner Stats Subcollection

@@ -24,10 +24,32 @@
   },
   "include": [
     "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx"
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "auth/**/*.ts",
+    "auth/**/*.tsx",
+    "game/**/*.ts",
+    "game/**/*.tsx",
+    "groups/**/*.ts",
+    "groups/**/*.tsx",
+    "profile/**/*.ts",
+    "profile/**/*.tsx",
+    "tournaments/**/*.ts",
+    "tournaments/**/*.tsx",
+    "view/**/*.ts",
+    "view/**/*.tsx"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "**/_next/**",
+    "**/out/**",
+    "**/out-wiki/**",
+    "**/dist/**",
+    "**/.next/**",
+    "**/dist-scripts/**",
+    "scripts/**",
+    "**/*.cjs",
+    "**/*.mjs",
+    "functions/**"
   ]
 }

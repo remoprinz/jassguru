@@ -276,6 +276,15 @@ const ResultatKreidetafel = ({
   const isOpen = useUIStore(state => state.resultatKreidetafel.isOpen);
   const swipePosition = useUIStore(state => state.resultatKreidetafel.swipePosition);
   const isFlipped = swipePosition === 'top';
+
+  // 🔍 DEBUG: Log wenn isOpen sich ändert
+  React.useEffect(() => {
+    console.log("[ResultatKreidetafel] isOpen State geändert:", {
+      isOpen,
+      swipePosition,
+      timestamp: Date.now(),
+    });
+  }, [isOpen, swipePosition]);
   const currentStatisticId = useUIStore((state: UIStore) => state.resultatKreidetafel.currentStatistic);
   const closeResultatKreidetafel = useCallback(() => {
     useUIStore.setState(state => ({
@@ -2579,6 +2588,8 @@ const ResultatKreidetafel = ({
                         transition-all duration-150
                         bg-gray-600 hover:bg-gray-700
                         leading-tight
+                        flex items-center justify-center
+                        min-h-[56px]
                       "
                     >
                       Schliessen
@@ -2662,6 +2673,8 @@ const ResultatKreidetafel = ({
                         transition-all duration-150
                         bg-gray-600 hover:bg-gray-700
                         leading-tight
+                        flex items-center justify-center
+                        min-h-[56px]
                       "
                     >
                       Schliessen
@@ -2706,6 +2719,8 @@ const ResultatKreidetafel = ({
                      transition-all duration-150
                      bg-gray-600 hover:bg-gray-700
                      leading-tight
+                     flex items-center justify-center
+                     min-h-[56px]
                    "
                  >
                    Schliessen

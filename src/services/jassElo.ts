@@ -79,12 +79,18 @@ async function calculateLastSessionRatingDelta(playerId: string): Promise<number
       return bTime - aTime; // Neueste zuerst
     });
     
-    if (sortedSessions.length < 2) {
-      return null; // Brauchen mindestens 2 Sessions
+    if (sortedSessions.length === 0) {
+      return null; // Keine Sessions vorhanden
     }
     
     // Letzte Session: Neuestes Rating
     const lastSessionLatestRating = sortedSessions[0][1][0].rating;
+    
+    // ✅ EDGE CASE: Wenn nur 1 Session vorhanden ist, berechne Delta von Baseline 100
+    if (sortedSessions.length === 1) {
+      const delta = lastSessionLatestRating - 100; // Baseline = 100
+      return delta;
+    }
     
     // Vorletzte Session: Neuestes Rating
     const secondLastSessionLatestRating = sortedSessions[1][1][0].rating;

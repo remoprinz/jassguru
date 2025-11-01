@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { getRankingColor } from '../../config/chartColors';
 import { abbreviatePlayerName } from '../../utils/formatUtils';
+import { getRatingTier } from '@/shared/rating-tiers'; // 🔧 FIX: Verwende Single Source of Truth
 
 /**
  * ✂️ TEAM-NAMEN ABKÜRZEN für kompakte Legend
@@ -35,32 +36,10 @@ function abbreviateTeamName(name: string): string {
 }
 
 /**
- * 🎯 KORREKTES EMOJI-SYSTEM (nach Jass-Elo Ranking.pdf)
+ * 🎯 EMOJI-SYSTEM: Verwende getRatingTier() als Single Source of Truth
  */
 function calculateEmoji(rating: number): string {
-  if (rating >= 150) return '👼'; // Göpf Egg
-  if (rating >= 145) return '🔱'; // Jassgott
-  if (rating >= 140) return '👑'; // Jasskönig
-  if (rating >= 135) return '🏆'; // Grossmeister
-  if (rating >= 130) return '🎖'; // Jasser mit Auszeichnung
-  if (rating >= 125) return '💎'; // Diamantjasser II
-  if (rating >= 120) return '💍'; // Diamantjasser I
-  if (rating >= 115) return '🥇'; // Goldjasser
-  if (rating >= 110) return '🥈'; // Silberjasser
-  if (rating >= 105) return '🥉'; // Bronzejasser
-  if (rating >= 100) return '👨‍🎓'; // Jassstudent (START)
-  if (rating >= 95) return '🍀'; // Kleeblatt vierblättrig
-  if (rating >= 90) return '☘️'; // Kleeblatt dreiblättrig
-  if (rating >= 85) return '🌱'; // Jass-Spross
-  if (rating >= 80) return '🐓'; // Hahn
-  if (rating >= 75) return '🐔'; // Huhn
-  if (rating >= 70) return '🐥'; // Kücken
-  if (rating >= 65) return '🎅'; // Chlaus
-  if (rating >= 60) return '🧀'; // Chäs
-  if (rating >= 55) return '🦆'; // Ente
-  if (rating >= 50) return '🥒'; // Gurke
-  return '🥚'; // Just Egg (< 50)
-
+  return getRatingTier(rating).emoji;
 }
 import { Line } from 'react-chartjs-2';
 import {

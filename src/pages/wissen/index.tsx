@@ -95,10 +95,13 @@ const WissenHomePage = () => {
             {/* Hero Section */}
             <div className="text-center mb-8 sm:mb-12">
                 <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4">
-                    Jassregeln: Das offizielle Nachschlagewerk
+                    Jasswiki: Alles übers Jassen
                 </h1>
-                <p className="text-lg sm:text-xl text-gray-300 leading-relaxed max-w-2xl mx-auto mb-8">
-                    Alle offiziellen Jassregeln der Schweiz in einem Wiki. Von Grundlagen bis zu Profi-Strategien - hier findest du alles übers Schweizer Nationalspiel.
+                <p className="text-xl sm:text-2xl font-semibold text-gray-200 leading-relaxed max-w-2xl mx-auto mb-2">
+                    Regeln, Varianten & Strategien
+                </p>
+                <p className="text-base sm:text-lg text-gray-400 leading-relaxed max-w-2xl mx-auto mb-8">
+                    Von Grundlagen bis Profi-Strategien – die Referenz für das Schweizer Nationalspiel. Regeln nach jassguru.ch. Grundlage: anerkannten Schweizer Regelquellen und Turnierreglementen.
                 </p>
                 
             </div>

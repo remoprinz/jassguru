@@ -172,9 +172,6 @@ export const saveRoundToFirestore = async (
   roundEntry: RoundEntry,
   isFinalRound: boolean = false
 ): Promise<void> => {
-  if (process.env.NODE_ENV === 'development') {
-    console.debug('[saveRoundToFirestore]', { activeGameId, roundEntry, isFinalRound });
-  }
   if (!activeGameId) {
     console.warn("[GameService] saveRoundToFirestore called without activeGameId.");
     return;

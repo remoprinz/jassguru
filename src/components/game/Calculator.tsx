@@ -89,14 +89,6 @@ const Calculator: React.FC<CalculatorProps> = ({
     // 1. ABSOLUTE PRIORITÄT: Ein aktives Online-Spiel
     // Der gameStore ist die EINZIGE Wahrheit für ein laufendes Spiel.
     if (activeGameId && gameFarbeSettings && gameScoreSettings && gameStrokeSettings) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[Calculator] 🎯 PRIORITÄT 1: Aktives Online-Spiel. Verwende GAMESTORE-Settings.', {
-          source: 'gameStore-active',
-          cardStyle: gameFarbeSettings.cardStyle,
-          siegPunkte: gameScoreSettings.values.sieg,
-          schneiderStriche: gameStrokeSettings.schneider
-        });
-      }
       return {
         farbeSettings: gameFarbeSettings,
         scoreSettings: gameScoreSettings,
@@ -367,15 +359,6 @@ const Calculator: React.FC<CalculatorProps> = ({
       const strichType = (clickedPosition === currentPlayerTeam) ? "matsch" : "kontermatsch";
       
       strichInfo = { team: clickedPosition, type: strichType };
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log("[Calculator] Matsch/Kontermatsch-Logik:", {
-          currentPlayer,
-          currentPlayerTeam,
-          clickedPosition,
-          resultingStrichType: strichType
-        });
-      }
     }
 
     // NEU: Globale Klicksperre für 1.5 Sekunden aktivieren

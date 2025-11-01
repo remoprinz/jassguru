@@ -27,6 +27,7 @@ export interface WinRateData {
   wins: number;
   losses: number;
   draws?: number;
+  totalGames?: number; // ✅ Optionale direkte Angabe der Gesamtanzahl Spiele (z.B. aus partnerStats/opponentStats)
 }
 
 interface WinRateChartProps {
@@ -207,7 +208,10 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
     // 🎯 INTELLIGENTE AKTIVITÄTS-FILTERUNG (nur wenn NICHT deaktiviert):
     // Berechne Gesamtanzahl Events (Partien oder Spiele) für die Gruppe
     const totalEvents = validData.reduce((sum, item) => {
-      return sum + (item.wins + item.losses + (item.draws || 0));
+      const itemTotal = item.totalGames !== undefined 
+        ? item.totalGames 
+        : (item.wins + item.losses + (item.draws || 0));
+      return sum + itemTotal;
     }, 0);
     
     // Filter-Strategie:
@@ -222,13 +226,19 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
       // Wenn die Gruppe bereits etabliert ist (10 Partien ODER 30 Spiele insgesamt UND > 6 Spieler):
       if (totalEvents > eventThreshold && validData.length > 6) {
         // Berechne Median-Aktivität
-        const eventsArray = validData.map(item => item.wins + item.losses + (item.draws || 0)).sort((a, b) => a - b);
+        const eventsArray = validData.map(item => {
+          return item.totalGames !== undefined 
+            ? item.totalGames 
+            : (item.wins + item.losses + (item.draws || 0));
+        }).sort((a, b) => a - b);
         const medianEvents = eventsArray[Math.floor(eventsArray.length / 2)];
         
         // 🎯 EINHEITLICHE FILTERLOGIK: Konsistent für Partien UND Spiele
         // Filtere nur sehr inaktive Spieler (< 20% des Medians ODER < 3 Events)
         activeData = validData.filter(item => {
-          const events = item.wins + item.losses + (item.draws || 0);
+          const events = item.totalGames !== undefined 
+            ? item.totalGames 
+            : (item.wins + item.losses + (item.draws || 0));
           return events >= Math.max(3, medianEvents * 0.2); // Mindestens 3 Events ODER 20% des Medians
         });
       }
@@ -242,8 +252,12 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
     if (sortedData.length > 12) {
       // Sortiere nach Anzahl Spielen (absteigend) und nimm Top 12
       const sortedByGames = [...sortedData].sort((a, b) => {
-        const aGames = a.wins + a.losses + (a.draws || 0);
-        const bGames = b.wins + b.losses + (b.draws || 0);
+        const aGames = a.totalGames !== undefined 
+          ? a.totalGames 
+          : (a.wins + a.losses + (a.draws || 0));
+        const bGames = b.totalGames !== undefined 
+          ? b.totalGames 
+          : (b.wins + b.losses + (b.draws || 0));
         return bGames - aGames;
       });
       limitedData = sortedByGames.slice(0, 12);
@@ -514,13 +528,71 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
     }
   }), [isDarkMode]);
 
+  // 🚀 NEU: Custom Plugin für Text IN den Balken (Anzahl Partien/Spiele)
+  const barTextPlugin = useMemo(() => ({
+    id: 'barText',
+    afterDatasetsDraw: (chart: any) => {
+      const ctx = chart.ctx;
+      const chartArea = chart.chartArea;
+      
+      if (!chartArea || !chartData.datasets || chartData.datasets.length === 0) return;
+      
+      const dataset = chartData.datasets[0];
+      const meta = chart.getDatasetMeta(0);
+      const playerData = dataset.playerData;
+      
+      if (!playerData || !meta || !meta.data) return;
+      
+      // 🎯 Berechne einmalig die Y-Position für ALLE Texte (10% vom UNTEREN Chart-Rand)
+      const chartHeight = chartArea.bottom - chartArea.top;
+      const textY = chartArea.bottom - (chartHeight * 0.08);
+      
+      ctx.save();
+      ctx.font = '500 10px sans-serif'; // ✅ Dezenter: 10px Schriftgröße, medium-weight (500) für bessere Lesbarkeit bei 3-stelligen Zahlen
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      meta.data.forEach((bar: any, index: number) => {
+        const dataIndex = bar.$context.dataIndex;
+        const playerInfo = playerData[dataIndex];
+        
+        if (!playerInfo) return;
+        
+        // ✅ Verwende totalGames falls vorhanden, sonst berechne aus wins + losses + draws
+        const totalEvents = playerInfo.totalGames !== undefined 
+          ? playerInfo.totalGames 
+          : (playerInfo.wins + playerInfo.losses + (playerInfo.draws || 0));
+        const text = `${totalEvents}`;
+        
+        // Hole Balken X-Position (horizontal)
+        const barX = bar.x;
+        
+        // Textfarbe: Dezenteres Weiß mit leichter Transparenz (80% opacity)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        
+        // Text-Shadow für bessere Lesbarkeit auf farbigen Balken (subtiler)
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        ctx.shadowBlur = 1;
+        
+        // Zeichne Text (alle auf derselben horizontalen Linie bei textY)
+        ctx.fillText(text, barX, textY);
+        
+        // Reset shadow
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+      });
+      
+      ctx.restore();
+    }
+  }), [chartData]);
+
   return (
     <div ref={(node) => {
       containerRef.current = node;
       chartRef.current = node; // ✅ Setze chartRef auf dasselbe Element
     }} style={{ height: `${height}px`, position: 'relative' }}>
       {shouldRender ? (
-        <Bar data={chartData} options={options} plugins={[customPlugin]} />
+        <Bar data={chartData} options={options} plugins={[customPlugin, barTextPlugin]} />
       ) : (
         <div 
           className="flex items-center justify-center bg-gray-800/30 rounded-lg"

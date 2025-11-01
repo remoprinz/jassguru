@@ -3,7 +3,7 @@ import { HttpsError, onCall, CallableRequest } from 'firebase-functions/v2/https
 import * as logger from 'firebase-functions/logger';
 import { updateGroupComputedStatsAfterSession } from './groupStatsCalculator'; // Gruppenstatistiken
 import { updateEloForSession } from './jassEloUpdater'; // Elo-Update
-import { saveRatingHistorySnapshot } from './ratingHistoryService'; // Rating-Historie
+// ❌ ENTFERNT: saveRatingHistorySnapshot nicht mehr benötigt (session_end Dokumente werden nicht mehr geschrieben)
 import { updatePlayerDataAfterSession } from './unifiedPlayerDataService'; // ✅ UNIFIED Player Data Service (ersetzt 3 alte Services)
 import { updateChartsAfterSession } from './chartDataUpdater'; // 🆕 Chart-Updates
 
@@ -933,25 +933,16 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
       logger.error(`[finalizeSession] Elo update failed for session ${sessionId}:`, e);
     }
 
-    // 🆕 Rating-Historie nach Elo-Update speichern (separater Try/Catch für bessere Fehlerdiagnose)
-    try {
-      logger.info(`[finalizeSession] Saving rating history snapshot for session ${sessionId}`);
-      await saveRatingHistorySnapshot(
-        groupId,
-        sessionId,
-        participantPlayerIds,
-        'session_end'
-      );
-      logger.info(`[finalizeSession] Rating history snapshot completed for session ${sessionId}`);
-    } catch (e) {
-      logger.error(`[finalizeSession] Rating history snapshot failed for session ${sessionId}:`, e);
-    }
+    // ❌ ENTFERNT: session_end Dokumente in ratingHistory sind nicht mehr benötigt!
+    // Charts nutzen nur 'game' Events (pro Spiel), die bereits in jassEloUpdater.ts geschrieben werden.
+    // Das letzte 'game' Event einer Session hat bereits das finale Rating.
+    // session_end Dokumente würden nur redundante Datenpunkte erzeugen.
 
     // 🆕 playerFinalRatings nach Elo-Update in jassGameSummary schreiben
     try {
       logger.info(`[finalizeSession] Saving player final ratings for session ${sessionId}`);
       
-      const playerFinalRatings: { [playerId: string]: { rating: number; ratingDelta: number; gamesPlayed: number; } } = {};
+      const playerFinalRatings: { [playerId: string]: { rating: number; ratingDelta: number; gamesPlayed: number; displayName?: string; } } = {};
       
       for (const playerId of participantPlayerIds) {
         const playerDoc = await db.collection('players').doc(playerId).get();
@@ -964,16 +955,24 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
             // Hole alle ratingHistory Einträge für diese Session
             const ratingHistoryQuery = db.collection(`players/${playerId}/ratingHistory`)
               .where('sessionId', '==', sessionId)
-              .orderBy('completedAt', 'asc');
+              .orderBy('completedAt', 'asc'); // ✅ KORRIGIERT: completedAt (Index existiert bereits)
             
             const ratingHistorySnap = await ratingHistoryQuery.get();
             
             if (!ratingHistorySnap.empty) {
               const entries = ratingHistorySnap.docs.map(doc => doc.data());
               
-              // ✅ KORREKT: Summiere ALLE Game-Deltas in dieser Session
+              // ✅ KORREKT: Summiere nur GAME-Deltas (nicht session_end, da die alt sein könnten)
               sessionDelta = entries.reduce((sum: number, entry: any) => {
-                return sum + (entry.delta || 0);
+                // Nur game Events zählen, session_end ignorieren
+                if (entry.eventType === 'game') {
+                  // ✅ ROBUST: Unterstütze sowohl Zahl als auch Object (delta.rating)
+                  const deltaValue = typeof entry.delta === 'number' 
+                    ? entry.delta 
+                    : (entry.delta?.rating || 0);
+                  return sum + deltaValue;
+                }
+                return sum;
               }, 0);
               
               logger.debug(`[finalizeSession] Player ${playerId} session delta: ${sessionDelta.toFixed(2)} (sum of ${entries.length} games)`);
@@ -986,10 +985,22 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
             sessionDelta = playerData.lastSessionDelta || 0; // Fallback
           }
           
+          // ✅ WICHTIG: Hole displayName für playerFinalRatings (für Frontend-Charts)
+          let displayName = playerId;
+          try {
+            const playerDoc2 = await db.collection('players').doc(playerId).get();
+            if (playerDoc2.exists) {
+              displayName = playerDoc2.data()?.displayName || playerId;
+            }
+          } catch (nameError) {
+            logger.warn(`[finalizeSession] Could not load displayName for player ${playerId}:`, nameError);
+          }
+          
           playerFinalRatings[playerId] = {
             rating: playerData.globalRating || 100,
             ratingDelta: sessionDelta,
             gamesPlayed: playerData.gamesPlayed || 0,
+            displayName: displayName, // ✅ WICHTIG: Für Frontend-Charts benötigt!
           };
         }
       }
@@ -1012,12 +1023,13 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
     if (initialDataFromClient.gruppeId) {
       logger.info(`[finalizeSession] Triggering group statistics update for group ${initialDataFromClient.gruppeId}`);
       
-      // Starte die Gruppenstatistik-Berechnung im Hintergrund (gleiche Pattern wie PlayerStats)
-      updateGroupComputedStatsAfterSession(initialDataFromClient.gruppeId).catch(error => {
+      try {
+        await updateGroupComputedStatsAfterSession(initialDataFromClient.gruppeId);
+        logger.info(`[finalizeSession] ✅ Group statistics update completed for group ${initialDataFromClient.gruppeId}`);
+      } catch (error) {
         logger.error(`[finalizeSession] Fehler bei der Gruppenstatistik-Berechnung für Gruppe ${initialDataFromClient.gruppeId}:`, error);
-      });
-      
-      logger.info(`[finalizeSession] Group statistics update initiated for group ${initialDataFromClient.gruppeId}`);
+        // Nicht kritisch - soll Session-Finalisierung nicht blockieren
+      }
     } else {
       logger.info(`[finalizeSession] No group ID provided, skipping group statistics update`);
     }
@@ -1025,17 +1037,19 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
     // ✅ UNIFIED PLAYER DATA: Aktualisiere alle Spieler-Daten (Scores, Stats, Partner, Opponents)
     logger.info(`[finalizeSession] Triggering unified player data update for ${participantPlayerIds.length} players`);
     
+    try {
     // ✅ SINGLE SOURCE OF TRUTH: Nur noch EIN Service-Aufruf statt 3!
-    updatePlayerDataAfterSession(
+      await updatePlayerDataAfterSession(
       initialDataFromClient.gruppeId,
       sessionId,
       participantPlayerIds,
       null // Sessions haben kein tournamentId - nur Turniere haben das
-    ).catch(error => {
+      );
+      logger.info(`[finalizeSession] ✅ Unified player data update completed for ${participantPlayerIds.length} players`);
+    } catch (error) {
       logger.error(`[finalizeSession] Fehler beim unified player data update:`, error);
-    });
-    
-    logger.info(`[finalizeSession] Unified player data update initiated for ${participantPlayerIds.length} players`);
+      // Nicht kritisch - soll Session-Finalisierung nicht blockieren
+    }
 
     // 🆕 CHART-DATA UPDATES: Aktualisiere alle Chart-Dokumente
     if (initialDataFromClient.gruppeId) {

@@ -1,12 +1,12 @@
 "use client";
 
-import React, {useRef, useMemo, useState} from "react";
+import React, {useRef, useMemo, useState, useEffect} from "react";
 import {useRouter} from "next/router";
 import {Button} from "@/components/ui/button";
 import {Alert, AlertDescription} from "@/components/ui/alert";
 import Image from "next/image";
 import MainLayout from "@/components/layout/MainLayout";
-import {UserCog, Users, BarChart3, CheckCircle, XCircle, Archive, Award as AwardIcon, User, Shield, XCircle as AlertXCircle, Camera as CameraIcon, ArrowLeft, Upload, Share} from "lucide-react";
+import {UserCog, Users, BarChart3, CheckCircle, XCircle, Archive, Award as AwardIcon, User, Shield, XCircle as AlertXCircle, Camera as CameraIcon, ArrowLeft, Upload, Share, Info} from "lucide-react";
 import { FiShare2 } from 'react-icons/fi'; // NEU: Share Button Icon
 import ImageCropModal from "@/components/ui/ImageCropModal";
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
@@ -180,6 +180,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   // Neu: State für Bildladung
   const [isImageLoading, setIsImageLoading] = useState(true);
+  // State für Bildladefehler
+  const [hasImageError, setHasImageError] = useState(false);
   
   // NEU: State für Elo-Rating
   const [playerRating, setPlayerRating] = useState<PlayerRatingWithTier | null>(null);
@@ -496,6 +498,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const photoURL = currentPlayer?.photoURL;
   const jassSpruch = currentPlayer?.statusMessage || "Hallo! Ich jasse mit jassguru.ch";
 
+  // Reset Image Error State when photoURL changes
+  useEffect(() => {
+    setHasImageError(false);
+    setIsImageLoading(true);
+  }, [photoURL]);
+
   const profileAvatarPhotoURLs = useMemo(() => {
     const urls: (string | undefined | null)[] = [];
 
@@ -739,10 +747,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       try {
         // 1. Ermittle alle Gruppen, in denen dieser Spieler Mitglied ist
         const currentPlayerDoc = await getDoc(doc(db, 'players', viewPlayerId));
-        if (!currentPlayerDoc.exists()) return;
+        if (!currentPlayerDoc.exists()) {
+          return;
+        }
         
         const groupIds = currentPlayerDoc.data().groupIds || [];
-        if (groupIds.length === 0) return;
+        if (groupIds.length === 0) {
+          return;
+        }
 
         // 2. Lade jassGameSummaries aus ALLEN Gruppen
         const allSummaries: any[] = [];
@@ -905,9 +917,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           const pointsData = pointsDataByPartner[partnerId];
           const matschData = matschDataByPartner[partnerId];
 
-          // 🎯 NEU: Prüfe ob Partner nur 1 Session hat (für spezielle Behandlung)
-          const sessionsWithPartner = partner.sessionsPlayedWith || 0;
-
           // Erstelle Data-Map: label -> value
           const stricheMap = new Map<string, number>();
           const pointsMap = new Map<string, number>();
@@ -931,26 +940,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             }
           }
 
-          // 🎯 NEU: Finde erstes und letztes Datum mit Daten für diesen Partner
-          const firstValidLabel = allLabels.find(label => 
+          // 🎯 KORRIGIERT: Filtere nur Labels MIT tatsächlichen Partner-Daten
+          // Problem: Vorher wurden alle Labels zwischen erstem und letztem Datum genommen,
+          // auch wenn dort keine Partner-Sessions waren (z.B. 27.06.25)
+          const relevantLabels = allLabels.filter(label => 
             stricheMap.has(label) || pointsMap.has(label) || matschMap.has(label)
           );
           
-          if (!firstValidLabel) continue; // Skip wenn keine Daten vorhanden
-          
-          const firstValidLabelIndex = allLabels.indexOf(firstValidLabel);
-          
-          // Finde das letzte Datum mit Daten
-          let lastValidLabelIndex = firstValidLabelIndex;
-          for (let i = allLabels.length - 1; i >= firstValidLabelIndex; i--) {
-            const label = allLabels[i];
-            if (stricheMap.has(label) || pointsMap.has(label) || matschMap.has(label)) {
-              lastValidLabelIndex = i;
-              break;
-            }
-          }
-          
-          const relevantLabels = allLabels.slice(firstValidLabelIndex, lastValidLabelIndex + 1); // Nur Labels zwischen erstem und letztem Datum
+          if (relevantLabels.length === 0) continue; // Skip wenn keine Daten vorhanden
           
           // Erstelle Data-Arrays nur für relevante Labels
           const stricheArray: (number | null)[] = [];
@@ -963,30 +960,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             matschArray.push(matschMap.has(label) ? matschMap.get(label)! : null);
           }
 
-          // 🎯 NEU: Für Partner mit nur 1 Session: Füge 0-Wert am Anfang hinzu
-          if (sessionsWithPartner === 1 && relevantLabels.length > 0) {
-            // Finde das letzte Label (Session-Datum)
-            const lastLabel = relevantLabels[relevantLabels.length - 1];
-            const hasDataAtLastLabel = stricheMap.has(lastLabel) || pointsMap.has(lastLabel) || matschMap.has(lastLabel);
-            
-            if (hasDataAtLastLabel) {
-              // Prüfe ob es ein vorheriges Label gibt (für 0-Wert)
-              const lastLabelIndex = relevantLabels.indexOf(lastLabel);
-              if (lastLabelIndex > 0) {
-                const previousLabel = relevantLabels[lastLabelIndex - 1];
-                // Setze 0-Wert nur wenn dort noch kein Wert existiert
-                if (!stricheMap.has(previousLabel)) {
-                  stricheArray[lastLabelIndex - 1] = 0;
-                }
-                if (!pointsMap.has(previousLabel)) {
-                  pointsArray[lastLabelIndex - 1] = 0;
-                }
-                if (!matschMap.has(previousLabel)) {
-                  matschArray[lastLabelIndex - 1] = 0;
-                }
-              }
-            }
-          }
+          // ✅ ENTFERNT: Kein fiktiver 0-Wert mehr!
+          // Der erste Datenpunkt ist IMMER nach Abschluss der Session.
+          // Kein Start auf der 0er Linie für Partner mit nur 1 Session.
 
           // Nur hinzufügen wenn mindestens ein Wert existiert
           if (stricheArray.some(v => v !== null)) {
@@ -1045,9 +1021,28 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             return dateA.getTime() - dateB.getTime();
           });
           
+          // 🔧 FIX: Mappe data Arrays auf gemeinsames sortedLabels Array
+          const mappedStricheDatasets = stricheDatasets.map(ds => {
+            const dataMap = new Map<string, number | null>();
+            // Erstelle Map aus den vorhandenen Daten
+            if (ds.labels && ds.data) {
+              for (let i = 0; i < ds.labels.length; i++) {
+                dataMap.set(ds.labels[i], ds.data[i]);
+              }
+            }
+            // Erstelle neues data Array basierend auf sortedLabels
+            const mappedData = sortedLabels.map(label => dataMap.get(label) ?? null);
+            
+            return {
+              ...ds,
+              data: mappedData,
+              // Entferne labels aus Dataset (wird nicht mehr benötigt)
+            };
+          });
+          
           setPartnerStricheChartData({
             labels: sortedLabels,
-            datasets: stricheDatasets
+            datasets: mappedStricheDatasets
           });
         }
 
@@ -1067,9 +1062,25 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             return dateA.getTime() - dateB.getTime();
           });
           
+          // 🔧 FIX: Mappe data Arrays auf gemeinsames sortedLabels Array
+          const mappedPointsDatasets = pointsDatasets.map(ds => {
+            const dataMap = new Map<string, number | null>();
+            if (ds.labels && ds.data) {
+              for (let i = 0; i < ds.labels.length; i++) {
+                dataMap.set(ds.labels[i], ds.data[i]);
+              }
+            }
+            const mappedData = sortedLabels.map(label => dataMap.get(label) ?? null);
+            
+            return {
+              ...ds,
+              data: mappedData,
+            };
+          });
+          
           setPartnerPointsChartData({
             labels: sortedLabels,
-            datasets: pointsDatasets
+            datasets: mappedPointsDatasets
           });
         }
 
@@ -1089,9 +1100,25 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             return dateA.getTime() - dateB.getTime();
           });
           
+          // 🔧 FIX: Mappe data Arrays auf gemeinsames sortedLabels Array
+          const mappedMatschDatasets = matschDatasets.map(ds => {
+            const dataMap = new Map<string, number | null>();
+            if (ds.labels && ds.data) {
+              for (let i = 0; i < ds.labels.length; i++) {
+                dataMap.set(ds.labels[i], ds.data[i]);
+              }
+            }
+            const mappedData = sortedLabels.map(label => dataMap.get(label) ?? null);
+            
+            return {
+              ...ds,
+              data: mappedData,
+            };
+          });
+          
           setPartnerMatschChartData({
             labels: sortedLabels,
-            datasets: matschDatasets
+            datasets: mappedMatschDatasets
           });
         }
 
@@ -1151,6 +1178,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         const cumulativeStricheByOpponent: Record<string, number> = {};
         const cumulativePointsByOpponent: Record<string, number> = {};
         const cumulativeMatschByOpponent: Record<string, number> = {};
+        
+        // 🔧 FIX: Track die allererste Session überhaupt
+        let firstSessionEver: string | null = null;
 
         // 4. Sortiere Summaries nach Datum (älteste zuerst für kumulative Berechnung)
         allSummaries.sort((a, b) => {
@@ -1158,6 +1188,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           const dateB = b.completedAt?.toDate?.() || new Date(b.completedAt?._seconds * 1000);
           return dateA.getTime() - dateB.getTime();
         });
+        
+        // Setze firstSessionEver auf das Datum der ersten Session
+        if (allSummaries.length > 0) {
+          const firstSummary = allSummaries[0];
+          const firstDate = firstSummary.completedAt?.toDate?.() || new Date(firstSummary.completedAt?._seconds * 1000);
+          firstSessionEver = firstDate.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: '2-digit' });
+        }
 
         // 5. Iteriere über alle Summaries und filtere nach Gegner
         for (const summary of allSummaries) {
@@ -1231,11 +1268,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           // NACH allen Games in dieser Session: Kumuliere für jeden Gegner
           for (const [opponentId, diffs] of opponentsInSession) {
             // Initialisiere kumulative Werte falls nötig
-            if (cumulativeStricheByOpponent[opponentId] === undefined) cumulativeStricheByOpponent[opponentId] = 0;
-            if (cumulativePointsByOpponent[opponentId] === undefined) cumulativePointsByOpponent[opponentId] = 0;
-            if (cumulativeMatschByOpponent[opponentId] === undefined) cumulativeMatschByOpponent[opponentId] = 0;
+            const isFirstSessionForOpponent = cumulativeStricheByOpponent[opponentId] === undefined;
+            
+            if (isFirstSessionForOpponent) {
+              // 🔧 FIX: Für die ERSTE Session mit diesem Gegner: Start bei 0
+              cumulativeStricheByOpponent[opponentId] = 0;
+              cumulativePointsByOpponent[opponentId] = 0;
+              cumulativeMatschByOpponent[opponentId] = 0;
+            }
 
-            // Kumuliere Werte
+            // Kumuliere Werte (addiere zu bisherigem Wert)
             cumulativeStricheByOpponent[opponentId] += diffs.stricheDiff;
             cumulativePointsByOpponent[opponentId] += diffs.pointsDiff;
             cumulativeMatschByOpponent[opponentId] += diffs.matschDiff;
@@ -1306,62 +1348,33 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             }
           }
 
-          // 🎯 NEU: Finde erstes und letztes Datum mit Daten für diesen Gegner
-          const firstValidLabel = allLabels.find(label => 
-            stricheMap.has(label) || pointsMap.has(label) || matschMap.has(label)
-          );
+          // 🔧 FIX: relevantLabels sollte NUR die Labels enthalten, wo dieser Gegner tatsächlich Daten hat
+          // Erstelle relevantLabels direkt aus den vorhandenen Daten (nicht aus allLabels)
+          const relevantLabels = stricheData && stricheData.labels.length > 0 
+            ? [...stricheData.labels].sort((a, b) => {
+                // Sortiere chronologisch
+                const [dayA, monthA, yearA] = a.split('.');
+                const [dayB, monthB, yearB] = b.split('.');
+                const dateA = new Date(2000 + parseInt(yearA), parseInt(monthA) - 1, parseInt(dayA));
+                const dateB = new Date(2000 + parseInt(yearB), parseInt(monthB) - 1, parseInt(dayB));
+                return dateA.getTime() - dateB.getTime();
+              })
+            : [];
           
-          if (!firstValidLabel) continue; // Skip wenn keine Daten vorhanden
-          
-          const firstValidLabelIndex = allLabels.indexOf(firstValidLabel);
-          
-          // Finde das letzte Datum mit Daten
-          let lastValidLabelIndex = firstValidLabelIndex;
-          for (let i = allLabels.length - 1; i >= firstValidLabelIndex; i--) {
-            const label = allLabels[i];
-            if (stricheMap.has(label) || pointsMap.has(label) || matschMap.has(label)) {
-              lastValidLabelIndex = i;
-              break;
-            }
-          }
-          
-          const relevantLabels = allLabels.slice(firstValidLabelIndex, lastValidLabelIndex + 1); // Nur Labels zwischen erstem und letztem Datum
+          if (relevantLabels.length === 0) continue; // Skip wenn keine Daten vorhanden
           
           // Erstelle Data-Arrays nur für relevante Labels
           const stricheArray: (number | null)[] = [];
           const pointsArray: (number | null)[] = [];
           const matschArray: (number | null)[] = [];
 
+          // 🔧 FIX: relevantLabels enthält nur Labels wo dieser Gegner tatsächlich Daten hat
           for (const label of relevantLabels) {
-            stricheArray.push(stricheMap.has(label) ? stricheMap.get(label)! : null);
-            pointsArray.push(pointsMap.has(label) ? pointsMap.get(label)! : null);
-            matschArray.push(matschMap.has(label) ? matschMap.get(label)! : null);
+            stricheArray.push(stricheMap.get(label) ?? null);
+            pointsArray.push(pointsMap.get(label) ?? null);
+            matschArray.push(matschMap.get(label) ?? null);
           }
 
-          // 🎯 NEU: Für Gegner mit nur 1 Session: Füge 0-Wert am Anfang hinzu
-          if (sessionsWithOpponent === 1 && relevantLabels.length > 0) {
-            // Finde das letzte Label (Session-Datum)
-            const lastLabel = relevantLabels[relevantLabels.length - 1];
-            const hasDataAtLastLabel = stricheMap.has(lastLabel) || pointsMap.has(lastLabel) || matschMap.has(lastLabel);
-            
-            if (hasDataAtLastLabel) {
-              // Prüfe ob es ein vorheriges Label gibt (für 0-Wert)
-              const lastLabelIndex = relevantLabels.indexOf(lastLabel);
-              if (lastLabelIndex > 0) {
-                const previousLabel = relevantLabels[lastLabelIndex - 1];
-                // Setze 0-Wert nur wenn dort noch kein Wert existiert
-                if (!stricheMap.has(previousLabel)) {
-                  stricheArray[lastLabelIndex - 1] = 0;
-                }
-                if (!pointsMap.has(previousLabel)) {
-                  pointsArray[lastLabelIndex - 1] = 0;
-                }
-                if (!matschMap.has(previousLabel)) {
-                  matschArray[lastLabelIndex - 1] = 0;
-                }
-              }
-            }
-          }
 
           // Nur hinzufügen wenn mindestens ein Wert existiert
           if (stricheArray.some(v => v !== null)) {
@@ -1420,9 +1433,28 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             return dateA.getTime() - dateB.getTime();
           });
           
+          // 🔧 FIX: Mappe data Arrays auf gemeinsames sortedLabels Array
+          const mappedStricheDatasets = stricheDatasets.map(ds => {
+            const dataMap = new Map<string, number | null>();
+            // Erstelle Map aus den vorhandenen Daten
+            if (ds.labels && ds.data) {
+              for (let i = 0; i < ds.labels.length; i++) {
+                dataMap.set(ds.labels[i], ds.data[i]);
+              }
+            }
+            // Erstelle neues data Array basierend auf sortedLabels
+            const mappedData = sortedLabels.map(label => dataMap.get(label) ?? null);
+            
+            return {
+              ...ds,
+              data: mappedData,
+              // Entferne labels aus Dataset (wird nicht mehr benötigt)
+            };
+          });
+          
           setOpponentStricheChartData({
             labels: sortedLabels,
-            datasets: stricheDatasets
+            datasets: mappedStricheDatasets
           });
         }
 
@@ -1442,9 +1474,25 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             return dateA.getTime() - dateB.getTime();
           });
           
+          // 🔧 FIX: Mappe data Arrays auf gemeinsames sortedLabels Array
+          const mappedPointsDatasets = pointsDatasets.map(ds => {
+            const dataMap = new Map<string, number | null>();
+            if (ds.labels && ds.data) {
+              for (let i = 0; i < ds.labels.length; i++) {
+                dataMap.set(ds.labels[i], ds.data[i]);
+              }
+            }
+            const mappedData = sortedLabels.map(label => dataMap.get(label) ?? null);
+            
+            return {
+              ...ds,
+              data: mappedData,
+            };
+          });
+          
           setOpponentPointsChartData({
             labels: sortedLabels,
-            datasets: pointsDatasets
+            datasets: mappedPointsDatasets
           });
         }
 
@@ -1464,9 +1512,25 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             return dateA.getTime() - dateB.getTime();
           });
           
+          // 🔧 FIX: Mappe data Arrays auf gemeinsames sortedLabels Array
+          const mappedMatschDatasets = matschDatasets.map(ds => {
+            const dataMap = new Map<string, number | null>();
+            if (ds.labels && ds.data) {
+              for (let i = 0; i < ds.labels.length; i++) {
+                dataMap.set(ds.labels[i], ds.data[i]);
+              }
+            }
+            const mappedData = sortedLabels.map(label => dataMap.get(label) ?? null);
+            
+            return {
+              ...ds,
+              data: mappedData,
+            };
+          });
+          
           setOpponentMatschChartData({
             labels: sortedLabels,
-            datasets: matschDatasets
+            datasets: mappedMatschDatasets
           });
         }
 
@@ -1609,7 +1673,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 fill={true}
                 className="object-cover"
               />
-            ) : photoURL ? (
+            ) : photoURL && !hasImageError ? (
               <>
                 {isImageLoading && (
                   <div className="absolute inset-0 bg-gray-800 animate-pulse rounded-full" />
@@ -1623,10 +1687,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   sizes="128px"
                   placeholder="blur"
                   blurDataURL={generateBlurPlaceholder()}
-                  onLoad={() => setIsImageLoading(false)}
-                  onError={(e) => {
+                  onLoad={() => {
                     setIsImageLoading(false);
-                    (e.target as HTMLImageElement).src = "/placeholder-avatar.png";
+                    setHasImageError(false);
+                  }}
+                  onError={() => {
+                    setIsImageLoading(false);
+                    setHasImageError(true);
                   }}
                 />
               </>
@@ -1671,11 +1738,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <span className={`${layout.bodySize} text-gray-300`}>Jass-Elo:</span>
               <span className={`${layout.headingSize} font-semibold text-white`}>
                 {Math.round(playerRating.rating)}
-                {playerDelta !== null && (
-                  <span className={`ml-1 ${layout.bodySize} ${playerDelta > 0 ? 'text-emerald-500' : playerDelta < 0 ? 'text-red-500' : 'text-white'}`}>
-                    ({playerDelta > 0 ? '+' : ''}{Math.round(playerDelta)})
-                  </span>
-                )}
+                {playerDelta !== null && (() => {
+                  const roundedDelta = Math.round(playerDelta);
+                  // ✅ Wenn gerundetes Delta 0 ist, immer grau ohne Vorzeichen
+                  if (roundedDelta === 0) {
+                    return (
+                      <span className={`ml-1 ${layout.bodySize} text-gray-400`}>
+                        (0)
+                      </span>
+                    );
+                  }
+                  return (
+                    <span className={`ml-1 ${layout.bodySize} ${playerDelta > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                      ({playerDelta > 0 ? '+' : ''}{roundedDelta})
+                    </span>
+                  );
+                })()}
               </span>
               <span className={layout.headingSize}>{playerRating.tierEmoji}</span>
             </div>
@@ -1922,11 +2000,30 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   <div className={`${layout.sectionSpacing} ${layout.bodySize}`}> 
                     {/* Block 1: Power-Rating Zeitreihen Chart - AN OBERSTER STELLE */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
-                        <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>
-                          Jass-Elo: <span className={playerRating && playerRating.rating >= 100 ? 'text-emerald-500' : 'text-red-500'}>{playerRating ? Math.round(playerRating.rating) : 'N/A'}</span> {playerRating?.tierEmoji}
-                        </h3>
+                      <div className={`flex items-center justify-between border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className="flex items-center">
+                          <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
+                          <h3 className={`${layout.headingSize} font-semibold text-white`}>
+                            Jass-Elo Verlauf pro Spiel: <span className={playerRating ? (() => {
+                              const roundedRating = Math.round(playerRating.rating);
+                              // ✅ Wenn Rating genau 100 ist, grau
+                              if (roundedRating === 100) {
+                                return 'text-gray-400';
+                              }
+                              // ✅ Sonst: > 100 = grün, < 100 = rot
+                              return roundedRating > 100 ? 'text-emerald-500' : 'text-red-500';
+                            })() : 'text-white'}>{playerRating ? Math.round(playerRating.rating) : 'N/A'}</span>
+                          </h3>
+                        </div>
+                        <a 
+                          href="https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/Elo%20Ranking%20System.pdf?alt=media&token=eb789b69-9438-450f-b3a6-f7e2902a64f5" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className={`flex items-center justify-center rounded-full bg-gray-700/50 hover:bg-gray-600/70 border border-gray-600/40 hover:border-gray-500/60 transition-all duration-200 hover:scale-105 ${layout.actionButtonPadding}`}
+                          title="Elo Ranking System Dokumentation öffnen"
+                        >
+                          <Info size={layout.iconSize} className="text-gray-300 hover:text-white" />
+                        </a>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {chartLoading ? (
@@ -1964,7 +2061,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
                         <h3 className={`${layout.headingSize} font-semibold text-white`}>
-                          Strichdifferenz: 
+                          Strichdifferenz pro Spiel: 
                           <span className={`ml-2 ${(() => {
                             // ✅ Verwende Chart-Daten statt playerStats
                             if (!stricheChartData || !stricheChartData.datasets || stricheChartData.datasets.length === 0) {
@@ -2021,7 +2118,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
                         <h3 className={`${layout.headingSize} font-semibold text-white`}>
-                          Punktdifferenz: 
+                          Punktdifferenz pro Spiel: 
                           <span className={`ml-2 ${(() => {
                             // ✅ Verwende Chart-Daten statt playerStats
                             if (!pointsChartData || !pointsChartData.datasets || pointsChartData.datasets.length === 0) {
@@ -2213,7 +2310,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
                           <h3 className={`${layout.headingSize} font-semibold text-white`}>
-                            Siegquote Partie: <span className={color}>{winRate.toFixed(1)}%</span>
+                            Siegquote Partien: <span className={color}>{winRate.toFixed(1)}%</span>
                           </h3>
                         </div>
                         <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
@@ -2247,7 +2344,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
                           <h3 className={`${layout.headingSize} font-semibold text-white`}>
-                            Siegquote Spiel: <span className={color}>{winRate.toFixed(1)}%</span>
+                            Siegquote Spiele: <span className={color}>{winRate.toFixed(1)}%</span>
                           </h3>
                         </div>
                         <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
@@ -2340,7 +2437,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
                     {/* 🆕 WEIS-DIFFERENZ CHART */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                      <div className={`flex items-center ${weisChartData && weisChartData.datasets[0]?.data?.length === 1 ? '' : `border-b ${layout.borderWidth} border-gray-700/50`} ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
                         <h3 className={`${layout.headingSize} font-semibold text-white`}>
                           Weisdifferenz: 
@@ -2362,33 +2459,36 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           </span>
                         </h3>
                       </div>
-                      <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
-                        {weisChartLoading ? (
-                          <div className="flex justify-center items-center py-10">
-                            <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
-                            <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Weis-Chart...</span>
-                          </div>
-                        ) : weisChartData && weisChartData.datasets.length > 0 ? (
-                          <PowerRatingChart 
-                            data={weisChartData}
-                            title="Weisdifferenz"
-                            height={220} // ✅ NEU: Einheitliche Höhe für alle Charts
-                            theme={profileTheme || 'blue'}
-                            isDarkMode={true}
-                            hideLegend={true} // ✅ Einfach wie Punktdifferenz
-                            showBaseline={true} // ✅ 0-Linie für Differenz-Charts
-                            isEloChart={false} // ✅ Nicht-ELO-Chart
-                            activeTab={activeMainTab}
-                            activeSubTab={activeStatsSubTab}
-                            useThemeColors={true} // 🎨 NEU: Verwende Theme-Farben
-                          />
-                        ) : (
-                          <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
-                            <p>Noch keine Weis-Daten verfügbar</p>
-                          </div>
-                        )}
-                      </div>
+                      {/* ✅ Stats-Container nur anzeigen wenn mehr als 1 Datenpunkt vorhanden */}
+                      {weisChartData && weisChartData.datasets[0]?.data?.length > 1 && (
+                        <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
+                          {weisChartLoading ? (
+                            <div className="flex justify-center items-center py-10">
+                              <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
+                              <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Weis-Chart...</span>
+                            </div>
+                          ) : weisChartData && weisChartData.datasets.length > 0 ? (
+                            <PowerRatingChart 
+                              data={weisChartData}
+                              title="Weisdifferenz"
+                              height={220} // ✅ NEU: Einheitliche Höhe für alle Charts
+                              theme={profileTheme || 'blue'}
+                              isDarkMode={true}
+                              hideLegend={true} // ✅ Einfach wie Punktdifferenz
+                              showBaseline={true} // ✅ 0-Linie für Differenz-Charts
+                              isEloChart={false} // ✅ Nicht-ELO-Chart
+                              activeTab={activeMainTab}
+                              activeSubTab={activeStatsSubTab}
+                              useThemeColors={true} // 🎨 NEU: Verwende Theme-Farben
+                            />
+                          ) : (
+                            <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
+                              <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                              <p>Noch keine Weis-Daten verfügbar</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* Block 2: Spielerübersicht */}
@@ -2734,8 +2834,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 {(playerStats as any)?.partnerAggregates && (playerStats as any).partnerAggregates.length > 0 ? (
                   <>
                     {/* Strichdifferenz Verlauf */}
-                    {partnerStricheChartData && partnerStricheChartData.datasets.some((d: any) => d.data.length > 1) && 
-                     (playerStats as any).partnerAggregates?.some((p: any) => (p.sessionsPlayedWith || 0) >= 2) && (
+                    {(() => {
+                      const hasData = partnerStricheChartData && partnerStricheChartData.datasets.some((d: any) => d.data.filter((v: any) => v !== null && v !== undefined).length > 1);
+                      const hasEnoughSessions = (playerStats as any).partnerAggregates?.some((p: any) => (p.sessionsPlayedWith || 0) >= 2);
+                      return hasData && hasEnoughSessions;
+                    })() && (
                       <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                         <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -2814,8 +2917,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 </div>
 
                     {/* Punktedifferenz Verlauf */}
-                    {partnerPointsChartData && partnerPointsChartData.datasets.some((d: any) => d.data.length > 1) && 
-                     (playerStats as any).partnerAggregates?.some((p: any) => (p.sessionsPlayedWith || 0) >= 2) && (
+                    {(() => {
+                      const hasData = partnerPointsChartData && partnerPointsChartData.datasets.some((d: any) => d.data.filter((v: any) => v !== null && v !== undefined).length > 1);
+                      const hasEnoughSessions = (playerStats as any).partnerAggregates?.some((p: any) => (p.sessionsPlayedWith || 0) >= 2);
+                      return hasData && hasEnoughSessions;
+                    })() && (
                       <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                         <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -2908,7 +3014,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               winRate: partner.sessionWinRate || 0,
                               wins: partner.sessionsWonWith || 0,
                               losses: partner.sessionsLostWith || 0,
-                              draws: partner.sessionsDrawWith || 0
+                              draws: partner.sessionsDrawWith || 0,
+                              totalGames: partner.sessionsPlayedWith // ✅ Gesamt-Partien aus partnerStats
                             }));
 
                             if (chartData.length > 0) {
@@ -2977,7 +3084,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                     <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
                                       {partner.sessionsPlayedWith > 0 && (
                                         <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                          ({partner.sessionsWonWith}/{partner.sessionsPlayedWith})
+                                          ({partner.sessionsWonWith}/{partner.sessionsLostWith}/{partner.sessionsDrawWith || 0})
                           </span>
                                       )}
                                       <span className={`${getWinRateColor(partner.sessionWinRate || 0)} ${layout.valueSize} font-medium`}>
@@ -3013,7 +3120,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               label: partner.partnerDisplayName,
                               winRate: partner.gameWinRate || 0,
                               wins: partner.gamesWonWith || 0,
-                              losses: partner.gamesLostWith || 0
+                              losses: partner.gamesLostWith || 0,
+                              totalGames: partner.gamesPlayedWith // ✅ Gesamt-Spiele aus partnerStats
                             }));
 
                             if (chartData.length > 0) {
@@ -3082,7 +3190,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                     <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
                                       {partner.gamesPlayedWith > 0 && (
                                         <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                          ({partner.gamesWonWith}/{partner.gamesPlayedWith})
+                                          ({partner.gamesWonWith}/{partner.gamesLostWith})
                                         </span>
                                       )}
                                       <span className={`${getWinRateColor(partner.gameWinRate || 0)} ${layout.valueSize} font-medium`}>
@@ -3105,8 +3213,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </div>
 
                     {/* Matsch-Bilanz Verlauf */}
-                    {partnerMatschChartData && partnerMatschChartData.datasets.some((d: any) => d.data.length > 1) && 
-                     (playerStats as any).partnerAggregates?.some((p: any) => (p.sessionsPlayedWith || 0) >= 2) && (
+                    {(() => {
+                      const hasData = partnerMatschChartData && partnerMatschChartData.datasets.some((d: any) => d.data.filter((v: any) => v !== null && v !== undefined).length > 1);
+                      const hasEnoughSessions = (playerStats as any).partnerAggregates?.some((p: any) => (p.sessionsPlayedWith || 0) >= 2);
+                      return hasData && hasEnoughSessions;
+                    })() && (
                       <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                         <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -3489,7 +3600,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               winRate: opponent.sessionWinRate || 0,
                               wins: opponent.sessionsWonAgainst || 0,
                               losses: opponent.sessionsLostAgainst || 0,
-                              draws: opponent.sessionsDrawAgainst || 0
+                              draws: opponent.sessionsDrawAgainst || 0,
+                              totalGames: opponent.sessionsPlayedAgainst // ✅ Gesamt-Partien aus opponentStats
                             }));
 
                             if (chartData.length > 0) {
@@ -3558,7 +3670,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                     <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
                                       {opponent.sessionsPlayedAgainst > 0 && (
                                         <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                          ({opponent.sessionsWonAgainst}/{opponent.sessionsPlayedAgainst})
+                                          ({opponent.sessionsWonAgainst}/{opponent.sessionsLostAgainst}/{opponent.sessionsDrawAgainst || 0})
                                         </span>
                                       )}
                                       <span className={`${getWinRateColor(opponent.sessionWinRate || 0)} ${layout.valueSize} font-medium`}>
@@ -3594,7 +3706,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               label: opponent.opponentDisplayName,
                               winRate: opponent.gameWinRate || 0,
                               wins: opponent.gamesWonAgainst || 0,
-                              losses: opponent.gamesLostAgainst || 0
+                              losses: opponent.gamesLostAgainst || 0,
+                              totalGames: opponent.gamesPlayedAgainst // ✅ Gesamt-Spiele aus opponentStats
                             }));
 
                             if (chartData.length > 0) {
@@ -3664,7 +3777,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                     <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>
                                       {opponent.gamesPlayedAgainst > 0 && (
                                         <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                          ({opponent.gamesWonAgainst}/{opponent.gamesPlayedAgainst})
+                                          ({opponent.gamesWonAgainst}/{opponent.gamesLostAgainst})
                                         </span>
                                       )}
                                       <span className={`${getWinRateColor(opponent.gameWinRate || 0)} ${layout.valueSize} font-medium`}>

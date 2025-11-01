@@ -302,11 +302,97 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
       return;
     }
 
+    // 🔧 FIX: Prüfe State VOR dem addBerg-Call, um Race Conditions zu vermeiden
+    const wasBergActiveBefore = isBergActive(team);
+    console.log("[GameInfoOverlay] BERG Click - VOR addBerg:", {
+      team,
+      wasBergActiveBefore,
+      actionProps_isActivating: actionProps.isActivating,
+      chargeLevel: actionProps.chargeDuration.level,
+      chargeDuration: actionProps.chargeDuration.duration,
+    });
+    
     // BERG einloggen
     addBerg(team);
 
-    // Notification nur zeigen, wenn wir BERG aktivieren
-    if (actionProps.isActivating) {
+    // 🔧 FIX: Prüfe State NACH dem addBerg-Call (synchron, da addBerg synchron ist)
+    const isBergActiveNow = useGameStore.getState().isBergActive(team);
+    
+    // 🚀 TEMPORÄR: Notification nur zeigen, wenn skipBedankenNotification false ist
+    const shouldSkipNotification = useUIStore.getState().skipBedankenNotification;
+
+    console.log("[GameInfoOverlay] BERG Click - NACH addBerg:", {
+      team,
+      wasBergActiveBefore,
+      isBergActiveNow,
+      shouldSkipNotification,
+      shouldRedirect: shouldSkipNotification && isBergActiveNow && !wasBergActiveBefore,
+    });
+
+    // Nur zur ResultatKreidetafel, wenn BERG jetzt aktiv ist (nicht deaktiviert wurde)
+    if (shouldSkipNotification && isBergActiveNow && !wasBergActiveBefore) {
+      console.log("[GameInfoOverlay] ✅ BERG: Weiterleitung zur ResultatKreidetafel");
+      
+      // 🔧 FIX: Zuerst State setzen, dann onClose() mit kleinem Delay aufrufen
+      // Direkt zur ResultatKreidetafel ohne Notification
+      endCharge(team, "berg");
+      
+      // Setze State ZUERST
+      useUIStore.setState((state) => {
+        const newState = {
+          resultatKreidetafel: {
+            ...state.resultatKreidetafel,
+            isOpen: true,
+            swipePosition: team,
+          },
+        };
+        console.log("[GameInfoOverlay] ✅ BERG: Setze State:", newState.resultatKreidetafel);
+        return newState;
+      });
+      
+      // 🔍 DEBUG: Verifiziere State direkt nach dem Setzen
+      setTimeout(() => {
+        const verifiedState = useUIStore.getState().resultatKreidetafel;
+        console.log("[GameInfoOverlay] ✅ BERG: State-Verifikation nach setState:", verifiedState);
+      }, 10);
+      
+      console.log("[GameInfoOverlay] ✅ BERG: State gesetzt, warte kurz vor onClose()");
+      
+      // 🔧 FIX: Warte länger und setze State ERNEUT nach onClose(), um sicherzustellen, dass er nicht überschrieben wird
+      setTimeout(() => {
+        console.log("[GameInfoOverlay] ✅ BERG: Rufe onClose() auf");
+        onClose();
+        
+        // 🔧 KRITISCH: Setze State ERNEUT nach onClose(), um sicherzustellen, dass er nicht überschrieben wird
+        setTimeout(() => {
+          const currentState = useUIStore.getState().resultatKreidetafel;
+          if (!currentState.isOpen) {
+            console.log("[GameInfoOverlay] 🔧 BERG: State wurde überschrieben, setze erneut");
+            useUIStore.setState((state) => ({
+              resultatKreidetafel: {
+                ...state.resultatKreidetafel,
+                isOpen: true,
+                swipePosition: team,
+              },
+            }));
+          } else {
+            console.log("[GameInfoOverlay] ✅ BERG: State ist korrekt nach onClose()");
+          }
+        }, 100);
+      }, 50);
+      
+      return;
+    } else {
+      console.log("[GameInfoOverlay] ❌ BERG: KEINE Weiterleitung - Bedingungen nicht erfüllt:", {
+        shouldSkipNotification,
+        isBergActiveNow,
+        wasBergActiveBefore,
+      });
+    }
+
+    // Notification nur zeigen, wenn wir BERG aktivieren UND Notification nicht übersprungen wird
+    // 🔧 FIX: Prüfe State direkt, nicht nur actionProps (isBergActiveNow bereits oben deklariert)
+    if (actionProps.isActivating && isBergActiveNow && !wasBergActiveBefore) {
       const getNotificationDelay = (level: ChargeLevel): number => {
         const baseDelay = 250;
         switch (level) {
@@ -390,11 +476,97 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
       return;
     }
 
+    // 🔧 FIX: Prüfe State VOR dem addSieg-Call, um Race Conditions zu vermeiden
+    const wasSiegActiveBefore = isSiegActive(team);
+    console.log("[GameInfoOverlay] BEDANKEN Click - VOR addSieg:", {
+      team,
+      wasSiegActiveBefore,
+      actionProps_isActivating: actionProps.isActivating,
+      chargeLevel: actionProps.chargeDuration.level,
+      chargeDuration: actionProps.chargeDuration.duration,
+    });
+    
     // 1. Sofort BEDANKEN einloggen
     addSieg(team);
 
-    // 2. Notification nur zeigen, wenn wir BEDANKEN aktivieren
-    if (actionProps.isActivating) {
+    // 🔧 FIX: Prüfe State NACH dem addSieg-Call (synchron, da addSieg synchron ist)
+    const isSiegActiveNow = useGameStore.getState().isSiegActive(team);
+    
+    // 🚀 TEMPORÄR: Notification nur zeigen, wenn skipBedankenNotification false ist
+    const shouldSkipNotification = useUIStore.getState().skipBedankenNotification;
+
+    console.log("[GameInfoOverlay] BEDANKEN Click - NACH addSieg:", {
+      team,
+      wasSiegActiveBefore,
+      isSiegActiveNow,
+      shouldSkipNotification,
+      shouldRedirect: shouldSkipNotification && isSiegActiveNow && !wasSiegActiveBefore,
+    });
+
+    // Nur zur ResultatKreidetafel, wenn BEDANKEN jetzt aktiv ist (nicht deaktiviert wurde)
+    if (shouldSkipNotification && isSiegActiveNow && !wasSiegActiveBefore) {
+      console.log("[GameInfoOverlay] ✅ BEDANKEN: Weiterleitung zur ResultatKreidetafel");
+      
+      // 🔧 FIX: Zuerst State setzen, dann onClose() mit kleinem Delay aufrufen
+      // Direkt zur ResultatKreidetafel ohne Notification
+      endCharge(team, "bedanken");
+      
+      // Setze State ZUERST
+      useUIStore.setState((state) => {
+        const newState = {
+          resultatKreidetafel: {
+            ...state.resultatKreidetafel,
+            isOpen: true,
+            swipePosition: team,
+          },
+        };
+        console.log("[GameInfoOverlay] ✅ BEDANKEN: Setze State:", newState.resultatKreidetafel);
+        return newState;
+      });
+      
+      // 🔍 DEBUG: Verifiziere State direkt nach dem Setzen
+      setTimeout(() => {
+        const verifiedState = useUIStore.getState().resultatKreidetafel;
+        console.log("[GameInfoOverlay] ✅ BEDANKEN: State-Verifikation nach setState:", verifiedState);
+      }, 10);
+      
+      console.log("[GameInfoOverlay] ✅ BEDANKEN: State gesetzt, warte kurz vor onClose()");
+      
+      // 🔧 FIX: Warte länger und setze State ERNEUT nach onClose(), um sicherzustellen, dass er nicht überschrieben wird
+      setTimeout(() => {
+        console.log("[GameInfoOverlay] ✅ BEDANKEN: Rufe onClose() auf");
+        onClose();
+        
+        // 🔧 KRITISCH: Setze State ERNEUT nach onClose(), um sicherzustellen, dass er nicht überschrieben wird
+        setTimeout(() => {
+          const currentState = useUIStore.getState().resultatKreidetafel;
+          if (!currentState.isOpen) {
+            console.log("[GameInfoOverlay] 🔧 BEDANKEN: State wurde überschrieben, setze erneut");
+            useUIStore.setState((state) => ({
+              resultatKreidetafel: {
+                ...state.resultatKreidetafel,
+                isOpen: true,
+                swipePosition: team,
+              },
+            }));
+          } else {
+            console.log("[GameInfoOverlay] ✅ BEDANKEN: State ist korrekt nach onClose()");
+          }
+        }, 100);
+      }, 50);
+      
+      return;
+    } else {
+      console.log("[GameInfoOverlay] ❌ BEDANKEN: KEINE Weiterleitung - Bedingungen nicht erfüllt:", {
+        shouldSkipNotification,
+        isSiegActiveNow,
+        wasSiegActiveBefore,
+      });
+    }
+
+    // 2. Notification nur zeigen, wenn wir BEDANKEN aktivieren UND Notification nicht übersprungen wird
+    // 🔧 FIX: Prüfe State direkt, nicht nur actionProps (isSiegActiveNow bereits oben deklariert)
+    if (actionProps.isActivating && isSiegActiveNow && !wasSiegActiveBefore) {
       const getNotificationDelay = (level: ChargeLevel): number => {
         const baseDelay = 250;
         switch (level) {

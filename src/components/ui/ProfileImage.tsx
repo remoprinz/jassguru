@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { backgroundOptimizer } from '@/utils/backgroundImageOptimizer';
 import { getOptimizedImageUrl } from '@/utils/imageOptimization';
+import { isImageCached } from '@/components/ui/AvatarPreloader';
 
 interface ProfileImageProps {
   src?: string | null;
@@ -81,17 +82,21 @@ const ProfileImage: React.FC<ProfileImageProps> = memo(({
     if (context === 'hero') {
       return { shouldUsePriority: true, shouldBeLazy: false };
     }
-    // List images: LAZY laden, um parallele Requests zu drosseln
+    // 🎯 FIX: Liste images - wenn bereits im Cache (AvatarPreloader), dann EAGER laden!
     if (context === 'list') {
-      return { shouldUsePriority: false, shouldBeLazy: true };
+      const isCached = isImageCached(src);
+      // ✅ Wenn im Cache → eager loading für sofortige Anzeige
+      // ❌ Wenn nicht im Cache → lazy loading um Requests zu drosseln
+      return { shouldUsePriority: false, shouldBeLazy: !isCached };
     }
     // 🔥 PERFORMANCE-BOOST: Kleine Avatare in Listen automatisch mit Avatar-Component (schneller)
     if (size === 'sm' || size === 'xs') {
-      return { shouldUsePriority: false, shouldBeLazy: true, useAvatarComponent: true };
+      const isCached = isImageCached(src);
+      return { shouldUsePriority: false, shouldBeLazy: !isCached, useAvatarComponent: true };
     }
     // Default: respektiere explizite props
     return { shouldUsePriority: priority, shouldBeLazy: lazy };
-  }, [context, priority, lazy, size]);
+  }, [context, priority, lazy, size, src]);
 
   const { shouldUsePriority, shouldBeLazy, useAvatarComponent } = getLoadingBehavior();
 

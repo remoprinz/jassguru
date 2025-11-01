@@ -850,9 +850,6 @@ export const useGameStore = create<GameStore>()(
               };
               
               const cleanedUpdateData = sanitizeDataForFirestore(updateData);
-              if (process.env.NODE_ENV === 'development') {
-              console.log("[GameStore.finalizeRound] Updating Firestore main document with:", cleanedUpdateData);
-            }
               
               updateActiveGame(initialActiveGameId, cleanedUpdateData)
                 .catch(error => console.error("[GameStore.finalizeRound] Firestore update failed:", error));
@@ -1003,13 +1000,6 @@ export const useGameStore = create<GameStore>()(
                   weisPoints: newWeisPoints,
                   currentRoundWeis: newCurrentRoundWeis,
               };
-              if (process.env.NODE_ENV === 'development') {
-                console.log("[addWeisPoints - Normal] State being saved in WeisRoundEntry:", {
-                    weisPoints: stateForEntryCreation.weisPoints,
-                    scores: stateForEntryCreation.scores,
-                    currentRoundWeisCount: stateForEntryCreation.currentRoundWeis.length
-                });
-              }
               const newEntry = createRoundEntry(
                 stateForEntryCreation,
                 get,
@@ -1026,14 +1016,6 @@ export const useGameStore = create<GameStore>()(
                 currentRoundWeis: newCurrentRoundWeis,
                 ...historyUpdate,
               };
-              if (process.env.NODE_ENV === 'development') {
-                console.log("[GameStore.addWeisPoints] Normal Weis added:", {
-                    currentIndex: finalState.currentHistoryIndex,
-                    historyLength: finalState.roundHistory.length,
-                    weisPoints: finalState.weisPoints[team],
-                    currentRoundWeisCount: finalState.currentRoundWeis.length,
-                });
-              }
               return finalState;
           });
 

@@ -55,8 +55,12 @@ export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, isLoa
   }
 
   return (
-    <ul className="space-y-3 pt-2">
-      {members.map((member) => {
+    <>
+      <p className={`${layout.smallTextSize} text-gray-400 mb-2 italic text-center`}>
+        Spieler auswählen für Details:
+      </p>
+      <ul className="space-y-3 pt-2">
+        {members.map((member) => {
         const player = member as PlayerWithPlaceholder; // Cast für Zugriff auf _isPlaceholder
         const isPlaceholder = player._isPlaceholder;
 
@@ -116,6 +120,7 @@ export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, isLoa
           </li>
         );
       })}
-    </ul>
+      </ul>
+    </>
   );
 }; 

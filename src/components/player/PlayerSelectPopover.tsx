@@ -204,10 +204,12 @@ export const PlayerSelectPopover: React.FC<PlayerSelectPopoverProps> = ({
                           <ProfileImage 
                             src={playerDoc?.photoURL}
                             alt={member.name} 
-                            size="sm"
-                            className="mr-2 flex-shrink-0"
-                            fallbackClassName="bg-gray-600 text-gray-300 text-xs"
+                            size="md"
+                            className="mr-3 flex-shrink-0"
+                            fallbackClassName="bg-gray-600 text-gray-300 text-base"
                             fallbackText={member.name.charAt(0).toUpperCase()}
+                            context="list"
+                            lazy={false}
                           />
                           <span>{member.name}</span>
                         </div>

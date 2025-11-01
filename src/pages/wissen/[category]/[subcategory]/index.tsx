@@ -21,10 +21,7 @@ function getArticlesForSubcategory(
       toSlug(item.metadata.category.sub) === subcategorySlug
     )
     .sort((a, b) => {
-      // Sortiere nach Wichtigkeit, dann alphabetisch
-      if (b.metadata.importance !== a.metadata.importance) {
-        return b.metadata.importance - a.metadata.importance;
-      }
+      // Sortiere alphabetisch (nicht nach Wichtigkeit)
       return a.metadata.category.topic.localeCompare(b.metadata.category.topic, 'de');
     });
 }

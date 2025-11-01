@@ -1,5 +1,6 @@
 import { db } from '@/services/firebaseInit';
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import { getRatingTier } from '@/shared/rating-tiers'; // 🔧 FIX: Single Source of Truth für Emojis
 
 /**
  * 🌍 GLOBALE ELO-RATING ZEITREIHE - Über alle Gruppen & Turniere hinweg
@@ -151,30 +152,9 @@ export async function getGlobalPlayerRatingTimeSeries(
     
     const colors = themeColors[profileTheme as keyof typeof themeColors] || themeColors.yellow;
 
-    // 🎯 Tier-Emoji basierend auf Rating (KORREKTE JASSGURU-TIERE)
+    // 🎯 Tier-Emoji basierend auf Rating - Verwende getRatingTier() als Single Source of Truth
     function getTierEmojiForRating(rating: number): string {
-      if (rating >= 150) return '👼';      // Göpf Egg
-      if (rating >= 145) return '🔱';      // Jassgott
-      if (rating >= 140) return '👑';      // Jasskönig
-      if (rating >= 135) return '🏆';      // Grossmeister
-      if (rating >= 130) return '🎖️';      // Jasser mit Auszeichnung
-      if (rating >= 125) return '💎';      // Diamantjasser II
-      if (rating >= 120) return '💍';      // Diamantjasser I
-      if (rating >= 115) return '🥇';      // Goldjasser
-      if (rating >= 110) return '🥈';      // Silberjasser
-      if (rating >= 105) return '🥉';      // Bronzejasser
-      if (rating >= 100) return '👨‍🎓';      // Jassstudent (START)
-      if (rating >= 95) return '🍀';       // Kleeblatt vierblättrig
-      if (rating >= 90) return '☘️';       // Kleeblatt dreiblättrig
-      if (rating >= 85) return '🌱';       // Sprössling
-      if (rating >= 80) return '🐓';       // Hahn
-      if (rating >= 75) return '🐔';       // Huhn
-      if (rating >= 70) return '🐥';       // Kücken
-      if (rating >= 65) return '🎅';       // Chlaus
-      if (rating >= 60) return '🧀';       // Chäs
-      if (rating >= 55) return '🦆';       // Ente
-      if (rating >= 50) return '🥒';       // Gurke
-      return '🥚';                         // Just Egg
+      return getRatingTier(rating).emoji;
     }
 
     return {

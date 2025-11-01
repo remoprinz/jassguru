@@ -279,6 +279,7 @@ export interface OpponentPlayerStats {
 export interface ScoresHistoryEntry {
   completedAt: admin.firestore.Timestamp; // ✅ KONSISTENT mit ratingHistory!
   groupId: string;
+  sessionId?: string; // ✅ NEU: Für Queries nach Session
   tournamentId?: string | null;
   gameNumber?: number; // Optional: vorhanden für Pro-Spiel-Entries (completedGames.gameNumber oder Tournament passeNumber)
   

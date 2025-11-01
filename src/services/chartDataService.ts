@@ -533,38 +533,88 @@ export async function getOptimizedTeamMatschChart(
       const label = timestamp.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
       labels.push(label);
       
-      // Extrahiere Teams aus eventCounts (top/bottom)
-      const eventCounts = data.eventCounts || {};
-      const teams = data.teams || {};
+      const sessionId = summaryDoc.id;
+      const isTournament = data.isTournamentSession || sessionId === '6eNr8fnsTO06jgCqjelt';
       
-      ['top', 'bottom'].forEach(teamKey => {
-        const teamPlayers = teams[teamKey]?.players || [];
-        if (teamPlayers.length !== 2) return; // Nur 2er-Teams
+      // ✅ TURNIER: Aggregiere alle Game-Level-Teams
+      if (isTournament && data.gameResults && Array.isArray(data.gameResults)) {
+        const gameResults = data.gameResults;
+        const tournamentTeamDeltas = new Map<string, number>();
         
-        const teamId = getTeamId(teamPlayers);
-        const teamName = getTeamName(teamPlayers);
-        
-        // Berechne Matsch-Bilanz für dieses Team
-        const teamEvents = eventCounts[teamKey] || {};
-        const opponentTeamEvents = eventCounts[teamKey === 'top' ? 'bottom' : 'top'] || {};
-        
-        const teamMade = teamEvents.matsch || 0;
-        const opponentMade = opponentTeamEvents.matsch || 0;
-        const delta = teamMade - opponentMade;
-        
-        // Track Team
-        if (!teamToSessionsMap.has(teamId)) {
-          teamToSessionsMap.set(teamId, {
-            name: teamName,
-            sessionIndices: new Set(),
-            deltas: new Map()
+        // Iteriere durch alle Games im Turnier
+        gameResults.forEach((game: any) => {
+          const gameEventCounts = game.eventCounts || {};
+          const gameTeams = game.teams || {};
+          
+          ['top', 'bottom'].forEach(teamKey => {
+            const teamPlayers = gameTeams[teamKey]?.players || [];
+            if (teamPlayers.length !== 2) return;
+            
+            const teamId = getTeamId(teamPlayers);
+            const teamName = getTeamName(teamPlayers);
+            
+            // Berechne Matsch-Bilanz für dieses Game
+            const teamEvents = gameEventCounts[teamKey] || {};
+            const opponentTeamEvents = gameEventCounts[teamKey === 'top' ? 'bottom' : 'top'] || {};
+            
+            const teamMade = teamEvents.matsch || 0;
+            const opponentMade = opponentTeamEvents.matsch || 0;
+            const delta = teamMade - opponentMade;
+            
+            // Aggregiere Delta für dieses Team über alle Games
+            tournamentTeamDeltas.set(teamId, (tournamentTeamDeltas.get(teamId) || 0) + delta);
+            
+            // Track Team-Namen (erstes Vorkommen)
+            if (!teamToSessionsMap.has(teamId)) {
+              teamToSessionsMap.set(teamId, {
+                name: teamName,
+                sessionIndices: new Set(),
+                deltas: new Map()
+              });
+            }
           });
-        }
+        });
         
-        const teamData = teamToSessionsMap.get(teamId)!;
-        teamData.sessionIndices.add(sessionIndex);
-        teamData.deltas.set(sessionIndex, delta);
-      });
+        // Füge EINEN Datenpunkt für das gesamte Turnier hinzu
+        tournamentTeamDeltas.forEach((totalDelta, teamId) => {
+          const teamData = teamToSessionsMap.get(teamId)!;
+          teamData.sessionIndices.add(sessionIndex);
+          teamData.deltas.set(sessionIndex, totalDelta);
+        });
+      } else {
+        // ✅ NORMALE SESSION: Verwende Session-Level-Teams
+        const eventCounts = data.eventCounts || {};
+        const teams = data.teams || {};
+        
+        ['top', 'bottom'].forEach(teamKey => {
+          const teamPlayers = teams[teamKey]?.players || [];
+          if (teamPlayers.length !== 2) return; // Nur 2er-Teams
+          
+          const teamId = getTeamId(teamPlayers);
+          const teamName = getTeamName(teamPlayers);
+          
+          // Berechne Matsch-Bilanz für dieses Team
+          const teamEvents = eventCounts[teamKey] || {};
+          const opponentTeamEvents = eventCounts[teamKey === 'top' ? 'bottom' : 'top'] || {};
+          
+          const teamMade = teamEvents.matsch || 0;
+          const opponentMade = opponentTeamEvents.matsch || 0;
+          const delta = teamMade - opponentMade;
+          
+          // Track Team
+          if (!teamToSessionsMap.has(teamId)) {
+            teamToSessionsMap.set(teamId, {
+              name: teamName,
+              sessionIndices: new Set(),
+              deltas: new Map()
+            });
+          }
+          
+          const teamData = teamToSessionsMap.get(teamId)!;
+          teamData.sessionIndices.add(sessionIndex);
+          teamData.deltas.set(sessionIndex, delta);
+        });
+      }
     });
     
     // Filter: Nur Teams mit mehr als 0 Sessions
@@ -697,42 +747,95 @@ export async function getOptimizedTeamStricheChart(
       const label = timestamp.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
       labels.push(label);
       
-      // Extrahiere Teams aus finalStriche (top/bottom)
-      const finalStriche = data.finalStriche || {};
-      const teams = data.teams || {};
+      const sessionId = summaryDoc.id;
+      const isTournament = data.isTournamentSession || sessionId === '6eNr8fnsTO06jgCqjelt';
       
-      ['top', 'bottom'].forEach(teamKey => {
-        const teamPlayers = teams[teamKey]?.players || [];
-        if (teamPlayers.length !== 2) return; // Nur 2er-Teams
-        
-        const teamId = getTeamId(teamPlayers);
-        const teamName = getTeamName(teamPlayers);
-        
-        // Berechne Strichdifferenz für dieses Team
-        const teamStriche = finalStriche[teamKey] || {};
-        const opponentTeamStriche = finalStriche[teamKey === 'top' ? 'bottom' : 'top'] || {};
-        
+      // ✅ TURNIER: Aggregiere alle Game-Level-Teams
+      if (isTournament && data.gameResults && Array.isArray(data.gameResults)) {
+        const gameResults = data.gameResults;
+        const tournamentTeamDeltas = new Map<string, number>();
         const calculateTotalStriche = (striche: any) => {
-          return (striche.sieg || 0) + (striche.berg || 0) + (striche.matsch || 0) + (striche.schneider || 0) + (striche.kontermatsch || 0);
+          return (striche?.sieg || 0) + (striche?.berg || 0) + (striche?.matsch || 0) + (striche?.schneider || 0) + (striche?.kontermatsch || 0);
         };
         
-        const teamTotal = calculateTotalStriche(teamStriche);
-        const opponentTotal = calculateTotalStriche(opponentTeamStriche);
-        const delta = teamTotal - opponentTotal; // ✅ KORRIGIERT: Gleiche Berechnung für alle Teams
-        
-        // Track Team
-        if (!teamToSessionsMap.has(teamId)) {
-          teamToSessionsMap.set(teamId, {
-            name: teamName,
-            sessionIndices: new Set(),
-            deltas: new Map()
+        // Iteriere durch alle Games im Turnier
+        gameResults.forEach((game: any) => {
+          const gameFinalStriche = game.finalStriche || {};
+          const gameTeams = game.teams || {};
+          
+          ['top', 'bottom'].forEach(teamKey => {
+            const teamPlayers = gameTeams[teamKey]?.players || [];
+            if (teamPlayers.length !== 2) return;
+            
+            const teamId = getTeamId(teamPlayers);
+            const teamName = getTeamName(teamPlayers);
+            
+            // Berechne Strichdifferenz für dieses Game
+            const teamStriche = gameFinalStriche[teamKey] || {};
+            const opponentTeamStriche = gameFinalStriche[teamKey === 'top' ? 'bottom' : 'top'] || {};
+            
+            const teamTotal = calculateTotalStriche(teamStriche);
+            const opponentTotal = calculateTotalStriche(opponentTeamStriche);
+            const delta = teamTotal - opponentTotal;
+            
+            // Aggregiere Delta für dieses Team über alle Games
+            tournamentTeamDeltas.set(teamId, (tournamentTeamDeltas.get(teamId) || 0) + delta);
+            
+            // Track Team-Namen (erstes Vorkommen)
+            if (!teamToSessionsMap.has(teamId)) {
+              teamToSessionsMap.set(teamId, {
+                name: teamName,
+                sessionIndices: new Set(),
+                deltas: new Map()
+              });
+            }
           });
-        }
+        });
         
-        const teamData = teamToSessionsMap.get(teamId)!;
-        teamData.sessionIndices.add(sessionIndex);
-        teamData.deltas.set(sessionIndex, delta);
-      });
+        // Füge EINEN Datenpunkt für das gesamte Turnier hinzu
+        tournamentTeamDeltas.forEach((totalDelta, teamId) => {
+          const teamData = teamToSessionsMap.get(teamId)!;
+          teamData.sessionIndices.add(sessionIndex);
+          teamData.deltas.set(sessionIndex, totalDelta);
+        });
+      } else {
+        // ✅ NORMALE SESSION: Verwende Session-Level-Teams
+        const finalStriche = data.finalStriche || {};
+        const teams = data.teams || {};
+        
+        ['top', 'bottom'].forEach(teamKey => {
+          const teamPlayers = teams[teamKey]?.players || [];
+          if (teamPlayers.length !== 2) return; // Nur 2er-Teams
+          
+          const teamId = getTeamId(teamPlayers);
+          const teamName = getTeamName(teamPlayers);
+          
+          // Berechne Strichdifferenz für dieses Team
+          const teamStriche = finalStriche[teamKey] || {};
+          const opponentTeamStriche = finalStriche[teamKey === 'top' ? 'bottom' : 'top'] || {};
+          
+          const calculateTotalStriche = (striche: any) => {
+            return (striche.sieg || 0) + (striche.berg || 0) + (striche.matsch || 0) + (striche.schneider || 0) + (striche.kontermatsch || 0);
+          };
+          
+          const teamTotal = calculateTotalStriche(teamStriche);
+          const opponentTotal = calculateTotalStriche(opponentTeamStriche);
+          const delta = teamTotal - opponentTotal;
+          
+          // Track Team
+          if (!teamToSessionsMap.has(teamId)) {
+            teamToSessionsMap.set(teamId, {
+              name: teamName,
+              sessionIndices: new Set(),
+              deltas: new Map()
+            });
+          }
+          
+          const teamData = teamToSessionsMap.get(teamId)!;
+          teamData.sessionIndices.add(sessionIndex);
+          teamData.deltas.set(sessionIndex, delta);
+        });
+      }
     });
     
     // Filter: Nur Teams mit mehr als 0 Sessions
@@ -865,35 +968,82 @@ export async function getOptimizedTeamPointsChart(
       const label = timestamp.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
       labels.push(label);
       
-      // Extrahiere Teams aus finalScores (top/bottom)
-      const finalScores = data.finalScores || { top: 0, bottom: 0 };
-      const teams = data.teams || {};
+      const sessionId = summaryDoc.id;
+      const isTournament = data.isTournamentSession || sessionId === '6eNr8fnsTO06jgCqjelt';
       
-      ['top', 'bottom'].forEach(teamKey => {
-        const teamPlayers = teams[teamKey]?.players || [];
-        if (teamPlayers.length !== 2) return; // Nur 2er-Teams
+      // ✅ TURNIER: Aggregiere alle Game-Level-Teams
+      if (isTournament && data.gameResults && Array.isArray(data.gameResults)) {
+        const gameResults = data.gameResults;
+        const tournamentTeamDeltas = new Map<string, number>();
         
-        const teamId = getTeamId(teamPlayers);
-        const teamName = getTeamName(teamPlayers);
-        
-        // Berechne Punktedifferenz für dieses Team
-        const teamScore = finalScores[teamKey] || 0;
-        const opponentScore = finalScores[teamKey === 'top' ? 'bottom' : 'top'] || 0;
-        const delta = teamScore - opponentScore; // ✅ KORRIGIERT: Gleiche Berechnung für alle Teams
-        
-        // Track Team
-        if (!teamToSessionsMap.has(teamId)) {
-          teamToSessionsMap.set(teamId, {
-            name: teamName,
-            sessionIndices: new Set(),
-            deltas: new Map()
+        // Iteriere durch alle Games im Turnier
+        gameResults.forEach((game: any) => {
+          const gameScores = { top: game.topScore || 0, bottom: game.bottomScore || 0 };
+          const gameTeams = game.teams || {};
+          
+          ['top', 'bottom'].forEach(teamKey => {
+            const teamPlayers = gameTeams[teamKey]?.players || [];
+            if (teamPlayers.length !== 2) return;
+            
+            const teamId = getTeamId(teamPlayers);
+            const teamName = getTeamName(teamPlayers);
+            
+            // Berechne Punktedifferenz für dieses Game
+            const teamScore = gameScores[teamKey] || 0;
+            const opponentScore = gameScores[teamKey === 'top' ? 'bottom' : 'top'] || 0;
+            const delta = teamScore - opponentScore;
+            
+            // Aggregiere Delta für dieses Team über alle Games
+            tournamentTeamDeltas.set(teamId, (tournamentTeamDeltas.get(teamId) || 0) + delta);
+            
+            // Track Team-Namen (erstes Vorkommen)
+            if (!teamToSessionsMap.has(teamId)) {
+              teamToSessionsMap.set(teamId, {
+                name: teamName,
+                sessionIndices: new Set(),
+                deltas: new Map()
+              });
+            }
           });
-        }
+        });
         
-        const teamData = teamToSessionsMap.get(teamId)!;
-        teamData.sessionIndices.add(sessionIndex);
-        teamData.deltas.set(sessionIndex, delta);
-      });
+        // Füge EINEN Datenpunkt für das gesamte Turnier hinzu
+        tournamentTeamDeltas.forEach((totalDelta, teamId) => {
+          const teamData = teamToSessionsMap.get(teamId)!;
+          teamData.sessionIndices.add(sessionIndex);
+          teamData.deltas.set(sessionIndex, totalDelta);
+        });
+      } else {
+        // ✅ NORMALE SESSION: Verwende Session-Level-Teams
+        const finalScores = data.finalScores || { top: 0, bottom: 0 };
+        const teams = data.teams || {};
+        
+        ['top', 'bottom'].forEach(teamKey => {
+          const teamPlayers = teams[teamKey]?.players || [];
+          if (teamPlayers.length !== 2) return; // Nur 2er-Teams
+          
+          const teamId = getTeamId(teamPlayers);
+          const teamName = getTeamName(teamPlayers);
+          
+          // Berechne Punktedifferenz für dieses Team
+          const teamScore = finalScores[teamKey] || 0;
+          const opponentScore = finalScores[teamKey === 'top' ? 'bottom' : 'top'] || 0;
+          const delta = teamScore - opponentScore;
+          
+          // Track Team
+          if (!teamToSessionsMap.has(teamId)) {
+            teamToSessionsMap.set(teamId, {
+              name: teamName,
+              sessionIndices: new Set(),
+              deltas: new Map()
+            });
+          }
+          
+          const teamData = teamToSessionsMap.get(teamId)!;
+          teamData.sessionIndices.add(sessionIndex);
+          teamData.deltas.set(sessionIndex, delta);
+        });
+      }
     });
     
     // Filter: Nur Teams mit mehr als 0 Sessions

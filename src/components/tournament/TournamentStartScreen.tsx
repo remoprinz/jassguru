@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { X, Loader2 } from 'lucide-react';
@@ -57,6 +57,50 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
   
   // NEU: Zustand für die Überprüfung, ob der aktuelle Benutzer Teil der ausgewählten Spieler ist
   const [isCurrentUserInSelectedPasse, setIsCurrentUserInSelectedPasse] = useState(false);
+  
+  // 🚀 PERFORMANCE-FIX: Optimierter Lookup-Map für Avatar-URLs (statt wiederholter Array-Suche)
+  const memberPhotoUrlMap = useMemo(() => {
+    const map = new Map<string, string | undefined>();
+    members.forEach(member => {
+      // Erstelle Lookup nach userId (priorisiert) und displayName (Fallback)
+      if (member.userId) {
+        map.set(member.userId, member.photoURL || undefined);
+      }
+      if (member.displayName) {
+        map.set(member.displayName, member.photoURL || undefined);
+      }
+    });
+    return map;
+  }, [members]);
+
+  // 🚀 PERFORMANCE-FIX: Zusätzlicher Lookup für tournamentParticipants (kann auch photoURL enthalten)
+  const participantPhotoUrlMap = useMemo(() => {
+    const map = new Map<string, string | undefined>();
+    tournamentParticipants.forEach(participant => {
+      if (participant.uid) {
+        map.set(participant.uid, participant.photoURL);
+      }
+    });
+    return map;
+  }, [tournamentParticipants]);
+
+  // Hilfsfunktion für schnellen Avatar-URL Lookup
+  const getPlayerPhotoUrl = (player: (MemberInfo & { playerId: string }) | null): string | undefined => {
+    if (!player || player.type !== 'member') return undefined;
+    // Zuerst in tournamentParticipants suchen (aktueller Kontext)
+    if (player.uid && participantPhotoUrlMap.has(player.uid)) {
+      return participantPhotoUrlMap.get(player.uid);
+    }
+    // Dann in members suchen
+    if (player.uid && memberPhotoUrlMap.has(player.uid)) {
+      return memberPhotoUrlMap.get(player.uid);
+    }
+    // Fallback: nach Name suchen
+    if (player.name && memberPhotoUrlMap.has(player.name)) {
+      return memberPhotoUrlMap.get(player.name);
+    }
+    return undefined;
+  };
   
   // EINFACHE LÖSUNG: Dynamische Passe-Nummer basierend auf ausgewählten Spielern
   const dynamicPasseNumber = React.useMemo(() => {
@@ -275,19 +319,15 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
                       <>
                         <div className="flex items-center">
                           <ProfileImage 
-                            src={(() => {
-                              if (player.type === 'member') {
-                                // Finde das FirestorePlayer-Objekt basierend auf dem Namen
-                                const firestorePlayer = members.find(m => m.displayName === player.name);
-                                return firestorePlayer?.photoURL;
-                              }
-                              return undefined;
-                            })()}
+                            src={getPlayerPhotoUrl(player)}
                             alt={player.name} 
-                            size="sm"
+                            size="md-lg"
                             className="mr-3 flex-shrink-0"
-                            fallbackClassName="bg-gray-600 text-gray-300 text-sm"
+                            fallbackClassName="bg-gray-600 text-gray-300 text-base"
                             fallbackText={player.name.charAt(0).toUpperCase()}
+                            priority={true}
+                            context="hero"
+                            lazy={false}
                           />
                           <span className='text-white font-medium'>
                             {player.name}{' '}

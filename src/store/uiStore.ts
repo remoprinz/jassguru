@@ -320,6 +320,9 @@ export interface UIState {
   setUpdateAvailable: (isAvailable: boolean) => void;
   triggerUpdate: (() => void) | null;
   setTriggerUpdate: (trigger: (() => void) | null) => void;
+
+  // 🚀 TEMPORÄR: Flag zum Überspringen der Bedanken-Notification (direkt zur ResultatKreidetafel)
+  skipBedankenNotification: boolean;
 }
 
 interface UIActions {
@@ -629,6 +632,9 @@ const initialState: UIState = {
   setUpdateAvailable: (isAvailable) => {},
   triggerUpdate: null,
   setTriggerUpdate: (trigger) => {},
+
+  // 🚀 TEMPORÄR: Flag zum Überspringen der Bedanken-Notification (standardmäßig true = überspringen)
+  skipBedankenNotification: true,
 };
 
 // Load-Funktionen für jeden Settings-Typ

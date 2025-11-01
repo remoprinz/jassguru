@@ -41,6 +41,14 @@
       ]
     },
     {
+      "collectionGroup": "ratingHistory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "sessionId", "order": "ASCENDING"},
+        {"fieldPath": "completedAt", "order": "ASCENDING"}
+      ]
+    },
+    {
       "collectionGroup": "tournaments",
       "queryScope": "COLLECTION",
       "fields": [

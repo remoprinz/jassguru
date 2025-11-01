@@ -78,10 +78,12 @@ export const PlayerSelectTournamentPopover: React.FC<PlayerSelectTournamentPopov
                   <ProfileImage 
                     src={participant.photoURL || undefined}
                     alt={participant.displayName || ''}
-                    size="sm"
-                    className="mr-2 flex-shrink-0"
-                    fallbackClassName="bg-gray-600 text-gray-300 text-xs"
+                    size="md-lg"
+                    className="mr-3 flex-shrink-0"
+                    fallbackClassName="bg-gray-600 text-gray-300 text-base"
                     fallbackText={participant.displayName?.substring(0, 2).toUpperCase() || '??'}
+                    context="list"
+                    lazy={false}
                   />
                   <div className="flex-grow">
                     <p className="text-sm">{participant.displayName || 'Unbekannt'}</p>

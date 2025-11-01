@@ -226,7 +226,35 @@ export async function saveRatingHistorySnapshotWithDate(
           }
         }
 
-        const ratingDelta = currentRating - previousRating;
+        // 🔧 KORRIGIERT: Rating-Delta korrekt berechnen
+        let ratingDelta = currentRating - previousRating;
+        
+        // ✅ FIX: Bei session_end das KORREKTE Session-Delta aus Per-Game Einträgen berechnen
+        if (context === 'session_end' && sessionId) {
+          try {
+            // Hole alle Per-Game ratingHistory Einträge für diese Session
+            const sessionRatingHistorySnap = await globalHistoryRef
+              .where('sessionId', '==', sessionId)
+              .where('eventType', '==', 'game')
+              .get();
+            
+            if (!sessionRatingHistorySnap.empty) {
+              // Summiere alle Per-Game Deltas
+              ratingDelta = sessionRatingHistorySnap.docs.reduce((sum, doc) => {
+                const data = doc.data();
+                const gameDelta = typeof data.delta === 'number' ? data.delta : 0;
+                return sum + gameDelta;
+              }, 0);
+              
+              logger.info(`[RatingHistory] Calculated session rating delta for ${playerId}: ${ratingDelta.toFixed(2)} from ${sessionRatingHistorySnap.size} games`);
+            } else {
+              logger.warn(`[RatingHistory] No Per-Game rating history found for session ${sessionId}, player ${playerId}`);
+            }
+          } catch (error) {
+            logger.error(`[RatingHistory] Error calculating session rating delta for ${playerId}:`, error);
+            // Fallback auf previousRating-Differenz
+          }
+        }
 
         // 🆕 V2: Berechne Session-Deltas (nur bei session_end)
         let sessionDelta = {

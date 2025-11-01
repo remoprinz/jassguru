@@ -1,4 +1,4 @@
-import React, {useState, useEffect, MouseEvent} from "react";
+import React, {useState, useEffect, MouseEvent, useMemo} from "react";
 import {useGameStore} from "../../store/gameStore";
 import {useUIStore} from "../../store/uiStore";
 import {useJassStore} from "../../store/jassStore";
@@ -15,7 +15,6 @@ import { useRouter } from "next/router";
 import { createActiveGame, createSessionDocument, updateSessionActiveGameId, updateSessionParticipantPlayerIds } from "@/services/gameService";
 import { nanoid } from "nanoid";
 import { toast } from "sonner";
-import GlobalLoader from "./GlobalLoader";
 import { Button } from "../ui/button";
 import { getPlayerIdForUser } from "@/services/playerService";
 import { shouldShowiOSScreenLockWarning, createSimpleiOSScreenLockNotification, markiOSScreenLockWarningAsShown } from "@/utils/iosNotificationHelper";
@@ -57,6 +56,35 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
   // const [isLoading, setIsLoading] = useState(false);
   const [hasSelectedStartingPlayer, setHasSelectedStartingPlayer] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
+
+  // 🚀 PERFORMANCE-FIX: Optimierter Lookup-Map für Avatar-URLs (statt wiederholter Array-Suche)
+  const memberPhotoUrlMap = useMemo(() => {
+    const map = new Map<string, string | undefined>();
+    members.forEach(member => {
+      // Erstelle Lookup nach userId (priorisiert) und displayName (Fallback)
+      if (member.userId) {
+        map.set(member.userId, member.photoURL || undefined);
+      }
+      if (member.displayName) {
+        map.set(member.displayName, member.photoURL || undefined);
+      }
+    });
+    return map;
+  }, [members]);
+
+  // Hilfsfunktion für schnellen Avatar-URL Lookup
+  const getPlayerPhotoUrl = (player: MemberInfo | GuestInfo | null): string | undefined => {
+    if (!player || player.type !== 'member') return undefined;
+    // Zuerst nach uid suchen (genauer)
+    if (player.uid && memberPhotoUrlMap.has(player.uid)) {
+      return memberPhotoUrlMap.get(player.uid);
+    }
+    // Fallback: nach Name suchen
+    if (player.name && memberPhotoUrlMap.has(player.name)) {
+      return memberPhotoUrlMap.get(player.name);
+    }
+    return undefined;
+  };
 
   useEffect(() => {
     if (status === 'authenticated' && user) {
@@ -597,19 +625,15 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
                         <>
                           <div className="flex items-center">
                             <ProfileImage 
-                              src={(() => {
-                                if (player.type === 'member') {
-                                  // Finde das FirestorePlayer-Objekt basierend auf dem Namen
-                                  const firestorePlayer = members.find(m => m.displayName === player.name);
-                                  return firestorePlayer?.photoURL;
-                                }
-                                return undefined;
-                              })()}
+                              src={getPlayerPhotoUrl(player)}
                               alt={player.name} 
-                              size="sm"
+                              size="md"
                               className="mr-3 flex-shrink-0"
-                              fallbackClassName="bg-gray-600 text-gray-300 text-sm"
+                              fallbackClassName="bg-gray-600 text-gray-300 text-base"
                               fallbackText={player.name.charAt(0).toUpperCase()}
+                              priority={true}
+                              context="hero"
+                              lazy={false}
                             />
                             <span className='text-white font-medium'>
                               {player.name}{' '}

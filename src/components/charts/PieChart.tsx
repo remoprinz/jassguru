@@ -167,6 +167,14 @@ const PieChart: React.FC<PieChartProps> = ({
     // (egal ob frozen oder nicht - sichert dass chartSize während Animation gesetzt ist)
     if (containerRef.current) {
       const containerWidth = containerRef.current.offsetWidth;
+      
+      // 🎯 FIX: Prüfe ob Container wirklich sichtbar ist (offsetWidth > 0)
+      // Verhindert Animation bei display:none Tabs (Race Condition)
+      if (containerWidth === 0) {
+        console.warn('[PieChart] Container nicht sichtbar (width=0), Animation abgebrochen');
+        return; // Warte bis Container sichtbar ist
+      }
+      
       const newSize = Math.min(containerWidth * 0.55, 180);
       
       // Nur einfrieren wenn noch nicht frozen (GroupView-Fix)
@@ -201,8 +209,17 @@ const PieChart: React.FC<PieChartProps> = ({
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && entry.intersectionRatio >= 0.7 && !animationPlayed) {
-          triggerVisibleAnimation();
+        // 🎯 FIX: Prüfe ob Element wirklich sichtbar ist (nicht nur intersecting, sondern auch CSS-visible)
+        if (entry.target && entry.target instanceof Element) {
+          const element = entry.target as HTMLElement;
+          const computedStyle = window.getComputedStyle(element);
+          const isVisible = computedStyle.display !== 'none' && 
+                           computedStyle.visibility !== 'hidden' &&
+                           computedStyle.opacity !== '0';
+          
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.7 && !animationPlayed && isVisible) {
+            triggerVisibleAnimation();
+          }
         }
       },
       { threshold: 0.7 }
@@ -224,6 +241,13 @@ const PieChart: React.FC<PieChartProps> = ({
     const updateChartSize = () => {
       if (containerRef.current) {
         const containerWidth = containerRef.current.offsetWidth;
+        
+        // 🎯 FIX: Nur messen und einfrieren wenn Container wirklich sichtbar ist
+        // Verhindert falsches Einfrieren bei display:none Tabs
+        if (containerWidth === 0) {
+          return; // Warte bis Container sichtbar ist
+        }
+        
         // Verwende 60% der Container-Breite mit max 180px für mehr Padding UND Platz für Labels außerhalb
         const newSize = Math.min(containerWidth * 0.55, 180);
         

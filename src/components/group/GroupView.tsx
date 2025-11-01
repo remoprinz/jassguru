@@ -540,23 +540,31 @@ export const GroupView: React.FC<GroupViewProps> = ({
 
   // ✅ NEU: Lade playerStats für Ranglisten
   const [playerStats, setPlayerStats] = React.useState<any>({});
+  const [playerStatsLoading, setPlayerStatsLoading] = React.useState(false); // ✅ NEU: Loading-State
   
   React.useEffect(() => {
     if (!members || members.length === 0) return;
     
     const loadPlayerStats = async () => {
+      setPlayerStatsLoading(true); // ✅ Loading starten
       const stats: any = {};
       
-      for (const member of members) {
+      // 🚀 OPTIMIERUNG: Paralleles Laden statt sequenziell (viel schneller!)
+      const playerIds = members
+        .map(m => m.id || m.userId)
+        .filter(Boolean) as string[];
+      
+      // Lade alle Player-Docs parallel
+      const playerPromises = playerIds.map(async (playerId) => {
         try {
-          const playerId = member.id || member.userId;
-          if (playerId) {
-            const playerDoc = await getDoc(doc(db, 'players', playerId));
-            if (playerDoc.exists()) {
-              const playerData = playerDoc.data();
-              
-              if (playerData?.globalStats?.current?.totalGames) {
-                stats[playerId] = {
+          const playerDoc = await getDoc(doc(db, 'players', playerId));
+          if (playerDoc.exists()) {
+            const playerData = playerDoc.data();
+            
+            if (playerData?.globalStats?.current?.totalGames) {
+              return {
+                playerId,
+                stats: {
                   gamesPlayed: playerData.globalStats.current.totalGames,
                   // ✅ NEU: Session-Statistiken direkt aus globalStats.current lesen
                   sessionStats: {
@@ -569,15 +577,28 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     wins: playerData.globalStats.current.gamesWon || 0,
                     losses: playerData.globalStats.current.gamesLost || 0
                   }
-                };
-              }
+                }
+              };
             }
           }
         } catch (error) {
-          console.warn(`Fehler beim Laden der Stats für ${member.displayName}:`, error);
+          console.warn(`Fehler beim Laden der Stats für ${playerId}:`, error);
         }
-      }
+        return null;
+      });
+      
+      // Warte auf alle Parallel-Loads
+      const results = await Promise.all(playerPromises);
+      
+      // Baue Stats-Object zusammen
+      results.forEach(result => {
+        if (result) {
+          stats[result.playerId] = result.stats;
+        }
+      });
+      
       setPlayerStats(stats);
+      setPlayerStatsLoading(false); // ✅ Loading beenden
     };
     
     loadPlayerStats();
@@ -1736,9 +1757,18 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                           }
                                           
                                           if (delta !== undefined) {
+                                            const roundedDelta = Math.round(delta);
+                                            // ✅ Wenn gerundetes Delta 0 ist, immer grau ohne Vorzeichen
+                                            if (roundedDelta === 0) {
+                                              return (
+                                                <span className={`ml-1 ${layout.smallTextSize} text-gray-400`}>
+                                                  (0)
+                                                </span>
+                                              );
+                                            }
                                             return (
-                                              <span className={`ml-1 ${layout.smallTextSize} ${delta > 0 ? 'text-emerald-500' : delta < 0 ? 'text-red-500' : 'text-white'}`}>
-                                                ({delta > 0 ? '+' : ''}{Math.round(delta)})
+                                              <span className={`ml-1 ${layout.smallTextSize} ${delta > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                                                ({delta > 0 ? '+' : ''}{roundedDelta})
                                               </span>
                                             );
                                           }
@@ -2015,7 +2045,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Strichdifferenz Rangliste</h3>
                       </div>
                       <div ref={playerStricheDiffRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
-                        {stricheRanking.length > 0 ? (
+                        {playerStatsLoading ? (
+                          <div className="flex flex-col items-center justify-center py-8">
+                            <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin mb-3`}></div>
+                            <p className={`${layout.bodySize} text-gray-400`}>Lade Rangliste...</p>
+                          </div>
+                        ) : stricheRanking.length > 0 ? (
                           stricheRanking.map((player) => (
                             <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`stricheDiff-${player.playerId}`} isClickable={!!player.playerId} className="block rounded-md">
                               <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
@@ -2045,7 +2080,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             </StatLink>
                           ))
                         ) : (
-                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine Strichdifferenz-Daten verfügbar</div>
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>
+                            {playerStatsLoading ? 'Lade Daten...' : 'Keine Strichdifferenz-Daten verfügbar'}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -2095,7 +2132,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Punktedifferenz Rangliste</h3>
                       </div>
                       <div ref={playerPointsDiffRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
-                        {pointsRanking.length > 0 ? (
+                        {playerStatsLoading ? (
+                          <div className="flex flex-col items-center justify-center py-8">
+                            <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin mb-3`}></div>
+                            <p className={`${layout.bodySize} text-gray-400`}>Lade Rangliste...</p>
+                          </div>
+                        ) : pointsRanking.length > 0 ? (
                           pointsRanking.map((player) => (
                             <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`pointsDiff-${player.playerId}`} isClickable={!!player.playerId} className="block rounded-md">
                               <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
@@ -2126,16 +2168,18 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             </StatLink>
                           ))
                         ) : (
-                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine Punktedifferenz-Daten verfügbar</div>
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>
+                            {playerStatsLoading ? 'Lade Daten...' : 'Keine Punktedifferenz-Daten verfügbar'}
+                          </div>
                         )}
                       </div>
                     </div>
 
-                    {/* 5. Siegquote Partie - CHART */}
+                    {/* 5. Siegquote Partien - CHART */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Siegquote Partie</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Siegquote Partien</h3>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {(() => {
@@ -2153,7 +2197,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               return (
                                 <WinRateChart 
                                   data={chartData}
-                                  title="Siegquote Partie"
+                                  title="Siegquote Partien"
                                   height={layout.isDesktop ? 350 : 250}
                                   theme={groupTheme}
                                   isDarkMode={true}
@@ -2177,14 +2221,19 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                     </div>
 
-                    {/* 5.1 Siegquote Partie - Rangliste */}
+                    {/* 5.1 Siegquote Partien - Rangliste */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Partie Rangliste</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Partien Rangliste</h3>
                       </div>
                       <div ref={playerWinRateSessionRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
-                        {(() => {
+                        {playerStatsLoading ? (
+                          <div className="flex flex-col items-center justify-center py-8">
+                            <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin mb-3`}></div>
+                            <p className={`${layout.bodySize} text-gray-400`}>Lade Rangliste...</p>
+                          </div>
+                        ) : (() => {
                           if (sessionWinRateRanking && sessionWinRateRanking.length > 0) {
                             // Filter: Nur Spieler mit Sessions anzeigen
                             const playersWithSessions = sessionWinRateRanking.filter(player => 
@@ -2223,17 +2272,19 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               );
                             });
                           } else {
-                            return <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine aktiven Spieler verfügbar</div>;
+                            return <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>
+                              {playerStatsLoading ? 'Lade Daten...' : 'Keine aktiven Spieler verfügbar'}
+                            </div>;
                           }
                         })()}
                       </div>
                     </div>
 
-                    {/* 6. Siegquote Spiel - CHART */}
+                    {/* 6. Siegquote Spiele - CHART */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Siegquote Spiel</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Siegquote Spiele</h3>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {(() => {
@@ -2250,7 +2301,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               return (
                                 <WinRateChart 
                                   data={chartData}
-                                  title="Siegquote Spiel"
+                                  title="Siegquote Spiele"
                                   height={layout.isDesktop ? 350 : 250}
                                   theme={groupTheme}
                                   isDarkMode={true}
@@ -2275,14 +2326,19 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                     </div>
 
-                    {/* 6.1 Siegquote Spiel - Rangliste */}
+                    {/* 6.1 Siegquote Spiele - Rangliste */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Spiel Rangliste</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Spiele Rangliste</h3>
                       </div>
                       <div ref={playerWinRateGameRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
-                        {(() => {
+                        {playerStatsLoading ? (
+                          <div className="flex flex-col items-center justify-center py-8">
+                            <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin mb-3`}></div>
+                            <p className={`${layout.bodySize} text-gray-400`}>Lade Rangliste...</p>
+                          </div>
+                        ) : (() => {
                           if (gameWinRateRanking && gameWinRateRanking.length > 0) {
                             // Filter: Nur Spieler mit Spielen anzeigen
                             const playersWithGames = gameWinRateRanking.filter(player => 
@@ -2321,7 +2377,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               );
                             });
                           } else {
-                            return <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine aktiven Spieler verfügbar</div>;
+                            return <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>
+                              {playerStatsLoading ? 'Lade Daten...' : 'Keine aktiven Spieler verfügbar'}
+                            </div>;
                           }
                         })()}
                       </div>
@@ -2762,7 +2820,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Siegquote Partie</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Siegquote Partien</h3>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {(() => {
@@ -2779,7 +2837,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               return (
                                 <WinRateChart 
                                   data={chartData}
-                                  title="Siegquote Partie"
+                                  title="Siegquote Partien"
                                   height={layout.isDesktop ? 350 : 250}
                                   theme={groupTheme}
                                   isDarkMode={true}
@@ -2807,7 +2865,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Partie Rangliste</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Partien Rangliste</h3>
                       </div>
                       <div ref={teamWinRateSessionRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {groupStats?.teamWithHighestWinRateSession && groupStats.teamWithHighestWinRateSession.length > 0 ? (
@@ -2865,7 +2923,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Siegquote Spiel</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Siegquote Spiele</h3>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {(() => {
@@ -2882,7 +2940,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               return (
                                 <WinRateChart 
                                   data={chartData}
-                                  title="Siegquote Spiel"
+                                  title="Siegquote Spiele"
                                   height={layout.isDesktop ? 350 : 250}
                                   theme={groupTheme}
                                   isDarkMode={true}
@@ -2911,7 +2969,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Spiel Rangliste</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Spiele Rangliste</h3>
                       </div>
                       <div ref={teamWinRateGameRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {groupStats?.teamWithHighestWinRateGame && groupStats.teamWithHighestWinRateGame.length > 0 ? (
@@ -3285,6 +3343,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 {sortedYears.map(year => (
                   <div key={year}>
                     <h3 className={`${layout.headingSize} font-semibold text-white mb-3 text-center`}>{year}</h3>
+                    <p className={`${layout.smallTextSize} text-gray-400 mb-3 italic text-center`}>
+                      Ergebnis auswählen für Details:
+                    </p>
                     <div className="space-y-2">
                       {groupedArchiveByYear[year].map(renderArchiveItem)}
                     </div>
