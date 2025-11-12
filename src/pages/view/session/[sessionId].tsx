@@ -308,11 +308,20 @@ const PublicSessionPage = () => {
           const liveSessionSnap = await getDoc(liveSessionRef);
 
           if (liveSessionSnap.exists()) {
+            // ✅ Live Session gefunden in sessions
             sessionDoc = liveSessionSnap;
             const sd: any = liveSessionSnap.data();
-            foundGroupId = sd?.groupId || sd?.gruppeId || null;
+            foundGroupId = sd?.groupId || sd?.gruppeId || groupIdFromQuery || null;
+            
+            // 🔥 BONUS: groupId zur URL hinzufügen für zukunftssicheren Link (wenn noch nicht vorhanden)
+            if (foundGroupId && !groupIdFromQuery) {
+              router.replace({
+                pathname: router.pathname,
+                query: { ...router.query, groupId: foundGroupId }
+              }, undefined, { shallow: true });
+            }
           } else {
-            // Zusätzlicher schneller Pfad: Wenn groupId via Query bekannt ist, versuche direkten Zugriff unter groups/{groupId}/jassGameSummaries/{sessionId}
+            // ✅ PRIORITÄT: Wenn groupId via Query bekannt ist, versuche direkten Zugriff (schnellster Pfad)
             if (!sessionDoc && groupIdFromQuery) {
               try {
                 const directRef = doc(db, `groups/${groupIdFromQuery}/jassGameSummaries`, sessionId);
@@ -322,7 +331,9 @@ const PublicSessionPage = () => {
                   foundGroupId = groupIdFromQuery;
                   loadedFromGroupSummary = true;
                 }
-              } catch {}
+              } catch (error) {
+                console.warn('[SessionPage] Direct groupId lookup failed:', error);
+              }
             }
 
             // Fallback: Abgeschlossene Session über collectionGroup finden

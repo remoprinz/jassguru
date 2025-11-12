@@ -2269,8 +2269,42 @@ const ResultatKreidetafel = ({
 
   // 11. Modul-Rendering Logik (Variablen bereits oben definiert)
 
-  // NEU: Handler für den Abschluss einer Turnierpasse (Implementierung)
-  const handleCompletePasseClick = useCallback(async () => {
+  // NEU: Eigentliche Abschluss-Logik (wird nach Bestätigung aufgerufen)
+  const confirmAndCompletePasse = useCallback(async () => {
+    if (!isTournamentPasse || !gameStoreActiveGameId || !tournamentInstanceId) {
+      console.error("[ResultatKreidetafel] Incomplete data for completing passe.");
+      useUIStore.getState().showNotification({ type: 'error', message: 'Fehlende Daten zum Abschliessen der Passe.' });
+      return;
+    }
+
+    setIsCompletingPasse(true);
+    try {
+      const success = await completeAndRecordTournamentPasse(gameStoreActiveGameId, tournamentInstanceId);
+      
+      if (success) {
+        useUIStore.getState().showNotification({ type: 'success', message: 'Passe erfolgreich abgeschlossen!' });
+        
+        useGameStore.getState().resetGame(1); 
+        useJassStore.getState().clearActiveGameForSession(tournamentInstanceId);
+        
+        closeResultatKreidetafel(); 
+
+        await debouncedRouterPush(router, `/tournaments/${tournamentInstanceId}`);
+
+      } else {
+        useUIStore.getState().showNotification({ type: 'error', message: 'Fehler beim Abschliessen der Passe.' });
+      }
+
+    } catch (error) {
+      console.error("[ResultatKreidetafel] Unexpected error completing passe:", error);
+      useUIStore.getState().showNotification({ type: 'error', message: 'Unerwarteter Fehler beim Abschliessen der Passe.' });
+    } finally {
+      setIsCompletingPasse(false);
+    }
+  }, [isTournamentPasse, gameStoreActiveGameId, tournamentInstanceId, closeResultatKreidetafel, router]);
+
+  // NEU: Handler für den Abschluss einer Turnierpasse (zeigt Bestätigungs-Notification)
+  const handleCompletePasseClick = useCallback(() => {
     // DEBUGGING: Detaillierte Logs für das zweite Device
     console.log("[ResultatKreidetafel] DEBUG - Passe Completion Check:");
     console.log("- isTournamentPasse:", isTournamentPasse);
@@ -2285,7 +2319,7 @@ const ResultatKreidetafel = ({
       console.error("- Missing isTournamentPasse:", !isTournamentPasse);
       console.error("- Missing gameStoreActiveGameId:", !gameStoreActiveGameId);
       console.error("- Missing tournamentInstanceId:", !tournamentInstanceId);
-      useUIStore.getState().showNotification({ type: 'error', message: 'Fehlende Daten zum Abschließen der Passe.' });
+      useUIStore.getState().showNotification({ type: 'error', message: 'Fehlende Daten zum Abschliessen der Passe.' });
       return;
     }
 
@@ -2294,42 +2328,35 @@ const ResultatKreidetafel = ({
       useUIStore.getState().showNotification({
         message: "Bitte erst bedanken, bevor die Passe abgeschlossen wird.",
         type: 'warning',
-        position: swipePosition === 'top' ? 'top' : 'bottom', // swipePosition verwenden
+        position: swipePosition === 'top' ? 'top' : 'bottom',
         isFlipped: swipePosition === 'top',
-        actions: [{ label: 'Verstanden', onClick: () => closeResultatKreidetafel() }] // KORRIGIERT
+        actions: [{ label: 'Verstanden', onClick: () => closeResultatKreidetafel() }]
       });
       return;
     }
 
-    setIsCompletingPasse(true); // Korrigiert: Zurück zu setIsCompletingPasse
-    try {
-      const success = await completeAndRecordTournamentPasse(gameStoreActiveGameId, tournamentInstanceId);
-      
-      if (success) {
-        // console.log("Passe erfolgreich abgeschlossen, starte Navigation zurück zum Turnier..."); // DEBUG-LOG ENTFERNT
-        useUIStore.getState().showNotification({ type: 'success', message: 'Passe erfolgreich abgeschlossen!' });
-        
-        useGameStore.getState().resetGame(1); 
-        useJassStore.getState().clearActiveGameForSession(tournamentInstanceId);
-        
-        closeResultatKreidetafel(); 
-
-        // console.log(`[ResultatKreidetafel] Navigating to /tournaments/${tournamentInstanceId}`); // DEBUG-LOG ENTFERNT
-        await debouncedRouterPush(router, `/tournaments/${tournamentInstanceId}`);
-
-      } else {
-        // Fehler wurde wahrscheinlich schon im Service geloggt/behandelt
-        // Zeige hier eine generische Fehlermeldung
-        useUIStore.getState().showNotification({ type: 'error', message: 'Fehler beim Abschließen der Passe.' });
-      }
-
-    } catch (error) {
-      console.error("[ResultatKreidetafel] Unexpected error completing passe:", error);
-      useUIStore.getState().showNotification({ type: 'error', message: 'Unerwarteter Fehler beim Abschließen der Passe.' });
-    } finally {
-      setIsCompletingPasse(false); // Korrigiert: Zurück zu setIsCompletingPasse
-    }
-  }, [isTournamentPasse, gameStoreActiveGameId, tournamentInstanceId, closeResultatKreidetafel, router, canStartNewGame, swipePosition]); // NEU: canStartNewGame und swipePosition als Abhängigkeiten hinzugefügt
+    // 🆕 NEU: Bestätigungs-Notification anzeigen
+    useUIStore.getState().showNotification({
+      message: "Möchtest du die Passe wirklich abschliessen?",
+      type: 'warning',
+      position: swipePosition === 'top' ? 'top' : 'bottom',
+      isFlipped: swipePosition === 'top',
+      actions: [
+        { 
+          label: 'Zurück', 
+          onClick: () => {
+            // Notification wird automatisch geschlossen durch removeNotification
+          }
+        },
+        { 
+          label: 'Ja, beenden!', 
+          onClick: () => {
+            confirmAndCompletePasse();
+          }
+        }
+      ]
+    });
+  }, [isTournamentPasse, gameStoreActiveGameId, tournamentInstanceId, closeResultatKreidetafel, router, canStartNewGame, swipePosition, confirmAndCompletePasse]);
 
   // --- Component Return --- 
   // KORREKTUR: Beide Loader werden jetzt global gerendert
@@ -2394,7 +2421,15 @@ const ResultatKreidetafel = ({
             onClick={() => {
               // Generiere Share-Link für Live-Session
               if (currentSessionId) {
-                const shareUrl = `https://jassguru.ch/view/session/public/${currentSessionId}`;
+                // ✅ NEU: groupId aus jassStore holen für zukunftssicheren Link
+                const jassStore = useJassStore.getState();
+                const groupId = jassStore.currentSession?.gruppeId || jassStore.currentSession?.groupId || null;
+                
+                // ✅ KORRIGIERT: Link IMMER mit groupId (funktioniert für Live UND Completed Sessions)
+                const shareUrl = groupId 
+                  ? `https://jassguru.ch/view/session/public/${currentSessionId}?groupId=${groupId}`
+                  : `https://jassguru.ch/view/session/public/${currentSessionId}`;
+                
                 const shareText = `Verfolge unseren Jass live! Schau dir die aktuellen Ergebnisse und Statistiken in Echtzeit an.\n\n${shareUrl}\n\ngeneriert von:\n👉 jassguru.ch`;
                 
                 if (navigator.share) {
@@ -2428,7 +2463,7 @@ const ResultatKreidetafel = ({
               }
             }}
             className="absolute right-2 top-2 p-2 text-gray-400 hover:text-white transition-colors duration-200"
-            aria-label={currentSessionId ? "Live-Session teilen" : "Schließen"}
+            aria-label={currentSessionId ? "Live-Session teilen" : "Schliessen"}
           >
             {currentSessionId ? <FiShare2 size={24} /> : <FiX size={24} />}
           </button>
@@ -2574,7 +2609,7 @@ const ResultatKreidetafel = ({
                           Schließe Passe ab...
                         </>
                       ) : (
-                        'Passe abschließen'
+                        'Passe abschliessen'
                       )}
                     </button>
                   </div>
