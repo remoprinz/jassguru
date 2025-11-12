@@ -42,7 +42,7 @@ class ServiceWorkerService {
   
   // 🛡️ NEU: Update-Timeout Protection
   private updateTimeoutId: NodeJS.Timeout | null = null;
-  private readonly UPDATE_TIMEOUT = 30000; // 30 Sekunden - Erhöht für langsamere Netzwerke
+  private readonly UPDATE_TIMEOUT = 10000; // ✅ 10 Sekunden - Reduziert für schnellere Updates
   
   // 🔁 Auto-Fallback-Konfiguration
   private readonly FAIL_COUNT_KEY = 'swActivationFailures';

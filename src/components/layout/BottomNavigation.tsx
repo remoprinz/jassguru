@@ -44,10 +44,11 @@ export function BottomNavigation() {
     },
     {
       name: "Jass-Wiki",
-      href: "/wissen",
+      href: "https://jasswiki.ch/",
       icon: BookOpen,
-      active: currentPath.startsWith("/wissen"),
+      active: false, // Nie aktiv, da externe Seite
       itemTournamentStatus: null,
+      external: true, // Marker für externen Link
     },
   ];
 

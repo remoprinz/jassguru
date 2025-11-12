@@ -4,8 +4,8 @@
 
 /* Browser-spezifische Schriftgrößen-Korrektur */
 html {
-  /* Standard-Schriftgröße für alle Browser */
-  font-size: 16px;
+  /* Standard-Schriftgröße - Browser-Default respektieren (nicht fest auf 16px) */
+  /* font-size: 16px; ENTFERNT - Browser-Standardeinstellungen respektieren */
   
   /* Chrome-spezifische Korrektur */
   -webkit-text-size-adjust: 100%;
@@ -23,11 +23,11 @@ html {
 
 /* Chrome-spezifische Anpassungen */
 .chrome-browser {
-  /* Chrome-spezifische Schriftgrößen-Korrektur */
-  font-size: 16px !important;
+  /* Chrome-spezifische Schriftgrößen-Korrektur - ENTFERNT, um Browser-Defaults zu respektieren */
+  /* font-size: 16px !important; */
   
-  /* Verhindere automatische Zoom-Anpassung */
-  zoom: 1.0 !important;
+  /* Verhindere automatische Zoom-Anpassung - ENTFERNT, um Browser-Zoom zu respektieren */
+  /* zoom: 1.0 !important; */
   
   /* Chrome-spezifische Text-Rendering-Optimierung */
   -webkit-font-smoothing: antialiased;
@@ -39,17 +39,18 @@ html {
   min-height: 44px; /* iOS/Android Touch-Target-Größe */
 }
 
-.chrome-browser .text-sm {
-  font-size: 0.875rem !important; /* 14px */
+/* Chrome-spezifische Text-Größen-Overrides ENTFERNT - Browser-Defaults respektieren */
+/* .chrome-browser .text-sm {
+  font-size: 0.875rem !important;
 }
 
 .chrome-browser .text-base {
-  font-size: 1rem !important; /* 16px */
+  font-size: 1rem !important;
 }
 
 .chrome-browser .text-lg {
-  font-size: 1.125rem !important; /* 18px */
-}
+  font-size: 1.125rem !important;
+} */
 
 :root {
   --background: 0 0% 100%;

@@ -363,7 +363,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               </Button>
             ) : (
               <Button
-                onClick={handleGuestPlay}
+                onClick={!isPWA() ? () => router.push('/onboarding_tutorial') : handleGuestPlay}
                 disabled={isGuestLoading}
                 className="w-full bg-yellow-600 hover:bg-yellow-700 text-white h-14 text-lg rounded-xl shadow-lg"
               >
@@ -373,7 +373,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                     Jasstafel laden...
                   </>
                 ) : (
-                  "Als Gast spielen"
+                  !isPWA() ? "App herunterladen" : "Als Gast spielen"
                 )}
               </Button>
             )}
@@ -403,18 +403,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           
           {/* Divider and Link to Knowledge Hub */}
           <div className="pt-6 mt-6 border-t border-gray-700/50">
-            {displayMode === "pwa" ? (
-              <Link href="/wissen" className="group block text-center transition-transform hover:scale-105">
-                <span className="text-lg font-semibold text-gray-200 group-hover:text-green-400 transition-colors">
-                  Jass-Wikipedia
-                </span>
-                <p className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors mt-1">
-                  Regeln, Strategien & mehr →
-                </p>
-              </Link>
-            ) : (
               <a 
-                href="https://jasswiki.ch" 
+              href="https://jasswiki.ch/" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="group block text-center transition-transform hover:scale-105"
@@ -426,7 +416,6 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                   Regeln, Strategien & mehr →
                 </p>
               </a>
-            )}
           </div>
         </motion.div>
 

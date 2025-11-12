@@ -44,17 +44,26 @@ import { DEFAULT_FARBE_SETTINGS } from '@/config/FarbeSettings';
 // --- 🆕 HELPER FUNCTIONS FÜR DUALE NUMMERIERUNG ---
 
 /**
- * Konvertiert eine Nummer in einen Buchstaben (0 -> A, 1 -> B, etc.)
+ * Konvertiert eine Nummer in einen Buchstaben im Excel-Style (0 -> A, 25 -> Z, 26 -> AA, 51 -> AZ, 52 -> BA...)
+ * Unterstützt bis zu 702 Buchstaben (A-Z + AA-ZZ)
  */
 function numberToLetter(num: number): string {
+  if (num < 26) {
+    // Einfacher Buchstabe: A-Z
   return String.fromCharCode(65 + num); // 65 = 'A'
+  } else {
+    // Doppelter Buchstabe: AA-ZZ
+    const firstLetter = Math.floor((num - 26) / 26);
+    const secondLetter = (num - 26) % 26;
+    return String.fromCharCode(65 + firstLetter) + String.fromCharCode(65 + secondLetter);
+  }
 }
 
 /**
  * Berechnet die nächste verfügbare Passe-ID innerhalb einer Runde.
  * @param tournamentId ID der Turnierinstanz
  * @param roundNumber Nummer der Turnier-Runde
- * @returns Nächster verfügbarer Buchstabe ("A", "B", "C"...)
+ * @returns Nächster verfügbarer Buchstabe ("A", "B", "C"... "Z", "AA", "AB"... "ZZ")
  */
 async function getNextPasseLetterInRound(tournamentId: string, roundNumber: number): Promise<string> {
   try {
@@ -82,14 +91,28 @@ async function getNextPasseLetterInRound(tournamentId: string, roundNumber: numb
       }
     });
     
-    // Finde den nächsten freien Buchstaben
-    let nextCharCode = 65; // 'A'
-    while (usedLetters.has(String.fromCharCode(nextCharCode))) {
-      nextCharCode++;
+    // ✅ ELEGANT: Finde den nächsten freien Buchstaben (A-Z, dann AA-ZZ)
+    // Unterstützt bis zu 702 parallele Tische!
+    let index = 0;
+    let nextLetter = numberToLetter(index);
+    
+    while (usedLetters.has(nextLetter) && index < 702) { // 26 + (26 * 26) = 702
+      index++;
+      nextLetter = numberToLetter(index);
     }
     
-    const nextLetter = String.fromCharCode(nextCharCode);
-    console.log(`[tournamentService] Round ${roundNumber}: Used letters: ${Array.from(usedLetters).join(', ')}, Next: ${nextLetter}`);
+    if (index >= 702) {
+      // Sollte nie passieren, aber zur Sicherheit
+      console.error(`[tournamentService] ⚠️ WARNUNG: Mehr als 702 parallele Tische in Runde ${roundNumber}! Das ist außergewöhnlich.`);
+      // Verwende Zahlen als Fallback
+      let numIndex = 1;
+      while (usedLetters.has(`P${numIndex}`)) {
+        numIndex++;
+      }
+      nextLetter = `P${numIndex}`; // P1, P2, P3...
+    }
+    
+    console.log(`[tournamentService] Round ${roundNumber}: ${usedLetters.size} parallel passes, Next: ${nextLetter}`);
     
     return nextLetter;
     
@@ -158,8 +181,25 @@ async function getPlayerIdsForUids(uids: string[]): Promise<string[]> {
       if (!snapshot.empty) {
         playerIds.push(snapshot.docs[0].id);
       } else {
-        console.warn(`[tournamentService] No player document found for UID: ${uid}`);
+        // 🔧 FIX: Player-Dokument nicht gefunden - versuche es zu erstellen oder verwende UID als Fallback
+        console.warn(`[tournamentService] ⚠️ No player document found for UID: ${uid} - attempting to create or using UID as fallback`);
+        
+        // Versuche, Player-Dokument zu erstellen (für seltene Race Conditions)
+        try {
+          const { getPlayerIdForUser } = await import('./playerService');
+          const playerId = await getPlayerIdForUser(uid, null); // displayName kann null sein
+          if (playerId) {
+            playerIds.push(playerId);
+            console.log(`[tournamentService] ✅ Created/found player document for UID ${uid}: ${playerId}`);
+          } else {
+            // Wenn auch das fehlschlägt, verwende UID als Fallback
+            console.warn(`[tournamentService] ⚠️ Could not create player document for UID ${uid}, using UID as fallback`);
+            playerIds.push(uid);
+          }
+        } catch (createError) {
+          console.error(`[tournamentService] Error creating player for UID ${uid}:`, createError);
         playerIds.push(uid); // Fallback: Verwende UID als playerId
+        }
       }
     } catch (error) {
       console.error(`[tournamentService] Error fetching playerId for UID ${uid}:`, error);
@@ -196,8 +236,19 @@ export const createTournamentInstance = async (
     // Stelle sicher, dass participantUids ein gültiges Array ist, auch wenn leer übergeben
     const finalParticipantUids = Array.isArray(participantUids) ? [...new Set([creatorUid, ...participantUids])] : [creatorUid];
     
+    console.log(`[tournamentService] Creating tournament with ${finalParticipantUids.length} participants (UIDs)`);
+    
     // ✅ NEU: Konvertiere UIDs zu Player Document IDs
     const participantPlayerIds = await getPlayerIdsForUids(finalParticipantUids);
+    
+    // ✅ VALIDIERUNG: Stelle sicher, dass alle UIDs konvertiert wurden
+    if (participantPlayerIds.length !== finalParticipantUids.length) {
+      console.error(`[tournamentService] ⚠️ WARNUNG: Nur ${participantPlayerIds.length} von ${finalParticipantUids.length} UIDs konnten zu PlayerIDs konvertiert werden!`);
+      console.error(`[tournamentService] participantUids:`, finalParticipantUids);
+      console.error(`[tournamentService] participantPlayerIds:`, participantPlayerIds);
+    } else {
+      console.log(`[tournamentService] ✅ Alle ${participantPlayerIds.length} PlayerIDs erfolgreich konvertiert`);
+    }
     
     // Stelle sicher, dass adminIds korrekt initialisiert wird
     const adminIds = [creatorUid]; // Der Ersteller ist immer der erste Admin
@@ -424,16 +475,23 @@ export const addParticipantToTournament = async (
   console.log(`[tournamentService] Adding participant ${userId} to tournament instance ${instanceId}`);
   const docRef = doc(db, 'tournaments', instanceId);
   try {
-    // Optional: Prüfen, ob Turnier noch aktiv ist?
-    // const tournamentSnap = await getDoc(docRef);
-    // if (tournamentSnap.exists() && (tournamentSnap.data().status === 'completed' || tournamentSnap.data().status === 'archived')) {
-    //   throw new Error("Teilnehmer können nicht zu einem abgeschlossenen oder archivierten Turnier hinzugefügt werden.");
-    // }
+    // ✅ FIX: Konvertiere UID zu Player ID
+    const playerIds = await getPlayerIdsForUids([userId]);
+    const playerId = playerIds[0] || userId; // Fallback auf UID falls Konvertierung fehlschlägt
+    
+    if (playerId !== userId) {
+      console.log(`[tournamentService] ✅ Converted UID ${userId} to playerId ${playerId}`);
+    } else {
+      console.warn(`[tournamentService] ⚠️ Using UID as fallback for playerId: ${userId}`);
+    }
+    
+    // ✅ FIX: Aktualisiere BEIDE Arrays
     await updateDoc(docRef, {
       participantUids: arrayUnion(userId),
+      participantPlayerIds: arrayUnion(playerId), // ✅ NEU: Player ID hinzufügen
       updatedAt: serverTimestamp(),
     });
-    console.log(`[tournamentService] Participant ${userId} successfully added to tournament ${instanceId}.`);
+    console.log(`[tournamentService] Participant ${userId} (playerId: ${playerId}) successfully added to tournament ${instanceId}.`);
   } catch (error) {
     console.error(`[tournamentService] Error adding participant ${userId} to tournament ${instanceId}:`, error);
     throw new Error("Teilnehmer konnte nicht zum Turnier hinzugefügt werden.");
@@ -457,9 +515,22 @@ export const addParticipantsToTournamentBatch = async (
   console.log(`[tournamentService] Adding batch of ${userIds.length} participants to tournament instance ${instanceId}`);
   const docRef = doc(db, 'tournaments', instanceId);
   try {
-    // Firestore's arrayUnion kann direkt mit einem Array von Werten umgehen.
+    // ✅ FIX: Konvertiere alle UIDs zu Player IDs
+    const playerIds = await getPlayerIdsForUids(userIds);
+    
+    // ✅ VALIDIERUNG: Logging für Transparenz
+    const successfulConversions = playerIds.filter((pid, idx) => pid !== userIds[idx]).length;
+    if (successfulConversions > 0) {
+      console.log(`[tournamentService] ✅ Successfully converted ${successfulConversions}/${userIds.length} UIDs to PlayerIDs`);
+    }
+    if (successfulConversions < userIds.length) {
+      console.warn(`[tournamentService] ⚠️ ${userIds.length - successfulConversions} UIDs used as fallback for PlayerIDs`);
+    }
+    
+    // ✅ FIX: Aktualisiere BEIDE Arrays
     await updateDoc(docRef, {
       participantUids: arrayUnion(...userIds),
+      participantPlayerIds: arrayUnion(...playerIds), // ✅ NEU: Player IDs hinzufügen
       updatedAt: serverTimestamp(),
     });
     console.log(`[tournamentService] Batch of participants successfully added to tournament ${instanceId}.`);
@@ -1230,6 +1301,29 @@ export const uploadTournamentLogoFirebase = async (tournamentId: string, file: F
 };
 
 /**
+ * ✅ ZENTRALE VERIFIZIERUNG: Prüft, ob ein User wirklich an einem Turnier teilnimmt
+ * @param tournament Das Tournament-Objekt
+ * @param userId Firebase Auth UID
+ * @param playerId Player Document ID
+ * @returns true wenn User Teilnehmer ist, sonst false
+ */
+export const isUserTournamentParticipant = (
+  tournament: TournamentInstance,
+  userId?: string | null,
+  playerId?: string | null
+): boolean => {
+  const participantPlayerIds = tournament.participantPlayerIds || [];
+  const participantUids = tournament.participantUids || [];
+  
+  // Prüfe alle möglichen IDs
+  if (playerId && participantPlayerIds.includes(playerId)) return true;
+  if (userId && participantPlayerIds.includes(userId)) return true;
+  if (userId && participantUids.includes(userId)) return true;
+  
+  return false;
+};
+
+/**
  * Ruft alle Turnierinstanzen ab, an denen ein bestimmter User teilnimmt.
  * @param playerId ID des Spielers (Player Document ID).
  * @returns Ein Array von TournamentInstance-Objekten.
@@ -1248,13 +1342,15 @@ export const fetchTournamentsForUser = async (
     const playerDoc = await getDoc(doc(db, 'players', playerId));
     const userId = playerDoc.exists() ? playerDoc.data()?.userId : null;
     
-    // ✅ DOPPELTE ABFRAGE: Sowohl participantPlayerIds ALS AUCH participantUids (Fallback)
+    // ✅ DREIFACHE ABFRAGE: participantPlayerIds (Player-ID), participantPlayerIds (UID als Fallback), participantUids (alte Turniere)
     const queries = [
       query(tournamentsCol, where("participantPlayerIds", "array-contains", playerId))
     ];
     
+    // 🔧 FIX: Auch nach UID in participantPlayerIds suchen (Fallback für Race Condition bei Turnier-Erstellung)
     // Fallback für alte Turniere ohne participantPlayerIds
     if (userId) {
+      queries.push(query(tournamentsCol, where("participantPlayerIds", "array-contains", userId)));
       queries.push(query(tournamentsCol, where("participantUids", "array-contains", userId)));
     }
     
@@ -1266,7 +1362,14 @@ export const fetchTournamentsForUser = async (
       querySnapshot.forEach((doc) => {
         if (!seenIds.has(doc.id)) {
           seenIds.add(doc.id);
-          instances.push({ id: doc.id, ...doc.data() } as TournamentInstance);
+          const tournamentData = { id: doc.id, ...doc.data() } as TournamentInstance;
+          
+          // ✅ ELEGANTE VERIFIZIERUNG: Nutze zentrale Funktion
+          if (isUserTournamentParticipant(tournamentData, userId, playerId)) {
+            instances.push(tournamentData);
+          } else {
+            console.warn(`[tournamentService] ⚠️ User ${playerId} found in query but NOT in actual participants for tournament ${doc.id}. Skipping.`);
+          }
         }
       });
     });
@@ -1536,49 +1639,93 @@ export const completeAndRecordTournamentPasse = async (
     const tournamentData = tournamentDocSnap.data() as TournamentInstance;
     const tournamentMode = tournamentData.tournamentMode || 'spontaneous';
 
-    // 🔧 KRITISCHER FIX: Berechne die Runde basierend auf den TEILNEHMERN dieser Passe
-    // Die Runde ist das MINIMUM der completedPassesCount aller Spieler in dieser Passe + 1
-    const playersInThisPasse = playerUidsInGame;
-    
-    // Hole die Spieler-Daten vom Tournament
-    const participantUidsFromTournament = tournamentData.participantUids || [];
-    
-    // Ermittle, wie viele Passen jeder Spieler in dieser Gruppe bereits gespielt hat
-    // Dafür zählen wir die bereits abgeschlossenen Games
+    // 🔧 VERBESSERTE LOGIK: Verwende die Mehrheits-Runde (wie in [instanceId].tsx)
+    // 1. Sammle completedPassesCount von ALLEN Turnierteilnehmern
+    // Berechne completedPassesCount aus abgeschlossenen Games
     const gamesColRef = collection(db, 'tournaments', tournamentInstanceId, 'games');
     const existingGamesSnap = await getDocs(gamesColRef);
     
-    const playerPasseCounts: Record<string, number> = {};
-    playersInThisPasse.forEach(uid => {
-      playerPasseCounts[uid] = 0;
+    const allParticipantUids = tournamentData.participantUids || [];
+    const participantPasseCounts: Record<string, number> = {};
+    allParticipantUids.forEach(uid => {
+      participantPasseCounts[uid] = 0;
     });
     
     existingGamesSnap.docs.forEach(doc => {
       const gameData = doc.data();
       if (gameData.participantUidsForPasse) {
         gameData.participantUidsForPasse.forEach((uid: string) => {
-          if (playerPasseCounts[uid] !== undefined) {
-            playerPasseCounts[uid]++;
+          if (participantPasseCounts[uid] !== undefined) {
+            participantPasseCounts[uid]++;
           }
         });
       }
     });
     
-    // Die aktuelle Runde für diese Gruppe ist das Minimum + 1
+    const completedPassesCounts = Object.values(participantPasseCounts);
+    
+    let currentRound: number;
+    let passeInRound: string;
+    let passeLabel: string;
+    
+    if (completedPassesCounts.length === 0) {
+      // Fallback: Wenn keine Teilnehmer, verwende Minimum der Spieler in dieser Passe
+      const playerPasseCounts: Record<string, number> = {};
+      playerUidsInGame.forEach(uid => {
+        playerPasseCounts[uid] = participantPasseCounts[uid] || 0;
+      });
     const passeCounts = Object.values(playerPasseCounts);
     const minPasseCount = passeCounts.length > 0 ? Math.min(...passeCounts) : 0;
-    const currentRound = minPasseCount + 1;
-    
-    console.log(`[tournamentService] 📍 Calculated currentRound for passe:`, {
-      playersInThisPasse,
-      playerPasseCounts,
-      minPasseCount,
-      currentRound
+      currentRound = minPasseCount + 1;
+    } else {
+      // 2. Berechne die Mehrheits-Runde (Median)
+      const sortedCounts = [...completedPassesCounts].sort((a, b) => a - b);
+      const medianIndex = Math.floor(sortedCounts.length / 2);
+      const majorityCompletedPasses = sortedCounts[medianIndex];
+      const majorityRound = majorityCompletedPasses + 1;
+      
+      // 3. Prüfe, ob es aktive Passen in der Mehrheits-Runde gibt
+      const { collection: activeGamesCol, query: activeGamesQuery, where: activeGamesWhere, getDocs: activeGamesGetDocs } = await import('firebase/firestore');
+      const activeGamesRef = activeGamesCol(db, 'activeGames');
+      const activePassesQuery = activeGamesQuery(
+        activeGamesRef,
+        activeGamesWhere('tournamentInstanceId', '==', tournamentInstanceId),
+        activeGamesWhere('status', '==', 'live')
+      );
+      const activePassesSnap = await activeGamesGetDocs(activePassesQuery);
+      
+      let hasActivePassesInMajorityRound = false;
+      activePassesSnap.docs.forEach((doc) => {
+        const data = doc.data();
+        const participantUids = data.participantUids || [];
+        // Berechne die Runde dieser aktiven Passe
+        const passeCounts = participantUids.map((uid: string) => {
+          return participantPasseCounts[uid] || 0;
+        });
+        const minPasseCount = passeCounts.length > 0 ? Math.min(...passeCounts) : 0;
+        const passeRound = minPasseCount + 1;
+        if (passeRound === majorityRound) {
+          hasActivePassesInMajorityRound = true;
+        }
     });
 
-    // 🆕 Berechne duale Nummerierung
-    const passeInRound = await getNextPasseLetterInRound(tournamentInstanceId, currentRound);
-    const passeLabel = `${currentRound}${passeInRound}`;
+      // 4. Bestimme die relevante Runde
+      const minCompletedPasses = Math.min(...completedPassesCounts);
+      const maxCompletedPasses = Math.max(...completedPassesCounts);
+      const majorityIsAhead = majorityRound > minCompletedPasses + 1;
+      
+      if (majorityIsAhead && !hasActivePassesInMajorityRound && minCompletedPasses < maxCompletedPasses) {
+        // Mehrheit ist bereits bei einer höheren Runde → verwende Mehrheits-Runde
+        currentRound = majorityRound;
+      } else {
+        // Sonst: Verwende Minimum + 1 (für Spieler, die noch aufholen müssen)
+        currentRound = minCompletedPasses + 1;
+      }
+    }
+    
+    // Berechne passeInRound und passeLabel
+    passeInRound = await getNextPasseLetterInRound(tournamentInstanceId, currentRound);
+    passeLabel = `${currentRound}${passeInRound}`;
     
     // ✅ Logs aufgeräumt: Passe-Numbering-Log entfernt
 

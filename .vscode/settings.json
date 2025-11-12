@@ -1,0 +1,57 @@
+{
+  // TypeScript Language Server Speicher-Optimierungen
+  // Erhöht das Speicherlimit für den TypeScript Server (Standard: 3072 MB)
+  "typescript.tsserver.maxTsServerMemory": 16384,
+  
+  // Node.js Pfad für TS Server (falls nicht automatisch gefunden)
+  // Expliziter Pfad für NVM Node.js Installation
+  "typescript.tsserver.nodePath": "/Users/remoprinz/.nvm/versions/node/v22.16.0/bin/node",
+  
+  // Weitere Optimierungen für bessere Performance
+  "typescript.disableAutomaticTypeAcquisition": false,
+  "typescript.preferences.excludePackageJsonAutoImports": "on",
+  "typescript.suggest.autoImports": true,
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "typescript.tsserver.useSeparateSyntaxServer": "auto",
+  
+  // Reduziert die Anzahl der Dateien, die der TS Server überwachen muss
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/_next/**": true,
+    "**/out/**": true,
+    "**/out-wiki/**": true,
+    "**/dist/**": true,
+    "**/.next/**": true,
+    "**/dist-scripts/**": true,
+    "**/scripts/**": true,
+    "**/*.cjs": true,
+    "**/*.mjs": true
+  },
+  
+  // Deaktiviert experimentelle Projekt-Diagnostik für bessere Performance
+  "typescript.tsserver.experimental.enableProjectDiagnostics": false,
+  
+  // Zusätzliche Datei-Ausschlüsse für bessere Performance
+  "files.exclude": {
+    "**/.git": false,
+    "**/.DS_Store": true,
+    "**/tsconfig.tsbuildinfo": true
+  },
+  
+  // Search-Ausschlüsse
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/_next": true,
+    "**/out": true,
+    "**/out-wiki": true,
+    "**/dist": true,
+    "**/.next": true,
+    "**/dist-scripts": true
+  },
+  
+  // CSS Linter: Ignoriere unbekannte At-Rules (z.B. @tailwind)
+  "css.lint.unknownAtRules": "ignore"
+}
+

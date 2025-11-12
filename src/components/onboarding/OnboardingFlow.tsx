@@ -385,7 +385,7 @@ const FinalStep: React.FC<StepComponentProps> = ({
   return (
     <>
       <h1 className={`font-bold text-center text-white ${getHeadingClass()}`}>
-        Letzte Hinweise
+        Letzter Hinweis
       </h1>
       <img
         src="/welcome-guru.png"
@@ -393,17 +393,8 @@ const FinalStep: React.FC<StepComponentProps> = ({
         style={{height: `${finalImageHeight}px`, width: "auto"}}
         className={`object-contain ${deviceSize === "xs" ? "mb-2" : deviceSize === "sm" ? "mb-3" : "mb-4"}`}
       />
-      <h3 className={`font-semibold text-gray-300 ${getSubheadingClass()}`}>
-        Achtung:
-      </h3>
       <p className={`text-center ${getTextClass()}`}>
-        Vermeide es, die App mehrfach zu installieren.
-      </p>
-      <h4 className={`font-semibold text-gray-300 ${getSubheadingClass()}`}>
-        Nächster Schritt:
-      </h4>
-      <p className={`text-center ${getTextClass()}`}>
-        Du kannst das Browser-Fenster nach der Installation schliessen. Beim ersten Öffnen der App wirst du durch alle wichtigen Funktionen geführt.
+        Beim ersten Öffnen der App wähle "Als Gast spielen" und du wirst durch alle wichtigen Funktionen geführt.
       </p>
       <h2 className={`font-bold text-center ${deviceSize === "xs" ? "text-xl mb-4" : deviceSize === "lg" ? "text-2xl mb-8" : "text-2xl mb-6"}`}>
         Gutes Jassen!

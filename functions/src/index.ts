@@ -1,6 +1,7 @@
 import { setGlobalOptions } from "firebase-functions/v2";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { onDocumentCreated, onDocumentUpdated, onDocumentWritten, Change, FirestoreEvent, QueryDocumentSnapshot, DocumentSnapshot, DocumentOptions } from "firebase-functions/v2/firestore";
+import { defineSecret } from "firebase-functions/params";
 import * as admin from "firebase-admin";
 import * as crypto from "crypto";
 import * as logger from "firebase-functions/logger";
@@ -97,6 +98,11 @@ interface JassGameSummary {
     bottom: { sieg: number };
   };
   winnerTeamKey: 'top' | 'bottom'; // ✅ NUR top/bottom!
+  Rosen10player?: string | null; // ✅ HINZUGEFÜGT: Für Google Sheets Export
+  // ✅ NEU: Turnier-Felder für Prüfung
+  tournamentId?: string | null; // ID des Turniers, falls Session zu einem Turnier gehört
+  isTournamentSession?: boolean; // Flag ob es eine Turnier-Session ist
+  tournamentInstanceId?: string | null; // Alternative Turnier-Referenz
 }
 
 interface StrichData {
@@ -147,9 +153,14 @@ interface AcceptTournamentInviteData {
 // NEU: Import für Google Sheets API
 import { google } from "googleapis";
 
+// ✅ SICHER: Service Account Key als Firebase Secret
+const googleSheetsServiceAccount = defineSecret('GOOGLE_SHEETS_SERVICE_ACCOUNT_KEY');
+
 // --- Konfiguration für Google Sheets Export ---
 const SPREADSHEET_ID = "1wffL-mZRMVoXjVL3WPMiRJ_AsC5ALZXn1Jx6GYxKqKA";
 const SHEET_NAME = "Rohdaten"; // Name des Tabellenblatts, in das geschrieben werden soll
+// ✅ Erlaubte Gruppe für Spreadsheet-Export
+const ALLOWED_GROUP_IDS = ["Tz0wgIHMTlhvTtFastiJ"];
 
 // ✅ EINFACH & DYNAMISCH: Verwende Namen direkt aus der Session
 function getSpreadsheetNameFromSession(session: JassGameSummary, playerDisplayName: string): string {
@@ -355,6 +366,7 @@ const getPlayerIdForUserWithLock = async (userId: string, displayName: string | 
 
 /**
  * Interne Implementierung - erstellt Player wenn nötig
+ * 🔧 FIX: Liest displayName aus Firestore User-Dokument statt nur aus Auth Token
  */
 const getPlayerIdForUserInternal = async (userId: string, displayName: string | null): Promise<string | null> => {
   try {
@@ -362,14 +374,25 @@ const getPlayerIdForUserInternal = async (userId: string, displayName: string | 
     const userRef = db.collection("users").doc(userId);
     const userSnap = await userRef.get();
 
+    // 🆕 BEST PRACTICE: Lese displayName aus Firestore User-Dokument (höhere Priorität!)
+    let finalDisplayName = displayName; // Von Auth Token (kann leer sein bei neuen Users)
+
     if (userSnap.exists) {
       const userData = userSnap.data();
+      
+      // Prüfe existierende playerId
       if (userData?.playerId && typeof userData.playerId === 'string') {
         const playerRef = db.collection("players").doc(userData.playerId);
         const playerSnap = await playerRef.get();
         if (playerSnap.exists) {
           return userData.playerId;
         }
+      }
+
+      // 🆕 FIX: Verwende displayName aus User-Dokument (zuverlässiger als Auth Token!)
+      if (userData?.displayName && typeof userData.displayName === 'string') {
+        finalDisplayName = userData.displayName;
+        console.log(`[getPlayerIdForUserInternal] ✅ DisplayName aus User-Dokument: "${finalDisplayName}" (Auth Token: "${displayName || 'null'}")`);
       }
     }
 
@@ -384,13 +407,13 @@ const getPlayerIdForUserInternal = async (userId: string, displayName: string | 
       return foundPlayerId;
     }
 
-    // 3. Erstelle neuen Player
+    // 3. Erstelle neuen Player MIT KORREKTEM DISPLAYNAME
     // 🔒 SECURITY FIX: Use cryptographically secure random IDs
     const newPlayerId = crypto.randomBytes(12).toString('hex');
-    const finalDisplayName = displayName || `Spieler ${newPlayerId.slice(0, 8)}`;
+    const playerDisplayName = finalDisplayName || `Spieler ${newPlayerId.slice(0, 8)}`;
     
     const newPlayerData = {
-      displayName: finalDisplayName,
+      displayName: playerDisplayName,
       userId,
       isGuest: false,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -402,12 +425,12 @@ const getPlayerIdForUserInternal = async (userId: string, displayName: string | 
       metadata: { isOG: false },
     };
 
-    console.log(`[getPlayerIdForUserInternal] Erstelle neuen Player ${newPlayerId} für userId ${userId}...`);
+    console.log(`[getPlayerIdForUserInternal] Erstelle neuen Player ${newPlayerId} für userId ${userId} mit displayName: "${playerDisplayName}"`);
     
     await db.collection("players").doc(newPlayerId).set(newPlayerData);
     await userRef.set({ playerId: newPlayerId }, { merge: true });
     
-    console.log(`[getPlayerIdForUserInternal] ✅ Player ${newPlayerId} erfolgreich erstellt für userId ${userId}`);
+    console.log(`[getPlayerIdForUserInternal] ✅ Player ${newPlayerId} erfolgreich erstellt mit displayName "${playerDisplayName}"`);
     return newPlayerId;
   } catch (error) {
     console.error(`[getPlayerIdForUserInternal] Fehler für userId ${userId}:`, error);
@@ -984,13 +1007,26 @@ export const createNewGroup = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "Gruppenname ist erforderlich.");
   }
 
-  const userDisplayName = request.auth.token.name || `Spieler_${userId.substring(0, 6)}`;
+  // 🆕 FIX: Lese displayName aus User-Dokument (nicht nur aus Token!)
+  const userRef = db.collection("users").doc(userId);
+  const userSnap = await userRef.get();
+  
+  let userDisplayName = request.auth.token.name || `Spieler_${userId.substring(0, 6)}`;
+  
+  // Verwende displayName aus Firestore User-Dokument (höhere Priorität!)
+  if (userSnap.exists && userSnap.data()?.displayName) {
+    userDisplayName = userSnap.data()!.displayName;
+    console.log(`[createNewGroup] ✅ DisplayName aus User-Dokument: "${userDisplayName}" (Auth Token: "${request.auth.token.name || 'null'}")`);
+  } else if (request.auth.token.name) {
+    console.log(`[createNewGroup] ℹ️  Verwende displayName aus Auth Token: "${userDisplayName}"`);
+  } else {
+    console.log(`[createNewGroup] ⚠️  Kein displayName gefunden, verwende Fallback: "${userDisplayName}"`);
+  }
+  
   const userEmail = request.auth.token.email || null;
 
   try {
     const newGroupRef = db.collection("groups").doc();
-    const userRef = db.collection("users").doc(userId);
-    const userSnap = await userRef.get();
 
     // === VERWENDE LOCK-MECHANISMUS ===
     let playerDocId: string | null = null;
@@ -1549,7 +1585,10 @@ export const syncUserProfileToPlayer = onDocumentUpdated(
  * Diese Funktion ersetzt die alten `exportCompletedSessionToSheet` und `removeSessionOnStatusChange`.
  */
 export const handleSessionUpdate = onDocumentWritten(
-  "groups/{groupId}/jassGameSummaries/{sessionId}",
+  {
+    document: "groups/{groupId}/jassGameSummaries/{sessionId}",
+    secrets: [googleSheetsServiceAccount],
+  },
   async (event: FirestoreEvent<Change<DocumentSnapshot> | undefined>) => {
     const sessionId = event.params.sessionId;
     const groupId = event.params.groupId;
@@ -1564,18 +1603,36 @@ export const handleSessionUpdate = onDocumentWritten(
     if (afterStatus === "completed" && beforeStatus !== "completed") {
       console.log(`[handleSessionUpdate] EXPORT: Session ${sessionId} in Gruppe ${groupId} wurde abgeschlossen. Starte Export...`);
       
-      // NEUE PRÜFUNG: Nur Daten der spezifischen Gruppe ins Spreadsheet schreiben
-      if (groupId !== "Tz0wgIHMTlhvTtFastiJ") {
-        console.log(`[handleSessionUpdate] EXPORT-SKIP: Session ${sessionId} gehört nicht zur Zielgruppe (groupId: ${groupId}). Export übersprungen.`);
+      // ✅ TEMPORÄR: Prüfung für erlaubte Gruppen (inkl. Testgruppe)
+      if (!ALLOWED_GROUP_IDS.includes(groupId)) {
+        console.log(`[handleSessionUpdate] EXPORT-SKIP: Session ${sessionId} gehört nicht zu einer erlaubten Gruppe (groupId: ${groupId}). Export übersprungen.`);
         return;
       }
 
       const session = afterData as JassGameSummary;
       session.id = sessionId;
 
+      // ✅ KRITISCH: Export NUR im Gruppenmodus, NICHT im Turniermodus!
+      const isTournamentSession = session.tournamentId || session.isTournamentSession || session.tournamentInstanceId;
+      if (isTournamentSession) {
+        console.log(`[handleSessionUpdate] EXPORT-SKIP: Session ${sessionId} ist eine Turnier-Session (tournamentId: ${session.tournamentId || 'N/A'}, isTournamentSession: ${session.isTournamentSession || false}, tournamentInstanceId: ${session.tournamentInstanceId || 'N/A'}). Export übersprungen.`);
+        return;
+      }
+
       try {
+        // ✅ SICHER: Service Account Key aus Firebase Secret lesen
+        const serviceAccountKeyJson = googleSheetsServiceAccount.value();
+        let serviceAccountKey: any;
+        
+        try {
+          serviceAccountKey = JSON.parse(serviceAccountKeyJson);
+        } catch (parseError) {
+          console.error(`[handleSessionUpdate] EXPORT-FEHLER: Service Account Key konnte nicht geparst werden:`, parseError);
+          throw new Error("Service Account Key ist kein gültiges JSON");
+        }
+        
         const auth = new google.auth.GoogleAuth({
-          keyFile: "./serviceAccountKey.json",
+          credentials: serviceAccountKey,
           scopes: ["https://www.googleapis.com/auth/spreadsheets"],
         });
         const sheets = google.sheets({ version: "v4", auth });
@@ -1593,13 +1650,36 @@ export const handleSessionUpdate = onDocumentWritten(
         const team2Player1 = getSpreadsheetNameFromSession(session, session.teams.top.players[0]?.displayName || "");
         const team2Player2 = getSpreadsheetNameFromSession(session, session.teams.top.players[1]?.displayName || "");
 
+        // ✅ KORREKTUR: Rosen10player aus Session-Daten extrahieren (Player ID -> Display Name)
+        let rosen10PlayerName = "";
+        if (session.Rosen10player && typeof session.Rosen10player === 'string') {
+          // Versuche den Namen aus playerNames zu finden
+          const rosen10PlayerId = session.Rosen10player;
+          // Suche in allen Teams nach dem Spieler
+          const allPlayers = [
+            ...session.teams.top.players,
+            ...session.teams.bottom.players
+          ];
+          const rosen10Player = allPlayers.find(p => p.playerId === rosen10PlayerId);
+          if (rosen10Player) {
+            rosen10PlayerName = rosen10Player.displayName || "";
+          } else {
+            // Fallback: Versuche aus playerNames zu extrahieren (falls noch als Number-Key gespeichert)
+            const playerNameEntry = Object.entries(session.playerNames || {}).find(([_, name]) => name === rosen10PlayerId);
+            if (playerNameEntry) {
+              rosen10PlayerName = playerNameEntry[1];
+            }
+          }
+        }
+
         const rowsToAppend: (string | number)[][] = [];
 
         for (const gameDoc of completedGamesSnapshot.docs) {
           const game = gameDoc.data() as CompletedGame;
           const datum = session.startedAt ? new Date(session.startedAt.seconds * 1000).toLocaleDateString("de-CH") : "";
           const spielNr = game.gameNumber || "";
-          const rosen10 = game.gameNumber === 1 ? getSpreadsheetNameFromSession(session, session.playerNames?.[game.initialStartingPlayer] || "") : "";
+          // ✅ KORREKTUR: Verwende Session-Rosen10player nur für das erste Spiel
+          const rosen10 = game.gameNumber === 1 ? rosen10PlayerName : "";
           
           const stricheBottom = game.finalStriche?.bottom || {};
           const stricheTop = game.finalStriche?.top || {};
@@ -1634,9 +1714,17 @@ export const handleSessionUpdate = onDocumentWritten(
             requestBody: { values: rowsToAppend },
           });
           console.log(`[handleSessionUpdate] EXPORT-OK: Erfolgreich ${rowsToAppend.length} Spiele von Session ${session.id} exportiert.`);
+        } else {
+          console.log(`[handleSessionUpdate] EXPORT-WARN: Keine Zeilen zum Exportieren für Session ${session.id}.`);
         }
       } catch (error) {
         console.error(`[handleSessionUpdate] EXPORT-FEHLER bei Session ${session.id}:`, error);
+        // ✅ KORREKTUR: Detailliertes Error-Logging
+        if (error instanceof Error) {
+          console.error(`[handleSessionUpdate] Error message: ${error.message}`);
+          console.error(`[handleSessionUpdate] Error stack: ${error.stack}`);
+        }
+        // Funktion nicht weiter propagieren, um andere Prozesse nicht zu blockieren
       }
       return; // Wichtig: Ausführung hier beenden
     }
@@ -1646,18 +1734,36 @@ export const handleSessionUpdate = onDocumentWritten(
     if (beforeStatus === "completed" && afterStatus !== "completed") {
       console.log(`[handleSessionUpdate] LÖSCHEN: Session ${sessionId} in Gruppe ${groupId} wurde entfernt (Status: ${beforeStatus} -> ${afterStatus}). Starte Löschung...`);
       
-      // NEUE PRÜFUNG: Nur Daten der spezifischen Gruppe aus dem Spreadsheet löschen
-      if (groupId !== "Tz0wgIHMTlhvTtFastiJ") {
-        console.log(`[handleSessionUpdate] LÖSCH-SKIP: Session ${sessionId} gehört nicht zur Zielgruppe (groupId: ${groupId}). Löschung übersprungen.`);
+      // ✅ TEMPORÄR: Prüfung für erlaubte Gruppen (inkl. Testgruppe)
+      if (!ALLOWED_GROUP_IDS.includes(groupId)) {
+        console.log(`[handleSessionUpdate] LÖSCH-SKIP: Session ${sessionId} gehört nicht zu einer erlaubten Gruppe (groupId: ${groupId}). Löschung übersprungen.`);
         return;
       }
 
       const session = beforeData as JassGameSummary;
       session.id = sessionId;
 
+      // ✅ KRITISCH: Löschung NUR im Gruppenmodus, NICHT im Turniermodus!
+      const isTournamentSession = session.tournamentId || session.isTournamentSession || session.tournamentInstanceId;
+      if (isTournamentSession) {
+        console.log(`[handleSessionUpdate] LÖSCH-SKIP: Session ${sessionId} ist eine Turnier-Session (tournamentId: ${session.tournamentId || 'N/A'}, isTournamentSession: ${session.isTournamentSession || false}, tournamentInstanceId: ${session.tournamentInstanceId || 'N/A'}). Löschung übersprungen.`);
+        return;
+      }
+
       try {
+        // ✅ SICHER: Service Account Key aus Firebase Secret lesen
+        const serviceAccountKeyJson = googleSheetsServiceAccount.value();
+        let serviceAccountKey: any;
+        
+        try {
+          serviceAccountKey = JSON.parse(serviceAccountKeyJson);
+        } catch (parseError) {
+          console.error(`[handleSessionUpdate] LÖSCH-FEHLER: Service Account Key konnte nicht geparst werden:`, parseError);
+          throw new Error("Service Account Key ist kein gültiges JSON");
+        }
+        
         const auth = new google.auth.GoogleAuth({
-          keyFile: "./serviceAccountKey.json",
+          credentials: serviceAccountKey,
           scopes: ["https://www.googleapis.com/auth/spreadsheets"],
         });
         const sheets = google.sheets({ version: "v4", auth });

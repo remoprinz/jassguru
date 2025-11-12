@@ -10,8 +10,8 @@ export const fixChromeScaling = () => {
     // Chrome-spezifische Fixes
     const html = document.documentElement;
     
-    // Setze explizite Schriftgröße
-    html.style.fontSize = '16px';
+    // Setze explizite Schriftgröße - ENTFERNT, um Browser-Defaults zu respektieren
+    // html.style.fontSize = '16px';
     html.style.setProperty('-webkit-text-size-adjust', '100%');
     html.style.setProperty('text-size-adjust', '100%');
     

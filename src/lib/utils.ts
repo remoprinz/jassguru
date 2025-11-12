@@ -24,7 +24,8 @@ export const isPublicPath = (path: string): boolean => {
     '/impressum',
     '/clear-cache',
     '/join',
-    '/features'
+    '/features',
+    '/onboarding_tutorial'
   ];
 
   // Check for exact matches against the normalized path
@@ -33,8 +34,7 @@ export const isPublicPath = (path: string): boolean => {
   }
 
   // Check for public path prefixes
-  if (normalizedPath.startsWith('/wissen') ||
-      normalizedPath.startsWith('/view') ||
+  if (normalizedPath.startsWith('/view') ||
       normalizedPath.startsWith('/profile')) {
     return true;
   }

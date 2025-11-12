@@ -13,7 +13,7 @@ import {
   createTournamentInstance as createTournamentInstanceService,
   fetchTournamentGames,
   fetchTournamentParticipants,
-  startTournamentPasseService,
+  // startTournamentPasseService wird nicht verwendet - Store-Implementierung (startNewPasse) wird stattdessen verwendet
   completeTournamentPasse as completeTournamentPasseService,
   updateTournamentSettings as updateTournamentSettingsService,
   addParticipantToTournament as addParticipantToTournamentService,
@@ -104,6 +104,7 @@ interface TournamentState {
   passeDetailsStatus: DataStatus;
 
   tournamentListenerUnsubscribe: (() => void) | null;
+  userTournamentsListenerUnsubscribe: (() => void) | null; // 🆕 NEU: Separater Listener für alle User-Turniere
 }
 
 interface TournamentActions {
@@ -156,6 +157,9 @@ interface TournamentActions {
 
   setupTournamentListener: (instanceId: string) => void;
   clearTournamentListener: () => void;
+  
+  // 🆕 NEU: Listener für automatische Turnier-Status-Updates für alle User-Turniere
+  setupUserTournamentsListener: (identifier: string, playerId?: string | null) => void;
 
   activateTournament: (instanceId: string) => Promise<boolean>;
   pauseTournament: (instanceId: string) => Promise<boolean>;
@@ -191,6 +195,7 @@ const initialState: Omit<TournamentState, keyof TournamentActions> = {
   currentViewingPasse: null,
   passeDetailsStatus: 'idle',
   tournamentListenerUnsubscribe: null,
+  userTournamentsListenerUnsubscribe: null, // 🆕 NEU: Separater Listener für alle User-Turniere
 };
 
 export const useTournamentStore = create<TournamentState & TournamentActions>((set, get) => ({
@@ -227,14 +232,41 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
     }
   },
 
-  loadUserTournamentInstances: async (userId, groupId) => {
+  loadUserTournamentInstances: async (userIdOrPlayerId, groupId) => {
     set({ status: 'loading-list', error: null });
     try {
       if (groupId) {
           const instances = await fetchTournamentInstancesForGroup(groupId);
           set({ userTournamentInstances: instances, status: 'success' });
       } else {
-          const instances = await fetchTournamentsForUser(userId);
+          // 🔧 FIX: Konvertiere UID zu playerId falls nötig
+          let playerId = userIdOrPlayerId;
+          
+          // Versuche zu bestimmen, ob es eine UID ist (prüfe ob Player-Dokument mit dieser ID als userId existiert)
+          try {
+            const { getDoc, doc } = await import('firebase/firestore');
+            const { db } = await import('@/services/firebaseInit');
+            const playerDocRef = doc(db, 'players', userIdOrPlayerId);
+            const playerDoc = await getDoc(playerDocRef);
+            
+            if (!playerDoc.exists()) {
+              // Kein Player-Dokument mit dieser ID gefunden - könnte eine UID sein
+              // Versuche Player-Dokument mit dieser userId zu finden
+              const { collection, query, where, getDocs, limit } = await import('firebase/firestore');
+              const playersRef = collection(db, 'players');
+              const q = query(playersRef, where('userId', '==', userIdOrPlayerId), limit(1));
+              const snapshot = await getDocs(q);
+              
+              if (!snapshot.empty) {
+                playerId = snapshot.docs[0].id;
+              }
+            }
+          } catch (conversionError) {
+            console.warn('[TournamentStore] Error converting UID to playerId:', conversionError);
+            // Fahre mit der original ID fort
+          }
+          
+          const instances = await fetchTournamentsForUser(playerId);
           set({ userTournamentInstances: instances, status: 'success' });
       }
     } catch (error) {
@@ -830,6 +862,7 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
       currentViewingPasse: null,
       passeDetailsStatus: 'idle',
       tournamentListenerUnsubscribe: null,
+      // ⚠️ WICHTIG: userTournamentsListenerUnsubscribe NICHT löschen - bleibt für automatische Updates aktiv!
     });
   },
 
@@ -889,6 +922,183 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
       set({ status: 'error', error: message });
       return false;
     }
+  },
+
+  // 🆕 NEU: Listener für automatische Turnier-Status-Updates
+  setupUserTournamentsListener: async (identifier: string, providedPlayerId?: string | null) => {
+    if (!identifier) return;
+    
+    // Cleanup bestehenden Listener
+    const existingListener = get().userTournamentsListenerUnsubscribe;
+    if (existingListener) {
+      existingListener();
+    }
+    
+    // ✅ ELEGANT: Verwende providedPlayerId wenn verfügbar, sonst versuche Konvertierung
+    let playerId = providedPlayerId || identifier;
+    let userId = identifier; // Für Fallback auf participantUids
+    
+    // Nur konvertieren wenn playerId nicht bereits vorhanden
+    if (!providedPlayerId) {
+      try {
+        const { getDoc, doc, collection: firestoreCollection, query: firestoreQuery, where: firestoreWhere, getDocs, limit: firestoreLimit } = await import('firebase/firestore');
+        const { db } = await import('@/services/firebaseInit');
+        
+        // Prüfe ob identifier bereits eine playerId ist
+        const playerDocRef = doc(db, 'players', identifier);
+        const playerDoc = await getDoc(playerDocRef);
+        
+        if (!playerDoc.exists()) {
+          // Könnte eine UID sein, versuche playerId zu finden
+          const playersRef = firestoreCollection(db, 'players');
+          const q = firestoreQuery(playersRef, firestoreWhere('userId', '==', identifier), firestoreLimit(1));
+          const snapshot = await getDocs(q);
+          
+          if (!snapshot.empty) {
+            playerId = snapshot.docs[0].id;
+            userId = identifier; // Behalte UID für participantUids Query
+          }
+        } else {
+          // identifier ist bereits eine playerId
+          playerId = identifier;
+          // Versuche userId aus Player-Dokument zu holen
+          const playerData = playerDoc.data();
+          if (playerData?.userId) {
+            userId = playerData.userId;
+          }
+        }
+      } catch (error) {
+        console.warn('[TournamentStore] Error getting playerId for listener:', error);
+      }
+    } else {
+      // playerId wurde bereits übergeben, versuche userId zu finden
+      try {
+        const { getDoc, doc } = await import('firebase/firestore');
+        const { db } = await import('@/services/firebaseInit');
+        const playerDocRef = doc(db, 'players', playerId);
+        const playerDoc = await getDoc(playerDocRef);
+        if (playerDoc.exists()) {
+          const playerData = playerDoc.data();
+          if (playerData?.userId) {
+            userId = playerData.userId;
+          }
+        }
+      } catch (error) {
+        // Ignoriere Fehler, userId bleibt identifier
+      }
+    }
+    
+    // ✅ ELEGANTE VERIFIZIERUNG: Importiere zentrale Funktion vor dem Listener
+    const { isUserTournamentParticipant } = await import('@/services/tournamentService');
+    
+    // ✅ ELEGANT: Query mit participantPlayerIds (moderne Turniere) UND participantUids (alte Turniere)
+    // Firestore unterstützt keine OR-Queries, daher kombinieren wir beide Queries
+    const tournamentsQueryByPlayerId = query(
+      collection(db, 'tournaments'),
+      where('participantPlayerIds', 'array-contains', playerId)
+    );
+    
+    // ✅ ELEGANT: Query mit participantUids nur wenn userId !== playerId (für alte Turniere)
+    const tournamentsQueryByUid = userId !== playerId ? query(
+      collection(db, 'tournaments'),
+      where('participantUids', 'array-contains', userId)
+    ) : null;
+    
+    // ✅ Kombiniere Ergebnisse beider Queries
+    const allTournamentsMap = new Map<string, TournamentInstanceType>();
+    
+    const processTournaments = () => {
+      const allTournaments = Array.from(allTournamentsMap.values());
+      
+      // ✅ Nutze zentrale Verifizierungs-Funktion
+      const verifiedTournaments = allTournaments.filter(t => {
+        const isRealParticipant = isUserTournamentParticipant(t, userId, playerId);
+        
+        if (!isRealParticipant) {
+          console.warn(`[TournamentStore] ⚠️ User ${userId} found in query but NOT in actual participants for tournament ${t.id}. Skipping.`);
+        }
+        
+        return isRealParticipant;
+      });
+      
+      const activeTournaments = verifiedTournaments.filter(t => t.status === 'active');
+      
+      if (activeTournaments.length > 0) {
+        // Neuestes aktives Turnier nehmen
+        const latestActive = activeTournaments.sort((a, b) => {
+          const aTime = a.createdAt ? (typeof a.createdAt === 'object' && 'toMillis' in a.createdAt ? a.createdAt.toMillis() : 0) : 0;
+          const bTime = b.createdAt ? (typeof b.createdAt === 'object' && 'toMillis' in b.createdAt ? b.createdAt.toMillis() : 0) : 0;
+          return bTime - aTime;
+        })[0];
+        
+        const currentActiveId = get().userActiveTournamentId;
+        
+        // ✅ AUTOMATISCH: Setze userActiveTournamentId wenn Turnier aktiv wird
+        if (currentActiveId !== latestActive.id) {
+          console.log(`[TournamentStore] 🎯 Active tournament detected: ${latestActive.id} (${latestActive.name})`);
+          set({
+            userActiveTournamentId: latestActive.id,
+            userActiveTournamentStatus: 'success',
+            userActiveTournamentError: null
+          });
+          
+          // ✅ ELEGANT: Automatisch checkUserActiveTournament aufrufen für vollständige Aktualisierung
+          get().checkUserActiveTournament(userId).catch(err => {
+            console.error(`[TournamentStore] Error in checkUserActiveTournament after listener update:`, err);
+          });
+        }
+      } else {
+        // Kein aktives Turnier mehr
+        if (get().userActiveTournamentId) {
+          console.log(`[TournamentStore] No active tournament found, clearing userActiveTournamentId`);
+          set({
+            userActiveTournamentId: null,
+            userActiveTournamentStatus: 'success',
+            userActiveTournamentError: null
+          });
+        }
+      }
+    };
+    
+    // Listener für participantPlayerIds (moderne Turniere)
+    const unsubscribeByPlayerId = onSnapshot(
+      tournamentsQueryByPlayerId,
+      (snapshot) => {
+        snapshot.docs.forEach(doc => {
+          allTournamentsMap.set(doc.id, { id: doc.id, ...doc.data() } as TournamentInstanceType);
+        });
+        processTournaments();
+      },
+      (error) => {
+        console.error(`[TournamentStore] Error in user tournaments listener (by playerId):`, error);
+        set({
+          userActiveTournamentStatus: 'error',
+          userActiveTournamentError: 'Fehler beim Empfangen von Turnier-Updates.'
+        });
+      }
+    );
+    
+    // Listener für participantUids (alte Turniere) - nur wenn userId !== playerId
+    const unsubscribeByUid = tournamentsQueryByUid ? onSnapshot(
+      tournamentsQueryByUid,
+      (snapshot) => {
+        snapshot.docs.forEach(doc => {
+          allTournamentsMap.set(doc.id, { id: doc.id, ...doc.data() } as TournamentInstanceType);
+        });
+        processTournaments();
+      },
+      (error) => {
+        console.error(`[TournamentStore] Error in user tournaments listener (by uid):`, error);
+      }
+    ) : null;
+    
+    // Kombinierter Unsubscribe
+    const unsubscribe = () => {
+      unsubscribeByPlayerId();
+      if (unsubscribeByUid) unsubscribeByUid();
+    };
+    
+    set({ userTournamentsListenerUnsubscribe: unsubscribe });
   },
 
   checkUserActiveTournament: async (userId) => {
@@ -1095,10 +1305,17 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
   },
 
   resetTournamentState: () => {
+    // Cleanup beide Listener
     const unsubscribe = get().tournamentListenerUnsubscribe;
+    const userTournamentsUnsubscribe = get().userTournamentsListenerUnsubscribe;
+    
     if (unsubscribe) {
       console.log("[TournamentStore] Removing tournament listener during reset.");
       unsubscribe();
+    }
+    if (userTournamentsUnsubscribe) {
+      console.log("[TournamentStore] Removing user tournaments listener during reset.");
+      userTournamentsUnsubscribe();
     }
     
     set(initialState);

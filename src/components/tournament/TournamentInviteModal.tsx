@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -80,36 +80,59 @@ const TournamentInviteModal: React.FC<TournamentInviteModalProps> = ({
     }
   };
 
-  // Share Funktion analog zu InviteModal.tsx
+  // ✅ Share Funktion IDENTISCH zu InviteModal.tsx (GroupView)
   const handleShare = async () => {
     if (!inviteLink) return;
     if (navigator.share) {
       try {
-        // ✅ PERSONALISIERTE TURNIER-EINLADUNG - Absender aus AuthStore holen
+        // ✅ PERSONALISIERTE EINLADUNG - Absender aus AuthStore holen
         const { useAuthStore } = await import('@/store/authStore');
         const user = useAuthStore.getState().user;
         const inviterName = user?.displayName || user?.email || 'Jemand';
         
-        const titleText = `Du wurdest zu jassguru.ch eingeladen! 🏆`;
-        const bodyText = `${inviterName} lädt dich zum Jass-Turnier "${tournamentName || 'Jass-Turnier'}" ein. Nimm teil und zeige dein Können!`;
+        // ✅ TURNIER-SPEZIFISCHER Share-Text (ohne "später beitreten" etc.)
+        const bodyText = `${inviterName} lädt dich zum Jass-Turnier "${tournamentName || 'Jass-Turnier'}" ein.`; 
         const linkText = `👉 Hier ist dein Einladungslink:\n${inviteLink}`;
-        const shareText = `${titleText}\n\n${bodyText}\n\n${linkText}`;
+        const shareText = `${bodyText}\n\n${linkText}`;
+        // --- Ende Share-Text ---
 
-        // ✅ KEIN BILD - Nur Text-basierte Einladung für saubere Link-Vorschau
+        // ✅ KEIN BILD MEHR - Nur Text-basierte Einladung für saubere Link-Vorschau
         const shareData: ShareData = {
-          title: `Einladung zum Turnier: ${tournamentName || 'Jass-Turnier'}`,
+          title: `Einladung zum Turnier: ${tournamentName || 'Jass-Turnier'}`, // Titel als Metadaten
           text: shareText,
           // url entfernt, da Link bereits im shareText enthalten ist
         };
+
+        // ✅ KEIN imageFile mehr - dadurch wird die Link-Vorschau kleiner und sauberer
         await navigator.share(shareData);
+        console.log("Link erfolgreich geteilt");
       } catch (err) {
+        // Share abgebrochen wird nicht als Fehler gewertet
         if ((err as Error).name !== "AbortError") {
+          console.error("Fehler beim Teilen: ", err);
           showNotification({message: "Link konnte nicht geteilt werden.", type: "error"});
         }
       }
     } else {
+      // ✅ VERBESSERTER DESKTOP-FALLBACK: Kopiere den vollständigen Share-Text (nicht nur den Link)
+      try {
+        const { useAuthStore } = await import('@/store/authStore');
+        const user = useAuthStore.getState().user;
+        const inviterName = user?.displayName || user?.email || 'Jemand';
+        
+        // ✅ TURNIER-SPEZIFISCHER Share-Text (ohne "später beitreten" etc.)
+        const bodyText = `${inviterName} lädt dich zum Jass-Turnier "${tournamentName || 'Jass-Turnier'}" ein.`; 
+        const linkText = `👉 Hier ist dein Einladungslink:\n${inviteLink}`;
+        const shareText = `${bodyText}\n\n${linkText}`;
+        
+        await navigator.clipboard.writeText(shareText);
+        showNotification({message: "Einladungstext kopiert! Du kannst ihn jetzt in WhatsApp, E-Mail oder andere Apps einfügen.", type: "success"});
+      } catch (err) {
+        console.error("Fehler beim Kopieren des Share-Texts:", err);
+        // Fallback: Nur den Link kopieren
       handleCopyLink();
       showNotification({message: "Link kopiert (Teilen nicht direkt unterstützt).", type: "info"});
+      }
     }
   };
 
@@ -168,61 +191,72 @@ const TournamentInviteModal: React.FC<TournamentInviteModalProps> = ({
 
         {!isLoading && inviteLink && !error && (
           <div className="space-y-4">
+            {/* QR-Code Bereich */}
             <div className="flex flex-col items-center space-y-3 py-4">
+              <h3 className="text-lg font-semibold text-white mb-2">QR-Code scannen</h3>
+              <p className="text-sm text-gray-400 mb-3">
+                Zeige diesen Code zum direkten Scannen
+              </p>
               <div className="bg-white p-2 rounded-lg inline-block shadow-md">
                 <QRCodeCanvas value={inviteLink} size={256} level="M" />
               </div>
             </div>
-            <div className="px-4 space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="invite-link" className="text-gray-300 sr-only">Einladungslink</Label>
-                <div className="flex items-center space-x-2">
+
+            {/* Trennlinie */}
+            <div className="flex items-center w-full px-4">
+              <div className="flex-1 h-px bg-gray-600"></div>
+              <span className="px-3 text-sm text-gray-400">oder</span>
+              <div className="flex-1 h-px bg-gray-600"></div>
+            </div>
+
+            {/* Link versenden Bereich - EXAKT WIE BEI GRUPPEN */}
+            <div className="w-full px-4">
+              <h3 className="text-lg font-semibold text-white mb-2 text-center">Einladungslink versenden</h3>
+              <p className="text-sm text-gray-400 mb-3 text-center">
+                Teile diesen Link über WhatsApp, E-Mail oder andere Apps
+              </p>
+              
+              <div className="relative w-full mb-3">
                   <Input 
-                    id="invite-link" 
-                    value={inviteLink.replace(/^https?:\/\/[^/]+/, '').replace(/\?tournamentToken=.*$/, '')} 
+                  type="text"
                     readOnly 
-                    className="bg-gray-700 border-gray-600 text-gray-300 text-xs pr-10" 
+                  value={inviteLink}
+                  className="bg-gray-700 border-gray-600 text-gray-300 pr-10 text-xs"
                   />
                   <Button 
-                    type="button" 
+                  variant="ghost"
                     size="icon" 
-                    variant="ghost" 
+                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 text-gray-400 hover:text-white hover:bg-gray-600"
                     onClick={handleCopyLink} 
-                    className="border-gray-600 hover:bg-gray-700/50 text-gray-400 hover:text-white h-9 w-9"
+                  aria-label="Link kopieren"
                   >
-                    {hasCopied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
+                  <Copy size={16}/>
                   </Button>
-                </div>
               </div>
+
               <Button
                 onClick={handleShare}
-                className="w-full bg-green-600 hover:bg-green-700 text-white flex items-center justify-center"
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
                 size="default"
               >
-                <Share2 size={16} className="mr-2"/> Link teilen
+                Einladung versenden
               </Button>
-              {onGenerateNew && (
+            </div>
+          </div>
+        )}
+
+        <DialogFooter className="flex flex-col sm:flex-col sm:justify-center pt-4 gap-2 px-4">
+          {/* Button zum Generieren eines neuen Links (optional) - jetzt Gelb, kommt als zweites */}
+          {onGenerateNew && inviteLink && !isLoading && (
                 <Button
-                  className="w-full bg-yellow-500 hover:bg-yellow-600 text-white"
+              className="w-full bg-yellow-600 hover:bg-yellow-700 text-white"
                   onClick={handleGenerateNew}
                   size="default"
                 >
                   Neuen Code generieren
                 </Button>
               )}
-              <DialogClose asChild>
-                <Button 
-                  type="button" 
-                  variant="destructive" 
-                  onClick={onClose} 
-                  className="w-full"
-                >
-                  Schliessen
-                </Button>
-              </DialogClose>
-            </div>
-          </div>
-        )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

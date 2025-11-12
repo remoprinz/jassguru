@@ -8,6 +8,23 @@
         "**/.*",
         "**/node_modules/**"
       ],
+      "redirects": [
+        {
+          "source": "/wissen",
+          "destination": "https://jasswiki.ch/",
+          "type": 301
+        },
+        {
+          "source": "/wissen/",
+          "destination": "https://jasswiki.ch/",
+          "type": 301
+        },
+        {
+          "source": "/wissen/:path*",
+          "destination": "https://jasswiki.ch/:path*",
+          "type": 301
+        }
+      ],
       "rewrites": [
         {
           "source": "/agb",
@@ -217,45 +234,6 @@
         ]
       }
     ]
-    },
-    {
-      "target": "jasswiki",
-      "public": "out-wiki",
-      "ignore": [
-        "firebase.json",
-        "**/.*",
-        "**/node_modules/**"
-      ],
-      "trailingSlash": true,
-      "headers": [
-        {
-          "source": "**/*.css",
-          "headers": [
-            {
-              "key": "Content-Type",
-              "value": "text/css; charset=utf-8"
-            }
-          ]
-        },
-        {
-          "source": "**/*.js",
-          "headers": [
-            {
-              "key": "Content-Type",
-              "value": "application/javascript; charset=utf-8"
-            }
-          ]
-        },
-        {
-          "source": "**",
-          "headers": [
-            {
-              "key": "Cache-Control",
-              "value": "public, max-age=3600"
-            }
-          ]
-        }
-      ]
     }
   ],
   "functions": [

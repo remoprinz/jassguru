@@ -17,19 +17,54 @@ const PwaUpdateHandler: React.FC = () => {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
+    // ✅ FIX: Prüfe ob wir gerade von einem Update-Reload kommen
+    const checkAndClearUpdateFlag = () => {
+      try {
+        const wasUpdated = sessionStorage.getItem('pwaUpdateReloaded') === '1';
+        const urlParams = new URLSearchParams(window.location.search);
+        const hasUpdatedParam = urlParams.has('updated');
+        
+        if (wasUpdated || hasUpdatedParam) {
+          // Update wurde erfolgreich durchgeführt
+          sessionStorage.removeItem('pwaUpdateReloaded');
+          setUpdateAvailable(false);
+          
+          // ✅ Entferne ?updated= Parameter aus URL (clean URL)
+          if (hasUpdatedParam) {
+            const cleanUrl = window.location.href.split('?')[0];
+            window.history.replaceState({}, '', cleanUrl);
+          }
+          
+          return true; // Signal: Update wurde gerade abgeschlossen
+        }
+      } catch (error) {
+        console.warn('[PwaUpdateHandler] Error checking update flag:', error);
+      }
+      return false;
+    };
+
+    const justUpdated = checkAndClearUpdateFlag();
+
     // Registrierung: überall (auch Browser), aber Update-Notify nur, wenn nicht öffentliche Route
     serviceWorkerService.register({
       onUpdate: (reg) => {
         if (typeof window !== 'undefined') {
           const onPublic = isPublicPath(window.location.pathname);
-          if (!onPublic) handleUpdate(reg);
+          // ✅ Nur Update-Notification zeigen wenn wir NICHT gerade ein Update abgeschlossen haben
+          if (!onPublic && !justUpdated) {
+            handleUpdate(reg);
+          }
         }
       },
     });
 
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        serviceWorkerService.checkForUpdate();
+        // ✅ Nur Update-Check wenn nicht gerade ein Update abgeschlossen wurde
+        const wasJustUpdated = sessionStorage.getItem('pwaUpdateReloaded') === '1';
+        if (!wasJustUpdated) {
+          serviceWorkerService.checkForUpdate();
+        }
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -37,7 +72,7 @@ const PwaUpdateHandler: React.FC = () => {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [handleUpdate]);
+  }, [handleUpdate, setUpdateAvailable]);
 
   return null;
 };

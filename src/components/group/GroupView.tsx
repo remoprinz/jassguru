@@ -46,8 +46,8 @@ import {
   getOptimizedTeamStricheChart,
   getOptimizedTeamPointsChart,
   getOptimizedTeamMatschChart,
-  getBackfillStatus,
-  getTrumpfDistributionChartData
+  getTrumpfDistributionChartData,
+  getTeamEventCounts
 } from '@/services/chartDataService';
 // ✅ NEU: Hilfsfunktion für Ranglisten aus Backfill-Daten
 import { getRankingFromChartData, getTeamRankingFromChartData } from '@/utils/chartRankingUtils';
@@ -311,6 +311,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
     datasets: any[];
   } | null>(null);
   const [teamMatschChartLoading, setTeamMatschChartLoading] = useState(false);
+  
+  // ✅ NEU: State für Team Event-Counts (Made/Received)
+  const [teamEventCountsMap, setTeamEventCountsMap] = useState<Map<string, { eventsMade: number; eventsReceived: number }>>(new Map());
 
   // NEU: Trumpfverteilung-Daten aus groupStats
   const trumpfDistributionData = useMemo(() => {
@@ -1178,6 +1181,20 @@ export const GroupView: React.FC<GroupViewProps> = ({
     }, 50);
     
     return () => clearTimeout(timer);
+  }, [currentGroup?.id]);
+  
+  // ✅ NEU: Lade Team Event-Counts (Made/Received) direkt aus jassGameSummaries
+  React.useEffect(() => {
+    if (!currentGroup?.id) return;
+    
+    getTeamEventCounts(currentGroup.id)
+      .then((map) => {
+        setTeamEventCountsMap(map);
+      })
+      .catch(error => {
+        console.warn('Fehler beim Laden der Team Event-Counts:', error);
+        setTeamEventCountsMap(new Map());
+      });
   }, [currentGroup?.id]);
 
   if (groupStatus === 'loading' && !currentGroup) {
@@ -3066,9 +3083,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                       <div ref={teamMatschRateRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {(() => {
-                          // ✅ KOMBINIERT: Chart-Daten für Ranking, groupStats für eventsMade/eventsReceived
+                          // ✅ KORRIGIERT: Chart-Daten für Ranking, Event-Counts direkt aus jassGameSummaries
                           if (teamMatschRanking && teamMatschRanking.length > 0) {
-                            // Map: Team-Namen -> eventsMade/eventsReceived aus groupStats
+                            // ✅ FALLBACK: Versuche zuerst groupStats, dann teamEventCountsMap
                             const teamStatsMap = new Map();
                             const teamMatschData = groupStats?.teamWithHighestMatschBilanz || groupStats?.teamWithHighestMatschRate || [];
                             teamMatschData.forEach((team: any) => {
@@ -3084,7 +3101,13 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               .map((team) => {
                                 // Extrahiere Spieler-Namen aus Team-Namen
                                 const names = team.teamName.split(' & ');
-                                const teamStats = teamStatsMap.get(team.teamName) || { eventsMade: 0, eventsReceived: 0 };
+                                // ✅ KORRIGIERT: Verwende teamEventCountsMap als Fallback wenn nicht in groupStats
+                                let teamStats = teamStatsMap.get(team.teamName);
+                                if (!teamStats) {
+                                  // Versuche aus teamEventCountsMap (direkt aus jassGameSummaries)
+                                  const eventCounts = teamEventCountsMap.get(team.teamName);
+                                  teamStats = eventCounts || { eventsMade: 0, eventsReceived: 0 };
+                                }
                                 
                                 return (
                                   <div key={`team-${team.teamId}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>

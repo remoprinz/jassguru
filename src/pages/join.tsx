@@ -9,7 +9,6 @@ import {useGroupStore} from "@/store/groupStore";
 import MainLayout from "@/components/layout/MainLayout";
 import {getFunctions, httpsCallable, FunctionsErrorCode} from "firebase/functions";
 import {FirebaseError} from "firebase/app";
-import {LOCAL_STORAGE_PENDING_INVITE_TOKEN_KEY} from '../constants/appConstants';
 import { Loader2, AlertTriangle, CheckCircle } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import { redeemTournamentInvite } from '@/services/tournamentService';

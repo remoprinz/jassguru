@@ -21,7 +21,6 @@ import type { FirestorePlayer } from "@/types/jass";
 import { useUIStore } from "./uiStore";
 import {useGroupStore} from "./groupStore";
 import {doc, onSnapshot, Unsubscribe, FirestoreError, getDoc, serverTimestamp, setDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
-import { processPendingInviteToken } from '../lib/handlePendingInvite';
 import { PLAYERS_COLLECTION, USERS_COLLECTION } from "@/constants/firestore";
 import { getPlayerIdForUser, syncDisplayNameAcrossCollections } from "../services/playerService";
 import Router from 'next/router';
@@ -685,26 +684,10 @@ export const useAuthStore = create<AuthStore>()(
                   }
               }
 
-              if (previousStatus === 'loading' || previousStatus === 'unauthenticated') {
-                // Prüfe, ob bereits eine Registrierungs-Notification aktiv ist
-                const { useUIStore } = require('../store/uiStore');
-                const uiStore = useUIStore.getState();
-                const hasRegistrationNotification = uiStore.notifications.some(n => 
-                  n.message.includes('Registrierung erfolgreich') || 
-                  n.message.includes('Prüfe deine Email') ||
-                  n.message.includes('Gruppen-Einladung')
-                );
-                
-                // Unterdrücke Notification, wenn bereits eine Registrierungs-Notification aktiv ist
-                const joinedGroupId = await processPendingInviteToken(hasRegistrationNotification);
-                if (joinedGroupId) {
-                  try {
-                    await updateUserDocument(firebaseUser.uid, { lastActiveGroupId: joinedGroupId });
-                  } catch (updateError) {
-                    console.error(`AUTH_STORE: Fehler beim Aktualisieren der lastActiveGroupId auf ${joinedGroupId}:`, updateError);
-                  }
-                }
-              }
+              // ⚠️ ENTFERNT: Legacy processPendingInviteToken Mechanismus
+              // Der aktive Token-Mechanismus verwendet sessionStorage (groupToken/tournamentToken)
+              // und wird in /pages/join.tsx verarbeitet, nicht hier.
+              // Siehe: /src/utils/tokenStorage.ts für den aktiven Mechanismus
 
               userDocUnsubscribe = onSnapshot(userRef, async (docSnap) => {
                 if (docSnap.exists()) {

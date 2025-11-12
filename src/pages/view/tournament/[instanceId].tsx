@@ -32,14 +32,6 @@ import { format } from 'date-fns';
 import { Timestamp, getFirestore, collection, query, where, orderBy, limit, onSnapshot, Unsubscribe, doc, getDoc } from 'firebase/firestore';
 import { firebaseApp } from '@/services/firebaseInit';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogClose,
-} from "@/components/ui/dialog";
-import TournamentPlayerProgressView from '@/components/tournament/TournamentPlayerProgressView';
 import TournamentInviteModal from '@/components/tournament/TournamentInviteModal';
 import TournamentParticipantsList from '@/components/tournament/TournamentParticipantsList';
 import TournamentStartScreen from '@/components/tournament/TournamentStartScreen';
@@ -104,9 +96,6 @@ const TournamentViewPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState("ranking");
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   
-  // NEU: States für Spielerfortschritt-Modal
-  const [showPlayerProgressModal, setShowPlayerProgressModal] = useState(false);
-  const [selectedPlayerForProgressView, setSelectedPlayerForProgressView] = useState<ParticipantWithProgress | null>(null);
 
   const currentTournamentGames = useTournamentStore((state) => state.currentTournamentGames);
   const loadTournamentGames = useTournamentStore((state) => state.loadTournamentGames);
@@ -125,6 +114,10 @@ const TournamentViewPage: React.FC = () => {
   const [resumablePasseId, setResumablePasseId] = useState<string | null>(null);
   const [isCheckingForResumablePasse, setIsCheckingForResumablePasse] = useState<boolean>(true);
   const activePasseListener = useRef<Unsubscribe | null>(null);
+
+  // 🆕 NEU: Zustand für alle aktiven Passen des Turniers (für korrekte Passe-Nummerierung)
+  const [activePassesInTournament, setActivePassesInTournament] = useState<any[]>([]);
+  const allActivePassesListenerRef = useRef<Unsubscribe | null>(null);
 
   const logoFileInputRef = useRef<HTMLInputElement>(null);
   const [selectedLogoFile, setSelectedLogoFile] = useState<File | null>(null);
@@ -342,6 +335,63 @@ const TournamentViewPage: React.FC = () => {
     };
   }, [memoizedInstanceId, user?.uid, detailsStatus, tournament?.status, resumablePasseId, isDebugMode]);
 
+  // 🆕 NEU: Listener für ALLE aktiven Passen des Turniers (für korrekte Passe-Nummerierung)
+  useEffect(() => {
+    if (!memoizedInstanceId || detailsStatus !== 'success' || tournament?.status !== 'active') {
+      // Cleanup: Setze State zurück, wenn Bedingungen nicht erfüllt sind
+      if (activePassesInTournament.length > 0) {
+        setActivePassesInTournament([]);
+      }
+      if (allActivePassesListenerRef.current) {
+        allActivePassesListenerRef.current();
+        allActivePassesListenerRef.current = null;
+      }
+      return;
+    }
+
+    
+    const db = getFirestore(firebaseApp);
+    const activePasses = collection(db, 'activeGames');
+    
+    // Query für ALLE aktiven Passen dieses Turniers (ohne array-contains)
+    const allPassesQuery = query(
+      activePasses,
+      where('tournamentInstanceId', '==', memoizedInstanceId),
+      where('status', '==', 'live')
+    );
+    
+    // Listener einrichten
+    const unsubscribe = onSnapshot(
+      allPassesQuery,
+      (snapshot) => {
+        try {
+          const activePasses = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          
+          setActivePassesInTournament(activePasses);
+        } catch (error) {
+          console.error('[TournamentViewPage] Error processing all active passes snapshot:', error);
+        }
+      },
+      (error) => {
+        console.error('[TournamentViewPage] Error in all active passes listener:', error);
+        setActivePassesInTournament([]);
+      }
+    );
+    
+    allActivePassesListenerRef.current = unsubscribe;
+    
+    // Cleanup beim Unmount
+    return () => {
+      if (allActivePassesListenerRef.current) {
+        allActivePassesListenerRef.current();
+        allActivePassesListenerRef.current = null;
+      }
+    };
+  }, [memoizedInstanceId, detailsStatus, tournament?.status, activePassesInTournament.length]);
+
   // Angepasster Cleanup-Effekt: Nur beim Unmounten
   useEffect(() => {
     // Store the current URLs in variables accessible by the cleanup function closure
@@ -407,7 +457,6 @@ const TournamentViewPage: React.FC = () => {
       
       // 2. Stelle sicher, dass Turnierteilnehmer mit korrekten completedPassesCount geladen sind
       if (participantsStatus !== 'success') {
-        console.log("[TournamentViewPage] Loading participants before starting passe...");
         await loadTournamentParticipants(instanceId);
       }
       
@@ -428,54 +477,152 @@ const TournamentViewPage: React.FC = () => {
   const isCurrentUserAdmin = !!tournament && !!user && tournament.adminIds?.includes(user.uid);
   
   // 🆕 Berechne nächste Passe-Nummer UND Label
+  // ✅ HELPER: Konvertiert eine Nummer in einen Buchstaben im Excel-Style (0 -> A, 25 -> Z, 26 -> AA, 51 -> AZ, 52 -> BA...)
+  const numberToLetter = (num: number): string => {
+    if (num < 26) {
+      // Einfacher Buchstabe: A-Z
+      return String.fromCharCode(65 + num); // 65 = 'A'
+    } else {
+      // Doppelter Buchstabe: AA-ZZ
+      const firstLetter = Math.floor((num - 26) / 26);
+      const secondLetter = (num - 26) % 26;
+      return String.fromCharCode(65 + firstLetter) + String.fromCharCode(65 + secondLetter);
+    }
+  };
+
   const { nextPasseNumber, nextPasseLabel } = useMemo(() => {
     if (!tournamentParticipants || tournamentParticipants.length === 0 || !tournament) {
       return { nextPasseNumber: 1, nextPasseLabel: '1A' };
     }
     
-    // ROBUSTER ALGORITHMUS für alle Szenarien:
-    // 1. Ermittle die maximale Anzahl abgeschlossener Passen aller Spieler
+    // 🔧 VERBESSERTE LOGIK: Unterscheide zwischen "Runde läuft noch" und "Runde abgeschlossen"
+    // 1. Ermittle min/max abgeschlossener Passen
     const completedPassesCounts = tournamentParticipants.map(p => p.completedPassesCount || 0);
+    const minCompletedPasses = Math.min(...completedPassesCounts);
     const maxCompletedPasses = Math.max(...completedPassesCounts);
     
-    // 2. Zusätzliche Sicherheitsprüfung für Edge Cases:
-    // - Ungerade Spielerzahlen (9, 10, 11 Spieler)
-    // - Spieler, die Runden aussetzen
-    // - Unregelmäßige Spielabfolgen
+    // 2. Berechne die "Mehrheits-Runde": Die Runde, bei der die Mehrheit der Spieler ist
+    // Sortiere Spieler nach completedPassesCount und finde den Median
+    const sortedCounts = [...completedPassesCounts].sort((a, b) => a - b);
+    const medianIndex = Math.floor(sortedCounts.length / 2);
+    const majorityCompletedPasses = sortedCounts[medianIndex];
+    const majorityRound = majorityCompletedPasses + 1; // Die Runde, die die Mehrheit gerade spielt
     
-    // Wenn alle Spieler die gleiche Anzahl haben, ist das die aktuelle Runde
-    const allHaveSamePasses = completedPassesCounts.every(count => count === maxCompletedPasses);
+    // 3. Bestimme die relevante Runde basierend auf der Mehrheit
+    let relevantRound = minCompletedPasses + 1;
     
-    const nextNumber = allHaveSamePasses ? maxCompletedPasses + 1 : maxCompletedPasses + 1;
+    // 4. Prüfe, ob die Mehrheit bereits bei einer höheren Runde ist als minCompletedPasses + 1
+    const majorityIsAhead = majorityRound > minCompletedPasses + 1;
     
-    // 🔧 KORREKTUR: Berechne Passe-Label basierend auf DEM SPIELER
-    // Jeder Spieler durchläuft: 1A → 2A → 3A → 4A...
-    // Der Buchstabe zeigt nur, welche parallele Gruppe gerade spielt
+    // 5. Prüfe, ob es noch aktive Passen in der Mehrheits-Runde gibt
+    // WICHTIG: Wenn activePassesInTournament leer ist (keine aktiven Passen), bleibt hasActivePassesInMajorityRound = false
+    let hasActivePassesInMajorityRound = false;
+    if (activePassesInTournament && activePassesInTournament.length > 0) {
+      hasActivePassesInMajorityRound = activePassesInTournament.some(activePasse => {
+        const participantUids = activePasse.participantUids || [];
+        const passeCounts = participantUids.map((uid: string) => {
+          const participant = tournamentParticipants.find(p => p.uid === uid);
+          return participant?.completedPassesCount || 0;
+        });
+        const minPasseCount = passeCounts.length > 0 ? Math.min(...passeCounts) : 0;
+        // passeRound = minPasseCount + 1 (die Runde, die diese Spieler gerade spielen)
+        const passeRound = minPasseCount + 1;
+        // Prüfe, ob diese aktive Passe in der Mehrheits-Runde ist
+        return passeRound === majorityRound;
+      });
+    } else {
+      // ✅ KEINE aktiven Passen vorhanden → hasActivePassesInMajorityRound bleibt false
+    }
     
-    // Ermittle die nächste Runde für diesen Spieler
-    const nextRound = maxCompletedPasses + 1;
+    // 6. Wenn die Mehrheit bereits bei einer höheren Runde ist UND keine aktiven Passen mehr in dieser Runde,
+    // dann ist die minCompletedPasses-Runde "abgeschlossen" → gehe zur Mehrheits-Runde mit Buchstabe 'A'
+    // WICHTIG: !hasActivePassesInMajorityRound ist TRUE, wenn:
+    //   - activePassesInTournament leer ist (keine aktiven Passen) ✅
+    //   - ODER keine aktiven Passen in der Mehrheits-Runde existieren ✅
+    if (majorityIsAhead && !hasActivePassesInMajorityRound && minCompletedPasses < maxCompletedPasses) {
+      relevantRound = majorityRound;
+      return { 
+        nextPasseNumber: relevantRound, 
+        nextPasseLabel: `${relevantRound}A` 
+      };
+    }
     
-    // Ermittle, wie viele PARALLELE Gruppen bereits diese Runde spielen
-    const parallelGroupsInNextRound = currentTournamentGames?.filter(game => 
-      game.tournamentRound === nextRound
-    ).length || 0;
+    // Sonst: Sammle verwendete Buchstaben in der relevanten Runde
+    const usedLetters = new Set<string>();
     
-    // Berechne Buchstaben basierend auf parallelen Gruppen
-    const nextLetter = String.fromCharCode(65 + parallelGroupsInNextRound); // 65 = 'A'
-    const nextLabel = `${nextRound}${nextLetter}`;
+    // 4a. Sammle Buchstaben aus abgeschlossenen Passen
+    if (currentTournamentGames) {
+      currentTournamentGames.forEach(game => {
+        if (game.tournamentRound === relevantRound && game.passeInRound) {
+          usedLetters.add(game.passeInRound);
+        }
+      });
+    }
     
-    // ✅ Logs aufgeräumt: Button-Label-Debug-Log entfernt
+    // 4b. Sammle Buchstaben aus aktiven Passen
+    if (activePassesInTournament && activePassesInTournament.length > 0) {
+      // Filtere aktive Passen in der relevanten Runde
+      const activePassesInRelevantRound = activePassesInTournament
+        .map(activePasse => {
+          const participantUids = activePasse.participantUids || [];
+          const passeCounts = participantUids.map((uid: string) => {
+            const participant = tournamentParticipants.find(p => p.uid === uid);
+            return participant?.completedPassesCount || 0;
+          });
+          const minPasseCount = passeCounts.length > 0 ? Math.min(...passeCounts) : 0;
+          const passeRound = minPasseCount + 1;
+          
+          return { activePasse, passeRound };
+        })
+        .filter(item => item.passeRound === relevantRound)
+        .map(item => item.activePasse);
+      
+      // Sortiere nach createdAt für konsistente Reihenfolge
+      activePassesInRelevantRound.sort((a, b) => {
+        const aTime = a.createdAt?.toMillis?.() || a.createdAt || 0;
+        const bTime = b.createdAt?.toMillis?.() || b.createdAt || 0;
+        return aTime - bTime;
+      });
+      
+      // Sammle Buchstaben aus aktiven Passen
+      activePassesInRelevantRound.forEach((activePasse, index) => {
+        if (activePasse.passeInRound) {
+          usedLetters.add(activePasse.passeInRound);
+        } else {
+          // Fallback: Verwende die Position in der sortierten Liste (Excel-Style)
+          usedLetters.add(numberToLetter(index));
+        }
+      });
+    }
+    
+    // 5. ✅ ELEGANT: Finde den nächsten freien Buchstaben (A-Z, dann AA-ZZ)
+    // Unterstützt bis zu 702 parallele Tische!
+    let index = 0;
+    let nextLetter = numberToLetter(index);
+    
+    while (usedLetters.has(nextLetter) && index < 702) { // 26 + (26 * 26) = 702
+      index++;
+      nextLetter = numberToLetter(index);
+    }
+    
+    if (index >= 702) {
+      // Sollte nie passieren, aber zur Sicherheit
+      console.error(`[TournamentView] ⚠️ WARNUNG: Mehr als 702 parallele Tische in Runde ${relevantRound}! Verwende Zahlen als Fallback.`);
+      // Verwende Zahlen als Fallback
+      let numIndex = 1;
+      while (usedLetters.has(`P${numIndex}`)) {
+        numIndex++;
+      }
+      nextLetter = `P${numIndex}`; // P1, P2, P3...
+    }
+    
+    const nextLabel = `${relevantRound}${nextLetter}`;
     
     return { 
-      nextPasseNumber: nextNumber, 
+      nextPasseNumber: relevantRound, 
       nextPasseLabel: nextLabel 
     };
-  }, [tournamentParticipants, tournament, currentTournamentGames, user]);
-  const activeStrokeSettings: StrokeSettings = tournament?.settings?.strokeSettings || DEFAULT_STROKE_SETTINGS;
-  const activeScoreSettings: ScoreSettings = {
-    ...DEFAULT_SCORE_SETTINGS,
-    ...(tournament?.settings?.scoreSettings || {}),
-  };
+  }, [tournamentParticipants, tournament, currentTournamentGames, activePassesInTournament, user]);
 
   const handleLogoFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -608,7 +755,6 @@ const TournamentViewPage: React.FC = () => {
   };
 
   const handleGenerateNewInvite = () => {
-    console.log("[TournamentViewPage] User requested new invite token.");
   };
 
   const currentUserIsAdmin = useMemo(() => {
@@ -629,9 +775,12 @@ const TournamentViewPage: React.FC = () => {
 
   // NEU: Handler zum Öffnen des Spielerfortschritt-Modals
   const handleOpenPlayerProgress = useCallback((player: ParticipantWithProgress) => {
-    setSelectedPlayerForProgressView(player);
-    setShowPlayerProgressModal(true);
-  }, []);
+    // Navigiere zum öffentlichen Profil des Spielers (wie in GroupView.tsx)
+    const playerId = player.playerId || player.uid;
+    if (playerId) {
+      router.push(`/profile/${playerId}`);
+    }
+  }, [router]);
 
   if (isLoading) {
     return (
@@ -964,34 +1113,6 @@ const TournamentViewPage: React.FC = () => {
           disabled={isUploadingLogo}
         />
 
-        {/* NEU: Spielerfortschritt-Modal */} 
-        {selectedPlayerForProgressView && tournament && (
-          <Dialog open={showPlayerProgressModal} onOpenChange={setShowPlayerProgressModal}>
-            <DialogContent className="max-w-3xl bg-gray-850 border-gray-700 text-white">
-              <DialogHeader className="mb-0 pb-2">
-                <DialogTitle className="text-xl text-purple-300">Spielerfortschritt: {selectedPlayerForProgressView.displayName}</DialogTitle>
-                <DialogClose className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-                  <X className="h-4 w-4" />
-                  <span className="sr-only">Schliessen</span>
-                </DialogClose>
-              </DialogHeader>
-              <div className="max-h-[80vh] overflow-y-auto p-1 pr-2">
-                <TournamentPlayerProgressView 
-                  tournamentGames={currentTournamentGames}
-                  playerUid={selectedPlayerForProgressView.uid}
-                  playerName={selectedPlayerForProgressView.displayName}
-                  playerPhotoUrl={selectedPlayerForProgressView.photoURL ?? undefined}
-                  strokeSettings={tournament.settings?.strokeSettings || DEFAULT_STROKE_SETTINGS}
-                  scoreSettings={{
-                    ...DEFAULT_SCORE_SETTINGS,
-                    ...(tournament.settings?.scoreSettings || {}),
-                  }}
-                  cardStyle={tournament.settings?.farbeSettings?.cardStyle || DEFAULT_FARBE_SETTINGS.cardStyle}
-                />
-              </div>
-            </DialogContent>
-          </Dialog>
-        )}
       </div>
       
       {/* BUTTON AUSSERHALB DES MAINLAYOUT FÜR VOLLE BREITE */}

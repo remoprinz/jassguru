@@ -18,16 +18,17 @@ interface ArticleData {
 interface JsonLdSchemaProps {
   articleData: ArticleData;
   breadcrumbItems: BreadcrumbItem[];
-  baseUrl: string;
+  canonicalUrl: string;
+  siteUrl: string;
 }
 
-export const JsonLdSchema: React.FC<JsonLdSchemaProps> = ({ articleData, breadcrumbItems, baseUrl }) => {
+export const JsonLdSchema: React.FC<JsonLdSchemaProps> = ({ articleData, breadcrumbItems, canonicalUrl, siteUrl }) => {
   const articleSchema = {
     '@context': 'https://schema.org',
     '@type': 'Article',
     "mainEntityOfPage": {
       '@type': 'WebPage',
-      '@id': baseUrl,
+      '@id': canonicalUrl,
     },
     "headline": articleData.headline,
     "description": articleData.description,
@@ -54,7 +55,7 @@ export const JsonLdSchema: React.FC<JsonLdSchemaProps> = ({ articleData, breadcr
       '@type': 'ListItem',
       "position": index + 1,
       "name": item.name,
-      "item": `${baseUrl}${item.href}`,
+      "item": item.href.startsWith('http') ? item.href : new URL(item.href, siteUrl).toString(),
     })),
   };
 

@@ -4,8 +4,10 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { Button } from '@/components/ui/button';
 import { Loader2, Eye, Users, User } from 'lucide-react';
+import { isPWA } from '@/utils/browserDetection';
 
 interface WelcomeBoxProps {
   displayMode: 'default' | 'invite' | 'pwa';
@@ -22,6 +24,14 @@ const WelcomeBox: React.FC<WelcomeBoxProps> = ({
   onLogin,
   onGuestPlay,
 }) => {
+  const router = useRouter();
+  const isInBrowser = !isPWA(); // Im Browser (nicht in PWA)
+  
+  // Handler für "App herunterladen" Button (nur im Browser)
+  const handleAppDownload = () => {
+    router.push('/onboarding_tutorial');
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -142,7 +152,7 @@ const WelcomeBox: React.FC<WelcomeBoxProps> = ({
           </Button>
         ) : (
           <Button
-            onClick={onGuestPlay}
+            onClick={isInBrowser ? handleAppDownload : onGuestPlay}
             disabled={isGuestLoading}
             className="w-full bg-yellow-600 hover:bg-yellow-700 text-white h-14 text-xl rounded-xl shadow-lg font-semibold transition-transform hover:scale-105"
           >
@@ -152,10 +162,11 @@ const WelcomeBox: React.FC<WelcomeBoxProps> = ({
                 Jasstafel laden...
               </>
             ) : (
-              <>
-                <span className="hidden lg:inline">App herunterladen</span>
-                <span className="lg:hidden">Als Gast spielen</span>
-              </>
+              isInBrowser ? (
+                "App herunterladen"
+              ) : (
+                "Als Gast spielen"
+              )
             )}
           </Button>
         )}
@@ -192,7 +203,9 @@ const WelcomeBox: React.FC<WelcomeBoxProps> = ({
       <div className="pt-8 mt-8 border-t border-gray-700/50">
         {displayMode === 'pwa' ? (
           <Link
-            href="/wissen"
+            href="https://jasswiki.ch/"
+            target="_blank"
+            rel="noopener noreferrer"
             className="group block text-center transition-transform hover:scale-105"
           >
             <span className="text-2xl font-semibold text-gray-200 group-hover:text-green-400 transition-colors">

@@ -85,9 +85,25 @@ const InviteModal: React.FC<InviteModalProps> = ({
         }
       }
     } else {
-      // Fallback, wenn Web Share API nicht unterstützt wird (z.B. Desktop)
+      // ✅ VERBESSERTER DESKTOP-FALLBACK: Kopiere den vollständigen Share-Text (nicht nur den Link)
+      try {
+        const user = useAuthStore.getState().user;
+        const inviterName = user?.displayName || user?.email || 'Jemand';
+        
+        const titleText = "Du wurdest zu jassguru.ch eingeladen! ✌️";
+        const bodyText = `${inviterName} lädt dich ein, der Jassgruppe "${groupName}" beizutreten.`; 
+        const linkText = `👉 Hier ist dein Einladungslink:\n${inviteLink}`;
+        const backupText = `💡 Falls du später beitreten möchtest:\n- Melde dich bei jassguru.ch an\n- Füge den kompletten Link ein`;
+        const shareText = `${titleText}\n\n${bodyText}\n\n${linkText}\n\n${backupText}`;
+        
+        await navigator.clipboard.writeText(shareText);
+        showNotification({message: "Einladungstext kopiert! Du kannst ihn jetzt in WhatsApp, E-Mail oder andere Apps einfügen.", type: "success"});
+      } catch (err) {
+        console.error("Fehler beim Kopieren des Share-Texts:", err);
+        // Fallback: Nur den Link kopieren
       handleCopyLink();
       showNotification({message: "Link kopiert (Teilen nicht direkt unterstützt).", type: "info"});
+      }
     }
   };
 

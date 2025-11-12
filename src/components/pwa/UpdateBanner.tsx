@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useUIStore } from '@/store/uiStore';
 import { serviceWorkerService } from '@/services/serviceWorkerService';
 import { isPublicPath } from '@/lib/utils';
@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Rocket, Loader2 } from 'lucide-react';
 
 export const UpdateBanner = () => {
-  const { isUpdateAvailable, triggerUpdate } = useUIStore();
+  const { isUpdateAvailable, triggerUpdate, setUpdateAvailable } = useUIStore();
   const [isUpdating, setIsUpdating] = useState(false);
 
   // Banner nur im PWA-Modus und nicht auf öffentlichen Seiten zeigen
@@ -22,12 +22,31 @@ export const UpdateBanner = () => {
   const handleUpdate = () => {
     if (triggerUpdate) {
       setIsUpdating(true);
-      // Kurze Verzögerung, um sicherzustellen, dass der State-Update gerendert wird, bevor der SW-Update-Prozess den Main Thread blockieren könnte.
+      
+      // ✅ Starte Update im Hintergrund (nicht await - läuft asynchron weiter)
       setTimeout(() => {
         triggerUpdate();
-      }, 50); // Eine kleine Verzögerung von 50ms ist robuster als 0.
+      }, 50);
+      
+      // ✅ Button nach 5 Sekunden ausblenden (Update läuft im Hintergrund weiter)
+      setTimeout(() => {
+        setIsUpdating(false);
+        setUpdateAvailable(false);
+      }, 5000); // 5 Sekunden
     }
   };
+
+  // ✅ Auto-Hide nach 5 Sekunden wenn bereits im Updating-Status
+  useEffect(() => {
+    if (isUpdating) {
+      const timer = setTimeout(() => {
+        setIsUpdating(false);
+        setUpdateAvailable(false);
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isUpdating, setUpdateAvailable]);
 
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[95%] max-w-lg bg-blue-600 text-white p-4 rounded-lg shadow-lg flex items-center justify-between z-50 animate-fade-in-up">

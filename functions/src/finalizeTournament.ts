@@ -774,6 +774,27 @@ export async function finalizeTournamentInternal(tournamentId: string): Promise<
       const rankingModeToStore = tournamentData.settings?.rankingMode || 'total_points';
       const finalizedGroupId = tournamentData.groupId; // ✅ Gruppe aus Tournament-Dokument holen
       const scoreSettingsEnabled = tournamentData.settings?.scoreSettings?.enabled;
+      const isPaused = !!(tournamentData as any).pausedAt;
+      const currentStatus = tournamentData.status;
+
+      // 🆕 DEBUG: Log Turnier-Status am Anfang
+      logger.info(`[finalizeTournament] 📊 Tournament Status Check:`, {
+        tournamentId,
+        tournamentName,
+        status: currentStatus,
+        isPaused,
+        pausedAt: (tournamentData as any).pausedAt,
+        mode: tournamentMode,
+        rankingMode: rankingModeToStore,
+        groupId: finalizedGroupId,
+        participantCount: tournamentData.participantPlayerIds?.length || 0,
+        finalizedAt: tournamentData.finalizedAt
+      });
+
+      // ⚠️ WARNUNG: Wenn Turnier pausiert ist, aber trotzdem finalisiert wird
+      if (isPaused) {
+        logger.warn(`[finalizeTournament] ⚠️ Tournament ${tournamentId} is PAUSED but will be finalized anyway.`);
+      }
 
       logger.info(`Processing tournament ${tournamentId} (${tournamentName}) with mode: ${tournamentMode}, ranking: ${rankingModeToStore}`);
 
@@ -820,14 +841,27 @@ export async function finalizeTournamentInternal(tournamentId: string): Promise<
       // ✅ WICHTIG: Tournament-Games haben kein "status" Feld, sondern nur "completedAt"!
       const gamesRef = tournamentRef.collection("games");
       const gamesSnap = await gamesRef.get(); // Hole ALLE Games
+      
+      // 🆕 DEBUG: Log alle Games
+      logger.info(`[finalizeTournament] 📋 Found ${gamesSnap.size} total games in tournament ${tournamentId}`);
+      
       const tournamentGames: TournamentGameData[] = [];
+      let gamesWithCompletedAt = 0;
+      let gamesWithoutCompletedAt = 0;
+      
       gamesSnap.forEach(doc => {
         const gameData = doc.data();
         // Filter: Nur Games mit completedAt sind abgeschlossen
         if (gameData.completedAt) {
           tournamentGames.push({ id: doc.id, ...gameData } as TournamentGameData);
+          gamesWithCompletedAt++;
+        } else {
+          gamesWithoutCompletedAt++;
         }
       });
+
+      // 🆕 DEBUG: Log Game-Statistik
+      logger.info(`[finalizeTournament] ✅ Completed games: ${gamesWithCompletedAt}, Incomplete games: ${gamesWithoutCompletedAt}`);
 
       if (tournamentGames.length === 0) {
         logger.warn(`No completed games found for tournament ${tournamentId}. Cannot calculate rankings.`);
@@ -860,7 +894,19 @@ export async function finalizeTournamentInternal(tournamentId: string): Promise<
       }
       
       const finalParticipantPlayerIds = Array.from(allPlayerIds);
-      logger.info(`Turnier ${tournamentId} hat ${finalParticipantPlayerIds.length} Teilnehmer aus Games: ${finalParticipantPlayerIds.join(', ')}`);
+      logger.info(`[finalizeTournament] 👥 Turnier ${tournamentId} hat ${finalParticipantPlayerIds.length} Teilnehmer aus Games: ${finalParticipantPlayerIds.join(', ')}`);
+      
+      // 🆕 DEBUG: Vergleich mit participantPlayerIds aus Tournament-Dokument
+      const participantIdsFromDoc = tournamentData.participantPlayerIds || [];
+      const missingInGames = participantIdsFromDoc.filter(id => !finalParticipantPlayerIds.includes(id));
+      const extraInGames = finalParticipantPlayerIds.filter(id => !participantIdsFromDoc.includes(id));
+      
+      if (missingInGames.length > 0) {
+        logger.warn(`[finalizeTournament] ⚠️ Teilnehmer im Dokument, aber nicht in Games: ${missingInGames.join(', ')}`);
+      }
+      if (extraInGames.length > 0) {
+        logger.warn(`[finalizeTournament] ⚠️ Teilnehmer in Games, aber nicht im Dokument: ${extraInGames.join(', ')}`);
+      }
       
       // ✅ FIX: Stelle sicher, dass finalParticipantPlayerIds alle Spieler aus den Games enthält
       if (finalParticipantPlayerIds.length === 0) {
@@ -2085,7 +2131,16 @@ export async function finalizeTournamentInternal(tournamentId: string): Promise<
 
       // Batch für PlayerRankings committen, NACHDEM alle PlayerStats-Transaktionen (potenziell) durchgelaufen sind
       await playerRankingBatch.commit();
-      logger.info(`Player rankings committed for tournament ${tournamentId}.`);
+      logger.info(`[finalizeTournament] ✅ Player rankings committed for tournament ${tournamentId} (${totalRankedEntitiesForTournamentDoc} entities).`);
+
+      // 🆕 DEBUG: Log vor finalem Update
+      logger.info(`[finalizeTournament] 📝 Updating tournament document with final status:`, {
+        tournamentId,
+        status: 'completed',
+        totalRankedEntities: totalRankedEntitiesForTournamentDoc,
+        rankingSystemUsed: rankingModeToStore,
+        rankedPlayerCount: allRankedPlayerUidsForTournamentDoc.size
+      });
 
       await tournamentRef.update({ 
         status: 'completed', 
@@ -2095,6 +2150,8 @@ export async function finalizeTournamentInternal(tournamentId: string): Promise<
         rankingSystemUsed: rankingModeToStore,
         rankedPlayerUids: Array.from(allRankedPlayerUidsForTournamentDoc)
       });
+      
+      logger.info(`[finalizeTournament] ✅ Tournament document updated successfully.`);
 
       // 🚀 INTELLIGENTE GRUPPENSTATISTIK-AKTUALISIERUNG FÜR ALLE TEILNEHMER-GRUPPEN
       const participantGroups = new Set<string>();

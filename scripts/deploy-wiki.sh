@@ -1,41 +1,41 @@
 #!/bin/bash
-# 🚀 Jasswiki Deployment Script (v2 - Flat Structure)
-# Baut die Seite und kopiert die Wiki-Inhalte direkt in das Root-Verzeichnis.
+# 🚀 Jasswiki Deployment Script (v4 - Final & Clean)
+# Baut NUR das Wiki und deployt es direkt.
 
 set -e
 
-echo "🔨 Building Next.js..."
-npm run build
+echo "🔨 Building Next.js for Wiki..."
+# Wir setzen eine Variable, um in der Zukunft ggf. zwischen App- und Wiki-Builds zu unterscheiden
+# Aktuell wird durch die Seitenstruktur nur das Wiki gebaut.
+NEXT_PUBLIC_BUILD_MODE=wiki npm run build
 
-echo "📦 Creating new flat structure in out-wiki..."
-rm -rf out-wiki
-mkdir -p out-wiki
+# 🔥 FIX: Die out/index.html ist die Jassguru-App-Homepage, nicht die Wiki-Homepage.
+# Wir kopieren die Wiki-Homepage (out/wissen/index.html) nach out/index.html
+echo "🔧 Replacing root index.html with Wiki homepage..."
 
-# 🎯 KRITISCH: Kopiere den Inhalt von /wissen direkt ins Root-Verzeichnis
-echo "📚 Copying wiki content to root..."
-cp -r out/wissen/* out-wiki/
-
-# Kopiere notwendige Assets
-echo "🖼️ Copying assets (_next, sitemap, etc.)..."
-cp -r out/_next out-wiki/
-cp out/favicon.ico out-wiki/ 2>/dev/null || true
-cp out/manifest.json out-wiki/ 2>/dev/null || true
-
-# Sitemap-Logik
-if [ -f "out/sitemap.xml" ]; then
-    echo "✅ Wiki-Sitemap (sitemap.xml) found and copied."
-    cp out/sitemap.xml out-wiki/
-    cp out/sitemap-*.xml out-wiki/ 2>/dev/null || true
-else
-    echo "❌ CRITICAL ERROR: out/sitemap.xml not found!"
-    exit 1
+if [ ! -f "out/wissen/index.html" ]; then
+  echo "❌ ERROR: out/wissen/index.html does not exist!"
+  exit 1
 fi
 
-cp out/robots.txt out-wiki/ 2>/dev/null || true
-cp out/google54b45cd6cd256a20.html out-wiki/ 2>/dev/null || true
+# Kopiere die Wiki-Homepage an die Root
+cp out/wissen/index.html out/index.html
 
-echo "🚀 Deploying to Firebase..."
+# Aktualisiere die internen Links von /wissen/* zu /* in der Root-Homepage
+# (damit Links auf der jasswiki.ch Root funktionieren)
+sed -i '' 's|href="/wissen/|href="/|g' out/index.html
+sed -i '' 's|href="/wissen"|href="/"|g' out/index.html
+
+echo "✅ Wiki homepage copied to root index.html"
+
+# Firebase erwartet 'out-wiki', nicht 'out'
+echo "📦 Copying 'out' to 'out-wiki' for Firebase deployment..."
+rm -rf out-wiki
+cp -r out out-wiki
+
+# Das `out-wiki` Verzeichnis enthält jetzt die saubere Wiki-Struktur.
+echo "🚀 Deploying 'out-wiki' directory to Firebase..."
 firebase deploy --only hosting:jasswiki
 
 echo "✅ Deployment complete!"
-echo "📍 jasswiki.ch - Wiki is live with the new flat structure."
+echo "📍 jasswiki.ch is live with the new, clean structure."

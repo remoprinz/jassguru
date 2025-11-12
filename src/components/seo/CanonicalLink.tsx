@@ -3,8 +3,7 @@ import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 
 /**
- * Generiert den korrekten Canonical-Link-Tag, um Duplicate Content zu vermeiden
- * und die SEO-Autorität auf jasswiki.ch zu konsolidieren.
+ * Generiert den korrekten Canonical-Link-Tag für SEO.
  */
 export const CanonicalLink = () => {
   const router = useRouter();
@@ -14,26 +13,23 @@ export const CanonicalLink = () => {
     if (typeof window !== 'undefined') {
       const host = window.location.hostname;
       const path = router.asPath;
+      const pathname = path.split('?')[0]?.split('#')[0] || '/';
+      const normalizePath = (input: string) =>
+        input.endsWith('/') ? input : `${input}/`;
+      const wikiBase =
+        process.env.NEXT_PUBLIC_JASSWIKI_URL || 'https://jasswiki.ch';
+      const guruBase =
+        process.env.NEXT_PUBLIC_SITE_URL || 'https://jassguru.ch';
 
       // Fall 1: Wir sind auf jasswiki.ch
       // Der Canonical-Link zeigt immer auf die jasswiki.ch-Version.
       if (host.includes('jasswiki.ch')) {
-        setCanonicalUrl(`https://jasswiki.ch${path}`);
+        setCanonicalUrl(`${wikiBase}${normalizePath(pathname)}`);
       }
-      // Fall 2: Wir sind auf jassguru.ch, aber auf einer WISSEN-Seite
-      // Der Canonical-Link muss auf die jasswiki.ch-Version zeigen, um Duplicate Content zu vermeiden.
-      else if (host.includes('jassguru.ch') && path.startsWith('/wissen')) {
-        const wikiPath = path.substring('/wissen'.length);
-        setCanonicalUrl(`https://jasswiki.ch${wikiPath || '/'}`);
-      }
-       // Fall 3: Wir sind auf jassguru.ch auf einer Quellen-Seite
-      else if (host.includes('jassguru.ch') && path.startsWith('/quellen')) {
-        setCanonicalUrl(`https://jasswiki.ch${path}`);
-      }
-      // Fall 4: Wir sind auf jassguru.ch auf einer normalen App-Seite
+      // Fall 2: Wir sind auf jassguru.ch auf einer normalen App-Seite
       // Der Canonical-Link ist selbst-referenzierend.
       else {
-        setCanonicalUrl(`https://jassguru.ch${path}`);
+        setCanonicalUrl(`${guruBase}${normalizePath(pathname)}`);
       }
     }
   }, [router.asPath]);

@@ -94,20 +94,16 @@ const combineDateTimeToTimestamp = (dateStr: string, timeStr: string): Timestamp
 
 // Helper function to format Timestamp to date and time strings
 const formatTimestampToDateTime = (timestamp: Timestamp | null | undefined): { dateStr: string; timeStr: string } => {
-  console.log('[Jassguru Debug] formatTimestampToDateTime - input timestamp:', timestamp);
   if (!timestamp) {
-    console.log('[Jassguru Debug] formatTimestampToDateTime - no timestamp, returning empty strings');
     return { dateStr: '', timeStr: '' };
   }
   try {
     const dateObj = timestamp.toDate();
-    console.log('[Jassguru Debug] formatTimestampToDateTime - dateObj:', dateObj);
     const dateStr = dateObj.toISOString().split('T')[0]; // YYYY-MM-DD
     const timeStr = dateObj.toTimeString().split(':').slice(0, 2).join(':'); // HH:MM
-    console.log('[Jassguru Debug] formatTimestampToDateTime - output:', { dateStr, timeStr });
     return { dateStr, timeStr };
   } catch (error) {
-    console.error("[Jassguru Debug] Error formatting Timestamp to date/time:", error);
+    console.error("Error formatting Timestamp to date/time:", error);
     return { dateStr: '', timeStr: '' };
   }
 };
@@ -201,14 +197,9 @@ const TournamentSettingsPage: React.FC = () => {
 
   useEffect(() => {
     if (tournament) {
-      console.log('[Jassguru Debug] SettingsPage - tournament loaded:', JSON.stringify(tournament));
-      console.log('[Jassguru Debug] SettingsPage - scheduledStartTime from tournament:', tournament.settings?.scheduledStartTime);
       const { dateStr, timeStr } = formatTimestampToDateTime(tournament.settings?.scheduledStartTime as Timestamp | undefined);
-      console.log('[Jassguru Debug] SettingsPage - formatted date/time from formatTimestampToDateTime:', { dateStr, timeStr });
       setTempStartDate(dateStr);
       setTempStartTime(timeStr);
-      console.log('[Jassguru Debug] SettingsPage - tempStartDate set to:', dateStr);
-      console.log('[Jassguru Debug] SettingsPage - tempStartTime set to:', timeStr);
 
       // NEU: Merge bestehende Settings mit Defaults (für neue Felder wie matschBonus)
       const scoreSettings = {
@@ -228,8 +219,6 @@ const TournamentSettingsPage: React.FC = () => {
       setHasChanges(false);
       setName(tournament.name || '');
       setDescription(tournament.description || '');
-    } else {
-      console.log('[Jassguru Debug] SettingsPage - tournament is null/undefined in useEffect [tournament]');
     }
   }, [tournament]);
 
@@ -436,10 +425,8 @@ const TournamentSettingsPage: React.FC = () => {
         if (nameChanged) detailUpdates.name = name;
         if (descriptionChanged) detailUpdates.description = description;
         
-        console.log("Versuche Turnier-Details (Name/Beschr.) zu aktualisieren:", detailUpdates);
         const success = await updateTournamentDetails(tournament.id, detailUpdates);
         if (success) {
-          console.log("Turnier-Details erfolgreich aktualisiert.");
           detailsUpdateSuccess = true;
         } else {
           console.error("Fehler beim Aktualisieren der Turnier-Details im Store.");
@@ -451,10 +438,8 @@ const TournamentSettingsPage: React.FC = () => {
 
       if (actualSettingsHaveChanged) {
         if (Object.keys(settingsUpdates).length > 0) {
-            console.log("Versuche Turnier-Einstellungen (Regeln etc.) zu aktualisieren:", settingsUpdates);
             const success = await updateTournamentSettings(tournament.id, settingsUpdates);
             if (success) {
-              console.log("Turnier-Einstellungen erfolgreich aktualisiert.");
               settingsUpdateSuccess = true;
             } else {
               console.error("Fehler beim Aktualisieren der Turnier-Einstellungen im Store.");
@@ -463,7 +448,6 @@ const TournamentSettingsPage: React.FC = () => {
             }
         } else {
             // Fall, dass actualSettingsHaveChanged true war, aber settingsUpdates leer ist (sollte nicht passieren)
-            console.log("actualSettingsHaveChanged war true, aber settingsUpdates war leer - wird als Erfolg für Settings gewertet.");
             settingsUpdateSuccess = true; 
         }
       }
@@ -952,7 +936,6 @@ const TournamentSettingsPage: React.FC = () => {
 
   const handleDeleteTournament = async () => {
     setIsDeleting(true);
-    console.log('Turnier löschen geklickt für Instanz:', instanceId);
     toast.info("Die Funktion zum Löschen von Turnieren ist noch nicht implementiert.");
     setIsDeleting(false);
     setShowDeleteDialog(false);
@@ -1114,7 +1097,7 @@ const TournamentSettingsPage: React.FC = () => {
                         if (aIsAdmin && !bIsAdmin) return -1;
                         if (!aIsAdmin && bIsAdmin) return 1;
                         return (a.displayName || '').localeCompare(b.displayName || '');
-                      }).map((participant) => {
+                      }).map((participant, index) => {
                       const isParticipantAdmin = tournament.adminIds.includes(participant.userId || '');
                       const isSelf = user?.uid === participant.userId;
                       const isLoadingAction = actionLoading[participant.id] || false;
@@ -1123,7 +1106,7 @@ const TournamentSettingsPage: React.FC = () => {
                       const isCreator = participant.userId === tournament.createdBy;
 
                       return (
-                        <li key={participant.id} className="flex items-center justify-between space-x-3 p-3 bg-gray-700/50 rounded-lg">
+                        <li key={participant.id || participant.userId || `participant-${index}`} className="flex items-center justify-between space-x-3 p-3 bg-gray-700/50 rounded-lg">
                           <div className="flex items-center space-x-3 flex-1 min-w-0">
                             <Avatar className="h-9 w-9 flex-shrink-0">
                               <AvatarImage src={participant.photoURL || undefined} alt={participant.displayName || 'Avatar'} />

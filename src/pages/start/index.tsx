@@ -6,15 +6,16 @@ import {useAuthStore} from "@/store/authStore";
 import {useGroupStore} from "@/store/groupStore";
 import {useGameStore} from "@/store/gameStore";
 import {useJassStore, createInitialTeamStand} from "@/store/jassStore";
-import {useUIStore} from "@/store/uiStore";;
+import {useUIStore} from "@/store/uiStore";
+import {useTournamentStore} from "@/store/tournamentStore";
 import MainLayout from "@/components/layout/MainLayout";
-import {Users, Settings, UserPlus, Camera, Upload, X, Loader2, BarChart, Archive, CheckCircle, XCircle, MinusCircle, Award as AwardIcon, BarChart2, BarChart3, AlertTriangle, ArrowLeft, DownloadCloud, Smartphone, Monitor, Laptop, LayoutGrid, Columns, Mail, Copy } from "lucide-react";
+import {CheckCircle, XCircle, MinusCircle, Award as AwardIcon} from "lucide-react";
 import imageCompression from "browser-image-compression";
 import {uploadGroupLogo} from "@/services/groupService";
 import {getFunctions, httpsCallable} from "firebase/functions";
 import { getGroupMembersOptimized } from '@/services/groupService'; // 🚀 NEUER IMPORT
 import ProfileImage from '@/components/ui/ProfileImage';
-import type { FirestorePlayer, ActiveGame, RoundDataFirebase, GameEntry, RoundEntry, CompletedGameSummary, StricheRecord, JassColor, FarbeSettings, ScoreSettings } from "@/types/jass";
+import type { FirestorePlayer, ActiveGame, GameEntry, RoundEntry, CompletedGameSummary, StricheRecord, JassColor, FarbeSettings, ScoreSettings } from "@/types/jass";
 import { getFirestore, doc, getDoc, collection, getDocs, query, where, orderBy, limit, onSnapshot, Unsubscribe, Timestamp, FieldValue } from "firebase/firestore";
 import { firebaseApp } from "@/services/firebaseInit";
 import { useTimerStore } from "@/store/timerStore";
@@ -100,6 +101,8 @@ const StartPage = () => {
   const gameStore = useGameStore();
   const jassStore = useJassStore();
   const isGameInProgress = useGameStore((state) => state.isGameStarted && !state.isGameCompleted);
+  const userActiveTournamentId = useTournamentStore((state) => state.userActiveTournamentId);
+  const userTournamentInstances = useTournamentStore((state) => state.userTournamentInstances);
   const router = useRouter();
   const setPageCta = useUIStore((state) => state.setPageCta);
   const resetPageCta = useUIStore((state) => state.resetPageCta);
@@ -1161,7 +1164,13 @@ const StartPage = () => {
 
     const isTournamentPasseActive = jassStore.currentSession?.isTournamentSession && gameStore.isGameStarted && !gameStore.isGameCompleted;
 
-    if (isTournamentPasseActive) {
+    // ✅ ELEGANT: Prüfe, ob User in einem AKTIVEN (nicht upcoming/paused/completed) Turnier ist
+    const activeTournament = userTournamentInstances.find(t => 
+      t.id === userActiveTournamentId && t.status === 'active'
+    );
+    const isUserInActiveTournament = !!activeTournament;
+
+    if (isTournamentPasseActive || isUserInActiveTournament) {
       resetPageCta();
     } else if (resumableGameId) {
       setPageCta({
@@ -1200,7 +1209,7 @@ const StartPage = () => {
     return () => {
       resetPageCta();
     };
-  }, [currentGroup, isGameInProgress, setPageCta, resetPageCta, userGroups, router, resumableGameId, status, handleGameAction, isResuming, jassStore.currentSession, gameStore.isGameStarted, gameStore.isGameCompleted]);
+  }, [currentGroup, isGameInProgress, setPageCta, resetPageCta, userGroups, router, resumableGameId, status, handleGameAction, isResuming, jassStore.currentSession, gameStore.isGameStarted, gameStore.isGameCompleted, userActiveTournamentId, userTournamentInstances]);
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;

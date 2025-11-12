@@ -17,7 +17,10 @@
     "test-profileview-migration": "ts-node --project tsconfig.json scripts/testProfileViewMigration.ts",
     "debug-finalize-tournament": "ts-node --project tsconfig.json scripts/debugFinalizeTournament.ts",
     "backfill-player-data": "ts-node --project tsconfig.json scripts/backfillPlayerDataFromSummaries.ts",
-    "backfill-player-data-dry": "ts-node --project tsconfig.json scripts/backfillPlayerDataFromSummaries.ts --dry-run"
+    "backfill-player-data-dry": "ts-node --project tsconfig.json scripts/backfillPlayerDataFromSummaries.ts --dry-run",
+    "export-jass-content": "ts-node --project tsconfig.json scripts/exportJassContentToSpreadsheet.ts",
+    "import-from-spreadsheet": "ts-node --project tsconfig.json scripts/CRITICAL_importFromSpreadsheetToJson.ts",
+    "import-from-spreadsheet-dry": "ts-node --project tsconfig.json scripts/CRITICAL_importFromSpreadsheetToJson.ts --dry-run"
   },
   "engines": {
     "node": "20"

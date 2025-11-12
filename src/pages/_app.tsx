@@ -233,7 +233,22 @@ const MyApp = ({Component, pageProps}: AppProps) => {
       return;
     }
     
+    // ✅ ELEGANT: Einmalige Prüfung beim Login
     checkUserActiveTournament(user.uid);
+    
+    // ✅ NEU: Automatischer Listener für Turnier-Status-Änderungen
+    // ✅ ELEGANT: Verwende playerId wenn verfügbar, sonst uid (für alte Turniere)
+    const { setupUserTournamentsListener } = useTournamentStore.getState();
+    const identifier = user.playerId || user.uid;
+    setupUserTournamentsListener(identifier, user.playerId);
+    
+    // Cleanup beim Unmount oder User-Wechsel
+    return () => {
+      const { userTournamentsListenerUnsubscribe } = useTournamentStore.getState();
+      if (userTournamentsListenerUnsubscribe) {
+        userTournamentsListenerUnsubscribe();
+      }
+    };
   }, [status, router.isReady, isAppLoaded, checkUserActiveTournament]);
 
   // NEU: useEffect für die Weiterleitung zum aktiven Turnier

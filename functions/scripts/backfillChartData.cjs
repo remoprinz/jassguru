@@ -46,24 +46,70 @@ function calculateEventDifference(sessionData, playerId, teamKey, eventType) {
 
 /**
  * Helper: Sammelt alle Spieler-IDs aus allen Sessions
+ * ✅ KORREKTUR: Berücksichtigt auch Spieler aus Tournament-Sessions (totalStricheByPlayer)
  */
 function collectAllPlayerIds(sessionsSnap) {
   const playerNames = new Map();
   
   sessionsSnap.docs.forEach(doc => {
     const data = doc.data();
-    const teams = data.teams || {};
+    const sessionId = doc.id;
+    const isTournament = data.isTournamentSession || sessionId === '6eNr8fnsTO06jgCqjelt';
     
-    if (teams.top?.players) {
-      teams.top.players.forEach(p => {
-        playerNames.set(p.playerId, p.displayName || p.playerId);
+    // ✅ Für Tournament-Sessions: Sammle Spieler aus totalStricheByPlayer
+    if (isTournament && data.totalStricheByPlayer) {
+      Object.keys(data.totalStricheByPlayer).forEach(playerId => {
+        // Finde displayName (aus teams)
+        const teams = data.teams || {};
+        let displayName = playerId;
+        
+        // Suche in top
+        const topPlayer = teams.top?.players?.find(p => p.playerId === playerId);
+        if (topPlayer) {
+          displayName = topPlayer.displayName || playerId;
+        }
+        
+        // Suche in bottom
+        const bottomPlayer = teams.bottom?.players?.find(p => p.playerId === playerId);
+        if (bottomPlayer) {
+          displayName = bottomPlayer.displayName || playerId;
+        }
+        
+        // Alternativ: Suche in gameResults (falls vorhanden)
+        if (displayName === playerId && data.gameResults) {
+          for (const game of data.gameResults) {
+            const gameTeams = game.teams || {};
+            const gameTopPlayer = gameTeams.top?.players?.find(p => p.playerId === playerId);
+            const gameBottomPlayer = gameTeams.bottom?.players?.find(p => p.playerId === playerId);
+            
+            if (gameTopPlayer) {
+              displayName = gameTopPlayer.displayName || playerId;
+              break;
+            }
+            if (gameBottomPlayer) {
+              displayName = gameBottomPlayer.displayName || playerId;
+              break;
+            }
+          }
+        }
+        
+        playerNames.set(playerId, displayName);
       });
-    }
-    
-    if (teams.bottom?.players) {
-      teams.bottom.players.forEach(p => {
-        playerNames.set(p.playerId, p.displayName || p.playerId);
-      });
+    } else {
+      // ✅ Normale Sessions: Sammle aus teams
+      const teams = data.teams || {};
+      
+      if (teams.top?.players) {
+        teams.top.players.forEach(p => {
+          playerNames.set(p.playerId, p.displayName || p.playerId);
+        });
+      }
+      
+      if (teams.bottom?.players) {
+        teams.bottom.players.forEach(p => {
+          playerNames.set(p.playerId, p.displayName || p.playerId);
+        });
+      }
     }
   });
   
@@ -121,8 +167,11 @@ function calculateChartData(allSessionsSnap, calculateDelta, getTournamentDelta,
       let delta = null;
       
       if (isTournament && tournamentRankings && tournamentRankings.has(playerId)) {
-        const rankings = tournamentRankings.get(playerId);
-        delta = getTournamentDelta(rankings, playerId);
+        const playerRankings = tournamentRankings.get(playerId);
+        const rankings = playerRankings[sessionId]; // ✅ Verwende sessionId
+        if (rankings) {
+          delta = getTournamentDelta(rankings, playerId);
+        }
       } else if (isTopPlayer) {
         delta = calculateDelta(sessionData, playerId, 'top');
       } else if (isBottomPlayer) {
@@ -235,11 +284,133 @@ async function backfillGroupCharts(groupId, groupName) {
     ];
     
     // 3. Lade Tournament Rankings (falls vorhanden)
-    const tournamentRankings = new Map();
-    const tournamentSessions = sessionsSnap.docs.filter(doc => doc.data().isTournamentSession);
+    const tournamentRankings = new Map(); // SessionId -> (PlayerId -> PlayerRankings)
+    const tournamentSessions = sessionsSnap.docs.filter(doc => doc.data().isTournamentSession || doc.id === '6eNr8fnsTO06jgCqjelt');
+    
     if (tournamentSessions.length > 0) {
-      // Lade Tournament Rankings (vereinfacht)
       console.log(`ℹ️  Found ${tournamentSessions.length} tournament sessions`);
+      
+      // ✅ KORREKTUR: Lade Tournament-Daten aus jassGameSummary
+      for (const tournamentDoc of tournamentSessions) {
+        const tournamentData = tournamentDoc.data();
+        const sessionId = tournamentDoc.id;
+        
+        // Berechne Rankings aus totalStricheByPlayer, totalPointsByPlayer
+        // ✅ Event-Counts werden jetzt Team-Level aus gameResults berechnet (nicht aus totalEventCountsByPlayer)
+        const totalStriche = tournamentData.totalStricheByPlayer || {};
+        const totalPoints = tournamentData.totalPointsByPlayer || {};
+        const finalStriche = tournamentData.finalStriche || {};
+        const finalScores = tournamentData.finalScores || {};
+        
+        // ✅ KORREKTUR: Berechne Differenzen aus gameResults (pro Spiel aggregieren)
+        // Da Teams in Turnieren wechseln, müssen wir pro Spiel die Differenz berechnen
+        const gameResults = tournamentData.gameResults || [];
+        
+        // Für jeden Spieler: Aggregiere Differenzen über alle Spiele
+        Object.keys(totalStriche).forEach(playerId => {
+          let stricheDifference = 0;
+          let pointsDifference = 0;
+          
+          // Iteriere durch alle Spiele und summiere Differenzen
+          gameResults.forEach(game => {
+            const gameTeams = game.teams || {};
+            const topPlayers = gameTeams.top?.players || [];
+            const bottomPlayers = gameTeams.bottom?.players || [];
+            
+            const isTopPlayer = topPlayers.some(p => p.playerId === playerId);
+            const isBottomPlayer = bottomPlayers.some(p => p.playerId === playerId);
+            
+            if (!isTopPlayer && !isBottomPlayer) {
+              return; // Spieler nicht in diesem Spiel
+            }
+            
+            const teamKey = isTopPlayer ? 'top' : 'bottom';
+            const opponentTeamKey = teamKey === 'top' ? 'bottom' : 'top';
+            
+            // Strichdifferenz für dieses Spiel
+            const gameFinalStriche = game.finalStriche || {};
+            const teamStriche = gameFinalStriche[teamKey] || {};
+            const opponentStriche = gameFinalStriche[opponentTeamKey] || {};
+            
+            const calculateTotalStriche = (striche) => {
+              return (striche.sieg || 0) + (striche.berg || 0) + (striche.matsch || 0) + (striche.schneider || 0) + (striche.kontermatsch || 0);
+            };
+            
+            const teamTotal = calculateTotalStriche(teamStriche);
+            const opponentTotal = calculateTotalStriche(opponentStriche);
+            stricheDifference += (teamTotal - opponentTotal);
+            
+            // Punktedifferenz für dieses Spiel
+            const teamScore = game.topScore && teamKey === 'top' ? game.topScore : (game.bottomScore || 0);
+            const opponentScore = game.topScore && teamKey === 'bottom' ? game.topScore : (game.bottomScore || 0);
+            
+            // Korrektur: bottomScore und topScore richtig zuordnen
+            const actualTeamScore = teamKey === 'top' ? (game.topScore || 0) : (game.bottomScore || 0);
+            const actualOpponentScore = teamKey === 'top' ? (game.bottomScore || 0) : (game.topScore || 0);
+            pointsDifference += (actualTeamScore - actualOpponentScore);
+          });
+          
+          // ✅ KORREKTUR: Team-Level Event-Counts aus gameResults berechnen
+          // (NICHT aus totalEventCountsByPlayer, da das Player-Level ist)
+          let matschMade = 0;
+          let matschReceived = 0;
+          let schneiderMade = 0;
+          let schneiderReceived = 0;
+          let kontermatschMade = 0;
+          let kontermatschReceived = 0;
+          
+          gameResults.forEach(game => {
+            const gameTeams = game.teams || {};
+            const topPlayers = gameTeams.top?.players || [];
+            const bottomPlayers = gameTeams.bottom?.players || [];
+            
+            const isTopPlayer = topPlayers.some(p => p.playerId === playerId);
+            const isBottomPlayer = bottomPlayers.some(p => p.playerId === playerId);
+            
+            if (!isTopPlayer && !isBottomPlayer) {
+              return; // Spieler nicht in diesem Spiel
+            }
+            
+            const teamKey = isTopPlayer ? 'top' : 'bottom';
+            const opponentTeamKey = teamKey === 'top' ? 'bottom' : 'top';
+            
+            // Team-Level Event-Counts aus diesem Spiel
+            const gameEventCounts = game.eventCounts || {};
+            const teamEvents = gameEventCounts[teamKey] || {};
+            const opponentEvents = gameEventCounts[opponentTeamKey] || {};
+            
+            matschMade += teamEvents.matsch || 0;
+            matschReceived += opponentEvents.matsch || 0;
+            schneiderMade += teamEvents.schneider || 0;
+            schneiderReceived += opponentEvents.schneider || 0;
+            kontermatschMade += teamEvents.kontermatsch || 0;
+            kontermatschReceived += opponentEvents.kontermatsch || 0;
+          });
+          
+          const eventCounts = {
+            matschMade,
+            matschReceived,
+            schneiderMade,
+            schneiderReceived,
+            kontermatschMade,
+            kontermatschReceived,
+          };
+          
+          // Speichere Rankings für diesen Spieler
+          if (!tournamentRankings.has(playerId)) {
+            tournamentRankings.set(playerId, {});
+          }
+          
+          const playerRankings = tournamentRankings.get(playerId);
+          playerRankings[sessionId] = {
+            stricheDifference,
+            pointsDifference,
+            eventCounts
+          };
+        });
+      }
+      
+      console.log(`✅ Loaded tournament rankings for ${tournamentRankings.size} players`);
     }
     
     // 4. Berechne und speichere jeden Chart

@@ -42,7 +42,9 @@ const TournamentsPage: React.FC = () => {
 
   useEffect(() => {
     if (authStatus === 'authenticated' && user) {
-      loadUserTournamentInstances(user.uid);
+      // 🔧 FIX: Verwende playerId statt uid für Turnier-Queries
+      const playerId = user.playerId || user.uid;
+      loadUserTournamentInstances(playerId);
     }
   }, [authStatus, user, loadUserTournamentInstances]);
 

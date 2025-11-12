@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { X, Loader2 } from 'lucide-react';
@@ -10,8 +10,9 @@ import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
 import { PlayerSelectTournamentPopover } from './PlayerSelectTournamentPopover';
 import GlobalLoader from '@/components/layout/GlobalLoader';
-import { DEFAULT_STROKE_SETTINGS } from '@/config/GameSettings';
 import ProfileImage from '@/components/ui/ProfileImage';
+import { collection, query, where, onSnapshot, Unsubscribe } from 'firebase/firestore';
+import { db } from '@/services/firebaseInit';
 
 const screenVariants = {
   initial: { opacity: 0, scale: 0.95 },
@@ -57,6 +58,10 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
   
   // NEU: Zustand für die Überprüfung, ob der aktuelle Benutzer Teil der ausgewählten Spieler ist
   const [isCurrentUserInSelectedPasse, setIsCurrentUserInSelectedPasse] = useState(false);
+  
+  // 🆕 NEU: Zustand für Spieler, die bereits in einer aktiven Passe sind
+  const [playersInActivePasses, setPlayersInActivePasses] = useState<Set<string>>(new Set());
+  const activePassesListenerRef = useRef<Unsubscribe | null>(null);
   
   // 🚀 PERFORMANCE-FIX: Optimierter Lookup-Map für Avatar-URLs (statt wiederholter Array-Suche)
   const memberPhotoUrlMap = useMemo(() => {
@@ -125,8 +130,103 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
       setIsLoading(false);
       setError(null);
       setIsCurrentUserInSelectedPasse(false); // Zurücksetzen bei Schließen
+      // Cleanup: Listener entfernen
+      if (activePassesListenerRef.current) {
+        activePassesListenerRef.current();
+        activePassesListenerRef.current = null;
+      }
+      setPlayersInActivePasses(new Set());
     }
   }, [isVisible]);
+
+  // 🆕 NEU: Automatisch den aktuellen Benutzer in Slot 1 setzen, wenn Screen geöffnet wird
+  useEffect(() => {
+    if (!isVisible || !user?.uid || tournamentParticipants.length === 0) {
+      return;
+    }
+
+    // Warte kurz, damit playersInActivePasses geladen werden kann
+    const timer = setTimeout(() => {
+      const currentUserParticipant = tournamentParticipants.find(p => p.uid === user.uid);
+      if (currentUserParticipant && !playersInActivePasses.has(user.uid)) {
+        // Setze den User nur, wenn Slot 1 noch leer ist
+        setSelectedGamePlayers(prev => {
+          if (prev[1] === null) {
+            return {
+              ...prev,
+              1: {
+                type: 'member',
+                uid: currentUserParticipant.uid,
+                playerId: currentUserParticipant.playerId || currentUserParticipant.uid,
+                name: currentUserParticipant.displayName || `Spieler 1`
+              }
+            };
+          }
+          return prev;
+        });
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [isVisible, user?.uid, tournamentParticipants, playersInActivePasses]);
+
+  // 🆕 NEU: Listener für alle aktiven Passen des Turniers einrichten
+  useEffect(() => {
+    if (!isVisible || !tournamentId) {
+      return;
+    }
+
+    console.log(`[TournamentStartScreen] Setting up active passes listener for tournament ${tournamentId}`);
+    
+    // Query für alle aktiven Passen dieses Turniers
+    const activePassesQuery = query(
+      collection(db, 'activeGames'),
+      where('tournamentInstanceId', '==', tournamentId),
+      where('status', '==', 'live')
+    );
+
+    // Listener einrichten
+    const unsubscribe = onSnapshot(
+      activePassesQuery,
+      (snapshot) => {
+        try {
+          // Sammle alle participantUids aus allen aktiven Passen
+          const uidsInActivePasses = new Set<string>();
+          
+          snapshot.docs.forEach((doc) => {
+            const data = doc.data();
+            const participantUids = data.participantUids || [];
+            
+            // Füge alle UIDs dieser Passe zum Set hinzu
+            participantUids.forEach((uid: string) => {
+              if (uid) {
+                uidsInActivePasses.add(uid);
+              }
+            });
+          });
+
+          console.log(`[TournamentStartScreen] Found ${uidsInActivePasses.size} players in active passes:`, Array.from(uidsInActivePasses));
+          setPlayersInActivePasses(uidsInActivePasses);
+        } catch (error) {
+          console.error('[TournamentStartScreen] Error processing active passes snapshot:', error);
+        }
+      },
+      (error) => {
+        console.error('[TournamentStartScreen] Error in active passes listener:', error);
+        setPlayersInActivePasses(new Set());
+      }
+    );
+
+    activePassesListenerRef.current = unsubscribe;
+
+    // Cleanup beim Unmount
+    return () => {
+      if (activePassesListenerRef.current) {
+        activePassesListenerRef.current();
+        activePassesListenerRef.current = null;
+      }
+    };
+  }, [isVisible, tournamentId]);
 
   // NEU: Effekt, um isCurrentUserInSelectedPasse zu aktualisieren, wenn sich selectedGamePlayers oder user ändern
   useEffect(() => {
@@ -321,7 +421,7 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
                           <ProfileImage 
                             src={getPlayerPhotoUrl(player)}
                             alt={player.name} 
-                            size="md-lg"
+                            size="md"
                             className="mr-3 flex-shrink-0"
                             fallbackClassName="bg-gray-600 text-gray-300 text-base"
                             fallbackText={player.name.charAt(0).toUpperCase()}
@@ -364,6 +464,7 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
                         currentSelection={selectedGamePlayers as GamePlayers}
                         targetSlot={slotNumber}
                         onSelectParticipant={handlePlayerSelect}
+                        playersInActivePasses={playersInActivePasses}
                       />
                     ) : (
                       playerDisplayOrSelector

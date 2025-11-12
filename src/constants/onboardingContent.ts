@@ -111,8 +111,8 @@ export const BROWSER_ONBOARDING = {
       image: "/onboarding_pics/homescreen.png",
     },
     FINAL_HINTS: {
-      title: "Hinweise",
-      message: "",
+      title: "Letzter Hinweis",
+      message: "Beim ersten Öffnen der App wähle \"Als Gast spielen\" und du wirst durch alle wichtigen Funktionen geführt.",
       icon: FaInfoCircle as IconType,
     },
   },
@@ -148,9 +148,8 @@ export const BROWSER_ONBOARDING = {
       image: "/onboarding_pics/android_hinzufuegen.png",
     },
     FINAL_HINTS: {
-      title: "Hinweise",
-      message: "Vermeide es, die App mehrfach zu installieren.",
-      secondaryMessage: "Beim ersten Öffnen der App spiele zuerst «Als Gast» und du wirst durch alle wichtigen Funktionen geführt.",
+      title: "Letzter Hinweis",
+      message: "Beim ersten Öffnen der App wähle \"Als Gast spielen\" und du wirst durch alle wichtigen Funktionen geführt.",
       finalMessage: "Viel Spass beim Jassen!",
       image: "/welcome-guru.png",
     },

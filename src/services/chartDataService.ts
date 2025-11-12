@@ -692,6 +692,106 @@ export async function getOptimizedTeamMatschChart(
 }
 
 /**
+ * ✅ NEU: Berechnet Team Event-Counts (Made/Received) direkt aus jassGameSummaries
+ * Gibt eine Map zurück: Team-Name -> { eventsMade, eventsReceived }
+ */
+export async function getTeamEventCounts(
+  groupId: string
+): Promise<Map<string, { eventsMade: number; eventsReceived: number }>> {
+  const teamEventCountsMap = new Map<string, { eventsMade: number; eventsReceived: number }>();
+  
+  try {
+    const summariesSnap = await getDocs(
+      query(
+        collection(db, `groups/${groupId}/jassGameSummaries`),
+        where('status', '==', 'completed'),
+        orderBy('completedAt', 'asc')
+      )
+    );
+    
+    // Helper: Team-ID generieren (sortiert für Konsistenz)
+    const getTeamId = (players: Array<{ playerId: string; displayName?: string }>): string => {
+      const sortedIds = players.map(p => p.playerId).sort();
+      return sortedIds.join('-');
+    };
+    
+    // Helper: Team-Namen generieren
+    const getTeamName = (players: Array<{ playerId: string; displayName?: string }>): string => {
+      return players.map(p => p.displayName || p.playerId).join(' & ');
+    };
+    
+    summariesSnap.docs.forEach((summaryDoc) => {
+      const data = summaryDoc.data();
+      const sessionId = summaryDoc.id;
+      const isTournament = data.isTournamentSession || sessionId === '6eNr8fnsTO06jgCqjelt';
+      
+      if (isTournament && data.gameResults && Array.isArray(data.gameResults)) {
+        // ✅ TURNIER: Aggregiere Event-Counts pro Game
+        const gameResults = data.gameResults;
+        
+        gameResults.forEach((game: any) => {
+          const gameEventCounts = game.eventCounts || {};
+          const gameTeams = game.teams || {};
+          
+          ['top', 'bottom'].forEach(teamKey => {
+            const teamPlayers = gameTeams[teamKey]?.players || [];
+            if (teamPlayers.length !== 2) return;
+            
+            const teamId = getTeamId(teamPlayers);
+            const teamName = getTeamName(teamPlayers);
+            
+            // Team-Level Event-Counts aus diesem Game
+            const teamEvents = gameEventCounts[teamKey] || {};
+            const opponentTeamEvents = gameEventCounts[teamKey === 'top' ? 'bottom' : 'top'] || {};
+            
+            const teamMade = teamEvents.matsch || 0;
+            const teamReceived = opponentTeamEvents.matsch || 0;
+            
+            // Aggregiere für dieses Team
+            if (!teamEventCountsMap.has(teamName)) {
+              teamEventCountsMap.set(teamName, { eventsMade: 0, eventsReceived: 0 });
+            }
+            const stats = teamEventCountsMap.get(teamName)!;
+            stats.eventsMade += teamMade;
+            stats.eventsReceived += teamReceived;
+          });
+        });
+      } else {
+        // ✅ NORMALE SESSION: Verwende Session-Level Event-Counts
+        const eventCounts = data.eventCounts || {};
+        const teams = data.teams || {};
+        
+        ['top', 'bottom'].forEach(teamKey => {
+          const teamPlayers = teams[teamKey]?.players || [];
+          if (teamPlayers.length !== 2) return;
+          
+          const teamName = getTeamName(teamPlayers);
+          
+          // Team-Level Event-Counts aus dieser Session
+          const teamEvents = eventCounts[teamKey] || {};
+          const opponentTeamEvents = eventCounts[teamKey === 'top' ? 'bottom' : 'top'] || {};
+          
+          const teamMade = teamEvents.matsch || 0;
+          const teamReceived = opponentTeamEvents.matsch || 0;
+          
+          // Aggregiere für dieses Team
+          if (!teamEventCountsMap.has(teamName)) {
+            teamEventCountsMap.set(teamName, { eventsMade: 0, eventsReceived: 0 });
+          }
+          const stats = teamEventCountsMap.get(teamName)!;
+          stats.eventsMade += teamMade;
+          stats.eventsReceived += teamReceived;
+        });
+      }
+    });
+  } catch (error) {
+    console.error('[getTeamEventCounts] Fehler:', error);
+  }
+  
+  return teamEventCountsMap;
+}
+
+/**
  * 🚀 Lade Team-Strichdifferenz-Chart
  * Teams als "playerId1-playerId2" (sortiert) - nur Top 15 Teams
  */
