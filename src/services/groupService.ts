@@ -993,12 +993,23 @@ export const fetchGroupMembers = async (groupId: string): Promise<FirestorePlaye
 
   try {
     const group = await getGroupById(groupId);
-    if (!group || !group.playerIds || group.playerIds.length === 0) {
-      console.log(`[groupService] Keine Player-IDs in Gruppe ${groupId} gefunden oder Gruppe existiert nicht.`);
+    if (!group) {
+      console.log(`[groupService] Gruppe ${groupId} nicht gefunden.`);
       return [];
     }
 
-    const playerPromises = group.playerIds.map(playerId => getPlayerDocument(playerId));
+    // ✅ FIX: Verwende memberPlayerIds statt playerIds für korrekte Mitgliederliste
+    // TypeScript-safe: Prüfe explizit auf memberPlayerIds (optional field)
+    const memberIds = ('memberPlayerIds' in group && group.memberPlayerIds) 
+      ? group.memberPlayerIds 
+      : (group.playerIds || []);
+    
+    if (memberIds.length === 0) {
+      console.log(`[groupService] Keine Mitglieder in Gruppe ${groupId} gefunden.`);
+      return [];
+    }
+
+    const playerPromises = memberIds.map(playerId => getPlayerDocument(playerId));
     const players = await Promise.all(playerPromises);
     
     // Filtere null-Werte heraus (falls ein Player-Dokument nicht gefunden wurde)

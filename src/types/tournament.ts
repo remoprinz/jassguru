@@ -3,7 +3,7 @@ import type { PlayerNumber, RoundEntry, StricheRecord, TeamPosition, ScoreSettin
 
 // Einstellungen für ein Turnier
 export interface TournamentSettings {
-  rankingMode: 'total_points' | 'wins' | 'average_score_per_passe' | 'striche'; // Neuer Modus 'striche' hinzugefügt
+  rankingMode: 'total_points' | 'striche' | 'striche_difference' | 'points_difference' | 'alle_ranglisten'; // Zählart: Nach Punkten, Nach Strichen, Nach Strichdifferenz, Nach Punktedifferenz oder Alle Ranglisten
   scoreSettings: ScoreSettings; // NEU: Einstellungen für Punkte
   strokeSettings: StrokeSettings; // NEU: Einstellungen für Striche
   farbeSettings: FarbeSettings; // NEU: Einstellungen für Farben und Multiplikatoren
@@ -39,9 +39,11 @@ export interface TournamentInstance {
   completedAt?: Timestamp | FieldValue | null; // Wann wurde es abgeschlossen?
   pausedAt?: Timestamp | FieldValue | null; // NEU: Wann wurde es unterbrochen?
   resumedAt?: Timestamp | FieldValue | null; // NEU: Wann wurde es fortgesetzt?
+  finalizedAt?: Timestamp | FieldValue | null; // NEU: Wann wurde es finalisiert (Cloud Function abgeschlossen)?
   lastSessionId?: string | null; // NEU: ID der letzten jassGameSummaries Session
   currentActiveGameId?: string | null; // NEU: ID des aktuellen aktiven Spiels (Passe)
   lastActivity?: Timestamp | FieldValue | null; // NEU: Wann war die letzte Aktivität
+  showInNavigation?: boolean; // NEU: Soll das Turnier in der Bottom-Navigation angezeigt werden? (Default: true)
   // Optional: Aggregierte Statistiken (für schnelle Ranglisten)
   playerStats?: Record<string, TournamentPlayerStats>;
   totalPasses?: number;

@@ -23,34 +23,34 @@ import { updateTournamentSettings, uploadTournamentLogoFirebase } from '@/servic
 // Turnier-spezifische Default-Einstellungen
 const TOURNAMENT_DEFAULT_SCORE_SETTINGS: ScoreSettings = {
   values: {
-    sieg: 1000, // A) Punkteziel: 1000
-    berg: 0,
-    schneider: 0,
+    sieg: 2000, // ✅ DEFAULT: 2000 Punkte
+    berg: 1000, // ✅ DEFAULT: 1000 Punkte
+    schneider: 1000, // ✅ DEFAULT: 1000 Punkte
   },
   enabled: {
     sieg: true, // Sieg ist immer enabled
-    berg: false,    // B) Berg deaktiviert
-    schneider: false, // B) Schneider deaktiviert
+    berg: true, // ✅ DEFAULT: Berg aktiviert
+    schneider: true, // ✅ DEFAULT: Schneider aktiviert
   },
   matschBonus: true, // NEU: Matschbonus auch bei neuen Turnieren per Default aktiviert
   // isFlipped komplett entfernt, da nicht benötigt und Ursache für undefined-Fehler
 };
 
 const TOURNAMENT_DEFAULT_STROKE_SETTINGS: StrokeSettings = {
-  schneider: 0,
-  kontermatsch: 0, // Turniermodus: Kontermatsch auf 0
+  schneider: 2, // ✅ DEFAULT: 2 Striche
+  kontermatsch: 2, // ✅ DEFAULT: 2 Striche
 };
 
 const TOURNAMENT_DEFAULT_FARBE_SETTINGS: FarbeSettings = {
   values: {
-    // E) Spezifische Multiplikatoren für Turniere
+    // ✅ DEFAULT: Spezifische Multiplikatoren für Turniere
     misère: 0,
     eicheln: 1,
     rosen: 1,
-    schellen: 1,
-    schilten: 1,
-    obe: 1,
-    une: 1,
+    schellen: 2, // ✅ DEFAULT: 2x
+    schilten: 2, // ✅ DEFAULT: 2x
+    obe: 3, // ✅ DEFAULT: 3x
+    une: 3, // ✅ DEFAULT: 3x
     dreimal: 0,
     quer: 0,
     slalom: 0,
@@ -197,7 +197,7 @@ const NewTournamentPage: React.FC = () => {
       const effectiveFarbeSettings: FarbeSettings = TOURNAMENT_DEFAULT_FARBE_SETTINGS;
 
       const tournamentSpecificSettings: TournamentSettings = {
-        rankingMode: 'total_points' as const,
+        rankingMode: 'striche' as const, // ✅ DEFAULT: Rangliste nach Strichen
         scoreSettings: effectiveScoreSettings,
         strokeSettings: effectiveStrokeSettings,
         farbeSettings: effectiveFarbeSettings,

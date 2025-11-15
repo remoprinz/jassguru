@@ -327,8 +327,13 @@ const ProfilePage: React.FC = () => {
         // Turnier-Session: verwende endedAt
         dateAValue = (a as any).endedAt ?? (a as any).startedAt;
       } else {
-        // Echte Tournament-Instance: Enddatum bevorzugen
-        dateAValue = (a as any).instanceDate ?? (a as any).createdAt;
+        // 🎯 KORRIGIERT: Für abgeschlossene Turniere completedAt verwenden (jüngstes zuerst!)
+        const tournamentA = a as any;
+        if (tournamentA.status === 'completed' && tournamentA.completedAt) {
+          dateAValue = tournamentA.completedAt; // ✅ Abschlusszeit für completed
+        } else {
+          dateAValue = tournamentA.instanceDate ?? tournamentA.createdAt; // Fallback
+        }
       }
 
       if (b.type === 'session') {
@@ -337,8 +342,13 @@ const ProfilePage: React.FC = () => {
         // Turnier-Session: verwende endedAt
         dateBValue = (b as any).endedAt ?? (b as any).startedAt;
       } else {
-        // Echte Tournament-Instance: Enddatum bevorzugen
-        dateBValue = (b as any).instanceDate ?? (b as any).createdAt;
+        // 🎯 KORRIGIERT: Für abgeschlossene Turniere completedAt verwenden (jüngstes zuerst!)
+        const tournamentB = b as any;
+        if (tournamentB.status === 'completed' && tournamentB.completedAt) {
+          dateBValue = tournamentB.completedAt; // ✅ Abschlusszeit für completed
+        } else {
+          dateBValue = tournamentB.instanceDate ?? tournamentB.createdAt; // Fallback
+        }
       }
 
       const timeA = isFirestoreTimestamp(dateAValue) ? dateAValue.toMillis() :
@@ -357,7 +367,7 @@ const ProfilePage: React.FC = () => {
 
   const groupedArchiveByYear = useMemo(() => {
       return combinedArchiveItems.reduce<Record<string, ArchiveItem[]>>((acc, item) => {
-        // 🎯 EXAKT WIE GROUPVIEW: Für Turnier-Sessions auch endedAt verwenden
+        // 🎯 INTELLIGENTE DATUMS-EXTRAKTION: Für abgeschlossene Turniere completedAt verwenden!
         let dateToSort;
         if (item.type === 'session') {
           dateToSort = item.startedAt;
@@ -365,8 +375,13 @@ const ProfilePage: React.FC = () => {
           // Turnier-Session: verwende endedAt für Gruppierung
           dateToSort = (item as any).endedAt ?? (item as any).startedAt;
         } else {
-          // Echte Tournament-Instance: verwende instanceDate mit createdAt Fallback
-          dateToSort = (item as any).instanceDate ?? (item as any).createdAt;
+          // 🎯 KORRIGIERT: Für abgeschlossene Turniere completedAt verwenden (jüngstes zuerst!)
+          const tournament = item as any;
+          if (tournament.status === 'completed' && tournament.completedAt) {
+            dateToSort = tournament.completedAt; // ✅ Abschlusszeit für completed
+          } else {
+            dateToSort = tournament.instanceDate ?? tournament.createdAt; // Fallback
+          }
         }
         
         let year = 'Unbekannt';

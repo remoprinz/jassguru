@@ -98,6 +98,11 @@ interface PowerRatingChartProps {
   hideOutliers?: boolean; // 🎯 NEU: Versteckt Punkte von Spielern mit nur einem Datenpunkt
   useThemeColors?: boolean; // 🎨 NEU: Verwendet Theme-Farben statt Ranking-Farben (für ProfileView)
   animationThreshold?: number; // 🎯 NEU: Custom threshold für Animation (default: 0.4)
+  invertYAxis?: boolean; // 🎯 NEU: Invertiert die Y-Achse (für Ranking-Charts: Rang 1 oben)
+  yAxisMin?: number; // 🎯 NEU: Manuelles Y-Achsen-Minimum (für Ranking-Charts: 1)
+  yAxisMax?: number; // 🎯 NEU: Manuelles Y-Achsen-Maximum (für Ranking-Charts: Anzahl Spieler)
+  disableDatasetSorting?: boolean; // 🎯 NEU: Deaktiviert automatische Dataset-Sortierung
+  yAxisLabels?: string[]; // 🎯 NEU: Custom Y-Achsen-Labels (für Ranking-Charts: Spielernamen)
 }
 
 export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
@@ -116,6 +121,11 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
   hideOutliers = true, // 🎯 NEU: Standardmäßig verstecke Outlier-Punkte
   useThemeColors = false, // 🎨 NEU: Standardmäßig false (Ranking-Farben)
   animationThreshold = 0.4, // 🎯 NEU: Default threshold 40%
+  invertYAxis = false, // 🎯 NEU: Standardmäßig false (normale Y-Achse)
+  yAxisMin, // 🎯 NEU: Manuelles Y-Achsen-Minimum
+  yAxisMax, // 🎯 NEU: Manuelles Y-Achsen-Maximum
+  disableDatasetSorting = false, // 🎯 NEU: Standardmäßig false (automatische Sortierung)
+  yAxisLabels, // 🎯 NEU: Custom Y-Achsen-Labels (Spielernamen)
 }) => {
     // 🎯 INTELLIGENTE ANIMATION-KONTROLLE: Intersection Observer + Tab-Wechsel-Reset
     const [hasAnimated, setHasAnimated] = React.useState(false);
@@ -350,8 +360,25 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
     },
     layout: {
       padding: {
-        left: 4,   // ✅ Minimal für maximalen Platz links
-        right: 2,  // ✅ NOCH WENIGER für maximalen Platz rechts
+        left: (() => {
+          // 🎯 NEU: Für Ranking-Charts - Y-Achse genau bei "#" Spalte positionieren
+          // Tabelle: Container p-4 (16px) + "#" Spalte pl-4 (16px) = 32px vom Container-Rand
+          // Chart: Container pl-4 (16px) + Chart-Padding = Y-Achsen-Position
+          // → Chart-Padding sollte 16px sein, damit Y-Achse bei 32px ist (wie "#" Spalte)
+          if (yAxisMin !== undefined && yAxisMax !== undefined) {
+            // Platz für Rangnummern (1-99) + Y-Achsen-Linie
+            // Die Y-Achse selbst ist bei diesem Padding-Wert, Labels sind links davon
+            return 16; // Genau wie "#" Spalte Padding (16px)
+          }
+          return 4; // ✅ Minimal für maximalen Platz links (normale Charts)
+        })(),
+        right: (() => {
+          // 🎯 NEU: Für Ranking-Charts - Platz für Spielernamen rechts neben den Datenpunkten
+          if (yAxisMin !== undefined && yAxisMax !== undefined) {
+            return 80; // Platz für Spielernamen (ca. 70-80px für längere Namen)
+          }
+          return 2; // ✅ Minimal für normale Charts
+        })(),
         top: 4,    // ✅ Reduziert von 8px für mehr Platz oben
         bottom: 2  // ✅ Reduziert für weniger Platz unten
       }
@@ -450,7 +477,7 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
             size: 11,
             family: 'Inter, system-ui, sans-serif'
           },
-          maxTicksLimit: 12, // Mehr Labels für bessere Übersicht
+          maxTicksLimit: 12, // Standard für alle Charts (außer Ranking-Charts, die afterBuildTicks verwenden)
           callback: function(value: any, index: any, values: any) {
             // Zeige mehr Labels, aber nicht alle bei sehr vielen Datenpunkten
             const step = Math.max(1, Math.floor(values.length / 12));
@@ -473,12 +500,19 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
           },
         grid: {
           color: function(context: { tick?: { value: number } }) {
+            const value = context.tick?.value;
+            
+            // 🎯 NEU: Verstecke Grid-Linien bei Dezimalwerten (z.B. 0.5, 4.5)
+            if (value !== undefined && !Number.isInteger(value)) {
+              return 'transparent';
+            }
+            
             // 🎯 ELO-CHART: Nur 100er-Linie weiß (isEloChart = true)
-            if (isEloChart && context.tick?.value === 100) {
+            if (isEloChart && value === 100) {
               return isDarkMode ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
             }
             // 🎯 ALLE ANDEREN CHARTS: Nur 0er-Linie weiß (isEloChart = false)
-            if (!isEloChart && context.tick?.value === 0) {
+            if (!isEloChart && value === 0) {
               return isDarkMode ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
             }
             return isDarkMode ? 'rgba(75, 85, 99, 0.3)' : 'rgba(156, 163, 175, 0.3)';
@@ -488,7 +522,18 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
           drawTicks: true,
         },
         ticks: {
+          autoSkip: (() => {
+            // 🎯 RANKING-CHART: Zeige ALLE Ränge (kein autoSkip)
+            if (invertYAxis && yAxisMin !== undefined && yAxisMax !== undefined) {
+              return false; // ✅ Alle Ticks anzeigen für Ranking-Charts
+            }
+            return true; // ✅ Für normale Charts: autoSkip aktivieren (Chart.js kann Labels auslassen)
+          })(),
           color: function(context: { tick?: { value: number } }) {
+            // 🎯 RANKING-CHART: Verwende Tabellen-Farbe (text-gray-300)
+            if (yAxisMin !== undefined && yAxisMax !== undefined) {
+              return '#d1d5db'; // text-gray-300
+            }
             // 🎯 ELO-CHART: Nur 100er-Label weiß (isEloChart = true)
             if (isEloChart && context.tick?.value === 100) {
               return isDarkMode ? '#ffffff' : '#000000';
@@ -500,9 +545,19 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
             return isDarkMode ? '#9ca3af' : '#6b7280';
           },
           font: {
-            size: 11,
+            size: (() => {
+              // 🎯 RANKING-CHART: Verwende Standard-Schriftgröße wie Tabelle (14px)
+              if (yAxisMin !== undefined && yAxisMax !== undefined) {
+                return 14; // Wie Tabellen-Text
+              }
+              return 11; // Standard für alle anderen Charts
+            })(),
             family: 'Inter, system-ui, sans-serif',
             weight: function(context: { tick?: { value: number } }) {
+              // 🎯 RANKING-CHART: Verwende font-medium (500) wie Tabelle
+              if (yAxisMin !== undefined && yAxisMax !== undefined) {
+                return 500; // font-medium (als Zahl)
+              }
               // 🎯 ELO-CHART: Nur 100er-Label fett (isEloChart = true)
               if (isEloChart && context.tick?.value === 100) return 'bold';
               // 🎯 ALLE ANDEREN CHARTS: Nur 0er-Label fett (isEloChart = false)
@@ -513,6 +568,17 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
           callback: function(this: any, tickValue: string | number) {
             const value = Number(tickValue);
             
+            // 🎯 NEU: Nur Integer anzeigen (für Ranking-Charts: verstecke 0.5, 4.5, etc.)
+            if (yAxisMin !== undefined && yAxisMax !== undefined) {
+              // Ranking-Chart Modus: Nur Integer-Ränge anzeigen
+              if (!Number.isInteger(value)) {
+                return ''; // Verstecke Dezimalwerte
+              }
+              
+              // 🎯 NEU: Zeige immer Rangnummern (1, 2, 3, 4) wie in der "#" Spalte der Tabelle
+              return `${Math.round(value)}`;
+            }
+            
             // 🎯 KOMPAKTE Y-ACHSE: 1k, 2k, 10k statt 1000, 2000, 10000
             if (Math.abs(value) >= 1000) {
               const kValue = Math.round(value / 1000); // ✅ KORREKTUR: Runde auf Ganzzahl!
@@ -522,6 +588,17 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
             return Math.round(value).toString();
           },
           stepSize: (() => {
+            // 🎯 NEU: Ranking-Charts - Zeige ALLE Ränge (1, 2, 3, 4, 5, ...)
+            // Wenn invertYAxis aktiv ist, bedeutet das ein Ranking-Chart → stepSize: 1 für alle Ränge
+            if (invertYAxis && yAxisMin !== undefined && yAxisMax !== undefined) {
+              return 1; // ✅ Zeige jeden Rang (1, 2, 3, 4, 5, ...)
+            }
+            
+            // Für normale Charts mit yAxisMin/yAxisMax: Automatisch
+            if (yAxisMin !== undefined && yAxisMax !== undefined) {
+              return undefined; // Automatisch
+            }
+            
             // 🎯 DYNAMISCHE SCHRITTGRÖSSE basierend auf Datenbereich
             const allValues = data.datasets.flatMap((d: { data: (number | null)[] }) => d.data).filter((v: number | null): v is number => v !== null);
             if (allValues.length === 0) return 10;
@@ -535,7 +612,28 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
             return 10; // 10er Schritte für sehr kleine Werte
           })()
         },
+        afterBuildTicks: (() => {
+          // 🎯 RANKING-CHART: Generiere explizit ALLE ganzen Zahlen als Ticks (1, 2, 3, 4, ...)
+          if (invertYAxis && yAxisMin !== undefined && yAxisMax !== undefined) {
+            return function(scale: any) {
+              const ticks = [];
+              // Generiere Ticks für alle ganzen Zahlen von yAxisMin bis yAxisMax
+              for (let i = yAxisMin; i <= yAxisMax; i++) {
+                ticks.push({ value: i });
+              }
+              scale.ticks = ticks;
+            };
+          }
+          return undefined; // Keine Custom-Ticks für normale Charts
+        })(),
+        beginAtZero: false, // ✅ Wichtig: Nicht automatisch bei 0 beginnen
         min: (() => {
+          // 🎯 NEU: Manuelles Minimum hat Vorrang (für Ranking-Charts mit Padding)
+          if (yAxisMin !== undefined) {
+            // Padding: 0.5 unterhalb des niedrigsten Ranges (Rang 1 → min: 0.5)
+            return yAxisMin - 0.5;
+          }
+          
           // Dynamisches Minimum basierend auf tatsächlichen Daten
           const allValues = data.datasets.flatMap((d: { data: (number | null)[] }) => d.data).filter((v: number | null): v is number => v !== null);
           if (allValues.length === 0) return 70;
@@ -561,6 +659,12 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
           return finalMin;
         })(),
         max: (() => {
+          // 🎯 NEU: Manuelles Maximum hat Vorrang (für Ranking-Charts mit Padding)
+          if (yAxisMax !== undefined) {
+            // Padding: 0.5 oberhalb des höchsten Ranges (Rang 4 → max: 4.5)
+            return yAxisMax + 0.5;
+          }
+          
           // Dynamisches Maximum basierend auf tatsächlichen Daten
           const allValues = data.datasets.flatMap((d: { data: (number | null)[] }) => d.data).filter((v: number | null): v is number => v !== null);
           if (allValues.length === 0) return 150;
@@ -584,7 +688,8 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
           const finalMax = Math.max(stepBasedMax, baseline + 10);
           
           return finalMax;
-        })()
+        })(),
+        reverse: invertYAxis, // 🎯 NEU: Invertiere Y-Achse für Ranking-Charts
       }
     },
     interaction: {
@@ -623,7 +728,7 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
         hoverRadius: 4
       }
     }
-  }), [hasAnimated, theme, isDarkMode, hideLegend, showBaseline]); // ✅ Dependencies für Memoization
+  }), [hasAnimated, theme, isDarkMode, hideLegend, showBaseline, invertYAxis, yAxisMin, yAxisMax, isEloChart, data]); // ✅ Dependencies für Memoization
 
   // 🎯 ZENTRALE CHART-PARAMETER: Alle Charts verwenden dieselben Einstellungen
   const CHART_CONFIG = {
@@ -646,7 +751,8 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
       : data.datasets;
     
     // ✅ SORTIERE DATASETS NACH LETZTEM WERT (für korrekte Legend-Reihenfolge)
-    const sortedDatasets = [...filteredDatasets].sort((a, b) => {
+    // 🎯 NEU: Überspringe Sortierung wenn disableDatasetSorting=true (für Ranking-Charts)
+    const sortedDatasets = disableDatasetSorting ? filteredDatasets : [...filteredDatasets].sort((a, b) => {
       // Finde den letzten gültigen Wert für jedes Dataset
       let lastValueA = null;
       let lastValueB = null;
@@ -682,11 +788,16 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
         // 🎯 NEU: Erstelle Array von pointRadius-Werten
         const pointRadii = dataset.data.map(() => CHART_CONFIG.pointRadius);
         
-        // 🎨 FARBEN: Theme-Farben oder Ranking-Farben
+        // 🎨 FARBEN: Prüfe ob bereits gesetzt, sonst Theme-Farben oder Ranking-Farben
         let borderColor: string;
         let backgroundColor: string;
         
-        if (useThemeColors) {
+        // 🎯 NEU: Verwende bereits gesetzte Farben NUR für Ranking-Charts (wenn yAxisLabels vorhanden)
+        // Für alle anderen Charts (Elo, etc.) immer die normale Farb-Logik verwenden
+        if (yAxisLabels && dataset.borderColor && dataset.backgroundColor) {
+          borderColor = dataset.borderColor;
+          backgroundColor = dataset.backgroundColor;
+        } else if (useThemeColors) {
           // 🎨 THEME-FARBEN: Verwende die Theme-Farbe des Spielers
           const themeColorMap: Record<string, string> = {
             'green': '#10b981',
@@ -701,8 +812,8 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
           borderColor = themeColorMap[theme] || themeColorMap.blue;
           backgroundColor = borderColor + '1A'; // 10% Alpha
         } else {
-          // ✅ RANKING-FARBEN: Basierend auf Sortierung
-          const rank = index + 1;
+          // ✅ RANKING-FARBEN: Verwende finalRank aus Dataset, falls vorhanden
+          const rank = (dataset as any).finalRank || (index + 1);
           borderColor = getRankingColor(rank);
           backgroundColor = getRankingColor(rank, 0.1);
         }
@@ -733,7 +844,7 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
         };
       })
     };
-  }, [data, hideOutliers, useThemeColors, theme]); // ✅ Dependencies hinzugefügt
+  }, [data, hideOutliers, useThemeColors, theme, disableDatasetSorting]); // ✅ Dependencies hinzugefügt
 
   // ✅ Custom Plugin für 0er-Linie (nur bei Non-Elo-Charts)
   const customPlugin = useMemo(() => ({
@@ -764,6 +875,100 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
     }
   }), [isDarkMode, isEloChart]);
 
+  // 🎯 NEU: Custom Plugin für Ranking-Chart Labels (Namen neben letzten Datenpunkten)
+  const rankingLabelsPlugin = useMemo(() => ({
+    id: 'rankingLabels',
+    afterDatasetsDraw: (chart: any) => {
+      // 🎯 Nur für Ranking-Charts (erkannt durch yAxisMin/yAxisMax)
+      if (yAxisMin === undefined || yAxisMax === undefined) return;
+      
+      const ctx = chart.ctx;
+      const chartArea = chart.chartArea;
+      const datasets = chart.data.datasets;
+      
+      if (!chartArea || !datasets) return;
+      
+      ctx.save();
+      
+      // 🎯 NEU: Gruppiere Datasets nach finalRank (für Spieler mit gleichem Rang)
+      const datasetsByRank = new Map<number, Array<{ dataset: any; index: number; lastPoint: { x: number; y: number } }>>();
+      
+      datasets.forEach((dataset: any, index: number) => {
+        const meta = chart.getDatasetMeta(index);
+        if (!meta || meta.hidden) return;
+        
+        const data = dataset.data;
+        if (!data || data.length === 0) return;
+        
+        // Finde den letzten gültigen Datenpunkt
+        let lastPointIndex = -1;
+        for (let i = data.length - 1; i >= 0; i--) {
+          if (!isNaN(data[i]) && data[i] !== null) {
+            lastPointIndex = i;
+            break;
+          }
+        }
+        
+        if (lastPointIndex === -1) return;
+        
+        const point = meta.data[lastPointIndex];
+        if (!point) return;
+        
+        const finalRank = dataset.finalRank || index + 1;
+        
+        if (!datasetsByRank.has(finalRank)) {
+          datasetsByRank.set(finalRank, []);
+        }
+        
+        datasetsByRank.get(finalRank)!.push({
+          dataset,
+          index,
+          lastPoint: { x: point.x, y: point.y }
+        });
+      });
+      
+      // 🎯 Zeichne Labels für jede Rang-Gruppe
+      datasetsByRank.forEach((group, rank) => {
+        if (group.length === 0) return;
+        
+        // Sortiere Gruppe nach Y-Position (von oben nach unten)
+        group.sort((a, b) => a.lastPoint.y - b.lastPoint.y);
+        
+        // Berechne Mittelpunkt zwischen allen Y-Positionen
+        const yPositions = group.map(item => item.lastPoint.y);
+        const minY = Math.min(...yPositions);
+        const maxY = Math.max(...yPositions);
+        const centerY = (minY + maxY) / 2;
+        
+        // Verwende die X-Position des ersten Elements (alle haben dieselbe X-Position)
+        const x = group[0].lastPoint.x;
+        
+        // 🎯 Zeichne Namen untereinander, beginnend beim Mittelpunkt
+        const lineHeight = 18; // Abstand zwischen den Namen
+        const startY = centerY - ((group.length - 1) * lineHeight) / 2;
+        
+        group.forEach((item, groupIndex) => {
+          const fullPlayerName = item.dataset.displayName || item.dataset.label;
+          const playerName = abbreviatePlayerName(fullPlayerName);
+          const color = item.dataset.borderColor || '#e5e7eb';
+          
+          ctx.font = '500 14px Inter, system-ui, sans-serif';
+          ctx.fillStyle = color;
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          
+          // Berechne Y-Position für diesen Namen
+          const labelY = startY + (groupIndex * lineHeight);
+          
+          // Zeichne Namen rechts neben dem Punkt (mit 8px Abstand)
+          ctx.fillText(playerName, x + 8, labelY);
+        });
+      });
+      
+      ctx.restore();
+    }
+  }), [yAxisMin, yAxisMax]);
+
   return (
     <>
       {hasOnlySinglePoint ? (
@@ -776,7 +981,7 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
         <Line 
           data={enhancedData} 
           options={options}
-          plugins={[customPlugin]}
+          plugins={[customPlugin, rankingLabelsPlugin]}
           style={{ 
             height: `${height}px`,
             backgroundColor: 'transparent'

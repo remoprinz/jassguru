@@ -1165,8 +1165,10 @@ const StartPage = () => {
     const isTournamentPasseActive = jassStore.currentSession?.isTournamentSession && gameStore.isGameStarted && !gameStore.isGameCompleted;
 
     // ✅ ELEGANT: Prüfe, ob User in einem AKTIVEN (nicht upcoming/paused/completed) Turnier ist
+    // ✅ VERBESSERT: Prüfe direkt in userTournamentInstances, nicht nur über userActiveTournamentId
+    // Das stellt sicher, dass der Button sofort verschwindet, sobald ein Turnier aktiv wird
     const activeTournament = userTournamentInstances.find(t => 
-      t.id === userActiveTournamentId && t.status === 'active'
+      t.status === 'active' && !t.pausedAt
     );
     const isUserInActiveTournament = !!activeTournament;
 

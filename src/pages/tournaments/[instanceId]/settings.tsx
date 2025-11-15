@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { ArrowLeft, Settings, Loader2, AlertTriangle, Users, Trash2, Palette, BarChart, Crown, X, UserPlus, UserCog, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Settings, Loader2, AlertTriangle, Users, Trash2, Palette, BarChart, Crown, X, UserPlus, UserCog, CheckCircle, Award } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useTournamentStore } from '@/store/tournamentStore';
 import { useUIStore } from '@/store/uiStore';
@@ -109,10 +109,11 @@ const formatTimestampToDateTime = (timestamp: Timestamp | null | undefined): { d
 };
 
 const RANKING_MODES: { value: TournamentSettings['rankingMode']; label: string }[] = [
-  { value: 'total_points', label: 'Gesamtpunktzahl' },
-  { value: 'striche', label: 'Anzahl Striche' },
-  { value: 'wins', label: 'Anzahl Siege' },
-  { value: 'average_score_per_passe', label: 'Durchschnittspunkte pro Passe' },
+  { value: 'total_points', label: 'Nach Punkten' },
+  { value: 'striche', label: 'Nach Strichen' },
+  { value: 'striche_difference', label: 'Nach Strichdifferenz' },
+  { value: 'points_difference', label: 'Nach Punktedifferenz' }, // ✅ NEU
+  { value: 'alle_ranglisten', label: 'Alle Ranglisten' }, // ✅ NEU
 ];
 
 const TournamentSettingsPage: React.FC = () => {
@@ -153,7 +154,7 @@ const TournamentSettingsPage: React.FC = () => {
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [selectedRankingMode, setSelectedRankingMode] = useState<TournamentSettings['rankingMode'] | undefined>(undefined);
+  const [selectedRankingMode, setSelectedRankingMode] = useState<TournamentSettings['rankingMode']>('total_points');
   const [isSubmittingGeneralSettings, setIsSubmittingGeneralSettings] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
@@ -179,6 +180,9 @@ const TournamentSettingsPage: React.FC = () => {
   // NEU: State für Startdatum und -zeit
   const [tempStartDate, setTempStartDate] = useState<string>('');
   const [tempStartTime, setTempStartTime] = useState<string>('');
+
+  // NEU: State für Turnier-Navigation
+  const [tempShowInNavigation, setTempShowInNavigation] = useState<boolean>(true);
 
   const isCurrentUserAdmin = useCallback(() => {
     return !!user?.uid && !!tournament?.adminIds?.includes(user.uid);
@@ -212,6 +216,9 @@ const TournamentSettingsPage: React.FC = () => {
       // NEU: Initialisiere Teilnehmerlimits
       setTempMinParticipants(tournament.settings?.minParticipants?.toString() || '4'); // Default 4
       setTempMaxParticipants(tournament.settings?.maxParticipants?.toString() || ''); // Default leer (unbeschränkt)
+      
+      // NEU: Initialisiere showInNavigation (Default: true)
+      setTempShowInNavigation(tournament.showInNavigation ?? true);
 
       setTempScoreInput({});
       setTempStrokeInput({});
@@ -219,6 +226,8 @@ const TournamentSettingsPage: React.FC = () => {
       setHasChanges(false);
       setName(tournament.name || '');
       setDescription(tournament.description || '');
+      // ✅ FIX: Initialisiere rankingMode aus Tournament
+      setSelectedRankingMode(tournament.settings?.rankingMode || 'total_points');
     }
   }, [tournament]);
 
@@ -226,7 +235,7 @@ const TournamentSettingsPage: React.FC = () => {
     if (!tournament) return;
     const nameChanged = name !== (tournament.name || '');
     const descriptionChanged = description !== (tournament.description || '');
-    const rankingModeChanged = selectedRankingMode !== (tournament.settings?.rankingMode || undefined);
+    const rankingModeChanged = selectedRankingMode !== (tournament.settings?.rankingMode || 'total_points');
     const scoreSettingsChanged = JSON.stringify(tempScoreSettings) !== JSON.stringify({
       ...TOURNAMENT_DEFAULT_SCORE_SETTINGS,
       ...(tournament.settings?.scoreSettings || {}),
@@ -247,6 +256,9 @@ const TournamentSettingsPage: React.FC = () => {
         (initialScheduledTime && !currentScheduledTime) || 
         (initialScheduledTime && currentScheduledTime && !initialScheduledTime.isEqual(currentScheduledTime))) ?? false;
 
+    // NEU: Änderungen an showInNavigation prüfen
+    const showInNavigationChanged = tempShowInNavigation !== (tournament.showInNavigation ?? true);
+
     setHasChanges(
       Boolean(
         nameChanged || 
@@ -260,10 +272,11 @@ const TournamentSettingsPage: React.FC = () => {
         farbeInputChanged ||
         minParticipantsChanged || 
         maxParticipantsChanged ||
-        scheduledTimeChanged
+        scheduledTimeChanged ||
+        showInNavigationChanged
       )
     );
-  }, [name, description, selectedRankingMode, tournament, tempScoreSettings, tempStrokeSettings, tempScoreInput, tempStrokeInput, tempFarbeSettings, tempFarbeInput, tempMinParticipants, tempMaxParticipants, tempStartDate, tempStartTime]);
+  }, [name, description, selectedRankingMode, tournament, tempScoreSettings, tempStrokeSettings, tempScoreInput, tempStrokeInput, tempFarbeSettings, tempFarbeInput, tempMinParticipants, tempMaxParticipants, tempStartDate, tempStartTime, tempShowInNavigation]);
 
   const memoizedHandleSaveGeneralSettings = useCallback(async () => {
     if (!tournament || !isCurrentUserAdmin() || !hasChanges || isSubmittingGeneralSettings) return;
@@ -335,7 +348,8 @@ const TournamentSettingsPage: React.FC = () => {
     let actualSettingsHaveChanged = false;
 
     const finalRankingMode = selectedRankingMode || tournament.settings?.rankingMode || 'total_points';
-    if (finalRankingMode !== tournament.settings?.rankingMode) {
+    const currentRankingMode = tournament.settings?.rankingMode || 'total_points';
+    if (finalRankingMode !== currentRankingMode) {
         settingsUpdates.rankingMode = finalRankingMode;
         actualSettingsHaveChanged = true;
     }
@@ -405,7 +419,8 @@ const TournamentSettingsPage: React.FC = () => {
 
     const nameChanged = name !== (tournament.name || '');
     const descriptionChanged = description !== (tournament.description || '');
-    const baseDetailsChanged = nameChanged || descriptionChanged;
+    const showInNavigationChanged = tempShowInNavigation !== (tournament.showInNavigation ?? true);
+    const baseDetailsChanged = nameChanged || descriptionChanged || showInNavigationChanged;
 
     // Fall 0: Überhaupt keine Änderungen - sollte durch `!hasChanges` oben abgefangen werden, aber zur Sicherheit
     if (!actualSettingsHaveChanged && !baseDetailsChanged) {
@@ -421,9 +436,10 @@ const TournamentSettingsPage: React.FC = () => {
 
     try {
       if (baseDetailsChanged) {
-        const detailUpdates: { name?: string; description?: string } = {};
+        const detailUpdates: { name?: string; description?: string; showInNavigation?: boolean } = {};
         if (nameChanged) detailUpdates.name = name;
         if (descriptionChanged) detailUpdates.description = description;
+        if (showInNavigationChanged) detailUpdates.showInNavigation = tempShowInNavigation;
         
         const success = await updateTournamentDetails(tournament.id, detailUpdates);
         if (success) {
@@ -1058,7 +1074,41 @@ const TournamentSettingsPage: React.FC = () => {
               </CardContent>
             </Card>
 
-             <Card className="bg-gray-800 border-gray-700">
+            {/* NEU: Turnier-Navigation Container */}
+            <Card className="bg-gray-800 border-gray-700 mt-6">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <Award className="w-5 h-5" />
+                  Turnier-Anzeige
+                </CardTitle>
+                <CardDescription className="text-gray-400">
+                  Bestimme, ob das Turnier in der Navigation für alle Gruppenmitglieder sichtbar ist.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-gray-700/40 rounded-lg overflow-hidden border border-gray-600/40">
+                  <div className="flex items-center justify-between p-3">
+                    <div className="flex-1">
+                      <Label htmlFor="toggle-show-in-navigation" className="font-medium text-gray-300">
+                        Turnier in Navigation einblenden
+                      </Label>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Wenn aktiviert, bleibt das Turnier-Icon in der Navigation sichtbar, bis es manuell ausgeblendet oder durch ein neues Turnier ersetzt wird.
+                      </p>
+                    </div>
+                    <Switch 
+                      id="toggle-show-in-navigation" 
+                      checked={tempShowInNavigation} 
+                      onCheckedChange={(checked) => setTempShowInNavigation(checked)}
+                      disabled={!isCurrentUserAdmin() || isLoadingGlobal}
+                      className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-gray-600"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+             <Card className="bg-gray-800 border-gray-700 mt-6">
               <CardHeader>
                 <CardTitle className="text-white flex items-center gap-2"><Users className="w-5 h-5" />Teilnehmer & Admins</CardTitle>
                  <CardDescription className="text-gray-400">Verwalte, wer am Turnier teilnimmt und wer es administrieren darf.</CardDescription>

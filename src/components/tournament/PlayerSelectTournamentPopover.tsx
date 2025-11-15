@@ -11,6 +11,7 @@ import type { GamePlayers, PlayerNumber } from "@/types/jass";
 import { cn } from "@/lib/utils";
 import { ParticipantWithProgress } from '@/store/tournamentStore';
 import ProfileImage from '@/components/ui/ProfileImage';
+import { isPlayerAvailableForPasse } from '@/utils/tournamentPasseUtils';
 
 interface PlayerSelectTournamentPopoverProps {
   trigger: React.ReactNode;
@@ -19,6 +20,7 @@ interface PlayerSelectTournamentPopoverProps {
   targetSlot: PlayerNumber;
   onSelectParticipant: (slot: PlayerNumber, participant: ParticipantWithProgress) => void;
   playersInActivePasses?: Set<string>; // 🆕 NEU: Spieler, die bereits in einer aktiven Passe sind
+  passeNumber: number; // 🎯 NEU: Passe-Nummer für Verfügbarkeits-Check
 }
 
 export const PlayerSelectTournamentPopover: React.FC<PlayerSelectTournamentPopoverProps> = ({
@@ -28,6 +30,7 @@ export const PlayerSelectTournamentPopover: React.FC<PlayerSelectTournamentPopov
   targetSlot,
   onSelectParticipant,
   playersInActivePasses = new Set(),
+  passeNumber,
 }) => {
   const [open, setOpen] = useState(false);
   const [filteredParticipants, setFilteredParticipants] = useState<ParticipantWithProgress[]>([]);
@@ -49,18 +52,51 @@ export const PlayerSelectTournamentPopover: React.FC<PlayerSelectTournamentPopov
     .filter(player => player.type === 'member')
     .map(player => player.uid);
 
-  // Filtere Teilnehmer, die bereits ausgewählt sind ODER in einer aktiven Passe sind
-  const availableParticipants = participants.filter(participant => {
+  // 🎯 NEUE LOGIK: Filtere bereits ausgewählte Spieler raus, markiere nicht-verfügbare
+  const participantsWithAvailability = participants
+    .filter(participant => {
+      // Bereits ausgewählte Spieler komplett ausblenden
+      const uid = participant.uid || '';
+      return !selectedPlayerUids.includes(uid);
+    })
+    .map(participant => {
     const uid = participant.uid || '';
-    // Ausblenden, wenn bereits ausgewählt
-    if (selectedPlayerUids.includes(uid)) {
-      return false;
+      
+      // Prüfe Verfügbarkeit mit shared Helper
+      const available = isPlayerAvailableForPasse(
+        participant,
+        passeNumber,
+        playersInActivePasses
+      );
+      
+      if (!available) {
+        const completedCount = participant.completedPassesCount || 0;
+        if (completedCount >= passeNumber) {
+          return {
+            participant,
+            available: false,
+            reason: `Hat Passe ${passeNumber} bereits gespielt`
+          };
+        } else if (playersInActivePasses.has(uid)) {
+          return {
+            participant,
+            available: false,
+            reason: 'Spielt gerade eine Passe'
+          };
     }
-    // 🆕 NEU: Ausblenden, wenn in einer aktiven Passe
-    if (playersInActivePasses.has(uid)) {
-      return false;
-    }
-    return true;
+      }
+      
+      return {
+        participant,
+        available: true,
+        reason: null
+      };
+    });
+  
+  // Sortiere: Verfügbare zuerst, dann nicht-verfügbare
+  participantsWithAvailability.sort((a, b) => {
+    if (a.available === b.available) return 0;
+    return a.available ? -1 : 1;
   });
 
   return (
@@ -73,20 +109,19 @@ export const PlayerSelectTournamentPopover: React.FC<PlayerSelectTournamentPopov
           <div className="p-4 space-y-2">
             <h4 className="text-sm font-medium leading-none">Teilnehmer auswählen</h4>
             <p className="text-sm text-gray-500">Wähle einen Spieler für Position {targetSlot}.</p>
-            {availableParticipants.length === 0 && (
-              <p className="text-sm text-gray-500">Keine weiteren Teilnehmer verfügbar.</p>
+            {participantsWithAvailability.filter(p => p.available).length === 0 && (
+              <p className="text-sm text-gray-500">Keine Spieler für Passe {passeNumber} verfügbar.</p>
             )}
             <div className="space-y-2 mt-2">
-              {availableParticipants.map((participant) => {
-                const isInActivePasse = playersInActivePasses.has(participant.uid || '');
+              {participantsWithAvailability.map(({ participant, available, reason }) => {
                 return (
                 <div 
                   key={participant.uid} 
-                    onClick={() => !isInActivePasse && handleSelectParticipant(participant)}
+                  onClick={() => available && handleSelectParticipant(participant)}
                   className={cn(
                       "flex items-center px-2 py-2 rounded-md",
-                      isInActivePasse 
-                        ? "opacity-50 cursor-not-allowed bg-gray-50" 
+                    !available 
+                      ? "opacity-40 cursor-not-allowed bg-gray-50" 
                         : "hover:bg-gray-100 cursor-pointer"
                   )}
                 >
@@ -102,8 +137,8 @@ export const PlayerSelectTournamentPopover: React.FC<PlayerSelectTournamentPopov
                   />
                   <div className="flex-grow">
                     <p className="text-sm">{participant.displayName || 'Unbekannt'}</p>
-                      {isInActivePasse && (
-                        <p className="text-xs text-gray-500">In aktiver Passe</p>
+                    {!available && reason && (
+                      <p className="text-xs text-gray-500">{reason}</p>
                       )}
                     </div>
                   </div>

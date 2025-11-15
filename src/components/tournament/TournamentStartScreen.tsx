@@ -13,6 +13,7 @@ import GlobalLoader from '@/components/layout/GlobalLoader';
 import ProfileImage from '@/components/ui/ProfileImage';
 import { collection, query, where, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { db } from '@/services/firebaseInit';
+import { isPlayerAvailableForPasse, calculateCompletedPassesCountFromGames } from '@/utils/tournamentPasseUtils';
 
 const screenVariants = {
   initial: { opacity: 0, scale: 0.95 },
@@ -48,6 +49,7 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
 }) => {
   const { user } = useAuthStore();
   const startNewPasseAction = useTournamentStore((state) => state.startNewPasse);
+  const currentTournamentGames = useTournamentStore((state) => state.currentTournamentGames); // ✅ NEU
   const showNotification = useUIStore((state) => state.showNotification);
 
   const [selectedGamePlayers, setSelectedGamePlayers] = useState<TournamentGamePlayers>({ 1: null, 2: null, 3: null, 4: null });
@@ -62,6 +64,10 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
   // 🆕 NEU: Zustand für Spieler, die bereits in einer aktiven Passe sind
   const [playersInActivePasses, setPlayersInActivePasses] = useState<Set<string>>(new Set());
   const activePassesListenerRef = useRef<Unsubscribe | null>(null);
+  
+  // 🆕 REALTIME: Dynamischer Buchstabe basierend auf bereits gestarteten Passen
+  const [dynamicPasseLetter, setDynamicPasseLetter] = useState<string>('A');
+  const passeLetterListenerRef = useRef<Unsubscribe | null>(null);
   
   // 🚀 PERFORMANCE-FIX: Optimierter Lookup-Map für Avatar-URLs (statt wiederholter Array-Suche)
   const memberPhotoUrlMap = useMemo(() => {
@@ -114,13 +120,17 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
       // Keine Spieler ausgewählt → Zeige die Standard-Nummer vom Parent
       return currentPasseNumber;
     }
+    
+    // ✅ KRITISCH: Filtere NUR abgeschlossene Games für korrekte Zählung
+    const completedGamesOnly = (currentTournamentGames || []).filter(g => g.completedAt);
+    
     // Spieler ausgewählt → Zeige IHRE nächste Passe (Minimum der completedPassesCount + 1)
     const completedCounts = selectedPlayers.map(p => {
-      const participant = tournamentParticipants.find(tp => tp.uid === p!.uid);
-      return participant?.completedPassesCount || 0;
+      // ✅ Berechne completedPassesCount DYNAMISCH (in Echtzeit!)
+      return calculateCompletedPassesCountFromGames(p!.uid, completedGamesOnly);
     });
     return Math.min(...completedCounts) + 1;
-  }, [selectedGamePlayers, currentPasseNumber, tournamentParticipants]);
+  }, [selectedGamePlayers, currentPasseNumber, currentTournamentGames]); // ✅ Abhängigkeit von currentTournamentGames!
 
   useEffect(() => {
     if (!isVisible) {
@@ -135,7 +145,12 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
         activePassesListenerRef.current();
         activePassesListenerRef.current = null;
       }
+      if (passeLetterListenerRef.current) {
+        passeLetterListenerRef.current();
+        passeLetterListenerRef.current = null;
+      }
       setPlayersInActivePasses(new Set());
+      setDynamicPasseLetter('A');
     }
   }, [isVisible]);
 
@@ -228,6 +243,96 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
     };
   }, [isVisible, tournamentId]);
 
+  // 🆕 REALTIME: Listener für dynamischen Buchstaben basierend auf Passe-Nummer
+  useEffect(() => {
+    if (!isVisible || !tournamentId) {
+      setDynamicPasseLetter('A');
+      return;
+    }
+
+    // Berechne die Passe-Nummer basierend auf ausgewählten Spielern (oder currentPasseNumber als Fallback)
+    const targetPasseNumber = dynamicPasseNumber;
+
+    console.log(`[TournamentStartScreen] Setting up passe letter listener for tournament ${tournamentId}, passe ${targetPasseNumber}`);
+    
+    // Query für ALLE aktiven Passen dieses Turniers
+    // Wir filtern dann manuell nach der Passe-Nummer, weil Firestore manchmal Probleme mit mehreren where() hat
+    const activePassesQuery = query(
+      collection(db, 'activeGames'),
+      where('tournamentInstanceId', '==', tournamentId),
+      where('status', '==', 'live')
+    );
+
+    // Listener einrichten
+    const unsubscribe = onSnapshot(
+      activePassesQuery,
+      (snapshot) => {
+        try {
+          // Sammle alle bereits verwendeten Buchstaben für diese Passe-Nummer
+          const usedLetters = new Set<string>();
+          let matchingDocs = 0;
+          
+          snapshot.docs.forEach((doc) => {
+            const data = doc.data();
+            const docPasseNumber = data.passeTournamentNumber || data.currentGameNumber;
+            
+            // ✅ KRITISCH: Nur Passen mit der richtigen Nummer berücksichtigen
+            if (docPasseNumber === targetPasseNumber) {
+              matchingDocs++;
+              const passeInRound = data.passeInRound;
+              
+              if (passeInRound) {
+                usedLetters.add(passeInRound);
+                console.log(`[TournamentStartScreen] Found active passe ${targetPasseNumber}${passeInRound} (doc: ${doc.id})`);
+              }
+            }
+          });
+
+          // ✅ KRITISCH: Berechne die maximale Anzahl an Tischen für dieses Turnier
+          const totalParticipants = tournamentParticipants.length;
+          const maxTische = Math.floor(totalParticipants / 4);
+          
+          // Finde den nächsten freien Buchstaben (aber nur bis maxTische!)
+          const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+          let nextLetter = 'A';
+          
+          for (let i = 0; i < Math.min(letters.length, maxTische); i++) {
+            if (!usedLetters.has(letters[i])) {
+              nextLetter = letters[i];
+              break;
+            }
+          }
+          
+          // ✅ SICHERHEITSCHECK: Falls alle erlaubten Tische belegt sind, zeige den letzten möglichen Buchstaben
+          if (usedLetters.size >= maxTische) {
+            nextLetter = letters[maxTische - 1]; // Z.B. bei 8 Spielern (2 Tische): B ist der letzte
+            console.log(`[TournamentStartScreen] ⚠️ Passe ${targetPasseNumber}: Alle ${maxTische} Tische belegt! Zeige letzten: ${nextLetter}`);
+          }
+
+          console.log(`[TournamentStartScreen] Passe ${targetPasseNumber}: Total ${totalParticipants} Spieler → max ${maxTische} Tische. Found ${matchingDocs} active games, Used letters:`, Array.from(usedLetters), '→ Next:', nextLetter);
+          setDynamicPasseLetter(nextLetter);
+        } catch (error) {
+          console.error('[TournamentStartScreen] Error processing passe letter snapshot:', error);
+          setDynamicPasseLetter('A');
+        }
+      },
+      (error) => {
+        console.error('[TournamentStartScreen] Error in passe letter listener:', error);
+        setDynamicPasseLetter('A');
+      }
+    );
+
+    passeLetterListenerRef.current = unsubscribe;
+
+    // Cleanup beim Unmount
+    return () => {
+      if (passeLetterListenerRef.current) {
+        passeLetterListenerRef.current();
+        passeLetterListenerRef.current = null;
+      }
+    };
+  }, [isVisible, tournamentId, dynamicPasseNumber]);
+
   // NEU: Effekt, um isCurrentUserInSelectedPasse zu aktualisieren, wenn sich selectedGamePlayers oder user ändern
   useEffect(() => {
     if (user?.uid) {
@@ -249,7 +354,19 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
       showNotification({ type: 'error', message: 'Fehler bei der Spielerauswahl: Spieler-ID fehlt.' });
       return;
     }
+
+    // ❌ ENTFERNT: Diese Logik war falsch! Spieler in aktiven Passen dürfen ausgewählt werden,
+    // solange sie alle dieselbe nächste Passe haben. Der Check erfolgt erst beim Start!
+    // if (playersInActivePasses.has(participant.uid)) {
+    //   showNotification({ type: 'warning', message: 'Dieser Spieler spielt gerade eine Passe und kann nicht ausgewählt werden.' });
+    //   return;
+    // }
+
     const slotNumber = Number(slot) as PlayerNumber;
+
+    // ❌ KOMPLETT ENTFERNT: Keine Einschränkungen mehr bei der Auswahl!
+    // Spieler können FREI kombiniert werden, die Validierung erfolgt erst beim Start!
+
     const isAlreadySelected = Object.values(selectedGamePlayers).some(p => p?.type === 'member' && p.uid === participant.uid);
     const playerInCurrentSlot = selectedGamePlayers[slotNumber];
 
@@ -324,20 +441,62 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
       return;
     }
 
-    // NEU: Überprüfung, ob der aktuelle Benutzer Teil der Passe ist
-    console.log("[TournamentStartScreen] Start-Check:", { isCurrentUserInSelectedPasse, userUid: user?.uid });
-    if (!isCurrentUserInSelectedPasse) {
-      showNotification({ 
-        type: 'error', 
-        message: 'Nur Spieler, die an dieser Passe teilnehmen, dürfen sie starten.',
-        preventClose: true,
-        actions: [
-          {
-            label: "Verstanden",
-            onClick: () => {}
-          }
-        ]
-      });
+    // 🎯 KRITISCHE VALIDIERUNG: Alle ausgewählten Spieler müssen verfügbar sein
+    const selected = Object.entries(selectedGamePlayers)
+      .filter(([_, p]) => p !== null)
+      .map(([slotKey, p_val]) => ({ slotKey, p_val: p_val as (MemberInfo & { playerId: string; uid: string; name: string }) }));
+
+    // Sammle UIDs aller Spieler in aktiven Passen
+    const playersInActivePassesSet = new Set<string>();
+    if (playersInActivePasses) {
+      playersInActivePasses.forEach(uid => playersInActivePassesSet.add(uid));
+    }
+
+    // Prüfe jeden Spieler:
+    // 1. Hat dieser Spieler die dynamicPasseNumber noch nicht gespielt?
+    // 2. Ist dieser Spieler nicht in einer aktiven Passe?
+    const invalidPlayers: string[] = [];
+    for (const { slotKey, p_val } of selected) {
+      const participant = tournamentParticipants.find(tp => tp.uid === p_val.uid);
+      if (!participant) {
+        invalidPlayers.push(`Spieler ${p_val.name} (Slot ${slotKey}): Nicht im Turnier gefunden`);
+        continue;
+      }
+      
+      // ✅ KRITISCH: Berechne completedPassesCount DYNAMISCH (NUR aus abgeschlossenen Games!)
+      const completedGamesOnly = (currentTournamentGames || []).filter(g => g.completedAt);
+      const dynamicCompletedPassesCount = calculateCompletedPassesCountFromGames(
+        p_val.uid,
+        completedGamesOnly
+      );
+      
+      // Erstelle temporären Participant mit dynamischem Count für Validierung
+      const participantWithDynamicCount = {
+        ...participant,
+        completedPassesCount: dynamicCompletedPassesCount
+      };
+      
+      // Prüfe Verfügbarkeit mit shared Helper
+      const available = isPlayerAvailableForPasse(
+        participantWithDynamicCount,
+        dynamicPasseNumber,
+        playersInActivePassesSet
+      );
+      
+      if (!available) {
+        if (dynamicCompletedPassesCount >= dynamicPasseNumber) {
+          invalidPlayers.push(`${p_val.name}: Hat Passe ${dynamicPasseNumber} bereits gespielt (${dynamicCompletedPassesCount} abgeschlossen)`);
+        } else if (playersInActivePassesSet.has(p_val.uid)) {
+          invalidPlayers.push(`${p_val.name}: Spielt gerade eine aktive Passe`);
+        }
+      }
+    }
+    
+    // Falls ungültige Spieler gefunden: Zeige Fehler und breche ab
+    if (invalidPlayers.length > 0) {
+      const errorMsg = `Nicht alle Spieler sind für Passe ${dynamicPasseNumber} verfügbar:\n\n${invalidPlayers.join('\n')}`;
+      showNotification({ type: 'error', message: errorMsg });
+      console.error('[TournamentStartScreen] Validation failed:', invalidPlayers);
       return;
     }
     
@@ -348,26 +507,40 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
         .filter(([_, p]) => p !== null)
         .map(([slotKey, p_val]) => {
           if (!p_val || p_val.type !== 'member') throw new Error(`Ungültiger Spieler in Slot ${slotKey}`);
-          // Finde den Teilnehmer im tournamentParticipants-Array, um completedPassesCount zu erhalten
+          // Finde den Teilnehmer im tournamentParticipants-Array
           const participant = tournamentParticipants.find(tp => tp.uid === p_val.uid);
           if (!participant) throw new Error(`Teilnehmer mit uid ${p_val.uid} wurde nicht gefunden`);
           
+          // ✅ KRITISCH: Berechne completedPassesCount DYNAMISCH (NUR aus abgeschlossenen Games!)
+          const completedGamesOnly = (currentTournamentGames || []).filter(g => g.completedAt);
+          const dynamicCompletedPassesCount = calculateCompletedPassesCountFromGames(
+            p_val.uid,
+            completedGamesOnly
+          );
+          
           return { 
             uid: p_val.uid, 
-            playerId: p_val.playerId, // ✅ FIX: Player ID hinzugefügt
+            playerId: p_val.playerId, // ✅ Player ID
             name: p_val.name, 
             playerNumber: Number(slotKey) as PlayerNumber,
-            completedPassesCount: participant.completedPassesCount || 0,
+            completedPassesCount: dynamicCompletedPassesCount, // ✅ Dynamisch berechnet!
             photoURL: participant.photoURL
           };
         });
 
       const activeGameId = await startNewPasseAction(tournamentId, playersForPasse, startingPlayer as PlayerNumber);
-      if (onPasseStarted && activeGameId) onPasseStarted(activeGameId);
+      if (onPasseStarted && activeGameId) {
+        // ✅ NEU: Setze globalen Loading-State BEVOR Navigation startet
+        // Das stellt sicher, dass [instanceId].tsx überdeckt wird während der Navigation
+        useUIStore.getState().setLoading(true);
+        onPasseStarted(activeGameId);
+      }
       onClose();
     } catch (err) {
       console.error('Fehler beim Starten des Spiels:', err);
       setError(`Fehler beim Starten des Spiels: ${err instanceof Error ? err.message : 'Unbekannter Fehler'}`);
+      // ✅ NEU: Setze globalen Loading-State auch bei Fehler zurück
+      useUIStore.getState().setLoading(false);
     } finally {
       setIsLoading(false);
     }
@@ -465,6 +638,7 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
                         targetSlot={slotNumber}
                         onSelectParticipant={handlePlayerSelect}
                         playersInActivePasses={playersInActivePasses}
+                        passeNumber={dynamicPasseNumber}
                       />
                     ) : (
                       playerDisplayOrSelector
@@ -482,32 +656,24 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
               whileTap={{scale: 0.95}}
               onClick={handleStartGame}
               className={`w-full text-white text-lg font-bold py-3 px-8 rounded-xl shadow-lg transition-colors border-b-4 min-h-[56px] flex items-center justify-center ${
-                areAllSlotsFilled() && !isLoading && hasSelectedStartingPlayer && isCurrentUserInSelectedPasse 
+                areAllSlotsFilled() && !isLoading && hasSelectedStartingPlayer
                   ? "bg-green-600 hover:bg-green-700 border-green-900 cursor-pointer" 
                   : "bg-gray-500 border-gray-700 cursor-not-allowed opacity-70"
               }`}
-              disabled={!areAllSlotsFilled() || isLoading || !hasSelectedStartingPlayer || !isCurrentUserInSelectedPasse}
+              disabled={!areAllSlotsFilled() || isLoading || !hasSelectedStartingPlayer}
               title={
                 !areAllSlotsFilled() 
                   ? "Bitte wähle alle vier Spieler aus" 
                   : !hasSelectedStartingPlayer 
                     ? "Bitte wähle einen Startspieler (auf einen Spieler klicken)" 
-                    : !isCurrentUserInSelectedPasse 
-                      ? "Nur Spieler, die an dieser Passe teilnehmen, dürfen sie starten" 
-                      : isLoading 
-                        ? "Passe wird gestartet..." 
-                        : "Passe starten"
+                    : isLoading 
+                      ? "Passe wird gestartet..." 
+                      : "Passe starten"
               }
             >
               {isLoading ? <Loader2 className="animate-spin mr-2" /> : null}
-              {dynamicPasseNumber}. Passe starten
+              Passe {dynamicPasseNumber}{dynamicPasseLetter} starten
             </motion.button>
-            
-            {!isCurrentUserInSelectedPasse && areAllSlotsFilled() && hasSelectedStartingPlayer && (
-              <p className="text-amber-400 text-sm mt-2 text-center">
-                Hinweis: Nur teilnehmende Spieler können die Passe starten.
-              </p>
-            )}
           </div>
         </motion.div>
       )}

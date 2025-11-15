@@ -3365,7 +3365,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
               <div className="space-y-4">
                 {sortedYears.map(year => (
                   <div key={year}>
-                    <h3 className={`${layout.headingSize} font-semibold text-white mb-3 text-center`}>{year}</h3>
+                    <h3 className="text-xl font-bold text-white text-center mb-3">{year}</h3>
                     <p className={`${layout.smallTextSize} text-gray-400 mb-3 italic text-center`}>
                       Ergebnis auswählen für Details:
                     </p>

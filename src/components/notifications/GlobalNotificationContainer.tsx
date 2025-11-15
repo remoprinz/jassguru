@@ -46,6 +46,11 @@ const GlobalNotificationContainer: React.FC = () => {
     case "warning":
       return <FaExclamationTriangle className="w-12 h-12 text-yellow-600 mb-2" />;
     case "success":
+      // ✅ NEU: Prüfe, ob es eine Passe-Abschluss-Notification ist (hat "Passe" im Message)
+      // Für Passe-Abschluss: Grünes Ausrufezeichen statt CheckCircle
+      if (notification.message && typeof notification.message === 'string' && notification.message.includes('Passe')) {
+        return <FaExclamationTriangle className="w-12 h-12 text-green-600 mb-2" />;
+      }
       return <FaCheckCircle className="w-12 h-12 text-green-600 mb-2" />;
     case "error":
       return <FaExclamationTriangle className="w-12 h-12 text-red-600 mb-2" />;
@@ -76,6 +81,11 @@ const GlobalNotificationContainer: React.FC = () => {
       );
     }
 
+    // ✅ NEU: Prüfe, ob es eine Passe-Abschluss-Notification ist
+    const isPasseCompletionNotification = notification.message && 
+      typeof notification.message === 'string' && 
+      notification.message.includes('Passe');
+
     return notification.actions.map((action: NotificationAction, index: number) => (
       <button
         key={index}
@@ -88,7 +98,7 @@ const GlobalNotificationContainer: React.FC = () => {
         className={`
           flex-1 px-6 py-2 rounded-full 
           text-lg font-semibold
-          ${(notification.type === "bedanken" || notification.type === "success") && index === notification.actions!.length - 1 ?
+          ${(notification.type === "bedanken" || (notification.type === "success" && !isPasseCompletionNotification)) && index === notification.actions!.length - 1 ?
         "bg-green-600 hover:bg-green-700" :
         index === notification.actions!.length - 1 ?
           "bg-yellow-600 hover:bg-yellow-700" :

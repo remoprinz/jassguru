@@ -807,9 +807,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           // Tracking: Welche Partner waren in dieser Session aktiv und deren Differenzen
           const partnersInSession = new Map<string, { stricheDiff: number, pointsDiff: number, matschDiff: number }>();
 
-          // Session-level Matsch-Bilanz (nur einmal pro Session, nicht pro Spiel!)
+          // ✅ KORRIGIERT: Unterscheide zwischen Turnieren und regulären Sessions
+          const isTournament = summary.isTournamentSession || false;
+          
+          // Session-level Matsch-Bilanz (nur für reguläre Sessions, nicht für Turniere!)
           let sessionMatschDiff = 0;
           let sessionMatschCalculated = false;
+
+          // ✅ FÜR TURNIERE: Track Matsch-Events pro Partner aus einzelnen Spielen
+          const partnerMatschByGame = new Map<string, { made: number, received: number }>();
 
           for (const game of summary.gameResults) {
             if (!game.teams?.top?.players || !game.teams?.bottom?.players) continue;
@@ -821,14 +827,21 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
             const playerTeam = playerInTop ? 'top' : 'bottom';
             
-            // Matsch-Bilanz EINMAL pro Session berechnen (nicht pro Spiel!)
-            if (!sessionMatschCalculated && summary.eventCounts) {
+            // ✅ KORRIGIERT: Matsch-Bilanz für reguläre Sessions (nicht für Turniere!)
+            if (!isTournament && !sessionMatschCalculated && summary.eventCounts) {
               const sessionTeamEvents = playerTeam === 'top' ? summary.eventCounts.top : summary.eventCounts.bottom;
               const sessionOpponentEvents = playerTeam === 'top' ? summary.eventCounts.bottom : summary.eventCounts.top;
               sessionMatschDiff = sessionTeamEvents && sessionOpponentEvents ? 
                 ((sessionTeamEvents.matsch || 0) - (sessionOpponentEvents.matsch || 0)) : 0;
               sessionMatschCalculated = true;
             }
+
+            // ✅ FÜR TURNIERE: Hole Matsch-Events aus diesem Spiel
+            const gameEventCounts = game.eventCounts || {};
+            const teamEvents = gameEventCounts[playerTeam] || {};
+            const opponentEvents = gameEventCounts[playerTeam === 'top' ? 'bottom' : 'top'] || {};
+            const gameMatschMade = teamEvents.matsch || 0;
+            const gameMatschReceived = opponentEvents.matsch || 0;
 
             // Für jeden Partner: Prüfe ob Partner war
             for (const partner of playerStats.partnerAggregates) {
@@ -854,13 +867,27 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 partnersInSession.set(partnerId, { stricheDiff: 0, pointsDiff: 0, matschDiff: 0 });
               }
 
-              // Addiere zu Session-Differenzen (Matsch NUR beim ersten Spiel mit diesem Partner)
+              // Addiere zu Session-Differenzen
               const current = partnersInSession.get(partnerId)!;
               current.stricheDiff += stricheDiff;
               current.pointsDiff += pointsDiff;
-              // Matsch-Bilanz wird nur einmal pro Partner pro Session gesetzt
+              
+              // ✅ KORRIGIERT: Matsch-Bilanz-Berechnung
+              if (isTournament) {
+                // ✅ TURNIER: Aggregiere Matsch-Events aus Spielen, wo Partner zusammen waren
+                if (!partnerMatschByGame.has(partnerId)) {
+                  partnerMatschByGame.set(partnerId, { made: 0, received: 0 });
+                }
+                const partnerMatsch = partnerMatschByGame.get(partnerId)!;
+                partnerMatsch.made += gameMatschMade;
+                partnerMatsch.received += gameMatschReceived;
+                // Setze die kumulative Bilanz für diesen Partner
+                current.matschDiff = partnerMatsch.made - partnerMatsch.received;
+              } else {
+                // ✅ REGULÄRE SESSION: Verwende Session-Level Matsch-Bilanz (nur einmal pro Partner)
               if (current.matschDiff === 0 && sessionMatschCalculated) {
                 current.matschDiff = sessionMatschDiff;
+                }
               }
             }
           }
@@ -1206,9 +1233,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           // Tracking: Welche Gegner waren in dieser Session aktiv und deren Differenzen
           const opponentsInSession = new Map<string, { stricheDiff: number, pointsDiff: number, matschDiff: number }>();
 
-          // Session-level Matsch-Bilanz (nur einmal pro Session, nicht pro Spiel!)
+          // ✅ KORRIGIERT: Unterscheide zwischen Turnieren und regulären Sessions
+          const isTournament = summary.isTournamentSession || false;
+          
+          // Session-level Matsch-Bilanz (nur für reguläre Sessions, nicht für Turniere!)
           let sessionMatschDiff = 0;
           let sessionMatschCalculated = false;
+
+          // ✅ FÜR TURNIERE: Track Matsch-Events pro Gegner aus einzelnen Spielen
+          const opponentMatschByGame = new Map<string, { made: number, received: number }>();
 
           for (const game of summary.gameResults) {
             if (!game.teams?.top?.players || !game.teams?.bottom?.players) continue;
@@ -1220,14 +1253,21 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
             const playerTeam = playerInTop ? 'top' : 'bottom';
             
-            // Matsch-Bilanz EINMAL pro Session berechnen (nicht pro Spiel!)
-            if (!sessionMatschCalculated && summary.eventCounts) {
+            // ✅ KORRIGIERT: Matsch-Bilanz für reguläre Sessions (nicht für Turniere!)
+            if (!isTournament && !sessionMatschCalculated && summary.eventCounts) {
               const sessionTeamEvents = playerTeam === 'top' ? summary.eventCounts.top : summary.eventCounts.bottom;
               const sessionOpponentEvents = playerTeam === 'top' ? summary.eventCounts.bottom : summary.eventCounts.top;
               sessionMatschDiff = sessionTeamEvents && sessionOpponentEvents ? 
                 ((sessionTeamEvents.matsch || 0) - (sessionOpponentEvents.matsch || 0)) : 0;
               sessionMatschCalculated = true;
             }
+
+            // ✅ FÜR TURNIERE: Hole Matsch-Events aus diesem Spiel
+            const gameEventCounts = game.eventCounts || {};
+            const teamEvents = gameEventCounts[playerTeam] || {};
+            const opponentEvents = gameEventCounts[playerTeam === 'top' ? 'bottom' : 'top'] || {};
+            const gameMatschMade = teamEvents.matsch || 0;
+            const gameMatschReceived = opponentEvents.matsch || 0;
 
             // Für jeden Gegner: Prüfe ob Gegner war (GEGNERISCHES Team!)
             for (const opponent of playerStats.opponentAggregates) {
@@ -1254,13 +1294,27 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 opponentsInSession.set(opponentId, { stricheDiff: 0, pointsDiff: 0, matschDiff: 0 });
               }
 
-              // Addiere zu Session-Differenzen (Matsch NUR beim ersten Spiel mit diesem Gegner)
+              // Addiere zu Session-Differenzen
               const current = opponentsInSession.get(opponentId)!;
               current.stricheDiff += stricheDiff;
               current.pointsDiff += pointsDiff;
-              // Matsch-Bilanz wird nur einmal pro Gegner pro Session gesetzt
+              
+              // ✅ KORRIGIERT: Matsch-Bilanz-Berechnung
+              if (isTournament) {
+                // ✅ TURNIER: Aggregiere Matsch-Events aus Spielen, wo Gegner im anderen Team waren
+                if (!opponentMatschByGame.has(opponentId)) {
+                  opponentMatschByGame.set(opponentId, { made: 0, received: 0 });
+                }
+                const opponentMatsch = opponentMatschByGame.get(opponentId)!;
+                opponentMatsch.made += gameMatschMade;
+                opponentMatsch.received += gameMatschReceived;
+                // Setze die kumulative Bilanz für diesen Gegner
+                current.matschDiff = opponentMatsch.made - opponentMatsch.received;
+              } else {
+                // ✅ REGULÄRE SESSION: Verwende Session-Level Matsch-Bilanz (nur einmal pro Gegner)
               if (current.matschDiff === 0 && sessionMatschCalculated) {
                 current.matschDiff = sessionMatschDiff;
+                }
               }
             }
           }
@@ -2864,6 +2918,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     )}
 
                     {/* Strichdifferenz Rangliste */}
+                    {(() => {
+                      const partnersWithGames = (playerStats as any)?.partnerAggregates?.filter((partner: any) => partner.gamesPlayedWith >= 1) || [];
+                      return partnersWithGames.length > 0;
+                    })() && (
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -2915,6 +2973,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           })}
                   </div>
                 </div>
+                    )}
 
                     {/* Punktedifferenz Verlauf */}
                     {(() => {
@@ -2947,6 +3006,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     )}
 
                     {/* Punktdifferenz Rangliste */}
+                    {(() => {
+                      const partnersWithGames = (playerStats as any)?.partnerAggregates?.filter((partner: any) => partner.gamesPlayedWith >= 1) || [];
+                      return partnersWithGames.length > 0;
+                    })() && (
                 <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
                   <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
                         <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
@@ -2998,8 +3061,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           })}
                   </div>
                 </div>
+                    )}
 
-                    {/* Siegquote Partien - CHART */}
+                    {/* Siegquote Partien - CHART (nur anzeigen wenn Daten vorhanden) */}
+                    {(() => {
+                      const partnersWithSessions = (playerStats as any)?.partnerAggregates?.filter((partner: any) => partner.sessionsPlayedWith >= 1) || [];
+                      return partnersWithSessions.length > 0;
+                    })() && (
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -3045,8 +3113,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         })()}
                       </div>
                     </div>
+                    )}
 
-                    {/* Siegquote Partien - Rangliste */}
+                    {/* Siegquote Partien - Rangliste (nur anzeigen wenn Daten vorhanden) */}
+                    {(() => {
+                      const partnersWithSessions = (playerStats as any)?.partnerAggregates?.filter((partner: any) => partner.sessionsPlayedWith >= 1) || [];
+                      return partnersWithSessions.length > 0;
+                    })() && (
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -3105,8 +3178,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           )}
                         </div>
                     </div>
+                    )}
 
                     {/* Siegquote Spiele - CHART */}
+                    {(() => {
+                      const partnersWithGames = (playerStats as any)?.partnerAggregates?.filter((partner: any) => partner.gamesPlayedWith >= 1) || [];
+                      return partnersWithGames.length > 0;
+                    })() && (
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -3143,17 +3221,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               );
                             }
                           }
-                          return (
-                            <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                              <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
-                              <p>Noch keine Siegquote-Daten verfügbar</p>
-                            </div>
-                          );
+                          return null;
                         })()}
                       </div>
                     </div>
+                    )}
 
                     {/* Siegquote Spiele - Rangliste */}
+                    {(() => {
+                      const partnersWithGames = (playerStats as any)?.partnerAggregates?.filter((partner: any) => partner.gamesPlayedWith >= 1) || [];
+                      return partnersWithGames.length > 0;
+                    })() && (
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -3206,11 +3284,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         </StatLink>
                             );
                           })}
-                        {(playerStats as any).partnerAggregates.filter((p: any) => p.gamesPlayedWith >= 1).length === 0 && (
-                          <div className="text-gray-400 text-center py-2">Keine Partner mit ausreichend Spielen</div>
-                          )}
                       </div>
                     </div>
+                    )}
 
                     {/* Matsch-Bilanz Verlauf */}
                     {(() => {
@@ -3243,6 +3319,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     )}
 
                     {/* Matsch-Bilanz Rangliste */}
+                    {(() => {
+                      const partnersWithMatsch = (playerStats as any)?.partnerAggregates?.filter((partner: any) => partner.gamesPlayedWith >= 1 && ((partner.matschEventsMadeWith || 0) > 0 || (partner.matschEventsReceivedWith || 0) > 0)) || [];
+                      return partnersWithMatsch.length > 0;
+                    })() && (
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -3291,11 +3371,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             </StatLink>
                             );
                           })}
-                        {(playerStats as any).partnerAggregates.filter((p: any) => p.gamesPlayedWith >= 1 && ((p.matschEventsMadeWith || 0) > 0 || (p.matschEventsReceivedWith || 0) > 0)).length === 0 && (
-                          <div className="text-gray-400 text-center py-2">Keine Partner mit Matsch-Ereignissen</div>
-                        )}
                   </div>
                   </div>
+                    )}
 
                     {/* Schneider-Bilanz - nur anzeigen wenn Ereignisse vorhanden */}
                     {(playerStats as any).partnerAggregates?.filter((p: any) => p.gamesPlayedWith >= 1 && ((p.schneiderEventsMadeWith || 0) > 0 || (p.schneiderEventsReceivedWith || 0) > 0)).length > 0 && (
@@ -3453,6 +3531,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     )}
 
                     {/* Strichdifferenz Rangliste */}
+                    {(() => {
+                      const opponentsWithGames = (playerStats as any)?.opponentAggregates?.filter((opponent: any) => opponent.gamesPlayedAgainst >= 1) || [];
+                      return opponentsWithGames.length > 0;
+                    })() && (
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -3504,6 +3586,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           })}
                       </div>
                     </div>
+                    )}
 
                     {/* Punktedifferenz Verlauf */}
                     {opponentPointsChartData && opponentPointsChartData.datasets.some((d: any) => d.data.length > 1) && 
@@ -3533,6 +3616,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     )}
 
                     {/* Punktdifferenz Rangliste */}
+                    {(() => {
+                      const opponentsWithGames = (playerStats as any)?.opponentAggregates?.filter((opponent: any) => opponent.gamesPlayedAgainst >= 1) || [];
+                      return opponentsWithGames.length > 0;
+                    })() && (
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -3584,8 +3671,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           })}
                       </div>
                     </div>
+                    )}
 
                     {/* Siegquote Partien - CHART */}
+                    {(() => {
+                      const opponentsWithSessions = (playerStats as any)?.opponentAggregates?.filter((opponent: any) => opponent.sessionsPlayedAgainst >= 1) || [];
+                      return opponentsWithSessions.length > 0;
+                    })() && (
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -3622,17 +3714,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               );
                             }
                           }
-                          return (
-                            <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                              <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
-                              <p>Noch keine Siegquote-Daten verfügbar</p>
-                            </div>
-                          );
+                          return null;
                         })()}
                       </div>
                     </div>
+                    )}
 
                     {/* Siegquote Partien - Rangliste */}
+                    {(() => {
+                      const opponentsWithSessions = (playerStats as any)?.opponentAggregates?.filter((opponent: any) => opponent.sessionsPlayedAgainst >= 1) || [];
+                      return opponentsWithSessions.length > 0;
+                    })() && (
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -3686,13 +3778,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               </StatLink>
                             );
                           })}
-                        {(playerStats as any).opponentAggregates.filter((o: any) => o.sessionsPlayedAgainst >= 1).length === 0 && (
-                          <div className="text-gray-400 text-center py-2">Keine Gegner mit ausreichend Partien</div>
-                        )}
                       </div>
                     </div>
+                    )}
 
                     {/* Siegquote Spiele - CHART */}
+                    {(() => {
+                      const opponentsWithGames = (playerStats as any)?.opponentAggregates?.filter((opponent: any) => opponent.gamesPlayedAgainst >= 1) || [];
+                      return opponentsWithGames.length > 0;
+                    })() && (
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -3729,17 +3823,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               );
                             }
                           }
-                          return (
-                            <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                              <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
-                              <p>Noch keine Siegquote-Daten verfügbar</p>
-                            </div>
-                          );
+                          return null;
                         })()}
                       </div>
                     </div>
+                    )}
 
                     {/* Siegquote Spiele - Rangliste */}
+                    {(() => {
+                      const opponentsWithGames = (playerStats as any)?.opponentAggregates?.filter((opponent: any) => opponent.gamesPlayedAgainst >= 1) || [];
+                      return opponentsWithGames.length > 0;
+                    })() && (
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -3793,11 +3887,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               </StatLink>
                             );
                           })}
-                        {(playerStats as any).opponentAggregates.filter((o: any) => o.gamesPlayedAgainst >= 1).length === 0 && (
-                          <div className="text-gray-400 text-center py-2">Keine Gegner mit ausreichend Spielen</div>
-                        )}
                       </div>
                     </div>
+                    )}
 
                     {/* Matsch-Bilanz Verlauf */}
                     {opponentMatschChartData && opponentMatschChartData.datasets.some((d: any) => d.data.length > 1) && 
@@ -3827,6 +3919,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     )}
 
                     {/* Matsch-Bilanz Rangliste */}
+                    {(() => {
+                      const opponentsWithMatsch = (playerStats as any)?.opponentAggregates?.filter((opponent: any) => opponent.gamesPlayedAgainst >= 1 && ((opponent.matschEventsMadeAgainst || 0) > 0 || (opponent.matschEventsReceivedAgainst || 0) > 0)) || [];
+                      return opponentsWithMatsch.length > 0;
+                    })() && (
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
@@ -3875,11 +3971,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               </StatLink>
                             );
                           })}
-                        {(playerStats as any).opponentAggregates.filter((o: any) => o.gamesPlayedAgainst >= 1 && ((o.matschEventsMadeAgainst || 0) > 0 || (o.matschEventsReceivedAgainst || 0) > 0)).length === 0 && (
-                          <div className="text-gray-400 text-center py-2">Keine Gegner mit Matsch-Ereignissen</div>
-                        )}
                       </div>
                     </div>
+                    )}
 
                     {/* Schneider-Bilanz - nur anzeigen wenn Ereignisse vorhanden */}
                     {(playerStats as any).opponentAggregates?.filter((o: any) => o.gamesPlayedAgainst >= 1 && ((o.schneiderEventsMadeAgainst || 0) > 0 || (o.schneiderEventsReceivedAgainst || 0) > 0)).length > 0 && (

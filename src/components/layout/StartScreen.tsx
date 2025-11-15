@@ -143,7 +143,6 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
 
   const handleSelectPlayerClick = (slotNumber: PlayerNumber) => {
     // Diese Funktion ist nun obsolet durch die Popover-Logik, kann aber für spätere Zwecke bleiben.
-    console.log(`TODO: Auswahl für Slot ${slotNumber} öffnen`);
   };
 
   const handleMemberSelected = (slot: PlayerNumber, member: MemberInfo) => {

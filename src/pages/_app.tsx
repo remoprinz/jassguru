@@ -260,20 +260,31 @@ const MyApp = ({Component, pageProps}: AppProps) => {
     }
 
     const targetPath = `/view/tournament/${userActiveTournamentId}`;
-    const currentPath = router.pathname;
+    
+    // 🔧 FIX: Verwende mehrere Pfad-Quellen für robuste Erkennung (wie in PublicSessionPage)
+    const currentPathname = router.pathname;
+    const currentAsPath = router.asPath;
+    const windowPath = typeof window !== 'undefined' ? window.location.pathname : '';
 
-      // Vereinfachte Protected-Path-Prüfung - NEU: Öffentliche View-Pfade ausschließen
-  const isAlreadyOnTournamentPath = currentPath.startsWith('/view/tournament/') ||
-                                    currentPath.startsWith('/jass') ||
-                                    currentPath.startsWith('/game') ||
-                                    isPublicPath(currentPath); // NEU: Alle öffentlichen Pfade ausschließen
+      // Vereinfachte Protected-Path-Prüfung - NEU: Prüfe ALLE Pfad-Quellen
+  const isAlreadyOnTournamentPath = 
+    currentPathname.startsWith('/view/tournament/') ||
+    currentAsPath.startsWith('/view/tournament/') ||
+    windowPath.startsWith('/view/tournament/') ||
+    currentPathname.startsWith('/jass') ||
+    currentAsPath.startsWith('/jass') ||
+    currentPathname.startsWith('/game') ||
+    currentAsPath.startsWith('/game') ||
+    isPublicPath(currentPathname) ||
+    isPublicPath(currentAsPath) ||
+    isPublicPath(windowPath);
     
     if (!isAlreadyOnTournamentPath) {
       debouncedRouterPush(router, targetPath, undefined, true); 
       setHasBeenRedirected(true); 
     }
   }, [userActiveTournamentId, userActiveTournamentStatus, router.isReady, isAppLoaded, 
-      router.pathname, hasBeenRedirected, setHasBeenRedirected, status]);
+      router.pathname, router.asPath, hasBeenRedirected, setHasBeenRedirected, status]);
 
   // 🛡️ BULLETPROOF: Nicht-blockierende Sync-Engine Initialisierung
   useEffect(() => {

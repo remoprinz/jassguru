@@ -454,7 +454,6 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
     ) {
       // ERWEITERT: Auto-Show für alle Sprüche, nicht nur für den Generierer
       // Das macht Sinn, da der User das Ergebnis sehen möchte
-      console.log('[GameViewer] Auto-showing JassFinishNotification for spruch');
       // WICHTIG: Direkte State-Update für korrekte Referenz-Übertragung
       useUIStore.setState(state => ({
         jassFinishNotification: {
@@ -474,7 +473,6 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
       !hasShownAutoNotification &&
       gameData.games.length > 0
     ) {
-      console.log('[GameViewer] Legacy session detected, no auto-notification (use share button)');
       // Für Legacy-Sessions zeigen wir keine Auto-Notification
       // User muss den Share-Button verwenden
       setHasShownAutoNotification(true); // Markiere als "gezeigt" um weitere Checks zu vermeiden
@@ -483,10 +481,6 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
 
   // NEU: Spruch-Regenerierung für JassFinishNotification
   const onRegenerateClick = useCallback(async () => {
-    console.log('[GameViewer] ✅ REGENERATE CALLBACK REACHED - generating fresh spruch');
-    console.log('[GameViewer] gameData:', gameData);
-    console.log('[GameViewer] user:', user?.uid);
-    
     try {
       // ✅ KORREKTUR: Neuen Spruch mit Session-Level Daten generieren (gleiche Logik wie onShareClick)
       const sessionLevelData = gameData.sessionLevelData;
@@ -524,8 +518,6 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
         version: 'v2' as const,
         generatedBy: user?.uid || 'manual',
       };
-
-      console.log('[GameViewer] Generated fresh spruch for regeneration:', freshSpruch);
 
       // Lokalen State aktualisieren für UI-Display
       setJassSpruch(freshSpruch);
@@ -575,8 +567,6 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
 
   // NEU: Manuelles Teilen über Button - IMMER neuen Spruch generieren
   const onShareClick = useCallback(async () => {
-    console.log('[GameViewer] Manual share clicked - generating fresh spruch');
-    
     try {
       // ✅ KORREKTUR: IMMER neuen Spruch mit Session-Level Daten generieren
       const sessionLevelData = gameData.sessionLevelData;
@@ -615,7 +605,6 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
         generatedBy: user?.uid || 'manual',
       };
 
-      console.log('[GameViewer] Generated fresh spruch:', freshSpruch);
 
       // Spruch NICHT mehr in Firebase speichern - nur fresh generieren und anzeigen
       // Firebase-Speicherung entfernt da Sprüche jetzt immer fresh generiert werden

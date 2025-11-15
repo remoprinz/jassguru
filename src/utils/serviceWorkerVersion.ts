@@ -6,7 +6,7 @@
  */
 
 // 🛡️ BULLETPROOF: Verwende zentrale Version ohne problematische Imports
-export const APP_VERSION = '2.8.1'; // Wird von CI/CD automatisch aktualisiert
+export const APP_VERSION = '2.8.2'; // Wird von CI/CD automatisch aktualisiert
 
 // 🛡️ DETERMINISTISCH: Build-Timestamp aus Umgebungsvariablen oder statisch
 export const BUILD_TIMESTAMP = process.env.NEXT_PUBLIC_BUILD_TIMESTAMP || '1703686800000'; // Fallback: fixer Timestamp

@@ -4,6 +4,7 @@ import {useRouter} from "next/router";
 import {cn} from "@/lib/utils";
 import {useAuthStore} from "@/store/authStore";
 import {useTournamentStore} from "@/store/tournamentStore";
+import {useGroupStore} from "@/store/groupStore";
 import { useMemo, useEffect } from "react";
 import type { TournamentInstance } from "@/types/tournament";
 import { Timestamp } from "firebase/firestore";
@@ -12,6 +13,7 @@ export function BottomNavigation() {
   const router = useRouter();
   const currentPath = router.pathname;
   const {isGuest, user} = useAuthStore();
+  const {userGroups} = useGroupStore();
   
   const {
     userActiveTournamentId,
@@ -54,17 +56,46 @@ export function BottomNavigation() {
 
   const tournamentToDisplay = useMemo(() => {
     if (userTournamentInstances && userTournamentInstances.length > 0) {
-      const oneDayAgo = new Date();
-      oneDayAgo.setDate(oneDayAgo.getDate() - 1); // ✅ GEÄNDERT: Nur 24 Stunden statt 7 Tage
+      // ✅ NEU: Filtere nur Turniere aus Gruppen, bei denen der User Mitglied ist
+      // 🔧 FIX: Fallback zur alten Logik, wenn userGroups noch nicht geladen ist
+      const userGroupIds = userGroups.map(g => g.id);
+      const tournamentsInUserGroups = userGroupIds.length > 0 
+        ? userTournamentInstances.filter(t => userGroupIds.includes(t.groupId))
+        : userTournamentInstances; // Fallback: Zeige alle Turniere, wenn Gruppen noch nicht geladen
+      
+      // Wenn keine Turniere gefunden wurden, früh abbrechen
+      if (tournamentsInUserGroups.length === 0) {
+        return null;
+      }
+      
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7); // ✅ GEÄNDERT: 1 Woche statt 24 Stunden
 
-      const relevantTournaments = userTournamentInstances
+      const relevantTournaments = tournamentsInUserGroups
         .filter(t => {
+          // ✅ NEU: Nur Turniere anzeigen, die showInNavigation === true haben (Default: true für alte Turniere)
+          if (t.showInNavigation === false) {
+            return false;
+          }
+          
           if (t.status === 'active' || t.status === 'upcoming') {
             return true;
           }
           if (t.status === 'completed') {
-            const completedDate = t.completedAt instanceof Timestamp ? t.completedAt.toDate() : (typeof t.completedAt === 'number' ? new Date(t.completedAt) : new Date(0)); // Fallback for safety, use completedAt
-            return completedDate >= oneDayAgo; // ✅ GEÄNDERT: Nur 24 Stunden
+            // ✅ FIX: Fallback zu pausedAt oder finalizedAt, wenn completedAt fehlt
+            let completedDate: Date;
+            if (t.completedAt instanceof Timestamp) {
+              completedDate = t.completedAt.toDate();
+            } else if (typeof t.completedAt === 'number') {
+              completedDate = new Date(t.completedAt);
+            } else if (t.pausedAt instanceof Timestamp) {
+              completedDate = t.pausedAt.toDate(); // Fallback zu pausedAt
+            } else if (t.finalizedAt instanceof Timestamp) {
+              completedDate = t.finalizedAt.toDate(); // Fallback zu finalizedAt
+            } else {
+              completedDate = new Date(0); // Worst-case Fallback
+            }
+            return completedDate >= oneWeekAgo; // ✅ GEÄNDERT: 1 Woche
           }
           return false;
         })
@@ -87,10 +118,19 @@ export function BottomNavigation() {
             return dateA - dateB; // Earliest upcoming first
           }
           
-          // Priority 3: Recently Completed (within 24 hours)
+          // Priority 3: Recently Completed (within 1 week)
           if (a.status === 'completed' && b.status === 'completed') {
-            const dateA = a.completedAt instanceof Timestamp ? a.completedAt.toMillis() : (typeof a.completedAt === 'number' ? a.completedAt : 0);
-            const dateB = b.completedAt instanceof Timestamp ? b.completedAt.toMillis() : (typeof b.completedAt === 'number' ? b.completedAt : 0);
+            // ✅ FIX: Fallback zu pausedAt oder finalizedAt, wenn completedAt fehlt
+            const getCompletedMillis = (t: typeof a): number => {
+              if (t.completedAt instanceof Timestamp) return t.completedAt.toMillis();
+              if (typeof t.completedAt === 'number') return t.completedAt;
+              if (t.pausedAt instanceof Timestamp) return t.pausedAt.toMillis();
+              if (t.finalizedAt instanceof Timestamp) return t.finalizedAt.toMillis();
+              return 0;
+            };
+            
+            const dateA = getCompletedMillis(a);
+            const dateB = getCompletedMillis(b);
             return dateB - dateA; // Most recently completed first
           }
           
@@ -111,7 +151,7 @@ export function BottomNavigation() {
         return { id: userActiveTournamentId, status: 'active', name: 'Turnier' } as TournamentInstance;
     }
     return null;
-  }, [userActiveTournamentId, userTournamentInstances]);
+  }, [userActiveTournamentId, userTournamentInstances, userGroups]);
 
   let finalNavigationItems;
 

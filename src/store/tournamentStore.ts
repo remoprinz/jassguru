@@ -39,10 +39,10 @@ import { useGameStore } from '@/store/gameStore';
 
 // Standardeinstellungen für Turniere
 const DEFAULT_TOURNAMENT_SETTINGS: TournamentSettings = {
-  rankingMode: 'total_points',
-  scoreSettings: DEFAULT_SCORE_SETTINGS,
-  strokeSettings: DEFAULT_STROKE_SETTINGS,
-  farbeSettings: DEFAULT_FARBE_SETTINGS,
+  rankingMode: 'striche', // ✅ DEFAULT: Rangliste nach Strichen
+  scoreSettings: DEFAULT_SCORE_SETTINGS, // Sieg: 2000, Berg: 1000, Schneider: 1000
+  strokeSettings: DEFAULT_STROKE_SETTINGS, // Schneider: 2, Kontermatsch: 2
+  farbeSettings: DEFAULT_FARBE_SETTINGS, // Eichel: 1x, Rosen: 1x, Schellen: 2x, Schilten: 2x, Obe: 3x, Une: 3x, Rest: 0x
   minParticipants: 4,
   maxParticipants: null,
 };
@@ -105,6 +105,8 @@ interface TournamentState {
 
   tournamentListenerUnsubscribe: (() => void) | null;
   userTournamentsListenerUnsubscribe: (() => void) | null; // 🆕 NEU: Separater Listener für alle User-Turniere
+  participantsListenerUnsubscribe: (() => void) | null; // 🆕 NEU: Real-time Listener für Participants
+  gamesListenerUnsubscribe: (() => void) | null; // 🆕 NEU: Real-time Listener für Tournament Games
 }
 
 interface TournamentActions {
@@ -160,6 +162,14 @@ interface TournamentActions {
   
   // 🆕 NEU: Listener für automatische Turnier-Status-Updates für alle User-Turniere
   setupUserTournamentsListener: (identifier: string, playerId?: string | null) => void;
+  
+  // 🆕 NEU: Real-time Listener für Tournament Participants
+  setupParticipantsListener: (instanceId: string) => void;
+  clearParticipantsListener: () => void;
+  
+  // 🆕 NEU: Real-time Listener für Tournament Games
+  setupGamesListener: (instanceId: string) => void;
+  clearGamesListener: () => void;
 
   activateTournament: (instanceId: string) => Promise<boolean>;
   pauseTournament: (instanceId: string) => Promise<boolean>;
@@ -196,6 +206,8 @@ const initialState: Omit<TournamentState, keyof TournamentActions> = {
   passeDetailsStatus: 'idle',
   tournamentListenerUnsubscribe: null,
   userTournamentsListenerUnsubscribe: null, // 🆕 NEU: Separater Listener für alle User-Turniere
+  participantsListenerUnsubscribe: null, // 🆕 NEU: Real-time Listener für Participants
+  gamesListenerUnsubscribe: null, // 🆕 NEU: Real-time Listener für Tournament Games
 };
 
 export const useTournamentStore = create<TournamentState & TournamentActions>((set, get) => ({
@@ -434,57 +446,144 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
     const finalStrokeSettings = tournamentStrokeSettings ?? DEFAULT_STROKE_SETTINGS;
     const finalFarbeSettings = tournamentFarbeSettings ?? DEFAULT_FARBE_SETTINGS;
     
-    console.log("[TournamentStore] Turniereinstellungen für Passe-Start (direkt aus currentTournament.settings):", {
-      scoreSettingsValid: !!finalScoreSettings,
-      strokeSettingsValid: !!finalStrokeSettings,
-      farbeSettingsValid: !!finalFarbeSettings,
-      cardStyle: finalFarbeSettings.cardStyle,
-      siegPunkte: finalScoreSettings.values.sieg,
-      schneiderStriche: finalStrokeSettings.schneider
-    });
-
     if (players.some(p => typeof p.completedPassesCount !== 'number')) {
       const errorMsg = "Fehler: completedPassesCount fehlt für einen oder mehrere Spieler.";
       console.error("[TournamentStore] startNewPasse: ", errorMsg, players);
       set({ status: 'error', error: errorMsg });
       return null;
     }
-    // EINFACHE LÖSUNG: Die Passe-Nummer für diese Gruppe ist das Minimum + 1
-    // Das funktioniert für alle Szenarien (8, 12, 16, 20, 83 Spieler, etc.)
-    // Spieler mit 0 Passen → Passe 1
-    // Spieler mit 1 Passe → Passe 2
-    // Wenn Spieler unterschiedliche Anzahl haben → Die kleinste + 1
     
-    // KRITISCHER FIX: Sicherstellen, dass alle completedPassesCount Zahlen sind
+    // ✅ RICHTIGE LOGIK: Finde die nächste spielbare Passe basierend auf 4er-Reihen
+    
     const validPassesCounts = players.map(p => {
       const count = p.completedPassesCount;
       return typeof count === 'number' && !isNaN(count) ? count : 0;
     });
     
-    const passeTournamentNumber = 1 + Math.min(...validPassesCounts);
+    const minCompletedCount = Math.min(...validPassesCounts);
+    let passeTournamentNumber = minCompletedCount + 1;
     
-    // DEBUGGING: Log die Berechnung
-    console.log("[TournamentStore] Passe Number Calculation:");
-    console.log("- players:", players.map(p => ({ uid: p.uid, name: p.name, completedPassesCount: p.completedPassesCount })));
-    console.log("- validPassesCounts:", validPassesCounts);
-    console.log("- passeTournamentNumber:", passeTournamentNumber);
+    // ✅ KRITISCH: Prüfe, ob diese Passe noch spielbar ist
+    const gamesColRef = collection(db, 'tournaments', instanceId, 'games');
+    const existingGamesSnap = await getDocs(gamesColRef);
+    
+    const activeGamesRef = collection(db, 'activeGames');
+    const activeGamesQuery = query(
+      activeGamesRef,
+      where('tournamentInstanceId', '==', instanceId),
+      where('status', '==', 'live')
+    );
+    const activeGamesSnap = await getDocs(activeGamesQuery);
+    
+    // Schleife: Finde die erste spielbare Passe
+    let foundPlayablePasse = false;
+    const MAX_ITERATIONS = 100; // Sicherheit gegen Endlosschleife
+    let iterations = 0;
+    
+    // Hole die Gesamtzahl der Turnierteilnehmer
+    const totalParticipants = get().currentTournamentInstance?.participantUids?.length || players.length;
+    
+    while (!foundPlayablePasse && iterations < MAX_ITERATIONS) {
+      iterations++;
+      
+      // Zähle, wie viele EINZIGARTIGE Spieler diese Passe bereits spielen/gespielt haben
+      const uidsInThisPasse = new Set<string>();
+      
+      // Abgeschlossene Games
+      existingGamesSnap.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.passeNumber === passeTournamentNumber || data.tournamentRound === passeTournamentNumber) {
+          const participants = data.participantUidsForPasse || data.participantUids || [];
+          participants.forEach((uid: string) => uidsInThisPasse.add(uid));
+        }
+      });
+      
+      // Aktive Games
+      activeGamesSnap.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.currentGameNumber === passeTournamentNumber || data.passeTournamentNumber === passeTournamentNumber) {
+          const participants = data.participantUids || [];
+          participants.forEach((uid: string) => uidsInThisPasse.add(uid));
+        }
+      });
+      
+      const playersInThisPasse = uidsInThisPasse.size;
+      
+      // ✅ 4er-REIHEN-LOGIK: Berechne maximale Kapazität für diese Passe
+      const maxTische = Math.floor(totalParticipants / 4);
+      const maxPlayersForThisPasse = maxTische * 4;
+      
+      // Prüfe: Ist noch Platz für einen weiteren 4er-Tisch?
+      if (playersInThisPasse < maxPlayersForThisPasse) {
+        foundPlayablePasse = true;
+      } else {
+        // Diese Passe ist voll → Springe zur nächsten
+        passeTournamentNumber++;
+      }
+    }
+    
+    if (iterations >= MAX_ITERATIONS) {
+      console.error("[TournamentStore] CRITICAL: Could not find playable passe after 100 iterations!");
+      passeTournamentNumber = minCompletedCount + 1; // Fallback
+    }
     
     // KRITISCHER DEBUG: Prüfe ob passeTournamentNumber NaN ist
     if (isNaN(passeTournamentNumber)) {
       console.error("[TournamentStore] CRITICAL: passeTournamentNumber is NaN!");
       console.error("- players:", players);
       console.error("- validPassesCounts:", validPassesCounts);
+      console.error("- passeTournamentNumber:", passeTournamentNumber);
     }
+    
+    // 🎯 KRITISCHE SERVER-VALIDIERUNG: Prüfe ob alle Spieler wirklich verfügbar sind
+    // Dies verhindert Race Conditions und Client-seitige Manipulation
+    const invalidPlayers: string[] = [];
+    
+    // Sammle alle UIDs in aktiven Passen dieser Passe-Nummer
+    const uidsInActivePassesThisNumber = new Set<string>();
+    activeGamesSnap.docs.forEach(doc => {
+      const data = doc.data();
+      const activePasseNumber = data.currentGameNumber || data.passeTournamentNumber;
+      if (activePasseNumber === passeTournamentNumber) {
+        const participantUids = data.participantUids || [];
+        participantUids.forEach((uid: string) => uidsInActivePassesThisNumber.add(uid));
+      }
+    });
+    
+    // Prüfe jeden Spieler
+    for (const player of players) {
+      const completedCount = player.completedPassesCount || 0;
+      
+      // Validierung 1: Hat dieser Spieler die Passe bereits gespielt?
+      if (completedCount >= passeTournamentNumber) {
+        invalidPlayers.push(`${player.name} (${player.uid}): Hat Passe ${passeTournamentNumber} bereits gespielt (${completedCount} abgeschlossen)`);
+      }
+      
+      // Validierung 2: Ist dieser Spieler in einer aktiven Passe dieser Nummer?
+      if (uidsInActivePassesThisNumber.has(player.uid)) {
+        invalidPlayers.push(`${player.name} (${player.uid}): Spielt bereits eine aktive Passe für Passe-Nummer ${passeTournamentNumber}`);
+      }
+    }
+    
+    // Falls Validierung fehlschlägt: Lehne ab mit detaillierter Fehlermeldung
+    if (invalidPlayers.length > 0) {
+      const errorMsg = `Server-Validierung fehlgeschlagen: Nicht alle Spieler sind für Passe ${passeTournamentNumber} verfügbar:\n${invalidPlayers.join('\n')}`;
+      console.error("[TournamentStore] startNewPasse validation failed:", errorMsg);
+      set({ status: 'error', error: errorMsg });
+      return null;
+    }
+    
+    console.log(`[TournamentStore] ✅ Server-Validierung erfolgreich: Alle ${players.length} Spieler verfügbar für Passe ${passeTournamentNumber}`);
+    
+    // ✅ KRITISCH: Berechne passeInRound BEIM START, damit andere Spieler sofort "Passe 2B" sehen!
+    const { getNextPasseLetterInRound } = await import('@/services/tournamentService');
+    const passeInRound = await getNextPasseLetterInRound(instanceId, passeTournamentNumber);
 
     const numericStartingPlayer = Number(startingPlayer) as PlayerNumber;
     const playersWithNumericPositions = players.map(p => ({
       ...p,
       playerNumber: Number(p.playerNumber) as PlayerNumber
     }));
-
-    // ✅ LOGGING: Welche Spielerdaten kommen in startNewPasse an?
-    console.log("[TournamentStore] startNewPasse - Übergebene Spieler (Input):");
-    players.forEach(p => console.log(`  - UID: ${p.uid}, PlayerID: ${p.playerId}, Name: ${p.name}, PlayerNum: ${p.playerNumber}, completedPasses: ${p.completedPassesCount}` ) );
 
     const playerNamesForGame: PlayerNames = playersWithNumericPositions.reduce((acc, p) => {
       acc[p.playerNumber] = p.name;
@@ -504,32 +603,18 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
       return acc;
     }, {} as GamePlayers);
 
-    // ✅ LOGGING: Welche Player IDs landen in gamePlayersForGame?
-    console.log("[TournamentStore] startNewPasse - gamePlayersForGame erstellt:");
-    Object.entries(gamePlayersForGame).forEach(([num, player]) => {
-      const memberPlayer = player as MemberInfo & { playerId: string };
-      console.log(`  - Player ${num}: UID: ${memberPlayer.uid}, PlayerID: ${memberPlayer.playerId}, Name: ${memberPlayer.name}`);
-    });
-
     // TeamConfig aus den Spieler-Nummern ableiten
     const DEFAULT_TEAM_CONFIG = {
       top: [2, 4] as [PlayerNumber, PlayerNumber],
       bottom: [1, 3] as [PlayerNumber, PlayerNumber]
     };
 
-    // Debugging-Informationen für die Entwicklung
-    console.log("[TournamentStore] Turniereinstellungen bei Passe-Start:", {
-      scoreSettings: finalScoreSettings ? "vorhanden" : "fehlend",
-      strokeSettings: finalStrokeSettings ? "vorhanden" : "fehlend",
-      farbeSettings: finalFarbeSettings ? "vorhanden" : "fehlend",
-      cardStyle: finalFarbeSettings?.cardStyle
-    });
-
-    const activeGameDocData: Omit<ActiveGame, 'activeGameId'> & { roundHistory: RoundEntry[]; passeTournamentNumber: number; weisPoints: { top: number; bottom: number }; jassPoints: { top: number; bottom: number }; currentRoundWeis: any[]; isGameStarted: boolean; isRoundCompleted: boolean; isGameCompleted: boolean; scoreSettings: ScoreSettings; strokeSettings: StrokeSettings; farbeSettings: FarbeSettings } = {
+    const activeGameDocData: Omit<ActiveGame, 'activeGameId'> & { roundHistory: RoundEntry[]; passeTournamentNumber: number; passeInRound: string; weisPoints: { top: number; bottom: number }; jassPoints: { top: number; bottom: number }; currentRoundWeis: any[]; isGameStarted: boolean; isRoundCompleted: boolean; isGameCompleted: boolean; scoreSettings: ScoreSettings; strokeSettings: StrokeSettings; farbeSettings: FarbeSettings } = {
       // Hinzufügen der fehlenden Pflichtfelder
       groupId: null, // Für Turnierpassen kann groupId null sein 
       sessionId: `tournament_${instanceId}_passe_${passeTournamentNumber}`, // Eindeutige Session-ID für die Passe
       currentGameNumber: passeTournamentNumber, // Passe-Nummer als Spielnummer
+      passeInRound: passeInRound, // ✅ KRITISCH: Buchstabe (A, B, C...) - wird BEIM START gesetzt!
       teams: {
         top: DEFAULT_TEAM_CONFIG.top,
         bottom: DEFAULT_TEAM_CONFIG.bottom
@@ -619,7 +704,6 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
         strokeSettings: finalStrokeSettings,
       }
     );
-    console.log(`[TournamentStore] gameStore.resetGame für Passe ${newPasseId} mit Turniereinstellungen aufgerufen.`);
 
     // Setze die gerade gestartete Passe als activePasse im tournamentStore
     set({ activePasse: completeActivePasseDataForStore, status: 'success' });
@@ -711,13 +795,6 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
           };
         }
       }
-
-      // Debug-Log
-      console.log('[TournamentStore] Aktualisierte Turniereinstellungen:', {
-        hat_settings: !!updatedSettings,
-        hat_farbeSettings: !!updatedSettings.farbeSettings,
-        cardStyle: updatedSettings.farbeSettings?.cardStyle
-      });
 
       // Service-Aufruf mit den vollständigen normalisierten Einstellungen
       await updateTournamentSettingsService(instanceId, updatedSettings);
@@ -841,9 +918,18 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
     // ✅ Logs aufgeräumt: Clearing-Log entfernt
     
     const unsubscribe = get().tournamentListenerUnsubscribe;
+    const participantsUnsubscribe = get().participantsListenerUnsubscribe;
+    const gamesUnsubscribe = get().gamesListenerUnsubscribe;
+    
     if (unsubscribe) {
       // ✅ Logs aufgeräumt: Listener-Log entfernt
       unsubscribe();
+    }
+    if (participantsUnsubscribe) {
+      participantsUnsubscribe();
+    }
+    if (gamesUnsubscribe) {
+      gamesUnsubscribe();
     }
     
     set({
@@ -862,6 +948,8 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
       currentViewingPasse: null,
       passeDetailsStatus: 'idle',
       tournamentListenerUnsubscribe: null,
+      participantsListenerUnsubscribe: null,
+      gamesListenerUnsubscribe: null,
       // ⚠️ WICHTIG: userTournamentsListenerUnsubscribe NICHT löschen - bleibt für automatische Updates aktiv!
     });
   },
@@ -871,7 +959,6 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
     if (currentStatus === 'loading' || currentStatus === 'success') {
       return;
     }
-    console.log(`[TournamentStore] Fetching rounds for passe: ${passeId} in instance: ${instanceId}`);
     set(state => ({
       passeRoundsStatus: { ...state.passeRoundsStatus, [passeId]: 'loading' },
       status: 'loading-passe-rounds',
@@ -1021,6 +1108,9 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
         return isRealParticipant;
       });
       
+      // ✅ NEU: Aktualisiere userTournamentInstances für BottomNavigation
+      set({ userTournamentInstances: verifiedTournaments });
+      
       const activeTournaments = verifiedTournaments.filter(t => t.status === 'active');
       
       if (activeTournaments.length > 0) {
@@ -1035,7 +1125,6 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
         
         // ✅ AUTOMATISCH: Setze userActiveTournamentId wenn Turnier aktiv wird
         if (currentActiveId !== latestActive.id) {
-          console.log(`[TournamentStore] 🎯 Active tournament detected: ${latestActive.id} (${latestActive.name})`);
           set({
             userActiveTournamentId: latestActive.id,
             userActiveTournamentStatus: 'success',
@@ -1050,7 +1139,6 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
       } else {
         // Kein aktives Turnier mehr
         if (get().userActiveTournamentId) {
-          console.log(`[TournamentStore] No active tournament found, clearing userActiveTournamentId`);
           set({
             userActiveTournamentId: null,
             userActiveTournamentStatus: 'success',
@@ -1140,7 +1228,6 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
   },
 
   fetchTournamentGameById: async (instanceId, passeId) => {
-    console.log(`[TournamentStore] Fetching details for passe ${passeId} in tournament ${instanceId}`);
     set({ passeDetailsStatus: 'loading', error: null });
     try {
       const gameDocRef = doc(db, 'tournaments', instanceId, 'games', passeId);
@@ -1148,7 +1235,6 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
 
       if (docSnap.exists()) {
         const passeData = { ...docSnap.data(), passeId: docSnap.id } as TournamentGame;
-        console.log(`[TournamentStore] Passe ${passeId} found.`);
         set({ currentViewingPasse: passeData, passeDetailsStatus: 'success' });
       } else {
         console.warn(`[TournamentStore] Passe ${passeId} not found in tournament ${instanceId}.`);
@@ -1243,6 +1329,7 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
               currentTournament.completedPasseCount !== newData.completedPasseCount ||
               currentTournament.status !== newData.status ||
               JSON.stringify(currentTournament.participantUids) !== JSON.stringify(newData.participantUids) ||
+              JSON.stringify(currentTournament.participants) !== JSON.stringify(newData.participants) ||
               // ✅ HINZUGEFÜGT: Logo und Beschreibung für Real-time Updates
               currentTournament.logoUrl !== newData.logoUrl ||
               currentTournament.description !== newData.description ||
@@ -1261,6 +1348,17 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
                 detailsStatus: 'success',
               });
               
+              // 🎯 NEU: Update auch tournamentParticipants wenn vorhanden
+              if (newData.participants && Array.isArray(newData.participants)) {
+                const participantsWithProgress = newData.participants.map((p: any) => ({
+                  ...p,
+                  completedPassesCount: p.completedPassesCount || 0,
+                  currentPasseNumberForPlayer: (p.completedPassesCount || 0) + 1
+                })) as ParticipantWithProgress[];
+                
+                set({ tournamentParticipants: participantsWithProgress });
+              }
+              
               if (currentTournament.completedPasseCount !== newData.completedPasseCount) {
                 // ✅ Logs aufgeräumt: PasseCount-Log entfernt
                 get().loadTournamentGames(instanceId);
@@ -1273,6 +1371,17 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
               currentTournamentInstance: newData,
               detailsStatus: 'success',
             });
+            
+            // 🎯 NEU: Initial auch participants setzen
+            if (newData.participants && Array.isArray(newData.participants)) {
+              const participantsWithProgress = newData.participants.map((p: any) => ({
+                ...p,
+                completedPassesCount: p.completedPassesCount || 0,
+                currentPasseNumberForPlayer: (p.completedPassesCount || 0) + 1
+              })) as ParticipantWithProgress[];
+              
+              set({ tournamentParticipants: participantsWithProgress });
+            }
           }
         } else {
           console.warn(`[TournamentStore] Tournament ${instanceId} was deleted or is no longer accessible.`);
@@ -1298,24 +1407,242 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
   clearTournamentListener: () => {
     const unsubscribe = get().tournamentListenerUnsubscribe;
     if (unsubscribe) {
-      console.log('[TournamentStore] Clearing tournament real-time listener');
       unsubscribe();
       set({ tournamentListenerUnsubscribe: null });
     }
   },
 
+  // 🆕 NEU: Real-time Listener für Tournament Participants (completedPassesCount)
+  setupParticipantsListener: (instanceId) => {
+    const currentUnsubscribe = get().participantsListenerUnsubscribe;
+    if (currentUnsubscribe && get().currentTournamentInstance?.id === instanceId) {
+      // Listener bereits aktiv für diese Instanz
+      return;
+    }
+
+    if (currentUnsubscribe) {
+      currentUnsubscribe();
+    }
+
+    console.log(`[TournamentStore] 🎧 Setting up participants listener for tournament ${instanceId}`);
+    // ✅ FIX: Lausche auf Tournament-Dokument, nicht auf Subcollection!
+    // Participants sind im Tournament-Dokument als Array gespeichert
+    const tournamentDocRef = doc(db, 'tournaments', instanceId);
+    
+    let isFirstSnapshot = true; // Flag für initialen Snapshot
+    
+    const unsubscribe = onSnapshot(
+      tournamentDocRef,
+      async (snapshot) => {
+        try {
+          if (!snapshot.exists()) {
+            console.log(`[TournamentStore] ⚠️ Tournament ${instanceId} does not exist`);
+            return;
+          }
+
+          const tournamentData = snapshot.data();
+          const participantUids = tournamentData?.participantUids || [];
+          
+          console.log(`[TournamentStore] 🎧 Tournament updated: ${participantUids.length} participantUids`);
+          
+          // Beim ersten Snapshot IMMER laden, danach nur bei Änderungen
+          if (isFirstSnapshot) {
+            isFirstSnapshot = false;
+            console.log(`[TournamentStore] 🔄 Initial load of participants...`);
+            await get().loadTournamentParticipants(instanceId);
+          } else {
+            // Bei späteren Snapshots: Nur neu laden wenn sich die UID-Liste geändert hat
+            const currentTournament = get().currentTournamentInstance;
+            const currentUids = currentTournament?.participantUids || [];
+            
+            if (JSON.stringify(currentUids.sort()) !== JSON.stringify([...participantUids].sort())) {
+              console.log(`[TournamentStore] 🔄 Participant list changed, reloading...`);
+              await get().loadTournamentParticipants(instanceId);
+            }
+          }
+        } catch (error) {
+          console.error('[TournamentStore] Error processing tournament snapshot:', error);
+          set({ participantsStatus: 'error', error: 'Fehler beim Laden der Teilnehmer' });
+        }
+      },
+      (error) => {
+        console.error('[TournamentStore] Error in tournament listener:', error);
+        set({ participantsStatus: 'error', error: 'Fehler beim Überwachen des Turniers' });
+      }
+    );
+    
+    set({ participantsListenerUnsubscribe: unsubscribe });
+  },
+  
+  clearParticipantsListener: () => {
+    const unsubscribe = get().participantsListenerUnsubscribe;
+    if (unsubscribe) {
+      console.log('[TournamentStore] 🔇 Clearing participants listener');
+      unsubscribe();
+      set({ participantsListenerUnsubscribe: null });
+    }
+  },
+  
+  // 🆕 NEU: Real-time Listener für Tournament Games (abgeschlossen + aktiv)
+  setupGamesListener: (instanceId) => {
+    const currentUnsubscribe = get().gamesListenerUnsubscribe;
+    if (currentUnsubscribe && get().currentTournamentInstance?.id === instanceId) {
+      // Listener bereits aktiv für diese Instanz
+      return;
+    }
+
+    if (currentUnsubscribe) {
+      currentUnsubscribe();
+    }
+
+    console.log(`[TournamentStore] 🎧 Setting up games listener for tournament ${instanceId}`);
+    
+    // ✅ State für BEIDE Listener
+    let completedGames: TournamentGame[] = [];
+    let activeGames: TournamentGame[] = [];
+    
+    // Helper: Kombiniere und sortiere alle Spiele
+    const updateCombinedGames = () => {
+      const allGames = [...completedGames, ...activeGames];
+      
+      // Sortiere nach completedAt (neueste zuerst), aktive Spiele zuerst (completedAt = 0)
+      allGames.sort((a, b) => {
+        const timeA = (a.completedAt && typeof a.completedAt === 'object' && 'toMillis' in a.completedAt) 
+          ? (a.completedAt as Timestamp).toMillis() 
+          : 0;
+        const timeB = (b.completedAt && typeof b.completedAt === 'object' && 'toMillis' in b.completedAt) 
+          ? (b.completedAt as Timestamp).toMillis() 
+          : 0;
+        
+        // Aktive Spiele (0) vor abgeschlossenen (>0)
+        if (timeA === 0 && timeB > 0) return -1;
+        if (timeB === 0 && timeA > 0) return 1;
+        
+        return timeB - timeA;
+      });
+      
+      console.log(`[TournamentStore] 🎧 Combined games: ${completedGames.length} completed + ${activeGames.length} active = ${allGames.length} total`);
+      
+      set({ 
+        currentTournamentGames: allGames, 
+        gamesStatus: 'success' 
+      });
+    };
+    
+    // 1️⃣ Listener für ABGESCHLOSSENE Spiele (tournaments/{id}/games)
+    const completedGamesRef = collection(db, 'tournaments', instanceId, 'games');
+    const unsubscribeCompleted = onSnapshot(
+      completedGamesRef,
+      (snapshot) => {
+        try {
+          completedGames = snapshot.docs.map(doc => ({
+            passeId: doc.id,
+            ...doc.data()
+          })) as TournamentGame[];
+          
+          updateCombinedGames();
+        } catch (error) {
+          console.error('[TournamentStore] Error processing completed games:', error);
+          set({ gamesStatus: 'error', error: 'Fehler beim Laden der abgeschlossenen Spiele' });
+        }
+      },
+      (error) => {
+        console.error('[TournamentStore] Error in completed games listener:', error);
+        set({ gamesStatus: 'error', error: 'Fehler beim Überwachen der abgeschlossenen Spiele' });
+      }
+    );
+    
+    // 2️⃣ Listener für AKTIVE Spiele (activeGames where tournamentInstanceId == instanceId)
+    const activeGamesRef = query(
+      collection(db, 'activeGames'),
+      where('tournamentInstanceId', '==', instanceId)
+    );
+    const unsubscribeActive = onSnapshot(
+      activeGamesRef,
+      (snapshot) => {
+        try {
+          activeGames = snapshot.docs.map(doc => {
+            const data = doc.data();
+            // ✅ Mapping von ActiveGame zu TournamentGame (mit allen erforderlichen Feldern)
+            return {
+              passeId: doc.id,
+              tournamentInstanceId: data.tournamentInstanceId || instanceId,
+              passeNumber: data.passeTournamentNumber || data.currentGameNumber || 0,
+              tournamentRound: Math.ceil((data.passeTournamentNumber || data.currentGameNumber || 1)),
+              passeInRound: data.passeInRound || 'A',
+              passeLabel: `${data.passeTournamentNumber || data.currentGameNumber || 1}${data.passeInRound || 'A'}`,
+              tournamentMode: 'spontaneous' as const,
+              startedAt: data.createdAt || data.gameStartTime,
+              completedAt: undefined as any, // Aktive Spiele haben kein completedAt (wird als 0 behandelt beim Sortieren)
+              durationMillis: 0,
+              startingPlayer: data.startingPlayer || data.initialStartingPlayer || 1,
+              participantUidsForPasse: data.participantUids || [],
+              participantPlayerIds: data.participantPlayerIds || [],
+              playerDetails: [], // Wird erst beim Abschluss gefüllt
+              teamScoresPasse: data.scores || { top: 0, bottom: 0 },
+              teamStrichePasse: data.striche || { 
+                top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }, 
+                bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 } 
+              },
+              teams: data.teams,
+              finalScores: data.scores,
+              finalStriche: data.striche,
+              activeScoreSettings: data.scoreSettings || data.activeScoreSettings || DEFAULT_SCORE_SETTINGS,
+              activeStrokeSettings: data.strokeSettings || data.activeStrokeSettings || DEFAULT_STROKE_SETTINGS,
+              activeFarbeSettings: data.farbeSettings || data.activeFarbeSettings || DEFAULT_FARBE_SETTINGS,
+              // Zusätzliche Felder aus ActiveGame (status ist nicht Teil von TournamentGame, wird durch completedAt erkannt)
+              playerNames: data.playerNames,
+            } as TournamentGame;
+          });
+          
+          updateCombinedGames();
+        } catch (error) {
+          console.error('[TournamentStore] Error processing active games:', error);
+          set({ gamesStatus: 'error', error: 'Fehler beim Laden der aktiven Spiele' });
+        }
+      },
+      (error) => {
+        console.error('[TournamentStore] Error in active games listener:', error);
+        set({ gamesStatus: 'error', error: 'Fehler beim Überwachen der aktiven Spiele' });
+      }
+    );
+    
+    // ✅ Kombinierter Unsubscribe
+    const combinedUnsubscribe = () => {
+      unsubscribeCompleted();
+      unsubscribeActive();
+    };
+    
+    set({ gamesListenerUnsubscribe: combinedUnsubscribe });
+  },
+  
+  clearGamesListener: () => {
+    const unsubscribe = get().gamesListenerUnsubscribe;
+    if (unsubscribe) {
+      console.log('[TournamentStore] 🔇 Clearing games listener');
+      unsubscribe();
+      set({ gamesListenerUnsubscribe: null });
+    }
+  },
+
   resetTournamentState: () => {
-    // Cleanup beide Listener
+    // Cleanup alle Listener
     const unsubscribe = get().tournamentListenerUnsubscribe;
     const userTournamentsUnsubscribe = get().userTournamentsListenerUnsubscribe;
+    const participantsUnsubscribe = get().participantsListenerUnsubscribe;
+    const gamesUnsubscribe = get().gamesListenerUnsubscribe;
     
     if (unsubscribe) {
-      console.log("[TournamentStore] Removing tournament listener during reset.");
       unsubscribe();
     }
     if (userTournamentsUnsubscribe) {
-      console.log("[TournamentStore] Removing user tournaments listener during reset.");
       userTournamentsUnsubscribe();
+    }
+    if (participantsUnsubscribe) {
+      participantsUnsubscribe();
+    }
+    if (gamesUnsubscribe) {
+      gamesUnsubscribe();
     }
     
     set(initialState);
@@ -1386,7 +1713,6 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
 
   recordPasseCompletion: async (tournamentId, completedPasseId, participatingPlayerUids, finalScores, finalStriche) => {
     set({ status: 'loading-games', error: null });
-    console.log(`[TournamentStore] Recording completion for passe ${completedPasseId} in tournament ${tournamentId}`);
 
     try {
       const tournamentDocRef = doc(db, 'tournaments', tournamentId);

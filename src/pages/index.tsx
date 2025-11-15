@@ -24,6 +24,14 @@ const PublicSessionPage = dynamic(() => import('./view/session/public/[sessionId
   loading: () => <div className="fixed inset-0 bg-gray-900 flex items-center justify-center text-white">Live Jass wird geladen...</div>,
   ssr: false
 });
+const PublicTournamentPage = dynamic(() => import('./view/tournament/[instanceId]'), {
+  loading: () => <div className="fixed inset-0 bg-gray-900 flex items-center justify-center text-white">Turnier wird geladen...</div>,
+  ssr: false
+});
+const TournamentPasseDetailPage = dynamic(() => import('./tournaments/[instanceId]/passe/[passeId]'), {
+  loading: () => <div className="fixed inset-0 bg-gray-900 flex items-center justify-center text-white">Passe wird geladen...</div>,
+  ssr: false
+});
 
 const LoadingComponent = () => (
   <div className="fixed inset-0 flex items-center justify-center bg-gray-900">
@@ -67,6 +75,20 @@ const HomePage = () => {
       const sessionId = pathParts[3];
       newRouterState.pathname = '/view/session/public/[sessionId]';
       newRouterState.query = { sessionId: sessionId };
+      newRouterState.asPath = path;
+    } else if (path.startsWith('/view/tournament/') && pathParts.length === 3) {
+      ComponentToRender = PublicTournamentPage;
+      const instanceId = pathParts[2];
+      newRouterState.pathname = '/view/tournament/[instanceId]';
+      newRouterState.query = { instanceId: instanceId };
+      newRouterState.asPath = path;
+    } else if (path.startsWith('/tournaments/') && pathParts.length === 4 && pathParts[2] === 'passe') {
+      // Route: /tournaments/[instanceId]/passe/[passeId]
+      ComponentToRender = TournamentPasseDetailPage;
+      const instanceId = pathParts[1];
+      const passeId = pathParts[3];
+      newRouterState.pathname = '/tournaments/[instanceId]/passe/[passeId]';
+      newRouterState.query = { instanceId: instanceId, passeId: passeId };
       newRouterState.asPath = path;
     } else {
       // Für alle anderen Pfade (z.B. die Startseite '/')

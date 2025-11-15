@@ -105,7 +105,10 @@ const PasseDetailPage: React.FC = () => {
   const router = useRouter();
   const instanceId = typeof router.query.instanceId === 'string' ? router.query.instanceId : undefined;
   const passeId = typeof router.query.passeId === 'string' ? router.query.passeId : undefined;
-  const { user } = useAuthStore();
+  const { user, status: authStatus } = useAuthStore();
+  
+  // 🆕 Public View Detection
+  const isPublicView = !user || authStatus !== 'authenticated';
 
   const fetchTournamentInstanceDetails = useTournamentStore((state) => state.fetchTournamentInstanceDetails);
   const fetchTournamentGameById = useTournamentStore((state) => state.fetchTournamentGameById);
@@ -123,7 +126,6 @@ const PasseDetailPage: React.FC = () => {
     }
 
     if (!tournament) {
-      console.log(`[PasseDetailPage] Fetching tournament details for instance: ${instanceId}`);
       fetchTournamentInstanceDetails(instanceId);
     }
   }, [router.isReady, instanceId, tournament, fetchTournamentInstanceDetails]);
@@ -137,7 +139,6 @@ const PasseDetailPage: React.FC = () => {
                         passeStatus !== 'loading';
 
     if (shouldFetch) {
-      console.log(`[PasseDetailPage修正] Fetching passe details for: ${passeId} in tournament ${instanceId}. CurrentPasseId: ${currentPasse?.passeId}`);
       fetchTournamentGameById(instanceId, passeId);
     }
   }, [router.isReady, instanceId, passeId, currentPasse?.passeId, fetchTournamentGameById, passeStatus]);

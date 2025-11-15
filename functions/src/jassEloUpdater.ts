@@ -86,6 +86,89 @@ async function loadDisplayNames(playerIds: string[]): Promise<Map<string, string
   return map;
 }
 
+/**
+ * 🆕 SINGLE SOURCE OF TRUTH: Lade aktuelles Elo aus ratingHistory
+ * Dies ist die EINZIGE korrekte Methode, um das aktuelle Elo zu laden!
+ * 
+ * @param playerId - Player Document ID
+ * @param beforeTimestamp - Optional: Lade Elo VOR diesem Zeitpunkt (für Turniere)
+ * @returns Aktuelles Elo Rating
+ */
+async function getPlayerRatingFromHistory(
+  playerId: string, 
+  beforeTimestamp?: admin.firestore.Timestamp
+): Promise<number> {
+  try {
+    const ratingHistoryRef = db.collection(`players/${playerId}/ratingHistory`);
+    
+    // ✅ Strategie: Hole ALLE Einträge und sortiere manuell
+    // (Manche Einträge haben nur createdAt, nicht completedAt!)
+    const allEntriesSnap = await ratingHistoryRef.get();
+    
+    if (allEntriesSnap.empty) {
+      logger.warn(`[Elo] No ratingHistory found for player ${playerId}, using default rating`);
+      return JASS_ELO_CONFIG.DEFAULT_RATING;
+    }
+    
+    // Mappe Einträge mit Fallback: completedAt → createdAt
+    const entries = allEntriesSnap.docs
+      .map(doc => {
+        const data = doc.data();
+        const timestamp = data.completedAt || data.createdAt; // ✅ Fallback auf createdAt
+        
+        // ✅ Konvertiere zu Millisekunden (unterstützt Firestore Timestamp UND Date)
+        let milliseconds = 0;
+        if (timestamp) {
+          if (typeof timestamp.toMillis === 'function') {
+            milliseconds = timestamp.toMillis(); // Firestore Timestamp
+          } else if (timestamp instanceof Date) {
+            milliseconds = timestamp.getTime(); // Date Object
+          } else if (typeof timestamp.getTime === 'function') {
+            milliseconds = timestamp.getTime(); // Anything with getTime()
+          }
+        }
+        
+        return {
+          rating: data.rating,
+          timestamp,
+          milliseconds
+        };
+      })
+      .filter(e => typeof e.rating === 'number' && !isNaN(e.rating) && e.milliseconds > 0);
+    
+    if (entries.length === 0) {
+      logger.warn(`[Elo] No valid ratingHistory entries for player ${playerId}, using default rating`);
+      return JASS_ELO_CONFIG.DEFAULT_RATING;
+    }
+    
+    // Sortiere nach Timestamp (neueste zuerst)
+    entries.sort((a, b) => b.milliseconds - a.milliseconds);
+    
+    // Falls beforeTimestamp angegeben, filtere
+    if (beforeTimestamp) {
+      const beforeMillis = beforeTimestamp.toMillis();
+      const filteredEntries = entries.filter(e => e.milliseconds < beforeMillis);
+      
+      if (filteredEntries.length > 0) {
+        const rating = filteredEntries[0].rating;
+        logger.debug(`[Elo] Loaded rating ${rating.toFixed(2)} for player ${playerId} from ratingHistory (before ${beforeTimestamp.toDate().toISOString()})`);
+        return rating;
+      } else {
+        logger.warn(`[Elo] No ratingHistory entries before ${beforeTimestamp.toDate().toISOString()} for player ${playerId}, using default rating`);
+        return JASS_ELO_CONFIG.DEFAULT_RATING;
+      }
+    }
+    
+    // Kein beforeTimestamp: Neuester Eintrag
+    const rating = entries[0].rating;
+    logger.debug(`[Elo] Loaded rating ${rating.toFixed(2)} for player ${playerId} from ratingHistory (latest)`);
+    return rating;
+  } catch (error) {
+    logger.error(`[Elo] Error loading rating from history for player ${playerId}:`, error);
+    return JASS_ELO_CONFIG.DEFAULT_RATING;
+  }
+}
+
 export async function updateEloForSession(groupId: string, sessionId: string): Promise<void> {
   logger.info(`[Elo] Start update for session ${sessionId} (group ${groupId})`);
 
@@ -160,36 +243,27 @@ export async function updateEloForSession(groupId: string, sessionId: string): P
     return;
   }
 
-  // Ratings laden (global)
+  // Ratings laden (global) - ✅ NEU: Aus ratingHistory statt globalRating!
   const playerIds = [...topPlayers, ...bottomPlayers];
   const displayNameMap = await loadDisplayNames(playerIds);
 
   const ratingMap = new Map<string, PlayerRatingDoc & { oldRating: number }>();
   for (const pid of playerIds) {
-    // ✅ OPTION A: Lese direkt aus players/* statt playerRatings/*
+    // ✅ SINGLE SOURCE OF TRUTH: Lade aus ratingHistory
+    const currentRating = await getPlayerRatingFromHistory(pid);
+    
+    // Lade zusätzliche Player-Daten
     const snap = await db.collection('players').doc(pid).get();
-    if (snap.exists) {
-      const d = snap.data();
-      const currentRating = d?.globalRating || JASS_ELO_CONFIG.DEFAULT_RATING;
-      
-      // ✅ FIX: Erstelle sauberes Objekt ohne alte Felder
-      const cleanRatingData: PlayerRatingDoc & { oldRating: number } = {
-        rating: currentRating,
-        oldRating: currentRating, // ✅ Ursprüngliches Rating merken
-        gamesPlayed: d?.totalGamesPlayed || 0,
-        displayName: d?.displayName || displayNameMap.get(pid),
-        // ✅ Explizit KEINE peak/low Felder mehr laden
-      };
-      
-      ratingMap.set(pid, cleanRatingData);
-    } else {
-      ratingMap.set(pid, {
-        rating: JASS_ELO_CONFIG.DEFAULT_RATING,
-        oldRating: JASS_ELO_CONFIG.DEFAULT_RATING, // ✅ Ursprüngliches Rating merken
-        gamesPlayed: 0,
-        displayName: displayNameMap.get(pid),
-      });
-    }
+    const playerData = snap.exists ? snap.data() : null;
+    
+    const cleanRatingData: PlayerRatingDoc & { oldRating: number } = {
+      rating: currentRating,
+      oldRating: currentRating,
+      gamesPlayed: playerData?.totalGamesPlayed || 0,
+      displayName: playerData?.displayName || displayNameMap.get(pid) || pid,
+    };
+    
+    ratingMap.set(pid, cleanRatingData);
   }
 
   // ✅ KORRIGIERT: Elo spiel-für-spiel berechnen (wie in fixStartRatings)
@@ -653,29 +727,29 @@ export async function updateEloForTournament(tournamentId: string, participantPl
 
   logger.info(`[Elo] Found ${games.length} passes for tournament ${tournamentId}`);
 
-  // Ratings laden (global)
+  // ✅ Ratings laden aus ratingHistory - VOR Turnier-Start!
   const displayNameMap = await loadDisplayNames(participantPlayerIds);
   const ratingMap = new Map<string, PlayerRatingDoc & { oldRating: number }>();
   
+  // Hole Turnier-Start-Timestamp (erster Pass)
+  const firstGameTimestamp = games[0]?.completedAt;
+  
   for (const pid of participantPlayerIds) {
+    // ✅ SINGLE SOURCE OF TRUTH: Lade Elo VOR Turnier aus ratingHistory
+    const currentRating = await getPlayerRatingFromHistory(pid, firstGameTimestamp);
+    
+    // Lade zusätzliche Player-Daten
     const snap = await db.collection('players').doc(pid).get();
-    if (snap.exists) {
-      const d = snap.data();
-      const currentRating = d?.globalRating || JASS_ELO_CONFIG.DEFAULT_RATING;
-      ratingMap.set(pid, {
-        rating: currentRating,
-        oldRating: currentRating,
-        gamesPlayed: d?.totalGamesPlayed || 0,
-        displayName: d?.displayName || displayNameMap.get(pid),
-      });
-    } else {
-      ratingMap.set(pid, {
-        rating: JASS_ELO_CONFIG.DEFAULT_RATING,
-        oldRating: JASS_ELO_CONFIG.DEFAULT_RATING,
-        gamesPlayed: 0,
-        displayName: displayNameMap.get(pid),
-      });
-    }
+    const playerData = snap.exists ? snap.data() : null;
+    
+    ratingMap.set(pid, {
+      rating: currentRating,
+      oldRating: currentRating,
+      gamesPlayed: playerData?.totalGamesPlayed || 0,
+      displayName: playerData?.displayName || displayNameMap.get(pid) || pid,
+    });
+    
+    logger.debug(`[Elo] Tournament ${tournamentId} - Player ${pid} starts with rating ${currentRating.toFixed(2)}`);
   }
 
   // Elo passe-für-passe berechnen
@@ -922,30 +996,30 @@ export async function updateEloForSingleTournamentPasse(
     return;
   }
 
-  // Hole aktuelle Ratings für alle 4 Spieler
+  // ✅ Hole aktuelle Ratings aus ratingHistory (vor dieser Passe!)
   const allPlayers = [...topPlayers, ...bottomPlayers];
   const displayNameMap = await loadDisplayNames(allPlayers);
   const ratingMap = new Map<string, PlayerRatingDoc & { oldRating: number }>();
   
+  // Hole Passe-Timestamp
+  const passeTimestamp = passeData.completedAt;
+  
   for (const pid of allPlayers) {
+    // ✅ SINGLE SOURCE OF TRUTH: Lade Elo VOR dieser Passe aus ratingHistory
+    const currentRating = await getPlayerRatingFromHistory(pid, passeTimestamp);
+    
+    // Lade zusätzliche Player-Daten
     const snap = await db.collection('players').doc(pid).get();
-    if (snap.exists) {
-      const d = snap.data();
-      const currentRating = d?.globalRating || JASS_ELO_CONFIG.DEFAULT_RATING;
-      ratingMap.set(pid, {
-        rating: currentRating,
-        oldRating: currentRating,
-        gamesPlayed: d?.gamesPlayed || 0,
-        displayName: d?.displayName || displayNameMap.get(pid),
-      });
-    } else {
-      ratingMap.set(pid, {
-        rating: JASS_ELO_CONFIG.DEFAULT_RATING,
-        oldRating: JASS_ELO_CONFIG.DEFAULT_RATING,
-        gamesPlayed: 0,
-        displayName: displayNameMap.get(pid),
-      });
-    }
+    const playerData = snap.exists ? snap.data() : null;
+    
+    ratingMap.set(pid, {
+      rating: currentRating,
+      oldRating: currentRating,
+      gamesPlayed: playerData?.gamesPlayed || 0,
+      displayName: playerData?.displayName || displayNameMap.get(pid) || pid,
+    });
+    
+    logger.debug(`[Elo] Passe ${passeId} - Player ${pid} starts with rating ${currentRating.toFixed(2)}`);
   }
 
   // Berechne Striche für Teams
@@ -1001,12 +1075,21 @@ export async function updateEloForSingleTournamentPasse(
     batch.set(db.collection('players').doc(pid), docData, { merge: true });
   });
 
-  // Rating-History für alle Spieler
+  // Rating-History & Scores-History für alle Spieler
   const completedAt = passeData.completedAt || admin.firestore.Timestamp.now();
+  
+  // Punkte für diese Passe
+  const pointsTop = passeData.finalScores?.top || 0;
+  const pointsBottom = passeData.finalScores?.bottom || 0;
   
   for (const pid of allPlayers) {
     const playerRating = ratingMap.get(pid);
     if (playerRating) {
+      const isTopPlayer = topPlayers.includes(pid);
+      const teamKey = isTopPlayer ? 'top' : 'bottom';
+      const opponentTeamKey = isTopPlayer ? 'bottom' : 'top';
+      
+      // ✅ RATING-HISTORY (existing)
       const historyData = {
         rating: playerRating.rating,
         delta: Math.round(playerRating.rating - playerRating.oldRating),
@@ -1019,11 +1102,54 @@ export async function updateEloForSingleTournamentPasse(
       };
       
       batch.set(db.collection(`players/${pid}/ratingHistory`).doc(), historyData);
+      
+      // ✅ SCORES-HISTORY (NEU!)
+      // Striche-Differenz
+      const playerStriche = isTopPlayer ? stricheTop : stricheBottom;
+      const opponentStriche = isTopPlayer ? stricheBottom : stricheTop;
+      const stricheDiff = playerStriche - opponentStriche;
+      
+      // Punkte-Differenz
+      const playerPoints = isTopPlayer ? pointsTop : pointsBottom;
+      const opponentPoints = isTopPlayer ? pointsBottom : pointsTop;
+      const pointsDiff = playerPoints - opponentPoints;
+      
+      // Win/Loss (NO draw on game level!)
+      const wins = pointsDiff > 0 ? 1 : 0;
+      const losses = pointsDiff < 0 ? 1 : 0;
+      
+      // Event-Bilanz
+      const playerEvents = passeData.eventCounts?.[teamKey];
+      const opponentEvents = passeData.eventCounts?.[opponentTeamKey];
+      const matschBilanz = (playerEvents?.matsch || 0) - (opponentEvents?.matsch || 0);
+      const schneiderBilanz = (playerEvents?.schneider || 0) - (opponentEvents?.schneider || 0);
+      const kontermatschBilanz = (playerEvents?.kontermatsch || 0) - (opponentEvents?.kontermatsch || 0);
+      
+      // Weis-Differenz (TODO: Weis pro Player extrahieren)
+      const weisDifference = 0; // Placeholder
+      
+      const scoresEntry: ScoresHistoryEntry = {
+        completedAt: completedAt,
+        groupId: '', // Tourniere haben keine groupId per se
+        tournamentId: tournamentId,
+        gameNumber: passeNumber,
+        stricheDiff,
+        pointsDiff,
+        wins,
+        losses,
+        matschBilanz,
+        schneiderBilanz,
+        kontermatschBilanz,
+        weisDifference,
+        eventType: 'game',
+      };
+      
+      batch.set(db.collection(`players/${pid}/scoresHistory`).doc(), scoresEntry);
     }
   }
 
   await batch.commit();
-  logger.info(`[Elo] ✅ Successfully updated Elo for tournament ${tournamentId} passe ${passeNumber}`);
+  logger.info(`[Elo] ✅ Successfully updated Elo & scores for tournament ${tournamentId} passe ${passeNumber}`);
 }
 
 

@@ -200,7 +200,8 @@ async function calculateChartData(
   tournamentRankings: Map<string, any>,
   isTournamentSession: boolean,
   calculateDelta: (sessionData: any, playerId: string, teamKey: 'top' | 'bottom') => number | null,
-  getTournamentDelta: (rankings: any, playerId: string) => number | null
+  getTournamentDelta: (rankings: any, playerId: string) => number | null,
+  isEventChart: boolean = false // 🎯 NEU: Flag für Event-Charts (Schneider/Kontermatsch)
 ): Promise<{ labels: string[]; datasets: any[] }> {
   const labels: string[] = [];
   const allPlayerNames = collectAllPlayerIds(allSessionsSnap);
@@ -262,6 +263,9 @@ async function calculateChartData(
       // ✅ KORREKTUR: NULL-Werte korrekt behandeln
       if (delta === null) {
         // Delta ist NULL: Füge NULL als Datenpunkt ein (Spieler war nicht dabei oder kein Event)
+        dataset.data.push(null);
+      } else if (delta === 0 && isEventChart) {
+        // 🎯 FÜR EVENT-CHARTS (Schneider/Kontermatsch): Auch bei delta=0 soll NULL gesetzt werden (kein Event!)
         dataset.data.push(null);
       } else {
         // Delta ist ein Zahl: Update kumulative Werte
@@ -400,15 +404,21 @@ async function updateSchneiderChart(
       // ✅ NULL wenn keine Schneider-Events
       if (schneiderMade === 0 && schneiderReceived === 0) return null;
       return schneiderMade - schneiderReceived;
-    }
+    },
+    true // 🎯 Event-Chart: delta=0 soll als NULL behandelt werden
   );
+  
+  // 🎯 FILTER: Entferne Spieler OHNE echte Datenpunkte (nur null-Werte)
+  const filteredDatasets = datasets.filter((dataset: any) => {
+    return dataset.data.some((value: number | null) => value !== null);
+  });
   
   const chartDataRef = db.collection(`groups/${groupId}/aggregated`).doc('chartData_schneider');
   await chartDataRef.set({
     labels,
-    datasets,
+    datasets: filteredDatasets, // 🎯 Nur Spieler mit mindestens einem echten Event
     lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-    totalPlayers: datasets.length,
+    totalPlayers: filteredDatasets.length,
     totalSessions: labels.length
   });
   
@@ -438,15 +448,21 @@ async function updateKontermatschChart(
       // ✅ NULL wenn keine Kontermatsch-Events
       if (kontermatschMade === 0 && kontermatschReceived === 0) return null;
       return kontermatschMade - kontermatschReceived;
-    }
+    },
+    true // 🎯 Event-Chart: delta=0 soll als NULL behandelt werden
   );
+  
+  // 🎯 FILTER: Entferne Spieler OHNE echte Datenpunkte (nur null-Werte)
+  const filteredDatasets = datasets.filter((dataset: any) => {
+    return dataset.data.some((value: number | null) => value !== null);
+  });
   
   const chartDataRef = db.collection(`groups/${groupId}/aggregated`).doc('chartData_kontermatsch');
   await chartDataRef.set({
     labels,
-    datasets,
+    datasets: filteredDatasets, // 🎯 Nur Spieler mit mindestens einem echten Event
     lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-    totalPlayers: datasets.length,
+    totalPlayers: filteredDatasets.length,
     totalSessions: labels.length
   });
   

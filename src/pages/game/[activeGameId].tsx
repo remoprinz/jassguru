@@ -356,11 +356,20 @@ const LiveGamePage: React.FC = () => {
         setIsLoading(false);
         setIsInitialized(true);
 
+        // ✅ NEU: Setze globalen Loading-State zurück, sobald alle Daten geladen sind
+        // Mit kurzer Verzögerung für nahtlose Navigation (ähnlich wie in ResultatKreidetafel.tsx)
+        setTimeout(() => {
+          useUIStore.getState().setLoading(false);
+        }, 300);
+
     }, (error) => {
         console.error("[LiveGamePage GameListener ERROR] Error in game snapshot listener:", error);
         setInternalError(`Fehler beim Abrufen der Spieldaten: ${error.message} (Code: ${error.code})`);
         setIsLoading(false);
         setIsInitialized(true); // Auch bei Fehler Initialisierung abschließen
+        
+        // ✅ NEU: Setze globalen Loading-State auch bei Fehler zurück
+        useUIStore.getState().setLoading(false);
     });
 
     // Listener für die Runden-Subkollektion

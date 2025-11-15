@@ -307,8 +307,9 @@ const PublicGroupPage = () => {
           setTournamentsLoading(true);
           setTournamentsError(null);
       try {
-        // 🚨 KEINE TURNIER-INSTANZEN MEHR: Nur Turnier-Sessions aus jassGameSummaries
-        setGroupTournaments([]); 
+        // ✅ LADE TURNIERE FÜR GRUPPE: Alle Tournament-Instances für diese Gruppe
+        const tournaments = await fetchTournamentInstancesForGroup(currentGroup.id);
+        setGroupTournaments(tournaments); 
       } catch (error) {
         console.error("Fehler beim Laden der Gruppen-Turniere:", error);
         setTournamentsError('Turniere konnten nicht geladen werden.');

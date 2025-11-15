@@ -34,10 +34,34 @@ const TournamentPasseArchive: React.FC<TournamentPasseArchiveProps> = ({
 }) => {
   const router = useRouter();
 
-  // Schritt 3.2: Passen sortieren (nach tournamentRound und passeInRound aufsteigend)
+  // Schritt 3.2: Passen sortieren und deduplizieren (nach tournamentRound und passeInRound aufsteigend)
   const sortedGames = useMemo(() => {
     if (!Array.isArray(games)) return [];
-    return [...games].sort((a, b) => {
+    
+    // ✅ NEU: Dedupliziere zuerst nach passeId (eindeutige Passe-ID)
+    // Falls passeId fehlt, verwende Kombination aus tournamentRound + passeInRound
+    const uniqueGamesMap = new Map<string, TournamentGame>();
+    
+    games.forEach(game => {
+      // Verwende passeId als primären Schlüssel (eindeutig pro Passe)
+      const uniqueKey = game.passeId || `${game.tournamentRound || 0}_${game.passeInRound || 'A'}`;
+      
+      // ✅ Wenn bereits vorhanden, behalte den ersten Eintrag (oder den mit completedAt)
+      if (!uniqueGamesMap.has(uniqueKey)) {
+        uniqueGamesMap.set(uniqueKey, game);
+      } else {
+        // Falls Duplikat: Behalte den mit completedAt (falls vorhanden)
+        const existing = uniqueGamesMap.get(uniqueKey);
+        if (game.completedAt && (!existing?.completedAt || 
+            (game.completedAt instanceof Timestamp && existing.completedAt instanceof Timestamp &&
+             game.completedAt.toMillis() > existing.completedAt.toMillis()))) {
+          uniqueGamesMap.set(uniqueKey, game);
+        }
+      }
+    });
+    
+    // Konvertiere Map zurück zu Array und sortiere
+    return Array.from(uniqueGamesMap.values()).sort((a, b) => {
       // 🆕 Primär nach Runde sortieren
       const roundDiff = (a.tournamentRound || 0) - (b.tournamentRound || 0);
       if (roundDiff !== 0) return roundDiff;
@@ -50,19 +74,42 @@ const TournamentPasseArchive: React.FC<TournamentPasseArchiveProps> = ({
   }, [games]);
 
   // NEU: Handler für Klick auf eine Passe
+  // ✅ Die Route /tournaments/[instanceId]/passe/[passeId] funktioniert auch für Public View
   const handlePasseClick = (passeId: string) => {
     if (instanceId && passeId) {
       router.push(`/tournaments/${instanceId}/passe/${passeId}`);
     }
   };
 
+  // 🆕 Gruppiere Games nach tournamentRound für bessere UX
+  const groupedByRound = useMemo(() => {
+    const groups = new Map<number, TournamentGame[]>();
+    sortedGames.forEach(game => {
+      const round = game.tournamentRound || 1;
+      if (!groups.has(round)) {
+        groups.set(round, []);
+      }
+      groups.get(round)!.push(game);
+    });
+    // Sortiere nach Runde aufsteigend (1, 2, 3...)
+    return Array.from(groups.entries()).sort((a, b) => a[0] - b[0]);
+  }, [sortedGames]);
+
   // Schritt 3.3: Liste rendern
   return (
-    <div className="space-y-2">
+    <div className="space-y-6">
       {sortedGames.length === 0 ? (
         <p className="text-center text-gray-500 py-6">Noch keine Passen gespielt.</p>
       ) : (
-        sortedGames.map((game) => {
+        groupedByRound.map(([roundNumber, roundGames]) => (
+          <div key={roundNumber} className="space-y-2">
+            {/* 🎯 RUNDEN-HEADER */}
+            <h3 className="text-xl font-bold text-white text-center px-1 mb-3">
+              Passe {roundNumber}
+            </h3>
+            
+            {/* 🃏 KARTEN DER RUNDE */}
+            {roundGames.map((game) => {
           // Extrahiere Spieler und Striche für die Anzeige
           const teamTopPlayers = game.playerDetails
             ?.filter(d => d.team === 'top')
@@ -211,7 +258,9 @@ const TournamentPasseArchive: React.FC<TournamentPasseArchiveProps> = ({
               </div>
             </button>
           );
-        })
+        })}
+          </div>
+        ))
       )}
     </div>
   );

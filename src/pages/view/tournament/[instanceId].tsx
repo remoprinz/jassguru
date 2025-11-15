@@ -28,6 +28,7 @@ import {
   UserPlus as UserPlusIcon, PlayCircle, Archive as ArchiveIcon,
   Camera, Upload, X
 } from 'lucide-react';
+import { FiShare2 } from 'react-icons/fi';
 import { format } from 'date-fns';
 import { Timestamp, getFirestore, collection, query, where, orderBy, limit, onSnapshot, Unsubscribe, doc, getDoc } from 'firebase/firestore';
 import { firebaseApp } from '@/services/firebaseInit';
@@ -38,6 +39,9 @@ import TournamentStartScreen from '@/components/tournament/TournamentStartScreen
 import TournamentRankingList from '@/components/tournament/TournamentRankingList';
 import TournamentPasseArchive from '@/components/tournament/TournamentPasseArchive';
 import imageCompression from "browser-image-compression";
+import PowerRatingChart from '@/components/charts/PowerRatingChart';
+import { fetchTournamentRankingHistory, type PasseRankingSnapshot } from '@/services/tournamentRankingService';
+import { getRankingColor } from '@/config/chartColors';
 import ImageCropModal from "@/components/ui/ImageCropModal";
 import { updateTournamentSettings, uploadTournamentLogoFirebase } from '@/services/tournamentService';
 import { cn } from '@/lib/utils';
@@ -46,11 +50,14 @@ import { DEFAULT_STROKE_SETTINGS } from '@/config/GameSettings';
 import { DEFAULT_FARBE_SETTINGS } from '@/config/FarbeSettings';
 import { getGroupMembersSortedByGames } from "@/services/playerService";
 import GlobalLoader from '@/components/layout/GlobalLoader';
+import { calculateNextPasse, calculateCompletedPassesCountFromGames } from '@/utils/tournamentPasseUtils';
+import { sortPlayersByRankingMode, type RankingMode } from '@/utils/tournamentSorting';
 
 import type { PlayerNumber, PlayerNames, StrokeSettings, ScoreSettings, FirestorePlayer } from '@/types/jass';
 import type { TournamentGame } from '@/types/tournament';
 
 import { DEFAULT_SCORE_SETTINGS } from '@/config/ScoreSettings';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 
 function isFirestoreTimestamp(value: any): value is Timestamp {
   return value && typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function';
@@ -83,9 +90,33 @@ const TournamentViewPage: React.FC = () => {
   const { user, status: authStatus } = useAuthStore();
   const { currentGroup } = useGroupStore();
   
+  // 🆕 Public View Detection
+  const isPublicView = !user || authStatus !== 'authenticated';
+  
+  // 🎨 RESPONSIVE LAYOUT HOOK - Desktop/Tablet/Mobile Optimierung
+  const layout = useResponsiveLayout();
+  
+  // ===== LOKALE TAB-COLOR FUNKTION =====
+  const getTabActiveColor = (themeKey: string): string => {
+    const colorMap: Record<string, string> = {
+      'pink': '#ec4899',     // pink-600 (Standard Tailwind)
+      'green': '#059669',    // emerald-600 (Standard Tailwind)
+      'blue': '#2563eb',     // blue-600 (Standard Tailwind)
+      'purple': '#9333ea',   // purple-600 (Standard Tailwind)
+      'yellow': '#ca8a04',   // yellow-600 (Standard Tailwind, konsistent mit Theme)
+      'teal': '#0d9488',     // teal-600 (Standard Tailwind)
+      'orange': '#ea580c',   // orange-600 (Standard Tailwind)
+      'cyan': '#0891b2',     // cyan-600 (Standard Tailwind)
+    };
+    return colorMap[themeKey] || '#9333ea'; // Fallback zu Purple (Turnier-Standard)
+  };
+  
+  const tournamentTheme = 'purple'; // Turniere verwenden standardmäßig Purple
+  
   const fetchTournamentInstanceDetails = useTournamentStore((state) => state.fetchTournamentInstanceDetails);
   const setupTournamentListener = useTournamentStore((state) => state.setupTournamentListener);
-  const clearTournamentListener = useTournamentStore((state) => state.clearTournamentListener);
+  const setupParticipantsListener = useTournamentStore((state) => state.setupParticipantsListener);
+  const setupGamesListener = useTournamentStore((state) => state.setupGamesListener);
   const tournament = useTournamentStore((state) => state.currentTournamentInstance);
   const tournamentError = useTournamentStore((state) => state.error);
   const detailsStatus = useTournamentStore(selectDetailsStatus);
@@ -105,11 +136,6 @@ const TournamentViewPage: React.FC = () => {
   const tournamentParticipants = useTournamentStore(selectTournamentParticipants);
   const participantsStatus = useTournamentStore(selectParticipantsStatus);
 
-  // Debug-Ausgaben für participantsStatus
-  if (isDebugMode) {
-    console.log(`[TournamentViewPage] participantsStatus: ${participantsStatus}`);
-    console.log(`[TournamentViewPage] tournamentParticipants: ${tournamentParticipants ? tournamentParticipants.length : 'undefined'}`);
-  }
 
   const [resumablePasseId, setResumablePasseId] = useState<string | null>(null);
   const [isCheckingForResumablePasse, setIsCheckingForResumablePasse] = useState<boolean>(true);
@@ -132,6 +158,24 @@ const TournamentViewPage: React.FC = () => {
   const [isLoadingMembersForPasse, setIsLoadingMembersForPasse] = useState(false);
   const [membersForPasse, setMembersForPasse] = useState<FirestorePlayer[]>([]);
 
+  // 🆕 NEU: Ranking History State
+  const [rankingHistory, setRankingHistory] = useState<PasseRankingSnapshot[]>([]);
+  const [rankingHistoryLoading, setRankingHistoryLoading] = useState(false);
+
+  // ✅ NEU: Separate Ranking-Histories für "alle_ranglisten"
+  const [allRankingHistories, setAllRankingHistories] = useState<{
+    striche_difference: PasseRankingSnapshot[];
+    striche: PasseRankingSnapshot[];
+    total_points: PasseRankingSnapshot[];
+    points_difference: PasseRankingSnapshot[];
+  }>({
+    striche_difference: [],
+    striche: [],
+    total_points: [],
+    points_difference: []
+  });
+  const [allRankingHistoriesLoading, setAllRankingHistoriesLoading] = useState(false);
+
   useEffect(() => {
     if (!memoizedInstanceId || typeof memoizedInstanceId !== 'string') return;
 
@@ -139,7 +183,6 @@ const TournamentViewPage: React.FC = () => {
     const isLoadingThisInstance = detailsStatus === 'loading' && loadingInstanceIdFromStore === memoizedInstanceId;
 
     if (!isAlreadyLoadedAndCorrect && !isLoadingThisInstance) {
-      if (isDebugMode) console.log(`[TournamentViewPage] Requesting tournament details for instance: ${memoizedInstanceId}`);
       fetchTournamentInstanceDetails(memoizedInstanceId);
     }
   }, [memoizedInstanceId, fetchTournamentInstanceDetails, detailsStatus, tournament?.id, loadingInstanceIdFromStore, isDebugMode]);
@@ -162,43 +205,188 @@ const TournamentViewPage: React.FC = () => {
   useEffect(() => {
     if (!memoizedInstanceId || typeof memoizedInstanceId !== 'string') return;
     if (tournament?.id === memoizedInstanceId && detailsStatus === 'success' && gamesStatus !== 'loading' && gamesStatus !== 'success') {
-      if (isDebugMode) console.log(`[TournamentViewPage] Requesting tournament games for instance: ${memoizedInstanceId}`);
       loadTournamentGames(memoizedInstanceId);
     }
   }, [memoizedInstanceId, tournament?.id, detailsStatus, gamesStatus, loadTournamentGames, isDebugMode]);
 
   useEffect(() => {
     if (!memoizedInstanceId || typeof memoizedInstanceId !== 'string') {
-      if (isDebugMode) console.log('[TournamentViewPage] Participants NOT loaded: memoizedInstanceId invalid', memoizedInstanceId);
       return;
     }
     if (tournament?.id === memoizedInstanceId && (participantsStatus === 'success' || participantsStatus === 'loading')) {
-        if (isDebugMode) console.log(`[TournamentViewPage] Participants for ${memoizedInstanceId} already loaded or loading. Status: ${participantsStatus}. Skipping.`);
         return;
     }
 
     if (tournament?.id === memoizedInstanceId && detailsStatus === 'success') {
-      if (isDebugMode) {
-        console.log(`[TournamentViewPage] Requesting tournament participants for instance: ${memoizedInstanceId}`);
-        console.log(`[TournamentViewPage] Teilnehmer-Ladekriterien erfüllt:`, {
-          tournamentId_match: tournament?.id === memoizedInstanceId,
-          detailsStatus_is_success: detailsStatus === 'success',
-          current_participantsStatus: participantsStatus,
-          tournament_status_in_store: tournament?.status
-        });
-      }
       loadTournamentParticipants(memoizedInstanceId);
-    } else {
-      if (isDebugMode) {
-        console.log(`[TournamentViewPage] Participants NOT loaded. Conditions not met or mismatch:`, {
-          memoizedInstanceId,
-          tournament_id_from_store: tournament?.id,
-          detailsStatus_check: detailsStatus === 'success',
-          participantsStatus_check: participantsStatus,
-        });
-      }
     }
   }, [memoizedInstanceId, tournament?.id, detailsStatus, participantsStatus, loadTournamentParticipants, isDebugMode, tournament?.status]);
+
+  // 🆕 NEU: Lade Participants neu, wenn sich Games ändern (Real-time Updates!)
+  useEffect(() => {
+    if (!memoizedInstanceId || typeof memoizedInstanceId !== 'string') return;
+    if (!tournament?.id || tournament.id !== memoizedInstanceId) return;
+    if (currentTournamentGames.length === 0) return; // Warte bis Games geladen sind
+    
+    console.log(`[TournamentViewPage] 🔄 Games changed (${currentTournamentGames.length}), reloading participants...`);
+    
+    // Lade Participants neu, wenn sich Games ändern
+    // Das aktualisiert completedPassesCount und andere Metriken in Echtzeit
+    loadTournamentParticipants(memoizedInstanceId);
+    
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [memoizedInstanceId, tournament?.id, currentTournamentGames.length]); // ✅ participantsStatus bewusst NICHT in Dependencies (würde Endlosschleife verursachen)
+
+  // 🆕 NEU: Lade Ranking History (Real-time bei neuen Passen)
+  useEffect(() => {
+    if (!memoizedInstanceId || !tournament?.settings?.rankingMode) return;
+    
+    // ✅ NEU: Wenn "alle_ranglisten", lade alle Modi
+    if ((tournament.settings.rankingMode as string) === 'alle_ranglisten') {
+      setAllRankingHistoriesLoading(true);
+      Promise.all([
+        fetchTournamentRankingHistory(memoizedInstanceId, 'striche_difference'),
+        fetchTournamentRankingHistory(memoizedInstanceId, 'striche'),
+        fetchTournamentRankingHistory(memoizedInstanceId, 'total_points'),
+        fetchTournamentRankingHistory(memoizedInstanceId, 'points_difference')
+      ])
+        .then(([stricheDiff, striche, points, pointsDiff]) => {
+          setAllRankingHistories({
+            striche_difference: stricheDiff,
+            striche: striche,
+            total_points: points,
+            points_difference: pointsDiff
+          });
+        })
+        .catch(err => {
+          console.error('[TournamentViewPage] Error loading all ranking histories:', err);
+          setAllRankingHistories({
+            striche_difference: [],
+            striche: [],
+            total_points: [],
+            points_difference: []
+          });
+        })
+        .finally(() => setAllRankingHistoriesLoading(false));
+    } else {
+      // Normale Logik: Nur einen Modus laden
+    setRankingHistoryLoading(true);
+      fetchTournamentRankingHistory(memoizedInstanceId, tournament.settings.rankingMode as RankingMode)
+      .then(history => setRankingHistory(history))
+      .catch(err => {
+        console.error('[TournamentViewPage] Error loading ranking history:', err);
+        setRankingHistory([]);
+      })
+      .finally(() => setRankingHistoryLoading(false));
+    }
+  }, [memoizedInstanceId, tournament?.settings?.rankingMode, currentTournamentGames.length]); // ✅ NEU: Lädt neu bei neuen Games
+
+  // ✅ NEU: Hilfsfunktion zur Transformation von Ranking-History in Chart-Daten
+  const transformRankingHistoryToChartData = (history: PasseRankingSnapshot[]) => {
+    if (!history || history.length === 0) return null;
+        
+    // ✅ KORRIGIERT: fetchTournamentRankingHistory gibt bereits pro Passe-Nummer gruppierte Snapshots zurück!
+    // Wir können sie direkt verwenden, ohne weitere Gruppierung
+    const groupedSnapshots = history.sort((a, b) => a.afterPasseNumber - b.afterPasseNumber);
+    
+    // 🎯 NEU: Sammle alle Spieler-IDs aus ALLEN Snapshots
+    // Wichtig: Verwende alle Spieler, die jemals gespielt haben, nicht nur die ersten 8
+    const allPlayerIds = new Set<string>();
+    groupedSnapshots.forEach(snapshot => {
+      snapshot.rankings.forEach(r => allPlayerIds.add(r.playerId));
+    });
+    
+    // 🎯 NEU: Nimm ALLE Spieler, nicht nur die ersten 8
+    // Das stellt sicher, dass alle Spieler aus Passe 1 (1A + 1B = 8 Spieler) angezeigt werden
+    const playerList = Array.from(allPlayerIds);
+    
+    // Labels: Nur Passe-Nummern (1, 2, 3, etc.) - nicht "1A", "2B", etc.
+    const labels = groupedSnapshots.map(snapshot => `${snapshot.afterPasseNumber}`);
+    
+    // 🎯 NEU: Verlauf benötigt mindestens 2 Passen (sonst gibt es keinen "Verlauf")
+    if (labels.length < 2) return null;
+    
+    // 🎯 Erstelle Player-Info mit RÄNGEN (nicht Werte!)
+    const playerInfos = playerList.map(playerId => {
+      let playerName = playerId;
+      let finalRank = 999; // Für Sortierung und Farben
+      
+      // Verwende den letzten Snapshot für den finalen Rang
+      if (groupedSnapshots.length > 0) {
+        const lastSnapshot = groupedSnapshots[groupedSnapshots.length - 1];
+        const ranking = lastSnapshot.rankings.find(r => r.playerId === playerId);
+        if (ranking) {
+          playerName = ranking.playerName;
+          finalRank = ranking.rank;
+        }
+      }
+      
+      // ✅ Sammle RÄNGE für diesen Spieler über alle gruppierten Snapshots
+      const data = groupedSnapshots.map(snapshot => {
+        const ranking = snapshot.rankings.find(r => r.playerId === playerId);
+        return ranking ? ranking.rank : null;
+      });
+      
+      return {
+        playerId,
+        playerName,
+        finalRank,
+        data
+      };
+    });
+    
+    // 🎯 SORTIERE nach finalem Rang (Rang 1 zuerst)
+    playerInfos.sort((a, b) => a.finalRank - b.finalRank);
+    
+    // 🎯 KORREKTUR: maxRank sollte die GESAMTANZAHL DER SPIELER IM TURNIER sein
+    // Nicht nur die angezeigten Spieler, sondern alle Spieler im letzten Snapshot
+    // Das stellt sicher, dass die Y-Achse alle möglichen Ranks abdeckt (z.B. 1-15 bei 15 Spielern)
+    const totalPlayers = groupedSnapshots.length > 0 
+      ? groupedSnapshots[groupedSnapshots.length - 1].rankings.length 
+      : playerInfos.length;
+    const maxRank = totalPlayers;
+    
+    // 🎯 Berechne dynamische Chart-Höhe (3x kompakter: ~27px pro Rang)
+    const chartHeight = 100 + (maxRank * 27); // Basis 100px + 27px pro Rang (3x kompakter)
+    
+    // 🎯 Erstelle Datasets (bereits sortiert nach finalem Rang)
+    const datasets = playerInfos.map(info => ({
+      label: info.playerName,
+      displayName: info.playerName,
+      data: info.data,
+      borderColor: getRankingColor(info.finalRank),
+      backgroundColor: getRankingColor(info.finalRank, 0.1),
+      playerId: info.playerId,
+      finalRank: info.finalRank, // Für Farben
+    }));
+    
+    // 🎯 Erstelle Y-Achsen-Labels: Spielernamen nach finalem Rang sortiert
+    const yAxisLabels = playerInfos.map(info => info.playerName);
+    
+    return { labels, datasets, maxRank, chartHeight, yAxisLabels };
+  };
+  
+  // 🆕 NEU: Transformiere Ranking History für Chart (normale Modi)
+  const rankingChartData = useMemo(() => {
+    if ((tournament?.settings?.rankingMode as string) === 'alle_ranglisten') {
+      return null; // Bei "alle_ranglisten" verwenden wir allRankingChartData
+    }
+    return transformRankingHistoryToChartData(rankingHistory);
+  }, [rankingHistory, tournament]);
+  
+  // ✅ NEU: Transformiere alle Ranking-Histories für "alle_ranglisten"
+  const allRankingChartData = useMemo(() => {
+    if ((tournament?.settings?.rankingMode as string) !== 'alle_ranglisten') {
+      return null;
+    }
+    
+    return {
+      striche_difference: transformRankingHistoryToChartData(allRankingHistories.striche_difference),
+      striche: transformRankingHistoryToChartData(allRankingHistories.striche),
+      total_points: transformRankingHistoryToChartData(allRankingHistories.total_points),
+      points_difference: transformRankingHistoryToChartData(allRankingHistories.points_difference)
+    };
+  }, [allRankingHistories, tournament]);
 
   // ✅ NEU: Real-time Listener für Tournament-Details (Profilbild, Beschreibung, etc.)
   useEffect(() => {
@@ -206,16 +394,47 @@ const TournamentViewPage: React.FC = () => {
     
     // Aktiviere Real-time Listener sobald Tournament erfolgreich geladen wurde
     if (detailsStatus === 'success' && tournament?.id === memoizedInstanceId) {
-      if (isDebugMode) console.log(`[TournamentViewPage] Setting up real-time listener for tournament: ${memoizedInstanceId}`);
       setupTournamentListener(memoizedInstanceId);
     }
 
     // Cleanup-Funktion wird automatisch beim nächsten Effect-Run oder Unmount aufgerufen
     return () => {
-      if (isDebugMode) console.log(`[TournamentViewPage] Cleaning up real-time listener for tournament: ${memoizedInstanceId}`);
       // Der TournamentStore verwaltet bereits das Cleanup im clearCurrentTournamentInstance
     };
   }, [memoizedInstanceId, detailsStatus, tournament?.id, setupTournamentListener, isDebugMode]);
+
+  // 🆕 NEU: Real-time Listener für Tournament Participants (completedPassesCount)
+  useEffect(() => {
+    if (!memoizedInstanceId || typeof memoizedInstanceId !== 'string') return;
+    
+    // Aktiviere Real-time Listener sobald Participants erfolgreich geladen wurden
+    // WICHTIG: Wir aktivieren den Listener auch wenn participantsStatus 'success' ist,
+    // weil wir dann echtzeitaktualisierungen für completedPassesCount erhalten
+    if (participantsStatus === 'success' && tournament?.id === memoizedInstanceId) {
+      setupParticipantsListener(memoizedInstanceId);
+    }
+
+    // Cleanup-Funktion wird automatisch beim nächsten Effect-Run oder Unmount aufgerufen
+    return () => {
+      // Der TournamentStore verwaltet bereits das Cleanup im clearCurrentTournamentInstance
+    };
+  }, [memoizedInstanceId, participantsStatus, tournament?.id, setupParticipantsListener, isDebugMode]);
+
+  // 🆕 NEU: Real-time Listener für Tournament Games (abgeschlossene Passen)
+  useEffect(() => {
+    if (!memoizedInstanceId || typeof memoizedInstanceId !== 'string') return;
+    
+    // Aktiviere Real-time Listener sobald Tournament erfolgreich geladen wurde
+    // Dies ermöglicht Echtzeit-Updates für den Button "Passe XY starten"
+    if (detailsStatus === 'success' && tournament?.id === memoizedInstanceId) {
+      setupGamesListener(memoizedInstanceId);
+    }
+
+    // Cleanup wird vom Store verwaltet
+    return () => {
+      // Der TournamentStore verwaltet bereits das Cleanup im clearCurrentTournamentInstance
+    };
+  }, [memoizedInstanceId, detailsStatus, tournament?.id, setupGamesListener]);
 
   useEffect(() => {
     const db = getFirestore(firebaseApp);
@@ -326,7 +545,6 @@ const TournamentViewPage: React.FC = () => {
 
     return () => {
       clearTimeout(timeoutId);
-      if (isDebugMode) console.log("[TournamentViewPage] Cleaning up active passe listener (outer useEffect).");
       unsubscribeListener();
       if (activePasseListener.current) {
         activePasseListener.current();
@@ -399,7 +617,6 @@ const TournamentViewPage: React.FC = () => {
     const currentLogoPreviewUrlValue = logoPreviewUrl;
 
     return () => {
-      if (isDebugMode) console.log("[TournamentView] Unmounting cleanup: Revoking URLs.");
       if (currentLogoPreviewUrlValue) {
         URL.revokeObjectURL(currentLogoPreviewUrlValue);
       }
@@ -476,153 +693,57 @@ const TournamentViewPage: React.FC = () => {
   const isLoadingDetails = isLoading || isLoadingParticipants;
   const isCurrentUserAdmin = !!tournament && !!user && tournament.adminIds?.includes(user.uid);
   
-  // 🆕 Berechne nächste Passe-Nummer UND Label
-  // ✅ HELPER: Konvertiert eine Nummer in einen Buchstaben im Excel-Style (0 -> A, 25 -> Z, 26 -> AA, 51 -> AZ, 52 -> BA...)
-  const numberToLetter = (num: number): string => {
-    if (num < 26) {
-      // Einfacher Buchstabe: A-Z
-      return String.fromCharCode(65 + num); // 65 = 'A'
-    } else {
-      // Doppelter Buchstabe: AA-ZZ
-      const firstLetter = Math.floor((num - 26) / 26);
-      const secondLetter = (num - 26) % 26;
-      return String.fromCharCode(65 + firstLetter) + String.fromCharCode(65 + secondLetter);
-    }
-  };
-
-  const { nextPasseNumber, nextPasseLabel } = useMemo(() => {
+  // 🎯 NEUE ZENTRALE LOGIK: Berechne nächste Passe mit shared Helper
+  const nextPasseInfo = useMemo(() => {
     if (!tournamentParticipants || tournamentParticipants.length === 0 || !tournament) {
-      return { nextPasseNumber: 1, nextPasseLabel: '1A' };
-    }
-    
-    // 🔧 VERBESSERTE LOGIK: Unterscheide zwischen "Runde läuft noch" und "Runde abgeschlossen"
-    // 1. Ermittle min/max abgeschlossener Passen
-    const completedPassesCounts = tournamentParticipants.map(p => p.completedPassesCount || 0);
-    const minCompletedPasses = Math.min(...completedPassesCounts);
-    const maxCompletedPasses = Math.max(...completedPassesCounts);
-    
-    // 2. Berechne die "Mehrheits-Runde": Die Runde, bei der die Mehrheit der Spieler ist
-    // Sortiere Spieler nach completedPassesCount und finde den Median
-    const sortedCounts = [...completedPassesCounts].sort((a, b) => a - b);
-    const medianIndex = Math.floor(sortedCounts.length / 2);
-    const majorityCompletedPasses = sortedCounts[medianIndex];
-    const majorityRound = majorityCompletedPasses + 1; // Die Runde, die die Mehrheit gerade spielt
-    
-    // 3. Bestimme die relevante Runde basierend auf der Mehrheit
-    let relevantRound = minCompletedPasses + 1;
-    
-    // 4. Prüfe, ob die Mehrheit bereits bei einer höheren Runde ist als minCompletedPasses + 1
-    const majorityIsAhead = majorityRound > minCompletedPasses + 1;
-    
-    // 5. Prüfe, ob es noch aktive Passen in der Mehrheits-Runde gibt
-    // WICHTIG: Wenn activePassesInTournament leer ist (keine aktiven Passen), bleibt hasActivePassesInMajorityRound = false
-    let hasActivePassesInMajorityRound = false;
-    if (activePassesInTournament && activePassesInTournament.length > 0) {
-      hasActivePassesInMajorityRound = activePassesInTournament.some(activePasse => {
-        const participantUids = activePasse.participantUids || [];
-        const passeCounts = participantUids.map((uid: string) => {
-          const participant = tournamentParticipants.find(p => p.uid === uid);
-          return participant?.completedPassesCount || 0;
-        });
-        const minPasseCount = passeCounts.length > 0 ? Math.min(...passeCounts) : 0;
-        // passeRound = minPasseCount + 1 (die Runde, die diese Spieler gerade spielen)
-        const passeRound = minPasseCount + 1;
-        // Prüfe, ob diese aktive Passe in der Mehrheits-Runde ist
-        return passeRound === majorityRound;
-      });
-    } else {
-      // ✅ KEINE aktiven Passen vorhanden → hasActivePassesInMajorityRound bleibt false
-    }
-    
-    // 6. Wenn die Mehrheit bereits bei einer höheren Runde ist UND keine aktiven Passen mehr in dieser Runde,
-    // dann ist die minCompletedPasses-Runde "abgeschlossen" → gehe zur Mehrheits-Runde mit Buchstabe 'A'
-    // WICHTIG: !hasActivePassesInMajorityRound ist TRUE, wenn:
-    //   - activePassesInTournament leer ist (keine aktiven Passen) ✅
-    //   - ODER keine aktiven Passen in der Mehrheits-Runde existieren ✅
-    if (majorityIsAhead && !hasActivePassesInMajorityRound && minCompletedPasses < maxCompletedPasses) {
-      relevantRound = majorityRound;
       return { 
-        nextPasseNumber: relevantRound, 
-        nextPasseLabel: `${relevantRound}A` 
+        nextPasseNumber: 1,
+        nextPasseLabel: '1A',
+        availablePlayers: [],
+        isPlayable: false,
+        reason: 'Keine Teilnehmer'
       };
     }
     
-    // Sonst: Sammle verwendete Buchstaben in der relevanten Runde
-    const usedLetters = new Set<string>();
+    // ✅ ELEGANT: Filtere aktive Spiele aus currentTournamentGames (die bereits aktiv + abgeschlossen enthält)
+    // Aktive Spiele: Haben kein completedAt (undefined)
+    const activeGames = (currentTournamentGames || []).filter(game => 
+      !game.completedAt
+    );
     
-    // 4a. Sammle Buchstaben aus abgeschlossenen Passen
-    if (currentTournamentGames) {
-      currentTournamentGames.forEach(game => {
-        if (game.tournamentRound === relevantRound && game.passeInRound) {
-          usedLetters.add(game.passeInRound);
-        }
-      });
-    }
+    // ✅ ELEGANT: Filtere abgeschlossene Spiele
+    // Abgeschlossene Spiele: Haben completedAt (Timestamp)
+    const completedGames = (currentTournamentGames || []).filter(game => 
+      game.completedAt !== undefined
+    );
     
-    // 4b. Sammle Buchstaben aus aktiven Passen
-    if (activePassesInTournament && activePassesInTournament.length > 0) {
-      // Filtere aktive Passen in der relevanten Runde
-      const activePassesInRelevantRound = activePassesInTournament
-        .map(activePasse => {
-          const participantUids = activePasse.participantUids || [];
-          const passeCounts = participantUids.map((uid: string) => {
-            const participant = tournamentParticipants.find(p => p.uid === uid);
-            return participant?.completedPassesCount || 0;
-          });
-          const minPasseCount = passeCounts.length > 0 ? Math.min(...passeCounts) : 0;
-          const passeRound = minPasseCount + 1;
-          
-          return { activePasse, passeRound };
-        })
-        .filter(item => item.passeRound === relevantRound)
-        .map(item => item.activePasse);
+    const basePasseInfo = calculateNextPasse(
+      tournamentParticipants,
+      completedGames,
+      activeGames
+    );
+    
+    // 🎯 ELEGANTER FIX: Wenn ein User eingeloggt ist und die vorgeschlagene Passe bereits gespielt hat,
+    // zeige ihm SEINE nächste Passe statt der global nächsten spielbaren Passe
+    if (user?.uid) {
+      // ✅ Verwende die zentrale Utility-Funktion für konsistente Berechnung
+      const userCompletedCount = calculateCompletedPassesCountFromGames(user.uid, completedGames);
       
-      // Sortiere nach createdAt für konsistente Reihenfolge
-      activePassesInRelevantRound.sort((a, b) => {
-        const aTime = a.createdAt?.toMillis?.() || a.createdAt || 0;
-        const bTime = b.createdAt?.toMillis?.() || b.createdAt || 0;
-        return aTime - bTime;
-      });
-      
-      // Sammle Buchstaben aus aktiven Passen
-      activePassesInRelevantRound.forEach((activePasse, index) => {
-        if (activePasse.passeInRound) {
-          usedLetters.add(activePasse.passeInRound);
-        } else {
-          // Fallback: Verwende die Position in der sortierten Liste (Excel-Style)
-          usedLetters.add(numberToLetter(index));
-        }
-      });
-    }
-    
-    // 5. ✅ ELEGANT: Finde den nächsten freien Buchstaben (A-Z, dann AA-ZZ)
-    // Unterstützt bis zu 702 parallele Tische!
-    let index = 0;
-    let nextLetter = numberToLetter(index);
-    
-    while (usedLetters.has(nextLetter) && index < 702) { // 26 + (26 * 26) = 702
-      index++;
-      nextLetter = numberToLetter(index);
-    }
-    
-    if (index >= 702) {
-      // Sollte nie passieren, aber zur Sicherheit
-      console.error(`[TournamentView] ⚠️ WARNUNG: Mehr als 702 parallele Tische in Runde ${relevantRound}! Verwende Zahlen als Fallback.`);
-      // Verwende Zahlen als Fallback
-      let numIndex = 1;
-      while (usedLetters.has(`P${numIndex}`)) {
-        numIndex++;
+      // User hat diese Passe bereits gespielt? → Zeige ihm die nächste!
+      if (userCompletedCount >= basePasseInfo.nextPasseNumber) {
+        return {
+          ...basePasseInfo,
+          nextPasseNumber: userCompletedCount + 1,
+          nextPasseLabel: `${userCompletedCount + 1}A`,
+        };
       }
-      nextLetter = `P${numIndex}`; // P1, P2, P3...
     }
     
-    const nextLabel = `${relevantRound}${nextLetter}`;
-    
-    return { 
-      nextPasseNumber: relevantRound, 
-      nextPasseLabel: nextLabel 
-    };
-  }, [tournamentParticipants, tournament, currentTournamentGames, activePassesInTournament, user]);
+    return basePasseInfo;
+  }, [tournamentParticipants, tournament, currentTournamentGames, user?.uid]);
+  
+  // Destrukturiere für einfacheren Zugriff
+  const { nextPasseNumber, nextPasseLabel, availablePlayers, isPlayable, reason } = nextPasseInfo;
 
   const handleLogoFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -656,14 +777,12 @@ const TournamentViewPage: React.FC = () => {
     }
 
     if (!croppedImageBlob) {
-      console.log("Cropping abgebrochen oder fehlgeschlagen.");
       if (logoFileInputRef.current) logoFileInputRef.current.value = "";
       setIsUploadingLogo(false);
       return;
     }
 
     setIsUploadingLogo(true);
-    console.log(`[TournamentView] Zugeschnittenes Bild erhalten, Größe: ${(croppedImageBlob.size / 1024).toFixed(2)} KB`);
 
     const options = {
       maxSizeMB: 0.2,
@@ -674,9 +793,7 @@ const TournamentViewPage: React.FC = () => {
     };
 
     try {
-      console.log("[TournamentView] Komprimiere zugeschnittenes Bild...");
       const compressedBlob = await imageCompression(new File([croppedImageBlob], "tournament_logo.jpg", {type: "image/jpeg"}), options);
-      console.log(`[TournamentView] Komprimiertes Bild, Größe: ${(compressedBlob.size / 1024).toFixed(2)} KB`);
 
       const finalPreviewUrl = URL.createObjectURL(compressedBlob);
       setLogoPreviewUrl(finalPreviewUrl);
@@ -741,8 +858,8 @@ const TournamentViewPage: React.FC = () => {
   };
 
   const handlePasseSuccessfullyStarted = (activeGameId: string) => {
-    // console.log(`[TournamentView DEBUG] handlePasseSuccessfullyStarted called with activeGameId: ${activeGameId}`);
-    // console.log(`[TournamentView DEBUG] Navigating to /game/${activeGameId} after passe successfully started.`);
+    // ✅ NEU: Globaler Loading-State wurde bereits in TournamentStartScreen gesetzt
+    // Hier nur Navigation starten
     router.push(`/game/${activeGameId}`);
     setShowStartPasseScreen(false);
     useUIStore.getState().showNotification({ type: 'success', message: 'Passe gestartet! Auf zum Jass!'});
@@ -781,6 +898,42 @@ const TournamentViewPage: React.FC = () => {
       router.push(`/profile/${playerId}`);
     }
   }, [router]);
+
+  // 🆕 Share Handler
+  const handleShareClick = async () => {
+    if (!tournament || !memoizedInstanceId) return;
+    
+    const shareUrl = `https://jassguru.ch/view/tournament/${memoizedInstanceId}`;
+    const tournamentName = tournament.name || 'Jass-Turnier';
+    const shareText = `Schau dir das Jass-Turnier "${tournamentName}" live an! 🏆\n\n${shareUrl}\n\ngeneriert von:\n👉 jassguru.ch`;
+    
+    try {
+      // Versuche native Share API (Mobile)
+      if (navigator.share) {
+        await navigator.share({
+          title: `Jass-Turnier: ${tournamentName}`,
+          text: shareText,
+          url: shareUrl,
+        });
+      } else {
+        // Fallback: Clipboard (Desktop)
+        await navigator.clipboard.writeText(shareText);
+        showNotification({ 
+          type: 'success', 
+          message: 'Link in Zwischenablage kopiert!' 
+        });
+      }
+    } catch (error) {
+      // Fehler beim Teilen (z.B. User-Abbruch oder keine Berechtigung)
+      if ((error as Error).name !== 'AbortError') {
+        console.error('Fehler beim Teilen:', error);
+        showNotification({ 
+          type: 'error', 
+          message: 'Link konnte nicht geteilt werden.' 
+        });
+      }
+    }
+  };
 
   if (isLoading) {
     return (
@@ -849,11 +1002,15 @@ const TournamentViewPage: React.FC = () => {
 
   return ( 
     <MainLayout>
-      <div className="flex flex-col min-h-screen bg-gray-900 text-white pt-8 pb-32">
+      <div id="tournament-view-container" className={`flex flex-col items-center justify-start bg-gray-900 text-white ${layout.containerPadding} relative pt-8 pb-20 lg:w-full lg:px-0`}>
+        
+        {/* 🎨 RESPONSIVE CONTAINER WRAPPER */}
+        <div className={`w-full ${layout.containerMaxWidth} mx-auto lg:px-12 lg:py-8`}>
+        
         {tournament && (
-          <div className="flex flex-col items-center mb-4 mt-12">
+          <div className="relative mb-4 mt-6 flex justify-center">
             <div 
-              className="relative w-32 h-32 rounded-full overflow-hidden transition-all duration-300 flex items-center justify-center bg-gray-800 shadow-lg hover:shadow-xl hover:scale-105 border-4"
+              className={`relative ${layout.avatarSize} rounded-full overflow-hidden transition-all duration-300 flex items-center justify-center bg-gray-800 shadow-lg hover:shadow-xl hover:scale-105 border-4`}
               style={{
                 borderColor: selectedLogoFile && logoPreviewUrl ? '#a855f7' : '#a855f7', // Immer lila
                 boxShadow: selectedLogoFile && logoPreviewUrl 
@@ -885,7 +1042,8 @@ const TournamentViewPage: React.FC = () => {
                   {(tournament.name ?? '?').charAt(0).toUpperCase()}
                 </span>
               )}
-              {isCurrentUserAdmin && (
+              {/* 🔒 Camera Button nur für Admins UND nicht in Public View */}
+              {isCurrentUserAdmin && !isPublicView && (
                 <button
                   onClick={handleLogoSelectClick}
                   className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-60 transition-all duration-200"
@@ -896,7 +1054,8 @@ const TournamentViewPage: React.FC = () => {
                 </button>
               )}
             </div>
-            {selectedLogoFile && logoPreviewUrl && (
+            {/* 🔒 Logo-Upload-Preview nur für Admins */}
+            {!isPublicView && selectedLogoFile && logoPreviewUrl && (
               <div className="flex gap-2 mt-3">
                 <Button
                   onClick={handleUploadTournamentLogo}
@@ -919,35 +1078,65 @@ const TournamentViewPage: React.FC = () => {
           </div>
         )}
         
-        <div className="w-full text-center mb-6 px-4">
-          <h1 className="text-3xl font-bold mb-1 text-white break-words">{tournament?.name ?? 'Turnier laden...'}</h1>
-          <p className="text-sm text-gray-400 mx-auto max-w-xl break-words">
+        <div className={`w-full text-center mb-6 px-4`}>
+          <h1 
+            className={`${layout.titleSize} font-bold mb-1 text-white break-words transition-colors duration-300`}
+          >
+            {tournament?.name ?? 'Turnier laden...'}
+          </h1>
+          <div className={`${layout.subtitleSize} text-gray-300 mx-auto max-w-xl break-words mt-3`}>
             {tournament?.description ?? (isLoading ? '' : 'Keine Beschreibung vorhanden.')}
-          </p>
+          </div>
         </div>
 
+        {/* 🚨 NEU: SHARE BUTTON - IMMER SICHTBAR, WENN TURNIER EXISTIERT */}
+        {tournament && (
+          <button 
+            onClick={handleShareClick}
+            className={`absolute top-4 right-4 z-10 ${layout.actionButtonPadding} text-gray-300 hover:text-white transition-all duration-200 rounded-full bg-gray-700/50 hover:scale-110`}
+            style={{
+              backgroundColor: 'rgba(55, 65, 81, 0.5)',
+              borderColor: 'transparent'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(168, 85, 247, 0.2)';
+              e.currentTarget.style.borderColor = 'rgba(168, 85, 247, 0.4)';
+              e.currentTarget.style.boxShadow = '0 0 15px rgba(168, 85, 247, 0.3)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(55, 65, 81, 0.5)';
+              e.currentTarget.style.borderColor = 'transparent';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+            aria-label="Turnier teilen"
+          >
+            <FiShare2 size={layout.actionButtonSize} />
+          </button>
+        )}
+
         <div className="flex justify-center items-center gap-3 mb-6 px-4">
-          {isCurrentUserAdmin && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={handleOpenInviteModal} 
-              className="hover:bg-gray-700/30 text-gray-300 hover:text-white"
-              title="Teilnehmer einladen"
-            >
-              <UserPlusIcon className="h-4 w-4 mr-1.5" /> Einladen
-            </Button>
-          )}
-          {isCurrentUserAdmin && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => router.push(`/tournaments/${memoizedInstanceId}/settings`)} 
-              className="hover:bg-gray-700/30 text-gray-300 hover:text-white"
-              title="Einstellungen"
-            >
-              <SettingsIcon className="h-4 w-4 mr-1.5" /> Einstellungen
-            </Button>
+          {/* Admin-Buttons - nur für Admins sichtbar */}
+          {isCurrentUserAdmin && !isPublicView && (
+            <>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleOpenInviteModal} 
+                className="hover:bg-gray-700/30 text-gray-300 hover:text-white"
+                title="Teilnehmer einladen"
+              >
+                <UserPlusIcon className="h-4 w-4 mr-1.5" /> Einladen
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => router.push(`/tournaments/${memoizedInstanceId}/settings`)} 
+                className="hover:bg-gray-700/30 text-gray-300 hover:text-white"
+                title="Einstellungen"
+              >
+                <SettingsIcon className="h-4 w-4 mr-1.5" /> Einstellungen
+              </Button>
+            </>
           )}
         </div>
         
@@ -976,16 +1165,36 @@ const TournamentViewPage: React.FC = () => {
           </div>
         )}
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-grow flex flex-col w-full max-w-2xl mx-auto">
-          <TabsList className="grid w-full grid-cols-3 bg-gray-800 sticky top-0 z-10 rounded-md mb-4">
-            <TabsTrigger value="ranking" className="py-2.5 data-[state=active]:bg-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-l-md">
-              <Award className="w-4 h-4 mr-1.5"/> Rangliste
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.mainTabContainerPadding} rounded-xl sticky top-[calc(env(safe-area-inset-top,0px)+12px)] z-30 backdrop-blur-md shadow-lg`}>
+            <TabsTrigger 
+              value="ranking" 
+              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-xl active:scale-[0.96] active:shadow-inner transition-all duration-100 ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center py-5 relative`}
+              style={{
+                backgroundColor: activeTab === 'ranking' ? getTabActiveColor(tournamentTheme) : 'transparent'
+              }}
+            >
+              <Award size={18} className="mr-2" /> Rangliste
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-gray-600/30"></div>
             </TabsTrigger>
-            <TabsTrigger value="archive" className="py-2.5 data-[state=active]:bg-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white">
-              <ArchiveIcon className="w-4 h-4 mr-1.5"/> Passen
+            <TabsTrigger 
+              value="archive" 
+              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-xl active:scale-[0.96] active:shadow-inner transition-all duration-100 ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center py-5 relative`}
+              style={{
+                backgroundColor: activeTab === 'archive' ? getTabActiveColor(tournamentTheme) : 'transparent'
+              }}
+            >
+              <ArchiveIcon size={18} className="mr-2" /> Passen
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-gray-600/30"></div>
             </TabsTrigger>
-            <TabsTrigger value="participants" className="py-2.5 data-[state=active]:bg-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-r-md">
-              <UsersIcon className="w-4 h-4 mr-1.5"/> Teilnehmer
+            <TabsTrigger
+              value="participants" 
+              className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-xl active:scale-[0.96] active:shadow-inner transition-all duration-100 ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center py-5`}
+              style={{
+                backgroundColor: activeTab === 'participants' ? getTabActiveColor(tournamentTheme) : 'transparent'
+              }}
+            >
+              <UsersIcon size={18} className="mr-2" /> Teilnehmer
             </TabsTrigger>
           </TabsList>
 
@@ -1002,6 +1211,201 @@ const TournamentViewPage: React.FC = () => {
                   <span>Fehler beim Laden der Ranglistendaten.</span>
                 </div>
               ) : (tournament && tournament.settings && Array.isArray(tournamentParticipants) && Array.isArray(currentTournamentGames)) ? (
+                <>
+                  {/* ✅ NEU: Bei "alle_ranglisten" alle Ranglisten untereinander anzeigen */}
+                  {(tournament.settings.rankingMode as string) === 'alle_ranglisten' ? (
+                    <div className="space-y-6">
+                      {/* 1. Rangliste Strichdifferenz */}
+                      <TournamentRankingList 
+                        instanceId={memoizedInstanceId} 
+                        settings={{ ...tournament.settings, rankingMode: 'striche_difference' }}
+                        participants={tournamentParticipants}
+                        games={currentTournamentGames}
+                        onParticipantClick={handleOpenPlayerProgress}
+                      />
+                      
+                      {/* 2. Verlauf Rangliste Strichdifferenz */}
+                      {allRankingChartData?.striche_difference && allRankingChartData.striche_difference.datasets.length > 0 && (
+                        <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                          <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                            <div className="w-1 h-6 bg-purple-500 rounded-r-md mr-3"></div>
+                            <h3 className="text-lg font-semibold text-white">📈 Verlauf Rangliste Strichdifferenz</h3>
+                          </div>
+                          <div className="py-4 pl-4 pr-2">
+                            {allRankingHistoriesLoading ? (
+                              <div className="flex justify-center items-center py-10">
+                                <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+                                <span className="ml-3 text-gray-300">Lade Chart-Daten...</span>
+                              </div>
+                            ) : (
+                              <PowerRatingChart 
+                                data={allRankingChartData.striche_difference}
+                                title="Verlauf Rangliste Strichdifferenz"
+                                height={allRankingChartData.striche_difference.chartHeight}
+                                theme="purple"
+                                isDarkMode={true}
+                                isEloChart={false}
+                                showBaseline={false}
+                                hideLegend={true}
+                                useThemeColors={false}
+                                activeTab={activeTab}
+                                animateImmediately={false}
+                                invertYAxis={true}
+                                yAxisMin={1}
+                                yAxisMax={allRankingChartData.striche_difference.maxRank}
+                                disableDatasetSorting={true}
+                                hideOutliers={false}
+                                yAxisLabels={allRankingChartData.striche_difference.yAxisLabels}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* 3. Rangliste Striche */}
+                      <TournamentRankingList 
+                        instanceId={memoizedInstanceId} 
+                        settings={{ ...tournament.settings, rankingMode: 'striche' }}
+                        participants={tournamentParticipants}
+                        games={currentTournamentGames}
+                        onParticipantClick={handleOpenPlayerProgress}
+                      />
+                      
+                      {/* 4. Verlauf Rangliste Striche */}
+                      {allRankingChartData?.striche && allRankingChartData.striche.datasets.length > 0 && (
+                        <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                          <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                            <div className="w-1 h-6 bg-purple-500 rounded-r-md mr-3"></div>
+                            <h3 className="text-lg font-semibold text-white">📈 Verlauf Rangliste Striche</h3>
+                          </div>
+                          <div className="py-4 pl-4 pr-2">
+                            {allRankingHistoriesLoading ? (
+                              <div className="flex justify-center items-center py-10">
+                                <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+                                <span className="ml-3 text-gray-300">Lade Chart-Daten...</span>
+                              </div>
+                            ) : (
+                              <PowerRatingChart 
+                                data={allRankingChartData.striche}
+                                title="Verlauf Rangliste Striche"
+                                height={allRankingChartData.striche.chartHeight}
+                                theme="purple"
+                                isDarkMode={true}
+                                isEloChart={false}
+                                showBaseline={false}
+                                hideLegend={true}
+                                useThemeColors={false}
+                                activeTab={activeTab}
+                                animateImmediately={false}
+                                invertYAxis={true}
+                                yAxisMin={1}
+                                yAxisMax={allRankingChartData.striche.maxRank}
+                                disableDatasetSorting={true}
+                                hideOutliers={false}
+                                yAxisLabels={allRankingChartData.striche.yAxisLabels}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* 5. Rangliste Punkte */}
+                      <TournamentRankingList 
+                        instanceId={memoizedInstanceId} 
+                        settings={{ ...tournament.settings, rankingMode: 'total_points' }}
+                        participants={tournamentParticipants}
+                        games={currentTournamentGames}
+                        onParticipantClick={handleOpenPlayerProgress}
+                      />
+                      
+                      {/* 6. Verlauf Rangliste Punkte */}
+                      {allRankingChartData?.total_points && allRankingChartData.total_points.datasets.length > 0 && (
+                        <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                          <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                            <div className="w-1 h-6 bg-purple-500 rounded-r-md mr-3"></div>
+                            <h3 className="text-lg font-semibold text-white">📈 Verlauf Rangliste Punkte</h3>
+                          </div>
+                          <div className="py-4 pl-4 pr-2">
+                            {allRankingHistoriesLoading ? (
+                              <div className="flex justify-center items-center py-10">
+                                <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+                                <span className="ml-3 text-gray-300">Lade Chart-Daten...</span>
+                              </div>
+                            ) : (
+                              <PowerRatingChart 
+                                data={allRankingChartData.total_points}
+                                title="Verlauf Rangliste Punkte"
+                                height={allRankingChartData.total_points.chartHeight}
+                                theme="purple"
+                                isDarkMode={true}
+                                isEloChart={false}
+                                showBaseline={false}
+                                hideLegend={true}
+                                useThemeColors={false}
+                                activeTab={activeTab}
+                                animateImmediately={false}
+                                invertYAxis={true}
+                                yAxisMin={1}
+                                yAxisMax={allRankingChartData.total_points.maxRank}
+                                disableDatasetSorting={true}
+                                hideOutliers={false}
+                                yAxisLabels={allRankingChartData.total_points.yAxisLabels}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* 7. Rangliste Punktedifferenz */}
+                      <TournamentRankingList 
+                        instanceId={memoizedInstanceId} 
+                        settings={{ ...tournament.settings, rankingMode: 'points_difference' }}
+                        participants={tournamentParticipants}
+                        games={currentTournamentGames}
+                        onParticipantClick={handleOpenPlayerProgress}
+                      />
+                      
+                      {/* 8. Verlauf Rangliste Punktedifferenz */}
+                      {allRankingChartData?.points_difference && allRankingChartData.points_difference.datasets.length > 0 && (
+                        <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                          <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                            <div className="w-1 h-6 bg-purple-500 rounded-r-md mr-3"></div>
+                            <h3 className="text-lg font-semibold text-white">📈 Verlauf Rangliste Punktedifferenz</h3>
+                          </div>
+                          <div className="py-4 pl-4 pr-2">
+                            {allRankingHistoriesLoading ? (
+                              <div className="flex justify-center items-center py-10">
+                                <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+                                <span className="ml-3 text-gray-300">Lade Chart-Daten...</span>
+                              </div>
+                            ) : (
+                              <PowerRatingChart 
+                                data={allRankingChartData.points_difference}
+                                title="Verlauf Rangliste Punktedifferenz"
+                                height={allRankingChartData.points_difference.chartHeight}
+                                theme="purple"
+                                isDarkMode={true}
+                                isEloChart={false}
+                                showBaseline={false}
+                                hideLegend={true}
+                                useThemeColors={false}
+                                activeTab={activeTab}
+                                animateImmediately={false}
+                                invertYAxis={true}
+                                yAxisMin={1}
+                                yAxisMax={allRankingChartData.points_difference.maxRank}
+                                disableDatasetSorting={true}
+                                hideOutliers={false}
+                                yAxisLabels={allRankingChartData.points_difference.yAxisLabels}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* Normale Logik: Ein Chart für den ausgewählten Modus */
+                <>
                 <TournamentRankingList 
                   instanceId={memoizedInstanceId} 
                   settings={tournament.settings}
@@ -1009,6 +1413,58 @@ const TournamentViewPage: React.FC = () => {
                   games={currentTournamentGames}
                   onParticipantClick={handleOpenPlayerProgress}
                 />
+                  
+                  {/* 🆕 NEU: Ranking History Chart */}
+                  {rankingChartData && rankingChartData.datasets.length > 0 && (
+                    <div className="mt-6">
+                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                        {/* Header mit Accent-Bar */}
+                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                          <div className="w-1 h-6 bg-purple-500 rounded-r-md mr-3"></div>
+                              <h3 className="text-lg font-semibold text-white">
+                                📈 {(tournament?.settings?.rankingMode as string) === 'striche_difference' ? 'Verlauf Rangliste Strichdifferenz' :
+                                    (tournament?.settings?.rankingMode as string) === 'points_difference' ? 'Verlauf Rangliste Punktedifferenz' :
+                                    (tournament?.settings?.rankingMode as string) === 'striche' ? 'Verlauf Rangliste Striche' :
+                                    (tournament?.settings?.rankingMode as string) === 'total_points' ? 'Verlauf Rangliste Punkte' :
+                                    'Verlauf Rangliste'}
+                              </h3>
+                        </div>
+                        
+                        {/* Chart Container - 16px padding-left, damit Y-Achse mit "#" Spalte übereinstimmt */}
+                        <div className="py-4 pl-4 pr-2">
+                          {rankingHistoryLoading ? (
+                            <div className="flex justify-center items-center py-10">
+                              <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+                              <span className="ml-3 text-gray-300">Lade Chart-Daten...</span>
+                            </div>
+                          ) : (
+                           <PowerRatingChart 
+                            data={rankingChartData}
+                            title="Verlauf Rangliste"
+                            height={rankingChartData.chartHeight}
+                            theme="purple"
+                            isDarkMode={true}
+                            isEloChart={false}
+                            showBaseline={false}
+                            hideLegend={true}
+                            useThemeColors={false}
+                            activeTab={activeTab}
+                            animateImmediately={false}
+                            invertYAxis={true}
+                            yAxisMin={1}
+                            yAxisMax={rankingChartData.maxRank}
+                            disableDatasetSorting={true}
+                            hideOutliers={false}
+                            yAxisLabels={rankingChartData.yAxisLabels}
+                          />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                      )}
+                    </>
+                  )}
+                </>
               ) : (
                 <p className='text-center text-gray-500 py-8'>Rangliste konnte nicht geladen werden (fehlende Daten oder Einstellungen).</p>
               )}
@@ -1066,7 +1522,8 @@ const TournamentViewPage: React.FC = () => {
                 : "Das Turnier hat noch nicht begonnen."
               }
             </p>
-            {isCurrentUserAdmin && (
+            {/* 🔒 Admin-Link nur für authentifizierte Admins */}
+            {isCurrentUserAdmin && !isPublicView && (
               <Button onClick={() => router.push(`/tournaments/${memoizedInstanceId}/settings`)} size="sm" variant="link" className="mt-1 text-purple-400 hover:text-purple-300">
                 Turnierdetails bearbeiten / Starten
               </Button>
@@ -1075,7 +1532,8 @@ const TournamentViewPage: React.FC = () => {
         )}
 
 
-        {showStartPasseScreen && memoizedInstanceId && (
+        {/* 🔒 Modals nur für authentifizierte Admins */}
+        {!isPublicView && showStartPasseScreen && memoizedInstanceId && (
           <TournamentStartScreen 
                 isVisible={showStartPasseScreen}
                 onClose={() => setShowStartPasseScreen(false)}
@@ -1087,7 +1545,7 @@ const TournamentViewPage: React.FC = () => {
           />
         )}
 
-        {isCurrentUserAdmin && memoizedInstanceId && tournament && (
+        {!isPublicView && isCurrentUserAdmin && memoizedInstanceId && tournament && (
           <TournamentInviteModal
             isOpen={isInviteModalOpen}
             onClose={() => setIsInviteModalOpen(false)}
@@ -1097,26 +1555,34 @@ const TournamentViewPage: React.FC = () => {
           />
         )}
 
-        <ImageCropModal
-          isOpen={cropModalOpen}
-          onClose={() => handleCropComplete(null)}
-          imageSrc={imageToCrop}
-          onCropComplete={handleCropComplete}
-        />
+        {!isPublicView && (
+          <ImageCropModal
+            isOpen={cropModalOpen}
+            onClose={() => handleCropComplete(null)}
+            imageSrc={imageToCrop}
+            onCropComplete={handleCropComplete}
+          />
+        )}
 
-        <input
-          type="file"
-          ref={logoFileInputRef}
-          onChange={handleLogoFileChange}
-                            accept="image/jpeg, image/jpg, image/png, image/webp, image/gif, image/heic, image/heif"
-          className="hidden"
-          disabled={isUploadingLogo}
-        />
+        {/* 🔒 Logo-Upload nur für Admins */}
+        {!isPublicView && (
+          <input
+            type="file"
+            ref={logoFileInputRef}
+            onChange={handleLogoFileChange}
+            accept="image/jpeg, image/jpg, image/png, image/webp, image/gif, image/heic, image/heif"
+            className="hidden"
+            disabled={isUploadingLogo}
+          />
+        )}
+
+        {/* 🎨 RESPONSIVE CONTAINER WRAPPER CLOSING TAG */}
+        </div>
 
       </div>
       
-      {/* BUTTON AUSSERHALB DES MAINLAYOUT FÜR VOLLE BREITE */}
-      {tournament?.status === 'active' && (
+      {/* 🔒 BUTTON AUSSERHALB DES MAINLAYOUT - Nur für authentifizierte Admins */}
+      {tournament?.status === 'active' && !isPublicView && (
           <div className="fixed bottom-24 left-0 right-0 z-50 bg-gray-900/90 backdrop-blur-sm border-t border-gray-700/60 p-4">
               <div className="w-full">
                   {isCheckingForResumablePasse ? (
@@ -1141,12 +1607,14 @@ const TournamentViewPage: React.FC = () => {
                           <Button 
                               onClick={handleStartNextPasse}
                               className="w-full h-14 text-lg font-bold rounded-xl shadow-lg bg-blue-600 hover:bg-blue-700 border-b-4 border-blue-900 text-white active:scale-95 transition duration-100 ease-in-out"
-                              disabled={participantsStatus === 'loading' || tournamentParticipants.length < 1 || isLoadingDetails}
+                              disabled={
+                                participantsStatus === 'loading' || 
+                                tournamentParticipants.length < 4 || 
+                                isLoadingDetails
+                              }
                           >
                               {(participantsStatus === 'loading' || isLoadingDetails) && <Loader2 className="animate-spin h-5 w-5 mr-2" />}
-                              {/* 🆕 Zeige Passe-Label (z.B. "1A") statt nur Nummer */}
                               Passe {nextPasseLabel} starten
-                              {(participantsStatus !== 'loading' && !isLoadingDetails && tournamentParticipants.length < 1) && " (Benötigt Teilnehmer)"}
                           </Button>
                       )
                   )}

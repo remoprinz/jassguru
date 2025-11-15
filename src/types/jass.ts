@@ -945,6 +945,8 @@ export interface FirestoreGroup extends FirebaseDocument {
   description?: string;
   logoUrl?: string;
   playerIds: string[];
+  memberPlayerIds?: string[]; // ✅ NEU: Explizite Mitgliederliste (Player IDs)
+  memberUids?: string[]; // ✅ NEU: Explizite Mitgliederliste (User IDs)
   adminIds: string[];
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -1046,6 +1048,8 @@ export interface ActiveGame {
   sessionId: string; // << NEU: Eindeutige ID der übergeordneten Jass-Session
   tournamentInstanceId?: string; // NEU: Optional, für Turnier-Passen
   currentGameNumber: number; // Spielnummer (oder Passe-Nummer im Turnier)
+  passeTournamentNumber?: number; // ✅ KRITISCH: Passe-Nummer im Turnier (determiniert beim Start!)
+  passeInRound?: string; // ✅ KRITISCH: Buchstabe (A, B, C...) - determiniert beim Start!
   participantUids: string[]; // ✅ Für Backend-Kompatibilität
   participantPlayerIds?: string[]; // ✅ NEU: Player Document IDs für moderne Verarbeitung
   status: 'live' | 'completed' | 'aborted';

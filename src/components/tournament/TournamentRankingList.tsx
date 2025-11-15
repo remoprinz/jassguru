@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import ProfileImage from '@/components/ui/ProfileImage';
 import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
 import { firebaseApp } from '@/services/firebaseInit';
+import { sortPlayersByRankingMode, type RankingMode } from '@/utils/tournamentSorting';
 
 interface TournamentRankingListProps {
   instanceId: string;
@@ -49,6 +50,8 @@ interface PlayerRankingData {
 interface PlayerTotals {
   score: number;
   striche: number; // Gesamtzahl der Striche
+  stricheDifference?: number; // ✅ NEU: Strichdifferenz (kumulativ)
+  pointsDifference?: number; // ✅ NEU: Punktedifferenz (kumulativ)
   weis: number;
   // Optional: Detaillierte Striche, falls benötigt
   // detailedStriche: StricheRecord;
@@ -129,32 +132,21 @@ const TournamentRankingList: React.FC<TournamentRankingListProps> = ({
   const playerTotals = useMemo(() => {
     const totals: Record<string, PlayerTotals> = {};
 
-    // ✅ INTELLIGENTE DATENQUELLE: Verwende PlayerRankings für abgeschlossene Turniere
-    if (playerRankings.length > 0) {
-      // Initialisiere für jeden Teilnehmer (nach Player Document ID indiziert)
-      participants.forEach(p => {
-        if (p?.playerId) {
-          totals[p.playerId] = { score: 0, striche: 0, weis: 0 };
-        }
-      });
-
-      // Lade Daten aus PlayerRankings (direkt, ohne Mapping!)
-      playerRankings.forEach(ranking => {
-        if (totals[ranking.playerId]) {
-          totals[ranking.playerId].score = ranking.pointsScored || 0;
-          totals[ranking.playerId].striche = ranking.stricheScored || 0;
-          totals[ranking.playerId].weis = ranking.totalWeisPoints || 0;
-        }
-      });
-      
-      return totals;
-    }
-
-    // ✅ FALLBACK: Live-Berechnung für aktive Turniere
+    // ✅ KORRIGIERT: Berechne IMMER aus games (auch für abgeschlossene Turniere!)
+    // Das stellt sicher, dass die Werte korrekt sind, auch wenn Backend-Daten falsch sind  
     // Initialisiere für jeden Teilnehmer (nach Player Document ID indiziert)
+    const stricheScored: Record<string, number> = {}; // ✅ NEU: Tracke Striche gemacht
+    const stricheReceived: Record<string, number> = {}; // ✅ NEU: Tracke Striche erhalten
+    const pointsScored: Record<string, number> = {}; // ✅ NEU: Tracke Punkte gemacht
+    const pointsReceived: Record<string, number> = {}; // ✅ NEU: Tracke Punkte erhalten
+    
     participants.forEach(p => {
       if (p?.playerId) {
         totals[p.playerId] = { score: 0, striche: 0, weis: 0 };
+        stricheScored[p.playerId] = 0;
+        stricheReceived[p.playerId] = 0;
+        pointsScored[p.playerId] = 0;
+        pointsReceived[p.playerId] = 0;
       }
     });
 
@@ -179,6 +171,14 @@ const TournamentRankingList: React.FC<TournamentRankingListProps> = ({
               // 🔧 FIX: Beide Spieler bekommen die VOLLE Punktzahl!
               totals[playerDocId].score += teamScore;
               totals[playerDocId].weis += detail.weisInPasse || 0;
+              pointsScored[playerDocId] += teamScore; // ✅ NEU
+              
+              // ✅ NEU: Berechne Punkte erhalten (Gegner-Team)
+              const opponentTeamForPoints = detail.team === 'top' ? 'bottom' : 'top';
+              const opponentScore = game.teamScoresPasse && game.teamScoresPasse[opponentTeamForPoints]
+                ? (game.teamScoresPasse[opponentTeamForPoints] || 0)
+                : 0;
+              pointsReceived[playerDocId] += opponentScore; // ✅ NEU
 
               // KORRIGIERT: Verwende Team-Striche statt individuelle Spieler-Striche
               let stricheSumInPasse = 0;
@@ -189,102 +189,94 @@ const TournamentRankingList: React.FC<TournamentRankingListProps> = ({
               }
               // Addiere zur Gesamtzahl der Striche
               totals[playerDocId].striche += stricheSumInPasse;
+              stricheScored[playerDocId] += stricheSumInPasse; // ✅ NEU
+              
+              // ✅ NEU: Berechne Striche erhalten (Gegner-Team)
+              const opponentTeamForStriche = detail.team === 'top' ? 'bottom' : 'top';
+              let stricheReceivedInPasse = 0;
+              if (game.teamStrichePasse && game.teamStrichePasse[opponentTeamForStriche]) {
+                const opponentStriche = game.teamStrichePasse[opponentTeamForStriche];
+                stricheReceivedInPasse = Object.values(opponentStriche).reduce((sum, val) => sum + (val || 0), 0);
+              }
+              stricheReceived[playerDocId] += stricheReceivedInPasse; // ✅ NEU
             }
           });
         }
       });
     }
     
+    // ✅ NEU: Berechne stricheDifference und pointsDifference für alle Spieler
+    Object.keys(totals).forEach(playerId => {
+      totals[playerId].stricheDifference = (stricheScored[playerId] || 0) - (stricheReceived[playerId] || 0);
+      totals[playerId].pointsDifference = (pointsScored[playerId] || 0) - (pointsReceived[playerId] || 0);
+    });
+    
     return totals;
-  }, [participants, games, playerRankings]); // ✅ NEU: playerRankings als Abhängigkeit
+  }, [participants, games]); // ✅ KORRIGIERT: playerRankings entfernt, da Werte immer aus games berechnet werden
 
   // Schritt 2.3: Rangliste erstellen und sortieren
   const rankedPlayers = useMemo(() => {
-    // ✅ INTELLIGENTE SORTIERUNG: Verwende PlayerRankings für abgeschlossene Turniere
-    if (playerRankings.length > 0) {
-      // ✅ NUR NOCH PLAYER DOCUMENT IDs verwenden!
-      const playersWithRankings = participants
+    // ✅ KORRIGIERT: Verwende IMMER playerTotals (berechnet aus games)
+    // Das stellt sicher, dass Werte und Ränge korrekt sind, auch wenn Backend-Daten falsch sind
+    const playersWithTotals = participants
         .map(p => {
-          // Finde das Ranking basierend auf der Player Document ID des Teilnehmers
-          const ranking = playerRankings.find(r => r.playerId === p.playerId);
-          
-          if (!ranking) return null;
+        if (!p?.playerId) return null;
           
           return {
             ...p,
-            rank: ranking.rank,
-            totals: {
-              score: ranking.pointsScored || 0,
-              striche: ranking.stricheScored || 0,
-              weis: ranking.totalWeisPoints || 0
-            }
+          totals: playerTotals[p.playerId] || { score: 0, striche: 0, stricheDifference: 0, pointsDifference: 0, weis: 0 }
           };
         })
-        .filter(p => p !== null)
-        .sort((a, b) => a.rank - b.rank) as RankingEntry[]; // ✅ KRITISCH: Sortiere nach Rang!
-      
-      return playersWithRankings;
-    }
+      .filter(p => p !== null && p.playerId) as RankingEntry[];
 
-    // ✅ FALLBACK: Live-Sortierung für aktive Turniere
-    // ✅ NUR NOCH PLAYER DOCUMENT IDs verwenden!
-    // Kombiniere Teilnehmerdaten mit ihren Gesamtständen
-    const playersWithTotals = participants
-      .map(p => ({
-        ...p,
-        totals: p?.playerId ? playerTotals[p.playerId] : { score: 0, striche: 0, weis: 0 }, // Fallback für fehlende playerId
-      }))
-      .filter(p => p.playerId); // Nur Teilnehmer mit gültiger playerId berücksichtigen
+    // ✅ IMMER: Nutze zentrale Sortier-Utility (auch für abgeschlossene Turniere!)
+    // Mapping für Utility-kompatibles Format
+    const rankingMode = settings?.rankingMode || 'total_points';
+    const playersForSorting = playersWithTotals.map(p => ({
+      playerId: p.playerId!,
+      playerName: p.displayName || 'Unbekannt',
+      totalStriche: p.totals.striche,
+      totalPoints: p.totals.score,
+      stricheDifference: p.totals.stricheDifference ?? 0, // ✅ NEU
+      pointsDifference: p.totals.pointsDifference ?? 0, // ✅ NEU
+      originalData: p, // Behalte Original-Daten
+    }));
+    
+    // Sortiere mit zentraler Utility (inkl. Tie-Breaker: Punkte ↔ Striche ↔ Alphabetisch)
+    const sortedPlayers = sortPlayersByRankingMode(playersForSorting, rankingMode as RankingMode);
 
-    // Sortierlogik basierend auf rankingMode
-    playersWithTotals.sort((a, b) => {
-      const rankingMode = settings?.rankingMode || 'total_points'; // Default auf Punkte, falls nicht gesetzt
-
-      if (rankingMode === 'total_points') {
-        // Nach Punkten absteigend, dann nach Strichen absteigend
-        if (b.totals.score !== a.totals.score) {
-          return b.totals.score - a.totals.score;
-        }
-        return b.totals.striche - a.totals.striche;
-      } else if (rankingMode === 'striche') {
-        // Nach Strichen absteigend, dann nach Punkten absteigend
-        if (b.totals.striche !== a.totals.striche) {
-          return b.totals.striche - a.totals.striche;
-        }
-        return b.totals.score - a.totals.score;
-      } else {
-        // Für andere Modi (wins/average) 
-        // Nach Strichen absteigend, dann nach Punkten absteigend
-        if (b.totals.striche !== a.totals.striche) {
-          return b.totals.striche - a.totals.striche;
-        }
-        return b.totals.score - a.totals.score;
-      }
-    });
-
-    // Füge den Rang hinzu (Berücksichtige Punkt-/Strichgleichheit)
+    // Füge Rang hinzu (Spieler mit exakt gleichen Werten bekommen gleichen Rang)
     let rank = 1;
-    return playersWithTotals.map((player, index, arr) => {
+    return sortedPlayers.map((player, index) => {
       if (index > 0) {
-        const prevPlayer = arr[index - 1];
-        const rankingMode = settings?.rankingMode || 'total_points';
-        let scoreSame = false;
+        const prevPlayer = sortedPlayers[index - 1];
         
+        // Prüfe ob BEIDE Werte (Primär UND Tie-Breaker 1) exakt gleich sind
+        let isEqual = false;
         if (rankingMode === 'total_points') {
-          scoreSame = player.totals.score === prevPlayer.totals.score && player.totals.striche === prevPlayer.totals.striche;
-        } else if (rankingMode === 'striche') {
-          scoreSame = player.totals.striche === prevPlayer.totals.striche && player.totals.score === prevPlayer.totals.score;
+          isEqual = prevPlayer.totalPoints === player.totalPoints && 
+                    prevPlayer.totalStriche === player.totalStriche;
+        } else if (rankingMode === 'striche_difference') {
+          // ✅ KORRIGIERT: Tie-Breaker 1 = totalStriche, Tie-Breaker 2 = pointsDifference
+          isEqual = (prevPlayer.stricheDifference ?? 0) === (player.stricheDifference ?? 0) && 
+                    prevPlayer.totalStriche === player.totalStriche &&
+                    (prevPlayer.pointsDifference ?? 0) === (player.pointsDifference ?? 0);
+        } else if (rankingMode === 'points_difference') {
+          isEqual = (prevPlayer.pointsDifference ?? 0) === (player.pointsDifference ?? 0) && 
+                    prevPlayer.totalStriche === player.totalStriche;
         } else {
-          scoreSame = player.totals.striche === prevPlayer.totals.striche && player.totals.score === prevPlayer.totals.score;
+          // 'striche'
+          isEqual = prevPlayer.totalStriche === player.totalStriche && 
+            prevPlayer.totalPoints === player.totalPoints;
         }
         
-        if (!scoreSame) {
-          rank = index + 1; // Erhöhe Rang nur, wenn Score/Striche unterschiedlich sind
+        if (!isEqual) {
+          rank = index + 1; // Erhöhe Rang nur, wenn Werte unterschiedlich sind
         }
       }
-      return { ...player, rank };
+      return { ...player.originalData, rank };
     });
-  }, [participants, playerTotals, settings, playerRankings]); // ✅ NEU: playerRankings als Abhängigkeit
+  }, [participants, playerTotals, settings]); // ✅ KORRIGIERT: playerRankings entfernt
 
   // NEU: Hilfsfunktion um zu prüfen, ob Striche aktiv sind
   const areStrokesVisible = useMemo(() => {
@@ -301,8 +293,12 @@ const TournamentRankingList: React.FC<TournamentRankingListProps> = ({
   // ✅ NEU: Loading-State für PlayerRankings
   if (isLoadingRankings) {
     return (
-      <div className="bg-gray-800/50 p-4 rounded-lg shadow-inner border border-gray-700/50">
-        <h3 className="text-lg font-semibold text-center mb-4 text-purple-300">Rangliste</h3>
+      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+        {/* Header mit Accent-Bar - konsistent mit Chart-Header */}
+        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+          <div className="w-1 h-6 bg-purple-500 rounded-r-md mr-3"></div>
+          <h3 className="text-lg font-semibold text-white">🏆 Rangliste</h3>
+        </div>
         <div className="flex justify-center items-center p-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
           <span className="ml-3 text-gray-400">Lade Turnier-Rankings...</span>
@@ -313,21 +309,42 @@ const TournamentRankingList: React.FC<TournamentRankingListProps> = ({
 
   // Schritt 2.4: Rendern der Tabelle
   return (
-    <div className="bg-gray-800/50 p-4 rounded-lg shadow-inner border border-gray-700/50">
-      <h3 className="text-lg font-semibold text-center mb-4 text-purple-300">Rangliste</h3>
+    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+      {/* Header mit Accent-Bar - konsistent mit Chart-Header */}
+      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+        <div className="w-1 h-6 bg-purple-500 rounded-r-md mr-3"></div>
+        <h3 className="text-lg font-semibold text-white">
+          🏆 {settings?.rankingMode === 'striche_difference' ? 'Rangliste Strichdifferenz' :
+              settings?.rankingMode === 'points_difference' ? 'Rangliste Punktedifferenz' :
+              settings?.rankingMode === 'striche' ? 'Rangliste Striche' :
+              settings?.rankingMode === 'total_points' ? 'Rangliste Punkte' :
+              'Rangliste'}
+        </h3>
+      </div>
       
+      {/* Tabellen-Container mit Padding - konsistent mit Chart-Container */}
+      <div className="p-4">
       {rankedPlayers.length === 0 ? (
-        <p className="text-center text-gray-400">Noch keine Teilnehmerdaten oder Ergebnisse vorhanden.</p>
+          <p className="text-center text-gray-400 py-4">Noch keine Teilnehmerdaten oder Ergebnisse vorhanden.</p>
       ) : (
         <table className="w-full text-sm text-left table-fixed">
           <thead className="border-b border-gray-600">
             <tr>
-              <th className="w-8 py-2 px-1 text-center font-medium text-gray-400">#</th>
+              <th className="w-12 py-2 pl-4 pr-1 text-left font-medium text-gray-400">#</th>
               <th className="py-2 px-2 font-medium text-gray-400">Spieler</th>
-              {areStrokesVisible && (
+              {/* ✅ KORRIGIERT: Zeige nur die relevante Spalte basierend auf rankingMode */}
+              {settings?.rankingMode === 'striche' && areStrokesVisible && (
                 <th className="w-16 py-2 px-1 text-center font-medium text-gray-400">Striche</th>
               )}
-              <th className="w-16 py-2 px-1 text-center font-medium text-gray-400">Punkte</th>
+              {settings?.rankingMode === 'striche_difference' && (
+                <th className="w-32 py-2 px-1 text-center font-medium text-gray-400">Strichdifferenz</th>
+              )}
+              {settings?.rankingMode === 'total_points' && (
+                <th className="w-24 py-2 px-1 text-center font-medium text-gray-400">Punkte</th>
+              )}
+              {settings?.rankingMode === 'points_difference' && (
+                <th className="w-32 py-2 px-1 text-center font-medium text-gray-400">Punktedifferenz</th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -337,7 +354,7 @@ const TournamentRankingList: React.FC<TournamentRankingListProps> = ({
                 onClick={() => handleItemClick(player)}
                 className={cn("border-b border-gray-700/50 hover:bg-gray-700/60 transition-colors", onParticipantClick ? "cursor-pointer" : "")}
               >
-                <td className="py-2 px-1 text-center font-medium text-gray-300">{player.rank}</td>
+                <td className="py-2 pl-4 pr-1 text-left font-medium text-gray-300">{player.rank}</td>
                 <td className="py-2 px-2 flex items-center space-x-2 truncate">
                   <ProfileImage 
                     src={player.photoURL}
@@ -351,18 +368,48 @@ const TournamentRankingList: React.FC<TournamentRankingListProps> = ({
                     {player.displayName || 'Unbekannt'}
                   </span>
                 </td>
-                {areStrokesVisible && (
-                  <td className={`py-2 px-1 text-center font-semibold ${settings?.rankingMode === 'striche' ? 'text-xl text-purple-300' : 'text-white'}`}>
+                {/* ✅ KORRIGIERT: Zeige nur die relevante Spalte basierend auf rankingMode */}
+                {settings?.rankingMode === 'striche' && areStrokesVisible && (
+                  <td className="py-2 px-1 text-center text-xl font-semibold text-purple-300">
                     {player.totals.striche}
                   </td>
                 )}
-                <td className={`py-2 px-1 text-center ${settings?.rankingMode === 'total_points' ? 'text-xl font-semibold text-purple-300' : 'text-xs text-gray-400'}`}>
+                {settings?.rankingMode === 'striche_difference' && (
+                  <td className="py-2 pl-1 pr-6 text-right text-xl font-semibold text-purple-300">
+                    {player.totals.stricheDifference != null && player.totals.stricheDifference > 0 ? `+${player.totals.stricheDifference}` : (player.totals.stricheDifference ?? 0)}
+                  </td>
+                )}
+                {settings?.rankingMode === 'total_points' && (
+                  <td className="py-2 pl-8 pr-8 text-right text-xl font-semibold text-purple-300">
                   {player.totals.score}
                 </td>
+                )}
+                {settings?.rankingMode === 'points_difference' && (
+                  <td className="py-2 pl-1 pr-6 text-right text-xl font-semibold text-purple-300">
+                    {player.totals.pointsDifference ?? 0}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
+      )}
+      </div>
+      
+      {/* ✅ NEU: Tie-Breaker Erklärung */}
+      {settings?.rankingMode === 'striche_difference' && (
+        <div className="px-4 pb-3">
+          <p className="text-xs text-gray-400 italic">
+            Bei gleicher Strichdifferenz gewinnt der Spieler mit mehr Strichen, dann entscheidet die Punktedifferenz.
+          </p>
+        </div>
+      )}
+      {settings?.rankingMode === 'striche' && (
+        <div className="px-4 pb-3">
+          <p className="text-xs text-gray-400 italic">
+            Bei gleichen Strichen gewinnt der Spieler mit mehr Punkten.
+          </p>
+        </div>
       )}
     </div>
   );

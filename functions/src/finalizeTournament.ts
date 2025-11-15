@@ -181,6 +181,7 @@ export interface TournamentJassGameSummary {
   tournamentName: string;
   groupId: string;
   status: 'completed';
+  isTournamentSession?: boolean; // ✅ Flag für Frontend-Filterung
   
   // Teilnehmer
   participantPlayerIds: string[];
@@ -254,6 +255,7 @@ export interface TournamentJassGameSummary {
       rating: number;
       ratingDelta: number;
       gamesPlayed: number;
+      displayName?: string;
     };
   };
   
@@ -271,7 +273,7 @@ export interface TournamentDocData { // EXPORTIERT
   groups?: TournamentGroupDefinition[]; 
   groupId?: string; // ✅ Gruppe hinzugefügt
   settings?: {
-    rankingMode?: 'total_points' | 'striche' | 'wins' | 'average_score_per_passe';
+    rankingMode?: 'total_points' | 'striche' | 'striche_difference' | 'wins' | 'average_score_per_passe';
     scoreSettings?: {
         enabled?: {
             berg?: boolean;
@@ -625,18 +627,25 @@ async function createTournamentJassGameSummary(
     if (game.roundHistory && Array.isArray(game.roundHistory)) {
       totalRounds += game.roundHistory.length;
       
+      let hasValidDurations = false; // Track ob wir valide Dauern haben
+      
       game.roundHistory.forEach((round: any, roundIndex: number) => {
-        // Trumpf-Aggregation (analog finalizeSession.ts Zeilen 531-543)
+        // ✅ KORRIGIERT: Trumpf-Aggregation - nur zählen wenn Spieler in diesem Spiel war!
         if (round.startingPlayer && round.farbe) {
           const trumpfPlayerId = playerNumberToIdMap.get(round.startingPlayer);
-          if (trumpfPlayerId && aggregatedTrumpfCounts[trumpfPlayerId]) {
+          // ✅ PRÜFUNG: Ist der trumpfansagende Spieler in diesem Spiel?
+          const playerInThisGame = trumpfPlayerId && (
+            topPlayerIds.includes(trumpfPlayerId) || 
+            bottomPlayerIds.includes(trumpfPlayerId)
+          );
+          if (playerInThisGame && aggregatedTrumpfCounts[trumpfPlayerId]) {
             const farbeKey = round.farbe.toLowerCase();
             aggregatedTrumpfCounts[trumpfPlayerId][farbeKey] = 
               (aggregatedTrumpfCounts[trumpfPlayerId][farbeKey] || 0) + 1;
           }
         }
         
-        // Rundendauer-Aggregation (analog finalizeSession.ts Zeilen 545-629)
+        // Rundendauer-Aggregation (VERBESSERT mit lockerem Filter)
         if (round.currentPlayer) {
           const roundPlayerId = playerNumberToIdMap.get(round.currentPlayer);
           if (roundPlayerId) {
@@ -664,15 +673,44 @@ async function createTournamentJassGameSummary(
               roundDuration = round.durationMillis;
             }
             
-            // Füge Rundendauer hinzu (Filter: 1min <= duration < 12min)
-            if (roundDuration >= 60000 && roundDuration < 720000 && !round.wasPaused) {
+            // VERBESSERTER FILTER: 30s <= duration < 15min (statt 1-12min)
+            if (roundDuration >= 30000 && roundDuration < 900000 && !round.wasPaused) {
               aggregatedRoundDurations[roundPlayerId].totalDuration += roundDuration;
               aggregatedRoundDurations[roundPlayerId].roundCount += 1;
               aggregatedRoundDurations[roundPlayerId].roundDurations.push(roundDuration);
+              hasValidDurations = true;
             }
           }
         }
       });
+      
+      // FALLBACK - Wenn keine validen Rundendauern gefunden
+      if (!hasValidDurations && game.roundHistory.length > 0) {
+        const gameAny = game as any;
+        const gameDuration = gameAny.durationSeconds ? gameAny.durationSeconds * 1000 : 
+                             gameAny.durationMillis || 0;
+        
+        if (gameDuration > 0) {
+          // Verteile Game-Dauer gleichmäßig auf alle Runden
+          const avgRoundDuration = gameDuration / game.roundHistory.length;
+          
+          // Nur wenn Durchschnitt realistisch ist (30s - 15min)
+          if (avgRoundDuration >= 30000 && avgRoundDuration < 900000) {
+            game.roundHistory.forEach((round: any) => {
+              if (round.currentPlayer) {
+                const roundPlayerId = playerNumberToIdMap.get(round.currentPlayer);
+                if (roundPlayerId && aggregatedRoundDurations[roundPlayerId]) {
+                  aggregatedRoundDurations[roundPlayerId].totalDuration += avgRoundDuration;
+                  aggregatedRoundDurations[roundPlayerId].roundCount += 1;
+                  aggregatedRoundDurations[roundPlayerId].roundDurations.push(avgRoundDuration);
+                }
+              }
+            });
+            
+            logger.info(`[createTournamentJassGameSummary] Used fallback avg duration (${Math.round(avgRoundDuration/1000)}s/round) for game ${game.id}`);
+          }
+        }
+      }
     }
     
     // ✅ Weis Points aus playerDetails.weisInPasse aggregieren
@@ -706,6 +744,7 @@ async function createTournamentJassGameSummary(
     tournamentName: tournamentDoc.name || '',
     groupId: tournamentDoc.groupId || '',
     status: 'completed',
+    isTournamentSession: true, // ✅ Flag für Frontend-Filterung
     
     participantPlayerIds,
     playerNames,
@@ -1099,29 +1138,13 @@ export async function finalizeTournamentInternal(tournamentId: string): Promise<
       } else {
         logger.warn(`⚠️ Keine Player-Doc-IDs oder Group-ID für unified player data update in Turnier ${tournamentId} gefunden`);
       }
-      
-      // 🆕 CHART-DATA UPDATES: Aktualisiere alle Chart-Dokumente
-      if (finalParticipantPlayerIds.length > 0 && finalizedGroupId) {
-        try {
-          logger.info(`[finalizeTournament] Triggering chart data update for tournament ${tournamentId}`);
-          await updateChartsAfterSession(
-            finalizedGroupId,
-            tournamentId,
-            true // Tournament-Session
-          );
-          logger.info(`[finalizeTournament] Chart data update completed for tournament ${tournamentId}`);
-        } catch (chartError) {
-          logger.error(`[finalizeTournament] Error updating chart data:`, chartError);
-          // Nicht kritisch - soll Turnier-Finalisierung nicht blockieren
-        }
-      }
 
       // 🆕 PLAYER FINAL RATINGS: Update jassGameSummary mit playerFinalRatings NACH Elo-Update
       if (finalParticipantPlayerIds.length > 0 && finalizedGroupId) {
         try {
           logger.info(`[finalizeTournament] Adding playerFinalRatings to jassGameSummary`);
           
-          const playerFinalRatings: { [playerId: string]: { rating: number; ratingDelta: number; gamesPlayed: number; } } = {};
+          const playerFinalRatings: { [playerId: string]: { rating: number; ratingDelta: number; gamesPlayed: number; displayName?: string; } } = {};
           
           for (const playerId of finalParticipantPlayerIds) {
             const playerDoc = await db.collection('players').doc(playerId).get();
@@ -1159,6 +1182,7 @@ export async function finalizeTournamentInternal(tournamentId: string): Promise<
               rating: playerData.globalRating || 100,
               ratingDelta: tournamentDelta,
               gamesPlayed: playerData.gamesPlayed || 0,
+              displayName: playerData.displayName || 'Unbekannt',
             };
           }
           
@@ -1311,22 +1335,6 @@ export async function finalizeTournamentInternal(tournamentId: string): Promise<
           
           logger.info(`[finalizeTournament] Initialized playerScores for ${Object.keys(playerScores).length} players: ${Object.keys(playerScores).join(', ')}`);
 
-          const calculateStricheForGame = (game: TournamentGameData, playerId: string): number => {
-            let striche = 0;
-            // ✅ FIX: Finde Team basierend auf Player ID statt UID
-            const team = game.teams?.top?.players?.some(p => p.playerId === playerId) ? 'top' : 
-                         (game.teams?.bottom?.players?.some(p => p.playerId === playerId) ? 'bottom' : null);
-            if (team && game.finalStriche?.[team]) {
-              const teamStriche = game.finalStriche[team];
-              if (scoreSettingsEnabled?.berg) striche += (teamStriche.berg || 0);
-              if (scoreSettingsEnabled?.sieg) striche += (teamStriche.sieg || 0); 
-              if (scoreSettingsEnabled?.schneider) striche += (teamStriche.schneider || 0);
-              striche += (teamStriche.matsch || 0);
-              striche += (teamStriche.kontermatsch || 0);
-            }
-            return striche;
-          };
-
           // ✅ NEU: Iteriere über alle Games und sammle ALLE Statistiken
           for (const game of tournamentGames) {
             // ✅ FIX: Sammle Player IDs aus diesem Game
@@ -1361,16 +1369,28 @@ export async function finalizeTournamentInternal(tournamentId: string): Promise<
               playerScores[gameParticipantPlayerId].pointsReceived += opponentPoints;
               
               // ===== 2. STRICHE SAMMELN =====
-              const playerStriche = calculateStricheForGame(game, gameParticipantPlayerId);
-              // Berechne Gegner-Striche für "received" - summiere alle Gegner-Striche
-              let opponentStriche = 0;
-              const opponentPlayers = game.teams?.[opponentTeam]?.players || [];
-              for (const opponentPlayer of opponentPlayers) {
-                opponentStriche += calculateStricheForGame(game, opponentPlayer.playerId);
-              }
+              // ✅ FIX 3: Verwende TEAM-STRICHE direkt aus game.finalStriche statt Spieler-Summierung!
+              const playerTeamStriche = game.finalStriche?.[playerTeam];
+              const opponentTeamStriche = game.finalStriche?.[opponentTeam];
               
-              playerScores[gameParticipantPlayerId].stricheScored += playerStriche;
-              playerScores[gameParticipantPlayerId].stricheReceived += opponentStriche;
+              const stricheScored = playerTeamStriche 
+                ? (scoreSettingsEnabled?.berg ? (playerTeamStriche.berg || 0) : 0) + 
+                  (scoreSettingsEnabled?.sieg ? (playerTeamStriche.sieg || 0) : 0) + 
+                  (scoreSettingsEnabled?.schneider ? (playerTeamStriche.schneider || 0) : 0) +
+                  (playerTeamStriche.matsch || 0) + 
+                  (playerTeamStriche.kontermatsch || 0)
+                : 0;
+              
+              const stricheReceived = opponentTeamStriche 
+                ? (scoreSettingsEnabled?.berg ? (opponentTeamStriche.berg || 0) : 0) + 
+                  (scoreSettingsEnabled?.sieg ? (opponentTeamStriche.sieg || 0) : 0) + 
+                  (scoreSettingsEnabled?.schneider ? (opponentTeamStriche.schneider || 0) : 0) +
+                  (opponentTeamStriche.matsch || 0) + 
+                  (opponentTeamStriche.kontermatsch || 0)
+                : 0;
+              
+              playerScores[gameParticipantPlayerId].stricheScored += stricheScored;
+              playerScores[gameParticipantPlayerId].stricheReceived += stricheReceived;
               
               // ===== 3. WINS/LOSSES/DRAWS =====
               if (playerPoints > opponentPoints) {
@@ -1409,7 +1429,12 @@ export async function finalizeTournamentInternal(tournamentId: string): Promise<
               
               // ===== 6. LEGACY SCORE für Ranking =====
               if (rankingModeToStore === 'striche') {
-                playerScores[gameParticipantPlayerId].score += playerStriche;
+                playerScores[gameParticipantPlayerId].score += stricheScored; // ✅ FIX 3: Verwende stricheScored statt playerStriche
+              } else if (rankingModeToStore === 'striche_difference') {
+                // ✅ NEU: Für striche_difference: score = stricheDifference (wird später korrigiert)
+                // Berechne Differenz für diese Passe
+                const stricheDiffInPasse = stricheScored - stricheReceived;
+                playerScores[gameParticipantPlayerId].score += stricheDiffInPasse;
               } else {
                 playerScores[gameParticipantPlayerId].score += playerPoints;
               }
@@ -1419,7 +1444,22 @@ export async function finalizeTournamentInternal(tournamentId: string): Promise<
           const rankedPlayers = Object.entries(playerScores)
             .map(([playerId, data]) => ({ playerId, ...data }))
             .sort((a, b) => {
+              // Primär: Nach score (höchste zuerst)
               if (b.score !== a.score) return b.score - a.score;
+              
+              // ✅ NEU: Tie-Breaker basierend auf rankingMode
+              if (rankingModeToStore === 'striche_difference') {
+                // Tie-Breaker 1: Punkte (höchste zuerst)
+                if (b.pointsScored !== a.pointsScored) return b.pointsScored - a.pointsScored;
+              } else if (rankingModeToStore === 'striche') {
+                // Tie-Breaker 1: Punkte (höchste zuerst)
+                if (b.pointsScored !== a.pointsScored) return b.pointsScored - a.pointsScored;
+              } else {
+                // 'total_points' oder andere: Tie-Breaker 1: Striche (höchste zuerst)
+                if (b.stricheScored !== a.stricheScored) return b.stricheScored - a.stricheScored;
+              }
+              
+              // Tie-Breaker 2: Weniger Spiele = besser (bei gleichen Werten)
               return a.gamesPlayed - b.gamesPlayed; 
             });
 
@@ -1453,6 +1493,19 @@ export async function finalizeTournamentInternal(tournamentId: string): Promise<
               logger.info(`[finalizeTournament] First roundResult:`, roundResults[0]);
             }
             
+            // ✅ FIX 2: Berechne KORREKTE Differenzen aus roundResults (Single Source of Truth!)
+            const correctStricheDiff = roundResults.reduce((sum, rr) => {
+              return rr.participated ? sum + (rr.stricheDifferenz || 0) : sum;
+            }, 0);
+            
+            const correctPointsDiff = roundResults.reduce((sum, rr) => {
+              return rr.participated ? sum + (rr.pointsDifferenz || 0) : sum;
+            }, 0);
+            
+            logger.info(`[finalizeTournament] Corrected differences for ${player.playerId}: ` +
+                       `Striche from roundResults: ${correctStricheDiff} (aggregated was: ${player.stricheScored - player.stricheReceived}), ` +
+                       `Points from roundResults: ${correctPointsDiff} (aggregated was: ${player.pointsScored - player.pointsReceived})`);
+            
             const rankingData: TournamentPlayerRankingData = {
                 // Identifikation
                 playerId: player.playerId,
@@ -1470,13 +1523,13 @@ export async function finalizeTournamentInternal(tournamentId: string): Promise<
                 // Punkte
                 pointsScored: player.pointsScored,
                 pointsReceived: player.pointsReceived,
-                pointsDifference: player.pointsScored - player.pointsReceived,
+                pointsDifference: correctPointsDiff, // ✅ FIX 2: Aus roundResults statt aggregiert!
                 totalPoints: player.pointsScored, // Legacy
                 
                 // Striche
                 stricheScored: player.stricheScored,
                 stricheReceived: player.stricheReceived,
-                stricheDifference: player.stricheScored - player.stricheReceived,
+                stricheDifference: correctStricheDiff, // ✅ FIX 2: Aus roundResults statt aggregiert!
                 totalStriche: player.stricheScored, // Legacy
                 
                 score: player.score, // Legacy: Haupt-Score für Ranking
@@ -2132,6 +2185,23 @@ export async function finalizeTournamentInternal(tournamentId: string): Promise<
       // Batch für PlayerRankings committen, NACHDEM alle PlayerStats-Transaktionen (potenziell) durchgelaufen sind
       await playerRankingBatch.commit();
       logger.info(`[finalizeTournament] ✅ Player rankings committed for tournament ${tournamentId} (${totalRankedEntitiesForTournamentDoc} entities).`);
+
+      // 🆕 CHART-DATA UPDATES: Aktualisiere alle Chart-Dokumente NACH playerRankings-Commit
+      // ✅ FIX: Verschoben von Zeile 1137 → Hier, damit playerRankings in Firestore existieren!
+      if (finalParticipantPlayerIds.length > 0 && finalizedGroupId) {
+        try {
+          logger.info(`[finalizeTournament] Triggering chart data update for tournament ${tournamentId}`);
+          await updateChartsAfterSession(
+            finalizedGroupId,
+            tournamentId,
+            true // Tournament-Session
+          );
+          logger.info(`[finalizeTournament] Chart data update completed for tournament ${tournamentId}`);
+        } catch (chartError) {
+          logger.error(`[finalizeTournament] Error updating chart data:`, chartError);
+          // Nicht kritisch - soll Turnier-Finalisierung nicht blockieren
+        }
+      }
 
       // 🆕 DEBUG: Log vor finalem Update
       logger.info(`[finalizeTournament] 📝 Updating tournament document with final status:`, {

@@ -11,7 +11,7 @@ import { usePlayerStatsStore } from '@/store/playerStatsStore';
 import { transformComputedStatsToExtended, type TransformedPlayerStats } from '@/utils/statsTransformer';
 import type { FrontendPartnerAggregate, FrontendOpponentAggregate } from '@/types/computedStats';
 import { fetchCompletedSessionsForPlayer, SessionSummary } from '@/services/sessionService';
-import { fetchTournamentInstancesForGroup } from '@/services/tournamentService';
+import { fetchTournamentInstancesForGroup, fetchTournamentsForUser } from '@/services/tournamentService';
 import type { TournamentInstance } from '@/types/tournament';
 import { Timestamp, FieldValue } from 'firebase/firestore';
 import { format } from 'date-fns';
@@ -203,9 +203,11 @@ const PlayerProfilePage = () => {
 }
 
       setTournamentsLoading(true);
+      setTournamentsError(null);
       try {
-        // 🚨 KEINE TURNIER-INSTANZEN MEHR: Nur Turnier-Sessions aus jassGameSummaries
-        setUserTournaments([]);
+        // ✅ LADE TURNIERE FÜR SPIELER: Alle Tournament-Instances für diesen Spieler
+        const tournaments = await fetchTournamentsForUser(player.id);
+        setUserTournaments(tournaments);
       } catch (e) { 
         console.error("Fehler beim Laden der Turniere für öffentliches Profil:", e);
         setTournamentsError("Turniere konnten nicht geladen werden."); 
@@ -262,8 +264,13 @@ const PlayerProfilePage = () => {
         // Turnier-Session: verwende startedAt
         dateAValue = (a as any).startedAt;
       } else {
-        // 🚨 EXAKT WIE STARTSEITE: Nur instanceDate und createdAt für Sortierung
-        dateAValue = (a as any).instanceDate ?? (a as any).createdAt;
+        // 🎯 KORRIGIERT: Für abgeschlossene Turniere completedAt verwenden (jüngstes zuerst!)
+        const tournamentA = a as any;
+        if (tournamentA.status === 'completed' && tournamentA.completedAt) {
+          dateAValue = tournamentA.completedAt; // ✅ Abschlusszeit für completed
+        } else {
+          dateAValue = tournamentA.instanceDate ?? tournamentA.createdAt; // Fallback
+        }
       }
 
       if (b.type === 'session') {
@@ -272,8 +279,13 @@ const PlayerProfilePage = () => {
         // Turnier-Session: verwende startedAt
         dateBValue = (b as any).startedAt;
       } else {
-        // 🚨 EXAKT WIE STARTSEITE: Nur instanceDate und createdAt für Sortierung
-        dateBValue = (b as any).instanceDate ?? (b as any).createdAt;
+        // 🎯 KORRIGIERT: Für abgeschlossene Turniere completedAt verwenden (jüngstes zuerst!)
+        const tournamentB = b as any;
+        if (tournamentB.status === 'completed' && tournamentB.completedAt) {
+          dateBValue = tournamentB.completedAt; // ✅ Abschlusszeit für completed
+        } else {
+          dateBValue = tournamentB.instanceDate ?? tournamentB.createdAt; // Fallback
+        }
       }
 
     const timeA = isFirestoreTimestamp(dateAValue) ? dateAValue.toMillis() :
@@ -291,7 +303,7 @@ const PlayerProfilePage = () => {
 
   const groupedArchiveByYear = useMemo(() => {
       return combinedArchiveItems.reduce<Record<string, ArchiveItem[]>>((acc, item) => {
-        // 🎯 IDENTISCH ZU GROUPVIEW: Für Turnier-Sessions auch startedAt verwenden
+        // 🎯 INTELLIGENTE DATUMS-EXTRAKTION: Für abgeschlossene Turniere completedAt verwenden!
         let dateToSort;
         if (item.type === 'session') {
           dateToSort = item.startedAt;
@@ -299,8 +311,13 @@ const PlayerProfilePage = () => {
           // Turnier-Session: verwende startedAt
           dateToSort = (item as any).startedAt;
         } else {
-          // 🚨 FIX: Echte Tournament-Instance - Enddatum bevorzugen (identisch zu GroupView!)
-          dateToSort = (item as any).finalizedAt ?? (item as any).instanceDate ?? (item as any).createdAt;
+          // 🎯 KORRIGIERT: Für abgeschlossene Turniere completedAt verwenden (jüngstes zuerst!)
+          const tournament = item as any;
+          if (tournament.status === 'completed' && tournament.completedAt) {
+            dateToSort = tournament.completedAt; // ✅ Abschlusszeit für completed
+          } else {
+            dateToSort = tournament.finalizedAt ?? tournament.instanceDate ?? tournament.createdAt; // Fallback
+          }
         }
         
         const year = isFirestoreTimestamp(dateToSort) ? dateToSort.toDate().getFullYear().toString() :

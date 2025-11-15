@@ -21,7 +21,6 @@
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 import {
-  PlayerRootDocument,
   GlobalPlayerStats,
   // ❌ ENTFERNT: GroupPlayerStats (wird nicht mehr verwendet)
   PartnerPlayerStats,
@@ -180,12 +179,16 @@ async function updatePlayerData(
     const sessionDelta = calculateSessionDelta(playerId, sessionData);
     
     // 3. Update Global Stats
-    const currentGlobalStats = playerData?.globalStats || getDefaultGlobalPlayerStats();
+    // ✅ FIX: Frontend liest aus globalStats.current, daher müssen wir hier auch lesen/schreiben
+    const currentGlobalStats = playerData?.globalStats?.current || playerData?.globalStats || getDefaultGlobalPlayerStats();
     const updatedGlobalStats = updateGlobalStats(currentGlobalStats, sessionDelta, sessionData, tournamentId);
     
     // 4. Update Root Document
-    const rootUpdate: Partial<PlayerRootDocument> = {
-      globalStats: updatedGlobalStats,
+    // ✅ FIX: Schreibe in globalStats.current (wie Frontend es erwartet)
+    const rootUpdate: any = {
+      globalStats: {
+        current: updatedGlobalStats
+      },
       lastActivity: admin.firestore.Timestamp.now(),
       lastUpdated: admin.firestore.Timestamp.now(),
     };

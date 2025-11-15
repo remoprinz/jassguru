@@ -663,6 +663,8 @@ const NavigationButtons: React.FC<NavigationButtonsProps> = ({
     }
   };
 
+  const isLastStep = step === "FINAL_HINTS";
+
   return (
     <div className="flex justify-between w-full gap-2 sm:gap-3">
       <button
@@ -684,6 +686,7 @@ const NavigationButtons: React.FC<NavigationButtonsProps> = ({
           hover:bg-yellow-700 transition-all duration-100 font-semibold 
           flex items-center justify-center ${getButtonClass()}
           ${nextButton.buttonClasses}
+          ${isLastStep ? 'invisible pointer-events-none' : ''}
         `}
       >
         <>Weiter<FaArrowRight className={`${deviceSize === "xs" ? "ml-0.5" : "ml-1"}`} size={deviceSize === "xs" ? 12 : 14} /></>

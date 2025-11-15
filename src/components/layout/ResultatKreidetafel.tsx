@@ -2305,15 +2305,6 @@ const ResultatKreidetafel = ({
 
   // NEU: Handler für den Abschluss einer Turnierpasse (zeigt Bestätigungs-Notification)
   const handleCompletePasseClick = useCallback(() => {
-    // DEBUGGING: Detaillierte Logs für das zweite Device
-    console.log("[ResultatKreidetafel] DEBUG - Passe Completion Check:");
-    console.log("- isTournamentPasse:", isTournamentPasse);
-    console.log("- gameStoreActiveGameId:", gameStoreActiveGameId);
-    console.log("- tournamentInstanceId:", tournamentInstanceId);
-    console.log("- currentSession:", currentSession);
-    console.log("- currentSession.id:", currentSession?.id);
-    console.log("- currentSession.isTournamentSession:", currentSession?.isTournamentSession);
-    
     if (!isTournamentPasse || !gameStoreActiveGameId || !tournamentInstanceId) {
       console.error("[ResultatKreidetafel] Incomplete data for completing passe.");
       console.error("- Missing isTournamentPasse:", !isTournamentPasse);
@@ -2338,7 +2329,7 @@ const ResultatKreidetafel = ({
     // 🆕 NEU: Bestätigungs-Notification anzeigen
     useUIStore.getState().showNotification({
       message: "Möchtest du die Passe wirklich abschliessen?",
-      type: 'warning',
+      type: 'success', // ✅ GEÄNDERT: Von 'warning' zu 'success' für grünes Icon
       position: swipePosition === 'top' ? 'top' : 'bottom',
       isFlipped: swipePosition === 'top',
       actions: [
