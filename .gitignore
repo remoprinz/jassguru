@@ -153,3 +153,6 @@ token.json
 email-pdf-config.json
 temp-pdfs/
 
+
+# Firebase config
+.firebaserc
