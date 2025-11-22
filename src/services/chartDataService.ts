@@ -1,6 +1,72 @@
 import { db } from '@/services/firebaseInit';
-import { doc, getDoc, collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, where, orderBy, FieldPath } from 'firebase/firestore';
 import { getRankingColor } from '../config/chartColors';
+
+/**
+ * Helper: Lädt lastJassTimestamp für alle Spieler (1-Jahr-Inaktivitätsfilter)
+ */
+async function loadPlayerLastActivityForFilter(playerIds: Set<string>): Promise<Map<string, Date | null>> {
+  const lastActivityMap = new Map<string, Date | null>();
+  const oneYearAgo = Date.now() - (365 * 24 * 60 * 60 * 1000);
+  
+  if (playerIds.size === 0) {
+    return lastActivityMap;
+  }
+  
+  // Lade alle Player-Dokumente in Batches (Firestore 'in' Query Limit: 10)
+  const playerIdsArray = Array.from(playerIds);
+  const batchSize = 10;
+  
+  for (let i = 0; i < playerIdsArray.length; i += batchSize) {
+    const batch = playerIdsArray.slice(i, i + batchSize);
+    try {
+      const playerDocs = await getDocs(
+        query(
+          collection(db, 'players'),
+          where(new FieldPath('__name__'), 'in', batch)
+        )
+      );
+      
+      playerDocs.forEach(doc => {
+        const data = doc.data();
+        const globalStats = data?.globalStats || {};
+        const lastJassTimestamp = globalStats?.lastJassTimestamp;
+        if (lastJassTimestamp) {
+          const timestamp = lastJassTimestamp.toDate ? lastJassTimestamp.toDate() : 
+                           (lastJassTimestamp._seconds ? new Date(lastJassTimestamp._seconds * 1000) : null);
+          lastActivityMap.set(doc.id, timestamp);
+        } else {
+          lastActivityMap.set(doc.id, null);
+        }
+      });
+    } catch (error) {
+      console.warn('[loadPlayerLastActivityForFilter] Error loading batch:', error);
+      // Setze null für Spieler, die nicht geladen werden konnten
+      batch.forEach(playerId => {
+        if (!lastActivityMap.has(playerId)) {
+          lastActivityMap.set(playerId, null);
+        }
+      });
+    }
+  }
+  
+  return lastActivityMap;
+}
+
+/**
+ * Helper: Prüft, ob ein Spieler aktiv ist (<1 Jahr inaktiv)
+ */
+function isPlayerActive(playerId: string, lastActivityMap: Map<string, Date | null>): boolean {
+  const lastActivity = lastActivityMap.get(playerId);
+  const oneYearAgo = Date.now() - (365 * 24 * 60 * 60 * 1000);
+  
+  // Wenn kein lastJassTimestamp vorhanden ist, behalte den Spieler (für Rückwärtskompatibilität)
+  if (!lastActivity) {
+    return true;
+  }
+  
+  return lastActivity.getTime() >= oneYearAgo;
+}
 
 /**
  * 🎯 CHART DATA SERVICE - AGGREGATED ARCHITEKTUR
@@ -87,7 +153,56 @@ export async function getOptimizedRatingChart(
     const allPlayerIds = new Set<string>();
     sessionPoints.forEach(p => Object.keys(p.players || {}).forEach(pid => allPlayerIds.add(pid)));
 
+    // 🎯 NEU: Lade lastJassTimestamp für alle Spieler (1-Jahr-Inaktivitätsfilter)
+    const playerLastActivityMap = new Map<string, Date | null>();
+    const oneYearAgo = Date.now() - (365 * 24 * 60 * 60 * 1000);
+    
+    if (allPlayerIds.size > 0) {
+      // Lade Player-Dokumente in Batches (Firestore 'in' Query Limit: 10)
+      const playerIdsArray = Array.from(allPlayerIds);
+      const batchSize = 10;
+      
+      for (let i = 0; i < playerIdsArray.length; i += batchSize) {
+        const batch = playerIdsArray.slice(i, i + batchSize);
+        try {
+          const { getDocs, query, where, collection, FieldPath } = await import('firebase/firestore');
+          const playerDocs = await getDocs(
+            query(
+              collection(db, 'players'),
+              where(new FieldPath('__name__'), 'in', batch)
+            )
+          );
+          
+          playerDocs.forEach(doc => {
+            const data = doc.data();
+            const globalStats = data?.globalStats || {};
+            const lastJassTimestamp = globalStats?.lastJassTimestamp;
+            if (lastJassTimestamp) {
+              const timestamp = lastJassTimestamp.toDate ? lastJassTimestamp.toDate() : 
+                               (lastJassTimestamp._seconds ? new Date(lastJassTimestamp._seconds * 1000) : null);
+              playerLastActivityMap.set(doc.id, timestamp);
+            } else {
+              playerLastActivityMap.set(doc.id, null);
+            }
+          });
+        } catch (error) {
+          console.warn('[getOptimizedRatingChart] Error loading player last activity:', error);
+          // Setze null für Spieler, die nicht geladen werden konnten
+          batch.forEach(playerId => {
+            if (!playerLastActivityMap.has(playerId)) {
+              playerLastActivityMap.set(playerId, null);
+            }
+          });
+        }
+      }
+    }
+
     allPlayerIds.forEach(playerId => {
+      // 🎯 NEU: Filtere Spieler, die >1 Jahr inaktiv sind
+      const lastActivity = playerLastActivityMap.get(playerId);
+      if (lastActivity && lastActivity.getTime() < oneYearAgo) {
+        return; // Überspringe inaktive Spieler
+      }
       const displayName = (() => {
         for (const p of sessionPoints) {
           const r = p.players?.[playerId];
@@ -491,6 +606,20 @@ export async function getOptimizedTeamMatschChart(
   lastUpdated?: Date;
 }> {
   try {
+    // 🎯 Lade aktuelle Player-DisplayNames (für korrekte Namen bei Umbenennungen)
+    const playerDisplayNames = new Map<string, string>();
+    const allPlayerIdsInSessions = new Set<string>();
+    try {
+      const playersSnap = await getDocs(
+        query(collection(db, 'players'), where('groupIds', 'array-contains', groupId))
+      );
+      playersSnap.forEach(doc => {
+        playerDisplayNames.set(doc.id, doc.data().displayName);
+      });
+    } catch (error) {
+      console.warn('[getOptimizedTeamMatschChart] Could not load player names:', error);
+    }
+    
     // 📊 Lade alle completed Sessions
     const summariesSnap = await getDocs(
       query(
@@ -509,15 +638,51 @@ export async function getOptimizedTeamMatschChart(
       };
     }
     
+    // 🎯 NEU: Sammle alle Player-IDs aus Sessions für Aktivitätsfilter
+    summariesSnap.docs.forEach(summaryDoc => {
+      const data = summaryDoc.data();
+      const isTournament = data.isTournamentSession || 
+                           !!data.tournamentId || 
+                           (Array.isArray(data.gameResults) && data.gameResults.length > 0);
+      
+      if (isTournament && data.gameResults && Array.isArray(data.gameResults)) {
+        data.gameResults.forEach((game: any) => {
+          const gameTeams = game.teams || {};
+          ['top', 'bottom'].forEach(teamKey => {
+            const teamPlayers = gameTeams[teamKey]?.players || [];
+            teamPlayers.forEach((p: any) => {
+              if (p.playerId) allPlayerIdsInSessions.add(p.playerId);
+            });
+          });
+        });
+      } else {
+        const teams = data.teams || {};
+        ['top', 'bottom'].forEach(teamKey => {
+          const teamPlayers = teams[teamKey]?.players || [];
+          teamPlayers.forEach((p: any) => {
+            if (p.playerId) allPlayerIdsInSessions.add(p.playerId);
+          });
+        });
+      }
+    });
+    
+    // 🎯 NEU: Lade lastJassTimestamp für alle Spieler (1-Jahr-Inaktivitätsfilter)
+    const playerLastActivityMap = await loadPlayerLastActivityForFilter(allPlayerIdsInSessions);
+    
     // Helper: Team-ID generieren (sortiert für Konsistenz)
     const getTeamId = (players: Array<{ playerId: string; displayName?: string }>): string => {
       const sortedIds = players.map(p => p.playerId).sort();
       return sortedIds.join('-');
     };
     
-    // Helper: Team-Namen generieren
+    // Helper: Team-Namen generieren (mit aktuellen DisplayNames)
     const getTeamName = (players: Array<{ playerId: string; displayName?: string }>): string => {
-      return players.map(p => p.displayName || p.playerId).join(' & ');
+      return players.map(p => playerDisplayNames.get(p.playerId) || p.displayName || p.playerId).join(' & ');
+    };
+    
+    // Helper: Prüft, ob ein Team aktiv ist (beide Spieler müssen aktiv sein)
+    const isTeamActive = (players: Array<{ playerId: string; displayName?: string }>): boolean => {
+      return players.every(p => isPlayerActive(p.playerId, playerLastActivityMap));
     };
     
     // Sammle alle Sessions und berechne Team-Daten
@@ -534,7 +699,11 @@ export async function getOptimizedTeamMatschChart(
       labels.push(label);
       
       const sessionId = summaryDoc.id;
-      const isTournament = data.isTournamentSession || sessionId === '6eNr8fnsTO06jgCqjelt';
+      // 🎯 ROBUSTE TOURNAMENT-ERKENNUNG: Prüfe tournamentId, gameResults oder isTournamentSession
+      const isTournament = data.isTournamentSession || 
+                           !!data.tournamentId || 
+                           (Array.isArray(data.gameResults) && data.gameResults.length > 0) ||
+                           sessionId === '6eNr8fnsTO06jgCqjelt';
       
       // ✅ TURNIER: Aggregiere alle Game-Level-Teams
       if (isTournament && data.gameResults && Array.isArray(data.gameResults)) {
@@ -549,6 +718,9 @@ export async function getOptimizedTeamMatschChart(
           ['top', 'bottom'].forEach(teamKey => {
             const teamPlayers = gameTeams[teamKey]?.players || [];
             if (teamPlayers.length !== 2) return;
+            
+            // 🎯 NEU: Filtere Teams mit inaktiven Spielern
+            if (!isTeamActive(teamPlayers)) return;
             
             const teamId = getTeamId(teamPlayers);
             const teamName = getTeamName(teamPlayers);
@@ -589,6 +761,9 @@ export async function getOptimizedTeamMatschChart(
         ['top', 'bottom'].forEach(teamKey => {
           const teamPlayers = teams[teamKey]?.players || [];
           if (teamPlayers.length !== 2) return; // Nur 2er-Teams
+          
+          // 🎯 NEU: Filtere Teams mit inaktiven Spielern
+          if (!isTeamActive(teamPlayers)) return;
           
           const teamId = getTeamId(teamPlayers);
           const teamName = getTeamName(teamPlayers);
@@ -805,6 +980,20 @@ export async function getOptimizedTeamStricheChart(
   lastUpdated?: Date;
 }> {
   try {
+    // 🎯 Lade aktuelle Player-DisplayNames (für korrekte Namen bei Umbenennungen)
+    const playerDisplayNames = new Map<string, string>();
+    const allPlayerIdsInSessions = new Set<string>();
+    try {
+      const playersSnap = await getDocs(
+        query(collection(db, 'players'), where('groupIds', 'array-contains', groupId))
+      );
+      playersSnap.forEach(doc => {
+        playerDisplayNames.set(doc.id, doc.data().displayName);
+      });
+    } catch (error) {
+      console.warn('[getOptimizedTeamStricheChart] Could not load player names:', error);
+    }
+    
     // 📊 Lade alle completed Sessions
     const summariesSnap = await getDocs(
       query(
@@ -823,15 +1012,51 @@ export async function getOptimizedTeamStricheChart(
       };
     }
     
+    // 🎯 NEU: Sammle alle Player-IDs aus Sessions für Aktivitätsfilter
+    summariesSnap.docs.forEach(summaryDoc => {
+      const data = summaryDoc.data();
+      const isTournament = data.isTournamentSession || 
+                           !!data.tournamentId || 
+                           (Array.isArray(data.gameResults) && data.gameResults.length > 0);
+      
+      if (isTournament && data.gameResults && Array.isArray(data.gameResults)) {
+        data.gameResults.forEach((game: any) => {
+          const gameTeams = game.teams || {};
+          ['top', 'bottom'].forEach(teamKey => {
+            const teamPlayers = gameTeams[teamKey]?.players || [];
+            teamPlayers.forEach((p: any) => {
+              if (p.playerId) allPlayerIdsInSessions.add(p.playerId);
+            });
+          });
+        });
+      } else {
+        const teams = data.teams || {};
+        ['top', 'bottom'].forEach(teamKey => {
+          const teamPlayers = teams[teamKey]?.players || [];
+          teamPlayers.forEach((p: any) => {
+            if (p.playerId) allPlayerIdsInSessions.add(p.playerId);
+          });
+        });
+      }
+    });
+    
+    // 🎯 NEU: Lade lastJassTimestamp für alle Spieler (1-Jahr-Inaktivitätsfilter)
+    const playerLastActivityMap = await loadPlayerLastActivityForFilter(allPlayerIdsInSessions);
+    
     // Helper: Team-ID generieren (sortiert für Konsistenz)
     const getTeamId = (players: Array<{ playerId: string; displayName?: string }>): string => {
       const sortedIds = players.map(p => p.playerId).sort();
       return sortedIds.join('-');
     };
     
-    // Helper: Team-Namen generieren
+    // Helper: Team-Namen generieren (mit aktuellen DisplayNames)
     const getTeamName = (players: Array<{ playerId: string; displayName?: string }>): string => {
-      return players.map(p => p.displayName || p.playerId).join(' & ');
+      return players.map(p => playerDisplayNames.get(p.playerId) || p.displayName || p.playerId).join(' & ');
+    };
+    
+    // Helper: Prüft, ob ein Team aktiv ist (beide Spieler müssen aktiv sein)
+    const isTeamActive = (players: Array<{ playerId: string; displayName?: string }>): boolean => {
+      return players.every(p => isPlayerActive(p.playerId, playerLastActivityMap));
     };
     
     // Sammle alle Sessions und berechne Team-Daten
@@ -848,7 +1073,11 @@ export async function getOptimizedTeamStricheChart(
       labels.push(label);
       
       const sessionId = summaryDoc.id;
-      const isTournament = data.isTournamentSession || sessionId === '6eNr8fnsTO06jgCqjelt';
+      // 🎯 ROBUSTE TOURNAMENT-ERKENNUNG: Prüfe tournamentId, gameResults oder isTournamentSession
+      const isTournament = data.isTournamentSession || 
+                           !!data.tournamentId || 
+                           (Array.isArray(data.gameResults) && data.gameResults.length > 0) ||
+                           sessionId === '6eNr8fnsTO06jgCqjelt';
       
       // ✅ TURNIER: Aggregiere alle Game-Level-Teams
       if (isTournament && data.gameResults && Array.isArray(data.gameResults)) {
@@ -866,6 +1095,9 @@ export async function getOptimizedTeamStricheChart(
           ['top', 'bottom'].forEach(teamKey => {
             const teamPlayers = gameTeams[teamKey]?.players || [];
             if (teamPlayers.length !== 2) return;
+            
+            // 🎯 NEU: Filtere Teams mit inaktiven Spielern
+            if (!isTeamActive(teamPlayers)) return;
             
             const teamId = getTeamId(teamPlayers);
             const teamName = getTeamName(teamPlayers);
@@ -906,6 +1138,9 @@ export async function getOptimizedTeamStricheChart(
         ['top', 'bottom'].forEach(teamKey => {
           const teamPlayers = teams[teamKey]?.players || [];
           if (teamPlayers.length !== 2) return; // Nur 2er-Teams
+          
+          // 🎯 NEU: Filtere Teams mit inaktiven Spielern
+          if (!isTeamActive(teamPlayers)) return;
           
           const teamId = getTeamId(teamPlayers);
           const teamName = getTeamName(teamPlayers);
@@ -1026,6 +1261,20 @@ export async function getOptimizedTeamPointsChart(
   lastUpdated?: Date;
 }> {
   try {
+    // 🎯 Lade aktuelle Player-DisplayNames (für korrekte Namen bei Umbenennungen)
+    const playerDisplayNames = new Map<string, string>();
+    const allPlayerIdsInSessions = new Set<string>();
+    try {
+      const playersSnap = await getDocs(
+        query(collection(db, 'players'), where('groupIds', 'array-contains', groupId))
+      );
+      playersSnap.forEach(doc => {
+        playerDisplayNames.set(doc.id, doc.data().displayName);
+      });
+    } catch (error) {
+      console.warn('[getOptimizedTeamPointsChart] Could not load player names:', error);
+    }
+    
     // 📊 Lade alle completed Sessions
     const summariesSnap = await getDocs(
       query(
@@ -1044,15 +1293,51 @@ export async function getOptimizedTeamPointsChart(
       };
     }
     
+    // 🎯 NEU: Sammle alle Player-IDs aus Sessions für Aktivitätsfilter
+    summariesSnap.docs.forEach(summaryDoc => {
+      const data = summaryDoc.data();
+      const isTournament = data.isTournamentSession || 
+                           !!data.tournamentId || 
+                           (Array.isArray(data.gameResults) && data.gameResults.length > 0);
+      
+      if (isTournament && data.gameResults && Array.isArray(data.gameResults)) {
+        data.gameResults.forEach((game: any) => {
+          const gameTeams = game.teams || {};
+          ['top', 'bottom'].forEach(teamKey => {
+            const teamPlayers = gameTeams[teamKey]?.players || [];
+            teamPlayers.forEach((p: any) => {
+              if (p.playerId) allPlayerIdsInSessions.add(p.playerId);
+            });
+          });
+        });
+      } else {
+        const teams = data.teams || {};
+        ['top', 'bottom'].forEach(teamKey => {
+          const teamPlayers = teams[teamKey]?.players || [];
+          teamPlayers.forEach((p: any) => {
+            if (p.playerId) allPlayerIdsInSessions.add(p.playerId);
+          });
+        });
+      }
+    });
+    
+    // 🎯 NEU: Lade lastJassTimestamp für alle Spieler (1-Jahr-Inaktivitätsfilter)
+    const playerLastActivityMap = await loadPlayerLastActivityForFilter(allPlayerIdsInSessions);
+    
     // Helper: Team-ID generieren (sortiert für Konsistenz)
     const getTeamId = (players: Array<{ playerId: string; displayName?: string }>): string => {
       const sortedIds = players.map(p => p.playerId).sort();
       return sortedIds.join('-');
     };
     
-    // Helper: Team-Namen generieren
+    // Helper: Team-Namen generieren (mit aktuellen DisplayNames)
     const getTeamName = (players: Array<{ playerId: string; displayName?: string }>): string => {
-      return players.map(p => p.displayName || p.playerId).join(' & ');
+      return players.map(p => playerDisplayNames.get(p.playerId) || p.displayName || p.playerId).join(' & ');
+    };
+    
+    // Helper: Prüft, ob ein Team aktiv ist (beide Spieler müssen aktiv sein)
+    const isTeamActive = (players: Array<{ playerId: string; displayName?: string }>): boolean => {
+      return players.every(p => isPlayerActive(p.playerId, playerLastActivityMap));
     };
     
     // Sammle alle Sessions und berechne Team-Daten
@@ -1069,7 +1354,11 @@ export async function getOptimizedTeamPointsChart(
       labels.push(label);
       
       const sessionId = summaryDoc.id;
-      const isTournament = data.isTournamentSession || sessionId === '6eNr8fnsTO06jgCqjelt';
+      // 🎯 ROBUSTE TOURNAMENT-ERKENNUNG: Prüfe tournamentId, gameResults oder isTournamentSession
+      const isTournament = data.isTournamentSession || 
+                           !!data.tournamentId || 
+                           (Array.isArray(data.gameResults) && data.gameResults.length > 0) ||
+                           sessionId === '6eNr8fnsTO06jgCqjelt';
       
       // ✅ TURNIER: Aggregiere alle Game-Level-Teams
       if (isTournament && data.gameResults && Array.isArray(data.gameResults)) {
@@ -1084,6 +1373,9 @@ export async function getOptimizedTeamPointsChart(
           ['top', 'bottom'].forEach(teamKey => {
             const teamPlayers = gameTeams[teamKey]?.players || [];
             if (teamPlayers.length !== 2) return;
+            
+            // 🎯 NEU: Filtere Teams mit inaktiven Spielern
+            if (!isTeamActive(teamPlayers)) return;
             
             const teamId = getTeamId(teamPlayers);
             const teamName = getTeamName(teamPlayers);
@@ -1121,6 +1413,9 @@ export async function getOptimizedTeamPointsChart(
         ['top', 'bottom'].forEach(teamKey => {
           const teamPlayers = teams[teamKey]?.players || [];
           if (teamPlayers.length !== 2) return; // Nur 2er-Teams
+          
+          // 🎯 NEU: Filtere Teams mit inaktiven Spielern
+          if (!isTeamActive(teamPlayers)) return;
           
           const teamId = getTeamId(teamPlayers);
           const teamName = getTeamName(teamPlayers);

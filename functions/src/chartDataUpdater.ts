@@ -58,8 +58,13 @@ export async function updateChartsAfterSession(
     logger.info(`[updateChartsAfterSession] Found ${allSessionsSnap.size} completed sessions`);
     
     // 3. Für Tournament-Session: Lade playerRankings
+    // 🎯 ROBUSTE TOURNAMENT-ERKENNUNG: Prüfe auch sessionData.tournamentId oder gameResults
     const tournamentRankings = new Map<string, any>();
-    if (isTournamentSession) {
+    const detectedIsTournament = isTournamentSession || 
+                                 !!sessionData.tournamentId || 
+                                 (Array.isArray(sessionData.gameResults) && sessionData.gameResults.length > 0);
+    
+    if (detectedIsTournament) {
       const tournamentId = sessionData.tournamentId;
       if (tournamentId) {
         const rankingsSnap = await db.collection(`tournaments/${tournamentId}/playerRankings`).get();
@@ -67,17 +72,19 @@ export async function updateChartsAfterSession(
           const data = doc.data();
           tournamentRankings.set(data.playerId, data);
         });
-        logger.info(`[updateChartsAfterSession] Loaded ${tournamentRankings.size} tournament rankings`);
+        logger.info(`[updateChartsAfterSession] Loaded ${tournamentRankings.size} tournament rankings for tournament ${tournamentId}`);
+      } else {
+        logger.warn(`[updateChartsAfterSession] Tournament session detected but no tournamentId found in session data`);
       }
     }
     
     // 4. Berechne Chart-Daten für alle 5 Charts
     const updateResults = await Promise.allSettled([
-      updateStricheChart(groupId, allSessionsSnap, sessionData, tournamentRankings, isTournamentSession),
-      updatePointsChart(groupId, allSessionsSnap, sessionData, tournamentRankings, isTournamentSession),
-      updateMatschChart(groupId, allSessionsSnap, sessionData, tournamentRankings, isTournamentSession),
-      updateSchneiderChart(groupId, allSessionsSnap, sessionData, tournamentRankings, isTournamentSession),
-      updateKontermatschChart(groupId, allSessionsSnap, sessionData, tournamentRankings, isTournamentSession),
+      updateStricheChart(groupId, allSessionsSnap, sessionData, tournamentRankings, detectedIsTournament),
+      updatePointsChart(groupId, allSessionsSnap, sessionData, tournamentRankings, detectedIsTournament),
+      updateMatschChart(groupId, allSessionsSnap, sessionData, tournamentRankings, detectedIsTournament),
+      updateSchneiderChart(groupId, allSessionsSnap, sessionData, tournamentRankings, detectedIsTournament),
+      updateKontermatschChart(groupId, allSessionsSnap, sessionData, tournamentRankings, detectedIsTournament),
     ]);
     
     const chartsUpdated: string[] = [];
@@ -191,8 +198,50 @@ function collectAllPlayerIds(sessionsSnap: any): Map<string, string> {
 }
 
 /**
+ * Helper: Lädt lastJassTimestamp für alle Spieler
+ */
+async function loadPlayerLastActivity(playerIds: Set<string>): Promise<Map<string, admin.firestore.Timestamp | null>> {
+  const lastActivityMap = new Map<string, admin.firestore.Timestamp | null>();
+  
+  if (playerIds.size === 0) {
+    return lastActivityMap;
+  }
+  
+  // Lade alle Player-Dokumente in Batches (Firestore 'in' Query Limit: 10)
+  const playerIdsArray = Array.from(playerIds);
+  const batchSize = 10;
+  
+  for (let i = 0; i < playerIdsArray.length; i += batchSize) {
+    const batch = playerIdsArray.slice(i, i + batchSize);
+    try {
+      const playerDocs = await db.collection('players')
+        .where(admin.firestore.FieldPath.documentId(), 'in', batch)
+        .get();
+      
+      playerDocs.forEach(doc => {
+        const data = doc.data();
+        const globalStats = data?.globalStats || {};
+        const lastJassTimestamp = globalStats.lastJassTimestamp || null;
+        lastActivityMap.set(doc.id, lastJassTimestamp);
+      });
+    } catch (error) {
+      logger.warn(`[loadPlayerLastActivity] Error loading batch:`, error);
+      // Setze null für Spieler, die nicht geladen werden konnten
+      batch.forEach(playerId => {
+        if (!lastActivityMap.has(playerId)) {
+          lastActivityMap.set(playerId, null);
+        }
+      });
+    }
+  }
+  
+  return lastActivityMap;
+}
+
+/**
  * Helper: Berechnet Chart-Daten für ein Chart-Typ
  * ✅ KORREKTUR: Unterstützt jetzt NULL-Werte für Event-Charts
+ * ✅ NEU: Filtert Spieler heraus, die >1 Jahr inaktiv sind
  */
 async function calculateChartData(
   groupId: string,
@@ -207,14 +256,31 @@ async function calculateChartData(
   const allPlayerNames = collectAllPlayerIds(allSessionsSnap);
   const cumulativeValues = new Map<string, number>();
   
-  // Initialisiere kumulative Werte
-  allPlayerNames.forEach((_, playerId) => {
+  // 🎯 NEU: Lade lastJassTimestamp für alle Spieler
+  const playerIdsSet = new Set<string>(allPlayerNames.keys());
+  const playerLastActivity = await loadPlayerLastActivity(playerIdsSet);
+  const oneYearAgo = Date.now() - (365 * 24 * 60 * 60 * 1000);
+  
+  // 🎯 NEU: Filtere Spieler, die >1 Jahr inaktiv sind
+  const activePlayerNames = new Map<string, string>();
+  allPlayerNames.forEach((displayName, playerId) => {
+    const lastActivity = playerLastActivity.get(playerId);
+    if (lastActivity && lastActivity.toMillis() >= oneYearAgo) {
+      activePlayerNames.set(playerId, displayName);
+    } else if (!lastActivity) {
+      // Wenn kein lastJassTimestamp vorhanden ist, behalte den Spieler (für Rückwärtskompatibilität)
+      activePlayerNames.set(playerId, displayName);
+    }
+  });
+  
+  // Initialisiere kumulative Werte nur für aktive Spieler
+  activePlayerNames.forEach((_, playerId) => {
     cumulativeValues.set(playerId, 0);
   });
   
-  // Erstelle Datasets
+  // Erstelle Datasets nur für aktive Spieler
   const datasets: any[] = [];
-  allPlayerNames.forEach((displayName, playerId) => {
+  activePlayerNames.forEach((displayName, playerId) => {
     datasets.push({
       playerId,
       label: displayName,
@@ -238,10 +304,14 @@ async function calculateChartData(
     const bottomPlayers = teams.bottom?.players || [];
     
     const sessionId = doc.id;
-    const isTournament = sessionData.isTournamentSession || sessionId === '6eNr8fnsTO06jgCqjelt';
+    // 🎯 ROBUSTE TOURNAMENT-ERKENNUNG: Prüfe tournamentId, gameResults oder isTournamentSession
+    const isTournament = sessionData.isTournamentSession || 
+                         !!sessionData.tournamentId || 
+                         (Array.isArray(sessionData.gameResults) && sessionData.gameResults.length > 0) ||
+                         sessionId === '6eNr8fnsTO06jgCqjelt';
     
-    // Berechne Delta für jeden Spieler
-    allPlayerNames.forEach((_, playerId) => {
+    // Berechne Delta für jeden aktiven Spieler
+    activePlayerNames.forEach((_, playerId) => {
       const dataset = datasets.find(d => d.playerId === playerId);
       const isTopPlayer = topPlayers.some((p: any) => p.playerId === playerId);
       const isBottomPlayer = bottomPlayers.some((p: any) => p.playerId === playerId);
