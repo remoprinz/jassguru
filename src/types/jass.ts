@@ -1111,22 +1111,6 @@ export interface SessionTeams {
 }
 // ENDE NEUE Typen für detaillierte Team-Informationen
 
-export interface CompletedGameSummary {
-  // ... existing CompletedGameSummary fields ...
-  activeGameId: string; // Sicherstellen, dass dies immer gesetzt wird
-  teams?: TeamConfig; // Behält die alte TeamConfig für Spiel-spezifische Layouts bei, falls nötig
-                      // Nicht zu verwechseln mit SessionTeams für die gesamte Session
-  
-  // jassSpruch Feld entfernt - Sprüche werden nicht mehr gespeichert, sondern immer fresh generiert
-}
-
-export interface JassSession {
-  // ... existing JassSession fields ...
-  playerNames: PlayerNames;
-  // teams?: TeamConfig; // Dieses Feld könnte veraltet sein oder eine andere Bedeutung haben
-                       // Wir führen SessionTeams für die explizite Teamdefinition der Session ein
-}
-
 // Erweitere die Struktur, die für den Payload der finalizeSessionSummary Cloud Function verwendet wird
 // (Name anpassen, falls im Client anders genannt, z.B. InitialSessionClientData)
 export interface FinalizeSessionCallableData {

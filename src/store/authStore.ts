@@ -125,7 +125,9 @@ export const useAuthStore = create<AuthStore>()(
                 await getAuth().currentUser?.getIdToken(true);
                 // kurzer Delay, damit die neuen Credentials übernommen werden
                 await new Promise(r => setTimeout(r, 200));
-                if (userDocUnsubscribe) { userDocUnsubscribe(); }
+                if (userDocUnsubscribe) {
+ userDocUnsubscribe();
+}
                 userDocUnsubscribe = attachUserListener();
                 return;
               }

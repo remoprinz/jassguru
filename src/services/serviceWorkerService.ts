@@ -95,7 +95,9 @@ class ServiceWorkerService {
         window.location.href = '/kill-sw.html';
       } catch {
         // Fallback: normales Reload
-        try { window.location.reload(); } catch {}
+        try {
+ window.location.reload();
+} catch {}
       }
     }
   }
@@ -299,10 +301,16 @@ class ServiceWorkerService {
       // console.log('[PWA] Kein wartender Service Worker zum Aktivieren gefunden. Führe sicheren Hard-Reload durch...');
       try {
         const alreadyReloaded = (() => {
-          try { return sessionStorage.getItem('pwaUpdateReloaded') === '1'; } catch { return false; }
+          try {
+ return sessionStorage.getItem('pwaUpdateReloaded') === '1';
+} catch {
+ return false;
+}
         })();
         if (!alreadyReloaded) {
-          try { sessionStorage.setItem('pwaUpdateReloaded', '1'); } catch {}
+          try {
+ sessionStorage.setItem('pwaUpdateReloaded', '1');
+} catch {}
           // Fallback: Wenn der SW bereits skipWaiting() nutzt (z. B. iOS/next-pwa),
           // existiert oft kein "waiting". Ein Hard-Reload lädt die neue Version dennoch zuverlässig.
           window.location.href = window.location.href.split('?')[0] + '?updated=' + Date.now();
@@ -341,9 +349,17 @@ class ServiceWorkerService {
 
           // 🛡️ BULLETPROOF FALLBACK: Hard Reload auch bei Timeout (einmalig)
           try {
-            const alreadyReloaded = (() => { try { return sessionStorage.getItem('pwaUpdateReloaded') === '1'; } catch { return false; } })();
+            const alreadyReloaded = (() => {
+ try {
+ return sessionStorage.getItem('pwaUpdateReloaded') === '1';
+} catch {
+ return false;
+}
+})();
             if (!alreadyReloaded) {
-              try { sessionStorage.setItem('pwaUpdateReloaded', '1'); } catch {}
+              try {
+ sessionStorage.setItem('pwaUpdateReloaded', '1');
+} catch {}
               window.location.href = window.location.href.split('?')[0] + '?updated=' + Date.now();
             }
           } catch (fallbackError) {
@@ -375,7 +391,9 @@ class ServiceWorkerService {
         this.resetActivationFailCount();
 
         // 🛡️ BULLETPROOF: Hard Reload mit Cache-Bypass (einmalig)
-        try { sessionStorage.setItem('pwaUpdateReloaded', '1'); } catch {}
+        try {
+ sessionStorage.setItem('pwaUpdateReloaded', '1');
+} catch {}
         window.location.href = window.location.href.split('?')[0] + '?updated=' + Date.now();
         
         resolve();

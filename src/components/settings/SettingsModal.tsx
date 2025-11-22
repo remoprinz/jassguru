@@ -138,6 +138,22 @@ const StrokeButton: React.FC<{
 const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
   const { preventClose } = useTutorialComponent('settings');
   
+  // 🛡️ KRITISCH: Hydration-Guard - warte auf Store-Initialisierung
+  const [isHydrated, setIsHydrated] = useState(false);
+  
+  useEffect(() => {
+    // Prüfe, ob der Store vollständig rehydriert wurde
+    setIsHydrated(useUIStore.persist.hasHydrated());
+    
+    // Falls noch nicht, warte auf Rehydration
+    if (!useUIStore.persist.hasHydrated()) {
+      const unsubscribe = useUIStore.persist.onFinishHydration(() => {
+        setIsHydrated(true);
+      });
+      return unsubscribe;
+    }
+  }, []);
+  
   // === Selektoren einzeln und stabiler gestalten ===
   const isSettingsOpen = useUIStore((state) => state.isSettingsOpen);
   const closeSettings = useUIStore((state) => state.closeSettings);
@@ -160,7 +176,7 @@ const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
 
   // === Initialisierung von State wieder aus uiStore ===
   const [tempMultipliers, setTempMultipliers] = useState<Record<FarbeModeKey, number>>(
-    farbeSettings.values
+    farbeSettings.values ?? DEFAULT_FARBE_SETTINGS.values
   );
   const [tempScores, setTempScores] = useState<Record<ScoreMode, number>>(
     scoreSettings.values
@@ -213,13 +229,13 @@ const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
   
   // Sync mit Store (farbeSettings)
   useEffect(() => {
-    setTempMultipliers(farbeSettings.values);
+    setTempMultipliers(farbeSettings.values ?? DEFAULT_FARBE_SETTINGS.values);
   }, [farbeSettings]);
 
   // Effekt zum Initialisieren/Resetten des temp States, wenn sich settings im Store ändern oder Modal öffnet
   useEffect(() => {
     if (isSettingsOpen) {
-      setTempMultipliers(farbeSettings.values);
+      setTempMultipliers(farbeSettings.values ?? DEFAULT_FARBE_SETTINGS.values);
       setTempScores(scoreSettings.values);
       setTempEnabled(scoreSettings.enabled);
       setTempStrokeSettings(strokeSettings);
@@ -230,7 +246,7 @@ const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
   // Effekt zum Überwachen von Änderungen (optional für UI)
   useEffect(() => {
     if (!isSettingsOpen) return;
-    const farbeChanged = JSON.stringify(tempMultipliers) !== JSON.stringify(farbeSettings.values);
+    const farbeChanged = JSON.stringify(tempMultipliers) !== JSON.stringify(farbeSettings.values ?? DEFAULT_FARBE_SETTINGS.values);
     const scoreChanged = JSON.stringify(tempScores) !== JSON.stringify(scoreSettings.values) || JSON.stringify(tempEnabled) !== JSON.stringify(scoreSettings.enabled);
     const strokeChanged = JSON.stringify(tempStrokeSettings) !== JSON.stringify(strokeSettings);
     setHasChanges(farbeChanged || scoreChanged || strokeChanged);
@@ -247,7 +263,7 @@ const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
 
   const handleClose = () => {
     // Berechne 'changesNow' direkt vor der Entscheidung
-    const farbeChangedNow = JSON.stringify(tempMultipliers) !== JSON.stringify(farbeSettings.values);
+    const farbeChangedNow = JSON.stringify(tempMultipliers) !== JSON.stringify(farbeSettings.values ?? DEFAULT_FARBE_SETTINGS.values);
     const scoreChangedNow = JSON.stringify(tempScores) !== JSON.stringify(scoreSettings.values) || JSON.stringify(tempEnabled) !== JSON.stringify(scoreSettings.enabled);
     const strokeChangedNow = JSON.stringify(tempStrokeSettings) !== JSON.stringify(strokeSettings);
     const changesNow = farbeChangedNow || scoreChangedNow || strokeChangedNow;
@@ -404,7 +420,7 @@ const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
                         )}
                     </div>
                     <MultiplierButton
-                        multiplier={tempMultipliers[mode.id]}
+                        multiplier={tempMultipliers?.[mode.id] ?? 0}
                         onMultiplierClick={() => handleMultiplierClick(mode.id)}
                     />
                 </div>
@@ -578,6 +594,11 @@ const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
     }
   };
 
+  // 🛡️ Render nur, wenn Store vollständig initialisiert ist
+  if (!isHydrated) {
+    return null;
+  }
+  
   return (
     <AnimatePresence>
       {settings.isOpen && (

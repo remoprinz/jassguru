@@ -1390,16 +1390,40 @@ export const useUIStore = create<UIState & UIActions>()(
     })),
     {
       name: "jass-ui-storage",
-      version: 1, // NEU: Version 0 -> 1 (wegen matschBonus)
+      version: 2, // NEU: Version 1 -> 2 (wegen farbeSettings.values)
       migrate: (persistedState, version) => {
+        const typedState = persistedState as any;
+        
+        // Migration v0 -> v1
         if (version === 0) {
-          const typedState = persistedState as any;
           if (typedState.scoreSettings && typeof typedState.scoreSettings.matschBonus === 'undefined') {
             console.log('🔄 Migrating uiStore state v0 to v1: Adding matschBonus');
             typedState.scoreSettings.matschBonus = true;
           }
         }
+        
+        // Migration v1 -> v2 (Defense-in-Depth für FarbeSettings)
+        if (version < 2) {
+          if (typedState.farbeSettings && !typedState.farbeSettings.values) {
+            console.log('🔄 Migrating uiStore state to v2: Fixing missing farbeSettings.values');
+            typedState.farbeSettings.values = DEFAULT_FARBE_SETTINGS.values;
+          }
+        }
+        
         return persistedState;
+      },
+      onRehydrateStorage: () => (state) => {
+        // 🛡️ ULTIMATE DEFENSE: Validierung nach dem Laden
+        if (state) {
+          if (!state.farbeSettings?.values) {
+            console.warn('⚠️ uiStore Rehydration: Repariere korrupte farbeSettings');
+            state.farbeSettings = {
+              ...DEFAULT_FARBE_SETTINGS,
+              ...(state.farbeSettings || {}),
+              values: DEFAULT_FARBE_SETTINGS.values
+            };
+          }
+        }
       },
       partialize: (state) => ({
         farbeSettings: state.farbeSettings,

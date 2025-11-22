@@ -2115,7 +2115,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
                         <h3 className={`${layout.headingSize} font-semibold text-white`}>
-                          Strichdifferenz pro Spiel: 
+                          Strichdifferenz: 
                           <span className={`ml-2 ${(() => {
                             // ✅ Verwende Chart-Daten statt playerStats
                             if (!stricheChartData || !stricheChartData.datasets || stricheChartData.datasets.length === 0) {
@@ -2172,7 +2172,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
                         <h3 className={`${layout.headingSize} font-semibold text-white`}>
-                          Punktdifferenz pro Spiel: 
+                          Punktdifferenz: 
                           <span className={`ml-2 ${(() => {
                             // ✅ Verwende Chart-Daten statt playerStats
                             if (!pointsChartData || !pointsChartData.datasets || pointsChartData.datasets.length === 0) {
@@ -2231,9 +2231,24 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
                           <h3 className={`${layout.headingSize} font-semibold text-white`}>
                             Matsch-Bilanz: 
-                            <span className={`ml-2 ${playerStats?.matschBilanz && playerStats.matschBilanz > 0 ? 'text-emerald-500' : playerStats?.matschBilanz && playerStats.matschBilanz < 0 ? 'text-red-500' : 'text-white'}`}>
-                              {playerStats?.matschBilanz && playerStats.matschBilanz > 0 ? '+' : ''}
-                              {playerStats?.matschBilanz || 0}
+                            <span className={`ml-2 ${(() => {
+                              // ✅ Verwende Chart-Daten für kumulativen Endwert (nicht Delta!)
+                              if (!matschChartData || !matschChartData.datasets || matschChartData.datasets.length === 0) {
+                                return 'text-white';
+                              }
+                              const lastValue = matschChartData.datasets[0].data[matschChartData.datasets[0].data.length - 1];
+                              const currentValue = Math.trunc(lastValue || 0);
+                              return currentValue > 0 ? 'text-emerald-500' : currentValue < 0 ? 'text-red-500' : 'text-white';
+                            })()}`}>
+                              {(() => {
+                                // ✅ Verwende Chart-Daten für kumulativen Endwert (nicht Delta!)
+                                if (!matschChartData || !matschChartData.datasets || matschChartData.datasets.length === 0) {
+                                  return '0';
+                                }
+                                const lastValue = matschChartData.datasets[0].data[matschChartData.datasets[0].data.length - 1];
+                                const currentValue = Math.trunc(lastValue || 0);
+                                return currentValue > 0 ? `+${currentValue}` : `${currentValue}`;
+                              })()}
                             </span>
                           </h3>
                         </div>
@@ -2931,7 +2946,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         {(playerStats as any).partnerAggregates
                           .filter((partner: any) => partner.gamesPlayedWith >= 1)
                           .sort((a: any, b: any) => b.totalStricheDifferenceWith - a.totalStricheDifferenceWith)
-                          .slice(0, 10)
+                          .slice(0, 50)
                           .map((partner: any, index: number) => {
                             const playerData = members?.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
                             return (
@@ -3019,7 +3034,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         {(playerStats as any).partnerAggregates
                           .filter((partner: any) => partner.gamesPlayedWith >= 1)
                           .sort((a: any, b: any) => b.totalPointsDifferenceWith - a.totalPointsDifferenceWith)
-                          .slice(0, 10)
+                          .slice(0, 50)
                           .map((partner: any, index: number) => {
                             const playerData = members?.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
                             return (
@@ -3129,7 +3144,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         {(playerStats as any).partnerAggregates
                           .filter((partner: any) => partner.sessionsPlayedWith >= 1)
                           .sort((a: any, b: any) => (b.sessionWinRate || 0) - (a.sessionWinRate || 0))
-                          .slice(0, 10)
+                          .slice(0, 50)
                           .map((partner: any, index: number) => {
                             const playerData = members?.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
                             return (
@@ -3241,7 +3256,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                                         {(playerStats as any).partnerAggregates
                           .filter((partner: any) => partner.gamesPlayedWith >= 1)
                           .sort((a: any, b: any) => (b.gameWinRate || 0) - (a.gameWinRate || 0))
-                          .slice(0, 10)
+                          .slice(0, 50)
                           .map((partner: any, index: number) => {
                             const playerData = members?.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
                             return (
@@ -3332,7 +3347,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         {(playerStats as any).partnerAggregates
                           .filter((partner: any) => partner.gamesPlayedWith >= 1 && ((partner.matschEventsMadeWith || 0) > 0 || (partner.matschEventsReceivedWith || 0) > 0))
                           .sort((a: any, b: any) => (b.matschBilanz || 0) - (a.matschBilanz || 0))
-                          .slice(0, 10)
+                          .slice(0, 50)
                           .map((partner: any, index: number) => {
                             const playerData = members?.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
                             return (
@@ -3386,7 +3401,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         {(playerStats as any).partnerAggregates
                           .filter((partner: any) => partner.gamesPlayedWith >= 1 && ((partner.schneiderEventsMadeWith || 0) > 0 || (partner.schneiderEventsReceivedWith || 0) > 0))
                           .sort((a: any, b: any) => (b.schneiderBilanz || 0) - (a.schneiderBilanz || 0))
-                          .slice(0, 10)
+                          .slice(0, 50)
                           .map((partner: any, index: number) => {
                             const playerData = members?.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
                             return (
@@ -3443,7 +3458,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         {(playerStats as any).partnerAggregates
                           .filter((partner: any) => partner.gamesPlayedWith >= 1 && ((partner.kontermatschEventsMadeWith || 0) > 0 || (partner.kontermatschEventsReceivedWith || 0) > 0))
                           .sort((a: any, b: any) => (b.kontermatschBilanz || 0) - (a.kontermatschBilanz || 0))
-                          .slice(0, 10)
+                          .slice(0, 50)
                           .map((partner: any, index: number) => {
                             const playerData = members?.find(m => m.id === partner.partnerId || m.userId === partner.partnerId);
                             return (
@@ -3544,7 +3559,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         {(playerStats as any).opponentAggregates
                           .filter((opponent: any) => opponent.gamesPlayedAgainst >= 1)
                           .sort((a: any, b: any) => b.totalStricheDifferenceAgainst - a.totalStricheDifferenceAgainst)
-                          .slice(0, 10)
+                          .slice(0, 50)
                           .map((opponent: any, index: number) => {
                             const playerData = members?.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
                             return (
@@ -3629,7 +3644,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         {(playerStats as any).opponentAggregates
                           .filter((opponent: any) => opponent.gamesPlayedAgainst >= 1)
                           .sort((a: any, b: any) => b.totalPointsDifferenceAgainst - a.totalPointsDifferenceAgainst)
-                          .slice(0, 10)
+                          .slice(0, 50)
                           .map((opponent: any, index: number) => {
                             const playerData = members?.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
                             return (
@@ -3734,7 +3749,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         {(playerStats as any).opponentAggregates
                           .filter((opponent: any) => opponent.sessionsPlayedAgainst >= 1)
                           .sort((a: any, b: any) => (b.sessionWinRate || 0) - (a.sessionWinRate || 0))
-                          .slice(0, 10)
+                          .slice(0, 50)
                           .map((opponent: any, index: number) => {
                             const playerData = members?.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
                             return (
@@ -3843,7 +3858,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         {(playerStats as any).opponentAggregates
                           .filter((opponent: any) => opponent.gamesPlayedAgainst >= 1)
                           .sort((a: any, b: any) => (b.gameWinRate || 0) - (a.gameWinRate || 0))
-                          .slice(0, 10)
+                          .slice(0, 50)
                           .map((opponent: any, index: number) => {
                             const playerData = members?.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
                             return (
@@ -3932,7 +3947,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         {(playerStats as any).opponentAggregates
                           .filter((opponent: any) => opponent.gamesPlayedAgainst >= 1 && ((opponent.matschEventsMadeAgainst || 0) > 0 || (opponent.matschEventsReceivedAgainst || 0) > 0))
                           .sort((a: any, b: any) => (b.matschBilanz || 0) - (a.matschBilanz || 0))
-                          .slice(0, 10)
+                          .slice(0, 50)
                           .map((opponent: any, index: number) => {
                             const playerData = members?.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
                             return (
@@ -3986,7 +4001,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         {(playerStats as any).opponentAggregates
                           .filter((opponent: any) => opponent.gamesPlayedAgainst >= 1 && ((opponent.schneiderEventsMadeAgainst || 0) > 0 || (opponent.schneiderEventsReceivedAgainst || 0) > 0))
                           .sort((a: any, b: any) => (b.schneiderBilanz || 0) - (a.schneiderBilanz || 0))
-                          .slice(0, 10)
+                          .slice(0, 50)
                           .map((opponent: any, index: number) => {
                             const playerData = members?.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
                             return (
@@ -4043,7 +4058,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         {(playerStats as any).opponentAggregates
                           .filter((opponent: any) => opponent.gamesPlayedAgainst >= 1 && ((opponent.kontermatschEventsMadeAgainst || 0) > 0 || (opponent.kontermatschEventsReceivedAgainst || 0) > 0))
                           .sort((a: any, b: any) => (b.kontermatschBilanz || 0) - (a.kontermatschBilanz || 0))
-                          .slice(0, 10)
+                          .slice(0, 50)
                           .map((opponent: any, index: number) => {
                             const playerData = members?.find(m => m.id === opponent.opponentId || m.userId === opponent.opponentId);
                             return (

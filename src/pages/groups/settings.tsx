@@ -567,7 +567,7 @@ const GroupSettingsPage = () => {
       const titleText = "Du wurdest zu jassguru.ch eingeladen! ✌️";
       const bodyText = `${inviterName} lädt dich ein, der Jassgruppe "${currentGroup.name}" beizutreten.`;
       const linkText = `👉 Hier ist dein Einladungslink:\n${inviteLink}`;
-      const backupText = `💡 Falls du später beitreten möchtest:\n- Melde dich bei jassguru.ch an\n- Füge den kompletten Link ein`;
+      const backupText = `💡 So geht's:\n• Registriere dich bei jassguru.ch mit Jassnamen\n• Melde dich an\n• Füge den kompletten Einladungs-Link ein\n• Lade ein Profilbild hoch`;
       const shareText = `${titleText}\n\n${bodyText}\n\n${linkText}\n\n${backupText}`;
       
       // ✅ KEIN BILD MEHR - Nur Text-basierte Einladung für saubere Link-Vorschau

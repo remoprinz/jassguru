@@ -181,13 +181,6 @@ export const SCREENSHOT_DATA: ScreenshotData[] = [
     title: 'Mitglieder-Rechte',
     description: 'Verwalte die Rechte deiner Gruppenmitglieder. Du bestimmst, wer was darf.',
     order: 25
-  },
-  {
-    id: '11_regelchat',
-    src: '/assets/screenshots/11_Regelchat.PNG',
-    title: 'Jassguru Chat',
-    description: 'Chatte mit dem Jassguru persönlich! Er kennt jede Regel aus dem modernen Regelwerk «Stöck, Wys, Stich». Mehr noch: Er versteht und spricht fliessend Schweizerdeutsch.',
-    order: 26
   }
 ];
 

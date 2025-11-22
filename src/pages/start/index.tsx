@@ -971,7 +971,14 @@ const StartPage = () => {
                 if (groupDoc.exists()) {
                   const groupData = groupDoc.data();
                   settingsFromActiveGame = {
-                    farbeSettings: groupData.farbeSettings || DEFAULT_FARBE_SETTINGS,
+                    farbeSettings: {
+                        ...DEFAULT_FARBE_SETTINGS,
+                        ...(groupData.farbeSettings || {}),
+                        values: {
+                            ...DEFAULT_FARBE_SETTINGS.values,
+                            ...(groupData.farbeSettings?.values || {})
+                        }
+                    },
                     scoreSettings: {
                       ...DEFAULT_SCORE_SETTINGS,
                       ...(groupData.scoreSettings || {}),

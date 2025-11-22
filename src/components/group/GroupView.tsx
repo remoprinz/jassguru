@@ -1439,16 +1439,19 @@ export const GroupView: React.FC<GroupViewProps> = ({
           {isAdmin && !membersLoading && members.length < 4 && (
             <div className="mt-4 mx-auto max-w-md">
               <div className={`bg-gradient-to-r from-green-900/40 to-emerald-900/40 border border-green-500/50 rounded-lg ${layout.cardPadding} backdrop-blur-sm`}>
-                <div className="flex items-center justify-center mb-2">
-                  <Settings size={layout.iconSize} className="text-green-400 mr-2" />
-                  <span className={`text-green-300 font-medium ${layout.subheadingSize}`}>Gruppe fertig einrichten</span>
-                </div>
-                <p className={`text-green-200 ${layout.miniTextSize} text-center leading-relaxed`}>
-                  Schliesse die Gruppeneinstellungen ab und lade mindestens drei weitere Mitspieler ein!
+                <h3 className={`text-green-300 font-medium ${layout.subheadingSize} text-center mb-3`}>
+                  Willkommen! Lass uns deine Gruppe einrichten
+                </h3>
+                <p className={`text-green-200 ${layout.miniTextSize} text-center leading-relaxed mb-4`}>
+                  Bevor du dein erstes Spiel startest, richte deine Gruppe nach deinen Präferenzen ein:
                 </p>
-                <div className="mt-2 text-center">
-                  <span className={`text-green-400 ${layout.miniTextSize}`}>
-                    {members.length}/4 Mitglieder
+                <ol className={`text-green-200 ${layout.miniTextSize} text-left space-y-2.5 mb-4 list-decimal pl-5`}>
+                  <li>Klicke unten rechts auf <span className="font-semibold text-green-300">"Einstellungen"</span>, um deine Gruppeneinstellungen nach deinen Präferenzen anzupassen (Punkte, Striche, etc.)</li>
+                  <li>Lade mindestens drei weitere Mitspieler ein, indem du unten auf <span className="font-semibold text-green-300">"Einladen"</span> klickst</li>
+                </ol>
+                <div className="mt-4 text-center pt-3 border-t border-green-500/30">
+                  <span className={`text-green-400 ${layout.miniTextSize} font-medium`}>
+                    Aktuell: {members.length}/4 Mitglieder
                   </span>
                 </div>
               </div>
@@ -1660,9 +1663,20 @@ export const GroupView: React.FC<GroupViewProps> = ({
                   <div className={`${layout.sectionSpacing} ${layout.bodySize}`}>
                     {/* 1. Elo Verlauf - NEUE REIHENFOLGE */}
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                      <div className={`flex items-center justify-between border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                        <div className="flex items-center">
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
                         <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Jass-Elo Verlauf</h3>
+                        </div>
+                        <a 
+                          href="https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/Elo%20Ranking%20System.pdf?alt=media&token=eb789b69-9438-450f-b3a6-f7e2902a64f5" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className={`flex items-center justify-center rounded-full bg-gray-700/50 hover:bg-gray-600/70 border border-gray-600/40 hover:border-gray-500/60 transition-all duration-200 hover:scale-105 ${layout.actionButtonPadding}`}
+                          title="Elo Ranking System öffnen"
+                        >
+                          <Info size={layout.iconSize} className="text-gray-300 hover:text-white" />
+                        </a>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {chartLoading ? (
@@ -1702,7 +1716,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                           <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Jass-Elo Rangliste</h3>
                         </div>
                         <a 
-                          href="https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/Jass-Elo_%20Ein%20Elo-basiertes%20Bewertungssystem%20fu%CC%88r%20den%20Schieber.pdf?alt=media&token=5db3a7af-1725-4d2d-a7dd-d68a9db9dfbb" 
+                          href="https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/Jass-Elo_Elo-basiertes%20Bewertungssystem%20fu%CC%88r%20den%20Schieber.pdf?alt=media&token=1e876a8c-180d-47a3-b0f8-ae893e44a5bd" 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className={`flex items-center justify-center rounded-full bg-gray-700/50 hover:bg-gray-600/70 border border-gray-600/40 hover:border-gray-500/60 transition-all duration-200 hover:scale-105 ${layout.actionButtonPadding}`}

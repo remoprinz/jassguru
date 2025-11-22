@@ -20,7 +20,8 @@ import type { // Verwende 'type' für reine Typ-Importe
 import { DEFAULT_SCORE_SETTINGS, DEFAULT_STROKE_SETTINGS } from '../config/ScoreSettings';
 import { useUIStore } from './uiStore'; // Importiere uiStore für Notifications
 import { GROUPS_COLLECTION } from '@/constants/firestore';
-import { getPlayerDocument } from "../services/playerService"; // Sicherstellen, dass der Import da ist
+import { getPlayerDocument, getPlayersByIds } from "../services/playerService"; // Sicherstellen, dass der Import da ist
+import { subscribeToGroupMembers } from '../services/groupService';
 
 // Statusnamen angepasst (loaded -> success)
 type GroupLoadingStatus = "idle" | "loading" | "success" | "error";
@@ -46,6 +47,9 @@ interface GroupState {
   updateCurrentGroupStrokeSettings: (groupId: string, settings: StrokeSettings) => Promise<void>;
   updateCurrentGroupFarbeSettings: (groupId: string, settings: Omit<JassFarbeSettings, 'isFlipped' | 'cardStyle'>) => Promise<void>;
   updateCurrentGroupCardStyle: (groupId: string, cardStyle: CardStyle) => Promise<void>;
+  // NEU: Members-spezifischer State
+  currentGroupMembers: FirestorePlayer[];
+  membersStatus: "idle" | "loading" | "success" | "error";
 }
 
 interface GroupActions {
@@ -80,6 +84,9 @@ interface GroupActions {
     cardStyle: CardStyle;
   }) => Promise<void>;
   _trySetLastActiveGroup: () => void;
+  // NEU: Actions für Members
+  subscribeToCurrentGroupMembers: (groupId: string) => void;
+  _cleanupMembersListener: () => void;
 }
 
 type GroupStore = GroupState & GroupActions;
@@ -113,6 +120,9 @@ const initialState: GroupState = {
   updateCurrentGroupCardStyle: async (groupId, cardStyle) => {
     // Implementation needed
   },
+  // NEU: Initialer Member-State
+  currentGroupMembers: [],
+  membersStatus: "idle",
 };
 
 const groupStoreCreator: StateCreator<
@@ -130,6 +140,9 @@ const groupStoreCreator: StateCreator<
       unsubscribe();
       set({ _currentGroupListenerUnsubscribe: null }, false, 'cleanupListener');
     }
+  },
+  _cleanupMembersListener: () => {
+    // Diese Funktion wird in subscribeToCurrentGroupMembers überschrieben
   },
 
   setCurrentGroup: (group: Group | null) => {
@@ -586,6 +599,47 @@ const groupStoreCreator: StateCreator<
     if (!user || !group || group.id !== targetGroupId) return false;
     // Überprüfe, ob die adminIds existieren und die userId enthalten
     return Array.isArray(group.adminIds) && group.adminIds.includes(user.uid);
+  },
+
+  subscribeToCurrentGroupMembers: (groupId) => {
+    get()._cleanupMembersListener?.(); // Vorherigen Listener aufräumen
+
+    const unsubscribe = subscribeToGroupMembers(groupId, async (initialMembers) => {
+      if (!initialMembers || initialMembers.length === 0) {
+        set({ currentGroupMembers: [], membersStatus: "success", error: null });
+        return;
+      }
+
+      try {
+        set({ membersStatus: "loading" });
+
+        const playerIds = initialMembers.map(m => m.id);
+        const fullPlayersMap = await getPlayersByIds(playerIds);
+
+        const enrichedMembers = initialMembers.map(staleMember => {
+          const freshPlayer = fullPlayersMap.get(staleMember.id);
+          if (freshPlayer) {
+            return {
+              ...staleMember,
+              ...freshPlayer,
+              id: staleMember.id,
+            };
+          }
+          return staleMember;
+        });
+
+        set({ currentGroupMembers: enrichedMembers, membersStatus: "success", error: null });
+      } catch (error) {
+        console.error("[groupStore] Fehler beim Anreichern der Gruppenmitglieder:", error);
+        set({
+          currentGroupMembers: initialMembers,
+          membersStatus: "error",
+          error: "Mitglieder konnten nicht vollständig aktualisiert werden.",
+        });
+      }
+    });
+
+    set({ _cleanupMembersListener: unsubscribe }, false, 'setMembersSubscription');
   },
 
   _trySetLastActiveGroup: () => {

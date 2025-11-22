@@ -25,7 +25,7 @@ import {
   // ❌ ENTFERNT: GroupPlayerStats (wird nicht mehr verwendet)
   PartnerPlayerStats,
   OpponentPlayerStats,
-  // ❌ ENTFERNT: ScoresHistoryEntry (wird nur von jassEloUpdater.ts verwendet)
+  ScoresHistoryEntry,
   getDefaultGlobalPlayerStats,
   // ❌ ENTFERNT: getDefaultGroupPlayerStats (wird nicht mehr verwendet)
 } from './models/unified-player-data.model';
@@ -212,8 +212,8 @@ async function updatePlayerData(
     // 7. Update Opponent Stats
     await updateOpponentStatsSubcollection(playerId, sessionData, sessionDelta);
     
-    // ❌ ENTFERNT: Session-Level ScoresHistory wird NICHT mehr erstellt!
-    // Pro-Spiel-Entries werden von jassEloUpdater.ts erstellt
+    // 8. Update Scores History (aggregiert pro Session)
+    await updateScoresHistorySubcollection(playerId, groupId, sessionId, sessionData, sessionDelta, tournamentId);
     
     logger.info(`[updatePlayerData] ✅ Alle Updates abgeschlossen für Spieler ${playerId}`);
   } catch (error: any) {
@@ -825,7 +825,70 @@ async function updateOpponentStatsSubcollection(
   logger.info(`[updateOpponentStatsSubcollection] ✅ Opponent Stats aktualisiert (${delta.opponentIds.length} Gegner)`);
 }
 
-// ❌ ENTFERNT: createScoresHistoryEntry()
-// Session-Level ScoresHistory wird NICHT mehr erstellt!
-// Pro-Spiel-Entries werden direkt von jassEloUpdater.ts erstellt.
+/**
+ * Aktualisiert Scores History Subcollection (Aggregiert pro Session)
+ * 
+ * Erstellt EINEN Eintrag pro Session/Turnier mit den aufsummierten Werten.
+ * Das sorgt für saubere Charts ohne "Zick-Zack" und reduziert die Datenmenge.
+ */
+async function updateScoresHistorySubcollection(
+  playerId: string,
+  groupId: string,
+  sessionId: string,
+  sessionData: any,
+  delta: SessionDelta,
+  tournamentId: string | null
+): Promise<void> {
+  try {
+    // Prüfen ob bereits ein Eintrag für diese Session existiert
+    const historyRef = db.collection(`players/${playerId}/scoresHistory`);
+    const existingQuery = await historyRef.where('sessionId', '==', sessionId).get();
+    
+    let docRef;
+    let isUpdate = false;
+    
+    if (!existingQuery.empty) {
+      docRef = existingQuery.docs[0].ref;
+      isUpdate = true;
+    } else {
+      docRef = historyRef.doc();
+    }
+    
+    // Timestamp bestimmen
+    const completedAt = sessionData.endedAt || sessionData.completedAt || sessionData.lastUpdated || admin.firestore.Timestamp.now();
+    
+    const entry: ScoresHistoryEntry = {
+      completedAt: completedAt,
+      groupId: groupId,
+      sessionId: sessionId,
+      tournamentId: tournamentId || null,
+      
+      // Aggregierte Werte aus dem Delta
+      stricheDiff: delta.stricheDifference,
+      pointsDiff: delta.pointsDifference,
+      
+      // Wins/Losses sind hier die Anzahl der Spiele!
+      wins: delta.gamesWon,
+      losses: delta.gamesLost,
+      
+      // Event Bilanzen
+      matschBilanz: delta.matschBilanz,
+      schneiderBilanz: delta.schneiderBilanz,
+      kontermatschBilanz: delta.kontermatschBilanz,
+      
+      weisDifference: delta.weisDifference,
+      
+      // Metadaten
+      eventType: tournamentId ? 'tournament_session' : 'session',
+      gameNumber: delta.gamesPlayed // Anzahl der Spiele in dieser Session
+    };
+    
+    await docRef.set(entry, { merge: true });
+    
+    logger.info(`[updateScoresHistorySubcollection] ✅ Scores History ${isUpdate ? 'aktualisiert' : 'erstellt'} für Spieler ${playerId} (Diff: ${delta.stricheDifference}, Games: ${delta.gamesPlayed})`);
+  } catch (error) {
+    logger.error(`[updateScoresHistorySubcollection] Fehler bei Spieler ${playerId}:`, error);
+    // Nicht kritisch, werfen wir nicht weiter
+  }
+}
 

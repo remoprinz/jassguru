@@ -15,6 +15,7 @@ import {
 } from "./firebaseInit";
 // import { documentId } from "firebase/firestore"; // Entfernt
 import { compressImage } from "@/utils/imageUtils";
+import { getRandomProfileTheme } from "@/utils/randomTheme";
 import {
   GROUPS_COLLECTION,
   PLAYERS_COLLECTION,
@@ -101,7 +102,7 @@ export const createGroup = async (
       scoreSettings: DEFAULT_SCORE_SETTINGS,
       strokeSettings: DEFAULT_STROKE_SETTINGS,
       farbeSettings: DEFAULT_FARBE_SETTINGS,
-      theme: 'yellow', // Default-Theme
+      theme: getRandomProfileTheme(), // NEU: Zufälliges Theme
       players: {
         [playerId]: {
           displayName: userDisplayName || "Unbekannt",
@@ -1062,7 +1063,14 @@ export const getGroupDetails = async (groupId: string): Promise<FirestoreGroup |
         ...(groupData.scoreSettings || {}),
       },
       strokeSettings: groupData.strokeSettings || DEFAULT_STROKE_SETTINGS,
-      farbeSettings: groupData.farbeSettings || DEFAULT_FARBE_SETTINGS,
+      farbeSettings: {
+        ...DEFAULT_FARBE_SETTINGS,
+        ...(groupData.farbeSettings || {}),
+        values: {
+            ...DEFAULT_FARBE_SETTINGS.values,
+            ...(groupData.farbeSettings?.values || {})
+        }
+      },
     };
 
     // console.log(`[getGroupDetails] Details found for group: ${groupId}.`);

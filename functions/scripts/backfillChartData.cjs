@@ -236,7 +236,13 @@ async function backfillGroupCharts(groupId, groupName) {
           
           return calculateTotal(playerTeamStriche) - calculateTotal(opponentTeamStriche);
         },
-        getTournamentDelta: (rankings) => rankings.stricheDifference || 0
+        getTournamentDelta: (rankings) => {
+          // ✅ NULL zurückgeben wenn Rankings korrupt/undefined sind
+          if (rankings.stricheDifference === undefined || rankings.stricheDifference === null) {
+            return null;
+          }
+          return rankings.stricheDifference;
+        }
       },
       {
         name: 'chartData_points',
@@ -247,13 +253,23 @@ async function backfillGroupCharts(groupId, groupName) {
           
           return teamKey === 'top' ? topScore - bottomScore : bottomScore - topScore;
         },
-        getTournamentDelta: (rankings) => rankings.pointsDifference || 0
+        getTournamentDelta: (rankings) => {
+          // ✅ NULL zurückgeben wenn Rankings korrupt/undefined sind
+          if (rankings.pointsDifference === undefined || rankings.pointsDifference === null) {
+            return null;
+          }
+          return rankings.pointsDifference;
+        }
       },
       {
         name: 'chartData_matsch',
         calculateDelta: (session, playerId, teamKey) => calculateEventDifference(session, playerId, teamKey, 'matsch'),
         getTournamentDelta: (rankings) => {
-          const ec = rankings.eventCounts || {};
+          // ✅ NULL zurückgeben wenn eventCounts korrupt/undefined sind
+          if (!rankings.eventCounts || rankings.eventCounts === undefined) {
+            return null;
+          }
+          const ec = rankings.eventCounts;
           return (ec.matschMade || 0) - (ec.matschReceived || 0);
         }
       },
@@ -262,7 +278,11 @@ async function backfillGroupCharts(groupId, groupName) {
         isEventChart: true,
         calculateDelta: (session, playerId, teamKey) => calculateEventDifference(session, playerId, teamKey, 'schneider'),
         getTournamentDelta: (rankings) => {
-          const ec = rankings.eventCounts || {};
+          // ✅ NULL zurückgeben wenn eventCounts korrupt/undefined sind
+          if (!rankings.eventCounts || rankings.eventCounts === undefined) {
+            return null;
+          }
+          const ec = rankings.eventCounts;
           const schneiderMade = ec.schneiderMade || 0;
           const schneiderReceived = ec.schneiderReceived || 0;
           if (schneiderMade === 0 && schneiderReceived === 0) return null;
@@ -274,7 +294,11 @@ async function backfillGroupCharts(groupId, groupName) {
         isEventChart: true,
         calculateDelta: (session, playerId, teamKey) => calculateEventDifference(session, playerId, teamKey, 'kontermatsch'),
         getTournamentDelta: (rankings) => {
-          const ec = rankings.eventCounts || {};
+          // ✅ NULL zurückgeben wenn eventCounts korrupt/undefined sind
+          if (!rankings.eventCounts || rankings.eventCounts === undefined) {
+            return null;
+          }
+          const ec = rankings.eventCounts;
           const kontermatschMade = ec.kontermatschMade || 0;
           const kontermatschReceived = ec.kontermatschReceived || 0;
           if (kontermatschMade === 0 && kontermatschReceived === 0) return null;

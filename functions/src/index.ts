@@ -1,6 +1,6 @@
 import { setGlobalOptions } from "firebase-functions/v2";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
-import { onDocumentCreated, onDocumentUpdated, onDocumentWritten, Change, FirestoreEvent, QueryDocumentSnapshot, DocumentSnapshot, DocumentOptions } from "firebase-functions/v2/firestore";
+import { onDocumentUpdated, onDocumentWritten, Change, FirestoreEvent, QueryDocumentSnapshot, DocumentSnapshot, DocumentOptions } from "firebase-functions/v2/firestore";
 import { defineSecret } from "firebase-functions/params";
 import * as admin from "firebase-admin";
 import * as crypto from "crypto";
@@ -26,7 +26,7 @@ import * as batchUpdateLogic from './batchUpdateGroupStats'; // NEU: Batch-Updat
 import * as updateGroupStatsLogic from './updateGroupStats'; // NEU: Manuelle Gruppenstatistik-Aktualisierung
 import * as rateLimiterCleanupLogic from './rateLimiterCleanup'; // NEU: Rate-Limiter Cleanup
 import { updateGroupComputedStatsAfterSession } from './groupStatsCalculator'; // NEU: Import für Gruppenstatistiken
-import { updateEloForSingleTournamentPasse } from './jassEloUpdater'; // NEU: Elo-Update für einzelne Tournament-Passe
+// import { updateEloForSingleTournamentPasse } from './jassEloUpdater'; // NEU: Elo-Update für einzelne Tournament-Passe (aktuell ungenutzt)
 // ------------------------------------------
 
 // --- Globale Optionen für Gen 2 setzen --- 
@@ -1989,37 +1989,6 @@ export const onPlayerDocumentUpdated = onDocumentUpdated(
  * Synchronisiert Gruppennamen-Änderungen zu groupComputedStats
  * Wird ausgelöst, wenn sich das name Feld in einem groups Dokument ändert
  */
-/**
- * 🆕 Tournament Passe Elo-Update
- * Wird ausgelöst, wenn eine neue Passe in tournaments/.../games/ geschrieben wird
- * Aktualisiert automatisch die Elo-Ratings für alle 4 Spieler
- */
-export const onTournamentPasseCompleted = onDocumentCreated(
-  "tournaments/{tournamentId}/games/{passeId}",
-  async (event) => {
-    const tournamentId = event.params.tournamentId;
-    const passeId = event.params.passeId;
-    const gameData = event.data?.data();
-
-    if (!gameData) {
-      logger.warn(`[onTournamentPasseCompleted] No data for passe ${passeId}`);
-      return;
-    }
-
-    try {
-      logger.info(`[onTournamentPasseCompleted] Updating Elo for tournament ${tournamentId} passe ${passeId}`);
-      await updateEloForSingleTournamentPasse(tournamentId, passeId);
-      logger.info(`[onTournamentPasseCompleted] ✅ Elo updated successfully`);
-    } catch (error) {
-      logger.error(`[onTournamentPasseCompleted] Failed to update Elo:`, error);
-    }
-  }
-);
-
-/**
- * Synchronisiert Gruppennamen-Änderungen zu groupComputedStats
- * Wird ausgelöst, wenn sich das name Feld in einem groups Dokument ändert
- */
 export const onGroupDocumentUpdated = onDocumentUpdated(
   "groups/{groupId}",
   async (event) => {
@@ -2101,3 +2070,6 @@ export { masterFix } from './masterFixFunction';
 
 // ✅ NEU: Export Cleanup Old Rating Fields
 export { cleanupOldRatingFields } from './cleanupOldRatingFields';
+
+// ✅ NEU: Export Jassmeister Registration Processing
+export { processJassmeisterRegistration } from './jassmeisterRegistrations';

@@ -366,26 +366,25 @@ function analyzeGameNarrative(
       };
     }
   }
-  // COLLAPSE - Verspielte Führung (BESONDERS BITTER!)
+  // COLLAPSE/COMEBACK - Verspielte Führung oder Rückstand gedreht
   else if (finalWinner && maxLeadTeam && maxLeadTeam !== finalWinner && maxLead >= 2) {
     const collapseStartGame = maxLeadAtGame;
     const gamesNeededToLose = totalGames - collapseStartGame;
     
+    // Entscheide zwischen COLLAPSE (verspielte Führung) und COMEBACK (Rückstand gedreht)
+    // basierend auf dem Timing - früher Vorsprung = COLLAPSE, später Vorsprung = COMEBACK
+    const isCollapse = maxLeadAtGame <= totalGames / 2;
+    
     pattern = {
-      type: 'collapse',
-      description: `${maxLead}-Spiele-Vorsprung verspielt!`,
-      keyMoments: [collapseStartGame, totalGames],
-      intensity: Math.min(10, 7 + maxLead),
-      details: `Nach ${collapseStartGame} Spielen noch ${maxLead}:${topWins < bottomWins ? topWins : bottomWins} geführt, dann ${gamesNeededToLose} Spiele in Folge verloren!`
-    };
-  }
-  // COMEBACK - Rückstand gedreht
-  else if (finalWinner && maxLeadTeam && maxLeadTeam !== finalWinner && maxLead >= 2) {
-    pattern = {
-      type: 'comeback',
-      description: `${maxLead}-Spiele-Rückstand gedreht!`,
-      keyMoments: criticalGames,
-      intensity: Math.min(10, 6 + maxLead)
+      type: isCollapse ? 'collapse' : 'comeback',
+      description: isCollapse 
+        ? `${maxLead}-Spiele-Vorsprung verspielt!`
+        : `${maxLead}-Spiele-Rückstand gedreht!`,
+      keyMoments: isCollapse ? [collapseStartGame, totalGames] : criticalGames,
+      intensity: Math.min(10, isCollapse ? 7 + maxLead : 6 + maxLead),
+      details: isCollapse 
+        ? `Nach ${collapseStartGame} Spielen noch ${maxLead}:${topWins < bottomWins ? topWins : bottomWins} geführt, dann ${gamesNeededToLose} Spiele in Folge verloren!`
+        : undefined
     };
   }
   // STREAK - Siegesserie

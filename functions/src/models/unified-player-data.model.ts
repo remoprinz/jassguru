@@ -295,7 +295,7 @@ export interface ScoresHistoryEntry {
   
   weisDifference: number;
   
-  eventType: 'game'; // ✅ NUR 'game' für Pro-Spiel-Entries
+  eventType: 'game' | 'session' | 'tournament_session'; // ✅ Updated to allow session level entries
 }
 
 // =========================================

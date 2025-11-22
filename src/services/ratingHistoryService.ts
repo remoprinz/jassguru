@@ -405,7 +405,7 @@ export async function getGroupRatingTimeSeries(
       // Nur Spieler mit mehr als einem Datenpunkt speichern
       if (historyMap.size > 1) {
         playerHistories.set(playerId, {
-          displayName: memberData.displayName || `Spieler_${playerId.slice(0,6)}`,
+          displayName: memberData.displayName || `Spieler_${playerId.slice(0, 6)}`,
           currentRating, // 🎯 Das aktuelle globalRating für Sortierung
           history: historyMap
         });

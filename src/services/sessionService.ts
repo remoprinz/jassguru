@@ -420,7 +420,7 @@ export const fetchAllGamesForSession = async (sessionId: string, groupId?: strin
     const db = getFirestore(firebaseApp);
     
     // 🚀 NEUE ARCHITEKTUR: GroupId ermitteln falls nicht übergeben
-    let resolvedGroupId = groupId;
+    const resolvedGroupId = groupId;
     if (!resolvedGroupId) {
       console.log(`[fetchAllGamesForSession] No groupId provided, attempting to resolve from session ${sessionId}`);
       // 🚨 BUG-FIX: Die Abfrage auf die globale 'sessions' Collection funktioniert für öffentliche

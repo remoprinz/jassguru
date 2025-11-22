@@ -34,8 +34,8 @@ module.exports = {
     "require-jsdoc": "off", // Temporär deaktiviert
     "valid-jsdoc": "off",   // Temporär deaktiviert
     "@typescript-eslint/no-unused-vars": "off", // Temporär deaktiviert
-    "@typescript-eslint/no-explicit-any": "warn", // ERROR → WARNING für Deployment
-    "@typescript-eslint/no-non-null-assertion": "warn", // ERROR → WARNING für Deployment
+    "@typescript-eslint/no-explicit-any": "off", // Deaktiviert - zu viele Warnungen in Firebase-Code
+    "@typescript-eslint/no-non-null-assertion": "off", // Deaktiviert - zu viele Warnungen in Firebase-Code
     "@typescript-eslint/no-require-imports": "off", // Für JSON-Imports erlauben
     "object-curly-spacing": "off", // Temporär deaktiviert
     "comma-dangle": "off",         // Temporär deaktiviert

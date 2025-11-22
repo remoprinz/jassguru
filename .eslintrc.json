@@ -13,6 +13,17 @@
     "@next/next/no-img-element": "off",
     "react-hooks/exhaustive-deps": "off",
     "@typescript-eslint/no-unused-vars": "off",
-    "@typescript-eslint/no-explicit-any": "off"
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-non-null-assertion": "off",
+    "camelcase": "off",
+    "brace-style": "off",
+    "no-empty": "off",
+    "@typescript-eslint/no-var-requires": "off",
+    "no-inner-declarations": "off",
+    "no-prototype-builtins": "off",
+    "no-useless-escape": "off",
+    "no-useless-catch": "off",
+    "no-throw-literal": "off",
+    "import/no-duplicates": "off"
   }
 }

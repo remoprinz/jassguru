@@ -490,7 +490,6 @@ export const saveCompletedGameToFirestore = async (
       // aber unsere summaryData eine nicht-leere roundHistory hat
       if ((!existingData.roundHistory || existingData.roundHistory.length === 0) && 
           summaryData.roundHistory && summaryData.roundHistory.length > 0) {
-        
 
         
         // Nur die roundHistory und trumpColorsPlayed aktualisieren
@@ -542,7 +541,6 @@ export const saveCompletedGameToFirestore = async (
 
     // Bereinige die Daten vor dem Speichern
     const cleanedSummaryData = sanitizeDataForFirestore(dataToSave); 
-    
 
 
     // Spiel speichern

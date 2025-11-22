@@ -1,7 +1,8 @@
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 import { getRatingTier } from './shared/rating-tiers';
-import { ScoresHistoryEntry } from './models/unified-player-data.model';
+// ScoresHistoryEntry entfernt - wird jetzt zentral in unifiedPlayerDataService verwaltet
+
 
 const db = admin.firestore();
 
@@ -493,10 +494,6 @@ export async function updateEloForSession(groupId: string, sessionId: string): P
       const gameData = gameByGameRatings.get(pid)?.[gameIndex];
       if (!gameData) return; // Spieler war nicht in diesem Spiel (Tournament)
       
-      const isTopPlayer = gameTopPlayers.includes(pid);
-      const teamKey = isTopPlayer ? 'top' : 'bottom';
-      const opponentTeamKey = isTopPlayer ? 'bottom' : 'top';
-      
       // ✅ RATING-HISTORY (existing)
       const ratingHistoryData = {
         rating: gameData.rating,
@@ -510,51 +507,8 @@ export async function updateEloForSession(groupId: string, sessionId: string): P
       };
       batch.set(db.collection(`players/${pid}/ratingHistory`).doc(), ratingHistoryData);
       
-      // ✅ SCORES-HISTORY (NEU!)
-      if (completedGame) {
-        // Striche-Differenz
-        const playerStriche = sumStriche(completedGame.finalStriche?.[teamKey]);
-        const opponentStriche = sumStriche(completedGame.finalStriche?.[opponentTeamKey]);
-        const stricheDiff = playerStriche - opponentStriche;
-        
-        // Punkte-Differenz
-        const playerPoints = completedGame.finalScores?.[teamKey] || 0;
-        const opponentPoints = completedGame.finalScores?.[opponentTeamKey] || 0;
-        const pointsDiff = playerPoints - opponentPoints;
-        
-        // Win/Loss (NO draw on game level!)
-        const wins = pointsDiff > 0 ? 1 : 0;
-        const losses = pointsDiff < 0 ? 1 : 0;
-        
-        // Event-Bilanz
-        const playerEvents = completedGame.eventCounts?.[teamKey];
-        const opponentEvents = completedGame.eventCounts?.[opponentTeamKey];
-        const matschBilanz = (playerEvents?.matsch || 0) - (opponentEvents?.matsch || 0);
-        const schneiderBilanz = (playerEvents?.schneider || 0) - (opponentEvents?.schneider || 0);
-        const kontermatschBilanz = (playerEvents?.kontermatsch || 0) - (opponentEvents?.kontermatsch || 0);
-        
-        // Weis-Differenz (TODO: Weis pro Player aus completedGame extrahieren)
-        const weisDifference = 0; // Placeholder
-        
-        const scoresEntry: ScoresHistoryEntry = {
-          completedAt: gameTimestampFirestore,
-          groupId,
-          sessionId: sessionId, // ✅ FEHLTE: Wichtig für Queries!
-          tournamentId: null,
-          gameNumber: gameData.gameNumber,
-          stricheDiff,
-          pointsDiff,
-          wins,
-          losses,
-          matschBilanz,
-          schneiderBilanz,
-          kontermatschBilanz,
-          weisDifference,
-          eventType: 'game',
-        };
-        
-        batch.set(db.collection(`players/${pid}/scoresHistory`).doc(), scoresEntry);
-      }
+      // ✅ SCORES-HISTORY: ENTFERNT!
+      // Wird jetzt zentral und AGGREGIERT in unifiedPlayerDataService.ts geschrieben.
     });
   }
 
@@ -867,10 +821,6 @@ export async function updateEloForTournament(tournamentId: string, participantPl
     const teamStriche = gameData.teamStrichePasse || {};
     const stricheTop = sumStriche(teamStriche.top);
     const stricheBottom = sumStriche(teamStriche.bottom);
-    
-    // Punkte für diese Passe
-    const pointsTop = gameData.finalScores?.top || 0;
-    const pointsBottom = gameData.finalScores?.bottom || 0;
 
     // Rating-History & Scores-History für ALLE Spieler (Top + Bottom)
     [...topPlayers, ...bottomPlayers].forEach(pid => {
@@ -878,8 +828,6 @@ export async function updateEloForTournament(tournamentId: string, participantPl
       if (!playerRating) return;
       
       const isTopPlayer = topPlayers.includes(pid);
-      const teamKey = isTopPlayer ? 'top' : 'bottom';
-      const opponentTeamKey = isTopPlayer ? 'bottom' : 'top';
       
       // Rating-Delta berechnen
       const teamTopRating = topPlayers.reduce((sum, p) => sum + (ratingMap.get(p)?.rating || JASS_ELO_CONFIG.DEFAULT_RATING), 0) / topPlayers.length;
@@ -902,48 +850,8 @@ export async function updateEloForTournament(tournamentId: string, participantPl
       };
       batch.set(db.collection(`players/${pid}/ratingHistory`).doc(), ratingHistoryData);
       
-      // ✅ SCORES-HISTORY (NEU!)
-      // Striche-Differenz
-      const playerStriche = isTopPlayer ? stricheTop : stricheBottom;
-      const opponentStriche = isTopPlayer ? stricheBottom : stricheTop;
-      const stricheDiff = playerStriche - opponentStriche;
-      
-      // Punkte-Differenz
-      const playerPoints = isTopPlayer ? pointsTop : pointsBottom;
-      const opponentPoints = isTopPlayer ? pointsBottom : pointsTop;
-      const pointsDiff = playerPoints - opponentPoints;
-      
-      // Win/Loss (NO draw on game level!)
-      const wins = pointsDiff > 0 ? 1 : 0;
-      const losses = pointsDiff < 0 ? 1 : 0;
-      
-      // Event-Bilanz
-      const playerEvents = gameData.eventCounts?.[teamKey];
-      const opponentEvents = gameData.eventCounts?.[opponentTeamKey];
-      const matschBilanz = (playerEvents?.matsch || 0) - (opponentEvents?.matsch || 0);
-      const schneiderBilanz = (playerEvents?.schneider || 0) - (opponentEvents?.schneider || 0);
-      const kontermatschBilanz = (playerEvents?.kontermatsch || 0) - (opponentEvents?.kontermatsch || 0);
-      
-      // Weis-Differenz (TODO: Weis pro Player extrahieren)
-      const weisDifference = 0; // Placeholder
-      
-      const scoresEntry: ScoresHistoryEntry = {
-        completedAt: game.completedAt,
-        groupId: '',
-        tournamentId: tournamentId,
-        gameNumber: passeNumber,
-        stricheDiff,
-        pointsDiff,
-        wins,
-        losses,
-        matschBilanz,
-        schneiderBilanz,
-        kontermatschBilanz,
-        weisDifference,
-        eventType: 'game',
-      };
-      
-      batch.set(db.collection(`players/${pid}/scoresHistory`).doc(), scoresEntry);
+      // ✅ SCORES-HISTORY: ENTFERNT!
+      // Wird jetzt zentral und AGGREGIERT am Ende des Turniers in unifiedPlayerDataService.ts geschrieben.
     });
   }
 
@@ -1078,17 +986,9 @@ export async function updateEloForSingleTournamentPasse(
   // Rating-History & Scores-History für alle Spieler
   const completedAt = passeData.completedAt || admin.firestore.Timestamp.now();
   
-  // Punkte für diese Passe
-  const pointsTop = passeData.finalScores?.top || 0;
-  const pointsBottom = passeData.finalScores?.bottom || 0;
-  
   for (const pid of allPlayers) {
     const playerRating = ratingMap.get(pid);
     if (playerRating) {
-      const isTopPlayer = topPlayers.includes(pid);
-      const teamKey = isTopPlayer ? 'top' : 'bottom';
-      const opponentTeamKey = isTopPlayer ? 'bottom' : 'top';
-      
       // ✅ RATING-HISTORY (existing)
       const historyData = {
         rating: playerRating.rating,
@@ -1103,48 +1003,8 @@ export async function updateEloForSingleTournamentPasse(
       
       batch.set(db.collection(`players/${pid}/ratingHistory`).doc(), historyData);
       
-      // ✅ SCORES-HISTORY (NEU!)
-      // Striche-Differenz
-      const playerStriche = isTopPlayer ? stricheTop : stricheBottom;
-      const opponentStriche = isTopPlayer ? stricheBottom : stricheTop;
-      const stricheDiff = playerStriche - opponentStriche;
-      
-      // Punkte-Differenz
-      const playerPoints = isTopPlayer ? pointsTop : pointsBottom;
-      const opponentPoints = isTopPlayer ? pointsBottom : pointsTop;
-      const pointsDiff = playerPoints - opponentPoints;
-      
-      // Win/Loss (NO draw on game level!)
-      const wins = pointsDiff > 0 ? 1 : 0;
-      const losses = pointsDiff < 0 ? 1 : 0;
-      
-      // Event-Bilanz
-      const playerEvents = passeData.eventCounts?.[teamKey];
-      const opponentEvents = passeData.eventCounts?.[opponentTeamKey];
-      const matschBilanz = (playerEvents?.matsch || 0) - (opponentEvents?.matsch || 0);
-      const schneiderBilanz = (playerEvents?.schneider || 0) - (opponentEvents?.schneider || 0);
-      const kontermatschBilanz = (playerEvents?.kontermatsch || 0) - (opponentEvents?.kontermatsch || 0);
-      
-      // Weis-Differenz (TODO: Weis pro Player extrahieren)
-      const weisDifference = 0; // Placeholder
-      
-      const scoresEntry: ScoresHistoryEntry = {
-        completedAt: completedAt,
-        groupId: '', // Tourniere haben keine groupId per se
-        tournamentId: tournamentId,
-        gameNumber: passeNumber,
-        stricheDiff,
-        pointsDiff,
-        wins,
-        losses,
-        matschBilanz,
-        schneiderBilanz,
-        kontermatschBilanz,
-        weisDifference,
-        eventType: 'game',
-      };
-      
-      batch.set(db.collection(`players/${pid}/scoresHistory`).doc(), scoresEntry);
+      // ✅ SCORES-HISTORY: ENTFERNT!
+      // Wird jetzt zentral und AGGREGIERT am Ende des Turniers in unifiedPlayerDataService.ts geschrieben.
     }
   }
 

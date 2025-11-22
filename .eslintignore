@@ -1,6 +1,13 @@
 # Build-Verzeichnisse
 .next/
+_next/
 out/
+
+# Functions (has its own ESLint config)
+functions/
+
+# Scripts (excluded from tsconfig.json)
+scripts/
 
 # Node-Module
 node_modules/

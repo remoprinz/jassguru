@@ -36,7 +36,6 @@ import { useUIStore } from "@/store/uiStore";
 import { loadCompletedGamesFromFirestore } from "@/services/gameService";
 
 
-
 // --- 1. Interface für State --- 
 
 export interface JassState {
@@ -342,8 +341,13 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
           // Wichtig für cardStyle: Wenn Gruppe keinen hat, bleibt der von UI/Turnier.
           finalSettingsForGameStore = {
             farbeSettings: {
-              ...baseSettings.farbeSettings, // Starte mit Basis (die schon UI oder Turnier sein kann)
-              ...(groupFarbeSettings || {}), // Überschreibe mit Gruppenwerten, falls vorhanden
+              ...baseSettings.farbeSettings, // Starte mit Basis
+              ...(groupFarbeSettings || {}), // Überschreibe Top-Level Props
+              // 🛡️ DEFENSE-IN-DEPTH: Explizites Mergen von 'values'
+              values: {
+                ...baseSettings.farbeSettings.values,
+                ...(groupFarbeSettings?.values || {})
+              },
               // Stelle sicher, dass cardStyle von der Gruppe nur greift, wenn explizit gesetzt, sonst Basis beibehalten
               cardStyle: groupFarbeSettings?.cardStyle ?? baseSettings.farbeSettings.cardStyle,
             },

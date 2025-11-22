@@ -1130,7 +1130,15 @@ export const useGameStore = create<GameStore>()(
                           ...(groupData.scoreSettings || {}),
                         },
                         strokeSettings: groupData.strokeSettings || DEFAULT_STROKE_SETTINGS,
-                        farbeSettings: groupData.farbeSettings || DEFAULT_FARBE_SETTINGS,
+                        farbeSettings: {
+                          ...DEFAULT_FARBE_SETTINGS,
+                          ...(groupData.farbeSettings || {}),
+                          // 🛡️ Defense-in-Depth: Explizites Mergen von 'values'
+                          values: {
+                            ...DEFAULT_FARBE_SETTINGS.values,
+                            ...(groupData.farbeSettings?.values || {})
+                          }
+                        },
                         source: 'group-firestore'
                       };
                     }

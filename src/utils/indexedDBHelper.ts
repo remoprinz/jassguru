@@ -340,7 +340,7 @@ export const handleIndexedDBCorruption = async (): Promise<void> => {
     
     // Letzter Ausweg: Hard-Reload
     setTimeout(() => {
-      window.location.href = window.location.href;
+      window.location.reload();
     }, 2000);
   }
 };

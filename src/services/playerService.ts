@@ -133,6 +133,26 @@ export const createPlayer = async (
       }
     }
 
+    // 🎯 NEU: Spieler zur players-Map der Gruppe hinzufügen (für Metadata wie joinedAt)
+    if (initialGroupId && collections.groups) {
+      try {
+        const groupRef = doc(collections.groups, initialGroupId);
+        await updateDoc(groupRef, {
+          [`players.${playerId}`]: {
+            displayName: nickname,
+            joinedAt: Timestamp.now(),
+          },
+          updatedAt: serverTimestamp(),
+        });
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[createPlayer] Added player ${playerId} to group ${initialGroupId} players-Map`);
+        }
+      } catch (groupUpdateError) {
+        console.error(`[createPlayer] Failed to add player to group players-Map:`, groupUpdateError);
+        // Nicht kritisch - der Spieler ist bereits in groupIds und wird via Query gefunden
+      }
+    }
+
     return playerData;
   } catch (error) {
     console.error("Fehler beim Erstellen des Spielers:", error);
@@ -593,37 +613,43 @@ export const ensurePlayersExist = async (
  * @returns Ein Promise, das ein Array von sortierten FirestorePlayer-Objekten auflöst.
  */
 export const getGroupMembersSortedByGames = async (groupId: string): Promise<FirestorePlayer[]> => {
-    if (!collections.groups) {
-        console.warn("getGroupMembersSortedByGames: groups collection not available.");
+    if (!collections.players) {
+        console.warn("getGroupMembersSortedByGames: players collection not available.");
         return [];
     }
 
     try {
-        const groupRef = doc(collections.groups, groupId);
-        const groupSnap = await getDoc(groupRef);
-
-        if (!groupSnap.exists()) {
-            console.warn(`getGroupMembersSortedByGames: Group with id ${groupId} not found.`);
+        // 🎯 ELEGANTE LÖSUNG: Query direkt auf players Collection statt players-Map
+        // Dadurch sind keine Inkonsistenzen mehr möglich - groupIds ist die Source of Truth
+        const playersQuery = query(
+            collections.players,
+            where('groupIds', 'array-contains', groupId)
+        );
+        
+        const playersSnapshot = await getDocs(playersQuery);
+        
+        if (playersSnapshot.empty) {
+            console.log(`[getGroupMembersSortedByGames] No players found for group ${groupId}.`);
             return [];
         }
 
-        const groupData = groupSnap.data();
-        // KORREKTUR: Lese die Player-IDs aus den Schlüsseln des `players`-Objekts
-        const playerIds = groupData?.players ? Object.keys(groupData.players) : [];
-
-        if (playerIds.length === 0) {
-            console.log(`[getGroupMembersSortedByGames] No players found in group object for group ${groupId}.`);
-            return []; // Keine Mitglieder in der Gruppe
-        }
-
-        // Stelle sicher, dass alle Spieler existieren und lade ihre Daten
-        // Diese Funktion muss robust genug sein, um mit den IDs umzugehen.
-        const members = await ensurePlayersExist(playerIds, groupId);
+        const members: FirestorePlayer[] = [];
+        playersSnapshot.forEach((doc) => {
+            const data = doc.data();
+            members.push({
+                id: doc.id,
+                ...data,
+            } as FirestorePlayer);
+        });
 
         // Sortiere die Mitglieder nach gamesPlayed absteigend
         const sortedMembers = [...members].sort((a, b) => 
             (b.stats?.gamesPlayed ?? 0) - (a.stats?.gamesPlayed ?? 0)
         );
+
+        if (process.env.NODE_ENV === 'development') {
+            console.log(`[getGroupMembersSortedByGames] Loaded ${sortedMembers.length} members for group ${groupId}`);
+        }
 
         return sortedMembers;
       
