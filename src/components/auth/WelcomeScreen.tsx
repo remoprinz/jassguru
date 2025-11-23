@@ -267,16 +267,16 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             </div>
 
             <h1 className="text-3xl font-bold text-white text-center">
-              jassguru.ch
+              Jassen ist der einzige Sport ohne Rangliste
             </h1>
             
-            <h2 className="text-xl text-gray-300 text-center -mt-2 italic">
+            <p className="text-base text-gray-300 text-center -mt-2 leading-relaxed">
               {displayMode === "pwa" ? "Von Jassern für Jasser." : (
                 <>
-                  Die Jasstafel, die automatisch rechnet, Statistiken führt und nie einen Punkt vergisst.
+                  Jassguru ändert das. Wir erfassen deine Spiele digital und liefern Profi-Statistiken, damit du deinen Kopf frei hast fürs Kartenzählen – und endlich klar ist, wer nicht nur Schnorren, sondern auch Jassen kann.
                 </>
               )}
-            </h2>
+            </p>
 
             <div className="text-gray-300 text-center">
               {displayMode === "pwa" ? (
@@ -294,21 +294,10 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               ) : (
                 <div className="text-left">
                   <div className="mb-4">
-                    Erstelle dein Profil, gründe eine Gruppe oder trete einer bei. 
-                    Jassen am Tisch mit deinen Jassfreunden war noch nie so schnell, smart und vernetzt.
-                  </div>
-                  
-                  <div className="mb-4">
-                    <strong className="text-white">Schau dir an, wie es funktioniert:</strong>
+                    <strong className="text-white">Sieh selbst, was du kriegst:</strong>
                   </div>
                   
                   <div className="space-y-2">
-                    <div>
-                      <Link href="/features" className="flex items-center space-x-1 text-blue-400 hover:text-blue-300 hover:underline transition-colors">
-                        <span>👉</span>
-                        <span>Vorschau App</span>
-                      </Link>
-                    </div>
                     <div>
                       <a 
                         href="https://jassguru.ch/view/group/Tz0wgIHMTlhvTtFastiJ" 
@@ -317,7 +306,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                         className="flex items-center space-x-1 text-blue-400 hover:text-blue-300 hover:underline"
                       >
                         <span>👉</span>
-                        <span>Jassgruppe ansehen</span>
+                        <span>Die ewige Gruppen-Rangliste</span>
                       </a>
                     </div>
                     <div>
@@ -328,7 +317,24 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                         className="flex items-center space-x-1 text-blue-400 hover:text-blue-300 hover:underline"
                       >
                         <span>👉</span>
-                        <span>Jassprofil ansehen</span>
+                        <span>Profil & Bestleistungen</span>
+                      </a>
+                    </div>
+                    <div>
+                      <Link href="/features" className="flex items-center space-x-1 text-blue-400 hover:text-blue-300 hover:underline transition-colors">
+                        <span>👉</span>
+                        <span>Die interaktive Feature-Tour</span>
+                      </Link>
+                    </div>
+                    <div>
+                      <a 
+                        href="https://chatgpt.com/g/g-69219897884881918763e35fccae748e-jassguru" 
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center space-x-1 text-blue-400 hover:text-blue-300 hover:underline"
+                      >
+                        <span>💬</span>
+                        <span>Frag den Jass-Guru (ChatGPT)</span>
                       </a>
                     </div>
                   </div>

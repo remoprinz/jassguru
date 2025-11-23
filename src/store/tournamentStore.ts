@@ -822,6 +822,17 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
         set({ status: oldStatus });
         return false; 
       }
+      
+      // ✅ FIX: Aktualisiere auch userTournamentInstances, damit BottomNavigation die Änderungen sieht
+      const updatedTournament = get().currentTournamentInstance;
+      if (updatedTournament) {
+        set((state) => ({
+          userTournamentInstances: state.userTournamentInstances.map(t => 
+            t.id === instanceId ? (updatedTournament as TournamentInstanceType) : t
+          )
+        }));
+      }
+      
       set({ status: 'success' });
       return true;
     } catch (error) {

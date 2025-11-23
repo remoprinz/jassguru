@@ -1,5 +1,6 @@
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { LOCAL_STORAGE_PENDING_INVITE_TOKEN_KEY } from '../constants/appConstants';
+// import { LOCAL_STORAGE_PENDING_INVITE_TOKEN_KEY } from '../constants/appConstants'; // Removed
+import { getGroupToken, clearGroupToken } from '@/utils/tokenStorage';
 import { useUIStore } from '@/store/uiStore';
 import { useGroupStore } from '@/store/groupStore';
 import type { FirestoreGroup } from '@/types/jass';
@@ -22,9 +23,10 @@ export const processPendingInviteToken = async (suppressNotification: boolean = 
 
   let pendingToken: string | null = null;
   try {
-      pendingToken = localStorage.getItem(LOCAL_STORAGE_PENDING_INVITE_TOKEN_KEY);
+      // pendingToken = localStorage.getItem(LOCAL_STORAGE_PENDING_INVITE_TOKEN_KEY);
+      pendingToken = getGroupToken();
   } catch (storageError) {
-      console.error("Failed to read from localStorage:", storageError);
+      console.error("Failed to read token from storage:", storageError);
       return null; // Exit if reading fails
   }
 
@@ -32,9 +34,10 @@ export const processPendingInviteToken = async (suppressNotification: boolean = 
     // console.log("Found pending invite token after login:", pendingToken);
     // IMPORTANT: Remove token IMMEDIATELY to prevent multiple attempts
     try {
-        localStorage.removeItem(LOCAL_STORAGE_PENDING_INVITE_TOKEN_KEY);
+        // localStorage.removeItem(LOCAL_STORAGE_PENDING_INVITE_TOKEN_KEY);
+        clearGroupToken();
     } catch (storageError) {
-        console.error("Failed to remove item from localStorage:", storageError);
+        console.error("Failed to remove item from storage:", storageError);
         // Continue trying, but log the error
     }
 

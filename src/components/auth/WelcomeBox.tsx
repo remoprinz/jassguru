@@ -52,17 +52,17 @@ const WelcomeBox: React.FC<WelcomeBoxProps> = ({
         </div>
 
         <h1 className="text-4xl font-bold text-white text-center">
-          jassguru.ch
+          Jassen ist der einzige Sport ohne Rangliste
         </h1>
 
         {/* HERO-TEXT: Harmonische Abstände! */}
-        <h2 className="text-2xl text-gray-100 text-center font-semibold leading-snug max-w-xl pt-4 pb-4">
+        <p className="text-base text-gray-300 text-center leading-relaxed max-w-xl pt-4 pb-4">
           {displayMode === 'pwa' ? (
             'Von Jassern für Jasser.'
           ) : (
-            'Die Jasstafel, die automatisch rechnet, Statistiken führt und nie einen Punkt vergisst.'
+            'Jassguru ändert das. Wir erfassen deine Spiele digital und liefern Profi-Statistiken, damit du deinen Kopf frei hast fürs Kartenzählen – und endlich klar ist, wer nicht nur Schnorren, sondern auch Jassen kann.'
           )}
-        </h2>
+        </p>
       </div>
 
       {/* Description - FLIEßTEXT! */}
@@ -81,25 +81,12 @@ const WelcomeBox: React.FC<WelcomeBoxProps> = ({
           </div>
         ) : (
           <div className="text-left space-y-4">
-            <p className="text-base leading-relaxed">
-              Erstelle dein Profil, gründe eine Gruppe oder trete einer bei. 
-              Jassen war noch nie so schnell, smart und vernetzt.
-            </p>
-
             <div>
               <strong className="text-white block mb-3 text-base">
-                Schau dir an, wie es funktioniert:
+                Sieh selbst, was du kriegst:
               </strong>
 
               <div className="space-y-3 text-base">
-                <Link
-                  href="/features"
-                  className="flex items-center space-x-3 text-blue-400 hover:text-blue-300 hover:underline transition-colors"
-                >
-                  <Eye className="w-5 h-5 flex-shrink-0" />
-                  <span>Interaktive Feature-Tour</span>
-                </Link>
-
                 <a
                   href="https://jassguru.ch/view/group/Tz0wgIHMTlhvTtFastiJ"
                   target="_blank"
@@ -107,7 +94,7 @@ const WelcomeBox: React.FC<WelcomeBoxProps> = ({
                   className="flex items-center space-x-3 text-blue-400 hover:text-blue-300 hover:underline transition-colors"
                 >
                   <Users className="w-5 h-5 flex-shrink-0" />
-                  <span>Jassgruppe ansehen</span>
+                  <span>Die ewige Gruppen-Rangliste</span>
                 </a>
 
                 <a
@@ -117,7 +104,25 @@ const WelcomeBox: React.FC<WelcomeBoxProps> = ({
                   className="flex items-center space-x-3 text-blue-400 hover:text-blue-300 hover:underline transition-colors"
                 >
                   <User className="w-5 h-5 flex-shrink-0" />
-                  <span>Jassprofil ansehen</span>
+                  <span>Profil & Bestleistungen</span>
+                </a>
+
+                <Link
+                  href="/features"
+                  className="flex items-center space-x-3 text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+                >
+                  <Eye className="w-5 h-5 flex-shrink-0" />
+                  <span>Die interaktive Feature-Tour</span>
+                </Link>
+
+                <a
+                  href="https://chatgpt.com/g/g-69219897884881918763e35fccae748e-jassguru"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center space-x-3 text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+                >
+                  <span className="text-xl">💬</span>
+                  <span>Frag den Jass-Guru (ChatGPT App)</span>
                 </a>
               </div>
             </div>

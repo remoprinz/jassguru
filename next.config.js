@@ -271,3 +271,4 @@ const withPWA = withPWAInit({
 });
 
 export default withPWA(nextConfig);
+

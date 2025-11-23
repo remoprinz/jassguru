@@ -1,0 +1,4086 @@
+{
+  "pwa_android": {
+    "id": "pwa_android",
+    "number": "1.1",
+    "title": "PWA auf Android installieren",
+    "category": {
+      "main": "PWA Installation",
+      "mainId": "pwa",
+      "number": 1
+    },
+    "difficulty": "einfach",
+    "priority": 1,
+    "tags": [
+      "pwa",
+      "installation",
+      "android",
+      "smartphone"
+    ],
+    "description": "So installierst du die Jassguru-App auf deinem Android-Smartphone.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Öffne jassguru.ch in Google Chrome oder einem anderen Browser.",
+        "tip": "Chrome funktioniert am besten!"
+      },
+      {
+        "number": 2,
+        "text": "Tippe oben rechts auf das Menü (drei Punkte) und wähle 'Zum Startbildschirm hinzufügen' oder 'App installieren'.",
+        "image": "1-pwa/android_install_01.png"
+      },
+      {
+        "number": 3,
+        "text": "Bestätige mit 'Hinzufügen' oder 'Installieren'.",
+        "tip": "Die App wird jetzt auf deinem Startbildschirm angezeigt."
+      },
+      {
+        "number": 4,
+        "text": "Fertig! Du kannst die App jetzt wie eine normale App öffnen.",
+        "image": "1-pwa/android_homescreen.png"
+      }
+    ],
+    "images": [
+      "01_pwa_android_install.png"
+    ],
+    "primaryImage": "01_pwa_android_install.png",
+    "keywords": [
+      "pwa",
+      "installation",
+      "android",
+      "smartphone",
+      "installieren",
+      "app",
+      "play store",
+      "google play",
+      "apk",
+      "download"
+    ],
+    "synonyms": [
+      "app installieren",
+      "android installation",
+      "play store",
+      "herunterladen"
+    ],
+    "userProblems": [
+      "Wie installiere ich die App?",
+      "Android Installation",
+      "App auf Handy installieren",
+      "PWA installieren",
+      "Finde die App nicht im Play Store",
+      "Wo ist der Download?",
+      "Wie mache ich App installieren?",
+      "Wie stelle ich App ein?",
+      "Wo kann ich App installieren?",
+      "Kann ich App installieren?",
+      "Wie schreibe ich App installieren?"
+    ],
+    "nextSuggested": "pwa_ios",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du die App auf einem iPhone installierst?",
+    "seeAlso": [
+      "pwa_ios",
+      "pwa_oeffnen"
+    ],
+    "faq": [
+      {
+        "question": "Welcher Browser funktioniert am besten?",
+        "answer": "Google Chrome! Aber auch Firefox, Edge und Samsung Internet funktionieren."
+      },
+      {
+        "question": "Brauche ich den Google Play Store?",
+        "answer": "Nein! PWAs werden direkt vom Browser installiert."
+      },
+      {
+        "question": "Nimmt die App viel Speicherplatz?",
+        "answer": "Nein, nur ca. 5-10 MB - viel weniger als native Apps!"
+      }
+    ],
+    "tips": [
+      "PWAs sind super: Sie aktualisieren sich automatisch und brauchen kaum Speicherplatz!",
+      "Die App funktioniert auch offline (wenn du vorher online warst)."
+    ]
+  },
+  "pwa_ios": {
+    "id": "pwa_ios",
+    "number": "1.2",
+    "title": "App auf iOS installieren",
+    "category": {
+      "main": "PWA & Installation",
+      "mainId": "pwa",
+      "number": 1
+    },
+    "difficulty": "einfach",
+    "priority": 1,
+    "tags": [
+      "pwa",
+      "installation",
+      "ios",
+      "iphone",
+      "safari",
+      "app"
+    ],
+    "description": "So installierst du die Jassguru-App auf deinem iPhone oder iPad als Progressive Web App (PWA).",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Öffne jassguru.ch in Safari oder einem anderen Browser auf deinem iPhone oder iPad."
+      },
+      {
+        "number": 2,
+        "text": "Tippe unten in der Mitte auf das Teilen-Symbol (□↑)."
+      },
+      {
+        "number": 3,
+        "text": "Scrolle nach unten und wähle 'Zum Home-Bildschirm'.",
+        "image": "1-pwa/pwa_ios_menu.png"
+      },
+      {
+        "number": 4,
+        "text": "Tippe oben rechts auf 'Hinzufügen'."
+      },
+      {
+        "number": 5,
+        "text": "Fertig! Die App erscheint jetzt als Icon auf deinem Home-Screen.",
+        "image": "1-pwa/pwa_ios_icon.png"
+      }
+    ],
+    "images": [
+      "02_pwa_ios_menu.png"
+    ],
+    "primaryImage": "02_pwa_ios_menu.png",
+    "keywords": [
+      "pwa",
+      "progressive web app",
+      "installation",
+      "ios",
+      "iphone",
+      "ipad",
+      "safari",
+      "app installieren",
+      "app store",
+      "apple store",
+      "laden"
+    ],
+    "synonyms": [
+      "app herunterladen",
+      "app installieren",
+      "auf iphone installieren",
+      "app store",
+      "apple"
+    ],
+    "userProblems": [
+      "Wie installiere ich die App auf iPhone?",
+      "App auf iOS",
+      "Installation iPhone",
+      "Safari App",
+      "Finde die App nicht im App Store",
+      "Gibt es eine iPhone App?",
+      "Wie mache ich iPhone App installieren?",
+      "Wie stelle ich iPhone App ein?",
+      "Wo kann ich iPhone App installieren?",
+      "Kann ich iPhone App installieren?",
+      "Wie schreibe ich iPhone App installieren?"
+    ],
+    "nextSuggested": "spiel_starten",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du dein erstes Spiel startest?",
+    "seeAlso": [
+      "pwa_android",
+      "pwa_desktop"
+    ],
+    "faq": [
+      {
+        "question": "Erscheint die App im App Store?",
+        "answer": "Nein, die App wird direkt von der Website installiert. Du brauchst keinen App Store."
+      },
+      {
+        "question": "Funktioniert die Installation auch in anderen Browsern?",
+        "answer": "Ja, die Installation funktioniert auch in anderen Browsern, nicht nur in Safari."
+      }
+    ],
+    "tips": [
+      "Die App funktioniert auch offline nach der Installation.",
+      "Du kannst die App jederzeit vom Home-Screen löschen wie jede andere App."
+    ]
+  },
+  "pwa_desktop": {
+    "id": "pwa_desktop",
+    "number": "1.3",
+    "title": "App am Computer nutzen",
+    "category": {
+      "main": "PWA & Installation",
+      "mainId": "pwa",
+      "number": 1
+    },
+    "difficulty": "einfach",
+    "priority": 2,
+    "tags": [
+      "pwa",
+      "installation",
+      "desktop",
+      "computer",
+      "chrome",
+      "app"
+    ],
+    "description": "So nutzt du die Jassguru-App auf deinem Computer (Windows, Mac, Linux). Im Browser kannst du alles machen - nur zum Spielen musst du die App installieren.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Öffne jassguru.ch in einem Browser auf deinem Computer (Chrome, Edge, Firefox, etc.).",
+        "tip": "Im Browser kannst du alles machen: Gruppen verwalten, Statistiken ansehen, Profile bearbeiten - alles ausser spielen!"
+      },
+      {
+        "number": 2,
+        "text": "Zum Spielen musst du die App installieren: Klicke oben rechts in der Adressleiste auf das Install-Symbol (⊕) oder das Drei-Punkte-Menü.",
+        "image": "1-pwa/pwa_desktop_install.png",
+        "warning": "Wichtig: Ohne Installation kannst du NICHT spielen! Alle anderen Funktionen funktionieren aber im Browser."
+      },
+      {
+        "number": 3,
+        "text": "Wähle 'Jassguru installieren' oder 'App installieren'."
+      },
+      {
+        "number": 4,
+        "text": "Bestätige mit 'Installieren'."
+      },
+      {
+        "number": 5,
+        "text": "Fertig! Die App öffnet sich in einem eigenen Fenster und du kannst jetzt spielen.",
+        "tip": "Du findest die App auch in deinem Startmenü / Anwendungen."
+      }
+    ],
+    "images": [],
+    "keywords": [
+      "pwa",
+      "desktop",
+      "computer",
+      "chrome",
+      "windows",
+      "mac",
+      "linux"
+    ],
+    "synonyms": [
+      "am pc nutzen",
+      "auf computer",
+      "desktop app"
+    ],
+    "userProblems": [
+      "Kann ich die App am Computer nutzen?",
+      "Desktop Version",
+      "Am PC spielen",
+      "Wie installiere ich die App am Computer?",
+      "Wie mache ich die App am PC?",
+      "Wie stelle ich die PWA am Desktop ein?",
+      "Wo kann ich am Mac installieren?",
+      "Wo kann ich unter Windows installieren?",
+      "Kann ich es am PC installieren?"
+    ],
+    "nextSuggested": "spiel_starten",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du dein erstes Spiel startest?",
+    "seeAlso": [
+      "pwa_android",
+      "pwa_ios"
+    ],
+    "faq": [
+      {
+        "question": "Kann ich die App im Browser nutzen, ohne Installation?",
+        "answer": "Ja! Im Browser kannst du alles machen: Gruppen verwalten, Statistiken ansehen, Profile bearbeiten. Nur zum Spielen musst du die App installieren."
+      },
+      {
+        "question": "Warum kann ich im Browser nicht spielen?",
+        "answer": "Das Spielen erfordert spezielle Funktionen, die nur in der installierten PWA verfügbar sind. Alle anderen Features funktionieren aber perfekt im Browser."
+      },
+      {
+        "question": "Kann ich die App auf mehreren Geräten nutzen?",
+        "answer": "Ja! Wenn du dich anmeldest, werden deine Daten auf allen Geräten synchronisiert."
+      }
+    ],
+    "tips": [
+      "Im Browser kannst du alles machen ausser spielen - perfekt zum Verwalten von Gruppen und Statistiken!",
+      "Zum Spielen einfach die App installieren - dann hast du die volle Funktionalität."
+    ]
+  },
+  "spiel_starten": {
+    "id": "spiel_starten",
+    "number": "2.1",
+    "title": "Neues Spiel starten",
+    "category": {
+      "main": "Spiele & Partien",
+      "mainId": "spiele",
+      "number": 2
+    },
+    "difficulty": "einfach",
+    "priority": 1,
+    "tags": [
+      "spiel",
+      "starten",
+      "neu",
+      "beginnen",
+      "partie"
+    ],
+    "description": "So startest du ein neues Jass-Spiel in der Jassguru-App.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Öffne die Jassguru-App auf deinem Gerät."
+      },
+      {
+        "number": 2,
+        "text": "Tippe auf den grossen grünen Button 'Neues Spiel' auf der Startseite.",
+        "image": "2-spiele/spiel_starten_01.png",
+        "tip": "Der Button ist nicht zu übersehen - er ist das zentrale Element auf der Startseite."
+      },
+      {
+        "number": 3,
+        "text": "Wähle deine Spieler aus.",
+        "image": "2-spiele/gastmodus_01.png",
+        "tip": "Du kannst entweder als Gast spielen (ohne Statistik) oder dich anmelden (mit Statistik). Die Entscheidung triffst du beim ersten App-Start, nicht beim Spielstart."
+      },
+      {
+        "number": 4,
+        "text": "Fertig! Das Spiel beginnt.",
+        "tip": "Wichtig: Wenn du angemeldet bist, werden alle Spiele für die Statistik getrackt. Als Gast wird nichts gespeichert."
+      }
+    ],
+    "images": [
+      "03_spiel_starten.png"
+    ],
+    "primaryImage": "03_spiel_starten.png",
+    "keywords": [
+      "spiel",
+      "starten",
+      "beginnen",
+      "neu",
+      "erstellen",
+      "anfangen",
+      "partie",
+      "runde",
+      "jassen",
+      "schieber",
+      "schiiber",
+      "schiebe",
+      "coiffeur",
+      "coifeur",
+      "koifeur",
+      "differenzler",
+      "differänzler",
+      "differaenzler",
+      "obenabe",
+      "obe-abe",
+      "obeabe",
+      "oben-abe",
+      "undenufe",
+      "unde-ufe",
+      "undeufe",
+      "unten-ufe"
+    ],
+    "synonyms": [
+      "partie",
+      "runde",
+      "jass",
+      "match",
+      "game",
+      "jassen",
+      "loslegen",
+      "schieber",
+      "schiiber",
+      "schiebe",
+      "coiffeur",
+      "coifeur",
+      "koifeur",
+      "differenzler",
+      "differänzler",
+      "differaenzler"
+    ],
+    "userProblems": [
+      "Ich will spielen",
+      "Wie fange ich an?",
+      "Wie starte ich?",
+      "Neues Match",
+      "Ich möchte jassen",
+      "Spiel beginnen",
+      "Wie geht es los?",
+      "Neuer Schieber",
+      "Jass starten",
+      "Wie mache ich ein neues Spiel?",
+      "Wie erstelle ich ein Spiel?",
+      "Wo kann ich ein Spiel starten?",
+      "Kann ich sofort spielen?",
+      "Wie beginne ich?",
+      "Wie starte ich ein Spiel?"
+    ],
+    "nextSuggested": "menu_oeffnen",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du das Menü öffnest?",
+    "seeAlso": [
+      "menu_oeffnen",
+      "spieler_auswaehlen",
+      "startspieler"
+    ],
+    "faq": [
+      {
+        "question": "Kann ich auch ohne Anmeldung spielen?",
+        "answer": "Ja! Du kannst als Gast spielen. Sobald du dich anmeldest, werden alle Spiele für die Statistik getrackt. Als Gast wird nichts gespeichert."
+      },
+      {
+        "question": "Muss ich mich jedes Mal entscheiden, ob ich als Gast spiele?",
+        "answer": "Nein! Die Entscheidung triffst du beim ersten App-Start: Entweder du meldest dich an (dann Statistik) oder du spielst als Gast (dann keine Statistik). Beim Spielstart selbst gibt es keine Auswahl mehr."
+      },
+      {
+        "question": "Wie viele Spieler brauche ich?",
+        "answer": "Für ein normales Spiel brauchst du 4 Spieler (inkl. dir)."
+      },
+      {
+        "question": "Kann ich später von Gast zu angemeldet wechseln?",
+        "answer": "Ja, du kannst dich jederzeit anmelden. Spiele im Gastmodus werden aber nicht rückwirkend übernommen."
+      }
+    ],
+    "tips": [
+      "Entscheidung für Statistik: Melde dich an = Statistik wird getrackt. Als Gast spielen = keine Statistik.",
+      "Die Entscheidung triffst du beim ersten App-Start, nicht beim Spielstart.",
+      "Du kannst auch ein Turnier starten, wenn du mehrere Runden spielen willst.",
+      "Im Gastmodus kannst du die App ohne Registrierung testen – aber ohne Statistik."
+    ],
+    "troubleshooting": [
+      {
+        "problem": "Der Button 'Neues Spiel' ist ausgegraut oder reagiert nicht.",
+        "solution": "Stelle sicher, dass du eine Internetverbindung hast und die App aktuell ist. Versuche, die App neu zu laden.",
+        "relatedTopic": "app_neu_laden"
+      }
+    ]
+  },
+  "menu_oeffnen": {
+    "id": "menu_oeffnen",
+    "number": "2.2",
+    "title": "Menü öffnen und schliessen",
+    "category": {
+      "main": "Spiele & Partien",
+      "mainId": "spiele",
+      "number": 2
+    },
+    "difficulty": "einfach",
+    "priority": 1,
+    "tags": [
+      "menü",
+      "menu",
+      "öffnen",
+      "schliessen",
+      "swipe",
+      "geste",
+      "optionen"
+    ],
+    "description": "So öffnest und schliesst du das Menü während des Spiels auf der Jasstafel.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Wenn du auf der Jasstafel bist, wische nach UNTEN (von oben nach unten über den Bildschirm).",
+        "image": "2-spiele/menu_oeffnen_1.png",
+        "tip": "Die Swipe-Geste öffnet das Menü-Overlay."
+      },
+      {
+        "number": 2,
+        "text": "Das Menü öffnet sich und zeigt dir vier Buttons: Trash-Icon (links), Info-Button, Home-Button (blau) und Zwischenstand-Button (grün, rechts).",
+        "image": "2-spiele/menu_offen.png"
+      },
+      {
+        "number": 3,
+        "text": "Um das Menü wieder zu schliessen, wische nach OBEN (von unten nach oben).",
+        "tip": "Die Swipe-Geste schliesst das Menü wieder und du bist zurück auf der Jasstafel."
+      }
+    ],
+    "images": [
+      "04_menu_oeffnen.png",
+      "05_menu_offen.png"
+    ],
+    "primaryImage": "04_menu_oeffnen.png",
+    "keywords": [
+      "menü",
+      "menu",
+      "öffnen",
+      "schliessen",
+      "swipe",
+      "geste",
+      "nach unten",
+      "nach oben",
+      "wischen",
+      "optionen",
+      "einstellungen",
+      "overlay",
+      "buttons",
+      "funktionen"
+    ],
+    "synonyms": [
+      "menu öffnen",
+      "menü aufmachen",
+      "menü schliessen",
+      "menü zu",
+      "swipe nach unten",
+      "swipe nach oben",
+      "wischen",
+      "optionen anzeigen"
+    ],
+    "userProblems": [
+      "Wie öffne ich das Menü?",
+      "Wo ist das Menü?",
+      "Menü aufmachen",
+      "Wie komme ich ins Menü?",
+      "Wie komme ich heraus?",
+      "Wie komme ich aus dem Spiel?",
+      "Menü schliessen",
+      "Wie mache ich Menü zu?",
+      "Wie mache ich Menü öffnen?",
+      "Wo kann ich Menü öffnen?",
+      "Wie wische ich Menü auf?",
+      "Swipe-Geste Menü",
+      "Wie pausiere ich?",
+      "Wie unterbreche ich das Spiel?"
+    ],
+    "nextSuggested": "spiel_abbrechen",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du ein Spiel abbrichst?",
+    "seeAlso": [
+      "spiel_starten",
+      "spiel_beenden",
+      "spiel_abbrechen",
+      "hilfe_button",
+      "zur_gruppe_zurueck",
+      "zwischenstand_anzeigen"
+    ],
+    "faq": [
+      {
+        "question": "Warum funktioniert das Swipe nicht?",
+        "answer": "Stelle sicher, dass du wirklich von oben nach unten (öffnen) oder von unten nach oben (schliessen) wischst. Ein zu kurzer Swipe wird möglicherweise nicht erkannt."
+      },
+      {
+        "question": "Kann ich das Menü auch anders öffnen?",
+        "answer": "Nein, das Menü wird nur durch die Swipe-Geste geöffnet. Das ist die einzige Methode während des Spiels."
+      },
+      {
+        "question": "Was machen die vier Buttons im Menü?",
+        "answer": "Trash-Icon (links): Spiel/Passe abbrechen. Info-Button: Hilfe anzeigen. Home-Button (blau): Zur Gruppenübersicht. Grüner Button (rechts): Zwischenstand anzeigen."
+      }
+    ],
+    "tips": [],
+    "specialNotes": []
+  },
+  "spieler_auswaehlen": {
+    "id": "spieler_auswaehlen",
+    "number": "2.3",
+    "title": "Spieler auswählen",
+    "category": {
+      "main": "Spiele & Partien",
+      "mainId": "spiele",
+      "number": 2
+    },
+    "difficulty": "einfach",
+    "priority": 1,
+    "tags": [
+      "spieler",
+      "auswählen",
+      "namen",
+      "reihenfolge"
+    ],
+    "description": "So wählst du die 4 Spieler aus und legst ihre Sitzordnung fest.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Tippe auf ein leeres Spieler-Feld.",
+        "image": "2-spiele/spieler_auswaehlen_01.png"
+      },
+      {
+        "number": 2,
+        "text": "Gästemodus: Gib den Namen des Spielers ein."
+      },
+      {
+        "number": 3,
+        "text": "Eingeloggt: Wähle den Spieler aus deiner Gruppe oder des Turniers aus."
+      },
+      {
+        "number": 4,
+        "text": "Wiederhole das für alle 4 Spieler.",
+        "warning": "Achte auf die richtige Reihenfolge! Die Spieler müssen im Uhrzeigersinn an eurem Tisch sitzen."
+      }
+    ],
+    "images": [
+      "06_spieler_auswaehlen.png"
+    ],
+    "primaryImage": "06_spieler_auswaehlen.png",
+    "keywords": [
+      "spieler",
+      "auswählen",
+      "namen",
+      "eingeben",
+      "reihenfolge",
+      "sitzordnung",
+      "uhrzeigersinn",
+      "partner",
+      "gegner",
+      "team",
+      "schieber",
+      "coiffeur",
+      "differenzler"
+    ],
+    "synonyms": [
+      "spieler eintragen",
+      "namen eingeben",
+      "teilnehmer",
+      "partner wählen",
+      "gegner eintragen",
+      "schieber",
+      "schiiber",
+      "schiebe",
+      "coiffeur",
+      "coifeur",
+      "koifeur",
+      "differenzler",
+      "differänzler",
+      "differaenzler"
+    ],
+    "userProblems": [
+      "Wie wähle ich Spieler?",
+      "Namen eingeben",
+      "Spieler hinzufügen",
+      "Welche Reihenfolge?",
+      "Wie sitzt man am Tisch?",
+      "Wer ist mein Partner?",
+      "Namen der Spieler",
+      "Wie mache ich Spieler auswählen?",
+      "Wie stelle ich Spieler ein?",
+      "Wo kann ich Spieler eingeben?",
+      "Kann ich Spieler später ändern?",
+      "Wie gebe ich Namen ein?"
+    ],
+    "nextSuggested": "startspieler",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du den Startspieler wählst?",
+    "seeAlso": [
+      "startspieler",
+      "spieler_wechseln",
+      "gruppe_erstellen"
+    ],
+    "faq": [
+      {
+        "question": "Kann ich die Reihenfolge später ändern?",
+        "answer": "Nein, die Reihenfolge kann nach dem Start nicht mehr geändert werden. Achte also darauf, dass sie stimmt!"
+      }
+    ],
+    "tips": []
+  },
+  "spieler_wechseln": {
+    "id": "spieler_wechseln",
+    "number": "2.5",
+    "title": "Spieler während des Spiels wechseln",
+    "category": {
+      "main": "Spiele & Partien",
+      "mainId": "spiele",
+      "number": 2
+    },
+    "difficulty": "mittel",
+    "priority": 2,
+    "tags": [
+      "spieler",
+      "wechseln",
+      "ändern",
+      "korrigieren",
+      "falsch"
+    ],
+    "description": "So korrigierst du den angezeigten Spieler, wenn mal ein Fehler passiert ist.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Mache einen Doppelklick, um den Info-Screen zu öffnen."
+      },
+      {
+        "number": 2,
+        "text": "Tippe auf den Namen des Spielers, der gerade angezeigt wird.",
+        "image": "2-spiele/spieler_wechseln.png"
+      },
+      {
+        "number": 3,
+        "text": "Wähle den richtigen Spieler aus der Liste."
+      }
+    ],
+    "images": [
+      "13_spieler_wechseln.png"
+    ],
+    "primaryImage": "13_spieler_wechseln.png",
+    "keywords": [
+      "spieler",
+      "wechseln",
+      "ändern",
+      "korrigieren",
+      "falsch",
+      "angezeigt",
+      "doppelklick"
+    ],
+    "synonyms": [
+      "spieler ändern",
+      "spieler korrigieren",
+      "falscher spieler"
+    ],
+    "userProblems": [
+      "Der falsche Spieler wird angezeigt!",
+      "Falscher Spieler ist dran",
+      "Spieler stimmt nicht",
+      "Ich bin nicht an der Reihe",
+      "Spielerwechsel",
+      "Spieler ändern",
+      "Spieler korrigieren",
+      "Wie wechsle ich den Spieler?"
+    ],
+    "nextSuggested": "weis_eingeben",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du Weis eingibst?",
+    "seeAlso": [
+      "spieler_auswaehlen",
+      "startspieler"
+    ],
+    "faq": [
+      {
+        "question": "Warum zeigt die App den falschen Spieler?",
+        "answer": "Das kann passieren, wenn beim Spielstart die falsche Reihenfolge eingegeben wurde oder der Startspieler falsch gewählt wurde. Die App berechnet automatisch, wer als nächstes dran ist."
+      },
+      {
+        "question": "Kann ich die Spielreihenfolge generell ändern?",
+        "answer": "Nein, die Grundreihenfolge (Sitzordnung) kann nach Spielstart nicht mehr geändert werden. Du kannst nur korrigieren, wer gerade an der Reihe ist."
+      }
+    ],
+    "tips": [],
+    "specialNotes": [
+      "Diese Funktion ist eine Korrekturmöglichkeit, falls mal ein Fehler passiert.",
+      "Die App merkt sich die Korrektur für den Rest des Spiels."
+    ]
+  },
+  "kalkulator_oeffnen": {
+    "id": "kalkulator_oeffnen",
+    "number": "2.15",
+    "title": "Kalkulator öffnen",
+    "category": {
+      "main": "Spiele & Partien",
+      "mainId": "spiele",
+      "number": 2
+    },
+    "difficulty": "einfach",
+    "priority": 1,
+    "tags": [
+      "kalkulator",
+      "rechner",
+      "punkte",
+      "berechnen"
+    ],
+    "description": "So öffnest du den Kalkulator, um Punkte zu berechnen.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Mache einen langen Klick (Long-Press) auf die Seite des Teams, für das du die Punkte eintragen willst (auf das Kreidetafel-Feld dieser Seite).",
+        "tip": "Halte deinen Finger etwa 1 Sekunde auf dem Feld der richtigen Seite."
+      },
+      {
+        "number": 2,
+        "text": "Der Kalkulator öffnet sich automatisch.",
+        "image": "2-spiele/kalkulator_01.png"
+      },
+      {
+        "number": 3,
+        "text": "Gib die erzielten Punkte ein. Der Kalkulator berechnet automatisch die Punkte für die Gegenseite."
+      },
+      {
+        "number": 4,
+        "text": "Tippe auf 'OK' um die Punkte zu speichern."
+      }
+    ],
+    "images": [],
+    "keywords": [
+      "kalkulator",
+      "rechner",
+      "punkte",
+      "berechnen",
+      "long press",
+      "langer klick"
+    ],
+    "synonyms": [
+      "rechner",
+      "taschenrechner",
+      "punkte rechnen"
+    ],
+    "userProblems": [
+      "Wie öffne ich den Kalkulator?",
+      "Wo ist der Rechner?",
+      "Punkte berechnen",
+      "Wie rechne ich Punkte aus?"
+    ],
+    "nextSuggested": "berg_schreiben",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du einen Berg schreibst?",
+    "seeAlso": [
+      "berg_schreiben",
+      "sieg_schreiben",
+      "runde_abschliessen"
+    ],
+    "faq": [
+      {
+        "question": "Was ist ein Long-Press?",
+        "answer": "Ein Long-Press (langer Klick) bedeutet, dass du deinen Finger etwa 1 Sekunde auf dem Display hältst, ohne zu wischen."
+      }
+    ],
+    "tips": [],
+    "troubleshooting": [
+      {
+        "problem": "Ich habe aus Versehen zu schnell geklickt und der Info-Screen hat sich geöffnet.",
+        "solution": "Das passiert bei einem Doppelklick. Schliesse den Info-Screen und versuche es mit einem Long-Press."
+      }
+    ]
+  },
+  "bedanken": {
+    "id": "bedanken",
+    "number": "2.10",
+    "title": "Bedanken und Spiel beenden",
+    "category": {
+      "main": "Spiele & Partien",
+      "mainId": "spiele",
+      "number": 2
+    },
+    "difficulty": "einfach",
+    "priority": 1,
+    "tags": [
+      "bedanken",
+      "beenden",
+      "fertig",
+      "gewonnen"
+    ],
+    "description": "So beendest du ein Spiel durch Bedanken, wenn dein Team gewonnen hat.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Wenn dein Team genug Punkte hat (z.B. 2500 bei einem Spiel auf 2500), tippe auf den 'Bedanken'-Button.",
+        "image": "2-spiele/bedanken_button.png",
+        "tip": "Der Button erscheint automatisch, wenn du in Führung bist."
+      },
+      {
+        "number": 2,
+        "text": "Optional: Du kannst noch die restlichen Punkte aufschreiben, musst aber nicht.",
+        "warning": "Sobald du bedankst, ist das Spiel vorbei! Stelle sicher, dass dein Team wirklich gewonnen hat."
+      },
+      {
+        "number": 3,
+        "text": "Das Spiel ist jetzt beendet. Um die Statistiken zu speichern, musst du auf 'Jass beenden' klicken (siehe 'Spiel beenden')."
+      },
+      {
+        "number": 4,
+        "text": "Fertig! Du kannst jetzt ein neues Spiel starten oder das Resultat teilen."
+      }
+    ],
+    "images": [],
+    "keywords": [
+      "bedanken",
+      "beenden",
+      "fertig",
+      "gewonnen",
+      "spiel beenden"
+    ],
+    "synonyms": [
+      "spiel beenden",
+      "fertig",
+      "gewinnen"
+    ],
+    "userProblems": [
+      "Wie beende ich das Spiel?",
+      "Wir haben gewonnen, was jetzt?",
+      "Wie bedanke ich mich?",
+      "Spiel fertig",
+      "Wie mache ich Spiel beenden?",
+      "Wie stelle ich Spiel beenden ein?",
+      "Wo kann ich mich bedanken?",
+      "Kann ich Spiel vorzeitig beenden?",
+      "Wie schreibe ich Spiel beenden?"
+    ],
+    "nextSuggested": "sharing",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du das Resultat teilen kannst?",
+    "seeAlso": [
+      "spiel_beenden",
+      "sharing"
+    ],
+    "faq": [
+      {
+        "question": "Muss das Spiel fertig gespielt werden, um zu bedanken?",
+        "answer": "Nein! Du kannst dich bedanken, sobald dein Team genug Punkte hat. Die restlichen Punkte musst du nicht mehr aufschreiben."
+      },
+      {
+        "question": "Was passiert, wenn ich mich zu früh bedanke?",
+        "answer": "Wenn dein Team noch nicht genug Punkte hat, zeigt die App eine Fehlermeldung. Das Spiel läuft dann weiter."
+      },
+      {
+        "question": "Werden die Statistiken automatisch gespeichert?",
+        "answer": "Nein, nicht beim Bedanken! Die Statistiken werden erst gespeichert, wenn du auf 'Jass beenden' klickst (siehe 'Spiel beenden')."
+      }
+    ],
+    "tips": [
+      "Im Gastmodus werden keine Statistiken gespeichert - melde dich an, um deine Siege zu dokumentieren!",
+      "Du kannst das Resultat direkt nach dem Bedanken mit deinen Freunden teilen."
+    ],
+    "specialNotes": [
+      "Bedanken ist die offizielle Art, ein Spiel zu beenden - wie beim echten Jassen am Tisch.",
+      "Nach dem Bedanken kann das Spiel nicht mehr fortgesetzt werden."
+    ]
+  },
+  "startspieler": {
+    "id": "startspieler",
+    "number": "2.4",
+    "title": "Startspieler wählen",
+    "category": {
+      "main": "Spiele & Partien",
+      "mainId": "spiele",
+      "number": 2
+    },
+    "difficulty": "einfach",
+    "priority": 1,
+    "tags": [
+      "startspieler",
+      "wählen",
+      "gelb",
+      "markieren"
+    ],
+    "description": "So wählst du den Spieler, der die erste Runde beginnt.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Nachdem alle 4 Spieler eingegeben sind, tippe auf den Spieler, der starten soll.",
+        "image": "2-spiele/startspieler_01.png"
+      },
+      {
+        "number": 2,
+        "text": "Der gewählte Startspieler wird gelb markiert.",
+        "tip": "Die gelbe Markierung zeigt an, wer in der ersten Runde anfängt."
+      },
+      {
+        "number": 3,
+        "text": "Tippe auf 'Spiel starten' um loszulegen.",
+        "warning": "Ab dem zweiten Spiel wählt die App automatisch den richtigen Startspieler (Verliererteam, nächster Spieler)."
+      }
+    ],
+    "images": [
+      "06_spieler_auswaehlen.png"
+    ],
+    "primaryImage": "06_spieler_auswaehlen.png",
+    "keywords": [
+      "startspieler",
+      "wählen",
+      "gelb",
+      "markieren",
+      "erste runde",
+      "beginnen"
+    ],
+    "synonyms": [
+      "erster spieler",
+      "wer fängt an"
+    ],
+    "userProblems": [
+      "Wer fängt an?",
+      "Wie wähle ich den Startspieler?",
+      "Wer beginnt?",
+      "Erste Runde",
+      "Wie mache ich Startspieler wählen?",
+      "Wie stelle ich Startspieler ein?",
+      "Wo kann ich Startspieler wählen?",
+      "Kann ich Startspieler ändern?",
+      "Wie schreibe ich Startspieler?"
+    ],
+    "nextSuggested": "weis_eingeben",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du Weis eingibst?",
+    "seeAlso": [
+      "spieler_auswaehlen",
+      "spieler_wechseln"
+    ],
+    "faq": [
+      {
+        "question": "Wer ist beim zweiten Spiel der Startspieler?",
+        "answer": "Ab dem zweiten Spiel wählt die App automatisch: Das Verliererteam darf starten, und zwar der Spieler, der als nächstes an der Reihe ist."
+      },
+      {
+        "question": "Kann ich den Startspieler ändern?",
+        "answer": "Beim ersten Spiel ja - einfach einen anderen Spieler antippen. Ab dem zweiten Spiel wird es automatisch berechnet."
+      }
+    ],
+    "tips": [
+      "Die Regel 'Verliererteam startet' gilt beim echten Jassen - die App setzt das automatisch um."
+    ]
+  },
+  "weis_eingeben": {
+    "id": "weis_eingeben",
+    "number": "2.6",
+    "title": "Weis eingeben",
+    "category": {
+      "main": "Spiele & Partien",
+      "mainId": "spiele",
+      "number": 2
+    },
+    "difficulty": "mittel",
+    "priority": 2,
+    "tags": [
+      "weis",
+      "eingeben",
+      "linien",
+      "tippen"
+    ],
+    "description": "So gibst du Weis-Punkte ein.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Tippe während der Runde auf eine der Strich-Linien: die obere Linie (100er), die diagonale Linie (50er), die untere Linie (20er) oder die Restzahl-Box.",
+        "image": "2-spiele/weis_eingeben_01.png"
+      },
+      {
+        "number": 2,
+        "text": "Ein Tipp auf die obere Linie (100er) gibt 100 Weis-Punkte, auf die diagonale Linie (50er) gibt 50 Weis-Punkte, auf die untere Linie (20er) gibt 20 Weis-Punkte, und auf die Restzahl-Box gibt 1 Weis-Punkt.",
+        "warning": "Nicht zu schnell hintereinander tippen (mindestens ca. 300ms Abstand) – sonst wird ein Doppelklick erkannt und der Info-Screen öffnet sich!"
+      }
+    ],
+    "images": [
+      "07_weis_eingeben.png"
+    ],
+    "primaryImage": "07_weis_eingeben.png",
+    "keywords": [
+      "weis",
+      "eingeben",
+      "linien",
+      "tippen",
+      "punkte",
+      "zusatzpunkte",
+      "wyys",
+      "wies",
+      "stöck",
+      "blatt",
+      "vier blatt",
+      "fünf blatt"
+    ],
+    "synonyms": [
+      "wyys",
+      "wies",
+      "wys",
+      "wiis",
+      "weise",
+      "zusatzpunkte",
+      "stöck",
+      "stoeck",
+      "stöcke",
+      "stoecke",
+      "stöckli",
+      "weisen"
+    ],
+    "userProblems": [
+      "Wie gebe ich Weis ein?",
+      "Wo tippe ich Weis?",
+      "Weis erfassen",
+      "Zusatzpunkte eingeben",
+      "Ich habe Stöck",
+      "Wo schreibe ich den Wyys hin?",
+      "Wie mache ich Weis?",
+      "Wie schreibe ich Weis?",
+      "Wo kann ich Weis eingeben?",
+      "Kann ich Weis nachträglich eingeben?",
+      "Wie gebe ich Wyys ein?",
+      "Wie gebe ich Wys ein?",
+      "Wie gebe ich Stöck ein?"
+    ],
+    "nextSuggested": "berg_schreiben",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du einen Berg schreibst?",
+    "seeAlso": [
+      "runde_abschliessen",
+      "punkte_korrigieren"
+    ],
+    "faq": [
+      {
+        "question": "Wann soll ich Weis eingeben?",
+        "answer": "Am besten VOR dem Rundenabschluss, damit die Weis-Punkte bei der richtigen Runde erfasst werden."
+      },
+      {
+        "question": "Kann ich Weis nachträglich eingeben?",
+        "answer": "Ja, aber dann musst du möglicherweise in der History zurückgehen und die Runde bearbeiten."
+      },
+      {
+        "question": "Wie viele Weis-Punkte gibt ein Tipp auf die verschiedenen Linien?",
+        "answer": "Obere Linie (100er) = 100 Weis-Punkte, Diagonale Linie (50er) = 50 Weis-Punkte, Untere Linie (20er) = 20 Weis-Punkte, Restzahl-Box = 1 Weis-Punkt."
+      }
+    ],
+    "tips": [],
+    "troubleshooting": [
+      {
+        "problem": "Der Info-Screen öffnet sich statt Weis einzugeben.",
+        "solution": "Du hast wahrscheinlich zu schnell doppelt getippt. Schliesse den Info-Screen und tippe langsamer (kurze Pause zwischen den Tipps)."
+      }
+    ]
+  },
+  "berg_schreiben": {
+    "id": "berg_schreiben",
+    "number": "2.7",
+    "title": "Berg schreiben",
+    "category": {
+      "main": "Spiele & Partien",
+      "mainId": "spiele",
+      "number": 2
+    },
+    "difficulty": "einfach",
+    "priority": 1,
+    "tags": [
+      "berg",
+      "schreiben",
+      "strich",
+      "hälfte",
+      "info-screen"
+    ],
+    "description": "So schreibst du einen Berg, wenn ein Team die Hälfte der Punkte erreicht hat.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Öffne den Info-Screen durch Doppelklick auf die Kreidetafel auf der Seite vom Team, das den Berg schreiben kann.",
+        "image": "2-spiele/berg_markierung.png",
+        "tip": "Im Info-Screen siehst du oben, wie viele Punkte deinem Team noch bis zum Berg fehlen."
+      },
+      {
+        "number": 2,
+        "text": "Wenn dein Team die Hälfte der Zielpunkte erreicht hat (z.B. 1250 bei einem Spiel auf 2500), tippe auf den gelben 'Berg'-Button im Info-Screen auf der Seite deines Teams.",
+        "tip": "Wichtig: Du musst den Berg MANUELL schreiben - die App zeigt dir nur an, wie viele Punkte noch fehlen!"
+      },
+      {
+        "number": 3,
+        "text": "Der Berg wird eingeloggt und als Strich auf der Kreidetafel angezeigt."
+      },
+      {
+        "number": 4,
+        "text": "Falls du den Berg versehentlich geschrieben hast, kannst du ihn durch erneutes Tippen auf denselben Button wieder ausloggen.",
+        "tip": "Für eine kleine Feier halte den Berg-Button länger gedrückt - dann gibt's Konfetti!"
+      }
+    ],
+    "images": [
+      "08_berg_markierung.png"
+    ],
+    "primaryImage": "08_berg_markierung.png",
+    "keywords": [
+      "berg",
+      "schreiben",
+      "strich",
+      "hälfte",
+      "1250",
+      "bergpreis",
+      "halbe punkte",
+      "matsch",
+      "match",
+      "matsche",
+      "schneider",
+      "kontermatsch",
+      "info-screen",
+      "ausloggen",
+      "korrigieren"
+    ],
+    "synonyms": [
+      "bergpreis",
+      "halbe punkte",
+      "berg markieren",
+      "matsch",
+      "match",
+      "matsche",
+      "berg einloggen",
+      "berg ausloggen"
+    ],
+    "userProblems": [
+      "Wie schreibe ich einen Berg?",
+      "Was ist ein Berg?",
+      "Berg markieren",
+      "Hälfte erreicht",
+      "Wie mache ich einen Berg?",
+      "Wie schreibe ich Berg?",
+      "Wo kann ich Berg schreiben?",
+      "Kann ich Berg nachträglich schreiben?",
+      "Wie markiere ich Berg?",
+      "Berg falsch geschrieben",
+      "Berg korrigieren",
+      "Berg ausloggen"
+    ],
+    "nextSuggested": "sieg_schreiben",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du einen Sieg schreibst?",
+    "seeAlso": [
+      "sieg_schreiben",
+      "bedanken",
+      "kalkulator_oeffnen"
+    ],
+    "faq": [
+      {
+        "question": "Muss ich den Berg manuell schreiben?",
+        "answer": "Ja! Die App zeigt dir im Info-Screen nur an, wie viele Punkte noch bis zum Berg fehlen. Du musst den Berg-Button selbst aktivieren, um ihn einzuloggen."
+      },
+      {
+        "question": "Kann ich einen falsch geschriebenen Berg korrigieren?",
+        "answer": "Ja! Tippe einfach erneut auf den Berg-Button im Info-Screen - dann wird der Berg wieder ausgeloggt."
+      }
+    ],
+    "tips": [],
+    "specialNotes": [
+      "Long-Press auf Berg-Button gibt Konfetti"
+    ]
+  },
+  "sieg_schreiben": {
+    "id": "sieg_schreiben",
+    "number": "2.8",
+    "title": "Sieg schreiben",
+    "category": {
+      "main": "Spiele & Partien",
+      "mainId": "spiele",
+      "number": 2
+    },
+    "difficulty": "einfach",
+    "priority": 1,
+    "tags": [
+      "sieg",
+      "gewonnen",
+      "schreiben",
+      "fertig",
+      "bedanken",
+      "info-screen"
+    ],
+    "description": "So schreibst du einen Sieg, wenn dein Team gewonnen hat.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Öffne den Info-Screen durch Doppelklick auf die Kreidetafel auf der Seite des Teams, das sich bedankt hat.",
+        "image": "2-spiele/sieg_schreiben.png"
+      },
+      {
+        "number": 2,
+        "text": "Tippe auf Bedanken."
+      },
+      {
+        "number": 3,
+        "text": "Der Sieg wird eingeloggt (2 Striche)."
+      },
+      {
+        "number": 4,
+        "text": "Falls du den Sieg versehentlich geschrieben hast, kannst du ihn durch erneutes Tippen auf denselben Button wieder ausloggen (bevor das Spiel beendet ist)."
+      }
+    ],
+    "images": [
+      "09_sieg_schreiben.png"
+    ],
+    "primaryImage": "09_sieg_schreiben.png",
+    "keywords": [
+      "sieg",
+      "gewonnen",
+      "schreiben",
+      "striche",
+      "fertig",
+      "bedanken",
+      "ausloggen",
+      "korrigieren",
+      "info-screen"
+    ],
+    "synonyms": [
+      "gewonnen",
+      "victory",
+      "win",
+      "bedanken",
+      "sieg einloggen",
+      "sieg ausloggen"
+    ],
+    "userProblems": [
+      "Wie schreibe ich einen Sieg?",
+      "Wir haben gewonnen",
+      "Sieg markieren",
+      "Wie mache ich Sieg schreiben?",
+      "Wie stelle ich Sieg ein?",
+      "Wo kann ich Sieg schreiben?",
+      "Kann ich Sieg nachträglich schreiben?",
+      "Wie markiere ich Sieg?",
+      "Sieg falsch geschrieben",
+      "Sieg korrigieren",
+      "Sieg ausloggen"
+    ],
+    "nextSuggested": "sharing",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du das Resultat teilen kannst?",
+    "seeAlso": [
+      "bedanken",
+      "berg_schreiben",
+      "spiel_beenden"
+    ],
+    "faq": [
+      {
+        "question": "Wie viele Striche gibt ein Sieg?",
+        "answer": "Ein Sieg gibt 2 Striche in der Strich-Statistik."
+      },
+      {
+        "question": "Muss ich den Sieg manuell schreiben?",
+        "answer": "Ja! Du musst den gelben 'Bedanken'-Button im Info-Screen aktivieren, um den Sieg einzuloggen. Die App zeigt dir nur an, wie viele Punkte noch bis zum Sieg fehlen."
+      },
+      {
+        "question": "Kann ich einen falsch geschriebenen Sieg korrigieren?",
+        "answer": "Ja, solange das Spiel noch nicht beendet ist! Tippe einfach erneut auf den Bedanken-Button im Info-Screen - dann wird der Sieg wieder ausgeloggt."
+      }
+    ],
+    "tips": [],
+    "specialNotes": []
+  },
+  "runde_abschliessen": {
+    "id": "runde_abschliessen",
+    "number": "2.9",
+    "title": "Runde abschliessen",
+    "category": {
+      "main": "Spiele & Partien",
+      "mainId": "spiele",
+      "number": 2
+    },
+    "difficulty": "einfach",
+    "priority": 1,
+    "tags": [
+      "runde",
+      "abschliessen",
+      "fertig",
+      "nächste"
+    ],
+    "description": "So schliesst du eine Runde ab und gehst zur nächsten.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Klicke lange auf die Hälfte des Teams, das die Punkte gezählt hat."
+      },
+      {
+        "number": 2,
+        "text": "Der Kalkulator öffnet sich."
+      },
+      {
+        "number": 3,
+        "text": "Erfasse die Punkte und tippe auf 'OK'."
+      }
+    ],
+    "images": [],
+    "keywords": [
+      "runde",
+      "abschliessen",
+      "fertig",
+      "nächste",
+      "weiter"
+    ],
+    "synonyms": [
+      "runde beenden",
+      "weiter",
+      "nächste runde"
+    ],
+    "userProblems": [
+      "Wie gehe ich zur nächsten Runde?",
+      "Runde beenden",
+      "Weiter spielen",
+      "Wie mache ich Runde beenden?",
+      "Wie stelle ich Runde beenden ein?",
+      "Wo kann ich Runde beenden?",
+      "Kann ich Runde überspringen?",
+      "Wie schreibe ich Runde beenden?"
+    ],
+    "nextSuggested": "history_navigation",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du in der Historie zurück und vor navigierst?",
+    "seeAlso": [
+      "history_navigation",
+      "weis_eingeben"
+    ],
+    "faq": [
+      {
+        "question": "Kann ich eine Runde nachträglich bearbeiten?",
+        "answer": "Ja, du kannst in der History zurückgehen (nach links wischen) und Punkte korrigieren."
+      },
+      {
+        "question": "Muss ich Weis vor dem Rundenabschluss eingeben?",
+        "answer": "Ja, am besten! Sonst wird Weis möglicherweise der falschen Runde zugeordnet."
+      }
+    ],
+    "tips": []
+  },
+  "spiel_beenden": {
+    "id": "spiel_beenden",
+    "number": "2.11",
+    "title": "Spiel beenden",
+    "category": {
+      "main": "Spiele & Partien",
+      "mainId": "spiele",
+      "number": 2
+    },
+    "difficulty": "einfach",
+    "priority": 2,
+    "tags": [
+      "spiel",
+      "beenden",
+      "resultattafel",
+      "grüner button",
+      "menu"
+    ],
+    "description": "So beendest du einen Jass (Partie mit mehreren Spielen). Nach jedem Spiel entscheidest du, ob du weiterspielen oder beenden willst.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Nach einem beendeten Spiel (z.B. nach dem Bedanken) öffnet sich automatisch die Resultattafel.",
+        "image": "2-spiele/spiel_oder_jass_beenden.png",
+        "tip": "Auf der Resultattafel siehst du das Ergebnis des aktuellen Spiels."
+      },
+      {
+        "number": 2,
+        "text": "Du hast jetzt zwei Optionen:",
+        "tip": "1. 'Neues Spiel' oder 'Weiterjassen!' - Startet ein neues Spiel in derselben Partie. 2. 'Jass beenden' - Beendet die gesamte Partie und speichert alle Statistiken."
+      },
+      {
+        "number": 3,
+        "text": "Wenn du die Partie beenden willst, tippe auf 'Jass beenden'.",
+        "tip": "Die Statistiken werden erst gespeichert, wenn du 'Jass beenden' klickst!"
+      }
+    ],
+    "images": [
+      "10_spiel_oder_jass_beenden.png"
+    ],
+    "primaryImage": "10_spiel_oder_jass_beenden.png",
+    "keywords": [
+      "spiel",
+      "beenden",
+      "resultattafel",
+      "grüner button",
+      "menu",
+      "jass beenden",
+      "spiel beenden"
+    ],
+    "synonyms": [
+      "spiel abschliessen",
+      "jass abschliessen",
+      "resultattafel",
+      "grüner button"
+    ],
+    "userProblems": [
+      "Wie beende ich das Spiel?",
+      "Spiel beenden",
+      "Jass beenden",
+      "Wie mache ich Spiel beenden?",
+      "Wie stelle ich Spiel beenden ein?",
+      "Wo kann ich Spiel beenden?",
+      "Kann ich Spiel beenden?",
+      "Wie schreibe ich Spiel beenden?",
+      "Grüner Button",
+      "Resultattafel öffnen"
+    ],
+    "nextSuggested": "spiel_abbrechen",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du ein Spiel löschen kannst?",
+    "seeAlso": [
+      "bedanken",
+      "jass_beenden",
+      "menu_oeffnen"
+    ],
+    "faq": [
+      {
+        "question": "Was passiert nach einem Spiel?",
+        "answer": "Nach jedem Spiel öffnet sich automatisch die Resultattafel. Dort kannst du entscheiden: 'Neues Spiel' für ein weiteres Spiel oder 'Jass beenden' um die Partie zu beenden."
+      },
+      {
+        "question": "Wann werden die Statistiken gespeichert?",
+        "answer": "Die Statistiken werden erst gespeichert, wenn du auf 'Jass beenden' klickst. Nicht schon beim Bedanken!"
+      },
+      {
+        "question": "Kann ich nach 'Jass beenden' noch weiterspielen?",
+        "answer": "Nein, einmal beendete Partien können nicht mehr fortgesetzt werden. Du musst eine neue Partie starten."
+      }
+    ],
+    "tips": [
+      "Nach jedem Spiel entscheidest du: Weiterjassen oder Partie beenden?",
+      "Wichtig: Statistiken werden erst bei 'Jass beenden' gespeichert, nicht schon beim Bedanken!"
+    ],
+    "specialNotes": [
+      "Nach jedem Spiel: Resultattafel öffnet sich automatisch",
+      "Optionen: 'Neues Spiel' (weiterspielen) oder 'Jass beenden' (Partie beenden)",
+      "Statistiken werden erst bei 'Jass beenden' gespeichert"
+    ]
+  },
+  "jass_beenden": {
+    "id": "jass_beenden",
+    "number": "2.12",
+    "title": "Jass beenden (Mehrere Spiele)",
+    "category": {
+      "main": "Spiele & Partien",
+      "mainId": "spiele",
+      "number": 2
+    },
+    "difficulty": "einfach",
+    "priority": 2,
+    "tags": [
+      "jass",
+      "beenden",
+      "partie",
+      "mehrere spiele"
+    ],
+    "description": "So beendest du einen ganzen Jass (Partie mit mehreren aufeinanderfolgenden Spielen).",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Nachdem das letzte Spiel fertig ist, tippe auf 'Jass beenden' auf der Resultattafel.",
+        "image": "2-spiele/jass_beenden.png"
+      },
+      {
+        "number": 2,
+        "text": "Die gesamte Partie wird gespeichert.",
+        "tip": "Du siehst dann eine Zusammenfassung aller Spiele."
+      },
+      {
+        "number": 3,
+        "text": "Die Statistiken werden für alle Spiele dieser Partie aktualisiert."
+      }
+    ],
+    "images": [],
+    "keywords": [
+      "jass",
+      "beenden",
+      "partie",
+      "mehrere spiele",
+      "zusammenfassung"
+    ],
+    "synonyms": [
+      "partie beenden",
+      "jassabend beenden"
+    ],
+    "userProblems": [
+      "Wie beende ich den ganzen Jass?",
+      "Mehrere Spiele beenden",
+      "Partie abschliessen",
+      "Wie mache ich Jass beenden?",
+      "Wie stelle ich Jass beenden ein?",
+      "Wo kann ich Jass beenden?",
+      "Kann ich mehrere Spiele beenden?",
+      "Wie schreibe ich Jass beenden?"
+    ],
+    "nextSuggested": "sharing",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du das Resultat teilen kannst?",
+    "seeAlso": [
+      "spiel_beenden",
+      "bedanken"
+    ],
+    "faq": [],
+    "tips": []
+  },
+  "history_navigation": {
+    "id": "history_navigation",
+    "number": "2.13",
+    "title": "In der History zurück und vor navigieren",
+    "category": {
+      "main": "Spiele & Partien",
+      "mainId": "spiele",
+      "number": 2
+    },
+    "difficulty": "mittel",
+    "priority": 2,
+    "tags": [
+      "history",
+      "zurück",
+      "vor",
+      "swipe",
+      "navigation"
+    ],
+    "description": "So navigierst du Runde für Runde zurück oder vor in der Spielhistorie.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Wische nach LINKS um in der History zurückzugehen (frühere Runden).",
+        "image": "2-spiele/history_swipe.png",
+        "tip": "Nach links = zurück in der Zeit, nach rechts = vorwärts."
+      },
+      {
+        "number": 2,
+        "text": "Wische nach RECHTS um wieder vorwärts zu gehen (neuere Runden).",
+        "tip": "Du kannst so Runde für Runde durchblättern."
+      },
+      {
+        "number": 3,
+        "text": "Wenn du in einer alten Runde ein neues Resultat einträgst, erscheint eine Warnung.",
+        "image": "2-spiele/history_warning.png",
+        "warning": "Wenn du 'OK' drückst, wird das alte Resultat ÜBERSCHRIEBEN!"
+      }
+    ],
+    "images": [
+      "10_history_swipe.png"
+    ],
+    "primaryImage": "10_history_swipe.png",
+    "keywords": [
+      "history",
+      "zurück",
+      "vor",
+      "swipe",
+      "wischen",
+      "navigation",
+      "runden"
+    ],
+    "synonyms": [
+      "zurückgehen",
+      "vorwärts",
+      "durchblättern"
+    ],
+    "userProblems": [
+      "Wie gehe ich zurück?",
+      "Alte Runden ansehen",
+      "In der History navigieren",
+      "Zurück wischen",
+      "Wie mache ich zurück gehen?",
+      "Wie stelle ich History ein?",
+      "Wo kann ich alte Runden sehen?",
+      "Kann ich zurück gehen?",
+      "Wie schreibe ich zurück gehen?"
+    ],
+    "nextSuggested": "punkte_korrigieren",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du Punkte korrigierst?",
+    "seeAlso": [
+      "runde_abschliessen",
+      "punkte_korrigieren"
+    ],
+    "faq": [
+      {
+        "question": "Kann ich alte Punkte ändern?",
+        "answer": "Ja, aber du bekommst eine Warnung, dass das alte Resultat überschrieben wird."
+      },
+      {
+        "question": "Wie komme ich wieder zur aktuellen Runde?",
+        "answer": "Wische einfach nach rechts, bis du wieder bei der neuesten Runde bist."
+      }
+    ],
+    "tips": [],
+    "specialNotes": []
+  },
+  "sharing_live": {
+    "id": "sharing_live",
+    "number": "2.16",
+    "title": "Spiel live teilen",
+    "category": {
+      "main": "Spiele & Partien",
+      "mainId": "spiele",
+      "number": 2
+    },
+    "difficulty": "einfach",
+    "priority": 2,
+    "tags": [
+      "sharing",
+      "teilen",
+      "live",
+      "link",
+      "zusehen"
+    ],
+    "description": "So teilst du ein laufendes Spiel, damit andere live zusehen können.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Tippe oben rechts auf den Teilen-Button (◎⃤ ).",
+        "image": "2-spiele/teilen_button_oben_rechts.png"
+      },
+      {
+        "number": 2,
+        "text": "Wähle direkt einen Kanal zum Teilen (WhatsApp, SMS, etc.). Der Live-Link wird automatisch in die Nachricht eingefügt.",
+        "image": "2-spiele/spiel_live_teilen.png",
+        "tip": "Deine Freunde können dann live zusehen, wie sich der Spielstand ändert!"
+      }
+    ],
+    "images": [
+      "2-spiele/spiel_live_teilen.png"
+    ],
+    "primaryImage": "2-spiele/spiel_live_teilen.png",
+    "keywords": [
+      "sharing",
+      "teilen",
+      "live",
+      "link",
+      "zusehen",
+      "freunde"
+    ],
+    "synonyms": [
+      "teilen",
+      "link senden",
+      "live stream"
+    ],
+    "userProblems": [
+      "Wie teile ich das Spiel?",
+      "Freunde zusehen lassen",
+      "Live-Link",
+      "Spiel teilen",
+      "Wie mache ich Spiel teilen?",
+      "Wie stelle ich Sharing ein?",
+      "Wo kann ich teilen?",
+      "Kann ich Spiel live teilen?",
+      "Wie schreibe ich Spiel teilen?"
+    ],
+    "nextSuggested": "sharing_resultat",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du das Endresultat teilen kannst?",
+    "seeAlso": [
+      "sharing_resultat",
+      "gruppe_einladen"
+    ],
+    "faq": [
+      {
+        "question": "Können andere mitspielen, wenn ich den Link teile?",
+        "answer": "Nein, sie können nur zusehen. Mitspielen geht nur vor Ort mit der App."
+      },
+      {
+        "question": "Wie lange ist der Link gültig?",
+        "answer": "Der Link bleibt auch nach dem Spiel gültig. Mit dem Link kann man auch später noch das Resultat einsehen."
+      }
+    ],
+    "tips": [
+      "Super für Freunde, die nicht vor Ort sind - sie können trotzdem mitfiebern!"
+    ]
+  },
+  "sharing_resultat": {
+    "id": "sharing_resultat",
+    "number": "2.17",
+    "title": "Jassresultat teilen",
+    "category": {
+      "main": "Spiele & Partien",
+      "mainId": "spiele",
+      "number": 2
+    },
+    "difficulty": "einfach",
+    "priority": 2,
+    "tags": [
+      "sharing",
+      "teilen",
+      "resultat",
+      "endstand",
+      "screenshot"
+    ],
+    "description": "So teilst du das Endresultat nach dem Spiel.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Nach dem Bedanken erscheint automatisch eine Resultat-Ansicht.",
+        "image": "2-spiele/jassresultat_teilen.png"
+      },
+      {
+        "number": 2,
+        "text": "Tippe auf den grünen Teilen-Button oben rechts.",
+        "image": "2-spiele/teilen_aus_archiv.png"
+      },
+      {
+        "number": 3,
+        "text": "Wähle, wie du teilen möchtest (WhatsApp, SMS, etc.)."
+      }
+    ],
+    "images": [
+      "2-spiele/teilen_aus_archiv.png"
+    ],
+    "primaryImage": "2-spiele/teilen_aus_archiv.png",
+    "keywords": [
+      "sharing",
+      "teilen",
+      "resultat",
+      "endstand",
+      "screenshot",
+      "ergebnis"
+    ],
+    "synonyms": [
+      "ergebnis teilen",
+      "resultat senden",
+      "screenshot"
+    ],
+    "userProblems": [
+      "Wie teile ich das Resultat?",
+      "Ergebnis versenden",
+      "Screenshot machen",
+      "Wie mache ich Resultat teilen?",
+      "Wie stelle ich Resultat teilen ein?",
+      "Wo kann ich Resultat teilen?",
+      "Kann ich Resultat teilen?",
+      "Wie schreibe ich Resultat teilen?"
+    ],
+    "nextSuggested": "gruppe_erstellen",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du eine Gruppe erstellst?",
+    "seeAlso": [
+      "sharing_live",
+      "bedanken"
+    ],
+    "faq": [
+      {
+        "question": "Kann ich das Resultat später nochmal teilen?",
+        "answer": "Ja, du findest alle Spiele im Archiv und kannst sie jederzeit teilen."
+      }
+    ],
+    "tips": []
+  },
+  "gastmodus": {
+    "id": "gastmodus",
+    "number": "2.18",
+    "title": "Gastmodus vs. Angemeldet",
+    "category": {
+      "main": "Spiele & Partien",
+      "mainId": "spiele",
+      "number": 2
+    },
+    "difficulty": "einfach",
+    "priority": 2,
+    "tags": [
+      "gastmodus",
+      "anmelden",
+      "statistiken",
+      "elo"
+    ],
+    "description": "Was ist der Unterschied zwischen Gastmodus und angemeldet spielen?",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Gastmodus: Du kannst sofort spielen, ohne dich anzumelden.",
+        "warning": "Im Gastmodus werden KEINE Statistiken oder Elo-Punkte gespeichert!"
+      },
+      {
+        "number": 2,
+        "text": "Angemeldet: Du registrierst dich mit Google oder E-Mail.",
+        "tip": "Wenn du angemeldet bist, werden alle deine Spiele, Statistiken und Elo-Punkte dauerhaft gespeichert."
+      }
+    ],
+    "images": [],
+    "keywords": [
+      "gastmodus",
+      "anmelden",
+      "statistiken",
+      "elo",
+      "account",
+      "gast"
+    ],
+    "synonyms": [
+      "gast",
+      "ohne anmeldung",
+      "registrieren"
+    ],
+    "userProblems": [
+      "Was ist Gastmodus?",
+      "Soll ich mich anmelden?",
+      "Unterschied Gast und angemeldet",
+      "Wie mache ich Gastmodus?",
+      "Wie stelle ich Gastmodus ein?",
+      "Wo kann ich Gastmodus nutzen?",
+      "Kann ich ohne Anmeldung spielen?",
+      "Wie schreibe ich Gastmodus?"
+    ],
+    "nextSuggested": "profil_bearbeiten",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du dein Profil bearbeitest?",
+    "seeAlso": [],
+    "faq": [
+      {
+        "question": "Kann ich später von Gast zu angemeldet wechseln?",
+        "answer": "Ja, aber Gast-Spiele werden nicht rückwirkend übernommen."
+      },
+      {
+        "question": "Warum sollte ich mich anmelden?",
+        "answer": "Um deine Statistiken zu speichern, Elo-Punkte zu sammeln und Gruppen zu erstellen."
+      }
+    ],
+    "tips": [
+      "Wenn du die App nur mal testen willst, ist der Gastmodus perfekt.",
+      "Wenn du regelmässig spielst, lohnt sich die Anmeldung definitiv!"
+    ]
+  },
+  "punkte_korrigieren": {
+    "id": "punkte_korrigieren",
+    "number": "2.19",
+    "title": "Punkte korrigieren",
+    "category": {
+      "main": "Spiele & Partien",
+      "mainId": "spiele",
+      "number": 2
+    },
+    "difficulty": "mittel",
+    "priority": 3,
+    "tags": [
+      "punkte",
+      "korrigieren",
+      "ändern",
+      "fehler"
+    ],
+    "description": "So korrigierst du Punkte, wenn ein Fehler passiert ist.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Wische nach links, bis du bei der Runde bist, die du korrigieren willst."
+      },
+      {
+        "number": 2,
+        "text": "Gib die richtigen Punkte ein.",
+        "warning": "Es erscheint eine Warnung, dass das alte Resultat überschrieben wird!"
+      },
+      {
+        "number": 3,
+        "text": "Bestätige mit 'OK'."
+      }
+    ],
+    "images": [],
+    "keywords": [
+      "punkte",
+      "korrigieren",
+      "ändern",
+      "fehler",
+      "falsch"
+    ],
+    "synonyms": [
+      "punkte ändern",
+      "fehler korrigieren",
+      "falsche punkte"
+    ],
+    "userProblems": [
+      "Wie ändere ich Punkte?",
+      "Falsche Punkte eingetragen",
+      "Punkte korrigieren",
+      "Fehler beim Schreiben",
+      "Wie mache ich Punkte ändern?",
+      "Wie stelle ich Punkte ändern ein?",
+      "Wo kann ich Punkte ändern?",
+      "Kann ich Punkte nachträglich ändern?",
+      "Wie schreibe ich Punkte ändern?"
+    ],
+    "nextSuggested": "turnier_erstellen",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du ein Turnier erstellst?",
+    "seeAlso": [
+      "history_navigation"
+    ],
+    "faq": [
+      {
+        "question": "Kann ich Punkte nachträglich ändern?",
+        "answer": "Ja, aber du bekommst eine Warnung. Die Änderung ist endgültig!"
+      },
+      {
+        "question": "Werden die Statistiken automatisch aktualisiert?",
+        "answer": "Ja, alle Berechnungen werden automatisch mit den neuen Punkten durchgeführt."
+      }
+    ],
+    "tips": [
+      "Sei vorsichtig beim Korrigieren - die Änderung ist endgültig!"
+    ]
+  },
+  "turnier_erstellen": {
+    "id": "turnier_erstellen",
+    "number": "3.1",
+    "title": "Turnier erstellen",
+    "category": {
+      "main": "Turniere",
+      "mainId": "turniere",
+      "number": 3
+    },
+    "difficulty": "mittel",
+    "priority": 2,
+    "tags": [
+      "turnier",
+      "erstellen",
+      "turniermodus",
+      "mehrere spiele"
+    ],
+    "description": "So erstellst du ein Turnier mit mehreren Passen (Spielen).",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Gehe in dein Profil."
+      },
+      {
+        "number": 2,
+        "text": "Klicke auf Turnier."
+      },
+      {
+        "number": 3,
+        "text": "Wähle \"Neues Turnier erstellen\".",
+        "image": "3-turniere/turnier_erstellen.png"
+      },
+      {
+        "number": 4,
+        "text": "Gib einen Namen für das Turnier ein."
+      },
+      {
+        "number": 5,
+        "text": "Wähle die Teilnehmer aus deiner Gruppe aus (mindestens 4 Spieler, inklusive dich selber wenn du mitspielst) oder lade neue Mitspieler einem mit einem Einladungslink.",
+        "tip": "Wenn du in einer Gruppe spielst, werden die Mitglieder automatisch angezeigt."
+      },
+      {
+        "number": 6,
+        "text": "Bestimme die Regeln."
+      },
+      {
+        "number": 7,
+        "text": "Starte unten in der \"Danger Zone\" das Turnier."
+      },
+      {
+        "number": 8,
+        "text": "Das Turnier kann beendet werden oder pausiert. In beiden Fällen wird das Ergebnis abgespeichert."
+      }
+    ],
+    "images": [
+      "3-turniere/turnier_erstellen.png"
+    ],
+    "primaryImage": "3-turniere/turnier_erstellen.png",
+    "keywords": [
+      "turnier",
+      "erstellen",
+      "turniermodus",
+      "mehrere spiele",
+      "passen",
+      "passe",
+      "tournament"
+    ],
+    "synonyms": [
+      "tournament",
+      "mehrere spiele",
+      "jassabend",
+      "passe",
+      "passen"
+    ],
+    "userProblems": [
+      "Wie erstelle ich ein Turnier?",
+      "Turniermodus",
+      "Mehrere Spiele organisieren",
+      "Wie mache ich ein Turnier?",
+      "Wie stelle ich ein Turnier ein?",
+      "Wo kann ich ein Turnier erstellen?",
+      "Kann ich mehrere Turniere gleichzeitig haben?",
+      "Wie organisiere ich mehrere Spiele?"
+    ],
+    "nextSuggested": "turnier_passe_starten",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du eine Turnier-Passe startest?",
+    "seeAlso": [
+      "turnier_passe_starten",
+      "gruppe_erstellen"
+    ],
+    "faq": [
+      {
+        "question": "Was ist der Unterschied zwischen Spiel und Turnier?",
+        "answer": "Ein Spiel ist eine einzelne Partie. Ein Turnier besteht aus mehreren Passen (Spielen) mit wechselnden Partnern."
+      },
+      {
+        "question": "Wie viele Spieler brauche ich für ein Turnier?",
+        "answer": "Mindestens 4 Spieler. Du kannst aber auch mit mehr Spielern ein Turnier machen."
+      },
+      {
+        "question": "Werden Turnier-Statistiken separat gespeichert?",
+        "answer": "Ja, du siehst am Ende eine Gesamt-Statistik für das ganze Turnier."
+      }
+    ],
+    "tips": [
+      "Turniere sind perfekt für Jassabende mit acht und mehr Spielern!"
+    ],
+    "specialNotes": [
+      "Pausierte Turniere sind Turniere, die eine Fortsetzung haben und später weiterlaufen."
+    ]
+  },
+  "turnier_passe_starten": {
+    "id": "turnier_passe_starten",
+    "number": "3.2",
+    "title": "Turnier-Passe starten",
+    "category": {
+      "main": "Turniere",
+      "mainId": "turniere",
+      "number": 3
+    },
+    "difficulty": "mittel",
+    "priority": 2,
+    "tags": [
+      "turnier",
+      "passe",
+      "starten",
+      "spieler auswählen"
+    ],
+    "description": "So startest du eine neue Passe (Spiel) innerhalb eines Turniers.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Im Turnier-Modus tippe auf 'Neue Passe starten'.",
+        "image": "3-turniere/turnier_passe_starten_01.png"
+      },
+      {
+        "number": 2,
+        "text": "Wähle 4 Spieler aus den Turnier-Teilnehmern.",
+        "tip": "Die App zeigt nur Spieler an, die noch nicht in einer aktiven Passe sind."
+      },
+      {
+        "number": 3,
+        "text": "Lege die Sitzordnung fest (wie bei einem normalen Spiel)."
+      },
+      {
+        "number": 4,
+        "text": "Wähle den Startspieler und tippe auf 'Passe starten'."
+      }
+    ],
+    "images": [],
+    "keywords": [
+      "turnier",
+      "passe",
+      "starten",
+      "spieler",
+      "auswählen",
+      "runde",
+      "neue passe",
+      "nächste passe",
+      "tisch"
+    ],
+    "synonyms": [
+      "passe beginnen",
+      "turnierspiel starten",
+      "nächste runde",
+      "neue runde"
+    ],
+    "userProblems": [
+      "Wie starte ich eine Passe?",
+      "Turnierspiel beginnen",
+      "Neue Runde im Turnier",
+      "Nächste Passe",
+      "Wann geht es weiter?",
+      "Wie mache ich Passe starten?",
+      "Wie stelle ich Passe starten ein?",
+      "Wo kann ich Passe starten?",
+      "Kann ich Passe starten?",
+      "Wie schreibe ich Passe starten?"
+    ],
+    "nextSuggested": "passe_beenden",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du eine Passe beendest?",
+    "seeAlso": [
+      "turnier_erstellen",
+      "passe_beenden",
+      "spieler_auswaehlen"
+    ],
+    "faq": [
+      {
+        "question": "Kann ich Spieler wechseln zwischen Passen?",
+        "answer": "Ja, bei jeder neuen Passe kannst du die 4 Spieler neu auswählen."
+      },
+      {
+        "question": "Was ist, wenn ein Spieler in einer aktiven Passe ist?",
+        "answer": "Die App zeigt eine Warnung. Du musst warten, bis die andere Passe beendet ist, oder einen anderen Spieler wählen."
+      }
+    ],
+    "tips": [
+      "Bei Turnieren mit mehr als 4 Spielern können mehrere Passen gleichzeitig laufen!",
+      "Die App nummeriert die Passen automatisch (Passe 1, Passe 2, etc.)."
+    ]
+  },
+  "passe_beenden": {
+    "id": "passe_beenden",
+    "number": "3.3",
+    "title": "Passe beenden",
+    "category": {
+      "main": "Turniere",
+      "mainId": "turniere",
+      "number": 3
+    },
+    "difficulty": "einfach",
+    "priority": 2,
+    "tags": [
+      "passe",
+      "beenden",
+      "turnier",
+      "fertig"
+    ],
+    "description": "So beendest du eine Passe innerhalb eines Turniers.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Spiele die Passe normal zu Ende (bis ein Team sich bedankt).",
+        "tip": "Eine Passe läuft genau gleich ab wie ein normales Spiel."
+      },
+      {
+        "number": 2,
+        "text": "Nach dem Bedanken wird die Passe automatisch als beendet markiert.",
+        "image": "3-turniere/passe_beendet.png"
+      },
+      {
+        "number": 3,
+        "text": "Die Punkte werden zur Turnier-Gesamtwertung hinzugefügt.",
+        "tip": "Du siehst die aktuelle Rangliste jederzeit in der Turnier-Übersicht."
+      }
+    ],
+    "images": [],
+    "keywords": [
+      "passe",
+      "beenden",
+      "turnier",
+      "fertig",
+      "abschliessen"
+    ],
+    "synonyms": [
+      "passe abschliessen",
+      "spiel beenden"
+    ],
+    "userProblems": [
+      "Wie beende ich eine Passe?",
+      "Passe fertig",
+      "Turnierspiel beenden",
+      "Wie mache ich Passe beenden?",
+      "Wie stelle ich Passe beenden ein?",
+      "Wo kann ich Passe beenden?",
+      "Kann ich Passe beenden?",
+      "Wie schreibe ich Passe beenden?"
+    ],
+    "nextSuggested": "turnier_stats",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du Turnier-Statistiken ansiehst?",
+    "seeAlso": [
+      "bedanken",
+      "turnier_passe_starten"
+    ],
+    "faq": [
+      {
+        "question": "Was passiert nach dem Beenden einer Passe?",
+        "answer": "Die Spieler werden wieder als verfügbar markiert und können in der nächsten Passe mitspielen."
+      },
+      {
+        "question": "Werden die Punkte automatisch zur Gesamtwertung addiert?",
+        "answer": "Ja, die App rechnet alles automatisch."
+      }
+    ],
+    "tips": [
+      "Nach jeder Passe siehst du die aktualisierte Turnier-Rangliste."
+    ]
+  },
+  "turnier_stats": {
+    "id": "turnier_stats",
+    "number": "3.4",
+    "title": "Turnier-Statistiken ansehen",
+    "category": {
+      "main": "Turniere",
+      "mainId": "turniere",
+      "number": 3
+    },
+    "difficulty": "einfach",
+    "priority": 2,
+    "tags": [
+      "turnier",
+      "statistiken",
+      "rangliste",
+      "punkte"
+    ],
+    "description": "So siehst du die Statistiken und Rangliste eines Turniers.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Öffne das Turnier in der Turnier-Übersicht.",
+        "image": "3-turniere/turnier_uebersicht.png"
+      },
+      {
+        "number": 2,
+        "text": "Tippe auf 'Statistiken' oder 'Rangliste'.",
+        "image": "3-turniere/turnier_stats_01.png"
+      },
+      {
+        "number": 3,
+        "text": "Du siehst jetzt:",
+        "tip": "Gesamt-Punkte aller Spieler, Anzahl gespielter Passen, Siege/Niederlagen, Durchschnittliche Punkte pro Passe"
+      }
+    ],
+    "images": [
+      "16_turnier_uebersicht.png"
+    ],
+    "keywords": [
+      "turnier",
+      "statistiken",
+      "rangliste",
+      "punkte",
+      "übersicht"
+    ],
+    "synonyms": [
+      "rangliste",
+      "turniertabelle",
+      "ergebnisse"
+    ],
+    "userProblems": [
+      "Wo sehe ich die Rangliste?",
+      "Turnier-Ergebnisse",
+      "Wer führt?",
+      "Wie mache ich Rangliste sehen?",
+      "Wie stelle ich Rangliste ein?",
+      "Wo kann ich Rangliste sehen?",
+      "Kann ich Rangliste sehen?",
+      "Wie schreibe ich Rangliste?"
+    ],
+    "nextSuggested": "turnier_abschliessen",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du ein Turnier abschliesst?",
+    "seeAlso": [
+      "turnier_abschliessen"
+    ],
+    "faq": [
+      {
+        "question": "Wie werden die Turnier-Punkte berechnet?",
+        "answer": "Die App addiert automatisch alle Striche aus allen Passen. Wer am meisten Striche hat, gewinnt!"
+      },
+      {
+        "question": "Kann ich die Statistiken während des Turniers sehen?",
+        "answer": "Ja, die Statistiken werden nach jeder Passe aktualisiert."
+      }
+    ],
+    "tips": [
+      "Die Turnier-Statistiken sind sehr detailliert - du siehst genau, wer wie oft gewonnen hat."
+    ]
+  },
+  "turnier_abschliessen": {
+    "id": "turnier_abschliessen",
+    "number": "3.5",
+    "title": "Turnier abschliessen",
+    "category": {
+      "main": "Turniere",
+      "mainId": "turniere",
+      "number": 3
+    },
+    "difficulty": "einfach",
+    "priority": 2,
+    "tags": [
+      "turnier",
+      "abschliessen",
+      "beenden",
+      "fertig"
+    ],
+    "description": "So schliesst du ein Turnier ab, wenn alle Passen gespielt sind.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Wenn alle Passen gespielt sind, tippe auf 'Turnier abschliessen'.",
+        "image": "3-turniere/turnier_abschliessen.png"
+      },
+      {
+        "number": 2,
+        "text": "Du siehst eine Zusammenfassung mit der finalen Rangliste.",
+        "tip": "Die Rangliste zeigt alle Spieler sortiert nach Strichen."
+      },
+      {
+        "number": 3,
+        "text": "Tippe auf 'Bestätigen' um das Turnier zu beenden.",
+        "warning": "Danach können keine weiteren Passen mehr hinzugefügt werden!"
+      },
+      {
+        "number": 4,
+        "text": "Das Turnier wird im Archiv gespeichert."
+      }
+    ],
+    "images": [],
+    "keywords": [
+      "turnier",
+      "abschliessen",
+      "beenden",
+      "fertig",
+      "finale rangliste"
+    ],
+    "synonyms": [
+      "turnier beenden",
+      "finale rangliste"
+    ],
+    "userProblems": [
+      "Wie beende ich das Turnier?",
+      "Turnier fertig",
+      "Finale Rangliste",
+      "Wie mache ich Turnier beenden?",
+      "Wie stelle ich Turnier beenden ein?",
+      "Wo kann ich Turnier beenden?",
+      "Kann ich Turnier beenden?",
+      "Wie schreibe ich Turnier beenden?"
+    ],
+    "nextSuggested": "gruppe_erstellen",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du eine Gruppe erstellst?",
+    "seeAlso": [
+      "turnier_stats",
+      "turnier_erstellen"
+    ],
+    "faq": [
+      {
+        "question": "Kann ich ein abgeschlossenes Turnier wieder öffnen?",
+        "answer": "Nein, einmal abgeschlossene Turniere können nicht mehr bearbeitet werden."
+      },
+      {
+        "question": "Wo finde ich alte Turniere?",
+        "answer": "Im Archiv - du kannst dort alle Turnier-Statistiken jederzeit ansehen."
+      }
+    ],
+    "tips": [
+      "Schliesse ein Turnier erst ab, wenn wirklich alle Passen gespielt sind!",
+      "Du kannst die finale Rangliste als Bild teilen."
+    ]
+  },
+  "gruppe_erstellen": {
+    "id": "gruppe_erstellen",
+    "number": "4.1",
+    "title": "Gruppe erstellen",
+    "category": {
+      "main": "Gruppen",
+      "mainId": "gruppen",
+      "number": 4
+    },
+    "difficulty": "einfach",
+    "priority": 1,
+    "tags": [
+      "gruppe",
+      "erstellen",
+      "jassrunde",
+      "freunde"
+    ],
+    "description": "So erstellst du eine Gruppe für deine Jassrunde.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Tippe auf 'Gruppe erstellen' auf der Startseite oder im Menü.",
+        "image": "4-gruppen/gruppe_erstellen_01.png",
+        "tip": "Du musst angemeldet sein, um eine Gruppe zu erstellen."
+      },
+      {
+        "number": 2,
+        "text": "Gib einen Namen für deine Gruppe ein (z.B. 'Stammtisch Jassrunde').",
+        "tip": "Wähle einen Namen, der zu eurer Jassrunde passt."
+      },
+      {
+        "number": 3,
+        "text": "Optional: Lade ein Gruppenbild hoch.",
+        "tip": "Ein Bild macht die Gruppe persönlicher!"
+      },
+      {
+        "number": 4,
+        "text": "Tippe auf 'Gruppe erstellen'.",
+        "image": "4-gruppen/gruppe_erstellt.png"
+      },
+      {
+        "number": 5,
+        "text": "Fertig! Du kannst jetzt Mitglieder einladen."
+      }
+    ],
+    "images": [
+      "14_gruppe_erstellen.png"
+    ],
+    "primaryImage": "14_gruppe_erstellen.png",
+    "keywords": [
+      "gruppe",
+      "erstellen",
+      "jassrunde",
+      "freunde",
+      "team",
+      "stammtisch"
+    ],
+    "synonyms": [
+      "jassrunde erstellen",
+      "team gründen",
+      "stammtisch",
+      "runde erstellen"
+    ],
+    "userProblems": [
+      "Wie erstelle ich eine Gruppe?",
+      "Jassrunde organisieren",
+      "Team gründen",
+      "Wie mache ich eine Gruppe?",
+      "Wie stelle ich eine Gruppe ein?",
+      "Wo kann ich eine Gruppe erstellen?",
+      "Kann ich mehrere Gruppen haben?",
+      "Wie gründe ich eine Jassrunde?"
+    ],
+    "nextSuggested": "gruppe_einladen",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du Freunde in deine Gruppe einlädst?",
+    "seeAlso": [
+      "gruppe_einladen",
+      "gruppe_beitreten"
+    ],
+    "faq": [
+      {
+        "question": "Brauche ich einen Account, um eine Gruppe zu erstellen?",
+        "answer": "Ja, du musst angemeldet sein."
+      },
+      {
+        "question": "Wie viele Mitglieder kann eine Gruppe haben?",
+        "answer": "Unbegrenzt! Du kannst so viele Freunde einladen, wie du möchtest."
+      },
+      {
+        "question": "Kostet das etwas?",
+        "answer": "Nein, Gruppen sind komplett kostenlos."
+      }
+    ],
+    "tips": [
+      "Gruppen sind perfekt für regelmässige Jassrunden - ihr müsst nicht jedes Mal neu Namen eingeben!",
+      "Alle Mitglieder sehen automatisch die Gruppen-Statistiken."
+    ]
+  },
+  "gruppe_einladen": {
+    "id": "gruppe_einladen",
+    "number": "4.3",
+    "title": "Jassfreunde einladen",
+    "category": {
+      "main": "Gruppen",
+      "mainId": "gruppen",
+      "number": 4
+    },
+    "difficulty": "einfach",
+    "priority": 1,
+    "tags": [
+      "gruppe",
+      "einladen",
+      "freunde",
+      "link",
+      "mitglieder"
+    ],
+    "description": "So lädst du Freunde in deine Jassrunde (Gruppe) ein.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Öffne deine Gruppe in der Gruppen-Übersicht.",
+        "warning": "Du musst Admin der Gruppe sein, um Jassfreunde einzuladen."
+      },
+      {
+        "number": 2,
+        "text": "Tippe auf 'Einladen'."
+      },
+      {
+        "number": 3,
+        "text": "Kopiere den Einladungs-Link oder teile ihn direkt per WhatsApp, SMS, etc."
+      },
+      {
+        "number": 4,
+        "text": "Deine Jassfreunde können auch den QR-Code abscannen, um beizutreten."
+      }
+    ],
+    "images": [
+      "15_gruppe_einladen.png"
+    ],
+    "primaryImage": "15_gruppe_einladen.png",
+    "keywords": [
+      "gruppe",
+      "einladen",
+      "freunde",
+      "link",
+      "mitglieder",
+      "jassrunde"
+    ],
+    "synonyms": [
+      "freunde einladen",
+      "mitglieder hinzufügen"
+    ],
+    "userProblems": [
+      "Wie lade ich Freunde ein?",
+      "Mitglieder zur Gruppe hinzufügen",
+      "Einladungslink",
+      "Wie mache ich Freunde einladen?",
+      "Wie stelle ich Einladungen ein?",
+      "Wo kann ich Freunde einladen?",
+      "Kann ich mehrere Freunde gleichzeitig einladen?",
+      "Wie teile ich den Einladungslink?"
+    ],
+    "nextSuggested": "gruppe_beitreten",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du einer Gruppe beitrittst?",
+    "seeAlso": [
+      "gruppe_erstellen",
+      "gruppe_beitreten"
+    ],
+    "faq": [
+      {
+        "question": "Wie lange ist der Einladungs-Link gültig?",
+        "answer": "Maximal vier Wochen. Du kannst ihn aber jederzeit in den Einstellungen schon früher deaktivieren."
+      },
+      {
+        "question": "Müssen meine Freunde auch einen Account haben?",
+        "answer": "Ja, sie müssen sich anmelden, um einer Gruppe beizutreten."
+      }
+    ],
+    "tips": []
+  },
+  "gruppe_beitreten": {
+    "id": "gruppe_beitreten",
+    "number": "4.2",
+    "title": "Gruppe beitreten",
+    "category": {
+      "main": "Gruppen",
+      "mainId": "gruppen",
+      "number": 4
+    },
+    "difficulty": "einfach",
+    "priority": 1,
+    "tags": [
+      "gruppe",
+      "beitreten",
+      "einladungslink",
+      "mitglied"
+    ],
+    "description": "So trittst du einer Gruppe bei, zu der du eingeladen wurdest.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Klicke auf den Einladungs-Link, den du von einem Freund erhalten hast."
+      },
+      {
+        "number": 2,
+        "text": "Registriere dich bei jassguru.ch falls du es noch nicht bist.",
+        "warning": "Du musst angemeldet sein, um einer Gruppe beizutreten."
+      },
+      {
+        "number": 3,
+        "text": "Registrierte Benutzer werden automatisch zur Gruppe hinzugefügt. Falls das nicht klappt (vgl. nächster Punkt)."
+      },
+      {
+        "number": 4,
+        "text": "Kopiere den Einladungslink in das Eingabefeld."
+      },
+      {
+        "number": 5,
+        "text": "Tippe auf 'Gruppe beitreten' in der Bestätigung. Fertig! Du bist jetzt Mitglied der Gruppe."
+      }
+    ],
+    "images": [],
+    "keywords": [
+      "gruppe",
+      "beitreten",
+      "einladungslink",
+      "mitglied",
+      "join"
+    ],
+    "synonyms": [
+      "gruppe joinen",
+      "mitglied werden"
+    ],
+    "userProblems": [
+      "Wie trete ich einer Gruppe bei?",
+      "Einladungslink funktioniert nicht",
+      "Gruppe beitreten",
+      "Wie mache ich Gruppe beitreten?",
+      "Wie stelle ich Gruppe beitreten ein?",
+      "Wo kann ich Gruppe beitreten?",
+      "Kann ich Gruppe beitreten?",
+      "Wie schreibe ich Gruppe beitreten?"
+    ],
+    "nextSuggested": "gruppe_verwalten",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du Gruppenmitglieder verwaltest?",
+    "seeAlso": [
+      "gruppe_erstellen",
+      "gruppe_einladen"
+    ],
+    "faq": [
+      {
+        "question": "Was, wenn der Link nicht funktioniert?",
+        "answer": "Möglicherweise ist der Link abgelaufen oder die Gruppe wurde gelöscht. Frage den Admin nach einem neuen Link."
+      },
+      {
+        "question": "Kann ich mehreren Gruppen beitreten?",
+        "answer": "Ja! Du kannst Mitglied in beliebig vielen Gruppen sein."
+      }
+    ],
+    "tips": []
+  },
+  "gruppe_verwalten": {
+    "id": "gruppe_verwalten",
+    "number": "4.4",
+    "title": "Gruppenmitglieder verwalten",
+    "category": {
+      "main": "Gruppen",
+      "mainId": "gruppen",
+      "number": 4
+    },
+    "difficulty": "mittel",
+    "priority": 2,
+    "tags": [
+      "gruppe",
+      "verwalten",
+      "mitglieder",
+      "admin"
+    ],
+    "description": "So verwaltest du Mitglieder in deiner Gruppe (nur für Admins).",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Öffne die Einstellungen auf der Gruppenübersicht (nur für Admins ersichtlich)."
+      },
+      {
+        "number": 2,
+        "text": "Hier siehst du deine Gruppenmitglieder."
+      },
+      {
+        "number": 3,
+        "text": "Mache Gruppenmitglieder zu Admins oder entferne sie als Admin."
+      }
+    ],
+    "images": [],
+    "keywords": [
+      "gruppe",
+      "verwalten",
+      "mitglieder",
+      "admin",
+      "entfernen"
+    ],
+    "synonyms": [
+      "mitglieder verwalten",
+      "admin-funktionen"
+    ],
+    "userProblems": [
+      "Wie verwalte ich Mitglieder?",
+      "Mitglied entfernen",
+      "Admin-Rechte",
+      "Wie mache ich Mitglieder verwalten?",
+      "Wie stelle ich Mitglieder verwalten ein?",
+      "Wo kann ich Mitglieder verwalten?",
+      "Kann ich Mitglieder entfernen?",
+      "Wie schreibe ich Mitglieder verwalten?"
+    ],
+    "nextSuggested": "gruppe_verlassen",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie man eine Gruppe verlässt?",
+    "seeAlso": [
+      "gruppe_erstellen",
+      "gruppe_verlassen"
+    ],
+    "faq": [],
+    "tips": [
+      "Inaktive Mitglieder fallen nach 1 Jahr automatisch aus der Rangliste und erscheinen erst wieder, wenn sie wieder ein Spiel in der Gruppe bestreiten."
+    ]
+  },
+  "gruppe_verlassen": {
+    "id": "gruppe_verlassen",
+    "number": "4.5",
+    "title": "Gruppe verlassen",
+    "category": {
+      "main": "Gruppen",
+      "mainId": "gruppen",
+      "number": 4
+    },
+    "difficulty": "einfach",
+    "priority": 3,
+    "tags": [
+      "gruppe",
+      "verlassen",
+      "austreten"
+    ],
+    "description": "Informationen zum Verlassen einer Gruppe.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Aktuell kannst du eine Gruppe NICHT selbst verlassen."
+      },
+      {
+        "number": 2,
+        "text": "Wenn du inaktiv bist (12 Monate kein Spiel), fällst du automatisch aus allen Statistiken.",
+        "tip": "Deine Daten bleiben aber gespeichert - falls du irgendwann wieder spielst."
+      },
+      {
+        "number": 3,
+        "text": "Wenn du wirklich aus einer Gruppe willst, melde dich beim Support.",
+        "tip": "E-Mail: info@jassguru.ch"
+      }
+    ],
+    "images": [],
+    "keywords": [
+      "gruppe",
+      "verlassen",
+      "austreten",
+      "inaktiv",
+      "löschen",
+      "raus",
+      "entfernen"
+    ],
+    "synonyms": [
+      "gruppe austreten",
+      "austritt",
+      "mitgliedschaft beenden"
+    ],
+    "userProblems": [
+      "Wie verlasse ich eine Gruppe?",
+      "Gruppe austreten",
+      "Ich will raus aus der Gruppe",
+      "Gruppe löschen",
+      "Bin in der falschen Gruppe"
+    ],
+    "nextSuggested": "profil_bearbeiten",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du dein Profil bearbeitest?",
+    "seeAlso": [
+      "gruppe_verwalten"
+    ],
+    "faq": [
+      {
+        "question": "Was passiert, wenn ich 12 Monate inaktiv bin?",
+        "answer": "Du fällst aus allen Statistiken und Ranglisten, aber deine Daten bleiben gespeichert."
+      },
+      {
+        "question": "Kann ich nach Inaktivität wieder mitspielen?",
+        "answer": "Ja! Sobald du wieder spielst, erscheinst du automatisch wieder in den Statistiken."
+      }
+    ],
+    "tips": [],
+    "specialNotes": []
+  },
+  "profil_bearbeiten": {
+    "id": "profil_bearbeiten",
+    "number": "5.3",
+    "title": "Profil bearbeiten",
+    "category": {
+      "main": "Statistiken & Profil",
+      "mainId": "statistiken",
+      "number": 5
+    },
+    "difficulty": "einfach",
+    "priority": 2,
+    "tags": [
+      "profil",
+      "bearbeiten",
+      "name",
+      "bild"
+    ],
+    "description": "So bearbeitest du dein Profil (Name, Bild, etc.).",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Öffne dein Profil (unten in der Navigation)."
+      },
+      {
+        "number": 2,
+        "text": "Tippe auf \"Einstellungen\"."
+      },
+      {
+        "number": 3,
+        "text": "Ändere deinen Jassnamen, dein Profilbild oder andere Details. Gib einen Jassspruch ein."
+      },
+      {
+        "number": 4,
+        "text": "Tippe auf 'Speichern'."
+      }
+    ],
+    "images": [],
+    "keywords": [
+      "profil",
+      "bearbeiten",
+      "name",
+      "bild",
+      "ändern"
+    ],
+    "synonyms": [
+      "profil ändern",
+      "namen ändern"
+    ],
+    "userProblems": [
+      "Wie ändere ich meinen Namen?",
+      "Profilbild hochladen",
+      "Profil bearbeiten",
+      "Wie mache ich Profil ändern?",
+      "Wie stelle ich Profil ein?",
+      "Wo kann ich Namen ändern?",
+      "Kann ich Profilbild ändern?",
+      "Wie schreibe ich Profil bearbeiten?"
+    ],
+    "nextSuggested": "profilbild_hochladen",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du ein Profilbild hochlädst?",
+    "seeAlso": [
+      "profilbild_hochladen"
+    ],
+    "faq": [
+      {
+        "question": "Können andere mein Profil sehen?",
+        "answer": "Ja, alle Spieler in deinen Gruppen können dein Profil ansehen."
+      },
+      {
+        "question": "Kann ich meinen Namen mehrmals ändern?",
+        "answer": "Ja, du kannst deinen Namen jederzeit ändern. Ist aber nicht zu empfehlen."
+      }
+    ],
+    "tips": []
+  },
+  "profilbild_hochladen": {
+    "id": "profilbild_hochladen",
+    "number": "5.4",
+    "title": "Profilbild hochladen",
+    "category": {
+      "main": "Statistiken & Profil",
+      "mainId": "statistiken",
+      "number": 5
+    },
+    "difficulty": "einfach",
+    "priority": 3,
+    "tags": [
+      "profilbild",
+      "hochladen",
+      "foto",
+      "avatar"
+    ],
+    "description": "So lädst du ein Profilbild hoch.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Öffne 'Profil bearbeiten' (siehe vorheriges Topic)."
+      },
+      {
+        "number": 2,
+        "text": "Tippe auf das Profilbild oder 'Bild hochladen'."
+      },
+      {
+        "number": 3,
+        "text": "Wähle ein Bild von deinem Gerät oder mache ein neues Foto."
+      },
+      {
+        "number": 4,
+        "text": "Schneide das Bild zu (falls nötig) und tippe auf 'Hochladen'."
+      },
+      {
+        "number": 5,
+        "text": "Fertig! Dein neues Profilbild wird überall angezeigt."
+      }
+    ],
+    "images": [],
+    "keywords": [
+      "profilbild",
+      "hochladen",
+      "foto",
+      "avatar",
+      "bild"
+    ],
+    "synonyms": [
+      "avatar",
+      "foto hochladen",
+      "profilfoto"
+    ],
+    "userProblems": [
+      "Wie lade ich ein Bild hoch?",
+      "Profilbild ändern",
+      "Foto hochladen",
+      "Wie mache ich Bild hochladen?",
+      "Wie stelle ich Bild hochladen ein?",
+      "Wo kann ich Bild hochladen?",
+      "Kann ich Bild hochladen?",
+      "Wie schreibe ich Bild hochladen?"
+    ],
+    "nextSuggested": "service_worker_neu_laden",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du die App komplett neu lädst?",
+    "seeAlso": [
+      "profil_bearbeiten"
+    ],
+    "faq": [
+      {
+        "question": "Welche Bildformate werden unterstützt?",
+        "answer": "JPG, PNG, GIF - die meisten gängigen Formate."
+      },
+      {
+        "question": "Wie groSS darf das Bild sein?",
+        "answer": "Maximal 5 MB."
+      },
+      {
+        "question": "Kann ich das Bild später wieder ändern?",
+        "answer": "Ja, jederzeit!"
+      }
+    ],
+    "tips": []
+  },
+  "service_worker_neu_laden": {
+    "id": "service_worker_neu_laden",
+    "number": "6.5",
+    "title": "Service Worker neu laden (Kill SW)",
+    "category": {
+      "main": "Einstellungen & Troubleshooting",
+      "mainId": "einstellungen",
+      "number": 6
+    },
+    "difficulty": "schwierig",
+    "priority": 2,
+    "tags": [
+      "service worker",
+      "neu laden",
+      "kill sw",
+      "cache"
+    ],
+    "description": "So lädst du die App komplett neu (bei technischen Problemen).",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Wenn die App hängt, abstürzt oder ein Blackscreen erscheint, versuche erst: App schließen und neu öffnen → Browser-Cache leeren",
+        "tip": "In 90% der Fälle hilft schon ein Neustart."
+      },
+      {
+        "number": 2,
+        "text": "Wenn gar nichts hilft, kopiere diesen Link direkt in deinen Browser:",
+        "warning": "https://jassguru.ch/kill-sw.html?auto=true"
+      },
+      {
+        "number": 3,
+        "text": "Die App lädt sich komplett neu - alle Caches werden geleert.",
+        "tip": "Deine Daten (Spiele, Statistiken) bleiben gespeichert!"
+      },
+      {
+        "number": 4,
+        "text": "Nach dem Neuladen sollte alles wieder funktionieren."
+      }
+    ],
+    "images": [],
+    "keywords": [
+      "service worker",
+      "neu laden",
+      "kill sw",
+      "cache",
+      "reset",
+      "neustart",
+      "refresh",
+      "reload",
+      "löschen"
+    ],
+    "synonyms": [
+      "cache leeren",
+      "app reset",
+      "neustart",
+      "alles neu laden"
+    ],
+    "userProblems": [
+      "App hängt",
+      "Blackscreen",
+      "App lädt nicht",
+      "Fehler beim Laden",
+      "App stürzt ab",
+      "Nichts funktioniert mehr",
+      "Wie starte ich neu?",
+      "Reset machen"
+    ],
+    "nextSuggested": "app_haengt",
+    "nextSuggestedText": "Möchtest du als nächstes mehr über Problembehebung erfahren?",
+    "seeAlso": [
+      "app_haengt"
+    ],
+    "faq": [
+      {
+        "question": "Was ist ein Service Worker?",
+        "answer": "Ein Service Worker ist ein technischer Cache, der die App offline-fähig macht. Manchmal muss er neu geladen werden."
+      },
+      {
+        "question": "Verliere ich meine Daten?",
+        "answer": "Nein! Alle Spiele und Statistiken bleiben gespeichert (wenn du angemeldet bist)."
+      },
+      {
+        "question": "Wie oft sollte ich das machen?",
+        "answer": "Nur im Notfall! Normalerweise nie nötig."
+      }
+    ],
+    "tips": [
+      "Dieser Link ist deine letzte Rettung, wenn wirklich gar nichts mehr geht!",
+      "Speichere den Link als Lesezeichen für den Notfall."
+    ],
+    "specialNotes": [
+      "Kill SW Link: https://jassguru.ch/kill-sw.html?auto=true",
+      "Nur für kritische Probleme!"
+    ]
+  },
+  "app_haengt": {
+    "id": "app_haengt",
+    "number": "6.6",
+    "title": "App hängt / Blackscreen",
+    "category": {
+      "main": "Einstellungen & Troubleshooting",
+      "mainId": "einstellungen",
+      "number": 6
+    },
+    "difficulty": "mittel",
+    "priority": 1,
+    "tags": [
+      "app hängt",
+      "blackscreen",
+      "problem",
+      "fehler"
+    ],
+    "description": "Was tun, wenn die App hängt oder ein Blackscreen erscheint?",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Schritt 1: App schliessen und neu öffnen.",
+        "tip": "Auf mobilen Geräten: App komplett beenden (App-Switcher) und neu starten."
+      },
+      {
+        "number": 2,
+        "text": "Schritt 2: Browser-Cache leeren.",
+        "tip": "In den Browser-Einstellungen → Browserdaten löschen → Cache leeren."
+      },
+      {
+        "number": 3,
+        "text": "Schritt 3: Service Worker neu laden (siehe vorheriges Topic).",
+        "warning": "Link: https://jassguru.ch/kill-sw.html?auto=true"
+      },
+      {
+        "number": 4,
+        "text": "Schritt 4: Gerät neu starten.",
+        "tip": "Smartphone/Tablet komplett ausschalten und wieder einschalten."
+      },
+      {
+        "number": 5,
+        "text": "Wenn nichts hilft: Support kontaktieren (support@jassguru.ch).",
+        "tip": "Beschreibe genau, was passiert ist und auf welchem Gerät."
+      }
+    ],
+    "images": [],
+    "keywords": [
+      "app hängt",
+      "blackscreen",
+      "problem",
+      "fehler",
+      "abstürz",
+      "lädt nicht",
+      "spinnt",
+      "kaputt",
+      "geht nicht",
+      "weiss",
+      "schwarz"
+    ],
+    "synonyms": [
+      "app funktioniert nicht",
+      "schwarzer bildschirm",
+      "absturz",
+      "spinnt",
+      "hängt"
+    ],
+    "userProblems": [
+      "App hängt",
+      "Schwarzer Bildschirm",
+      "App lädt nicht",
+      "App stürzt ab",
+      "Nichts geht mehr",
+      "Blackscreen",
+      "App spinnt",
+      "Es geht nicht weiter",
+      "Alles weiss"
+    ],
+    "nextSuggested": null,
+    "nextSuggestedText": null,
+    "seeAlso": [
+      "service_worker_neu_laden"
+    ],
+    "faq": [
+      {
+        "question": "Warum hängt die App?",
+        "answer": "Meist ein temporäres Netzwerk- oder Cache-Problem. In 90% der Fälle hilft ein Neustart."
+      },
+      {
+        "question": "Sind meine Daten weg?",
+        "answer": "Nein! Wenn du angemeldet bist, sind alle Daten sicher gespeichert."
+      }
+    ],
+    "tips": [
+      "Die meisten Probleme lassen sich mit einem einfachen Neustart lösen!",
+      "Wenn es öfter passiert, melde es dem Support - vielleicht ist es ein bekannter Bug."
+    ],
+    "troubleshooting": [
+      {
+        "problem": "App lädt, aber zeigt nur weissen/schwarzen Bildschirm.",
+        "solution": "Service Worker neu laden: https://jassguru.ch/kill-sw.html?auto=true"
+      },
+      {
+        "problem": "App friert ein beim Laden.",
+        "solution": "Warte 30 Sekunden, dann Browser-Cache leeren und neu versuchen."
+      }
+    ]
+  },
+  "pwa_oeffnen": {
+    "id": "pwa_oeffnen",
+    "number": "1.4",
+    "title": "PWA vom Startbildschirm öffnen",
+    "category": {
+      "main": "PWA Installation",
+      "mainId": "pwa",
+      "number": 1
+    },
+    "difficulty": "einfach",
+    "priority": 3,
+    "tags": [
+      "pwa",
+      "öffnen",
+      "homescreen",
+      "app"
+    ],
+    "description": "So öffnest du die installierte App vom Startbildschirm. Wichtig: Ohne Installation kannst du nicht spielen!",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Gehe zu deinem Smartphone-Startbildschirm (Home-Screen).",
+        "tip": "Die App sollte als Icon mit dem Jassguru-Logo sichtbar sein."
+      },
+      {
+        "number": 2,
+        "text": "Tippe einmal auf das Jassguru-Icon.",
+        "image": "1-pwa/pwa_icon_homescreen.png"
+      },
+      {
+        "number": 3,
+        "text": "Die App öffnet sich im Vollbild-Modus (ohne Browser-Leiste).",
+        "tip": "Die App verhält sich jetzt genau wie eine native App! Wichtig: Nur mit installierter App kannst du spielen."
+      }
+    ],
+    "images": [],
+    "keywords": [
+      "pwa",
+      "öffnen",
+      "homescreen",
+      "app",
+      "starten"
+    ],
+    "synonyms": [
+      "app öffnen",
+      "app starten",
+      "vom homescreen"
+    ],
+    "userProblems": [
+      "Wie öffne ich die App?",
+      "Wo finde ich die App?",
+      "App starten",
+      "Wie mache ich App öffnen?",
+      "Wie stelle ich App öffnen ein?",
+      "Wo kann ich die App starten?",
+      "Kann ich vom Home-Screen starten?"
+    ],
+    "nextSuggested": "pwa_deinstallieren",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du die App deinstallierst?",
+    "seeAlso": [
+      "pwa_android",
+      "pwa_ios",
+      "pwa_deinstallieren"
+    ],
+    "faq": [
+      {
+        "question": "Warum öffnet sich die App im Browser?",
+        "answer": "Du hast wahrscheinlich noch nicht die PWA installiert. Installiere sie zuerst (siehe PWA Installation)."
+      },
+      {
+        "question": "Kann ich die App auch über den Browser öffnen?",
+        "answer": "Ja, du kannst jederzeit auch über jassguru.ch im Browser gehen. Aber: Im Browser kannst du nicht spielen - dafür musst du die App installieren!"
+      },
+      {
+        "question": "Kann ich im Browser spielen?",
+        "answer": "Nein! Zum Spielen musst du die App installieren. Im Browser kannst du alles andere machen (Gruppen verwalten, Statistiken ansehen), aber nicht spielen."
+      }
+    ],
+    "tips": [
+      "Die installierte PWA ist schneller und bietet ein besseres Erlebnis als der Browser!",
+      "Wichtig: Nur mit installierter App kannst du spielen - im Browser geht das nicht!"
+    ]
+  },
+  "pwa_deinstallieren": {
+    "id": "pwa_deinstallieren",
+    "number": "1.5",
+    "title": "PWA deinstallieren",
+    "category": {
+      "main": "PWA Installation",
+      "mainId": "pwa",
+      "number": 1
+    },
+    "difficulty": "einfach",
+    "priority": 3,
+    "tags": [
+      "pwa",
+      "deinstallieren",
+      "löschen",
+      "entfernen"
+    ],
+    "description": "So deinstallierst du die App vom Startbildschirm.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Auf Android: Tippe lange auf das Jassguru-Icon und wähle 'Deinstallieren' oder ziehe es auf das Papierkorb-Symbol.",
+        "image": "1-pwa/pwa_android_deinstall.png",
+        "tip": "Je nach Android-Version kann das etwas anders aussehen."
+      },
+      {
+        "number": 2,
+        "text": "Auf iOS (iPhone/iPad): Tippe lange auf das Icon, wähle 'App entfernen' → 'Vom Home-Bildschirm entfernen'.",
+        "image": "1-pwa/pwa_ios_deinstall.png",
+        "tip": "Die App wird nur vom Startbildschirm entfernt, nicht komplett gelöscht."
+      },
+      {
+        "number": 3,
+        "text": "Fertig! Die App ist deinstalliert.",
+        "warning": "Deine Daten (Spiele, Statistiken) bleiben auf dem Server gespeichert, wenn du angemeldet warst!"
+      }
+    ],
+    "images": [],
+    "keywords": [
+      "pwa",
+      "deinstallieren",
+      "löschen",
+      "entfernen",
+      "app löschen"
+    ],
+    "synonyms": [
+      "app löschen",
+      "app entfernen",
+      "deinstallieren"
+    ],
+    "userProblems": [
+      "Wie lösche ich die App?",
+      "App deinstallieren",
+      "App entfernen",
+      "Wie mache ich PWA löschen?",
+      "Wie stelle ich Deinstallation ein?",
+      "Wo kann ich App entfernen?",
+      "Kann ich die App deinstallieren?"
+    ],
+    "nextSuggested": "spiel_starten",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du ein Spiel startest?",
+    "seeAlso": [
+      "pwa_android",
+      "pwa_ios"
+    ],
+    "faq": [
+      {
+        "question": "Verliere ich meine Daten?",
+        "answer": "Nein! Wenn du angemeldet warst, sind alle Daten sicher auf dem Server gespeichert. Du kannst dich jederzeit wieder anmelden."
+      },
+      {
+        "question": "Kann ich die App später wieder installieren?",
+        "answer": "Ja! Einfach jassguru.ch im Browser öffnen und wieder installieren."
+      }
+    ],
+    "tips": []
+  },
+  "multi_device": {
+    "id": "multi_device",
+    "number": "1.6",
+    "title": "Multi-Device: Auf mehreren Geräten spielen",
+    "category": {
+      "main": "PWA Installation",
+      "mainId": "pwa",
+      "number": 1
+    },
+    "difficulty": "einfach",
+    "priority": 2,
+    "tags": [
+      "multi-device",
+      "synchronisation",
+      "mehrere geräte",
+      "echtzeit",
+      "tablet",
+      "smartphone",
+      "computer"
+    ],
+    "description": "So nutzt du die App auf mehreren Geräten gleichzeitig - der Spielstand synchronisiert sich in Echtzeit.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Jeder Spieler, der sich einloggt und am Spiel teilnimmt, kann auf seinem Gerät mitschreiben.",
+        "tip": "Du musst angemeldet sein, um mitschreiben zu können."
+      },
+      {
+        "number": 2,
+        "text": "Der Spielstand synchronisiert sich automatisch in Echtzeit auf allen Geräten.",
+        "tip": "Wenn jemand Punkte einträgt, sehen alle anderen Spieler die Änderung sofort."
+      },
+      {
+        "number": 3,
+        "text": "Mitschauen können alle, die über den öffentlichen Link verfügen (siehe 'Spiel live teilen')."
+      }
+    ],
+    "images": [
+      "1-pwa/multi_device.png"
+    ],
+    "primaryImage": "1-pwa/multi_device.png",
+    "keywords": [
+      "multi-device",
+      "synchronisation",
+      "mehrere geräte",
+      "echtzeit",
+      "tablet",
+      "smartphone",
+      "computer",
+      "gleichzeitig",
+      "sync",
+      "synchronisieren"
+    ],
+    "synonyms": [
+      "mehrere geräte",
+      "synchronisation",
+      "echtzeit sync",
+      "tablet und smartphone"
+    ],
+    "userProblems": [
+      "Kann ich auf mehreren Geräten spielen?",
+      "Synchronisation",
+      "Tablet und Smartphone gleichzeitig",
+      "Wie funktioniert Multi-Device?",
+      "Echtzeit-Synchronisation",
+      "Wie mache ich Multi-Device?",
+      "Wie stelle ich Synchronisation ein?",
+      "Wo kann ich auf mehreren Geräten spielen?",
+      "Kann ich auf Tablet und Smartphone gleichzeitig spielen?"
+    ],
+    "nextSuggested": "spiel_starten",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du ein Spiel startest?",
+    "seeAlso": [
+      "pwa_android",
+      "pwa_ios",
+      "pwa_desktop"
+    ],
+    "faq": [
+      {
+        "question": "Wer kann mitschreiben?",
+        "answer": "Jeder Spieler, der sich einloggt und am Spiel teilnimmt, kann auf seinem Gerät mitschreiben."
+      },
+      {
+        "question": "Wer kann mitschauen?",
+        "answer": "Alle, die über den öffentlichen Link verfügen (siehe 'Spiel live teilen')."
+      }
+    ],
+    "tips": [
+      "Perfekt für Jassrunden, wo jeder am Tisch sein eigenes Gerät hat!"
+    ]
+  },
+  "spielarchiv": {
+    "id": "spielarchiv",
+    "number": "2.20",
+    "title": "Spielarchiv ansehen",
+    "category": {
+      "main": "Spiele & Partien",
+      "mainId": "spiele",
+      "number": 2
+    },
+    "difficulty": "einfach",
+    "priority": 2,
+    "tags": [
+      "archiv",
+      "historie",
+      "alte spiele",
+      "vergangene"
+    ],
+    "description": "So siehst du alle deine vergangenen Spiele im Archiv.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Tippe im Hauptmenü auf 'Archiv' oder 'Spielhistorie'.",
+        "image": "2-spiele/archiv_button.png"
+      },
+      {
+        "number": 2,
+        "text": "Du siehst jetzt eine Liste aller deiner Spiele (neueste zuerst).",
+        "image": "2-spiele/spielarchiv_01.png",
+        "tip": "Du kannst nach Datum, Spieler oder Gruppe filtern."
+      },
+      {
+        "number": 3,
+        "text": "Tippe auf ein Spiel um die Details zu sehen.",
+        "tip": "Du siehst dann alle Runden, Punkte, Weis, etc."
+      },
+      {
+        "number": 4,
+        "text": "Optional: Teile das Resultat oder exportiere es.",
+        "tip": "Du kannst alte Spiele auch als Bild teilen!"
+      }
+    ],
+    "images": [
+      "2-spiele/spiel_archiv.png"
+    ],
+    "primaryImage": "2-spiele/spiel_archiv.png",
+    "keywords": [
+      "archiv",
+      "historie",
+      "alte spiele",
+      "vergangene spiele",
+      "spielhistorie"
+    ],
+    "synonyms": [
+      "spielhistorie",
+      "alte spiele",
+      "vergangene spiele"
+    ],
+    "userProblems": [
+      "Wo finde ich alte Spiele?",
+      "Spielhistorie",
+      "Archiv",
+      "Vergangene Spiele ansehen",
+      "Wie mache ich Archiv öffnen?",
+      "Wie stelle ich Spielarchiv ein?",
+      "Wo kann ich die Historie sehen?",
+      "Kann ich alte Spiele ansehen?"
+    ],
+    "nextSuggested": "profil_bearbeiten",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du dein Profil bearbeitest?",
+    "seeAlso": [
+      "sharing_resultat"
+    ],
+    "faq": [
+      {
+        "question": "Wie weit zurück geht das Archiv?",
+        "answer": "Alle Spiele seit deiner Anmeldung! Wenn du im Gastmodus spielst, werden Spiele nicht dauerhaft gespeichert."
+      },
+      {
+        "question": "Kann ich alte Spiele löschen?",
+        "answer": "Nein, Spiele können nicht gelöscht werden. Sie sind wichtig für Statistiken und Elo."
+      }
+    ],
+    "tips": [
+      "Das Archiv ist perfekt, um alte Jass-Abende nochmal anzusehen!",
+      "Du kannst in der Detailansicht jede einzelne Runde nochmal durchgehen."
+    ]
+  },
+  "spiel_abbrechen": {
+    "id": "spiel_abbrechen",
+    "number": "2.21",
+    "title": "Spiel oder Passe abbrechen",
+    "category": {
+      "main": "Spiele & Partien",
+      "mainId": "spiele",
+      "number": 2
+    },
+    "difficulty": "einfach",
+    "priority": 2,
+    "tags": [
+      "abbrechen",
+      "löschen",
+      "beenden",
+      "trash",
+      "passe"
+    ],
+    "description": "So brichst du ein laufendes Spiel oder eine Turnier-Passe ab (löscht es unwiderruflich). WICHTIG: Dies ist NICHT dasselbe wie 'unterbrechen' oder 'pausieren' - dafür siehe 'Zur Gruppenübersicht zurückkehren'.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Öffne das Menü durch Swipe nach unten.",
+        "image": "2-spiele/menu_oeffnen_1.png"
+      },
+      {
+        "number": 2,
+        "text": "Tippe auf das Trash-Icon (Mülleimer-Symbol) ganz links im Menü.",
+        "image": "2-spiele/menu_offen.png",
+        "warning": "⚠️ WICHTIG: Der Trashcan LÖSCHT das Spiel unwiderruflich! Wenn du das Spiel nur beenden willst, verwende stattdessen den grünen Button (siehe 'Spiel beenden')."
+      },
+      {
+        "number": 3,
+        "text": "Es erscheint eine Warnmeldung: 'Möchtest du diesen Jass wirklich abbrechen? Die Partie geht verloren und wird nicht gespeichert.'",
+        "image": "2-spiele/spiellöschenwarnung.png",
+        "warning": "⚠️ Wenn du bestätigst, wird das Spiel/die Passe unwiderruflich gelöscht und kann nicht wiederhergestellt werden!"
+      }
+    ],
+    "images": [
+      "11_menu_offen.png",
+      "12_spiellöschenwarnung.png"
+    ],
+    "primaryImage": "12_spiellöschenwarnung.png",
+    "keywords": [
+      "abbrechen",
+      "löschen",
+      "beenden",
+      "trash",
+      "mülleimer",
+      "passe abbrechen",
+      "spiel löschen",
+      "unwiderruflich",
+      "warnung",
+      "spiel löschen",
+      "partie löschen",
+      "trashcan",
+      "mülleimer button"
+    ],
+    "synonyms": [
+      "spiel abbrechen",
+      "partie abbrechen",
+      "passe löschen",
+      "trash button",
+      "mülleimer"
+    ],
+    "userProblems": [
+      "Wie breche ich ein Spiel ab?",
+      "Spiel löschen",
+      "Passe abbrechen",
+      "Wie lösche ich die Partie?",
+      "Spiel beenden ohne zu speichern",
+      "Trash-Icon",
+      "Mülleimer-Button",
+      "Kann ich abbrechen?",
+      "Wie mache ich Spiel abbrechen?",
+      "Spiel unwiderruflich löschen",
+      "Partie löschen"
+    ],
+    "nextSuggested": "zur_gruppe_zurueck",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du zur Gruppenübersicht zurückkehrst?",
+    "seeAlso": [
+      "menu_oeffnen",
+      "spiel_beenden",
+      "jass_beenden"
+    ],
+    "faq": [
+      {
+        "question": "Kann ich ein abgebrochenes Spiel wiederherstellen?",
+        "answer": "Nein! Wenn du ein Spiel abbrichst, wird es unwiderruflich gelöscht. Sei vorsichtig!"
+      },
+      {
+        "question": "Was passiert bei Turnieren?",
+        "answer": "Bei Turnieren wird nur die aktuelle Passe gelöscht, nicht das gesamte Turnier."
+      },
+      {
+        "question": "Zählt ein abgebrochenes Spiel für die Statistik?",
+        "answer": "Nein! Abgebrochene Spiele werden NICHT gespeichert und zählen nicht für Statistiken oder Elo."
+      }
+    ],
+    "tips": [],
+    "specialNotes": []
+  },
+  "hilfe_button": {
+    "id": "hilfe_button",
+    "number": "2.22",
+    "title": "Hilfe-Button nutzen",
+    "category": {
+      "main": "Spiele & Partien",
+      "mainId": "spiele",
+      "number": 2
+    },
+    "difficulty": "einfach",
+    "priority": 3,
+    "tags": [
+      "hilfe",
+      "info",
+      "support",
+      "tutorial",
+      "anleitung"
+    ],
+    "description": "So nutzt du den Info-Button für Hilfe während des Spiels.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Öffne das Menü durch Swipe nach unten.",
+        "image": "2-spiele/menu_oeffnen_1.png"
+      },
+      {
+        "number": 2,
+        "text": "Tippe auf den Info-Button (i-Symbol).",
+        "image": "2-spiele/infoknopf.png"
+      },
+      {
+        "number": 3,
+        "text": "Es öffnet sich die Hilfe mit nützlichen Tipps und Anleitungen."
+      }
+    ],
+    "images": [
+      "04_menu_oeffnen.png",
+      "05_menu_offen.png",
+      "17_hilfe_button.png"
+    ],
+    "primaryImage": "17_hilfe_button.png",
+    "keywords": [
+      "hilfe",
+      "info",
+      "support",
+      "tutorial",
+      "anleitung",
+      "info-button",
+      "i-symbol",
+      "erklärung"
+    ],
+    "synonyms": [
+      "hilfe button",
+      "info knopf",
+      "support button",
+      "tutorial öffnen"
+    ],
+    "userProblems": [
+      "Wo finde ich Hilfe?",
+      "Info-Button",
+      "Tutorial",
+      "Anleitung",
+      "Wie funktioniert die App?",
+      "Wie mache ich Hilfe öffnen?",
+      "Wo ist die Anleitung?"
+    ],
+    "nextSuggested": "menu_oeffnen",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du das Menü öffnest?",
+    "seeAlso": [
+      "menu_oeffnen",
+      "spiel_starten"
+    ],
+    "faq": [
+      {
+        "question": "Was zeigt der Hilfe-Button?",
+        "answer": "Der Hilfe-Button zeigt dir Anleitungen und Tipps zu allen Funktionen der App - direkt während des Spiels."
+      }
+    ],
+    "tips": []
+  },
+  "zur_gruppe_zurueck": {
+    "id": "zur_gruppe_zurueck",
+    "number": "2.23",
+    "title": "Zur Gruppenübersicht zurückkehren",
+    "category": {
+      "main": "Spiele & Partien",
+      "mainId": "spiele",
+      "number": 2
+    },
+    "difficulty": "einfach",
+    "priority": 2,
+    "tags": [
+      "home",
+      "gruppe",
+      "zurück",
+      "pausieren",
+      "unterbrechen"
+    ],
+    "description": "So unterbrichst oder pausierst du ein laufendes Spiel (ohne es zu beenden oder zu löschen). Das Spiel läuft weiter im Hintergrund und kann jederzeit fortgesetzt werden. WICHTIG: Dies ist NICHT dasselbe wie 'abbrechen' (löschen) - dafür siehe 'Spiel abbrechen'.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Öffne das Menü durch Swipe nach unten.",
+        "image": "2-spiele/menu_oeffnen_1.png"
+      },
+      {
+        "number": 2,
+        "text": "Tippe auf den Home-Button (blauer Button).",
+        "image": "2-spiele/menu_offen.png"
+      },
+      {
+        "number": 3,
+        "text": "Du bist jetzt in deiner Gruppenübersicht. Das Spiel läuft weiter im Hintergrund!",
+        "image": "2-spiele/homescreen.png"
+      },
+      {
+        "number": 4,
+        "text": "Tippe auf 'Laufendem Jass beitreten' um das Spiel fortzusetzen."
+      }
+    ],
+    "images": [
+      "05_menu_offen.png"
+    ],
+    "primaryImage": "05_menu_offen.png",
+    "keywords": [
+      "home",
+      "gruppe",
+      "zurück",
+      "pausieren",
+      "unterbrechen",
+      "home-button",
+      "gruppenübersicht",
+      "laufender jass",
+      "fortsetzen",
+      "spiel unterbrechen",
+      "spiel pausieren",
+      "partie unterbrechen",
+      "partie pausieren",
+      "pause machen",
+      "unterbrechen ohne zu löschen"
+    ],
+    "synonyms": [
+      "home button",
+      "zur gruppe",
+      "zurück zur gruppe",
+      "pausieren",
+      "unterbrechen"
+    ],
+    "userProblems": [
+      "Wie komme ich zurück zur Gruppe?",
+      "Wie pausiere ich?",
+      "Spiel unterbrechen",
+      "Home-Button",
+      "Zur Gruppenübersicht",
+      "Wie komme ich heraus?",
+      "Wie mache ich zurück zur Gruppe?",
+      "Kann ich das Spiel pausieren?",
+      "Wie unterbreche ich ein Spiel?",
+      "Spiel pausieren ohne zu löschen",
+      "Kann ich unterbrechen?",
+      "Wie mache ich Pause?",
+      "Spiel unterbrechen ohne zu beenden"
+    ],
+    "nextSuggested": "zwischenstand_anzeigen",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du den Zwischenstand anzeigst?",
+    "seeAlso": [
+      "menu_oeffnen",
+      "spiel_beenden",
+      "spiel_abbrechen"
+    ],
+    "faq": [
+      {
+        "question": "Wird das Spiel beendet, wenn ich auf Home gehe?",
+        "answer": "Nein! Das Spiel läuft weiter und du kannst es jederzeit über 'Laufendem Jass beitreten' fortsetzen."
+      },
+      {
+        "question": "Wie lange kann ich pausieren?",
+        "answer": "So lange du willst! Das Spiel bleibt gespeichert, bis du es beendest oder abbrichst."
+      },
+      {
+        "question": "Können andere mitspielen, während ich pausiere?",
+        "answer": "Ja! Andere Spieler können das Spiel fortsetzen, indem sie auf 'Laufendem Jass beitreten' klicken."
+      }
+    ],
+    "tips": [
+      "Der Home-Button ist perfekt, um eine Pause einzulegen - das Spiel läuft weiter!",
+      "Du kannst jederzeit zurückkehren und das Spiel genau da fortsetzen, wo du aufgehört hast."
+    ]
+  },
+  "zwischenstand_anzeigen": {
+    "id": "zwischenstand_anzeigen",
+    "number": "2.24",
+    "title": "Zwischenstand anzeigen",
+    "category": {
+      "main": "Spiele & Partien",
+      "mainId": "spiele",
+      "number": 2
+    },
+    "difficulty": "einfach",
+    "priority": 2,
+    "tags": [
+      "zwischenstand",
+      "punkte",
+      "stand",
+      "übersicht",
+      "rundendetails"
+    ],
+    "description": "So zeigst du den Zwischenstand und die Rundendetails an.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Öffne das Menü durch Swipe nach unten.",
+        "image": "2-spiele/menu_oeffnen_1.png"
+      },
+      {
+        "number": 2,
+        "text": "Tippe auf den grünen Button ganz rechts.",
+        "image": "2-spiele/menu_offen.png"
+      },
+      {
+        "number": 3,
+        "text": "Du siehst jetzt den aktuellen Zwischenstand mit allen Punkten und Details."
+      },
+      {
+        "number": 4,
+        "text": "Wische nach rechts, um jede Runde im Detail anzusehen."
+      }
+    ],
+    "images": [
+      "11_zwischenstand.png"
+    ],
+    "primaryImage": "11_zwischenstand.png",
+    "keywords": [
+      "zwischenstand",
+      "punkte",
+      "stand",
+      "übersicht",
+      "grüner button",
+      "rundendetails",
+      "swipe rechts",
+      "navigation"
+    ],
+    "synonyms": [
+      "zwischenstand",
+      "spielstand",
+      "punkte ansehen",
+      "grüner knopf"
+    ],
+    "userProblems": [
+      "Wie sehe ich den Zwischenstand?",
+      "Punkte ansehen",
+      "Spielstand",
+      "Grüner Button",
+      "Wo sehe ich die Punkte?",
+      "Wie mache ich Zwischenstand öffnen?",
+      "Rundendetails ansehen"
+    ],
+    "nextSuggested": "history_navigation",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du in der History navigierst?",
+    "seeAlso": [
+      "menu_oeffnen",
+      "history_navigation",
+      "sharing_live"
+    ],
+    "faq": [
+      {
+        "question": "Kann ich alte Runden ansehen?",
+        "answer": "Ja! Wische nach rechts oder links, um durch alle Runden zu navigieren."
+      }
+    ],
+    "tips": [
+      "Der Zwischenstand ist auch die Ansicht, die beim Live-Teilen geteilt wird."
+    ]
+  },
+  "offline_modus": {
+    "id": "offline_modus",
+    "number": "6.10",
+    "title": "Offline-Modus nutzen",
+    "category": {
+      "main": "Einstellungen & Troubleshooting",
+      "mainId": "einstellungen",
+      "number": 6
+    },
+    "difficulty": "mittel",
+    "priority": 3,
+    "tags": [
+      "offline",
+      "modus",
+      "ohne internet",
+      "offline spielen"
+    ],
+    "description": "So nutzt du die App auch ohne Internetverbindung.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Die App funktioniert automatisch offline, nachdem du sie einmal online geladen hast.",
+        "tip": "Die PWA speichert alle wichtigen Daten im Cache."
+      },
+      {
+        "number": 2,
+        "text": "Im Offline-Modus kannst du:",
+        "tip": "Spiele spielen (lokal), Kreidetafel nutzen, Kalkulator nutzen, ABER: Keine Synchronisation mit dem Server, keine Gruppen-Features, keine Statistik-Updates"
+      },
+      {
+        "number": 3,
+        "text": "Sobald du wieder online bist, werden alle Daten automatisch synchronisiert.",
+        "warning": "Wenn du im Gastmodus offline spielst, gehen die Daten beim Schliessen der App verloren!"
+      }
+    ],
+    "images": [
+      "18_offline_banner.png"
+    ],
+    "primaryImage": "18_offline_banner.png",
+    "keywords": [
+      "offline",
+      "modus",
+      "ohne internet",
+      "offline spielen",
+      "keine verbindung",
+      "flugmodus",
+      "netz",
+      "wlan"
+    ],
+    "synonyms": [
+      "ohne internet",
+      "offline spielen",
+      "keine verbindung",
+      "kein netz"
+    ],
+    "userProblems": [
+      "Kann ich offline spielen?",
+      "App ohne Internet nutzen",
+      "Keine Verbindung",
+      "Offline-Modus",
+      "Geht es im Flugzeug?",
+      "Habe kein Netz"
+    ],
+    "nextSuggested": "pwa_android",
+    "nextSuggestedText": "Möchtest du zurück zum Anfang? Hier geht's zur PWA-Installation.",
+    "seeAlso": [
+      "pwa_android",
+      "pwa_ios",
+      "app_haengt"
+    ],
+    "faq": [
+      {
+        "question": "Funktioniert alles offline?",
+        "answer": "Nein! Gruppen, Statistiken, Elo und Synchronisation brauchen Internet. Die Kreidetafel und der Kalkulator funktionieren aber offline."
+      },
+      {
+        "question": "Werden Offline-Spiele später synchronisiert?",
+        "answer": "Ja, wenn du angemeldet bist! Sobald du wieder online bist, werden alle Spiele hochgeladen."
+      },
+      {
+        "question": "Wie erkenne ich, dass ich offline bin?",
+        "answer": "Die App zeigt ein kleines Offline-Symbol (meist oben) oder ein Banner."
+      }
+    ],
+    "tips": [
+      "PWAs sind perfekt für Offline-Nutzung - du kannst im Zug oder in den Bergen jassen!",
+      "Stelle sicher, dass du angemeldet bist, bevor du offline gehst - sonst werden Spiele nicht gespeichert."
+    ],
+    "troubleshooting": [
+      {
+        "problem": "Offline-Modus funktioniert nicht.",
+        "solution": "Öffne die App einmal online, damit der Cache geladen wird. Dann sollte Offline funktionieren."
+      },
+      {
+        "problem": "Spiele werden nicht synchronisiert.",
+        "solution": "Stelle sicher, dass du angemeldet bist und online gehst. Die Sync erfolgt automatisch."
+      }
+    ]
+  },
+  "symbole_erklaeren": {
+    "id": "symbole_erklaeren",
+    "number": "2.21",
+    "title": "Symbole in der App erklären",
+    "category": {
+      "main": "Spiele & Partien",
+      "mainId": "spiele",
+      "number": 2
+    },
+    "difficulty": "einfach",
+    "priority": 2,
+    "tags": [
+      "symbole",
+      "pictograms",
+      "zeichen",
+      "bedeutung",
+      "erklären"
+    ],
+    "description": "Was bedeuten die verschiedenen Symbole und Pictograms in der App?",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Die App verwendet verschiedene Symbole für Jass-Begriffe:",
+        "image": "pictograms/3x3.svg",
+        "tip": "3x3 = Trio (drei Stiche Trumpf, drei Undenufe, drei Obenabe)"
+      },
+      {
+        "number": 2,
+        "text": "Kartenfarben:",
+        "image": "pictograms/eichel.png",
+        "tip": "Eichel (Eicheln)"
+      },
+      {
+        "number": 3,
+        "text": "Rosen:",
+        "image": "pictograms/rosen.png"
+      },
+      {
+        "number": 4,
+        "text": "Schellen:",
+        "image": "pictograms/schellen.png"
+      },
+      {
+        "number": 5,
+        "text": "Schilten:",
+        "image": "pictograms/schilten.png"
+      },
+      {
+        "number": 6,
+        "text": "Spielvarianten:",
+        "image": "pictograms/obe.svg"
+      },
+      {
+        "number": 7,
+        "text": "Unde = Undenufe:",
+        "image": "pictograms/unde.svg"
+      },
+      {
+        "number": 8,
+        "text": "Quer = Guschti:",
+        "image": "pictograms/quer.svg"
+      },
+      {
+        "number": 9,
+        "text": "Slalom:",
+        "image": "pictograms/slalom.svg"
+      },
+      {
+        "number": 10,
+        "text": "Misère:",
+        "image": "pictograms/misere.svg"
+      }
+    ],
+    "images": [],
+    "keywords": [
+      "symbole",
+      "pictograms",
+      "zeichen",
+      "bedeutung",
+      "erklären",
+      "3x3",
+      "trio",
+      "eichel",
+      "herz",
+      "kreuz",
+      "schaufel",
+      "ecke",
+      "rosen",
+      "schellen",
+      "schilten",
+      "obe",
+      "obenabe",
+      "unde",
+      "undenufe",
+      "quer",
+      "guschti",
+      "gusti",
+      "slalom",
+      "misere"
+    ],
+    "synonyms": [
+      "zeichen erklären",
+      "was bedeutet",
+      "pictogram",
+      "symbol bedeutung",
+      "trio",
+      "guscht",
+      "gusti",
+      "herz",
+      "kreuz",
+      "schaufel",
+      "ecke"
+    ],
+    "userProblems": [
+      "Was bedeutet dieses Symbol?",
+      "Was ist 3x3?",
+      "Was bedeutet Quer?",
+      "Was ist Guschti?",
+      "Symbole erklären",
+      "Was bedeutet das Zeichen?",
+      "Wie mache ich",
+      "Wie stelle ich ein",
+      "Wo kann ich",
+      "Kann ich"
+    ],
+    "nextSuggested": "spiel_starten",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du ein Spiel startest?",
+    "seeAlso": [
+      "spiel_starten",
+      "weis_eingeben"
+    ],
+    "faq": [],
+    "tips": []
+  }
+}

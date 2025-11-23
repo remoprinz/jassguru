@@ -2073,3 +2073,6 @@ export { cleanupOldRatingFields } from './cleanupOldRatingFields';
 
 // ✅ NEU: Export Jassmeister Registration Processing
 export { processJassmeisterRegistration } from './jassmeisterRegistrations';
+
+// ✅ NEU: Export Support Query API für ChatGPT
+export { supportQuery } from './supportQuery';

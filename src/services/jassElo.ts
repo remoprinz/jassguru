@@ -1,12 +1,23 @@
 import { getFirestore, collection, query, where, getDocs, documentId, orderBy, limit, limitToLast } from 'firebase/firestore';  
 import { db } from '@/services/firebaseInit';
 import { getRatingTier } from '@/shared/rating-tiers';
-import type { ThemeColor } from '@/config/theme';
 
-const JASS_ELO_CONFIG = {
+export const JASS_ELO_CONFIG = {
   DEFAULT_RATING: 100,
   ELO_SCALE: 1000,
 };
+
+export interface PlayerRating {
+  rating: number;
+  gamesPlayed: number;
+}
+
+export function createDefaultPlayerRating(playerId: string): PlayerRating {
+  return {
+    rating: JASS_ELO_CONFIG.DEFAULT_RATING,
+    gamesPlayed: 0
+  };
+}
 
 export interface PlayerRatingWithTier {
   id: string;

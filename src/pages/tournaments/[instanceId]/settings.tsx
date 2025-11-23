@@ -546,7 +546,7 @@ const TournamentSettingsPage: React.FC = () => {
       variant: "info",
     });
     return () => resetPageCta();
-  }, [tournament, isCurrentUserAdmin, isSubmittingGeneralSettings, hasChanges, name, description, selectedRankingMode, tempScoreSettings, tempStrokeSettings, tempScoreInput, tempStrokeInput, tempFarbeSettings, tempFarbeInput, setPageCta, resetPageCta, memoizedHandleSaveGeneralSettings, tempMinParticipants, tempMaxParticipants, tempStartDate, tempStartTime]);
+  }, [tournament, isCurrentUserAdmin, isSubmittingGeneralSettings, hasChanges, name, description, selectedRankingMode, tempScoreSettings, tempStrokeSettings, tempScoreInput, tempStrokeInput, tempFarbeSettings, tempFarbeInput, setPageCta, resetPageCta, memoizedHandleSaveGeneralSettings, tempMinParticipants, tempMaxParticipants, tempStartDate, tempStartTime, tempShowInNavigation]);
 
   const handleParticipantAction = async (participantId: string, participantUid: string | null | undefined, actionType: 'removeParticipant' | 'makeAdmin' | 'removeAdmin') => {
     if (!tournament || !isCurrentUserAdmin() || !participantUid) {

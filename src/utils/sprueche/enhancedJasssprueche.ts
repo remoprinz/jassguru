@@ -2274,6 +2274,8 @@ function enhanceWithNextLevelSprueche(
         eventsReceived: p.eventsReceived
       })) || null,
 
+      playerWithHighestWeisDifference: null,
+
       playerWithHighestSchneiderBilanz: enhancedData.groupStats.playerWithHighestSchneiderBilanz?.map(p => ({
         playerId: 'unknown',
         playerName: p.playerName,

@@ -572,44 +572,6 @@ const PublicGroupPage = () => {
           </div>
         </Link>
       );
-    } else if (item.type === 'tournament') {
-      // 🎯 IDENTISCH ZU GROUPVIEW: Unterscheidung zwischen Turnier-Instanz und Turnier-Session
-      const isTournamentSession = 'tournamentId' in item && 'startedAt' in item;
-      
-      if (isTournamentSession) {
-        // Dies ist ein jassGameSummary mit tournamentId (Turnier-Session)
-        const session = item as any;
-        const tournamentId = session.tournamentId;
-        // 🚨 NUR ENDDATUM: finalizedAt ist das korrekte Enddatum
-        const rawDate: any = (session as any).finalizedAt ?? null;
-        const displayDate = rawDate instanceof Timestamp ? rawDate.toDate() : (typeof rawDate === 'number' ? new Date(rawDate) : null);
-        
-        const formattedDate = displayDate ? format(displayDate, 'dd.MM.yyyy') : null;
-        
-        // Versuche Tournament-Name aus groupTournaments zu laden
-        const tournamentName = groupTournaments.find((t: any) => t.id === tournamentId)?.name || 'Turnier';
-        
-        return (
-          <Link href={`/view/tournament/${tournamentId}`} key={`tournament-session-${session.id}`} passHref>
-            <div className="px-3 py-2 lg:px-6 lg:py-3 bg-purple-900/30 rounded-lg hover:bg-purple-800/40 transition-colors duration-150 cursor-pointer mb-2 border border-purple-700/50">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center space-x-3">
-                  <AwardIcon className="w-6 h-6 lg:w-8 lg:h-8 text-purple-400 flex-shrink-0" />
-                  <div className="flex flex-col">
-                    <span className="text-base lg:text-xl font-medium text-white">{tournamentName}</span>
-                    {formattedDate && (
-                      <span className="text-sm lg:text-base text-gray-400">{formattedDate}</span>
-                    )}
-                  </div>
-                </div>
-                <span className={`text-xs px-2 py-1 rounded-full bg-gray-600 text-gray-300`}>
-                  Abgeschlossen
-                </span>
-              </div>
-            </div>
-          </Link>
-        );
-      }
     }
     return null;
   }, [currentGroup?.id, members]);

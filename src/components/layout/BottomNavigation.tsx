@@ -1,4 +1,4 @@
-import {Home, MessageCircle, ClipboardList, User, Award, Info, BookOpen} from "lucide-react";
+import {Home, MessageCircle, ClipboardList, User, Award, Info, BookOpen, HelpCircle} from "lucide-react";
 import Link from "next/link";
 import {useRouter} from "next/router";
 import {cn} from "@/lib/utils";
@@ -73,11 +73,17 @@ export function BottomNavigation() {
 
       const relevantTournaments = tournamentsInUserGroups
         .filter(t => {
-          // ✅ NEU: Nur Turniere anzeigen, die showInNavigation === true haben (Default: true für alte Turniere)
+          // 1. Explizit ausgeblendet → nie anzeigen
           if (t.showInNavigation === false) {
             return false;
           }
           
+          // 2. Explizit eingeblendet → immer anzeigen (außer archived), überschreibt 1-Wochen-Regel
+          if (t.showInNavigation === true) {
+            return t.status !== 'archived';
+          }
+          
+          // 3. Standard-Verhalten (showInNavigation === undefined) → bisherige Logik mit 1-Wochen-Regel
           if (t.status === 'active' || t.status === 'upcoming') {
             return true;
           }
@@ -170,18 +176,18 @@ export function BottomNavigation() {
       baseNavigationItems[2],
     ];
   } else {
-    const infoItem = {
-      name: "Info",
-      href: "/features",
-      icon: Info,
-      active: currentPath === "/features",
+    const supportItem = {
+      name: "Hilfe",
+      href: "/support",
+      icon: HelpCircle,
+      active: currentPath.startsWith("/support"),
       itemTournamentStatus: null,
     };
     finalNavigationItems = [
       baseNavigationItems[0],
       baseNavigationItems[1],
       baseNavigationItems[2],
-      infoItem,
+      supportItem,
     ];
   }
 

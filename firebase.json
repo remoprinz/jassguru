@@ -23,9 +23,23 @@
           "source": "/wissen/:path*",
           "destination": "https://jasswiki.ch/:path*",
           "type": 301
+        },
+        {
+          "source": "/support",
+          "destination": "https://chatgpt.com/gpts/editor/g-69219897884881918763e35fccae748e",
+          "type": 301
+        },
+        {
+          "source": "/support/",
+          "destination": "https://chatgpt.com/gpts/editor/g-69219897884881918763e35fccae748e",
+          "type": 301
         }
       ],
       "rewrites": [
+        {
+          "source": "/supportQuery",
+          "function": "supportQuery"
+        },
         {
           "source": "/agb",
           "destination": "/agb.html"
