@@ -6,7 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { Button } from '@/components/ui/button';
-import { Loader2, Eye, Users, User } from 'lucide-react';
+import { Loader2, Eye, Users, User, BookOpen, HelpCircle } from 'lucide-react';
 import { isPWA } from '@/utils/browserDetection';
 
 interface WelcomeBoxProps {
@@ -52,17 +52,24 @@ const WelcomeBox: React.FC<WelcomeBoxProps> = ({
         </div>
 
         <h1 className="text-4xl font-bold text-white text-center">
-          Jassen ist der einzige Sport ohne Rangliste
+          {displayMode === 'pwa' ? 'Von Jassern für Jasser' : (
+            <>
+              Jassen ist der einzige Sport<br className="hidden lg:block" /> ohne Rangliste
+            </>
+          )}
         </h1>
 
         {/* HERO-TEXT: Harmonische Abstände! */}
-        <p className="text-base text-gray-300 text-center leading-relaxed max-w-xl pt-4 pb-4">
-          {displayMode === 'pwa' ? (
-            'Von Jassern für Jasser.'
-          ) : (
-            'Jassguru ändert das. Wir erfassen deine Spiele digital und liefern Profi-Statistiken, damit du deinen Kopf frei hast fürs Kartenzählen – und endlich klar ist, wer nicht nur Schnorren, sondern auch Jassen kann.'
-          )}
-        </p>
+        {displayMode !== 'pwa' && (
+          <div className="text-base text-gray-300 text-center leading-relaxed max-w-xl pt-4 pb-4 space-y-2">
+            <p>
+              Jassguru ändert das. Wir erfassen deine Spiele digital und liefern Profi-Statistiken – damit du deinen Kopf frei hast fürs Kartenzählen.
+            </p>
+            <p>
+              <strong className="text-white">Und endlich klar wird, wer nicht nur Schnorren, sondern Jassen kann.</strong>
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Description - FLIEßTEXT! */}
@@ -83,17 +90,17 @@ const WelcomeBox: React.FC<WelcomeBoxProps> = ({
           <div className="text-left space-y-4">
             <div>
               <strong className="text-white block mb-3 text-base">
-                Sieh selbst, was du kriegst:
+                Sieh selbst, was dich erwartet:
               </strong>
 
-              <div className="space-y-3 text-base">
+              <div className="space-y-2.5 text-sm">
                 <a
                   href="https://jassguru.ch/view/group/Tz0wgIHMTlhvTtFastiJ"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center space-x-3 text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+                  className="flex items-center space-x-2.5 text-blue-400 hover:text-blue-300 hover:underline transition-colors py-1"
                 >
-                  <Users className="w-5 h-5 flex-shrink-0" />
+                  <Users className="w-4 h-4 flex-shrink-0" />
                   <span>Die ewige Gruppen-Rangliste</span>
                 </a>
 
@@ -101,17 +108,17 @@ const WelcomeBox: React.FC<WelcomeBoxProps> = ({
                   href="https://jassguru.ch/profile/b16c1120111b7d9e7d733837"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center space-x-3 text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+                  className="flex items-center space-x-2.5 text-blue-400 hover:text-blue-300 hover:underline transition-colors py-1"
                 >
-                  <User className="w-5 h-5 flex-shrink-0" />
+                  <User className="w-4 h-4 flex-shrink-0" />
                   <span>Profil & Bestleistungen</span>
                 </a>
 
                 <Link
                   href="/features"
-                  className="flex items-center space-x-3 text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+                  className="flex items-center space-x-2.5 text-blue-400 hover:text-blue-300 hover:underline transition-colors py-1"
                 >
-                  <Eye className="w-5 h-5 flex-shrink-0" />
+                  <Eye className="w-4 h-4 flex-shrink-0" />
                   <span>Die interaktive Feature-Tour</span>
                 </Link>
 
@@ -119,9 +126,9 @@ const WelcomeBox: React.FC<WelcomeBoxProps> = ({
                   href="https://chatgpt.com/g/g-69219897884881918763e35fccae748e-jassguru"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center space-x-3 text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+                  className="flex items-center space-x-2.5 text-blue-400 hover:text-blue-300 hover:underline transition-colors py-1"
                 >
-                  <span className="text-xl">💬</span>
+                  <span className="text-lg">💬</span>
                   <span>Frag den Jass-Guru (ChatGPT App)</span>
                 </a>
               </div>
@@ -204,37 +211,39 @@ const WelcomeBox: React.FC<WelcomeBoxProps> = ({
         )}
       </div>
 
-      {/* Divider and Link to Knowledge Hub */}
+      {/* Service-Bereich: JassWiki & Support */}
       <div className="pt-8 mt-8 border-t border-gray-700/50">
-        {displayMode === 'pwa' ? (
-          <Link
+        <div className="grid grid-cols-2 gap-4">
+          {/* Link 1: JassWiki */}
+          <a
             href="https://jasswiki.ch/"
             target="_blank"
             rel="noopener noreferrer"
-            className="group block text-center transition-transform hover:scale-105"
+            className="group flex flex-col items-center text-center p-4 rounded-xl hover:bg-gray-700/50 transition-all"
           >
-            <span className="text-2xl font-semibold text-gray-200 group-hover:text-green-400 transition-colors">
-              Jass-Wikipedia
+            <BookOpen className="w-7 h-7 text-green-500 mb-2 group-hover:scale-110 transition-transform" />
+            <span className="text-lg font-semibold text-gray-200 group-hover:text-green-400 transition-colors">
+              Jass-Wiki
             </span>
-            <p className="text-lg text-gray-400 group-hover:text-gray-300 transition-colors mt-2">
-              Regeln, Strategien & mehr →
-            </p>
-          </Link>
-        ) : (
-          <a
-            href="https://jasswiki.ch"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group block text-center transition-transform hover:scale-105"
-          >
-            <span className="text-2xl font-semibold text-gray-200 group-hover:text-green-400 transition-colors">
-              Jass-Wikipedia
+            <span className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors mt-1">
+              Alles rund ums Jassen:<br />Regeln, Varianten & Taktiken
             </span>
-            <p className="text-lg text-gray-400 group-hover:text-gray-300 transition-colors mt-2">
-              Regeln, Strategien & mehr →
-            </p>
           </a>
-        )}
+
+          {/* Link 2: Hilfe & Support */}
+          <Link
+            href="/support"
+            className="group flex flex-col items-center text-center p-4 rounded-xl hover:bg-gray-700/50 transition-all"
+          >
+            <HelpCircle className="w-7 h-7 text-blue-500 mb-2 group-hover:scale-110 transition-transform" />
+            <span className="text-lg font-semibold text-gray-200 group-hover:text-blue-400 transition-colors">
+              Hilfe & Support
+            </span>
+            <span className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors mt-1">
+              Alles zur Jassguru App:<br />FAQ, Anleitungen & Support
+            </span>
+          </Link>
+        </div>
       </div>
     </motion.div>
   );

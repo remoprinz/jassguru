@@ -9,7 +9,7 @@ import {useTutorialStore} from "@/store/tutorialStore";
 import {Button} from "@/components/ui/button";
 import Image from "next/image";
 import Link from "next/link";
-import {Loader2, Eye} from "lucide-react";
+import {Loader2, Eye, BookOpen, HelpCircle} from "lucide-react";
 import { isPWA } from "@/utils/browserDetection";
 import { debouncedRouterPush } from "@/utils/routerUtils";
 import { saveTokensFromUrl } from "@/utils/tokenStorage";
@@ -267,11 +267,11 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             </div>
 
             <h1 className="text-3xl font-bold text-white text-center">
-              Jassen ist der einzige Sport ohne Rangliste
+              {displayMode === "pwa" ? "Von Jassern für Jasser" : "Jassen ist der einzige Sport ohne Rangliste"}
             </h1>
             
             <p className="text-base text-gray-300 text-center -mt-2 leading-relaxed">
-              {displayMode === "pwa" ? "Von Jassern für Jasser." : (
+              {displayMode === "pwa" ? null : (
                 <>
                   Jassguru ändert das. Wir erfassen deine Spiele digital und liefern Profi-Statistiken, damit du deinen Kopf frei hast fürs Kartenzählen – und endlich klar ist, wer nicht nur Schnorren, sondern auch Jassen kann.
                 </>
@@ -303,7 +303,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                         href="https://jassguru.ch/view/group/Tz0wgIHMTlhvTtFastiJ" 
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center space-x-1 text-blue-400 hover:text-blue-300 hover:underline"
+                        className="flex items-center space-x-1.5 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors py-1"
                       >
                         <span>👉</span>
                         <span>Die ewige Gruppen-Rangliste</span>
@@ -314,14 +314,14 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                         href="https://jassguru.ch/profile/b16c1120111b7d9e7d733837" 
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center space-x-1 text-blue-400 hover:text-blue-300 hover:underline"
+                        className="flex items-center space-x-1.5 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors py-1"
                       >
                         <span>👉</span>
                         <span>Profil & Bestleistungen</span>
                       </a>
                     </div>
                     <div>
-                      <Link href="/features" className="flex items-center space-x-1 text-blue-400 hover:text-blue-300 hover:underline transition-colors">
+                      <Link href="/features" className="flex items-center space-x-1.5 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors py-1">
                         <span>👉</span>
                         <span>Die interaktive Feature-Tour</span>
                       </Link>
@@ -331,7 +331,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                         href="https://chatgpt.com/g/g-69219897884881918763e35fccae748e-jassguru" 
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center space-x-1 text-blue-400 hover:text-blue-300 hover:underline"
+                        className="flex items-center space-x-1.5 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors py-1"
                       >
                         <span>💬</span>
                         <span>Frag den Jass-Guru (ChatGPT)</span>
@@ -407,21 +407,39 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             )}
           </div>
           
-          {/* Divider and Link to Knowledge Hub */}
+          {/* Service-Bereich: JassWiki & Support */}
           <div className="pt-6 mt-6 border-t border-gray-700/50">
-              <a 
-              href="https://jasswiki.ch/" 
-                target="_blank" 
+            <div className="grid grid-cols-2 gap-3">
+              {/* Link 1: JassWiki */}
+              <a
+                href="https://jasswiki.ch/"
+                target="_blank"
                 rel="noopener noreferrer"
-                className="group block text-center transition-transform hover:scale-105"
+                className="group flex flex-col items-center text-center p-3 rounded-xl hover:bg-gray-700/50 transition-all"
               >
-                <span className="text-lg font-semibold text-gray-200 group-hover:text-green-400 transition-colors">
-                  Jass-Wikipedia
+                <BookOpen className="w-6 h-6 text-green-500 mb-1.5 group-hover:scale-110 transition-transform" />
+                <span className="text-sm font-semibold text-gray-200 group-hover:text-green-400 transition-colors">
+                  Jass-Wiki
                 </span>
-                <p className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors mt-1">
-                  Regeln, Strategien & mehr →
-                </p>
+                <span className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors mt-0.5">
+                  Alles rund ums Jassen:<br />Regeln, Varianten & Taktiken
+                </span>
               </a>
+
+              {/* Link 2: Hilfe & Support */}
+              <Link
+                href="/support"
+                className="group flex flex-col items-center text-center p-3 rounded-xl hover:bg-gray-700/50 transition-all"
+              >
+                <HelpCircle className="w-6 h-6 text-blue-500 mb-1.5 group-hover:scale-110 transition-transform" />
+                <span className="text-sm font-semibold text-gray-200 group-hover:text-blue-400 transition-colors">
+                  Hilfe & Support
+                </span>
+                <span className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors mt-0.5">
+                  Alles zur Jassguru App:<br />FAQ, Anleitungen & Support
+                </span>
+              </Link>
+            </div>
           </div>
         </motion.div>
 

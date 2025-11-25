@@ -32,7 +32,11 @@ class BackgroundImageOptimizer {
     metadata: { userId?: string; groupId?: string; tournamentId?: string },
     priority: number = 3
   ): Promise<void> {
-    if (!imageUrl || this.optimizedUrls.has(imageUrl) || !imageUrl.includes('firebasestorage.googleapis.com')) {
+    if (!imageUrl || this.optimizedUrls.has(imageUrl)) return;
+    try {
+      const url = new URL(imageUrl);
+      if (url.hostname !== 'firebasestorage.googleapis.com') return;
+    } catch {
       return;
     }
 

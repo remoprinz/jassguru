@@ -13,7 +13,16 @@ export const getRandomProfileTheme = (): ThemeColor => {
   const availableThemes: ThemeColor[] = ['green', 'blue', 'purple', 'pink', 'yellow', 'teal', 'orange', 'cyan'];
   
   // Verwende crypto.getRandomValues für kryptographisch sichere Zufallszahlen
-  const randomIndex = crypto.getRandomValues(new Uint32Array(1))[0] % availableThemes.length;
+  // Rejection-Methode um Bias zu vermeiden (CodeQL-konform)
+  const max = 0xFFFFFFFF; // 2^32 - 1
+  const range = max - (max % availableThemes.length);
+  
+  let randomValue: number;
+  do {
+    randomValue = crypto.getRandomValues(new Uint32Array(1))[0];
+  } while (randomValue >= range);
+  
+  const randomIndex = randomValue % availableThemes.length;
   
   return availableThemes[randomIndex];
 };

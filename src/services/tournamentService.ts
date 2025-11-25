@@ -350,7 +350,7 @@ export const fetchTournamentInstancesForGroup = async (
     // console.log(`[tournamentService] Fetched ${instances.length} tournament instances for group ${groupId}.`);
     return instances;
   } catch (error) {
-    console.error(`[tournamentService] Error fetching tournaments for group ${groupId}:`, error);
+    console.error('[tournamentService] Error fetching tournaments for group:', groupId, error);
     
     // ✅ ELEGANTE FEHLERBEHANDLUNG: Leere Liste bei Index-Fehlern
     if (error && typeof error === 'object' && 'code' in error) {

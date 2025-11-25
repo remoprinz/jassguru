@@ -68,6 +68,8 @@ export default function SupportPage() {
   };
 
   const handleCategorySelect = (categoryId: string | null) => {
+    // Beim Klick auf eine Kategorie den Suchbegriff löschen
+    setQuery('');
     setSelectedCategory(categoryId);
     if (categoryId) {
       trackSupportCategoryFilter(categoryId);
@@ -135,9 +137,12 @@ export default function SupportPage() {
                 <h2 className="text-lg font-semibold text-white">
                   {filteredArticles.length} {filteredArticles.length === 1 ? 'Ergebnis' : 'Ergebnisse'}
                 </h2>
-                {selectedCategory && (
+                {(selectedCategory || query.trim()) && (
                    <button 
-                     onClick={() => setSelectedCategory(null)}
+                     onClick={() => {
+                       setQuery('');
+                       setSelectedCategory(null);
+                     }}
                      className="text-sm text-blue-400 hover:text-blue-300"
                    >
                      Filter zurücksetzen

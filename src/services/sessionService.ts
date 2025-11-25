@@ -385,7 +385,7 @@ export const fetchAllGroupSessions = async (groupId: string): Promise<SessionSum
     // console.log(`[fetchAllGroupSessions] Found ${sessions.length} sessions for group: ${groupId}.`);
     return sessions;
   } catch (error) {
-    console.error(`[fetchAllGroupSessions] Error fetching sessions for group ${groupId}:`, error);
+    console.error('[fetchAllGroupSessions] Error fetching sessions for group:', groupId, error);
     
     // ✅ ELEGANTE FEHLERBEHANDLUNG: Leere Liste bei Index-Fehlern
     if (error && typeof error === 'object' && 'code' in error) {
@@ -475,7 +475,7 @@ export const fetchAllGamesForSession = async (sessionId: string, groupId?: strin
     }
     return games;
   } catch (error) {
-    console.error(`[fetchAllGamesForSession] Error fetching games for session ${sessionId}:`, error);
+    console.error('[fetchAllGamesForSession] Error fetching games for session:', sessionId, error);
     return [];
   }
 };

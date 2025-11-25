@@ -35,7 +35,11 @@ export const generateSrcSet = (baseUrl: string, sizes: number[]): string => {
 // 🚀 PERFORMANCE-FIX: Firebase Storage URL-Optimierung 
 // WICHTIG: Keine URL-Modifikation, da das die Firebase Storage Token ungültig macht
 export const getOptimizedImageUrl = (url: string, maxWidth: number): string => {
-  if (!url || !url.includes('firebasestorage.googleapis.com')) {
+  if (!url) return url;
+  try {
+    const urlObj = new URL(url);
+    if (urlObj.hostname !== 'firebasestorage.googleapis.com') return url;
+  } catch {
     return url;
   }
   

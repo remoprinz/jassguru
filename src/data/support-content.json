@@ -1,22 +1,22 @@
 {
-  "pwa_android": {
-    "id": "pwa_android",
+  "pwa_ios": {
+    "id": "pwa_ios",
     "number": "1.1",
-    "title": "PWA auf Android installieren",
+    "title": "App auf iOS installieren",
     "category": {
-      "main": "PWA Installation",
+      "main": "App Installation",
       "mainId": "pwa",
       "number": 1
     },
     "difficulty": "einfach",
-    "priority": 1,
+    "priority": 0,
     "tags": [
       "pwa",
       "installation",
       "android",
       "smartphone"
     ],
-    "description": "So installierst du die Jassguru-App auf deinem Android-Smartphone.",
+    "description": "Wie installiere ich die App? So installierst du die Jassguru-App auf deinem Android-Smartphone. App installieren auf Android.",
     "steps": [
       {
         "number": 1,
@@ -40,32 +40,61 @@
       }
     ],
     "images": [
-      "01_pwa_android_install.png"
+      "1-pwa/android_install_01.png"
     ],
-    "primaryImage": "01_pwa_android_install.png",
+    "primaryImage": "1-pwa/android_install_01.png",
     "keywords": [
-      "pwa",
+      "wie installiere ich die app",
+      "wie installiere ich die app",
+      "wie installiere ich die app",
+      "app installieren",
+      "app installieren",
+      "app installieren",
+      "app installieren android",
+      "wie installiere ich die app auf android",
+      "wie installiere ich die app auf handy",
+      "wie installiere ich die app auf smartphone",
+      "app auf android installieren",
+      "app auf handy installieren",
+      "app auf smartphone installieren",
       "installation",
+      "installieren",
+      "pwa",
       "android",
       "smartphone",
-      "installieren",
-      "app",
+      "handy",
+      "mobile",
       "play store",
       "google play",
       "apk",
       "download"
     ],
     "synonyms": [
+      "wie installiere ich die app",
       "app installieren",
+      "app herunterladen",
       "android installation",
       "play store",
-      "herunterladen"
+      "herunterladen",
+      "app auf handy installieren",
+      "app auf smartphone installieren",
+      "wie installiere ich die app auf android",
+      "wie installiere ich die app auf handy",
+      "wie installiere ich die app auf smartphone"
     ],
     "userProblems": [
       "Wie installiere ich die App?",
+      "Wie installiere ich die app?",
+      "Wie installiere ich die App?",
+      "App installieren",
+      "App installieren",
       "Android Installation",
       "App auf Handy installieren",
-      "PWA installieren",
+      "App auf Smartphone installieren",
+      "Wie installiere ich die App auf Android?",
+      "Wie installiere ich die App auf Handy?",
+      "Wie installiere ich die App auf Smartphone?",
+      "App installieren",
       "Finde die App nicht im Play Store",
       "Wo ist der Download?",
       "Wie mache ich App installieren?",
@@ -87,7 +116,7 @@
       },
       {
         "question": "Brauche ich den Google Play Store?",
-        "answer": "Nein! PWAs werden direkt vom Browser installiert."
+        "answer": "Nein! Apps werden direkt vom Browser installiert."
       },
       {
         "question": "Nimmt die App viel Speicherplatz?",
@@ -95,21 +124,21 @@
       }
     ],
     "tips": [
-      "PWAs sind super: Sie aktualisieren sich automatisch und brauchen kaum Speicherplatz!",
+      "Apps sind super: Sie aktualisieren sich automatisch und brauchen kaum Speicherplatz!",
       "Die App funktioniert auch offline (wenn du vorher online warst)."
     ]
   },
-  "pwa_ios": {
-    "id": "pwa_ios",
+  "pwa_android": {
+    "id": "pwa_android",
     "number": "1.2",
-    "title": "App auf iOS installieren",
+    "title": "App auf Android installieren",
     "category": {
-      "main": "PWA & Installation",
+      "main": "App Installation",
       "mainId": "pwa",
       "number": 1
     },
     "difficulty": "einfach",
-    "priority": 1,
+    "priority": 0,
     "tags": [
       "pwa",
       "installation",
@@ -118,7 +147,7 @@
       "safari",
       "app"
     ],
-    "description": "So installierst du die Jassguru-App auf deinem iPhone oder iPad als Progressive Web App (PWA).",
+    "description": "Wie installiere ich die App? So installierst du die Jassguru-App auf deinem iPhone oder iPad. App installieren auf iPhone.",
     "steps": [
       {
         "number": 1,
@@ -144,31 +173,58 @@
       }
     ],
     "images": [
-      "02_pwa_ios_menu.png"
+      "1-pwa/pwa_ios_menu.png"
     ],
-    "primaryImage": "02_pwa_ios_menu.png",
+    "primaryImage": "1-pwa/pwa_ios_menu.png",
     "keywords": [
-      "pwa",
-      "progressive web app",
-      "installation",
+      "wie installiere ich die app",
+      "wie installiere ich die app",
+      "wie installiere ich die app",
+      "app installieren",
+      "app installieren",
+      "app installieren",
+      "app installieren iphone",
+      "app installieren ios",
+      "wie installiere ich die app auf iphone",
+      "wie installiere ich die app auf ios",
+      "app auf iphone installieren",
+      "app auf ios installieren",
       "ios",
       "iphone",
       "ipad",
+      "smartphone",
+      "handy",
+      "mobile",
+      "pwa",
+      "app",
+      "installation",
       "safari",
-      "app installieren",
       "app store",
       "apple store",
       "laden"
     ],
     "synonyms": [
-      "app herunterladen",
+      "wie installiere ich die app",
       "app installieren",
+      "app herunterladen",
       "auf iphone installieren",
+      "auf ios installieren",
+      "app auf handy installieren",
+      "app auf smartphone installieren",
       "app store",
-      "apple"
+      "apple",
+      "wie installiere ich die app auf iphone",
+      "wie installiere ich die app auf ios",
+      "wie installiere ich die app auf ipad"
     ],
     "userProblems": [
+      "Wie installiere ich die App?",
+      "Wie installiere ich die app?",
+      "Wie installiere ich die App?",
+      "App installieren",
+      "App installieren",
       "Wie installiere ich die App auf iPhone?",
+      "Wie installiere ich die App auf iOS?",
       "App auf iOS",
       "Installation iPhone",
       "Safari App",
@@ -178,7 +234,9 @@
       "Wie stelle ich iPhone App ein?",
       "Wo kann ich iPhone App installieren?",
       "Kann ich iPhone App installieren?",
-      "Wie schreibe ich iPhone App installieren?"
+      "Wie schreibe ich iPhone App installieren?",
+      "Wie installiere ich die App auf Handy?",
+      "Wie installiere ich die App auf Smartphone?"
     ],
     "nextSuggested": "spiel_starten",
     "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du dein erstes Spiel startest?",
@@ -206,12 +264,12 @@
     "number": "1.3",
     "title": "App am Computer nutzen",
     "category": {
-      "main": "PWA & Installation",
+      "main": "App Installation",
       "mainId": "pwa",
       "number": 1
     },
     "difficulty": "einfach",
-    "priority": 2,
+    "priority": 3,
     "tags": [
       "pwa",
       "installation",
@@ -220,7 +278,7 @@
       "chrome",
       "app"
     ],
-    "description": "So nutzt du die Jassguru-App auf deinem Computer (Windows, Mac, Linux). Im Browser kannst du alles machen - nur zum Spielen musst du die App installieren.",
+    "description": "So nutzt du die Jassguru-App auf deinem Computer (Windows, Mac, Linux). Im Browser kannst du alles machen - nur zum Spielen musst du die App installieren. Desktop Version, Computer Version, PC Version.",
     "steps": [
       {
         "number": 1,
@@ -230,48 +288,66 @@
       {
         "number": 2,
         "text": "Zum Spielen musst du die App installieren: Klicke oben rechts in der Adressleiste auf das Install-Symbol (⊕) oder das Drei-Punkte-Menü.",
-        "image": "1-pwa/pwa_desktop_install.png",
         "warning": "Wichtig: Ohne Installation kannst du NICHT spielen! Alle anderen Funktionen funktionieren aber im Browser."
       },
       {
         "number": 3,
-        "text": "Wähle 'Jassguru installieren' oder 'App installieren'."
-      },
-      {
-        "number": 4,
         "text": "Bestätige mit 'Installieren'."
       },
       {
-        "number": 5,
+        "number": 4,
         "text": "Fertig! Die App öffnet sich in einem eigenen Fenster und du kannst jetzt spielen.",
         "tip": "Du findest die App auch in deinem Startmenü / Anwendungen."
       }
     ],
     "images": [],
     "keywords": [
-      "pwa",
       "desktop",
       "computer",
-      "chrome",
+      "pc",
       "windows",
       "mac",
-      "linux"
+      "linux",
+      "am computer",
+      "am pc",
+      "desktop version",
+      "pwa desktop",
+      "computer version",
+      "pc version",
+      "am computer nutzen",
+      "am pc nutzen",
+      "auf computer",
+      "desktop app",
+      "computer app",
+      "pc app"
     ],
     "synonyms": [
       "am pc nutzen",
       "auf computer",
-      "desktop app"
+      "desktop app",
+      "computer version",
+      "pc version",
+      "am computer nutzen",
+      "am pc nutzen",
+      "computer app",
+      "pc app"
     ],
     "userProblems": [
       "Kann ich die App am Computer nutzen?",
       "Desktop Version",
       "Am PC spielen",
       "Wie installiere ich die App am Computer?",
+      "Wie installiere ich die App am PC?",
       "Wie mache ich die App am PC?",
-      "Wie stelle ich die PWA am Desktop ein?",
+      "Wie stelle ich die App am Desktop ein?",
       "Wo kann ich am Mac installieren?",
       "Wo kann ich unter Windows installieren?",
-      "Kann ich es am PC installieren?"
+      "Kann ich es am PC installieren?",
+      "App am Computer",
+      "App am PC",
+      "Desktop App",
+      "Computer App",
+      "PC App"
     ],
     "nextSuggested": "spiel_starten",
     "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du dein erstes Spiel startest?",
@@ -286,7 +362,7 @@
       },
       {
         "question": "Warum kann ich im Browser nicht spielen?",
-        "answer": "Das Spielen erfordert spezielle Funktionen, die nur in der installierten PWA verfügbar sind. Alle anderen Features funktionieren aber perfekt im Browser."
+        "answer": "Das Spielen erfordert spezielle Funktionen, die nur in der installierten App verfügbar sind. Alle anderen Features funktionieren aber perfekt im Browser."
       },
       {
         "question": "Kann ich die App auf mehreren Geräten nutzen?",
@@ -331,7 +407,7 @@
       {
         "number": 3,
         "text": "Wähle deine Spieler aus.",
-        "image": "2-spiele/gastmodus_01.png",
+        "image": "2-spiele/spieler_auswaehlen_01.png",
         "tip": "Du kannst entweder als Gast spielen (ohne Statistik) oder dich anmelden (mit Statistik). Die Entscheidung triffst du beim ersten App-Start, nicht beim Spielstart."
       },
       {
@@ -341,10 +417,13 @@
       }
     ],
     "images": [
-      "03_spiel_starten.png"
+      "2-spiele/spiel_starten_01.png"
     ],
-    "primaryImage": "03_spiel_starten.png",
+    "primaryImage": "2-spiele/spiel_starten_01.png",
     "keywords": [
+      "spiel starten",
+      "spiel beginnen",
+      "neues spiel",
       "spiel",
       "starten",
       "beginnen",
@@ -407,10 +486,10 @@
       "Wie beginne ich?",
       "Wie starte ich ein Spiel?"
     ],
-    "nextSuggested": "menu_oeffnen",
-    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du das Menü öffnest?",
+    "nextSuggested": "kalkulator_oeffnen",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du Punkte schreibst?",
     "seeAlso": [
-      "menu_oeffnen",
+      "kalkulator_oeffnen",
       "spieler_auswaehlen",
       "startspieler"
     ],
@@ -486,10 +565,10 @@
       }
     ],
     "images": [
-      "04_menu_oeffnen.png",
-      "05_menu_offen.png"
+      "2-spiele/menu_oeffnen.png",
+      "2-spiele/menu_offen.png"
     ],
-    "primaryImage": "04_menu_oeffnen.png",
+    "primaryImage": "2-spiele/menu_oeffnen.png",
     "keywords": [
       "menü",
       "menu",
@@ -598,10 +677,11 @@
       }
     ],
     "images": [
-      "06_spieler_auswaehlen.png"
+      "2-spiele/spieler_auswaehlen_01.png"
     ],
-    "primaryImage": "06_spieler_auswaehlen.png",
+    "primaryImage": "2-spiele/spieler_auswaehlen_01.png",
     "keywords": [
+      "spieler auswählen",
       "spieler",
       "auswählen",
       "namen",
@@ -696,9 +776,9 @@
       }
     ],
     "images": [
-      "13_spieler_wechseln.png"
+      "2-spiele/spieler_wechseln.png"
     ],
-    "primaryImage": "13_spieler_wechseln.png",
+    "primaryImage": "2-spiele/spieler_wechseln.png",
     "keywords": [
       "spieler",
       "wechseln",
@@ -748,7 +828,7 @@
   "kalkulator_oeffnen": {
     "id": "kalkulator_oeffnen",
     "number": "2.15",
-    "title": "Kalkulator öffnen",
+    "title": "Punkte schreiben",
     "category": {
       "main": "Spiele & Partien",
       "mainId": "spiele",
@@ -757,12 +837,15 @@
     "difficulty": "einfach",
     "priority": 1,
     "tags": [
+      "punkte",
+      "schreiben",
+      "eingeben",
       "kalkulator",
       "rechner",
-      "punkte",
-      "berechnen"
+      "berechnen",
+      "eintragen"
     ],
-    "description": "So öffnest du den Kalkulator, um Punkte zu berechnen.",
+    "description": "So schreibst du Punkte in die Kreidetafel ein. Dies ist die wichtigste Funktion - ohne Punkte kein Spiel!",
     "steps": [
       {
         "number": 1,
@@ -784,27 +867,71 @@
       }
     ],
     "images": [],
+    "primaryImage": "2-spiele/kalkulator_01.png",
     "keywords": [
+      "punkte schreiben",
+      "wie schreibe ich punkte",
+      "punkte eingeben",
+      "punkte eintragen",
+      "runde schreiben",
+      "wie schreibe ich eine runde",
+      "punkte",
+      "schreiben",
+      "eingeben",
       "kalkulator",
       "rechner",
-      "punkte",
       "berechnen",
       "long press",
-      "langer klick"
+      "langer klick",
+      "punkte aufschreiben",
+      "punkte erfassen",
+      "kalkulator öffnen",
+      "rechner öffnen",
+      "wie öffne ich kalkulator",
+      "wie öffne ich rechner"
     ],
     "synonyms": [
+      "punkte schreiben",
+      "punkte eingeben",
+      "punkte eintragen",
+      "punkte aufschreiben",
+      "punkte erfassen",
+      "runde schreiben",
+      "runde eingeben",
       "rechner",
       "taschenrechner",
-      "punkte rechnen"
+      "punkte rechnen",
+      "wie gebe ich punkte ein",
+      "wie trage ich punkte ein",
+      "kalkulator öffnen",
+      "rechner öffnen",
+      "wie öffne ich den kalkulator",
+      "wie öffne ich den rechner"
     ],
     "userProblems": [
+      "Wie schreibe ich Punkte?",
+      "Wie gebe ich Punkte ein?",
+      "Wie trage ich Punkte ein?",
+      "Punkte schreiben",
+      "Punkte eingeben",
+      "Punkte eintragen",
+      "Runde schreiben",
+      "Wie schreibe ich eine Runde?",
       "Wie öffne ich den Kalkulator?",
+      "Wie öffne ich den Rechner?",
       "Wo ist der Rechner?",
       "Punkte berechnen",
-      "Wie rechne ich Punkte aus?"
+      "Wie rechne ich Punkte aus?",
+      "Wie mache ich Punkte schreiben?",
+      "Wie stelle ich Punkte schreiben ein?",
+      "Wo kann ich Punkte eingeben?",
+      "Kann ich Punkte schreiben?",
+      "Wie schreibe ich Punkte?",
+      "Kalkulator öffnen",
+      "Rechner öffnen"
     ],
-    "nextSuggested": "berg_schreiben",
-    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du einen Berg schreibst?",
+    "nextSuggested": "weis_eingeben",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du Weis eingibst?",
     "seeAlso": [
       "berg_schreiben",
       "sieg_schreiben",
@@ -841,12 +968,12 @@
       "fertig",
       "gewonnen"
     ],
-    "description": "So beendest du ein Spiel durch Bedanken, wenn dein Team gewonnen hat.",
+    "description": "So beendest du ein Spiel durch Bedanken, wenn dein Team gewonnen hat. Bedanken bedeutet, dass dein Team den Sieg erreicht hat und das Spiel beendet wird.",
     "steps": [
       {
         "number": 1,
         "text": "Wenn dein Team genug Punkte hat (z.B. 2500 bei einem Spiel auf 2500), tippe auf den 'Bedanken'-Button.",
-        "image": "2-spiele/bedanken_button.png",
+        "image": "2-spiele/sieg_schreiben.png",
         "tip": "Der Button erscheint automatisch, wenn du in Führung bist."
       },
       {
@@ -866,29 +993,44 @@
     "images": [],
     "keywords": [
       "bedanken",
+      "wie bedanke ich mich",
+      "wie kann ich mich bedanken",
+      "sich bedanken",
+      "bedanken nach sieg",
+      "bedanken bei sieg",
       "beenden",
       "fertig",
       "gewonnen",
-      "spiel beenden"
+      "sieg",
+      "spiel beenden",
+      "spiel gewonnen"
     ],
     "synonyms": [
       "spiel beenden",
       "fertig",
-      "gewinnen"
+      "gewinnen",
+      "sieg",
+      "sieg schreiben",
+      "sich bedanken",
+      "bedanken nach gewinn"
     ],
     "userProblems": [
       "Wie beende ich das Spiel?",
       "Wir haben gewonnen, was jetzt?",
       "Wie bedanke ich mich?",
+      "Wie bedanke ich mich nach einem Sieg?",
+      "Wie bedanke ich mich wenn ich gewonnen habe?",
       "Spiel fertig",
       "Wie mache ich Spiel beenden?",
       "Wie stelle ich Spiel beenden ein?",
       "Wo kann ich mich bedanken?",
       "Kann ich Spiel vorzeitig beenden?",
-      "Wie schreibe ich Spiel beenden?"
+      "Wie schreibe ich Spiel beenden?",
+      "Bedanken nach Sieg",
+      "Sieg bedanken"
     ],
-    "nextSuggested": "sharing",
-    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du das Resultat teilen kannst?",
+    "nextSuggested": "jass_beenden",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du einen Jass beendest?",
     "seeAlso": [
       "spiel_beenden",
       "sharing"
@@ -938,7 +1080,7 @@
       {
         "number": 1,
         "text": "Nachdem alle 4 Spieler eingegeben sind, tippe auf den Spieler, der starten soll.",
-        "image": "2-spiele/startspieler_01.png"
+        "tip": "Tippe einfach auf den Namen des Spielers, der beginnen soll."
       },
       {
         "number": 2,
@@ -947,21 +1089,26 @@
       },
       {
         "number": 3,
-        "text": "Tippe auf 'Spiel starten' um loszulegen.",
+        "text": "Der START-Button wird grün und ist jetzt aktiv.",
+        "image": "2-spiele/startspieler_01.png"
+      },
+      {
+        "number": 4,
+        "text": "Tippe auf den grünen 'START'-Button um loszulegen.",
         "warning": "Ab dem zweiten Spiel wählt die App automatisch den richtigen Startspieler (Verliererteam, nächster Spieler)."
       }
     ],
-    "images": [
-      "06_spieler_auswaehlen.png"
-    ],
-    "primaryImage": "06_spieler_auswaehlen.png",
+    "images": [],
+    "primaryImage": "2-spiele/startspieler_01.png",
     "keywords": [
+      "startspieler wählen",
       "startspieler",
       "wählen",
       "gelb",
       "markieren",
       "erste runde",
-      "beginnen"
+      "wer fängt an",
+      "wer beginnt"
     ],
     "synonyms": [
       "erster spieler",
@@ -1029,10 +1176,11 @@
       }
     ],
     "images": [
-      "07_weis_eingeben.png"
+      "2-spiele/weis_eingeben_01.png"
     ],
-    "primaryImage": "07_weis_eingeben.png",
+    "primaryImage": "2-spiele/weis_eingeben_01.png",
     "keywords": [
+      "weis eingeben",
       "weis",
       "eingeben",
       "linien",
@@ -1145,10 +1293,11 @@
       }
     ],
     "images": [
-      "08_berg_markierung.png"
+      "2-spiele/berg_markierung.png"
     ],
-    "primaryImage": "08_berg_markierung.png",
+    "primaryImage": "2-spiele/berg_markierung.png",
     "keywords": [
+      "berg schreiben",
       "berg",
       "schreiben",
       "strich",
@@ -1189,8 +1338,8 @@
       "Berg korrigieren",
       "Berg ausloggen"
     ],
-    "nextSuggested": "sieg_schreiben",
-    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du einen Sieg schreibst?",
+    "nextSuggested": "bedanken",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du dich bedankst?",
     "seeAlso": [
       "sieg_schreiben",
       "bedanken",
@@ -1251,9 +1400,9 @@
       }
     ],
     "images": [
-      "09_sieg_schreiben.png"
+      "2-spiele/sieg_schreiben.png"
     ],
-    "primaryImage": "09_sieg_schreiben.png",
+    "primaryImage": "2-spiele/sieg_schreiben.png",
     "keywords": [
       "sieg",
       "gewonnen",
@@ -1421,9 +1570,9 @@
       }
     ],
     "images": [
-      "10_spiel_oder_jass_beenden.png"
+      "2-spiele/spiel_oder_jass_beenden.png"
     ],
-    "primaryImage": "10_spiel_oder_jass_beenden.png",
+    "primaryImage": "2-spiele/spiel_oder_jass_beenden.png",
     "keywords": [
       "spiel",
       "beenden",
@@ -1504,7 +1653,7 @@
       {
         "number": 1,
         "text": "Nachdem das letzte Spiel fertig ist, tippe auf 'Jass beenden' auf der Resultattafel.",
-        "image": "2-spiele/jass_beenden.png"
+        "image": "2-spiele/spiel_beenden.png"
       },
       {
         "number": 2,
@@ -1518,11 +1667,13 @@
     ],
     "images": [],
     "keywords": [
+      "jass beenden",
       "jass",
       "beenden",
       "partie",
       "mehrere spiele",
-      "zusammenfassung"
+      "zusammenfassung",
+      "partie beenden"
     ],
     "synonyms": [
       "partie beenden",
@@ -1538,7 +1689,7 @@
       "Kann ich mehrere Spiele beenden?",
       "Wie schreibe ich Jass beenden?"
     ],
-    "nextSuggested": "sharing",
+    "nextSuggested": "sharing_resultat",
     "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du das Resultat teilen kannst?",
     "seeAlso": [
       "spiel_beenden",
@@ -1586,9 +1737,9 @@
       }
     ],
     "images": [
-      "10_history_swipe.png"
+      "2-spiele/history_swipe.png"
     ],
-    "primaryImage": "10_history_swipe.png",
+    "primaryImage": "2-spiele/history_swipe.png",
     "keywords": [
       "history",
       "zurück",
@@ -1655,20 +1806,22 @@
     "steps": [
       {
         "number": 1,
-        "text": "Tippe oben rechts auf den Teilen-Button (◎⃤ ).",
-        "image": "2-spiele/teilen_button_oben_rechts.png"
+        "text": "Öffne das Menü und wähle den grünen Knopf rechts, der dich zur Resultattafel führt.",
+        "image": "2-spiele/menu_offen.png"
       },
       {
         "number": 2,
-        "text": "Wähle direkt einen Kanal zum Teilen (WhatsApp, SMS, etc.). Der Live-Link wird automatisch in die Nachricht eingefügt.",
-        "image": "2-spiele/spiel_live_teilen.png",
+        "text": "Klicke den Teilen-Knopf und wähle den Kanal zum Teilen (z.B. WhatsApp, Signal, etc.). Der Live-Link wird automatisch in der Nachricht eingefügt."
+      },
+      {
+        "number": 3,
+        "text": "Deine Freunde sehen dann genau den Zwischenstand.",
+        "image": "2-spiele/naechste_runde.png",
         "tip": "Deine Freunde können dann live zusehen, wie sich der Spielstand ändert!"
       }
     ],
-    "images": [
-      "2-spiele/spiel_live_teilen.png"
-    ],
-    "primaryImage": "2-spiele/spiel_live_teilen.png",
+    "images": [],
+    "primaryImage": "2-spiele/menu_offen.png",
     "keywords": [
       "sharing",
       "teilen",
@@ -1753,27 +1906,35 @@
     ],
     "primaryImage": "2-spiele/teilen_aus_archiv.png",
     "keywords": [
-      "sharing",
-      "teilen",
+      "resultat teilen",
       "resultat",
+      "teilen",
+      "sharing",
       "endstand",
       "screenshot",
-      "ergebnis"
+      "ergebnis",
+      "jassresultat teilen",
+      "spielresultat teilen"
     ],
     "synonyms": [
+      "resultat teilen",
       "ergebnis teilen",
       "resultat senden",
-      "screenshot"
+      "screenshot",
+      "jassresultat teilen",
+      "spielresultat teilen"
     ],
     "userProblems": [
       "Wie teile ich das Resultat?",
+      "Resultat teilen",
       "Ergebnis versenden",
       "Screenshot machen",
       "Wie mache ich Resultat teilen?",
       "Wie stelle ich Resultat teilen ein?",
       "Wo kann ich Resultat teilen?",
       "Kann ich Resultat teilen?",
-      "Wie schreibe ich Resultat teilen?"
+      "Wie schreibe ich Resultat teilen?",
+      "Wie kann ich das Resultat teilen?"
     ],
     "nextSuggested": "gruppe_erstellen",
     "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du eine Gruppe erstellst?",
@@ -1896,27 +2057,42 @@
     ],
     "images": [],
     "keywords": [
-      "punkte",
+      "punkte korrigieren",
+      "punkte ändern",
+      "punkte nachträglich ändern",
+      "falsche punkte",
+      "fehler korrigieren",
       "korrigieren",
       "ändern",
       "fehler",
-      "falsch"
+      "falsch",
+      "nachträglich",
+      "history",
+      "zurück",
+      "überschreiben"
     ],
     "synonyms": [
       "punkte ändern",
       "fehler korrigieren",
-      "falsche punkte"
+      "falsche punkte",
+      "punkte nachträglich ändern",
+      "punkte überschreiben",
+      "in history korrigieren"
     ],
     "userProblems": [
       "Wie ändere ich Punkte?",
       "Falsche Punkte eingetragen",
       "Punkte korrigieren",
       "Fehler beim Schreiben",
+      "Wie korrigiere ich Punkte?",
+      "Punkte nachträglich ändern",
+      "Falsche Punkte korrigieren",
       "Wie mache ich Punkte ändern?",
       "Wie stelle ich Punkte ändern ein?",
       "Wo kann ich Punkte ändern?",
       "Kann ich Punkte nachträglich ändern?",
-      "Wie schreibe ich Punkte ändern?"
+      "Wie schreibe ich Punkte ändern?",
+      "Punkte in History ändern"
     ],
     "nextSuggested": "turnier_erstellen",
     "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du ein Turnier erstellst?",
@@ -1996,15 +2172,28 @@
     ],
     "primaryImage": "3-turniere/turnier_erstellen.png",
     "keywords": [
+      "turnier erstellen",
+      "gruppenturnier erstellen",
+      "gruppen turnier erstellen",
+      "turnier durchführen",
+      "turnier starten",
+      "turnier organisieren",
       "turnier",
       "erstellen",
       "turniermodus",
       "mehrere spiele",
       "passen",
       "passe",
-      "tournament"
+      "tournament",
+      "gruppenturnier"
     ],
     "synonyms": [
+      "turnier erstellen",
+      "gruppenturnier erstellen",
+      "gruppen turnier erstellen",
+      "turnier durchführen",
+      "turnier starten",
+      "turnier organisieren",
       "tournament",
       "mehrere spiele",
       "jassabend",
@@ -2013,6 +2202,13 @@
     ],
     "userProblems": [
       "Wie erstelle ich ein Turnier?",
+      "Turnier erstellen",
+      "Gruppenturnier erstellen",
+      "Gruppen Turnier erstellen",
+      "Wie führe ich ein Turnier durch?",
+      "Turnier durchführen",
+      "Turnier starten",
+      "Turnier organisieren",
       "Turniermodus",
       "Mehrere Spiele organisieren",
       "Wie mache ich ein Turnier?",
@@ -2048,6 +2244,101 @@
       "Pausierte Turniere sind Turniere, die eine Fortsetzung haben und später weiterlaufen."
     ]
   },
+  "turnier_starten": {
+    "id": "turnier_starten",
+    "number": "3.1.5",
+    "title": "Turnier starten",
+    "category": {
+      "main": "Turniere",
+      "mainId": "turniere",
+      "number": 3
+    },
+    "difficulty": "einfach",
+    "priority": 1,
+    "tags": [
+      "turnier",
+      "starten",
+      "aktivieren",
+      "danger zone"
+    ],
+    "description": "So startest du ein Turnier, damit Passen gestartet werden können.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Scrolle hinunter zur Danger Zone. Dort findest du den Knopf \"Turnier jetzt starten\".",
+        "image": "3-turniere/turnier_starten.png"
+      },
+      {
+        "number": 2,
+        "text": "Klicke ihn und bestätige diese Nachricht.",
+        "image": "3-turniere/turnier_starten_bestaetigen.png",
+        "warning": "Dies kann nicht rückgängig gemacht werden!"
+      },
+      {
+        "number": 3,
+        "text": "Dann kann das Turnier beginnen!",
+        "image": "3-turniere/passe_starten_01.png",
+        "tip": "Sobald das Turnier aktiv ist, können Passen gestartet werden."
+      }
+    ],
+    "images": [],
+    "primaryImage": "3-turniere/turnier_starten.png",
+    "keywords": [
+      "turnier starten",
+      "turnier aktivieren",
+      "turnier aktiv",
+      "turnier beginnen",
+      "danger zone",
+      "turnier jetzt starten",
+      "turnierstatus",
+      "anstehend",
+      "aktiv"
+    ],
+    "synonyms": [
+      "turnier aktivieren",
+      "turnier beginnen",
+      "turnier aktiv machen",
+      "turnierstatus ändern"
+    ],
+    "userProblems": [
+      "Wie starte ich ein Turnier?",
+      "Turnier starten",
+      "Turnier aktivieren",
+      "Wie aktiviere ich ein Turnier?",
+      "Turnier beginnt nicht",
+      "Wie mache ich Turnier starten?",
+      "Wie stelle ich Turnier starten ein?",
+      "Wo kann ich Turnier starten?",
+      "Kann ich Turnier starten?",
+      "Wie schreibe ich Turnier starten?",
+      "Turnier ist anstehend",
+      "Turnierstatus ändern"
+    ],
+    "nextSuggested": "turnier_passe_starten",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du eine Turnier-Passe startest?",
+    "seeAlso": [
+      "turnier_erstellen",
+      "turnier_passe_starten"
+    ],
+    "faq": [
+      {
+        "question": "Kann ich ein Turnier wieder pausieren?",
+        "answer": "Ja, du kannst den Status eines Turniers jederzeit ändern, solange es nicht abgeschlossen ist."
+      },
+      {
+        "question": "Was bedeutet 'Anstehend'?",
+        "answer": "Ein Turnier mit Status 'Anstehend' ist erstellt, aber noch nicht aktiv. Es können noch keine Passen gestartet werden."
+      },
+      {
+        "question": "Kann ich ein gestartetes Turnier wieder stoppen?",
+        "answer": "Ja, du kannst den Status zurück auf 'Anstehend' setzen, wenn noch keine Passen gespielt wurden."
+      }
+    ],
+    "tips": [
+      "Ein Turnier muss aktiv sein, bevor Passen gestartet werden können.",
+      "Die Danger Zone findest du ganz unten in den Turnier-Einstellungen."
+    ]
+  },
   "turnier_passe_starten": {
     "id": "turnier_passe_starten",
     "number": "3.2",
@@ -2069,12 +2360,14 @@
     "steps": [
       {
         "number": 1,
-        "text": "Im Turnier-Modus tippe auf 'Neue Passe starten'.",
-        "image": "3-turniere/turnier_passe_starten_01.png"
+        "text": "Sobald eine Passe abgeschlossen ist, landest du automatisch in der Turnierübersicht. Tippe auf 'Neue Passe starten'.",
+        "image": "3-turniere/passe_starten_01.png",
+        "tip": "Die Passe-Buchstaben (1A, 1B, 2A, etc.) erhöhen sich automatisch mit jedem Vierer-Tisch, der mit seiner Passe beginnt."
       },
       {
         "number": 2,
         "text": "Wähle 4 Spieler aus den Turnier-Teilnehmern.",
+        "image": "3-turniere/passe_starten_02.png",
         "tip": "Die App zeigt nur Spieler an, die noch nicht in einer aktiven Passe sind."
       },
       {
@@ -2086,7 +2379,11 @@
         "text": "Wähle den Startspieler und tippe auf 'Passe starten'."
       }
     ],
-    "images": [],
+    "images": [
+      "3-turniere/passe_starten_01.png",
+      "3-turniere/passe_starten_02.png"
+    ],
+    "primaryImage": "3-turniere/passe_starten_01.png",
     "keywords": [
       "turnier",
       "passe",
@@ -2164,8 +2461,8 @@
       },
       {
         "number": 2,
-        "text": "Nach dem Bedanken wird die Passe automatisch als beendet markiert.",
-        "image": "3-turniere/passe_beendet.png"
+        "text": "Nach dem Bedanken wird die Passe automatisch als beendet markiert. Tippe auf 'Passe abschliessen'.",
+        "image": "3-turniere/passe_abschliessen.png"
       },
       {
         "number": 3,
@@ -2173,7 +2470,10 @@
         "tip": "Du siehst die aktuelle Rangliste jederzeit in der Turnier-Übersicht."
       }
     ],
-    "images": [],
+    "images": [
+      "3-turniere/passe_abschliessen.png"
+    ],
+    "primaryImage": "3-turniere/passe_abschliessen.png",
     "keywords": [
       "passe",
       "beenden",
@@ -2241,18 +2541,37 @@
       },
       {
         "number": 2,
-        "text": "Tippe auf 'Statistiken' oder 'Rangliste'.",
-        "image": "3-turniere/turnier_stats_01.png"
+        "text": "Die eingestellten Ranglisten erscheinen automatisch auf der Turnierübersicht.",
+        "tip": "Du musst nicht extra auf 'Statistiken' oder 'Rangliste' tippen - sie werden direkt angezeigt."
       },
       {
         "number": 3,
-        "text": "Du siehst jetzt:",
-        "tip": "Gesamt-Punkte aller Spieler, Anzahl gespielter Passen, Siege/Niederlagen, Durchschnittliche Punkte pro Passe"
+        "text": "Du siehst nun verschiedene Ranglisten, z.B.:",
+        "tip": "Rangliste Punkte, Rangliste Striche, Verlauf Rangliste Striche"
+      },
+      {
+        "number": 4,
+        "text": "Rangliste Punkte: Hier siehst du die Gesamtpunkte aller Spieler.",
+        "image": "3-turniere/turnier_punkte.png"
+      },
+      {
+        "number": 5,
+        "text": "Rangliste Striche: Hier siehst du die Striche aller Spieler.",
+        "image": "3-turniere/turnier_striche.png"
+      },
+      {
+        "number": 6,
+        "text": "Verlauf Rangliste Striche: Hier siehst du die Entwicklung der Rangliste über die Zeit.",
+        "image": "3-turniere/verlauf_striche.png"
       }
     ],
     "images": [
-      "16_turnier_uebersicht.png"
+      "3-turniere/turnier_uebersicht.png",
+      "3-turniere/turnier_punkte.png",
+      "3-turniere/turnier_striche.png",
+      "3-turniere/verlauf_striche.png"
     ],
+    "primaryImage": "3-turniere/turnier_uebersicht.png",
     "keywords": [
       "turnier",
       "statistiken",
@@ -2311,60 +2630,89 @@
       "beenden",
       "fertig"
     ],
-    "description": "So schliesst du ein Turnier ab, wenn alle Passen gespielt sind.",
+    "description": "So schliesst du ein Turnier ab oder unterbrichst es vorübergehend.",
     "steps": [
       {
         "number": 1,
-        "text": "Wenn alle Passen gespielt sind, tippe auf 'Turnier abschliessen'.",
-        "image": "3-turniere/turnier_abschliessen.png"
+        "text": "Gehe zu den Einstellungen des Turniers."
       },
       {
         "number": 2,
-        "text": "Du siehst eine Zusammenfassung mit der finalen Rangliste.",
-        "tip": "Die Rangliste zeigt alle Spieler sortiert nach Strichen."
+        "text": "Scrolle hinunter zur Danger Zone.",
+        "image": "3-turniere/turnier_abschliessen_unterbrechen.png"
       },
       {
         "number": 3,
-        "text": "Tippe auf 'Bestätigen' um das Turnier zu beenden.",
-        "warning": "Danach können keine weiteren Passen mehr hinzugefügt werden!"
+        "text": "Dort hast du die Wahl:",
+        "tip": "Je nachdem, ob das Turnier später fortgesetzt werden soll oder endgültig abgeschlossen ist."
       },
       {
         "number": 4,
-        "text": "Das Turnier wird im Archiv gespeichert."
+        "text": "Option 1: 'Turnier unterbrechen' - Falls das Turnier später fortgesetzt werden soll.",
+        "tip": "Das Turnier bleibt aktiv und kann später fortgesetzt werden."
+      },
+      {
+        "number": 5,
+        "text": "Option 2: 'Turnier abschliessen' - Falls das Resultat endgültig ist.",
+        "warning": "Dies kann nicht rückgängig gemacht werden! Danach können keine weiteren Passen mehr hinzugefügt werden."
       }
     ],
-    "images": [],
+    "images": [
+      "3-turniere/turnier_abschliessen_unterbrechen.png"
+    ],
+    "primaryImage": "3-turniere/turnier_abschliessen_unterbrechen.png",
     "keywords": [
+      "turnier abschliessen",
+      "turnier unterbrechen",
       "turnier",
       "abschliessen",
+      "unterbrechen",
       "beenden",
       "fertig",
-      "finale rangliste"
+      "finale rangliste",
+      "danger zone",
+      "einstellungen"
     ],
     "synonyms": [
       "turnier beenden",
-      "finale rangliste"
+      "turnier pausieren",
+      "turnier unterbrechen",
+      "finale rangliste",
+      "turnier endgültig abschliessen"
     ],
     "userProblems": [
       "Wie beende ich das Turnier?",
+      "Turnier abschliessen",
+      "Turnier unterbrechen",
       "Turnier fertig",
       "Finale Rangliste",
       "Wie mache ich Turnier beenden?",
       "Wie stelle ich Turnier beenden ein?",
       "Wo kann ich Turnier beenden?",
       "Kann ich Turnier beenden?",
-      "Wie schreibe ich Turnier beenden?"
+      "Wie schreibe ich Turnier beenden?",
+      "Kann ich ein Turnier pausieren?",
+      "Turnier später fortsetzen"
     ],
-    "nextSuggested": "gruppe_erstellen",
-    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du eine Gruppe erstellst?",
+    "nextSuggested": "turnier_teilen",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du das Turnierergebnis teilen kannst?",
     "seeAlso": [
       "turnier_stats",
-      "turnier_erstellen"
+      "turnier_erstellen",
+      "turnier_teilen"
     ],
     "faq": [
       {
+        "question": "Was ist der Unterschied zwischen 'Unterbrechen' und 'Abschliessen'?",
+        "answer": "'Unterbrechen' pausiert das Turnier - es kann später fortgesetzt werden. 'Abschliessen' beendet das Turnier endgültig - dies kann nicht rückgängig gemacht werden."
+      },
+      {
         "question": "Kann ich ein abgeschlossenes Turnier wieder öffnen?",
-        "answer": "Nein, einmal abgeschlossene Turniere können nicht mehr bearbeitet werden."
+        "answer": "Nein, einmal abgeschlossene Turniere können nicht mehr bearbeitet oder fortgesetzt werden."
+      },
+      {
+        "question": "Kann ich ein unterbrochenes Turnier später fortsetzen?",
+        "answer": "Ja! Ein unterbrochenes Turnier bleibt aktiv und kann jederzeit fortgesetzt werden."
       },
       {
         "question": "Wo finde ich alte Turniere?",
@@ -2374,6 +2722,206 @@
     "tips": [
       "Schliesse ein Turnier erst ab, wenn wirklich alle Passen gespielt sind!",
       "Du kannst die finale Rangliste als Bild teilen."
+    ]
+  },
+  "turnier_bearbeiten": {
+    "id": "turnier_bearbeiten",
+    "number": "3.6",
+    "title": "Turnier bearbeiten",
+    "category": {
+      "main": "Turniere",
+      "mainId": "turniere",
+      "number": 3
+    },
+    "difficulty": "einfach",
+    "priority": 2,
+    "tags": [
+      "turnier",
+      "bearbeiten",
+      "einstellungen",
+      "turniername",
+      "ändern"
+    ],
+    "description": "So bearbeitest du die Einstellungen eines Turniers, z.B. den Turniernamen.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Öffne das Turnier in der Turnier-Übersicht.",
+        "image": "3-turniere/turnier_uebersicht.png"
+      },
+      {
+        "number": 2,
+        "text": "Tippe auf 'Einstellungen' oder das Einstellungs-Icon."
+      },
+      {
+        "number": 3,
+        "text": "Ändere den Turniernamen, die Beschreibung, das Startdatum oder andere Einstellungen.",
+        "image": "3-turniere/turnier_einstellungen.png",
+        "tip": "Du kannst alle Grundinformationen und Turnier-Regeln anpassen."
+      },
+      {
+        "number": 4,
+        "text": "Tippe auf 'Speichern' um die Änderungen zu übernehmen."
+      }
+    ],
+    "images": [
+      "3-turniere/turnier_einstellungen.png"
+    ],
+    "primaryImage": "3-turniere/turnier_einstellungen.png",
+    "keywords": [
+      "turnier bearbeiten",
+      "turniername ändern",
+      "turnier einstellungen",
+      "turniername",
+      "ändern",
+      "bearbeiten",
+      "einstellungen",
+      "turnier verwalten"
+    ],
+    "synonyms": [
+      "turniername ändern",
+      "turnier bearbeiten",
+      "turnier einstellungen ändern",
+      "turnier verwalten"
+    ],
+    "userProblems": [
+      "Kann ich den Turniernamen später ändern?",
+      "Turniername ändern",
+      "Turnier bearbeiten",
+      "Wie ändere ich den Turniernamen?",
+      "Turnier-Einstellungen ändern",
+      "Wie mache ich Turniername ändern?",
+      "Wie stelle ich Turniername ein?",
+      "Wo kann ich Turniername ändern?",
+      "Kann ich Turniername ändern?",
+      "Wie schreibe ich Turniername?"
+    ],
+    "nextSuggested": "turnier_stats",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du Turnier-Statistiken ansiehst?",
+    "seeAlso": [
+      "turnier_erstellen",
+      "turnier_stats"
+    ],
+    "faq": [
+      {
+        "question": "Kann ich den Turniernamen später ändern?",
+        "answer": "Ja! Du kannst unter Einstellungen den Turniernamen und alles weitere anpassen."
+      },
+      {
+        "question": "Was kann ich alles ändern?",
+        "answer": "Du kannst den Turniernamen, die Beschreibung, das Startdatum, die Startzeit und alle Turnier-Regeln anpassen."
+      },
+      {
+        "question": "Kann ich ein abgeschlossenes Turnier noch bearbeiten?",
+        "answer": "Nein, einmal abgeschlossene Turniere können nicht mehr bearbeitet werden."
+      }
+    ],
+    "tips": [
+      "Du kannst die Turnier-Einstellungen jederzeit anpassen, solange das Turnier noch nicht abgeschlossen ist."
+    ]
+  },
+  "turnier_teilen": {
+    "id": "turnier_teilen",
+    "number": "3.7",
+    "title": "Turnierergebnis teilen",
+    "category": {
+      "main": "Turniere",
+      "mainId": "turniere",
+      "number": 3
+    },
+    "difficulty": "einfach",
+    "priority": 2,
+    "tags": [
+      "turnier",
+      "teilen",
+      "sharing",
+      "resultat",
+      "ergebnis",
+      "link"
+    ],
+    "description": "So teilst du ein Turnier oder Turnierergebnis mit anderen.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Auf der Turnierübersicht oben rechts den Teilen-Knopf klicken.",
+        "image": "3-turniere/turnier_teilen_01.png"
+      },
+      {
+        "number": 2,
+        "text": "Wähle aus, an wen und über welchen Kanal du teilen möchtest (z.B. WhatsApp, E-Mail, etc.).",
+        "image": "3-turniere/turnier_teilen_02.png"
+      },
+      {
+        "number": 3,
+        "text": "Die Nachricht mit dem Link zum Turnier wird automatisch erstellt und kann nun versendet werden.",
+        "image": "3-turniere/turnier_teilen_03.png",
+        "tip": "Der Link führt direkt zur Turnierübersicht - andere können dann die Rangliste und Statistiken sehen."
+      }
+    ],
+    "images": [
+      "3-turniere/turnier_teilen_01.png",
+      "3-turniere/turnier_teilen_02.png",
+      "3-turniere/turnier_teilen_03.png"
+    ],
+    "primaryImage": "3-turniere/turnier_teilen_01.png",
+    "keywords": [
+      "turnierergebnis teilen",
+      "turnier resultat teilen",
+      "turnier teilen",
+      "turnier link teilen",
+      "turnier",
+      "teilen",
+      "sharing",
+      "resultat",
+      "ergebnis",
+      "link",
+      "turnierergebnis",
+      "turnier resultat"
+    ],
+    "synonyms": [
+      "turnierergebnis teilen",
+      "turnier resultat teilen",
+      "turnier link senden",
+      "turnier teilen",
+      "turnier versenden"
+    ],
+    "userProblems": [
+      "Wie teile ich ein Turnier?",
+      "Turnierergebnis teilen",
+      "Turnier resultat teilen",
+      "Turnier link teilen",
+      "Wie kann ich das Turnier teilen?",
+      "Turnier mit anderen teilen",
+      "Wie mache ich Turnier teilen?",
+      "Wie stelle ich Turnier teilen ein?",
+      "Wo kann ich Turnier teilen?",
+      "Kann ich Turnier teilen?",
+      "Wie schreibe ich Turnier teilen?"
+    ],
+    "nextSuggested": "turnier_stats",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du Turnier-Statistiken ansiehst?",
+    "seeAlso": [
+      "turnier_abschliessen",
+      "turnier_stats",
+      "sharing_resultat"
+    ],
+    "faq": [
+      {
+        "question": "Was sehen andere, wenn sie den Link öffnen?",
+        "answer": "Sie sehen die Turnierübersicht mit allen Ranglisten und Statistiken - genau wie du sie siehst."
+      },
+      {
+        "question": "Kann ich ein Turnier auch später noch teilen?",
+        "answer": "Ja! Du kannst ein Turnier jederzeit teilen, auch nachdem es abgeschlossen ist."
+      },
+      {
+        "question": "Können andere das Turnier bearbeiten, wenn sie den Link haben?",
+        "answer": "Nein, nur du als Admin kannst das Turnier bearbeiten. Andere können nur die Statistiken ansehen."
+      }
+    ],
+    "tips": [
+      "Perfekt, um Freunden die Turnier-Rangliste zu zeigen!",
+      "Der Link funktioniert auch nach dem Abschliessen des Turniers."
     ]
   },
   "gruppe_erstellen": {
@@ -2408,24 +2956,20 @@
       },
       {
         "number": 3,
-        "text": "Optional: Lade ein Gruppenbild hoch.",
+        "text": "Lade ein Gruppenbild hoch.",
         "tip": "Ein Bild macht die Gruppe persönlicher!"
       },
       {
         "number": 4,
-        "text": "Tippe auf 'Gruppe erstellen'.",
-        "image": "4-gruppen/gruppe_erstellt.png"
-      },
-      {
-        "number": 5,
-        "text": "Fertig! Du kannst jetzt Mitglieder einladen."
+        "text": "Tippe auf 'Gruppe erstellen'."
       }
     ],
     "images": [
-      "14_gruppe_erstellen.png"
+      "4-gruppen/gruppe_erstellen_01.png"
     ],
-    "primaryImage": "14_gruppe_erstellen.png",
+    "primaryImage": "4-gruppen/gruppe_erstellen_01.png",
     "keywords": [
+      "gruppe erstellen",
       "gruppe",
       "erstellen",
       "jassrunde",
@@ -2449,8 +2993,8 @@
       "Kann ich mehrere Gruppen haben?",
       "Wie gründe ich eine Jassrunde?"
     ],
-    "nextSuggested": "gruppe_einladen",
-    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du Freunde in deine Gruppe einlädst?",
+    "nextSuggested": "neue_gruppe_erstellen",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du eine neue Gruppe über dein Profil erstellst?",
     "seeAlso": [
       "gruppe_einladen",
       "gruppe_beitreten"
@@ -2472,6 +3016,102 @@
     "tips": [
       "Gruppen sind perfekt für regelmässige Jassrunden - ihr müsst nicht jedes Mal neu Namen eingeben!",
       "Alle Mitglieder sehen automatisch die Gruppen-Statistiken."
+    ]
+  },
+  "neue_gruppe_erstellen": {
+    "id": "neue_gruppe_erstellen",
+    "number": "4.1.1",
+    "title": "Neue Gruppe erstellen",
+    "category": {
+      "main": "Gruppen",
+      "mainId": "gruppen",
+      "number": 4
+    },
+    "difficulty": "einfach",
+    "priority": 1,
+    "tags": [
+      "gruppe",
+      "erstellen",
+      "profil",
+      "neue gruppe",
+      "jassrunde"
+    ],
+    "description": "So erstellst du eine neue Gruppe über dein Profil.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Gehe zu deinem Profil (unten in der Navigation)."
+      },
+      {
+        "number": 2,
+        "text": "Tippe auf 'Gruppen'.",
+        "image": "4-gruppen/neue_gruppe_erstellen_01.png"
+      },
+      {
+        "number": 3,
+        "text": "Dann kannst du eine neue Gruppe erstellen.",
+        "image": "4-gruppen/neue_gruppe_erstellen_02.png",
+        "tip": "Du kannst mehrere Gruppen erstellen und verwalten."
+      }
+    ],
+    "images": [],
+    "primaryImage": "4-gruppen/neue_gruppe_erstellen_01.png",
+    "keywords": [
+      "neue gruppe erstellen",
+      "gruppe über profil erstellen",
+      "gruppe im profil erstellen",
+      "neue gruppe",
+      "weitere gruppe erstellen",
+      "zweite gruppe erstellen",
+      "mehrere gruppen erstellen",
+      "gruppe aus profil",
+      "profil gruppen",
+      "gruppen verwalten"
+    ],
+    "synonyms": [
+      "neue gruppe",
+      "weitere gruppe",
+      "zweite gruppe",
+      "mehrere gruppen",
+      "gruppe über profil",
+      "gruppe im profil",
+      "gruppen verwalten",
+      "gruppen übersicht"
+    ],
+    "userProblems": [
+      "Wie erstelle ich eine neue Gruppe?",
+      "Wie erstelle ich eine weitere Gruppe?",
+      "Wie erstelle ich eine zweite Gruppe?",
+      "Kann ich mehrere Gruppen erstellen?",
+      "Wie erstelle ich eine Gruppe über das Profil?",
+      "Wo finde ich meine Gruppen?",
+      "Wie verwalte ich meine Gruppen?",
+      "Gruppe aus Profil erstellen"
+    ],
+    "nextSuggested": "gruppe_einladen",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du Freunde in deine Gruppe einlädst?",
+    "seeAlso": [
+      "gruppe_erstellen",
+      "gruppe_verwalten",
+      "gruppe_einladen"
+    ],
+    "faq": [
+      {
+        "question": "Kann ich mehrere Gruppen erstellen?",
+        "answer": "Ja! Du kannst so viele Gruppen erstellen, wie du möchtest. Gehe einfach zu deinem Profil und wähle 'Gruppen'."
+      },
+      {
+        "question": "Wo finde ich meine Gruppen?",
+        "answer": "Im Profil unter 'Gruppen' siehst du alle deine Gruppen auf einen Blick."
+      },
+      {
+        "question": "Was ist der Unterschied zwischen 'Gruppe erstellen' und 'Neue Gruppe erstellen'?",
+        "answer": "'Gruppe erstellen' führt dich direkt zum Erstellungsprozess von der Startseite. 'Neue Gruppe erstellen' zeigt dir, wie du über dein Profil zu deinen Gruppen gelangst und dort eine neue erstellst."
+      }
+    ],
+    "tips": [
+      "Über dein Profil kannst du alle deine Gruppen verwalten und neue erstellen.",
+      "Mehrere Gruppen sind perfekt, wenn du verschiedene Jassrunden organisierst."
     ]
   },
   "gruppe_einladen": {
@@ -2501,11 +3141,13 @@
       },
       {
         "number": 2,
-        "text": "Tippe auf 'Einladen'."
+        "text": "Tippe auf 'Einladen'.",
+        "image": "4-gruppen/jassrunde_einladen_01.png"
       },
       {
         "number": 3,
-        "text": "Kopiere den Einladungs-Link oder teile ihn direkt per WhatsApp, SMS, etc."
+        "text": "Kopiere den Einladungs-Link oder teile ihn direkt per WhatsApp, SMS, etc.",
+        "image": "4-gruppen/gruppe_einladung_nachricht.png"
       },
       {
         "number": 4,
@@ -2513,9 +3155,9 @@
       }
     ],
     "images": [
-      "15_gruppe_einladen.png"
+      "4-gruppen/jassrunde_einladen_01.png"
     ],
-    "primaryImage": "15_gruppe_einladen.png",
+    "primaryImage": "4-gruppen/jassrunde_einladen_01.png",
     "keywords": [
       "gruppe",
       "einladen",
@@ -2586,14 +3228,10 @@
       },
       {
         "number": 3,
-        "text": "Registrierte Benutzer werden automatisch zur Gruppe hinzugefügt. Falls das nicht klappt (vgl. nächster Punkt)."
+        "text": "Registrierte Benutzer werden automatisch zur Gruppe hinzugefügt. Falls das nicht klappt: Kopiere den Einladungslink in das Eingabefeld."
       },
       {
         "number": 4,
-        "text": "Kopiere den Einladungslink in das Eingabefeld."
-      },
-      {
-        "number": 5,
         "text": "Tippe auf 'Gruppe beitreten' in der Bestätigung. Fertig! Du bist jetzt Mitglied der Gruppe."
       }
     ],
@@ -2662,14 +3300,18 @@
       },
       {
         "number": 2,
-        "text": "Hier siehst du deine Gruppenmitglieder."
+        "text": "Hier siehst du deine Gruppenmitglieder.",
+        "image": "4-gruppen/gruppe_mitglieder.png"
       },
       {
         "number": 3,
         "text": "Mache Gruppenmitglieder zu Admins oder entferne sie als Admin."
       }
     ],
-    "images": [],
+    "images": [
+      "4-gruppen/gruppe_mitglieder.png"
+    ],
+    "primaryImage": "4-gruppen/gruppe_mitglieder.png",
     "keywords": [
       "gruppe",
       "verwalten",
@@ -2796,22 +3438,26 @@
     "steps": [
       {
         "number": 1,
-        "text": "Öffne dein Profil (unten in der Navigation)."
+        "text": "Öffne dein Profil (unten in der Navigation) und tippe auf \"Einstellungen\" unterhalb des Profilbildes.",
+        "image": "5-statistiken/profil_bearbeiten_01.png"
       },
       {
         "number": 2,
-        "text": "Tippe auf \"Einstellungen\"."
+        "text": "Ändere deinen Jassnamen, dein Profilbild oder andere Details."
       },
       {
         "number": 3,
-        "text": "Ändere deinen Jassnamen, dein Profilbild oder andere Details. Gib einen Jassspruch ein."
+        "text": "Optional: Gib einen Jassspruch ein."
       },
       {
         "number": 4,
-        "text": "Tippe auf 'Speichern'."
+        "text": "Tippe auf 'Speichern', um die Änderungen zu übernehmen."
       }
     ],
-    "images": [],
+    "images": [
+      "5-statistiken/profil_bearbeiten_01.png"
+    ],
+    "primaryImage": "5-statistiken/profil_bearbeiten_01.png",
     "keywords": [
       "profil",
       "bearbeiten",
@@ -2875,7 +3521,8 @@
       },
       {
         "number": 2,
-        "text": "Tippe auf das Profilbild oder 'Bild hochladen'."
+        "text": "Tippe auf das Profilbild oder 'Bild hochladen'.",
+        "image": "5-statistiken/profilbild_hochladen_01.png"
       },
       {
         "number": 3,
@@ -2890,7 +3537,10 @@
         "text": "Fertig! Dein neues Profilbild wird überall angezeigt."
       }
     ],
-    "images": [],
+    "images": [
+      "5-statistiken/profilbild_hochladen_01.png"
+    ],
+    "primaryImage": "5-statistiken/profilbild_hochladen_01.png",
     "keywords": [
       "profilbild",
       "hochladen",
@@ -2924,7 +3574,7 @@
         "answer": "JPG, PNG, GIF - die meisten gängigen Formate."
       },
       {
-        "question": "Wie groSS darf das Bild sein?",
+        "question": "Wie gross darf das Bild sein?",
         "answer": "Maximal 5 MB."
       },
       {
@@ -3139,9 +3789,9 @@
   "pwa_oeffnen": {
     "id": "pwa_oeffnen",
     "number": "1.4",
-    "title": "PWA vom Startbildschirm öffnen",
+    "title": "App vom Startbildschirm öffnen",
     "category": {
-      "main": "PWA Installation",
+      "main": "App Installation",
       "mainId": "pwa",
       "number": 1
     },
@@ -3163,7 +3813,7 @@
       {
         "number": 2,
         "text": "Tippe einmal auf das Jassguru-Icon.",
-        "image": "1-pwa/pwa_icon_homescreen.png"
+        "image": "1-pwa/pwa_ios_icon.png"
       },
       {
         "number": 3,
@@ -3203,7 +3853,7 @@
     "faq": [
       {
         "question": "Warum öffnet sich die App im Browser?",
-        "answer": "Du hast wahrscheinlich noch nicht die PWA installiert. Installiere sie zuerst (siehe PWA Installation)."
+        "answer": "Du hast wahrscheinlich noch nicht die App installiert. Installiere sie zuerst (siehe App Installation)."
       },
       {
         "question": "Kann ich die App auch über den Browser öffnen?",
@@ -3215,16 +3865,16 @@
       }
     ],
     "tips": [
-      "Die installierte PWA ist schneller und bietet ein besseres Erlebnis als der Browser!",
+      "Die installierte App ist schneller und bietet ein besseres Erlebnis als der Browser!",
       "Wichtig: Nur mit installierter App kannst du spielen - im Browser geht das nicht!"
     ]
   },
   "pwa_deinstallieren": {
     "id": "pwa_deinstallieren",
     "number": "1.5",
-    "title": "PWA deinstallieren",
+    "title": "App deinstallieren",
     "category": {
-      "main": "PWA Installation",
+      "main": "App Installation",
       "mainId": "pwa",
       "number": 1
     },
@@ -3241,13 +3891,12 @@
       {
         "number": 1,
         "text": "Auf Android: Tippe lange auf das Jassguru-Icon und wähle 'Deinstallieren' oder ziehe es auf das Papierkorb-Symbol.",
-        "image": "1-pwa/pwa_android_deinstall.png",
         "tip": "Je nach Android-Version kann das etwas anders aussehen."
       },
       {
         "number": 2,
         "text": "Auf iOS (iPhone/iPad): Tippe lange auf das Icon, wähle 'App entfernen' → 'Vom Home-Bildschirm entfernen'.",
-        "image": "1-pwa/pwa_ios_deinstall.png",
+        "image": "1-pwa/pwa_ios_icon.png",
         "tip": "Die App wird nur vom Startbildschirm entfernt, nicht komplett gelöscht."
       },
       {
@@ -3273,7 +3922,7 @@
       "Wie lösche ich die App?",
       "App deinstallieren",
       "App entfernen",
-      "Wie mache ich PWA löschen?",
+      "Wie mache ich App löschen?",
       "Wie stelle ich Deinstallation ein?",
       "Wo kann ich App entfernen?",
       "Kann ich die App deinstallieren?"
@@ -3301,7 +3950,7 @@
     "number": "1.6",
     "title": "Multi-Device: Auf mehreren Geräten spielen",
     "category": {
-      "main": "PWA Installation",
+      "main": "App Installation",
       "mainId": "pwa",
       "number": 1
     },
@@ -3320,23 +3969,25 @@
     "steps": [
       {
         "number": 1,
-        "text": "Jeder Spieler, der sich einloggt und am Spiel teilnimmt, kann auf seinem Gerät mitschreiben.",
-        "tip": "Du musst angemeldet sein, um mitschreiben zu können."
+        "text": "Jeder eingeloggte Spieler, der an einem Jass teilnimmt, kann dem Spiel beitreten.",
+        "image": "2-spiele/teilen button oben rechts.png"
       },
       {
         "number": 2,
+        "text": "Jeder kann dann auf seinem Gerät mitschreiben.",
+        "tip": "Du musst angemeldet sein, um mitschreiben zu können."
+      },
+      {
+        "number": 3,
         "text": "Der Spielstand synchronisiert sich automatisch in Echtzeit auf allen Geräten.",
         "tip": "Wenn jemand Punkte einträgt, sehen alle anderen Spieler die Änderung sofort."
       },
       {
-        "number": 3,
+        "number": 4,
         "text": "Mitschauen können alle, die über den öffentlichen Link verfügen (siehe 'Spiel live teilen')."
       }
     ],
-    "images": [
-      "1-pwa/multi_device.png"
-    ],
-    "primaryImage": "1-pwa/multi_device.png",
+    "images": [],
     "keywords": [
       "multi-device",
       "synchronisation",
@@ -3513,10 +4164,10 @@
       }
     ],
     "images": [
-      "11_menu_offen.png",
-      "12_spiellöschenwarnung.png"
+      "2-spiele/menu_offen.png",
+      "2-spiele/spiellöschenwarnung.png"
     ],
-    "primaryImage": "12_spiellöschenwarnung.png",
+    "primaryImage": "2-spiele/spiellöschenwarnung.png",
     "keywords": [
       "abbrechen",
       "löschen",
@@ -3612,11 +4263,11 @@
       }
     ],
     "images": [
-      "04_menu_oeffnen.png",
-      "05_menu_offen.png",
-      "17_hilfe_button.png"
+      "2-spiele/menu_oeffnen.png",
+      "2-spiele/menu_offen.png",
+      "2-spiele/infoknopf.png"
     ],
-    "primaryImage": "17_hilfe_button.png",
+    "primaryImage": "2-spiele/infoknopf.png",
     "keywords": [
       "hilfe",
       "info",
@@ -3697,9 +4348,9 @@
       }
     ],
     "images": [
-      "05_menu_offen.png"
+      "2-spiele/menu_offen.png"
     ],
-    "primaryImage": "05_menu_offen.png",
+    "primaryImage": "2-spiele/menu_offen.png",
     "keywords": [
       "home",
       "gruppe",
@@ -3805,9 +4456,9 @@
       }
     ],
     "images": [
-      "11_zwischenstand.png"
+      "2-spiele/zwischenstand_anzeigen.png"
     ],
-    "primaryImage": "11_zwischenstand.png",
+    "primaryImage": "2-spiele/zwischenstand_anzeigen.png",
     "keywords": [
       "zwischenstand",
       "punkte",
@@ -3872,7 +4523,7 @@
       {
         "number": 1,
         "text": "Die App funktioniert automatisch offline, nachdem du sie einmal online geladen hast.",
-        "tip": "Die PWA speichert alle wichtigen Daten im Cache."
+        "tip": "Die App speichert alle wichtigen Daten im Cache."
       },
       {
         "number": 2,
@@ -3885,10 +4536,7 @@
         "warning": "Wenn du im Gastmodus offline spielst, gehen die Daten beim Schliessen der App verloren!"
       }
     ],
-    "images": [
-      "18_offline_banner.png"
-    ],
-    "primaryImage": "18_offline_banner.png",
+    "images": [],
     "keywords": [
       "offline",
       "modus",
@@ -3914,7 +4562,7 @@
       "Habe kein Netz"
     ],
     "nextSuggested": "pwa_android",
-    "nextSuggestedText": "Möchtest du zurück zum Anfang? Hier geht's zur PWA-Installation.",
+    "nextSuggestedText": "Möchtest du zurück zum Anfang? Hier geht's zur App-Installation.",
     "seeAlso": [
       "pwa_android",
       "pwa_ios",
@@ -3935,7 +4583,7 @@
       }
     ],
     "tips": [
-      "PWAs sind perfekt für Offline-Nutzung - du kannst im Zug oder in den Bergen jassen!",
+      "Apps sind perfekt für Offline-Nutzung - du kannst im Zug oder in den Bergen jassen!",
       "Stelle sicher, dass du angemeldet bist, bevor du offline gehst - sonst werden Spiele nicht gespeichert."
     ],
     "troubleshooting": [

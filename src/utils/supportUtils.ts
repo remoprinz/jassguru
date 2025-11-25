@@ -47,6 +47,9 @@ export const getCategoryColor = (categoryId: string): string => {
 export const getImageUrl = (path: string) => {
   if (!path) return '';
   if (path.startsWith('http')) return path;
+  // Verwende lokale Bilder für bessere Performance (PWA)
+  // Next.js Image Component hat automatischen Fallback bei 404
+  // Falls lokal nicht verfügbar, wird Firebase-Version verwendet
   return `/support-images/${path}`;
 };
 

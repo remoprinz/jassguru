@@ -208,6 +208,83 @@ export const GroupView: React.FC<GroupViewProps> = ({
   // 🎨 RESPONSIVE LAYOUT HOOK - Desktop/Tablet/Mobile Optimierung
   const layout = useResponsiveLayout();
   
+  // ✅ NEU: Notification für neue Nutzer, die über Einladungslink beigetreten sind
+  useEffect(() => {
+    if (isNewMember && joinedGroupName && showNotification) {
+      // Kleiner Delay, damit die Seite vollständig geladen ist
+      const timer = setTimeout(() => {
+        showNotification({
+          type: "info",
+          image: "/welcome-guru.png",
+          message: (
+            <span>
+              Willkommen bei jassguru.ch! 🎉<br />
+              <br />
+              Schön, dass du dabei bist! Unten rechts in der Navigation findest du alles, was du wissen musst.
+            </span>
+          ),
+          duration: 8000, // 8 Sekunden
+          actions: [
+            {
+              label: "Verstanden",
+              onClick: () => {}
+            }
+          ]
+        });
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isNewMember, joinedGroupName, showNotification]);
+
+  // ✅ NEU: Notification für neue registrierte Nutzer (ohne Gruppe) - einmalig beim ersten Login
+  useEffect(() => {
+    if (!user || userGroups.length > 0 || joinedGroupName || isGuest || !showNotification) {
+      return; // Nur für neue registrierte Nutzer ohne Gruppe
+    }
+
+    // Prüfe, ob wir diese Notification bereits für diesen Nutzer angezeigt haben
+    const notificationKey = `welcome-notification-shown-${user.uid}`;
+    const alreadyShown = typeof window !== 'undefined' && localStorage.getItem(notificationKey) === 'true';
+    
+    if (alreadyShown) {
+      return; // Bereits angezeigt, nicht nochmal zeigen
+    }
+
+    // Zeige die Notification beim ersten Login
+    const timer = setTimeout(() => {
+      showNotification({
+        type: "info",
+        image: "/welcome-guru.png",
+        message: (
+          <span>
+            Willkommen bei jassguru.ch! 🎉<br />
+            <br />
+            Schön, dass du dabei bist! Unten rechts unter "Hilfe" findest du alles, was du wissen musst.
+          </span>
+        ),
+        actions: [
+          {
+            label: "Verstanden",
+            onClick: () => {
+              // Markiere als angezeigt, wenn Nutzer auf "Verstanden" klickt
+              if (typeof window !== 'undefined') {
+                localStorage.setItem(notificationKey, 'true');
+              }
+            }
+          }
+        ]
+      });
+      
+      // Markiere auch automatisch als angezeigt (falls Nutzer die Notification schließt ohne Button)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(notificationKey, 'true');
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [user, userGroups.length, joinedGroupName, isGuest, showNotification]);
+  
   // 🚨 SHARE-FUNKTION: Einfacher Text-Share ohne Screenshot
   const handleShareClick = async () => {
     if (!currentGroup) return;
@@ -1245,6 +1322,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
               <h1 className={`${layout.titleSize} font-bold mb-3 text-center`}>Willkommen bei jassguru.ch!</h1>
               <p className={`${layout.subtitleSize} text-gray-400 mb-6 text-center max-w-md`}>
                 Du bist noch keiner Gruppe beigetreten. Erstelle eine neue Gruppe oder gib hier einen Einladungscode ein, um loszulegen.
+              </p>
+              <p className={`text-sm text-gray-500 mb-6 text-center max-w-md`}>
+                Tipp: Klicke unten rechts in der Navigation auf "Hilfe", um alles über die App zu erfahren.
               </p>
                          </>
            )}

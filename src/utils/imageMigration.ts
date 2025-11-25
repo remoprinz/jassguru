@@ -14,7 +14,11 @@ export const shouldRecompressImage = async (
   imageUrl: string,
   maxSizeKB: number = 300
 ): Promise<boolean> => {
-  if (!imageUrl || !imageUrl.includes('firebasestorage.googleapis.com')) {
+  if (!imageUrl) return false;
+  try {
+    const url = new URL(imageUrl);
+    if (url.hostname !== 'firebasestorage.googleapis.com') return false;
+  } catch {
     return false;
   }
 

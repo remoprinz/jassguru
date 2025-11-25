@@ -654,7 +654,7 @@ export const getGroupMembersSortedByGames = async (groupId: string): Promise<Fir
         return sortedMembers;
       
     } catch (error) {
-        console.error(`Fehler beim Laden und Sortieren der Mitglieder für Gruppe ${groupId}:`, error);
+        console.error('Fehler beim Laden und Sortieren der Mitglieder für Gruppe:', groupId, error);
         throw new Error("Mitglieder konnten nicht geladen oder sortiert werden.");
     }
 };

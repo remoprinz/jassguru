@@ -66,7 +66,7 @@ const nextConfig = {
 
 const withPWA = withPWAInit({
   dest: 'public',
-  disable: process.env.NODE_ENV === 'development',
+  disable: process.env.NODE_ENV === 'development' || process.env.DISABLE_PWA === 'true',
   register: false, // WICHTIG: Wir nutzen unseren eigenen Service für die Registrierung
   skipWaiting: false, // 🛡️ KONTROLLIERTE Updates verhindern Race Conditions
   clientsClaim: false, // 🛡️ Nicht aggressiv claimen, um Chunk-Mismatches zu vermeiden

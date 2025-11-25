@@ -62,7 +62,6 @@
         "immer": "^10.1.1",
         "jsqr": "^1.4.0",
         "lucide-react": "^0.554.0",
-        "mdast-util-from-markdown": "^2.0.2",
         "microsoft-cognitiveservices-speech-sdk": "^1.42.0",
         "nanoid": "^5.1.5",
         "next": "^15.5.6",
@@ -82,7 +81,6 @@
         "react-swipeable": "^7.0.2",
         "react-zxing": "^2.1.0",
         "remark-gfm": "^4.0.1",
-        "remark-parse": "^11.0.0",
         "sonner": "^2.0.3",
         "styled-components": "^6.0.0",
         "styled-jsx": "^5.1.7",
@@ -9770,9 +9768,9 @@
       }
     },
     "node_modules/caniuse-lite": {
-      "version": "1.0.30001757",
-      "resolved": "https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30001757.tgz",
-      "integrity": "sha512-r0nnL/I28Zi/yjk1el6ilj27tKcdjLsNqAOZr0yVjWPrSQyHgKI2INaEWw21bAQSv2LXRt1XuCS/GomNpWOxsQ==",
+      "version": "1.0.30001756",
+      "resolved": "https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30001756.tgz",
+      "integrity": "sha512-4HnCNKbMLkLdhJz3TToeVWHSnfJvPaq6vu/eRP0Ahub/07n484XHhBF5AJoSGHdVrS8tKFauUQz8Bp9P7LVx7A==",
       "funding": [
         {
           "type": "opencollective",

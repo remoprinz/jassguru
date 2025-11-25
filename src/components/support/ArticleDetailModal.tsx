@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { 
   Dialog, 
@@ -32,13 +32,20 @@ export const ArticleDetailModal: React.FC<ArticleDetailModalProps> = ({
   onSelectArticle
 }) => {
   const [helpfulState, setHelpfulState] = useState<'idle' | 'yes' | 'no'>('idle');
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isOpen && article) {
       trackSupportArticleView(article.id, article.title);
       setHelpfulState('idle');
+      // Scroll nach oben beim Öffnen oder Wechsel des Artikels
+      // Kleiner Delay, damit der DOM gerendert ist bevor wir scrollen
+      const scrollTimer = setTimeout(() => {
+        scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 50);
+      return () => clearTimeout(scrollTimer);
     }
-  }, [isOpen, article]);
+  }, [isOpen, article?.id]); // Reagiere auf article.id statt article-Objekt
 
   if (!article) return null;
 
@@ -80,7 +87,7 @@ export const ArticleDetailModal: React.FC<ArticleDetailModalProps> = ({
         </DialogHeader>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
           
           {/* Steps */}
           {article.steps && article.steps.length > 0 ? (
@@ -177,7 +184,10 @@ export const ArticleDetailModal: React.FC<ArticleDetailModalProps> = ({
                  {article.nextSuggestedText || "Nächster empfohlener Schritt:"}
                </p>
                <button 
-                 onClick={() => onSelectArticle(nextArticle)}
+                 onClick={() => {
+                   onSelectArticle(nextArticle);
+                   // Scroll wird automatisch durch useEffect ausgelöst
+                 }}
                  className="flex items-center gap-3 w-full group"
                >
                  <div className={cn("p-2 rounded-lg shrink-0", getCategoryColor(nextArticle.category.mainId))}>
@@ -243,7 +253,10 @@ export const ArticleDetailModal: React.FC<ArticleDetailModalProps> = ({
                 {relatedArticles.map(related => (
                   <button
                     key={related.id}
-                    onClick={() => onSelectArticle(related)}
+                    onClick={() => {
+                      onSelectArticle(related);
+                      // Scroll wird automatisch durch useEffect ausgelöst
+                    }}
                     className="text-left text-sm text-blue-400 hover:text-blue-300 hover:underline py-1"
                   >
                     {related.title}

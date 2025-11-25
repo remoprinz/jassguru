@@ -57,7 +57,11 @@ export const getOptimizedFirebaseUrl = (
   width?: number,
   format: 'webp' | 'jpeg' = 'jpeg'
 ): string => {
-  if (!originalUrl || !originalUrl.includes('firebasestorage.googleapis.com')) {
+  if (!originalUrl) return originalUrl;
+  try {
+    const url = new URL(originalUrl);
+    if (url.hostname !== 'firebasestorage.googleapis.com') return originalUrl;
+  } catch {
     return originalUrl;
   }
 
