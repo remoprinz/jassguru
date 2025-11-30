@@ -847,18 +847,45 @@ export const GroupView: React.FC<GroupViewProps> = ({
     return getRankingFromChartData(schneiderChartData, members, playerStats);
   }, [schneiderChartData, members, playerStats]);
   
-  // ✅ TEAM-RANKINGS aus Chart-Daten
+  // ✅ TEAM-RANKINGS: Direkt aus Totals-Maps (ALLE Teams, nicht nur Top 15!)
   const teamStricheRanking = useMemo(() => {
-    return getTeamRankingFromChartData(teamStricheChartData, members);
-  }, [teamStricheChartData, members]);
+    // ✅ DIREKT aus teamStricheTotals: Zeigt ALLE Teams, nicht nur Top 15!
+    return Array.from(teamStricheTotals.entries())
+      .map(([teamName, totals]) => ({
+        teamName,
+        bilanz: totals.made - totals.received,
+        made: totals.made,
+        received: totals.received
+      }))
+      .filter(team => team.made > 0 || team.received > 0)
+      .sort((a, b) => b.bilanz - a.bilanz);
+  }, [teamStricheTotals]);
   
   const teamPointsRanking = useMemo(() => {
-    return getTeamRankingFromChartData(teamPointsChartData, members);
-  }, [teamPointsChartData, members]);
+    // ✅ DIREKT aus teamPointsTotals: Zeigt ALLE Teams, nicht nur Top 15!
+    return Array.from(teamPointsTotals.entries())
+      .map(([teamName, totals]) => ({
+        teamName,
+        bilanz: totals.made - totals.received,
+        made: totals.made,
+        received: totals.received
+      }))
+      .filter(team => team.made > 0 || team.received > 0)
+      .sort((a, b) => b.bilanz - a.bilanz);
+  }, [teamPointsTotals]);
   
   const teamMatschRanking = useMemo(() => {
-    return getTeamRankingFromChartData(teamMatschChartData, members);
-  }, [teamMatschChartData, members]);
+    // ✅ Bereits korrekt: Direkt aus teamEventCountsMap (ALLE Teams!)
+    return Array.from(teamEventCountsMap.entries())
+      .map(([teamName, counts]) => ({
+        teamName,
+        bilanz: counts.eventsMade - counts.eventsReceived,
+        eventsMade: counts.eventsMade,
+        eventsReceived: counts.eventsReceived
+      }))
+      .filter(team => team.eventsMade > 0 || team.eventsReceived > 0)
+      .sort((a, b) => b.bilanz - a.bilanz);
+  }, [teamEventCountsMap]);
 
   // ✅ NEU: Hilfsfunktion um aktuellen Wert aus Chart-Daten zu holen
   const getCurrentValueFromChart = (chartData: any, playerId: string): number => {
@@ -2917,54 +2944,53 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Strichdifferenz Rangliste</h3>
                       </div>
                       <div ref={teamStricheDiffRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
-                        {teamStricheRanking && teamStricheRanking.length > 0 ? (
-                          teamStricheRanking
-                            .filter(team => team.dataPoints > 0)
-                            .map((team) => {
-                              // Extrahiere Spieler-Namen aus Team-Namen
-                              const names = team.teamName.split(' & ');
-                              const stricheTotals = teamStricheTotals.get(team.teamName) || { made: 0, received: 0 };
-                              return (
-                                <div key={`team-${team.teamId}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
-                                  <div className="flex items-center">
-                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{team.rank}.</span>
-                                    <div className="flex mr-2">
-                                      <ProfileImage 
-                                        src={findPlayerPhotoByName(names[0], members)} 
-                                        alt={names[0]} 
-                                        size={layout.profileImageListSize}
-                                        className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                        style={{ zIndex: 1 }}
-                                        fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                        fallbackText={names[0].charAt(0).toUpperCase()}
-                                        context="list"
-                                      />
-                                      <ProfileImage 
-                                        src={findPlayerPhotoByName(names[1], members)} 
-                                        alt={names[1]} 
-                                        size={layout.profileImageListSize}
-                                        className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                        style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
-                                        fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                        fallbackText={names[1] ? names[1].charAt(0).toUpperCase() : '?'}
-                                        context="list"
-                                      />
-                                    </div>
-                                    <span className={`${layout.bodySize} text-gray-300`}>{team.teamName}</span>
+                        {teamStricheRanking.length > 0 ? (
+                          teamStricheRanking.map((team, index) => {
+                            // Extrahiere Spieler-Namen aus Team-Namen
+                            const names = team.teamName.split(' & ');
+                            return (
+                              <div key={`team-${team.teamName}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                                <div className="flex items-center">
+                                  <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
+                                  <div className="flex mr-2">
+                                    <ProfileImage 
+                                      src={findPlayerPhotoByName(names[0], members)} 
+                                      alt={names[0]} 
+                                      size={layout.profileImageListSize}
+                                      className={`border-2 border-gray-800 ${theme.profileImage}`}
+                                      style={{ zIndex: 1 }}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
+                                      fallbackText={names[0].charAt(0).toUpperCase()}
+                                      context="list"
+                                    />
+                                    <ProfileImage 
+                                      src={findPlayerPhotoByName(names[1], members)} 
+                                      alt={names[1]} 
+                                      size={layout.profileImageListSize}
+                                      className={`border-2 border-gray-800 ${theme.profileImage}`}
+                                      style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
+                                      fallbackText={names[1] ? names[1].charAt(0).toUpperCase() : '?'}
+                                      context="list"
+                                    />
                                   </div>
-                                  <span className="font-medium mr-2">
-                                    <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                      ({stricheTotals.made}/{stricheTotals.received})
-                                    </span>
-                                    <span className={`${getValueColor(team.currentValue, false)} ${layout.valueSize} font-medium`}>
-                                      {team.currentValue > 0 ? '+' : ''}{team.currentValue}
-                                    </span>
-                                  </span>
+                                  <span className={`${layout.bodySize} text-gray-300`}>{team.teamName}</span>
                                 </div>
-                              );
-                            })
+                                <span className="font-medium mr-2">
+                                  <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
+                                    ({team.made}/{team.received})
+                                  </span>
+                                  <span className={`${getValueColor(team.bilanz, false)} ${layout.valueSize} font-medium`}>
+                                    {team.bilanz > 0 ? '+' : ''}{team.bilanz}
+                                  </span>
+                                </span>
+                              </div>
+                            );
+                          })
                         ) : (
-                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine Daten verfügbar</div>
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>
+                            {teamStricheChartLoading ? 'Lade Daten...' : 'Keine Strichdifferenz-Daten verfügbar'}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -3011,54 +3037,53 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Punktedifferenz Rangliste</h3>
                       </div>
                       <div ref={teamPointsDiffRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
-                        {teamPointsRanking && teamPointsRanking.length > 0 ? (
-                          teamPointsRanking
-                            .filter(team => team.dataPoints > 0)
-                            .map((team) => {
-                              // Extrahiere Spieler-Namen aus Team-Namen
-                              const names = team.teamName.split(' & ');
-                              const pointsTotals = teamPointsTotals.get(team.teamName) || { made: 0, received: 0 };
-                              return (
-                                <div key={`team-${team.teamId}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
-                                  <div className="flex items-center">
-                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{team.rank}.</span>
-                                    <div className="flex mr-2">
-                                      <ProfileImage 
-                                        src={findPlayerPhotoByName(names[0], members)} 
-                                        alt={names[0]} 
-                                        size={layout.profileImageListSize}
-                                        className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                        style={{ zIndex: 1 }}
-                                        fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                        fallbackText={names[0].charAt(0).toUpperCase()}
-                                        context="list"
-                                      />
-                                      <ProfileImage 
-                                        src={findPlayerPhotoByName(names[1], members)} 
-                                        alt={names[1]} 
-                                        size={layout.profileImageListSize}
-                                        className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                        style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
-                                        fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                        fallbackText={names[1] ? names[1].charAt(0).toUpperCase() : '?'}
-                                        context="list"
-                                      />
-                                    </div>
-                                    <span className={`${layout.bodySize} text-gray-300`}>{team.teamName}</span>
+                        {teamPointsRanking.length > 0 ? (
+                          teamPointsRanking.map((team, index) => {
+                            // Extrahiere Spieler-Namen aus Team-Namen
+                            const names = team.teamName.split(' & ');
+                            return (
+                              <div key={`team-${team.teamName}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                                <div className="flex items-center">
+                                  <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
+                                  <div className="flex mr-2">
+                                    <ProfileImage 
+                                      src={findPlayerPhotoByName(names[0], members)} 
+                                      alt={names[0]} 
+                                      size={layout.profileImageListSize}
+                                      className={`border-2 border-gray-800 ${theme.profileImage}`}
+                                      style={{ zIndex: 1 }}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
+                                      fallbackText={names[0].charAt(0).toUpperCase()}
+                                      context="list"
+                                    />
+                                    <ProfileImage 
+                                      src={findPlayerPhotoByName(names[1], members)} 
+                                      alt={names[1]} 
+                                      size={layout.profileImageListSize}
+                                      className={`border-2 border-gray-800 ${theme.profileImage}`}
+                                      style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
+                                      fallbackText={names[1] ? names[1].charAt(0).toUpperCase() : '?'}
+                                      context="list"
+                                    />
                                   </div>
-                                  <span className="font-medium mr-2">
-                                    <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                      ({formatPointsWithK(pointsTotals.made)}/{formatPointsWithK(pointsTotals.received)})
-                                    </span>
-                                    <span className={`${getValueColor(team.currentValue, false)} ${layout.valueSize} font-medium`}>
-                                      {team.currentValue > 0 ? '+' : ''}{team.currentValue}
-                                    </span>
-                                  </span>
+                                  <span className={`${layout.bodySize} text-gray-300`}>{team.teamName}</span>
                                 </div>
-                              );
-                            })
+                                <span className="font-medium mr-2">
+                                  <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
+                                    ({formatPointsWithK(team.made)}/{formatPointsWithK(team.received)})
+                                  </span>
+                                  <span className={`${getValueColor(team.bilanz, false)} ${layout.valueSize} font-medium`}>
+                                    {team.bilanz > 0 ? '+' : ''}{team.bilanz}
+                                  </span>
+                                </span>
+                              </div>
+                            );
+                          })
                         ) : (
-                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine Daten verfügbar</div>
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>
+                            {teamPointsChartLoading ? 'Lade Daten...' : 'Keine Punktedifferenz-Daten verfügbar'}
+                          </div>
                         )}
                       </div>
                     </div>
