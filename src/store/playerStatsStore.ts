@@ -115,9 +115,20 @@ export const usePlayerStatsStore = create<PlayerStatsState & PlayerStatsActions>
             schneiderEventsReceivedWith: data.schneiderEventsReceivedWith || 0,
             kontermatschEventsMadeWith: data.kontermatschEventsMadeWith || 0,
             kontermatschEventsReceivedWith: data.kontermatschEventsReceivedWith || 0,
-            sessionWinRate: data.sessionWinRateWith || 0,
-            gameWinRate: data.gameWinRateWith || 0,
-            // ✅ NEU: Rundentempo & Trumpfansagen
+            // ✅ LIVE-BERECHNUNG: WinRates direkt aus Rohdaten (Draws werden ignoriert)
+            sessionWinRate: (() => {
+              const wins = data.sessionsWonWith || 0;
+              const losses = data.sessionsLostWith || 0;
+              const decided = wins + losses;
+              return decided > 0 ? wins / decided : 0;
+            })(),
+            gameWinRate: (() => {
+              const wins = data.gamesWonWith || data.wins || 0;
+              const losses = data.gamesLostWith || 0;
+              const decided = wins + losses;
+              return decided > 0 ? wins / decided : 0;
+            })(),
+            // ✅ Rundentempo & Trumpfansagen
             trumpfStatistikWith: data.trumpfStatistikWith || {},
             avgRoundDurationWith: data.avgRoundDurationWith || 0,
           };
@@ -152,9 +163,20 @@ export const usePlayerStatsStore = create<PlayerStatsState & PlayerStatsActions>
             schneiderEventsReceivedAgainst: data.schneiderEventsReceivedAgainst || 0,
             kontermatschEventsMadeAgainst: data.kontermatschEventsMadeAgainst || 0,
             kontermatschEventsReceivedAgainst: data.kontermatschEventsReceivedAgainst || 0,
-            sessionWinRate: data.sessionWinRateAgainst || 0,
-            gameWinRate: data.gameWinRateAgainst || 0,
-            // ✅ NEU: Rundentempo & Trumpfansagen
+            // ✅ LIVE-BERECHNUNG: WinRates direkt aus Rohdaten (Draws werden ignoriert)
+            sessionWinRate: (() => {
+              const wins = data.sessionsWonAgainst || 0;
+              const losses = data.sessionsLostAgainst || 0;
+              const decided = wins + losses;
+              return decided > 0 ? wins / decided : 0;
+            })(),
+            gameWinRate: (() => {
+              const wins = data.gamesWonAgainst || data.wins || 0;
+              const losses = data.gamesLostAgainst || 0;
+              const decided = wins + losses;
+              return decided > 0 ? wins / decided : 0;
+            })(),
+            // ✅ Rundentempo & Trumpfansagen
             trumpfStatistikAgainst: data.trumpfStatistikAgainst || {},
             avgRoundDurationAgainst: data.avgRoundDurationAgainst || 0,
           };

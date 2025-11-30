@@ -246,7 +246,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   }
 
   return (
-    <div className="h-full w-full absolute inset-0 bg-gray-900 overflow-y-auto">
+    <div className="h-full w-full absolute inset-0 overflow-y-auto isolate">
+      <div className="fixed inset-0 bg-gray-900 -z-10" />
       {/* 📱 MOBILE VERSION - BLEIBT UNVERÄNDERT! */}
       <div className="lg:hidden flex flex-col items-center justify-center min-h-screen py-8 px-4">
         <motion.div
@@ -255,15 +256,17 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           transition={{duration: 0.3}}
           className="w-full max-w-md bg-gray-800 rounded-xl p-6 shadow-2xl space-y-6 my-2"
         >
-          <div className="flex flex-col items-center justify-center space-y-3">
-            <div className="relative w-24 h-24 mb-2">
-              <Image
-                src="/welcome-guru.png"
-                alt="Jass Kreidetafel"
-                fill={true}
-                className="object-contain"
-                priority
-              />
+          <div className="flex flex-col space-y-3">
+            <div className="flex justify-center">
+              <div className="relative w-24 h-24 mb-2">
+                <Image
+                  src="/welcome-guru.png"
+                  alt="Jass Kreidetafel"
+                  fill={true}
+                  className="object-contain"
+                  priority
+                />
+              </div>
             </div>
 
             <h1 className="text-3xl font-bold text-white text-center">
@@ -273,12 +276,12 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             <p className="text-base text-gray-300 text-center -mt-2 leading-relaxed">
               {displayMode === "pwa" ? null : (
                 <>
-                  Jassguru ändert das. Wir erfassen deine Spiele digital und liefern Profi-Statistiken, damit du deinen Kopf frei hast fürs Kartenzählen – und endlich klar ist, wer nicht nur Schnorren, sondern auch Jassen kann.
+                  Jassguru ändert das. Wir erfassen die Spiele von deiner Jassgruppe digital und liefern Profi-Statistiken — damit endlich klar wird, wer nicht nur schnorren, sondern auch jassen kann.
                 </>
               )}
             </p>
 
-            <div className="text-gray-300 text-center">
+            <div className="text-gray-300 text-left w-full pl-1">
               {displayMode === "pwa" ? (
                 <div className="text-left">
                   <div className="mb-3">
@@ -294,16 +297,16 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               ) : (
                 <div className="text-left">
                   <div className="mb-4">
-                    <strong className="text-white">Sieh selbst, was du kriegst:</strong>
+                    <strong className="text-white">Sieh selbst, was dich erwartet:</strong>
                   </div>
                   
-                  <div className="space-y-2">
+                  <div className="space-y-0.5">
                     <div>
                       <a 
                         href="https://jassguru.ch/view/group/Tz0wgIHMTlhvTtFastiJ" 
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center space-x-1.5 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors py-1"
+                        className="flex items-center space-x-1.5 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors py-0"
                       >
                         <span>👉</span>
                         <span>Die ewige Gruppen-Rangliste</span>
@@ -314,15 +317,26 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                         href="https://jassguru.ch/profile/b16c1120111b7d9e7d733837" 
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center space-x-1.5 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors py-1"
+                        className="flex items-center space-x-1.5 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors py-0"
                       >
-                        <span>👉</span>
+                        <span>🙍‍♂️</span>
                         <span>Profil & Bestleistungen</span>
                       </a>
                     </div>
                     <div>
-                      <Link href="/features" className="flex items-center space-x-1.5 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors py-1">
-                        <span>👉</span>
+                      <a 
+                        href="https://jassguru.ch/view/tournament/6RdW4o4PRv0UzsZWysex/" 
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center space-x-1.5 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors py-0"
+                      >
+                        <span>🏆</span>
+                        <span>Turniere & Verläufe</span>
+                      </a>
+                    </div>
+                    <div>
+                      <Link href="/features" className="flex items-center space-x-1.5 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors py-0">
+                        <span>👁️</span>
                         <span>Die interaktive Feature-Tour</span>
                       </Link>
                     </div>
@@ -331,7 +345,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                         href="https://chatgpt.com/g/g-69219897884881918763e35fccae748e-jassguru" 
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center space-x-1.5 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors py-1"
+                        className="flex items-center space-x-1.5 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors py-0"
                       >
                         <span>💬</span>
                         <span>Frag den Jass-Guru (ChatGPT)</span>

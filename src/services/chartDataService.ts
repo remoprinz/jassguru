@@ -642,8 +642,7 @@ export async function getOptimizedTeamMatschChart(
     summariesSnap.docs.forEach(summaryDoc => {
       const data = summaryDoc.data();
       const isTournament = data.isTournamentSession || 
-                           !!data.tournamentId || 
-                           (Array.isArray(data.gameResults) && data.gameResults.length > 0);
+                           !!data.tournamentId;
       
       if (isTournament && data.gameResults && Array.isArray(data.gameResults)) {
         data.gameResults.forEach((game: any) => {
@@ -675,9 +674,11 @@ export async function getOptimizedTeamMatschChart(
       return sortedIds.join('-');
     };
     
-    // Helper: Team-Namen generieren (mit aktuellen DisplayNames)
+    // Helper: Team-Namen generieren (mit aktuellen DisplayNames, SORTIERT!)
     const getTeamName = (players: Array<{ playerId: string; displayName?: string }>): string => {
-      return players.map(p => playerDisplayNames.get(p.playerId) || p.displayName || p.playerId).join(' & ');
+      // ✅ KRITISCH: Sortiere ERST nach playerId, DANN hole Namen (für konsistente Team-Namen!)
+      const sortedPlayers = [...players].sort((a, b) => a.playerId.localeCompare(b.playerId));
+      return sortedPlayers.map(p => playerDisplayNames.get(p.playerId) || p.displayName || p.playerId).join(' & ');
     };
     
     // Helper: Prüft, ob ein Team aktiv ist (beide Spieler müssen aktiv sein)
@@ -701,8 +702,7 @@ export async function getOptimizedTeamMatschChart(
       const sessionId = summaryDoc.id;
       // 🎯 ROBUSTE TOURNAMENT-ERKENNUNG: Prüfe tournamentId, gameResults oder isTournamentSession
       const isTournament = data.isTournamentSession || 
-                           !!data.tournamentId || 
-                           (Array.isArray(data.gameResults) && data.gameResults.length > 0) ||
+                           !!data.tournamentId ||
                            sessionId === '6eNr8fnsTO06jgCqjelt';
       
       // ✅ TURNIER: Aggregiere alle Game-Level-Teams
@@ -876,6 +876,19 @@ export async function getTeamEventCounts(
   const teamEventCountsMap = new Map<string, { eventsMade: number; eventsReceived: number }>();
   
   try {
+    // 🎯 KRITISCH: Lade aktuelle Player-DisplayNames (für korrekte Namen bei Umbenennungen)
+    const playerDisplayNames = new Map<string, string>();
+    try {
+      const playersSnap = await getDocs(
+        query(collection(db, 'players'), where('groupIds', 'array-contains', groupId))
+      );
+      playersSnap.forEach(doc => {
+        playerDisplayNames.set(doc.id, doc.data().displayName);
+      });
+    } catch (error) {
+      console.warn('[getTeamEventCounts] Could not load player names:', error);
+    }
+    
     const summariesSnap = await getDocs(
       query(
         collection(db, `groups/${groupId}/jassGameSummaries`),
@@ -890,15 +903,20 @@ export async function getTeamEventCounts(
       return sortedIds.join('-');
     };
     
-    // Helper: Team-Namen generieren
+    // Helper: Team-Namen generieren (mit aktuellen DisplayNames, SORTIERT!)
     const getTeamName = (players: Array<{ playerId: string; displayName?: string }>): string => {
-      return players.map(p => p.displayName || p.playerId).join(' & ');
+      // ✅ KRITISCH: Sortiere ERST nach playerId, DANN hole Namen (für konsistente Team-Namen!)
+      const sortedPlayers = [...players].sort((a, b) => a.playerId.localeCompare(b.playerId));
+      return sortedPlayers.map(p => playerDisplayNames.get(p.playerId) || p.displayName || p.playerId).join(' & ');
     };
     
     summariesSnap.docs.forEach((summaryDoc) => {
       const data = summaryDoc.data();
       const sessionId = summaryDoc.id;
-      const isTournament = data.isTournamentSession || sessionId === '6eNr8fnsTO06jgCqjelt';
+      // 🎯 KORREKTE TOURNAMENT-ERKENNUNG: Nur explizite Turniere!
+      const isTournament = data.isTournamentSession || 
+                           !!data.tournamentId ||
+                           sessionId === '6eNr8fnsTO06jgCqjelt';
       
       if (isTournament && data.gameResults && Array.isArray(data.gameResults)) {
         // ✅ TURNIER: Aggregiere Event-Counts pro Game
@@ -967,6 +985,346 @@ export async function getTeamEventCounts(
 }
 
 /**
+ * 🎯 NEU: Lade Spieler-Event-Counts (Matsch, Schneider) für eine Gruppe
+ * Gibt für jeden Spieler Made/Received-Counts zurück
+ */
+export async function getPlayerEventCounts(
+  groupId: string,
+  eventType: 'matsch' | 'schneider' = 'matsch'
+): Promise<Map<string, { eventsMade: number; eventsReceived: number }>> {
+  const playerEventCountsMap = new Map<string, { eventsMade: number; eventsReceived: number }>();
+  
+  try {
+    const summariesSnap = await getDocs(
+      query(
+        collection(db, `groups/${groupId}/jassGameSummaries`),
+        where('status', '==', 'completed'),
+        orderBy('completedAt', 'asc')
+      )
+    );
+    
+    summariesSnap.docs.forEach((summaryDoc) => {
+      const data = summaryDoc.data();
+      const sessionId = summaryDoc.id;
+      const isTournament = data.isTournamentSession || !!data.tournamentId;
+      
+      if (isTournament && data.gameResults && Array.isArray(data.gameResults)) {
+        // ✅ TURNIER: Aggregiere Event-Counts pro Game pro Spieler
+        const gameResults = data.gameResults;
+        
+        gameResults.forEach((game: any) => {
+          const gameEventCounts = game.eventCounts || {};
+          const gameTeams = game.teams || {};
+          
+          ['top', 'bottom'].forEach(teamKey => {
+            const teamPlayers = gameTeams[teamKey]?.players || [];
+            const opponentKey = teamKey === 'top' ? 'bottom' : 'top';
+            
+            teamPlayers.forEach((player: any) => {
+              const playerId = player.playerId;
+              if (!playerId) return;
+              
+              // Event-Counts für diesen Spieler in diesem Game
+              const teamEvents = gameEventCounts[teamKey] || {};
+              const opponentEvents = gameEventCounts[opponentKey] || {};
+              
+              const made = teamEvents[eventType] || 0;
+              const received = opponentEvents[eventType] || 0;
+              
+              if (!playerEventCountsMap.has(playerId)) {
+                playerEventCountsMap.set(playerId, { eventsMade: 0, eventsReceived: 0 });
+              }
+              const stats = playerEventCountsMap.get(playerId)!;
+              stats.eventsMade += made;
+              stats.eventsReceived += received;
+            });
+          });
+        });
+      } else {
+        // ✅ NORMALE SESSION: Verwende Session-Level Event-Counts
+        const eventCounts = data.eventCounts || {};
+        const teams = data.teams || {};
+        
+        ['top', 'bottom'].forEach(teamKey => {
+          const teamPlayers = teams[teamKey]?.players || [];
+          const opponentKey = teamKey === 'top' ? 'bottom' : 'top';
+          
+          teamPlayers.forEach((player: any) => {
+            const playerId = player.playerId;
+            if (!playerId) return;
+            
+            // Event-Counts für diesen Spieler in dieser Session
+            const teamEvents = eventCounts[teamKey] || {};
+            const opponentEvents = eventCounts[opponentKey] || {};
+            
+            const made = teamEvents[eventType] || 0;
+            const received = opponentEvents[eventType] || 0;
+            
+            if (!playerEventCountsMap.has(playerId)) {
+              playerEventCountsMap.set(playerId, { eventsMade: 0, eventsReceived: 0 });
+            }
+            const stats = playerEventCountsMap.get(playerId)!;
+            stats.eventsMade += made;
+            stats.eventsReceived += received;
+          });
+        });
+      }
+    });
+  } catch (error) {
+    console.error('[getPlayerEventCounts] Fehler:', error);
+  }
+  
+  return playerEventCountsMap;
+}
+
+/**
+ * 🎯 NEU: Lade Spieler-Striche/Punkte-Totals für eine Gruppe
+ * Gibt für jeden Spieler gemachte/erhaltene Striche oder Punkte zurück
+ */
+export async function getPlayerStrichePointsTotals(
+  groupId: string,
+  type: 'striche' | 'points' = 'striche'
+): Promise<Map<string, { made: number; received: number }>> {
+  const playerTotalsMap = new Map<string, { made: number; received: number }>();
+  
+  try {
+    const summariesSnap = await getDocs(
+      query(
+        collection(db, `groups/${groupId}/jassGameSummaries`),
+        where('status', '==', 'completed'),
+        orderBy('completedAt', 'asc')
+      )
+    );
+    
+    // Helper: Berechne totale Striche aus finalStriche-Objekt
+    const getTotalStriche = (finalStricheObj: any): number => {
+      if (!finalStricheObj) return 0;
+      let total = 0;
+      for (const val of Object.values(finalStricheObj)) {
+        total += (Number(val) || 0);
+      }
+      return total;
+    };
+    
+    summariesSnap.docs.forEach((summaryDoc) => {
+      const data = summaryDoc.data();
+      const sessionId = summaryDoc.id;
+      const isTournament = data.isTournamentSession || 
+                           !!data.tournamentId ||
+                           sessionId === '6eNr8fnsTO06jgCqjelt';
+      
+      if (isTournament && data.gameResults && Array.isArray(data.gameResults)) {
+        // ✅ TURNIER: Aggregiere pro Game pro Spieler
+        const gameResults = data.gameResults;
+        
+        gameResults.forEach((game: any) => {
+          const gameTeams = game.teams || {};
+          
+          ['top', 'bottom'].forEach(teamKey => {
+            const teamPlayers = gameTeams[teamKey]?.players || [];
+            const opponentKey = teamKey === 'top' ? 'bottom' : 'top';
+            
+            let teamScore = 0;
+            let opponentScore = 0;
+            
+            if (type === 'striche') {
+              // Striche: Summiere alle Strich-Typen aus finalStriche
+              teamScore = getTotalStriche(game.finalStriche?.[teamKey]);
+              opponentScore = getTotalStriche(game.finalStriche?.[opponentKey]);
+            } else {
+              // Punkte: Verwende topScore/bottomScore
+              teamScore = teamKey === 'top' ? (game.topScore || 0) : (game.bottomScore || 0);
+              opponentScore = teamKey === 'top' ? (game.bottomScore || 0) : (game.topScore || 0);
+            }
+            
+            teamPlayers.forEach((player: any) => {
+              const playerId = player.playerId;
+              if (!playerId) return;
+              
+              if (!playerTotalsMap.has(playerId)) {
+                playerTotalsMap.set(playerId, { made: 0, received: 0 });
+              }
+              const stats = playerTotalsMap.get(playerId)!;
+              stats.made += teamScore;
+              stats.received += opponentScore;
+            });
+          });
+        });
+      } else {
+        // ✅ NORMALE SESSION: Aggregiere aus gameResults
+        const teams = data.teams || {};
+        const gameResults = data.gameResults || [];
+        
+        ['top', 'bottom'].forEach(teamKey => {
+          const teamPlayers = teams[teamKey]?.players || [];
+          const opponentKey = teamKey === 'top' ? 'bottom' : 'top';
+          
+          let teamTotal = 0;
+          let opponentTotal = 0;
+          
+          // Summiere über alle Games dieser Session
+          gameResults.forEach((game: any) => {
+            if (type === 'striche') {
+              teamTotal += getTotalStriche(game.finalStriche?.[teamKey]);
+              opponentTotal += getTotalStriche(game.finalStriche?.[opponentKey]);
+            } else {
+              teamTotal += (teamKey === 'top' ? (game.topScore || 0) : (game.bottomScore || 0));
+              opponentTotal += (teamKey === 'top' ? (game.bottomScore || 0) : (game.topScore || 0));
+            }
+          });
+          
+          teamPlayers.forEach((player: any) => {
+            const playerId = player.playerId;
+            if (!playerId) return;
+            
+            if (!playerTotalsMap.has(playerId)) {
+              playerTotalsMap.set(playerId, { made: 0, received: 0 });
+            }
+            const stats = playerTotalsMap.get(playerId)!;
+            stats.made += teamTotal;
+            stats.received += opponentTotal;
+          });
+        });
+      }
+    });
+  } catch (error) {
+    console.error('[getPlayerStrichePointsTotals] Fehler:', error);
+  }
+  
+  return playerTotalsMap;
+}
+
+/**
+ * 🎯 NEU: Lade Team-Striche/Punkte-Totals für eine Gruppe
+ * Gibt für jedes Team gemachte/erhaltene Striche oder Punkte zurück
+ */
+export async function getTeamStrichePointsTotals(
+  groupId: string,
+  type: 'striche' | 'points' = 'striche'
+): Promise<Map<string, { made: number; received: number }>> {
+  const teamTotalsMap = new Map<string, { made: number; received: number }>();
+  
+  try {
+    // 🎯 KRITISCH: Lade aktuelle Player-DisplayNames
+    const playerDisplayNames = new Map<string, string>();
+    try {
+      const playersSnap = await getDocs(
+        query(collection(db, 'players'), where('groupIds', 'array-contains', groupId))
+      );
+      playersSnap.forEach(doc => {
+        playerDisplayNames.set(doc.id, doc.data().displayName);
+      });
+    } catch (error) {
+      console.warn('[getTeamStrichePointsTotals] Could not load player names:', error);
+    }
+    
+    const summariesSnap = await getDocs(
+      query(
+        collection(db, `groups/${groupId}/jassGameSummaries`),
+        where('status', '==', 'completed'),
+        orderBy('completedAt', 'asc')
+      )
+    );
+    
+    // Helper: Team-Namen generieren (SORTIERT!)
+    const getTeamName = (players: Array<{ playerId: string; displayName?: string }>): string => {
+      const sortedPlayers = [...players].sort((a, b) => a.playerId.localeCompare(b.playerId));
+      return sortedPlayers.map(p => playerDisplayNames.get(p.playerId) || p.displayName || p.playerId).join(' & ');
+    };
+    
+    // Helper: Berechne totale Striche aus finalStriche-Objekt
+    const getTotalStriche = (finalStricheObj: any): number => {
+      if (!finalStricheObj) return 0;
+      let total = 0;
+      for (const val of Object.values(finalStricheObj)) {
+        total += (Number(val) || 0);
+      }
+      return total;
+    };
+    
+    summariesSnap.docs.forEach((summaryDoc) => {
+      const data = summaryDoc.data();
+      const sessionId = summaryDoc.id;
+      const isTournament = data.isTournamentSession || 
+                           !!data.tournamentId ||
+                           sessionId === '6eNr8fnsTO06jgCqjelt';
+      
+      if (isTournament && data.gameResults && Array.isArray(data.gameResults)) {
+        // ✅ TURNIER: Aggregiere pro Game
+        const gameResults = data.gameResults;
+        
+        gameResults.forEach((game: any) => {
+          const gameTeams = game.teams || {};
+          
+          ['top', 'bottom'].forEach(teamKey => {
+            const teamPlayers = gameTeams[teamKey]?.players || [];
+            if (teamPlayers.length !== 2) return;
+            
+            const opponentKey = teamKey === 'top' ? 'bottom' : 'top';
+            const teamName = getTeamName(teamPlayers);
+            
+            let teamScore = 0;
+            let opponentScore = 0;
+            
+            if (type === 'striche') {
+              teamScore = getTotalStriche(game.finalStriche?.[teamKey]);
+              opponentScore = getTotalStriche(game.finalStriche?.[opponentKey]);
+            } else {
+              teamScore = teamKey === 'top' ? (game.topScore || 0) : (game.bottomScore || 0);
+              opponentScore = teamKey === 'top' ? (game.bottomScore || 0) : (game.topScore || 0);
+            }
+            
+            if (!teamTotalsMap.has(teamName)) {
+              teamTotalsMap.set(teamName, { made: 0, received: 0 });
+            }
+            const stats = teamTotalsMap.get(teamName)!;
+            stats.made += teamScore;
+            stats.received += opponentScore;
+          });
+        });
+      } else {
+        // ✅ NORMALE SESSION: Aggregiere aus gameResults
+        const teams = data.teams || {};
+        const gameResults = data.gameResults || [];
+        
+        ['top', 'bottom'].forEach(teamKey => {
+          const teamPlayers = teams[teamKey]?.players || [];
+          if (teamPlayers.length !== 2) return;
+          
+          const opponentKey = teamKey === 'top' ? 'bottom' : 'top';
+          const teamName = getTeamName(teamPlayers);
+          
+          let teamTotal = 0;
+          let opponentTotal = 0;
+          
+          // Summiere über alle Games dieser Session
+          gameResults.forEach((game: any) => {
+            if (type === 'striche') {
+              teamTotal += getTotalStriche(game.finalStriche?.[teamKey]);
+              opponentTotal += getTotalStriche(game.finalStriche?.[opponentKey]);
+            } else {
+              teamTotal += (teamKey === 'top' ? (game.topScore || 0) : (game.bottomScore || 0));
+              opponentTotal += (teamKey === 'top' ? (game.bottomScore || 0) : (game.topScore || 0));
+            }
+          });
+          
+          if (!teamTotalsMap.has(teamName)) {
+            teamTotalsMap.set(teamName, { made: 0, received: 0 });
+          }
+          const stats = teamTotalsMap.get(teamName)!;
+          stats.made += teamTotal;
+          stats.received += opponentTotal;
+        });
+      }
+    });
+  } catch (error) {
+    console.error('[getTeamStrichePointsTotals] Fehler:', error);
+  }
+  
+  return teamTotalsMap;
+}
+
+/**
  * 🚀 Lade Team-Strichdifferenz-Chart
  * Teams als "playerId1-playerId2" (sortiert) - nur Top 15 Teams
  */
@@ -1016,8 +1374,7 @@ export async function getOptimizedTeamStricheChart(
     summariesSnap.docs.forEach(summaryDoc => {
       const data = summaryDoc.data();
       const isTournament = data.isTournamentSession || 
-                           !!data.tournamentId || 
-                           (Array.isArray(data.gameResults) && data.gameResults.length > 0);
+                           !!data.tournamentId;
       
       if (isTournament && data.gameResults && Array.isArray(data.gameResults)) {
         data.gameResults.forEach((game: any) => {
@@ -1049,9 +1406,11 @@ export async function getOptimizedTeamStricheChart(
       return sortedIds.join('-');
     };
     
-    // Helper: Team-Namen generieren (mit aktuellen DisplayNames)
+    // Helper: Team-Namen generieren (mit aktuellen DisplayNames, SORTIERT!)
     const getTeamName = (players: Array<{ playerId: string; displayName?: string }>): string => {
-      return players.map(p => playerDisplayNames.get(p.playerId) || p.displayName || p.playerId).join(' & ');
+      // ✅ KRITISCH: Sortiere ERST nach playerId, DANN hole Namen (für konsistente Team-Namen!)
+      const sortedPlayers = [...players].sort((a, b) => a.playerId.localeCompare(b.playerId));
+      return sortedPlayers.map(p => playerDisplayNames.get(p.playerId) || p.displayName || p.playerId).join(' & ');
     };
     
     // Helper: Prüft, ob ein Team aktiv ist (beide Spieler müssen aktiv sein)
@@ -1075,8 +1434,7 @@ export async function getOptimizedTeamStricheChart(
       const sessionId = summaryDoc.id;
       // 🎯 ROBUSTE TOURNAMENT-ERKENNUNG: Prüfe tournamentId, gameResults oder isTournamentSession
       const isTournament = data.isTournamentSession || 
-                           !!data.tournamentId || 
-                           (Array.isArray(data.gameResults) && data.gameResults.length > 0) ||
+                           !!data.tournamentId ||
                            sessionId === '6eNr8fnsTO06jgCqjelt';
       
       // ✅ TURNIER: Aggregiere alle Game-Level-Teams
@@ -1297,8 +1655,7 @@ export async function getOptimizedTeamPointsChart(
     summariesSnap.docs.forEach(summaryDoc => {
       const data = summaryDoc.data();
       const isTournament = data.isTournamentSession || 
-                           !!data.tournamentId || 
-                           (Array.isArray(data.gameResults) && data.gameResults.length > 0);
+                           !!data.tournamentId;
       
       if (isTournament && data.gameResults && Array.isArray(data.gameResults)) {
         data.gameResults.forEach((game: any) => {
@@ -1330,9 +1687,11 @@ export async function getOptimizedTeamPointsChart(
       return sortedIds.join('-');
     };
     
-    // Helper: Team-Namen generieren (mit aktuellen DisplayNames)
+    // Helper: Team-Namen generieren (mit aktuellen DisplayNames, SORTIERT!)
     const getTeamName = (players: Array<{ playerId: string; displayName?: string }>): string => {
-      return players.map(p => playerDisplayNames.get(p.playerId) || p.displayName || p.playerId).join(' & ');
+      // ✅ KRITISCH: Sortiere ERST nach playerId, DANN hole Namen (für konsistente Team-Namen!)
+      const sortedPlayers = [...players].sort((a, b) => a.playerId.localeCompare(b.playerId));
+      return sortedPlayers.map(p => playerDisplayNames.get(p.playerId) || p.displayName || p.playerId).join(' & ');
     };
     
     // Helper: Prüft, ob ein Team aktiv ist (beide Spieler müssen aktiv sein)
@@ -1356,8 +1715,7 @@ export async function getOptimizedTeamPointsChart(
       const sessionId = summaryDoc.id;
       // 🎯 ROBUSTE TOURNAMENT-ERKENNUNG: Prüfe tournamentId, gameResults oder isTournamentSession
       const isTournament = data.isTournamentSession || 
-                           !!data.tournamentId || 
-                           (Array.isArray(data.gameResults) && data.gameResults.length > 0) ||
+                           !!data.tournamentId ||
                            sessionId === '6eNr8fnsTO06jgCqjelt';
       
       // ✅ TURNIER: Aggregiere alle Game-Level-Teams

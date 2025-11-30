@@ -20,18 +20,18 @@ class MyDocument extends Document {
           <meta name="theme-color" content="#000000" />
 
           {/* iOS-spezifische Icons */}
-          <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-          <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-          <link rel="apple-touch-icon" sizes="167x167" href="/apple-touch-icon.png" />
+          <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2" />
+          <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2" />
+          <link rel="apple-touch-icon" sizes="167x167" href="/apple-touch-icon.png?v=2" />
           
           {/* PWA Icons */}
-          <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
-          <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
+          <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png?v=2" />
+          <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=2" />
           
           {/* Favicon für Browser */}
-          <link rel="icon" href="/favicon.ico" />
-          <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-          <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+          <link rel="icon" href="/favicon.ico?v=2" />
+          <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=2" />
+          <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=2" />
           {/* Web App Manifest */}
           <link rel="manifest" href="/manifest.json" />
 

@@ -41,7 +41,7 @@ export async function getGlobalPlayerStricheTimeSeries(
 
       if (hasGameEntries) {
         const limitedHistory = historyEntries
-          .filter(e => e.eventType === 'game')
+          .filter(e => e.eventType === 'game' || e.eventType === 'session') // ✅ Akzeptiere auch Session-Events
           .slice(-limitCount);
 
         const stricheDiffData: number[] = [];

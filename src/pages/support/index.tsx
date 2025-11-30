@@ -100,7 +100,7 @@ export default function SupportPage() {
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-white mb-3">
-              Wie können wir helfen?
+              Was möchtest du wissen?
             </h1>
             <p className="text-gray-400 max-w-lg mx-auto">
               Durchsuche unsere Anleitungen, Tipps und Antworten auf häufige Fragen.
@@ -166,7 +166,7 @@ export default function SupportPage() {
                 Nicht gefunden was du suchst?
               </p>
               <a 
-                href="mailto:info@jassguru.ch"
+                href="mailto:remo@jassguru.ch"
                 className="inline-flex items-center justify-center px-6 py-3 bg-blue-600 hover:bg-blue-700 border-b-4 border-blue-900 text-white font-bold rounded-xl shadow-lg transition-all"
               >
                 Kontakt aufnehmen

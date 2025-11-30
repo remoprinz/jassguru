@@ -47,7 +47,9 @@ import {
   getOptimizedTeamPointsChart,
   getOptimizedTeamMatschChart,
   getTrumpfDistributionChartData,
-  getTeamEventCounts
+  getTeamEventCounts,
+  getPlayerStrichePointsTotals,
+  getTeamStrichePointsTotals
 } from '@/services/chartDataService';
 // ✅ NEU: Hilfsfunktion für Ranglisten aus Backfill-Daten
 import { getRankingFromChartData, getTeamRankingFromChartData } from '@/utils/chartRankingUtils';
@@ -622,6 +624,19 @@ export const GroupView: React.FC<GroupViewProps> = ({
   const [playerStats, setPlayerStats] = React.useState<any>({});
   const [playerStatsLoading, setPlayerStatsLoading] = React.useState(false); // ✅ NEU: Loading-State
   
+  // ✅ NEU: Spielezahl pro Spieler aus normalen Sessions (ohne Turniere) für diese Gruppe
+  const [playerGamesInGroup, setPlayerGamesInGroup] = React.useState<Map<string, number>>(new Map());
+  
+  // ✅ NEU: Event-Counts (Matsch, Schneider) pro Spieler
+  const [playerMatschCounts, setPlayerMatschCounts] = React.useState<Map<string, { eventsMade: number; eventsReceived: number }>>(new Map());
+  const [playerSchneiderCounts, setPlayerSchneiderCounts] = React.useState<Map<string, { eventsMade: number; eventsReceived: number }>>(new Map());
+  
+  // ✅ NEU: Striche/Punkte-Totals für Spieler und Teams
+  const [playerStricheTotals, setPlayerStricheTotals] = React.useState<Map<string, { made: number; received: number }>>(new Map());
+  const [playerPointsTotals, setPlayerPointsTotals] = React.useState<Map<string, { made: number; received: number }>>(new Map());
+  const [teamStricheTotals, setTeamStricheTotals] = React.useState<Map<string, { made: number; received: number }>>(new Map());
+  const [teamPointsTotals, setTeamPointsTotals] = React.useState<Map<string, { made: number; received: number }>>(new Map());
+  
   React.useEffect(() => {
     if (!members || members.length === 0) return;
     
@@ -640,26 +655,26 @@ export const GroupView: React.FC<GroupViewProps> = ({
           const playerDoc = await getDoc(doc(db, 'players', playerId));
           if (playerDoc.exists()) {
             const playerData = playerDoc.data();
+            // ✅ KORREKTUR: Auch Spieler ohne totalGames laden (für Robustheit)
+            const globalStats = playerData?.globalStats?.current || {};
             
-            if (playerData?.globalStats?.current?.totalGames) {
               return {
                 playerId,
                 stats: {
-                  gamesPlayed: playerData.globalStats.current.totalGames,
+                gamesPlayed: globalStats.totalGames || 0,
                   // ✅ NEU: Session-Statistiken direkt aus globalStats.current lesen
                   sessionStats: {
-                    wins: playerData.globalStats.current.sessionsWon || 0,
-                    losses: playerData.globalStats.current.sessionsLost || 0,
-                    draws: playerData.globalStats.current.sessionsDraw || 0
+                  wins: globalStats.sessionsWon || 0,
+                  losses: globalStats.sessionsLost || 0,
+                  draws: globalStats.sessionsDraw || 0
                   },
                   // ✅ NEU: Game-Statistiken aus globalStats.current lesen
                   gameStats: {
-                    wins: playerData.globalStats.current.gamesWon || 0,
-                    losses: playerData.globalStats.current.gamesLost || 0
+                  wins: globalStats.gamesWon || 0,
+                  losses: globalStats.gamesLost || 0
                   }
                 }
               };
-            }
           }
         } catch (error) {
           console.warn(`Fehler beim Laden der Stats für ${playerId}:`, error);
@@ -683,6 +698,65 @@ export const GroupView: React.FC<GroupViewProps> = ({
     
     loadPlayerStats();
   }, [members]);
+
+  // ✅ NEU: Lade Spielezahl pro Spieler aus ALLEN Sessions dieser Gruppe (inkl. Turniere)
+  // Entspricht playerStats?.totalGames in ProfileView.tsx, aber gefiltert nach dieser Gruppe
+  React.useEffect(() => {
+    if (!currentGroup?.id || !members || members.length === 0) return;
+
+    (async () => {
+      try {
+        const { collection, getDocs } = await import('firebase/firestore');
+        const { db } = await import('@/services/firebaseInit');
+        
+        // Lade jassGameSummaries aus dieser Gruppe
+        const summariesRef = collection(db, `groups/${currentGroup.id}/jassGameSummaries`);
+        const summariesSnapshot = await getDocs(summariesRef);
+        
+        const gamesByPlayer = new Map<string, number>();
+        const playerIdSet = new Set(members.map(m => m.id || m.userId).filter(Boolean));
+        
+        summariesSnapshot.forEach(doc => {
+          const summary = doc.data();
+          
+          // Nur abgeschlossene Sessions (inkl. Turniere!)
+          if (summary.status !== 'completed' && summary.status !== 'completed_empty') return;
+          
+          const isTournament = summary.isTournamentSession || summary.tournamentId;
+          
+          if (isTournament && summary.gameResults && Array.isArray(summary.gameResults)) {
+            // ✅ TURNIER: Zähle pro Spieler, in wie vielen Spielen er tatsächlich war
+            summary.gameResults.forEach((game: any) => {
+              const topPlayers = game.teams?.top?.players || [];
+              const bottomPlayers = game.teams?.bottom?.players || [];
+              
+              [...topPlayers, ...bottomPlayers].forEach((player: any) => {
+                const playerId = player.playerId;
+                if (playerId && playerIdSet.has(playerId)) {
+                  gamesByPlayer.set(playerId, (gamesByPlayer.get(playerId) || 0) + 1);
+                }
+              });
+            });
+          } else {
+            // ✅ NORMALE SESSION: Verwende gamesPlayed
+            const gamesPlayed = summary.gamesPlayed || 0;
+            const participantIds = summary.participantPlayerIds || [];
+            
+            participantIds.forEach((playerId: string) => {
+              if (playerIdSet.has(playerId)) {
+                gamesByPlayer.set(playerId, (gamesByPlayer.get(playerId) || 0) + gamesPlayed);
+              }
+            });
+          }
+        });
+        
+        setPlayerGamesInGroup(gamesByPlayer);
+      } catch (error) {
+        console.error('[GroupView] Fehler beim Laden der Spielezahl:', error);
+        setPlayerGamesInGroup(new Map());
+      }
+    })();
+  }, [currentGroup?.id, members]);
   
 
   // ✅ NEU: Session Win Rate Ranking aus playerStats (globalStats.current)
@@ -751,26 +825,27 @@ export const GroupView: React.FC<GroupViewProps> = ({
 
   // ✅ NEU: Ranglisten aus Backfill-Daten (statt groupStats)
   const stricheRanking = useMemo(() => {
-    if (Object.keys(playerStats || {}).length === 0) {
-      return [];
-    }
-    
+    // ✅ ROBUST: Zeige Ranking auch wenn playerStats noch lädt oder leer ist
     return getRankingFromChartData(stricheChartData, members, playerStats);
   }, [stricheChartData, members, playerStats]);
   
   const pointsRanking = useMemo(() => {
-    if (Object.keys(playerStats || {}).length === 0) {
-      return [];
-    }
+    // ✅ ROBUST: Zeige Ranking auch wenn playerStats noch lädt oder leer ist
     return getRankingFromChartData(pointsChartData, members, playerStats);
   }, [pointsChartData, members, playerStats]);
   
   const eloRanking = useMemo(() => {
-    if (Object.keys(playerStats || {}).length === 0) {
-      return [];
-    }
+    // ✅ ROBUST: Zeige Ranking auch wenn playerStats noch lädt oder leer ist
     return getRankingFromChartData(chartData, members, playerStats);
   }, [chartData, members, playerStats]);
+  
+  const matschRanking = useMemo(() => {
+    return getRankingFromChartData(matschChartData, members, playerStats);
+  }, [matschChartData, members, playerStats]);
+
+  const schneiderRanking = useMemo(() => {
+    return getRankingFromChartData(schneiderChartData, members, playerStats);
+  }, [schneiderChartData, members, playerStats]);
   
   // ✅ TEAM-RANKINGS aus Chart-Daten
   const teamStricheRanking = useMemo(() => {
@@ -925,6 +1000,14 @@ export const GroupView: React.FC<GroupViewProps> = ({
     if (value > 0) return 'text-emerald-500'; // ✅ Beste Grün-Farbe
     if (value < 0) return 'text-red-500'; // ✅ Beste Rot-Farbe
     return 'text-white';
+  };
+
+  // 🎨 NEU: Formatierung für Punkte mit k-Suffix (nur in Klammern!)
+  const formatPointsWithK = (points: number): string => {
+    if (points >= 1000) {
+      return `${(points / 1000).toFixed(0)}k`;
+    }
+    return points.toString();
   };
   
   // 🚨 WATCHDOG: Automatischer Reset wenn GroupView zu lange lädt
@@ -1271,6 +1354,63 @@ export const GroupView: React.FC<GroupViewProps> = ({
       .catch(error => {
         console.warn('Fehler beim Laden der Team Event-Counts:', error);
         setTeamEventCountsMap(new Map());
+      });
+  }, [currentGroup?.id]);
+
+  // ✅ NEU: Lade Spieler-Event-Counts (Matsch, Schneider) direkt aus jassGameSummaries
+  React.useEffect(() => {
+    if (!currentGroup?.id) return;
+    
+    Promise.all([
+      import('@/services/chartDataService').then(m => m.getPlayerEventCounts(currentGroup.id, 'matsch')),
+      import('@/services/chartDataService').then(m => m.getPlayerEventCounts(currentGroup.id, 'schneider'))
+    ])
+      .then(([matschMap, schneiderMap]) => {
+        setPlayerMatschCounts(matschMap);
+        setPlayerSchneiderCounts(schneiderMap);
+      })
+      .catch(error => {
+        console.warn('Fehler beim Laden der Spieler Event-Counts:', error);
+        setPlayerMatschCounts(new Map());
+        setPlayerSchneiderCounts(new Map());
+      });
+  }, [currentGroup?.id]);
+
+  // ✅ NEU: Lade Spieler-Striche/Punkte-Totals
+  React.useEffect(() => {
+    if (!currentGroup?.id) return;
+    
+    Promise.all([
+      getPlayerStrichePointsTotals(currentGroup.id, 'striche'),
+      getPlayerStrichePointsTotals(currentGroup.id, 'points')
+    ])
+      .then(([stricheMap, pointsMap]) => {
+        setPlayerStricheTotals(stricheMap);
+        setPlayerPointsTotals(pointsMap);
+      })
+      .catch(error => {
+        console.warn('Fehler beim Laden der Spieler Striche/Punkte-Totals:', error);
+        setPlayerStricheTotals(new Map());
+        setPlayerPointsTotals(new Map());
+      });
+  }, [currentGroup?.id]);
+
+  // ✅ NEU: Lade Team-Striche/Punkte-Totals
+  React.useEffect(() => {
+    if (!currentGroup?.id) return;
+    
+    Promise.all([
+      getTeamStrichePointsTotals(currentGroup.id, 'striche'),
+      getTeamStrichePointsTotals(currentGroup.id, 'points')
+    ])
+      .then(([stricheMap, pointsMap]) => {
+        setTeamStricheTotals(stricheMap);
+        setTeamPointsTotals(pointsMap);
+      })
+      .catch(error => {
+        console.warn('Fehler beim Laden der Team Striche/Punkte-Totals:', error);
+        setTeamStricheTotals(new Map());
+        setTeamPointsTotals(new Map());
       });
   }, [currentGroup?.id]);
 
@@ -2162,34 +2302,37 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             <p className={`${layout.bodySize} text-gray-400`}>Lade Rangliste...</p>
                           </div>
                         ) : stricheRanking.length > 0 ? (
-                          stricheRanking.map((player) => (
-                            <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`stricheDiff-${player.playerId}`} isClickable={!!player.playerId} className="block rounded-md">
-                              <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
-                                <div className="flex items-center">
-                                  <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{player.rank}.</span>
-                                  <ProfileImage 
-                                    src={player.playerData?.photoURL} 
-                                    alt={player.playerName} 
-                                    size={layout.profileImageListSize}
-                                    className={`mr-2 ${theme.profileImage}`}
-                                    fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                    fallbackText={player.playerName ? player.playerName.charAt(0).toUpperCase() : '?'}
-                                  />
-                                  <span className={`${layout.bodySize} text-gray-300`}>{player.playerName}</span>
-                                </div>
-                                <div className="flex items-center">
-                                  <span className="font-medium mr-2">
-                                    <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                      ({player.gamesPlayed || player.dataPoints})
+                          stricheRanking.map((player) => {
+                            const stricheTotals = playerStricheTotals.get(player.playerId) || { made: 0, received: 0 };
+                            return (
+                              <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`stricheDiff-${player.playerId}`} isClickable={!!player.playerId} className="block rounded-md">
+                                <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                                  <div className="flex items-center">
+                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{player.rank}.</span>
+                                    <ProfileImage 
+                                      src={player.playerData?.photoURL} 
+                                      alt={player.playerName} 
+                                      size={layout.profileImageListSize}
+                                      className={`mr-2 ${theme.profileImage}`}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
+                                      fallbackText={player.playerName ? player.playerName.charAt(0).toUpperCase() : '?'}
+                                    />
+                                    <span className={`${layout.bodySize} text-gray-300`}>{player.playerName}</span>
+                                  </div>
+                                  <div className="flex items-center">
+                                    <span className="font-medium mr-2">
+                                      <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
+                                        ({stricheTotals.made}/{stricheTotals.received})
+                                      </span>
+                                      <span className={`${getValueColor(player.currentValue, false)} ${layout.valueSize} font-medium`}>
+                                        {player.currentValue > 0 ? '+' : ''}{player.currentValue}
+                                      </span>
                                     </span>
-                                    <span className={`${getValueColor(player.currentValue, false)} ${layout.valueSize} font-medium`}>
-                                      {player.currentValue > 0 ? '+' : ''}{player.currentValue}
-                                    </span>
-                                  </span>
+                                  </div>
                                 </div>
-                              </div>
-                            </StatLink>
-                          ))
+                              </StatLink>
+                            );
+                          })
                         ) : (
                           <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>
                             {playerStatsLoading ? 'Lade Daten...' : 'Keine Strichdifferenz-Daten verfügbar'}
@@ -2249,35 +2392,38 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             <p className={`${layout.bodySize} text-gray-400`}>Lade Rangliste...</p>
                           </div>
                         ) : pointsRanking.length > 0 ? (
-                          pointsRanking.map((player) => (
-                            <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`pointsDiff-${player.playerId}`} isClickable={!!player.playerId} className="block rounded-md">
-                              <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
-                                <div className="flex items-center">
-                                  <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{player.rank}.</span>
-                                  <ProfileImage 
-                                    src={player.playerData?.photoURL} 
-                                    alt={player.playerName} 
-                                    size={layout.profileImageListSize}
-                                    className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
-                                    fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                    fallbackText={player.playerName ? player.playerName.charAt(0).toUpperCase() : '?'}
-                                    context="list"
-                                  />
-                                  <span className={`${layout.bodySize} text-gray-300`}>{player.playerName}</span>
-                                </div>
-                                <div className="flex items-center">
-                                  <span className="font-medium mr-2">
-                                    <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                      ({player.gamesPlayed || player.dataPoints})
+                          pointsRanking.map((player) => {
+                            const pointsTotals = playerPointsTotals.get(player.playerId) || { made: 0, received: 0 };
+                            return (
+                              <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`pointsDiff-${player.playerId}`} isClickable={!!player.playerId} className="block rounded-md">
+                                <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                                  <div className="flex items-center">
+                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{player.rank}.</span>
+                                    <ProfileImage 
+                                      src={player.playerData?.photoURL} 
+                                      alt={player.playerName} 
+                                      size={layout.profileImageListSize}
+                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
+                                      fallbackText={player.playerName ? player.playerName.charAt(0).toUpperCase() : '?'}
+                                      context="list"
+                                    />
+                                    <span className={`${layout.bodySize} text-gray-300`}>{player.playerName}</span>
+                                  </div>
+                                  <div className="flex items-center">
+                                    <span className="font-medium mr-2">
+                                      <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
+                                        ({formatPointsWithK(pointsTotals.made)}/{formatPointsWithK(pointsTotals.received)})
+                                      </span>
+                                      <span className={`${getValueColor(player.currentValue, false)} ${layout.valueSize} font-medium`}>
+                                        {player.currentValue > 0 ? '+' : ''}{player.currentValue}
+                                      </span>
                                     </span>
-                                    <span className={`${getValueColor(player.currentValue, false)} ${layout.valueSize} font-medium`}>
-                                      {player.currentValue > 0 ? '+' : ''}{player.currentValue}
-                                    </span>
-                                  </span>
+                                  </div>
                                 </div>
-                              </div>
-                            </StatLink>
-                          ))
+                              </StatLink>
+                            );
+                          })
                         ) : (
                           <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>
                             {playerStatsLoading ? 'Lade Daten...' : 'Keine Punktedifferenz-Daten verfügbar'}
@@ -2540,50 +2686,44 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Matsch-Bilanz Rangliste</h3>
                       </div>
                       <div ref={playerMatschRateRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
-                        {(() => {
-                          if (groupStats?.playerWithHighestMatschBilanz && groupStats.playerWithHighestMatschBilanz.length > 0) {
-                            // Filter: Nur Spieler mit Matsch-Erfahrung anzeigen
-                            const playersWithMatschEvents = groupStats.playerWithHighestMatschBilanz.filter(player => 
-                              (player.eventsMade && player.eventsMade > 0) || 
-                              (player.eventsReceived && player.eventsReceived > 0)
-                            );
-                            return playersWithMatschEvents.map((playerStat, index) => {
-                              const playerData = findPlayerByName(playerStat.playerName, members);
-                              const playerId = playerData?.id || playerStat.playerId;
+                        {matschRanking.length > 0 ? (
+                          matschRanking.map((player) => {
+                            const eventCounts = playerMatschCounts.get(player.playerId) || { eventsMade: 0, eventsReceived: 0 };
                               return (
-                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`matschBilanz-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
+                              <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`matschBilanz-${player.playerId}`} isClickable={!!player.playerId} className="block rounded-md">
                                   <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                                     <div className="flex items-center">
-                                      <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
+                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{player.rank}.</span>
                                       <ProfileImage 
-                                        src={playerData?.photoURL} 
-                                        alt={playerStat.playerName} 
+                                      src={player.playerData?.photoURL} 
+                                      alt={player.playerName} 
                                         size={layout.profileImageListSize}
                                         className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
                                         fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                        fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
+                                      fallbackText={player.playerName ? player.playerName.charAt(0).toUpperCase() : '?'}
                                         context="list"
                                       />
-                                      <span className={`${layout.bodySize} text-gray-300`}>{playerStat.playerName}</span>
+                                    <span className={`${layout.bodySize} text-gray-300`}>{player.playerName}</span>
                                     </div>
                                     <div className="flex items-center">
                                       <span className="font-medium mr-2">
                                         <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                          ({playerStat.eventsMade || 0}/{playerStat.eventsReceived || 0})
+                                        ({eventCounts.eventsMade}/{eventCounts.eventsReceived})
                                         </span>
-                                        <span className={`${getValueColor(playerStat.value, false)} ${layout.valueSize} font-medium`}>
-                                          {playerStat.value > 0 ? '+' : ''}{playerStat.value}
+                                      <span className={`${getValueColor(player.currentValue, false)} ${layout.valueSize} font-medium`}>
+                                        {player.currentValue > 0 ? '+' : ''}{player.currentValue}
                                         </span>
                                       </span>
                                     </div>
                                   </div>
                                 </StatLink>
                               );
-                            });
-                          } else {
-                            return <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine aktiven Spieler verfügbar</div>;
-                          }
-                        })()}
+                          })
+                        ) : (
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>
+                            {matschChartLoading ? 'Lade Daten...' : 'Keine Matsch-Bilanz-Daten verfügbar'}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -2632,50 +2772,44 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Schneider-Bilanz Rangliste</h3>
                       </div>
                       <div ref={playerSchneiderRateRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
-                        {(() => {
-                          if (groupStats?.playerWithHighestSchneiderBilanz && groupStats.playerWithHighestSchneiderBilanz.length > 0) {
-                            // Filter: Nur Spieler mit Schneider-Erfahrung anzeigen
-                            const playersWithSchneiderEvents = groupStats.playerWithHighestSchneiderBilanz.filter(player => 
-                              (player.eventsMade && player.eventsMade > 0) || 
-                              (player.eventsReceived && player.eventsReceived > 0)
-                            );
-                            return playersWithSchneiderEvents.map((playerStat, index) => {
-                              const playerData = findPlayerByName(playerStat.playerName, members);
-                              const playerId = playerData?.id || playerStat.playerId;
+                        {schneiderRanking.length > 0 ? (
+                          schneiderRanking.map((player) => {
+                            const eventCounts = playerSchneiderCounts.get(player.playerId) || { eventsMade: 0, eventsReceived: 0 };
                               return (
-                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`schneiderBilanz-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
+                              <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`schneiderBilanz-${player.playerId}`} isClickable={!!player.playerId} className="block rounded-md">
                                   <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                                     <div className="flex items-center">
-                                      <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
+                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{player.rank}.</span>
                                       <ProfileImage 
-                                        src={playerData?.photoURL} 
-                                        alt={playerStat.playerName} 
+                                      src={player.playerData?.photoURL} 
+                                      alt={player.playerName} 
                                         size={layout.profileImageListSize}
                                         className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
                                         fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                        fallbackText={playerStat.playerName ? playerStat.playerName.charAt(0).toUpperCase() : '?'}
+                                      fallbackText={player.playerName ? player.playerName.charAt(0).toUpperCase() : '?'}
                                         context="list"
                                       />
-                                      <span className={`${layout.bodySize} text-gray-300`}>{playerStat.playerName}</span>
+                                    <span className={`${layout.bodySize} text-gray-300`}>{player.playerName}</span>
                                     </div>
                                     <div className="flex items-center">
                                       <span className="font-medium mr-2">
                                         <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                          ({playerStat.eventsMade || 0}/{playerStat.eventsReceived || 0})
+                                        ({eventCounts.eventsMade}/{eventCounts.eventsReceived})
                                         </span>
-                                        <span className={`${getValueColor(playerStat.value, false)} ${layout.valueSize} font-medium`}>
-                                          {playerStat.value > 0 ? '+' : ''}{playerStat.value}
+                                      <span className={`${getValueColor(player.currentValue, false)} ${layout.valueSize} font-medium`}>
+                                        {player.currentValue > 0 ? '+' : ''}{player.currentValue}
                                         </span>
                                       </span>
                                     </div>
                                   </div>
                                 </StatLink>
                               );
-                            });
-                          } else {
-                            return <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine aktiven Spieler verfügbar</div>;
-                          }
-                        })()}
+                          })
+                        ) : (
+                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>
+                            {schneiderChartLoading ? 'Lade Daten...' : 'Keine Schneider-Bilanz-Daten verfügbar'}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -2789,6 +2923,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             .map((team) => {
                               // Extrahiere Spieler-Namen aus Team-Namen
                               const names = team.teamName.split(' & ');
+                              const stricheTotals = teamStricheTotals.get(team.teamName) || { made: 0, received: 0 };
                               return (
                                 <div key={`team-${team.teamId}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                                   <div className="flex items-center">
@@ -2819,7 +2954,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                   </div>
                                   <span className="font-medium mr-2">
                                     <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                      ({team.dataPoints})
+                                      ({stricheTotals.made}/{stricheTotals.received})
                                     </span>
                                     <span className={`${getValueColor(team.currentValue, false)} ${layout.valueSize} font-medium`}>
                                       {team.currentValue > 0 ? '+' : ''}{team.currentValue}
@@ -2882,6 +3017,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             .map((team) => {
                               // Extrahiere Spieler-Namen aus Team-Namen
                               const names = team.teamName.split(' & ');
+                              const pointsTotals = teamPointsTotals.get(team.teamName) || { made: 0, received: 0 };
                               return (
                                 <div key={`team-${team.teamId}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                                   <div className="flex items-center">
@@ -2912,7 +3048,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                   </div>
                                   <span className="font-medium mr-2">
                                     <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                      ({team.dataPoints})
+                                      ({formatPointsWithK(pointsTotals.made)}/{formatPointsWithK(pointsTotals.received)})
                                     </span>
                                     <span className={`${getValueColor(team.currentValue, false)} ${layout.valueSize} font-medium`}>
                                       {team.currentValue > 0 ? '+' : ''}{team.currentValue}
@@ -3173,40 +3309,35 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Matsch-Bilanz</h3>
+                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Matsch-Bilanz Rangliste</h3>
                       </div>
                       <div ref={teamMatschRateRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {(() => {
-                          // ✅ KORRIGIERT: Chart-Daten für Ranking, Event-Counts direkt aus jassGameSummaries
-                          if (teamMatschRanking && teamMatschRanking.length > 0) {
-                            // ✅ FALLBACK: Versuche zuerst groupStats, dann teamEventCountsMap
-                            const teamStatsMap = new Map();
-                            const teamMatschData = groupStats?.teamWithHighestMatschBilanz || groupStats?.teamWithHighestMatschRate || [];
-                            teamMatschData.forEach((team: any) => {
-                              const teamKey = team.names.join(' & ');
-                              teamStatsMap.set(teamKey, {
-                                eventsMade: team.eventsMade || 0,
-                                eventsReceived: team.eventsReceived || 0
-                              });
-                            });
-
-                            return teamMatschRanking
-                              .filter(team => team.dataPoints > 0)
-                              .map((team) => {
-                                // Extrahiere Spieler-Namen aus Team-Namen
-                                const names = team.teamName.split(' & ');
-                                // ✅ KORRIGIERT: Verwende teamEventCountsMap als Fallback wenn nicht in groupStats
-                                let teamStats = teamStatsMap.get(team.teamName);
-                                if (!teamStats) {
-                                  // Versuche aus teamEventCountsMap (direkt aus jassGameSummaries)
-                                  const eventCounts = teamEventCountsMap.get(team.teamName);
-                                  teamStats = eventCounts || { eventsMade: 0, eventsReceived: 0 };
-                                }
-                                
+                          // ✅ DIREKT aus teamEventCountsMap: Zeigt ALLE Teams, nicht nur Top 15!
+                          const allTeamsRanking = Array.from(teamEventCountsMap.entries())
+                            .map(([teamName, counts]) => ({
+                              teamName,
+                              bilanz: counts.eventsMade - counts.eventsReceived,
+                              eventsMade: counts.eventsMade,
+                              eventsReceived: counts.eventsReceived
+                            }))
+                            .filter(team => team.eventsMade > 0 || team.eventsReceived > 0)
+                            .sort((a, b) => b.bilanz - a.bilanz);
+                          
+                          if (allTeamsRanking.length === 0) {
+                            return (
+                              <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>
+                                {teamMatschChartLoading ? 'Lade Daten...' : 'Keine Matsch-Bilanz-Daten verfügbar'}
+                              </div>
+                            );
+                          }
+                          
+                          return allTeamsRanking.map((team, index) => {
+                            const names = team.teamName.split(' & ');
                                 return (
-                                  <div key={`team-${team.teamId}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                              <div key={`team-${team.teamName}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
                                     <div className="flex items-center">
-                                      <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{team.rank}.</span>
+                                  <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
                                       <div className="flex mr-2">
                                         <ProfileImage 
                                           src={findPlayerPhotoByName(names[0], members)} 
@@ -3232,21 +3363,18 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                       <span className={`${layout.bodySize} text-gray-300`}>{team.teamName}</span>
                                     </div>
                                     <div className="flex items-center">
-                                      <span className="text-white font-medium mr-2">
+                                  <span className="font-medium mr-2">
                                         <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                          ({teamStats.eventsMade}/{teamStats.eventsReceived})
+                                      ({team.eventsMade}/{team.eventsReceived})
                                         </span>
-                                        <span className={`${getValueColor(team.currentValue, false)} ${layout.valueSize} font-medium`}>
-                                          {team.currentValue > 0 ? '+' : ''}{team.currentValue}
+                                    <span className={`${getValueColor(team.bilanz, false)} ${layout.valueSize} font-medium`}>
+                                      {team.bilanz > 0 ? '+' : ''}{team.bilanz}
                                         </span>
                                       </span>
                                     </div>
                                   </div>
                                 );
                               });
-                          } else {
-                            return <div className="text-gray-400 text-center py-2">Keine Daten verfügbar</div>;
-                          }
                         })()}
                       </div>
                     </div>
@@ -3484,22 +3612,17 @@ export const GroupView: React.FC<GroupViewProps> = ({
             )}
             <GroupMemberList 
               members={members.map(member => {
-                // Finde die korrekten Spielwerte aus groupStats, falls verfügbar
-                const statsPlayer = groupStats?.playerWithMostGames?.find(p => 
-                  p.playerName.toLowerCase() === member.displayName?.toLowerCase()
-                );
+                // ✅ KORRIGIERT: Verwende Spielezahl aus normalen Sessions (ohne Turniere) dieser Gruppe
+                const playerId = member.id || member.userId;
+                const gamesInGroup = playerId ? playerGamesInGroup.get(playerId) || 0 : 0;
                 
-                // Wenn Spieler in den Statistiken gefunden, setze die korrekte Spielezahl
-                if (statsPlayer) {
                   return {
                     ...member,
                     stats: {
                       ...(member.stats || {}),
-                      gamesPlayed: statsPlayer.value
+                    gamesPlayed: gamesInGroup
                     }
                   } as FirestorePlayer;
-                }
-                return member;
               }).sort((a, b) => (b.stats?.gamesPlayed || 0) - (a.stats?.gamesPlayed || 0))} 
               isLoading={membersLoading} 
             />

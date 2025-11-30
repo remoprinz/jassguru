@@ -6,7 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { Button } from '@/components/ui/button';
-import { Loader2, Eye, Users, User, BookOpen, HelpCircle } from 'lucide-react';
+import { Loader2, BookOpen, HelpCircle } from 'lucide-react';
 import { isPWA } from '@/utils/browserDetection';
 
 interface WelcomeBoxProps {
@@ -61,12 +61,9 @@ const WelcomeBox: React.FC<WelcomeBoxProps> = ({
 
         {/* HERO-TEXT: Harmonische Abstände! */}
         {displayMode !== 'pwa' && (
-          <div className="text-base text-gray-300 text-center leading-relaxed max-w-xl pt-4 pb-4 space-y-2">
+          <div className="text-base text-gray-300 text-center leading-relaxed max-w-xl pt-4 pb-2 space-y-2">
             <p>
-              Jassguru ändert das. Wir erfassen deine Spiele digital und liefern Profi-Statistiken – damit du deinen Kopf frei hast fürs Kartenzählen.
-            </p>
-            <p>
-              <strong className="text-white">Und endlich klar wird, wer nicht nur Schnorren, sondern Jassen kann.</strong>
+              Jassguru ändert das. Wir erfassen die Spiele von deiner Jassgruppe digital und liefern Profi-Statistiken — damit endlich klar wird, wer nicht nur schnorren, sondern auch jassen kann.
             </p>
           </div>
         )}
@@ -87,20 +84,20 @@ const WelcomeBox: React.FC<WelcomeBoxProps> = ({
             </p>
           </div>
         ) : (
-          <div className="text-left space-y-4">
+          <div className="text-left space-y-2">
             <div>
               <strong className="text-white block mb-3 text-base">
                 Sieh selbst, was dich erwartet:
               </strong>
 
-              <div className="space-y-2.5 text-sm">
+              <div className="space-y-0.5 text-sm">
                 <a
                   href="https://jassguru.ch/view/group/Tz0wgIHMTlhvTtFastiJ"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center space-x-2.5 text-blue-400 hover:text-blue-300 hover:underline transition-colors py-1"
+                  className="flex items-center space-x-2.5 text-blue-400 hover:text-blue-300 hover:underline transition-colors py-0"
                 >
-                  <Users className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-lg">👉</span>
                   <span>Die ewige Gruppen-Rangliste</span>
                 </a>
 
@@ -108,17 +105,27 @@ const WelcomeBox: React.FC<WelcomeBoxProps> = ({
                   href="https://jassguru.ch/profile/b16c1120111b7d9e7d733837"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center space-x-2.5 text-blue-400 hover:text-blue-300 hover:underline transition-colors py-1"
+                  className="flex items-center space-x-2.5 text-blue-400 hover:text-blue-300 hover:underline transition-colors py-0"
                 >
-                  <User className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-lg">🙍‍♂️</span>
                   <span>Profil & Bestleistungen</span>
+                </a>
+
+                <a
+                  href="https://jassguru.ch/view/tournament/6RdW4o4PRv0UzsZWysex/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center space-x-2.5 text-blue-400 hover:text-blue-300 hover:underline transition-colors py-0"
+                >
+                  <span className="text-lg">🏆</span>
+                  <span>Turniere & Verläufe</span>
                 </a>
 
                 <Link
                   href="/features"
-                  className="flex items-center space-x-2.5 text-blue-400 hover:text-blue-300 hover:underline transition-colors py-1"
+                  className="flex items-center space-x-2.5 text-blue-400 hover:text-blue-300 hover:underline transition-colors py-0"
                 >
-                  <Eye className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-lg">👁️</span>
                   <span>Die interaktive Feature-Tour</span>
                 </Link>
 
@@ -126,10 +133,10 @@ const WelcomeBox: React.FC<WelcomeBoxProps> = ({
                   href="https://chatgpt.com/g/g-69219897884881918763e35fccae748e-jassguru"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center space-x-2.5 text-blue-400 hover:text-blue-300 hover:underline transition-colors py-1"
+                  className="flex items-center space-x-2.5 text-blue-400 hover:text-blue-300 hover:underline transition-colors py-0"
                 >
                   <span className="text-lg">💬</span>
-                  <span>Frag den Jass-Guru (ChatGPT App)</span>
+                  <span>Frag den Jass-Guru (ChatGPT)</span>
                 </a>
               </div>
             </div>

@@ -19,14 +19,25 @@ export function BottomNavigation() {
     userActiveTournamentId,
     userTournamentInstances,
     loadUserTournamentInstances,
+    loadTournamentsForUserGroups,
     status: tournamentStoreStatus
   } = useTournamentStore();
 
   useEffect(() => {
-    if (user && user.uid && tournamentStoreStatus === 'idle' && userTournamentInstances.length === 0) {
+    if (user && user.uid && tournamentStoreStatus === 'idle') {
+      // ✅ NEU: Wenn Gruppen geladen sind, lade Turniere aus allen Gruppen
+      // Dies ermöglicht, dass Turniere mit showInNavigation=true für alle Gruppenmitglieder sichtbar sind
+      if (userGroups && userGroups.length > 0) {
+        const groupIds = userGroups.map(g => g.id);
+        // Lade Turniere aus allen Gruppen (inklusive solche mit showInNavigation=true)
+        // Die Filterlogik in tournamentToDisplay berücksichtigt showInNavigation
+        loadTournamentsForUserGroups(groupIds);
+      } else if (userTournamentInstances.length === 0) {
+        // Fallback: Alte Logik für den Fall, dass Gruppen noch nicht geladen sind
       loadUserTournamentInstances(user.uid);
+      }
     }
-  }, [user, tournamentStoreStatus, loadUserTournamentInstances, userTournamentInstances.length]);
+  }, [user, tournamentStoreStatus, loadUserTournamentInstances, loadTournamentsForUserGroups, userGroups]);
 
 
   const baseNavigationItems = [

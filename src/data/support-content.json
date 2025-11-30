@@ -13,36 +13,30 @@
     "tags": [
       "pwa",
       "installation",
-      "android",
-      "smartphone"
+      "ios",
+      "iphone",
+      "safari",
+      "app"
     ],
-    "description": "Wie installiere ich die App? So installierst du die Jassguru-App auf deinem Android-Smartphone. App installieren auf Android.",
+    "description": "Wie installiere ich die App? So installierst du die Jassguru-App auf deinem iPhone oder iPad. App installieren auf iPhone.",
     "steps": [
       {
         "number": 1,
-        "text": "Öffne jassguru.ch in Google Chrome oder einem anderen Browser.",
-        "tip": "Chrome funktioniert am besten!"
+        "text": "Öffne jassguru.ch in Safari oder einem anderen Browser auf deinem iPhone oder iPad."
       },
       {
         "number": 2,
-        "text": "Tippe oben rechts auf das Menü (drei Punkte) und wähle 'Zum Startbildschirm hinzufügen' oder 'App installieren'.",
-        "image": "1-pwa/android_install_01.png"
+        "text": "Tippe unten in der Mitte auf das Teilen-Symbol (□↑).",
+        "image": "1-pwa/pwa_ios_menu.png"
       },
       {
         "number": 3,
         "text": "Bestätige mit 'Hinzufügen' oder 'Installieren'.",
-        "tip": "Die App wird jetzt auf deinem Startbildschirm angezeigt."
-      },
-      {
-        "number": 4,
-        "text": "Fertig! Du kannst die App jetzt wie eine normale App öffnen.",
-        "image": "1-pwa/android_homescreen.png"
+        "image": "1-pwa/pwa_ios_icon.png"
       }
     ],
-    "images": [
-      "1-pwa/android_install_01.png"
-    ],
-    "primaryImage": "1-pwa/android_install_01.png",
+    "images": [],
+    "primaryImage": "1-pwa/pwa_ios_menu.png",
     "keywords": [
       "wie installiere ich die app",
       "wie installiere ich die app",
@@ -50,37 +44,40 @@
       "app installieren",
       "app installieren",
       "app installieren",
-      "app installieren android",
-      "wie installiere ich die app auf android",
-      "wie installiere ich die app auf handy",
-      "wie installiere ich die app auf smartphone",
-      "app auf android installieren",
-      "app auf handy installieren",
-      "app auf smartphone installieren",
+      "app installieren ios",
+      "app installieren iphone",
+      "wie installiere ich die app auf ios",
+      "wie installiere ich die app auf iphone",
+      "wie installiere ich die app auf ipad",
+      "app auf ios installieren",
+      "app auf iphone installieren",
+      "app auf ipad installieren",
       "installation",
       "installieren",
       "pwa",
-      "android",
+      "ios",
+      "iphone",
+      "ipad",
       "smartphone",
       "handy",
       "mobile",
-      "play store",
-      "google play",
-      "apk",
-      "download"
+      "safari",
+      "app store",
+      "apple store",
+      "apple"
     ],
     "synonyms": [
       "wie installiere ich die app",
       "app installieren",
       "app herunterladen",
-      "android installation",
-      "play store",
+      "ios installation",
+      "app store",
       "herunterladen",
       "app auf handy installieren",
       "app auf smartphone installieren",
-      "wie installiere ich die app auf android",
-      "wie installiere ich die app auf handy",
-      "wie installiere ich die app auf smartphone"
+      "wie installiere ich die app auf ios",
+      "wie installiere ich die app auf iphone",
+      "wie installiere ich die app auf ipad"
     ],
     "userProblems": [
       "Wie installiere ich die App?",
@@ -142,40 +139,32 @@
     "tags": [
       "pwa",
       "installation",
-      "ios",
-      "iphone",
-      "safari",
-      "app"
+      "android",
+      "smartphone"
     ],
-    "description": "Wie installiere ich die App? So installierst du die Jassguru-App auf deinem iPhone oder iPad. App installieren auf iPhone.",
+    "description": "Wie installiere ich die App? So installierst du die Jassguru-App auf deinem Android-Smartphone. App installieren auf Android.",
     "steps": [
       {
         "number": 1,
-        "text": "Öffne jassguru.ch in Safari oder einem anderen Browser auf deinem iPhone oder iPad."
+        "text": "Öffne jassguru.ch in Google Chrome auf deinem Android-Smartphone."
       },
       {
         "number": 2,
-        "text": "Tippe unten in der Mitte auf das Teilen-Symbol (□↑)."
+        "text": "Tippe oben rechts auf die drei Punkte (:)."
       },
       {
         "number": 3,
-        "text": "Scrolle nach unten und wähle 'Zum Home-Bildschirm'.",
-        "image": "1-pwa/pwa_ios_menu.png"
+        "text": "Wähle 'Zum Startbildschirm hinzufügen'.",
+        "image": "1-pwa/android_install_01.png"
       },
       {
         "number": 4,
-        "text": "Tippe oben rechts auf 'Hinzufügen'."
-      },
-      {
-        "number": 5,
-        "text": "Fertig! Die App erscheint jetzt als Icon auf deinem Home-Screen.",
-        "image": "1-pwa/pwa_ios_icon.png"
+        "text": "Bestätige mit 'Hinzufügen' → das App-Icon erscheint auf deinem Home-Bildschirm.",
+        "image": "1-pwa/android_homescreen.png"
       }
     ],
-    "images": [
-      "1-pwa/pwa_ios_menu.png"
-    ],
-    "primaryImage": "1-pwa/pwa_ios_menu.png",
+    "images": [],
+    "primaryImage": "1-pwa/android_install_01.png",
     "keywords": [
       "wie installiere ich die app",
       "wie installiere ich die app",
@@ -183,38 +172,38 @@
       "app installieren",
       "app installieren",
       "app installieren",
-      "app installieren iphone",
-      "app installieren ios",
-      "wie installiere ich die app auf iphone",
-      "wie installiere ich die app auf ios",
-      "app auf iphone installieren",
-      "app auf ios installieren",
-      "ios",
-      "iphone",
-      "ipad",
+      "app installieren android",
+      "app installieren samsung",
+      "wie installiere ich die app auf android",
+      "wie installiere ich die app auf samsung",
+      "app auf android installieren",
+      "app auf samsung installieren",
+      "android",
+      "samsung",
+      "google",
       "smartphone",
       "handy",
       "mobile",
       "pwa",
       "app",
       "installation",
-      "safari",
-      "app store",
-      "apple store",
+      "chrome",
+      "google chrome",
+      "play store",
       "laden"
     ],
     "synonyms": [
       "wie installiere ich die app",
       "app installieren",
       "app herunterladen",
-      "auf iphone installieren",
       "auf ios installieren",
+      "auf iphone installieren",
       "app auf handy installieren",
       "app auf smartphone installieren",
       "app store",
       "apple",
-      "wie installiere ich die app auf iphone",
       "wie installiere ich die app auf ios",
+      "wie installiere ich die app auf iphone",
       "wie installiere ich die app auf ipad"
     ],
     "userProblems": [
@@ -3374,7 +3363,7 @@
       {
         "number": 3,
         "text": "Wenn du wirklich aus einer Gruppe willst, melde dich beim Support.",
-        "tip": "E-Mail: info@jassguru.ch"
+        "tip": "E-Mail: remo@jassguru.ch"
       }
     ],
     "images": [],
@@ -3822,6 +3811,7 @@
       }
     ],
     "images": [],
+    "primaryImage": "1-pwa/pwa_ios_icon.png",
     "keywords": [
       "pwa",
       "öffnen",
@@ -4365,7 +4355,7 @@
       "spiel pausieren",
       "partie unterbrechen",
       "partie pausieren",
-      "pause machen",
+      "pause",
       "unterbrechen ohne zu löschen"
     ],
     "synonyms": [

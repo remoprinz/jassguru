@@ -35,8 +35,8 @@ export async function getGlobalPlayerRatingTimeSeries(
     const globalHistoryRef = collection(db, `players/${playerId}/ratingHistory`);
     const historyQuery = query(
       globalHistoryRef,
-      orderBy('createdAt', 'asc'),
-      limit(limitCount)
+      orderBy('createdAt', 'asc')
+      // ✅ KEIN LIMIT HIER! Limit wird nach dem Laden angewendet (Zeile ~122)
     );
     
     const historySnap = await getDocs(historyQuery);
@@ -114,28 +114,50 @@ export async function getGlobalPlayerRatingTimeSeries(
       return { labels: [], datasets: [] };
     }
 
-    // 🎯 SCHRITT 3: Filtere Spieler mit nur einem Event heraus
+    // 🎯 SCHRITT 3: Filtere Spieler mit nur einem Event heraus (KEINE Tag-Gruppierung mehr!)
     if (historyEntries.length < 2) {
       console.log(`[GlobalChart] Spieler ${playerId} hat nur ${historyEntries.length} Event(s) - wird herausgefiltert`);
       return { labels: [], datasets: [] };
     }
     
-    // 🎯 SCHRITT 4: Erstelle Chart-Datasets (bereits chronologisch sortiert!)
-    const labels = historyEntries.map(entry => {
-      return entry.date.toLocaleDateString('de-DE', {
+    // 🎯 SCHRITT 4: Limitiere auf die letzten N Datenpunkte (alle Spiele einzeln!)
+    const limitedHistory = historyEntries.slice(-limitCount);
+    
+    // 🎯 SCHRITT 5: Erstelle Chart-Datasets aus allen Einträgen (kein Gruppieren mehr!)
+    // ✅ WICHTIG: Labels müssen EINDEUTIG sein, sonst gruppiert Chart.js sie!
+    const labels = limitedHistory.map((entry, index, array) => {
+      const dateLabel = entry.date.toLocaleDateString('de-DE', {
         day: '2-digit',
         month: '2-digit',
         year: '2-digit'
       });
+      
+      // Prüfe ob mehrere Einträge am selben Tag
+      const entriesOnSameDay = array.filter(e => {
+        return e.date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) === dateLabel;
+      });
+      
+      // Wenn mehrere Einträge am selben Tag, füge gameNumber oder Uhrzeit hinzu
+      if (entriesOnSameDay.length > 1) {
+        if (entry.gameNumber) {
+          return `${dateLabel} (${entry.gameNumber})`;
+        } else {
+          // Fallback: Uhrzeit hinzufügen
+          const time = entry.date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+          return `${dateLabel} ${time}`;
+        }
+      }
+      
+      return dateLabel;
     });
     
-    const ratings = historyEntries.map(entry => entry.rating);
+    const ratings = limitedHistory.map(entry => entry.rating);
     
     // 🆕 NEU: Berechne Emojis für jeden Datenpunkt
-    const tierEmojis = historyEntries.map(entry => getTierEmojiForRating(entry.rating));
+    const tierEmojis = limitedHistory.map(entry => getTierEmojiForRating(entry.rating));
     
     // 🆕 NEU: Extrahiere Delta-Werte für jeden Datenpunkt
-    const deltas = historyEntries.map(entry => entry.delta);
+    const deltas = limitedHistory.map(entry => entry.delta);
     
     // Theme-basierte Farben
     const themeColors = {

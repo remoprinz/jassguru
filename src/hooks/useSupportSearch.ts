@@ -62,8 +62,19 @@ export const useSupportSearch = (articles: SupportArticle[]) => {
     // 3. Sortierung (wenn keine Suche aktiv ist)
     // Wenn gesucht wird, vertrauen wir dem Ranking von Fuse
     if (!query.trim()) {
-        // Sortiere nach Priority (niedriger = wichtiger)
-        results = [...results].sort((a, b) => (a.priority || 999) - (b.priority || 999));
+        // Sortiere nach Priority (niedriger = wichtiger), dann nach number (alphabetisch)
+        results = [...results].sort((a, b) => {
+          // Zuerst nach Priority (0 ist ein gültiger Wert, daher ?? statt ||)
+          const aPriority = a.priority ?? 999;
+          const bPriority = b.priority ?? 999;
+          const priorityDiff = aPriority - bPriority;
+          if (priorityDiff !== 0) return priorityDiff;
+          
+          // Bei gleicher Priority: nach number sortieren (z.B. "1.1" vor "1.2")
+          const aNumber = a.number || '';
+          const bNumber = b.number || '';
+          return aNumber.localeCompare(bNumber, undefined, { numeric: true, sensitivity: 'base' });
+        });
     }
 
     return results;

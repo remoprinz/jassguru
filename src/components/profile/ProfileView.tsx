@@ -259,6 +259,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     datasets: any[];
   } | null>(null);
 
+
   // Memoized color computation - optimiert für Performance
   const accentColor = useMemo(() => {
     const accentColorMap: Record<ThemeColor, string> = {
@@ -557,6 +558,256 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     return candidate ? String(candidate) : null;
   }, [isPublicView, router?.query?.playerId, currentPlayer, user]);
 
+  // ✅ STATE: Geladene jassGameSummaries (nur normale Sessions, ohne Turniere)
+  const [normalSessionSummaries, setNormalSessionSummaries] = React.useState<any[]>([]);
+
+  // ✅ LADE: jassGameSummaries direkt aus Firestore (nur normale Sessions)
+  React.useEffect(() => {
+    if (!viewPlayerId) {
+      setNormalSessionSummaries([]);
+      return;
+    }
+
+    (async () => {
+      try {
+        const { collection, getDocs, doc, getDoc } = await import('firebase/firestore');
+        const { db } = await import('@/services/firebaseInit');
+        
+        // 1. Hole groupIds vom Spieler
+        const currentPlayerDoc = await getDoc(doc(db, 'players', viewPlayerId));
+        if (!currentPlayerDoc.exists()) {
+          setNormalSessionSummaries([]);
+          return;
+        }
+        
+        const groupIds = currentPlayerDoc.data().groupIds || [];
+        if (groupIds.length === 0) {
+          setNormalSessionSummaries([]);
+          return;
+        }
+
+        // 2. Lade jassGameSummaries aus ALLEN Gruppen
+        const allSummaries: any[] = [];
+        
+        for (const groupId of groupIds) {
+          try {
+            const summariesRef = collection(db, `groups/${groupId}/jassGameSummaries`);
+            const summariesSnapshot = await getDocs(summariesRef);
+            summariesSnapshot.forEach(doc => {
+              allSummaries.push({ id: doc.id, ...doc.data() });
+            });
+          } catch (error) {
+            console.warn(`Fehler beim Laden von jassGameSummaries für Gruppe ${groupId}:`, error);
+          }
+        }
+
+        // 3. Filtere NUR normale Sessions (ohne Turniere)
+        const normalSummaries = allSummaries.filter(summary => {
+          // Nur abgeschlossene Sessions
+          if (summary.status !== 'completed' && summary.status !== 'completed_empty') return false;
+          
+          // KEINE Turniere
+          if (summary.isTournamentSession || summary.tournamentId) return false;
+          
+          // Muss teams und finalScores haben
+          if (!summary.teams?.top?.players || !summary.teams?.bottom?.players) return false;
+          if (!summary.finalScores) return false;
+          
+          // Spieler muss Teilnehmer sein
+          const participantIds = summary.participantPlayerIds || [];
+          if (!participantIds.includes(viewPlayerId)) return false;
+          
+          return true;
+        });
+
+        setNormalSessionSummaries(normalSummaries);
+      } catch (error) {
+        console.error('[ProfileView] Fehler beim Laden der normalen Sessions:', error);
+        setNormalSessionSummaries([]);
+      }
+    })();
+  }, [viewPlayerId]);
+
+  // ✅ FILTER: Partner/Opponent Stats ohne Turniere (nur normale Sessions)
+  const filteredPartnerAggregates = useMemo(() => {
+    if (!playerStats?.partnerAggregates || normalSessionSummaries.length === 0) {
+      return playerStats?.partnerAggregates || [];
+    }
+
+    if (!viewPlayerId) {
+      return playerStats?.partnerAggregates || [];
+    }
+
+    // Berechne Partner-Stats neu aus normalen Sessions
+    const partnerStatsMap = new Map<string, {
+      partnerId: string;
+      partnerDisplayName: string;
+      sessionsWonWith: number;
+      sessionsLostWith: number;
+      sessionsDrawWith: number;
+      sessionsPlayedWith: number;
+    }>();
+
+    for (const summary of normalSessionSummaries) {
+      if (!summary.teams?.top?.players || !summary.teams?.bottom?.players) continue;
+
+      // Finde Team des Spielers
+      const playerInTop = summary.teams.top.players.some((p: any) => 
+        (p.playerId === viewPlayerId || p.userId === viewPlayerId)
+      );
+      const playerInBottom = summary.teams.bottom.players.some((p: any) => 
+        (p.playerId === viewPlayerId || p.userId === viewPlayerId)
+      );
+      
+      if (!playerInTop && !playerInBottom) continue;
+
+      const playerTeam = playerInTop ? summary.teams.top : summary.teams.bottom;
+      const opponentTeam = playerInTop ? summary.teams.bottom : summary.teams.top;
+
+      // Bestimme Session-Ergebnis
+      const topScore = summary.finalScores?.top || 0;
+      const bottomScore = summary.finalScores?.bottom || 0;
+      const playerScore = playerInTop ? topScore : bottomScore;
+      const opponentScore = playerInTop ? bottomScore : topScore;
+
+      let sessionResult: 'win' | 'loss' | 'draw' = 'draw';
+      if (playerScore > opponentScore) sessionResult = 'win';
+      else if (playerScore < opponentScore) sessionResult = 'loss';
+
+      // Iteriere über Partner (gleiches Team)
+      for (const partnerPlayer of playerTeam.players || []) {
+        const partnerId = partnerPlayer.playerId || partnerPlayer.userId;
+        if (!partnerId || partnerId === viewPlayerId) continue;
+
+        const partnerName = partnerPlayer.displayName || summary.playerNames?.[partnerId] || 'Unbekannt';
+        
+        if (!partnerStatsMap.has(partnerId)) {
+          partnerStatsMap.set(partnerId, {
+            partnerId,
+            partnerDisplayName: partnerName,
+            sessionsWonWith: 0,
+            sessionsLostWith: 0,
+            sessionsDrawWith: 0,
+            sessionsPlayedWith: 0,
+          });
+        }
+
+        const stats = partnerStatsMap.get(partnerId)!;
+        stats.sessionsPlayedWith++;
+        if (sessionResult === 'win') stats.sessionsWonWith++;
+        else if (sessionResult === 'loss') stats.sessionsLostWith++;
+        else stats.sessionsDrawWith++;
+      }
+    }
+
+    // Konvertiere zu Array und berechne WinRates
+    return Array.from(partnerStatsMap.values()).map(stats => {
+      const decided = stats.sessionsWonWith + stats.sessionsLostWith;
+      const sessionWinRate = decided > 0 ? stats.sessionsWonWith / decided : 0;
+      
+      return {
+        ...stats,
+        sessionWinRate,
+        // Behalte andere Felder aus original partnerAggregates (falls vorhanden)
+        ...(playerStats.partnerAggregates?.find((p: any) => p.partnerId === stats.partnerId) || {}),
+        // Überschreibe mit gefilterten Werten
+        sessionsWonWith: stats.sessionsWonWith,
+        sessionsLostWith: stats.sessionsLostWith,
+        sessionsDrawWith: stats.sessionsDrawWith,
+        sessionsPlayedWith: stats.sessionsPlayedWith,
+      };
+    });
+  }, [playerStats?.partnerAggregates, normalSessionSummaries, viewPlayerId]);
+
+  const filteredOpponentAggregates = useMemo(() => {
+    if (!playerStats?.opponentAggregates || normalSessionSummaries.length === 0) {
+      return playerStats?.opponentAggregates || [];
+    }
+
+    if (!viewPlayerId) {
+      return playerStats?.opponentAggregates || [];
+    }
+
+    // Berechne Opponent-Stats neu aus normalen Sessions
+    const opponentStatsMap = new Map<string, {
+      opponentId: string;
+      opponentDisplayName: string;
+      sessionsWonAgainst: number;
+      sessionsLostAgainst: number;
+      sessionsDrawAgainst: number;
+      sessionsPlayedAgainst: number;
+    }>();
+
+    for (const summary of normalSessionSummaries) {
+      if (!summary.teams?.top?.players || !summary.teams?.bottom?.players) continue;
+
+      // Finde Team des Spielers
+      const playerInTop = summary.teams.top.players.some((p: any) => 
+        (p.playerId === viewPlayerId || p.userId === viewPlayerId)
+      );
+      const playerInBottom = summary.teams.bottom.players.some((p: any) => 
+        (p.playerId === viewPlayerId || p.userId === viewPlayerId)
+      );
+      
+      if (!playerInTop && !playerInBottom) continue;
+
+      const opponentTeam = playerInTop ? summary.teams.bottom : summary.teams.top;
+
+      // Bestimme Session-Ergebnis
+      const topScore = summary.finalScores?.top || 0;
+      const bottomScore = summary.finalScores?.bottom || 0;
+      const playerScore = playerInTop ? topScore : bottomScore;
+      const opponentScore = playerInTop ? bottomScore : topScore;
+
+      let sessionResult: 'win' | 'loss' | 'draw' = 'draw';
+      if (playerScore > opponentScore) sessionResult = 'win';
+      else if (playerScore < opponentScore) sessionResult = 'loss';
+
+      // Iteriere über Gegner (anderes Team)
+      for (const opponentPlayer of opponentTeam.players || []) {
+        const opponentId = opponentPlayer.playerId || opponentPlayer.userId;
+        if (!opponentId) continue;
+
+        const opponentName = opponentPlayer.displayName || summary.playerNames?.[opponentId] || 'Unbekannt';
+        
+        if (!opponentStatsMap.has(opponentId)) {
+          opponentStatsMap.set(opponentId, {
+            opponentId,
+            opponentDisplayName: opponentName,
+            sessionsWonAgainst: 0,
+            sessionsLostAgainst: 0,
+            sessionsDrawAgainst: 0,
+            sessionsPlayedAgainst: 0,
+          });
+        }
+
+        const stats = opponentStatsMap.get(opponentId)!;
+        stats.sessionsPlayedAgainst++;
+        if (sessionResult === 'win') stats.sessionsWonAgainst++;
+        else if (sessionResult === 'loss') stats.sessionsLostAgainst++;
+        else stats.sessionsDrawAgainst++;
+      }
+    }
+
+    // Konvertiere zu Array und berechne WinRates
+    return Array.from(opponentStatsMap.values()).map(stats => {
+      const decided = stats.sessionsWonAgainst + stats.sessionsLostAgainst;
+      const sessionWinRate = decided > 0 ? stats.sessionsWonAgainst / decided : 0;
+      
+      return {
+        ...stats,
+        sessionWinRate,
+        // Behalte andere Felder aus original opponentAggregates (falls vorhanden)
+        ...(playerStats.opponentAggregates?.find((o: any) => o.opponentId === stats.opponentId) || {}),
+        // Überschreibe mit gefilterten Werten
+        sessionsWonAgainst: stats.sessionsWonAgainst,
+        sessionsLostAgainst: stats.sessionsLostAgainst,
+        sessionsDrawAgainst: stats.sessionsDrawAgainst,
+        sessionsPlayedAgainst: stats.sessionsPlayedAgainst,
+      };
+    });
+  }, [playerStats?.opponentAggregates, normalSessionSummaries, viewPlayerId]);
+
   // NEU: Lade Elo-Rating für aktuellen Spieler (einheitlich via loadPlayerRatings)
   React.useEffect(() => {
     if (!viewPlayerId) return;
@@ -589,7 +840,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     // ✅ Verzögerung um 1-2 Frames nach Tab-Expandieren für smooth Chart-Rendering
     const timer = setTimeout(() => {
       setChartLoading(true);
-      getGlobalPlayerRatingTimeSeries(viewPlayerId, 100, profileTheme || 'blue')
+      getGlobalPlayerRatingTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt: Alle Spiele laden!
         .then((data) => {
           setChartData(data);
         })
@@ -611,7 +862,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     
     const timer = setTimeout(() => {
       setStricheChartLoading(true);
-      getGlobalPlayerStricheTimeSeries(viewPlayerId, 100, profileTheme || 'blue')
+      getGlobalPlayerStricheTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt
         .then((data) => {
           setStricheChartData(data);
         })
@@ -633,7 +884,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     
     const timer = setTimeout(() => {
       setPointsChartLoading(true);
-      getGlobalPlayerPointsTimeSeries(viewPlayerId, 100, profileTheme || 'blue')
+      getGlobalPlayerPointsTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt
         .then((data) => {
           setPointsChartData(data);
         })
@@ -655,7 +906,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     
     const timer = setTimeout(() => {
       setMatschChartLoading(true);
-      getGlobalPlayerMatschTimeSeries(viewPlayerId, 100, profileTheme || 'blue')
+      getGlobalPlayerMatschTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt
         .then((data) => {
           setMatschChartData(data);
         })
@@ -677,7 +928,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     
     const timer = setTimeout(() => {
       setSchneiderChartLoading(true);
-      getGlobalPlayerSchneiderTimeSeries(viewPlayerId, 100, profileTheme || 'blue')
+      getGlobalPlayerSchneiderTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt
         .then((data) => {
           setSchneiderChartData(data);
         })
@@ -699,7 +950,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     
     const timer = setTimeout(() => {
       setKontermatschChartLoading(true);
-      getGlobalPlayerKontermatschTimeSeries(viewPlayerId, 100, profileTheme || 'blue')
+      getGlobalPlayerKontermatschTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt
         .then((data) => {
           setKontermatschChartData(data);
         })
@@ -721,7 +972,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     
     const timer = setTimeout(() => {
       setWeisChartLoading(true);
-      getGlobalPlayerWeisTimeSeries(viewPlayerId, 100, profileTheme || 'blue')
+      getGlobalPlayerWeisTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt
         .then((data) => {
           setWeisChartData(data);
         })
@@ -3078,9 +3329,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 </div>
                     )}
 
-                    {/* Siegquote Partien - CHART (nur anzeigen wenn Daten vorhanden) */}
+                    {/* Siegquote Partien - CHART (nur anzeigen wenn Daten vorhanden, OHNE Turniere) */}
                     {(() => {
-                      const partnersWithSessions = (playerStats as any)?.partnerAggregates?.filter((partner: any) => partner.sessionsPlayedWith >= 1) || [];
+                      const partnersWithSessions = filteredPartnerAggregates?.filter((partner: any) => partner.sessionsPlayedWith >= 1) || [];
                       return partnersWithSessions.length > 0;
                     })() && (
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
@@ -3090,15 +3341,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {(() => {
-                          if ((playerStats as any)?.partnerAggregates && (playerStats as any).partnerAggregates.length > 0) {
-                            const partnersWithSessions = (playerStats as any).partnerAggregates.filter((partner: any) => partner.sessionsPlayedWith >= 1);
+                          if (filteredPartnerAggregates && filteredPartnerAggregates.length > 0) {
+                            const partnersWithSessions = filteredPartnerAggregates.filter((partner: any) => partner.sessionsPlayedWith >= 1);
                             const chartData = partnersWithSessions.map((partner: any) => ({
                               label: partner.partnerDisplayName,
                               winRate: partner.sessionWinRate || 0,
                               wins: partner.sessionsWonWith || 0,
                               losses: partner.sessionsLostWith || 0,
                               draws: partner.sessionsDrawWith || 0,
-                              totalGames: partner.sessionsPlayedWith // ✅ Gesamt-Partien aus partnerStats
+                              totalGames: partner.sessionsPlayedWith // ✅ Gesamt-Partien (ohne Turniere)
                             }));
 
                             if (chartData.length > 0) {
@@ -3130,9 +3381,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </div>
                     )}
 
-                    {/* Siegquote Partien - Rangliste (nur anzeigen wenn Daten vorhanden) */}
+                    {/* Siegquote Partien - Rangliste (nur anzeigen wenn Daten vorhanden, OHNE Turniere) */}
                     {(() => {
-                      const partnersWithSessions = (playerStats as any)?.partnerAggregates?.filter((partner: any) => partner.sessionsPlayedWith >= 1) || [];
+                      const partnersWithSessions = filteredPartnerAggregates?.filter((partner: any) => partner.sessionsPlayedWith >= 1) || [];
                       return partnersWithSessions.length > 0;
                     })() && (
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
@@ -3141,7 +3392,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Partien Rangliste</h3>
                       </div>
                       <div className="p-4 space-y-2  pr-2">
-                        {(playerStats as any).partnerAggregates
+                        {filteredPartnerAggregates
                           .filter((partner: any) => partner.sessionsPlayedWith >= 1)
                           .sort((a: any, b: any) => (b.sessionWinRate || 0) - (a.sessionWinRate || 0))
                           .slice(0, 50)
@@ -3176,10 +3427,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           </span>
                                       )}
                                       <span className={`${getWinRateColor(partner.sessionWinRate || 0)} ${layout.valueSize} font-medium`}>
-                                        {getWinRateDisplay(
+                                        {getSessionWinRateDisplay(
                                           partner.sessionWinRateInfo,
                                           partner.sessionsWonWith,
-                                          partner.sessionsPlayedWith
+                                          partner.sessionsLostWith,
+                                          partner.sessionsDrawWith || 0
                                         )}
                                       </span>
                           </span>
@@ -3188,7 +3440,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                               </StatLink>
                             );
                           })}
-                        {(playerStats as any).partnerAggregates.filter((p: any) => p.sessionsPlayedWith >= 1).length === 0 && (
+                        {filteredPartnerAggregates.filter((p: any) => p.sessionsPlayedWith >= 1).length === 0 && (
                           <div className="text-gray-400 text-center py-2">Keine Partner mit ausreichend Partien</div>
                           )}
                         </div>
@@ -3688,9 +3940,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </div>
                     )}
 
-                    {/* Siegquote Partien - CHART */}
+                    {/* Siegquote Partien - CHART (OHNE Turniere) */}
                     {(() => {
-                      const opponentsWithSessions = (playerStats as any)?.opponentAggregates?.filter((opponent: any) => opponent.sessionsPlayedAgainst >= 1) || [];
+                      const opponentsWithSessions = filteredOpponentAggregates?.filter((opponent: any) => opponent.sessionsPlayedAgainst >= 1) || [];
                       return opponentsWithSessions.length > 0;
                     })() && (
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
@@ -3700,15 +3952,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {(() => {
-                          if ((playerStats as any)?.opponentAggregates && (playerStats as any).opponentAggregates.length > 0) {
-                            const opponentsWithSessions = (playerStats as any).opponentAggregates.filter((opponent: any) => opponent.sessionsPlayedAgainst >= 1);
+                          if (filteredOpponentAggregates && filteredOpponentAggregates.length > 0) {
+                            const opponentsWithSessions = filteredOpponentAggregates.filter((opponent: any) => opponent.sessionsPlayedAgainst >= 1);
                             const chartData = opponentsWithSessions.map((opponent: any) => ({
                               label: opponent.opponentDisplayName,
                               winRate: opponent.sessionWinRate || 0,
                               wins: opponent.sessionsWonAgainst || 0,
                               losses: opponent.sessionsLostAgainst || 0,
                               draws: opponent.sessionsDrawAgainst || 0,
-                              totalGames: opponent.sessionsPlayedAgainst // ✅ Gesamt-Partien aus opponentStats
+                              totalGames: opponent.sessionsPlayedAgainst // ✅ Gesamt-Partien (ohne Turniere)
                             }));
 
                             if (chartData.length > 0) {
@@ -3735,9 +3987,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </div>
                     )}
 
-                    {/* Siegquote Partien - Rangliste */}
+                    {/* Siegquote Partien - Rangliste (OHNE Turniere) */}
                     {(() => {
-                      const opponentsWithSessions = (playerStats as any)?.opponentAggregates?.filter((opponent: any) => opponent.sessionsPlayedAgainst >= 1) || [];
+                      const opponentsWithSessions = filteredOpponentAggregates?.filter((opponent: any) => opponent.sessionsPlayedAgainst >= 1) || [];
                       return opponentsWithSessions.length > 0;
                     })() && (
                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
@@ -3746,7 +3998,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Partien Rangliste</h3>
                       </div>
                       <div className="p-4 space-y-2  pr-2">
-                        {(playerStats as any).opponentAggregates
+                        {filteredOpponentAggregates
                           .filter((opponent: any) => opponent.sessionsPlayedAgainst >= 1)
                           .sort((a: any, b: any) => (b.sessionWinRate || 0) - (a.sessionWinRate || 0))
                           .slice(0, 50)
@@ -3781,10 +4033,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                         </span>
                                       )}
                                       <span className={`${getWinRateColor(opponent.sessionWinRate || 0)} ${layout.valueSize} font-medium`}>
-                                        {getWinRateDisplay(
+                                        {getSessionWinRateDisplay(
                                           opponent.sessionWinRateInfo,
                                           opponent.sessionsWonAgainst,
-                                          opponent.sessionsPlayedAgainst
+                                          opponent.sessionsLostAgainst,
+                                          opponent.sessionsDrawAgainst || 0
                                         )}
                                       </span>
                                     </span>

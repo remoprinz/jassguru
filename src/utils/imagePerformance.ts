@@ -55,7 +55,7 @@ export const setupLazyLoading = (): void => {
 export const getOptimizedFirebaseUrl = (
   originalUrl: string, 
   width?: number,
-  format: 'webp' | 'jpeg' = 'jpeg'
+  format: 'webp' | 'jpeg' | 'png' = 'jpeg'
 ): string => {
   if (!originalUrl) return originalUrl;
   try {

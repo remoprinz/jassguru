@@ -39,7 +39,7 @@ export async function getGlobalPlayerPointsTimeSeries(
 
       if (hasGameEntries) {
         const limitedHistory = historyEntries
-          .filter(e => e.eventType === 'game')
+          .filter(e => e.eventType === 'game' || e.eventType === 'session') // ✅ Akzeptiere auch Session-Events
           .slice(-limitCount);
 
         const pointsDiffData: number[] = [];

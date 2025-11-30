@@ -25,7 +25,8 @@ export const isPublicPath = (path: string): boolean => {
     '/clear-cache',
     '/join',
     '/features',
-    '/onboarding_tutorial'
+    '/onboarding_tutorial',
+    '/support'
   ];
 
   // Check for exact matches against the normalized path

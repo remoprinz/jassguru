@@ -637,8 +637,8 @@ export const getGroupMembersSortedByGames = async (groupId: string): Promise<Fir
         playersSnapshot.forEach((doc) => {
             const data = doc.data();
             members.push({
-                id: doc.id,
                 ...data,
+                id: doc.id, // ✅ FIX: ID immer vom Dokument nehmen, überschreibt potenziell falsche ID im Datenfeld
             } as FirestorePlayer);
         });
 

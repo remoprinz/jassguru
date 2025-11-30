@@ -118,6 +118,7 @@ interface TournamentActions {
     settings: TournamentSettings
   ) => Promise<string>;
   loadUserTournamentInstances: (userId: string, groupId?: string) => Promise<void>;
+  loadTournamentsForUserGroups: (groupIds: string[]) => Promise<void>;
   setCurrentTournamentInstance: (instance: TournamentInstance | null) => void;
   fetchTournamentInstanceDetails: (instanceId: string) => Promise<void>;
   loadTournamentGames: (instanceId: string) => Promise<void>;
@@ -284,6 +285,45 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Fehler beim Laden der Turnier-Instanzen.';
       console.error('[TournamentStore] Error loading tournament instances:', error);
+      set({ status: 'error', error: message });
+    }
+  },
+
+    loadTournamentsForUserGroups: async (groupIds) => {
+    set({ status: 'loading-list', error: null });
+    try {
+      if (!groupIds || groupIds.length === 0) {
+        set({ userTournamentInstances: [], status: 'success' });
+        return;
+      }
+
+      // Lade Turniere aus allen Gruppen parallel
+      const tournamentPromises = groupIds.map(groupId => 
+        fetchTournamentInstancesForGroup(groupId).catch(error => {
+          console.warn(`[TournamentStore] Error loading tournaments for group ${groupId}:`, error);
+          return []; // Bei Fehler leere Liste zurückgeben
+        })
+      );
+
+      const tournamentArrays = await Promise.all(tournamentPromises);
+      
+      // Kombiniere alle Turniere und entferne Duplikate (basierend auf ID)
+      const allTournaments: TournamentInstance[] = [];
+      const seenIds = new Set<string>();
+      
+      tournamentArrays.forEach(tournaments => {
+        tournaments.forEach(tournament => {
+          if (!seenIds.has(tournament.id)) {
+            seenIds.add(tournament.id);
+            allTournaments.push(tournament);
+          }
+        });
+      });
+
+      set({ userTournamentInstances: allTournaments, status: 'success' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Fehler beim Laden der Turnier-Instanzen aus Gruppen.';
+      console.error('[TournamentStore] Error loading tournaments for user groups:', error);
       set({ status: 'error', error: message });
     }
   },

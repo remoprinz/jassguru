@@ -145,7 +145,7 @@ export const BROWSER_ONBOARDING = {
     INSTALL_FINAL: {
       title: "Schritt 3", 
       message: "Wähle \"Hinzufügen\".",
-      image: "/onboarding_pics/android_hinzufuegen.png",
+      image: "/onboarding_pics/android_hinzufuegen_final.png",
     },
     FINAL_HINTS: {
       title: "Letzter Hinweis",

@@ -25,13 +25,13 @@
           "type": 301
         },
         {
-          "source": "/support",
-          "destination": "https://chatgpt.com/gpts/editor/g-69219897884881918763e35fccae748e",
+          "source": "/gpt",
+          "destination": "https://chatgpt.com/g/g-69219897884881918763e35fccae748e",
           "type": 301
         },
         {
-          "source": "/support/",
-          "destination": "https://chatgpt.com/gpts/editor/g-69219897884881918763e35fccae748e",
+          "source": "/gpt/",
+          "destination": "https://chatgpt.com/g/g-69219897884881918763e35fccae748e",
           "type": 301
         }
       ],
@@ -39,6 +39,14 @@
         {
           "source": "/supportQuery",
           "function": "supportQuery"
+        },
+        {
+          "source": "/support",
+          "destination": "/support/index.html"
+        },
+        {
+          "source": "/support/**",
+          "destination": "/support/index.html"
         },
         {
           "source": "/agb",
