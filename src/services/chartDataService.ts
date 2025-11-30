@@ -702,7 +702,7 @@ export async function getOptimizedTeamMatschChart(
       const sessionId = summaryDoc.id;
       // 🎯 ROBUSTE TOURNAMENT-ERKENNUNG: Prüfe tournamentId, gameResults oder isTournamentSession
       const isTournament = data.isTournamentSession || 
-                           !!data.tournamentId ||
+                           !!data.tournamentId || 
                            sessionId === '6eNr8fnsTO06jgCqjelt';
       
       // ✅ TURNIER: Aggregiere alle Game-Level-Teams
@@ -1325,6 +1325,107 @@ export async function getTeamStrichePointsTotals(
 }
 
 /**
+ * 🚀 Lade Team-Weis-Punkte-Totals (Made/Received)
+ * Analog zu getTeamStrichePointsTotals, aber für Weis-Punkte
+ */
+export async function getTeamWeisPointsTotals(
+  groupId: string
+): Promise<Map<string, { made: number; received: number }>> {
+  const teamTotalsMap = new Map<string, { made: number; received: number }>();
+  
+  try {
+    // 🎯 KRITISCH: Lade aktuelle Player-DisplayNames
+    const playerDisplayNames = new Map<string, string>();
+    try {
+      const playersSnap = await getDocs(
+        query(collection(db, 'players'), where('groupIds', 'array-contains', groupId))
+      );
+      playersSnap.forEach(doc => {
+        playerDisplayNames.set(doc.id, doc.data().displayName);
+      });
+    } catch (error) {
+      console.warn('[getTeamWeisPointsTotals] Could not load player names:', error);
+    }
+    
+    const summariesSnap = await getDocs(
+      query(
+        collection(db, `groups/${groupId}/jassGameSummaries`),
+        where('status', '==', 'completed'),
+        orderBy('completedAt', 'asc')
+      )
+    );
+    
+    // Helper: Team-Namen generieren (SORTIERT!)
+    const getTeamName = (players: Array<{ playerId: string; displayName?: string }>): string => {
+      const sortedPlayers = [...players].sort((a, b) => a.playerId.localeCompare(b.playerId));
+      return sortedPlayers.map(p => playerDisplayNames.get(p.playerId) || p.displayName || p.playerId).join(' & ');
+    };
+    
+    summariesSnap.docs.forEach((summaryDoc) => {
+      const data = summaryDoc.data();
+      const sessionId = summaryDoc.id;
+      const isTournament = data.isTournamentSession || 
+                           !!data.tournamentId ||
+                           sessionId === '6eNr8fnsTO06jgCqjelt';
+      
+      if (isTournament && data.gameResults && Array.isArray(data.gameResults)) {
+        // ✅ TURNIER: Aggregiere Weis-Punkte pro Game
+        const gameResults = data.gameResults;
+        
+        gameResults.forEach((game: any) => {
+          const gameTeams = game.teams || {};
+          const weisPoints = game.weisPoints || {};
+          
+          ['top', 'bottom'].forEach(teamKey => {
+            const teamPlayers = gameTeams[teamKey]?.players || [];
+            if (teamPlayers.length !== 2) return;
+            
+            const opponentKey = teamKey === 'top' ? 'bottom' : 'top';
+            const teamName = getTeamName(teamPlayers);
+            
+            const teamWeisPoints = weisPoints[teamKey] || 0;
+            const opponentWeisPoints = weisPoints[opponentKey] || 0;
+            
+            if (!teamTotalsMap.has(teamName)) {
+              teamTotalsMap.set(teamName, { made: 0, received: 0 });
+            }
+            const stats = teamTotalsMap.get(teamName)!;
+            stats.made += teamWeisPoints;
+            stats.received += opponentWeisPoints;
+          });
+        });
+      } else {
+        // ✅ NORMALE SESSION: Verwende sessionTotalWeisPoints
+        const teams = data.teams || {};
+        const sessionTotalWeisPoints = data.sessionTotalWeisPoints || {};
+        
+        ['top', 'bottom'].forEach(teamKey => {
+          const teamPlayers = teams[teamKey]?.players || [];
+          if (teamPlayers.length !== 2) return;
+          
+          const opponentKey = teamKey === 'top' ? 'bottom' : 'top';
+          const teamName = getTeamName(teamPlayers);
+          
+          const teamWeisPoints = sessionTotalWeisPoints[teamKey] || 0;
+          const opponentWeisPoints = sessionTotalWeisPoints[opponentKey] || 0;
+          
+          if (!teamTotalsMap.has(teamName)) {
+            teamTotalsMap.set(teamName, { made: 0, received: 0 });
+          }
+          const stats = teamTotalsMap.get(teamName)!;
+          stats.made += teamWeisPoints;
+          stats.received += opponentWeisPoints;
+        });
+      }
+    });
+  } catch (error) {
+    console.error('[getTeamWeisPointsTotals] Fehler:', error);
+  }
+  
+  return teamTotalsMap;
+}
+
+/**
  * 🚀 Lade Team-Strichdifferenz-Chart
  * Teams als "playerId1-playerId2" (sortiert) - nur Top 15 Teams
  */
@@ -1434,7 +1535,7 @@ export async function getOptimizedTeamStricheChart(
       const sessionId = summaryDoc.id;
       // 🎯 ROBUSTE TOURNAMENT-ERKENNUNG: Prüfe tournamentId, gameResults oder isTournamentSession
       const isTournament = data.isTournamentSession || 
-                           !!data.tournamentId ||
+                           !!data.tournamentId || 
                            sessionId === '6eNr8fnsTO06jgCqjelt';
       
       // ✅ TURNIER: Aggregiere alle Game-Level-Teams
@@ -1715,7 +1816,7 @@ export async function getOptimizedTeamPointsChart(
       const sessionId = summaryDoc.id;
       // 🎯 ROBUSTE TOURNAMENT-ERKENNUNG: Prüfe tournamentId, gameResults oder isTournamentSession
       const isTournament = data.isTournamentSession || 
-                           !!data.tournamentId ||
+                           !!data.tournamentId || 
                            sessionId === '6eNr8fnsTO06jgCqjelt';
       
       // ✅ TURNIER: Aggregiere alle Game-Level-Teams

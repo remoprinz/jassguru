@@ -1039,6 +1039,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
       kontermatschMade: number;
       kontermatschReceived: number;
       weisMade: number;
+      weisReceived: number; // ✅ NEU: Für Weisdifferenz-Berechnung
       roundTimes: number[];
       playerNames: string[];
     }>();
@@ -1086,6 +1087,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
           kontermatschMade: 0,
           kontermatschReceived: 0,
           weisMade: 0,
+          weisReceived: 0, // ✅ NEU: Für Weisdifferenz-Berechnung
           roundTimes: [],
           playerNames: topNames
         });
@@ -1149,6 +1151,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
       // ✅ OPTIMIERT: Weis aus Session-Level sessionTotalWeisPoints
       if (sessionData.sessionTotalWeisPoints) {
         topStats.weisMade += sessionData.sessionTotalWeisPoints.top || 0;
+        topStats.weisReceived += sessionData.sessionTotalWeisPoints.bottom || 0; // ✅ NEU: Gegner-Weis
       }
 
       // ✅ OPTIMIERT: Rundenzeiten aus aggregatedRoundDurationsByPlayer
@@ -1189,6 +1192,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
           kontermatschMade: 0,
           kontermatschReceived: 0,
           weisMade: 0,
+          weisReceived: 0, // ✅ NEU: Für Weisdifferenz-Berechnung
           roundTimes: [],
           playerNames: bottomNames
         });
@@ -1252,6 +1256,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
       // Weis aus Session-Level sessionTotalWeisPoints
       if (sessionData.sessionTotalWeisPoints) {
         bottomStats.weisMade += sessionData.sessionTotalWeisPoints.bottom || 0;
+        bottomStats.weisReceived += sessionData.sessionTotalWeisPoints.top || 0; // ✅ NEU: Gegner-Weis
       }
 
       // Rundenzeiten aus aggregatedRoundDurationsByPlayer
@@ -1319,6 +1324,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
                 kontermatschMade: 0,
                 kontermatschReceived: 0,
                 weisMade: 0,
+                weisReceived: 0, // ✅ NEU: Für Weisdifferenz-Berechnung
                 roundTimes: [],
                 playerNames: topNames
               });
@@ -1423,6 +1429,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
                 kontermatschMade: 0,
                 kontermatschReceived: 0,
                 weisMade: 0,
+                weisReceived: 0, // ✅ NEU: Für Weisdifferenz-Berechnung
                 roundTimes: [],
                 playerNames: bottomNames
               });
@@ -1663,15 +1670,16 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
     });
     calculatedStats.teamWithHighestKontermatschBilanz = teamKontermatschRateList;
 
-    // Team mit meisten Weis-Punkten im Durchschnitt
+    // Team mit bester Weisdifferenz (absolute Differenz)
         const teamWeisAvgList: GroupStatHighlightTeam[] = [];
         teamPairings.forEach((stats, teamKey) => {
       // ✅ KEIN isTeamActive Filter: Zeige ALLE Teams mit Daten
       if (stats.games >= 1) {
-        const weisAvg = stats.games > 0 ? stats.weisMade / stats.games : 0;
+        // ✅ KORRIGIERT: Absolute Differenz (analog zu Striche/Punkte-Differenz)
+        const weisDiff = stats.weisMade - stats.weisReceived;
                 teamWeisAvgList.push({
           names: stats.playerNames,
-          value: Math.round(weisAvg),
+          value: weisDiff, // ✅ Absolute Differenz, nicht Durchschnitt!
           eventsPlayed: stats.games,
                 });
             }
@@ -1679,7 +1687,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
     teamWeisAvgList.sort((a, b) => {
       const valA = typeof a.value === 'number' ? a.value : 0;
       const valB = typeof b.value === 'number' ? b.value : 0;
-      return valB - valA;
+      return valB - valA; // Höchste Differenz zuerst
     });
         calculatedStats.teamWithMostWeisPointsAvg = teamWeisAvgList;
 

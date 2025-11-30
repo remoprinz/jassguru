@@ -49,7 +49,8 @@ import {
   getTrumpfDistributionChartData,
   getTeamEventCounts,
   getPlayerStrichePointsTotals,
-  getTeamStrichePointsTotals
+  getTeamStrichePointsTotals,
+  getTeamWeisPointsTotals
 } from '@/services/chartDataService';
 // ✅ NEU: Hilfsfunktion für Ranglisten aus Backfill-Daten
 import { getRankingFromChartData, getTeamRankingFromChartData } from '@/utils/chartRankingUtils';
@@ -636,6 +637,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
   const [playerPointsTotals, setPlayerPointsTotals] = React.useState<Map<string, { made: number; received: number }>>(new Map());
   const [teamStricheTotals, setTeamStricheTotals] = React.useState<Map<string, { made: number; received: number }>>(new Map());
   const [teamPointsTotals, setTeamPointsTotals] = React.useState<Map<string, { made: number; received: number }>>(new Map());
+  const [teamWeisPointsTotals, setTeamWeisPointsTotals] = React.useState<Map<string, { made: number; received: number }>>(new Map());
   
   React.useEffect(() => {
     if (!members || members.length === 0) return;
@@ -1438,6 +1440,20 @@ export const GroupView: React.FC<GroupViewProps> = ({
         console.warn('Fehler beim Laden der Team Striche/Punkte-Totals:', error);
         setTeamStricheTotals(new Map());
         setTeamPointsTotals(new Map());
+      });
+  }, [currentGroup?.id]);
+
+  // ✅ NEU: Lade Team-Weis-Punkte-Totals
+  React.useEffect(() => {
+    if (!currentGroup?.id) return;
+    
+    getTeamWeisPointsTotals(currentGroup.id)
+      .then((weisMap) => {
+        setTeamWeisPointsTotals(weisMap);
+      })
+      .catch(error => {
+        console.warn('Fehler beim Laden der Team Weis-Punkte-Totals:', error);
+        setTeamWeisPointsTotals(new Map());
       });
   }, [currentGroup?.id]);
 
@@ -2332,32 +2348,32 @@ export const GroupView: React.FC<GroupViewProps> = ({
                           stricheRanking.map((player) => {
                             const stricheTotals = playerStricheTotals.get(player.playerId) || { made: 0, received: 0 };
                             return (
-                              <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`stricheDiff-${player.playerId}`} isClickable={!!player.playerId} className="block rounded-md">
-                                <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
-                                  <div className="flex items-center">
-                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{player.rank}.</span>
-                                    <ProfileImage 
-                                      src={player.playerData?.photoURL} 
-                                      alt={player.playerName} 
-                                      size={layout.profileImageListSize}
-                                      className={`mr-2 ${theme.profileImage}`}
-                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                      fallbackText={player.playerName ? player.playerName.charAt(0).toUpperCase() : '?'}
-                                    />
-                                    <span className={`${layout.bodySize} text-gray-300`}>{player.playerName}</span>
-                                  </div>
-                                  <div className="flex items-center">
-                                    <span className="font-medium mr-2">
-                                      <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                        ({stricheTotals.made}/{stricheTotals.received})
-                                      </span>
-                                      <span className={`${getValueColor(player.currentValue, false)} ${layout.valueSize} font-medium`}>
-                                        {player.currentValue > 0 ? '+' : ''}{player.currentValue}
-                                      </span>
-                                    </span>
-                                  </div>
+                            <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`stricheDiff-${player.playerId}`} isClickable={!!player.playerId} className="block rounded-md">
+                              <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                                <div className="flex items-center">
+                                  <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{player.rank}.</span>
+                                  <ProfileImage 
+                                    src={player.playerData?.photoURL} 
+                                    alt={player.playerName} 
+                                    size={layout.profileImageListSize}
+                                    className={`mr-2 ${theme.profileImage}`}
+                                    fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
+                                    fallbackText={player.playerName ? player.playerName.charAt(0).toUpperCase() : '?'}
+                                  />
+                                  <span className={`${layout.bodySize} text-gray-300`}>{player.playerName}</span>
                                 </div>
-                              </StatLink>
+                                <div className="flex items-center">
+                                  <span className="font-medium mr-2">
+                                    <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
+                                        ({stricheTotals.made}/{stricheTotals.received})
+                                    </span>
+                                    <span className={`${getValueColor(player.currentValue, false)} ${layout.valueSize} font-medium`}>
+                                      {player.currentValue > 0 ? '+' : ''}{player.currentValue}
+                                    </span>
+                                  </span>
+                                </div>
+                              </div>
+                            </StatLink>
                             );
                           })
                         ) : (
@@ -2422,33 +2438,33 @@ export const GroupView: React.FC<GroupViewProps> = ({
                           pointsRanking.map((player) => {
                             const pointsTotals = playerPointsTotals.get(player.playerId) || { made: 0, received: 0 };
                             return (
-                              <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`pointsDiff-${player.playerId}`} isClickable={!!player.playerId} className="block rounded-md">
-                                <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
-                                  <div className="flex items-center">
-                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{player.rank}.</span>
-                                    <ProfileImage 
-                                      src={player.playerData?.photoURL} 
-                                      alt={player.playerName} 
-                                      size={layout.profileImageListSize}
-                                      className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
-                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                      fallbackText={player.playerName ? player.playerName.charAt(0).toUpperCase() : '?'}
-                                      context="list"
-                                    />
-                                    <span className={`${layout.bodySize} text-gray-300`}>{player.playerName}</span>
-                                  </div>
-                                  <div className="flex items-center">
-                                    <span className="font-medium mr-2">
-                                      <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
-                                        ({formatPointsWithK(pointsTotals.made)}/{formatPointsWithK(pointsTotals.received)})
-                                      </span>
-                                      <span className={`${getValueColor(player.currentValue, false)} ${layout.valueSize} font-medium`}>
-                                        {player.currentValue > 0 ? '+' : ''}{player.currentValue}
-                                      </span>
-                                    </span>
-                                  </div>
+                            <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`pointsDiff-${player.playerId}`} isClickable={!!player.playerId} className="block rounded-md">
+                              <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                                <div className="flex items-center">
+                                  <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{player.rank}.</span>
+                                  <ProfileImage 
+                                    src={player.playerData?.photoURL} 
+                                    alt={player.playerName} 
+                                    size={layout.profileImageListSize}
+                                    className={`${layout.listItemImageSpacing} ${theme.profileImage}`}
+                                    fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
+                                    fallbackText={player.playerName ? player.playerName.charAt(0).toUpperCase() : '?'}
+                                    context="list"
+                                  />
+                                  <span className={`${layout.bodySize} text-gray-300`}>{player.playerName}</span>
                                 </div>
-                              </StatLink>
+                                <div className="flex items-center">
+                                  <span className="font-medium mr-2">
+                                    <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
+                                        ({formatPointsWithK(pointsTotals.made)}/{formatPointsWithK(pointsTotals.received)})
+                                    </span>
+                                    <span className={`${getValueColor(player.currentValue, false)} ${layout.valueSize} font-medium`}>
+                                      {player.currentValue > 0 ? '+' : ''}{player.currentValue}
+                                    </span>
+                                  </span>
+                                </div>
+                              </div>
+                            </StatLink>
                             );
                           })
                         ) : (
@@ -2946,47 +2962,47 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       <div ref={teamStricheDiffRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {teamStricheRanking.length > 0 ? (
                           teamStricheRanking.map((team, index) => {
-                            // Extrahiere Spieler-Namen aus Team-Namen
-                            const names = team.teamName.split(' & ');
-                            return (
+                              // Extrahiere Spieler-Namen aus Team-Namen
+                              const names = team.teamName.split(' & ');
+                              return (
                               <div key={`team-${team.teamName}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
-                                <div className="flex items-center">
+                                  <div className="flex items-center">
                                   <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
-                                  <div className="flex mr-2">
-                                    <ProfileImage 
-                                      src={findPlayerPhotoByName(names[0], members)} 
-                                      alt={names[0]} 
-                                      size={layout.profileImageListSize}
-                                      className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                      style={{ zIndex: 1 }}
-                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                      fallbackText={names[0].charAt(0).toUpperCase()}
-                                      context="list"
-                                    />
-                                    <ProfileImage 
-                                      src={findPlayerPhotoByName(names[1], members)} 
-                                      alt={names[1]} 
-                                      size={layout.profileImageListSize}
-                                      className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                      style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
-                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                      fallbackText={names[1] ? names[1].charAt(0).toUpperCase() : '?'}
-                                      context="list"
-                                    />
+                                    <div className="flex mr-2">
+                                      <ProfileImage 
+                                        src={findPlayerPhotoByName(names[0], members)} 
+                                        alt={names[0]} 
+                                        size={layout.profileImageListSize}
+                                        className={`border-2 border-gray-800 ${theme.profileImage}`}
+                                        style={{ zIndex: 1 }}
+                                        fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
+                                        fallbackText={names[0].charAt(0).toUpperCase()}
+                                        context="list"
+                                      />
+                                      <ProfileImage 
+                                        src={findPlayerPhotoByName(names[1], members)} 
+                                        alt={names[1]} 
+                                        size={layout.profileImageListSize}
+                                        className={`border-2 border-gray-800 ${theme.profileImage}`}
+                                        style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
+                                        fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
+                                        fallbackText={names[1] ? names[1].charAt(0).toUpperCase() : '?'}
+                                        context="list"
+                                      />
+                                    </div>
+                                    <span className={`${layout.bodySize} text-gray-300`}>{team.teamName}</span>
                                   </div>
-                                  <span className={`${layout.bodySize} text-gray-300`}>{team.teamName}</span>
-                                </div>
-                                <span className="font-medium mr-2">
-                                  <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
+                                  <span className="font-medium mr-2">
+                                    <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                     ({team.made}/{team.received})
-                                  </span>
+                                    </span>
                                   <span className={`${getValueColor(team.bilanz, false)} ${layout.valueSize} font-medium`}>
                                     {team.bilanz > 0 ? '+' : ''}{team.bilanz}
+                                    </span>
                                   </span>
-                                </span>
-                              </div>
-                            );
-                          })
+                                </div>
+                              );
+                            })
                         ) : (
                           <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>
                             {teamStricheChartLoading ? 'Lade Daten...' : 'Keine Strichdifferenz-Daten verfügbar'}
@@ -3039,47 +3055,47 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       <div ref={teamPointsDiffRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {teamPointsRanking.length > 0 ? (
                           teamPointsRanking.map((team, index) => {
-                            // Extrahiere Spieler-Namen aus Team-Namen
-                            const names = team.teamName.split(' & ');
-                            return (
+                              // Extrahiere Spieler-Namen aus Team-Namen
+                              const names = team.teamName.split(' & ');
+                              return (
                               <div key={`team-${team.teamName}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
-                                <div className="flex items-center">
+                                  <div className="flex items-center">
                                   <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
-                                  <div className="flex mr-2">
-                                    <ProfileImage 
-                                      src={findPlayerPhotoByName(names[0], members)} 
-                                      alt={names[0]} 
-                                      size={layout.profileImageListSize}
-                                      className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                      style={{ zIndex: 1 }}
-                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                      fallbackText={names[0].charAt(0).toUpperCase()}
-                                      context="list"
-                                    />
-                                    <ProfileImage 
-                                      src={findPlayerPhotoByName(names[1], members)} 
-                                      alt={names[1]} 
-                                      size={layout.profileImageListSize}
-                                      className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                      style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
-                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                      fallbackText={names[1] ? names[1].charAt(0).toUpperCase() : '?'}
-                                      context="list"
-                                    />
+                                    <div className="flex mr-2">
+                                      <ProfileImage 
+                                        src={findPlayerPhotoByName(names[0], members)} 
+                                        alt={names[0]} 
+                                        size={layout.profileImageListSize}
+                                        className={`border-2 border-gray-800 ${theme.profileImage}`}
+                                        style={{ zIndex: 1 }}
+                                        fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
+                                        fallbackText={names[0].charAt(0).toUpperCase()}
+                                        context="list"
+                                      />
+                                      <ProfileImage 
+                                        src={findPlayerPhotoByName(names[1], members)} 
+                                        alt={names[1]} 
+                                        size={layout.profileImageListSize}
+                                        className={`border-2 border-gray-800 ${theme.profileImage}`}
+                                        style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
+                                        fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
+                                        fallbackText={names[1] ? names[1].charAt(0).toUpperCase() : '?'}
+                                        context="list"
+                                      />
+                                    </div>
+                                    <span className={`${layout.bodySize} text-gray-300`}>{team.teamName}</span>
                                   </div>
-                                  <span className={`${layout.bodySize} text-gray-300`}>{team.teamName}</span>
-                                </div>
-                                <span className="font-medium mr-2">
-                                  <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
+                                  <span className="font-medium mr-2">
+                                    <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
                                     ({formatPointsWithK(team.made)}/{formatPointsWithK(team.received)})
-                                  </span>
+                                    </span>
                                   <span className={`${getValueColor(team.bilanz, false)} ${layout.valueSize} font-medium`}>
                                     {team.bilanz > 0 ? '+' : ''}{team.bilanz}
+                                    </span>
                                   </span>
-                                </span>
-                              </div>
-                            );
-                          })
+                                </div>
+                              );
+                            })
                         ) : (
                           <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>
                             {teamPointsChartLoading ? 'Lade Daten...' : 'Keine Punktedifferenz-Daten verfügbar'}
@@ -3473,45 +3489,70 @@ export const GroupView: React.FC<GroupViewProps> = ({
                          <h3 className={`${layout.headingSize} font-semibold text-white`}>Weisdifferenz</h3>
                        </div>
                        <div ref={teamWeisAvgRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
-                        {groupStats?.teamWithMostWeisPointsAvg && groupStats.teamWithMostWeisPointsAvg.length > 0 ? (
-                          groupStats.teamWithMostWeisPointsAvg
-                            .filter(team => 
-                              team.value && team.value > 0
-                            )
-                            .map((team, index) => (
-                            <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
-                              <div className="flex items-center">
-                                <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
-                                <div className="flex mr-2">
-                                  <ProfileImage 
-                                    src={findPlayerPhotoByName(team.names[0], members)} 
-                                    alt={team.names[0]} 
-                                    size={layout.profileImageListSize}
-                                    className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                    style={{ zIndex: 1 }}
-                                    fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                    fallbackText={team.names[0].charAt(0).toUpperCase()}
-                                    context="list"
-                                  />
-                                  <ProfileImage 
-                                    src={findPlayerPhotoByName(team.names[1], members)} 
-                                    alt={team.names[1]} 
-                                    size={layout.profileImageListSize}
-                                    className={`border-2 border-gray-800 ${theme.profileImage}`}
-                                    style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
-                                    fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
-                                    fallbackText={team.names[1] ? team.names[1].charAt(0).toUpperCase() : '?'}
-                                    context="list"
-                                  />
-                                </div>
-                                <span className={`${layout.bodySize} text-gray-300`}>{team.names.join(' & ')}</span>
+                        {(() => {
+                          // ✅ DIREKT aus teamWeisPointsTotals: Zeigt ALLE Teams, nicht nur 12!
+                          const allTeamsRanking = Array.from(teamWeisPointsTotals.entries())
+                            .map(([teamName, totals]) => ({
+                              teamName,
+                              differenz: totals.made - totals.received,
+                              made: totals.made,
+                              received: totals.received
+                            }))
+                            .filter(team => team.made > 0 || team.received > 0)
+                            .sort((a, b) => b.differenz - a.differenz);
+                          
+                          if (allTeamsRanking.length === 0) {
+                            return (
+                              <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>
+                                Keine Weis-Daten verfügbar
                               </div>
-                               <span className={`${getWeisDifferenceColor(Math.round(Number(team.value)))} ${layout.valueSize} font-medium`}>{Math.round(Number(team.value)) > 0 ? '+' : ''}{Math.round(Number(team.value))}</span>
-                            </div>
-                          ))
-                        ) : (
-                          <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>Keine Daten verfügbar</div>
-                        )}
+                            );
+                          }
+                          
+                          return allTeamsRanking.map((team, index) => {
+                            const names = team.teamName.split(' & ');
+                            return (
+                              <div key={`team-${team.teamName}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                                <div className="flex items-center">
+                                  <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
+                                  <div className="flex mr-2">
+                                    <ProfileImage 
+                                      src={findPlayerPhotoByName(names[0], members)} 
+                                      alt={names[0]} 
+                                      size={layout.profileImageListSize}
+                                      className={`border-2 border-gray-800 ${theme.profileImage}`}
+                                      style={{ zIndex: 1 }}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
+                                      fallbackText={names[0].charAt(0).toUpperCase()}
+                                      context="list"
+                                    />
+                                    <ProfileImage 
+                                      src={findPlayerPhotoByName(names[1], members)} 
+                                      alt={names[1]} 
+                                      size={layout.profileImageListSize}
+                                      className={`border-2 border-gray-800 ${theme.profileImage}`}
+                                      style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
+                                      fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
+                                      fallbackText={names[1] ? names[1].charAt(0).toUpperCase() : '?'}
+                                      context="list"
+                                    />
+                                  </div>
+                                  <span className={`${layout.bodySize} text-gray-300`}>{team.teamName}</span>
+                                </div>
+                                <div className="flex items-center">
+                                  <span className="font-medium mr-2">
+                                    <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
+                                      ({team.made}/{team.received})
+                                    </span>
+                                    <span className={`${getWeisDifferenceColor(team.differenz)} ${layout.valueSize} font-medium`}>
+                                      {team.differenz > 0 ? '+' : ''}{team.differenz}
+                                    </span>
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
                       </div>
                     </div>
 
