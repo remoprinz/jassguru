@@ -127,7 +127,7 @@
     "react-icons": "^5.4.0",
     "react-markdown": "^10.1.0",
     "react-qr-scanner": "^1.0.0-alpha.11",
-    "react-spinners": "^0.16.1",
+    "react-spinners": "^0.17.0",
     "react-spring": "^9.5.5",
     "react-swipeable": "^7.0.2",
     "react-zxing": "^2.1.0",
