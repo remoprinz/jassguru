@@ -131,6 +131,15 @@ const Header: React.FC<HeaderProps> = () => {
               <DropdownMenuItem onClick={() => router.push('/profile/groups')} className="cursor-pointer hover:bg-gray-600 focus:bg-gray-600">
                 Meine Gruppen
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/tournaments')} className="cursor-pointer hover:bg-gray-600 focus:bg-gray-600">
+                Meine Turniere
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => window.open('https://jasswiki.ch/', '_blank')} className="cursor-pointer hover:bg-gray-600 focus:bg-gray-600">
+                Jass-Wiki
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/support')} className="cursor-pointer hover:bg-gray-600 focus:bg-gray-600">
+                Hilfe
+              </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-gray-600"/>
               <DropdownMenuItem 
                 onClick={async () => {
