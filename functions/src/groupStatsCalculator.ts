@@ -1515,12 +1515,8 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
     // Team mit höchster Gewinnrate (Spiele)
     const teamWinRateList: GroupStatHighlightTeam[] = [];
         teamPairings.forEach((stats, teamKey) => {
-      const isTeamActive = stats.playerIds.some(pid => {
-        const lastActivity = playerLastActivity.get(pid);
-        return lastActivity ? lastActivity.toMillis() >= oneYearAgo : false;
-      });
-
-      if (stats.games >= 1 && isTeamActive) {
+      // ✅ KEIN isTeamActive Filter: Zeige ALLE Teams mit Daten
+      if (stats.games >= 1) {
         const winRate = stats.games > 0 ? stats.wins / stats.games : 0;
         teamWinRateList.push({
                     names: stats.playerNames,
@@ -1540,11 +1536,8 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
     // Team mit höchster Punkte-Differenz
         const teamPointsDiffList: GroupStatHighlightTeam[] = [];
         teamPairings.forEach((stats, teamKey) => {
-      const isTeamActive = stats.playerIds.some(pid => {
-        const lastActivity = playerLastActivity.get(pid);
-        return lastActivity ? lastActivity.toMillis() >= oneYearAgo : false;
-      });
-      if (stats.games >= 1 && isTeamActive) {
+      // ✅ KEIN isTeamActive Filter: Zeige ALLE Teams mit Daten
+      if (stats.games >= 1) {
         const pointsDiff = stats.pointsMade - stats.pointsReceived;
                 teamPointsDiffList.push({
                     names: stats.playerNames,
@@ -1564,11 +1557,8 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
     // Team mit höchster Session-Gewinnrate
     const teamSessionWinRateList: GroupStatHighlightTeam[] = [];
     teamPairings.forEach((stats, teamKey) => {
-      const isTeamActive = stats.playerIds.some(pid => {
-        const lastActivity = playerLastActivity.get(pid);
-        return lastActivity ? lastActivity.toMillis() >= oneYearAgo : false;
-      });
-      if (stats.sessions >= 1 && isTeamActive) {
+      // ✅ KEIN isTeamActive Filter: Zeige ALLE Teams mit Daten
+      if (stats.sessions >= 1) {
         const sessionWinRate = stats.sessions > 0 ? stats.sessionWins / stats.sessions : 0;
         teamSessionWinRateList.push({
           names: stats.playerNames,
@@ -1587,11 +1577,8 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
     // Team mit höchster Striche-Differenz
         const teamStricheDiffList: GroupStatHighlightTeam[] = [];
         teamPairings.forEach((stats, teamKey) => {
-      const isTeamActive = stats.playerIds.some(pid => {
-        const lastActivity = playerLastActivity.get(pid);
-        return lastActivity ? lastActivity.toMillis() >= oneYearAgo : false;
-      });
-      if (stats.games >= 1 && isTeamActive) {
+      // ✅ KEIN isTeamActive Filter: Zeige ALLE Teams mit Daten
+      if (stats.games >= 1) {
         const stricheDiff = stats.stricheMade - stats.stricheReceived;
                 teamStricheDiffList.push({
                     names: stats.playerNames,
@@ -1610,11 +1597,8 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
     // Team mit höchster Matsch-Bilanz (normalisierte Differenz pro Spiel)
     const teamMatschRateList: GroupStatHighlightTeam[] = [];
     teamPairings.forEach((stats, teamKey) => {
-      const isTeamActive = stats.playerIds.some(pid => {
-        const lastActivity = playerLastActivity.get(pid);
-        return lastActivity ? lastActivity.toMillis() >= oneYearAgo : false;
-      });
-      if (stats.games >= 1 && isTeamActive) {
+      // ✅ KEIN isTeamActive Filter: Zeige ALLE Teams mit Daten
+      if (stats.games >= 1) {
         // Normalisierte Differenz-Rate: (gemacht - erhalten) / anzahl_spiele
         const matschBilanz = stats.matschMade - stats.matschReceived;
         teamMatschRateList.push({
@@ -1636,11 +1620,8 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
     // Team mit höchster Schneider-Bilanz (normalisierte Differenz pro Spiel)
     const teamSchneiderRateList: GroupStatHighlightTeam[] = [];
     teamPairings.forEach((stats, teamKey) => {
-      const isTeamActive = stats.playerIds.some(pid => {
-        const lastActivity = playerLastActivity.get(pid);
-        return lastActivity ? lastActivity.toMillis() >= oneYearAgo : false;
-      });
-      if (stats.games >= 1 && isTeamActive) {
+      // ✅ KEIN isTeamActive Filter: Zeige ALLE Teams mit Daten
+      if (stats.games >= 1) {
         // Normalisierte Differenz-Rate: (gemacht - erhalten) / anzahl_spiele
         const schneiderBilanz = stats.schneiderMade - stats.schneiderReceived;
         teamSchneiderRateList.push({
@@ -1662,11 +1643,8 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
     // Team mit höchster Kontermatsch-Bilanz (normalisierte Differenz pro Spiel)
     const teamKontermatschRateList: GroupStatHighlightTeam[] = [];
     teamPairings.forEach((stats, teamKey) => {
-      const isTeamActive = stats.playerIds.some(pid => {
-        const lastActivity = playerLastActivity.get(pid);
-        return lastActivity ? lastActivity.toMillis() >= oneYearAgo : false;
-      });
-      if (stats.games >= 1 && isTeamActive) {
+      // ✅ KEIN isTeamActive Filter: Zeige ALLE Teams mit Daten
+      if (stats.games >= 1) {
         // Normalisierte Differenz-Rate: (gemacht - erhalten) / anzahl_spiele
         const kontermatschBilanz = stats.kontermatschMade - stats.kontermatschReceived;
         teamKontermatschRateList.push({
@@ -1688,11 +1666,8 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
     // Team mit meisten Weis-Punkten im Durchschnitt
         const teamWeisAvgList: GroupStatHighlightTeam[] = [];
         teamPairings.forEach((stats, teamKey) => {
-      const isTeamActive = stats.playerIds.some(pid => {
-        const lastActivity = playerLastActivity.get(pid);
-        return lastActivity ? lastActivity.toMillis() >= oneYearAgo : false;
-      });
-      if (stats.games >= 1 && isTeamActive) {
+      // ✅ KEIN isTeamActive Filter: Zeige ALLE Teams mit Daten
+      if (stats.games >= 1) {
         const weisAvg = stats.games > 0 ? stats.weisMade / stats.games : 0;
                 teamWeisAvgList.push({
           names: stats.playerNames,
@@ -1711,11 +1686,8 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
     // Team mit schnellsten Runden
         const teamFastestRoundsList: GroupStatHighlightTeam[] = [];
         teamPairings.forEach((stats, teamKey) => {
-      const isTeamActive = stats.playerIds.some(pid => {
-        const lastActivity = playerLastActivity.get(pid);
-        return lastActivity ? lastActivity.toMillis() >= oneYearAgo : false;
-      });
-      if (stats.roundTimes.length >= 1 && isTeamActive) {
+      // ✅ KEIN isTeamActive Filter: Zeige ALLE Teams mit Rundentempo-Daten
+      if (stats.roundTimes.length >= 1) {
         // ✅ KORRIGIERT: Median statt Durchschnitt für konsistente Berechnung
         const medianTime = calculateMedian(stats.roundTimes);
                 teamFastestRoundsList.push({
