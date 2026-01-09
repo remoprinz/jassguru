@@ -471,14 +471,24 @@ service cloud.firestore {
     // ==========================================
     
     // Jassmeister Registrierungen - öffentlich schreibbar für Formular
+    // ✅ SICHERHEIT: Rate Limiting wird serverseitig in Cloud Function implementiert
     match /jassmeisterRegistrations/{registrationId} {
       // Jeder kann eine neue Registrierung erstellen (Formular-Submission)
-      // Validierung: Muss captainEmail, captainName und groupName enthalten
+      // ✅ SICHERHEIT: Validierung + Rate Limiting
       allow create: if true && 
                        request.resource.data.keys().hasAll(['captainEmail', 'captainName', 'groupName']) &&
                        request.resource.data.captainEmail is string &&
                        request.resource.data.captainName is string &&
-                       request.resource.data.groupName is string;
+                       request.resource.data.groupName is string &&
+                       // ✅ ZUSÄTZLICHE VALIDIERUNG: Email-Format prüfen
+                       request.resource.data.captainEmail.matches('.*@.*\\..*') &&
+                       // ✅ ZUSÄTZLICHE VALIDIERUNG: Minimale Längen
+                       request.resource.data.captainName.size() >= 2 &&
+                       request.resource.data.groupName.size() >= 2 &&
+                       // ✅ ZUSÄTZLICHE VALIDIERUNG: Maximale Längen (verhindert extrem lange Strings)
+                       request.resource.data.captainName.size() <= 100 &&
+                       request.resource.data.groupName.size() <= 100 &&
+                       request.resource.data.captainEmail.size() <= 200;
       
       // ✅ NEU: Einzelnes Dokument lesen erlauben (für Success-Status-Polling)
       // Da die ID zufällig ist, kann man nur lesen, wenn man die ID kennt (was der Ersteller tut)
@@ -488,6 +498,16 @@ service cloud.firestore {
       allow list, update, delete: if request.auth != null && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+    
+    // ==========================================
+    // JASSMEISTER RATE LIMITS - Spam-Schutz
+    // ==========================================
+    // Diese Collection wird von Cloud Functions verwaltet, um Rate Limiting zu implementieren
+    // Format: jassmeisterRateLimits/{emailHash}
+    match /jassmeisterRateLimits/{emailHash} {
+      // Nur Cloud Functions dürfen Rate Limits verwalten
+      allow read, write: if false;
     }
   }
 }

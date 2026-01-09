@@ -770,25 +770,50 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
         // Die Information wird aus dem In-Memory-Spieldokument gelesen, *bevor* die Transaktion sie oben löscht.
         const firstGame = completedGames[0];
         const rosen10PlayerValue = (firstGame as any).Rosen10player;
-        let playerNumber: number | undefined;
-
+        
+        // ✅ KORREKTUR: Rosen10player kann jetzt direkt eine Player-ID sein (vom Frontend gesetzt)
+        // Oder noch eine Player-Nummer (für Legacy-Kompatibilität)
         if (typeof rosen10PlayerValue === 'string') {
+          // Prüfe ob es eine Player-ID ist (nicht numerisch) oder eine Player-Nummer (numerisch)
           const parsedNumber = parseInt(rosen10PlayerValue, 10);
-          if (!isNaN(parsedNumber)) {
-            playerNumber = parsedNumber;
+          if (!isNaN(parsedNumber) && rosen10PlayerValue === String(parsedNumber)) {
+            // Es ist eine Player-Nummer (z.B. "1", "2", "3", "4")
+            const playerNumber = parsedNumber;
+            if (playerNumberToIdMap.has(playerNumber)) {
+              const playerId = playerNumberToIdMap.get(playerNumber);
+              if (playerId) {
+                sessionRosen10player = playerId;
+                logger.info(`[finalizeSession] Rosen10player for session ${sessionId} determined from Game 1: Player Number ${playerNumber} -> ID ${sessionRosen10player}`);
+              }
+            } else {
+              logger.warn(`[finalizeSession] Could not map Player Number ${playerNumber} to Player ID for session ${sessionId}.`);
+            }
+          } else {
+            // Es ist direkt eine Player-ID (z.B. "abc123xyz")
+            // Validiere dass die Player-ID in der Teilnehmerliste ist
+            if (participantPlayerIds.includes(rosen10PlayerValue)) {
+              sessionRosen10player = rosen10PlayerValue;
+              logger.info(`[finalizeSession] Rosen10player for session ${sessionId} determined from Game 1: Direct Player ID ${sessionRosen10player}`);
+            } else {
+              logger.warn(`[finalizeSession] Rosen10player ID '${rosen10PlayerValue}' from Game 1 is not in participantPlayerIds for session ${sessionId}.`);
+            }
           }
         } else if (typeof rosen10PlayerValue === 'number') {
-          playerNumber = rosen10PlayerValue;
-        }
-
-        if (playerNumber && playerNumberToIdMap.has(playerNumber)) {
-          const playerId = playerNumberToIdMap.get(playerNumber);
-          if (playerId) {
-            sessionRosen10player = playerId;
-            logger.info(`[finalizeSession] Rosen10player for session ${sessionId} determined from Game 1: Player ${playerNumber} -> ID ${sessionRosen10player}`);
+          // Legacy: Player-Nummer als Number
+          const playerNumber = rosen10PlayerValue;
+          if (playerNumberToIdMap.has(playerNumber)) {
+            const playerId = playerNumberToIdMap.get(playerNumber);
+            if (playerId) {
+              sessionRosen10player = playerId;
+              logger.info(`[finalizeSession] Rosen10player for session ${sessionId} determined from Game 1: Player Number ${playerNumber} -> ID ${sessionRosen10player}`);
+            }
+          } else {
+            logger.warn(`[finalizeSession] Could not map Player Number ${playerNumber} to Player ID for session ${sessionId}.`);
           }
+        } else if (rosen10PlayerValue === null || rosen10PlayerValue === undefined) {
+          logger.warn(`[finalizeSession] Rosen10player is null/undefined in Game 1 for session ${sessionId}.`);
         } else {
-          logger.warn(`[finalizeSession] Could not determine valid Rosen10player from Game 1 for session ${sessionId}. Value was: '${rosen10PlayerValue}'.`);
+          logger.warn(`[finalizeSession] Unexpected Rosen10player type in Game 1 for session ${sessionId}. Value: '${rosen10PlayerValue}' (type: ${typeof rosen10PlayerValue}).`);
         }
       }
 

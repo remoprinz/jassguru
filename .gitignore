@@ -1,5 +1,14 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# ============================================
+# LOCAL/TEMPORARY FILES (not for git)
+# ============================================
+_local/
+.publicbuilder.json
+
+# Python scripts (debug/fix scripts)
+*.py
+
 # dependencies
 /node_modules
 /.pnp
@@ -101,6 +110,27 @@ public/assets/screenshots-backup/
 !README.md
 !SECURITY.md
 !SPECIFICATION.md
+
+# 🔒 SICHERHEITSKRITISCH: API-Schlüssel & Secrets Dokumentation
+# Diese Dateien enthalten sensible Informationen über API-Keys, Secrets und Infrastruktur
+API_SCHLUESSEL_DOKUMENTATION.md
+*API*KEY*.md
+*API*SCHLUESSEL*.md
+*SECRET*.md
+GEMINI_API_KEY_ERNEUERN.md
+*API*ERNEUERN*.md
+*CREDENTIAL*.md
+API_KEY_ANALYSE.md
+API_KEY_MIGRATION.md
+
+# 🔒 Infrastruktur-Dokumentation (könnte sensible Details enthalten)
+# RESTORE-Dokumentation könnte Backup-Strategien und interne Prozesse verraten
+RESTORE-ANLEITUNG.md
+RESTORE-SCHRITT-FÜR-SCHRITT.md
+RESTORE-COLLECTIONS-AUSWAHL.md
+RESTORE-SCHNELLSTART.md
+*RESTORE*.md
+!RESTORE-*.md
 backup_*.json
 pglite-debug.log
 debug-*.js

@@ -56,9 +56,11 @@ const nextConfig = {
   webpack: (config) => {
     return config;
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // Next.js 16: Leere turbopack-Konfiguration, damit webpack verwendet wird
+  // (Turbopack ist in Next.js 16 Standard, aber wir haben webpack-Konfiguration)
+  turbopack: {},
+  // eslint-Konfiguration entfernt: Next.js 16 unterstützt eslint in next.config.js nicht mehr
+  // ESLint wird jetzt über .eslintrc.cjs konfiguriert
   typescript: {
     ignoreBuildErrors: true,
   },

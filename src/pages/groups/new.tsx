@@ -1,4 +1,4 @@
-// src/pages/groups/new.tsx
+  // src/pages/groups/new.tsx
 // Seite zum Erstellen einer neuen Jassgruppe
 
 "use client";
@@ -25,7 +25,6 @@ import {useGroupStore} from "@/store/groupStore";
 import {uploadGroupLogo} from "@/services/groupService";
 import MainLayout from "@/components/layout/MainLayout";
 import {Camera, X, ArrowLeft} from "lucide-react";
-import type { FirestoreGroup } from "@/types/jass";
 import imageCompression from "browser-image-compression";
 import ImageCropModal from "@/components/ui/ImageCropModal";
 import { getFunctions, httpsCallable } from "firebase/functions";

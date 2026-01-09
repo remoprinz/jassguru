@@ -1585,9 +1585,16 @@ export const useGameStore = create<GameStore>()(
         addBerg: (team: TeamPosition) => {
           let finalState: GameState | null = null;
           set((state) => {
-            const {scoreSettings} = useUIStore.getState();
+            // 🔧 FIX: Hole die KORREKTEN, KONTEXTABHÄNGIGEN Einstellungen - wie in addSieg
+            const { currentGroup } = useGroupStore.getState();
+            const uiStoreSettings = useUIStore.getState();
 
-            if (!scoreSettings?.enabled?.berg) return state;
+            // Priorisiere Gruppen-Settings, WENN sie DEFINIERT sind, sonst Fallback auf UI Store
+            const activeScoreSettings = (currentGroup && currentGroup.scoreSettings !== null && currentGroup.scoreSettings !== undefined) 
+                                        ? currentGroup.scoreSettings 
+                                        : uiStoreSettings.scoreSettings;
+
+            if (!activeScoreSettings?.enabled?.berg) return state;
 
             const activeTeam = getActiveStrichTeam(state, "berg");
             const newStriche = {...state.striche};

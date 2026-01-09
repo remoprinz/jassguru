@@ -1653,9 +1653,9 @@ export const handleSessionUpdate = onDocumentWritten(
         // ✅ KORREKTUR: Rosen10player aus Session-Daten extrahieren (Player ID -> Display Name)
         let rosen10PlayerName = "";
         if (session.Rosen10player && typeof session.Rosen10player === 'string') {
-          // Versuche den Namen aus playerNames zu finden
           const rosen10PlayerId = session.Rosen10player;
-          // Suche in allen Teams nach dem Spieler
+          
+          // 1. Suche zuerst in allen Teams nach dem Spieler (beste Quelle)
           const allPlayers = [
             ...session.teams.top.players,
             ...session.teams.bottom.players
@@ -1663,13 +1663,34 @@ export const handleSessionUpdate = onDocumentWritten(
           const rosen10Player = allPlayers.find(p => p.playerId === rosen10PlayerId);
           if (rosen10Player) {
             rosen10PlayerName = rosen10Player.displayName || "";
+            console.log(`[handleSessionUpdate] Rosen10player Name gefunden in teams: ${rosen10PlayerName} (ID: ${rosen10PlayerId})`);
           } else {
-            // Fallback: Versuche aus playerNames zu extrahieren (falls noch als Number-Key gespeichert)
-            const playerNameEntry = Object.entries(session.playerNames || {}).find(([_, name]) => name === rosen10PlayerId);
-            if (playerNameEntry) {
-              rosen10PlayerName = playerNameEntry[1];
+            // 2. Fallback: Versuche aus playerNames zu extrahieren
+            // playerNames kann Player-IDs als Keys haben (neue Struktur) oder Player-Nummern als Keys (Legacy)
+            if (session.playerNames && session.playerNames[rosen10PlayerId]) {
+              // Neue Struktur: Player-ID als Key
+              rosen10PlayerName = session.playerNames[rosen10PlayerId];
+              console.log(`[handleSessionUpdate] Rosen10player Name gefunden in playerNames (ID-Key): ${rosen10PlayerName} (ID: ${rosen10PlayerId})`);
+            } else {
+              // Legacy: Suche nach Player-Nummer als Key (falls noch vorhanden)
+              const playerNameEntry = Object.entries(session.playerNames || {}).find(([key, value]) => {
+                // Prüfe ob der Key eine Player-Nummer ist und der Value die Player-ID
+                const keyNum = parseInt(key, 10);
+                return !isNaN(keyNum) && value === rosen10PlayerId;
+              });
+              if (playerNameEntry) {
+                // In diesem Fall ist der Value die Player-ID, nicht der Name
+                // Wir müssen den Namen anders finden - versuche nochmal in teams
+                console.log(`[handleSessionUpdate] WARNUNG: Legacy playerNames-Struktur gefunden für Rosen10player ID ${rosen10PlayerId}, aber Name nicht direkt verfügbar.`);
+              }
             }
           }
+          
+          if (!rosen10PlayerName) {
+            console.warn(`[handleSessionUpdate] EXPORT-WARN: Konnte Rosen10player Name nicht finden für ID ${rosen10PlayerId} in Session ${session.id}.`);
+          }
+        } else {
+          console.warn(`[handleSessionUpdate] EXPORT-WARN: Rosen10player ist nicht gesetzt oder kein String in Session ${session.id}. Value: ${session.Rosen10player}`);
         }
 
         const rowsToAppend: (string | number)[][] = [];

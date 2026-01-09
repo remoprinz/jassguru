@@ -15,6 +15,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 // Define secrets
 const pineconeApiKey = defineSecret('PINECONE_API_KEY');
 const geminiApiKey = defineSecret('GEMINI_API_KEY');
+const supportApiKey = defineSecret('SUPPORT_API_KEY');
 
 // ============================================================================
 // CONFIGURATION
@@ -246,10 +247,17 @@ function formatImageUrls(images: string | string[] | undefined): string[] {
 // MAIN QUERY FUNCTION
 // ============================================================================
 
+// ✅ SICHERHEIT: API Key Validation
+function validateApiKey(req: any, expectedKey: string): boolean {
+  const providedKey = req.get('x-api-key') || req.get('X-API-Key') || req.headers['x-api-key'];
+  // Trim both values to handle potential whitespace/newlines in secrets
+  return providedKey?.trim() === expectedKey?.trim();
+}
+
 export const supportQuery = onRequest(
   {
     cors: true,
-    secrets: [pineconeApiKey, geminiApiKey],
+    secrets: [pineconeApiKey, geminiApiKey, supportApiKey],
     memory: '512MiB',
     timeoutSeconds: 60,
     region: 'us-central1',
@@ -258,10 +266,20 @@ export const supportQuery = onRequest(
     // CORS Headers
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.set('Access-Control-Allow-Headers', 'Content-Type');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, X-API-Key');
 
     if (req.method === 'OPTIONS') {
       res.status(204).send('');
+      return;
+    }
+
+    // ✅ SICHERHEIT: API Key Validation
+    const expectedKey = supportApiKey.value();
+    if (!validateApiKey(req, expectedKey)) {
+      res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Invalid or missing API key'
+      });
       return;
     }
 
@@ -406,6 +424,16 @@ export const supportQuery = onRequest(
       // 8. Response bauen
       const metadata = topResult.metadata || {};
       const formattedText = formatTextForChatGPT(metadata);
+      
+      // Bilder aus dem formatierten Text extrahieren (Markdown-Format: ![alt](url))
+      const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+      const extractedImages: string[] = [];
+      let match;
+      while ((match = imageRegex.exec(formattedText)) !== null) {
+        extractedImages.push(match[2]); // URL ist in Gruppe 2
+      }
+      
+      const primaryImageUrl = extractedImages.length > 0 ? extractedImages[0] : null;
 
       const result: SupportQueryResult = {
         id: topResult.id || '',
@@ -421,8 +449,8 @@ export const supportQuery = onRequest(
           : typeof metadata.see_also === 'string' 
             ? metadata.see_also.split(',').filter((id: string) => id.trim())
             : [],
-        // images: imageUrls, // DEAKTIVIERT: Bilder sind bereits im Text eingebettet
-        // primaryImage: primaryImageUrl, // DEAKTIVIERT: Verhindert doppelte Anzeige
+        images: extractedImages, // ✅ Extrahiert aus dem Text (Markdown-Bilder)
+        primaryImage: primaryImageUrl, // ✅ Erstes Bild für ChatGPT
         number: metadata.number || '',
         difficulty: metadata.difficulty || 'einfach',
         priority: metadata.priority || 3,

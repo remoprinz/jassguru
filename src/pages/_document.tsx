@@ -2,6 +2,37 @@
 
 import Document, {Html, Head, Main, NextScript} from "next/document";
 
+const JASSGURU_SCHEMA = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://jassguru.ch/#organization",
+      "name": "JassGuru",
+      "url": "https://jassguru.ch",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://jassguru.ch/icon-512.png",
+        "width": 512,
+        "height": 512
+      },
+      "description": "Die intelligente Jasstafel und App für Schweizer Jasser."
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://jassguru.ch/#website",
+      "url": "https://jassguru.ch",
+      "name": "JassGuru",
+      "publisher": {
+        "@id": "https://jassguru.ch/#organization"
+      },
+      "inLanguage": "de-CH",
+      "applicationCategory": "GameApplication",
+      "operatingSystem": "Any"
+    }
+  ]
+};
+
 class MyDocument extends Document {
   render() {
     return (
@@ -20,9 +51,9 @@ class MyDocument extends Document {
           <meta name="theme-color" content="#000000" />
 
           {/* iOS-spezifische Icons */}
-          <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2" />
-          <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2" />
-          <link rel="apple-touch-icon" sizes="167x167" href="/apple-touch-icon.png?v=2" />
+          <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=7" />
+          <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=7" />
+          <link rel="apple-touch-icon" sizes="167x167" href="/apple-touch-icon.png?v=7" />
           
           {/* PWA Icons */}
           <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png?v=2" />
@@ -50,6 +81,12 @@ class MyDocument extends Document {
           <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
           <meta httpEquiv="Pragma" content="no-cache" />
           <meta httpEquiv="Expires" content="0" />
+
+          {/* GEO / Schema.org Foundation */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(JASSGURU_SCHEMA) }}
+          />
 
           {/* Inline-Failsafe: Wenn die App in der PWA nicht binnen 2s hydriert,
               deregistriere evtl. Legacy-SWs und lade einmal mit ?no-sw=1 neu. */}

@@ -95,6 +95,44 @@ export const processJassmeisterRegistration = onDocumentCreated(
       return;
     }
 
+    // ✅ SICHERHEIT: Rate Limiting gegen Spam
+    // Prüfe, ob für diese Email bereits eine Registrierung in den letzten 24 Stunden erstellt wurde
+    try {
+      const emailHash = crypto.createHash('sha256').update(captainEmail.toLowerCase().trim()).digest('hex');
+      const rateLimitRef = db.collection('jassmeisterRateLimits').doc(emailHash);
+      const rateLimitDoc = await rateLimitRef.get();
+      
+      const now = admin.firestore.Timestamp.now();
+      const oneDayAgo = new admin.firestore.Timestamp(now.seconds - 86400, now.nanoseconds); // 24 Stunden
+      
+      if (rateLimitDoc.exists) {
+        const rateLimitData = rateLimitDoc.data();
+        const lastRegistration = rateLimitData?.lastRegistration;
+        
+        if (lastRegistration && lastRegistration.seconds > oneDayAgo.seconds) {
+          logger.warn(`Rate limit exceeded for email ${captainEmail}. Last registration: ${lastRegistration.toDate()}`);
+          await snapshot.ref.update({
+            status: 'error',
+            error: 'Zu viele Registrierungen. Bitte warte 24 Stunden zwischen Registrierungen.',
+            processedAt: admin.firestore.FieldValue.serverTimestamp()
+          });
+          return;
+        }
+      }
+      
+      // Aktualisiere Rate Limit
+      await rateLimitRef.set({
+        email: captainEmail.toLowerCase().trim(),
+        lastRegistration: admin.firestore.FieldValue.serverTimestamp(),
+        registrationCount: admin.firestore.FieldValue.increment(1),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    } catch (rateLimitError) {
+      logger.error(`Error checking rate limit for ${captainEmail}:`, rateLimitError);
+      // Bei Fehler im Rate Limiting: Weiter verarbeiten (Fail-Open Strategie)
+      // Besser eine Registrierung zu viel als alle zu blockieren
+    }
+
     let userId: string;
     let isNewUser = false;
 

@@ -1131,28 +1131,28 @@ const ResultatKreidetafel = ({
     const startNewGameSequence = async () => {
       // Hole aktive Game ID *bevor* weitere Aktionen
       const currentActiveGameId = useGameStore.getState().activeGameId;
-      const currentSession = useJassStore.getState().currentSession;
+      const existingSession = useJassStore.getState().currentSession;
 
       // --- KRITISCH: Altes Spiel ZUERST finalisieren ---
       await useJassStore.getState().finalizeGame(); // Markiert altes Spiel als fertig BEVOR neues erstellt wird
       
       // --- NEU: Abgeschlossenes Spiel sofort in Firestore speichern ---
       const summaryToSave = createCompletedGameSummaryFromStores();
-      if (summaryToSave && currentSession?.id && currentActiveGameId) {
+      if (summaryToSave && existingSession?.id && currentActiveGameId) {
         try {
           if (process.env.NODE_ENV === 'development') {
-            console.log(`[ResultatKreidetafel] Speichere Spiel ${summaryToSave.gameNumber} für Session ${currentSession.id} nach "Weiterjassen!"`);
+            console.log(`[ResultatKreidetafel] Speichere Spiel ${summaryToSave.gameNumber} für Session ${existingSession.id} nach "Weiterjassen!"`);
           }
           // Wir verwenden die Offline-Sync-Engine für Robustheit
           const syncEngine = getSyncEngine();
-          await syncEngine.queueGameFinalization(currentSession.id, summaryToSave, 'HIGH');
+          await syncEngine.queueGameFinalization(existingSession.id, summaryToSave, 'HIGH');
         } catch (error) {
           console.error("[ResultatKreidetafel] Fehler beim Speichern des Zwischenspiels:", error);
           // Zeige eine nicht-blockierende Fehlermeldung, der Ablauf kann weitergehen
           useUIStore.getState().showNotification({ type: "error", message: "Fehler beim Speichern des letzten Spiels." });
         }
       } else {
-        console.warn("[ResultatKreidetafel] Überspringe Speichern des Zwischenspiels, Daten unvollständig.", { summary: !!summaryToSave, sessionId: currentSession?.id, activeGameId: currentActiveGameId });
+        console.warn("[ResultatKreidetafel] Überspringe Speichern des Zwischenspiels, Daten unvollständig.", { summary: !!summaryToSave, sessionId: existingSession?.id, activeGameId: currentActiveGameId });
       }
       // --- ENDE NEU ---
 
@@ -1260,17 +1260,72 @@ const ResultatKreidetafel = ({
       }
 
       // --- NEUE VALIDIERUNG: Prüfe Session-Vollständigkeit ---
-      if (!currentSession) {
-        console.error("[ResultatKreidetafel] Keine Session vorhanden - kann kein neues Spiel erstellen");
-        uiStore.showNotification({
-          type: "error",
-          message: "Fehler: Keine aktive Session gefunden.",
-        });
-        return;
+      // 🔧 FIX: Session-Recovery bei fehlendem currentSession
+      let sessionToUse = existingSession;
+      
+      if (!existingSession) {
+        console.warn("[ResultatKreidetafel] Session nicht im Store - versuche Recovery...");
+        
+        // Versuche Session aus dem aktuellen activeGame zu rekonstruieren
+        const currentActiveGameId = gameStore.activeGameId;
+        if (currentActiveGameId) {
+          try {
+            const db = getFirestore(firebaseApp);
+            const gameDoc = await getDoc(doc(db, 'activeGames', currentActiveGameId));
+            
+            if (gameDoc.exists()) {
+              const gameData = gameDoc.data();
+              const recoveredSessionId = gameData.sessionId;
+              
+              if (recoveredSessionId) {
+                console.log(`[ResultatKreidetafel] Session-ID ${recoveredSessionId} aus activeGame recovered`);
+                
+                // Lade Session-Daten aus Firebase
+                const sessionDoc = await getDoc(doc(db, 'sessions', recoveredSessionId));
+                if (sessionDoc.exists()) {
+                  const sessionData = sessionDoc.data();
+                  
+                  // Rekonstruiere minimale Session für Spielfortsetzung
+                  sessionToUse = {
+                    id: recoveredSessionId,
+                    gruppeId: gameData.groupId || sessionData.groupId || null,
+                    startedAt: sessionData.startedAt || Date.now(),
+                    participantUids: sessionData.participantUids || gameData.participantUids || [],
+                    participantPlayerIds: sessionData.participantPlayerIds || [],
+                    playerNames: gameData.playerNames || {},
+                    currentFarbeSettings: sessionData.currentFarbeSettings || gameData.activeFarbeSettings,
+                    currentScoreSettings: sessionData.currentScoreSettings || gameData.activeScoreSettings,
+                    currentStrokeSettings: sessionData.currentStrokeSettings || gameData.activeStrokeSettings,
+                  } as any;
+                  
+                  // Aktualisiere JassStore mit recovered Session (via setState)
+                  useJassStore.setState({ currentSession: sessionToUse });
+                  
+                  console.log("[ResultatKreidetafel] ✅ Session erfolgreich recovered und im Store gesetzt");
+                }
+              }
+            }
+          } catch (error) {
+            console.error("[ResultatKreidetafel] Fehler beim Session-Recovery:", error);
+          }
+        }
+        
+        // Wenn immer noch keine Session, dann Fehler
+        if (!sessionToUse) {
+          console.error("[ResultatKreidetafel] Session-Recovery fehlgeschlagen - kann kein neues Spiel erstellen");
+          uiStore.showNotification({
+            type: "error",
+            message: "Fehler: Keine aktive Session gefunden.",
+          });
+          return;
+        }
       }
+      
+      // Ab hier verwende sessionToUse als die verifizierte Session
+      // (keine neue Variable deklarieren, um Konflikt zu vermeiden)
 
       // --- NEU: Warte auf Player-ID Auflösung ---
-      const participantUids = currentSession.participantUids ?? [];
+      const participantUids = sessionToUse.participantUids ?? [];
       let participantPlayerIds: string[] = [];
       
       if (participantUids.length > 0) {
@@ -1345,7 +1400,7 @@ const ResultatKreidetafel = ({
               // if (process.env.NODE_ENV === 'development') {
               //   console.log("[ResultatKreidetafel] Fallback: Verwende participantPlayerIds aus Session");
               // }
-              participantPlayerIds = currentSession.participantPlayerIds.filter(id => id && id !== 'undefined');
+              participantPlayerIds = sessionToUse.participantPlayerIds.filter(id => id && id !== 'undefined');
             } else {
               // Zeige Warnung, aber fahre fort mit den aufgelösten IDs
               uiStore.showNotification({
@@ -1372,11 +1427,11 @@ const ResultatKreidetafel = ({
           console.error("[ResultatKreidetafel] Fehler beim Auflösen der Player-IDs:", error);
           
           // 🚀 ULTIMATIVER FALLBACK: Session-Daten verwenden
-          if (currentSession.participantPlayerIds && currentSession.participantPlayerIds.length > 0) {
+          if (sessionToUse.participantPlayerIds && sessionToUse.participantPlayerIds.length > 0) {
             if (process.env.NODE_ENV === 'development') {
               console.log("[ResultatKreidetafel] Ultimativer Fallback: Verwende Session participantPlayerIds");
             }
-            participantPlayerIds = currentSession.participantPlayerIds.filter(id => id && id !== 'undefined');
+            participantPlayerIds = sessionToUse.participantPlayerIds.filter(id => id && id !== 'undefined');
           } else {
             uiStore.showNotification({
               type: "error",
@@ -1389,9 +1444,9 @@ const ResultatKreidetafel = ({
 
       // --- NEUE VALIDIERUNG: Warte auf vollständige Settings ---
       let sessionSettings = {
-        farbeSettings: currentSession.currentFarbeSettings,
-        scoreSettings: currentSession.currentScoreSettings,
-        strokeSettings: currentSession.currentStrokeSettings,
+        farbeSettings: sessionToUse.currentFarbeSettings,
+        scoreSettings: sessionToUse.currentScoreSettings,
+        strokeSettings: sessionToUse.currentStrokeSettings,
       };
 
       // Wenn Settings nicht vollständig sind, verwende Fallbacks
@@ -1412,8 +1467,8 @@ const ResultatKreidetafel = ({
           // 1. Initialen Zustand für das neue Spiel vorbereiten
           const initialPlayerNames = { ...useGameStore.getState().playerNames }; 
           const initialStateForNewGame = {
-            sessionId: currentSession.id,
-            groupId: currentSession.gruppeId ?? '', 
+            sessionId: sessionToUse.id,
+            groupId: sessionToUse.gruppeId ?? '', 
           participantUids: participantUids, // 🔥 KORRIGIERT: Verwende bereits validierte participantUids!
           participantPlayerIds: participantPlayerIds, // ✅ KORRIGIERT: Verwende aufgelöste Player-IDs
           playerNames: initialPlayerNames,
@@ -1452,7 +1507,7 @@ const ResultatKreidetafel = ({
         newActiveGameId = await createNewActiveGame(initialStateForNewGame as any);
 
         // 3. Session-Dokument mit der neuen activeGameId aktualisieren
-          await updateSessionActiveGameId(currentSession.id, newActiveGameId);
+          await updateSessionActiveGameId(sessionToUse.id, newActiveGameId);
 
         } catch (error) {
           console.error(`[ResultatKreidetafel] Error creating new game or updating session:`, error);
