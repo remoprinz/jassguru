@@ -6,133 +6,73 @@
 _local/
 .publicbuilder.json
 
-# Python scripts (debug/fix scripts)
-*.py
-
-# dependencies
+# ============================================
+# DEPENDENCIES
+# ============================================
 /node_modules
 /.pnp
 .pnp.js
 
-# testing
-/coverage
-
-# next.js
+# ============================================
+# BUILD OUTPUTS
+# ============================================
 /.next/
+/_next/
 /out/
-
-# production
 /build
+/coverage
+*.tsbuildinfo
 
-# misc
-**/.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# local env files and secrets
-.env*.local
+# ============================================
+# ENVIRONMENT & SECRETS
+# ============================================
 .env
-.env.production
-.env.development
-.env.scripts
+.env.*
+.env*.local
 *.key
 *.pem
 *.p12
 *.jks
 
-# build info
-src/build-info.json
-.env.production.local
-
-# vercel
-.vercel
-
-# firebase
-/.firebase/
+# Firebase service account keys (security critical)
 serviceAccountKey.json
 firebase-service-account.json
 *serviceAccount*.json
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-# files
-jasstafel/Vorlage UI/Examplevideo.mp4
-.cursorrules
-
-# Jassguru spezifische Dokumentation / Notizen
-docs
-INHALTSSTRUKTUR.md
-
-# Projektpläne (vertrauliche Strategie-Dokumentation)
-*.plan.md
-*.plan
-plan*.md
-
-# Firebase service account keys (security critical)
+*service-account*.json
 /functions/serviceAccountKey.json
 /functions/ser.json
-serviceAccountKey.json
-firebase-service-account.json
-firebase-service-account*.json
-*service-account*.json
 
-# Vertrauliche Verbands-Dokumente (sensible Geschäftsinformationen)
-Vermarktungsvertrag_SJV.md
-Founder_Schutz_Klauseln.md
-Statuten_Schweizer_Jass_Verband.md
+# Credentials
+credentials.json
+token.json
+email-pdf-config.json
 
-# Juristische/Business Dokumente allgemein
-*_Vertrag*.md
-*_Statuten*.md
-*_Klauseln*.md
-*_rechtlich*.md
+# ============================================
+# OS & EDITOR FILES
+# ============================================
+**/.DS_Store
+.vercel
+.cursorrules
+/.firebase/
+.firebaserc
 
-# Backup-Verzeichnisse
-public/assets/screenshots-backup/
-
-# Temporäre Debug- und Analyse-Skripte (sicherheitshalber)
-# ABER: Backfill-Scripts und wichtige Docs sind erlaubt!
-*.cjs
-*.js
-!functions/scripts/*.cjs
-!backfill-*.cjs
-*.txt
-*.md
-!BACKFILL-README.md
-!RESTORE-*.md
-!LÖSCHUNG-*.md
-!README.md
-!SECURITY.md
-!SPECIFICATION.md
-
-# 🔒 SICHERHEITSKRITISCH: API-Schlüssel & Secrets Dokumentation
-# Diese Dateien enthalten sensible Informationen über API-Keys, Secrets und Infrastruktur
-API_SCHLUESSEL_DOKUMENTATION.md
-*API*KEY*.md
-*API*SCHLUESSEL*.md
-*SECRET*.md
-GEMINI_API_KEY_ERNEUERN.md
-*API*ERNEUERN*.md
-*CREDENTIAL*.md
-API_KEY_ANALYSE.md
-API_KEY_MIGRATION.md
-
-# 🔒 Infrastruktur-Dokumentation (könnte sensible Details enthalten)
-# RESTORE-Dokumentation könnte Backup-Strategien und interne Prozesse verraten
-RESTORE-ANLEITUNG.md
-RESTORE-SCHRITT-FÜR-SCHRITT.md
-RESTORE-COLLECTIONS-AUSWAHL.md
-RESTORE-SCHNELLSTART.md
-*RESTORE*.md
-!RESTORE-*.md
-backup_*.json
+# ============================================
+# DEBUG & LOGS
+# ============================================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+firebase-debug.log
+firebase-debug.*.log
 pglite-debug.log
+
+# ============================================
+# TEMPORARY SCRIPTS & DOCS
+# ============================================
+# Python scripts
+*.py
+
+# Debug/Analysis scripts (all patterns)
 debug-*.js
 test-*.js
 check-*.js
@@ -170,19 +110,53 @@ audit-*.js
 comprehensive-*.js
 local-test-*.js
 frontend-stats-verification.*
-
-# Sicherheitskritische Debug-Logs und Skripte
-firebase-debug.log
-firebase-debug.*.log
 callMasterFix.js
 getRemoStricheDifferenzVerlauf.ts
 
-# E-Mail PDF-Extraktor sensible Dateien
-credentials.json
-token.json
-email-pdf-config.json
+# Temporary backfill scripts in root (keep in scripts/ folder)
+backfill-*.cjs
+PRODUCTION_BACKFILL_*.cjs
+
+# Backup files
+backup_*.json
+*.backup
+
+# ============================================
+# DOCUMENTATION (internal/sensitive)
+# ============================================
+# All MD files except essential ones
+*.md
+!README.md
+!SECURITY.md
+!SPECIFICATION.md
+
+# Plan documents
+*.plan.md
+*.plan
+plan*.md
+
+# Sensitive business documents
+*_Vertrag*.md
+*_Statuten*.md
+*_Klauseln*.md
+*_rechtlich*.md
+Vermarktungsvertrag_SJV.md
+Founder_Schutz_Klauseln.md
+Statuten_Schweizer_Jass_Verband.md
+
+# API/Secret documentation
+*API*KEY*.md
+*API*SCHLUESSEL*.md
+*SECRET*.md
+*CREDENTIAL*.md
+
+# ============================================
+# MISC
+# ============================================
+docs/
+INHALTSSTRUKTUR.md
+jasstafel/Vorlage\ UI/Examplevideo.mp4
 temp-pdfs/
-
-
-# Firebase config
-.firebaserc
+public/assets/screenshots-backup/
+src/build-info.json
+next-env.d.ts
