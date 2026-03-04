@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "NODE_OPTIONS='--inspect' next dev",
-    "clean": "rm -rf out && rm -f public/workbox-*.js* public/fallback-*.js* && find public -name 'fallback-*' -delete && rm -rf public/pwa && rm -f sw.js workbox-*.js fallback-*.js* && rm -f public/sw\\ [0-9]*.js",
+    "clean": "rm -rf out && rm -rf public/pwa && rm -f public/sw\\ [0-9]*.js",
     "sync:support-images": "bash scripts/sync-support-images.sh",
     "build": "npm run sync:support-images && npm run clean && next build",
     "postbuild": "npm run sitemap",
