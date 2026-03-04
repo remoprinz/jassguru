@@ -630,8 +630,21 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   // ✅ FILTER: Partner/Opponent Stats ohne Turniere (nur normale Sessions)
   const filteredPartnerAggregates = useMemo(() => {
-    if (!playerStats?.partnerAggregates || normalSessionSummaries.length === 0) {
-      return playerStats?.partnerAggregates || [];
+    if (!playerStats?.partnerAggregates) {
+      return [];
+    }
+
+    // ✅ WICHTIG: Wenn KEINE normalen Sessions vorhanden sind, setze alle Partien-Stats auf 0
+    // Das verhindert, dass Turniere als "Partien" angezeigt werden
+    if (normalSessionSummaries.length === 0) {
+      return playerStats.partnerAggregates.map((p: any) => ({
+        ...p,
+        sessionsPlayedWith: 0,
+        sessionsWonWith: 0,
+        sessionsLostWith: 0,
+        sessionsDrawWith: 0,
+        sessionWinRateWith: 0,
+      }));
     }
 
     if (!viewPlayerId) {
@@ -720,8 +733,21 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   }, [playerStats?.partnerAggregates, normalSessionSummaries, viewPlayerId]);
 
   const filteredOpponentAggregates = useMemo(() => {
-    if (!playerStats?.opponentAggregates || normalSessionSummaries.length === 0) {
-      return playerStats?.opponentAggregates || [];
+    if (!playerStats?.opponentAggregates) {
+      return [];
+    }
+
+    // ✅ WICHTIG: Wenn KEINE normalen Sessions vorhanden sind, setze alle Partien-Stats auf 0
+    // Das verhindert, dass Turniere als "Partien" angezeigt werden
+    if (normalSessionSummaries.length === 0) {
+      return playerStats.opponentAggregates.map((o: any) => ({
+        ...o,
+        sessionsPlayedAgainst: 0,
+        sessionsWonAgainst: 0,
+        sessionsLostAgainst: 0,
+        sessionsDrawAgainst: 0,
+        sessionWinRateAgainst: 0,
+      }));
     }
 
     if (!viewPlayerId) {

@@ -4,6 +4,7 @@ import {useJassStore} from "../../store/jassStore";
 import {useUIStore} from "../../store/uiStore";
 import {useTimerStore} from "../../store/timerStore";
 import {FaTrashAlt, FaInfoCircle, FaCog, FaHome} from "react-icons/fa";
+import {PiCalculatorFill} from "react-icons/pi";
 import {TbClipboardText} from "react-icons/tb";
 import {motion} from "framer-motion";
 import ResetWarning from "../notifications/ResetWarning";
@@ -251,9 +252,17 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
     }
   }, [onClose, isCategoryCompleted]);
 
+  const handleJasskalkulatorClick = useCallback(() => {
+    handleButtonPress("jasskalkulator");
+    if (typeof window !== "undefined") {
+      window.location.href = "https://jassverband.ch/de/jasskalkulator";
+    }
+  }, []);
+
   // === Button-Definitionen anpassen ===
   const allButtonsBase: Omit<MenuButton, 'onClick'>[] = [
     { "icon": FaTrashAlt, "color": "bg-red-500", "id": "trash", "data-tutorial": "new-game-button" },
+    { icon: PiCalculatorFill, color: "bg-orange-500", id: "jasskalkulator" },
     { icon: FaInfoCircle, color: "bg-yellow-500", id: "info" },
     { icon: FaHome, color: "bg-blue-500", id: "home" },
     { icon: FaCog, color: "bg-blue-500", id: "farbe", className: "settings-button" }, 
@@ -283,6 +292,7 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
     switch (id) {
       case 'trash': return handleReset;
       case 'info': return handleInfoClick;
+      case 'jasskalkulator': return handleJasskalkulatorClick;
       case 'home': return handleHomeClick;
       case 'farbe': return handleFarbeSettingsClick; // Wird nur im Gastmodus relevant
       case 'resultat': return handleResultatClick;
@@ -357,7 +367,7 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
                 onTouchStart={() => handleButtonPress(id)}
               >
                 <Icon
-                  className={`w-full h-full ${pressedButton === id ? "opacity-70" : ""}`}
+                  className={`w-full h-full block ${id === "jasskalkulator" ? "scale-110" : ""} ${pressedButton === id ? "opacity-70" : ""}`}
                   style={{
                     transform: swipePosition === "top" ? "rotate(180deg)" : "none",
                   }}

@@ -639,74 +639,14 @@ export const GroupView: React.FC<GroupViewProps> = ({
   const [teamPointsTotals, setTeamPointsTotals] = React.useState<Map<string, { made: number; received: number }>>(new Map());
   const [teamWeisPointsTotals, setTeamWeisPointsTotals] = React.useState<Map<string, { made: number; received: number }>>(new Map());
   
-  React.useEffect(() => {
-    if (!members || members.length === 0) return;
-    
-    const loadPlayerStats = async () => {
-      setPlayerStatsLoading(true); // ✅ Loading starten
-      const stats: any = {};
-      
-      // 🚀 OPTIMIERUNG: Paralleles Laden statt sequenziell (viel schneller!)
-      const playerIds = members
-        .map(m => m.id || m.userId)
-        .filter(Boolean) as string[];
-      
-      // Lade alle Player-Docs parallel
-      const playerPromises = playerIds.map(async (playerId) => {
-        try {
-          const playerDoc = await getDoc(doc(db, 'players', playerId));
-          if (playerDoc.exists()) {
-            const playerData = playerDoc.data();
-            // ✅ KORREKTUR: Auch Spieler ohne totalGames laden (für Robustheit)
-            const globalStats = playerData?.globalStats?.current || {};
-            
-              return {
-                playerId,
-                stats: {
-                gamesPlayed: globalStats.totalGames || 0,
-                  // ✅ NEU: Session-Statistiken direkt aus globalStats.current lesen
-                  sessionStats: {
-                  wins: globalStats.sessionsWon || 0,
-                  losses: globalStats.sessionsLost || 0,
-                  draws: globalStats.sessionsDraw || 0
-                  },
-                  // ✅ NEU: Game-Statistiken aus globalStats.current lesen
-                  gameStats: {
-                  wins: globalStats.gamesWon || 0,
-                  losses: globalStats.gamesLost || 0
-                  }
-                }
-              };
-          }
-        } catch (error) {
-          console.warn(`Fehler beim Laden der Stats für ${playerId}:`, error);
-        }
-        return null;
-      });
-      
-      // Warte auf alle Parallel-Loads
-      const results = await Promise.all(playerPromises);
-      
-      // Baue Stats-Object zusammen
-      results.forEach(result => {
-        if (result) {
-          stats[result.playerId] = result.stats;
-        }
-      });
-      
-      setPlayerStats(stats);
-      setPlayerStatsLoading(false); // ✅ Loading beenden
-    };
-    
-    loadPlayerStats();
-  }, [members]);
-
-  // ✅ NEU: Lade Spielezahl pro Spieler aus ALLEN Sessions dieser Gruppe (inkl. Turniere)
-  // Entspricht playerStats?.totalGames in ProfileView.tsx, aber gefiltert nach dieser Gruppe
+  // ✅ REFACTORED: Lade ALLE gruppenspezifischen Stats aus jassGameSummaries dieser Gruppe
+  // Dies ersetzt den alten globalStats-Ansatz und stellt sicher, dass Stats pro Gruppe korrekt sind
   React.useEffect(() => {
     if (!currentGroup?.id || !members || members.length === 0) return;
 
-    (async () => {
+    const loadGroupSpecificStats = async () => {
+      setPlayerStatsLoading(true);
+      
       try {
         const { collection, getDocs } = await import('firebase/firestore');
         const { db } = await import('@/services/firebaseInit');
@@ -715,49 +655,153 @@ export const GroupView: React.FC<GroupViewProps> = ({
         const summariesRef = collection(db, `groups/${currentGroup.id}/jassGameSummaries`);
         const summariesSnapshot = await getDocs(summariesRef);
         
-        const gamesByPlayer = new Map<string, number>();
         const playerIdSet = new Set(members.map(m => m.id || m.userId).filter(Boolean));
         
-        summariesSnapshot.forEach(doc => {
-          const summary = doc.data();
+        // Initialisiere Stats für jeden Spieler
+        const gamesByPlayer = new Map<string, number>();
+        const sessionStatsByPlayer = new Map<string, { wins: number; losses: number; draws: number }>();
+        const gameStatsByPlayer = new Map<string, { wins: number; losses: number }>();
+        
+        // Initialisiere alle Spieler mit 0
+        playerIdSet.forEach(playerId => {
+          gamesByPlayer.set(playerId, 0);
+          sessionStatsByPlayer.set(playerId, { wins: 0, losses: 0, draws: 0 });
+          gameStatsByPlayer.set(playerId, { wins: 0, losses: 0 });
+        });
+        
+        summariesSnapshot.forEach(docSnap => {
+          const summary = docSnap.data();
           
-          // Nur abgeschlossene Sessions (inkl. Turniere!)
+          // Nur abgeschlossene Sessions
           if (summary.status !== 'completed' && summary.status !== 'completed_empty') return;
           
           const isTournament = summary.isTournamentSession || summary.tournamentId;
+          const winnerTeamKey = summary.winnerTeamKey; // 'top' oder 'bottom'
           
           if (isTournament && summary.gameResults && Array.isArray(summary.gameResults)) {
-            // ✅ TURNIER: Zähle pro Spieler, in wie vielen Spielen er tatsächlich war
+            // ✅ TURNIER: Zähle pro Spieler, in wie vielen Spielen er war + Wins/Losses
             summary.gameResults.forEach((game: any) => {
               const topPlayers = game.teams?.top?.players || [];
               const bottomPlayers = game.teams?.bottom?.players || [];
+              const gameWinner = game.winnerTeamKey; // 'top' oder 'bottom'
               
-              [...topPlayers, ...bottomPlayers].forEach((player: any) => {
+              // Top-Team Spieler
+              topPlayers.forEach((player: any) => {
                 const playerId = player.playerId;
                 if (playerId && playerIdSet.has(playerId)) {
                   gamesByPlayer.set(playerId, (gamesByPlayer.get(playerId) || 0) + 1);
+                  const gs = gameStatsByPlayer.get(playerId) || { wins: 0, losses: 0 };
+                  if (gameWinner === 'top') {
+                    gs.wins++;
+                  } else if (gameWinner === 'bottom') {
+                    gs.losses++;
+                  }
+                  gameStatsByPlayer.set(playerId, gs);
+                }
+              });
+              
+              // Bottom-Team Spieler
+              bottomPlayers.forEach((player: any) => {
+                const playerId = player.playerId;
+                if (playerId && playerIdSet.has(playerId)) {
+                  gamesByPlayer.set(playerId, (gamesByPlayer.get(playerId) || 0) + 1);
+                  const gs = gameStatsByPlayer.get(playerId) || { wins: 0, losses: 0 };
+                  if (gameWinner === 'bottom') {
+                    gs.wins++;
+                  } else if (gameWinner === 'top') {
+                    gs.losses++;
+                  }
+                  gameStatsByPlayer.set(playerId, gs);
                 }
               });
             });
+            
+            // Turnier-Session-Win/Loss für Teilnehmer (basierend auf Session-Gewinner)
+            // Bei Turnieren ist die Session-Auswertung komplexer, hier vereinfacht
+            
           } else {
-            // ✅ NORMALE SESSION: Verwende gamesPlayed
+            // ✅ NORMALE SESSION: Verwende gamesPlayed und winnerTeamKey
             const gamesPlayed = summary.gamesPlayed || 0;
             const participantIds = summary.participantPlayerIds || [];
+            const topPlayers = summary.teams?.top?.players?.map((p: any) => p.playerId) || [];
+            const bottomPlayers = summary.teams?.bottom?.players?.map((p: any) => p.playerId) || [];
             
+            // Session Wins/Losses berechnen
             participantIds.forEach((playerId: string) => {
-              if (playerIdSet.has(playerId)) {
-                gamesByPlayer.set(playerId, (gamesByPlayer.get(playerId) || 0) + gamesPlayed);
+              if (!playerIdSet.has(playerId)) return;
+              
+              // Spielezahl
+              gamesByPlayer.set(playerId, (gamesByPlayer.get(playerId) || 0) + gamesPlayed);
+              
+              // Session Win/Loss
+              const ss = sessionStatsByPlayer.get(playerId) || { wins: 0, losses: 0, draws: 0 };
+              
+              if (!winnerTeamKey) {
+                ss.draws++;
+              } else if (winnerTeamKey === 'top' && topPlayers.includes(playerId)) {
+                ss.wins++;
+              } else if (winnerTeamKey === 'bottom' && bottomPlayers.includes(playerId)) {
+                ss.wins++;
+              } else if (winnerTeamKey === 'top' && bottomPlayers.includes(playerId)) {
+                ss.losses++;
+              } else if (winnerTeamKey === 'bottom' && topPlayers.includes(playerId)) {
+                ss.losses++;
               }
+              
+              sessionStatsByPlayer.set(playerId, ss);
+            });
+            
+            // Game Wins/Losses aus finalStriche berechnen (vereinfacht)
+            const topSiege = summary.finalStriche?.top?.sieg || 0;
+            const bottomSiege = summary.finalStriche?.bottom?.sieg || 0;
+            
+            topPlayers.forEach((playerId: string) => {
+              if (!playerIdSet.has(playerId)) return;
+              const gs = gameStatsByPlayer.get(playerId) || { wins: 0, losses: 0 };
+              gs.wins += topSiege;
+              gs.losses += bottomSiege;
+              gameStatsByPlayer.set(playerId, gs);
+            });
+            
+            bottomPlayers.forEach((playerId: string) => {
+              if (!playerIdSet.has(playerId)) return;
+              const gs = gameStatsByPlayer.get(playerId) || { wins: 0, losses: 0 };
+              gs.wins += bottomSiege;
+              gs.losses += topSiege;
+              gameStatsByPlayer.set(playerId, gs);
             });
           }
         });
         
+        // Speichere gruppenspezifische Spielezahlen
         setPlayerGamesInGroup(gamesByPlayer);
+        
+        // Baue playerStats-Object für Kompatibilität mit bestehendem Code
+        const stats: any = {};
+        playerIdSet.forEach(playerId => {
+          const sessionStats = sessionStatsByPlayer.get(playerId) || { wins: 0, losses: 0, draws: 0 };
+          const gameStats = gameStatsByPlayer.get(playerId) || { wins: 0, losses: 0 };
+          const gamesPlayed = gamesByPlayer.get(playerId) || 0;
+          
+          stats[playerId] = {
+            gamesPlayed,
+            sessionStats,
+            gameStats
+          };
+        });
+        
+        setPlayerStats(stats);
+        setPlayerStatsLoading(false);
+        
       } catch (error) {
-        console.error('[GroupView] Fehler beim Laden der Spielezahl:', error);
+        console.error('[GroupView] Fehler beim Laden der gruppenspezifischen Stats:', error);
         setPlayerGamesInGroup(new Map());
+        setPlayerStats({});
+        setPlayerStatsLoading(false);
       }
-    })();
+    };
+    
+    loadGroupSpecificStats();
   }, [currentGroup?.id, members]);
   
 
@@ -2051,7 +2095,21 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                           }
                                           
                                           if (delta !== undefined) {
-                                            const roundedDelta = Math.round(delta);
+                                            // 🛡️ FIX: Robuste Konvertierung - delta kann String, Objekt oder NaN sein
+                                            const numericDelta = typeof delta === 'number' && !isNaN(delta) 
+                                              ? delta 
+                                              : (typeof delta === 'string' ? parseFloat(delta) : NaN);
+                                            
+                                            // Wenn keine gültige Zahl, zeige (0)
+                                            if (isNaN(numericDelta)) {
+                                              return (
+                                                <span className={`ml-1 ${layout.smallTextSize} text-gray-400`}>
+                                                  (0)
+                                                </span>
+                                              );
+                                            }
+                                            
+                                            const roundedDelta = Math.round(numericDelta);
                                             // ✅ Wenn gerundetes Delta 0 ist, immer grau ohne Vorzeichen
                                             if (roundedDelta === 0) {
                                               return (
@@ -2061,8 +2119,8 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                               );
                                             }
                                             return (
-                                              <span className={`ml-1 ${layout.smallTextSize} ${delta > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                                                ({delta > 0 ? '+' : ''}{roundedDelta})
+                                              <span className={`ml-1 ${layout.smallTextSize} ${numericDelta > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                                                ({numericDelta > 0 ? '+' : ''}{roundedDelta})
                                               </span>
                                             );
                                           }

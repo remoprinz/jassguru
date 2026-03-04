@@ -10,7 +10,7 @@
 import { onRequest } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { Pinecone } from '@pinecone-database/pinecone';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
 // Define secrets
 const pineconeApiKey = defineSecret('PINECONE_API_KEY');
@@ -24,9 +24,11 @@ const supportApiKey = defineSecret('SUPPORT_API_KEY');
 const INDEX_NAME = 'jassguru-support';
 const NAMESPACE = 'topics';
 const DEFAULT_TOP_K = 5;
-const DEFAULT_MIN_SCORE = 0.70;
+const DEFAULT_MIN_SCORE = 0.60;  // Angepasst für gemini-embedding-001
 const MARGIN_THRESHOLD = 0.01;
-const EMBEDDING_MODEL = 'embedding-001';
+// Neues Embedding-Modell mit 768 Dimensionen (nach Re-Indexing)
+const EMBEDDING_MODEL = 'gemini-embedding-001';
+const EMBEDDING_DIMENSIONS = 768;
 const IMAGE_BASE_URL = 'https://jassguru.ch/support-images/';
 
 // ============================================================================
@@ -80,7 +82,7 @@ interface SupportQueryResponse {
 // ============================================================================
 
 let pineconeClient: Pinecone | null = null;
-let embeddingModel: any = null;
+let genAIClient: GoogleGenAI | null = null;
 
 function initializePinecone(apiKey: string): Pinecone {
   if (!pineconeClient) {
@@ -89,21 +91,26 @@ function initializePinecone(apiKey: string): Pinecone {
   return pineconeClient;
 }
 
-function initializeEmbedding(apiKey: string): any {
-  if (!embeddingModel) {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    embeddingModel = genAI.getGenerativeModel({ model: EMBEDDING_MODEL });
+function initializeGenAI(apiKey: string): GoogleGenAI {
+  if (!genAIClient) {
+    genAIClient = new GoogleGenAI({ apiKey });
   }
-  return embeddingModel;
+  return genAIClient;
 }
 
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
-async function generateEmbedding(text: string, model: any): Promise<number[]> {
-  const result = await model.embedContent(text.trim().toLowerCase());
-  return result.embedding.values;
+async function generateEmbedding(text: string, ai: GoogleGenAI): Promise<number[]> {
+  const result = await ai.models.embedContent({
+    model: EMBEDDING_MODEL,
+    contents: text.trim().toLowerCase(),
+    config: {
+      outputDimensionality: EMBEDDING_DIMENSIONS
+    }
+  });
+  return result.embeddings?.[0]?.values as number[] || [];
 }
 
 function normalizeQuery(query: string): string[] {
@@ -326,7 +333,7 @@ export const supportQuery = onRequest(
       }
       
       const pinecone = initializePinecone(pineconeKey);
-      const embeddingService = initializeEmbedding(geminiKeyValue);
+      const ai = initializeGenAI(geminiKeyValue);
       
       // 1. Query-Normalisierung
       const index = pinecone.index(INDEX_NAME);
@@ -335,7 +342,7 @@ export const supportQuery = onRequest(
 
       // 2. Embeddings generieren
       const queryEmbeddings = await Promise.all(
-        queryVariants.map(q => generateEmbedding(q, embeddingService))
+        queryVariants.map(q => generateEmbedding(q, ai))
       );
       console.log(`✅ Embeddings generiert: ${queryEmbeddings.length}× (768D)`);
 

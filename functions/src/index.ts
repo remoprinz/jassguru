@@ -834,6 +834,35 @@ export const joinGroupByToken = onCall<JoinGroupByTokenData>(async (request) => 
             return { success: true, alreadyMember: false, group: resultingGroupData };
         });
 
+        // ✅ EINLADUNGS-VERIFIZIERUNG: Setze emailVerified nach erfolgreicher Token-Einlösung
+        // Dies ermöglicht Spielern, die via Einladungslink kommen, sofort mitzuspielen
+        // ohne auf E-Mail-Bestätigung warten zu müssen (die oft im Spam landet)
+        if (joinResult.success && !joinResult.alreadyMember) {
+            try {
+                // Prüfe ob User noch nicht verifiziert ist
+                const userRecord = await admin.auth().getUser(userId);
+                
+                if (!userRecord.emailVerified) {
+                    // Setze emailVerified auf true via Admin SDK
+                    await admin.auth().updateUser(userId, { emailVerified: true });
+                    console.log(`[joinGroupByToken] ✅ INVITE-VERIFY: emailVerified für User ${userId} auf true gesetzt (via Gruppen-Einladung)`);
+                    
+                    // Setze Tracking-Flag in Firestore für Cleanup-Job und Analytics
+                    const userRef = db.collection("users").doc(userId);
+                    await userRef.set({
+                        inviteRegistered: true,
+                        inviteContext: 'group',
+                        inviteTokenId: token,
+                        inviteVerifiedAt: admin.firestore.FieldValue.serverTimestamp()
+                    }, { merge: true });
+                    console.log(`[joinGroupByToken] ✅ INVITE-FLAG: inviteRegistered Flag für User ${userId} gesetzt`);
+                }
+            } catch (verifyError) {
+                // Fehler bei Verifizierung ist nicht kritisch - User ist trotzdem beigetreten
+                console.error(`[joinGroupByToken] ⚠️ INVITE-VERIFY FEHLER für User ${userId}:`, verifyError);
+            }
+        }
+
         return joinResult;
     } catch (error) {
         console.error(`[joinGroupByToken LOG] Fehler beim Beitritt:`, error);
@@ -1438,6 +1467,36 @@ export const acceptTournamentInviteFunction = onCall<AcceptTournamentInviteData>
     });
 
     console.info(`User ${userId} successfully joined tournament ${joinResult.tournamentId}`);
+    
+    // ✅ EINLADUNGS-VERIFIZIERUNG: Setze emailVerified nach erfolgreicher Token-Einlösung
+    // Dies ermöglicht Spielern, die via Einladungslink kommen, sofort mitzuspielen
+    // ohne auf E-Mail-Bestätigung warten zu müssen (die oft im Spam landet)
+    if (joinResult.success && !joinResult.alreadyMember) {
+        try {
+            // Prüfe ob User noch nicht verifiziert ist
+            const userRecord = await admin.auth().getUser(userId);
+            
+            if (!userRecord.emailVerified) {
+                // Setze emailVerified auf true via Admin SDK
+                await admin.auth().updateUser(userId, { emailVerified: true });
+                console.log(`[acceptTournamentInvite] ✅ INVITE-VERIFY: emailVerified für User ${userId} auf true gesetzt (via Turnier-Einladung)`);
+                
+                // Setze Tracking-Flag in Firestore für Cleanup-Job und Analytics
+                const userRef = db.collection("users").doc(userId);
+                await userRef.set({
+                    inviteRegistered: true,
+                    inviteContext: 'tournament',
+                    inviteTokenId: tokenString,
+                    inviteVerifiedAt: admin.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+                console.log(`[acceptTournamentInvite] ✅ INVITE-FLAG: inviteRegistered Flag für User ${userId} gesetzt`);
+            }
+        } catch (verifyError) {
+            // Fehler bei Verifizierung ist nicht kritisch - User ist trotzdem beigetreten
+            console.error(`[acceptTournamentInvite] ⚠️ INVITE-VERIFY FEHLER für User ${userId}:`, verifyError);
+        }
+    }
+    
     return joinResult;
   } catch (error) {
     console.error(`Error for user ${userId} joining tournament with token ${tokenString}:`, error);
@@ -2097,3 +2156,20 @@ export { processJassmeisterRegistration } from './jassmeisterRegistrations';
 
 // ✅ NEU: Export Support Query API für ChatGPT
 export { supportQuery } from './supportQuery';
+
+// ✅ NEU: Export Player Profile Sync to Groups (photoURL, displayName)
+// Diese Funktion synchronisiert Änderungen am players-Dokument automatisch
+// in alle members-Subcollections der Gruppen, in denen der Spieler Mitglied ist.
+export { syncPlayerProfileToGroups } from './syncPlayerProfile';
+
+// =====================================================================
+// JVS (JASSVERBAND SCHWEIZ) MEMBERSHIP FUNCTIONS
+// =====================================================================
+// Diese Functions verwalten die JVS-Mitgliedschaften und ermöglichen
+// Premium-Features (z.B. Buur Analytics) für JVS-Mitglieder.
+export { 
+  createJvsMember, 
+  checkJvsMembership, 
+  activateMembership,
+  getJvsMemberDetails 
+} from './jvsMembership';

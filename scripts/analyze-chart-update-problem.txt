@@ -1,0 +1,198 @@
+📊 ANALYSE: CHART-DATA UPDATE PROBLEM BEI TURNIEREN
+═══════════════════════════════════════════════════
+
+🎯 PROBLEM-ZUSAMMENFASSUNG
+──────────────────────────
+Turnier-Daten werden als `null` in chartData_striche geschrieben, 
+statt die korrekten Werte (+11, -5, +3 etc.) aus playerRankings zu verwenden.
+
+
+🔍 URSACHE: RACE CONDITION IN finalizeTournament.ts
+─────────────────────────────────────────────────────
+
+REIHENFOLGE DER OPERATIONEN:
+
+┌─────────────────────────────────────────────────────────────┐
+│ Zeile 1040-1065: createTournamentJassGameSummary()          │
+│ ├─ Erstellt jassGameSummary Document                        │
+│ └─ ⚠️  teams Feld ist LEER (keine Player-Details)           │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Zeile 1068-1114: updateEloForTournament()                   │
+│ └─ Elo-Ratings aktualisiert                                 │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Zeile 1116-1135: updatePlayerDataAfterSession()             │
+│ └─ Player-Statistiken aktualisiert                          │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Zeile 1137-1151: updateChartsAfterSession() ← ❌ PROBLEM!   │
+│ ├─ Parameter: isTournamentSession = true                    │
+│ ├─ Versucht playerRankings zu laden (Zeile 62-72)           │
+│ └─ ⚠️  playerRankings existieren NOCH NICHT in Firestore!   │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Zeile 1270-1548: PlayerRankings Batch vorbereiten           │
+│ ├─ playerRankingBatch.set() für jeden Spieler               │
+│ └─ ⚠️  Batch nur VORBEREITET, NICHT committed!              │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Zeile 2168: await playerRankingBatch.commit() ← ✅ ZU SPÄT! │
+│ └─ Erst JETZT werden playerRankings in Firestore geschrieben│
+└─────────────────────────────────────────────────────────────┘
+
+
+⏱️  TIMING-NACHWEIS (aus Audit-Skript)
+────────────────────────────────────────
+chartData_striche lastUpdated:  Thu Nov 13 2025 23:37:28
+Tournament finalizedAt:         Thu Nov 13 2025 23:37:29
+playerRankings created:         Thu Nov 13 2025 23:37:29
+
+→ chartData wurde 1 Sekunde VOR playerRankings geschrieben!
+
+
+🔬 WAS PASSIERT IN chartDataUpdater.ts?
+────────────────────────────────────────
+
+chartDataUpdater.ts Zeile 60-72:
+┌─────────────────────────────────────────────────────────────┐
+│ if (isTournamentSession) {                                  │
+│   const tournamentId = sessionData.tournamentId;            │
+│   if (tournamentId) {                                       │
+│     const rankingsSnap = await db                           │
+│       .collection(`tournaments/${tournamentId}/playerRankings`)│
+│       .get();                                               │
+│     rankingsSnap.docs.forEach(doc => {                      │
+│       const data = doc.data();                              │
+│       tournamentRankings.set(data.playerId, data);          │
+│     });                                                     │
+│   }                                                         │
+│ }                                                           │
+└─────────────────────────────────────────────────────────────┘
+
+❌ RESULTAT: tournamentRankings Map ist LEER!
+   → rankingsSnap.size = 0 (Dokumente existieren noch nicht)
+
+
+chartDataUpdater.ts Zeile 240-277 (calculateChartData Loop):
+┌─────────────────────────────────────────────────────────────┐
+│ const isTournament = sessionData.isTournamentSession;       │
+│                                                             │
+│ if (isTournament && tournamentRankings.has(playerId)) {    │
+│   // ✅ Verwende playerRankings                            │
+│   delta = getTournamentDelta(rankings, playerId);          │
+│ } else if (isTopPlayer) {                                  │
+│   // ✅ Verwende teams.top aus sessionData                 │
+│   delta = calculateDelta(sessionData, playerId, 'top');    │
+│ } else if (isBottomPlayer) {                               │
+│   // ✅ Verwende teams.bottom aus sessionData              │
+│   delta = calculateDelta(sessionData, playerId, 'bottom'); │
+│ }                                                           │
+│                                                             │
+│ // Wenn delta === null:                                    │
+│ if (delta === null) {                                      │
+│   dataset.data.push(null); // ❌ NULL in Chart!            │
+│ }                                                           │
+└─────────────────────────────────────────────────────────────┘
+
+🔴 PROBLEM-KETTE:
+1. isTournament = true ✅
+2. tournamentRankings.has(playerId) = false ❌ (Map ist leer)
+3. ALSO: Spring zu else if (isTopPlayer)
+4. ABER: teams.top ist LEER in jassGameSummary ❌
+5. ALSO: isTopPlayer = false, isBottomPlayer = false
+6. ERGEBNIS: delta bleibt null
+7. NULL wird in Chart eingefügt ❌
+
+
+📝 VERGLEICH: finalizeSession.ts (FUNKTIONIERT KORREKT!)
+──────────────────────────────────────────────────────────
+
+finalizeSession.ts Zeile 1054-1068:
+┌─────────────────────────────────────────────────────────────┐
+│ await updateChartsAfterSession(                             │
+│   groupId,                                                  │
+│   sessionId,                                                │
+│   false  // ← isTournamentSession = false                  │
+│ );                                                          │
+└─────────────────────────────────────────────────────────────┘
+
+✅ WARUM ES FUNKTIONIERT:
+1. isTournamentSession = false
+2. ALSO: tournamentRankings wird NICHT geladen
+3. calculateChartData verwendet teams.top/teams.bottom
+4. teams Feld ist bei normalen Sessions KORREKT gefüllt ✅
+5. delta wird korrekt aus finalStriche/finalScores berechnet ✅
+
+
+🎯 KERNPROBLEM
+──────────────
+finalizeTournament.ts ruft updateChartsAfterSession() BEVOR
+playerRankings in Firestore committed werden!
+
+→ Die Chart-Funktion kann die Turnier-Daten nicht finden
+→ Fallback auf teams-Struktur schlägt fehl (leer bei Turnieren)
+→ Resultat: null-Werte in Charts
+
+
+💡 LÖSUNG-OPTIONEN
+──────────────────
+
+Option 1: REIHENFOLGE ÄNDERN (einfach, aber nicht ideal)
+   ├─ Commit playerRankings VOR updateChartsAfterSession
+   ├─ Problem: Andere Updates (Elo, PlayerData) hängen auch von Rankings ab
+   └─ Refactoring könnte komplex werden
+
+Option 2: DATEN INLINE ÜBERGEBEN (elegant, kein DB-Roundtrip)
+   ├─ Ändere updateChartsAfterSession Signatur
+   ├─ Übergebe berechnete Rankings als Parameter
+   ├─ Keine Firestore-Abfrage nötig in chartDataUpdater
+   └─ Schneller & zuverlässiger!
+
+Option 3: ZWEIT-AUFRUF NACH COMMIT (redundant, aber safe)
+   ├─ Rufe updateChartsAfterSession NOCHMAL auf nach Batch-Commit
+   ├─ Problem: Redundant, aber garantiert korrekte Daten
+   └─ Einfache Quick-Fix-Lösung
+
+
+🏆 EMPFEHLUNG
+─────────────
+Option 2: Daten inline übergeben
+
+VORTEILE:
+✅ Keine Race Conditions möglich
+✅ Schneller (kein DB-Roundtrip)
+✅ Klarer Datenfluss
+✅ Einfacher zu testen
+
+ÄNDERUNGEN NÖTIG:
+1. chartDataUpdater.ts:
+   - updateChartsAfterSession() Parameter erweitern
+   - Optional: Map<string, TournamentPlayerRankingData>
+   - Falls vorhanden, verwenden; sonst aus DB laden
+
+2. finalizeTournament.ts:
+   - Rankings vor Batch-Commit sammeln (bereits in Memory!)
+   - Als Parameter an updateChartsAfterSession übergeben
+   - Batch-Commit kann weiterhin später erfolgen
+
+3. finalizeSession.ts:
+   - Keine Änderung nötig (ruft mit undefined/null auf)
+
+
+📌 ZUSAMMENFASSUNG
+──────────────────
+Das Problem ist NICHT in chartDataUpdater.ts selbst,
+sondern in der AUFRUF-REIHENFOLGE in finalizeTournament.ts!
+
+Die Funktion updateChartsAfterSession() funktioniert korrekt,
+wenn die Daten in Firestore existieren. Bei Turnieren werden
+sie aber erst NACH dem Aufruf geschrieben.
+
+Die Lösung ist, die Rankings inline zu übergeben, anstatt
+sie aus Firestore zu laden.

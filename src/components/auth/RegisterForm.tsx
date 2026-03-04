@@ -63,15 +63,37 @@ export function RegisterForm() {
       const tournamentToken = getTournamentToken();
       const groupToken = getGroupToken();
       
-      let successMessage = "Registrierung erfolgreich! Prüfe deine Email (auch Spam-Ordner), um die Registrierung abzuschliessen.";
-      
-      if (tournamentToken) {
-        successMessage = "Registrierung erfolgreich! Prüfe deine Email (auch Spam-Ordner), um die Registrierung abzuschliessen.";
-      } else if (groupToken) {
-        successMessage = "Registrierung erfolgreich! Prüfe deine Email (auch Spam-Ordner), um die Gruppen-Einladung abzuschliessen.";
+      // ✅ EINLADUNGS-FLOW: Bei vorhandenem Token direkt zu /join navigieren
+      // Die Cloud Function setzt nach Token-Einlösung emailVerified auf true
+      // Dadurch muss der User nicht auf die E-Mail-Bestätigung warten
+      if (tournamentToken || groupToken) {
+        const successMessage = tournamentToken 
+          ? "Registrierung erfolgreich! Du wirst jetzt zum Turnier weitergeleitet..."
+          : "Registrierung erfolgreich! Du wirst jetzt zur Gruppe weitergeleitet...";
+        
+        showNotification({
+          type: "success",
+          message: successMessage,
+        });
+        
+        authLogger.info("Token vorhanden, navigiere direkt zu /join:", { tournamentToken, groupToken });
+        
+        // Kurze Verzögerung für bessere UX (User sieht Erfolgsmeldung)
+        setTimeout(() => {
+          if (tournamentToken) {
+            router.push(`/join?tournamentToken=${tournamentToken}`);
+          } else if (groupToken) {
+            router.push(`/join?token=${groupToken}`);
+          }
+        }, 500);
+        
+        form.reset();
+        return;
       }
 
-      // ✅ E-Mail-Bestätigung Notification mit verbesserter Sichtbarkeit
+      // ✅ STANDARD-FLOW: Ohne Token muss E-Mail bestätigt werden
+      const successMessage = "Registrierung erfolgreich! Prüfe deine Email (auch Spam-Ordner), um die Registrierung abzuschliessen.";
+
       const notificationId = showNotification({
         type: "success",
         message: successMessage,
@@ -80,20 +102,8 @@ export function RegisterForm() {
           {
             label: "Verstanden",
             onClick: () => {
-              // Notification explizit entfernen
               useUIStore.getState().removeNotification(notificationId);
-              
-              // Navigation erst nach Bestätigung
-              const tournamentToken = getTournamentToken();
-              const groupToken = getGroupToken();
-              
-              if (tournamentToken) {
-                router.push(`/join?tournamentToken=${tournamentToken}`);
-              } else if (groupToken) {
-                router.push(`/join?token=${groupToken}`);
-              } else {
-                router.push("/auth/login");
-              }
+              router.push("/auth/login");
             }
           }
         ]
@@ -110,11 +120,30 @@ export function RegisterForm() {
     try {
       await loginWithGoogle();
       
-      // ✅ Google-Registrierung: Zeige auch E-Mail-Bestätigung falls nötig
+      // Google-User sind automatisch verifiziert, daher direkt navigieren
       const loggedInUser = useAuthStore.getState().user;
       
+      // Prüfe auf Einladungs-Tokens
+      const tournamentToken = getTournamentToken();
+      const groupToken = getGroupToken();
+      
+      // ✅ EINLADUNGS-FLOW: Bei vorhandenem Token direkt zu /join
+      if (tournamentToken || groupToken) {
+        authLogger.info("Token vorhanden (Google), navigiere zu /join:", { tournamentToken, groupToken });
+        
+        setTimeout(() => {
+          if (tournamentToken) {
+            router.push(`/join?tournamentToken=${tournamentToken}`);
+          } else if (groupToken) {
+            router.push(`/join?token=${groupToken}`);
+          }
+        }, 500);
+        return;
+      }
+      
+      // ✅ STANDARD-FLOW: Ohne Token zur Startseite
       if (loggedInUser && !loggedInUser.emailVerified) {
-        // Google-User aber E-Mail nicht verifiziert - zeige Hinweis
+        // Seltener Edge-Case: Google-User aber E-Mail nicht verifiziert
         const googleNotificationId = showNotification({
           type: "warning",
           message: "Bitte bestätige deine E-Mail-Adresse. Prüfe dein Postfach (auch Spam-Ordner).",
@@ -123,7 +152,6 @@ export function RegisterForm() {
             {
               label: "Verstanden",
               onClick: () => {
-                // Notification explizit entfernen
                 useUIStore.getState().removeNotification(googleNotificationId);
                 router.push("/auth/login");
               }
@@ -131,24 +159,10 @@ export function RegisterForm() {
           ]
         });
       } else {
-        // Verzögerte Navigation mit Token-Verarbeitung
+        // Standard-Navigation zur Startseite
         setTimeout(() => {
-          authLogger.debug("Verzögerte Navigation (Google): Status=", useAuthStore.getState().status);
-          
-          // Tokens aus Storage lesen
-          const tournamentToken = getTournamentToken();
-          const groupToken = getGroupToken();
-              
-          if (tournamentToken) {
-            authLogger.info("Turniertoken im Storage gefunden (Google), leite zu /join weiter:", tournamentToken);
-            router.push(`/join?tournamentToken=${tournamentToken}`);
-          } else if (groupToken) {
-            authLogger.info("Gruppentoken im Storage gefunden (Google), leite zu /join weiter:", groupToken);
-            router.push(`/join?token=${groupToken}`);
-          } else {
-            // Standard-Navigation ohne Token
-            router.push("/start");
-          }
+          authLogger.debug("Navigation zur Startseite (Google):", useAuthStore.getState().status);
+          router.push("/start");
         }, 500);
       }
       

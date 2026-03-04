@@ -796,7 +796,22 @@ export async function updateEloForTournament(tournamentId: string, participantPl
     batch.set(db.collection('players').doc(pid), docData, { merge: true });
   });
 
-  // Rating-History & Scores-History: Erstelle Passe-by-Passe History für alle Spieler (PRO SPIEL!)
+  // 🔧 FIX (15.01.2026): Kumulatives Rating pro Passe tracken
+  // Das Problem war: ratingMap enthält das FINALE Rating nach allen Passen,
+  // aber wir brauchen das KUMULATIVE Rating nach jeder einzelnen Passe.
+  // Lösung: Separater Tracker der nach jeder Passe aktualisiert wird.
+  const cumulativeRatingMap = new Map<string, number>();
+  
+  // Initialisiere mit den START-Ratings (vor dem Turnier)
+  participantPlayerIds.forEach(pid => {
+    const playerData = ratingMap.get(pid);
+    if (playerData) {
+      // oldRating ist das Rating VOR dem Turnier (gesetzt am Anfang der Funktion)
+      cumulativeRatingMap.set(pid, playerData.oldRating);
+    }
+  });
+
+  // Rating-History: Erstelle Passe-by-Passe History für alle Spieler (PRO SPIEL!)
   for (let gameIndex = 0; gameIndex < games.length; gameIndex++) {
     const game = games[gameIndex];
     const gameData = game.data;
@@ -822,24 +837,27 @@ export async function updateEloForTournament(tournamentId: string, participantPl
     const stricheTop = sumStriche(teamStriche.top);
     const stricheBottom = sumStriche(teamStriche.bottom);
 
-    // Rating-History & Scores-History für ALLE Spieler (Top + Bottom)
+    // 🔧 FIX: Berechne Team-Ratings aus dem KUMULATIVEN Rating (nicht aus ratingMap!)
+    const teamTopRating = topPlayers.reduce((sum, p) => sum + (cumulativeRatingMap.get(p) || JASS_ELO_CONFIG.DEFAULT_RATING), 0) / topPlayers.length;
+    const teamBottomRating = bottomPlayers.reduce((sum, p) => sum + (cumulativeRatingMap.get(p) || JASS_ELO_CONFIG.DEFAULT_RATING), 0) / bottomPlayers.length;
+    const expectedTop = expectedScore(teamTopRating, teamBottomRating);
+    const actualTop = stricheScore(stricheTop, stricheBottom, expectedTop);
+    const delta = JASS_ELO_CONFIG.K_TARGET * (actualTop - expectedTop);
+    const deltaPerTopPlayer = delta / topPlayers.length;
+    const deltaPerBottomPlayer = -delta / bottomPlayers.length;
+
+    // Rating-History für ALLE Spieler (Top + Bottom)
     [...topPlayers, ...bottomPlayers].forEach(pid => {
-      const playerRating = ratingMap.get(pid);
-      if (!playerRating) return;
-      
       const isTopPlayer = topPlayers.includes(pid);
+      const deltaPerPlayer = isTopPlayer ? deltaPerTopPlayer : deltaPerBottomPlayer;
       
-      // Rating-Delta berechnen
-      const teamTopRating = topPlayers.reduce((sum, p) => sum + (ratingMap.get(p)?.rating || JASS_ELO_CONFIG.DEFAULT_RATING), 0) / topPlayers.length;
-      const teamBottomRating = bottomPlayers.reduce((sum, p) => sum + (ratingMap.get(p)?.rating || JASS_ELO_CONFIG.DEFAULT_RATING), 0) / bottomPlayers.length;
-      const expectedTop = expectedScore(teamTopRating, teamBottomRating);
-      const actualTop = stricheScore(stricheTop, stricheBottom, expectedTop);
-      const delta = JASS_ELO_CONFIG.K_TARGET * (actualTop - expectedTop);
-      const deltaPerPlayer = isTopPlayer ? (delta / topPlayers.length) : (-delta / bottomPlayers.length);
+      // 🔧 FIX: Kumulatives Rating nach DIESER Passe berechnen
+      const currentCumulativeRating = cumulativeRatingMap.get(pid) || JASS_ELO_CONFIG.DEFAULT_RATING;
+      const newCumulativeRating = currentCumulativeRating + deltaPerPlayer;
       
-      // ✅ RATING-HISTORY (existing)
+      // ✅ RATING-HISTORY mit KORREKTEM kumulativem Rating
       const ratingHistoryData = {
-        rating: playerRating.rating + deltaPerPlayer,
+        rating: newCumulativeRating,  // 🔧 FIX: Kumulatives Rating, nicht finales!
         delta: deltaPerPlayer,
         eventType: 'tournament_passe',
         eventId: `tournament_${tournamentId}_passe_${passeNumber}`,
@@ -847,11 +865,12 @@ export async function updateEloForTournament(tournamentId: string, participantPl
         completedAt: game.completedAt,
         tournamentId: tournamentId,
         passeNumber: passeNumber,
+        won: deltaPerPlayer > 0,  // 🔧 FIX: won-Flag setzen
       };
       batch.set(db.collection(`players/${pid}/ratingHistory`).doc(), ratingHistoryData);
       
-      // ✅ SCORES-HISTORY: ENTFERNT!
-      // Wird jetzt zentral und AGGREGIERT am Ende des Turniers in unifiedPlayerDataService.ts geschrieben.
+      // 🔧 FIX: Kumulatives Rating für nächste Passe aktualisieren
+      cumulativeRatingMap.set(pid, newCumulativeRating);
     });
   }
 

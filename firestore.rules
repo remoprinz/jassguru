@@ -509,5 +509,45 @@ service cloud.firestore {
       // Nur Cloud Functions dürfen Rate Limits verwalten
       allow read, write: if false;
     }
+
+    // =====================================================================
+    // JVS (JASSVERBAND SCHWEIZ) MEMBERSHIP SYSTEM
+    // =====================================================================
+    
+    // JVS Members - Mitgliederdaten
+    match /jvs_members/{memberId} {
+      // Lesen: Nur der eigene Member-Eintrag oder Admins
+      allow read: if request.auth != null && 
+                    (resource.data.uid == request.auth.uid ||
+                     (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true));
+      
+      // Schreiben: Nur Cloud Functions (über Admin SDK)
+      allow write: if false;
+    }
+    
+    // JVS Subscriptions - Zahlungs-/Abo-Daten
+    match /jvs_subscriptions/{subscriptionId} {
+      // Lesen: Nur der zugehörige Member oder Admins
+      allow read: if request.auth != null && 
+                    (exists(/databases/$(database)/documents/jvs_members/$(resource.data.memberId)) &&
+                     get(/databases/$(database)/documents/jvs_members/$(resource.data.memberId)).data.uid == request.auth.uid) ||
+                    (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true);
+      
+      // Schreiben: Nur Cloud Functions (über Admin SDK)
+      allow write: if false;
+    }
+    
+    // JVS Payments - Payment-Historie (für Stripe/Twint Webhooks)
+    match /jvs_payments/{paymentId} {
+      // Lesen: Nur Admins (sensible Zahlungsdaten)
+      allow read: if request.auth != null && 
+                    exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      
+      // Schreiben: Nur Cloud Functions (über Admin SDK)
+      allow write: if false;
+    }
   }
 }

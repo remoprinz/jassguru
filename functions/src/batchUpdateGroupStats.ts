@@ -13,7 +13,7 @@ export const batchUpdateGroupStats = onSchedule(
     schedule: "0 2 * * *", // Täglich um 02:00 Uhr
     timeZone: "Europe/Zurich",
     region: "europe-west1",
-    timeoutSeconds: 3600, // 1 Stunde Timeout für große Gruppen
+    timeoutSeconds: 1800, // 30 Minuten Timeout (Maximum für scheduled functions)
     memory: "2GiB",
   },
   async (event) => {
@@ -94,7 +94,7 @@ export const triggerBatchUpdateGroupStats = onSchedule(
     schedule: "0 0 1 1 *", // Läuft nie automatisch (1. Januar um 00:00)
     timeZone: "Europe/Zurich",
     region: "europe-west1",
-    timeoutSeconds: 3600,
+    timeoutSeconds: 1800, // 30 Minuten Timeout (Maximum für scheduled functions)
     memory: "2GiB",
   },
   async (event) => {

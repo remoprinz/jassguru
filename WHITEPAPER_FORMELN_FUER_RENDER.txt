@@ -1,0 +1,32 @@
+# Formeln für PNG-Generierung
+
+## Formel 1: Teamrating
+R_{team} = \frac{R_{1} + R_{2}}{2}
+
+## Formel 2: Erwartungswert
+E_{A} = \frac{1}{1 + 10^{\frac{R_{B} - R_{A}}{1000}}}
+
+## Formel 3: Expected Diff
+Expected\_Diff = (2 \times E_A - 1) \times TotalStriche
+
+## Formel 4: Actual Diff
+Actual\_Diff = Striche_A - Striche_B
+
+## Formel 5: Deviation
+Deviation = Actual\_Diff - Expected\_Diff
+
+## Formel 6: Score A (vollständig)
+S_A = \max\left(0, \min\left(1, 0.5 + \frac{Deviation}{2 \times 7}\right)\right)
+
+## Formel 7: Rating-Update Team
+\Delta_{A} = K \cdot (S_{A} - E_{A})
+
+## Formel 8: Rating-Update Gegner
+\Delta_{B} = -\Delta_{A}
+
+## Formel 9: K-Faktor
+K = 32
+
+## Formel 10: Rating-Update Spieler
+\Delta_{Spieler} = \frac{\Delta_{Team}}{2}
+

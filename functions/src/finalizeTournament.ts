@@ -5,7 +5,7 @@ import * as logger from "firebase-functions/logger";
 import { TournamentPlayerRankingData } from "./models/tournament-ranking.model"; // NEU: Import für das Ranking-Datenmodell
 import { updateEloForTournament } from './jassEloUpdater'; // 🆕 Elo-Updates für Turniere
 import { updatePlayerDataAfterSession } from './unifiedPlayerDataService'; // ✅ UNIFIED: Neue Player Data Service
-import { saveRatingHistorySnapshot } from './ratingHistoryService'; // 🆕 Rating-Historie
+// ❌ ENTFERNT: saveRatingHistorySnapshot wird nicht mehr für Turniere verwendet (Bug-Fix 15.01.2026)
 import { updateChartsAfterSession } from './chartDataUpdater'; // 🆕 Chart-Updates
 
 const db = admin.firestore();
@@ -248,6 +248,17 @@ export interface TournamentJassGameSummary {
   // Team-Ebene (nur Summen)
   gameWinsByTeam: { top: number; bottom: number; ties?: number };
   sessionTotalWeisPoints: { top: number; bottom: number };
+  
+  // 🔧 FIX (16.01.2026): Root-Level aggregierte Felder für Kompatibilität mit calculateSessionDelta
+  finalScores?: { top: number; bottom: number };
+  finalStriche?: {
+    top: StricheRecord;
+    bottom: StricheRecord;
+  };
+  eventCounts?: {
+    top: EventCountRecord;
+    bottom: EventCountRecord;
+  };
   
   // Elo & Ratings
   playerFinalRatings: {
@@ -596,30 +607,33 @@ async function createTournamentJassGameSummary(
       });
     }
     
-    // EventCounts per-player (aus roundHistory + finalStriche)
-    const gameEventCounts = game.eventCounts || calculateEventCountsForTournamentGame(game);
+    // 🔧 FIX (16.01.2026): EventCounts per-player aus finalStriche (NICHT eventCounts!)
+    // eventCounts ist in manchen Turnieren FALSCH, finalStriche ist immer KORREKT
+    const gameFinalStriche = game.finalStriche || { top: {} as StricheRecord, bottom: {} as StricheRecord };
+    const topStriche = gameFinalStriche.top || {} as StricheRecord;
+    const bottomStriche = gameFinalStriche.bottom || {} as StricheRecord;
     
-    // Top Team Events
+    // Top Team Events - verwende finalStriche statt eventCounts
     topPlayerIds.forEach(pid => {
       if (totalEventCountsByPlayer[pid]) {
-        totalEventCountsByPlayer[pid].matschMade += gameEventCounts.top.matsch || 0;
-        totalEventCountsByPlayer[pid].matschReceived += gameEventCounts.bottom.matsch || 0;
-        totalEventCountsByPlayer[pid].schneiderMade += gameEventCounts.top.schneider || 0;
-        totalEventCountsByPlayer[pid].schneiderReceived += gameEventCounts.bottom.schneider || 0;
-        totalEventCountsByPlayer[pid].kontermatschMade += gameEventCounts.top.kontermatsch || 0;
-        totalEventCountsByPlayer[pid].kontermatschReceived += gameEventCounts.bottom.kontermatsch || 0;
+        totalEventCountsByPlayer[pid].matschMade += topStriche.matsch || 0;
+        totalEventCountsByPlayer[pid].matschReceived += bottomStriche.matsch || 0;
+        totalEventCountsByPlayer[pid].schneiderMade += topStriche.schneider || 0;
+        totalEventCountsByPlayer[pid].schneiderReceived += bottomStriche.schneider || 0;
+        totalEventCountsByPlayer[pid].kontermatschMade += topStriche.kontermatsch || 0;
+        totalEventCountsByPlayer[pid].kontermatschReceived += bottomStriche.kontermatsch || 0;
       }
     });
     
-    // Bottom Team Events
+    // Bottom Team Events - verwende finalStriche statt eventCounts
     bottomPlayerIds.forEach(pid => {
       if (totalEventCountsByPlayer[pid]) {
-        totalEventCountsByPlayer[pid].matschMade += gameEventCounts.bottom.matsch || 0;
-        totalEventCountsByPlayer[pid].matschReceived += gameEventCounts.top.matsch || 0;
-        totalEventCountsByPlayer[pid].schneiderMade += gameEventCounts.bottom.schneider || 0;
-        totalEventCountsByPlayer[pid].schneiderReceived += gameEventCounts.top.schneider || 0;
-        totalEventCountsByPlayer[pid].kontermatschMade += gameEventCounts.bottom.kontermatsch || 0;
-        totalEventCountsByPlayer[pid].kontermatschReceived += gameEventCounts.top.kontermatsch || 0;
+        totalEventCountsByPlayer[pid].matschMade += bottomStriche.matsch || 0;
+        totalEventCountsByPlayer[pid].matschReceived += topStriche.matsch || 0;
+        totalEventCountsByPlayer[pid].schneiderMade += bottomStriche.schneider || 0;
+        totalEventCountsByPlayer[pid].schneiderReceived += topStriche.schneider || 0;
+        totalEventCountsByPlayer[pid].kontermatschMade += bottomStriche.kontermatsch || 0;
+        totalEventCountsByPlayer[pid].kontermatschReceived += topStriche.kontermatsch || 0;
       }
     });
     
@@ -731,6 +745,60 @@ async function createTournamentJassGameSummary(
   // ❌ ENTFERNT: playerCumulativeStats wird nicht mehr in jassGameSummaries gespeichert
   // Stattdessen: Verwende groups/{groupId}/aggregated/chartData_* (siehe chartDataService.ts)
   
+  // 🔧 FIX (16.01.2026): Berechne aggregierte Felder für Kompatibilität mit calculateSessionDelta
+  // Diese Felder werden von unifiedPlayerDataService.ts erwartet
+  
+  // Aggregiere finalScores (Summe aller Spiele)
+  const aggregatedFinalScores = { top: 0, bottom: 0 };
+  gameResults.forEach((game: any) => {
+    aggregatedFinalScores.top += game.topScore || 0;
+    aggregatedFinalScores.bottom += game.bottomScore || 0;
+  });
+  
+  // Aggregiere finalStriche (Summe aller Spiele)
+  const aggregatedFinalStriche = {
+    top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 },
+    bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }
+  };
+  gameResults.forEach((game: any) => {
+    if (game.finalStriche?.top) {
+      aggregatedFinalStriche.top.berg += game.finalStriche.top.berg || 0;
+      aggregatedFinalStriche.top.sieg += game.finalStriche.top.sieg || 0;
+      aggregatedFinalStriche.top.matsch += game.finalStriche.top.matsch || 0;
+      aggregatedFinalStriche.top.schneider += game.finalStriche.top.schneider || 0;
+      aggregatedFinalStriche.top.kontermatsch += game.finalStriche.top.kontermatsch || 0;
+    }
+    if (game.finalStriche?.bottom) {
+      aggregatedFinalStriche.bottom.berg += game.finalStriche.bottom.berg || 0;
+      aggregatedFinalStriche.bottom.sieg += game.finalStriche.bottom.sieg || 0;
+      aggregatedFinalStriche.bottom.matsch += game.finalStriche.bottom.matsch || 0;
+      aggregatedFinalStriche.bottom.schneider += game.finalStriche.bottom.schneider || 0;
+      aggregatedFinalStriche.bottom.kontermatsch += game.finalStriche.bottom.kontermatsch || 0;
+    }
+  });
+  
+  // Aggregiere eventCounts (Summe aller Spiele)
+  const aggregatedEventCounts = {
+    top: { sieg: 0, berg: 0, matsch: 0, kontermatsch: 0, schneider: 0 },
+    bottom: { sieg: 0, berg: 0, matsch: 0, kontermatsch: 0, schneider: 0 }
+  };
+  gameResults.forEach((game: any) => {
+    if (game.eventCounts?.top) {
+      aggregatedEventCounts.top.sieg += game.eventCounts.top.sieg || 0;
+      aggregatedEventCounts.top.berg += game.eventCounts.top.berg || 0;
+      aggregatedEventCounts.top.matsch += game.eventCounts.top.matsch || 0;
+      aggregatedEventCounts.top.kontermatsch += game.eventCounts.top.kontermatsch || 0;
+      aggregatedEventCounts.top.schneider += game.eventCounts.top.schneider || 0;
+    }
+    if (game.eventCounts?.bottom) {
+      aggregatedEventCounts.bottom.sieg += game.eventCounts.bottom.sieg || 0;
+      aggregatedEventCounts.bottom.berg += game.eventCounts.bottom.berg || 0;
+      aggregatedEventCounts.bottom.matsch += game.eventCounts.bottom.matsch || 0;
+      aggregatedEventCounts.bottom.kontermatsch += game.eventCounts.bottom.kontermatsch || 0;
+      aggregatedEventCounts.bottom.schneider += game.eventCounts.bottom.schneider || 0;
+    }
+  });
+  
   // 5. Zusammenstellen
   const result: TournamentJassGameSummary = {
     createdAt: tournamentDoc.createdAt || now,
@@ -761,6 +829,11 @@ async function createTournamentJassGameSummary(
     
     gameWinsByTeam,
     sessionTotalWeisPoints,
+    
+    // 🔧 FIX (16.01.2026): Root-Level aggregierte Felder für Kompatibilität
+    finalScores: aggregatedFinalScores,
+    finalStriche: aggregatedFinalStriche,
+    eventCounts: aggregatedEventCounts,
     
     playerFinalRatings: {} // Wird später gefüllt
   };
@@ -1091,25 +1164,16 @@ export async function finalizeTournamentInternal(tournamentId: string): Promise<
             logger.info(`[finalizeTournament] ✅ Elo already updated by trigger, skipping for tournament ${tournamentId}`);
           }
           
-          // 🆕 Rating-Historie NACH Elo-Update speichern (egal ob Fallback oder Trigger)
-          if (finalizedGroupId) {
-            try {
-              logger.info(`[finalizeTournament] Saving rating history snapshot for tournament ${tournamentId}`);
-              await saveRatingHistorySnapshot(
-                finalizedGroupId,
-                null, // Keine Session-ID bei Turnieren
-                finalParticipantPlayerIds,
-                'tournament_end',
-                tournamentId
-              );
-              logger.info(`[finalizeTournament] ✅ Rating history snapshot completed for tournament ${tournamentId}`);
-            } catch (historyError) {
-              logger.error(`[finalizeTournament] Rating history snapshot failed for tournament ${tournamentId}:`, historyError);
-              // Nicht kritisch - fahre fort
-            }
-          } else {
-            logger.warn(`[finalizeTournament] No groupId found for tournament ${tournamentId}, skipping rating history snapshot`);
-          }
+          // ❌ ENTFERNT (15.01.2026): saveRatingHistorySnapshot für Turniere
+          // 
+          // GRUND: Die Passen-Einträge (eventType: 'tournament_passe') enthalten bereits
+          // alle notwendigen Daten. Ein zusätzlicher 'tournament_end'-Eintrag war:
+          // 1. Redundant (duplizierte Informationen)
+          // 2. Inkompatibel (schrieb delta als Objekt statt als Zahl)
+          // 3. Verursachte den "NaN"-Bug im Chart (falsches Rating im letzten Eintrag)
+          //
+          // Die korrekte Turnier-Delta-Berechnung erfolgt jetzt durch Summierung
+          // der Passen-Deltas in der playerFinalRatings-Sektion weiter unten.
         } catch (error) {
           logger.error(`❌ Fehler beim Elo-Update für Turnier ${tournamentId}:`, error);
           // Nicht kritisch - soll das Turnier-Finalisieren nicht blockieren
@@ -1165,9 +1229,22 @@ export async function finalizeTournamentInternal(tournamentId: string): Promise<
               if (!ratingHistorySnap.empty) {
                 const entries = ratingHistorySnap.docs.map(doc => doc.data());
                 
-                // ✅ KORREKT: Summiere ALLE Passe-Deltas in diesem Turnier
+                // ✅ ROBUST: Summiere ALLE Passe-Deltas in diesem Turnier mit sicherer Extraktion
                 tournamentDelta = entries.reduce((sum: number, entry: any) => {
-                  return sum + (entry.delta || 0);
+                  // 🛡️ FIX: Robuste Delta-Extraktion - kann Zahl, String oder Objekt sein
+                  let entryDelta = 0;
+                  if (typeof entry.delta === 'number' && !isNaN(entry.delta)) {
+                    entryDelta = entry.delta;
+                  } else if (typeof entry.delta === 'string') {
+                    const parsed = parseFloat(entry.delta);
+                    if (!isNaN(parsed)) {
+                      entryDelta = parsed;
+                    }
+                  } else if (entry.delta && typeof entry.delta === 'object' && typeof entry.delta.delta === 'number') {
+                    // Falls delta ein verschachteltes Objekt ist: { delta: number }
+                    entryDelta = entry.delta.delta;
+                  }
+                  return sum + entryDelta;
                 }, 0);
                 
                 logger.debug(`[finalizeTournament] Player ${playerId} tournament delta: ${tournamentDelta.toFixed(2)} (sum of ${entries.length} passes)`);

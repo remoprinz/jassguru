@@ -375,6 +375,8 @@ export const handleUserCreation = onCall({
 });
 
 // 🧹 EMAIL-BEREINIGUNG: Automatische Löschung unverifizierter Accounts
+// ⚠️ WICHTIG: User mit inviteRegistered: true werden NICHT gelöscht!
+// Diese User wurden via Einladungslink registriert und sind legitim.
 export const cleanupUnverifiedUsers = onSchedule({
   schedule: "0 2 * * *", // Täglich um 2 Uhr morgens
   timeZone: "Europe/Zurich",
@@ -386,6 +388,7 @@ export const cleanupUnverifiedUsers = onSchedule({
   
   const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000); // 7 Tage in Millisekunden
   let deletedCount = 0;
+  let skippedInviteCount = 0;
   let errorCount = 0;
   
   try {
@@ -398,15 +401,24 @@ export const cleanupUnverifiedUsers = onSchedule({
           userRecord.metadata.creationTime && 
           new Date(userRecord.metadata.creationTime).getTime() < sevenDaysAgo) {
         try {
-          logger.info(`🗑️ Deleting unverified user: ${userRecord.uid} (${userRecord.email})`);
-          
-          // 1. Lösche Firestore-Dokumente
+          // ✅ NEU: Prüfe ob User via Einladung registriert wurde
           const userDocRef = db.collection(USERS_COLLECTION).doc(userRecord.uid);
           const userDoc = await userDocRef.get();
           
           if (userDoc.exists) {
             const userData = userDoc.data();
+            
+            // ✅ SCHUTZ: User mit inviteRegistered: true NICHT löschen
+            // Diese wurden via Einladungslink registriert und sind legitim
+            if (userData?.inviteRegistered === true) {
+              logger.info(`🛡️ SKIPPED invite-registered user: ${userRecord.uid} (${userRecord.email}) - registered via ${userData.inviteContext || 'invite'}`);
+              skippedInviteCount++;
+              continue; // Überspringe diesen User
+            }
+            
             const playerId = userData?.playerId;
+            
+            logger.info(`🗑️ Deleting unverified user: ${userRecord.uid} (${userRecord.email})`);
             
             // Lösche Player-Dokument falls vorhanden
             if (playerId) {
@@ -417,6 +429,8 @@ export const cleanupUnverifiedUsers = onSchedule({
             // Lösche User-Dokument
             await userDocRef.delete();
             logger.info(`🗑️ Deleted user document: ${userRecord.uid}`);
+          } else {
+            logger.info(`🗑️ Deleting unverified user (no Firestore doc): ${userRecord.uid} (${userRecord.email})`);
           }
           
           // 2. Lösche Firebase Auth User
@@ -431,7 +445,7 @@ export const cleanupUnverifiedUsers = onSchedule({
       }
     }
     
-    logger.info(`🧹 Cleanup completed: ${deletedCount} users deleted, ${errorCount} errors`);
+    logger.info(`🧹 Cleanup completed: ${deletedCount} users deleted, ${skippedInviteCount} invite-registered users protected, ${errorCount} errors`);
   } catch (error) {
     logger.error("❌ Critical error during user cleanup:", error);
   }

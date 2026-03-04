@@ -35,11 +35,14 @@ export async function getGlobalPlayerPointsTimeSeries(
         return dateA.getTime() - dateB.getTime();
       });
 
-      const hasGameEntries = historyEntries.some(e => e.eventType === 'game' && typeof e.pointsDiff === 'number');
+      const hasGameEntries = historyEntries.some(e => 
+        (e.eventType === 'game' || e.eventType === 'session' || e.eventType === 'tournament_session') && 
+        typeof e.pointsDiff === 'number'
+      );
 
       if (hasGameEntries) {
         const limitedHistory = historyEntries
-          .filter(e => e.eventType === 'game' || e.eventType === 'session') // ✅ Akzeptiere auch Session-Events
+          .filter(e => e.eventType === 'game' || e.eventType === 'session' || e.eventType === 'tournament_session') // ✅ Akzeptiere auch Turnier-Events
           .slice(-limitCount);
 
         const pointsDiffData: number[] = [];

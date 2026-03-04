@@ -323,11 +323,36 @@ function calculateSessionDelta(playerId: string, sessionData: any): SessionDelta
   };
   
   // Bestimme Team des Spielers
+  // 🔧 FIX (16.01.2026): Für Turniere suche in gameResults, da teams auf Root fehlen kann
   let playerTeam: 'top' | 'bottom' | null = null;
+  
+  // Erst in Root-Level teams suchen (normale Sessions)
   if (sessionData.teams?.top?.players?.some((p: any) => p.playerId === playerId)) {
     playerTeam = 'top';
   } else if (sessionData.teams?.bottom?.players?.some((p: any) => p.playerId === playerId)) {
     playerTeam = 'bottom';
+  }
+  
+  // Falls nicht gefunden und Turnier, suche in gameResults
+  if (!playerTeam && sessionData.gameResults && Array.isArray(sessionData.gameResults)) {
+    for (const game of sessionData.gameResults) {
+      if (game.teams?.top?.players?.some((p: any) => p.playerId === playerId)) {
+        playerTeam = 'top';
+        break;
+      } else if (game.teams?.bottom?.players?.some((p: any) => p.playerId === playerId)) {
+        playerTeam = 'bottom';
+        break;
+      }
+    }
+  }
+  
+  // Falls nicht gefunden und gameWinsByPlayer existiert, nehme "teilgenommen" an
+  // (für Turniere mit wechselnden Teams)
+  if (!playerTeam && sessionData.gameWinsByPlayer?.[playerId]) {
+    // Spieler hat teilgenommen, aber Team kann nicht eindeutig bestimmt werden
+    // Bei Turnieren mit wechselnden Teams ist das OK
+    playerTeam = 'top'; // Default, wird für Per-Spieler-Stats eh überschrieben
+    logger.info(`[calculateSessionDelta] Spieler ${playerId} in Turnier gefunden (wechselnde Teams)`);
   }
   
   if (!playerTeam) {
@@ -408,13 +433,56 @@ function calculateSessionDelta(playerId: string, sessionData: any): SessionDelta
   }
   
   // SCORES
-  if (sessionData.finalScores) {
+  // 🔧 FIX (16.01.2026): Für Turniere verwende totalPointsByPlayer/totalStricheByPlayer
+  if (isTournament && sessionData.totalPointsByPlayer) {
+    // Tournament: Punkte aus totalPointsByPlayer
+    delta.pointsMade = sessionData.totalPointsByPlayer[playerId] || 0;
+    
+    // Berechne Gegner-Punkte aus gameResults
+    let opponentPointsTotal = 0;
+    if (sessionData.gameResults && Array.isArray(sessionData.gameResults)) {
+      sessionData.gameResults.forEach((game: any) => {
+        const playerInTop = game.teams?.top?.players?.some((p: any) => p.playerId === playerId);
+        const playerInBottom = game.teams?.bottom?.players?.some((p: any) => p.playerId === playerId);
+        
+        if (playerInTop) {
+          opponentPointsTotal += game.bottomScore || 0;
+        } else if (playerInBottom) {
+          opponentPointsTotal += game.topScore || 0;
+        }
+      });
+    }
+    delta.pointsReceived = opponentPointsTotal;
+    delta.pointsDifference = delta.pointsMade - delta.pointsReceived;
+  } else if (sessionData.finalScores) {
     delta.pointsMade = sessionData.finalScores[playerTeam] || 0;
     delta.pointsReceived = sessionData.finalScores[opponentTeam] || 0;
     delta.pointsDifference = delta.pointsMade - delta.pointsReceived;
   }
   
-  if (sessionData.finalStriche) {
+  // 🔧 FIX (16.01.2026): Für Turniere verwende totalStricheByPlayer
+  if (isTournament && sessionData.totalStricheByPlayer?.[playerId]) {
+    // Tournament: Striche aus totalStricheByPlayer
+    const playerStriche = sessionData.totalStricheByPlayer[playerId];
+    delta.stricheMade = sumStriche(playerStriche);
+    
+    // Berechne Gegner-Striche aus gameResults
+    let opponentStricheTotal = 0;
+    if (sessionData.gameResults && Array.isArray(sessionData.gameResults)) {
+      sessionData.gameResults.forEach((game: any) => {
+        const playerInTop = game.teams?.top?.players?.some((p: any) => p.playerId === playerId);
+        const playerInBottom = game.teams?.bottom?.players?.some((p: any) => p.playerId === playerId);
+        
+        if (playerInTop && game.finalStriche?.bottom) {
+          opponentStricheTotal += sumStriche(game.finalStriche.bottom);
+        } else if (playerInBottom && game.finalStriche?.top) {
+          opponentStricheTotal += sumStriche(game.finalStriche.top);
+        }
+      });
+    }
+    delta.stricheReceived = opponentStricheTotal;
+    delta.stricheDifference = delta.stricheMade - delta.stricheReceived;
+  } else if (sessionData.finalStriche) {
     const playerStriche = sessionData.finalStriche[playerTeam];
     const opponentStriche = sessionData.finalStriche[opponentTeam];
     
@@ -431,7 +499,23 @@ function calculateSessionDelta(playerId: string, sessionData: any): SessionDelta
   }
   
   // EVENTS
-  if (sessionData.eventCounts) {
+  // 🔧 FIX (16.01.2026): Für Turniere verwende totalEventCountsByPlayer
+  if (isTournament && sessionData.totalEventCountsByPlayer?.[playerId]) {
+    // Tournament: Events aus totalEventCountsByPlayer
+    const playerEvents = sessionData.totalEventCountsByPlayer[playerId];
+    
+    delta.matschEventsMade = playerEvents.matschMade || 0;
+    delta.matschEventsReceived = playerEvents.matschReceived || 0;
+    delta.matschBilanz = delta.matschEventsMade - delta.matschEventsReceived;
+    
+    delta.schneiderEventsMade = playerEvents.schneiderMade || 0;
+    delta.schneiderEventsReceived = playerEvents.schneiderReceived || 0;
+    delta.schneiderBilanz = delta.schneiderEventsMade - delta.schneiderEventsReceived;
+    
+    delta.kontermatschEventsMade = playerEvents.kontermatschMade || 0;
+    delta.kontermatschEventsReceived = playerEvents.kontermatschReceived || 0;
+    delta.kontermatschBilanz = delta.kontermatschEventsMade - delta.kontermatschEventsReceived;
+  } else if (sessionData.eventCounts) {
     const playerEvents = sessionData.eventCounts[playerTeam] || {};
     const opponentEvents = sessionData.eventCounts[opponentTeam] || {};
     
@@ -457,8 +541,45 @@ function calculateSessionDelta(playerId: string, sessionData: any): SessionDelta
   delta.playTimeSeconds = sessionData.durationSeconds || 0;
   
   // PARTNER/OPPONENT
-  const teamPlayers = sessionData.teams[playerTeam]?.players || [];
-  const opponentPlayers = sessionData.teams[opponentTeam]?.players || [];
+  // 🔧 FIX (16.01.2026): Für Turniere extrahiere aus gameResults (da teams auf Root fehlt)
+  let teamPlayers: any[] = [];
+  let opponentPlayers: any[] = [];
+  
+  if (isTournament && (!sessionData.teams || !sessionData.teams[playerTeam]) && sessionData.gameResults) {
+    // Sammle alle Partner und Gegner aus allen Games
+    const partnerSet = new Map<string, string>();
+    const opponentSet = new Map<string, string>();
+    
+    sessionData.gameResults.forEach((game: any) => {
+      const topPlayers = game.teams?.top?.players || [];
+      const bottomPlayers = game.teams?.bottom?.players || [];
+      
+      const playerInTop = topPlayers.some((p: any) => p.playerId === playerId);
+      const playerInBottom = bottomPlayers.some((p: any) => p.playerId === playerId);
+      
+      if (playerInTop) {
+        topPlayers.forEach((p: any) => {
+          if (p.playerId !== playerId) partnerSet.set(p.playerId, p.displayName || 'Unbekannt');
+        });
+        bottomPlayers.forEach((p: any) => {
+          opponentSet.set(p.playerId, p.displayName || 'Unbekannt');
+        });
+      } else if (playerInBottom) {
+        bottomPlayers.forEach((p: any) => {
+          if (p.playerId !== playerId) partnerSet.set(p.playerId, p.displayName || 'Unbekannt');
+        });
+        topPlayers.forEach((p: any) => {
+          opponentSet.set(p.playerId, p.displayName || 'Unbekannt');
+        });
+      }
+    });
+    
+    teamPlayers = Array.from(partnerSet.entries()).map(([pid, name]) => ({ playerId: pid, displayName: name }));
+    opponentPlayers = Array.from(opponentSet.entries()).map(([pid, name]) => ({ playerId: pid, displayName: name }));
+  } else {
+    teamPlayers = sessionData.teams?.[playerTeam]?.players || [];
+    opponentPlayers = sessionData.teams?.[opponentTeam]?.players || [];
+  }
   
   teamPlayers.forEach((p: any) => {
     if (p.playerId !== playerId) {

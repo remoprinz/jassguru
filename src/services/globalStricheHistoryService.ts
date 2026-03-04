@@ -37,11 +37,14 @@ export async function getGlobalPlayerStricheTimeSeries(
       });
 
       // Prüfe, ob die Einträge wirklich game-basiert sind (eventType === 'game' und stricheDiff vorhanden)
-      const hasGameEntries = historyEntries.some(e => e.eventType === 'game' && typeof e.stricheDiff === 'number');
+      const hasGameEntries = historyEntries.some(e => 
+        (e.eventType === 'game' || e.eventType === 'session' || e.eventType === 'tournament_session') && 
+        typeof e.stricheDiff === 'number'
+      );
 
       if (hasGameEntries) {
         const limitedHistory = historyEntries
-          .filter(e => e.eventType === 'game' || e.eventType === 'session') // ✅ Akzeptiere auch Session-Events
+          .filter(e => e.eventType === 'game' || e.eventType === 'session' || e.eventType === 'tournament_session') // ✅ Akzeptiere auch Turnier-Events
           .slice(-limitCount);
 
         const stricheDiffData: number[] = [];

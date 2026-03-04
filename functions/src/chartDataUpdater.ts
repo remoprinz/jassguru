@@ -170,31 +170,85 @@ function calculateEventDifference(
 
 /**
  * Helper: Sammelt alle Spieler-IDs aus allen Sessions
+ * 🔧 FIX (16.01.2026): Auch gameResults durchsuchen für Turniere!
  */
 function collectAllPlayerIds(sessionsSnap: any): Map<string, string> {
   const playerNames = new Map<string, string>();
-  const allPlayerIds = new Set<string>();
   
   sessionsSnap.docs.forEach((doc: any) => {
     const data = doc.data();
-    const teams = data.teams || {};
     
+    // 1. Normale Sessions: teams auf Root-Level
+    const teams = data.teams || {};
     if (teams.top?.players) {
       teams.top.players.forEach((p: any) => {
-        allPlayerIds.add(p.playerId);
-        playerNames.set(p.playerId, p.displayName || p.playerId);
+        if (p.playerId) {
+          playerNames.set(p.playerId, p.displayName || p.playerId);
+        }
+      });
+    }
+    if (teams.bottom?.players) {
+      teams.bottom.players.forEach((p: any) => {
+        if (p.playerId) {
+          playerNames.set(p.playerId, p.displayName || p.playerId);
+        }
       });
     }
     
-    if (teams.bottom?.players) {
-      teams.bottom.players.forEach((p: any) => {
-        allPlayerIds.add(p.playerId);
-        playerNames.set(p.playerId, p.displayName || p.playerId);
+    // 2. 🔧 FIX: Turniere - teams in gameResults durchsuchen
+    if (data.gameResults && Array.isArray(data.gameResults)) {
+      data.gameResults.forEach((game: any) => {
+        const gameTeams = game.teams || {};
+        if (gameTeams.top?.players) {
+          gameTeams.top.players.forEach((p: any) => {
+            if (p.playerId) {
+              playerNames.set(p.playerId, p.displayName || p.playerId);
+            }
+          });
+        }
+        if (gameTeams.bottom?.players) {
+          gameTeams.bottom.players.forEach((p: any) => {
+            if (p.playerId) {
+              playerNames.set(p.playerId, p.displayName || p.playerId);
+            }
+          });
+        }
       });
     }
   });
   
   return playerNames;
+}
+
+/**
+ * 🔧 FIX (16.01.2026): Bestimmt das Team eines Spielers in einer Session
+ * Berücksichtigt sowohl normale Sessions (teams auf Root) als auch Turniere (teams in gameResults)
+ */
+function getPlayerTeamInSession(sessionData: any, playerId: string): 'top' | 'bottom' | null {
+  // 1. Prüfe Root-Level teams (normale Sessions)
+  const teams = sessionData.teams || {};
+  if (teams.top?.players?.some((p: any) => p.playerId === playerId)) {
+    return 'top';
+  }
+  if (teams.bottom?.players?.some((p: any) => p.playerId === playerId)) {
+    return 'bottom';
+  }
+  
+  // 2. 🔧 FIX: Prüfe gameResults (Turniere) - Spieler kann in verschiedenen Teams sein
+  // Wir nehmen das erste Vorkommen als Referenz
+  if (sessionData.gameResults && Array.isArray(sessionData.gameResults)) {
+    for (const game of sessionData.gameResults) {
+      const gameTeams = game.teams || {};
+      if (gameTeams.top?.players?.some((p: any) => p.playerId === playerId)) {
+        return 'top';
+      }
+      if (gameTeams.bottom?.players?.some((p: any) => p.playerId === playerId)) {
+        return 'bottom';
+      }
+    }
+  }
+  
+  return null;
 }
 
 /**
@@ -239,9 +293,124 @@ async function loadPlayerLastActivity(playerIds: Set<string>): Promise<Map<strin
 }
 
 /**
+ * 🔧 FIX (16.01.2026): Berechnet Turnier-Delta aus totalXByPlayer Feldern
+ * Diese Funktion berechnet das Delta direkt aus den im jassGameSummary gespeicherten Aggregaten
+ */
+function calculateTournamentDeltaFromSummary(
+  sessionData: any,
+  playerId: string,
+  deltaType: 'striche' | 'points' | 'matsch' | 'schneider' | 'kontermatsch'
+): number | null {
+  if (deltaType === 'striche') {
+    // Strichdifferenz aus totalStricheByPlayer
+    const playerStriche = sessionData.totalStricheByPlayer?.[playerId];
+    if (!playerStriche) return null;
+    
+    const playerTotal = (playerStriche.sieg || 0) + (playerStriche.berg || 0) + 
+                       (playerStriche.matsch || 0) + (playerStriche.schneider || 0) + 
+                       (playerStriche.kontermatsch || 0);
+    
+    // Berechne Gegner-Striche aus allen anderen Spielern (vereinfacht: verwende gameResults)
+    let opponentTotal = 0;
+    const gameResults = sessionData.gameResults || [];
+    
+    gameResults.forEach((game: any) => {
+      const gameTeams = game.teams || {};
+      const gameFinalStriche = game.finalStriche || {};
+      
+      // Finde Spieler's Team in diesem Game
+      let playerTeam: 'top' | 'bottom' | null = null;
+      if (gameTeams.top?.players?.some((p: any) => p.playerId === playerId)) {
+        playerTeam = 'top';
+      } else if (gameTeams.bottom?.players?.some((p: any) => p.playerId === playerId)) {
+        playerTeam = 'bottom';
+      }
+      
+      if (playerTeam) {
+        const opponentTeam = playerTeam === 'top' ? 'bottom' : 'top';
+        const opponentStriche = gameFinalStriche[opponentTeam] || {};
+        opponentTotal += (opponentStriche.sieg || 0) + (opponentStriche.berg || 0) + 
+                        (opponentStriche.matsch || 0) + (opponentStriche.schneider || 0) + 
+                        (opponentStriche.kontermatsch || 0);
+      }
+    });
+    
+    return playerTotal - opponentTotal;
+  }
+  
+  if (deltaType === 'points') {
+    // Punktedifferenz aus totalPointsByPlayer
+    const playerPoints = sessionData.totalPointsByPlayer?.[playerId];
+    if (playerPoints === undefined) return null;
+    
+    // Berechne Gegner-Punkte aus gameResults
+    let opponentPoints = 0;
+    const gameResults = sessionData.gameResults || [];
+    
+    gameResults.forEach((game: any) => {
+      const gameTeams = game.teams || {};
+      
+      // Finde Spieler's Team in diesem Game
+      let playerTeam: 'top' | 'bottom' | null = null;
+      if (gameTeams.top?.players?.some((p: any) => p.playerId === playerId)) {
+        playerTeam = 'top';
+      } else if (gameTeams.bottom?.players?.some((p: any) => p.playerId === playerId)) {
+        playerTeam = 'bottom';
+      }
+      
+      if (playerTeam) {
+        const opponentTeam = playerTeam === 'top' ? 'bottom' : 'top';
+        opponentPoints += opponentTeam === 'top' ? (game.topScore || 0) : (game.bottomScore || 0);
+      }
+    });
+    
+    return playerPoints - opponentPoints;
+  }
+  
+  if (deltaType === 'matsch' || deltaType === 'schneider' || deltaType === 'kontermatsch') {
+    // 🔧 FIX (16.01.2026): Verwende finalStriche aus gameResults statt eventCounts!
+    // eventCounts ist in manchen Turnieren FALSCH, finalStriche ist immer KORREKT
+    let eventMade = 0;
+    let eventReceived = 0;
+    
+    const gameResults = sessionData.gameResults || [];
+    
+    gameResults.forEach((game: any) => {
+      const gameTeams = game.teams || {};
+      
+      let playerTeam: 'top' | 'bottom' | null = null;
+      if (gameTeams.top?.players?.some((p: any) => p.playerId === playerId)) {
+        playerTeam = 'top';
+      } else if (gameTeams.bottom?.players?.some((p: any) => p.playerId === playerId)) {
+        playerTeam = 'bottom';
+      }
+      
+      if (playerTeam) {
+        const opponentTeam = playerTeam === 'top' ? 'bottom' : 'top';
+        // 🔧 KRITISCH: Verwende finalStriche ODER teamStrichePasse, NICHT eventCounts!
+        const gameFinalStriche = game.finalStriche || game.teamStrichePasse || {};
+        eventMade += gameFinalStriche[playerTeam]?.[deltaType] || 0;
+        eventReceived += gameFinalStriche[opponentTeam]?.[deltaType] || 0;
+      }
+    });
+    
+    // Falls Spieler nicht gespielt hat
+    if (eventMade === 0 && eventReceived === 0) {
+      const playerEvents = sessionData.totalEventCountsByPlayer?.[playerId];
+      if (!playerEvents) return null;
+    }
+    
+    return eventMade - eventReceived;
+  }
+  
+  return null;
+}
+
+/**
  * Helper: Berechnet Chart-Daten für ein Chart-Typ
  * ✅ KORREKTUR: Unterstützt jetzt NULL-Werte für Event-Charts
  * ✅ NEU: Filtert Spieler heraus, die >1 Jahr inaktiv sind
+ * 🔧 FIX (16.01.2026): Korrekte Turnier-Verarbeitung ohne tournamentRankings-Abhängigkeit
  */
 async function calculateChartData(
   groupId: string,
@@ -250,7 +419,8 @@ async function calculateChartData(
   isTournamentSession: boolean,
   calculateDelta: (sessionData: any, playerId: string, teamKey: 'top' | 'bottom') => number | null,
   getTournamentDelta: (rankings: any, playerId: string) => number | null,
-  isEventChart: boolean = false // 🎯 NEU: Flag für Event-Charts (Schneider/Kontermatsch)
+  isEventChart: boolean = false, // 🎯 NEU: Flag für Event-Charts (Schneider/Kontermatsch)
+  deltaType: 'striche' | 'points' | 'matsch' | 'schneider' | 'kontermatsch' = 'striche' // 🔧 FIX: Für Turnier-Berechnung
 ): Promise<{ labels: string[]; datasets: any[] }> {
   const labels: string[] = [];
   const allPlayerNames = collectAllPlayerIds(allSessionsSnap);
@@ -299,55 +469,45 @@ async function calculateChartData(
     const dateStr = timestamp.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
     labels.push(dateStr);
     
-    const teams = sessionData.teams || {};
-    const topPlayers = teams.top?.players || [];
-    const bottomPlayers = teams.bottom?.players || [];
-    
     const sessionId = doc.id;
-    // 🎯 ROBUSTE TOURNAMENT-ERKENNUNG: Prüfe tournamentId, gameResults oder isTournamentSession
+    // 🎯 ROBUSTE TOURNAMENT-ERKENNUNG: Prüfe tournamentId, gameResults mit unterschiedlichen Teams, oder isTournamentSession
     const isTournament = sessionData.isTournamentSession || 
                          !!sessionData.tournamentId || 
-                         (Array.isArray(sessionData.gameResults) && sessionData.gameResults.length > 0) ||
                          sessionId === '6eNr8fnsTO06jgCqjelt';
     
     // Berechne Delta für jeden aktiven Spieler
     activePlayerNames.forEach((_, playerId) => {
       const dataset = datasets.find(d => d.playerId === playerId);
-      const isTopPlayer = topPlayers.some((p: any) => p.playerId === playerId);
-      const isBottomPlayer = bottomPlayers.some((p: any) => p.playerId === playerId);
+      
+      // 🔧 FIX: Verwende getPlayerTeamInSession für korrekte Team-Bestimmung (auch für Turniere)
+      const playerTeam = getPlayerTeamInSession(sessionData, playerId);
+      const isInSession = playerTeam !== null;
       
       let delta: number | null = null;
       
-      if (isTournament && tournamentRankings.has(playerId)) {
-        // Tournament: Verwende playerRankings
-        const rankings = tournamentRankings.get(playerId);
-        delta = getTournamentDelta(rankings, playerId);
-      } else if (isTopPlayer) {
+      if (isTournament) {
+        // 🔧 FIX: Für Turniere IMMER aus jassGameSummary berechnen (nicht von tournamentRankings abhängig!)
+        if (isInSession || sessionData.participantPlayerIds?.includes(playerId)) {
+          delta = calculateTournamentDeltaFromSummary(sessionData, playerId, deltaType);
+        }
+      } else if (playerTeam) {
         // Regular Session: Berechne aus finalStriche/finalScores/eventCounts
-        delta = calculateDelta(sessionData, playerId, 'top');
-      } else if (isBottomPlayer) {
-        // Regular Session: Berechne aus finalStriche/finalScores/eventCounts
-        delta = calculateDelta(sessionData, playerId, 'bottom');
+        delta = calculateDelta(sessionData, playerId, playerTeam);
       }
       
       // ✅ KORREKTUR: NULL-Werte korrekt behandeln
       if (delta === null) {
         // Delta ist NULL: Füge NULL als Datenpunkt ein (Spieler war nicht dabei oder kein Event)
         dataset.data.push(null);
-      } else if (delta === 0 && isEventChart) {
-        // 🎯 FÜR EVENT-CHARTS (Schneider/Kontermatsch): Auch bei delta=0 soll NULL gesetzt werden (kein Event!)
+      } else if (delta === 0 && isEventChart && !isInSession) {
+        // 🎯 FÜR EVENT-CHARTS (Schneider/Kontermatsch): NULL wenn nicht in Session
         dataset.data.push(null);
       } else {
-        // Delta ist ein Zahl: Update kumulative Werte
+        // Delta ist eine Zahl: Update kumulative Werte
         const prevValue = cumulativeValues.get(playerId) || 0;
-        const newValue = prevValue + (delta || 0);
+        const newValue = prevValue + delta;
         cumulativeValues.set(playerId, newValue);
-        
-        if (isTopPlayer || isBottomPlayer || (isTournament && tournamentRankings.has(playerId))) {
-          dataset.data.push(newValue);
-        } else {
-          dataset.data.push(null);
-        }
+        dataset.data.push(newValue);
       }
     });
   });
@@ -371,7 +531,9 @@ async function updateStricheChart(
     tournamentRankings,
     isTournamentSession,
     (session, playerId, teamKey) => calculateStricheDifference(session, playerId, teamKey),
-    (rankings, playerId) => rankings.stricheDifference || 0
+    (rankings, playerId) => rankings.stricheDifference || 0,
+    false, // isEventChart
+    'striche' // 🔧 FIX: deltaType für Turnier-Berechnung
   );
   
   const chartDataRef = db.collection(`groups/${groupId}/aggregated`).doc('chartData_striche');
@@ -402,7 +564,9 @@ async function updatePointsChart(
     tournamentRankings,
     isTournamentSession,
     (session, playerId, teamKey) => calculatePointsDifference(session, teamKey),
-    (rankings, playerId) => rankings.pointsDifference || 0
+    (rankings, playerId) => rankings.pointsDifference || 0,
+    false, // isEventChart
+    'points' // 🔧 FIX: deltaType für Turnier-Berechnung
   );
   
   const chartDataRef = db.collection(`groups/${groupId}/aggregated`).doc('chartData_points');
@@ -436,7 +600,9 @@ async function updateMatschChart(
     (rankings, playerId) => {
       const ec = rankings.eventCounts || {};
       return (ec.matschMade || 0) - (ec.matschReceived || 0);
-    }
+    },
+    false, // isEventChart (Matsch ist kein seltenes Event wie Schneider)
+    'matsch' // 🔧 FIX: deltaType für Turnier-Berechnung
   );
   
   const chartDataRef = db.collection(`groups/${groupId}/aggregated`).doc('chartData_matsch');
@@ -475,7 +641,8 @@ async function updateSchneiderChart(
       if (schneiderMade === 0 && schneiderReceived === 0) return null;
       return schneiderMade - schneiderReceived;
     },
-    true // 🎯 Event-Chart: delta=0 soll als NULL behandelt werden
+    true, // 🎯 Event-Chart: delta=0 soll als NULL behandelt werden
+    'schneider' // 🔧 FIX: deltaType für Turnier-Berechnung
   );
   
   // 🎯 FILTER: Entferne Spieler OHNE echte Datenpunkte (nur null-Werte)
@@ -519,7 +686,8 @@ async function updateKontermatschChart(
       if (kontermatschMade === 0 && kontermatschReceived === 0) return null;
       return kontermatschMade - kontermatschReceived;
     },
-    true // 🎯 Event-Chart: delta=0 soll als NULL behandelt werden
+    true, // 🎯 Event-Chart: delta=0 soll als NULL behandelt werden
+    'kontermatsch' // 🔧 FIX: deltaType für Turnier-Berechnung
   );
   
   // 🎯 FILTER: Entferne Spieler OHNE echte Datenpunkte (nur null-Werte)

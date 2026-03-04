@@ -38,9 +38,6 @@ class MyDocument extends Document {
     return (
       <Html lang="de">
         <Head>
-          {/* Viewport für iOS Safe Areas */}
-          <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-          
           {/* Bestehende Meta-Tags */}
           <meta name="application-name" content="jassguru.ch" />
           <meta name="apple-mobile-web-app-capable" content="yes" />
