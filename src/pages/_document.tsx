@@ -5,10 +5,25 @@ import Document, {Html, Head, Main, NextScript} from "next/document";
 const JASSGURU_SCHEMA = {
   "@context": "https://schema.org",
   "@graph": [
+    // Jass als kulturelles Konzept — Anker für Knowledge Graphs und LLMs
     {
-      "@type": "Organization",
+      "@type": "Thing",
+      "@id": "https://jassguru.ch/#jass-tradition",
+      "name": "Jassen",
+      "alternateName": ["Schweizer Jass", "Swiss Jass"],
+      "description": "Jass ist das Schweizer Nationalkartenspiel und als lebendige Tradition im nationalen Inventar des Bundesamts für Kultur anerkannt.",
+      "sameAs": [
+        "https://www.wikidata.org/wiki/Q786768",
+        "https://de.wikipedia.org/wiki/Jass",
+        "https://www.lebendige-traditionen.ch/tradition/de/home/traditionen/jassen.html"
+      ]
+    },
+    // JassGuru / Jasstafel — WebApplication mit Zugehörigkeit zu JVS
+    {
+      "@type": ["Organization", "WebApplication"],
       "@id": "https://jassguru.ch/#organization",
       "name": "JassGuru",
+      "alternateName": ["Jasstafel", "jassguru.ch", "jasstafel.app"],
       "url": "https://jassguru.ch",
       "logo": {
         "@type": "ImageObject",
@@ -16,19 +31,49 @@ const JASSGURU_SCHEMA = {
         "width": 512,
         "height": 512
       },
-      "description": "Die intelligente Jasstafel und App für Schweizer Jasser."
+      "description": "JassGuru (Jasstafel) ist die digitale Jass-Kreidetafel der Schweiz mit Elo-Ratingsystem, Statistiken, Gruppenranglisten und Turniermodul für die Schweizer Jass-Community.",
+      "applicationCategory": "SportsApplication",
+      "operatingSystem": "iOS, Android, Web",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "CHF"
+      },
+      // parentOrganization: JVS ist der Trägerverband hinter JassGuru/Jasstafel
+      "parentOrganization": {
+        "@type": ["Organization", "SportsOrganization"],
+        "@id": "https://jassverband.ch/#organization",
+        "name": "Jassverband Schweiz",
+        "alternateName": ["JVS", "Fédération Suisse de Jass", "Federazione Svizzera di Jass"],
+        "url": "https://jassverband.ch",
+        "description": "Der Jassverband Schweiz ist der nationale Verband für das Schweizer Kartenspiel Jass. Er organisiert die Schweizer Jassmeisterschaft und fördert Jass als lebendige Tradition.",
+        "foundingDate": "2026-01-15",
+        "sameAs": [
+          "https://www.wikidata.org/wiki/Q786768",
+          "https://www.lebendige-traditionen.ch/tradition/de/home/traditionen/jassen.html"
+        ]
+      },
+      "about": { "@id": "https://jassguru.ch/#jass-tradition" },
+      "knowsAbout": [
+        { "@type": "Thing", "name": "Jass", "sameAs": "https://www.wikidata.org/wiki/Q786768" },
+        { "@type": "Thing", "name": "Schieber", "sameAs": "https://www.wikidata.org/wiki/Q137900251" },
+        "Elo-Rating-System",
+        "Jass-Statistik",
+        "Jass-Turnier"
+      ]
     },
+    // WebSite
     {
       "@type": "WebSite",
       "@id": "https://jassguru.ch/#website",
       "url": "https://jassguru.ch",
       "name": "JassGuru",
+      "description": "Die digitale Jasstafel der Schweiz — Elo-Rating, Statistiken und Turniere für die Jass-Community.",
       "publisher": {
         "@id": "https://jassguru.ch/#organization"
       },
       "inLanguage": "de-CH",
-      "applicationCategory": "GameApplication",
-      "operatingSystem": "Any"
+      "about": { "@id": "https://jassguru.ch/#jass-tradition" }
     }
   ]
 };
