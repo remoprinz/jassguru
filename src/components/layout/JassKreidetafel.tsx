@@ -697,7 +697,7 @@ Generiert von:
   return (
     <div
       className="relative w-full overflow-hidden prevent-interactions max-w-xl mx-auto flex flex-col justify-center"
-      onClick={handleGlobalClick} // handleGlobalClick prüft jetzt intern auf Overlays
+      onClick={handleGlobalClick}
       onContextMenu={(e) => e.preventDefault()}
       style={{
         height: viewportHeight,
@@ -709,6 +709,9 @@ Generiert von:
         backgroundRepeat: 'no-repeat',
       }}
     >
+      {/* Verdunkelungs-Overlay: Textur bleibt scharf, Dunkelheit via CSS */}
+      <div className="absolute inset-0 bg-black/50 pointer-events-none" />
+
       <>
         <TutorialOverlay onCloseMenu={closeMenu} />
         {isTutorialInfoOpen && <TutorialInfoDialog />}

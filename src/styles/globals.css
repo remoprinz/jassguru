@@ -99,6 +99,7 @@ html {
   --chart-4: 43 74% 66%;
   --chart-5: 27 87% 67%;
   --radius: 0.5rem;
+  --color-cream: #f0eee7;
 }
 
 .dark {
@@ -565,11 +566,9 @@ body:not(.lexikon-page) [contenteditable="true"] {
 
 @media (min-width: 768px) {
   .chalkboard-bg::before {
-    background-image: url('/images/backgrounds/chalkboard-desktop.webp');
     background-position: center center;
   }
   .chalkboard-fixed {
-    background-image: url('/images/backgrounds/chalkboard-desktop.webp');
     background-position: center center;
   }
 }
