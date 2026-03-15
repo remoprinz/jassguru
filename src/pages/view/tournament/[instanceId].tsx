@@ -28,7 +28,7 @@ import {
   UserPlus as UserPlusIcon, PlayCircle, Archive as ArchiveIcon,
   Camera, Upload, X
 } from 'lucide-react';
-import { FiShare2 } from 'react-icons/fi';
+import { FaShareAlt } from 'react-icons/fa';
 import { format } from 'date-fns';
 import { Timestamp, getFirestore, collection, query, where, orderBy, limit, onSnapshot, Unsubscribe, doc, getDoc } from 'firebase/firestore';
 import { firebaseApp } from '@/services/firebaseInit';
@@ -45,11 +45,9 @@ import { getRankingColor } from '@/config/chartColors';
 import ImageCropModal from "@/components/ui/ImageCropModal";
 import { updateTournamentSettings, uploadTournamentLogoFirebase } from '@/services/tournamentService';
 import { cn } from '@/lib/utils';
-import Link from 'next/link';
-import { DEFAULT_STROKE_SETTINGS } from '@/config/GameSettings';
-import { DEFAULT_FARBE_SETTINGS } from '@/config/FarbeSettings';
 import { getGroupMembersSortedByGames } from "@/services/playerService";
 import GlobalLoader from '@/components/layout/GlobalLoader';
+import { Skeleton } from '@/components/ui/skeleton';
 import { calculateNextPasse, calculateCompletedPassesCountFromGames } from '@/utils/tournamentPasseUtils';
 import { sortPlayersByRankingMode, type RankingMode } from '@/utils/tournamentSorting';
 
@@ -64,7 +62,8 @@ function isFirestoreTimestamp(value: any): value is Timestamp {
 }
 
 // NEUE HILFSFUNKTION
-const getGermanTournamentStatus = (status: string, tournament?: any): string => {
+const getGermanTournamentStatus = (status: string | undefined, tournament?: any): string => {
+  if (!status) return 'Unbekannt';
   switch (status.toLowerCase()) {
     case 'active':
       return tournament?.pausedAt ? 'Pausiert' : 'Aktiv';
@@ -935,15 +934,43 @@ const TournamentViewPage: React.FC = () => {
     }
   };
 
-  if (isLoading) {
+  if (isLoading && !tournament) {
     return (
       <MainLayout>
-        <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 p-4 text-white">
-          <Loader2 className="h-12 w-12 animate-spin text-purple-400" />
-          <p className="mt-4 text-lg">Turnierdaten werden geladen...</p>
-          {isLoadingDetails && <p className="text-sm text-gray-400">Lade Details...</p>}
-          {isLoadingGames && <p className="text-sm text-gray-400">Lade Passen...</p>}
-          {isLoadingParticipants && <p className="text-sm text-gray-400">Lade Teilnehmer...</p>}
+        <div className="flex flex-col items-center justify-start text-white pt-8 pb-20 px-4 min-h-[100svh]">
+          {/* Logo */}
+          <div className="relative mb-4 mt-6 flex justify-center">
+            <div className="relative w-32 h-32 rounded-full border-4 border-purple-500 bg-gray-800 overflow-hidden">
+              <Skeleton className="w-full h-full rounded-full" />
+            </div>
+          </div>
+          {/* Name + Beschreibung */}
+          <div className="w-full text-center mb-6 px-4">
+            <Skeleton className="h-8 w-48 mx-auto mb-3" />
+            <Skeleton className="h-4 w-64 mx-auto" />
+          </div>
+          {/* Tabs-Leiste */}
+          <div className="w-full max-w-xl flex gap-2 mb-4">
+            <Skeleton className="h-10 flex-1 rounded-md" />
+            <Skeleton className="h-10 flex-1 rounded-md" />
+            <Skeleton className="h-10 flex-1 rounded-md" />
+          </div>
+          {/* Rangliste-Header */}
+          <div className="w-full max-w-xl mb-3 flex items-center gap-2">
+            <Skeleton className="h-5 w-5 rounded" />
+            <Skeleton className="h-5 w-48" />
+          </div>
+          {/* Ranking-Zeilen */}
+          <div className="w-full max-w-xl space-y-3">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="flex items-center gap-3 py-2">
+                <Skeleton className="h-4 w-5 rounded" />
+                <Skeleton className="w-9 h-9 rounded-full flex-shrink-0" />
+                <Skeleton className="h-4 flex-1" />
+                <Skeleton className="h-4 w-12" />
+              </div>
+            ))}
+          </div>
         </div>
       </MainLayout>
     );
@@ -952,7 +979,7 @@ const TournamentViewPage: React.FC = () => {
   if (tournamentError && !isLoadingDetails) {
     return (
       <MainLayout>
-        <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 p-4 text-white">
+        <div className="flex min-h-screen flex-col items-center justify-center bg-transparent p-4 text-white">
           <div className="bg-red-900/50 border border-red-700 text-red-300 px-6 py-4 rounded-lg shadow-lg text-center">
             <AlertTriangle className="h-10 w-10 mx-auto mb-3 text-red-400" />
             <p className="font-bold text-xl mb-2">Fehler beim Laden des Turniers</p>
@@ -969,7 +996,7 @@ const TournamentViewPage: React.FC = () => {
   if (!tournament && !isLoadingDetails && memoizedInstanceId) {
      return (
       <MainLayout>
-        <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 p-4 text-white">
+        <div className="flex min-h-screen flex-col items-center justify-center bg-transparent p-4 text-white">
           <div className="bg-yellow-900/50 border border-yellow-700 text-yellow-300 px-6 py-4 rounded-lg shadow-lg text-center">
             <AlertTriangle className="h-10 w-10 mx-auto mb-3 text-yellow-400" />
             <p className="font-bold text-xl">Turnier nicht gefunden</p>
@@ -1002,7 +1029,7 @@ const TournamentViewPage: React.FC = () => {
 
   return ( 
     <MainLayout>
-      <div id="tournament-view-container" className={`flex flex-col items-center justify-start bg-gray-900 text-white ${layout.containerPadding} relative pt-8 pb-20 lg:w-full lg:px-0`}>
+      <div id="tournament-view-container" className={`flex flex-col items-center justify-start text-white ${layout.containerPadding} relative pt-8 pb-20 lg:w-full lg:px-0`}>
         
         {/* 🎨 RESPONSIVE CONTAINER WRAPPER */}
         <div className={`w-full ${layout.containerMaxWidth} mx-auto lg:px-12 lg:py-8`}>
@@ -1012,7 +1039,7 @@ const TournamentViewPage: React.FC = () => {
             <div 
               className={`relative ${layout.avatarSize} rounded-full overflow-hidden transition-all duration-300 flex items-center justify-center bg-gray-800 shadow-lg hover:shadow-xl hover:scale-105 border-4`}
               style={{
-                borderColor: selectedLogoFile && logoPreviewUrl ? '#a855f7' : '#a855f7', // Immer lila
+                borderColor: selectedLogoFile && logoPreviewUrl ? '#a855f7' : '#a855f7',
                 boxShadow: selectedLogoFile && logoPreviewUrl 
                   ? '0 0 25px rgba(168, 85, 247, 0.3)'
                   : '0 0 20px rgba(168, 85, 247, 0.2), 0 4px 20px rgba(0,0,0,0.3)'
@@ -1032,10 +1059,11 @@ const TournamentViewPage: React.FC = () => {
                   fill
                   style={{ objectFit: 'cover' }}
                   priority
+                  loading="eager"
                   sizes="(max-width: 768px) 128px, 128px"
                   onError={(e) => {
- (e.target as HTMLImageElement).src = "/placeholder-logo.png";
-}}
+                    (e.target as HTMLImageElement).src = "/placeholder-logo.png";
+                  }}
                 />
               ) : (
                 <span className="text-4xl font-bold text-gray-500">
@@ -1080,12 +1108,12 @@ const TournamentViewPage: React.FC = () => {
         
         <div className={`w-full text-center mb-6 px-4`}>
           <h1 
-            className={`${layout.titleSize} font-bold mb-1 text-white break-words transition-colors duration-300`}
+            className={`${layout.titleSize} font-bold font-headline mb-1 text-white break-words transition-colors duration-300`}
           >
-            {tournament?.name ?? 'Turnier laden...'}
+            {tournament?.name ?? (isLoading ? <Skeleton className="h-8 w-48 mx-auto" /> : '')}
           </h1>
           <div className={`${layout.subtitleSize} text-gray-300 mx-auto max-w-xl break-words mt-3`}>
-            {tournament?.description ?? (isLoading ? '' : 'Keine Beschreibung vorhanden.')}
+            {tournament?.description ?? (isLoading ? <Skeleton className="h-4 w-64 mx-auto mt-1" /> : '')}
           </div>
         </div>
 
@@ -1093,10 +1121,11 @@ const TournamentViewPage: React.FC = () => {
         {tournament && (
           <button 
             onClick={handleShareClick}
-            className={`absolute top-4 right-4 z-10 ${layout.actionButtonPadding} text-gray-300 hover:text-white transition-all duration-200 rounded-full bg-gray-700/50 hover:scale-110`}
+            className="absolute right-4 z-10 w-10 h-10 flex items-center justify-center text-white/80 hover:text-white transition-all duration-200 rounded-full backdrop-blur-sm border hover:scale-105"
             style={{
-              backgroundColor: 'rgba(55, 65, 81, 0.5)',
-              borderColor: 'transparent'
+              top: 'calc(env(safe-area-inset-top) + 1rem)',
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              borderColor: 'rgba(255, 255, 255, 0.2)'
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = 'rgba(168, 85, 247, 0.2)';
@@ -1104,13 +1133,13 @@ const TournamentViewPage: React.FC = () => {
               e.currentTarget.style.boxShadow = '0 0 15px rgba(168, 85, 247, 0.3)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(55, 65, 81, 0.5)';
-              e.currentTarget.style.borderColor = 'transparent';
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
               e.currentTarget.style.boxShadow = 'none';
             }}
             aria-label="Turnier teilen"
           >
-            <FiShare2 size={layout.actionButtonSize} />
+            <FaShareAlt size={16} />
           </button>
         )}
 
@@ -1166,7 +1195,7 @@ const TournamentViewPage: React.FC = () => {
         )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.mainTabContainerPadding} rounded-xl sticky top-[calc(env(safe-area-inset-top,0px)+12px)] z-30 backdrop-blur-md shadow-lg`}>
+          <TabsList className={`grid w-full grid-cols-3 bg-gray-800/60 ${layout.mainTabContainerPadding} rounded-2xl sticky top-[calc(env(safe-area-inset-top,0px)+12px)] z-30 backdrop-blur-md shadow-lg`}>
             <TabsTrigger 
               value="ranking" 
               className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-xl active:scale-[0.96] active:shadow-inner transition-all duration-100 ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center py-5 relative`}
@@ -1198,12 +1227,22 @@ const TournamentViewPage: React.FC = () => {
             </TabsTrigger>
           </TabsList>
 
-          <div className="flex-grow p-0 md:p-4 overflow-y-auto">
+          <div className="flex-grow p-0 md:p-4 overflow-y-auto min-h-[60vh]">
             <TabsContent value="ranking">
               {(isLoadingDetails || isLoadingGames) ? (
-                <div className="flex justify-center items-center p-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
-                  <span className="ml-3 text-gray-400">Lade Rangliste...</span>
+                <div className="space-y-0">
+                  <div className="flex items-center px-4 py-3 border-b-2 border-gray-500/50">
+                    <Skeleton className="h-5 w-5 mr-3 rounded" />
+                    <Skeleton className="h-5 w-48" />
+                  </div>
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 px-4 py-3 border-b border-gray-700/30">
+                      <Skeleton className="h-4 w-4 rounded flex-shrink-0" />
+                      <Skeleton className="w-8 h-8 rounded-full flex-shrink-0" />
+                      <Skeleton className="h-4 flex-1" />
+                      <Skeleton className="h-5 w-12 flex-shrink-0" />
+                    </div>
+                  ))}
                 </div>
               ) : (detailsStatus === 'error' || gamesStatus === 'error' || participantsStatus === 'error') ? (
                 <div className="bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded-md flex items-center">
@@ -1226,10 +1265,10 @@ const TournamentViewPage: React.FC = () => {
                       
                       {/* 2. Verlauf Rangliste Strichdifferenz */}
                       {allRankingChartData?.striche_difference && allRankingChartData.striche_difference.datasets.length > 0 && (
-                        <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                          <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                        <div className="overflow-hidden">
+                          <div className="flex items-center border-b-2 border-gray-500/50 px-4 py-3">
                             <div className="w-1 h-6 bg-purple-500 rounded-r-md mr-3"></div>
-                            <h3 className="text-lg font-semibold text-white">📈 Verlauf Rangliste Strichdifferenz</h3>
+                            <h3 className="text-lg font-bold font-headline text-white">📈 Verlauf Rangliste Strichdifferenz</h3>
                           </div>
                           <div className="py-4 pl-4 pr-2">
                             {allRankingHistoriesLoading ? (
@@ -1273,10 +1312,10 @@ const TournamentViewPage: React.FC = () => {
                       
                       {/* 4. Verlauf Rangliste Striche */}
                       {allRankingChartData?.striche && allRankingChartData.striche.datasets.length > 0 && (
-                        <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                          <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                        <div className="overflow-hidden">
+                          <div className="flex items-center border-b-2 border-gray-500/50 px-4 py-3">
                             <div className="w-1 h-6 bg-purple-500 rounded-r-md mr-3"></div>
-                            <h3 className="text-lg font-semibold text-white">📈 Verlauf Rangliste Striche</h3>
+                            <h3 className="text-lg font-bold font-headline text-white">📈 Verlauf Rangliste Striche</h3>
                           </div>
                           <div className="py-4 pl-4 pr-2">
                             {allRankingHistoriesLoading ? (
@@ -1320,10 +1359,10 @@ const TournamentViewPage: React.FC = () => {
                       
                       {/* 6. Verlauf Rangliste Punkte */}
                       {allRankingChartData?.total_points && allRankingChartData.total_points.datasets.length > 0 && (
-                        <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                          <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                        <div className="overflow-hidden">
+                          <div className="flex items-center border-b-2 border-gray-500/50 px-4 py-3">
                             <div className="w-1 h-6 bg-purple-500 rounded-r-md mr-3"></div>
-                            <h3 className="text-lg font-semibold text-white">📈 Verlauf Rangliste Punkte</h3>
+                            <h3 className="text-lg font-bold font-headline text-white">📈 Verlauf Rangliste Punkte</h3>
                           </div>
                           <div className="py-4 pl-4 pr-2">
                             {allRankingHistoriesLoading ? (
@@ -1367,10 +1406,10 @@ const TournamentViewPage: React.FC = () => {
                       
                       {/* 8. Verlauf Rangliste Punktedifferenz */}
                       {allRankingChartData?.points_difference && allRankingChartData.points_difference.datasets.length > 0 && (
-                        <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                          <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                        <div className="overflow-hidden">
+                          <div className="flex items-center border-b-2 border-gray-500/50 px-4 py-3">
                             <div className="w-1 h-6 bg-purple-500 rounded-r-md mr-3"></div>
-                            <h3 className="text-lg font-semibold text-white">📈 Verlauf Rangliste Punktedifferenz</h3>
+                            <h3 className="text-lg font-bold font-headline text-white">📈 Verlauf Rangliste Punktedifferenz</h3>
                           </div>
                           <div className="py-4 pl-4 pr-2">
                             {allRankingHistoriesLoading ? (
@@ -1417,11 +1456,11 @@ const TournamentViewPage: React.FC = () => {
                   {/* 🆕 NEU: Ranking History Chart */}
                   {rankingChartData && rankingChartData.datasets.length > 0 && (
                     <div className="mt-6">
-                      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+                      <div className="overflow-hidden">
                         {/* Header mit Accent-Bar */}
-                        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                        <div className="flex items-center border-b-2 border-gray-500/50 px-4 py-3">
                           <div className="w-1 h-6 bg-purple-500 rounded-r-md mr-3"></div>
-                              <h3 className="text-lg font-semibold text-white">
+                              <h3 className="text-lg font-bold font-headline text-white">
                                 📈 {(tournament?.settings?.rankingMode as string) === 'striche_difference' ? 'Verlauf Rangliste Strichdifferenz' :
                                     (tournament?.settings?.rankingMode as string) === 'points_difference' ? 'Verlauf Rangliste Punktedifferenz' :
                                     (tournament?.settings?.rankingMode as string) === 'striche' ? 'Verlauf Rangliste Striche' :
@@ -1472,9 +1511,20 @@ const TournamentViewPage: React.FC = () => {
 
             <TabsContent value="archive">
               {isLoadingGames ? (
-                 <div className="flex justify-center items-center p-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
-                  <span className="ml-3 text-gray-400">Lade Passen...</span>
+                <div className="space-y-3 p-4">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="bg-gray-800/40 rounded-xl p-4">
+                      <div className="flex justify-between items-center mb-3">
+                        <Skeleton className="h-5 w-20" />
+                        <Skeleton className="h-4 w-16" />
+                      </div>
+                      <div className="flex justify-around">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-4 w-6" />
+                        <Skeleton className="h-4 w-24" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : gamesStatus === 'error' ? (
                 <div className="bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded-md flex items-center">
@@ -1580,7 +1630,7 @@ const TournamentViewPage: React.FC = () => {
         </div>
 
       </div>
-      
+
       {/* 🔒 BUTTON AUSSERHALB DES MAINLAYOUT - Nur für authentifizierte Admins */}
       {tournament?.status === 'active' && !isPublicView && (
           <div className="fixed bottom-24 left-0 right-0 z-50 bg-gray-900/90 backdrop-blur-sm border-t border-gray-700/60 p-4">

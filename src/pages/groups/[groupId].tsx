@@ -41,7 +41,7 @@ const GroupDetailPage: React.FC = () => {
     <MainLayout>
       {/* Verwende Header für Konsistenz, Linkziel zur Gruppenliste */}
       <Header title={groupName || "Gruppendetail"} showBackButton={true} />
-      <div className="flex flex-1 flex-col items-center justify-center bg-gray-900 p-4 text-white">
+      <div className="flex flex-1 flex-col items-center justify-center p-4 text-white">
         <div className="w-full max-w-md space-y-6">
           <h1 className="text-xl font-bold">Gruppen-ID: {groupId}</h1>
           <p>Details für Gruppe {groupName}</p>

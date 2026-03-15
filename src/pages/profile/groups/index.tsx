@@ -84,7 +84,7 @@ const GroupsPage: React.FC = () => {
   if (status === "loading" || status === "idle") {
     return (
       <MainLayout>
-        <div className="flex min-h-screen items-center justify-center bg-gray-900 text-white">
+        <div className="flex min-h-screen items-center justify-center bg-transparent text-white">
           <div>Laden...</div>
         </div>
       </MainLayout>
@@ -96,7 +96,7 @@ const GroupsPage: React.FC = () => {
   if (status === "authenticated" && !isGuest) {
     return (
       <MainLayout>
-        <div className="flex min-h-screen flex-col items-center bg-gray-900 p-4 text-white relative">
+        <div className="flex min-h-screen flex-col items-center p-4 text-white relative">
           {/* Back Button */}
           <Link href="/profile" passHref legacyBehavior>
             <Button

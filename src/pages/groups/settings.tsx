@@ -988,7 +988,7 @@ const GroupSettingsPage = () => {
   if (status === "loading" || (routeGroupId && !currentGroup)) {
     return (
       <MainLayout>
-        <div className="flex min-h-screen items-center justify-center bg-gray-900 text-white">
+        <div className="flex min-h-screen items-center justify-center bg-transparent text-white">
           <div className="flex flex-col items-center space-y-4">
             <div className="h-8 w-8 rounded-full border-2 border-white border-t-transparent animate-spin"></div>
             <div className="text-center">
@@ -1010,7 +1010,7 @@ const GroupSettingsPage = () => {
 
   return (
     <MainLayout>
-      <div className="flex min-h-screen flex-col items-center bg-gray-900 p-4 text-white relative">
+      <div className="flex min-h-screen flex-col items-center p-4 text-white relative">
         {/* Back Button */}
         <Link href="/start" passHref legacyBehavior>
           <Button variant="ghost" className="absolute top-8 left-4 text-white hover:bg-gray-700 p-3" aria-label="Zurück zur Startseite">

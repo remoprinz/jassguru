@@ -22,6 +22,8 @@ import {getRandomBedankenSpruch} from "@/utils/sprueche/bedanken";
 import {getRandomBergSpruch} from "@/utils/sprueche/berg";
 import {useDeviceScale} from "@/hooks/useDeviceScale";
 import { serverTimestamp } from 'firebase/firestore';
+import {triggerSchneiderEffect} from "@/components/effects/SchneiderEffect";
+import {triggerBedankenFireworks} from "@/components/effects/effects";
 
 interface GameInfoOverlayProps {
   isOpen: boolean;
@@ -91,6 +93,27 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
   const canActivateSieg = () => {
     if (!activeScoreSettings?.enabled?.berg) return true;
     return isBergActiveForAnyTeam();
+  };
+
+  // Einheitliches Timing für Berg/Bedanken-Feedback.
+  // Kürzere Delays sorgen für ein direkteres, matsch-ähnliches Gefühl.
+  const getNotificationDelayForChargeLevel = (level: ChargeLevel): number => {
+    const baseDelay = 200;
+    switch (level) {
+    case "extreme": return baseDelay + 1800;
+    case "super": return baseDelay + 1200;
+    case "high": return baseDelay + 800;
+    case "medium": return baseDelay + 500;
+    case "low": return baseDelay + 250;
+    default: return baseDelay;
+    }
+  };
+
+  const getReducedSiegChargeLevel = (level: ChargeLevel): ChargeLevel => {
+    if (level === "extreme" || level === "super" || level === "high") {
+      return "medium";
+    }
+    return level;
   };
 
   const handleClose = () => {
@@ -393,18 +416,6 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
     // Notification nur zeigen, wenn wir BERG aktivieren UND Notification nicht übersprungen wird
     // 🔧 FIX: Prüfe State direkt, nicht nur actionProps (isBergActiveNow bereits oben deklariert)
     if (actionProps.isActivating && isBergActiveNow && !wasBergActiveBefore) {
-      const getNotificationDelay = (level: ChargeLevel): number => {
-        const baseDelay = 250;
-        switch (level) {
-        case "extreme": return baseDelay + 5000;
-        case "super": return baseDelay + 3000;
-        case "high": return baseDelay + 2000;
-        case "medium": return baseDelay + 1000;
-        case "low": return baseDelay + 500;
-        default: return baseDelay;
-        }
-      };
-
       setTimeout(() => {
         const spruch = getRandomBergSpruch(actionProps.chargeDuration.level);
 
@@ -438,7 +449,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
             },
           ],
         });
-      }, getNotificationDelay(actionProps.chargeDuration.level));
+      }, getNotificationDelayForChargeLevel(actionProps.chargeDuration.level));
     }
   };
 
@@ -478,9 +489,11 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
 
     // 🔧 FIX: Prüfe State VOR dem addSieg-Call, um Race Conditions zu vermeiden
     const wasSiegActiveBefore = isSiegActive(team);
+    const hadSchneiderBefore = useGameStore.getState().striche[team].schneider > 0;
     console.log("[GameInfoOverlay] BEDANKEN Click - VOR addSieg:", {
       team,
       wasSiegActiveBefore,
+      hadSchneiderBefore,
       actionProps_isActivating: actionProps.isActivating,
       chargeLevel: actionProps.chargeDuration.level,
       chargeDuration: actionProps.chargeDuration.duration,
@@ -491,6 +504,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
 
     // 🔧 FIX: Prüfe State NACH dem addSieg-Call (synchron, da addSieg synchron ist)
     const isSiegActiveNow = useGameStore.getState().isSiegActive(team);
+    const hasSchneiderNow = useGameStore.getState().striche[team].schneider > 0;
     
     // 🚀 TEMPORÄR: Notification nur zeigen, wenn skipBedankenNotification false ist
     const shouldSkipNotification = useUIStore.getState().skipBedankenNotification;
@@ -499,9 +513,33 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
       team,
       wasSiegActiveBefore,
       isSiegActiveNow,
+      hasSchneiderNow,
       shouldSkipNotification,
       shouldRedirect: shouldSkipNotification && isSiegActiveNow && !wasSiegActiveBefore,
     });
+
+    // Spezialeffekt nur beim echten Übergang auf Schneider
+    if (!hadSchneiderBefore && hasSchneiderNow) {
+      triggerSchneiderEffect({
+        chargeLevel: actionProps.chargeDuration.level,
+        durationMs: actionProps.chargeDuration.duration,
+      });
+    }
+
+    // Bedanken-Feuerwerk nur ohne Schneider und in reduzierter Intensität.
+    if (
+      actionProps.isActivating &&
+      isSiegActiveNow &&
+      !wasSiegActiveBefore &&
+      !hasSchneiderNow
+    ) {
+      triggerBedankenFireworks({
+        chargeLevel: getReducedSiegChargeLevel(actionProps.chargeDuration.level),
+        team,
+        effectType: "firework",
+        isFlipped: isCalculatorFlipped,
+      });
+    }
 
     // Nur zur ResultatKreidetafel, wenn BEDANKEN jetzt aktiv ist (nicht deaktiviert wurde)
     if (shouldSkipNotification && isSiegActiveNow && !wasSiegActiveBefore) {
@@ -567,18 +605,6 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
     // 2. Notification nur zeigen, wenn wir BEDANKEN aktivieren UND Notification nicht übersprungen wird
     // 🔧 FIX: Prüfe State direkt, nicht nur actionProps (isSiegActiveNow bereits oben deklariert)
     if (actionProps.isActivating && isSiegActiveNow && !wasSiegActiveBefore) {
-      const getNotificationDelay = (level: ChargeLevel): number => {
-        const baseDelay = 250;
-        switch (level) {
-        case "extreme": return baseDelay + 5000;
-        case "super": return baseDelay + 3000;
-        case "high": return baseDelay + 2000;
-        case "medium": return baseDelay + 1000;
-        case "low": return baseDelay + 500;
-        default: return baseDelay;
-        }
-      };
-
       setTimeout(() => {
         const spruch = getRandomBedankenSpruch(actionProps.chargeDuration.level);
 
@@ -612,7 +638,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
             },
           ],
         });
-      }, getNotificationDelay(actionProps.chargeDuration.level));
+      }, getNotificationDelayForChargeLevel(actionProps.chargeDuration.level));
     }
   };
 
@@ -860,6 +886,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
                 isActiveGlobal={isSiegActive("top") || isSiegActive("bottom")}
                 color="yellow"
                 disabled={isPaused || !canActivateSieg()}
+                suppressDefaultEffect={true}
                 type="sieg"
                 team={activeTeam}
               >
@@ -874,6 +901,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
               isActiveGlobal={isSiegActive("top") || isSiegActive("bottom")}
               color="yellow"
               disabled={isPaused || !canActivateSieg()}
+              suppressDefaultEffect={true}
               type="sieg"
               team={activeTeam}
             >

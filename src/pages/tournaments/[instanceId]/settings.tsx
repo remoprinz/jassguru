@@ -682,8 +682,8 @@ const TournamentSettingsPage: React.FC = () => {
               );
             }
             return (
-              <div key={scoreMode.id} className="bg-gray-700/40 rounded-lg overflow-hidden border border-gray-600/40">
-                <div className="flex items-center justify-between p-3 border-b border-gray-600/40">
+              <div key={scoreMode.id} className="bg-gray-700/40 rounded-lg overflow-hidden border border-gray-500/50">
+                <div className="flex items-center justify-between p-3 border-b border-gray-500/50">
                   <Label htmlFor={`toggle-${scoreMode.id}`} className="font-medium text-gray-300">{scoreMode.name} aktiviert</Label>
                   <Switch id={`toggle-${scoreMode.id}`} checked={tempScoreSettings.enabled[scoreMode.id]} onCheckedChange={() => handleScoreToggle(scoreMode.id)}
                     className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-gray-600"
@@ -706,7 +706,7 @@ const TournamentSettingsPage: React.FC = () => {
             );
           })}
           {/* NEU: Matschbonus */}
-          <div className="bg-gray-700/40 rounded-lg overflow-hidden border border-gray-600/40">
+          <div className="bg-gray-700/40 rounded-lg overflow-hidden border border-gray-500/50">
             <div className="flex items-center justify-between p-3">
               <div className="flex-1">
                 <Label htmlFor="toggle-matschbonus" className="font-medium text-gray-300">Matschbonus aktiviert</Label>
@@ -758,7 +758,7 @@ const TournamentSettingsPage: React.FC = () => {
           <CardTitle className="text-base text-gray-200">Farben & Kartensatz</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 pt-0 pb-4">
-          <div className="flex items-center justify-between space-x-2 p-2 rounded-md hover:bg-gray-700/30 mb-3 border-b border-gray-600/40 pb-3">
+          <div className="flex items-center justify-between space-x-2 p-2 rounded-md hover:bg-gray-700/30 mb-3 border-b border-gray-500/50 pb-3">
             <Label className="font-medium text-gray-300">Kartensatz</Label>
             <div className="flex gap-2">
               <Button type="button" variant={tempFarbeSettings.cardStyle === 'DE' ? 'default' : 'outline'} size="sm"
@@ -771,7 +771,7 @@ const TournamentSettingsPage: React.FC = () => {
               >FR</Button>
             </div>
           </div>
-          <div className="border-t border-gray-600/40 pt-3 space-y-2">
+          <div className="border-t border-gray-500/50 pt-3 space-y-2">
             <h4 className="text-sm font-medium text-gray-300 mb-1">Multiplikatoren</h4>
             {FARBE_MODES.map((mode) => {
                 const multiplier = tempFarbeSettings.values[mode.id as FarbeModeKey] ?? 1;
@@ -960,7 +960,7 @@ const TournamentSettingsPage: React.FC = () => {
   if (authStatus === 'loading' || !instanceId || (isLoadingGlobal && !tournament)) {
     return (
       <MainLayout>
-        <div className="flex min-h-screen items-center justify-center bg-gray-900 text-white">
+        <div className="flex min-h-screen items-center justify-center bg-transparent text-white">
           <Loader2 className="h-8 w-8 animate-spin text-purple-400 mr-3" />
            <span>Lade Turniereinstellungen...</span>
         </div>
@@ -971,7 +971,7 @@ const TournamentSettingsPage: React.FC = () => {
   if (!tournament) {
       return (
         <MainLayout>
-          <div className="flex min-h-screen items-center justify-center bg-gray-900 text-white">
+          <div className="flex min-h-screen items-center justify-center bg-transparent text-white">
              <AlertTriangle className="h-8 w-8 text-red-500 mr-3" />
              <span>Turnier nicht gefunden oder Zugriff verweigert.</span>
           </div>
@@ -1086,7 +1086,7 @@ const TournamentSettingsPage: React.FC = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="bg-gray-700/40 rounded-lg overflow-hidden border border-gray-600/40">
+                <div className="bg-gray-700/40 rounded-lg overflow-hidden border border-gray-500/50">
                   <div className="flex items-center justify-between p-3">
                     <div className="flex-1">
                       <Label htmlFor="toggle-show-in-navigation" className="font-medium text-gray-300">
@@ -1379,7 +1379,7 @@ const TournamentSettingsPage: React.FC = () => {
                         )}
 
                         {/* Abschließen (Legacy-Option) */}
-                        <div className="border-t border-gray-600/40 pt-4">
+                        <div className="border-t border-gray-500/50 pt-4">
                           <h4 className="font-medium text-gray-200">Turnier endgültig abschliessen</h4>
                           <p className="text-sm text-gray-400 mt-1 mb-3">
                             Markiere dieses Turnier als abgeschlossen. Dies kann nicht rückgängig gemacht werden.

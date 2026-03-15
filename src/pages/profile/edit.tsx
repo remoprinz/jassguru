@@ -13,9 +13,10 @@ import {Textarea} from "@/components/ui/textarea";
 import {Alert, AlertDescription} from "@/components/ui/alert";
 import { CURRENT_PROFILE_THEME, THEME_COLORS, type ThemeColor, getCurrentProfileTheme } from '@/config/theme';
 import { getPlayerByUserId } from '@/services/playerService';
-import type { FirestorePlayer } from '@/types/jass';
+import type { CardStyle, FirestorePlayer, JassColor } from '@/types/jass';
 import { sanitizeInput } from "@/utils/sanitize";
 import { SeoHead } from '@/components/layout/SeoHead';
+import { FarbePictogram } from "@/components/settings/FarbePictogram";
 
 const EditProfilePage: React.FC = () => {
   const {user, status, isAuthenticated, updateProfile} = useAuthStore();
@@ -27,6 +28,7 @@ const EditProfilePage: React.FC = () => {
   // Form state
   const [displayName, setDisplayName] = useState(user?.displayName || "");
   const [statusMessage, setStatusMessage] = useState(user?.statusMessage || "");
+  const [selectedCardStyle, setSelectedCardStyle] = useState<CardStyle>("DE");
   const [selectedTheme, setSelectedTheme] = useState<ThemeColor>(CURRENT_PROFILE_THEME);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +82,12 @@ const EditProfilePage: React.FC = () => {
     }
   }, [currentPlayerData?.profileTheme, user?.profileTheme]);
 
+  // Kartenstil aus Firebase/AuthStore laden
+  useEffect(() => {
+    const style = currentPlayerData?.profileCardStyle || user?.profileCardStyle || "DE";
+    setSelectedCardStyle(style === "FR" ? "FR" : "DE");
+  }, [currentPlayerData?.profileCardStyle, user?.profileCardStyle]);
+
   // Redirect wenn nicht eingeloggt
   useEffect(() => {
     if (status === "authenticated" || status === "unauthenticated") {
@@ -123,7 +131,8 @@ const EditProfilePage: React.FC = () => {
       await updateProfile({
         displayName: sanitizedDisplayName, 
         statusMessage: sanitizedStatusMessage, 
-        profileTheme: selectedTheme
+        profileTheme: selectedTheme,
+        profileCardStyle: selectedCardStyle,
       });
 
       showNotification({
@@ -161,7 +170,7 @@ const EditProfilePage: React.FC = () => {
   if (status === "loading") {
     return (
       <MainLayout>
-        <div className="flex min-h-screen items-center justify-center bg-gray-900 text-white">
+        <div className="flex min-h-screen items-center justify-center bg-transparent text-white">
           <div>Laden...</div>
         </div>
       </MainLayout>
@@ -171,7 +180,7 @@ const EditProfilePage: React.FC = () => {
   return (
     <MainLayout>
       <SeoHead noIndex={true} />
-      <div className="flex flex-col items-center bg-gray-900 p-4 text-white relative">
+      <div className="flex flex-col items-center p-4 text-white relative">
         {/* Back Button */}
         <Link href="/profile" passHref legacyBehavior>
           <Button
@@ -227,6 +236,53 @@ const EditProfilePage: React.FC = () => {
               </p>
             </div>
 
+            {/* Kartenstil-Auswahl für Profil-Stats */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-gray-200">
+                Kartenstil (Profil-Statistiken)
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                {(["DE", "FR"] as CardStyle[]).map((style) => {
+                  const isSelected = selectedCardStyle === style;
+                  const farben: JassColor[] = ["Eicheln", "Rosen", "Schellen", "Schilten"];
+                  const selectedThemeHex = THEME_COLORS[selectedTheme].accentHex;
+                  const selectedBackground = `${selectedThemeHex}22`; // ca. 13% Opacity
+                  return (
+                    <button
+                      key={style}
+                      type="button"
+                      onClick={() => setSelectedCardStyle(style)}
+                      style={isSelected ? { backgroundColor: selectedBackground } : undefined}
+                      className={`
+                        rounded-lg border-2 px-4 py-3 transition-all duration-200 flex flex-col items-center justify-center text-center
+                        ${isSelected
+                          ? "border-white text-white shadow-lg"
+                          : "border-gray-700 bg-gray-800/50 text-gray-300 hover:border-gray-600"}
+                      `}
+                    >
+                      <div className="text-xs text-center mb-2 font-medium tracking-wide">
+                        {style}
+                      </div>
+                      <div className="flex items-center justify-center gap-2">
+                        {farben.map((farbe) => (
+                          <FarbePictogram
+                            key={`${style}-${farbe}`}
+                            farbe={farbe}
+                            mode="svg"
+                            cardStyle={style}
+                            className="h-8 w-8"
+                          />
+                        ))}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-gray-400">
+                Diese Einstellung steuert nur die Anzeige in deinem Profil, nicht die gespeicherten Statistik-Daten.
+              </p>
+            </div>
+
             {/* Farbauswahl */}
             <div className="space-y-4">
               <label className="text-sm font-medium text-gray-200">
@@ -237,19 +293,18 @@ const EditProfilePage: React.FC = () => {
                   const theme = THEME_COLORS[themeKey];
                   const label = themeLabels[themeKey];
                   const isSelected = selectedTheme === themeKey;
-                  
-                  // Farbkreis-Mapping für CSS
-                  const colorClass = theme.primary.replace('bg-', '');
+                  const selectedBackground = `${theme.accentHex}22`; // ca. 13% Opacity
                   
                   return (
                     <button
                       key={themeKey}
                       type="button"
                       onClick={() => setSelectedTheme(themeKey)}
+                      style={isSelected ? { backgroundColor: selectedBackground } : undefined}
                       className={`
                         relative p-3 rounded-lg border-2 transition-all duration-200 text-left
                         ${isSelected 
-                          ? `border-${colorClass} bg-${colorClass}/10 shadow-lg` 
+                          ? "border-white shadow-lg"
                           : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'
                         }
                       `}

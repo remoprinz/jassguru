@@ -71,8 +71,8 @@ export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, isLoa
               passHref
               className={cn(
                 `flex items-center gap-3 ${layout.listItemPadding} rounded-md transition-colors duration-150`,
-                isPlaceholder ? 'bg-yellow-900/20 hover:bg-yellow-900/40 cursor-default' // Kein Hover-Effekt für Platzhalter? Oder anderer Style?
-                : 'bg-gray-700/50 hover:bg-gray-700/80'
+                isPlaceholder ? 'bg-yellow-900/20 hover:bg-yellow-900/40 cursor-default'
+                : 'border-b border-gray-500/40 hover:bg-gray-700/30'
               )}
             >
               {/* Avatar */}
@@ -112,9 +112,9 @@ export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, isLoa
               </div>
 
               {/* Games Played (Rechtsbündig) */}
-              <div className={`flex-shrink-0 ${layout.valueSize} text-gray-300 font-medium ml-2`}>
+              <div className={`flex-shrink-0 ${layout.valueSize} text-gray-300 font-medium font-headline ml-2`}>
                 {player.stats?.gamesPlayed ?? 0}
-                <span className={`${layout.smallTextSize} text-gray-400 ml-1`}>Spiele</span>
+                <span className={`${layout.smallTextSize} text-gray-400 ml-1 font-sans`}>Spiele</span>
               </div>
             </Link>
           </li>

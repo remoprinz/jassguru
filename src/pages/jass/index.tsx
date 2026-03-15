@@ -35,7 +35,7 @@ const JassPage: React.FC = () => {
   // Anzeige während des Ladens
   if (!isClient || status === "loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-900 text-white">
+      <div className="flex min-h-screen items-center justify-center bg-transparent text-white">
         <div>Laden...</div>
       </div>
     );

@@ -10,6 +10,23 @@ import { updateChartsAfterSession } from './chartDataUpdater'; // 🆕 Chart-Upd
 
 const db = admin.firestore();
 
+const normalizeTrumpfKey = (farbe: string): string => {
+  const normalized = String(farbe || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  if (['eicheln', 'eichel', 'eichle', 'schaufel', 'gras'].includes(normalized)) return 'eichel';
+  if (['rosen', 'rose', 'kreuz'].includes(normalized)) return 'rosen';
+  if (['schellen', 'schelle', 'schalle', 'herz'].includes(normalized)) return 'schellen';
+  if (['schilten', 'schilte', 'ecke'].includes(normalized)) return 'schilten';
+  if (normalized === 'une' || normalized === 'unde') return 'unde';
+  if (normalized === 'misere' || normalized === 'miserefr') return 'misère';
+  if (normalized === 'trumpf') return 'obe';
+
+  return normalized;
+};
+
 
 // ✅ NEU: EventCounts-Interface (muss eventuell aus finalizeSession.ts importiert werden)
 interface EventCountRecord {
@@ -653,7 +670,7 @@ async function createTournamentJassGameSummary(
             bottomPlayerIds.includes(trumpfPlayerId)
           );
           if (playerInThisGame && aggregatedTrumpfCounts[trumpfPlayerId]) {
-            const farbeKey = round.farbe.toLowerCase();
+            const farbeKey = normalizeTrumpfKey(round.farbe);
             aggregatedTrumpfCounts[trumpfPlayerId][farbeKey] = 
               (aggregatedTrumpfCounts[trumpfPlayerId][farbeKey] || 0) + 1;
           }

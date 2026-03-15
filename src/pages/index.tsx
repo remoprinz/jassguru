@@ -9,32 +9,32 @@ import { RouterContext } from 'next/dist/shared/lib/router-context.shared-runtim
 
 // Dynamischer Import der Seiten, um die Ladezeit der Startseite zu optimieren
 const FeaturesPage = dynamic(() => import('./features'), {
-  loading: () => <div className="fixed inset-0 bg-gray-900 flex items-center justify-center text-white">Features werden geladen...</div>,
+  loading: () => <div className="fixed inset-0 chalkboard-bg flex items-center justify-center text-white">Features werden geladen...</div>,
   ssr: false
 });
 const PublicProfilePage = dynamic(() => import('./profile/[playerId]'), {
-  loading: () => <div className="fixed inset-0 bg-gray-900 flex items-center justify-center text-white">Profil wird geladen...</div>,
+  loading: () => <div className="fixed inset-0 chalkboard-bg flex items-center justify-center text-white">Profil wird geladen...</div>,
   ssr: false
 });
 const PublicGroupPage = dynamic(() => import('./view/group/[groupId]'), {
-  loading: () => <div className="fixed inset-0 bg-gray-900 flex items-center justify-center text-white">Gruppe wird geladen...</div>,
+  loading: () => <div className="fixed inset-0 chalkboard-bg flex items-center justify-center text-white">Gruppe wird geladen...</div>,
   ssr: false
 });
 const PublicSessionPage = dynamic(() => import('./view/session/public/[sessionId]'), {
-  loading: () => <div className="fixed inset-0 bg-gray-900 flex items-center justify-center text-white">Live Jass wird geladen...</div>,
+  loading: () => <div className="fixed inset-0 chalkboard-bg flex items-center justify-center text-white">Live Jass wird geladen...</div>,
   ssr: false
 });
 const PublicTournamentPage = dynamic(() => import('./view/tournament/[instanceId]'), {
-  loading: () => <div className="fixed inset-0 bg-gray-900 flex items-center justify-center text-white">Turnier wird geladen...</div>,
+  loading: () => <div className="fixed inset-0 chalkboard-bg flex items-center justify-center text-white">Turnier wird geladen...</div>,
   ssr: false
 });
 const TournamentPasseDetailPage = dynamic(() => import('./tournaments/[instanceId]/passe/[passeId]'), {
-  loading: () => <div className="fixed inset-0 bg-gray-900 flex items-center justify-center text-white">Passe wird geladen...</div>,
+  loading: () => <div className="fixed inset-0 chalkboard-bg flex items-center justify-center text-white">Passe wird geladen...</div>,
   ssr: false
 });
 
 const LoadingComponent = () => (
-  <div className="fixed inset-0 flex items-center justify-center bg-gray-900">
+  <div className="fixed inset-0 flex items-center justify-center chalkboard-bg">
     <Loader2 className="h-8 w-8 text-white animate-spin" />
   </div>
 );

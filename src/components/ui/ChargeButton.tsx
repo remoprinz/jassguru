@@ -11,6 +11,7 @@ import {
   triggerBedankenFireworks,
 } from "@/components/effects/effects";
 import {useUIStore} from "@/store/uiStore";
+import {triggerProgressivePressHaptic} from "@/utils/haptics";
 
 interface ChargeButtonProps {
   onAction: (props: ChargeButtonActionProps) => void;
@@ -18,6 +19,7 @@ interface ChargeButtonProps {
   isActiveGlobal: boolean;
   color: "yellow" | "green" | "red";
   disabled?: boolean;
+  suppressDefaultEffect?: boolean;
   children: React.ReactNode;
   type: "berg" | "sieg";
   team: TeamPosition;
@@ -71,6 +73,7 @@ export const ChargeButton: React.FC<ChargeButtonProps> = ({
   isActiveGlobal,
   color,
   disabled = false,
+  suppressDefaultEffect = false,
   children,
   type,
   team,
@@ -123,6 +126,7 @@ export const ChargeButton: React.FC<ChargeButtonProps> = ({
       0;
 
     const level = calculateChargeLevel(duration);
+    triggerProgressivePressHaptic(duration);
 
     onAction({
       chargeDuration: {duration, level},
@@ -131,7 +135,7 @@ export const ChargeButton: React.FC<ChargeButtonProps> = ({
       isActivating: !isButtonActive,
     });
 
-    if (!isActiveGlobal) {
+    if (!suppressDefaultEffect && !isActiveGlobal) {
       if (type === "berg") {
         triggerBergConfetti({
           chargeLevel: level,

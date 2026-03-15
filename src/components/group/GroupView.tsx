@@ -4,8 +4,8 @@ import MainLayout from "@/components/layout/MainLayout";
 import { GroupSelector } from "@/components/group/GroupSelector";
 import JoinByInviteUI from "@/components/ui/JoinByInviteUI";
 import {Button} from "@/components/ui/button";
-import {Users, Settings, UserPlus, Camera, Upload, X, BarChart, Archive, BarChart2, CheckCircle, XCircle, MinusCircle, Award as AwardIcon, AlertTriangle, BarChart3, Info, User} from "lucide-react";
-import { FiShare2 } from 'react-icons/fi'; // 🚨 NEU: Share Button Icons
+import {Users, Settings, UserPlus, Camera, Upload, X, BarChart, Archive, BarChart2, CheckCircle, XCircle, MinusCircle, Award as AwardIcon, AlertTriangle, BarChart3, User} from "lucide-react";
+import { FaShareAlt, FaInfo } from 'react-icons/fa';
 import { FormattedDescription } from "@/components/ui/FormattedDescription";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNestedScrollFix } from '@/hooks/useNestedScrollFix';
@@ -446,25 +446,34 @@ export const GroupView: React.FC<GroupViewProps> = ({
   useNestedScrollFix(teamWeisAvgRef);
   useNestedScrollFix(teamRoundTimeRef);
   
+  const canonicalTrumpfKey = (farbe: string): string => {
+    const normalized = farbe
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+    if (["eicheln", "eichel", "eichle", "schaufel", "gras"].includes(normalized)) return "eichel";
+    if (["rosen", "rose", "kreuz"].includes(normalized)) return "rosen";
+    if (["schellen", "schelle", "schalle", "herz"].includes(normalized)) return "schellen";
+    if (["schilten", "schilte", "ecke"].includes(normalized)) return "schilten";
+    if (normalized === "une" || normalized === "unde") return "unde";
+    if (normalized === "misere" || normalized === "miserefr") return "misere";
+    if (normalized === "trumpf") return "obe";
+
+    return normalized;
+  };
+
   // ===== TRUMP-STATISTIK ARRAY (IDENTISCH ZUM ORIGINAL) =====
   const trumpfStatistikArray = useMemo(() => {
     if (!groupStats?.trumpfStatistik || groupStats.totalTrumpfCount === 0) {
       return [];
     }
     
-    // KORREKTUR: Duplikate zusammenfassen (eichel+eicheln, unde+une)
+    // KORREKTUR: Alle Varianten auf kanonische Keys zusammenführen (DE/FR/Altformen)
     const consolidatedStats: Record<string, number> = {};
     
     Object.entries(groupStats.trumpfStatistik).forEach(([farbe, anzahl]) => {
-      const normalizedFarbe = farbe.toLowerCase();
-      
-      // Mapping für Duplikate
-      let mappedFarbe = normalizedFarbe;
-      if (normalizedFarbe === 'eicheln') {
-        mappedFarbe = 'eichel';
-      } else if (normalizedFarbe === 'une') {
-        mappedFarbe = 'unde';
-      }
+      const mappedFarbe = canonicalTrumpfKey(farbe);
       
       // Zusammenfassen
       consolidatedStats[mappedFarbe] = (consolidatedStats[mappedFarbe] || 0) + anzahl;
@@ -483,14 +492,36 @@ export const GroupView: React.FC<GroupViewProps> = ({
   const normalizeJassColor = (farbe: string): JassColor => {
     const mappings: Record<string, JassColor> = {
       "eichel": "Eicheln",
+      "eicheln": "Eicheln",
+      "eichle": "Eicheln",
+      "schaufel": "Eicheln",
+      "gras": "Eicheln",
       "rosen": "Rosen",
+      "rose": "Rosen",
+      "kreuz": "Rosen",
       "schilten": "Schilten",
+      "schilte": "Schilten",
+      "ecke": "Schilten",
       "schellen": "Schellen",
+      "schelle": "Schellen",
+      "schalle": "Schellen",
+      "herz": "Schellen",
       "unde": "Une",
-      "obe": "Obe"
+      "une": "Une",
+      "obe": "Obe",
+      "misere": "Misère",
+      "misère": "Misère",
+      "quer": "Quer",
+      "slalom": "Slalom",
+      "3x3": "3x3",
     };
     
-    return (mappings[farbe.toLowerCase()] ?? farbe) as JassColor;
+    const normalized = farbe
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+    return (mappings[normalized] ?? farbe) as JassColor;
   };
   
   // ===== LOKALE TAB-COLOR FUNKTION =====
@@ -1504,7 +1535,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
   if (groupStatus === 'loading' && !currentGroup) {
     return (
       <MainLayout>
-        <div className={`flex flex-col items-center justify-start bg-gray-900 text-white ${layout.containerPadding} relative pt-8 pb-20`}>
+        <div className={`flex flex-col items-center justify-start text-white ${layout.containerPadding} relative pt-8 pb-20`}>
           <div className={`w-full ${layout.containerMaxWidth} mx-auto`}>
             <div className="relative mb-4 mt-6 flex justify-center">
               <Skeleton className={`${layout.avatarSize} rounded-full border-4 border-gray-700`} />
@@ -1528,7 +1559,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
   if (isAuthenticated() && !isGuest && userGroups.length === 0 && !currentGroup) {
     return (
       <MainLayout>
-        <div className={`flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white ${layout.containerPadding}`}>
+        <div className={`flex flex-col items-center justify-center min-h-screen text-white ${layout.containerPadding}`}>
           <Image src="/welcome-guru.png" alt="Jassguru Logo" width={layout.isDesktop ? 200 : 150} height={layout.isDesktop ? 200 : 150} className="mb-8"/>
           
           {/* ✅ UX-VERBESSERUNG: Context-aware Willkommensnachricht */}
@@ -1575,7 +1606,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
   if (isAuthenticated() && !isGuest && userGroups.length > 0 && !currentGroup) {
     return (
       <MainLayout>
-        <div className={`flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white ${layout.containerPadding}`}>
+        <div className={`flex flex-col items-center justify-center min-h-screen text-white ${layout.containerPadding}`}>
           <Image src="/welcome-guru.png" alt="Jassguru Logo" width={layout.isDesktop ? 200 : 150} height={layout.isDesktop ? 200 : 150} className="mb-8"/>
           <h1 className={`${layout.titleSize} font-bold mb-4`}>Wähle deine Jassgruppe</h1>
           <p className={`${layout.subtitleSize} text-gray-400 mb-6`}>Du bist Mitglied in mehreren Gruppen. Wähle eine aus oder tritt einer neuen bei.</p>
@@ -1600,7 +1631,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
     // NUR für echten Gastmodus (nicht öffentliche Ansicht), zeige Gastmodus-Screen
     return (
       <MainLayout>
-        <div className={`flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white ${layout.containerPadding}`}>
+        <div className={`flex flex-col items-center justify-center min-h-screen text-white ${layout.containerPadding}`}>
           <h1 className={`${layout.titleSize} font-bold mb-4 text-center`}>Gastmodus</h1>
           <p className={`${layout.subtitleSize} text-gray-400 mb-6 text-center max-w-sm`}>
             Im Gastmodus kannst du die App erkunden. Für vollen Funktionsumfang bitte anmelden.
@@ -1629,7 +1660,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
       {isPublicView && !layout.isDesktop && <PublicViewTopBar />}
       
       <MainLayout>
-      <div id="group-view-container" className={`flex flex-col items-center justify-start bg-gray-900 text-white ${layout.containerPadding} relative pt-8 pb-20 lg:w-full lg:px-0`}>
+      <div id="group-view-container" className={`flex flex-col items-center justify-start text-white ${layout.containerPadding} relative pt-8 pb-20 lg:w-full lg:px-0`}>
         
         {/* 🎨 RESPONSIVE CONTAINER WRAPPER */}
         <div className={`w-full ${layout.containerMaxWidth} mx-auto lg:px-12 lg:py-8`}>
@@ -1643,10 +1674,10 @@ export const GroupView: React.FC<GroupViewProps> = ({
         {currentGroup && (
           <button 
             onClick={handleShareClick}
-            className={`absolute top-4 right-4 z-10 ${layout.actionButtonPadding} text-gray-300 hover:text-white transition-all duration-200 rounded-full bg-gray-700/50 hover:scale-110`}
+            className="absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center text-white/80 hover:text-white transition-all duration-200 rounded-full backdrop-blur-sm border hover:scale-105"
             style={{
-              backgroundColor: 'rgba(55, 65, 81, 0.5)',
-              borderColor: 'transparent'
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              borderColor: 'rgba(255, 255, 255, 0.2)'
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = `rgba(${themeStyles.primaryRgb}, 0.2)`;
@@ -1654,13 +1685,13 @@ export const GroupView: React.FC<GroupViewProps> = ({
               e.currentTarget.style.boxShadow = `0 0 15px rgba(${themeStyles.primaryRgb}, 0.3)`;
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(55, 65, 81, 0.5)';
-              e.currentTarget.style.borderColor = 'transparent';
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
               e.currentTarget.style.boxShadow = 'none';
             }}
             aria-label="Gruppenstatistiken teilen"
           >
-            <FiShare2 size={layout.actionButtonSize} />
+            <FaShareAlt size={16} />
           </button>
         )}
         
@@ -1675,9 +1706,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 : `0 0 20px ${getGlowColor(groupTheme)}, 0 4px 20px rgba(0,0,0,0.3)`
             }}
           >
-            {groupStatus === 'loading' ? (
-              <Skeleton className="w-full h-full rounded-full" />
-            ) : previewUrl ? (
+            {previewUrl ? (
               <Image
                 src={previewUrl}
                 alt="Vorschau Gruppenlogo"
@@ -1695,9 +1724,8 @@ export const GroupView: React.FC<GroupViewProps> = ({
                   fill={true}
                   className={`object-cover transition-opacity duration-300 ${isImageLoading ? 'opacity-0' : 'opacity-100'}`}
                   priority={true}
+                  loading="eager"
                   sizes="128px"
-                  placeholder="blur"
-                  blurDataURL={generateBlurPlaceholder()}
                   onLoad={() => setIsImageLoading(false)}
                   onError={(e) => {
                     setIsImageLoading(false);
@@ -1729,17 +1757,19 @@ export const GroupView: React.FC<GroupViewProps> = ({
 
         <div className="w-full text-center mb-6 px-4">
           <h1 
-            className={`${layout.titleSize} font-bold mb-1 text-white break-words transition-colors duration-300`}
+            className={`${layout.titleSize} font-bold font-headline mb-1 text-white break-words transition-colors duration-300`}
           >
-            {groupStatus === 'loading' ? <Skeleton className={`${layout.skeletonTitleHeight} w-48 mx-auto`} /> : (currentGroup?.name ?? 'Keine Gruppe ausgewählt')}
+            {currentGroup?.name ?? (groupStatus === 'loading' ? <Skeleton className={`${layout.skeletonTitleHeight} w-48 mx-auto`} /> : 'Keine Gruppe ausgewählt')}
           </h1>
           <div className={`${layout.subtitleSize} text-gray-300 mx-auto max-w-xl break-words mt-3`}>
-            {groupStatus === 'loading' ? <Skeleton className={`${layout.skeletonTextHeight} w-64 mx-auto`} /> : (
+            {currentGroup ? (
               <FormattedDescription 
-                description={currentGroup?.description} 
+                description={currentGroup.description} 
                 className="mx-auto" 
               />
-            )}
+            ) : groupStatus === 'loading' ? (
+              <Skeleton className={`${layout.skeletonTextHeight} w-64 mx-auto`} />
+            ) : null}
           </div>
           
           {/* ✅ SETUP-HINWEIS: Nur für Admins wenn < 4 Mitglieder */}
@@ -1868,7 +1898,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
           }} 
           className="w-full"
         >
-          <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.mainTabContainerPadding} rounded-xl sticky ${isPublicView ? 'top-[env(safe-area-inset-top,0px)]' : 'top-0'} z-30 backdrop-blur-md shadow-lg`}>
+          <TabsList className={`grid w-full grid-cols-3 bg-gray-800/60 ${layout.mainTabContainerPadding} rounded-2xl sticky top-0 z-30 backdrop-blur-md shadow-lg`}>
             <TabsTrigger 
               value="statistics" 
               className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-xl active:scale-[0.96] active:shadow-inner transition-all duration-100 ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center py-5 relative`}
@@ -1928,8 +1958,8 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 className="w-full"
               >
                 {/* Sticky Container für Sub-Tabs - mit 3px Abstand */}
-                <div className={`sticky ${isPublicView ? (layout.isDesktop ? "top-[calc(env(safe-area-inset-top,0px)+80px)]" : "top-[calc(env(safe-area-inset-top,0px)+64px)]") : (layout.isDesktop ? "top-[80px]" : "top-[64px]")} z-30 bg-gray-900`}>
-                  <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.subTabContainerPadding} rounded-xl backdrop-blur-md shadow-lg`}>
+                <div className={`sticky ${layout.isDesktop ? "top-[80px]" : "top-[64px]"} z-30 bg-transparent`}>
+                  <TabsList className={`grid w-full grid-cols-3 bg-gray-800/60 ${layout.subTabContainerPadding} rounded-2xl backdrop-blur-md shadow-lg`}>
                     <TabsTrigger 
                       value="overview" 
                       className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-xl active:scale-[0.96] active:shadow-inner transition-all duration-100 ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3 relative`}
@@ -1965,24 +1995,25 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 {/* ÜBERSICHT TAB - MIT ECHTEN INHALTEN UND REFS */}
                 <TabsContent 
                   value="overview"
-                  className={`w-full bg-gray-800/50 rounded-lg ${layout.cardPadding}`}
+                  className={`w-full rounded-lg ${layout.cardPadding}`}
                 >
                   <div className={`${layout.sectionSpacing} ${layout.bodySize}`}>
                     {/* 1. Elo Verlauf - NEUE REIHENFOLGE */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center justify-between border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center justify-between border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className="flex items-center">
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Jass-Elo Verlauf</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>📈 Jass-Elo Verlauf</h3>
                         </div>
                         <a 
                           href="https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/Elo%20Ranking%20System.pdf?alt=media&token=eb789b69-9438-450f-b3a6-f7e2902a64f5" 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className={`flex items-center justify-center rounded-full bg-gray-700/50 hover:bg-gray-600/70 border border-gray-600/40 hover:border-gray-500/60 transition-all duration-200 hover:scale-105 ${layout.actionButtonPadding}`}
+                          className="w-8 h-8 flex items-center justify-center rounded-full backdrop-blur-sm border transition-all duration-200 hover:scale-105"
+                          style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)' }}
                           title="Elo Ranking System öffnen"
                         >
-                          <Info size={layout.iconSize} className="text-gray-300 hover:text-white" />
+                          <FaInfo size={12} className="text-white/80 hover:text-white" />
                         </a>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
@@ -2016,23 +2047,24 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* 2. Elo Rangliste - NEUE REIHENFOLGE */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center justify-between border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center justify-between border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className="flex items-center">
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                          <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Jass-Elo Rangliste</h3>
+                          <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>🏆 Jass-Elo Rangliste</h3>
                         </div>
                         <a 
                           href="https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/Jass-Elo_Elo-basiertes%20Bewertungssystem%20fu%CC%88r%20den%20Schieber.pdf?alt=media&token=1e876a8c-180d-47a3-b0f8-ae893e44a5bd" 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className={`flex items-center justify-center rounded-full bg-gray-700/50 hover:bg-gray-600/70 border border-gray-600/40 hover:border-gray-500/60 transition-all duration-200 hover:scale-105 ${layout.actionButtonPadding}`}
+                          className="w-8 h-8 flex items-center justify-center rounded-full backdrop-blur-sm border transition-all duration-200 hover:scale-105"
+                          style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)' }}
                           title="Jass-Elo Whitepaper öffnen"
                         >
-                          <Info size={layout.iconSize} className="text-gray-300 hover:text-white" />
+                          <FaInfo size={12} className="text-white/80 hover:text-white" />
                         </a>
                       </div>
-                      <div ref={overviewMostGamesRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
+                      <div ref={overviewMostGamesRef} className={`${layout.cardPadding} space-y-0 pr-2`}>
                         {(() => {
                           // ✅ NEU: Zeige Ladebalken während Elo-Ratings geladen werden
                           if (eloRatingsLoading) {
@@ -2054,8 +2086,8 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               const playerData = members.find(m => (m.id || m.userId) === rating.id);
                               const playerId = rating.id;
                               return (
-                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=overview` : '#'} key={`eloRating-${rating.id}`} isClickable={!!playerId} className="block rounded-md">
-                                  <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=overview` : '#'} key={`eloRating-${rating.id}`} isClickable={!!playerId} className="block border-b border-gray-500/40 last:border-b-0">
+                                  <div className={`flex justify-between items-center ${layout.listItemPadding} hover:bg-white/10 transition-colors`}>
                                     <div className="flex items-center">
                                       <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
                                       <ProfileImage 
@@ -2148,12 +2180,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
 
 
                     {/* 3. Trumpfansagen - NEUE REIHENFOLGE */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Trumpfansagen Liste</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>Trumpfansagen Liste</h3>
                       </div>
-                      <div ref={overviewTrumpfRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
+                      <div ref={overviewTrumpfRef} className={`${layout.cardPadding} space-y-0 pr-2`}>
                         {trumpfStatistikArray.length > 0 ? (
                           trumpfStatistikArray.map((item, index) => {
                             // NEU: Logik für dynamische Anzeige
@@ -2162,7 +2194,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             const displayName = CARD_SYMBOL_MAPPINGS[mappedColorKey as JassColor]?.[cardStyle] ?? mappedColorKey;
                             
                             return (
-                              <div key={`trumpf-${item.farbe}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                              <div key={`trumpf-${item.farbe}`} className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0 hover:bg-white/10 transition-colors`}>
                                 <div className="flex items-center">
                                   <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
                                   <FarbePictogram 
@@ -2188,10 +2220,10 @@ export const GroupView: React.FC<GroupViewProps> = ({
 
                     {/* 2.5. Trumpfverteilung - Chart */}
                     {trumpfDistributionData && (
-                      <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                        <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                      <div className={`overflow-hidden`}>
+                        <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                          <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Trumpfansagen Total</h3>
+                          <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>📊 Trumpfansagen Total</h3>
                         </div>
                         <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                           <PieChart 
@@ -2216,12 +2248,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     )}
 
                     {/* 4. Rundentempo - NEUE REIHENFOLGE */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Rundentempo</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>Rundentempo</h3>
                       </div>
-                      <div ref={playerRoundTimeRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
+                      <div ref={playerRoundTimeRef} className={`${layout.cardPadding} space-y-0 pr-2`}>
                         {(() => {
                           if (groupStats?.playerAllRoundTimes && groupStats.playerAllRoundTimes.length > 0) {
                             // Filter: Nur Spieler mit gültigen Rundendaten anzeigen
@@ -2232,8 +2264,8 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               const playerData = findPlayerByName(playerStat.playerName, members);
                               const playerId = playerData?.id || playerStat.playerId;
                               return (
-                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=overview` : '#'} key={`roundTime-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
-                                  <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=overview` : '#'} key={`roundTime-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block border-b border-gray-500/40 last:border-b-0">
+                                  <div className={`flex justify-between items-center ${layout.listItemPadding} hover:bg-white/10 transition-colors`}>
                                     <div className="flex items-center">
                                       <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                       <ProfileImage 
@@ -2262,33 +2294,33 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* 5. Durchschnittswerte & Details - NEUE REIHENFOLGE */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Durchschnittswerte & Details</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>Durchschnittswerte & Details</h3>
                       </div>
-                      <div className={`${layout.cardPadding} space-y-2`}>
-                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                      <div className={`${layout.cardPadding} space-y-0`}>
+                        <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Ø Dauer pro Partie:</span>
                           <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.avgSessionDuration || '-'}</span>
                         </div>
-                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                        <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Ø Dauer pro Spiel:</span>
                           <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.avgGameDuration || '-'}</span>
                         </div>
-                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                        <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Ø Spiele pro Partie:</span>
                           <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.avgGamesPerSession ? groupStats.avgGamesPerSession.toFixed(1) : '-'}</span>
                         </div>
-                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                        <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Ø Runden pro Spiel:</span>
                           <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.avgRoundsPerGame ? groupStats.avgRoundsPerGame.toFixed(1) : '-'}</span>
                         </div>
-                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                        <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Ø Matsch pro Spiel:</span>
                           <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.avgMatschPerGame ? groupStats.avgMatschPerGame.toFixed(2) : '-'}</span>
                         </div>
-                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                        <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Ø Rundentempo:</span>
                           <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.avgRoundDuration || '-'}</span>
                         </div>
@@ -2296,41 +2328,41 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* 6. Gruppenübersicht - NEUE REIHENFOLGE */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Gruppenübersicht</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>Gruppenübersicht</h3>
                       </div>
-                      <div className={`${layout.cardPadding} space-y-2`}>
-                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                      <div className={`${layout.cardPadding} space-y-0`}>
+                        <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Mitglieder:</span>
                           <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.memberCount || 0}</span>
                         </div>
-                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                        <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Anzahl Partien:</span>
                           <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.sessionCount || 0}</span>
                         </div>
-                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                        <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Anzahl Turniere:</span>
                           <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.tournamentCount || 0}</span>
                         </div>
-                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                        <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Anzahl Spiele:</span>
                           <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.gameCount || 0}</span>
                         </div>
-                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                        <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Gesamte Jass-Zeit:</span>
                           <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.totalPlayTime || '-'}</span>
                         </div>
-                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                        <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Erster Jass:</span>
                           <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.firstJassDate || '-'}</span>
                         </div>
-                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                        <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Letzter Jass:</span>
                           <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.lastJassDate || '-'}</span>
                         </div>
-                        <div className={`flex justify-between bg-gray-700/30 ${layout.listItemPadding} rounded-md`}>
+                        <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Hauptspielort:</span>
                           <span className={`${layout.valueSize} text-gray-100 font-medium`}>
                             {(() => {
@@ -2350,14 +2382,14 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 {/* SPIELER TAB - ALLE 8 ECHTEN STATISTIKEN */}
                 <TabsContent 
                   value="players"
-                  className={`w-full bg-gray-800/50 rounded-lg ${layout.cardPadding}`}
+                  className={`w-full rounded-lg ${layout.cardPadding}`}
                 >
                   <div className={`${layout.sectionSpacing} ${layout.bodySize}`}>
                     {/* 1. Strichdifferenz Verlauf - NEUE REIHENFOLGE */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Strichdifferenz Verlauf</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>📈 Strichdifferenz Verlauf</h3>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {stricheChartLoading ? (
@@ -2391,12 +2423,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* 2. Strichdifferenz Rangliste - NEUE REIHENFOLGE */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Strichdifferenz Rangliste</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>🏆 Strichdifferenz Rangliste</h3>
                       </div>
-                      <div ref={playerStricheDiffRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
+                      <div ref={playerStricheDiffRef} className={`${layout.cardPadding} space-y-0 pr-2`}>
                         {playerStatsLoading ? (
                           <div className="flex flex-col items-center justify-center py-8">
                             <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin mb-3`}></div>
@@ -2406,8 +2438,8 @@ export const GroupView: React.FC<GroupViewProps> = ({
                           stricheRanking.map((player) => {
                             const stricheTotals = playerStricheTotals.get(player.playerId) || { made: 0, received: 0 };
                             return (
-                            <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`stricheDiff-${player.playerId}`} isClickable={!!player.playerId} className="block rounded-md">
-                              <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                            <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`stricheDiff-${player.playerId}`} isClickable={!!player.playerId} className="block border-b border-gray-500/40 last:border-b-0">
+                              <div className={`flex justify-between items-center ${layout.listItemPadding} hover:bg-white/10 transition-colors`}>
                                 <div className="flex items-center">
                                   <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{player.rank}.</span>
                                   <ProfileImage 
@@ -2443,10 +2475,10 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* 3. Punktedifferenz Verlauf - NEUE REIHENFOLGE */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Punktedifferenz Verlauf</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>📈 Punktedifferenz Verlauf</h3>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {pointsChartLoading ? (
@@ -2481,12 +2513,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* 4. Punktedifferenz Rangliste - KORREKTE REIHENFOLGE */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Punktedifferenz Rangliste</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>🏆 Punktedifferenz Rangliste</h3>
                       </div>
-                      <div ref={playerPointsDiffRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
+                      <div ref={playerPointsDiffRef} className={`${layout.cardPadding} space-y-0 pr-2`}>
                         {playerStatsLoading ? (
                           <div className="flex flex-col items-center justify-center py-8">
                             <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin mb-3`}></div>
@@ -2496,8 +2528,8 @@ export const GroupView: React.FC<GroupViewProps> = ({
                           pointsRanking.map((player) => {
                             const pointsTotals = playerPointsTotals.get(player.playerId) || { made: 0, received: 0 };
                             return (
-                            <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`pointsDiff-${player.playerId}`} isClickable={!!player.playerId} className="block rounded-md">
-                              <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                            <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`pointsDiff-${player.playerId}`} isClickable={!!player.playerId} className="block border-b border-gray-500/40 last:border-b-0">
+                              <div className={`flex justify-between items-center ${layout.listItemPadding} hover:bg-white/10 transition-colors`}>
                                 <div className="flex items-center">
                                   <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{player.rank}.</span>
                                   <ProfileImage 
@@ -2534,10 +2566,10 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* 5. Siegquote Partien - CHART */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Siegquote Partien</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>📊 Siegquote Partien</h3>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {(() => {
@@ -2580,12 +2612,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* 5.1 Siegquote Partien - Rangliste */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Partien Rangliste</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>🏆 Siegquote Partien Rangliste</h3>
                       </div>
-                      <div ref={playerWinRateSessionRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
+                      <div ref={playerWinRateSessionRef} className={`${layout.cardPadding} space-y-0 pr-2`}>
                         {playerStatsLoading ? (
                           <div className="flex flex-col items-center justify-center py-8">
                             <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin mb-3`}></div>
@@ -2599,8 +2631,8 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             );
                             return playersWithSessions.map((player, index) => {
                               return (
-                                <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`winRateSession-${player.playerId}`} isClickable={!!player.playerId} className="block rounded-md">
-                                  <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                                <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`winRateSession-${player.playerId}`} isClickable={!!player.playerId} className="block border-b border-gray-500/40 last:border-b-0">
+                                  <div className={`flex justify-between items-center ${layout.listItemPadding} hover:bg-white/10 transition-colors`}>
                                     <div className="flex items-center">
                                       <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                       <ProfileImage 
@@ -2639,10 +2671,10 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* 6. Siegquote Spiele - CHART */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Siegquote Spiele</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>📊 Siegquote Spiele</h3>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {(() => {
@@ -2685,12 +2717,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* 6.1 Siegquote Spiele - Rangliste */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Spiele Rangliste</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>🏆 Siegquote Spiele Rangliste</h3>
                       </div>
-                      <div ref={playerWinRateGameRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
+                      <div ref={playerWinRateGameRef} className={`${layout.cardPadding} space-y-0 pr-2`}>
                         {playerStatsLoading ? (
                           <div className="flex flex-col items-center justify-center py-8">
                             <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin mb-3`}></div>
@@ -2704,8 +2736,8 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             );
                             return playersWithGames.map((player, index) => {
                               return (
-                                <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`winRateGame-${player.playerId}`} isClickable={!!player.playerId} className="block rounded-md">
-                                  <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                                <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`winRateGame-${player.playerId}`} isClickable={!!player.playerId} className="block border-b border-gray-500/40 last:border-b-0">
+                                  <div className={`flex justify-between items-center ${layout.listItemPadding} hover:bg-white/10 transition-colors`}>
                                     <div className="flex items-center">
                                       <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                       <ProfileImage 
@@ -2744,10 +2776,10 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* 7. Matsch-Chart */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Matsch-Bilanz-Verlauf</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>📈 Matsch-Bilanz-Verlauf</h3>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {matschChartLoading ? (
@@ -2781,18 +2813,18 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* Matsch-Bilanz Rangliste */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Matsch-Bilanz Rangliste</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>🏆 Matsch-Bilanz Rangliste</h3>
                       </div>
-                      <div ref={playerMatschRateRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
+                      <div ref={playerMatschRateRef} className={`${layout.cardPadding} space-y-0 pr-2`}>
                         {matschRanking.length > 0 ? (
                           matschRanking.map((player) => {
                             const eventCounts = playerMatschCounts.get(player.playerId) || { eventsMade: 0, eventsReceived: 0 };
                               return (
-                              <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`matschBilanz-${player.playerId}`} isClickable={!!player.playerId} className="block rounded-md">
-                                  <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                              <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`matschBilanz-${player.playerId}`} isClickable={!!player.playerId} className="block border-b border-gray-500/40 last:border-b-0">
+                                  <div className={`flex justify-between items-center ${layout.listItemPadding} hover:bg-white/10 transition-colors`}>
                                     <div className="flex items-center">
                                     <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{player.rank}.</span>
                                       <ProfileImage 
@@ -2829,10 +2861,10 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* 8. Schneider-Chart */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Schneider Bilanz Verlauf</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>📈 Schneider Bilanz Verlauf</h3>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {schneiderChartLoading ? (
@@ -2867,18 +2899,18 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* Schneider-Bilanz Rangliste */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Schneider-Bilanz Rangliste</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>🏆 Schneider-Bilanz Rangliste</h3>
                       </div>
-                      <div ref={playerSchneiderRateRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
+                      <div ref={playerSchneiderRateRef} className={`${layout.cardPadding} space-y-0 pr-2`}>
                         {schneiderRanking.length > 0 ? (
                           schneiderRanking.map((player) => {
                             const eventCounts = playerSchneiderCounts.get(player.playerId) || { eventsMade: 0, eventsReceived: 0 };
                               return (
-                              <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`schneiderBilanz-${player.playerId}`} isClickable={!!player.playerId} className="block rounded-md">
-                                  <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                              <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`schneiderBilanz-${player.playerId}`} isClickable={!!player.playerId} className="block border-b border-gray-500/40 last:border-b-0">
+                                  <div className={`flex justify-between items-center ${layout.listItemPadding} hover:bg-white/10 transition-colors`}>
                                     <div className="flex items-center">
                                     <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{player.rank}.</span>
                                       <ProfileImage 
@@ -2915,12 +2947,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                      {/* 7. Weisdifferenz */}
-                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                     <div className={`overflow-hidden`}>
+                       <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                          <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                         <h3 className={`${layout.headingSize} font-semibold text-white`}>Weisdifferenz</h3>
+                         <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>Weisdifferenz</h3>
                        </div>
-                       <div ref={playerWeisAvgRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
+                       <div ref={playerWeisAvgRef} className={`${layout.cardPadding} space-y-0 pr-2`}>
                         {(() => {
                           if (groupStats?.playerWithHighestWeisDifference && groupStats.playerWithHighestWeisDifference.length > 0) {
                             // Filter: Nur Spieler mit Weis-Erfahrung anzeigen
@@ -2932,8 +2964,8 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               const playerData = findPlayerByName(playerStat.playerName, members);
                               const playerId = playerData?.id || playerStat.playerId;
                               return (
-                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`weisDifference-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block rounded-md">
-                                  <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                                <StatLink href={playerId ? `/profile/${playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`weisDifference-${playerStat.playerId || playerStat.playerName}`} isClickable={!!playerId} className="block border-b border-gray-500/40 last:border-b-0">
+                                  <div className={`flex justify-between items-center ${layout.listItemPadding} hover:bg-white/10 transition-colors`}>
                                     <div className="flex items-center">
                                       <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                       <ProfileImage 
@@ -2973,14 +3005,14 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 {/* TEAMS TAB - ALLE 9 ECHTEN STATISTIKEN */}
                 <TabsContent 
                   value="teams"
-                  className={`w-full bg-gray-800/50 rounded-lg ${layout.cardPadding}`}
+                  className={`w-full rounded-lg ${layout.cardPadding}`}
                 >
                   <div className={`${layout.sectionSpacing} ${layout.bodySize}`}>
                     {/* 1. Team-Strichdifferenz Chart */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Strichdifferenz Verlauf</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>📈 Strichdifferenz Verlauf</h3>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {teamStricheChartLoading ? (
@@ -3012,18 +3044,18 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* Team-Strichdifferenz Rangliste */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Strichdifferenz Rangliste</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>🏆 Strichdifferenz Rangliste</h3>
                       </div>
-                      <div ref={teamStricheDiffRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
+                      <div ref={teamStricheDiffRef} className={`${layout.cardPadding} space-y-0 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {teamStricheRanking.length > 0 ? (
                           teamStricheRanking.map((team, index) => {
                               // Extrahiere Spieler-Namen aus Team-Namen
                               const names = team.teamName.split(' & ');
                               return (
-                              <div key={`team-${team.teamName}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                              <div key={`team-${team.teamName}`} className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0 hover:bg-white/10 transition-colors`}>
                                   <div className="flex items-center">
                                   <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
                                     <div className="flex mr-2">
@@ -3070,10 +3102,10 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* 2. Team-Punktedifferenz Chart */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Punktedifferenz Verlauf</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>📈 Punktedifferenz Verlauf</h3>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {teamPointsChartLoading ? (
@@ -3105,18 +3137,18 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* Team-Punktedifferenz Rangliste */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Punktedifferenz Rangliste</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>🏆 Punktedifferenz Rangliste</h3>
                       </div>
-                      <div ref={teamPointsDiffRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
+                      <div ref={teamPointsDiffRef} className={`${layout.cardPadding} space-y-0 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {teamPointsRanking.length > 0 ? (
                           teamPointsRanking.map((team, index) => {
                               // Extrahiere Spieler-Namen aus Team-Namen
                               const names = team.teamName.split(' & ');
                               return (
-                              <div key={`team-${team.teamName}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                              <div key={`team-${team.teamName}`} className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0 hover:bg-white/10 transition-colors`}>
                                   <div className="flex items-center">
                                   <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
                                     <div className="flex mr-2">
@@ -3163,10 +3195,10 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* 3. Siegquote (Partien) - CHART */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Siegquote Partien</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>📊 Siegquote Partien</h3>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {(() => {
@@ -3208,19 +3240,19 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* 3.1 Siegquote (Partien) - Rangliste - ✅ KORREKT: eventsPlayed zeigt nur entschiedene Sessions */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Partien Rangliste</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>🏆 Siegquote Partien Rangliste</h3>
                       </div>
-                      <div ref={teamWinRateSessionRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
+                      <div ref={teamWinRateSessionRef} className={`${layout.cardPadding} space-y-0 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {groupStats?.teamWithHighestWinRateSession && groupStats.teamWithHighestWinRateSession.length > 0 ? (
                           groupStats.teamWithHighestWinRateSession
                             .filter(team => 
                               team.eventsPlayed && team.eventsPlayed > 0
                             )
                             .map((team, index) => (
-                            <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                            <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0 hover:bg-white/10 transition-colors`}>
                               <div className="flex items-center">
                                 <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
                                 <div className="flex mr-2">
@@ -3266,10 +3298,10 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* 4. Siegquote (Spiele) - CHART */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Siegquote Spiele</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>📊 Siegquote Spiele</h3>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {(() => {
@@ -3312,19 +3344,19 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* 4.1 Siegquote (Spiele) - Rangliste */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Spiele Rangliste</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>🏆 Siegquote Spiele Rangliste</h3>
                       </div>
-                      <div ref={teamWinRateGameRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
+                      <div ref={teamWinRateGameRef} className={`${layout.cardPadding} space-y-0 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {groupStats?.teamWithHighestWinRateGame && groupStats.teamWithHighestWinRateGame.length > 0 ? (
                           groupStats.teamWithHighestWinRateGame
                             .filter(team => 
                               team.eventsPlayed && team.eventsPlayed > 0
                             )
                             .map((team, index) => (
-                            <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                            <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0 hover:bg-white/10 transition-colors`}>
                               <div className="flex items-center">
                                 <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
                                 <div className="flex mr-2">
@@ -3370,10 +3402,10 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* 5. Team-Matsch-Bilanz Chart */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Matsch-Bilanz-Verlauf</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>📈 Matsch-Bilanz-Verlauf</h3>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {teamMatschChartLoading ? (
@@ -3405,12 +3437,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* Team-Matsch-Bilanz Rangliste */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Matsch-Bilanz Rangliste</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>🏆 Matsch-Bilanz Rangliste</h3>
                       </div>
-                      <div ref={teamMatschRateRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
+                      <div ref={teamMatschRateRef} className={`${layout.cardPadding} space-y-0 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {(() => {
                           // ✅ DIREKT aus teamEventCountsMap: Zeigt ALLE Teams, nicht nur Top 15!
                           const allTeamsRanking = Array.from(teamEventCountsMap.entries())
@@ -3434,7 +3466,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                           return allTeamsRanking.map((team, index) => {
                             const names = team.teamName.split(' & ');
                                 return (
-                              <div key={`team-${team.teamName}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                              <div key={`team-${team.teamName}`} className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0 hover:bg-white/10 transition-colors`}>
                                     <div className="flex items-center">
                                   <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
                                       <div className="flex mr-2">
@@ -3479,12 +3511,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* 6. Schneider-Bilanz */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Schneider-Bilanz</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>Schneider-Bilanz</h3>
                       </div>
-                      <div ref={teamSchneiderRateRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
+                      <div ref={teamSchneiderRateRef} className={`${layout.cardPadding} space-y-0 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {(() => {
                           // ✅ KORRIGIERT: Verwende teamWithHighestSchneiderBilanz statt teamWithHighestSchneiderRate
                           const teamSchneiderData = groupStats?.teamWithHighestSchneiderBilanz || groupStats?.teamWithHighestSchneiderRate;
@@ -3496,7 +3528,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               (team.value && team.value !== 0)
                             );
                             return teamsWithSchneiderEvents.map((team, index) => (
-                              <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                              <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0 hover:bg-white/10 transition-colors`}>
                                 <div className="flex items-center">
                                   <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
                                   <div className="flex mr-2">
@@ -3541,12 +3573,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                      {/* 7. Weisdifferenz */}
-                     <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                       <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                     <div className={`overflow-hidden`}>
+                       <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                          <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                         <h3 className={`${layout.headingSize} font-semibold text-white`}>Weisdifferenz</h3>
+                         <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>Weisdifferenz</h3>
                        </div>
-                       <div ref={teamWeisAvgRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
+                       <div ref={teamWeisAvgRef} className={`${layout.cardPadding} space-y-0 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {(() => {
                           // ✅ DIREKT aus teamWeisPointsTotals: Zeigt ALLE Teams, nicht nur 12!
                           const allTeamsRanking = Array.from(teamWeisPointsTotals.entries())
@@ -3570,7 +3602,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                           return allTeamsRanking.map((team, index) => {
                             const names = team.teamName.split(' & ');
                             return (
-                              <div key={`team-${team.teamName}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                              <div key={`team-${team.teamName}`} className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0 hover:bg-white/10 transition-colors`}>
                                 <div className="flex items-center">
                                   <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
                                   <div className="flex mr-2">
@@ -3615,19 +3647,19 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </div>
 
                     {/* 9. Rundentempo */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Rundentempo</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>Rundentempo</h3>
                       </div>
-                      <div ref={teamRoundTimeRef} className={`${layout.cardPadding} space-y-2 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
+                      <div ref={teamRoundTimeRef} className={`${layout.cardPadding} space-y-0 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {groupStats?.teamWithFastestRounds && groupStats.teamWithFastestRounds.length > 0 ? (
                           groupStats.teamWithFastestRounds
                             .filter(team => 
                               team.value && team.value > 0
                             )
                             .map((team, index) => (
-                            <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                            <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0 hover:bg-white/10 transition-colors`}>
                               <div className="flex items-center">
                                 <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
                                 <div className="flex mr-2">
@@ -3669,10 +3701,10 @@ export const GroupView: React.FC<GroupViewProps> = ({
           </TabsContent>
 
           {/* ARCHIV TAB */}
-          <TabsContent value="archive" className={`w-full bg-gray-800/50 rounded-lg ${layout.cardPadding} mb-8`}>
+          <TabsContent value="archive" className={`w-full rounded-lg ${layout.cardPadding} mb-8`}>
             {/* FEHLER CASE: Sessions Error UND leeres Archiv */}
             {sessionsError && !sessionsLoading && !tournamentsLoading && combinedArchiveItems.length === 0 && (
-                <div className="text-center text-gray-400 py-6 px-4 bg-gray-800/30 rounded-md">
+                <div className="text-center text-gray-400 py-6 px-4">
                     <Archive size={32} className="mx-auto mb-3 text-gray-500" />
                     <p className={`font-semibold text-gray-300 ${layout.bodySize}`}>Keine Einträge im Archiv</p>
                     <p className={`${layout.smallTextSize}`}>Abgeschlossene Partien und Turniere werden hier angezeigt.</p>
@@ -3689,7 +3721,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
             
             {/* EMPTY STATE: Keine Einträge, aber kein Fehler */}
             {!sessionsLoading && !tournamentsLoading && combinedArchiveItems.length === 0 && !sessionsError && !tournamentsError && (
-                <div className="text-center text-gray-400 py-6 px-4 bg-gray-800/30 rounded-md">
+                <div className="text-center text-gray-400 py-6 px-4">
                     <Archive size={32} className="mx-auto mb-3 text-gray-500" />
                     <p className={`font-semibold text-gray-300 ${layout.bodySize}`}>Keine Einträge im Archiv</p>
                     <p className={`${layout.smallTextSize}`}>Abgeschlossene Partien und Turniere werden hier angezeigt.</p>
@@ -3727,7 +3759,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
           {/* MITGLIEDER TAB */}
           <TabsContent 
             value="members" 
-            className={`w-full bg-gray-800/50 rounded-lg ${layout.cardPadding} mb-8`}
+            className={`w-full rounded-lg ${layout.cardPadding} mb-8`}
           >
             {membersError && !membersLoading && (
                 <div className={`text-red-400 ${layout.smallTextSize} text-center p-4 bg-red-900/30 rounded-md`}>

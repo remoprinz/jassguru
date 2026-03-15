@@ -1,7 +1,7 @@
 // src/components/game/Calculator.tsx
 "use client";
 
-import React, {useState, useEffect, useCallback} from "react";
+import React, {useState, useEffect, useCallback, useRef} from "react";
 import {useGameStore} from "../../store/gameStore";
 import {useUIStore} from "../../store/uiStore";
 import {useGroupStore} from "../../store/groupStore";
@@ -22,6 +22,7 @@ import {DEFAULT_FARBE_SETTINGS} from "@/config/FarbeSettings";
 import { DEFAULT_SCORE_SETTINGS } from "@/config/ScoreSettings";
 import { DEFAULT_STROKE_SETTINGS } from "@/config/GameSettings";
 import { useJassStore } from "@/store/jassStore";
+import {triggerProgressivePressHaptic} from "@/utils/haptics";
 
 interface CalculatorProps {
   isOpen: boolean;
@@ -35,6 +36,92 @@ interface CalculatorProps {
 type PictogramConfig = {
   isEnabled: boolean;
   mode: "svg" | "emoji";
+};
+
+const FarbeButton: React.FC<{
+  color: string,
+  multiplier: number,
+  handleColorClick: (color: string, multiplier: number) => void,
+  selectedColor: string,
+  pictogramConfig: PictogramConfig,
+  isClient: boolean,
+  getButtonStyle: (color: string, isSelected: boolean, mode: "svg" | "emoji") => string,
+  getPictogram: (color: JassColor, mode: "svg" | "emoji", style: CardStyle) => string,
+  cardStyle: CardStyle,
+  getDisplayName: (color: string) => string
+}> = ({
+  color,
+  multiplier,
+  handleColorClick,
+  selectedColor,
+  pictogramConfig,
+  isClient,
+  getButtonStyle,
+  getPictogram,
+  cardStyle,
+  getDisplayName,
+}) => {
+  const {handlers, buttonClasses} = usePressableButton(
+    () => handleColorClick(color, multiplier)
+  );
+
+  const isMisereSelected = color.toLowerCase() === "misère" && selectedColor === color;
+
+  return (
+    <button
+      key={color}
+      {...handlers}
+      className={`p-1 rounded text-white select-none text-xs h-12 flex items-center justify-center ${
+        selectedColor === color ? "active" : ""
+      } ${getButtonStyle(color, selectedColor === color, pictogramConfig.mode)} ${buttonClasses}`}
+      aria-label={`${color}`}
+    >
+      {isClient && pictogramConfig.isEnabled ? (
+        pictogramConfig.mode === "emoji" ? (
+          <span className="text-2xl">
+            {getPictogram(color as JassColor, "emoji", cardStyle)}
+          </span>
+        ) : (
+          <img
+            src={getPictogram(color as JassColor, "svg", cardStyle)}
+            alt={color}
+            className={`w-10 h-10 object-contain ${
+              isMisereSelected ? "invert brightness-0" : ""
+            }`}
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+              const parent = e.currentTarget.parentElement;
+              if (parent) {
+                parent.textContent = getDisplayName(color);
+              }
+            }}
+          />
+        )
+      ) : getDisplayName(color)}
+    </button>
+  );
+};
+
+const NumberButton: React.FC<{
+  num: number,
+  handleNumberClick: (num: number) => void
+}> = ({
+  num,
+  handleNumberClick,
+}) => {
+  const {handlers, buttonClasses} = usePressableButton(
+    () => handleNumberClick(num)
+  );
+
+  return (
+    <button
+      key={num}
+      {...handlers}
+      className={`bg-gray-600 text-white p-4 rounded select-none text-2xl ${buttonClasses}`}
+    >
+      {num}
+    </button>
+  );
 };
 
 const Calculator: React.FC<CalculatorProps> = ({
@@ -174,11 +261,13 @@ const Calculator: React.FC<CalculatorProps> = ({
   const [pressedButtons, setPressedButtons] = useState<Set<number | string>>(new Set());
   const [isMatschActive, setIsMatschActive] = useState(false);
   const [pressedMatsch, setPressedMatsch] = useState(false);
-  const [confettiCharge, setConfettiCharge] = useState(0);
-  const [chargeInterval, setChargeInterval] = useState<NodeJS.Timeout | null>(null);
   const [lastClickTime, setLastClickTime] = useState(0);
   const [isClient, setIsClient] = useState(false);
   const [numberWasTyped, setNumberWasTyped] = useState(false);
+  const chargeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const confettiChargeRef = useRef(0);
+  const touchStartedRef = useRef(false);
+  const matschPressStartRef = useRef<number | null>(null);
 
   const {scale, overlayScale} = useDeviceScale();
 
@@ -439,8 +528,48 @@ const Calculator: React.FC<CalculatorProps> = ({
     setTotalValue((matschScore * multiplier).toString());
     setIsMatschActive(true);
     setNumberWasTyped(true);
-    triggerMatschConfetti(confettiCharge, calculator.isFlipped);
+    triggerMatschConfetti(confettiChargeRef.current, calculator.isFlipped);
   };
+
+  const startMatschCharge = () => {
+    if (isMatschActive) return;
+    setPressedMatsch(true);
+    confettiChargeRef.current = 0;
+    matschPressStartRef.current = Date.now();
+
+    if (chargeIntervalRef.current) {
+      clearInterval(chargeIntervalRef.current);
+    }
+
+    chargeIntervalRef.current = setInterval(() => {
+      confettiChargeRef.current = Math.min(confettiChargeRef.current + 1, 20);
+    }, 100);
+  };
+
+  const stopMatschCharge = (shouldTriggerMatsch: boolean) => {
+    const pressDuration = matschPressStartRef.current ?
+      Date.now() - matschPressStartRef.current :
+      0;
+
+    setPressedMatsch(false);
+    if (chargeIntervalRef.current) {
+      clearInterval(chargeIntervalRef.current);
+      chargeIntervalRef.current = null;
+    }
+    if (shouldTriggerMatsch && !isMatschActive) {
+      triggerProgressivePressHaptic(pressDuration);
+      handleMatsch();
+    }
+    matschPressStartRef.current = null;
+  };
+
+  useEffect(() => {
+    return () => {
+      if (chargeIntervalRef.current) {
+        clearInterval(chargeIntervalRef.current);
+      }
+    };
+  }, []);
 
   const numberOrder = calculator.isFlipped ? [1, 2, 3, 4, 5, 6, 7, 8, 9] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
@@ -512,96 +641,7 @@ const Calculator: React.FC<CalculatorProps> = ({
     return color;
   };
 
-  // Umwandlung in React-Komponenten
-  const FarbeButton: React.FC<{
-    color: string,
-    multiplier: number,
-    handleColorClick: (color: string, multiplier: number) => void,
-    selectedColor: string,
-    pictogramConfig: PictogramConfig,
-    isClient: boolean,
-    getButtonStyle: (color: string, isSelected: boolean, mode: "svg" | "emoji") => string,
-    getPictogram: (color: JassColor, mode: "svg" | "emoji", style: CardStyle) => string,
-    cardStyle: CardStyle,
-    getDisplayName: (color: string) => string
-  }> = ({
-    color,
-    multiplier,
-    handleColorClick,
-    selectedColor,
-    pictogramConfig,
-    isClient,
-    getButtonStyle,
-    getPictogram,
-    cardStyle,
-    getDisplayName,
-  }) => {
-    const {handlers, buttonClasses} = usePressableButton(
-      () => handleColorClick(color, multiplier)
-    );
-
-    // Angepasster Vergleich für "Misère"
-    const isMisereSelected = color.toLowerCase() === "misère" && selectedColor === color;
-
-    return (
-      <button
-        key={color}
-        {...handlers}
-        className={`p-1 rounded text-white select-none text-xs h-12 flex items-center justify-center ${
-          selectedColor === color ? "active" : ""
-        } ${getButtonStyle(color, selectedColor === color, pictogramConfig.mode)} ${buttonClasses}`}
-        aria-label={`${color}`}
-      >
-        {isClient && pictogramConfig.isEnabled ? (
-          pictogramConfig.mode === "emoji" ? (
-            <span className="text-2xl">
-              {getPictogram(color as JassColor, "emoji", cardStyle)}
-            </span>
-          ) : (
-            <img
-              src={getPictogram(color as JassColor, "svg", cardStyle)}
-              alt={color}
-              className={`w-10 h-10 object-contain ${
-                isMisereSelected ? "invert brightness-0" : ""
-              }`}
-              onError={(e) => {
-                e.currentTarget.style.display = "none";
-                const parent = e.currentTarget.parentElement;
-                if (parent) {
-                  parent.textContent = getDisplayName(color);
-                }
-              }}
-            />
-          )
-        ) : getDisplayName(color)}
-      </button>
-    );
-  };
-
-  // Nummerntasten als React-Komponente
-  const NumberButton: React.FC<{
-    num: number,
-    handleNumberClick: (num: number) => void
-  }> = ({
-    num,
-    handleNumberClick,
-  }) => {
-    const {handlers, buttonClasses} = usePressableButton(
-      () => handleNumberClick(num)
-    );
-
-    return (
-      <button
-        key={num}
-        {...handlers}
-        className={`bg-gray-600 text-white p-4 rounded select-none text-2xl ${buttonClasses}`}
-      >
-        {num}
-      </button>
-    );
-  };
-
-  // Die alte renderXXX Funktionen durch Aufrufe der neuen Komponenten ersetzen
+  // Die renderXXX-Funktionen verwenden stabile Komponenten (kein Remount pro Tick)
   const renderFarbeButton = (color: string, multiplier: number) => {
     // Leere Kachel rendern
     if (color === "empty") {
@@ -639,9 +679,6 @@ const Calculator: React.FC<CalculatorProps> = ({
       />
     );
   };
-
-  // Matsch-Button anpassen
-  const {isPressedDown: isMatschPressed, handlers: matschHandlers, buttonClasses: matschClasses} = usePressableButton(handleMatsch);
 
   // Clear-Button anpassen
   const {handlers: clearHandlers, buttonClasses: clearClasses} = usePressableButton(handleClear);
@@ -733,36 +770,26 @@ const Calculator: React.FC<CalculatorProps> = ({
                 <div className="text-xl pr-1">{opponentValue}</div>
               </div>
               <button
-                onClick={handleMatsch}
                 onMouseDown={() => {
-                  setPressedMatsch(true);
-                  setConfettiCharge(0);
-                  const interval = setInterval(() => {
-                    setConfettiCharge((prev) => Math.min(prev + 1, 20));
-                  }, 100);
-                  setChargeInterval(interval);
+                  if (!touchStartedRef.current) startMatschCharge();
                 }}
                 onMouseUp={() => {
-                  setPressedMatsch(false);
-                  if (chargeInterval) clearInterval(chargeInterval);
-                  handleMatsch();
+                  if (!touchStartedRef.current) stopMatschCharge(true);
                 }}
                 onMouseLeave={() => {
-                  setPressedMatsch(false);
-                  if (chargeInterval) clearInterval(chargeInterval);
+                  if (!touchStartedRef.current) stopMatschCharge(false);
                 }}
                 onTouchStart={() => {
-                  setPressedMatsch(true);
-                  setConfettiCharge(0);
-                  const interval = setInterval(() => {
-                    setConfettiCharge((prev) => Math.min(prev + 1, 20));
-                  }, 100);
-                  setChargeInterval(interval);
+                  touchStartedRef.current = true;
+                  startMatschCharge();
                 }}
                 onTouchEnd={() => {
-                  setPressedMatsch(false);
-                  if (chargeInterval) clearInterval(chargeInterval);
-                  handleMatsch();
+                  stopMatschCharge(true);
+                  touchStartedRef.current = false;
+                }}
+                onTouchCancel={() => {
+                  stopMatschCharge(false);
+                  touchStartedRef.current = false;
                 }}
                 className={`w-1/3 p-1 rounded select-none transition-all duration-100 text-lg flex items-center justify-center matsch-button ${
                   isMatschActive ?

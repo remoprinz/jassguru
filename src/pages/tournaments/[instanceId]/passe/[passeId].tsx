@@ -216,18 +216,12 @@ const PasseDetailPage: React.FC = () => {
       */}
       
       {/* Hauptansicht Container mit Padding für den Header-Button und ggf. Footer */}
-      {/* Das Padding oben (pt-16) kann reduziert oder entfernt werden, wenn der Button nicht mehr fixed ist und den Platz nicht benötigt */}
       <div className="pb-4 h-screen flex flex-col">
-        {/* Button hier oben im Flow des Containers einfügen */}
-        <div className="p-3 flex-shrink-0">
-          <Button variant="ghost" size="icon" onClick={handleGoBack} className="bg-gray-800/50 hover:bg-gray-700/80 text-white rounded-full">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-        </div>
-
-        <div className="flex-shrink-0 px-4 md:px-0"> {/* Optional: Horizontales Padding für die Kreidetafel, falls nötig */}
-          <GameViewerKreidetafel gameData={viewerData} gameTypeLabel="Passe" />
-        </div>
+        <GameViewerKreidetafel
+          gameData={viewerData}
+          gameTypeLabel="Passe"
+          onBackClick={handleGoBack}
+        />
       </div>
     </MainLayout>
   );

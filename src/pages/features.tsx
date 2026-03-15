@@ -25,14 +25,14 @@ const FeaturesPage = () => {
   // Während der Server-Side-Rendering Phase nichts anzeigen
   if (!isClient) {
     return (
-      <div className="fixed inset-0 bg-gray-900 flex items-center justify-center">
+      <div className="fixed inset-0 chalkboard-bg flex items-center justify-center">
         <div className="text-white text-xl">Features werden geladen...</div>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 bg-gray-900">
+    <div className="fixed inset-0 chalkboard-bg">
       <DesktopFeatureSlider
         isOpen={true}
         onClose={handleClose}

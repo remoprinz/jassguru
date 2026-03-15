@@ -259,7 +259,7 @@ const NewTournamentPage: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="flex min-h-screen flex-col items-center bg-gray-900 p-4 text-white relative">
+      <div className="flex min-h-screen flex-col items-center p-4 text-white relative">
         <Button
           variant="ghost"
           onClick={handleGoBack}

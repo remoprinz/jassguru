@@ -1,6 +1,23 @@
 import type { CompletedGameSummary, EventCounts, EventCountRecord, TeamScores, StricheRecord, RoundEntry, TrumpfCountsByPlayer, RoundDurationsByPlayer } from '@/types/jass';
 import { isJassRoundEntry } from '@/types/jass';
 
+const normalizeTrumpfKey = (farbe: string): string => {
+  const normalized = String(farbe || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  if (['eicheln', 'eichel', 'eichle', 'schaufel', 'gras'].includes(normalized)) return 'eichel';
+  if (['rosen', 'rose', 'kreuz'].includes(normalized)) return 'rosen';
+  if (['schellen', 'schelle', 'schalle', 'herz'].includes(normalized)) return 'schellen';
+  if (['schilten', 'schilte', 'ecke'].includes(normalized)) return 'schilten';
+  if (normalized === 'une' || normalized === 'unde') return 'unde';
+  if (normalized === 'misere' || normalized === 'miserefr') return 'misère';
+  if (normalized === 'trumpf') return 'obe';
+
+  return normalized;
+};
+
 /**
  * Generiert eine kanonische (d.h. immer gleiche, unabhängig von der Reihenfolge der IDs) Paarungs-ID für zwei Spieler.
  * @param playerId1 Die ID des ersten Spielers.
@@ -191,7 +208,7 @@ export const calculateGameAggregations = (
     // Trumpf-Zählungen pro Spieler (farbe ist garantiert bei JassRoundEntry)
     if (jassRound.farbe && jassRound.currentPlayer) {
       const playerId = jassRound.currentPlayer.toString();
-      const farbe = jassRound.farbe.toLowerCase();
+      const farbe = normalizeTrumpfKey(jassRound.farbe);
       
       if (!trumpfCountsByPlayer[playerId]) {
         trumpfCountsByPlayer[playerId] = {};
@@ -263,10 +280,11 @@ export const calculateSessionAggregations = (
         }
         
         Object.entries(trumpfCounts).forEach(([farbe, count]) => {
-          if (!aggregatedTrumpfCountsByPlayer[actualPlayerId][farbe]) {
-            aggregatedTrumpfCountsByPlayer[actualPlayerId][farbe] = 0;
+          const normalizedFarbe = normalizeTrumpfKey(farbe);
+          if (!aggregatedTrumpfCountsByPlayer[actualPlayerId][normalizedFarbe]) {
+            aggregatedTrumpfCountsByPlayer[actualPlayerId][normalizedFarbe] = 0;
           }
-          aggregatedTrumpfCountsByPlayer[actualPlayerId][farbe] += count;
+          aggregatedTrumpfCountsByPlayer[actualPlayerId][normalizedFarbe] += count;
         });
       });
     }

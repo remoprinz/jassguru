@@ -12,6 +12,23 @@ const db = admin.firestore();
 
 const COMPLETED_GAMES_SUBCOLLECTION = 'completedGames';
 
+const normalizeTrumpfKey = (farbe: string): string => {
+  const normalized = String(farbe || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  if (['eicheln', 'eichel', 'eichle', 'schaufel', 'gras'].includes(normalized)) return 'eichel';
+  if (['rosen', 'rose', 'kreuz'].includes(normalized)) return 'rosen';
+  if (['schellen', 'schelle', 'schalle', 'herz'].includes(normalized)) return 'schellen';
+  if (['schilten', 'schilte', 'ecke'].includes(normalized)) return 'schilten';
+  if (normalized === 'une' || normalized === 'unde') return 'unde';
+  if (normalized === 'misere' || normalized === 'miserefr') return 'misère';
+  if (normalized === 'trumpf') return 'obe';
+
+  return normalized;
+};
+
 
 // --- Interfaces ---
 // ✅ NEU: Event Count Record für Spiel-Events
@@ -539,7 +556,7 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
                 if (!aggregatedTrumpfCounts[trumpfPlayerId]) {
                   aggregatedTrumpfCounts[trumpfPlayerId] = {};
                 }
-                const farbeKey = round.farbe.toLowerCase();
+                const farbeKey = normalizeTrumpfKey(round.farbe);
                 aggregatedTrumpfCounts[trumpfPlayerId][farbeKey] = (aggregatedTrumpfCounts[trumpfPlayerId][farbeKey] || 0) + 1;
               }
             }

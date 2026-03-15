@@ -561,7 +561,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
       
       <motion.div 
         key="start-screen-content"
-        className="fixed inset-0 flex flex-col items-center justify-center bg-gray-900 bg-opacity-90 z-50 p-4"
+        className="fixed inset-0 flex flex-col items-center justify-center chalkboard-fixed z-50 p-4"
         variants={screenVariants}
         initial="initial"
         animate="visible"

@@ -296,7 +296,7 @@ const CreateGroupPage: React.FC = () => {
   if (status === "loading" || !user) {
     return (
       <MainLayout>
-        <div className="flex min-h-screen items-center justify-center bg-gray-900 text-white">
+        <div className="flex min-h-screen items-center justify-center bg-transparent text-white">
           <div>Laden...</div>
         </div>
       </MainLayout>
@@ -315,7 +315,7 @@ const CreateGroupPage: React.FC = () => {
   return (
     <MainLayout>
       <SeoHead noIndex={true} />
-      <div className="flex flex-1 flex-col items-center bg-gray-900 p-4 text-white relative">
+      <div className="flex flex-1 flex-col items-center p-4 text-white relative">
         {/* Back Button */}
         <Button
           variant="ghost"

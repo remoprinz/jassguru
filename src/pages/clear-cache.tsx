@@ -80,7 +80,7 @@ const ClearCachePage: React.FC = () => {
   return (
     <>
       <SeoHead noIndex={true} />
-      <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-8">
+      <div className="min-h-screen chalkboard-bg text-white flex flex-col items-center justify-center p-8">
         <div className="max-w-md w-full bg-gray-800 rounded-lg p-8 text-center shadow-xl">
           
           {status === 'loading' && (

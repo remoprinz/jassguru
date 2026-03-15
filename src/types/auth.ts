@@ -16,6 +16,7 @@ export interface AuthUser {
   statusMessage?: string | null;
   playerId?: string | null;
   profileTheme?: string | null; // NEU: Profilfarbe/Theme für die UI
+  profileCardStyle?: "DE" | "FR" | null; // NEU: Kartenstil-Präferenz für Profil-Stats
 }
 
 // Hinzugefügt:

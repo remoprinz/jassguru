@@ -53,7 +53,7 @@ const LoadingScreen: React.FC<{ onForceLoad?: () => void }> = ({ onForceLoad }) 
   }, []);
   
   return (
-    <div className="flex flex-1 flex-col items-center justify-center min-h-full bg-gray-900 text-white p-6">
+    <div className="flex flex-1 flex-col items-center justify-center min-h-full chalkboard-bg text-white p-6">
       <ClipLoader color="#ffffff" size={40} />
       <p className="mt-4 text-lg">App wird geladen...</p>
       

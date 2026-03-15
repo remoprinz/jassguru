@@ -6,8 +6,8 @@ import {Button} from "@/components/ui/button";
 import {Alert, AlertDescription} from "@/components/ui/alert";
 import Image from "next/image";
 import MainLayout from "@/components/layout/MainLayout";
-import {UserCog, Users, BarChart3, CheckCircle, XCircle, Archive, Award as AwardIcon, User, Shield, XCircle as AlertXCircle, Camera as CameraIcon, ArrowLeft, Upload, Share, Info} from "lucide-react";
-import { FiShare2 } from 'react-icons/fi'; // NEU: Share Button Icon
+import {UserCog, Users, BarChart3, CheckCircle, XCircle, Archive, Award as AwardIcon, User, Shield, XCircle as AlertXCircle, Camera as CameraIcon, ArrowLeft, Upload, Share} from "lucide-react";
+import { FaShareAlt, FaInfo } from 'react-icons/fa';
 import ImageCropModal from "@/components/ui/ImageCropModal";
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import Link from 'next/link';
@@ -21,7 +21,7 @@ import { transformComputedStatsToExtended, type TransformedPlayerStats } from '@
 import NotableEventsList from "@/components/profile/NotableEventsList";
 import type { FrontendPartnerAggregate, FrontendOpponentAggregate } from '@/types/computedStats';
 import { FarbePictogram } from '@/components/settings/FarbePictogram';
-import { JassColor } from "@/types/jass";
+import { CardStyle, JassColor } from "@/types/jass";
 import { useNestedScrollFix } from '@/hooks/useNestedScrollFix';
 import { formatMillisecondsDuration } from '@/utils/formatUtils';
 import { getSessionWinRateDisplay, getWinRateDisplay } from '@/utils/winRateUtils';
@@ -75,7 +75,22 @@ function isFirestoreTimestamp(value: any): value is Timestamp {
 const normalizeJassColor = (farbe: string): JassColor => {
   const mappings: Record<string, JassColor> = {
     "eichel": "Eicheln",
+    "eicheln": "Eicheln",
+    "eichle": "Eicheln",
+    "schaufel": "Eicheln",
+    "gras": "Eicheln",
+    "rosen": "Rosen",
+    "rose": "Rosen",
+    "kreuz": "Rosen",
+    "schilten": "Schilten",
+    "schilte": "Schilten",
+    "ecke": "Schilten",
+    "schellen": "Schellen",
+    "schelle": "Schellen",
+    "schalle": "Schellen",
+    "herz": "Schellen",
     "unde": "Une",
+    "une": "Une",
     "obe": "Obe"
   };
   
@@ -259,6 +274,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     datasets: any[];
   } | null>(null);
 
+  const preferredProfileCardStyle: CardStyle =
+    (player?.profileCardStyle ?? (user as any)?.profileCardStyle) === "FR" ? "FR" : "DE";
+
 
   // Memoized color computation - optimiert für Performance
   const accentColor = useMemo(() => {
@@ -359,14 +377,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   // NEU: Share-Funktion für öffentliche Profile (analog zu privateProfile/index.tsx)
   const handleShareClick = async () => {
-    if (!isPublicView || !currentPlayer) return;
-    
-    const playerId = currentPlayer.id || currentPlayer.userId;
+    const playerId = currentPlayer?.id || currentPlayer?.userId || user?.uid;
     if (!playerId) return;
     
     try {
-      // Eleganter Share-Text erstellen
-      const playerName = currentPlayer?.displayName || 'Jass-Spieler';
+      const playerName = currentPlayer?.displayName || user?.displayName || 'Jass-Spieler';
       const shareText = `Schau dir die Jass-Statistiken von "${playerName}" an! Hier findest du alle Spielergebnisse, Highlights und das komplette Archiv.\n\nhttps://jassguru.ch/profile/${playerId}\n\ngeneriert von:\n👉 jassguru.ch`;
 
       // Share API verwenden (falls verfügbar)
@@ -562,61 +577,42 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [normalSessionSummaries, setNormalSessionSummaries] = React.useState<any[]>([]);
 
   // ✅ LADE: jassGameSummaries direkt aus Firestore (nur normale Sessions)
+  // groupIds kommen direkt aus den Props – kein doppelter Player-Doc-Read nötig
   React.useEffect(() => {
-    if (!viewPlayerId) {
+    const groupIds = player?.groupIds;
+    if (!viewPlayerId || !groupIds || groupIds.length === 0) {
       setNormalSessionSummaries([]);
       return;
     }
 
     (async () => {
       try {
-        const { collection, getDocs, doc, getDoc } = await import('firebase/firestore');
+        const { collection, getDocs } = await import('firebase/firestore');
         const { db } = await import('@/services/firebaseInit');
-        
-        // 1. Hole groupIds vom Spieler
-        const currentPlayerDoc = await getDoc(doc(db, 'players', viewPlayerId));
-        if (!currentPlayerDoc.exists()) {
-          setNormalSessionSummaries([]);
-          return;
-        }
-        
-        const groupIds = currentPlayerDoc.data().groupIds || [];
-        if (groupIds.length === 0) {
-          setNormalSessionSummaries([]);
-          return;
-        }
 
-        // 2. Lade jassGameSummaries aus ALLEN Gruppen
-        const allSummaries: any[] = [];
-        
-        for (const groupId of groupIds) {
-          try {
-            const summariesRef = collection(db, `groups/${groupId}/jassGameSummaries`);
-            const summariesSnapshot = await getDocs(summariesRef);
-            summariesSnapshot.forEach(doc => {
-              allSummaries.push({ id: doc.id, ...doc.data() });
-            });
-          } catch (error) {
-            console.warn(`Fehler beim Laden von jassGameSummaries für Gruppe ${groupId}:`, error);
-          }
-        }
+        // Alle Gruppen parallel laden statt sequentiell
+        const perGroupResults = await Promise.all(
+          groupIds.map(async (groupId: string) => {
+            try {
+              const summariesRef = collection(db, `groups/${groupId}/jassGameSummaries`);
+              const snap = await getDocs(summariesRef);
+              return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            } catch {
+              return [] as any[];
+            }
+          })
+        );
 
-        // 3. Filtere NUR normale Sessions (ohne Turniere)
+        const allSummaries = perGroupResults.flat();
+
+        // Filtere NUR normale Sessions (ohne Turniere)
         const normalSummaries = allSummaries.filter(summary => {
-          // Nur abgeschlossene Sessions
           if (summary.status !== 'completed' && summary.status !== 'completed_empty') return false;
-          
-          // KEINE Turniere
           if (summary.isTournamentSession || summary.tournamentId) return false;
-          
-          // Muss teams und finalScores haben
           if (!summary.teams?.top?.players || !summary.teams?.bottom?.players) return false;
           if (!summary.finalScores) return false;
-          
-          // Spieler muss Teilnehmer sein
           const participantIds = summary.participantPlayerIds || [];
           if (!participantIds.includes(viewPlayerId)) return false;
-          
           return true;
         });
 
@@ -626,7 +622,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         setNormalSessionSummaries([]);
       }
     })();
-  }, [viewPlayerId]);
+  }, [viewPlayerId, player?.groupIds]);
 
   // ✅ FILTER: Partner/Opponent Stats ohne Turniere (nur normale Sessions)
   const filteredPartnerAggregates = useMemo(() => {
@@ -860,8 +856,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   }, [viewPlayerId]);
 
   // 🚀 NEU: Lade Chart-Daten für Power-Rating Zeitreihen (GLOBAL über alle Gruppen, verzögert für bessere UX!)
+  // Nur laden wenn Stats-Tab aktiv ist, sonst unnötige Firestore-Reads beim ersten Mount vermeiden
   React.useEffect(() => {
     if (!viewPlayerId) return;
+    if (activeMainTab && activeMainTab !== 'stats') return;
     
     // ✅ Verzögerung um 1-2 Frames nach Tab-Expandieren für smooth Chart-Rendering
     const timer = setTimeout(() => {
@@ -885,6 +883,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   // 🆕 STRICH-DIFFERENZ CHART
   React.useEffect(() => {
     if (!viewPlayerId) return;
+    if (activeMainTab && activeMainTab !== 'stats') return;
     
     const timer = setTimeout(() => {
       setStricheChartLoading(true);
@@ -907,6 +906,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   // 🆕 PUNKT-DIFFERENZ CHART
   React.useEffect(() => {
     if (!viewPlayerId) return;
+    if (activeMainTab && activeMainTab !== 'stats') return;
     
     const timer = setTimeout(() => {
       setPointsChartLoading(true);
@@ -929,6 +929,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   // 🆕 MATSCH-BILANZ CHART
   React.useEffect(() => {
     if (!viewPlayerId) return;
+    if (activeMainTab && activeMainTab !== 'stats') return;
     
     const timer = setTimeout(() => {
       setMatschChartLoading(true);
@@ -951,6 +952,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   // 🆕 SCHNEIDER-BILANZ CHART
   React.useEffect(() => {
     if (!viewPlayerId) return;
+    if (activeMainTab && activeMainTab !== 'stats') return;
     
     const timer = setTimeout(() => {
       setSchneiderChartLoading(true);
@@ -973,6 +975,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   // 🆕 KONTERMATSCH-BILANZ CHART
   React.useEffect(() => {
     if (!viewPlayerId) return;
+    if (activeMainTab && activeMainTab !== 'stats') return;
     
     const timer = setTimeout(() => {
       setKontermatschChartLoading(true);
@@ -995,6 +998,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   // 🆕 WEIS-PUNKTE CHART (3 KURVEN!)
   React.useEffect(() => {
     if (!viewPlayerId) return;
+    if (activeMainTab && activeMainTab !== 'stats') return;
     
     const timer = setTimeout(() => {
       setWeisChartLoading(true);
@@ -1014,40 +1018,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     return () => clearTimeout(timer);
   }, [viewPlayerId]);
 
-  // NEU: Lade Partner-Chart-Daten aus jassGameSummaries
+  // NEU: Berechne Partner-Chart-Daten aus bereits geladenen normalSessionSummaries
   React.useEffect(() => {
     if (!viewPlayerId || !playerStats?.partnerAggregates || playerStats.partnerAggregates.length === 0) {
       return;
     }
+    if (activeMainTab && activeMainTab !== 'stats') return;
 
     const loadPartnerChartsFromSummaries = async () => {
       try {
-        // 1. Ermittle alle Gruppen, in denen dieser Spieler Mitglied ist
-        const currentPlayerDoc = await getDoc(doc(db, 'players', viewPlayerId));
-        if (!currentPlayerDoc.exists()) {
-          return;
-        }
-        
-        const groupIds = currentPlayerDoc.data().groupIds || [];
-        if (groupIds.length === 0) {
-          return;
-        }
-
-        // 2. Lade jassGameSummaries aus ALLEN Gruppen
-        const allSummaries: any[] = [];
-        
-        for (const groupId of groupIds) {
-          try {
-            const { collection, getDocs } = await import('firebase/firestore');
-            const summariesRef = collection(db, `groups/${groupId}/jassGameSummaries`);
-            const summariesSnapshot = await getDocs(summariesRef);
-            summariesSnapshot.forEach(doc => {
-              allSummaries.push({ id: doc.id, ...doc.data() });
-            });
-          } catch (error) {
-            console.warn(`Fehler beim Laden von jassGameSummaries für Gruppe ${groupId}:`, error);
-          }
-        }
+        // Verwende bereits geladene normalSessionSummaries – kein erneuter Firestore-Read nötig
+        const allSummaries = normalSessionSummaries;
 
         // 3. Erstelle Partner-spezifische Chart-Daten
         const stricheDataByPartner: Record<string, { labels: string[], data: number[] }> = {};
@@ -1432,38 +1413,19 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     };
 
     loadPartnerChartsFromSummaries();
-  }, [viewPlayerId, playerStats?.partnerAggregates]);
+  }, [viewPlayerId, playerStats?.partnerAggregates, normalSessionSummaries, activeMainTab]);
 
-  // NEU: Lade Gegner-Chart-Daten aus jassGameSummaries
+  // NEU: Berechne Gegner-Chart-Daten aus bereits geladenen normalSessionSummaries
   React.useEffect(() => {
     if (!viewPlayerId || !playerStats?.opponentAggregates || playerStats.opponentAggregates.length === 0) {
       return;
     }
+    if (activeMainTab && activeMainTab !== 'stats') return;
 
     const loadOpponentChartsFromSummaries = async () => {
       try {
-        // 1. Ermittle alle Gruppen, in denen dieser Spieler Mitglied ist
-        const currentPlayerDoc = await getDoc(doc(db, 'players', viewPlayerId));
-        if (!currentPlayerDoc.exists()) return;
-        
-        const groupIds = currentPlayerDoc.data().groupIds || [];
-        if (groupIds.length === 0) return;
-
-        // 2. Lade jassGameSummaries aus ALLEN Gruppen
-        const allSummaries: any[] = [];
-        
-        for (const groupId of groupIds) {
-          try {
-            const { collection, getDocs } = await import('firebase/firestore');
-            const summariesRef = collection(db, `groups/${groupId}/jassGameSummaries`);
-            const summariesSnapshot = await getDocs(summariesRef);
-            summariesSnapshot.forEach(doc => {
-              allSummaries.push({ id: doc.id, ...doc.data() });
-            });
-          } catch (error) {
-            console.warn(`Fehler beim Laden von jassGameSummaries für Gruppe ${groupId}:`, error);
-          }
-        }
+        // Verwende bereits geladene normalSessionSummaries – kein erneuter Firestore-Read nötig
+        const allSummaries = normalSessionSummaries;
 
         // 3. Erstelle Gegner-spezifische Chart-Daten
         const stricheDataByOpponent: Record<string, { labels: string[], data: number[] }> = {};
@@ -1871,7 +1833,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     };
 
     loadOpponentChartsFromSummaries();
-  }, [viewPlayerId, playerStats?.opponentAggregates]);
+  }, [viewPlayerId, playerStats?.opponentAggregates, normalSessionSummaries, activeMainTab]);
 
   // ===== LOKALE TAB-COLOR FUNKTION (IDENTISCH ZU GROUPVIEW) =====
   const getTabActiveColor = (themeKey: string): string => {
@@ -1922,7 +1884,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       {isPublicView && !layout.isDesktop && <PublicViewTopBar />}
       
       <MainLayout>
-      <div className={`flex flex-col items-center justify-start bg-gray-900 text-white ${layout.containerPadding} relative pt-8 pb-20 lg:w-full lg:px-0`}>
+      <div className={`flex flex-col items-center justify-start text-white ${layout.containerPadding} relative pt-8 pb-20 lg:w-full lg:px-0`}>
         {/* Responsive Container Wrapper */}
         <div className={`w-full ${layout.containerMaxWidth} mx-auto lg:px-12 lg:py-8`}>
           {/* 🚀 AVATAR PRELOADER: Lädt alle Partner/Gegner-Avatare unsichtbar vor */}
@@ -1931,14 +1893,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           )}
           
           {/* NEU: SHARE BUTTON - OBEN RECHTS (nur für öffentliche Profile) */}
-          {isPublicView && currentPlayer && (
+          {currentPlayer && (
             <button 
               onClick={handleShareClick}
-              className="absolute top-6 right-4 z-10 p-2 text-gray-300 hover:text-white transition-all duration-200 rounded-full bg-gray-700/50 hover:scale-110 safe-area-top"
+              className="absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center text-white/80 hover:text-white transition-all duration-200 rounded-full backdrop-blur-sm border hover:scale-105"
               style={{
-                top: 'calc(1.5rem + env(safe-area-inset-top))',
-                backgroundColor: 'rgba(55, 65, 81, 0.5)',
-                borderColor: 'transparent'
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                borderColor: 'rgba(255, 255, 255, 0.2)'
               }}
               onMouseEnter={(e) => {
                 const themeRgb = profileTheme === 'green' ? '5, 150, 105' :
@@ -1954,13 +1915,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 e.currentTarget.style.boxShadow = `0 0 15px rgba(${themeRgb}, 0.3)`;
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(55, 65, 81, 0.5)';
-                e.currentTarget.style.borderColor = 'transparent';
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
                 e.currentTarget.style.boxShadow = 'none';
               }}
               aria-label="Profilstatistiken teilen"
             >
-              <FiShare2 className="w-5 h-5" />
+              <FaShareAlt size={16} />
             </button>
           )}
 
@@ -1995,9 +1956,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 : `0 0 20px ${glowColor}, 0 4px 20px rgba(0,0,0,0.3)`
             }}
           >
-            {statsLoading ? (
-              <Skeleton className="w-full h-full rounded-full" />
-            ) : previewUrl ? (
+            {previewUrl ? (
               <Image
                 src={previewUrl}
                 alt="Vorschau Profilbild"
@@ -2014,10 +1973,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   alt={`Profilbild ${displayName}`}
                   fill={true}
                   className={`object-cover transition-opacity duration-300 ${isImageLoading ? 'opacity-0' : 'opacity-100'}`}
-                  loading="lazy"
+                  priority={true}
+                  loading="eager"
                   sizes="128px"
-                  placeholder="blur"
-                  blurDataURL={generateBlurPlaceholder()}
                   onLoad={() => {
                     setIsImageLoading(false);
                     setHasImageError(false);
@@ -2058,16 +2016,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
         <div className="w-full text-center mb-6 px-4">
           <h1 
-            className={`${layout.titleSize} font-bold mb-1 text-white break-words transition-colors duration-300`}
+            className={`${layout.titleSize} font-bold font-headline mb-1 text-white break-words transition-colors duration-300`}
           >
-            {statsLoading ? <Skeleton className={`${layout.skeletonTitleHeight} w-48 mx-auto`} /> : displayName}
+            {displayName || <Skeleton className={`${layout.skeletonTitleHeight} w-48 mx-auto`} />}
           </h1>
           
           {/* NEU: Jass-Elo Rating unterhalb des Namens */}
           {playerRating && (
             <div className="flex items-center justify-center gap-2 mb-2">
               <span className={`${layout.bodySize} text-gray-300`}>Jass-Elo:</span>
-              <span className={`${layout.headingSize} font-semibold text-white`}>
+              <span className={`${layout.headingSize} font-bold font-headline text-white`}>
                 {Math.round(playerRating.rating)}
                 {playerDelta !== null && (() => {
                   const roundedDelta = Math.round(playerDelta);
@@ -2091,7 +2049,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           )}
           
           <div className={`${layout.subtitleSize} text-gray-300 mx-auto max-w-xl break-words mt-3`}>
-            <div className="text-center">{statsLoading ? <Skeleton className={`${layout.skeletonTextHeight} w-64 mx-auto`} /> : jassSpruch}</div>
+            <div className="text-center">{jassSpruch || <Skeleton className={`${layout.skeletonTextHeight} w-64 mx-auto`} />}</div>
           </div>
         </div>
 
@@ -2234,7 +2192,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           }}
           className="w-full"
         >
-          <TabsList className={`grid w-full grid-cols-2 bg-gray-800 ${layout.mainTabContainerPadding} rounded-xl sticky ${isPublicView ? 'top-[env(safe-area-inset-top,0px)]' : 'top-0'} z-30 backdrop-blur-md shadow-lg`}>
+          <TabsList className={`grid w-full grid-cols-2 bg-gray-800/60 ${layout.mainTabContainerPadding} rounded-2xl sticky top-0 z-30 backdrop-blur-md shadow-lg`}>
             <TabsTrigger 
               value="stats" 
               className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-xl active:scale-[0.96] active:shadow-inner transition-all duration-100 ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center py-5 relative`}
@@ -2274,8 +2232,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               className="w-full"
             >
               {/* Sticky Container für Sub-Tabs - mit 3px Abstand */}
-              <div className={`sticky ${isPublicView ? (layout.isDesktop ? "top-[calc(env(safe-area-inset-top,0px)+80px)]" : "top-[calc(env(safe-area-inset-top,0px)+64px)]") : (layout.isDesktop ? "top-[80px]" : "top-[64px]")} z-30 bg-gray-900`}>
-                <TabsList className={`grid w-full grid-cols-3 bg-gray-800 ${layout.subTabContainerPadding} rounded-xl backdrop-blur-md shadow-lg`}>
+              <div className={`sticky ${layout.isDesktop ? "top-[80px]" : "top-[64px]"} z-30 bg-transparent`}>
+                <TabsList className={`grid w-full grid-cols-3 bg-gray-800/60 ${layout.subTabContainerPadding} rounded-2xl backdrop-blur-md shadow-lg`}>
                   <TabsTrigger
                     value="individual"
                     className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-xl active:scale-[0.98] active:shadow-inner transition-all duration-100 ${layout.subTabPadding} text-sm font-medium flex items-center justify-center py-3 relative`}
@@ -2315,7 +2273,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <TabsContent 
                 value="individual"
                 forceMount
-                className={activeStatsSubTab !== 'individual' ? 'hidden' : `w-full bg-gray-800/50 rounded-lg ${layout.cardPadding}`}
+                className={activeStatsSubTab !== 'individual' ? 'hidden' : `w-full rounded-lg ${layout.cardPadding}`}
                 style={{ display: activeStatsSubTab !== 'individual' ? 'none' : 'block' }}
               >
                 {statsLoading ? (
@@ -2330,11 +2288,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 ) : playerStats ? (
                   <div className={`${layout.sectionSpacing} ${layout.bodySize}`}> 
                     {/* Block 1: Power-Rating Zeitreihen Chart - AN OBERSTER STELLE */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center justify-between border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center justify-between border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className="flex items-center">
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                          <h3 className={`${layout.headingSize} font-semibold text-white`}>
+                          <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>
                             Jass-Elo Verlauf pro Spiel: <span className={playerRating ? (() => {
                               const roundedRating = Math.round(playerRating.rating);
                               // ✅ Wenn Rating genau 100 ist, grau
@@ -2350,10 +2308,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           href="https://firebasestorage.googleapis.com/v0/b/jassguru.firebasestorage.app/o/Elo%20Ranking%20System.pdf?alt=media&token=eb789b69-9438-450f-b3a6-f7e2902a64f5" 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className={`flex items-center justify-center rounded-full bg-gray-700/50 hover:bg-gray-600/70 border border-gray-600/40 hover:border-gray-500/60 transition-all duration-200 hover:scale-105 ${layout.actionButtonPadding}`}
+                          className="w-8 h-8 flex items-center justify-center rounded-full backdrop-blur-sm border transition-all duration-200 hover:scale-105"
+                          style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)' }}
                           title="Elo Ranking System Dokumentation öffnen"
                         >
-                          <Info size={layout.iconSize} className="text-gray-300 hover:text-white" />
+                          <FaInfo size={12} className="text-white/80 hover:text-white" />
                         </a>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
@@ -2388,10 +2347,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </div>
 
                     {/* 🆕 STRICH-DIFFERENZ CHART */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>
                           Strichdifferenz: 
                           <span className={`ml-2 ${(() => {
                             // ✅ Verwende Chart-Daten statt playerStats
@@ -2445,10 +2404,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </div>
 
                     {/* 🆕 PUNKT-DIFFERENZ CHART */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>
                           Punktdifferenz: 
                           <span className={`ml-2 ${(() => {
                             // ✅ Verwende Chart-Daten statt playerStats
@@ -2503,10 +2462,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
                     {/* 🆕 MATSCH-BILANZ CHART (nur wenn Bilanz ≠ 0) */}
                     {playerStats?.matschBilanz !== 0 && (
-                      <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                        <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                      <div className={`overflow-hidden`}>
+                        <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                          <h3 className={`${layout.headingSize} font-semibold text-white`}>
+                          <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>
                             Matsch-Bilanz: 
                             <span className={`ml-2 ${(() => {
                               // ✅ Verwende Chart-Daten für kumulativen Endwert (nicht Delta!)
@@ -2561,10 +2520,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
                     {/* 🆕 SCHNEIDER-BILANZ CHART (nur wenn Bilanz ≠ 0) */}
                     {playerStats?.schneiderBilanz !== 0 && (
-                      <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                        <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                      <div className={`overflow-hidden`}>
+                        <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                          <h3 className={`${layout.headingSize} font-semibold text-white`}>
+                          <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>
                             Schneider-Bilanz: 
                             <span className={`ml-2 ${playerStats?.schneiderBilanz && playerStats.schneiderBilanz > 0 ? 'text-emerald-500' : playerStats?.schneiderBilanz && playerStats.schneiderBilanz < 0 ? 'text-red-500' : 'text-white'}`}>
                               {playerStats?.schneiderBilanz && playerStats.schneiderBilanz > 0 ? '+' : ''}
@@ -2605,10 +2564,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
                     {/* 🆕 KONTERMATSCH-BILANZ CHART (nur wenn Events vorhanden) */}
                     {(playerStats?.totalKontermatschEventsMade && playerStats.totalKontermatschEventsMade > 0) || (playerStats?.totalKontermatschEventsReceived && playerStats.totalKontermatschEventsReceived > 0) ? (
-                      <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                        <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                      <div className={`overflow-hidden`}>
+                        <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                          <h3 className={`${layout.headingSize} font-semibold text-white`}>
+                          <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>
                             Kontermatsch-Bilanz: 
                             <span className={`ml-2 ${playerStats?.kontermatschBilanz && playerStats.kontermatschBilanz > 0 ? 'text-emerald-500' : playerStats?.kontermatschBilanz && playerStats.kontermatschBilanz < 0 ? 'text-red-500' : 'text-white'}`}>
                               {playerStats?.kontermatschBilanz && playerStats.kontermatschBilanz > 0 ? '+' : ''}
@@ -2652,10 +2611,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       const winRate = sessionWinRateData.percentages[0]; // Win percentage
                       const color = winRate > 50 ? 'text-emerald-500' : winRate < 50 ? 'text-red-500' : 'text-gray-400';
                       return (
-                      <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                        <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                      <div className={`overflow-hidden`}>
+                        <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                          <h3 className={`${layout.headingSize} font-semibold text-white`}>
+                          <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>
                             Siegquote Partien: <span className={color}>{winRate.toFixed(1)}%</span>
                           </h3>
                         </div>
@@ -2686,10 +2645,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       const winRate = gameWinRateData.percentages[0]; // Win percentage
                       const color = winRate > 50 ? 'text-emerald-500' : winRate < 50 ? 'text-red-500' : 'text-gray-400';
                       return (
-                      <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                        <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                      <div className={`overflow-hidden`}>
+                        <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                          <h3 className={`${layout.headingSize} font-semibold text-white`}>
+                          <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>
                             Siegquote Spiele: <span className={color}>{winRate.toFixed(1)}%</span>
                           </h3>
                         </div>
@@ -2717,24 +2676,24 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
                      {/* NEU: Trumpfansagen Liste */}
                      {trumpfStatistikArray.length > 0 && (
-                       <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                         <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                       <div className={`overflow-hidden`}>
+                         <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                            <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                           <h3 className={`${layout.headingSize} font-semibold text-white`}>Trumpfansagen Liste</h3>
+                           <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>Trumpfansagen Liste</h3>
                          </div>
-                         <div ref={trumpfStatistikRef} className={`${layout.cardPadding} space-y-2 pr-2`}>
+                         <div ref={trumpfStatistikRef} className={`${layout.cardPadding} space-y-0 pr-2`}>
                            {trumpfStatistikArray.map((item, index) => {
-                             // NEU: Logik für dynamische Anzeige
-                             const cardStyle = 'DE'; // Standard card style
-                             const mappedColorKey = toTitleCase(item.farbe);
-                             const displayName = CARD_SYMBOL_MAPPINGS[mappedColorKey as JassColor]?.[cardStyle] ?? mappedColorKey;
+                            const cardStyle = preferredProfileCardStyle;
+                            const normalizedColor = normalizeJassColor(item.farbe);
+                            const displayName =
+                              CARD_SYMBOL_MAPPINGS[normalizedColor]?.[cardStyle] ?? toTitleCase(item.farbe);
                              
                              return (
-                               <div key={`trumpf-${item.farbe}`} className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                               <div key={`trumpf-${item.farbe}`} className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0 hover:bg-white/10 transition-colors`}>
                                  <div className="flex items-center">
                                    <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
                                    <FarbePictogram 
-                                     farbe={normalizeJassColor(item.farbe)} 
+                                    farbe={normalizedColor} 
                                      mode="svg" 
                                      cardStyle={cardStyle} // cardStyle übergeben
                                      className={layout.isDesktop ? "h-12 w-12 mr-2" : "h-8 w-8 mr-2"}
@@ -2754,10 +2713,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
                      {/* NEU: Trumpfverteilung - Chart */}
                      {trumpfDistributionData && (
-                       <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                         <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                       <div className={`overflow-hidden`}>
+                         <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                            <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                           <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Trumpfansagen Total</h3>
+                           <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>📊 Trumpfansagen Total</h3>
                          </div>
                          <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                            <PieChart 
@@ -2782,10 +2741,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                      )}
 
                     {/* 🆕 WEIS-DIFFERENZ CHART */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${weisChartData && weisChartData.datasets[0]?.data?.length === 1 ? '' : `border-b ${layout.borderWidth} border-gray-700/50`} ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center ${weisChartData && weisChartData.datasets[0]?.data?.length === 1 ? '' : `border-b-2 border-gray-500/50`} ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>
                           Weisdifferenz: 
                           <span className={`ml-2 ${
                             weisChartData && weisChartData.datasets[0]?.data?.length > 0 
@@ -2838,37 +2797,37 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </div>
 
                     {/* Block 2: Spielerübersicht */}
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Spielerübersicht</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>Spielerübersicht</h3>
                       </div>
-                      <div className={`${layout.cardPadding} space-y-2`}>
-                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                      <div className={`${layout.cardPadding} space-y-0`}>
+                        <div className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0 hover:bg-white/10 transition-colors`}>
                           <span className={`${layout.bodySize} font-medium text-gray-300`}>Anzahl Gruppen:</span>
                           <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.groupCount || 0}</span> 
                         </div>
-                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                        <div className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0 hover:bg-white/10 transition-colors`}>
                           <span className={`${layout.bodySize} font-medium text-gray-300`}>Anzahl Partien:</span>
                           <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.totalSessions ?? 0}</span>
                         </div>
-                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                        <div className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0 hover:bg-white/10 transition-colors`}>
                           <span className={`${layout.bodySize} font-medium text-gray-300`}>Anzahl Turniere:</span>
                           <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.totalTournaments ?? 0}</span>
                         </div>
-                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                        <div className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0 hover:bg-white/10 transition-colors`}>
                           <span className={`${layout.bodySize} font-medium text-gray-300`}>Anzahl Spiele:</span>
                           <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.totalGames ?? 0}</span>
                         </div>
-                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                        <div className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0 hover:bg-white/10 transition-colors`}>
                           <span className={`${layout.bodySize} font-medium text-gray-300`}>Gesamte Jass-Zeit:</span>
                           <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.totalPlayTime || '-'}</span>
                         </div>
-                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                        <div className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0 hover:bg-white/10 transition-colors`}>
                           <span className={`${layout.bodySize} font-medium text-gray-300`}>Erster Jass:</span>
                           <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.firstJassDate || '-'}</span>
                         </div>
-                        <div className={`flex justify-between items-center ${layout.listItemPadding} rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors`}>
+                        <div className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0 hover:bg-white/10 transition-colors`}>
                           <span className={`${layout.bodySize} font-medium text-gray-300`}>Letzter Jass:</span>
                           <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{playerStats?.lastJassDate || '-'}</span>
                         </div>
@@ -2877,12 +2836,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
                     {/* Block 3: 🏆 Highlights */}
                     {false && (
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Highlights</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>🏆 Highlights</h3>
                       </div>
-                      <div className={`${layout.cardPadding} space-y-2`}>
+                      <div className={`${layout.cardPadding} space-y-0`}>
                         <div 
                           className={`${layout.listItemPadding} rounded-md cursor-pointer bg-gray-700/30 hover:bg-gray-600/50 transition-colors`}
                           onClick={() => {
@@ -3021,12 +2980,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
                     {/* Block 6: 👎 Lowlights */}
                     {false && (
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>👎 Lowlights</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>👎 Lowlights</h3>
                       </div>
-                      <div className={`${layout.cardPadding} space-y-2`}>
+                      <div className={`${layout.cardPadding} space-y-0`}>
                         <div 
                           className={`${layout.listItemPadding} rounded-md cursor-pointer bg-gray-700/30 hover:bg-gray-600/50 transition-colors`}
                           onClick={() => {
@@ -3174,7 +3133,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <TabsContent 
                 value="partner"
                 forceMount
-                className={activeStatsSubTab !== 'partner' ? 'hidden' : 'w-full bg-gray-800/50 rounded-lg p-4 space-y-6'}
+                className={activeStatsSubTab !== 'partner' ? 'hidden' : 'w-full rounded-lg p-4 space-y-6'}
                 style={{ display: activeStatsSubTab !== 'partner' ? 'none' : 'block' }}
               >
                 {(playerStats as any)?.partnerAggregates && (playerStats as any).partnerAggregates.length > 0 ? (
@@ -3185,10 +3144,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       const hasEnoughSessions = (playerStats as any).partnerAggregates?.some((p: any) => (p.sessionsPlayedWith || 0) >= 2);
                       return hasData && hasEnoughSessions;
                     })() && (
-                      <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                        <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                      <div className={`overflow-hidden`}>
+                        <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                          <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Strichdifferenz Verlauf</h3>
+                          <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>📈 Strichdifferenz Verlauf</h3>
                         </div>
                         <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                           <PowerRatingChart 
@@ -3214,12 +3173,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       const partnersWithGames = (playerStats as any)?.partnerAggregates?.filter((partner: any) => partner.gamesPlayedWith >= 1) || [];
                       return partnersWithGames.length > 0;
                     })() && (
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Strichdifferenz Rangliste</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>🏆 Strichdifferenz Rangliste</h3>
                       </div>
-                      <div className="p-4 space-y-2  pr-2">
+                      <div className="p-4 space-y-0 pr-2">
                         {(playerStats as any).partnerAggregates
                           .filter((partner: any) => partner.gamesPlayedWith >= 1)
                           .sort((a: any, b: any) => b.totalStricheDifferenceWith - a.totalStricheDifferenceWith)
@@ -3231,9 +3190,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                 key={`partner-striche-${partner.partnerId}`} 
                                 href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`} 
                                 isClickable={!!partner.partnerId}
-                                className="block rounded-md"
+                                className="block border-b border-gray-500/40 last:border-b-0"
                               >
-                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                <div className="flex justify-between items-center px-2 py-1.5 hover:bg-white/10 transition-colors">
                                   <div className="flex items-center">
                                     <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
@@ -3273,10 +3232,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       const hasEnoughSessions = (playerStats as any).partnerAggregates?.some((p: any) => (p.sessionsPlayedWith || 0) >= 2);
                       return hasData && hasEnoughSessions;
                     })() && (
-                      <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                        <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                      <div className={`overflow-hidden`}>
+                        <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                          <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Punktedifferenz Verlauf</h3>
+                          <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>📈 Punktedifferenz Verlauf</h3>
                         </div>
                         <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                           <PowerRatingChart 
@@ -3302,12 +3261,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       const partnersWithGames = (playerStats as any)?.partnerAggregates?.filter((partner: any) => partner.gamesPlayedWith >= 1) || [];
                       return partnersWithGames.length > 0;
                     })() && (
-                <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
-                  <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+                <div className="overflow-hidden">
+                  <div className="flex items-center border-b-2 border-gray-500/50 px-4 py-3">
                         <div className="w-1 h-6 rounded-r-md mr-3" style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Punktdifferenz Rangliste</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>🏆 Punktdifferenz Rangliste</h3>
                   </div>
-                      <div className="p-4 space-y-2  pr-2">
+                      <div className="p-4 space-y-0 pr-2">
                         {(playerStats as any).partnerAggregates
                           .filter((partner: any) => partner.gamesPlayedWith >= 1)
                           .sort((a: any, b: any) => b.totalPointsDifferenceWith - a.totalPointsDifferenceWith)
@@ -3319,9 +3278,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                 key={`partner-points-${partner.partnerId}`} 
                                 href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`} 
                                 isClickable={!!partner.partnerId}
-                                className="block rounded-md"
+                                className="block border-b border-gray-500/40 last:border-b-0"
                               >
-                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                <div className="flex justify-between items-center px-2 py-1.5 hover:bg-white/10 transition-colors">
                                   <div className="flex items-center">
                                     <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
@@ -3360,10 +3319,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       const partnersWithSessions = filteredPartnerAggregates?.filter((partner: any) => partner.sessionsPlayedWith >= 1) || [];
                       return partnersWithSessions.length > 0;
                     })() && (
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Siegquote Partien</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>📊 Siegquote Partien</h3>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {(() => {
@@ -3412,12 +3371,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       const partnersWithSessions = filteredPartnerAggregates?.filter((partner: any) => partner.sessionsPlayedWith >= 1) || [];
                       return partnersWithSessions.length > 0;
                     })() && (
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Partien Rangliste</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>🏆 Siegquote Partien Rangliste</h3>
                       </div>
-                      <div className="p-4 space-y-2  pr-2">
+                      <div className="p-4 space-y-0 pr-2">
                         {filteredPartnerAggregates
                           .filter((partner: any) => partner.sessionsPlayedWith >= 1)
                           .sort((a: any, b: any) => (b.sessionWinRate || 0) - (a.sessionWinRate || 0))
@@ -3429,9 +3388,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                 key={`partner-session-${partner.partnerId}`}
                                 href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`}
                                 isClickable={!!partner.partnerId}
-                                className="block rounded-md"
+                                className="block border-b border-gray-500/40 last:border-b-0"
                               >
-                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                <div className="flex justify-between items-center px-2 py-1.5 hover:bg-white/10 transition-colors">
                                   <div className="flex items-center">
                                     <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
@@ -3478,10 +3437,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       const partnersWithGames = (playerStats as any)?.partnerAggregates?.filter((partner: any) => partner.gamesPlayedWith >= 1) || [];
                       return partnersWithGames.length > 0;
                     })() && (
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Siegquote Spiele</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>📊 Siegquote Spiele</h3>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {(() => {
@@ -3525,12 +3484,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       const partnersWithGames = (playerStats as any)?.partnerAggregates?.filter((partner: any) => partner.gamesPlayedWith >= 1) || [];
                       return partnersWithGames.length > 0;
                     })() && (
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Spiele Rangliste</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>🏆 Siegquote Spiele Rangliste</h3>
                       </div>
-                      <div className="p-4 space-y-2  pr-2">
+                      <div className="p-4 space-y-0 pr-2">
                                                         {(playerStats as any).partnerAggregates
                           .filter((partner: any) => partner.gamesPlayedWith >= 1)
                           .sort((a: any, b: any) => (b.gameWinRate || 0) - (a.gameWinRate || 0))
@@ -3542,9 +3501,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                 key={`partner-game-${partner.partnerId}`} 
                                 href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`} 
                                 isClickable={!!partner.partnerId}
-                                className="block rounded-md"
+                                className="block border-b border-gray-500/40 last:border-b-0"
                               >
-                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                <div className="flex justify-between items-center px-2 py-1.5 hover:bg-white/10 transition-colors">
                                   <div className="flex items-center">
                                     <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
@@ -3587,10 +3546,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       const hasEnoughSessions = (playerStats as any).partnerAggregates?.some((p: any) => (p.sessionsPlayedWith || 0) >= 2);
                       return hasData && hasEnoughSessions;
                     })() && (
-                      <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                        <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                      <div className={`overflow-hidden`}>
+                        <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                          <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Matsch-Bilanz Verlauf</h3>
+                          <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>📈 Matsch-Bilanz Verlauf</h3>
                         </div>
                         <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                           <PowerRatingChart 
@@ -3616,12 +3575,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       const partnersWithMatsch = (playerStats as any)?.partnerAggregates?.filter((partner: any) => partner.gamesPlayedWith >= 1 && ((partner.matschEventsMadeWith || 0) > 0 || (partner.matschEventsReceivedWith || 0) > 0)) || [];
                       return partnersWithMatsch.length > 0;
                     })() && (
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Matsch-Bilanz Rangliste</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>🏆 Matsch-Bilanz Rangliste</h3>
                       </div>
-                      <div className="p-4 space-y-2  pr-2">
+                      <div className="p-4 space-y-0 pr-2">
                         {(playerStats as any).partnerAggregates
                           .filter((partner: any) => partner.gamesPlayedWith >= 1 && ((partner.matschEventsMadeWith || 0) > 0 || (partner.matschEventsReceivedWith || 0) > 0))
                           .sort((a: any, b: any) => (b.matschBilanz || 0) - (a.matschBilanz || 0))
@@ -3633,9 +3592,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                 key={`partner-matsch-${partner.partnerId}`} 
                                 href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`} 
                                 isClickable={!!partner.partnerId}
-                                className="block rounded-md"
+                                className="block border-b border-gray-500/40 last:border-b-0"
                               >
-                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                <div className="flex justify-between items-center px-2 py-1.5 hover:bg-white/10 transition-colors">
                                   <div className="flex items-center">
                                     <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
@@ -3670,12 +3629,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
                     {/* Schneider-Bilanz - nur anzeigen wenn Ereignisse vorhanden */}
                     {(playerStats as any).partnerAggregates?.filter((p: any) => p.gamesPlayedWith >= 1 && ((p.schneiderEventsMadeWith || 0) > 0 || (p.schneiderEventsReceivedWith || 0) > 0)).length > 0 && (
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Schneider-Bilanz</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>Schneider-Bilanz</h3>
                       </div>
-                      <div className="p-4 space-y-2  pr-2">
+                      <div className="p-4 space-y-0 pr-2">
                         {(playerStats as any).partnerAggregates
                           .filter((partner: any) => partner.gamesPlayedWith >= 1 && ((partner.schneiderEventsMadeWith || 0) > 0 || (partner.schneiderEventsReceivedWith || 0) > 0))
                           .sort((a: any, b: any) => (b.schneiderBilanz || 0) - (a.schneiderBilanz || 0))
@@ -3687,9 +3646,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                 key={`partner-schneider-${partner.partnerId}`} 
                                 href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`} 
                                 isClickable={!!partner.partnerId}
-                                className="block rounded-md"
+                                className="block border-b border-gray-500/40 last:border-b-0"
                               >
-                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                <div className="flex justify-between items-center px-2 py-1.5 hover:bg-white/10 transition-colors">
                               <div className="flex items-center">
                                 <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
@@ -3727,12 +3686,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
                     {/* Kontermatsch-Bilanz - nur anzeigen wenn Ereignisse vorhanden */}
                     {(playerStats as any).partnerAggregates?.filter((p: any) => p.gamesPlayedWith >= 1 && ((p.kontermatschEventsMadeWith || 0) > 0 || (p.kontermatschEventsReceivedWith || 0) > 0)).length > 0 && (
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Kontermatsch-Bilanz</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>Kontermatsch-Bilanz</h3>
                   </div>
-                      <div className="p-4 space-y-2  pr-2">
+                      <div className="p-4 space-y-0 pr-2">
                         {(playerStats as any).partnerAggregates
                           .filter((partner: any) => partner.gamesPlayedWith >= 1 && ((partner.kontermatschEventsMadeWith || 0) > 0 || (partner.kontermatschEventsReceivedWith || 0) > 0))
                           .sort((a: any, b: any) => (b.kontermatschBilanz || 0) - (a.kontermatschBilanz || 0))
@@ -3744,9 +3703,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                 key={`partner-kontermatsch-${partner.partnerId}`} 
                                 href={`/profile/${partner.partnerId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=partner`} 
                                 isClickable={!!partner.partnerId}
-                                className="block rounded-md"
+                                className="block border-b border-gray-500/40 last:border-b-0"
                               >
-                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                <div className="flex justify-between items-center px-2 py-1.5 hover:bg-white/10 transition-colors">
                                   <div className="flex items-center">
                                     <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
@@ -3791,7 +3750,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <TabsContent 
                 value="opponent"
                 forceMount
-                className={activeStatsSubTab !== 'opponent' ? 'hidden' : 'w-full bg-gray-800/50 rounded-lg p-4 space-y-6'}
+                className={activeStatsSubTab !== 'opponent' ? 'hidden' : 'w-full rounded-lg p-4 space-y-6'}
                 style={{ display: activeStatsSubTab !== 'opponent' ? 'none' : 'block' }}
               >
                 {(playerStats as any)?.opponentAggregates && (playerStats as any).opponentAggregates.length > 0 ? (
@@ -3799,10 +3758,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {/* Strichdifferenz Verlauf */}
                     {opponentStricheChartData && opponentStricheChartData.datasets.some((d: any) => d.data.length > 1) && 
                      (playerStats as any).opponentAggregates?.some((o: any) => (o.sessionsPlayedAgainst || 0) >= 2) && (
-                      <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                        <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                      <div className={`overflow-hidden`}>
+                        <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                          <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Strichdifferenz Verlauf</h3>
+                          <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>📊 Strichdifferenz Verlauf</h3>
                         </div>
                         <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                           <PowerRatingChart 
@@ -3828,12 +3787,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       const opponentsWithGames = (playerStats as any)?.opponentAggregates?.filter((opponent: any) => opponent.gamesPlayedAgainst >= 1) || [];
                       return opponentsWithGames.length > 0;
                     })() && (
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Strichdifferenz Rangliste</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>🏆 Strichdifferenz Rangliste</h3>
                       </div>
-                      <div className="p-4 space-y-2  pr-2">
+                      <div className="p-4 space-y-0 pr-2">
                         {(playerStats as any).opponentAggregates
                           .filter((opponent: any) => opponent.gamesPlayedAgainst >= 1)
                           .sort((a: any, b: any) => b.totalStricheDifferenceAgainst - a.totalStricheDifferenceAgainst)
@@ -3845,9 +3804,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                 key={`opponent-striche-${opponent.opponentId}`} 
                                 href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
                                 isClickable={!!opponent.opponentId}
-                                className="block rounded-md"
+                                className="block border-b border-gray-500/40 last:border-b-0"
                               >
-                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                <div className="flex justify-between items-center px-2 py-1.5 hover:bg-white/10 transition-colors">
                                   <div className="flex items-center">
                                     <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
@@ -3884,10 +3843,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {/* Punktedifferenz Verlauf */}
                     {opponentPointsChartData && opponentPointsChartData.datasets.some((d: any) => d.data.length > 1) && 
                      (playerStats as any).opponentAggregates?.some((o: any) => (o.sessionsPlayedAgainst || 0) >= 2) && (
-                      <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                        <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                      <div className={`overflow-hidden`}>
+                        <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                          <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Punktedifferenz Verlauf</h3>
+                          <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>📈 Punktedifferenz Verlauf</h3>
                         </div>
                         <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                           <PowerRatingChart 
@@ -3913,12 +3872,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       const opponentsWithGames = (playerStats as any)?.opponentAggregates?.filter((opponent: any) => opponent.gamesPlayedAgainst >= 1) || [];
                       return opponentsWithGames.length > 0;
                     })() && (
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Punktdifferenz Rangliste</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>🏆 Punktdifferenz Rangliste</h3>
                       </div>
-                      <div className="p-4 space-y-2  pr-2">
+                      <div className="p-4 space-y-0 pr-2">
                         {(playerStats as any).opponentAggregates
                           .filter((opponent: any) => opponent.gamesPlayedAgainst >= 1)
                           .sort((a: any, b: any) => b.totalPointsDifferenceAgainst - a.totalPointsDifferenceAgainst)
@@ -3930,9 +3889,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                 key={`opponent-points-${opponent.opponentId}`} 
                                 href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
                                 isClickable={!!opponent.opponentId}
-                                className="block rounded-md"
+                                className="block border-b border-gray-500/40 last:border-b-0"
                               >
-                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                <div className="flex justify-between items-center px-2 py-1.5 hover:bg-white/10 transition-colors">
                                   <div className="flex items-center">
                                     <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
@@ -3971,10 +3930,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       const opponentsWithSessions = filteredOpponentAggregates?.filter((opponent: any) => opponent.sessionsPlayedAgainst >= 1) || [];
                       return opponentsWithSessions.length > 0;
                     })() && (
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Siegquote Partien</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>📊 Siegquote Partien</h3>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {(() => {
@@ -4018,12 +3977,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       const opponentsWithSessions = filteredOpponentAggregates?.filter((opponent: any) => opponent.sessionsPlayedAgainst >= 1) || [];
                       return opponentsWithSessions.length > 0;
                     })() && (
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Partien Rangliste</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>🏆 Siegquote Partien Rangliste</h3>
                       </div>
-                      <div className="p-4 space-y-2  pr-2">
+                      <div className="p-4 space-y-0 pr-2">
                         {filteredOpponentAggregates
                           .filter((opponent: any) => opponent.sessionsPlayedAgainst >= 1)
                           .sort((a: any, b: any) => (b.sessionWinRate || 0) - (a.sessionWinRate || 0))
@@ -4035,9 +3994,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                 key={`opponent-session-${opponent.opponentId}`} 
                                 href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
                                 isClickable={!!opponent.opponentId}
-                                className="block rounded-md"
+                                className="block border-b border-gray-500/40 last:border-b-0"
                               >
-                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                <div className="flex justify-between items-center px-2 py-1.5 hover:bg-white/10 transition-colors">
                                   <div className="flex items-center">
                                     <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
@@ -4081,10 +4040,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       const opponentsWithGames = (playerStats as any)?.opponentAggregates?.filter((opponent: any) => opponent.gamesPlayedAgainst >= 1) || [];
                       return opponentsWithGames.length > 0;
                     })() && (
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>📊 Siegquote Spiele</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>📊 Siegquote Spiele</h3>
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {(() => {
@@ -4128,12 +4087,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       const opponentsWithGames = (playerStats as any)?.opponentAggregates?.filter((opponent: any) => opponent.gamesPlayedAgainst >= 1) || [];
                       return opponentsWithGames.length > 0;
                     })() && (
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Siegquote Spiele Rangliste</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>🏆 Siegquote Spiele Rangliste</h3>
                       </div>
-                      <div className="p-4 space-y-2  pr-2">
+                      <div className="p-4 space-y-0 pr-2">
                         {(playerStats as any).opponentAggregates
                           .filter((opponent: any) => opponent.gamesPlayedAgainst >= 1)
                           .sort((a: any, b: any) => (b.gameWinRate || 0) - (a.gameWinRate || 0))
@@ -4145,9 +4104,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                 key={`opponent-game-${opponent.opponentId}`} 
                                 href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
                                 isClickable={!!opponent.opponentId}
-                                className="block rounded-md"
+                                className="block border-b border-gray-500/40 last:border-b-0"
                               >
-                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                <div className="flex justify-between items-center px-2 py-1.5 hover:bg-white/10 transition-colors">
                                   <div className="flex items-center">
                                     <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
@@ -4188,10 +4147,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {/* Matsch-Bilanz Verlauf */}
                     {opponentMatschChartData && opponentMatschChartData.datasets.some((d: any) => d.data.length > 1) && 
                      (playerStats as any).opponentAggregates?.some((o: any) => (o.sessionsPlayedAgainst || 0) >= 2) && (
-                      <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                        <div className={`flex items-center border-b ${layout.borderWidth} border-gray-700/50 ${layout.cardInnerPadding}`}>
+                      <div className={`overflow-hidden`}>
+                        <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                          <h3 className={`${layout.headingSize} font-semibold text-white`}>📈 Matsch-Bilanz Verlauf</h3>
+                          <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>📈 Matsch-Bilanz Verlauf</h3>
                         </div>
                         <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                           <PowerRatingChart 
@@ -4217,12 +4176,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       const opponentsWithMatsch = (playerStats as any)?.opponentAggregates?.filter((opponent: any) => opponent.gamesPlayedAgainst >= 1 && ((opponent.matschEventsMadeAgainst || 0) > 0 || (opponent.matschEventsReceivedAgainst || 0) > 0)) || [];
                       return opponentsWithMatsch.length > 0;
                     })() && (
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>🏆 Matsch-Bilanz Rangliste</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>🏆 Matsch-Bilanz Rangliste</h3>
                       </div>
-                      <div className="p-4 space-y-2  pr-2">
+                      <div className="p-4 space-y-0 pr-2">
                         {(playerStats as any).opponentAggregates
                           .filter((opponent: any) => opponent.gamesPlayedAgainst >= 1 && ((opponent.matschEventsMadeAgainst || 0) > 0 || (opponent.matschEventsReceivedAgainst || 0) > 0))
                           .sort((a: any, b: any) => (b.matschBilanz || 0) - (a.matschBilanz || 0))
@@ -4234,9 +4193,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                 key={`opponent-matsch-${opponent.opponentId}`} 
                                 href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
                                 isClickable={!!opponent.opponentId}
-                                className="block rounded-md"
+                                className="block border-b border-gray-500/40 last:border-b-0"
                               >
-                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                <div className="flex justify-between items-center px-2 py-1.5 hover:bg-white/10 transition-colors">
                                   <div className="flex items-center">
                                     <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
@@ -4271,12 +4230,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
                     {/* Schneider-Bilanz - nur anzeigen wenn Ereignisse vorhanden */}
                     {(playerStats as any).opponentAggregates?.filter((o: any) => o.gamesPlayedAgainst >= 1 && ((o.schneiderEventsMadeAgainst || 0) > 0 || (o.schneiderEventsReceivedAgainst || 0) > 0)).length > 0 && (
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Schneider-Bilanz</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>Schneider-Bilanz</h3>
                       </div>
-                      <div className="p-4 space-y-2  pr-2">
+                      <div className="p-4 space-y-0 pr-2">
                         {(playerStats as any).opponentAggregates
                           .filter((opponent: any) => opponent.gamesPlayedAgainst >= 1 && ((opponent.schneiderEventsMadeAgainst || 0) > 0 || (opponent.schneiderEventsReceivedAgainst || 0) > 0))
                           .sort((a: any, b: any) => (b.schneiderBilanz || 0) - (a.schneiderBilanz || 0))
@@ -4288,9 +4247,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                 key={`opponent-schneider-${opponent.opponentId}`} 
                                 href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
                                 isClickable={!!opponent.opponentId}
-                                className="block rounded-md"
+                                className="block border-b border-gray-500/40 last:border-b-0"
                               >
-                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                <div className="flex justify-between items-center px-2 py-1.5 hover:bg-white/10 transition-colors">
                                   <div className="flex items-center">
                                     <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
@@ -4328,12 +4287,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
                     {/* Kontermatsch-Bilanz - nur anzeigen wenn Ereignisse vorhanden */}
                     {(playerStats as any).opponentAggregates?.filter((o: any) => o.gamesPlayedAgainst >= 1 && ((o.kontermatschEventsMadeAgainst || 0) > 0 || (o.kontermatschEventsReceivedAgainst || 0) > 0)).length > 0 && (
-                    <div className={`bg-gray-800/50 rounded-lg overflow-hidden ${layout.borderWidth} border-gray-700/50`}>
-                      <div className={`flex items-center ${layout.borderWidth} border-b border-gray-700/50 ${layout.cardInnerPadding}`}>
+                    <div className={`overflow-hidden`}>
+                      <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                         <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
-                        <h3 className={`${layout.headingSize} font-semibold text-white`}>Kontermatsch-Bilanz</h3>
+                        <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>Kontermatsch-Bilanz</h3>
                       </div>
-                      <div className="p-4 space-y-2  pr-2">
+                      <div className="p-4 space-y-0 pr-2">
                         {(playerStats as any).opponentAggregates
                           .filter((opponent: any) => opponent.gamesPlayedAgainst >= 1 && ((opponent.kontermatschEventsMadeAgainst || 0) > 0 || (opponent.kontermatschEventsReceivedAgainst || 0) > 0))
                           .sort((a: any, b: any) => (b.kontermatschBilanz || 0) - (a.kontermatschBilanz || 0))
@@ -4345,9 +4304,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                 key={`opponent-kontermatsch-${opponent.opponentId}`} 
                                 href={`/profile/${opponent.opponentId}?returnTo=/profile&returnMainTab=stats&returnStatsSubTab=opponent`} 
                                 isClickable={!!opponent.opponentId}
-                                className="block rounded-md"
+                                className="block border-b border-gray-500/40 last:border-b-0"
                               >
-                                <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-gray-700/30 hover:bg-gray-700/60 transition-colors">
+                                <div className="flex justify-between items-center px-2 py-1.5 hover:bg-white/10 transition-colors">
                                   <div className="flex items-center">
                                     <span className={`${layout.smallTextSize} text-gray-400 min-w-6 ${layout.listItemNumberSpacing}`}>{index + 1}.</span>
                                     <ProfileImage 
@@ -4391,7 +4350,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </TabsContent>
 
           {/* Archive Tab Content */}
-          <TabsContent value="archive" className={`w-full bg-gray-800/50 rounded-lg ${layout.cardPadding} mb-8`}>
+          <TabsContent value="archive" className={`w-full rounded-lg ${layout.cardPadding} mb-8`}>
             {(sessionsLoading || tournamentsLoading) && (
               <div className="flex justify-center items-center py-10">
                 <div className="h-6 w-6 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
@@ -4416,7 +4375,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <div className="space-y-4">
                  {sortedYears?.map(year => (
                    <div key={year}>
-                     <h3 className={`${layout.headingSize} font-semibold text-white mb-3 text-center`}>{year}</h3>
+                     <h3 className={`${layout.headingSize} font-bold font-headline text-white mb-3 text-center`}>{year}</h3>
                     <div className="space-y-2">
                       {groupedArchiveByYear?.[year]?.map(item => (
                         renderArchiveItem?.(item)

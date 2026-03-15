@@ -148,20 +148,42 @@ try {
   // Firestore initialisieren
   try {
     if (typeof window !== "undefined") {
-      // Vereinheitlichte, robuste Initialisierung: immer Standard-Cache
-      // Begründung: persistentLocalCache verursacht in WebViews/Private-Browsern (z.B. iOS/WhatsApp) sporadische IDB-Crashes
-      // und führte zu "can't access property 'Pe', e is null". Für Stabilität verzichten wir auf persistente IDB-Caches.
-      // Standard-Cache verwendet
-      db = getFirestore(app);
-      // console.log("✅ Firestore initialisiert mit Multi-Tab Offline-Persistenz und unlimitiertem Cache.");
+      // Erkennung von Umgebungen, in denen IndexedDB instabil ist:
+      // - iOS WebViews (WKWebView): z.B. WhatsApp, Instagram In-App-Browser
+      // - Private-Modus auf iOS Safari: IDB existiert, wirft aber beim Öffnen
+      // - Standalone-PWA auf iOS ist stabil, daher ausdrücklich erlaubt
+      const ua = navigator.userAgent;
+      const isIOS = /iPad|iPhone|iPod/.test(ua);
+      const isWebView = isIOS && !/Safari\//.test(ua); // iOS WebView hat kein "Safari/" im UA
+      const isPrivateIOS = isIOS && !isWebView && (() => {
+        try {
+          localStorage.setItem('_idb_test', '1');
+          localStorage.removeItem('_idb_test');
+          return false;
+        } catch {
+          return true; // localStorage blockiert → wahrscheinlich Private Mode
+        }
+      })();
+      const usePersistence = !isWebView && !isPrivateIOS;
+
+      if (usePersistence) {
+        // Persistenter Multi-Tab-Cache für normale Browser (Chrome, Firefox, Safari, Desktop, Android)
+        db = initializeFirestore(app, {
+          localCache: persistentLocalCache({
+            tabManager: persistentMultipleTabManager(),
+            cacheSizeBytes: CACHE_SIZE_UNLIMITED,
+          }),
+        });
+      } else {
+        // Kein IDB-Cache für iOS-WebViews und Private-Modus (verhindert IDB-Crashes)
+        db = getFirestore(app);
+      }
     } else {
-      // Fallback für Server-Kontext (z.B. während des Builds), wo keine Persistenz möglich ist
+      // Server-Kontext (Build-Zeit)
       db = getFirestore(app);
-      // console.log("✅ Firestore initialisiert für Server-Kontext (ohne Persistenz).");
     }
   } catch (error) {
-    console.error("Fehler bei der Firestore-Initialisierung:", error);
-    // Fallback auf eine nicht-persistente Instanz, falls die Initialisierung fehlschlägt
+    console.error("Fehler bei der Firestore-Initialisierung, Fallback auf Standard-Cache:", error);
     db = getFirestore(app);
   }
 

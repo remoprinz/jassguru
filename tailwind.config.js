@@ -8,9 +8,18 @@ export default {
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
     './src/config/**/*.{js,ts,jsx,tsx}',
+    './src/statistics/**/*.{js,ts,jsx,tsx}',
+    './src/hooks/**/*.{js,ts,jsx,tsx}',
+    './src/utils/**/*.{js,ts,jsx,tsx}',
+    './src/store/**/*.{js,ts,jsx,tsx}',
+    './src/services/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
   	extend: {
+      fontFamily: {
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        headline: ['Capita', 'Georgia', 'serif'],
+      },
   		colors: {
   			'chalk-red': '#ff0000',
   			'chalk-white': '#ffffff',

@@ -20,18 +20,21 @@ const mapDbValueToJassColorType = (dbValue: string | undefined): JassColor | und
   if (!dbValue) return undefined;
 
   const lowerDbValue = dbValue.toLowerCase();
+  const normalizedValue = lowerDbValue
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 
-  if (lowerDbValue === "misère") return "Misère";
-  if (lowerDbValue === "eicheln" || lowerDbValue === "eichel") return "Eicheln";
-  if (lowerDbValue === "rosen" || lowerDbValue === "rose") return "Rosen";
-  if (lowerDbValue === "schellen" || lowerDbValue === "schelle") return "Schellen";
-  if (lowerDbValue === "schilten" || lowerDbValue === "schilte") return "Schilten";
-  if (lowerDbValue === "obe") return "Obe";
-  if (lowerDbValue === "une" || lowerDbValue === "unde") return "Une";
-  if (lowerDbValue === "3x3") return "3x3";
-  if (lowerDbValue === "quer") return "Quer";
-  if (lowerDbValue === "slalom") return "Slalom";
-  if (lowerDbValue === "trumpf") return "Obe"; // Fallback für alte Daten
+  if (normalizedValue === "misere") return "Misère";
+  if (["eicheln", "eichel", "eichle", "schaufel"].includes(normalizedValue)) return "Eicheln";
+  if (["rosen", "rose", "kreuz"].includes(normalizedValue)) return "Rosen";
+  if (["schellen", "schelle", "schalle", "herz"].includes(normalizedValue)) return "Schellen";
+  if (["schilten", "schilte", "ecke"].includes(normalizedValue)) return "Schilten";
+  if (normalizedValue === "obe") return "Obe";
+  if (normalizedValue === "une" || normalizedValue === "unde") return "Une";
+  if (normalizedValue === "3x3") return "3x3";
+  if (normalizedValue === "quer") return "Quer";
+  if (normalizedValue === "slalom") return "Slalom";
+  if (normalizedValue === "trumpf") return "Obe"; // Fallback für alte Daten
 
   console.warn(`[mapDbValueToJassColorType] Unbekannter DB-Wert: '${dbValue}' in TournamentRoundHistoryDisplay, konnte nicht zu JassColor gemappt werden.`);
   return undefined;
@@ -52,6 +55,14 @@ const getStartingTeamPosition = (startingPlayer: PlayerNumber | undefined): Team
     if (startingPlayer === 1 || startingPlayer === 3) return 'bottom';
     if (startingPlayer === 2 || startingPlayer === 4) return 'top';
     return null;
+};
+
+const toPlayerNumber = (value: unknown): PlayerNumber | undefined => {
+  const asNumber = typeof value === 'number' ? value : Number(value);
+  if (asNumber === 1 || asNumber === 2 || asNumber === 3 || asNumber === 4) {
+    return asNumber;
+  }
+  return undefined;
 };
 
 const isFinalizedJassRound = (entry: RoundEntry): entry is JassRoundEntry & { isRoundFinalized: true, startingPlayer: PlayerNumber } => {
@@ -120,9 +131,9 @@ const PasseDetails: React.FC<PasseDetailsProps> = ({ passe, globalPlayerNames, c
   finalizedJassRoundsToShow.sort((a, b) => (a.roundState?.roundNumber || 0) - (b.roundState?.roundNumber || 0));
 
   return (
-    <div className="pt-3 pb-2 bg-gray-800/50 rounded-lg mb-3">
-      <div className="px-3 mb-2 border-b border-gray-700 pb-2">
-        <h3 className="text-md font-semibold text-purple-300">Passe {passe.passeNumber}</h3>
+    <div className="pt-3 pb-2 mb-3">
+      <div className="px-3 mb-2 border-b-2 border-gray-500/50 pb-2">
+        <h3 className="text-lg font-bold font-headline text-purple-300">Passe {passe.passeNumber}</h3>
         <div className="text-xs text-gray-400">
           <span className={focusedPlayerId && playerTeam === 'top' ? 'font-bold text-white' : ''}>Team Oben: {teamTopDisplay}</span><br/>
           <span className={focusedPlayerId && playerTeam === 'bottom' ? 'font-bold text-white' : ''}>Team Unten: {teamBottomDisplay}</span>
@@ -142,8 +153,13 @@ const PasseDetails: React.FC<PasseDetailsProps> = ({ passe, globalPlayerNames, c
             const roundJassPoints = round.jassPoints ?? roundPoints;
             const roundWeisPoints = round.weisPoints ?? { top: 0, bottom: 0 };
             const hasWeisPoints = roundWeisPoints.top > 0 || roundWeisPoints.bottom > 0;
-            const startingTeam = getStartingTeamPosition(round.startingPlayer);
-            const trumpfFarbeForPictogram = mapDbValueToJassColorType(round.farbe as string | undefined);
+            const resolvedStartingPlayer =
+              toPlayerNumber(round.startingPlayer) ??
+              toPlayerNumber((round as any).ansager) ??
+              toPlayerNumber(round.currentPlayer);
+            const startingTeam = getStartingTeamPosition(resolvedStartingPlayer);
+            const rawFarbe = ((round as any).farbe ?? (round as any).gespielteFarbe) as string | undefined;
+            const trumpfFarbeForPictogram = mapDbValueToJassColorType(rawFarbe);
             const displayRoundNumber = displayIndex + 1;
             
             // NEU: Matsch/Kontermatsch-Erkennung für Farbkodierung

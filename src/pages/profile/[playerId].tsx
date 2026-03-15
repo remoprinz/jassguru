@@ -75,36 +75,86 @@ const PlayerProfilePage = () => {
   // Abgeleiteter State für transformierte Statistiken
   const [extendedStats, setExtendedStats] = useState<PlayerProfilePageStats | null>(null);
   
-  // Daten laden
+  // Alle Daten parallel laden sobald playerId bekannt ist
   useEffect(() => {
-    const fetchPlayerData = async () => {
-      if (typeof playerId !== 'string') {
-        if (router.isReady) {
-          setError("Ungültige Spieler-ID in der URL.");
-          setIsLoading(false);
-        }
-        return;
-      }
-
-      setIsLoading(true);
-      setError(null);
-      try {
-        const fetchedPlayer = await getPublicPlayerProfile(playerId);
-        if (!fetchedPlayer) {
-          setError("Spieler nicht gefunden.");
-        } else {
-          setPlayer(fetchedPlayer);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Profil konnte nicht geladen werden.");
-      } finally {
+    if (!router.isReady || typeof playerId !== 'string' || !playerId) {
+      if (router.isReady) {
+        setError("Ungültige Spieler-ID in der URL.");
         setIsLoading(false);
       }
-    };
-
-    if (router.isReady) {
-      fetchPlayerData();
+      return;
     }
+
+    setIsLoading(true);
+    setError(null);
+    setSessionsLoading(true);
+    setTournamentsLoading(true);
+
+    // Alle drei Fetches starten ohne aufeinander zu warten
+    const playerPromise = getPublicPlayerProfile(playerId);
+
+    const sessionsPromise = fetchCompletedSessionsForPlayer(playerId)
+      .then(sessions => { setCompletedSessions(sessions); })
+      .catch(() => { setSessionsError("Sessions konnten nicht geladen werden."); })
+      .finally(() => { setSessionsLoading(false); });
+
+    const tournamentsPromise = fetchTournamentsForUser(playerId)
+      .then(tournaments => { setUserTournaments(tournaments); })
+      .catch(() => { setTournamentsError("Turniere konnten nicht geladen werden."); })
+      .finally(() => { setTournamentsLoading(false); });
+
+    // Player-Profil laden, und danach Members parallel über alle Gruppen
+    playerPromise
+      .then(async fetchedPlayer => {
+        if (!fetchedPlayer) {
+          setError("Spieler nicht gefunden.");
+          return;
+        }
+        setPlayer(fetchedPlayer);
+
+        // Members für alle Gruppen parallel laden (Promise.all statt for-loop)
+        if (fetchedPlayer.groupIds && fetchedPlayer.groupIds.length > 0) {
+          setMembersLoading(true);
+          try {
+            const perGroupResults = await Promise.all(
+              fetchedPlayer.groupIds.map(groupId =>
+                getGroupMembersOptimized(groupId).catch(() =>
+                  getGroupMembersSortedByGames(groupId).catch(() => [] as FirestorePlayer[])
+                )
+              )
+            );
+            const seenPlayerIds = new Set<string>();
+            const allMembers: FirestorePlayer[] = [];
+            for (const groupMembers of perGroupResults) {
+              for (const member of groupMembers) {
+                const pid = member.id || member.userId;
+                if (pid && !seenPlayerIds.has(pid)) {
+                  seenPlayerIds.add(pid);
+                  allMembers.push(member);
+                }
+              }
+            }
+            setMembers(allMembers);
+          } catch (e) {
+            console.error("Fehler beim Laden der Gruppenmitglieder:", e);
+            setMembers([]);
+          } finally {
+            setMembersLoading(false);
+          }
+        } else {
+          setMembers([]);
+        }
+      })
+      .catch(err => {
+        setError(err instanceof Error ? err.message : "Profil konnte nicht geladen werden.");
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+
+    // Sessions und Turniere laufen unabhängig im Hintergrund
+    void sessionsPromise;
+    void tournamentsPromise;
   }, [playerId, router.isReady]);
 
   // Statistik-Abonnement
@@ -131,94 +181,13 @@ const PlayerProfilePage = () => {
           opponentAggregates: (rawPlayerStats as ExpectedPlayerStatsWithAggregates).opponentAggregates,
         };
         setExtendedStats(finalStats);
-    } else {
+      } else {
         setExtendedStats(null);
-    }
+      }
     } else {
       setExtendedStats(null);
     }
   }, [rawPlayerStats, player?.groupIds]);
-
-  // Members laden für Profilbilder (alle Gruppen des Spielers, dedupliziert)
-  useEffect(() => {
-    const loadMembers = async () => {
-      if (!player?.groupIds || player.groupIds.length === 0) {
-        setMembers([]);
-        return;
-      }
-      setMembersLoading(true);
-      try {
-        const allMembers: FirestorePlayer[] = [];
-        const seenPlayerIds = new Set<string>();
-        for (const groupId of player.groupIds) {
-          try {
-            const groupMembers = await getGroupMembersOptimized(groupId);
-            groupMembers.forEach(member => {
-              const pid = member.id || member.userId;
-              if (pid && !seenPlayerIds.has(pid)) {
-                seenPlayerIds.add(pid);
-                allMembers.push(member);
-              }
-            });
-          } catch (e) {
-            // Fallback: versuche sortedByGames, falls optimized fehlschlägt
-            try {
-              const groupMembersFallback = await getGroupMembersSortedByGames(groupId);
-              groupMembersFallback.forEach(member => {
-                const pid = member.id || member.userId;
-                if (pid && !seenPlayerIds.has(pid)) {
-                  seenPlayerIds.add(pid);
-                  allMembers.push(member);
-                }
-              });
-            } catch (ignored) {}
-          }
-        }
-        setMembers(allMembers);
-      } catch (error) {
-        console.error("Fehler beim Laden der Gruppenmitglieder für Profilbilder:", error);
-        setMembers([]);
-      } finally {
-        setMembersLoading(false);
-      }
-    };
-    if (player) {
-      loadMembers();
-    }
-  }, [player]);
-
-  // Archive Data laden
-  useEffect(() => {
-    const loadArchiveData = async () => {
-      if (!player?.id) return;
-      
-      setSessionsLoading(true);
-      try {
-        const sessions = await fetchCompletedSessionsForPlayer(player.id);
-        setCompletedSessions(sessions);
-      } catch (e) {
- setSessionsError("Sessions konnten nicht geladen werden.");
-} finally {
- setSessionsLoading(false);
-}
-
-      setTournamentsLoading(true);
-      setTournamentsError(null);
-      try {
-        // ✅ LADE TURNIERE FÜR SPIELER: Alle Tournament-Instances für diesen Spieler
-        const tournaments = await fetchTournamentsForUser(player.id);
-        setUserTournaments(tournaments);
-      } catch (e) { 
-        console.error("Fehler beim Laden der Turniere für öffentliches Profil:", e);
-        setTournamentsError("Turniere konnten nicht geladen werden."); 
-      } finally { 
-        setTournamentsLoading(false); 
-      }
-    };
-    if (player) {
-      loadArchiveData();
-    }
-  }, [player]);
 
   // ===== ARCHIV-VERARBEITUNG (IDENTISCH ZU INDEX.TSX) =====
   // 🔥 Sammle alle Photo-URLs, die im UI auftauchen, damit der Preloader sie dekodieren kann
@@ -552,7 +521,7 @@ const PlayerProfilePage = () => {
   if (isLoading) {
     return (
       <MainLayout>
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">
+        <div className="flex flex-col items-center justify-center min-h-screen bg-transparent text-white">
           <ClipLoader color="#ffffff" size={40} />
           <p className="mt-4 text-lg">Lade Spielerprofil...</p>
         </div>
@@ -564,7 +533,7 @@ const PlayerProfilePage = () => {
   if (error) {
     return (
       <MainLayout>
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
+        <div className="flex flex-col items-center justify-center min-h-screen bg-transparent text-white p-4">
           <div className="text-red-400 bg-red-900/30 p-6 rounded-md max-w-md text-center">
             <h1 className="text-xl font-bold mb-2">Fehler</h1>
             <p>{error}</p>
@@ -579,7 +548,7 @@ const PlayerProfilePage = () => {
   if (!player) {
     return (
       <MainLayout>
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">
+        <div className="flex flex-col items-center justify-center min-h-screen bg-transparent text-white">
           <p>Spieler nicht gefunden.</p>
         </div>
       </MainLayout>

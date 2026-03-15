@@ -41,7 +41,7 @@ const ResultatZeile: React.FC<ResultatZeileProps> = ({
   const bottomStriche = useMemo(() => convertToDisplayStriche(finalBottomTeam.striche, strokeSettings, scoreSettings), [finalBottomTeam.striche, strokeSettings, scoreSettings]);
 
   // Zurück zum Layout, das für Striche/History funktioniert
-  const rowClassName = `grid grid-cols-[2rem_5fr_5fr] gap-8 items-center py-3 last:border-b-0 border-b border-gray-700`;
+  const rowClassName = `grid grid-cols-[2rem_5fr_5fr] gap-8 items-center py-3 last:border-b-0 border-b border-gray-500/40`;
 
   const handleClick = () => {
     if (onNavigate && spielNummer) {

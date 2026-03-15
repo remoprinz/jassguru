@@ -696,13 +696,17 @@ Generiert von:
 
   return (
     <div
-      className="relative w-full overflow-hidden bg-chalk-black prevent-interactions max-w-xl mx-auto flex flex-col justify-center"
+      className="relative w-full overflow-hidden prevent-interactions max-w-xl mx-auto flex flex-col justify-center"
       onClick={handleGlobalClick} // handleGlobalClick prüft jetzt intern auf Overlays
       onContextMenu={(e) => e.preventDefault()}
       style={{
         height: viewportHeight,
         transform: `scale(${scale})`,
         transformOrigin: "center center",
+        backgroundImage: 'url(/images/backgrounds/chalkboard-game.webp)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center center',
+        backgroundRepeat: 'no-repeat',
       }}
     >
       <>

@@ -9,7 +9,7 @@ const DatenschutzPage = () => {
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       </Head>
       <div 
-        className="min-h-screen bg-gray-900 text-gray-300" 
+        className="min-h-screen chalkboard-bg text-gray-300" 
         style={{ 
           height: '100vh', 
           overflowY: 'scroll', 

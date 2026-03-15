@@ -1,7 +1,8 @@
 import React, { useCallback, useMemo, useRef, useEffect, useState } from 'react';
 import { useUIStore, UIStore } from '@/store/uiStore';
 import { useGameStore } from '@/store/gameStore';
-import { FiX, FiRotateCcw, FiSkipBack, FiLoader, FiShare2 } from 'react-icons/fi';
+import { FiX, FiRotateCcw, FiSkipBack, FiLoader } from 'react-icons/fi';
+import { FaShareAlt } from 'react-icons/fa';
 import { format } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 
@@ -132,6 +133,29 @@ interface ResultatKreidetafelProps {
   viewerData?: ResultatKreidetafelViewerData; // Optionale Daten für Viewer
   gameTypeLabel?: string; // NEU: Optionales Label
 }
+
+const normalizeTrumpfColor = (farbe: string | undefined): JassColor | undefined => {
+  if (!farbe) return undefined;
+
+  const normalizedValue = farbe
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  if (normalizedValue === "misere") return "Misère";
+  if (["eicheln", "eichel", "eichle", "schaufel"].includes(normalizedValue)) return "Eicheln";
+  if (["rosen", "rose", "kreuz"].includes(normalizedValue)) return "Rosen";
+  if (["schellen", "schelle", "schalle", "herz"].includes(normalizedValue)) return "Schellen";
+  if (["schilten", "schilte", "ecke"].includes(normalizedValue)) return "Schilten";
+  if (normalizedValue === "obe") return "Obe";
+  if (normalizedValue === "une" || normalizedValue === "unde") return "Une";
+  if (normalizedValue === "3x3") return "3x3";
+  if (normalizedValue === "quer") return "Quer";
+  if (normalizedValue === "slalom") return "Slalom";
+  if (normalizedValue === "trumpf") return "Obe"; // Legacy fallback
+
+  return undefined;
+};
 
 const PlayerName: React.FC<{ 
   name: string, 
@@ -670,8 +694,10 @@ const ResultatKreidetafel = ({
         delete (cleanedEntry as any)._savedWeisPoints;
       }
       if (isJassRoundEntry(cleanedEntry)) {
-        if (cleanedEntry.farbe) {
-           trumpColorsPlayedSet.add(cleanedEntry.farbe);
+        const normalizedFarbe = normalizeTrumpfColor(cleanedEntry.farbe);
+        if (normalizedFarbe) {
+          cleanedEntry.farbe = normalizedFarbe;
+          trumpColorsPlayedSet.add(normalizedFarbe);
         }
         const roundSpecificWeisSum = { top: 0, bottom: 0 };
         (cleanedEntry.weisActions || []).forEach(wa => {
@@ -2436,7 +2462,7 @@ const ResultatKreidetafel = ({
         >
           {/* Header */}
           <div className="text-center mb-4">
-            <h2 className="text-2xl font-bold text-white">
+            <h2 className="text-2xl font-bold font-headline text-white">
               {isTakingScreenshot && screenshotData ? screenshotData.title : moduleTitle} 
             </h2>
             <p className="text-gray-400">
@@ -2508,10 +2534,14 @@ const ResultatKreidetafel = ({
                 closeResultatKreidetafel();
               }
             }}
-            className="absolute right-2 top-2 p-2 text-gray-400 hover:text-white transition-colors duration-200"
+            className={currentSessionId 
+              ? "absolute right-2 top-2 w-10 h-10 flex items-center justify-center text-white/80 hover:text-white transition-all duration-200 rounded-full backdrop-blur-sm border hover:scale-105"
+              : "absolute right-2 top-2 p-2 text-gray-400 hover:text-white transition-colors duration-200"
+            }
+            style={currentSessionId ? { backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)' } : undefined}
             aria-label={currentSessionId ? "Live-Session teilen" : "Schliessen"}
           >
-            {currentSessionId ? <FiShare2 size={24} /> : <FiX size={24} />}
+            {currentSessionId ? <FaShareAlt size={16} /> : <FiX size={24} />}
           </button>
 
           {/* Neuer Back-Button oben links, nur wenn canNavigateBack UND NICHT im Navigations-Modus */}
@@ -2534,14 +2564,14 @@ const ResultatKreidetafel = ({
           )}
 
           {/* Teams Header - neue Spaltenbreiten */}
-          <div className="grid grid-cols-[1fr_4fr_4fr] gap-4 mb-2">
+          <div className="grid grid-cols-[1fr_4fr_4fr] gap-4 mb-1">
             <div></div>
-            <div className="text-center text-white">Team 1</div>
-            <div className="text-center text-white">Team 2</div>
+            <div className="text-center text-white text-base font-bold font-headline">Team 1</div>
+            <div className="text-center text-white text-base font-bold font-headline">Team 2</div>
           </div>
 
           {/* Spielernamen mit manueller Kürzung und Blumensymbol */}
-          <div className="grid grid-cols-[1fr_4fr_4fr] gap-4 mb-4">
+          <div className="grid grid-cols-[1fr_4fr_4fr] gap-4 pb-2 mb-0 border-b-2 border-gray-500/50">
             <div></div>
             <div className="grid grid-cols-2 gap-2">
               <PlayerName 
@@ -2566,7 +2596,7 @@ const ResultatKreidetafel = ({
           </div>
 
           {/* Statistik-Container mit Scroll und Swipe-Animation */}
-          <div className="border-t border-b border-gray-700">
+          <div className="border-b-2 border-gray-500/50 mt-0">
             <div 
               ref={kreidetafelRef}
               className="statistik-container max-h-[280px] overflow-y-auto overflow-x-auto"

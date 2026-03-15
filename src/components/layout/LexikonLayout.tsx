@@ -18,7 +18,7 @@ export const LexikonLayout: React.FC<LexikonLayoutProps> = ({ children, breadcru
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="min-h-screen chalkboard-bg">
       {/* Mobile Header */}
       <div className="lg:hidden bg-gray-800 border-b border-gray-700 sticky top-0 z-40">
         <div className="flex items-center justify-between p-4">

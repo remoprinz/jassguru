@@ -521,7 +521,7 @@ const PublicSessionPage = () => {
   if (isLoading) {
     return (
       <MainLayout>
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">
+        <div className="flex flex-col items-center justify-center min-h-screen bg-transparent text-white">
           <ClipLoader color="#ffffff" size={40} />
           <p className="mt-4 text-lg">Lade Jass-Session...</p>
           <p className="mt-2 text-sm text-gray-400">ID: {sessionId}</p>
@@ -533,7 +533,7 @@ const PublicSessionPage = () => {
   if (error) {
     return (
       <MainLayout>
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
+        <div className="flex flex-col items-center justify-center min-h-screen bg-transparent text-white p-4">
           <div className="text-red-400 bg-red-900/30 p-6 rounded-md max-w-md text-center">
             <h1 className="text-xl font-bold mb-2">Fehler</h1>
             <p>{error}</p>
@@ -547,7 +547,7 @@ const PublicSessionPage = () => {
   if (!sessionData) {
     return (
       <MainLayout>
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">
+        <div className="flex flex-col items-center justify-center min-h-screen bg-transparent text-white">
           <p>Keine Session-Daten verfügbar.</p>
         </div>
       </MainLayout>
@@ -560,7 +560,7 @@ const PublicSessionPage = () => {
   if (isPublicRoute && hasActiveGame && (!activeGameData || activeGameRounds.length === 0)) {
     return (
       <MainLayout>
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">
+        <div className="flex flex-col items-center justify-center min-h-screen bg-transparent text-white">
           <ClipLoader color="#ffffff" size={40} />
           <p className="mt-4 text-lg">Lade Live-Spieldaten...</p>
           <p className="mt-2 text-sm text-gray-400">ActiveGame: {sessionData.currentActiveGameId || sessionData.activeGameId}</p>

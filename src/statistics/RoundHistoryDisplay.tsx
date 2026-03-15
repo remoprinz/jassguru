@@ -13,18 +13,21 @@ const mapDbValueToJassColorType = (dbValue: string | undefined): JassColor | und
   if (!dbValue) return undefined;
 
   const lowerDbValue = dbValue.toLowerCase();
+  const normalizedValue = lowerDbValue
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 
-  if (lowerDbValue === "misère") return "Misère";
-  if (lowerDbValue === "eicheln" || lowerDbValue === "eichel") return "Eicheln";
-  if (lowerDbValue === "rosen" || lowerDbValue === "rose") return "Rosen";
-  if (lowerDbValue === "schellen" || lowerDbValue === "schelle") return "Schellen";
-  if (lowerDbValue === "schilten" || lowerDbValue === "schilte") return "Schilten";
-  if (lowerDbValue === "obe") return "Obe";
-  if (lowerDbValue === "une" || lowerDbValue === "unde") return "Une";
-  if (lowerDbValue === "3x3") return "3x3";
-  if (lowerDbValue === "quer") return "Quer";
-  if (lowerDbValue === "slalom") return "Slalom";
-  if (lowerDbValue === "trumpf") return "Obe"; // Fallback für alte Daten
+  if (normalizedValue === "misere") return "Misère";
+  if (["eicheln", "eichel", "eichle", "schaufel"].includes(normalizedValue)) return "Eicheln";
+  if (["rosen", "rose", "kreuz"].includes(normalizedValue)) return "Rosen";
+  if (["schellen", "schelle", "schalle", "herz"].includes(normalizedValue)) return "Schellen";
+  if (["schilten", "schilte", "ecke"].includes(normalizedValue)) return "Schilten";
+  if (normalizedValue === "obe") return "Obe";
+  if (normalizedValue === "une" || normalizedValue === "unde") return "Une";
+  if (normalizedValue === "3x3") return "3x3";
+  if (normalizedValue === "quer") return "Quer";
+  if (normalizedValue === "slalom") return "Slalom";
+  if (normalizedValue === "trumpf") return "Obe"; // Fallback für alte Daten
 
   console.warn(`[mapDbValueToJassColorType] Unbekannter DB-Wert: '${dbValue}', konnte nicht zu JassColor gemappt werden.`);
   return undefined;
@@ -56,6 +59,14 @@ const getStartingTeamPosition = (startingPlayer: PlayerNumber | undefined): Team
     
     console.warn(`Ungültige Spielernummer für startingPlayer: ${startingPlayer}`);
     return null;
+};
+
+const toPlayerNumber = (value: unknown): PlayerNumber | undefined => {
+  const asNumber = typeof value === 'number' ? value : Number(value);
+  if (asNumber === 1 || asNumber === 2 || asNumber === 3 || asNumber === 4) {
+    return asNumber;
+  }
+  return undefined;
 };
 
 // Type guard to check if entry is a JassRoundEntry and finalized
@@ -266,7 +277,7 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
           // console.log(`[RoundHistoryDisplay MAP] Rendering game block for index ${index}, identifier: ${gameIdForLog}`);
           
           return (
-            <div key={itemKey} className={`pt-2 pb-1 ${isCurrent ? 'bg-gray-700/50 rounded' : ''}`}>
+            <div key={itemKey} className={`pt-2 pb-1 ${isCurrent ? 'bg-gray-700/20 rounded' : ''}`}>
               
               {/* Conditional Time Header */}
               {gameStartTime && (
@@ -274,8 +285,8 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
               )}
 
               {/* Spiel-Header */} 
-              <div className="grid grid-cols-[2rem_5fr_5fr] gap-8 items-center px-1 mb-1 pt-1">
-                <div className="text-base font-semibold text-white text-left pl-2 whitespace-nowrap">
+              <div className="grid grid-cols-[2rem_5fr_5fr] gap-8 items-center px-1 pb-2 pt-1 mb-0 border-b-2 border-gray-500/50">
+                <div className="text-lg font-bold font-headline text-white text-left pl-2 whitespace-nowrap">
                   {gameTypeLabel} {displayGameNumber}
                 </div>
                 <div></div>
@@ -301,8 +312,13 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
                     const roundJassPoints = jassRound?.jassPoints ?? roundPoints;
                     const roundWeisPoints = (round as any)._savedWeisPoints ?? round.weisPoints ?? { top: 0, bottom: 0 };
                     const hasWeisPoints = roundWeisPoints.top > 0 || roundWeisPoints.bottom > 0;
-                    const startingTeam = getStartingTeamPosition(round.startingPlayer);
-                    const trumpfFarbeForPictogram = mapDbValueToJassColorType(jassRound?.farbe as string | undefined);
+                    const resolvedStartingPlayer =
+                      toPlayerNumber(round.startingPlayer) ??
+                      toPlayerNumber((round as any).ansager) ??
+                      toPlayerNumber(round.currentPlayer);
+                    const startingTeam = getStartingTeamPosition(resolvedStartingPlayer);
+                    const rawFarbe = (jassRound?.farbe ?? (round as any).gespielteFarbe) as string | undefined;
+                    const trumpfFarbeForPictogram = mapDbValueToJassColorType(rawFarbe);
                     const cumulativeScoreTop = round.scores?.top ?? 0;
                     const cumulativeScoreBottom = round.scores?.bottom ?? 0;
                     // --- ENDE WIEDER EINGEFÜGTE DEFINITIONEN ---
@@ -317,7 +333,7 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
                     return (
                       <React.Fragment key={round.id ?? `round-${gameIdentifier}-${displayIndex}`}>
                         {/* Jasspunkte-Anzeige */}
-                        <div className={`grid grid-cols-[2rem_5fr_5fr] gap-8 items-center ${hasWeisPoints ? 'pb-0 pt-3 border-b-0' : displayIndex === roundsToShow.length - 1 ? 'py-3' : 'py-3 border-b border-gray-700/50'}`}>
+                        <div className={`grid grid-cols-[2rem_5fr_5fr] gap-8 items-center ${hasWeisPoints ? 'pb-0 pt-3 border-b-0' : displayIndex === roundsToShow.length - 1 ? 'py-3' : 'py-3 border-b border-gray-500/40'}`}>
                           <div className="text-base text-gray-400 text-left pl-3">
                             {displayRoundNumber} {/* Verwende korrigierte Rundennummer */}
                           </div>
@@ -365,7 +381,7 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
 
                         {/* Weispunkte-Anzeige (nur wenn vorhanden) */}
                         {hasWeisPoints && (
-                          <div className={`grid grid-cols-[2rem_5fr_5fr] gap-8 items-center pt-0 pb-3 ${displayIndex === roundsToShow.length - 1 ? '' : 'border-b border-gray-700/50'}`}>
+                          <div className={`grid grid-cols-[2rem_5fr_5fr] gap-8 items-center pt-0 pb-3 ${displayIndex === roundsToShow.length - 1 ? '' : 'border-b border-gray-500/40'}`}>
                             {/* NEU: Spielername bei letzter Runde HIER anzeigen, wenn Weispunkte vorhanden */}
                             <div className="text-left pl-3">
                               {displayIndex === roundsToShow.length - 1 && round.startingPlayerName ? (
@@ -444,7 +460,7 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
                   {/* Endstand-Zeile */}
                   {/* Zeige Endstand für alle Spiele mit finalScoreData */} 
                   {finalScoreData && (
-                    <div className="grid grid-cols-[2rem_5fr_5fr] gap-8 items-center py-2 text-yellow-400 border-t-2 border-yellow-400/50 mt-2">
+                    <div className="grid grid-cols-[2rem_5fr_5fr] gap-8 items-center py-2 text-yellow-400 border-t border-gray-500/50 mt-2">
                       <div className="text-sm font-semibold text-left pl-2 whitespace-nowrap">
                         Total:
                       </div>
@@ -483,7 +499,7 @@ export const RoundHistoryDisplay: React.FC<StatisticProps> = ({
                 
                   {/* Trotzdem Endstand anzeigen */}
                   {finalScoreData && (
-                    <div className="grid grid-cols-[2rem_5fr_5fr] gap-8 items-center py-2 text-yellow-400 border-t-2 border-yellow-400/50 mt-2">
+                    <div className="grid grid-cols-[2rem_5fr_5fr] gap-8 items-center py-2 text-yellow-400 border-t border-gray-500/50 mt-2">
                       <div className="text-sm font-semibold text-left pl-2 whitespace-nowrap">
                         Total:
                       </div>

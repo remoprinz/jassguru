@@ -107,7 +107,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({children}) => {
   const mainPaddingBottom = isCtaVisible ? "pb-44" : (showBottomNav ? "pb-24" : "pb-0");
 
   return (
-    <div className="flex flex-col h-full bg-gray-900 max-w-3xl lg:max-w-none mx-auto">
+    <div className="flex flex-col h-full chalkboard-bg max-w-3xl lg:max-w-none mx-auto">
       {/* Fixierter Header */}
       <Header />
 
@@ -122,7 +122,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({children}) => {
       {/* NEU: Action Footer (nur sichtbar wenn isCtaVisible true ist) */}
       {isCtaVisible && (
         // Äusserer Container: max-width, w-full, Zentrierung mit transform, fixed Positionierung
-        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-40 px-2 pb-4 pt-2 bg-gradient-to-t from-gray-900 via-gray-900/90 to-transparent backdrop-blur-sm max-w-3xl w-full">
+        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-40 px-2 pb-4 pt-2 bg-gradient-to-t from-gray-900/80 via-gray-900/60 to-transparent backdrop-blur-md max-w-3xl w-full">
           {/* Innerer Container: KEIN max-width/mx-auto mehr, nur w-full */}
           <div className="w-full">
             {/* Variante mit Farbunterstützung */}

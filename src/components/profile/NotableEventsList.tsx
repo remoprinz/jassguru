@@ -21,10 +21,10 @@ interface NotableEventsListProps {
 const NotableEventsList: React.FC<NotableEventsListProps> = ({ highlights }) => {
   if (!highlights || highlights.length === 0) {
     return (
-      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50 mt-3">
-        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+      <div className="overflow-hidden mt-3">
+        <div className="flex items-center border-b-2 border-gray-500/50 px-4 py-3">
           <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
-          <h3 className="text-base font-semibold text-white">Weitere Bemerkenswerte Ereignisse</h3>
+          <h3 className="text-base font-bold font-headline text-white">Weitere Bemerkenswerte Ereignisse</h3>
         </div>
         <div className="p-4 text-center text-gray-500">
           Keine weiteren bemerkenswerten Ereignisse vorhanden.
@@ -50,10 +50,10 @@ const NotableEventsList: React.FC<NotableEventsListProps> = ({ highlights }) => 
   };
 
   return (
-    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50 mt-3">
-      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+    <div className="overflow-hidden mt-3">
+      <div className="flex items-center border-b-2 border-gray-500/50 px-4 py-3">
         <div className="w-1 h-6 bg-blue-500 rounded-r-md mr-3"></div>
-        <h3 className="text-base font-semibold text-white">Weitere Bemerkenswerte Ereignisse</h3>
+        <h3 className="text-base font-bold font-headline text-white">Weitere Bemerkenswerte Ereignisse</h3>
       </div>
       <div className="p-4 space-y-2">
         {highlights.map((item, index) => (

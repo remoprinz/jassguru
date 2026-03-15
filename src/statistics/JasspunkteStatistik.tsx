@@ -112,7 +112,7 @@ export const JasspunkteStatistik: React.FC<StatisticProps> = ({
         return (
           <div 
             key={`${keyPrefix}${gameIdentifier}`} 
-            className="grid grid-cols-[1fr_4fr_4fr] gap-4 items-center py-3 border-b border-gray-700/50 last:border-b-0"
+            className="grid grid-cols-[1fr_4fr_4fr] gap-4 items-center py-3 border-b border-gray-500/40 last:border-b-0"
           >
             {/* Spalte 1: Spielnummer */}
             <div className="text-gray-400 text-left pl-3">

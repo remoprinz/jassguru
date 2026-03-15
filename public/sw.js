@@ -1,5 +1,5 @@
 /**
- * Jassguru Service Worker v2.8.3
+ * Jassguru Service Worker v2.8.4
  *
  * Eigenständiger SW mit Workbox 6.6.0 (CDN).
  * Kein Build-Tool-Generierung – alle Dateien sind im Repo versioniert.
@@ -42,7 +42,7 @@ if (workbox) {
   // Veraltete Caches aufräumen
   workbox.precaching.cleanupOutdatedCaches();
 
-  const APP_VERSION = '2.8.3';
+  const APP_VERSION = '2.8.4';
 
   // 1) /_next/static/** → CacheFirst (hash-basiert, immutable)
   workbox.routing.registerRoute(
@@ -80,9 +80,10 @@ if (workbox) {
     })
   );
 
-  // 4) Firebase Storage: Profilbilder/Logos → CacheFirst
+  // 4) Firebase Storage: Profilbilder/Logos → CacheFirst (30 Tage)
+  // Regex matcht: /o/profilePictures%2F..., /o/groupLogos%2F..., /o/tournamentLogos%2F...
   workbox.routing.registerRoute(
-    /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/.*\/o\/.*%(profilePictures|groupLogos|tournamentLogos)%2F.*/i,
+    /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/.*\/o\/(profilePictures|groupLogos|tournamentLogos)%2F.*/i,
     new workbox.strategies.CacheFirst({
       cacheName: 'firebase-user-images-v' + APP_VERSION,
       plugins: [

@@ -17,10 +17,30 @@ interface OptimizationTask {
   priority: number; // 1 = high, 5 = low
 }
 
+const SESSION_CACHE_KEY = 'bg_optimizer_checked_v1';
+
+function loadSessionCache(): Set<string> {
+  try {
+    const raw = sessionStorage.getItem(SESSION_CACHE_KEY);
+    if (raw) return new Set(JSON.parse(raw));
+  } catch {
+    // sessionStorage nicht verfügbar (z.B. Private-Modus mit Restrictions)
+  }
+  return new Set<string>();
+}
+
+function persistSessionCache(cache: Set<string>): void {
+  try {
+    sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify([...cache]));
+  } catch {
+    // Quota oder Sicherheits-Exception ignorieren
+  }
+}
+
 class BackgroundImageOptimizer {
   private queue: OptimizationTask[] = [];
   private isProcessing = false;
-  private optimizedUrls = new Set<string>();
+  private optimizedUrls: Set<string> = loadSessionCache();
   private maxFileSize = 300 * 1024; // 300KB threshold
 
   /**
@@ -68,8 +88,9 @@ class BackgroundImageOptimizer {
           this.processQueue();
         }
       } else {
-        // Bild ist bereits klein genug
+        // Bild ist bereits klein genug → als geprüft markieren
         this.optimizedUrls.add(imageUrl);
+        persistSessionCache(this.optimizedUrls);
       }
     } catch (error) {
       // Fehler ignorieren - Optimization ist optional
@@ -94,12 +115,14 @@ class BackgroundImageOptimizer {
       try {
         await this.optimizeImage(task);
         this.optimizedUrls.add(task.url);
-        
+        persistSessionCache(this.optimizedUrls);
+
         // Pause zwischen Optimierungen (2 Sekunden)
         await new Promise(resolve => setTimeout(resolve, 2000));
       } catch (error) {
         console.warn(`[BackgroundOptimizer] Failed to optimize ${task.url}:`, error);
         this.optimizedUrls.add(task.url); // Nicht nochmal versuchen
+        persistSessionCache(this.optimizedUrls);
       }
     }
 
@@ -197,7 +220,7 @@ class BackgroundImageOptimizer {
       return;
     }
 
-    console.log(`[BackgroundOptimizer] Force optimizing ${type} image: ${imageUrl}`);
+    console.log(`[BackgroundOptimizer] Force-optimizing ${type} image: ${imageUrl}`);
 
     const task: OptimizationTask = {
       url: imageUrl,

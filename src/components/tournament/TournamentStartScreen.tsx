@@ -553,7 +553,7 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
     <AnimatePresence>
       {isVisible && (
         <motion.div
-          className="fixed inset-0 flex flex-col items-center justify-center bg-gray-900 bg-opacity-95 z-50 p-4 overflow-y-auto"
+          className="fixed inset-0 flex flex-col items-center justify-center chalkboard-fixed z-50 p-4 overflow-y-auto"
           initial="initial"
           animate="visible"
           exit="exit"

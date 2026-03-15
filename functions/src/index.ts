@@ -1519,6 +1519,7 @@ interface FirestoreUser {
   photoURL?: string | null;
   statusMessage?: string;
   profileTheme?: string | null; // NEU: Profilfarbe/Theme
+  profileCardStyle?: "DE" | "FR" | null; // NEU: Kartenstil-Präferenz im Profil
   playerId?: string;
 }
 
@@ -1552,8 +1553,9 @@ export const syncUserProfileToPlayer = onDocumentUpdated(
     const photoChanged = beforeData?.photoURL !== afterData.photoURL;
     const statusChanged = beforeData?.statusMessage !== afterData.statusMessage;
     const themeChanged = beforeData?.profileTheme !== afterData.profileTheme;
+    const cardStyleChanged = beforeData?.profileCardStyle !== afterData.profileCardStyle;
 
-    if (!nameChanged && !photoChanged && !statusChanged && !themeChanged) {
+    if (!nameChanged && !photoChanged && !statusChanged && !themeChanged && !cardStyleChanged) {
       return null;
     }
 
@@ -1579,6 +1581,9 @@ export const syncUserProfileToPlayer = onDocumentUpdated(
     }
     if (themeChanged) {
         playerUpdateData.profileTheme = afterData.profileTheme ?? null;
+    }
+    if (cardStyleChanged) {
+        playerUpdateData.profileCardStyle = afterData.profileCardStyle ?? "DE";
     }
 
     const playerRef = admin.firestore().collection("players").doc(playerId);

@@ -234,7 +234,7 @@ export function RegisterForm() {
                         placeholder="••••••••"
                         type={showPassword ? "text" : "password"}
                         disabled={form.formState.isSubmitting}
-                        className="bg-gray-800 border-gray-700 text-white pr-20 focus:border-gray-500"
+                        className="bg-gray-800 border-gray-700 text-white pr-20 focus:border-gray-500 [&[type=password]]:tracking-widest"
                         {...field}
                       />
                       <button

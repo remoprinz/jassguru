@@ -32,6 +32,32 @@ import {
 
 const db = admin.firestore();
 
+const normalizeTrumpfKey = (farbe: string): string => {
+  const normalized = String(farbe || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  if (['eicheln', 'eichel', 'eichle', 'schaufel', 'gras'].includes(normalized)) return 'eichel';
+  if (['rosen', 'rose', 'kreuz'].includes(normalized)) return 'rosen';
+  if (['schellen', 'schelle', 'schalle', 'herz'].includes(normalized)) return 'schellen';
+  if (['schilten', 'schilte', 'ecke'].includes(normalized)) return 'schilten';
+  if (normalized === 'une' || normalized === 'unde') return 'unde';
+  if (normalized === 'misere' || normalized === 'miserefr') return 'misère';
+  if (normalized === 'trumpf') return 'obe';
+
+  return normalized;
+};
+
+const normalizeTrumpfCounts = (counts: Record<string, number> = {}): Record<string, number> => {
+  const normalized: Record<string, number> = {};
+  Object.entries(counts).forEach(([farbe, count]) => {
+    const key = normalizeTrumpfKey(farbe);
+    normalized[key] = (normalized[key] || 0) + (Number(count) || 0);
+  });
+  return normalized;
+};
+
 // =========================================
 // MAIN ENTRY POINT
 // =========================================
@@ -534,7 +560,7 @@ function calculateSessionDelta(playerId: string, sessionData: any): SessionDelta
   
   // TRUMPF
   if (sessionData.aggregatedTrumpfCountsByPlayer?.[playerId]) {
-    delta.trumpfStatistik = sessionData.aggregatedTrumpfCountsByPlayer[playerId];
+    delta.trumpfStatistik = normalizeTrumpfCounts(sessionData.aggregatedTrumpfCountsByPlayer[playerId]);
   }
   
   // ZEIT
@@ -894,11 +920,11 @@ async function updatePartnerStatsSubcollection(
     }
     
     // Trumpfansagen: Summiere beide Partner
-    const playerTrumpfs = sessionData.aggregatedTrumpfCountsByPlayer?.[playerId] || {};
-    const partnerTrumpfs = sessionData.aggregatedTrumpfCountsByPlayer?.[partnerId] || {};
+    const playerTrumpfs = normalizeTrumpfCounts(sessionData.aggregatedTrumpfCountsByPlayer?.[playerId] || {});
+    const partnerTrumpfs = normalizeTrumpfCounts(sessionData.aggregatedTrumpfCountsByPlayer?.[partnerId] || {});
     
     if (Object.keys(playerTrumpfs).length > 0 || Object.keys(partnerTrumpfs).length > 0) {
-      const combinedTrumpfs = { ...(current.trumpfStatistikWith || {}) };
+      const combinedTrumpfs = normalizeTrumpfCounts(current.trumpfStatistikWith || {});
       
       Object.entries(playerTrumpfs).forEach(([farbe, count]) => {
         combinedTrumpfs[farbe] = (combinedTrumpfs[farbe] || 0) + (count as number);
@@ -1051,9 +1077,9 @@ async function updateOpponentStatsSubcollection(
     }
     
     // Trumpfansagen gegen Gegner: Nutze eigene Trumpfe
-    const playerTrumpfs = sessionData.aggregatedTrumpfCountsByPlayer?.[playerId] || {};
+    const playerTrumpfs = normalizeTrumpfCounts(sessionData.aggregatedTrumpfCountsByPlayer?.[playerId] || {});
     if (Object.keys(playerTrumpfs).length > 0) {
-      const existingTrumpfs = { ...(current.trumpfStatistikAgainst || {}) };
+      const existingTrumpfs = normalizeTrumpfCounts(current.trumpfStatistikAgainst || {});
       Object.entries(playerTrumpfs).forEach(([farbe, count]) => {
         existingTrumpfs[farbe] = (existingTrumpfs[farbe] || 0) + (count as number);
       });

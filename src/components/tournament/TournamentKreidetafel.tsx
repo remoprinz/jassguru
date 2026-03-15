@@ -92,7 +92,7 @@ const TournamentKreidetafel: React.FC<TournamentKreidetafelProps> = ({ instanceI
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center p-6 bg-gray-800/50 rounded-lg min-h-[200px]">
+      <div className="flex flex-col items-center justify-center p-6 min-h-[200px]">
         <Loader2 className="h-8 w-8 animate-spin text-purple-400 mb-3" />
         <span className="text-gray-400">
           {isLoadingParticipants ? 'Lade Teilnehmer...' : 'Lade Passen...'}

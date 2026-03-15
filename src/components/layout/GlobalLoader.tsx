@@ -12,7 +12,7 @@ const GlobalLoader: React.FC<GlobalLoaderProps> = ({ message, color = 'white' })
                      `text-${color}`;
 
   return (
-    <div className="fixed inset-0 flex flex-col items-center justify-center bg-gray-900 bg-opacity-80 z-[9999]">
+    <div className="fixed inset-0 flex flex-col items-center justify-center chalkboard-bg z-[9999]">
       <Loader2 className={`h-16 w-16 ${colorClass} animate-spin`} />
       <p className="mt-4 text-white text-lg">{message || 'Wird geladen...'}</p>
     </div>

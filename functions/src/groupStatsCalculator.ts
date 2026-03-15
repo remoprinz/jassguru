@@ -7,6 +7,23 @@ const db = admin.firestore();
 const COMPLETED_GAMES_SUBCOLLECTION = 'completedGames';
 const GROUPS_COLLECTION = 'groups';
 
+const normalizeTrumpfKey = (farbe: string): string => {
+  const normalized = String(farbe || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  if (['eicheln', 'eichel', 'eichle', 'schaufel', 'gras'].includes(normalized)) return 'eichel';
+  if (['rosen', 'rose', 'kreuz'].includes(normalized)) return 'rosen';
+  if (['schellen', 'schelle', 'schalle', 'herz'].includes(normalized)) return 'schellen';
+  if (['schilten', 'schilte', 'ecke'].includes(normalized)) return 'schilten';
+  if (normalized === 'une' || normalized === 'unde') return 'unde';
+  if (normalized === 'misere' || normalized === 'miserefr') return 'misère';
+  if (normalized === 'trumpf') return 'obe';
+
+  return normalized;
+};
+
 // Interface für Gruppendaten
 interface GroupData {
   id: string;
@@ -769,7 +786,8 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
           if (playerTrumpfCounts && typeof playerTrumpfCounts === 'object') {
             Object.entries(playerTrumpfCounts).forEach(([farbe, count]) => {
               if (typeof count === 'number') {
-                trumpfCounts.set(farbe.toLowerCase(), (trumpfCounts.get(farbe.toLowerCase()) || 0) + count);
+                const normalizedFarbe = normalizeTrumpfKey(farbe);
+                trumpfCounts.set(normalizedFarbe, (trumpfCounts.get(normalizedFarbe) || 0) + count);
               }
                 });
             }
@@ -785,7 +803,7 @@ export async function calculateGroupStatisticsInternal(groupId: string): Promise
               if (gameData && gameData.roundHistory && Array.isArray(gameData.roundHistory)) {
                 gameData.roundHistory.forEach((round: any) => {
                   if (round.farbe) {
-                    const farbe = round.farbe.toLowerCase();
+                    const farbe = normalizeTrumpfKey(round.farbe);
                     trumpfCounts.set(farbe, (trumpfCounts.get(farbe) || 0) + 1);
                   }
                 });

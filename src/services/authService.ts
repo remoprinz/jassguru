@@ -67,6 +67,7 @@ export const mapUserToAuthUser = (user: FirebaseAuthUser, firestoreUser?: Partia
     statusMessage: firestoreUser?.statusMessage ?? null,
     playerId: firestoreUser?.playerId ?? null,
     profileTheme: firestoreUser?.profileTheme ?? null,
+    profileCardStyle: firestoreUser?.profileCardStyle ?? "DE",
   };
 };
 
@@ -286,7 +287,7 @@ export const uploadProfilePicture = async (file: File, userId: string): Promise<
   return mapUserToAuthUser(currentUser, firestoreUserData);
 };
 
-export const updateUserProfile = async (updates: { displayName?: string; statusMessage?: string; profileTheme?: string }): Promise<void> => {
+export const updateUserProfile = async (updates: { displayName?: string; statusMessage?: string; profileTheme?: string; profileCardStyle?: "DE" | "FR" }): Promise<void> => {
   const currentUser = getAuth().currentUser;
   if (!currentUser) throw new Error("No authenticated user found.");
 

@@ -293,11 +293,11 @@ const TournamentRankingList: React.FC<TournamentRankingListProps> = ({
   // ✅ NEU: Loading-State für PlayerRankings
   if (isLoadingRankings) {
     return (
-      <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+      <div className="overflow-hidden">
         {/* Header mit Accent-Bar - konsistent mit Chart-Header */}
-        <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+        <div className="flex items-center border-b-2 border-gray-500/50 px-4 py-3">
           <div className="w-1 h-6 bg-purple-500 rounded-r-md mr-3"></div>
-          <h3 className="text-lg font-semibold text-white">🏆 Rangliste</h3>
+          <h3 className="text-lg font-bold font-headline text-white">🏆 Rangliste</h3>
         </div>
         <div className="flex justify-center items-center p-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
@@ -309,11 +309,11 @@ const TournamentRankingList: React.FC<TournamentRankingListProps> = ({
 
   // Schritt 2.4: Rendern der Tabelle
   return (
-    <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700/50">
+    <div className="overflow-hidden">
       {/* Header mit Accent-Bar - konsistent mit Chart-Header */}
-      <div className="flex items-center border-b border-gray-700/50 px-4 py-3">
+      <div className="flex items-center border-b-2 border-gray-500/50 px-4 py-3">
         <div className="w-1 h-6 bg-purple-500 rounded-r-md mr-3"></div>
-        <h3 className="text-lg font-semibold text-white">
+        <h3 className="text-lg font-bold font-headline text-white">
           🏆 {settings?.rankingMode === 'striche_difference' ? 'Rangliste Strichdifferenz' :
               settings?.rankingMode === 'points_difference' ? 'Rangliste Punktedifferenz' :
               settings?.rankingMode === 'striche' ? 'Rangliste Striche' :
@@ -352,7 +352,7 @@ const TournamentRankingList: React.FC<TournamentRankingListProps> = ({
               <tr 
                 key={player.playerId || player.uid} 
                 onClick={() => handleItemClick(player)}
-                className={cn("border-b border-gray-700/50 hover:bg-gray-700/60 transition-colors", onParticipantClick ? "cursor-pointer" : "")}
+                className={cn("border-b border-gray-500/40 hover:bg-gray-700/20 transition-colors", onParticipantClick ? "cursor-pointer" : "")}
               >
                 <td className="py-2 pl-4 pr-1 text-left font-medium text-gray-300">{player.rank}</td>
                 <td className="py-2 px-2 flex items-center space-x-2 truncate">
@@ -370,22 +370,22 @@ const TournamentRankingList: React.FC<TournamentRankingListProps> = ({
                 </td>
                 {/* ✅ KORRIGIERT: Zeige nur die relevante Spalte basierend auf rankingMode */}
                 {settings?.rankingMode === 'striche' && areStrokesVisible && (
-                  <td className="py-2 px-1 text-center text-xl font-semibold text-purple-300">
+                  <td className="py-2 px-1 text-center text-xl font-semibold font-headline text-purple-300">
                     {player.totals.striche}
                   </td>
                 )}
                 {settings?.rankingMode === 'striche_difference' && (
-                  <td className="py-2 pl-1 pr-6 text-right text-xl font-semibold text-purple-300">
+                  <td className="py-2 pl-1 pr-6 text-right text-xl font-semibold font-headline text-purple-300">
                     {player.totals.stricheDifference != null && player.totals.stricheDifference > 0 ? `+${player.totals.stricheDifference}` : (player.totals.stricheDifference ?? 0)}
                   </td>
                 )}
                 {settings?.rankingMode === 'total_points' && (
-                  <td className="py-2 pl-8 pr-8 text-right text-xl font-semibold text-purple-300">
+                  <td className="py-2 pl-8 pr-8 text-right text-xl font-semibold font-headline text-purple-300">
                   {player.totals.score}
                 </td>
                 )}
                 {settings?.rankingMode === 'points_difference' && (
-                  <td className="py-2 pl-1 pr-6 text-right text-xl font-semibold text-purple-300">
+                  <td className="py-2 pl-1 pr-6 text-right text-xl font-semibold font-headline text-purple-300">
                     {player.totals.pointsDifference ?? 0}
                   </td>
                 )}

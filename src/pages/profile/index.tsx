@@ -170,52 +170,44 @@ const ProfilePage: React.FC = () => {
 
   const typedRawPlayerStats = rawPlayerStats as ExpectedPlayerStatsWithAggregates | null;
 
-  // ✅ NEUE, ROBUSTE LADE-LOGIK FÜR ARCHIV-DATEN
+  // ✅ LADE-LOGIK FÜR ARCHIV-DATEN (Sessions & Turniere parallel)
   useEffect(() => {
-    const loadArchiveData = async () => {
-      // Wir warten auf die aktuellen, aus Firebase geladenen Spielerdaten.
-      // Dies löst die Race Condition und stellt sicher, dass wir die korrekte Gruppenliste haben.
-      if (currentPlayerData) {
-        // 1. Abgeschlossene Sessions laden
-        setSessionsLoading(true);
-        setSessionsError(null);
-        try {
-          if (!currentPlayerData?.id) throw new Error("Player ID ist nicht verfügbar.");
-          const sessions = await fetchCompletedSessionsForPlayer(currentPlayerData.id);
-          setCompletedSessions(sessions);
-        } catch (error) {
-          console.error("Fehler beim Laden der abgeschlossenen Sessions im Profil:", error);
-          const message = error instanceof Error ? error.message : "Abgeschlossene Partien konnten nicht geladen werden.";
-          setSessionsError(message);
-        } finally {
-          setSessionsLoading(false);
-        }
-
-        // 2. Turniere laden (jetzt auch basierend auf den aktuellen groupIds)
-        setTournamentsLoading(true);
-        setTournamentsError(null);
-        try {
-          // ✅ TURNIERE WIEDER LADEN: Alle Turniere des Spielers (inklusive unterbrochene)
-          const tournaments = await fetchTournamentsForUser(currentPlayerData.id);
-          setUserTournaments(tournaments);
-        } catch (error) {
-           console.error("Fehler beim Laden der Turniere im Profil:", error);
-           const message = error instanceof Error ? error.message : "Turniere konnten nicht geladen werden.";
-           setTournamentsError(message);
-        } finally {
-           setTournamentsLoading(false);
-        }
-      } else if (status === 'unauthenticated') {
-          // Wenn der User ausgeloggt ist, alles leeren.
-          setSessionsLoading(false);
-          setTournamentsLoading(false);
-          setCompletedSessions([]);
-          setUserTournaments([]);
+    if (!currentPlayerData) {
+      if (status === 'unauthenticated') {
+        setSessionsLoading(false);
+        setTournamentsLoading(false);
+        setCompletedSessions([]);
+        setUserTournaments([]);
       }
-    };
+      return;
+    }
 
-    loadArchiveData();
-  }, [currentPlayerData, status]); // Trigger NUR wenn aktuelle Spielerdaten geladen sind.
+    if (!currentPlayerData.id) return;
+
+    setSessionsLoading(true);
+    setSessionsError(null);
+    setTournamentsLoading(true);
+    setTournamentsError(null);
+
+    const sessionsPromise = fetchCompletedSessionsForPlayer(currentPlayerData.id)
+      .then(sessions => setCompletedSessions(sessions))
+      .catch(error => {
+        console.error("Fehler beim Laden der Sessions:", error);
+        setSessionsError(error instanceof Error ? error.message : "Sessions konnten nicht geladen werden.");
+      })
+      .finally(() => setSessionsLoading(false));
+
+    const tournamentsPromise = fetchTournamentsForUser(currentPlayerData.id)
+      .then(tournaments => setUserTournaments(tournaments))
+      .catch(error => {
+        console.error("Fehler beim Laden der Turniere:", error);
+        setTournamentsError(error instanceof Error ? error.message : "Turniere konnten nicht geladen werden.");
+      })
+      .finally(() => setTournamentsLoading(false));
+
+    void sessionsPromise;
+    void tournamentsPromise;
+  }, [currentPlayerData, status]);
 
   useEffect(() => {
     if (status === 'authenticated' && user?.playerId) {
@@ -241,44 +233,39 @@ const ProfilePage: React.FC = () => {
         }
   }, [rawPlayerStats, userGroups]);
 
-  // NEU: Members laden für Profilbilder in Partner/Gegner-Aggregaten
+  // NEU: Members parallel über alle Gruppen laden
   useEffect(() => {
-    const loadMembers = async () => {
-      if (!userGroups || userGroups.length === 0) {
-        setMembers([]);
-        setMembersLoading(false);
-        return;
-      }
+    if (!userGroups || userGroups.length === 0) {
+      setMembers([]);
+      setMembersLoading(false);
+      return;
+    }
 
-      setMembersLoading(true);
-      try {
-        // Lade Members für alle Gruppen des Users und vereinige sie
-        const allMembers: FirestorePlayer[] = [];
+    setMembersLoading(true);
+    Promise.all(
+      userGroups.map(group =>
+        getGroupMembersOptimized(group.id).catch(() => [] as FirestorePlayer[])
+      )
+    )
+      .then(perGroupResults => {
         const seenPlayerIds = new Set<string>();
-
-        for (const group of userGroups) {
-          // 🚀 PERFORMANCE-OPTIMIERT: Nutze Members-Subcollection statt einzelne Player-Reads
-          const groupMembers = await getGroupMembersOptimized(group.id);
-          // Verhindere Duplikate (falls User in mehreren Gruppen mit gleichen Spielern ist)
-          groupMembers.forEach(member => {
-            const playerId = member.id || member.userId;
-            if (playerId && !seenPlayerIds.has(playerId)) {
-              seenPlayerIds.add(playerId);
+        const allMembers: FirestorePlayer[] = [];
+        for (const groupMembers of perGroupResults) {
+          for (const member of groupMembers) {
+            const pid = member.id || member.userId;
+            if (pid && !seenPlayerIds.has(pid)) {
+              seenPlayerIds.add(pid);
               allMembers.push(member);
             }
-          });
+          }
         }
-        
         setMembers(allMembers);
-      } catch (error) {
-        console.error("Fehler beim Laden der Gruppenmitglieder für Profilbilder:", error);
+      })
+      .catch(error => {
+        console.error("Fehler beim Laden der Gruppenmitglieder:", error);
         setMembers([]);
-      } finally {
-        setMembersLoading(false);
-      }
-    };
-
-    loadMembers();
+      })
+      .finally(() => setMembersLoading(false));
   }, [userGroups]);
 
   // 🔧 FIX: Aktuelle Player-Daten aus Firebase laden (für korrekte Theme-Anzeige)
@@ -726,7 +713,7 @@ const ProfilePage: React.FC = () => {
   if (status === "loading" && !isUploading) {
     return (
       <MainLayout>
-        <div className="flex items-center justify-center bg-gray-900 text-white py-20">
+        <div className="flex items-center justify-center bg-transparent text-white py-20">
           <div>Laden...</div>
         </div>
       </MainLayout>

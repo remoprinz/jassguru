@@ -926,6 +926,7 @@ export interface FirestorePlayer extends FirebaseDocument { // Stelle sicher, da
   statusMessage?: string | null;   // Optional, kann null sein
   playerId?: string | null;      // Optional, Verknüpfung zum Spieler-Profil (falls separates Dokument)
   profileTheme?: string | null;  // NEU: Profilfarbe/Theme für die UI
+  profileCardStyle?: CardStyle | null; // NEU: Kartenstil-Präferenz für Profil-Stats (DE/FR)
   preferences?: {              // Optionales Objekt für Einstellungen
     theme?: 'light' | 'dark' | 'system';
     notifications?: boolean;
@@ -989,11 +990,11 @@ export interface EffectConfig {
 
 export const CHARGE_THRESHOLDS: Record<ChargeLevel, number> = {
   none: 0,
-  low: 500,      // Beispielwerte, bitte prüfen!
-  medium: 1500,
-  high: 3000,
-  super: 5000,
-  extreme: 8000,
+  low: 300,
+  medium: 900,
+  high: 1800,
+  super: 3000,
+  extreme: 5000,
 } as const;
 
 // NEU: EffectParams hinzufügen und exportieren

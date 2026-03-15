@@ -493,7 +493,7 @@ const PublicGroupPage = () => {
 
       return (
         <Link href={`/view/session/public/${id}?groupId=${currentGroup?.id || groupId}`} key={`session-${id}`} passHref>
-          <div className="px-3 py-2 md:px-4 md:py-2.5 lg:px-6 lg:py-3 bg-gray-700/50 rounded-lg hover:bg-gray-600/50 transition-colors duration-150 cursor-pointer mb-2">
+          <div className="px-3 py-2 md:px-4 md:py-2.5 lg:px-6 lg:py-3 hover:bg-gray-700/20 transition-colors duration-150 cursor-pointer mb-1 border-b border-gray-500/40">
             <div className="flex justify-between items-center mb-1.5">
               <div className="flex items-center flex-grow">
                 <span className="text-base md:text-lg lg:text-xl font-medium mr-2" style={{ color: `${THEME_COLORS[currentGroup?.theme || 'purple']?.accentHex || '#a855f7'}` }}>
@@ -597,7 +597,7 @@ const PublicGroupPage = () => {
   if (groupLoading) {
     return (
       <MainLayout>
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">
+        <div className="flex flex-col items-center justify-center min-h-screen bg-transparent text-white">
           <ClipLoader color="#ffffff" size={40} />
           <p className="mt-4 text-lg">Lade Gruppendaten...</p>
           <p className="mt-2 text-sm text-gray-400">Gruppe: {groupId}</p>
@@ -610,7 +610,7 @@ const PublicGroupPage = () => {
   if (groupError) {
     return (
       <MainLayout>
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
+        <div className="flex flex-col items-center justify-center min-h-screen bg-transparent text-white p-4">
           <div className="text-red-400 bg-red-900/30 p-6 rounded-md max-w-md text-center">
             <h1 className="text-xl font-bold mb-2">Fehler</h1>
             <p>{groupError}</p>
@@ -625,7 +625,7 @@ const PublicGroupPage = () => {
   if (!currentGroup) {
     return (
       <MainLayout>
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">
+        <div className="flex flex-col items-center justify-center min-h-screen bg-transparent text-white">
           <p>Keine Gruppendaten verfügbar.</p>
         </div>
       </MainLayout>

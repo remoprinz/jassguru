@@ -94,7 +94,7 @@ export default function SupportPage() {
         <meta name="description" content="Hilfe, Anleitungen und Support für die Jasstafel App." />
       </Head>
 
-      <div className="min-h-screen bg-gray-900 pb-24">
+      <div className="min-h-screen pb-24">
         <div className="max-w-3xl mx-auto px-4 py-8">
           
           {/* Header */}

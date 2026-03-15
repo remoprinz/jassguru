@@ -298,7 +298,7 @@ export function useResponsiveLayout(): ResponsiveLayoutConfig {
       // Text
       titleSize: 'text-3xl',
       subtitleSize: 'text-base',
-      headingSize: 'text-base',
+      headingSize: 'text-lg',
       subheadingSize: 'text-sm',
       bodySize: 'text-sm',
       valueSize: 'text-lg',

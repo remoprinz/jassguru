@@ -1994,19 +1994,28 @@ export function getTrumpfDistributionChartData(
     return null;
   }
 
-  // ✅ KORREKTUR: Duplikate zusammenfassen (eichel+eicheln, unde+une) - WIE IN GROUPVIEW!
+  const canonicalTrumpfKey = (farbe: string): string => {
+    const normalized = farbe
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+    if (["eicheln", "eichel", "eichle", "schaufel", "gras"].includes(normalized)) return "eichel";
+    if (["rosen", "rose", "kreuz"].includes(normalized)) return "rosen";
+    if (["schellen", "schelle", "schalle", "herz"].includes(normalized)) return "schellen";
+    if (["schilten", "schilte", "ecke"].includes(normalized)) return "schilten";
+    if (normalized === "une" || normalized === "unde") return "unde";
+    if (normalized === "misere" || normalized === "miserefr") return "misere";
+    if (normalized === "trumpf") return "obe";
+
+    return normalized;
+  };
+
+  // ✅ KORREKTUR: Alle Varianten auf kanonische Keys zusammenführen
   const consolidatedStats: Record<string, number> = {};
   
   Object.entries(trumpfStatistik).forEach(([farbe, anzahl]) => {
-    const normalizedFarbe = farbe.toLowerCase();
-    
-    // Mapping für Duplikate
-    let mappedFarbe = normalizedFarbe;
-    if (normalizedFarbe === 'eicheln') {
-      mappedFarbe = 'eichel';
-    } else if (normalizedFarbe === 'une') {
-      mappedFarbe = 'unde';
-    }
+    const mappedFarbe = canonicalTrumpfKey(farbe);
     
     // Zusammenfassen
     consolidatedStats[mappedFarbe] = (consolidatedStats[mappedFarbe] || 0) + anzahl;
@@ -2026,19 +2035,13 @@ export function getTrumpfDistributionChartData(
     'schelle': '/assets/pictograms/standardDE/schellen.png',
     'schilten': '/assets/pictograms/standardDE/schilten.png',
     'schilte': '/assets/pictograms/standardDE/schilten.png',
-    // Französische Farben (PNG-Dateien)
-    'gras': '/assets/pictograms/standardFR/schaufel.png',
-    'schaufel': '/assets/pictograms/standardFR/schaufel.png',
-    'herz': '/assets/pictograms/standardFR/herz.png',
-    'kreuz': '/assets/pictograms/standardFR/kreuz.png',
-    'ecke': '/assets/pictograms/standardFR/ecke.png',
     // Spezielle Trumpf-Typen (SVG-Dateien)
     'unde': '/assets/pictograms/standardDE/unde.svg',
     'une': '/assets/pictograms/standardDE/unde.svg',
     'obe': '/assets/pictograms/standardDE/obe.svg',
     'quer': '/assets/pictograms/standardDE/quer.svg',
+    'misere': '/assets/pictograms/standardDE/misere.svg',
     'misère': '/assets/pictograms/standardDE/misere.svg',
-    'misèrefr': '/assets/pictograms/standardFR/misereFR.svg',
     'slalom': '/assets/pictograms/standardDE/slalom.svg',
     '3x3': '/assets/pictograms/standardDE/3x3.svg'
   };

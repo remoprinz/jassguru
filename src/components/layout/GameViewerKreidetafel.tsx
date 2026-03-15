@@ -27,7 +27,8 @@ import { useScreenshot } from '@/hooks/useScreenshot'; // NEU: Importiere den Ho
 import { useAuth } from '@/hooks/useAuth'; // NEU: Auth Hook
 import { useUIStore } from '@/store/uiStore'; // NEU: UI Store
 import { generateEnhancedJassSpruch } from '@/utils/sprueche/enhancedJasssprueche'; // NEU: Enhanced Spruch-Generator
-import { FiShare2, FiLoader } from 'react-icons/fi'; // NEU: Importiere Icons
+import { FiLoader } from 'react-icons/fi';
+import { FaShareAlt } from 'react-icons/fa';
 import { ArrowLeft } from 'lucide-react'; // 🚨 NEU: Icon für Zurück-Pfeil
 import { Button } from '@/components/ui/button'; // 🚨 NEU: Der offizielle Button
 import JassFinishNotification from '../notifications/JassFinishNotification'; // NEU: Spruch-Notification
@@ -645,7 +646,7 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
   return (
     <>
       {/* 1. Swipe-Handler am äußersten Div, h-full und touch-action-pan-x hinzufügen */}
-      <div id="game-viewer-kreidetafel" {...swipeHandlers} className="relative flex flex-col bg-gradient-radial from-gray-800 to-gray-900 text-white p-4 md:p-6 max-w-md mx-auto h-full touch-action-pan-x pt-24">
+      <div id="game-viewer-kreidetafel" {...swipeHandlers} className="relative flex flex-col text-white p-4 md:p-6 max-w-md mx-auto h-full touch-action-pan-x pt-24">
       
       {/* 🚨 ZURÜCK-PFEIL: Exakt wie in [playerId].tsx */}
       {onBackClick && (
@@ -663,32 +664,33 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
       <button 
         onClick={onShareClick}
         disabled={isSharing}
-        className="absolute top-12 right-4 z-10 p-2 text-gray-300 hover:text-white transition-colors duration-200 rounded-full bg-gray-700/50 hover:bg-gray-600/70 disabled:opacity-50 disabled:cursor-wait"
+        className="absolute top-12 right-4 z-10 w-10 h-10 flex items-center justify-center text-white/80 hover:text-white transition-all duration-200 rounded-full backdrop-blur-sm border hover:scale-105 disabled:opacity-50 disabled:cursor-wait"
+        style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)' }}
         aria-label="Ergebnis teilen"
       >
         {isSharing ? (
-          <FiLoader className="w-5 h-5 animate-spin" />
+          <FiLoader className="w-4 h-4 animate-spin" />
         ) : (
-          <FiShare2 className="w-5 h-5" />
+          <FaShareAlt size={16} />
         )}
       </button>
 
       {/* Header Section (flex-shrink-0) */}
       <div className="text-center mb-4 flex-shrink-0">
-        <h2 className="text-2xl font-bold text-white">
+        <h2 className="text-2xl font-bold font-headline text-white">
           {currentModule?.title || 'Jassergebnis'}
         </h2>
         <p className="text-gray-400">{currentDate}</p>
       </div>
 
       {/* Teams Header & Player Names Section (flex-shrink-0) */}
-      <div className="mb-4 flex-shrink-0">
-        <div className="grid grid-cols-[1fr_4fr_4fr] gap-4 mb-2">
+      <div className="flex-shrink-0">
+        <div className="grid grid-cols-[1fr_4fr_4fr] gap-4 mb-1">
           <div></div> {/* Spacer */}
-          <div className="text-center text-white font-semibold">Team 1</div>
-          <div className="text-center text-white font-semibold">Team 2</div>
+          <div className="text-center text-white text-base font-bold font-headline">Team 1</div>
+          <div className="text-center text-white text-base font-bold font-headline">Team 2</div>
         </div>
-        <div className="grid grid-cols-[1fr_4fr_4fr] gap-4">
+        <div className="grid grid-cols-[1fr_4fr_4fr] gap-4 pb-2 mb-0 border-b-2 border-gray-500/50">
           <div></div> {/* Spacer */}
           <div className="grid grid-cols-2 gap-1">
             <PlayerNameDisplay 
@@ -714,9 +716,9 @@ const GameViewerKreidetafel: React.FC<GameViewerKreidetafelProps> = ({ gameData,
       </div>
 
       {/* --- Mittlerer Bereich: Scrollbar, flex-grow und touch-action-pan-y --- */}
-      <div className="scrollable-content flex-grow overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800 touch-action-pan-y">
+      <div className="scrollable-content flex-grow overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800 touch-action-pan-y mt-0">
         {/* Container mit Border */}
-        <div className="border-t border-b border-gray-700">
+        <div className="border-b-2 border-gray-500/50">
           {/* 3. Swipe-Handler hier ENTFERNEN */}
           <div className="py-2 px-1">
             {/* Animierter Div */} 
