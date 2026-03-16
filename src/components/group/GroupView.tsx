@@ -1902,7 +1902,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
           }} 
           className="w-full"
         >
-          <TabsList className={`grid w-full grid-cols-3 bg-gray-800/60 ${layout.mainTabContainerPadding} rounded-2xl sticky top-0 z-30 backdrop-blur-md shadow-lg`}>
+          <TabsList className={`grid w-full grid-cols-3 bg-gray-800/60 ${layout.mainTabContainerPadding} rounded-2xl sticky top-[calc(env(safe-area-inset-top,0px)+12px)] z-30 backdrop-blur-md shadow-lg`}>
             <TabsTrigger 
               value="statistics" 
               className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-xl active:scale-[0.96] active:shadow-inner transition-all duration-100 ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center py-5 relative`}
@@ -1962,7 +1962,14 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 className="w-full"
               >
                 {/* Sticky Container für Sub-Tabs - mit 3px Abstand */}
-                <div className={`sticky ${layout.isDesktop ? "top-[80px]" : "top-[64px]"} z-30 bg-transparent`}>
+                <div
+                  className="sticky z-30 bg-transparent"
+                  style={{
+                    top: layout.isDesktop
+                      ? "80px"
+                      : "calc(env(safe-area-inset-top,0px) + 84px)",
+                  }}
+                >
                   <TabsList className={`grid w-full grid-cols-3 bg-gray-800/60 ${layout.subTabContainerPadding} rounded-2xl backdrop-blur-md shadow-lg`}>
                     <TabsTrigger 
                       value="overview" 

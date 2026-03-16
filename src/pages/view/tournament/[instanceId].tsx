@@ -1184,7 +1184,7 @@ const TournamentViewPage: React.FC = () => {
           </TabsList>
 
           <div className="flex-grow p-0 md:p-4 overflow-y-auto min-h-[60vh]">
-            <TabsContent value="ranking">
+            <TabsContent value="ranking" forceMount className={activeTab !== 'ranking' ? 'hidden' : ''}>
               {(isLoadingDetails || isLoadingGames) ? (
                 <div className="space-y-0">
                   <div className="flex items-center px-4 py-3 border-b-2 border-gray-500/50">
@@ -1465,7 +1465,7 @@ const TournamentViewPage: React.FC = () => {
               )}
             </TabsContent>
 
-            <TabsContent value="archive">
+            <TabsContent value="archive" forceMount className={activeTab !== 'archive' ? 'hidden' : ''}>
               {isLoadingGames ? (
                 <div className="space-y-3 p-4">
                   {[...Array(4)].map((_, i) => (
@@ -1499,7 +1499,7 @@ const TournamentViewPage: React.FC = () => {
               )}
             </TabsContent>
 
-            <TabsContent value="participants">
+            <TabsContent value="participants" forceMount className={activeTab !== 'participants' ? 'hidden' : ''}>
               {(detailsStatus === 'success' && tournament && (participantsStatus === 'success' || (participantsStatus !== 'loading' && tournamentParticipants?.length > 0))) ? (
                 <TournamentParticipantsList 
                   participants={tournamentParticipants} 
