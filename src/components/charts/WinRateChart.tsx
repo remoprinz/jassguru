@@ -73,7 +73,26 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
   const isScrollingRef = React.useRef(false);
   const scrollTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const tooltipTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-  
+  const tooltipWasVisibleRef = React.useRef(false);
+  const chartInstanceRef = React.useRef<any>(null);
+
+  // 🎯 Globaler Tooltip-Dismiss: Wenn ein anderer Chart Tooltip zeigt, eigenen schliessen
+  React.useEffect(() => {
+    const handleDismiss = (e: Event) => {
+      const chart = chartInstanceRef.current;
+      if (!chart) return;
+      const detail = (e as CustomEvent).detail;
+      if (detail !== chart.id && chart.tooltip && chart.tooltip.opacity > 0) {
+        chart.tooltip.opacity = 0;
+        chart.setActiveElements([]);
+        chart.update('none');
+        tooltipWasVisibleRef.current = false;
+      }
+    };
+    window.addEventListener('chart-tooltip-shown', handleDismiss);
+    return () => window.removeEventListener('chart-tooltip-shown', handleDismiss);
+  }, []);
+
   // 🎯 NEU: Starte Scroll-Timer
   const handleScrollStart = () => {
     isScrollingRef.current = true;
@@ -100,6 +119,7 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
         chart.tooltip.opacity = 0;
         chart.setActiveElements([]);
         chart.update('none');
+        tooltipWasVisibleRef.current = false;
       }
     }, 500);
   };
@@ -477,10 +497,11 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
           chart.tooltip.opacity = 0;
           chart.setActiveElements([]);
           chart.update('none');
+          tooltipWasVisibleRef.current = false;
         }
         return;
       }
-      
+
       // Clear existing timeout wenn User interagiert
       if (tooltipTimeoutRef.current) {
         clearTimeout(tooltipTimeoutRef.current);
@@ -491,13 +512,22 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
         hideTooltipAfterDelay(chart);
       }
     },
-    // ✅ onClick: Schließe Tooltip beim Klick auf Chart
     onClick: (event: any, activeElements: any[], chart: any) => {
-      // Wenn Tooltip aktiv ist, schließe es
-      if (chart.tooltip && chart.tooltip.opacity > 0) {
+      chartInstanceRef.current = chart;
+      // 🎯 Toggle: Wenn Tooltip sichtbar war → schliessen (egal wo geklickt)
+      if (tooltipWasVisibleRef.current) {
+        tooltipWasVisibleRef.current = false;
         chart.tooltip.opacity = 0;
         chart.setActiveElements([]);
         chart.update('none');
+        if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current);
+        return;
+      }
+      // Neuer Tooltip wird geöffnet → merken + andere Charts dismissieren
+      if (activeElements.length > 0) {
+        tooltipWasVisibleRef.current = true;
+        window.dispatchEvent(new CustomEvent('chart-tooltip-shown', { detail: chart.id }));
+        if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current);
       }
     }
   }), [isDarkMode, hasAnimated, hideLegend, maxValue, chartData, theme]);

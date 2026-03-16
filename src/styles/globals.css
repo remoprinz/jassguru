@@ -389,6 +389,14 @@ body.lexikon-page div[id="__next"] {
       padding-bottom: 2rem; /* pb-8 = 2rem */
     }
     
+    /* 🎯 PUBLIC PROFILE: Buttons + Container unter Safe Area schieben */
+    .profile-public-top {
+      padding-top: calc(env(safe-area-inset-top) + 3.5rem) !important;
+    }
+    .profile-public-btn-top {
+      top: calc(env(safe-area-inset-top) + 1rem) !important;
+    }
+
     /* PWA: Vollscreen für Jass-App ohne Safe Area Padding */
     body:not(.lexikon-page) {
       background-color: black;

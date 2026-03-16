@@ -1,4 +1,4 @@
-import {Home, MessageCircle, ClipboardList, User, Award, Info, BookOpen, HelpCircle} from "lucide-react";
+import { FaHome, FaUser, FaBookOpen, FaAward, FaQuestionCircle } from "react-icons/fa";
 import Link from "next/link";
 import {useRouter} from "next/router";
 import {cn} from "@/lib/utils";
@@ -42,23 +42,23 @@ export function BottomNavigation() {
 
   const baseNavigationItems = [
     {
-      name: "Home",
+      name: "FaHome",
       href: "/start",
-      icon: Home,
+      icon: FaHome,
       active: currentPath === "/start",
       itemTournamentStatus: null,
     },
     {
       name: "Profil",
       href: "/profile",
-      icon: User,
+      icon: FaUser,
       active: currentPath.startsWith("/profile"),
       itemTournamentStatus: null,
     },
     {
-      name: "Jass-Wiki",
+      name: "JassWiki",
       href: "https://jasswiki.ch/",
-      icon: BookOpen,
+      icon: FaBookOpen,
       active: false, // Nie aktiv, da externe Seite
       itemTournamentStatus: null,
       external: true, // Marker für externen Link
@@ -176,7 +176,7 @@ export function BottomNavigation() {
     const tournamentItem = {
       name: "Turnier",
       href: `/view/tournament/${tournamentToDisplay.id}`,
-      icon: Award,
+      icon: FaAward,
       active: currentPath.startsWith(`/view/tournament/${tournamentToDisplay.id}`),
       itemTournamentStatus: tournamentToDisplay.status,
     };
@@ -190,7 +190,7 @@ export function BottomNavigation() {
     const supportItem = {
       name: "Hilfe",
       href: "/support",
-      icon: HelpCircle,
+      icon: FaQuestionCircle,
       active: currentPath.startsWith("/support"),
       itemTournamentStatus: null,
     };

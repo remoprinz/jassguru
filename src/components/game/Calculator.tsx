@@ -7,7 +7,7 @@ import {useUIStore} from "../../store/uiStore";
 import {useGroupStore} from "../../store/groupStore";
 import {useTournamentStore} from "../../store/tournamentStore";
 import {TeamPosition, JassColor, StrichTyp, CardStyle, FarbeModeKey, FarbeSettings, ScoreSettings, StrokeSettings} from "../../types/jass";
-import {FiRotateCcw, FiX} from "react-icons/fi";
+import {FaUndo, FaTimes} from "react-icons/fa";
 import {useSpring, animated} from "react-spring";
 import {triggerMatschConfetti} from "../effects/MatschConfetti";
 import {HISTORY_WARNING_MESSAGE} from "../notifications/HistoryWarnings";
@@ -737,7 +737,7 @@ const Calculator: React.FC<CalculatorProps> = ({
             ${calculator.isFlipped ? "rotate-180" : "rotate-0"}`}
           aria-label="Umdrehen"
         >
-          <FiRotateCcw className="w-8 h-8" />
+          <FaUndo className="w-8 h-8" />
         </button>
 
         {/* Calculator Container */}
@@ -752,7 +752,7 @@ const Calculator: React.FC<CalculatorProps> = ({
             }}
             className="absolute right-2 top-2 p-2 text-gray-400 hover:text-white transition-colors z-10"
           >
-            <FiX size={24} />
+            <FaTimes size={24} />
           </button>
           <h2 className="text-white text-xl mb-4 text-center select-none">
             Runde schreiben

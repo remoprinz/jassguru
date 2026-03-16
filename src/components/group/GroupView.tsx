@@ -4,8 +4,11 @@ import MainLayout from "@/components/layout/MainLayout";
 import { GroupSelector } from "@/components/group/GroupSelector";
 import JoinByInviteUI from "@/components/ui/JoinByInviteUI";
 import {Button} from "@/components/ui/button";
-import {Users, Settings, UserPlus, Camera, Upload, X, BarChart, Archive, BarChart2, CheckCircle, XCircle, MinusCircle, Award as AwardIcon, AlertTriangle, BarChart3, User} from "lucide-react";
-import { FaShareAlt, FaInfo } from 'react-icons/fa';
+import { FaShareAlt, FaInfo, FaUserPlus, FaArchive, FaUser, FaCheckCircle, FaTimesCircle, FaMinusCircle, FaAward, FaExclamationTriangle, FaCamera, FaUpload, FaTimes } from 'react-icons/fa';
+import { MdGroups2 } from 'react-icons/md';
+import { IoMdSettings } from 'react-icons/io';
+import { ImStatsDots } from 'react-icons/im';
+import { PiRankingFill } from 'react-icons/pi';
 import { FormattedDescription } from "@/components/ui/FormattedDescription";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNestedScrollFix } from '@/hooks/useNestedScrollFix';
@@ -54,7 +57,6 @@ import {
 } from '@/services/chartDataService';
 // ✅ NEU: Hilfsfunktion für Ranglisten aus Backfill-Daten
 import { getRankingFromChartData, getTeamRankingFromChartData } from '@/utils/chartRankingUtils';
-import { Trophy } from 'lucide-react';
 
 // Props für Schritt 4: Komplette Statistik-Inhalte
 interface GroupViewProps {
@@ -1735,7 +1737,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
               </>
             ) : (
               <div className="flex flex-col items-center">
-                <Camera size={layout.isDesktop ? 60 : 40} className="text-gray-400 mb-1" />
+                <FaCamera size={layout.isDesktop ? 60 : 40} className="text-gray-400 mb-1" />
                 <span className={`${layout.miniTextSize} text-gray-500 text-center px-2`}>
                   {isAdmin ? "Gruppenbild hochladen" : "Kein Logo"}
                 </span>
@@ -1749,7 +1751,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 disabled={isUploading}
                 aria-label="Gruppenlogo ändern"
               >
-                <Camera className="text-white opacity-0 hover:opacity-100 transition-opacity duration-200" size={layout.isDesktop ? 48 : 32} />
+                <FaCamera className="text-white opacity-0 hover:opacity-100 transition-opacity duration-200" size={layout.isDesktop ? 48 : 32} />
               </button>
             )}
           </div>
@@ -1811,7 +1813,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 </>
               ) : (
                 <>
-                  <Upload size={layout.buttonIconSize} /> Hochladen
+                  <FaUpload size={layout.buttonIconSize} /> Hochladen
                 </>
               )}
             </Button>
@@ -1821,7 +1823,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
               className="bg-gray-600 hover:bg-gray-700 flex items-center gap-1"
               disabled={isUploading}
             >
-              <X size={layout.buttonIconSize} /> Abbrechen
+              <FaTimes size={layout.buttonIconSize} /> Abbrechen
             </Button>
           </div>
         )}
@@ -1851,7 +1853,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
               } : undefined}
               title="Teilnehmer einladen"
             >
-              <UserPlus size={layout.buttonIconSize} className="mr-1.5" /> Einladen
+              <FaUserPlus size={layout.buttonIconSize} className="mr-1.5" /> Einladen
             </Button>
           )}
           {isAdmin && (
@@ -1878,7 +1880,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
               } : undefined}
               title="Einstellungen"
             >
-              <Settings size={layout.buttonIconSize} className="mr-1.5" /> Einstellungen
+              <IoMdSettings size={layout.buttonIconSize} className="mr-1.5" /> Einstellungen
             </Button>
           )}
         </div>
@@ -1906,7 +1908,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 backgroundColor: activeMainTab === 'statistics' ? getTabActiveColor(groupTheme) : 'transparent'
               }}
             >
-              <BarChart size={18} className="mr-2" /> Statistik
+              <ImStatsDots size={18} className="mr-2" /> Statistik
               <div className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-gray-600/30"></div>
             </TabsTrigger>
             <TabsTrigger 
@@ -1916,7 +1918,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 backgroundColor: activeMainTab === 'archive' ? getTabActiveColor(groupTheme) : 'transparent'
               }}
             >
-              <Archive size={18} className="mr-2" /> Archiv
+              <FaArchive size={18} className="mr-2" /> Archiv
               <div className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-gray-600/30"></div>
             </TabsTrigger>
             <TabsTrigger
@@ -1926,7 +1928,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 backgroundColor: activeMainTab === 'members' ? getTabActiveColor(groupTheme) : 'transparent'
               }}
             >
-              <Users size={18} className="mr-2" /> Mitglieder
+              <MdGroups2 size={18} className="mr-2" /> Mitglieder
             </TabsTrigger>
           </TabsList>
 
@@ -1967,7 +1969,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         backgroundColor: activeStatsSubTab === 'overview' ? getTabActiveColor(groupTheme) : 'transparent'
                       }}
                     >
-                      <BarChart2 size={16} className="mr-1.5"/> Übersicht
+                      <ImStatsDots size={16} className="mr-1.5"/> Übersicht
                       <div className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-[1px] bg-gray-600/30"></div>
                     </TabsTrigger>
                     <TabsTrigger 
@@ -1977,7 +1979,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         backgroundColor: activeStatsSubTab === 'players' ? getTabActiveColor(groupTheme) : 'transparent'
                       }}
                     >
-                      <User size={16} className="mr-1.5"/> Spieler
+                      <FaUser size={16} className="mr-1.5"/> Spieler
                       <div className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-[1px] bg-gray-600/30"></div>
                     </TabsTrigger>
                     <TabsTrigger 
@@ -1987,7 +1989,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         backgroundColor: activeStatsSubTab === 'teams' ? getTabActiveColor(groupTheme) : 'transparent'
                       }}
                     >
-                      <Users size={16} className="mr-1.5"/> Teams
+                      <MdGroups2 size={16} className="mr-1.5"/> Teams
                     </TabsTrigger>
                   </TabsList>
                 </div>
@@ -2038,7 +2040,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                           />
                         ) : (
                           <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                            <ImStatsDots size={32} className="mx-auto mb-3 text-gray-500" />
                             <p>Noch keine Rating-Daten verfügbar</p>
                             <p className={`${layout.smallTextSize} mt-1`}>Chart wird angezeigt, sobald Spieler Rating-Historie haben</p>
                           </div>
@@ -2414,7 +2416,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                           />
                         ) : (
                           <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                            <ImStatsDots size={32} className="mx-auto mb-3 text-gray-500" />
                             <p>Noch keine Strichdifferenz-Daten verfügbar</p>
                             <p className={`${layout.smallTextSize} mt-1`}>Chart wird angezeigt, sobald Spieler mindestens 2 Sessions haben</p>
                           </div>
@@ -2504,7 +2506,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                           />
                         ) : (
                           <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                            <ImStatsDots size={32} className="mx-auto mb-3 text-gray-500" />
                             <p>Noch keine Punktedifferenz-Daten verfügbar</p>
                             <p className={`${layout.smallTextSize} mt-1`}>Chart wird angezeigt, sobald Spieler mindestens 2 Sessions haben</p>
                           </div>
@@ -2603,7 +2605,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                           }
                           return (
                             <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                              <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                              <ImStatsDots size={32} className="mx-auto mb-3 text-gray-500" />
                               <p>Noch keine Siegquote-Daten verfügbar</p>
                             </div>
                           );
@@ -2708,7 +2710,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                           }
                           return (
                             <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                              <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                              <ImStatsDots size={32} className="mx-auto mb-3 text-gray-500" />
                               <p>Noch keine Siegquote-Daten verfügbar</p>
                             </div>
                           );
@@ -2804,7 +2806,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                           />
                         ) : (
                           <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                            <ImStatsDots size={32} className="mx-auto mb-3 text-gray-500" />
                             <p>Noch keine Matsch-Bilanz-Daten verfügbar</p>
                             <p className={`${layout.smallTextSize} mt-1`}>Chart wird angezeigt, sobald Spieler mindestens 2 Sessions haben</p>
                           </div>
@@ -2890,7 +2892,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                           />
                         ) : (
                           <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                            <ImStatsDots size={32} className="mx-auto mb-3 text-gray-500" />
                             <p>Noch keine Schneider-Bilanz-Daten verfügbar</p>
                             <p className={`${layout.smallTextSize} mt-1`}>Chart wird angezeigt, sobald Spieler mindestens 2 Sessions haben</p>
                           </div>
@@ -3035,7 +3037,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                           />
                         ) : (
                           <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                            <ImStatsDots size={32} className="mx-auto mb-3 text-gray-500" />
                             <p>Noch keine Team-Strichdifferenz-Daten verfügbar</p>
                             <p className={`${layout.smallTextSize} mt-1`}>Chart wird angezeigt, sobald Teams mindestens 2 Sessions haben</p>
                           </div>
@@ -3055,13 +3057,13 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               // Extrahiere Spieler-Namen aus Team-Namen
                               const names = team.teamName.split(' & ');
                               return (
-                              <div key={`team-${team.teamName}`} className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0 hover:bg-white/10 transition-colors`}>
-                                  <div className="flex items-center">
-                                  <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
-                                    <div className="flex mr-2">
-                                      <ProfileImage 
-                                        src={findPlayerPhotoByName(names[0], members)} 
-                                        alt={names[0]} 
+                              <div key={`team-${team.teamName}`} className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
+                                  <div className="flex items-center min-w-0">
+                                  <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2 shrink-0`}>{index + 1}.</span>
+                                    <div className="flex mr-2 shrink-0">
+                                      <ProfileImage
+                                        src={findPlayerPhotoByName(names[0], members)}
+                                        alt={names[0]}
                                         size={layout.profileImageListSize}
                                         className={`border-2 border-gray-800 ${theme.profileImage}`}
                                         style={{ zIndex: 1 }}
@@ -3069,9 +3071,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                         fallbackText={names[0].charAt(0).toUpperCase()}
                                         context="list"
                                       />
-                                      <ProfileImage 
-                                        src={findPlayerPhotoByName(names[1], members)} 
-                                        alt={names[1]} 
+                                      <ProfileImage
+                                        src={findPlayerPhotoByName(names[1], members)}
+                                        alt={names[1]}
                                         size={layout.profileImageListSize}
                                         className={`border-2 border-gray-800 ${theme.profileImage}`}
                                         style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
@@ -3080,7 +3082,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                         context="list"
                                       />
                                     </div>
-                                    <span className={`${layout.bodySize} text-gray-300`}>{team.teamName}</span>
+                                    <span className={`${layout.bodySize} text-gray-300 truncate`}>{team.teamName}</span>
                                   </div>
                                   <span className="font-medium mr-2">
                                     <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
@@ -3128,7 +3130,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                           />
                         ) : (
                           <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                            <ImStatsDots size={32} className="mx-auto mb-3 text-gray-500" />
                             <p>Noch keine Team-Punktedifferenz-Daten verfügbar</p>
                             <p className={`${layout.smallTextSize} mt-1`}>Chart wird angezeigt, sobald Teams mindestens 2 Sessions haben</p>
                           </div>
@@ -3148,13 +3150,13 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               // Extrahiere Spieler-Namen aus Team-Namen
                               const names = team.teamName.split(' & ');
                               return (
-                              <div key={`team-${team.teamName}`} className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0 hover:bg-white/10 transition-colors`}>
-                                  <div className="flex items-center">
-                                  <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
-                                    <div className="flex mr-2">
-                                      <ProfileImage 
-                                        src={findPlayerPhotoByName(names[0], members)} 
-                                        alt={names[0]} 
+                              <div key={`team-${team.teamName}`} className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
+                                  <div className="flex items-center min-w-0">
+                                  <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2 shrink-0`}>{index + 1}.</span>
+                                    <div className="flex mr-2 shrink-0">
+                                      <ProfileImage
+                                        src={findPlayerPhotoByName(names[0], members)}
+                                        alt={names[0]}
                                         size={layout.profileImageListSize}
                                         className={`border-2 border-gray-800 ${theme.profileImage}`}
                                         style={{ zIndex: 1 }}
@@ -3162,9 +3164,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                         fallbackText={names[0].charAt(0).toUpperCase()}
                                         context="list"
                                       />
-                                      <ProfileImage 
-                                        src={findPlayerPhotoByName(names[1], members)} 
-                                        alt={names[1]} 
+                                      <ProfileImage
+                                        src={findPlayerPhotoByName(names[1], members)}
+                                        alt={names[1]}
                                         size={layout.profileImageListSize}
                                         className={`border-2 border-gray-800 ${theme.profileImage}`}
                                         style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
@@ -3173,7 +3175,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                         context="list"
                                       />
                                     </div>
-                                    <span className={`${layout.bodySize} text-gray-300`}>{team.teamName}</span>
+                                    <span className={`${layout.bodySize} text-gray-300 truncate`}>{team.teamName}</span>
                                   </div>
                                   <span className="font-medium mr-2">
                                     <span className={`${layout.smallTextSize} text-gray-400 mr-1`}>
@@ -3231,7 +3233,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                           }
                           return (
                             <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                              <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                              <ImStatsDots size={32} className="mx-auto mb-3 text-gray-500" />
                               <p>Noch keine Siegquote-Daten verfügbar</p>
                             </div>
                           );
@@ -3252,13 +3254,13 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               team.eventsPlayed && team.eventsPlayed > 0
                             )
                             .map((team, index) => (
-                            <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0 hover:bg-white/10 transition-colors`}>
-                              <div className="flex items-center">
-                                <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
-                                <div className="flex mr-2">
-                                  <ProfileImage 
-                                    src={findPlayerPhotoByName(team.names[0], members)} 
-                                    alt={team.names[0]} 
+                            <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
+                              <div className="flex items-center min-w-0">
+                                <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2 shrink-0`}>{index + 1}.</span>
+                                <div className="flex mr-2 shrink-0">
+                                  <ProfileImage
+                                    src={findPlayerPhotoByName(team.names[0], members)}
+                                    alt={team.names[0]}
                                     size={layout.profileImageListSize}
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     style={{ zIndex: 1 }}
@@ -3266,9 +3268,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     fallbackText={team.names[0].charAt(0).toUpperCase()}
                                     context="list"
                                   />
-                                  <ProfileImage 
-                                    src={findPlayerPhotoByName(team.names[1], members)} 
-                                    alt={team.names[1]} 
+                                  <ProfileImage
+                                    src={findPlayerPhotoByName(team.names[1], members)}
+                                    alt={team.names[1]}
                                     size={layout.profileImageListSize}
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
@@ -3277,7 +3279,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     context="list"
                                   />
                                 </div>
-                                <span className={`${layout.bodySize} text-gray-300`}>{team.names.join(' & ')}</span>
+                                <span className={`${layout.bodySize} text-gray-300 truncate`}>{team.names.join(' & ')}</span>
                               </div>
                               <span className="text-white font-medium mr-2">
                                 {(typeof team.value === 'number' && team.eventsPlayed && team.eventsPlayed > 0) && (
@@ -3335,7 +3337,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                           }
                           return (
                             <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                              <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                              <ImStatsDots size={32} className="mx-auto mb-3 text-gray-500" />
                               <p>Noch keine Siegquote-Daten verfügbar</p>
                             </div>
                           );
@@ -3356,13 +3358,13 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               team.eventsPlayed && team.eventsPlayed > 0
                             )
                             .map((team, index) => (
-                            <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0 hover:bg-white/10 transition-colors`}>
-                              <div className="flex items-center">
-                                <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
-                                <div className="flex mr-2">
-                                  <ProfileImage 
-                                    src={findPlayerPhotoByName(team.names[0], members)} 
-                                    alt={team.names[0]} 
+                            <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
+                              <div className="flex items-center min-w-0">
+                                <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2 shrink-0`}>{index + 1}.</span>
+                                <div className="flex mr-2 shrink-0">
+                                  <ProfileImage
+                                    src={findPlayerPhotoByName(team.names[0], members)}
+                                    alt={team.names[0]}
                                     size={layout.profileImageListSize}
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     style={{ zIndex: 1 }}
@@ -3370,9 +3372,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     fallbackText={team.names[0].charAt(0).toUpperCase()}
                                     context="list"
                                   />
-                                  <ProfileImage 
-                                    src={findPlayerPhotoByName(team.names[1], members)} 
-                                    alt={team.names[1]} 
+                                  <ProfileImage
+                                    src={findPlayerPhotoByName(team.names[1], members)}
+                                    alt={team.names[1]}
                                     size={layout.profileImageListSize}
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
@@ -3381,7 +3383,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     context="list"
                                   />
                                 </div>
-                                <span className={`${layout.bodySize} text-gray-300`}>{team.names.join(' & ')}</span>
+                                <span className={`${layout.bodySize} text-gray-300 truncate`}>{team.names.join(' & ')}</span>
                               </div>
                               <span className="text-white font-medium mr-2">
                                 {(typeof team.value === 'number' && team.eventsPlayed && team.eventsPlayed > 0) && (
@@ -3428,7 +3430,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                           />
                         ) : (
                           <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                            <ImStatsDots size={32} className="mx-auto mb-3 text-gray-500" />
                             <p>Noch keine Team-Matsch-Bilanz-Daten verfügbar</p>
                             <p className={`${layout.smallTextSize} mt-1`}>Chart wird angezeigt, sobald Teams mindestens 2 Sessions haben</p>
                           </div>
@@ -3659,13 +3661,13 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               team.value && team.value > 0
                             )
                             .map((team, index) => (
-                            <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0 hover:bg-white/10 transition-colors`}>
-                              <div className="flex items-center">
-                                <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{index + 1}.</span>
-                                <div className="flex mr-2">
-                                  <ProfileImage 
-                                    src={findPlayerPhotoByName(team.names[0], members)} 
-                                    alt={team.names[0]} 
+                            <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
+                              <div className="flex items-center min-w-0">
+                                <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2 shrink-0`}>{index + 1}.</span>
+                                <div className="flex mr-2 shrink-0">
+                                  <ProfileImage
+                                    src={findPlayerPhotoByName(team.names[0], members)}
+                                    alt={team.names[0]}
                                     size={layout.profileImageListSize}
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     style={{ zIndex: 1 }}
@@ -3673,9 +3675,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     fallbackText={team.names[0].charAt(0).toUpperCase()}
                                     context="list"
                                   />
-                                  <ProfileImage 
-                                    src={findPlayerPhotoByName(team.names[1], members)} 
-                                    alt={team.names[1]} 
+                                  <ProfileImage
+                                    src={findPlayerPhotoByName(team.names[1], members)}
+                                    alt={team.names[1]}
                                     size={layout.profileImageListSize}
                                     className={`border-2 border-gray-800 ${theme.profileImage}`}
                                     style={{ marginLeft: layout.teamAvatarOverlap, zIndex: 0 }}
@@ -3684,7 +3686,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                     context="list"
                                   />
                                 </div>
-                                <span className={`${layout.bodySize} text-gray-300`}>{team.names.join(' & ')}</span>
+                                <span className={`${layout.bodySize} text-gray-300 truncate`}>{team.names.join(' & ')}</span>
                               </div>
                               <span className={`text-white ${layout.valueSize} font-medium text-right whitespace-nowrap`}>{formatMillisecondsDuration(Number(team.value))}</span>
                             </div>
@@ -3705,7 +3707,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
             {/* FEHLER CASE: Sessions Error UND leeres Archiv */}
             {sessionsError && !sessionsLoading && !tournamentsLoading && combinedArchiveItems.length === 0 && (
                 <div className="text-center text-gray-400 py-6 px-4">
-                    <Archive size={32} className="mx-auto mb-3 text-gray-500" />
+                    <FaArchive size={32} className="mx-auto mb-3 text-gray-500" />
                     <p className={`font-semibold text-gray-300 ${layout.bodySize}`}>Keine Einträge im Archiv</p>
                     <p className={`${layout.smallTextSize}`}>Abgeschlossene Partien und Turniere werden hier angezeigt.</p>
                 </div>
@@ -3722,7 +3724,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
             {/* EMPTY STATE: Keine Einträge, aber kein Fehler */}
             {!sessionsLoading && !tournamentsLoading && combinedArchiveItems.length === 0 && !sessionsError && !tournamentsError && (
                 <div className="text-center text-gray-400 py-6 px-4">
-                    <Archive size={32} className="mx-auto mb-3 text-gray-500" />
+                    <FaArchive size={32} className="mx-auto mb-3 text-gray-500" />
                     <p className={`font-semibold text-gray-300 ${layout.bodySize}`}>Keine Einträge im Archiv</p>
                     <p className={`${layout.smallTextSize}`}>Abgeschlossene Partien und Turniere werden hier angezeigt.</p>
                 </div>
@@ -3731,7 +3733,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
             {/* ERROR STATE: Spezifische Fehler für Sessions/Tournaments */}
             {((sessionsError && completedSessions.length === 0) || (tournamentsError && groupTournaments.length === 0)) && !sessionsLoading && !tournamentsLoading && (
               <div className="text-center text-red-400 py-6 px-4 bg-red-900/20 rounded-md">
-                <AlertTriangle size={32} className="mx-auto mb-3 text-red-500" />
+                <FaExclamationTriangle size={32} className="mx-auto mb-3 text-red-500" />
                 <p className={`font-semibold text-red-300 ${layout.bodySize}`}>Fehler beim Laden des Archivs</p>
                 {sessionsError && <p className={`${layout.smallTextSize}`}>Sessions: {sessionsError}</p>}
                 {tournamentsError && <p className={`${layout.smallTextSize}`}>Turniere: {tournamentsError}</p>}

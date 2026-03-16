@@ -3,7 +3,7 @@ import {AnimatePresence} from "framer-motion";
 import {useSpring, animated} from "react-spring";
 import {FARBE_MODES} from "../../config/FarbeSettings";
 import {useUIStore} from "../../store/uiStore";
-import {FiRotateCcw, FiX, FiChevronLeft, FiChevronRight} from "react-icons/fi";
+import {FaUndo, FaTimes, FaChevronLeft, FaChevronRight} from "react-icons/fa";
 import {
   type ScoreMode,
   type JassColor,
@@ -616,7 +616,7 @@ const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
                 className={`text-gray-400 hover:text-white transition-colors p-2 rounded-full ${isBlocked && currentStep?.id !== TUTORIAL_STEPS.SETTINGS_STROKES ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}
                 aria-label="Einstellungen schließen"
               >
-                <FiX size={24} />
+                <FaTimes size={24} />
               </button>
             </div>
 
@@ -640,7 +640,7 @@ const SettingsModal = dynamic(() => Promise.resolve((): ReactElement => {
                   aria-label="Einstellungen zurücksetzen"
                   title="Auf Standard zurücksetzen"
                 >
-                   <FiRotateCcw size={20} />
+                   <FaUndo size={20} />
                </button>
                <SaveButton onClick={handleClose} /> 
             </div>
@@ -657,7 +657,7 @@ const NavigationButton: React.FC<{
 }> = memo(({direction, onClick}) => {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const {handlers, buttonClasses} = usePressableButton(onClick);
-  const Icon = direction === "left" ? FiChevronLeft : FiChevronRight;
+  const Icon = direction === "left" ? FaChevronLeft : FaChevronRight;
   const currentStep = useTutorialStore((state) => state.getCurrentStep());
 
   const buttonId = direction === "right" ?

@@ -6,8 +6,9 @@ import {Button} from "@/components/ui/button";
 import {Alert, AlertDescription} from "@/components/ui/alert";
 import Image from "next/image";
 import MainLayout from "@/components/layout/MainLayout";
-import {UserCog, Users, BarChart3, CheckCircle, XCircle, Archive, Award as AwardIcon, User, Shield, XCircle as AlertXCircle, Camera as CameraIcon, ArrowLeft, Upload, Share} from "lucide-react";
-import { FaShareAlt, FaInfo } from 'react-icons/fa';
+import { FaShareAlt, FaInfo, FaUserCog, FaUserFriends, FaCheckCircle, FaTimesCircle, FaArchive, FaAward, FaUser, FaCamera, FaArrowLeft, FaUpload } from 'react-icons/fa';
+import { FaUserShield } from 'react-icons/fa6';
+import { ImStatsDots } from 'react-icons/im';
 import ImageCropModal from "@/components/ui/ImageCropModal";
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import Link from 'next/link';
@@ -1870,7 +1871,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     return (
       <MainLayout>
         <div className="flex flex-col items-center justify-center min-h-screen text-white">
-          <AlertXCircle className="w-16 h-16 text-red-500 mb-4" />
+          <FaTimesCircle className="w-16 h-16 text-red-500 mb-4" />
           <h1 className="text-2xl font-bold">Profil nicht gefunden</h1>
           <p className="text-gray-400">Das angeforderte Spielerprofil konnte nicht geladen werden.</p>
         </div>
@@ -1880,11 +1881,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   return (
     <>
-      {/* 🚀 NEU: Public View Top-Bar nur bei Mobile */}
-      {isPublicView && !layout.isDesktop && <PublicViewTopBar />}
+      {/* Safe-Area-Overlay für PWA (kein Header auf Profilseiten) */}
+      {!layout.isDesktop && <PublicViewTopBar />}
       
       <MainLayout>
-      <div className={`flex flex-col items-center justify-start text-white ${layout.containerPadding} relative pt-8 pb-20 lg:w-full lg:px-0`}>
+      <div className={`flex flex-col items-center justify-start text-white ${layout.containerPadding} relative pt-14 profile-public-top pb-20 lg:w-full lg:px-0`}>
         {/* Responsive Container Wrapper */}
         <div className={`w-full ${layout.containerMaxWidth} mx-auto lg:px-12 lg:py-8`}>
           {/* 🚀 AVATAR PRELOADER: Lädt alle Partner/Gegner-Avatare unsichtbar vor */}
@@ -1894,9 +1895,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           
           {/* NEU: SHARE BUTTON - OBEN RECHTS (nur für öffentliche Profile) */}
           {currentPlayer && (
-            <button 
+            <button
               onClick={handleShareClick}
-              className="absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center text-white/80 hover:text-white transition-all duration-200 rounded-full backdrop-blur-sm border hover:scale-105"
+              className="absolute right-4 top-4 profile-public-btn-top z-10 w-10 h-10 flex items-center justify-center text-white/80 hover:text-white transition-all duration-200 rounded-full backdrop-blur-sm border hover:scale-105"
               style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.1)',
                 borderColor: 'rgba(255, 255, 255, 0.2)'
@@ -1932,21 +1933,23 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
           )}
 
-          {/* Zurück-Button (nur für Public View) */}
+          {/* Zurück-Button (nur für Public View) — identisch positioniert wie Share-Button */}
           {isPublicView && (
-            <Button 
-              variant="ghost" 
-              className="absolute top-6 left-4 text-white hover:bg-gray-700 p-3 safe-area-top"
-              style={{ top: 'calc(1.5rem + env(safe-area-inset-top))' }}
-              aria-label="Zurück"
+            <button
               onClick={handleGoBack}
+              className="absolute left-4 top-4 profile-public-btn-top z-10 w-10 h-10 flex items-center justify-center text-white/80 hover:text-white transition-all duration-200 rounded-full backdrop-blur-sm border hover:scale-105"
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                borderColor: 'rgba(255, 255, 255, 0.2)'
+              }}
+              aria-label="Zurück"
             >
-              <ArrowLeft size={28} />
-            </Button>
+              <FaArrowLeft size={18} />
+            </button>
           )}
 
         {/* ✅ HEADER MIT LOGO UND BUTTONS (IDENTISCH ZU GROUPVIEW) */}
-        <div className={`relative mb-4 ${isPublicView ? 'mt-16' : 'mt-6'} flex justify-center`}>
+        <div className={`relative mb-4 mt-6 flex justify-center`}>
           <div 
             className={`relative ${layout.avatarSize} rounded-full overflow-hidden transition-all duration-300 flex items-center justify-center bg-gray-800 shadow-lg hover:shadow-xl hover:scale-105 border-4`}
             style={{
@@ -1989,7 +1992,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             ) : (
               !isPublicView ? (
                 <div className="flex flex-col items-center">
-                  <CameraIcon size={40} className="text-gray-400 mb-1" />
+                  <FaCamera size={40} className="text-gray-400 mb-1" />
                   <span className="text-xs text-gray-500 text-center px-2">
                     Profilbild hochladen
                   </span>
@@ -2008,7 +2011,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 disabled={isUploading}
                 aria-label="Profilbild ändern"
               >
-                <CameraIcon className="text-white opacity-0 hover:opacity-100 transition-opacity duration-200" size={32} />
+                <FaCamera className="text-white opacity-0 hover:opacity-100 transition-opacity duration-200" size={32} />
               </button>
             )}
           </div>
@@ -2069,7 +2072,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 </>
               ) : (
                 <>
-                  <Upload size={layout.buttonIconSize} /> Hochladen
+                  <FaUpload size={layout.buttonIconSize} /> Hochladen
                 </>
               )}
             </Button>
@@ -2079,7 +2082,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               className="bg-gray-600 hover:bg-gray-700 flex items-center gap-1"
               disabled={isUploading}
             >
-              <AlertXCircle size={layout.buttonIconSize} /> Abbrechen
+              <FaTimesCircle size={layout.buttonIconSize} /> Abbrechen
             </Button>
           </div>
         )}
@@ -2106,7 +2109,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               }}
               title="Gruppen"
             >
-              <Users size={layout.buttonIconSize} className="mr-1.5" /> Gruppen
+              <FaUserFriends size={layout.buttonIconSize} className="mr-1.5" /> Gruppen
             </Button>
             <Button
               variant="ghost" 
@@ -2127,7 +2130,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               }}
               title="Turniere"
             >
-              <AwardIcon size={layout.buttonIconSize} className="mr-1.5" /> Turniere
+              <FaAward size={layout.buttonIconSize} className="mr-1.5" /> Turniere
             </Button>
             <Button
               variant="ghost" 
@@ -2148,7 +2151,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               }}
               title="Einstellungen"
             >
-              <UserCog size={layout.buttonIconSize} className="mr-1.5" /> Einstellungen
+              <FaUserCog size={layout.buttonIconSize} className="mr-1.5" /> Einstellungen
             </Button>
           </div>
         )}
@@ -2192,7 +2195,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           }}
           className="w-full"
         >
-          <TabsList className={`grid w-full grid-cols-2 bg-gray-800/60 ${layout.mainTabContainerPadding} rounded-2xl sticky top-0 z-30 backdrop-blur-md shadow-lg`}>
+          <TabsList className={`grid w-full grid-cols-2 bg-gray-800/60 ${layout.mainTabContainerPadding} rounded-2xl sticky top-[calc(env(safe-area-inset-top,0px)+12px)] z-30 backdrop-blur-md shadow-lg`}>
             <TabsTrigger 
               value="stats" 
               className={`data-[state=active]:text-white data-[state=active]:shadow-md text-gray-400 hover:text-white rounded-xl active:scale-[0.96] active:shadow-inner transition-all duration-100 ${layout.mainTabPadding} ${layout.mainTabTextSize} font-semibold min-h-[44px] flex items-center justify-center py-5 relative`}
@@ -2200,7 +2203,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 backgroundColor: activeMainTab === 'stats' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
               }}
             > 
-              <BarChart3 size={18} className="mr-2" /> Statistik 
+              <ImStatsDots size={18} className="mr-2" /> Statistik 
               <div className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-gray-600/30"></div>
             </TabsTrigger> 
             <TabsTrigger 
@@ -2210,7 +2213,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 backgroundColor: activeMainTab === 'archive' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
               }}
             > 
-              <Archive size={18} className="mr-2" /> Archiv 
+              <FaArchive size={18} className="mr-2" /> Archiv 
             </TabsTrigger>
           </TabsList>
 
@@ -2232,7 +2235,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               className="w-full"
             >
               {/* Sticky Container für Sub-Tabs - mit 3px Abstand */}
-              <div className={`sticky ${layout.isDesktop ? "top-[80px]" : "top-[64px]"} z-30 bg-transparent`}>
+              <div
+                className="sticky z-30 bg-transparent"
+                style={{
+                  top: layout.isDesktop
+                    ? "80px"
+                    : "calc(env(safe-area-inset-top,0px) + 84px)",
+                }}
+              >
                 <TabsList className={`grid w-full grid-cols-3 bg-gray-800/60 ${layout.subTabContainerPadding} rounded-2xl backdrop-blur-md shadow-lg`}>
                   <TabsTrigger
                     value="individual"
@@ -2241,7 +2251,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       backgroundColor: activeStatsSubTab === 'individual' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
                     }}
                   >
-                    <User size={16} className="mr-1.5" />
+                    <FaUser size={16} className="mr-1.5" />
                     Individuell
                     <div className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-[1px] bg-gray-600/30"></div>
                   </TabsTrigger>
@@ -2252,7 +2262,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       backgroundColor: activeStatsSubTab === 'partner' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
                     }}
                   >
-                    <Users size={16} className="mr-1.5" />
+                    <FaUserFriends size={16} className="mr-1.5" />
                     Partner
                     <div className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-[1px] bg-gray-600/30"></div>
                   </TabsTrigger>
@@ -2263,7 +2273,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       backgroundColor: activeStatsSubTab === 'opponent' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
                     }}
                   >
-                    <Shield size={16} className="mr-1.5" />
+                    <FaUserShield size={16} className="mr-1.5" />
                     Gegner
                   </TabsTrigger>
                 </TabsList>
@@ -2338,7 +2348,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           />
                         ) : (
                           <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                            <ImStatsDots size={32} className="mx-auto mb-3 text-gray-500" />
                             <p>Noch keine Rating-Daten verfügbar</p>
                             <p className={`${layout.smallTextSize} mt-1`}>Chart wird angezeigt, sobald Spieler Rating-Historie haben</p>
                           </div>
@@ -2396,7 +2406,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           />
                         ) : (
                           <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                            <ImStatsDots size={32} className="mx-auto mb-3 text-gray-500" />
                             <p>Noch keine Strich-Daten verfügbar</p>
                           </div>
                         )}
@@ -2453,7 +2463,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           />
                         ) : (
                           <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                            <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                            <ImStatsDots size={32} className="mx-auto mb-3 text-gray-500" />
                             <p>Noch keine Punkte-Daten verfügbar</p>
                           </div>
                         )}
@@ -2510,7 +2520,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             />
                           ) : (
                             <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                              <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                              <ImStatsDots size={32} className="mx-auto mb-3 text-gray-500" />
                               <p>Noch keine Matsch-Daten verfügbar</p>
                             </div>
                           )}
@@ -2524,11 +2534,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                           <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} rounded-r-md mr-3`} style={{ backgroundColor: accentColor }}></div>
                           <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>
-                            Schneider-Bilanz: 
-                            <span className={`ml-2 ${playerStats?.schneiderBilanz && playerStats.schneiderBilanz > 0 ? 'text-emerald-500' : playerStats?.schneiderBilanz && playerStats.schneiderBilanz < 0 ? 'text-red-500' : 'text-white'}`}>
-                              {playerStats?.schneiderBilanz && playerStats.schneiderBilanz > 0 ? '+' : ''}
-                              {playerStats?.schneiderBilanz || 0}
-                            </span>
+                            Schneider-Bilanz:
+                            {(() => {
+                              const chartValues = schneiderChartData?.datasets?.[0]?.data;
+                              const schneiderVal = chartValues?.length ? chartValues[chartValues.length - 1] : (playerStats?.schneiderBilanz || 0);
+                              return (
+                                <span className={`ml-2 ${schneiderVal > 0 ? 'text-emerald-500' : schneiderVal < 0 ? 'text-red-500' : 'text-white'}`}>
+                                  {schneiderVal > 0 ? '+' : ''}{schneiderVal}
+                                </span>
+                              );
+                            })()}
                           </h3>
                         </div>
                         <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
@@ -2554,7 +2569,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             />
                           ) : (
                             <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                              <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                              <ImStatsDots size={32} className="mx-auto mb-3 text-gray-500" />
                               <p>Noch keine Schneider-Daten verfügbar</p>
                             </div>
                           )}
@@ -2598,7 +2613,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             />
                           ) : (
                             <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                              <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                              <ImStatsDots size={32} className="mx-auto mb-3 text-gray-500" />
                               <p>Noch keine Kontermatsch-Daten verfügbar</p>
                             </div>
                           )}
@@ -2788,7 +2803,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             />
                           ) : (
                             <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                              <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                              <ImStatsDots size={32} className="mx-auto mb-3 text-gray-500" />
                               <p>Noch keine Weis-Daten verfügbar</p>
                             </div>
                           )}
@@ -3357,7 +3372,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           }
                           return (
                             <div className={`${layout.bodySize} text-gray-400 text-center py-8`}>
-                              <BarChart3 size={32} className="mx-auto mb-3 text-gray-500" />
+                              <ImStatsDots size={32} className="mx-auto mb-3 text-gray-500" />
                               <p>Noch keine Siegquote-Daten verfügbar</p>
                             </div>
                           );
@@ -4366,7 +4381,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             )} 
             {!(sessionsLoading || tournamentsLoading) && !(sessionsError || tournamentsError) && (combinedArchiveItems?.length === 0) && (
                <div className="text-center text-gray-400 py-6 px-4 bg-gray-800/30 rounded-md">
-                  <Archive size={32} className="mx-auto mb-3 text-gray-500" />
+                  <FaArchive size={32} className="mx-auto mb-3 text-gray-500" />
                   <p className={`font-semibold text-gray-300 ${layout.bodySize}`}>Keine Einträge im Archiv</p>
                   <p className={`${layout.smallTextSize}`}>Abgeschlossene Partien und Turniere werden hier angezeigt.</p>
               </div>

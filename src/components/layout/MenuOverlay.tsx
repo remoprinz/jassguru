@@ -3,7 +3,8 @@ import {useGameStore} from "../../store/gameStore";
 import {useJassStore} from "../../store/jassStore";
 import {useUIStore} from "../../store/uiStore";
 import {useTimerStore} from "../../store/timerStore";
-import {FaTrashAlt, FaInfoCircle, FaCog, FaHome} from "react-icons/fa";
+import {FaTrashAlt, FaInfoCircle, FaHome} from "react-icons/fa";
+import {IoMdSettings} from "react-icons/io";
 import {PiCalculatorFill} from "react-icons/pi";
 import {TbClipboardText} from "react-icons/tb";
 import {motion} from "framer-motion";
@@ -265,7 +266,7 @@ const MenuOverlay: React.FC<MenuOverlayProps> = ({
     { icon: PiCalculatorFill, color: "bg-orange-500", id: "jasskalkulator" },
     { icon: FaInfoCircle, color: "bg-yellow-500", id: "info" },
     { icon: FaHome, color: "bg-blue-500", id: "home" },
-    { icon: FaCog, color: "bg-blue-500", id: "farbe", className: "settings-button" }, 
+    { icon: IoMdSettings, color: "bg-blue-500", id: "farbe", className: "settings-button" },
     { icon: TbClipboardText, color: "bg-green-500", id: "resultat" },
   ];
 

@@ -133,7 +133,10 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
     
     // 🚀 NEU: Auto-Hide Timer für Tooltips
     const tooltipTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-    
+    // 🎯 Toggle-Verhalten: Tooltip war beim letzten Klick sichtbar
+    const tooltipWasVisibleRef = React.useRef(false);
+    const chartInstanceRef = React.useRef<any>(null);
+
     // 🎯 NEU: Scroll-Erkennung um Tooltip bei Scroll zu verhindern
     const isScrollingRef = React.useRef(false);
     const scrollTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -161,10 +164,10 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
       // Set new timeout
       tooltipTimeoutRef.current = setTimeout(() => {
         if (chart.tooltip && chart.tooltip.opacity > 0) {
-          // 🚀 NEU: Cancel die Datenpunkt-Auswahl komplett statt nur Tooltip zu verstecken
           chart.tooltip.opacity = 0;
-          chart.setActiveElements([]); // ✅ Cancel alle aktiven Elemente
+          chart.setActiveElements([]);
           chart.update('none');
+          tooltipWasVisibleRef.current = false;
         }
       }, 500); // 500ms Auto-Hide
     };
@@ -244,6 +247,22 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
       };
     }, []);
     
+    // 🎯 Globaler Tooltip-Dismiss: Wenn ein anderer Chart Tooltip zeigt, eigenen schliessen
+    React.useEffect(() => {
+      const handleDismiss = (e: Event) => {
+        const chart = chartInstanceRef.current;
+        if (!chart) return;
+        const detail = (e as CustomEvent).detail;
+        if (detail !== chart.id && chart.tooltip && chart.tooltip.opacity > 0) {
+          chart.tooltip.opacity = 0;
+          chart.setActiveElements([]);
+          chart.update('none');
+        }
+      };
+      window.addEventListener('chart-tooltip-shown', handleDismiss);
+      return () => window.removeEventListener('chart-tooltip-shown', handleDismiss);
+    }, []);
+
     // 🎯 NEU: Scroll-Listener für Chart-Container
     React.useEffect(() => {
       const currentChartRef = chartRef.current;
@@ -706,6 +725,7 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
           chart.tooltip.opacity = 0;
           chart.setActiveElements([]);
           chart.update('none');
+          tooltipWasVisibleRef.current = false;
         }
         return;
       }
@@ -718,6 +738,24 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
       // Wenn keine aktiven Elemente mehr → Auto-Hide starten
       if (activeElements.length === 0 && chart.tooltip && chart.tooltip.opacity > 0) {
         hideTooltipAfterDelay(chart);
+      }
+    },
+    onClick: (event: any, activeElements: any[], chart: any) => {
+      chartInstanceRef.current = chart;
+      // 🎯 Toggle: Wenn Tooltip sichtbar war → schliessen (egal wo geklickt)
+      if (tooltipWasVisibleRef.current) {
+        tooltipWasVisibleRef.current = false;
+        chart.tooltip.opacity = 0;
+        chart.setActiveElements([]);
+        chart.update('none');
+        if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current);
+        return;
+      }
+      // Neuer Tooltip wird geöffnet → merken + andere Charts dismissieren
+      if (activeElements.length > 0) {
+        tooltipWasVisibleRef.current = true;
+        window.dispatchEvent(new CustomEvent('chart-tooltip-shown', { detail: chart.id }));
+        if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current);
       }
     },
     elements: {

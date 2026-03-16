@@ -55,11 +55,11 @@ const Header: React.FC<HeaderProps> = () => {
 
   const shouldShowHeader = effectiveTitle || showEffectiveBackButton || showEffectiveProfileButton;
 
-  // Explizit den Header auf dem WelcomeScreen und öffentlichen Views ausblenden
-  if (router.pathname === '/' || 
+  // Explizit den Header auf dem WelcomeScreen, Profil und öffentlichen Views ausblenden
+  if (router.pathname === '/' ||
       router.pathname === '/join' ||
       router.pathname.startsWith('/view/') ||  // Alle /view/* Seiten (group, session, tournament, game)
-      (router.pathname.startsWith('/profile/') && router.pathname !== '/profile' && router.pathname !== '/profile/edit' && router.pathname !== '/profile/groups')) {
+      (router.pathname.startsWith('/profile') && router.pathname !== '/profile/edit' && router.pathname !== '/profile/groups')) {
     return null;
   }
 
@@ -68,7 +68,10 @@ const Header: React.FC<HeaderProps> = () => {
   }
 
   return (
-    <header className="sticky top-0 z-10 w-full bg-gray-800 shadow-md pt-12 pb-2 max-w-3xl mx-auto">
+    <header
+      className="sticky top-0 z-10 w-full bg-gray-800 shadow-md pb-2 max-w-3xl mx-auto"
+      style={{ paddingTop: 'calc(env(safe-area-inset-top, 2rem) + 1rem)' }}
+    >
       <div className="w-full flex items-center justify-between px-4">
         <div className="flex items-center">
           {showEffectiveBackButton && (
