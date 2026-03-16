@@ -7,7 +7,7 @@ import {Button} from "@/components/ui/button";
 import { FaShareAlt, FaInfo, FaUserPlus, FaArchive, FaUser, FaUserFriends, FaCheckCircle, FaTimesCircle, FaMinusCircle, FaAward, FaExclamationTriangle, FaCamera, FaUpload, FaTimes } from 'react-icons/fa';
 import { MdDashboard } from 'react-icons/md';
 import { HiUserGroup } from 'react-icons/hi';
-import { RiTeamFill } from 'react-icons/ri';
+import { RiTeamFill, RiGroupFill } from 'react-icons/ri';
 import { IoMdSettings } from 'react-icons/io';
 import { ImStatsDots } from 'react-icons/im';
 import { PiRankingFill } from 'react-icons/pi';
@@ -1991,7 +1991,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         backgroundColor: activeStatsSubTab === 'teams' ? getTabActiveColor(groupTheme) : 'transparent'
                       }}
                     >
-                      <FaUserFriends size={16} className="mr-1.5"/> Teams
+                      <RiGroupFill size={16} className="mr-1.5"/> Teams
                     </TabsTrigger>
                   </TabsList>
                 </div>
