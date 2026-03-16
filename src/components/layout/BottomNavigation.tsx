@@ -1,4 +1,5 @@
-import { FaHome, FaUser, FaBookOpen, FaAward, FaQuestionCircle } from "react-icons/fa";
+import { FaUser, FaBookOpen, FaAward, FaQuestionCircle } from "react-icons/fa";
+import { IoHome } from "react-icons/io5";
 import Link from "next/link";
 import {useRouter} from "next/router";
 import {cn} from "@/lib/utils";
@@ -42,9 +43,9 @@ export function BottomNavigation() {
 
   const baseNavigationItems = [
     {
-      name: "FaHome",
+      name: "Home",
       href: "/start",
-      icon: FaHome,
+      icon: IoHome,
       active: currentPath === "/start",
       itemTournamentStatus: null,
     },

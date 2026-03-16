@@ -4,8 +4,10 @@ import MainLayout from "@/components/layout/MainLayout";
 import { GroupSelector } from "@/components/group/GroupSelector";
 import JoinByInviteUI from "@/components/ui/JoinByInviteUI";
 import {Button} from "@/components/ui/button";
-import { FaShareAlt, FaInfo, FaUserPlus, FaArchive, FaUser, FaCheckCircle, FaTimesCircle, FaMinusCircle, FaAward, FaExclamationTriangle, FaCamera, FaUpload, FaTimes } from 'react-icons/fa';
-import { MdGroups2 } from 'react-icons/md';
+import { FaShareAlt, FaInfo, FaUserPlus, FaArchive, FaUser, FaUserFriends, FaCheckCircle, FaTimesCircle, FaMinusCircle, FaAward, FaExclamationTriangle, FaCamera, FaUpload, FaTimes } from 'react-icons/fa';
+import { MdDashboard } from 'react-icons/md';
+import { HiUserGroup } from 'react-icons/hi';
+import { RiTeamFill } from 'react-icons/ri';
 import { IoMdSettings } from 'react-icons/io';
 import { ImStatsDots } from 'react-icons/im';
 import { PiRankingFill } from 'react-icons/pi';
@@ -1928,7 +1930,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                 backgroundColor: activeMainTab === 'members' ? getTabActiveColor(groupTheme) : 'transparent'
               }}
             >
-              <MdGroups2 size={18} className="mr-2" /> Mitglieder
+              <RiTeamFill size={18} className="mr-2" /> Mitglieder
             </TabsTrigger>
           </TabsList>
 
@@ -1969,7 +1971,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         backgroundColor: activeStatsSubTab === 'overview' ? getTabActiveColor(groupTheme) : 'transparent'
                       }}
                     >
-                      <ImStatsDots size={16} className="mr-1.5"/> Übersicht
+                      <MdDashboard size={16} className="mr-1.5"/> Übersicht
                       <div className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-[1px] bg-gray-600/30"></div>
                     </TabsTrigger>
                     <TabsTrigger 
@@ -1989,7 +1991,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         backgroundColor: activeStatsSubTab === 'teams' ? getTabActiveColor(groupTheme) : 'transparent'
                       }}
                     >
-                      <MdGroups2 size={16} className="mr-1.5"/> Teams
+                      <FaUserFriends size={16} className="mr-1.5"/> Teams
                     </TabsTrigger>
                   </TabsList>
                 </div>
