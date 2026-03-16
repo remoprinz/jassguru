@@ -967,13 +967,34 @@ const TournamentViewPage: React.FC = () => {
     );
   }
   
+  // Loading-State: Gleiche Struktur, nur mit Skeleton-Inhalten
+  if (!tournament) {
+    return (
+      <MainLayout>
+        <div id="tournament-view-container" className={`flex flex-col items-center justify-start text-white ${layout.containerPadding} relative pt-14 profile-public-top pb-20 lg:w-full lg:px-0`}>
+          <div className={`w-full ${layout.containerMaxWidth} mx-auto lg:px-12 lg:py-8`}>
+            <div className="relative mb-4 mt-6 flex justify-center">
+              <div className={`relative ${layout.avatarSize} rounded-full overflow-hidden border-4 border-purple-500 bg-gray-800`}>
+                <Skeleton className="w-full h-full rounded-full" />
+              </div>
+            </div>
+            <div className="w-full text-center mb-6 px-4">
+              <Skeleton className="h-8 w-48 mx-auto mb-3" />
+              <Skeleton className="h-4 w-64 mx-auto" />
+            </div>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout>
       <div id="tournament-view-container" className={`flex flex-col items-center justify-start text-white ${layout.containerPadding} relative pt-14 profile-public-top pb-20 lg:w-full lg:px-0`}>
-        
+
         {/* 🎨 RESPONSIVE CONTAINER WRAPPER */}
         <div className={`w-full ${layout.containerMaxWidth} mx-auto lg:px-12 lg:py-8`}>
-        
+
         <div className="relative mb-4 mt-6 flex justify-center">
             <div
               className={`relative ${layout.avatarSize} rounded-full overflow-hidden transition-all duration-300 flex items-center justify-center bg-gray-800 shadow-lg hover:shadow-xl hover:scale-105 border-4`}
