@@ -1663,8 +1663,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
       <MainLayout>
       <div
         id="group-view-container"
-        className={`flex flex-col items-center justify-start text-white ${layout.containerPadding} relative pt-8 pb-20 lg:w-full lg:px-0`}
-        style={isPublicView ? { paddingTop: 'calc(env(safe-area-inset-top, 0px) + 2rem)' } : undefined}
+        className={`flex flex-col items-center justify-start text-white ${layout.containerPadding} relative pt-14 profile-public-top pb-20 lg:w-full lg:px-0`}
       >
         
         {/* 🎨 RESPONSIVE CONTAINER WRAPPER */}
@@ -1679,9 +1678,8 @@ export const GroupView: React.FC<GroupViewProps> = ({
         {currentGroup && (
           <button 
             onClick={handleShareClick}
-            className="absolute right-4 z-10 w-10 h-10 flex items-center justify-center text-white/80 hover:text-white transition-all duration-200 rounded-full backdrop-blur-sm border hover:scale-105"
+            className="absolute right-4 top-4 profile-public-btn-top z-10 w-10 h-10 flex items-center justify-center text-white/80 hover:text-white transition-all duration-200 rounded-full backdrop-blur-sm border hover:scale-105"
             style={{
-              top: 'calc(env(safe-area-inset-top, 0px) + 1rem)',
               backgroundColor: 'rgba(255, 255, 255, 0.1)',
               borderColor: 'rgba(255, 255, 255, 0.2)'
             }}

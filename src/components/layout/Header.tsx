@@ -57,6 +57,7 @@ const Header: React.FC<HeaderProps> = () => {
 
   // Explizit den Header auf dem WelcomeScreen, Profil und öffentlichen Views ausblenden
   if (router.pathname === '/' ||
+      router.pathname === '/start' ||
       router.pathname === '/join' ||
       router.pathname.startsWith('/view/') ||  // Alle /view/* Seiten (group, session, tournament, game)
       (router.pathname.startsWith('/profile') && router.pathname !== '/profile/edit' && router.pathname !== '/profile/groups')) {
