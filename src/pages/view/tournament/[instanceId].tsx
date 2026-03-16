@@ -1185,7 +1185,7 @@ const TournamentViewPage: React.FC = () => {
 
           <div className="flex-grow p-0 md:p-4 overflow-y-auto min-h-[60vh]">
             <TabsContent value="ranking" forceMount className={activeTab !== 'ranking' ? 'hidden' : ''}>
-              {(isLoadingDetails || isLoadingGames) ? (
+              {(isLoadingDetails || isLoadingGames || gamesStatus === 'idle' || participantsStatus === 'idle') ? (
                 <div className="space-y-0">
                   <div className="flex items-center px-4 py-3 border-b-2 border-gray-500/50">
                     <Skeleton className="h-5 w-5 mr-3 rounded" />
