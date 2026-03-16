@@ -6,9 +6,11 @@ import {Button} from "@/components/ui/button";
 import {Alert, AlertDescription} from "@/components/ui/alert";
 import Image from "next/image";
 import MainLayout from "@/components/layout/MainLayout";
-import { FaShareAlt, FaInfo, FaUserCog, FaUserFriends, FaCheckCircle, FaTimesCircle, FaArchive, FaAward, FaCamera, FaArrowLeft, FaUpload } from 'react-icons/fa';
-import { FaUser, FaUserShield } from 'react-icons/fa6';
+import { FaShareAlt, FaInfo, FaCheckCircle, FaTimesCircle, FaArchive, FaAward, FaCamera, FaArrowLeft, FaUpload } from 'react-icons/fa';
+import { FaUser, FaUserShield, FaUserGroup } from 'react-icons/fa6';
 import { ImStatsDots } from 'react-icons/im';
+import { IoMdSettings } from 'react-icons/io';
+import { HiUserGroup } from 'react-icons/hi';
 import ImageCropModal from "@/components/ui/ImageCropModal";
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import Link from 'next/link';
@@ -2109,7 +2111,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               }}
               title="Gruppen"
             >
-              <FaUserFriends size={layout.buttonIconSize} className="mr-1.5" /> Gruppen
+              <HiUserGroup size={layout.buttonIconSize} className="mr-1.5" /> Gruppen
             </Button>
             <Button
               variant="ghost" 
@@ -2151,7 +2153,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               }}
               title="Einstellungen"
             >
-              <FaUserCog size={layout.buttonIconSize} className="mr-1.5" /> Einstellungen
+              <IoMdSettings size={layout.buttonIconSize} className="mr-1.5" /> Einstellungen
             </Button>
           </div>
         )}
@@ -2262,7 +2264,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       backgroundColor: activeStatsSubTab === 'partner' ? getTabActiveColor(profileTheme || 'blue') : 'transparent'
                     }}
                   >
-                    <FaUserFriends size={16} className="mr-1.5" />
+                    <FaUserGroup size={16} className="mr-1.5" />
                     Partner
                     <div className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-[1px] bg-gray-600/30"></div>
                   </TabsTrigger>

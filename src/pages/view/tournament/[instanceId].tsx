@@ -22,13 +22,12 @@ import { useUIStore } from '@/store/uiStore';
 import { useJassStore } from '@/store/jassStore';
 import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
-import {
-  ArrowLeft, Loader2, AlertTriangle, Award, Settings as SettingsIcon,
-  Users as UsersIcon, ListChecks as ListChecksIcon, BarChart2,
-  UserPlus as UserPlusIcon, PlayCircle, Archive as ArchiveIcon,
-  Camera, Upload, X
-} from 'lucide-react';
-import { FaShareAlt } from 'react-icons/fa';
+import { ArrowLeft, Loader2, AlertTriangle, ListChecks as ListChecksIcon, BarChart2, PlayCircle, Camera, Upload, X } from 'lucide-react';
+import { FaShareAlt, FaUserPlus } from 'react-icons/fa';
+import { FaBoxArchive } from 'react-icons/fa6';
+import { IoMdSettings } from 'react-icons/io';
+import { HiUserGroup } from 'react-icons/hi';
+import { PiRankingBold } from 'react-icons/pi';
 import { format } from 'date-fns';
 import { Timestamp, getFirestore, collection, query, where, orderBy, limit, onSnapshot, Unsubscribe, doc, getDoc } from 'firebase/firestore';
 import { firebaseApp } from '@/services/firebaseInit';
@@ -1154,7 +1153,7 @@ const TournamentViewPage: React.FC = () => {
                 className="hover:bg-gray-700/30 text-gray-300 hover:text-white"
                 title="Teilnehmer einladen"
               >
-                <UserPlusIcon className="h-4 w-4 mr-1.5" /> Einladen
+                <FaUserPlus className="h-4 w-4 mr-1.5" /> Einladen
               </Button>
               <Button 
                 variant="ghost" 
@@ -1163,7 +1162,7 @@ const TournamentViewPage: React.FC = () => {
                 className="hover:bg-gray-700/30 text-gray-300 hover:text-white"
                 title="Einstellungen"
               >
-                <SettingsIcon className="h-4 w-4 mr-1.5" /> Einstellungen
+                <IoMdSettings className="h-4 w-4 mr-1.5" /> Einstellungen
               </Button>
             </>
           )}
@@ -1203,7 +1202,7 @@ const TournamentViewPage: React.FC = () => {
                 backgroundColor: activeTab === 'ranking' ? getTabActiveColor(tournamentTheme) : 'transparent'
               }}
             >
-              <Award size={18} className="mr-2" /> Rangliste
+              <PiRankingBold size={18} className="mr-2" /> Rangliste
               <div className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-gray-600/30"></div>
             </TabsTrigger>
             <TabsTrigger 
@@ -1213,7 +1212,7 @@ const TournamentViewPage: React.FC = () => {
                 backgroundColor: activeTab === 'archive' ? getTabActiveColor(tournamentTheme) : 'transparent'
               }}
             >
-              <ArchiveIcon size={18} className="mr-2" /> Passen
+              <FaBoxArchive size={18} className="mr-2" /> Passen
               <div className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-gray-600/30"></div>
             </TabsTrigger>
             <TabsTrigger
@@ -1223,7 +1222,7 @@ const TournamentViewPage: React.FC = () => {
                 backgroundColor: activeTab === 'participants' ? getTabActiveColor(tournamentTheme) : 'transparent'
               }}
             >
-              <UsersIcon size={18} className="mr-2" /> Teilnehmer
+              <HiUserGroup size={18} className="mr-2" /> Teilnehmer
             </TabsTrigger>
           </TabsList>
 
