@@ -933,48 +933,6 @@ const TournamentViewPage: React.FC = () => {
     }
   };
 
-  if (isLoading && !tournament) {
-    return (
-      <MainLayout>
-        <div className="flex flex-col items-center justify-start text-white pt-8 pb-20 px-4 min-h-[100svh]">
-          {/* Logo */}
-          <div className="relative mb-4 mt-6 flex justify-center">
-            <div className="relative w-32 h-32 rounded-full border-4 border-purple-500 bg-gray-800 overflow-hidden">
-              <Skeleton className="w-full h-full rounded-full" />
-            </div>
-          </div>
-          {/* Name + Beschreibung */}
-          <div className="w-full text-center mb-6 px-4">
-            <Skeleton className="h-8 w-48 mx-auto mb-3" />
-            <Skeleton className="h-4 w-64 mx-auto" />
-          </div>
-          {/* Tabs-Leiste */}
-          <div className="w-full max-w-xl flex gap-2 mb-4">
-            <Skeleton className="h-10 flex-1 rounded-md" />
-            <Skeleton className="h-10 flex-1 rounded-md" />
-            <Skeleton className="h-10 flex-1 rounded-md" />
-          </div>
-          {/* Rangliste-Header */}
-          <div className="w-full max-w-xl mb-3 flex items-center gap-2">
-            <Skeleton className="h-5 w-5 rounded" />
-            <Skeleton className="h-5 w-48" />
-          </div>
-          {/* Ranking-Zeilen */}
-          <div className="w-full max-w-xl space-y-3">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="flex items-center gap-3 py-2">
-                <Skeleton className="h-4 w-5 rounded" />
-                <Skeleton className="w-9 h-9 rounded-full flex-shrink-0" />
-                <Skeleton className="h-4 flex-1" />
-                <Skeleton className="h-4 w-12" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </MainLayout>
-    );
-  }
-
   if (tournamentError && !isLoadingDetails) {
     return (
       <MainLayout>
@@ -1009,39 +967,19 @@ const TournamentViewPage: React.FC = () => {
     );
   }
   
-  if (!tournament) {
-      return (
-          <MainLayout>
-              <div className="flex min-h-screen items-center justify-center">Keine Turnierdaten verfügbar.</div>
-          </MainLayout>
-      );
-  }
-
-  // Zeige GlobalLoader beim Laden der Mitglieder für eine neue Passe
-  if (isLoadingMembersForPasse) {
-    return (
-      <MainLayout>
-        <GlobalLoader message="Lade Spieler für neue Passe..." />
-      </MainLayout>
-    );
-  }
-
-  return ( 
+  return (
     <MainLayout>
       <div id="tournament-view-container" className={`flex flex-col items-center justify-start text-white ${layout.containerPadding} relative pt-14 profile-public-top pb-20 lg:w-full lg:px-0`}>
         
         {/* 🎨 RESPONSIVE CONTAINER WRAPPER */}
         <div className={`w-full ${layout.containerMaxWidth} mx-auto lg:px-12 lg:py-8`}>
         
-        {tournament && (
-          <div className="relative mb-4 mt-6 flex justify-center">
-            <div 
+        <div className="relative mb-4 mt-6 flex justify-center">
+            <div
               className={`relative ${layout.avatarSize} rounded-full overflow-hidden transition-all duration-300 flex items-center justify-center bg-gray-800 shadow-lg hover:shadow-xl hover:scale-105 border-4`}
               style={{
-                borderColor: selectedLogoFile && logoPreviewUrl ? '#a855f7' : '#a855f7',
-                boxShadow: selectedLogoFile && logoPreviewUrl 
-                  ? '0 0 25px rgba(168, 85, 247, 0.3)'
-                  : '0 0 20px rgba(168, 85, 247, 0.2), 0 4px 20px rgba(0,0,0,0.3)'
+                borderColor: '#a855f7',
+                boxShadow: '0 0 20px rgba(168, 85, 247, 0.2), 0 4px 20px rgba(0,0,0,0.3)'
               }}
             >
               {logoPreviewUrl ? (
@@ -1066,7 +1004,7 @@ const TournamentViewPage: React.FC = () => {
                 />
               ) : (
                 <span className="text-4xl font-bold text-gray-500">
-                  {(tournament.name ?? '?').charAt(0).toUpperCase()}
+                  {(tournament?.name ?? '?').charAt(0).toUpperCase()}
                 </span>
               )}
               {/* 🔒 Camera Button nur für Admins UND nicht in Public View */}
@@ -1103,8 +1041,7 @@ const TournamentViewPage: React.FC = () => {
               </div>
             )}
           </div>
-        )}
-        
+
         <div className={`w-full text-center mb-6 px-4`}>
           <h1 
             className={`${layout.titleSize} font-bold font-headline mb-1 text-white break-words transition-colors duration-300`}
