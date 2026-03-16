@@ -1883,9 +1883,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   return (
     <>
-      {/* Safe-Area-Overlay für PWA (kein Header auf Profilseiten) */}
-      {!layout.isDesktop && <PublicViewTopBar />}
-      
       <MainLayout>
       <div className={`flex flex-col items-center justify-start text-white ${layout.containerPadding} relative pt-14 profile-public-top pb-20 lg:w-full lg:px-0`}>
         {/* Responsive Container Wrapper */}
