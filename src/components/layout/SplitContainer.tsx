@@ -228,7 +228,7 @@ const SplitContainer = forwardRef<HTMLDivElement, SplitContainerProps>(({
         style={{opacity: mainOpacity}}
       >
         <span
-          className="text-[9rem] opacity-40 select-none"
+          className="text-[9rem] opacity-45 font-medium select-none"
           style={{color: 'var(--color-cream)', transform: position === "top" ? "rotate(180deg)" : "none"}}
         >
           {score}

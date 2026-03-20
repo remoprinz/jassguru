@@ -400,12 +400,51 @@ const StartPage = () => {
       
       const checkForResumableGames = async () => {
         if (!user?.uid || !user?.playerId) {
-          // console.log("[StartPage] User UID or PlayerID is missing, skipping resumable game check.");
           return;
         }
-        
+
         try {
           const db = getFirestore(firebaseApp);
+
+          // ====================================================================
+          // PRIORITÄT 0: Session-first Rejoin via User-Profil (überlebt Reinstall)
+          // Geschrieben von subscribeToSession, gelöscht von resetJass.
+          // ====================================================================
+          try {
+            const { USERS_COLLECTION } = await import('@/constants/firestore');
+            const userDocSnap = await getDoc(doc(db, USERS_COLLECTION, user.uid));
+            const currentActiveSessionId = userDocSnap.data()?.currentActiveSessionId as string | null;
+
+            if (currentActiveSessionId) {
+              // Session laden und currentActiveGameId holen
+              const sessionSnap = await getDoc(doc(db, 'sessions', currentActiveSessionId));
+              if (sessionSnap.exists()) {
+                const activeGameId = sessionSnap.data()?.currentActiveGameId as string | null;
+                if (activeGameId) {
+                  // Verifizieren dass das Spiel noch live ist und dem User gehört
+                  const gameSnap = await getDoc(doc(db, 'activeGames', activeGameId));
+                  if (
+                    gameSnap.exists() &&
+                    gameSnap.data()?.status !== 'aborted' &&
+                    gameSnap.data()?.status !== 'completed' &&
+                    (gameSnap.data()?.participantUids?.includes(user.uid) ||
+                      gameSnap.data()?.participantUids?.includes(user.playerId))
+                  ) {
+                    setResumableGameId(activeGameId);
+                    try { sessionStorage.setItem(`resumableGameId_${user.uid}`, activeGameId); } catch (_) {}
+                    return; // Fertig — korrekte Session gefunden
+                  }
+                }
+              }
+              // Session ungültig — Profil bereinigen (fire-and-forget)
+              const { setDoc: sdCleanup } = await import('firebase/firestore');
+              const { USERS_COLLECTION: UC } = await import('@/constants/firestore');
+              sdCleanup(doc(db, UC, user.uid), { currentActiveSessionId: null, currentActiveGroupId: null }, { merge: true }).catch(() => {});
+            }
+          } catch (_sessionFirstError) {
+            // Session-first fehlgeschlagen — Fall through zu Content-Score-Detection
+          }
+
           const gamesRef = collection(db, "activeGames");
       
           // Query 1: Suche nach Firebase Auth UID (bestehende Logik)
@@ -1031,22 +1070,50 @@ const StartPage = () => {
           isGameCompleted: false,
       };
 
+      // FIX: Vollständige games-Array Rekonstruktion aus completedGames + aktuellem Spiel.
+      // Ohne dies erscheinen abgeschlossene Spiele nach einem Crash/Neustart als "weg".
+      const completedGameEntries: GameEntry[] = completedGames.map((cg) => ({
+        id: cg.gameNumber,
+        activeGameId: cg.activeGameId,
+        timestamp: (cg as any).timestampCompleted?.seconds
+          ? (cg as any).timestampCompleted.seconds * 1000
+          : (cg as any).timestampCompleted?.toMillis?.() ?? createdAtMillis,
+        sessionId: sessionId,
+        teams: {
+          top: { ...(createInitialTeamStand()), striche: cg.finalStriche?.top ?? { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }, total: cg.finalScores?.top ?? 0, weisPoints: cg.weisPoints?.top ?? 0 },
+          bottom: { ...(createInitialTeamStand()), striche: cg.finalStriche?.bottom ?? { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }, total: cg.finalScores?.bottom ?? 0, weisPoints: cg.weisPoints?.bottom ?? 0 },
+        },
+        currentRound: (cg.roundHistory?.length ?? 0) + 1,
+        startingPlayer: cg.startingPlayer ?? 1,
+        initialStartingPlayer: cg.initialStartingPlayer ?? 1,
+        currentPlayer: cg.startingPlayer ?? 1,
+        roundHistory: cg.roundHistory ?? [],
+        currentHistoryIndex: (cg.roundHistory?.length ?? 1) - 1,
+        historyState: { lastNavigationTimestamp: 0 },
+        isGameStarted: true,
+        isRoundCompleted: true,
+        isGameCompleted: true,
+      }));
+
+      const allGameEntries: GameEntry[] = [...completedGameEntries, reconstructedGameEntry];
+      const allGameIds = allGameEntries.map((g) => (typeof g.id === 'number' ? g.id : parseInt(String(g.id), 10)));
+
       useJassStore.setState({
           isJassStarted: true,
           currentGameId: activeGameData.currentGameNumber,
-          games: [reconstructedGameEntry],
+          games: allGameEntries,
           currentSession: {
               id: sessionId,
               gruppeId: activeGameData.groupId ?? "",
               startedAt: createdAtMillis,
               playerNames: activeGameData.playerNames,
-              games: [activeGameData.currentGameNumber],
+              games: allGameIds,
               currentScoreLimit: useGroupStore.getState().currentGroup?.scoreSettings?.values.sieg ?? DEFAULT_SCORE_SETTINGS.values.sieg,
-              completedGamesCount: activeGameData.currentGameNumber > 0 ? activeGameData.currentGameNumber - 1 : 0,
+              completedGamesCount: completedGameEntries.length,
               metadata: {},
               participantUids: activeGameData.participantUids,
-              statistics: { 
-                gamesPlayed: 1,
+              statistics: {
+                gamesPlayed: allGameEntries.length,
                 scores: { top: 0, bottom: 0 },
                 weisCount: 0,
                 stricheCount: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }

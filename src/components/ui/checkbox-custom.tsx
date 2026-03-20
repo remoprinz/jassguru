@@ -24,8 +24,8 @@ export const CustomCheckbox: React.FC<CustomCheckboxProps> = ({
       <div 
         className="mr-2 w-5 h-5 border-2 rounded flex items-center justify-center transition-all duration-200 cursor-pointer"
         style={{
-          backgroundColor: checked ? '#EAB308' : '#374151',
-          borderColor: checked ? '#EAB308' : '#6B7280',
+          backgroundColor: checked ? '#EAB308' : '#44403c',
+          borderColor: checked ? '#EAB308' : '#78716c',
           color: checked ? 'white' : 'transparent'
         }}
         onClick={handleClick}

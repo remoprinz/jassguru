@@ -990,9 +990,9 @@ export interface EffectConfig {
 
 export const CHARGE_THRESHOLDS: Record<ChargeLevel, number> = {
   none: 0,
-  low: 300,
-  medium: 900,
-  high: 1800,
+  low: 150,
+  medium: 500,
+  high: 1000,
   super: 3000,
   extreme: 5000,
 } as const;

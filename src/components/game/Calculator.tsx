@@ -117,7 +117,7 @@ const NumberButton: React.FC<{
     <button
       key={num}
       {...handlers}
-      className={`bg-gray-600 text-white p-4 rounded select-none text-2xl ${buttonClasses}`}
+      className={`bg-stone-700/80 text-white p-4 rounded-xl select-none text-2xl font-bold ${buttonClasses}`}
     >
       {num}
     </button>
@@ -742,7 +742,7 @@ const Calculator: React.FC<CalculatorProps> = ({
 
         {/* Calculator Container */}
         <div 
-          className="relative bg-gray-800 p-6 rounded-lg transition-all duration-700 flex flex-col items-center w-full"
+          className="relative bg-gray-800 p-6 rounded-xl shadow-2xl border border-white/10 transition-all duration-700 flex flex-col items-center w-full"
           onClick={(e) => e.stopPropagation()}
         >
           <button
@@ -754,7 +754,7 @@ const Calculator: React.FC<CalculatorProps> = ({
           >
             <FaTimes size={24} />
           </button>
-          <h2 className="text-white text-xl mb-4 text-center select-none">
+          <h2 className="text-white text-xl font-semibold text-center select-none w-full border-b border-white/10 pb-4 mb-4">
             Runde schreiben
           </h2>
           <div className="flex flex-col w-full space-y-4">
@@ -762,12 +762,12 @@ const Calculator: React.FC<CalculatorProps> = ({
               type="text"
               value={value}
               readOnly
-              className="w-full bg-gray-700 text-white text-6xl p-4 rounded select-none text-center"
+              className="w-full bg-black/60 text-white text-6xl p-4 rounded-xl select-none text-center font-bold"
             />
             <div className="flex justify-between items-stretch w-full space-x-2 h-10">
-              <div className="w-1/3 bg-gray-700 text-white p-1 rounded select-none flex items-center justify-end relative">
-                <div className="text-xs absolute top-0 left-1">Gegner:</div>
-                <div className="text-xl pr-1">{opponentValue}</div>
+              <div className="w-1/3 bg-black/40 text-white p-1 rounded-xl select-none flex items-center justify-end relative">
+                <div className="text-xs uppercase tracking-wider absolute top-0 left-1 text-stone-400">Gegner:</div>
+                <div className="text-xl pr-1 font-semibold">{opponentValue}</div>
               </div>
               <button
                 onMouseDown={() => {
@@ -791,20 +791,20 @@ const Calculator: React.FC<CalculatorProps> = ({
                   stopMatschCharge(false);
                   touchStartedRef.current = false;
                 }}
-                className={`w-1/3 p-1 rounded select-none transition-all duration-100 text-lg flex items-center justify-center matsch-button ${
+                className={`w-1/3 p-1 rounded-xl select-none transition-all duration-100 text-lg font-semibold flex items-center justify-center matsch-button ${
                   isMatschActive ?
                     "bg-orange-500 text-white" :
                     pressedMatsch ?
-                      "bg-gray-600 text-white scale-95 opacity-80" :
-                      "bg-gray-700 text-white hover:bg-orange-500 scale-100 opacity-100"
+                      "bg-black/60 text-white scale-95 opacity-80" :
+                      "bg-black/40 text-white hover:bg-orange-500 scale-100 opacity-100"
                 }`}
                 disabled={isMatschActive}
               >
                 Matsch
               </button>
-              <div className="w-1/3 bg-gray-700 text-white p-1 rounded select-none flex items-center justify-end relative">
-                <div className="text-xs absolute top-0 left-1">Total:</div>
-                <div className="text-xl pr-1">{totalValue}</div>
+              <div className="w-1/3 bg-black/40 text-white p-1 rounded-xl select-none flex items-center justify-end relative">
+                <div className="text-xs uppercase tracking-wider absolute top-0 left-1 text-stone-400">Total:</div>
+                <div className="text-xl pr-1 font-semibold">{totalValue}</div>
               </div>
             </div>
           </div>
@@ -816,7 +816,7 @@ const Calculator: React.FC<CalculatorProps> = ({
             {numberOrder.map((num) => renderNumberButton(num))}
             <button
               {...clearHandlers}
-              className={`bg-red-600 text-white p-4 rounded select-none text-2xl ${clearClasses}`}
+              className={`bg-red-600 text-white p-4 rounded-xl select-none text-2xl font-semibold ${clearClasses}`}
             >
               C
             </button>
@@ -824,7 +824,7 @@ const Calculator: React.FC<CalculatorProps> = ({
             <button
               {...okHandlers}
               disabled={!hasValidScore()}
-              className={`bg-green-600 text-white p-4 rounded select-none text-2xl ${okClasses}
+              className={`bg-green-600 text-white p-4 rounded-xl select-none text-2xl font-semibold ${okClasses}
                 ${!hasValidScore() ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               OK

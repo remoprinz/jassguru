@@ -82,6 +82,7 @@ export interface JassActions {
     }
   }) => Promise<void>;
   startNextGame: (initialStartingPlayer: PlayerNumber, newActiveGameId?: string) => void;
+  startGuestNextGame: (initialStartingPlayer: PlayerNumber) => void;
   finalizeGame: () => Promise<void>;
   resetJass: () => void;
   undoNewGame: () => void;
@@ -583,6 +584,31 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
     // console.log(`[JassStore.startNextGame] Started game ${nextGameId}. New Active Game ID: ${newActiveGameId || 'none'}`);
   },
 
+  startGuestNextGame: (initialStartingPlayer: PlayerNumber) => {
+    const state = get();
+    const gameStore = useGameStore.getState();
+    const timerStore = useTimerStore.getState();
+
+    const nextGameId = state.currentGameId + 1;
+    const newGameEntry = createGameEntry(nextGameId, initialStartingPlayer, 'guest');
+
+    set({
+      currentGameId: nextGameId,
+      games: [...state.games, newGameEntry],
+      currentRound: 1,
+      isJassCompleted: false,
+      activeGameId: null,
+    });
+
+    timerStore.reactivateGameTimer(nextGameId);
+
+    gameStore.resetGame(initialStartingPlayer, undefined, {
+      farbeSettings: gameStore.farbeSettings,
+      scoreSettings: gameStore.scoreSettings,
+      strokeSettings: gameStore.strokeSettings,
+    });
+  },
+
   finalizeGame: async () => {
     const state = get();
     const gameStore = useGameStore.getState();
@@ -786,8 +812,24 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
   },
 
   resetJass: () => {
-    get().sessionUnsubscribe?.(); 
-    set({ ...initialJassState }); 
+    get().sessionUnsubscribe?.();
+    set({ ...initialJassState });
+    // FIX: currentActiveSessionId vom User-Profil löschen wenn Session endet
+    (async () => {
+      try {
+        const { useAuthStore } = await import('./authStore');
+        const uid = useAuthStore.getState().user?.uid;
+        if (uid) {
+          const db2 = getFirestore(firebaseApp);
+          const { USERS_COLLECTION } = await import('@/constants/firestore');
+          await setDoc(
+            doc(db2, USERS_COLLECTION, uid),
+            { currentActiveSessionId: null, currentActiveGroupId: null },
+            { merge: true }
+          );
+        }
+      } catch (e) { /* nicht fatal */ }
+    })();
   },
 
   subscribeToSession: async (sessionId: string, groupId?: string | null) => { // MODIFIZIERT
@@ -865,6 +907,24 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
 
     // Lade abgeschlossene Spiele, wenn eine Session abonniert wird.
     get().syncCompletedGamesForSession(sessionId);
+
+    // FIX: currentActiveSessionId auf User-Profil persistieren (überlebt Reinstall).
+    // Wird in checkForResumableGames als primäre Quelle verwendet.
+    try {
+      const { useAuthStore } = await import('./authStore');
+      const uid = useAuthStore.getState().user?.uid;
+      if (uid && sessionId && !sessionId.startsWith('tournament_')) {
+        const db2 = getFirestore(firebaseApp);
+        const { USERS_COLLECTION } = await import('@/constants/firestore');
+        await setDoc(
+          doc(db2, USERS_COLLECTION, uid),
+          { currentActiveSessionId: sessionId, currentActiveGroupId: groupId ?? null },
+          { merge: true }
+        );
+      }
+    } catch (e) {
+      // Nicht fatal — Fallback auf Content-Score-Detection greift
+    }
   },
 
   syncCompletedGamesForSession: (sessionId: string) => {

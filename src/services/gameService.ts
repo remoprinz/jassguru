@@ -1093,6 +1093,51 @@ export const createNewActiveGame = async (
   }
 };
 
+/**
+ * Erstellt ein neues activeGame-Dokument UND aktualisiert die Session-currentActiveGameId
+ * in einem einzigen atomaren writeBatch. Verhindert inkonsistente Zustände bei Crashes.
+ */
+export const createGameAndUpdateSession = async (
+  initialState: Omit<ActiveGame, 'activeGameId' | 'createdAt' | 'lastUpdated' | 'status' | 'gameStartTime' | 'jassStartTime'> & { participantUids: string[], groupId: string, sessionId: string },
+  sessionId: string
+): Promise<string> => {
+  const activeGamesRef = collection(db, 'activeGames');
+  const newGameDocRef = doc(activeGamesRef);
+  const newGameId = newGameDocRef.id;
+  const sessionDocRef = doc(db, 'sessions', sessionId);
+
+  const jassStartTime = useTimerStore.getState().jassStartTime;
+  const gameData = {
+    ...initialState,
+    activeGameId: newGameId,
+    status: 'live' as const,
+    createdAt: serverTimestamp(),
+    lastUpdated: serverTimestamp(),
+    jassStartTime: jassStartTime ? Timestamp.fromMillis(jassStartTime) : serverTimestamp(),
+    gameStartTime: jassStartTime ? Timestamp.fromMillis(jassStartTime) : serverTimestamp(),
+    scores: initialState.scores ?? { top: 0, bottom: 0 },
+    striche: initialState.striche ?? { top: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 }, bottom: { berg: 0, sieg: 0, matsch: 0, schneider: 0, kontermatsch: 0 } },
+    weisPoints: initialState.weisPoints ?? { top: 0, bottom: 0 },
+    currentRound: initialState.currentRound ?? 1,
+    currentRoundWeis: initialState.currentRoundWeis ?? [],
+  };
+
+  try {
+    const batch = writeBatch(db);
+    batch.set(newGameDocRef, sanitizeDataForFirestore(gameData));
+    batch.update(sessionDocRef, sanitizeDataForFirestore({
+      currentActiveGameId: newGameId,
+      lastUpdated: serverTimestamp(),
+    }));
+    await batch.commit();
+    return newGameId;
+  } catch (error) {
+    console.error("[GameService] Error in createGameAndUpdateSession: ", error);
+    useUIStore.getState().showNotification({ type: "error", message: "Fehler beim Starten des nächsten Spiels." });
+    throw error;
+  }
+};
+
 // *** WIEDER EINGEFÜGT: Aktualisiert die currentActiveGameId im Session-Dokument ***
 export const updateSessionActiveGameId = async (
   sessionId: string,

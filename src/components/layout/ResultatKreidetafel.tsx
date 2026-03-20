@@ -1,8 +1,8 @@
 import React, { useCallback, useMemo, useRef, useEffect, useState } from 'react';
 import { useUIStore, UIStore } from '@/store/uiStore';
 import { useGameStore } from '@/store/gameStore';
-import { FiX, FiRotateCcw, FiSkipBack, FiLoader } from 'react-icons/fi';
-import { FaShareAlt } from 'react-icons/fa';
+import { FiX, FiSkipBack, FiLoader } from 'react-icons/fi';
+import { FaShareAlt, FaUndo } from 'react-icons/fa';
 import { format } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 
@@ -65,12 +65,13 @@ import { getFirestore, doc, updateDoc, increment, serverTimestamp, Timestamp, co
 
 // --- Firebase Init & Services ---
 import { firebaseApp } from "@/services/firebaseInit";
-import { 
-  updateGameStatus, 
-  saveCompletedGameToFirestore, 
+import {
+  updateGameStatus,
+  saveCompletedGameToFirestore,
   createNewActiveGame, // NEU
-  updateSessionActiveGameId // WIEDER HINZUGEFÜGT
-} from "@/services/gameService"; 
+  updateSessionActiveGameId, // WIEDER HINZUGEFÜGT
+  createGameAndUpdateSession, // ATOMIC: ersetzt createNewActiveGame + updateSessionActiveGameId
+} from "@/services/gameService";
 import { completeAndRecordTournamentPasse } from "@/services/tournamentService"; // NEU: Importieren 
 // NEU: Import für Firebase Functions
 import { getFunctions, httpsCallable } from "firebase/functions"; // HttpsError entfernt
@@ -335,7 +336,15 @@ const ResultatKreidetafel = ({
   const { user, status: authStatus, isAuthenticated } = useAuthStore();
   const router = useRouter();
 
+  // Unmount-Guard: verhindert State-Updates nach Component-Unmount
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
+
   // --- State für Ladezustände und UI-Logik (hier einfügen) ---
+  const [isCreatingNextGame, setIsCreatingNextGame] = useState(false); // FIX: Doppelklick-Guard für "Neues Spiel"
   const [isScreenshotting, setIsScreenshotting] = useState(false); // Wiederherstellen/Sicherstellen
   const [showBackButton, setShowBackButton] = useState(false); // Wiederherstellen/Sicherstellen
   const [showNextButton, setShowNextButton] = useState(false); // Wiederherstellen/Sicherstellen
@@ -865,7 +874,7 @@ const ResultatKreidetafel = ({
 
       // Screenshot erstellen
       const canvas = await html2canvas(kreidetafelContent, {
-        background: '#1F2937', // Dunkelgrau Hintergrund
+        background: '#292524', // Warmgrau Hintergrund (stone-800)
         useCORS: true,
         logging: false, // Logging ggf. deaktivieren
         width: kreidetafelContent.offsetWidth,
@@ -1037,6 +1046,10 @@ const ResultatKreidetafel = ({
 
     // Logik zum Finalisieren und Resetten (wird von beiden Buttons verwendet)
     const finalizeAndResetLocal = async () => {
+      // Session-ID vor dem Reset sichern (wird für Navigation benötigt)
+      const sessionIdToView = jassStore.currentSession?.id;
+      useUIStore.getState().setLoading(true);
+
       // --- KORRIGIERTE LOGIK: Nur für echte Online-Sessions Firebase aufrufen ---
       const isRealOnlineSessionNow = checkIsRealOnlineSession();
       if (isRealOnlineSessionNow) {
@@ -1110,9 +1123,15 @@ const ResultatKreidetafel = ({
       uiStore.closeJassFinishNotification();
       closeResultatKreidetafel();
       
-      // Weiterleitung für alle (Gäste zur Registrierung, eingeloggte Benutzer zur Startseite)
+      // Navigation: Gäste zur Registrierung, eingeloggte Benutzer zur Session-Ansicht
       const authStore = useAuthStore.getState();
-      await debouncedRouterPush(router, authStore.isAuthenticated() ? '/start' : '/auth/register?origin=offline', undefined, true);
+      if (!authStore.isAuthenticated()) {
+        await debouncedRouterPush(router, '/auth/register?origin=offline', undefined, true);
+      } else if (sessionIdToView) {
+        await debouncedRouterPush(router, `/view/session/${sessionIdToView}?fromJassCompletion=true`, undefined, true);
+      } else {
+        await debouncedRouterPush(router, '/start', undefined, true);
+      }
     };
 
     // NEU: Direkte Finalisierung ohne Spruch-Dialog
@@ -1155,6 +1174,10 @@ const ResultatKreidetafel = ({
     }
 
     const startNewGameSequence = async () => {
+      // FIX: Doppelklick / Re-Entry verhindern
+      if (isCreatingNextGame) return;
+      setIsCreatingNextGame(true);
+
       // Hole aktive Game ID *bevor* weitere Aktionen
       const currentActiveGameId = useGameStore.getState().activeGameId;
       const existingSession = useJassStore.getState().currentSession;
@@ -1283,6 +1306,22 @@ const ResultatKreidetafel = ({
             bottom: currentStriche.bottom.sieg
           }
         });
+      }
+
+      // GAST-MODUS: Lokaler Pfad ohne Firebase
+      if (useAuthStore.getState().isGuest) {
+        useJassStore.getState().startGuestNextGame(initialStartingPlayerForNextGame);
+        useGameStore.setState(state => ({
+          ...state,
+          isGameStarted: true,
+          currentRound: 1,
+          isGameCompleted: false,
+          isRoundCompleted: false
+        }));
+        // Bereits auf /jass — kein Router-Push nötig.
+        if (isMountedRef.current) setIsCreatingNextGame(false);
+        useUIStore.getState().setLoading(false);
+        return;
       }
 
       // --- NEUE VALIDIERUNG: Prüfe Session-Vollständigkeit ---
@@ -1529,11 +1568,8 @@ const ResultatKreidetafel = ({
             initialStartingPlayer: initialStartingPlayerForNextGame,
           };
 
-          // 2. Neues activeGames Dokument erstellen
-        newActiveGameId = await createNewActiveGame(initialStateForNewGame as any);
-
-        // 3. Session-Dokument mit der neuen activeGameId aktualisieren
-          await updateSessionActiveGameId(sessionToUse.id, newActiveGameId);
+          // 2+3. ATOMIC: Neues Spiel erstellen UND Session updaten in einem writeBatch
+          newActiveGameId = await createGameAndUpdateSession(initialStateForNewGame as any, sessionToUse.id);
 
         } catch (error) {
           console.error(`[ResultatKreidetafel] Error creating new game or updating session:`, error);
@@ -1541,16 +1577,21 @@ const ResultatKreidetafel = ({
             type: "error",
             message: "Fehler beim Starten des nächsten Online-Spiels. Lokaler Ablauf gestoppt.",
           });
-        return;
+          if (isMountedRef.current) setIsCreatingNextGame(false);
+          return;
         }
+
+      // FIX: Unmount-Guard — wenn Component weg ist, hat Firestore alles korrekt gespeichert.
+      // Beim nächsten App-Start wird der Zustand aus Firestore rekonstruiert.
+      if (!isMountedRef.current) return;
 
       // Lokale Store-Updates für "Neues Spiel" (angepasst)
       useJassStore.getState().startNextGame(initialStartingPlayerForNextGame, newActiveGameId);
-      
+
       // ✅ KORRIGIERT: Verwende validierte Settings für Reset
       const resetGameAction = useGameStore.getState().resetGame;
       resetGameAction(initialStartingPlayerForNextGame, newActiveGameId ?? undefined, sessionSettings);
-      
+
       // ✅ KRITISCH: Explizites Setzen für neues Spiel
       useGameStore.setState(state => ({
         ...state,
@@ -1560,14 +1601,11 @@ const ResultatKreidetafel = ({
         isRoundCompleted: false
       }));
 
-      // Navigation zu /jass nach erfolgreichem Setup
-      await debouncedRouterPush(router, '/jass');
-      
-      // ROBUSTER FIX: Loading-State mit kurzer Verzögerung zurücksetzen 
-      // um sicherzustellen, dass die Navigation abgeschlossen ist
-      setTimeout(() => {
-        useUIStore.getState().setLoading(false);
-      }, 500); // 500ms Verzögerung für vollständige Navigation
+      if (isMountedRef.current) setIsCreatingNextGame(false);
+
+      // Bereits auf /jass — kein Router-Push nötig.
+      // Loader explizit beenden (useEffect in JassKreidetafel löst nicht aus wenn isGameStarted sich nicht ändert).
+      useUIStore.getState().setLoading(false);
     };
 
     // Fallunterscheidung: Navigation oder Neues Spiel (unverändert)
@@ -1637,34 +1675,7 @@ const ResultatKreidetafel = ({
       return;
     }
 
-    // NEU: Prüfung, ob Benutzer ein Gast ist
-    const isGuestUser = useAuthStore.getState().isGuest;
-    if (isGuestUser) {
-      // Benachrichtigung für Gäste, dass die Funktion nur für registrierte Benutzer verfügbar ist
-      useUIStore.getState().showNotification({
-        message: "Im Gastmodus ist immer nur ein aktuelles Spiel möglich. Um deine Spielhistorie und Statistiken zu speichern, melde dich bitte an oder registriere dich.",
-        type: 'info',
-        position: swipePosition ?? undefined,
-        isFlipped: swipePosition === 'top',
-        actions: [
-          { 
-            label: 'Zurück', 
-            onClick: closeResultatKreidetafel 
-          },
-          { 
-            label: 'OK', 
-            onClick: () => {
-              closeResultatKreidetafel();
-              // KORREKTUR: Direkt zur Registrierung weiterleiten, nicht zur Startseite
-              debouncedRouterPush(router, '/auth/register?origin=offline', undefined, true);
-            }
-          }
-        ]
-      });
-      return;
-    }
-
-    // Confirmation Notification (nur für eingeloggte Benutzer)
+    // Confirmation Notification (für alle Benutzer inkl. Gast)
     useUIStore.getState().showNotification({
       type: 'success',
       message: 'Möchtest du das nächste Spiel beginnen?',
@@ -2485,7 +2496,7 @@ const ResultatKreidetafel = ({
               ${isFlipped ? 'rotate-180' : 'rotate-0'}`}
             aria-label="Umdrehen"
           >
-            <FiRotateCcw className="w-8 h-8" />
+            <FaUndo className="w-8 h-8" />
           </button>
 
           {/* Share Button oben rechts (ersetzt Close Button) */}
@@ -2754,8 +2765,9 @@ const ResultatKreidetafel = ({
                     >
                       {["Jass", "beenden"].map((line, i) => (<React.Fragment key={i}>{line}{i === 0 && <br />}</React.Fragment>))}
                     </motion.button>
-                    <motion.button 
+                    <motion.button
                       onClick={handleNextGameClick}
+                      disabled={isCreatingNextGame}
                       initial={{scale: 0.9}}
                       animate={{scale: 1}}
                       whileTap={{scale: 0.95}}
@@ -2763,15 +2775,20 @@ const ResultatKreidetafel = ({
                         py-2 px-4 text-white rounded-lg font-medium text-base
                         transition-all duration-150 shadow-lg
                         active:scale-[0.98] active:border-b-2
-                        ${canNavigateForward 
-                          ? 'bg-gray-600 hover:bg-gray-700 border-b-4 border-gray-800' 
-                          : 'bg-green-600 hover:bg-green-700 border-b-4 border-green-800'
+                        ${isCreatingNextGame
+                          ? 'bg-gray-400 cursor-not-allowed opacity-70'
+                          : canNavigateForward
+                            ? 'bg-gray-600 hover:bg-gray-700 border-b-4 border-gray-800'
+                            : 'bg-green-600 hover:bg-green-700 border-b-4 border-green-800'
                         }
                         leading-tight
                         ${nextButton.buttonClasses}
                       `}
                     >
-                      {nextGameButtonText.split('\n').map((line, i) => (<React.Fragment key={i}>{line}{i === 0 && nextGameButtonText.includes('\n') && <br />}</React.Fragment>))}
+                      {isCreatingNextGame
+                        ? 'Lädt...'
+                        : nextGameButtonText.split('\n').map((line, i) => (<React.Fragment key={i}>{line}{i === 0 && nextGameButtonText.includes('\n') && <br />}</React.Fragment>))
+                      }
                     </motion.button>
                   </div>
                   

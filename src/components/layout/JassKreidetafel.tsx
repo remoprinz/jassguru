@@ -201,6 +201,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     return result;
   }, [isJassStarted, isGameStarted]);
 
+  const isLoadingGlobal = useUIStore(state => state.isLoading);
   const isReadOnlyMode = useUIStore(state => state.isReadOnlyMode); // Verhindere Tutorial im Zuschauermodus
 
   useEffect(() => {
@@ -692,7 +693,8 @@ Generiert von:
   }
 
   // Bedingung für das Anzeigen des StartScreens
-  const showStartScreenCondition = isFirstTimeLoad && !isTutorialActive;
+  // isLoadingGlobal: Verhindert StartScreen-Flash wenn GlobalLoader aktiv ist
+  const showStartScreenCondition = isFirstTimeLoad && !isTutorialActive && !isLoadingGlobal;
 
   return (
     <div

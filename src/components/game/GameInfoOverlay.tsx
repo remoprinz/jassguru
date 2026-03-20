@@ -1,6 +1,7 @@
 import React, {useState, useEffect} from "react";
 import {animated, useSpring} from "react-spring";
-import {FiRotateCcw, FiX, FiPlay, FiPause} from "react-icons/fi";
+import {FiX, FiPlay, FiPause} from "react-icons/fi";
+import {FaUndo} from "react-icons/fa";
 import {useGameStore} from "@/store/gameStore";
 import {useJassStore} from "@/store/jassStore";
 import {useGroupStore} from "@/store/groupStore";
@@ -708,7 +709,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
 
   return (
     <div
-      className={`fixed inset-0 flex items-center justify-center z-50 ${isOpen ? "" : "pointer-events-none"}`}
+      className={`fixed inset-0 flex items-center justify-center z-50 ${isOpen ? "bg-black/60" : "pointer-events-none"}`}
       onClick={(e) => {
         if (!canClose) return;
         if (e.target === e.currentTarget) {
@@ -718,7 +719,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
     >
       <animated.div
         style={springProps}
-        className="relative w-11/12 max-w-md bg-gray-800 bg-opacity-95 rounded-xl p-6 shadow-lg select-none"
+        className="relative w-11/12 max-w-md bg-gray-800/95 rounded-xl p-6 shadow-2xl border border-white/10 select-none"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -730,7 +731,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
             ${isCalculatorFlipped ? "rotate-180" : "rotate-0"}`}
           aria-label="Umdrehen"
         >
-          <FiRotateCcw className="w-8 h-8" />
+          <FaUndo className="w-8 h-8" />
         </button>
 
         <div className="flex items-center justify-between mb-6">
@@ -769,33 +770,33 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
         <div className="space-y-4 mb-8">
           <div className="grid grid-cols-4 gap-4 text-white">
             <div className="text-center pl-5">
-              <span className="text-gray-400 text-xs">Spiel</span>
+              <span className="text-gray-400 text-xs uppercase tracking-widest">Spiel</span>
               <div className="text-xl font-bold">{currentGameId}</div>
             </div>
 
             <div className="text-center -ml-10 pl-0">
-              <span className="text-gray-400 text-xs">Runde</span>
+              <span className="text-gray-400 text-xs uppercase tracking-widest">Runde</span>
               <div className="text-xl font-bold">{currentRound}</div>
             </div>
 
             <div className="text-center -ml-10 pl-0">
-              <span className="text-gray-400 text-xs">Spieldauer</span>
+              <span className="text-gray-400 text-xs uppercase tracking-widest">Spieldauer</span>
               <div className="text-xl font-bold">{gameTime}</div>
             </div>
 
             <div className="text-center -ml-8 pl-0">
-              <span className="text-gray-400 text-xs">Jassdauer</span>
+              <span className="text-gray-400 text-xs uppercase tracking-widest">Jassdauer</span>
               <div className="text-xl font-bold">{jassTime}</div>
             </div>
           </div>
 
           <div className="text-center text-white mt-1">
-            <span className="text-gray-400">Spieler</span>
+            <span className="text-gray-400 text-xs uppercase tracking-widest">Spieler</span>
             <div className="relative">
               <button
                 onClick={() => setIsPlayerSelectOpen(!isPlayerSelectOpen)}
-                className="w-full text-3xl font-bold p-2 bg-gray-700 hover:bg-gray-600
-                          bg-opacity-50 rounded-xl mt-1 transition-colors"
+                className="w-full text-3xl font-bold p-2 bg-gray-700/50 hover:bg-gray-600/60
+                          rounded-xl mt-1 transition-colors"
               >
                 {safePlayerNames[safeCurrentPlayer as PlayerNumber] || `Spieler ${safeCurrentPlayer}`}
               </button>
@@ -820,8 +821,8 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
           </div>
 
           <div className="text-center text-white mt-1">
-            <span className="text-gray-400">Zeit Runde</span>
-            <div className="text-3xl font-bold p-2 bg-gray-700 bg-opacity-50 rounded-xl mt-1">
+            <span className="text-gray-400 text-xs uppercase tracking-widest">Zeit Runde</span>
+            <div className="text-3xl font-bold p-2 bg-gray-700/50 rounded-xl mt-1">
               {roundTime}
             </div>
           </div>
@@ -840,7 +841,7 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
 
           <div className="text-center text-white mt-1">
             <div>
-              <span className="text-gray-400">Gegner</span>
+              <span className="text-gray-400 text-xs uppercase tracking-widest">Gegner</span>
               <div className="grid grid-cols-3 gap-2 -mt-10">
                 <div className="text-center">
                   <span className="text-gray-400 text-xs">

@@ -24,7 +24,7 @@ const TIER_COLORS: { [tierName: string]: string } = {
   'Hahn': '#EF4444',          // Rot
   'Huhn': '#F59E0B',          // Orange
   'Kücken': '#65A30D',        // Hellgrün
-  'Anfänger': '#4B5563',      // Grau
+  'Anfänger': '#57534e',      // Warmgrau
   'Gurke': '#059669',         // Grün
   'Just Egg': '#78716C',      // Grau (Default)
 };

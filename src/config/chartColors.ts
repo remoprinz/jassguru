@@ -47,7 +47,7 @@ export const CHART_COLOR_PALETTE: ChartColorScheme[] = [
   { border: '#78716c', background: 'rgba(120, 113, 108, 0.1)' },  // Stone
   { border: '#737373', background: 'rgba(115, 115, 115, 0.1)' },  // Neutral
   { border: '#71717a', background: 'rgba(113, 113, 122, 0.1)' },  // Zinc
-  { border: '#6b7280', background: 'rgba(107, 114, 128, 0.1)' },  // Gray
+  { border: '#78716c', background: 'rgba(120, 113, 108, 0.1)' },  // Stone
   { border: '#52525b', background: 'rgba(82, 82, 91, 0.1)' },     // Gray-Alt
   { border: '#475569', background: 'rgba(71, 85, 105, 0.1)' },    // Slate-Alt
   { border: '#57534e', background: 'rgba(87, 83, 78, 0.1)' },     // Stone-Alt
@@ -112,7 +112,7 @@ export function getRankingColor(rank: number, alpha: number = 1): string {
     '#9333ea',  // Violet (22) - violett (dunkler)
     '#78716c',  // Stone (23) - braun-grau
     '#737373',  // Neutral (24) - mittelgrau
-    '#6b7280',  // Gray (25) - grau
+    '#78716c',  // Stone (25) - warmgrau
     '#71717a',  // Zinc (26) - zinc-grau
     '#52525b',  // Gray-Alt (27) - dunkelgrau
     '#475569',  // Slate-Alt (28) - dunkler grau-blau
@@ -151,7 +151,7 @@ export function getRankingColor(rank: number, alpha: number = 1): string {
 export const WIN_LOSS_COLORS = {
   win: '#10b981',    // Grün für Siege (hell, klar)
   loss: '#dc2626',   // Rot für Niederlagen (dunkler als #ef4444, besserer Kontrast)
-  draw: '#6b7280',   // Grau für Unentschieden (neutral, nicht farbkodiert)
+  draw: '#78716c',   // Warmgrau für Unentschieden (neutral, nicht farbkodiert)
 };
 
 /**

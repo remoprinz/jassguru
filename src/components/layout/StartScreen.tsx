@@ -49,11 +49,12 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
   const [gamePlayers, setGamePlayers] = useState<GamePlayers>({1: null, 2: null, 3: null, 4: null});
   const [isGuestModalOpen, setIsGuestModalOpen] = useState(false);
   const [guestTargetSlot, setGuestTargetSlot] = useState<PlayerNumber | null>(null);
-  const [names, setNames] = useState<PlayerNames>({ 1: '', 2: '', 3: '', 4: '' });
+  const [names, setNames] = useState<PlayerNames>({ 1: 'Spieler 1', 2: 'Spieler 2', 3: 'Spieler 3', 4: 'Spieler 4' });
   const [teamConfig] = useState<TeamConfig>(DEFAULT_TEAM_CONFIG);
   const [startingPlayer, setStartingPlayer] = useState<PlayerNumber | null>(null);
   // ENTFERNT: Lokaler isLoading State - verwende globalen uiStore Loading
   // const [isLoading, setIsLoading] = useState(false);
+  const [isStartButtonLoading, setIsStartButtonLoading] = useState(false);
   const [hasSelectedStartingPlayer, setHasSelectedStartingPlayer] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
 
@@ -327,6 +328,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
     selectedNames: PlayerNames,
     selectedStartingPlayer: PlayerNumber
   ) => {
+    setIsStartButtonLoading(true);
     // ✅ GLOBALER Loading-State für nahtlose Navigation
     useUIStore.getState().setLoading(true);
     
@@ -460,6 +462,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
 
         } catch (error) {
           toast.error("Online-Spiel konnte nicht erstellt werden.");
+          setIsStartButtonLoading(false);
           useUIStore.getState().setLoading(false); // ✅ GLOBAL: Loading-State zurücksetzen bei Fehler
           return;
         } finally {
@@ -494,6 +497,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
       // Das verhindert das "Flackern" zwischen den Komponenten
     } catch (error) {
       toast.error("Online-Spiel konnte nicht erstellt werden.");
+      setIsStartButtonLoading(false);
       useUIStore.getState().setLoading(false); // ✅ GLOBAL: Loading-State nur bei Fehler zurücksetzen
     }
   };
@@ -559,15 +563,17 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
       {/* ENTFERNT: Lokaler Loader - verwende globalen Loader aus _app.tsx */}
       {/* {isLoading && <GlobalLoader key="global-loader" message="Jasstafel wird geladen..." />} */}
       
-      <motion.div 
+      <motion.div
         key="start-screen-content"
-        className="fixed inset-0 flex flex-col items-center justify-center chalkboard-fixed z-50 p-4"
+        className="fixed inset-0 flex flex-col items-center chalkboard-fixed z-50 p-4 overflow-y-auto"
         variants={screenVariants}
         initial="initial"
         animate="visible"
         exit="exit"
       >
-        <div className="relative bg-gray-800 bg-opacity-95 rounded-xl p-6 w-full max-w-xs space-y-6 shadow-lg text-center">
+        {/* min-h-full + my-auto = zentriert ohne Tastatur, scrollbar mit Tastatur */}
+        <div className="w-full max-w-xs my-auto py-4">
+        <div className="relative bg-gray-800 bg-opacity-95 rounded-xl p-6 w-full space-y-6 shadow-lg text-center">
           <button
             onClick={handleCancel}
             className="absolute top-3 right-3 text-gray-400 hover:text-white transition-colors z-10"
@@ -773,14 +779,26 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
                 }
               }
             }}
-            className={`w-full text-white text-lg font-bold py-4 px-8 rounded-xl shadow-lg transition-colors border-b-4 min-h-[56px] flex items-center justify-center ${
-              (status === 'authenticated' ? areAllSlotsFilled(gamePlayers) && hasSelectedStartingPlayer : areAllNamesEntered(names) && startingPlayer) 
-                ? "bg-green-600 hover:bg-green-700 border-green-900 cursor-pointer" 
-                : "bg-gray-500 border-gray-700 cursor-pointer opacity-70"
+            disabled={isStartButtonLoading}
+          className={`w-full text-white text-lg font-bold py-4 px-8 rounded-xl shadow-lg transition-colors border-b-4 min-h-[56px] flex items-center justify-center ${
+              isStartButtonLoading
+                ? "bg-green-700 border-green-900 cursor-wait opacity-80"
+                : (status === 'authenticated' ? areAllSlotsFilled(gamePlayers) && hasSelectedStartingPlayer : areAllNamesEntered(names) && startingPlayer)
+                  ? "bg-green-600 hover:bg-green-700 border-green-900 cursor-pointer"
+                  : "bg-gray-500 border-gray-700 cursor-pointer opacity-70"
             }`}
           >
-            START
+            {isStartButtonLoading ? (
+              <span className="flex items-center gap-2">
+                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Wird gestartet…
+              </span>
+            ) : "START"}
           </motion.button>
+        </div>
         </div>
 
         {status === 'authenticated' && (

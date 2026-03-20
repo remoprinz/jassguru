@@ -63,7 +63,7 @@ export const FARBE_MODES: FarbeSettingsConfig[] = [
     multiplier: 3,
     order: 5,
     emojiStyle: {
-      backgroundColor: "bg-[#64748b] group-[.has-active]:bg-gray-600/75 group-[.active]:!bg-[#6b7280]",
+      backgroundColor: "bg-[#64748b] group-[.has-active]:bg-gray-600/75 group-[.active]:!bg-[#78716c]",
     },
     standardStyle: commonStandardStyle,
     frStyle: {

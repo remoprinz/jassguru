@@ -23,6 +23,14 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'Capita';
+  src: url('/fonts/Capita-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Browser-spezifische Schriftgrößen-Korrektur */
 html {
   /* Standard-Schriftgröße - Browser-Default respektieren (nicht fest auf 16px) */
@@ -100,6 +108,23 @@ html {
   --chart-5: 27 87% 67%;
   --radius: 0.5rem;
   --color-cream: #f0eee7;
+
+  /* JVS Design System */
+  --jvs-primary: #ff0000;
+  --jvs-primary-hover: #cc0000;
+  --jvs-cream: #f0eee7;
+  --jvs-cream-dark: #e5e3dc;
+  --jvs-foreground-muted: #6b6b6b;
+  --jvs-border: #e5e5e5;
+  --jvs-footer-bg: #000000;
+  --jvs-footer-text: rgba(255, 255, 255, 0.6);
+  --jvs-container-max: 1152px;
+  --jvs-spacing-section: 80px;
+  --jvs-spacing-section-mobile: 48px;
+  --jvs-radius-card: 12px;
+  --jvs-radius-card-lg: 16px;
+  --jvs-shadow-card: 0 4px 20px rgba(0, 0, 0, 0.08);
+  --jvs-shadow-card-hover: 0 8px 30px rgba(0, 0, 0, 0.12);
 }
 
 .dark {
@@ -194,9 +219,197 @@ body:not(.lexikon-page) {
   touch-action: none;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Landing Page — Überschreibt App-Locks für scrollbare Landingpage
+   ═══════════════════════════════════════════════════════════════ */
+body.landing-page {
+  background-color: #000000 !important;
+  touch-action: auto !important;
+  display: block !important;
+  align-items: initial !important;
+  justify-content: initial !important;
+  position: relative !important;
+  overflow: auto !important;
+  height: auto !important;
+  min-height: 100vh !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+  -webkit-touch-callout: default !important;
+}
+
+body.landing-page #__next {
+  overflow: auto !important;
+  height: auto !important;
+  min-height: 100vh !important;
+  position: relative !important;
+  display: block !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+}
+
+body.landing-page * {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  -webkit-touch-callout: default !important;
+  -webkit-tap-highlight-color: initial !important;
+}
+
+/* Landing Page Sections */
+.landing-section {
+  padding: var(--jvs-spacing-section-mobile) 0;
+}
+
+@media (min-width: 768px) {
+  .landing-section {
+    padding: var(--jvs-spacing-section) 0;
+  }
+}
+
+.landing-container {
+  max-width: var(--jvs-container-max);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+@media (min-width: 1280px) {
+  .landing-container {
+    padding: 0 80px;
+  }
+}
+
+/* Einheitlicher CTA-Button-Stil für die Landingpage (Desktop-Hover wie JVS) */
+.landing-cta-btn {
+  background-color: var(--landing-cta-bg, #16a34a);
+  color: var(--landing-cta-color, #ffffff);
+  box-shadow: var(--landing-cta-shadow, 0 2px 8px rgba(0, 0, 0, 0.25));
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.landing-cta-btn:hover {
+  transform: translateY(-2px);
+  background-color: var(--landing-cta-bg-hover, var(--landing-cta-bg, #16a34a));
+  box-shadow: var(--landing-cta-shadow-hover, 0 6px 18px rgba(0, 0, 0, 0.3));
+}
+
+.landing-cta-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.85);
+  outline-offset: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   JVS Hero — CSS Variables (Figma-basiert)
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  --hero-felt-left: 6.597%;
+  --hero-felt-width: 86.806%;
+  --hero-felt-height: 103%;
+  --hero-felt-top: -14%;
+  --hero-felt-radius: 3.097vw;
+  --hero-felt-border: 16px;
+  --hero-logo-top: 5%;
+  --hero-logo-size: 190px;
+  --hero-title-top: 31%;
+  --hero-title-size: clamp(24px, 5.208vw, 75px);
+  --hero-title-line-height: 1.0;
+  --hero-title-max-width: 771px;
+  --hero-subtitle-top: 49.57%;
+  --hero-subtitle-max-width: 571px;
+  --hero-subtitle-width: 80%;
+  --hero-subtitle-size: clamp(15px, 1.944vw, 28px);
+  --hero-cta-top: 70.43%;
+}
+
+@media (max-width: 1024px) {
+  :root {
+    --hero-felt-left: 5%;
+    --hero-felt-width: 90%;
+    --hero-felt-height: 85%;
+    --hero-felt-top: 0%;
+    --hero-felt-radius: 2.5vw;
+    --hero-felt-border: 12px;
+    --hero-logo-top: 10%;
+    --hero-logo-size: 100px;
+    --hero-title-top: 18%;
+    --hero-title-size: clamp(36px, 5vw, 52px);
+    --hero-title-line-height: 1.1;
+    --hero-title-max-width: 500px;
+    --hero-subtitle-top: 42%;
+    --hero-subtitle-max-width: 380px;
+    --hero-subtitle-width: 50%;
+    --hero-subtitle-size: clamp(16px, 2vw, 22px);
+    --hero-cta-top: 62%;
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --hero-felt-left: 24px;
+    --hero-felt-width: calc(100% - 48px);
+    --hero-felt-height: 60%;
+    --hero-felt-top: 12%;
+    --hero-felt-radius: 16px;
+    --hero-felt-border: 6px;
+    --hero-logo-top: 15%;
+    --hero-logo-size: 80px;
+    --hero-title-top: 27.2%;
+    --hero-title-size: 44px;
+    --hero-title-line-height: 1.1;
+    --hero-title-max-width: 260px;
+    --hero-subtitle-top: 45%;
+    --hero-subtitle-max-width: 260px;
+    --hero-subtitle-width: 70%;
+    --hero-subtitle-size: 20px;
+    --hero-cta-top: 80%;
+  }
+}
+
+/* Chalkboard Section Background (Landing) */
+.landing-chalkboard {
+  background-color: #1a1a1a;
+  background-image: url('/images/backgrounds/chalkboard-jvs.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  position: relative;
+}
+
+.landing-chalkboard::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+
+/* Felt Section Background (Landing) */
+.landing-felt {
+  background-color: #2a3a2a;
+  background-image: url('/images/backgrounds/felt-texture.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  position: relative;
+}
+
+.landing-felt::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
 /* Lexikon/Wissen-Seiten überschreiben die App-Styles */
 body.lexikon-page {
-  background-color: #111827 !important; /* gray-900 - Jassguru Dark */
+  background-color: #1c1917 !important; /* stone-900 - Jassguru Dark */
   touch-action: auto !important;
   display: block !important;
   align-items: initial !important;

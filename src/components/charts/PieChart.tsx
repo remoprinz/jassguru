@@ -112,7 +112,7 @@ const PieChart: React.FC<PieChartProps> = ({
         backgroundColor: data.backgroundColor || data.values.map((_, index) => 
           getRankingColor(index + 1, 1)
         ),
-        borderColor: data.borderColor || '#1f2937',
+        borderColor: data.borderColor || '#292524',
         borderWidth: data.borderWidth || 2
       }
     ]
@@ -145,7 +145,7 @@ const PieChart: React.FC<PieChartProps> = ({
       elements: {
         arc: {
           borderWidth: 3,
-          borderColor: isDarkMode ? '#1f2937' : '#ffffff'
+          borderColor: isDarkMode ? '#292524' : '#ffffff'
         }
       },
       onHover: (event: any, activeElements: any[]) => {

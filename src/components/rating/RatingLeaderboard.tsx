@@ -159,7 +159,7 @@ function getPositionIcon(position: number, color: string) {
       return (
         <span 
           className="text-sm font-bold"
-          style={{ color: position <= 10 ? color : '#6B7280' }}
+          style={{ color: position <= 10 ? color : '#78716c' }}
         >
           {position}
         </span>

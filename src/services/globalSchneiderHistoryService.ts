@@ -52,14 +52,17 @@ export async function getGlobalPlayerSchneiderTimeSeries(
     let cumulativeSchneiderBilanz = 0;
     
     limitedHistory.forEach(entry => {
-      // ✅ KUMULATIVE LOGIK: Addiere Pro-Spiel-Entries
-      cumulativeSchneiderBilanz += entry.schneiderBilanz || 0;
-      
-      schneiderBilanzData.push(cumulativeSchneiderBilanz);
-      filteredLabels.push(entry.completedAt?.toDate ? 
-        entry.completedAt.toDate().toLocaleDateString('de-DE') : 
-        'Unbekannt'
-      );
+      const delta = entry.schneiderBilanz || 0;
+      cumulativeSchneiderBilanz += delta;
+
+      // Nur Datenpunkt zeichnen, wenn ein Schneider-Event stattfand
+      if (delta !== 0) {
+        schneiderBilanzData.push(cumulativeSchneiderBilanz);
+        filteredLabels.push(entry.completedAt?.toDate ?
+          entry.completedAt.toDate().toLocaleDateString('de-DE') :
+          'Unbekannt'
+        );
+      }
     });
 
     // Theme-Farben (identisch mit PowerRatingChart)

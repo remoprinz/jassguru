@@ -164,7 +164,7 @@ export const useScreenshot = (): UseScreenshotReturn => {
 
       // 1. Master-Screenshot mit hoher Auflösung erstellen
       const masterCanvas = await html2canvas(elementToScreenshot, {
-        backgroundColor: '#1F2937',
+        backgroundColor: '#292524',
         useCORS: true,
         logging: false,
         scale: MASTER_SCALE_FACTOR,
@@ -192,7 +192,7 @@ export const useScreenshot = (): UseScreenshotReturn => {
 
           if (sliceContext) {
             // Fülle den Hintergrund, um bei der letzten Seite leere Bereiche abzudecken
-            sliceContext.fillStyle = '#1F2937'; // Hintergrundfarbe des Screenshots
+            sliceContext.fillStyle = '#292524'; // Hintergrundfarbe des Screenshots
             sliceContext.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
 
             // Berechne, wie viel vom Master-Bild noch übrig ist

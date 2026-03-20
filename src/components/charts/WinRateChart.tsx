@@ -365,16 +365,16 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
         display: !hideLegend,
         position: 'top' as const,
         labels: {
-          color: isDarkMode ? '#e5e7eb' : '#1f2937',
+          color: isDarkMode ? '#e7e5e4' : '#292524',
           font: { size: 12 },
           usePointStyle: true,
           padding: 12,
         }
       },
       tooltip: {
-        backgroundColor: isDarkMode ? 'rgba(31, 41, 55, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-        titleColor: isDarkMode ? '#ffffff' : '#111827',
-        bodyColor: isDarkMode ? '#e5e7eb' : '#374151',
+        backgroundColor: isDarkMode ? 'rgba(41, 37, 36, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+        titleColor: isDarkMode ? '#ffffff' : '#1c1917',
+        bodyColor: isDarkMode ? '#e7e5e4' : '#44403c',
         padding: 12,
         borderColor: (() => {
           // Theme-Farbe für Border (wenn verfügbar)
@@ -388,7 +388,7 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
             'yellow': '#eab308',
             'teal': '#14b8a6',
           };
-          return themeColorMap[theme] || (isDarkMode ? '#374151' : '#e5e7eb');
+          return themeColorMap[theme] || (isDarkMode ? '#44403c' : '#e7e5e4');
         })(),
         borderWidth: 1,
         cornerRadius: 8,
@@ -423,7 +423,7 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
     scales: {
       x: {
         ticks: {
-          color: isDarkMode ? '#9ca3af' : '#6b7280', // ✅ Gleiche Farbe wie PowerRatingChart
+          color: isDarkMode ? '#a8a29e' : '#78716c', // ✅ Gleiche Farbe wie PowerRatingChart
           font: { size: 12 },
           autoSkip: false, // ✅ Zeige alle Labels
           maxRotation: 55, // Maximaler Winkel: 55°
@@ -471,7 +471,7 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
             if (context.tick?.value === 50) {
               return isDarkMode ? '#ffffff' : '#000000';
             }
-            return isDarkMode ? '#9ca3af' : '#6b7280';
+            return isDarkMode ? '#a8a29e' : '#78716c';
           },
           font: function(context: { tick?: { value: number } }) {
             // 🎯 50%-Label fett

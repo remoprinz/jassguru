@@ -407,7 +407,7 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
         display: !hideLegend, // ✅ Legende nur verstecken wenn hideLegend=true
         position: 'right' as const,
         labels: {
-          color: isDarkMode ? '#e5e7eb' : '#374151', // ✅ HELLGRAU: Passend zum Design
+          color: isDarkMode ? '#e7e5e4' : '#44403c', // ✅ HELLGRAU: Passend zum Design
           font: {
             size: 11, // ✅ REDUZIERT: Von 12 auf 11 für kompaktere Darstellung
             family: 'Inter, system-ui, sans-serif'
@@ -421,9 +421,9 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
         display: false, // ✅ Titel entfernt - bereits oben vorhanden
       },
       tooltip: {
-        backgroundColor: isDarkMode ? 'rgba(31, 41, 55, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-        titleColor: isDarkMode ? '#ffffff' : '#111827',
-        bodyColor: isDarkMode ? '#e5e7eb' : '#374151',
+        backgroundColor: isDarkMode ? 'rgba(41, 37, 36, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+        titleColor: isDarkMode ? '#ffffff' : '#1c1917',
+        bodyColor: isDarkMode ? '#e7e5e4' : '#44403c',
         borderColor: themeColors.text,
         borderWidth: 1,
         cornerRadius: 8,
@@ -491,7 +491,7 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
           drawBorder: false,
         },
         ticks: {
-          color: isDarkMode ? '#9ca3af' : '#6b7280',
+          color: isDarkMode ? '#a8a29e' : '#78716c',
           font: {
             size: 11,
             family: 'Inter, system-ui, sans-serif'
@@ -551,7 +551,7 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
           color: function(context: { tick?: { value: number } }) {
             // 🎯 RANKING-CHART: Verwende Tabellen-Farbe (text-gray-300)
             if (yAxisMin !== undefined && yAxisMax !== undefined) {
-              return '#d1d5db'; // text-gray-300
+              return '#d6d3d1'; // text-stone-300
             }
             // 🎯 ELO-CHART: Nur 100er-Label weiß (isEloChart = true)
             if (isEloChart && context.tick?.value === 100) {
@@ -561,7 +561,7 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
             if (!isEloChart && context.tick?.value === 0) {
               return isDarkMode ? '#ffffff' : '#000000';
             }
-            return isDarkMode ? '#9ca3af' : '#6b7280';
+            return isDarkMode ? '#a8a29e' : '#78716c';
           },
           font: {
             size: (() => {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import type { TournamentInstance, TournamentSettings, TournamentGame, PassePlayerDetail } from '@/types/tournament';
 import type { StricheRecord } from '@/types/jass';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -8,42 +8,14 @@ import Image from 'next/image';
 import { ParticipantWithProgress } from '@/store/tournamentStore';
 import { cn } from '@/lib/utils';
 import ProfileImage from '@/components/ui/ProfileImage';
-import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
-import { firebaseApp } from '@/services/firebaseInit';
 import { sortPlayersByRankingMode, type RankingMode } from '@/utils/tournamentSorting';
 
 interface TournamentRankingListProps {
-  instanceId: string;
+  instanceId?: string;
   settings: TournamentSettings;
   participants: ParticipantWithProgress[];
   games: TournamentGame[];
   onParticipantClick?: (participant: ParticipantWithProgress) => void;
-}
-
-// ✅ NEU: Typ für PlayerRanking-Daten aus der Datenbank
-interface PlayerRankingData {
-  playerId: string;
-  rank: number;
-  pointsScored?: number;
-  pointsReceived?: number;
-  pointsDifference?: number;
-  stricheScored?: number;
-  stricheReceived?: number;
-  stricheDifference?: number;
-  gamesPlayed?: number;
-  gamesWon?: number;
-  gamesLost?: number;
-  gamesDraw?: number;
-  eventCounts?: {
-    matschMade: number;
-    matschReceived: number;
-    schneiderMade: number;
-    schneiderReceived: number;
-    kontermatschMade: number;
-    kontermatschReceived: number;
-  };
-  totalWeisPoints?: number;
-  averageWeisPerGame?: number;
 }
 
 // NEU: Typ für die aggregierten Spielergebnisse
@@ -64,70 +36,11 @@ interface RankingEntry extends ParticipantWithProgress {
 }
 
 const TournamentRankingList: React.FC<TournamentRankingListProps> = ({
-  instanceId,
   settings,
   participants,
   games,
   onParticipantClick,
 }) => {
-
-  // ✅ NEU: State für PlayerRanking-Daten
-  const [playerRankings, setPlayerRankings] = useState<PlayerRankingData[]>([]);
-  const [isLoadingRankings, setIsLoadingRankings] = useState(false);
-
-  // ✅ NEU: Lade PlayerRanking-Daten für abgeschlossene Turniere
-  useEffect(() => {
-    const loadPlayerRankings = async () => {
-      // Prüfe, ob das Turnier abgeschlossen ist (über games-Länge und andere Indikatoren)
-      // Ein Turnier ist abgeschlossen, wenn es Games gibt und alle Games completedAt haben
-      const isCompletedTournament = games.length > 0 && games.every(game => game.completedAt);
-      
-      if (isCompletedTournament) {
-        setIsLoadingRankings(true);
-        
-        try {
-          const db = getFirestore(firebaseApp);
-          const rankingsRef = collection(db, 'tournaments', instanceId, 'playerRankings');
-          const rankingsSnap = await getDocs(rankingsRef);
-          
-          const rankings: PlayerRankingData[] = [];
-          rankingsSnap.forEach(doc => {
-            const data = doc.data();
-            rankings.push({
-              playerId: doc.id,
-              rank: data.rank || 0,
-              pointsScored: data.pointsScored,
-              pointsReceived: data.pointsReceived,
-              pointsDifference: data.pointsDifference,
-              stricheScored: data.stricheScored,
-              stricheReceived: data.stricheReceived,
-              stricheDifference: data.stricheDifference,
-              gamesPlayed: data.gamesPlayed,
-              gamesWon: data.gamesWon,
-              gamesLost: data.gamesLost,
-              gamesDraw: data.gamesDraw,
-              eventCounts: data.eventCounts,
-              totalWeisPoints: data.totalWeisPoints,
-              averageWeisPerGame: data.averageWeisPerGame
-            });
-          });
-          
-          rankings.sort((a, b) => a.rank - b.rank);
-          setPlayerRankings(rankings);
-        } catch (error) {
-          console.error('[TournamentRankingList] Error loading player rankings:', error);
-          setPlayerRankings([]);
-        } finally {
-          setIsLoadingRankings(false);
-        }
-      } else {
-        setPlayerRankings([]);
-      }
-    };
-
-    loadPlayerRankings();
-  }, [instanceId, games]);
-
   // Schritt 2.1 & 2.2: Berechne die Gesamtstände pro Spieler
   const playerTotals = useMemo(() => {
     const totals: Record<string, PlayerTotals> = {};
@@ -289,23 +202,6 @@ const TournamentRankingList: React.FC<TournamentRankingListProps> = ({
       onParticipantClick(participant);
     }
   };
-
-  // ✅ NEU: Loading-State für PlayerRankings
-  if (isLoadingRankings) {
-    return (
-      <div className="overflow-hidden">
-        {/* Header mit Accent-Bar - konsistent mit Chart-Header */}
-        <div className="flex items-center border-b-2 border-gray-500/50 px-4 py-3">
-          <div className="w-1 h-6 bg-purple-500 rounded-r-md mr-3"></div>
-          <h3 className="text-lg font-bold font-headline text-white">🏆 Rangliste</h3>
-        </div>
-        <div className="flex justify-center items-center p-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
-          <span className="ml-3 text-gray-400">Lade Turnier-Rankings...</span>
-        </div>
-      </div>
-    );
-  }
 
   // Schritt 2.4: Rendern der Tabelle
   return (

@@ -9,15 +9,14 @@ import {useTutorialStore} from "@/store/tutorialStore";
 import {Button} from "@/components/ui/button";
 import Image from "next/image";
 import Link from "next/link";
-import {Loader2, Eye, BookOpen, HelpCircle} from "lucide-react";
+import {Loader2, BookOpen, HelpCircle} from "lucide-react";
 import { isPWA } from "@/utils/browserDetection";
 import { debouncedRouterPush } from "@/utils/routerUtils";
 import { saveTokensFromUrl } from "@/utils/tokenStorage";
 import { welcomeLogger, logCriticalError } from "@/utils/logger";
 import { LegalFooter } from '@/components/layout/LegalFooter';
-import ScreenshotSlider from '@/components/auth/ScreenshotSlider';
-import ScreenshotPreview from '@/components/auth/ScreenshotPreview';
 import WelcomeBox from '@/components/auth/WelcomeBox';
+import LandingPage from '@/components/landing/LandingPage';
 
 export interface WelcomeScreenProps {
   onLogin?: () => void;
@@ -33,8 +32,6 @@ const useWelcomeScreenLogic = () => {
   
   const [isClient, setIsClient] = useState(false);
   const [displayMode, setDisplayMode] = useState<"default" | "invite" | "pwa" | "loading">("loading");
-  const [isScreenshotSliderOpen, setIsScreenshotSliderOpen] = useState(false);
-
   // 🔧 MEMOIZED: Display Mode Calculation
   const calculatedDisplayMode = useMemo(() => {
     if (!isClient || !router.isReady) return "loading";
@@ -126,8 +123,6 @@ const useWelcomeScreenLogic = () => {
     displayMode,
     clearGuestStatus,
     continueAsGuest,
-    isScreenshotSliderOpen,
-    setIsScreenshotSliderOpen
   };
 };
 
@@ -138,7 +133,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   const router = useRouter();
   
   // 🚀 OPTIMIERT: Verwende den Custom Hook
-  const { isClient, displayMode, clearGuestStatus, continueAsGuest, isScreenshotSliderOpen, setIsScreenshotSliderOpen } = useWelcomeScreenLogic();
+  const { isClient, displayMode, clearGuestStatus, continueAsGuest } = useWelcomeScreenLogic();
   
   const [isGuestLoading, setIsGuestLoading] = useState(false);
 
@@ -245,10 +240,16 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     );
   }
 
+  // 🌐 BROWSER-MODUS: Neue scrollbare JVS-Landingpage
+  if (displayMode === "default") {
+    return <LandingPage />;
+  }
+
+  // 📱 PWA + INVITE: Kompakter Login-Screen
   return (
     <div className="h-full w-full absolute inset-0 overflow-y-auto isolate">
       <div className="fixed inset-0 bg-gray-900 -z-10" />
-      {/* 📱 MOBILE VERSION - BLEIBT UNVERÄNDERT! */}
+      {/* 📱 MOBILE VERSION */}
       <div className="lg:hidden flex flex-col items-center justify-center min-h-screen py-8 px-4">
         <motion.div
           initial={{opacity: 0, scale: 0.9}}
@@ -463,38 +464,21 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         </div>
       </div>
 
-      {/* 💻 DESKTOP VERSION - 40/60 SPLIT LAYOUT (OPTIMAL!) */}
-      <div className="hidden lg:grid lg:grid-cols-[40%_60%] min-h-screen">
-        {/* LEFT: Screenshot Preview (40%) */}
-        <div className="bg-gray-900 flex items-start justify-center p-8 pt-16">
-          <ScreenshotPreview />
-        </div>
-
-        {/* RIGHT: Welcome Content (60% - KOMPAKT & ZENTRIERT!) */}
-        <div className="bg-gray-800 flex items-center justify-center px-16 py-12">
-          <div className="max-w-xl w-full space-y-6">
-            <WelcomeBox
-              displayMode={displayMode}
-              isGuestLoading={isGuestLoading}
-              onRegister={handleRegister}
-              onLogin={handleLogin}
-              onGuestPlay={handleGuestPlay}
-            />
-
-            {/* LEGAL FOOTER - Desktop */}
-            <div className="flex justify-center">
-              <LegalFooter />
-            </div>
+      {/* 💻 DESKTOP: Zentrierter Login für PWA/Invite */}
+      <div className="hidden lg:flex lg:items-center lg:justify-center min-h-screen">
+        <div className="bg-gray-800 rounded-xl p-12 max-w-lg w-full shadow-2xl">
+          <WelcomeBox
+            displayMode={displayMode}
+            isGuestLoading={isGuestLoading}
+            onRegister={handleRegister}
+            onLogin={handleLogin}
+            onGuestPlay={handleGuestPlay}
+          />
+          <div className="flex justify-center mt-6">
+            <LegalFooter />
           </div>
         </div>
       </div>
-
-      {/* SCREENSHOT SLIDER */}
-      <ScreenshotSlider
-        isOpen={isScreenshotSliderOpen}
-        onClose={() => setIsScreenshotSliderOpen(false)}
-        initialIndex={0}
-      />
     </div>
   );
 };

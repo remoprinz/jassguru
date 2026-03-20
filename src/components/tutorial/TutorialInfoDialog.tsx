@@ -6,8 +6,8 @@ import {
 } from "../../types/tutorial";
 import {useTutorialStore} from "../../store/tutorialStore";
 import {useUIStore} from "../../store/uiStore";
-import {FiRotateCcw, FiX} from "react-icons/fi";
-import {FaInfoCircle, FaPencilAlt, FaGripLinesVertical, FaTrashAlt, FaCog} from "react-icons/fa";
+import {FiX} from "react-icons/fi";
+import {FaInfoCircle, FaPencilAlt, FaGripLinesVertical, FaTrashAlt, FaCog, FaUndo} from "react-icons/fa";
 import {FaHandshakeSimple} from "react-icons/fa6";
 import {MdSwipe, MdHelp} from "react-icons/md";
 import {animated, useSpring} from "react-spring";
@@ -94,7 +94,7 @@ const TUTORIAL_SECTIONS: TutorialSection[] = [
         title: "Neues Spiel starten",
         id: TUTORIAL_STEPS.NEW_GAME,
         implemented: true,
-        icon: FiRotateCcw,
+        icon: FaUndo,
       },
     ],
   },
@@ -247,7 +247,7 @@ const TutorialInfoDialog: React.FC = () => {
             ${isFlipped ? "rotate-180" : "rotate-0"}`}
           aria-label="Umdrehen"
         >
-          <FiRotateCcw className="w-8 h-8" />
+          <FaUndo className="w-8 h-8" />
         </button>
 
         <button

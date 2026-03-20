@@ -1,4 +1,5 @@
 import tailwindcssAnimate from "tailwindcss-animate";
+import colors from "tailwindcss/colors";
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -21,6 +22,7 @@ export default {
         headline: ['Capita', 'Georgia', 'serif'],
       },
   		colors: {
+  			gray: colors.stone,
   			'chalk-red': '#ff0000',
   			'chalk-white': '#ffffff',
   			'chalk-gray': 'rgba(128, 128, 128, 0.3)',
