@@ -2496,6 +2496,11 @@ export const useGameStore = create<GameStore>()(
           }
           return persistedState;
         },
+        // isTransitioning ist flüchtiger UI-State — nie persistieren, sonst bleibt Loader nach App-Neustart
+        partialize: (state) => {
+          const { isTransitioning, ...rest } = state as any;
+          return rest;
+        },
       }
     ),
     { name: "gameStore" }

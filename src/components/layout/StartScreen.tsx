@@ -3,7 +3,7 @@ import {useGameStore} from "../../store/gameStore";
 import {useUIStore} from "../../store/uiStore";
 import {useJassStore} from "../../store/jassStore";
 import {useTimerStore} from "../../store/timerStore";
-import {motion, AnimatePresence} from "framer-motion";
+import {motion} from "framer-motion";
 import {PlayerNames, TeamConfig, DEFAULT_TEAM_CONFIG, setTeamConfig, PlayerNumber, GamePlayers, PlayerInfo, MemberInfo, GuestInfo, ActiveGame, FarbeSettings, ScoreSettings, StrokeSettings} from "../../types/jass";
 import {useTutorialStore} from "../../store/tutorialStore";
 import {useGroupStore} from "../../store/groupStore";
@@ -27,11 +27,6 @@ import { DEFAULT_STROKE_SETTINGS } from '@/config/GameSettings';
 import ProfileImage from '@/components/ui/ProfileImage';
 import type { FirestorePlayer } from '@/types/jass';
 
-const screenVariants = {
-  initial: {opacity: 0, scale: 0.95},
-  visible: {opacity: 1, scale: 1},
-  exit: {opacity: 0, scale: 0.95},
-};
 
 interface StartScreenProps {
   onCancel?: () => void;
@@ -558,22 +553,28 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
     }
   };
 
+  // iOS-Fix: Setze Hintergrund auf body um schwarzen Balken bei Tastatur zu vermeiden
+  useEffect(() => {
+    const originalBg = document.body.style.background;
+    const originalBgColor = document.body.style.backgroundColor;
+    
+    document.body.style.backgroundColor = '#1a1a1a';
+    document.body.style.background = '#1a1a1a url(/images/backgrounds/chalkboard-mobile.webp) center top / cover no-repeat fixed';
+    
+    return () => {
+      document.body.style.background = originalBg;
+      document.body.style.backgroundColor = originalBgColor;
+    };
+  }, []);
+
   return (
-    <AnimatePresence mode="wait">
-      {/* ENTFERNT: Lokaler Loader - verwende globalen Loader aus _app.tsx */}
-      {/* {isLoading && <GlobalLoader key="global-loader" message="Jasstafel wird geladen..." />} */}
-      
-      <motion.div
-        key="start-screen-content"
-        className="fixed inset-0 flex flex-col items-center chalkboard-fixed z-50 p-4 overflow-y-auto"
-        variants={screenVariants}
-        initial="initial"
-        animate="visible"
-        exit="exit"
+    <>
+      {/* Content-Layer */}
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
       >
-        {/* min-h-full + my-auto = zentriert ohne Tastatur, scrollbar mit Tastatur */}
-        <div className="w-full max-w-xs my-auto py-4">
-        <div className="relative bg-gray-800 bg-opacity-95 rounded-xl p-6 w-full space-y-6 shadow-lg text-center">
+        <div className="w-full max-w-xs py-6 md:py-8">
+        <div className="relative w-full rounded-xl bg-gray-800 bg-opacity-95 p-6 text-center shadow-lg space-y-6">
           <button
             onClick={handleCancel}
             className="absolute top-3 right-3 text-gray-400 hover:text-white transition-colors z-10"
@@ -705,26 +706,34 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
                   const allNamesEntered = areAllNamesEntered(names);
                   
                   return (
-                    <div key={slotNum} className="relative">
-                      <input
-                        type="text"
-                        data-player={slotNum}
-                        placeholder={
-                          playerNumber === 1 ? "Deinen Namen eingeben..." :
-                          (playerNumber === 2 ? "Gegner 1 eingeben..." :
-                          (playerNumber === 3 ? "Partner eingeben..." :
-                          "Gegner 2 eingeben..."))
-                        }
-                        value={names[playerNumber]}
-                        onChange={(e) => handleNameChange(playerNumber, e.target.value)}
-                        onClick={(e) => {
-                          if (allNamesEntered) {
-                            handlePlayerFieldClick(playerNumber, e);
+                    <div key={`guest-slot-${slotNum}`} className="relative">
+                        <input
+                          type="text"
+                          id={`guest-input-${slotNum}`}
+                          data-player={slotNum}
+                          inputMode="text"
+                          autoComplete="off"
+                          autoCorrect="off"
+                          spellCheck={false}
+                          placeholder={
+                            playerNumber === 1 ? "Deinen Namen eingeben..." :
+                            (playerNumber === 2 ? "Gegner 1 eingeben..." :
+                            (playerNumber === 3 ? "Partner eingeben..." :
+                            "Gegner 2 eingeben..."))
                           }
-                        }}
-                        className={getPlayerFieldClass(playerNumber, true)}
-                      />
-                      {/* Team-Label anzeigen, wenn Name eingegeben wurde */}
+                          defaultValue={names[playerNumber]}
+                          readOnly={allNamesEntered}
+                          onInput={(e) => {
+                            const target = e.target as HTMLInputElement;
+                            handleNameChange(playerNumber, target.value);
+                          }}
+                          onClick={(e) => {
+                            if (allNamesEntered) {
+                              handlePlayerFieldClick(playerNumber, e as unknown as React.MouseEvent);
+                            }
+                          }}
+                          className={getPlayerFieldClass(playerNumber, true)}
+                        />
                       {names[playerNumber] && (
                         <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
                           <span className={`text-sm font-bold ${teamColor}`}>
@@ -809,8 +818,8 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
             onAddGuest={handleGuestAdded}
           />
         )}
-      </motion.div>
-    </AnimatePresence>
+      </div>
+    </>
   );
 };
 

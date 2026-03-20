@@ -323,6 +323,8 @@ export interface UIState {
 
   // 🚀 TEMPORÄR: Flag zum Überspringen der Bedanken-Notification (direkt zur ResultatKreidetafel)
   skipBedankenNotification: boolean;
+  // Flag: Verhindert FirestoreSyncProvider-Navigation während "Weiterjassen!" Transition
+  isNextGameTransition: boolean;
 }
 
 interface UIActions {
@@ -418,6 +420,7 @@ interface UIActions {
   recordSignature: (team: TeamPosition) => void;
   resetSigningProcess: () => void;
   setJustAborted: (aborted: boolean) => void;
+  setNextGameTransition: (value: boolean) => void;
   setIsNavigatingHistory: (isNavigating: boolean) => void;
   setReadOnlyMode: (isReadOnly: boolean) => void;
   setJassFinishNotificationOpen: (isOpen: boolean) => void;
@@ -635,6 +638,7 @@ const initialState: UIState = {
 
   // 🚀 TEMPORÄR: Flag zum Überspringen der Bedanken-Notification (standardmäßig true = überspringen)
   skipBedankenNotification: true,
+  isNextGameTransition: false,
 };
 
 // Load-Funktionen für jeden Settings-Typ
@@ -1347,6 +1351,7 @@ export const useUIStore = create<UIState & UIActions>()(
         });
       },
       setJustAborted: (aborted: boolean) => set({ justAbortedGame: aborted }),
+      setNextGameTransition: (value: boolean) => set({ isNextGameTransition: value }),
       setIsNavigatingHistory: (isNavigating: boolean) => set({ isNavigatingHistory: isNavigating }),
       setReadOnlyMode: (isReadOnly: boolean) => set({ isReadOnlyMode: isReadOnly }),
       setJassFinishNotificationOpen: (isOpen: boolean) => set((state) => ({

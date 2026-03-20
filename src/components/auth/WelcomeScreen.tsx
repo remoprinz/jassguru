@@ -247,10 +247,18 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 
   // 📱 PWA + INVITE: Kompakter Login-Screen
   return (
-    <div className="h-full w-full absolute inset-0 overflow-y-auto isolate">
-      <div className="fixed inset-0 bg-gray-900 -z-10" />
+    <div 
+      className="fixed inset-0 w-full overflow-y-auto"
+      style={{
+        backgroundColor: '#1a1a1a',
+        backgroundImage: 'url(/images/backgrounds/chalkboard-mobile.webp)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center top',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
       {/* 📱 MOBILE VERSION */}
-      <div className="lg:hidden flex flex-col items-center justify-center min-h-screen py-8 px-4">
+      <div className="lg:hidden flex flex-col items-center justify-center px-4 py-8" style={{ minHeight: '100lvh' }}>
         <motion.div
           initial={{opacity: 0, scale: 0.9}}
           animate={{opacity: 1, scale: 1}}
@@ -465,7 +473,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       </div>
 
       {/* 💻 DESKTOP: Zentrierter Login für PWA/Invite */}
-      <div className="hidden lg:flex lg:items-center lg:justify-center min-h-screen">
+      <div className="hidden lg:flex lg:items-center lg:justify-center" style={{ minHeight: '100lvh' }}>
         <div className="bg-gray-800 rounded-xl p-12 max-w-lg w-full shadow-2xl">
           <WelcomeBox
             displayMode={displayMode}

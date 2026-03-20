@@ -124,6 +124,11 @@ export const FirestoreSyncProvider: React.FC<FirestoreSyncProviderProps> = ({ ch
     if (terminationHandledForGameId.current === currentActiveGameId) {
         return;
     }
+    // Weiterjassen!-Transition: Neues Spiel wird gerade erstellt — Navigation und Reset überspringen
+    if (useUIStore.getState().isNextGameTransition) {
+      terminationHandledForGameId.current = currentActiveGameId;
+      return;
+    }
     const localSigningState = useUIStore.getState().signingState;
     if (status === 'completed' && localSigningState === 'completed') {
         terminationHandledForGameId.current = currentActiveGameId;

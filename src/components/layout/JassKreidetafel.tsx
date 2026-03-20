@@ -670,27 +670,11 @@ Generiert von:
   // Hole den gesamten GameStore-State separat für RoundInfo Props
   const gameStoreStateForRoundInfo = useGameStore();
 
-  if (!mounted) return null;
+  // Loader-States für Overlays innerhalb des transform-Containers
+  // (GlobalLoader in _app.tsx wird durch transform:scale() Stacking Context verdeckt)
+  const isFinalizingSession = useUIStore(state => state.isFinalizingSession);
 
-  // NEU: Globaler Loader während Spielübergängen
-  if (isTransitioning) {
-    return (
-      <div 
-        className="relative w-full h-screen overflow-hidden bg-chalk-black prevent-interactions max-w-xl mx-auto flex flex-col justify-center"
-        style={{
-          transform: `scale(${scale})`,
-          transformOrigin: "center center",
-        }}
-      >
-        <div className="fixed inset-0 flex flex-col items-center justify-center bg-gray-900 bg-opacity-80 z-[9999]">
-          <div className="h-16 w-16 text-white animate-spin">
-            ⟳
-          </div>
-          <p className="mt-4 text-white text-lg">Spiel wird finalisiert und nächste Runde vorbereitet...</p>
-        </div>
-      </div>
-    );
-  }
+  if (!mounted) return null;
 
   // Bedingung für das Anzeigen des StartScreens
   // isLoadingGlobal: Verhindert StartScreen-Flash wenn GlobalLoader aktiv ist
@@ -713,6 +697,15 @@ Generiert von:
     >
       {/* Verdunkelungs-Overlay: Textur bleibt scharf, Dunkelheit via CSS */}
       <div className="absolute inset-0 bg-black/50 pointer-events-none" />
+
+      {/* Loader-Overlays: INNERHALB des transform-Containers, damit z-index korrekt greift.
+          NUR spezifische Flags verwenden — isLoadingGlobal ist zu generisch und crasht bei "Jass starten". */}
+      {isTransitioning && (
+        <GlobalLoader message="Nächstes Spiel wird vorbereitet..." color="white" />
+      )}
+      {isFinalizingSession && (
+        <GlobalLoader message="Daten und Statistiken werden aktualisiert..." color="white" />
+      )}
 
       <>
         <TutorialOverlay onCloseMenu={closeMenu} />

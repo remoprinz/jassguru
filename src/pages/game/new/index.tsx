@@ -152,6 +152,9 @@ const NewGamePage: React.FC = () => {
   // Die "Abbrechen"-Aktion wird hier definiert und an StartScreen übergeben,
   // um sicher zur Startseite zurückzunavigieren.
   const handleCancel = () => {
+    // Alle Loader-States zurücksetzen um Hänger zu vermeiden
+    useUIStore.getState().setLoading(false);
+    useUIStore.getState().setFinalizingSession(false);
     router.push('/start');
   };
 

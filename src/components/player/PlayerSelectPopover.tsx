@@ -171,9 +171,16 @@ export const PlayerSelectPopover: React.FC<PlayerSelectPopoverProps> = ({
       <PopoverTrigger asChild>
         {trigger}
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 bg-gray-800 border-gray-700 text-white">
+      <PopoverContent
+        className="w-[--radix-popover-trigger-width] p-0 bg-gray-800 border-gray-700 text-white"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
         <Command>
-          <CommandInput placeholder="Mitglied suchen..." className="h-9 border-gray-700 placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500" />
+          <CommandInput
+            placeholder="Mitglied suchen..."
+            className="h-9 border-gray-700 placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
+            autoFocus={false}
+          />
           <CommandList>
             {isLoading ? (
               <div className="py-3 text-center text-gray-400 text-sm">
@@ -204,9 +211,9 @@ export const PlayerSelectPopover: React.FC<PlayerSelectPopoverProps> = ({
                           <ProfileImage 
                             src={playerDoc?.photoURL}
                             alt={member.name} 
-                            size="md"
+                            size="dm"
                             className="mr-3 flex-shrink-0"
-                            fallbackClassName="bg-gray-600 text-gray-300 text-base"
+                            fallbackClassName="bg-gray-600 text-gray-300 text-sm"
                             fallbackText={member.name.charAt(0).toUpperCase()}
                             context="list"
                             lazy={false}

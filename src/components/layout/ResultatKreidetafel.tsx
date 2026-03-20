@@ -1035,7 +1035,40 @@ const ResultatKreidetafel = ({
         return; 
     }
 
-    // Fall 2: Gastmodus oder Offline -> Direkt finalisieren und zur Startseite
+    // Fall 2a: Gastmodus -> Bestätigungsdialog, kein Loader, kein Navigate
+    if (authStore.isGuest) {
+      uiStore.showNotification({
+        type: 'warning',
+        message: 'Willst du den Jass wirklich beenden? Die Daten werden gelöscht.',
+        duration: 10000,
+        position: swipePosition ?? undefined,
+        isFlipped: swipePosition === 'top',
+        actions: [
+          {
+            label: 'Ja, beenden',
+            onClick: () => {
+              timerStore.finalizeJassEnd();
+              jassStore.resetJass();
+              gameStore.resetGameState({
+                newActiveGameId: null,
+                settings: {
+                  farbeSettings: DEFAULT_FARBE_SETTINGS,
+                  scoreSettings: DEFAULT_SCORE_SETTINGS,
+                  strokeSettings: DEFAULT_STROKE_SETTINGS,
+                }
+              });
+              uiStore.resetSigningProcess();
+              uiStore.closeJassFinishNotification();
+              closeResultatKreidetafel();
+            }
+          },
+          { label: 'Abbrechen', onClick: closeResultatKreidetafel }
+        ]
+      });
+      return;
+    }
+
+    // Fall 2b: Offline (eingeloggt, kein activeGame) -> Direkt finalisieren
     const timerAnalytics = timerStore.getAnalytics();
     const jassDuration = timerStore.prepareJassEnd();
     
@@ -1183,6 +1216,8 @@ const ResultatKreidetafel = ({
       const existingSession = useJassStore.getState().currentSession;
 
       // --- KRITISCH: Altes Spiel ZUERST finalisieren ---
+      // Flag setzen: FirestoreSyncProvider soll Navigation NICHT auslösen während wir ein neues Spiel erstellen
+      useUIStore.getState().setNextGameTransition(true);
       await useJassStore.getState().finalizeGame(); // Markiert altes Spiel als fertig BEVOR neues erstellt wird
       
       // --- NEU: Abgeschlossenes Spiel sofort in Firestore speichern ---
@@ -1316,11 +1351,13 @@ const ResultatKreidetafel = ({
           isGameStarted: true,
           currentRound: 1,
           isGameCompleted: false,
-          isRoundCompleted: false
+          isRoundCompleted: false,
+          isTransitioning: false,
         }));
         // Bereits auf /jass — kein Router-Push nötig.
         if (isMountedRef.current) setIsCreatingNextGame(false);
         useUIStore.getState().setLoading(false);
+        useUIStore.getState().setNextGameTransition(false);
         return;
       }
 
@@ -1382,6 +1419,9 @@ const ResultatKreidetafel = ({
             type: "error",
             message: "Fehler: Keine aktive Session gefunden.",
           });
+          useGameStore.getState().setTransitioning(false);
+          useUIStore.getState().setLoading(false);
+          useUIStore.getState().setNextGameTransition(false);
           return;
         }
       }
@@ -1502,6 +1542,9 @@ const ResultatKreidetafel = ({
               type: "error",
               message: "Fehler beim Laden der Spieler-Profile. Neues Spiel abgebrochen.",
             });
+            useGameStore.getState().setTransitioning(false);
+            useUIStore.getState().setLoading(false);
+            useUIStore.getState().setNextGameTransition(false);
             return;
           }
         }
@@ -1578,12 +1621,16 @@ const ResultatKreidetafel = ({
             message: "Fehler beim Starten des nächsten Online-Spiels. Lokaler Ablauf gestoppt.",
           });
           if (isMountedRef.current) setIsCreatingNextGame(false);
+          // Globale States zurücksetzen bei Fehler — sonst bleibt Loader hängen
+          useGameStore.getState().setTransitioning(false);
+          useUIStore.getState().setLoading(false);
+          useUIStore.getState().setNextGameTransition(false);
           return;
         }
 
-      // FIX: Unmount-Guard — wenn Component weg ist, hat Firestore alles korrekt gespeichert.
-      // Beim nächsten App-Start wird der Zustand aus Firestore rekonstruiert.
-      if (!isMountedRef.current) return;
+      // Alle folgenden Updates sind Zustand-Store-Writes (global) — sicher nach Unmount.
+      // KEIN isMountedRef-Guard hier! closeResultatKreidetafel() unmountet die Component
+      // BEVOR startNewGameSequence() fertig ist → Guard würde alle Store-Updates skippen.
 
       // Lokale Store-Updates für "Neues Spiel" (angepasst)
       useJassStore.getState().startNextGame(initialStartingPlayerForNextGame, newActiveGameId);
@@ -1598,7 +1645,8 @@ const ResultatKreidetafel = ({
         isGameStarted: true,
         currentRound: 1,
         isGameCompleted: false,
-        isRoundCompleted: false
+        isRoundCompleted: false,
+        isTransitioning: false, // Loader ausblenden — resetGame ist async und kann nicht allein garantieren
       }));
 
       if (isMountedRef.current) setIsCreatingNextGame(false);
@@ -1606,6 +1654,8 @@ const ResultatKreidetafel = ({
       // Bereits auf /jass — kein Router-Push nötig.
       // Loader explizit beenden (useEffect in JassKreidetafel löst nicht aus wenn isGameStarted sich nicht ändert).
       useUIStore.getState().setLoading(false);
+      // Transition abgeschlossen — FirestoreSyncProvider darf wieder normal reagieren
+      useUIStore.getState().setNextGameTransition(false);
     };
 
     // Fallunterscheidung: Navigation oder Neues Spiel (unverändert)
