@@ -1,5 +1,5 @@
 import React, {useCallback, useRef, useEffect} from "react";
-import {FaExclamationTriangle} from "react-icons/fa";
+import {IoMdAlert} from "react-icons/io";
 import {useUIStore} from "../../store/uiStore";
 import {motion, AnimatePresence} from "framer-motion";
 
@@ -77,7 +77,7 @@ const HistoryWarning: React.FC<HistoryWarningProps> = ({
           >
             <div className={`${swipePosition === "top" ? "rotate-180" : ""}`}>
               <div className="flex flex-col items-center justify-center mb-4">
-                <FaExclamationTriangle className="w-12 h-12 text-red-600 mb-6" />
+                <IoMdAlert className="w-12 h-12 text-red-600 mb-6" />
                 <p className="text-center mb-6">{message}</p>
               </div>
               <div className="flex justify-between gap-4">

@@ -82,34 +82,43 @@ export const useMultiplierStore = create<MultiplierState>((set, get) => ({
   },
 }));
 
-interface MultiplierCalculatorProps {
-  mainTitle: string;
-  subTitle: string;
-  points: number;
+type CommonMultiplierProps = {
   className?: string;
   numberSize?: string;
   scoreSettings?: ScoreSettings;
   scores: TeamScores;
   team: TeamPosition;
-}
+};
 
-const MultiplierCalculator: React.FC<MultiplierCalculatorProps> = ({
-  mainTitle,
-  subTitle,
-  points,
-  className = "",
-  numberSize = "text-xl",
-  scoreSettings,
-  scores,
-  team,
-}) => {
+export type MultiplierCalculatorProps =
+  | ({
+      variant?: "default";
+      mainTitle: string;
+      subTitle: string;
+      points: number;
+    } & CommonMultiplierProps)
+  | {
+      variant: "multiplierOnly";
+      className?: string;
+      numberSize?: string;
+      scoreSettings?: ScoreSettings;
+      scores?: TeamScores;
+    };
+
+const MultiplierCalculator: React.FC<MultiplierCalculatorProps> = (props) => {
+  const variant = props.variant ?? "default";
+  const className = props.className ?? "";
+  const numberSize = props.numberSize ?? "text-xl";
   const {currentMultiplier, setMultiplier, getDividedPoints, getRemainingPoints} = useMultiplierStore();
   const currentGroup = useGroupStore((state) => state.currentGroup);
   const uiFarbeSettings = useUIStore((state) => state.farbeSettings);
   const [pressedButton, setPressedButton] = useState(false);
 
   // Sichere Fallback-Struktur für scores
-  const safeScores = scores || { top: 0, bottom: 0 };
+  const safeScores =
+    variant === "multiplierOnly"
+      ? (props.scores ?? { top: 0, bottom: 0 })
+      : (props.scores || { top: 0, bottom: 0 });
 
   useEffect(() => {
     const settingsSource = currentGroup?.farbeSettings?.values ?? uiFarbeSettings.values;
@@ -142,6 +151,51 @@ const MultiplierCalculator: React.FC<MultiplierCalculatorProps> = ({
 
   const buttonText = currentMultiplier > 0 ? `${currentMultiplier}x` : "-";
 
+  const multiplierButton = (
+    <button
+      type="button"
+      onClick={() => {
+        const currentMultOnClick = useMultiplierStore.getState().currentMultiplier;
+        let nextMultiplier: number;
+
+        if (highestMultiplier <= 2) {
+          return;
+        }
+
+        if (currentMultOnClick > 2) {
+          nextMultiplier = currentMultOnClick - 1;
+        } else {
+          nextMultiplier = highestMultiplier;
+        }
+
+        setMultiplier(nextMultiplier);
+      }}
+      onMouseDown={() => setPressedButton(true)}
+      onMouseUp={() => setPressedButton(false)}
+      onMouseLeave={() => setPressedButton(false)}
+      onTouchStart={() => setPressedButton(true)}
+      onTouchEnd={() => setPressedButton(false)}
+      className={`bg-orange-500 hover:bg-orange-600 text-white rounded-full w-14 h-14 flex items-center justify-center self-center mx-auto font-sans text-lg font-bold shadow-lg transition-all duration-100 ${pressedButton ? "bg-orange-700 scale-95 opacity-80" : "scale-100 opacity-100"}
+        ${highestMultiplier <= 1 ? "opacity-50 cursor-not-allowed" : ""}
+        ${variant === "multiplierOnly" ? "mt-2" : "mt-4"}
+      `}
+      disabled={highestMultiplier <= 1}
+    >
+      {buttonText}
+    </button>
+  );
+
+  if (variant === "multiplierOnly") {
+    return <div className={`flex justify-center ${className}`.trim()}>{multiplierButton}</div>;
+  }
+
+  const {mainTitle, subTitle, points, team} = props as CommonMultiplierProps & {
+    mainTitle: string;
+    subTitle: string;
+    points: number;
+    variant?: "default";
+  };
+
   return (
     <div>
       <span className="text-gray-400">{mainTitle}</span>
@@ -153,35 +207,7 @@ const MultiplierCalculator: React.FC<MultiplierCalculatorProps> = ({
           </div>
         </div>
 
-        <button
-          onClick={() => {
-            const currentMultOnClick = useMultiplierStore.getState().currentMultiplier;
-            let nextMultiplier: number;
-
-            if (highestMultiplier <= 2) {
-              return;
-            }
-
-            if (currentMultOnClick > 2) {
-              nextMultiplier = currentMultOnClick - 1;
-            } else {
-              nextMultiplier = highestMultiplier;
-            }
-
-            setMultiplier(nextMultiplier);
-          }}
-          onMouseDown={() => setPressedButton(true)}
-          onMouseUp={() => setPressedButton(false)}
-          onMouseLeave={() => setPressedButton(false)}
-          onTouchStart={() => setPressedButton(true)}
-          onTouchEnd={() => setPressedButton(false)}
-          className={`bg-orange-500 hover:bg-orange-600 text-white rounded-lg px-2 py-3 self-center mx-auto h-12 w-14 mt-4 transition-all duration-100 ${pressedButton ? "bg-orange-700 scale-95 opacity-80" : "scale-100 opacity-100"}
-            ${highestMultiplier <= 1 ? 'opacity-50 cursor-not-allowed' : ''}
-          }`}
-          disabled={highestMultiplier <= 1}
-        >
-          {buttonText}
-        </button>
+        {multiplierButton}
 
         <div className="text-center">
           <span className="text-gray-400 text-xs">{currentMultiplier}-fach</span>

@@ -71,7 +71,7 @@ const FarbeButton: React.FC<{
     <button
       key={color}
       {...handlers}
-      className={`p-1 rounded text-white select-none text-xs h-12 flex items-center justify-center ${
+      className={`p-1 rounded-xl text-white select-none text-xs h-12 flex items-center justify-center ${
         selectedColor === color ? "active" : ""
       } ${getButtonStyle(color, selectedColor === color, pictogramConfig.mode)} ${buttonClasses}`}
       aria-label={`${color}`}
@@ -117,7 +117,7 @@ const NumberButton: React.FC<{
     <button
       key={num}
       {...handlers}
-      className={`bg-stone-700/80 text-white p-4 rounded-xl select-none text-2xl font-bold ${buttonClasses}`}
+      className={`bg-gradient-to-b from-gray-600 to-gray-700 shadow-inner border border-gray-500/30 text-white p-4 rounded-xl select-none text-2xl font-bold font-sans ${buttonClasses}`}
     >
       {num}
     </button>
@@ -589,7 +589,7 @@ const Calculator: React.FC<CalculatorProps> = ({
 
   const getGridClasses = (activeColors: number): string => {
     // Basis-Grid-Klassen mit group und has-active wenn ein Button selektiert ist
-    const baseClasses = `grid grid-cols-5 gap-2 mb-4 w-full group ${selectedColor ? "has-active" : ""}`;
+    const baseClasses = `grid grid-cols-5 gap-2 w-full group ${selectedColor ? "has-active" : ""}`;
 
     if (activeColors <= 4) {
       return baseClasses.replace("grid-cols-5", "grid-cols-4");
@@ -611,14 +611,14 @@ const Calculator: React.FC<CalculatorProps> = ({
     }
 
     if (renderFarbeSettings.cardStyle === "FR") {
-      return farbeMode?.frStyle?.backgroundColor || "bg-gray-600";
+      return farbeMode?.frStyle?.backgroundColor || "bg-gray-700";
     }
 
     if (mode === "emoji") {
-      return farbeMode?.emojiStyle?.backgroundColor || "bg-gray-600";
+      return farbeMode?.emojiStyle?.backgroundColor || "bg-gray-700";
     }
 
-    return farbeMode?.standardStyle?.backgroundColor || "bg-gray-600";
+    return farbeMode?.standardStyle?.backgroundColor || "bg-gray-700";
   };
 
   // Neue Hilfsfunktion für die Namensanpassung
@@ -648,7 +648,7 @@ const Calculator: React.FC<CalculatorProps> = ({
       return (
         <div 
           key="empty-placeholder" 
-          className="p-1 rounded text-white select-none text-xs h-12 flex items-center justify-center bg-gray-700"
+          className="p-1 rounded-xl text-white select-none text-xs h-12 flex items-center justify-center bg-gradient-to-b from-gray-600 to-gray-700 shadow-inner border border-gray-500/30"
         />
       );
     }
@@ -742,33 +742,46 @@ const Calculator: React.FC<CalculatorProps> = ({
 
         {/* Calculator Container */}
         <div 
-          className="relative bg-gray-800 p-6 rounded-xl shadow-2xl border border-white/10 transition-all duration-700 flex flex-col items-center w-full"
+          className="relative bg-gray-800 p-6 rounded-xl shadow-2xl border border-white/10 transition-all duration-700 flex flex-col items-center w-full font-sans"
           onClick={(e) => e.stopPropagation()}
         >
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onClose();
-            }}
-            className="absolute right-2 top-2 p-2 text-gray-400 hover:text-white transition-colors z-10"
-          >
-            <FaTimes size={24} />
-          </button>
-          <h2 className="text-white text-xl font-semibold text-center select-none w-full border-b border-white/10 pb-4 mb-4">
-            Runde schreiben
-          </h2>
-          <div className="flex flex-col w-full space-y-4">
+          {/* Titel echt mittig: symmetrisches Padding wie Platz für Schließen-Button */}
+          <div className="relative w-full border-b border-white/10 pb-3 mb-3">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
+              className="absolute right-0 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-white transition-colors z-10"
+              aria-label="Schliessen"
+            >
+              <FaTimes size={24} />
+            </button>
+            <h2 className="text-white text-xl font-semibold text-center select-none w-full px-12">
+              Runde schreiben
+            </h2>
+          </div>
+          {/* Einheitlicher vertikaler Rhythmus zwischen allen Blöcken */}
+          <div className="flex flex-col w-full gap-3">
+            {/* === ZONE 1: OUTPUT (Screen-Insel) — nur ablesen, nicht klicken === */}
             <input
               type="text"
               value={value}
               readOnly
-              className="w-full bg-black/60 text-white text-6xl p-4 rounded-xl select-none text-center font-bold"
+              className="w-full bg-black/30 text-white text-6xl p-4 rounded-xl select-none text-center font-bold font-sans"
             />
-            <div className="flex justify-between items-stretch w-full space-x-2 h-10">
-              <div className="w-1/3 bg-black/40 text-white p-1 rounded-xl select-none flex items-center justify-end relative">
-                <div className="text-xs uppercase tracking-wider absolute top-0 left-1 text-stone-400">Gegner:</div>
-                <div className="text-xl pr-1 font-semibold">{opponentValue}</div>
+            <div className="flex justify-between items-stretch w-full gap-2 h-12">
+              <div className="w-1/3 bg-black/30 text-white py-1 pl-2.5 pr-2.5 rounded-xl select-none flex items-center justify-end relative min-w-0">
+                <div className="text-xs uppercase tracking-wider absolute top-0 left-2.5 text-stone-400">
+                  Gegner:
+                </div>
+                {/* Wie Hauptdisplay: <input> → gleiche WebKit/Inter-Darstellung wie die grosse Zahl */}
+                <div className="w-full text-right text-xl font-bold tabular-nums text-white font-sans">
+                  {opponentValue}
+                </div>
               </div>
+              {/* Matsch: bg-gray-700 (Input-Zone) zwischen bg-black/30 (Output-Zone) → farblich klar klickbar */}
               <button
                 onMouseDown={() => {
                   if (!touchStartedRef.current) startMatschCharge();
@@ -791,44 +804,49 @@ const Calculator: React.FC<CalculatorProps> = ({
                   stopMatschCharge(false);
                   touchStartedRef.current = false;
                 }}
-                className={`w-1/3 p-1 rounded-xl select-none transition-all duration-100 text-lg font-semibold flex items-center justify-center matsch-button ${
+                className={`w-1/3 min-h-12 rounded-xl select-none transition-all duration-100 text-lg font-bold font-sans flex items-center justify-center matsch-button shadow-inner border ${
                   isMatschActive ?
-                    "bg-orange-500 text-white" :
+                    "bg-gradient-to-b from-orange-500 to-orange-600 border-orange-400/50 text-white cursor-default" :
                     pressedMatsch ?
-                      "bg-black/60 text-white scale-95 opacity-80" :
-                      "bg-black/40 text-white hover:bg-orange-500 scale-100 opacity-100"
+                      "bg-gradient-to-b from-gray-600 to-gray-700 border-gray-500/30 text-white scale-95 opacity-80" :
+                      "bg-gradient-to-b from-gray-600 to-gray-700 border-gray-500/30 text-white scale-100 opacity-100"
                 }`}
                 disabled={isMatschActive}
               >
                 Matsch
               </button>
-              <div className="w-1/3 bg-black/40 text-white p-1 rounded-xl select-none flex items-center justify-end relative">
-                <div className="text-xs uppercase tracking-wider absolute top-0 left-1 text-stone-400">Total:</div>
-                <div className="text-xl pr-1 font-semibold">{totalValue}</div>
+              <div className="w-1/3 bg-black/30 text-white py-1 pl-2.5 pr-2.5 rounded-xl select-none flex items-center justify-end relative min-w-0">
+                <div className="text-xs uppercase tracking-wider absolute top-0 left-2.5 text-stone-400">
+                  Total:
+                </div>
+                <div className="w-full text-right text-xl font-bold tabular-nums text-white font-sans">
+                  {totalValue}
+                </div>
               </div>
             </div>
-          </div>
-          <div className="mt-4"></div>
-          <div className={getGridClasses(colorMultipliers.length)}>
-            {displayColorMultipliers.map(({color, multiplier}) => renderFarbeButton(color, multiplier))}
-          </div>
-          <div className="grid grid-cols-3 gap-3 w-full">
-            {numberOrder.map((num) => renderNumberButton(num))}
-            <button
-              {...clearHandlers}
-              className={`bg-red-600 text-white p-4 rounded-xl select-none text-2xl font-semibold ${clearClasses}`}
-            >
-              C
-            </button>
-            {renderNumberButton(0)}
-            <button
-              {...okHandlers}
-              disabled={!hasValidScore()}
-              className={`bg-green-600 text-white p-4 rounded-xl select-none text-2xl font-semibold ${okClasses}
-                ${!hasValidScore() ? "opacity-50 cursor-not-allowed" : ""}`}
-            >
-              OK
-            </button>
+
+            {/* === ZONE 2: INPUT — alles Klickbare, einheitlich bg-gray-700 === */}
+            <div className={getGridClasses(colorMultipliers.length)}>
+              {displayColorMultipliers.map(({color, multiplier}) => renderFarbeButton(color, multiplier))}
+            </div>
+            <div className="grid grid-cols-3 gap-3 w-full">
+              {numberOrder.map((num) => renderNumberButton(num))}
+              <button
+                {...clearHandlers}
+                className={`bg-gradient-to-b from-red-500 to-red-600 shadow-inner border border-red-400/40 text-white p-4 rounded-xl select-none text-2xl font-semibold ${clearClasses}`}
+              >
+                C
+              </button>
+              {renderNumberButton(0)}
+              <button
+                {...okHandlers}
+                disabled={!hasValidScore()}
+                className={`bg-gradient-to-b from-green-500 to-green-600 shadow-inner border border-green-400/40 text-white p-4 rounded-xl select-none text-2xl font-semibold ${okClasses}
+                  ${!hasValidScore() ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                OK
+              </button>
+            </div>
           </div>
         </div>
       </animated.div>

@@ -1,7 +1,9 @@
 import React, {useState, useEffect} from "react";
 import {animated, useSpring} from "react-spring";
-import {FiX, FiPlay, FiPause} from "react-icons/fi";
-import {FaUndo} from "react-icons/fa";
+import {FiPlay} from "react-icons/fi";
+import {FaUndo, FaTimes} from "react-icons/fa";
+import {FaPause} from "react-icons/fa6";
+import {FiChevronDown, FiX as FiXIcon} from "react-icons/fi";
 import {useGameStore} from "@/store/gameStore";
 import {useJassStore} from "@/store/jassStore";
 import {useGroupStore} from "@/store/groupStore";
@@ -13,6 +15,7 @@ import type {
   ChargeLevel,
   ChargeButtonActionProps,
 } from "@/types/jass";
+import {DEFAULT_TEAM_CONFIG} from "@/types/jass";
 import {useUIStore} from "@/store/uiStore";
 import {useTimerStore} from "@/store/timerStore";
 import {useTutorialStore} from "@/store/tutorialStore";
@@ -706,6 +709,17 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
   
   // Sichere Fallback-Behandlung für scores
   const safeScores = scores || { top: 0, bottom: 0 };
+  const opponentTeam = activeTeam === "top" ? "bottom" : "top";
+  const ownTarget = getRemainingPoints(activeTeam, safeScores);
+  const oppTarget = getRemainingPoints(opponentTeam, safeScores);
+
+  // Teamnamen: bottom = Spieler 1+3, top = Spieler 2+4
+  const getTeamLabel = (team: "top" | "bottom") => {
+    const slots = DEFAULT_TEAM_CONFIG[team];
+    const name1 = safePlayerNames[slots[0] as PlayerNumber] || `Spieler ${slots[0]}`;
+    const name2 = safePlayerNames[slots[1] as PlayerNumber] || `Spieler ${slots[1]}`;
+    return `${name1} + ${name2}`;
+  };
 
   return (
     <div
@@ -713,18 +727,23 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
       onClick={(e) => {
         if (!canClose) return;
         if (e.target === e.currentTarget) {
+          setIsPlayerSelectOpen(false);
           handleClose();
         }
       }}
     >
       <animated.div
         style={springProps}
-        className="relative w-11/12 max-w-md bg-gray-800/95 rounded-xl p-6 shadow-2xl border border-white/10 select-none"
-        onClick={(e) => e.stopPropagation()}
+        className="relative w-11/12 max-w-md bg-gray-800/95 rounded-xl p-6 shadow-2xl border border-white/10 select-none font-sans"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (isPlayerSelectOpen) setIsPlayerSelectOpen(false);
+        }}
       >
+        {/* Flip-Button */}
         <button
           onClick={() => setCalculatorFlipped(!isCalculatorFlipped)}
-          className={`absolute bottom-full mb-[-10px] left-1/2 transform -translate-x-1/2 
+          className={`absolute bottom-full mb-[-10px] left-1/2 transform -translate-x-1/2
             text-white hover:text-gray-300 transition-all duration-1000
             w-24 h-24 flex items-center justify-center
             rounded-full
@@ -734,140 +753,142 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
           <FaUndo className="w-8 h-8" />
         </button>
 
-        <div className="flex items-center justify-between mb-6">
+        {/* === Header === */}
+        <div className="relative w-full pb-3 mb-4">
           <button
             onClick={isPaused ? handleResumeClick : handlePauseClick}
-            className={`
+            className={`absolute left-0 top-1/2 -translate-y-1/2
               w-10 h-10 rounded-full flex items-center justify-center
-              ${isPaused ?
-      "bg-green-600 hover:bg-green-500" :
-      "bg-gray-600 hover:bg-gray-500"
-    }
-              text-white hover:text-white
-              transition-all duration-150
-              shadow-md hover:shadow-lg
-            `}
+              ${isPaused ? "bg-green-600 hover:bg-green-500" : "bg-gray-600 hover:bg-gray-500"}
+              text-white transition-all duration-150 shadow-md`}
             aria-label={isPaused ? "Weiter" : "Pause"}
           >
-            {isPaused ? <FiPlay className="w-5 h-5" /> : <FiPause className="w-5 h-5" />}
+            {isPaused ? <FiPlay className="w-5 h-5" /> : <FaPause className="w-4 h-4" />}
           </button>
-
-          <h2 className="text-2xl font-bold text-white text-center">
+          <h2 className="text-xl font-semibold text-white text-center select-none px-12">
             Spielstand
           </h2>
-
           <button
             onClick={handleClose}
-            className="w-12 h-12 rounded-full flex items-center justify-center -mr-2 -mt-2
-              text-gray-400 hover:text-white
-              transition-colors
-              -webkit-tap-highlight-color-transparent"
+            className="absolute right-0 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-white transition-colors z-10"
+            aria-label="Schliessen"
           >
-            <FiX className="w-5 h-5" />
+            <FaTimes size={24} />
           </button>
         </div>
+        {/* Stats-Zeile */}
+        <div className="text-center text-xs text-gray-500 uppercase tracking-wider mb-3">
+          <span>Spiel </span>
+          <span className="text-white font-semibold tabular-nums">{currentGameId}</span>
+          <span className="mx-1.5 text-gray-600">·</span>
+          <span>Runde </span>
+          <span className="text-white font-semibold tabular-nums">{currentRound}</span>
+        </div>
 
-        <div className="space-y-4 mb-8">
-          <div className="grid grid-cols-4 gap-4 text-white">
-            <div className="text-center pl-5">
-              <span className="text-gray-400 text-xs uppercase tracking-widest">Spiel</span>
-              <div className="text-xl font-bold">{currentGameId}</div>
-            </div>
-
-            <div className="text-center -ml-10 pl-0">
-              <span className="text-gray-400 text-xs uppercase tracking-widest">Runde</span>
-              <div className="text-xl font-bold">{currentRound}</div>
-            </div>
-
-            <div className="text-center -ml-10 pl-0">
-              <span className="text-gray-400 text-xs uppercase tracking-widest">Spieldauer</span>
-              <div className="text-xl font-bold">{gameTime}</div>
-            </div>
-
-            <div className="text-center -ml-8 pl-0">
-              <span className="text-gray-400 text-xs uppercase tracking-widest">Jassdauer</span>
-              <div className="text-xl font-bold">{jassTime}</div>
-            </div>
-          </div>
-
-          <div className="text-center text-white mt-1">
-            <span className="text-gray-400 text-xs uppercase tracking-widest">Spieler</span>
-            <div className="relative">
-              <button
-                onClick={() => setIsPlayerSelectOpen(!isPlayerSelectOpen)}
-                className="w-full text-3xl font-bold p-2 bg-gray-700/50 hover:bg-gray-600/60
-                          rounded-xl mt-1 transition-colors"
-              >
+        {/* === Spieler + Rundenzeit — 50/50, harmonisch zur 2-Spalten-Anzeige === */}
+        <div className="grid grid-cols-2 gap-3 text-white mb-5">
+          <div className="min-w-0 relative flex flex-col items-center">
+            <span className="text-gray-400 text-xs uppercase tracking-widest text-center">Spieler</span>
+            <button
+              onClick={() => setIsPlayerSelectOpen(!isPlayerSelectOpen)}
+              className="relative flex w-full min-w-0 items-center justify-center gap-1 mt-1 py-2 pl-2 pr-9 text-xl font-bold bg-gray-700/50 hover:bg-gray-600/60
+                        rounded-xl transition-colors"
+            >
+              <span className="min-w-0 flex-1 truncate text-center">
                 {safePlayerNames[safeCurrentPlayer as PlayerNumber] || `Spieler ${safeCurrentPlayer}`}
-              </button>
+              </span>
+              <FiChevronDown className={`pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 transition-transform ${isPlayerSelectOpen ? "rotate-180" : ""}`} />
+            </button>
 
-              {isPlayerSelectOpen && (
-                <div className="absolute left-0 right-0 mt-1 bg-gray-700 rounded-xl overflow-hidden shadow-lg z-50">
-                  {Object.entries(safePlayerNames).map(([num, name]) => (
-                    <button
-                      key={num}
-                      onClick={() => {
-                        handlePlayerSelect(Number(num) as PlayerNumber);
-                        setIsPlayerSelectOpen(false);
-                      }}
-                      className="w-full p-3 text-left hover:bg-gray-600 transition-colors"
-                    >
-                      {name || `Spieler ${num}`}
-                    </button>
-                  ))}
+            {isPlayerSelectOpen && (
+              <div className="absolute left-0 right-0 mt-1 bg-gray-700 rounded-xl overflow-hidden shadow-lg z-50">
+                <div className="flex items-center justify-between px-3 pt-2 pb-1">
+                  <span className="text-gray-400 text-xs uppercase tracking-widest">Spieler wählen</span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setIsPlayerSelectOpen(false); }}
+                    className="text-gray-400 hover:text-white p-1"
+                  >
+                    <FiXIcon className="w-4 h-4" />
+                  </button>
                 </div>
-              )}
-            </div>
+                {Object.entries(safePlayerNames).map(([num, name]) => (
+                  <button
+                    key={num}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePlayerSelect(Number(num) as PlayerNumber);
+                      setIsPlayerSelectOpen(false);
+                    }}
+                    className={`w-full p-3 text-left hover:bg-gray-600 transition-colors ${
+                      Number(num) === safeCurrentPlayer ? "bg-gray-600/50 font-semibold" : ""
+                    }`}
+                  >
+                    {name || `Spieler ${num}`}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-
-          <div className="text-center text-white mt-1">
-            <span className="text-gray-400 text-xs uppercase tracking-widest">Zeit Runde</span>
-            <div className="text-3xl font-bold p-2 bg-gray-700/50 rounded-xl mt-1">
+          <div className="min-w-0 flex flex-col items-center">
+            <span className="text-gray-400 text-xs uppercase tracking-widest text-center">Rundenzeit</span>
+            <div className="w-full text-xl font-bold tabular-nums px-2 py-2 bg-gray-700/50 rounded-xl text-center mt-1 min-h-[2.75rem] flex items-center justify-center">
               {roundTime}
             </div>
           </div>
+        </div>
 
-          <div className="text-center text-white mt-3">
-            <MultiplierCalculator
-              mainTitle="Punkte bis"
-              subTitle={getRemainingPoints(isCalculatorFlipped ? "top" : "bottom", safeScores).title}
-              points={getRemainingPoints(isCalculatorFlipped ? "top" : "bottom", safeScores).remaining}
-              team={isCalculatorFlipped ? "top" : "bottom"}
-              numberSize="text-3xl"
-              scoreSettings={activeScoreSettings}
-              scores={safeScores}
-            />
+        {/* === Punkte bis + Multiplier === */}
+        <div className="text-center text-white mb-6">
+          <span className="text-gray-400 text-sm tracking-wide">Punkte bis</span>
+          <MultiplierCalculator variant="multiplierOnly" scores={safeScores} />
+        </div>
+
+        {/* === Zahlen-Display — kompakte Karten (wie vorher); Gegner kleiner === */}
+        <div className="text-white mb-2">
+          {/* Eigenes Team */}
+          <div className="text-center text-white text-base font-semibold mb-2.5 mt-1">
+            {getTeamLabel(activeTeam)}
+          </div>
+          <div className="grid grid-cols-2 gap-2 mb-4">
+            <div className="bg-black/30 rounded-xl py-2.5 px-2 relative">
+              <div className="text-xs uppercase tracking-wider text-gray-400 absolute top-1.5 left-2.5">{ownTarget.title}</div>
+              <div className="text-center text-3xl font-extrabold tabular-nums mt-2" style={{fontFamily: 'system-ui, -apple-system, sans-serif'}}>{ownTarget.remaining}</div>
+            </div>
+            <div className="bg-black/30 rounded-xl py-2.5 px-2 relative">
+              <div className="text-xs tabular-nums text-gray-400 absolute top-1.5 left-2.5">{currentMultiplier}-fach</div>
+              <div className="text-center text-3xl font-extrabold tabular-nums mt-2" style={{fontFamily: 'system-ui, -apple-system, sans-serif'}}>{getDividedPoints(ownTarget.remaining)}</div>
+            </div>
           </div>
 
-          <div className="text-center text-white mt-1">
-            <div>
-              <span className="text-gray-400 text-xs uppercase tracking-widest">Gegner</span>
-              <div className="grid grid-cols-3 gap-2 -mt-10">
-                <div className="text-center">
-                  <span className="text-gray-400 text-xs">
-                    {getRemainingPoints(isCalculatorFlipped ? "bottom" : "top", safeScores).title}
-                  </span>
-                  <div className="text-xl font-bold mt-0">
-                    {getRemainingPoints(isCalculatorFlipped ? "bottom" : "top", safeScores).remaining}
-                  </div>
-                </div>
-                <div className="invisible">
-                  {/* Leere mittlere Spalte für korrektes Alignment */}
-                </div>
-                <div className="text-center">
-                  <span className="text-gray-400 text-xs">{currentMultiplier}-fach</span>
-                  <div className="text-xl font-bold mt-0">
-                    {getDividedPoints(getRemainingPoints(isCalculatorFlipped ? "bottom" : "top", safeScores).remaining)}
-                  </div>
-                </div>
-              </div>
+          {/* Gegner-Team — kleinere Typo, flachere Karten */}
+          <div className="text-center text-gray-400 text-sm font-medium mb-2">
+            {getTeamLabel(opponentTeam)}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-black/30 rounded-xl py-2 px-2 relative">
+              <div className="text-[10px] uppercase tracking-wider text-gray-500 absolute top-1.5 left-2">{oppTarget.title}</div>
+              <div className="text-center text-xl font-bold tabular-nums mt-1.5" style={{fontFamily: 'system-ui, -apple-system, sans-serif'}}>{oppTarget.remaining}</div>
+            </div>
+            <div className="bg-black/30 rounded-xl py-2 px-2 relative">
+              <div className="text-[10px] tabular-nums text-gray-500 absolute top-1.5 left-2">{currentMultiplier}-fach</div>
+              <div className="text-center text-xl font-bold tabular-nums mt-1.5" style={{fontFamily: 'system-ui, -apple-system, sans-serif'}}>{getDividedPoints(oppTarget.remaining)}</div>
             </div>
           </div>
         </div>
 
-        <div className="space-y-4 max-w-md mx-auto mt-12 mb-4">
+        {/* === Berg / Bedanken — eigene Sektion mit Kontextlabel === */}
+        <div className="text-center text-gray-400 text-sm font-semibold mt-8 mb-3">
+          {isBergActive(activeTeam) && isSiegActive(activeTeam)
+            ? ""
+            : isBergActiveForAnyTeam()
+              ? "Bedanken:"
+              : activeScoreSettings?.enabled?.berg
+                ? "Berg schreiben:"
+                : "Bedanken:"
+          }
+        </div>
+        <div className="space-y-4 max-w-md mx-auto mb-4">
           {activeScoreSettings?.enabled?.berg ? (
-            // Berg aktiviert: 2 Buttons nebeneinander
             <div className="grid grid-cols-2 gap-4">
               <ChargeButton
                 onAction={handleBergClick}
@@ -895,7 +916,6 @@ const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({isOpen, onClose}) => {
               </ChargeButton>
             </div>
           ) : (
-            // Berg deaktiviert: Nur Bedanken-Button über ganze Breite
             <ChargeButton
               onAction={handleSiegClick}
               isButtonActive={isSiegActive(activeTeam)}

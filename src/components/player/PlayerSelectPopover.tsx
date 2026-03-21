@@ -211,7 +211,7 @@ export const PlayerSelectPopover: React.FC<PlayerSelectPopoverProps> = ({
                           <ProfileImage 
                             src={playerDoc?.photoURL}
                             alt={member.name} 
-                            size="dm"
+                            size="md"
                             className="mr-3 flex-shrink-0"
                             fallbackClassName="bg-gray-600 text-gray-300 text-sm"
                             fallbackText={member.name.charAt(0).toUpperCase()}

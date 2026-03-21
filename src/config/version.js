@@ -1,7 +1,7 @@
 // 🛡️ BULLETPROOF: Zentrale Version-Verwaltung für die gesamte App
 // Diese JavaScript-Datei wird sowohl von next.config.js als auch von TypeScript-Code verwendet
 
-export const APP_VERSION = '2.8.3';
+export const APP_VERSION = '2.9.0';
 
 // Für Service Worker (mit 'v' Prefix)
 export const SW_VERSION = `v${APP_VERSION}`;

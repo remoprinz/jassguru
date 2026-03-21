@@ -44,7 +44,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
   const [gamePlayers, setGamePlayers] = useState<GamePlayers>({1: null, 2: null, 3: null, 4: null});
   const [isGuestModalOpen, setIsGuestModalOpen] = useState(false);
   const [guestTargetSlot, setGuestTargetSlot] = useState<PlayerNumber | null>(null);
-  const [names, setNames] = useState<PlayerNames>({ 1: 'Spieler 1', 2: 'Spieler 2', 3: 'Spieler 3', 4: 'Spieler 4' });
+  const [names, setNames] = useState<PlayerNames>({ 1: '', 2: '', 3: '', 4: '' });
   const [teamConfig] = useState<TeamConfig>(DEFAULT_TEAM_CONFIG);
   const [startingPlayer, setStartingPlayer] = useState<PlayerNumber | null>(null);
   // ENTFERNT: Lokaler isLoading State - verwende globalen uiStore Loading
@@ -284,7 +284,14 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
       };
       await startGameFlow(gamePlayers as Required<GamePlayers>, playerNamesForStore, startingPlayer as PlayerNumber);
     } else {
-      const emptyNames = Object.entries(names).filter(([_, name]) => !name.trim());
+      // DOM-Werte lesen (State wird erst bei onBlur aktualisiert, User könnte direkt START klicken)
+      const currentNames: PlayerNames = { 1: '', 2: '', 3: '', 4: '' };
+      for (const slot of [1, 2, 3, 4] as PlayerNumber[]) {
+        const input = document.getElementById(`guest-input-${slot}`) as HTMLInputElement | null;
+        currentNames[slot] = input?.value?.trim() || names[slot]?.trim() || '';
+      }
+      setNames(currentNames);
+      const emptyNames = Object.entries(currentNames).filter(([_, name]) => !name.trim());
       if (emptyNames.length > 0) {
         showNotification({
           type: 'warning',
@@ -294,10 +301,10 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
               label: 'Ohne\nNamen',
               onClick: async () => {
                 const validatedNames: PlayerNames = {
-                  1: names[1]?.trim() || 'Du',
-                  2: names[2]?.trim() || 'Gegner 1',
-                  3: names[3]?.trim() || 'Partner',
-                  4: names[4]?.trim() || 'Gegner 2'
+                  1: currentNames[1] || 'Du',
+                  2: currentNames[2] || 'Gegner 1',
+                  3: currentNames[3] || 'Partner',
+                  4: currentNames[4] || 'Gegner 2'
                 };
                 setNames(validatedNames);
                 await startGameFlow(gamePlayers as Required<GamePlayers>, validatedNames, startingPlayer as PlayerNumber);
@@ -314,7 +321,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
         });
         return;
       }
-      await startGameFlow(gamePlayers as Required<GamePlayers>, names, startingPlayer as PlayerNumber);
+      await startGameFlow(gamePlayers as Required<GamePlayers>, currentNames, startingPlayer as PlayerNumber);
     }
   };
 
@@ -571,7 +578,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
     <>
       {/* Content-Layer */}
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto bg-gray-900"
       >
         <div className="w-full max-w-xs py-6 md:py-8">
         <div className="relative w-full rounded-xl bg-gray-800 bg-opacity-95 p-6 text-center shadow-lg space-y-6">
@@ -703,8 +710,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
                   const isTeamBottom = teamConfig.bottom.includes(playerNumber);
                   const teamName = isTeamBottom ? "Team 1" : "Team 2";
                   const teamColor = isTeamBottom ? 'text-yellow-400' : 'text-blue-400';
-                  const allNamesEntered = areAllNamesEntered(names);
-                  
+
                   return (
                     <div key={`guest-slot-${slotNum}`} className="relative">
                         <input
@@ -722,15 +728,17 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
                             "Gegner 2 eingeben..."))
                           }
                           defaultValue={names[playerNumber]}
-                          readOnly={allNamesEntered}
-                          onInput={(e) => {
-                            const target = e.target as HTMLInputElement;
-                            handleNameChange(playerNumber, target.value);
-                          }}
-                          onClick={(e) => {
-                            if (allNamesEntered) {
-                              handlePlayerFieldClick(playerNumber, e as unknown as React.MouseEvent);
+                          onFocus={(e) => {
+                            // Alle Namen eingegeben → Keyboard NICHT öffnen, stattdessen Startspieler wählen
+                            if (areAllNamesEntered(names)) {
+                              e.target.blur();
+                              setStartingPlayer(playerNumber);
+                              return;
                             }
+                          }}
+                          onBlur={(e) => {
+                            // State NUR bei Blur aktualisieren — kein Re-Render während des Tippens
+                            handleNameChange(playerNumber, e.target.value);
                           }}
                           className={getPlayerFieldClass(playerNumber, true)}
                         />
