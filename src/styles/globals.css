@@ -315,7 +315,8 @@ body.landing-page * {
   --hero-felt-radius: 3.097vw;
   --hero-felt-border: 16px;
   --hero-logo-top: 5%;
-  --hero-logo-size: 160px;
+  /* Breite des JassGuru-Wordmarks (PNG ~4.6:1) */
+  --hero-logo-size: min(320px, 34vw);
   --hero-title-top: 31%;
   --hero-title-size: clamp(24px, 5.208vw, 75px);
   --hero-title-line-height: 1.0;
@@ -336,7 +337,7 @@ body.landing-page * {
     --hero-felt-radius: 2.5vw;
     --hero-felt-border: 12px;
     --hero-logo-top: 10%;
-    --hero-logo-size: 100px;
+    --hero-logo-size: min(280px, 58vw);
     --hero-title-top: 18%;
     --hero-title-size: clamp(36px, 5vw, 52px);
     --hero-title-line-height: 1.1;
@@ -358,7 +359,7 @@ body.landing-page * {
     --hero-felt-radius: 16px;
     --hero-felt-border: 6px;
     --hero-logo-top: 15%;
-    --hero-logo-size: 80px;
+    --hero-logo-size: min(260px, 88vw);
     --hero-title-top: 27.2%;
     --hero-title-size: 44px;
     --hero-title-line-height: 1.1;

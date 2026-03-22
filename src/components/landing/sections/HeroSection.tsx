@@ -190,10 +190,10 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onInstall, onLogin }) => {
         transition={{ duration: 0.6, delay: 0.05 }}
       >
         <Image
-          src="/welcome-guru.png"
+          src="/images/logos/jassguru-logo-weiss.png"
           alt="JassGuru"
-          width={160}
-          height={160}
+          width={1152}
+          height={252}
           className="object-contain drop-shadow-lg"
           style={{ width: 'var(--hero-logo-size)', height: 'auto' }}
         />

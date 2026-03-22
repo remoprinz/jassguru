@@ -10,17 +10,18 @@ interface LandingHeaderProps {
 }
 
 function Logo({ variant = 'color', shrunk = false }: { variant?: 'color' | 'white'; shrunk?: boolean }) {
-  const src = variant === 'white'
-    ? '/images/logos/JVS Logo farbig weiss kurz.svg'
-    : '/images/logos/JVS Logo farbig kurz.svg';
+  const src =
+    variant === 'white'
+      ? '/images/logos/jassguru-logo-weiss.png'
+      : '/images/logos/jassguru-logo.png';
 
   return (
     <Image
       src={src}
-      alt="Jassverband Schweiz"
-      width={180}
-      height={48}
-      className={`transition-all duration-500 w-auto ${
+      alt="JassGuru"
+      width={1152}
+      height={252}
+      className={`transition-all duration-500 w-auto max-w-[min(100%,200px)] sm:max-w-[min(100%,240px)] md:max-w-none ${
         shrunk ? 'h-8 md:h-9' : 'h-9 md:h-11'
       }`}
     />
