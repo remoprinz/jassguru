@@ -87,6 +87,17 @@ const Header: React.FC<HeaderProps> = () => {
               </svg>
             </button>
           )}
+          {!showEffectiveBackButton && (
+            <Link href="/start">
+              <Image
+                src="/images/logos/jassguru-logo-weiss.webp"
+                alt="JassGuru"
+                width={360}
+                height={78}
+                className="h-7 w-auto"
+              />
+            </Link>
+          )}
           {effectiveTitle && (
             <h1 className="text-xl font-bold text-white">{effectiveTitle}</h1>
           )}

@@ -4,6 +4,17 @@ import Image from "next/image";
 export const LegalFooter = () => {
   return (
     <footer className="mt-6 pb-4 text-center pt-6 px-4">
+      <div className="mb-4 flex justify-center">
+        <Link href="/start">
+          <Image
+            src="/images/logos/jassguru-logo-weiss.webp"
+            alt="JassGuru"
+            width={360}
+            height={78}
+            className="h-6 w-auto opacity-60 hover:opacity-100 transition-opacity"
+          />
+        </Link>
+      </div>
       <div className="flex flex-wrap justify-center items-center gap-4 text-xs text-gray-400 mb-2">
         <Link 
           href="/impressum"
