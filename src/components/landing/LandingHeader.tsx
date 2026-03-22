@@ -9,7 +9,7 @@ interface LandingHeaderProps {
   onRegister: () => void;
 }
 
-/** Filz/transparent: weiss; weisse Leiste nach Scroll: dunkle Variante */
+/** jassguru.ch: JassGuru-Wordmark (PNG). Filz/transparent → weiss; nach Scroll → dunkel. */
 function Logo({ variant = 'color', shrunk = false }: { variant?: 'color' | 'white'; shrunk?: boolean }) {
   const src =
     variant === 'white'
