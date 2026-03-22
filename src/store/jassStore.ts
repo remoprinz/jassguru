@@ -828,7 +828,7 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
             { merge: true }
           );
         }
-      } catch (e) { /* nicht fatal */ }
+      } catch (e) {/* nicht fatal */}
     })();
   },
 

@@ -751,9 +751,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
               });
             });
             
-            // Turnier-Session-Win/Loss für Teilnehmer (basierend auf Session-Gewinner)
-            // Bei Turnieren ist die Session-Auswertung komplexer, hier vereinfacht
-            
+            // Turniere zählen NICHT als Partien für die Siegquote-Rangliste
           } else {
             // ✅ NORMALE SESSION: Verwende gamesPlayed und winnerTeamKey
             const gamesPlayed = summary.gamesPlayed || 0;
@@ -771,7 +769,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
               // Session Win/Loss
               const ss = sessionStatsByPlayer.get(playerId) || { wins: 0, losses: 0, draws: 0 };
               
-              if (!winnerTeamKey) {
+              if (!winnerTeamKey || winnerTeamKey === 'draw') {
                 ss.draws++;
               } else if (winnerTeamKey === 'top' && topPlayers.includes(playerId)) {
                 ss.wins++;

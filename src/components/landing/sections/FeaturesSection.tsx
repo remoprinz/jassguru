@@ -4,25 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
-
-/* ── Phone Frame (wie jassverband.ch/schweizermeisterschaft) ── */
-function PhoneFrame({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      className="relative w-[min(42vw,240px)] overflow-hidden"
-      style={{
-        aspectRatio: '390 / 844',
-        borderRadius: 'clamp(16px, 4vw, 32px)',
-        border: 'clamp(3px, 0.6vw, 5px) solid #2a2a2a',
-        backgroundColor: '#111',
-        boxShadow:
-          '0 25px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)',
-      }}
-    >
-      {children}
-    </div>
-  );
-}
+import { LandingPhoneFrame } from '@/components/landing/LandingPhoneFrame';
 
 const FeaturesSection: React.FC = () => {
   return (
@@ -84,7 +66,7 @@ const FeaturesSection: React.FC = () => {
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0 }}
           >
-            <PhoneFrame>
+            <LandingPhoneFrame>
               <Image
                 src="/assets/screenshots/3_Jasstafel.PNG"
                 alt="Digitale Kreidetafel mit Z-Linie"
@@ -92,7 +74,7 @@ const FeaturesSection: React.FC = () => {
                 className="object-cover object-center"
                 unoptimized
               />
-            </PhoneFrame>
+            </LandingPhoneFrame>
             <p
               className="text-white/60 text-sm mt-3 sm:mt-4 text-center"
               style={{ textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}
@@ -109,7 +91,7 @@ const FeaturesSection: React.FC = () => {
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            <PhoneFrame>
+            <LandingPhoneFrame>
               <Image
                 src="/assets/screenshots/0a_Jassstarten.PNG"
                 alt="Gruppen-Rangliste"
@@ -117,7 +99,7 @@ const FeaturesSection: React.FC = () => {
                 className="object-cover object-top"
                 unoptimized
               />
-            </PhoneFrame>
+            </LandingPhoneFrame>
             <p
               className="text-white/60 text-sm mt-3 sm:mt-4 text-center"
               style={{ textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}

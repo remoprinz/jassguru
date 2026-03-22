@@ -246,8 +246,8 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onInstall, onLogin }) => {
             textShadow: '0 1px 8px rgba(0,0,0,0.2)',
           }}
         >
-          Kreidetafel, Rangliste, Profil und Turniere — alles was deine
-          Jassgruppe braucht.<span className="hidden sm:inline"> Vom Jassverband Schweiz.</span>
+          Jasstafel, Rangliste, Profil und Turniere — alles was deine
+          Jassgruppe braucht.
         </p>
       </motion.div>
 

@@ -60,6 +60,8 @@ module.exports = {
     "brace-style": "off", // Deaktiviert - zu restriktiv
     "no-empty": "off", // Deaktiviert - leere Blöcke sind manchmal notwendig
     "@typescript-eslint/no-var-requires": "off", // Deaktiviert - require() wird manchmal benötigt
+    "@typescript-eslint/no-require-imports": "off", // Deaktiviert - require() wird für dynamische Imports benötigt
+    "@typescript-eslint/no-empty-object-type": "off", // Deaktiviert - leere Interfaces werden für Erweiterbarkeit genutzt
     "no-inner-declarations": "off", // Deaktiviert - zu restriktiv
     "no-prototype-builtins": "off", // Deaktiviert - hasOwnProperty ist manchmal notwendig
     "no-useless-escape": "off", // Deaktiviert - Escape-Zeichen können notwendig sein

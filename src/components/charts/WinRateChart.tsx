@@ -65,7 +65,7 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<HTMLDivElement>(null);
-  const [hasAnimated, setHasAnimated] = React.useState(false);
+  const hasAnimatedRef = useRef(false);
   const [isInView, setIsInView] = React.useState(false);
   const [shouldRender, setShouldRender] = React.useState(false);
   
@@ -126,15 +126,15 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
 
   // ✅ Tab-Wechsel-Reset: Animation und Rendering zurücksetzen bei Tab-Wechsel
   React.useEffect(() => {
-    setHasAnimated(false);
+    hasAnimatedRef.current = false;
     setIsInView(false);
     setShouldRender(false);
-    
+
     // 🚀 SOFORTIGE ANIMATION: Wenn animateImmediately=true, sofort animieren
     if (animateImmediately) {
       setShouldRender(true);
       setIsInView(true);
-      setTimeout(() => setHasAnimated(true), 50);
+      setTimeout(() => { hasAnimatedRef.current = true; }, 600);
     }
   }, [activeTab, activeSubTab, animateImmediately]);
 
@@ -157,8 +157,8 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
             setIsInView(true);
             setShouldRender(true);
             // Animation nur starten wenn Chart vollständig sichtbar UND noch nicht animiert
-            if (!hasAnimated) {
-              setTimeout(() => setHasAnimated(true), 50);
+            if (!hasAnimatedRef.current) {
+              setTimeout(() => { hasAnimatedRef.current = true; }, 600);
             }
           } else {
             setIsInView(false);
@@ -173,7 +173,7 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
     
     observer.observe(containerRef.current);
     return () => observer.disconnect();
-  }, [hasAnimated, activeTab, activeSubTab, animateImmediately, animationThreshold]);
+  }, [activeTab, activeSubTab, animateImmediately, animationThreshold]);
   
   // 🚀 NEU: Cleanup Timer beim Unmount
   React.useEffect(() => {
@@ -356,9 +356,9 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
       }
     },
     animation: {
-      duration: hasAnimated ? 0 : 350, // ✅ Nur beim ersten Laden animieren (gleich wie PowerRatingChart)
-      easing: 'easeOutQuart' as const, // ✅ Gleich wie PowerRatingChart
-      delay: (context: { dataIndex: number }) => hasAnimated ? 0 : context.dataIndex * 20, // ✅ Schnellere Delays
+      duration: () => hasAnimatedRef.current ? 0 : 350,
+      easing: 'easeOutQuart' as const,
+      delay: (context: { dataIndex: number }) => hasAnimatedRef.current ? 0 : context.dataIndex * 20,
     },
     plugins: {
       legend: {
@@ -530,7 +530,7 @@ const WinRateChart: React.FC<WinRateChartProps> = ({
         if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current);
       }
     }
-  }), [isDarkMode, hasAnimated, hideLegend, maxValue, chartData, theme]);
+  }), [isDarkMode, hideLegend, maxValue, chartData, theme]);
 
   // ✅ Custom Plugin für 50%-Linie
   const customPlugin = useMemo(() => ({

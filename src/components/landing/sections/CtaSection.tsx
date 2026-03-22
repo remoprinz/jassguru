@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 
 interface CtaSectionProps {
   onInstall: () => void;
@@ -10,8 +11,20 @@ interface CtaSectionProps {
 
 const CtaSection: React.FC<CtaSectionProps> = ({ onInstall, onLogin }) => {
   return (
-    <section className="landing-chalkboard relative">
-      <div className="landing-container landing-section relative z-10">
+    <section className="relative overflow-hidden">
+      {/* Chalkboard-Hintergrund */}
+      <div className="absolute inset-0 z-0">
+        <Image
+          src="/images/backgrounds/chalkboard-jvs.webp"
+          alt=""
+          fill
+          className="object-cover"
+          aria-hidden="true"
+        />
+        <div className="absolute inset-0 bg-black/25" />
+      </div>
+
+      <div className="relative z-10 py-16 md:py-24 px-6">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -20,21 +33,24 @@ const CtaSection: React.FC<CtaSectionProps> = ({ onInstall, onLogin }) => {
           className="text-center max-w-2xl mx-auto"
         >
           <h2
-            className="font-headline text-white mb-8"
+            className="text-white mb-8"
             style={{
-              fontSize: 'clamp(28px, 4.5vw, 42px)',
-              lineHeight: 1.2,
-              letterSpacing: '-0.02em',
+              fontFamily: "'Capita', Georgia, serif",
+              fontWeight: 700,
+              fontSize: 'clamp(32px, 5vw, 42px)',
+              lineHeight: 1.37,
+              letterSpacing: '-0.96px',
+              textShadow: '0 2px 12px rgba(0,0,0,0.4)',
             }}
           >
-            Bereit für den ersten Jass?
+            Jetzt loslegen.
           </h2>
 
           <button
             onClick={onInstall}
-            className="landing-cta-btn w-full sm:w-auto px-10 py-4 text-white text-lg font-semibold rounded-full"
+            className="landing-cta-btn w-full sm:w-auto px-10 py-4 text-white font-bold rounded-full"
             style={{
-              minWidth: '220px',
+              fontSize: '17px',
               ['--landing-cta-bg' as string]: '#16a34a',
               ['--landing-cta-bg-hover' as string]: '#15803d',
               ['--landing-cta-shadow' as string]: '0 2px 8px rgba(22, 163, 74, 0.3)',
@@ -42,6 +58,9 @@ const CtaSection: React.FC<CtaSectionProps> = ({ onInstall, onLogin }) => {
             }}
           >
             App installieren
+            <svg className="w-5 h-5 ml-2 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+            </svg>
           </button>
 
           <p className="mt-6 text-white/50 text-base">
@@ -55,8 +74,14 @@ const CtaSection: React.FC<CtaSectionProps> = ({ onInstall, onLogin }) => {
           </p>
 
           {/* Trust Badge */}
-          <p className="mt-8 text-white/40 text-sm">
-            Die Jasstafel ist kostenlos · Keine Werbung
+          <p
+            className="mt-8 text-white/50"
+            style={{
+              fontSize: 'clamp(13px, 1.2vw, 15px)',
+              textShadow: '0 1px 4px rgba(0,0,0,0.3)',
+            }}
+          >
+            Kostenlos · Ohne Werbung · In 30 Sekunden startklar
           </p>
         </motion.div>
       </div>

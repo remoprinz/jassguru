@@ -128,7 +128,7 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
   yAxisLabels, // 🎯 NEU: Custom Y-Achsen-Labels (Spielernamen)
 }) => {
     // 🎯 INTELLIGENTE ANIMATION-KONTROLLE: Intersection Observer + Tab-Wechsel-Reset
-    const [hasAnimated, setHasAnimated] = React.useState(false);
+    const hasAnimatedRef = React.useRef(false);
     const [isVisible, setIsVisible] = React.useState(false);
     
     // 🚀 NEU: Auto-Hide Timer für Tooltips
@@ -184,7 +184,7 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
 
     // ✅ Tab-Wechsel-Reset: Animation und Rendering zurücksetzen bei Tab-Wechsel
     React.useEffect(() => {
-      setHasAnimated(false);
+      hasAnimatedRef.current = false;
       setIsVisible(false);
       setShouldRender(false); // ✅ Chart wird nicht mehr gerendert
       
@@ -192,7 +192,7 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
       if (animateImmediately) {
         setShouldRender(true);
         setIsVisible(true);
-        setTimeout(() => setHasAnimated(true), 50);
+        setTimeout(() => { hasAnimatedRef.current = true; }, 600);
       }
     }, [activeTab, activeSubTab, animateImmediately]);
 
@@ -215,8 +215,8 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
               setIsVisible(true);
               setShouldRender(true); // ✅ Chart wird gerendert
               // Animation nur starten wenn Chart vollständig sichtbar UND noch nicht animiert
-              if (!hasAnimated) {
-                setTimeout(() => setHasAnimated(true), 50); // 50ms Verzögerung für smooth Animation
+              if (!hasAnimatedRef.current) {
+                setTimeout(() => { hasAnimatedRef.current = true; }, 600);
               }
             } else {
               setIsVisible(false);
@@ -233,7 +233,7 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
       
       observer.observe(chartRef.current);
       return () => observer.disconnect();
-    }, [hasAnimated, activeTab, activeSubTab, animateImmediately, animationThreshold]);
+    }, [activeTab, activeSubTab, animateImmediately, animationThreshold]);
 
     // 🚀 NEU: Cleanup Timer beim Unmount
     React.useEffect(() => {
@@ -339,21 +339,19 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
     responsive: true,
     maintainAspectRatio: false,
     animation: {
-      duration: hasAnimated ? 0 : 350, // 🎯 Nur beim ersten Laden animieren
-      easing: 'easeOutQuart' as const, // 🎯 Schneller Start, sanfter End
-      // ✅ Resize-Animation deaktivieren für smooth Chart-Updates
+      duration: () => hasAnimatedRef.current ? 0 : 350,
+      easing: 'easeOutQuart' as const,
       resize: {
-        duration: 0 // 🎯 Best Practice: Resize-Animation komplett deaktivieren
+        duration: 0
       },
-      // ✅ Punkte starten von der Hauptlinie (100er bei Elo, 0er bei Strichdifferenz)
       x: {
-        duration: hasAnimated ? 0 : 350,
+        duration: () => hasAnimatedRef.current ? 0 : 350,
         easing: 'easeOutQuart' as const,
-        from: 0, // Start von links
+        from: 0,
         delay: 0,
       },
       y: {
-        duration: hasAnimated ? 0 : 350,
+        duration: () => hasAnimatedRef.current ? 0 : 350,
         easing: 'easeOutQuart' as const,
         // 🎯 Start von der Hauptlinie: 100 für Elo-Charts, 0 für alle anderen Charts
         from: (context: { chart: { scales: { y: { min: number, max: number } } } }) => {
@@ -766,7 +764,7 @@ export const PowerRatingChart: React.FC<PowerRatingChartProps> = ({
         hoverRadius: 4
       }
     }
-  }), [hasAnimated, theme, isDarkMode, hideLegend, showBaseline, invertYAxis, yAxisMin, yAxisMax, isEloChart, data]); // ✅ Dependencies für Memoization
+  }), [theme, isDarkMode, hideLegend, showBaseline, invertYAxis, yAxisMin, yAxisMax, isEloChart, data]);
 
   // 🎯 ZENTRALE CHART-PARAMETER: Alle Charts verwenden dieselben Einstellungen
   const CHART_CONFIG = {

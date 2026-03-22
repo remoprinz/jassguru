@@ -4,25 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
-
-/* ── Phone Frame ── */
-function PhoneFrame({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      className="relative w-[min(42vw,240px)] overflow-hidden"
-      style={{
-        aspectRatio: '390 / 844',
-        borderRadius: 'clamp(16px, 4vw, 32px)',
-        border: 'clamp(3px, 0.6vw, 5px) solid #2a2a2a',
-        backgroundColor: '#111',
-        boxShadow:
-          '0 25px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)',
-      }}
-    >
-      {children}
-    </div>
-  );
-}
+import { LandingPhoneFrame } from '@/components/landing/LandingPhoneFrame';
 
 const ErfassenSection: React.FC = () => {
   return (
@@ -53,24 +35,23 @@ const ErfassenSection: React.FC = () => {
             style={{
               fontFamily: "'Capita', Georgia, serif",
               fontWeight: 700,
-              fontSize: 'clamp(28px, 4.5vw, 42px)',
-              lineHeight: 1.2,
-              letterSpacing: '-0.02em',
+              fontSize: 'clamp(32px, 5vw, 42px)',
+              lineHeight: 1.37,
+              letterSpacing: '-0.96px',
               textShadow: '0 2px 12px rgba(0,0,0,0.4)',
             }}
           >
-            Mehr Zeit für den nächsten Stich.
+            Schreiben war noch nie so einfach.
           </h2>
           <p
-            className="text-white/75 max-w-lg mx-auto"
+            className="text-white/80 max-w-2xl mx-auto"
             style={{
-              fontSize: 'clamp(15px, 1.8vw, 17px)',
-              lineHeight: 1.65,
+              fontSize: 'clamp(16px, 2.5vw, 20px)',
+              lineHeight: 1.6,
               textShadow: '0 1px 6px rgba(0,0,0,0.3)',
             }}
           >
-            Schnell schreiben, einfach korrigieren — die digitale Tafel, die für
-            dich mitdenkt.
+            Punkte eingeben — den Rest erledigt die Tafel.
           </p>
         </motion.div>
 
@@ -84,20 +65,20 @@ const ErfassenSection: React.FC = () => {
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0 }}
           >
-            <PhoneFrame>
+            <LandingPhoneFrame>
               <Image
-                src="/assets/screenshots/3_Jasstafel.PNG"
-                alt="Digitale Kreidetafel mit Z-Linie"
+                src="/assets/screenshots/jasstafel.webp"
+                alt="Digitale Jasstafel mit Z-Linie"
                 fill
+                sizes="(max-width: 768px) 42vw, 240px"
                 className="object-cover object-center"
-                unoptimized
               />
-            </PhoneFrame>
+            </LandingPhoneFrame>
             <p
               className="text-white/60 text-sm mt-3 sm:mt-4 text-center"
               style={{ textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}
             >
-              Kreidetafel
+              Jasstafel
             </p>
           </motion.div>
 
@@ -109,15 +90,15 @@ const ErfassenSection: React.FC = () => {
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            <PhoneFrame>
+            <LandingPhoneFrame>
               <Image
-                src="/assets/screenshots/5_Kalkulator.PNG"
+                src="/assets/screenshots/kalkulator.webp"
                 alt="Punkterechner"
                 fill
+                sizes="(max-width: 768px) 42vw, 240px"
                 className="object-cover object-top"
-                unoptimized
               />
-            </PhoneFrame>
+            </LandingPhoneFrame>
             <p
               className="text-white/60 text-sm mt-3 sm:mt-4 text-center"
               style={{ textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}

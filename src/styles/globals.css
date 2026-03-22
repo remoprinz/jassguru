@@ -315,16 +315,16 @@ body.landing-page * {
   --hero-felt-radius: 3.097vw;
   --hero-felt-border: 16px;
   --hero-logo-top: 5%;
-  --hero-logo-size: 190px;
+  --hero-logo-size: 160px;
   --hero-title-top: 31%;
   --hero-title-size: clamp(24px, 5.208vw, 75px);
   --hero-title-line-height: 1.0;
   --hero-title-max-width: 771px;
-  --hero-subtitle-top: 49.57%;
+  --hero-subtitle-top: 53%;
   --hero-subtitle-max-width: 571px;
   --hero-subtitle-width: 80%;
   --hero-subtitle-size: clamp(15px, 1.944vw, 28px);
-  --hero-cta-top: 70.43%;
+  --hero-cta-top: 66%;
 }
 
 @media (max-width: 1024px) {

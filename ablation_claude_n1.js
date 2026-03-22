@@ -181,7 +181,7 @@ async function fetchLiveText(url) {
       // mimic a normal browser UA a bit
       'user-agent':
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
-      accept: 'text/html,application/xhtml+xml',
+      "accept": 'text/html,application/xhtml+xml',
       'accept-language': 'de-CH,de;q=0.9,en;q=0.8',
     },
   });
@@ -279,7 +279,5 @@ main().catch((e) => {
   console.error('Fatal:', e?.stack ?? e);
   process.exit(1);
 });
-
-
 
 

@@ -4,25 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
-
-/* ── Phone Frame ── */
-function PhoneFrame({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      className="relative w-[min(42vw,240px)] overflow-hidden"
-      style={{
-        aspectRatio: '390 / 844',
-        borderRadius: 'clamp(16px, 4vw, 32px)',
-        border: 'clamp(3px, 0.6vw, 5px) solid #2a2a2a',
-        backgroundColor: '#111',
-        boxShadow:
-          '0 25px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)',
-      }}
-    >
-      {children}
-    </div>
-  );
-}
+import { LandingPhoneFrame } from '@/components/landing/LandingPhoneFrame';
 
 const ProSection: React.FC = () => {
   return (
@@ -48,42 +30,38 @@ const ProSection: React.FC = () => {
           transition={{ duration: 0.5 }}
           className="text-center mb-10 md:mb-14"
         >
+          <p
+            className="text-white/60 uppercase tracking-widest mb-3"
+            style={{
+              fontSize: 'clamp(12px, 1.2vw, 14px)',
+              letterSpacing: '0.15em',
+              textShadow: '0 1px 6px rgba(0,0,0,0.3)',
+            }}
+          >
+            JassGuru <span style={{ color: '#facc15' }}>Pro</span>
+          </p>
           <h2
             className="text-white mb-4"
             style={{
               fontFamily: "'Capita', Georgia, serif",
               fontWeight: 700,
-              fontSize: 'clamp(28px, 4.5vw, 42px)',
-              lineHeight: 1.2,
-              letterSpacing: '-0.02em',
+              fontSize: 'clamp(32px, 5vw, 42px)',
+              lineHeight: 1.37,
+              letterSpacing: '-0.96px',
               textShadow: '0 2px 12px rgba(0,0,0,0.4)',
             }}
           >
-            JassGuru{' '}
-            <span style={{ color: '#facc15' }}>Pro</span>
+            Wie gut jasst du wirklich?
           </h2>
           <p
-            className="text-white/80 max-w-lg mx-auto"
+            className="text-white/80 max-w-2xl mx-auto"
             style={{
-              fontSize: 'clamp(17px, 2vw, 21px)',
-              lineHeight: 1.5,
-              fontFamily: "'Capita', Georgia, serif",
-              fontWeight: 600,
+              fontSize: 'clamp(16px, 2.5vw, 20px)',
+              lineHeight: 1.6,
               textShadow: '0 1px 6px rgba(0,0,0,0.3)',
             }}
           >
-            Wie gut jasst du wirklich?
-          </p>
-          <p
-            className="text-white/60 max-w-md mx-auto mt-3"
-            style={{
-              fontSize: 'clamp(14px, 1.6vw, 16px)',
-              lineHeight: 1.65,
-              textShadow: '0 1px 6px rgba(0,0,0,0.3)',
-            }}
-          >
-            Beweise dein Können mit dem offiziellen Elo-Rating, der ewigen
-            Gruppen-Ranglisten und deinem persönlichen Jass-Profil.
+            Elo-Rating, ewige Rangliste und dein persönliches Jass-Profil — exklusiv für Mitglieder.
           </p>
         </motion.div>
 
@@ -97,15 +75,15 @@ const ProSection: React.FC = () => {
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0 }}
           >
-            <PhoneFrame>
+            <LandingPhoneFrame>
               <Image
-                src="/assets/screenshots/0a_Jassstarten.PNG"
+                src="/assets/screenshots/gruppenview.webp"
                 alt="Ewige Gruppen-Rangliste"
                 fill
+                sizes="(max-width: 768px) 42vw, 240px"
                 className="object-cover object-top"
-                unoptimized
               />
-            </PhoneFrame>
+            </LandingPhoneFrame>
             <div className="mt-3 sm:mt-4 text-center">
               <p
                 className="text-white/90 text-base sm:text-lg font-semibold"
@@ -132,15 +110,15 @@ const ProSection: React.FC = () => {
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            <PhoneFrame>
+            <LandingPhoneFrame>
               <Image
-                src="/assets/screenshots/0b1_Profil.PNG"
+                src="/assets/screenshots/profilview.webp"
                 alt="Spielerprofil mit Elo-Rating"
                 fill
+                sizes="(max-width: 768px) 42vw, 240px"
                 className="object-cover object-top"
-                unoptimized
               />
-            </PhoneFrame>
+            </LandingPhoneFrame>
             <div className="mt-3 sm:mt-4 text-center">
               <p
                 className="text-white/90 text-base sm:text-lg font-semibold"
