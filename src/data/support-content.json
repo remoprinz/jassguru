@@ -27,16 +27,16 @@
       {
         "number": 2,
         "text": "Tippe unten in der Mitte auf das Teilen-Symbol (□↑).",
-        "image": "1-pwa/pwa_ios_menu.png"
+        "image": "1-pwa/pwa_ios_menu.webp"
       },
       {
         "number": 3,
         "text": "Bestätige mit 'Hinzufügen' oder 'Installieren'.",
-        "image": "1-pwa/pwa_ios_icon.png"
+        "image": "1-pwa/pwa_ios_icon.webp"
       }
     ],
     "images": [],
-    "primaryImage": "1-pwa/pwa_ios_menu.png",
+    "primaryImage": "1-pwa/pwa_ios_menu.webp",
     "keywords": [
       "wie installiere ich die app",
       "wie installiere ich die app",
@@ -155,16 +155,16 @@
       {
         "number": 3,
         "text": "Wähle 'Zum Startbildschirm hinzufügen'.",
-        "image": "1-pwa/android_install_01.png"
+        "image": "1-pwa/android_install_01.webp"
       },
       {
         "number": 4,
         "text": "Bestätige mit 'Hinzufügen' → das App-Icon erscheint auf deinem Home-Bildschirm.",
-        "image": "1-pwa/android_homescreen.png"
+        "image": "1-pwa/android_homescreen.webp"
       }
     ],
     "images": [],
-    "primaryImage": "1-pwa/android_install_01.png",
+    "primaryImage": "1-pwa/android_install_01.webp",
     "keywords": [
       "wie installiere ich die app",
       "wie installiere ich die app",
@@ -390,13 +390,13 @@
       {
         "number": 2,
         "text": "Tippe auf den grossen grünen Button 'Neues Spiel' auf der Startseite.",
-        "image": "2-spiele/spiel_starten_01.png",
+        "image": "2-spiele/spiel_starten_01.webp",
         "tip": "Der Button ist nicht zu übersehen - er ist das zentrale Element auf der Startseite."
       },
       {
         "number": 3,
         "text": "Wähle deine Spieler aus.",
-        "image": "2-spiele/spieler_auswaehlen_01.png",
+        "image": "2-spiele/spieler_auswaehlen_01.webp",
         "tip": "Du kannst entweder als Gast spielen (ohne Statistik) oder dich anmelden (mit Statistik). Die Entscheidung triffst du beim ersten App-Start, nicht beim Spielstart."
       },
       {
@@ -406,9 +406,9 @@
       }
     ],
     "images": [
-      "2-spiele/spiel_starten_01.png"
+      "2-spiele/spiel_starten_01.webp"
     ],
-    "primaryImage": "2-spiele/spiel_starten_01.png",
+    "primaryImage": "2-spiele/spiel_starten_01.webp",
     "keywords": [
       "spiel starten",
       "spiel beginnen",
@@ -539,13 +539,13 @@
       {
         "number": 1,
         "text": "Wenn du auf der Jasstafel bist, wische nach UNTEN (von oben nach unten über den Bildschirm).",
-        "image": "2-spiele/menu_oeffnen_1.png",
+        "image": "2-spiele/menu_oeffnen_1.webp",
         "tip": "Die Swipe-Geste öffnet das Menü-Overlay."
       },
       {
         "number": 2,
         "text": "Das Menü öffnet sich und zeigt dir vier Buttons: Trash-Icon (links), Info-Button, Home-Button (blau) und Zwischenstand-Button (grün, rechts).",
-        "image": "2-spiele/menu_offen.png"
+        "image": "2-spiele/menu_offen.webp"
       },
       {
         "number": 3,
@@ -554,10 +554,10 @@
       }
     ],
     "images": [
-      "2-spiele/menu_oeffnen.png",
-      "2-spiele/menu_offen.png"
+      "2-spiele/menu_oeffnen.webp",
+      "2-spiele/menu_offen.webp"
     ],
-    "primaryImage": "2-spiele/menu_oeffnen.png",
+    "primaryImage": "2-spiele/menu_oeffnen.webp",
     "keywords": [
       "menü",
       "menu",
@@ -649,7 +649,7 @@
       {
         "number": 1,
         "text": "Tippe auf ein leeres Spieler-Feld.",
-        "image": "2-spiele/spieler_auswaehlen_01.png"
+        "image": "2-spiele/spieler_auswaehlen_01.webp"
       },
       {
         "number": 2,
@@ -666,9 +666,9 @@
       }
     ],
     "images": [
-      "2-spiele/spieler_auswaehlen_01.png"
+      "2-spiele/spieler_auswaehlen_01.webp"
     ],
-    "primaryImage": "2-spiele/spieler_auswaehlen_01.png",
+    "primaryImage": "2-spiele/spieler_auswaehlen_01.webp",
     "keywords": [
       "spieler auswählen",
       "spieler",
@@ -757,7 +757,7 @@
       {
         "number": 2,
         "text": "Tippe auf den Namen des Spielers, der gerade angezeigt wird.",
-        "image": "2-spiele/spieler_wechseln.png"
+        "image": "2-spiele/spieler_wechseln.webp"
       },
       {
         "number": 3,
@@ -765,9 +765,9 @@
       }
     ],
     "images": [
-      "2-spiele/spieler_wechseln.png"
+      "2-spiele/spieler_wechseln.webp"
     ],
-    "primaryImage": "2-spiele/spieler_wechseln.png",
+    "primaryImage": "2-spiele/spieler_wechseln.webp",
     "keywords": [
       "spieler",
       "wechseln",
@@ -844,7 +844,7 @@
       {
         "number": 2,
         "text": "Der Kalkulator öffnet sich automatisch.",
-        "image": "2-spiele/kalkulator_01.png"
+        "image": "2-spiele/kalkulator_01.webp"
       },
       {
         "number": 3,
@@ -856,7 +856,7 @@
       }
     ],
     "images": [],
-    "primaryImage": "2-spiele/kalkulator_01.png",
+    "primaryImage": "2-spiele/kalkulator_01.webp",
     "keywords": [
       "punkte schreiben",
       "wie schreibe ich punkte",
@@ -962,7 +962,7 @@
       {
         "number": 1,
         "text": "Wenn dein Team genug Punkte hat (z.B. 2500 bei einem Spiel auf 2500), tippe auf den 'Bedanken'-Button.",
-        "image": "2-spiele/sieg_schreiben.png",
+        "image": "2-spiele/sieg_schreiben.webp",
         "tip": "Der Button erscheint automatisch, wenn du in Führung bist."
       },
       {
@@ -1079,7 +1079,7 @@
       {
         "number": 3,
         "text": "Der START-Button wird grün und ist jetzt aktiv.",
-        "image": "2-spiele/startspieler_01.png"
+        "image": "2-spiele/startspieler_01.webp"
       },
       {
         "number": 4,
@@ -1088,7 +1088,7 @@
       }
     ],
     "images": [],
-    "primaryImage": "2-spiele/startspieler_01.png",
+    "primaryImage": "2-spiele/startspieler_01.webp",
     "keywords": [
       "startspieler wählen",
       "startspieler",
@@ -1156,7 +1156,7 @@
       {
         "number": 1,
         "text": "Tippe während der Runde auf eine der Strich-Linien: die obere Linie (100er), die diagonale Linie (50er), die untere Linie (20er) oder die Restzahl-Box.",
-        "image": "2-spiele/weis_eingeben_01.png"
+        "image": "2-spiele/weis_eingeben_01.webp"
       },
       {
         "number": 2,
@@ -1165,9 +1165,9 @@
       }
     ],
     "images": [
-      "2-spiele/weis_eingeben_01.png"
+      "2-spiele/weis_eingeben_01.webp"
     ],
-    "primaryImage": "2-spiele/weis_eingeben_01.png",
+    "primaryImage": "2-spiele/weis_eingeben_01.webp",
     "keywords": [
       "weis eingeben",
       "weis",
@@ -1263,7 +1263,7 @@
       {
         "number": 1,
         "text": "Öffne den Info-Screen durch Doppelklick auf die Kreidetafel auf der Seite vom Team, das den Berg schreiben kann.",
-        "image": "2-spiele/berg_markierung.png",
+        "image": "2-spiele/berg_markierung.webp",
         "tip": "Im Info-Screen siehst du oben, wie viele Punkte deinem Team noch bis zum Berg fehlen."
       },
       {
@@ -1282,9 +1282,9 @@
       }
     ],
     "images": [
-      "2-spiele/berg_markierung.png"
+      "2-spiele/berg_markierung.webp"
     ],
-    "primaryImage": "2-spiele/berg_markierung.png",
+    "primaryImage": "2-spiele/berg_markierung.webp",
     "keywords": [
       "berg schreiben",
       "berg",
@@ -1373,7 +1373,7 @@
       {
         "number": 1,
         "text": "Öffne den Info-Screen durch Doppelklick auf die Kreidetafel auf der Seite des Teams, das sich bedankt hat.",
-        "image": "2-spiele/sieg_schreiben.png"
+        "image": "2-spiele/sieg_schreiben.webp"
       },
       {
         "number": 2,
@@ -1389,9 +1389,9 @@
       }
     ],
     "images": [
-      "2-spiele/sieg_schreiben.png"
+      "2-spiele/sieg_schreiben.webp"
     ],
-    "primaryImage": "2-spiele/sieg_schreiben.png",
+    "primaryImage": "2-spiele/sieg_schreiben.webp",
     "keywords": [
       "sieg",
       "gewonnen",
@@ -1544,7 +1544,7 @@
       {
         "number": 1,
         "text": "Nach einem beendeten Spiel (z.B. nach dem Bedanken) öffnet sich automatisch die Resultattafel.",
-        "image": "2-spiele/spiel_oder_jass_beenden.png",
+        "image": "2-spiele/spiel_oder_jass_beenden.webp",
         "tip": "Auf der Resultattafel siehst du das Ergebnis des aktuellen Spiels."
       },
       {
@@ -1559,9 +1559,9 @@
       }
     ],
     "images": [
-      "2-spiele/spiel_oder_jass_beenden.png"
+      "2-spiele/spiel_oder_jass_beenden.webp"
     ],
-    "primaryImage": "2-spiele/spiel_oder_jass_beenden.png",
+    "primaryImage": "2-spiele/spiel_oder_jass_beenden.webp",
     "keywords": [
       "spiel",
       "beenden",
@@ -1642,7 +1642,7 @@
       {
         "number": 1,
         "text": "Nachdem das letzte Spiel fertig ist, tippe auf 'Jass beenden' auf der Resultattafel.",
-        "image": "2-spiele/spiel_beenden.png"
+        "image": "2-spiele/spiel_beenden.webp"
       },
       {
         "number": 2,
@@ -1710,7 +1710,7 @@
       {
         "number": 1,
         "text": "Wische nach LINKS um in der History zurückzugehen (frühere Runden).",
-        "image": "2-spiele/history_swipe.png",
+        "image": "2-spiele/history_swipe.webp",
         "tip": "Nach links = zurück in der Zeit, nach rechts = vorwärts."
       },
       {
@@ -1721,14 +1721,14 @@
       {
         "number": 3,
         "text": "Wenn du in einer alten Runde ein neues Resultat einträgst, erscheint eine Warnung.",
-        "image": "2-spiele/history_warning.png",
+        "image": "2-spiele/history_warning.webp",
         "warning": "Wenn du 'OK' drückst, wird das alte Resultat ÜBERSCHRIEBEN!"
       }
     ],
     "images": [
-      "2-spiele/history_swipe.png"
+      "2-spiele/history_swipe.webp"
     ],
-    "primaryImage": "2-spiele/history_swipe.png",
+    "primaryImage": "2-spiele/history_swipe.webp",
     "keywords": [
       "history",
       "zurück",
@@ -1796,7 +1796,7 @@
       {
         "number": 1,
         "text": "Öffne das Menü und wähle den grünen Knopf rechts, der dich zur Resultattafel führt.",
-        "image": "2-spiele/menu_offen.png"
+        "image": "2-spiele/menu_offen.webp"
       },
       {
         "number": 2,
@@ -1805,12 +1805,12 @@
       {
         "number": 3,
         "text": "Deine Freunde sehen dann genau den Zwischenstand.",
-        "image": "2-spiele/naechste_runde.png",
+        "image": "2-spiele/naechste_runde.webp",
         "tip": "Deine Freunde können dann live zusehen, wie sich der Spielstand ändert!"
       }
     ],
     "images": [],
-    "primaryImage": "2-spiele/menu_offen.png",
+    "primaryImage": "2-spiele/menu_offen.webp",
     "keywords": [
       "sharing",
       "teilen",
@@ -1878,12 +1878,12 @@
       {
         "number": 1,
         "text": "Nach dem Bedanken erscheint automatisch eine Resultat-Ansicht.",
-        "image": "2-spiele/jassresultat_teilen.png"
+        "image": "2-spiele/jassresultat_teilen.webp"
       },
       {
         "number": 2,
         "text": "Tippe auf den grünen Teilen-Button oben rechts.",
-        "image": "2-spiele/teilen_aus_archiv.png"
+        "image": "2-spiele/teilen_aus_archiv.webp"
       },
       {
         "number": 3,
@@ -1891,9 +1891,9 @@
       }
     ],
     "images": [
-      "2-spiele/teilen_aus_archiv.png"
+      "2-spiele/teilen_aus_archiv.webp"
     ],
-    "primaryImage": "2-spiele/teilen_aus_archiv.png",
+    "primaryImage": "2-spiele/teilen_aus_archiv.webp",
     "keywords": [
       "resultat teilen",
       "resultat",
@@ -2132,7 +2132,7 @@
       {
         "number": 3,
         "text": "Wähle \"Neues Turnier erstellen\".",
-        "image": "3-turniere/turnier_erstellen.png"
+        "image": "3-turniere/turnier_erstellen.webp"
       },
       {
         "number": 4,
@@ -2157,9 +2157,9 @@
       }
     ],
     "images": [
-      "3-turniere/turnier_erstellen.png"
+      "3-turniere/turnier_erstellen.webp"
     ],
-    "primaryImage": "3-turniere/turnier_erstellen.png",
+    "primaryImage": "3-turniere/turnier_erstellen.webp",
     "keywords": [
       "turnier erstellen",
       "gruppenturnier erstellen",
@@ -2255,23 +2255,23 @@
       {
         "number": 1,
         "text": "Scrolle hinunter zur Danger Zone. Dort findest du den Knopf \"Turnier jetzt starten\".",
-        "image": "3-turniere/turnier_starten.png"
+        "image": "3-turniere/turnier_starten.webp"
       },
       {
         "number": 2,
         "text": "Klicke ihn und bestätige diese Nachricht.",
-        "image": "3-turniere/turnier_starten_bestaetigen.png",
+        "image": "3-turniere/turnier_starten_bestaetigen.webp",
         "warning": "Dies kann nicht rückgängig gemacht werden!"
       },
       {
         "number": 3,
         "text": "Dann kann das Turnier beginnen!",
-        "image": "3-turniere/passe_starten_01.png",
+        "image": "3-turniere/passe_starten_01.webp",
         "tip": "Sobald das Turnier aktiv ist, können Passen gestartet werden."
       }
     ],
     "images": [],
-    "primaryImage": "3-turniere/turnier_starten.png",
+    "primaryImage": "3-turniere/turnier_starten.webp",
     "keywords": [
       "turnier starten",
       "turnier aktivieren",
@@ -2350,13 +2350,13 @@
       {
         "number": 1,
         "text": "Sobald eine Passe abgeschlossen ist, landest du automatisch in der Turnierübersicht. Tippe auf 'Neue Passe starten'.",
-        "image": "3-turniere/passe_starten_01.png",
+        "image": "3-turniere/passe_starten_01.webp",
         "tip": "Die Passe-Buchstaben (1A, 1B, 2A, etc.) erhöhen sich automatisch mit jedem Vierer-Tisch, der mit seiner Passe beginnt."
       },
       {
         "number": 2,
         "text": "Wähle 4 Spieler aus den Turnier-Teilnehmern.",
-        "image": "3-turniere/passe_starten_02.png",
+        "image": "3-turniere/passe_starten_02.webp",
         "tip": "Die App zeigt nur Spieler an, die noch nicht in einer aktiven Passe sind."
       },
       {
@@ -2369,10 +2369,10 @@
       }
     ],
     "images": [
-      "3-turniere/passe_starten_01.png",
-      "3-turniere/passe_starten_02.png"
+      "3-turniere/passe_starten_01.webp",
+      "3-turniere/passe_starten_02.webp"
     ],
-    "primaryImage": "3-turniere/passe_starten_01.png",
+    "primaryImage": "3-turniere/passe_starten_01.webp",
     "keywords": [
       "turnier",
       "passe",
@@ -2451,7 +2451,7 @@
       {
         "number": 2,
         "text": "Nach dem Bedanken wird die Passe automatisch als beendet markiert. Tippe auf 'Passe abschliessen'.",
-        "image": "3-turniere/passe_abschliessen.png"
+        "image": "3-turniere/passe_abschliessen.webp"
       },
       {
         "number": 3,
@@ -2460,9 +2460,9 @@
       }
     ],
     "images": [
-      "3-turniere/passe_abschliessen.png"
+      "3-turniere/passe_abschliessen.webp"
     ],
-    "primaryImage": "3-turniere/passe_abschliessen.png",
+    "primaryImage": "3-turniere/passe_abschliessen.webp",
     "keywords": [
       "passe",
       "beenden",
@@ -2526,7 +2526,7 @@
       {
         "number": 1,
         "text": "Öffne das Turnier in der Turnier-Übersicht.",
-        "image": "3-turniere/turnier_uebersicht.png"
+        "image": "3-turniere/turnier_uebersicht.webp"
       },
       {
         "number": 2,
@@ -2541,26 +2541,26 @@
       {
         "number": 4,
         "text": "Rangliste Punkte: Hier siehst du die Gesamtpunkte aller Spieler.",
-        "image": "3-turniere/turnier_punkte.png"
+        "image": "3-turniere/turnier_punkte.webp"
       },
       {
         "number": 5,
         "text": "Rangliste Striche: Hier siehst du die Striche aller Spieler.",
-        "image": "3-turniere/turnier_striche.png"
+        "image": "3-turniere/turnier_striche.webp"
       },
       {
         "number": 6,
         "text": "Verlauf Rangliste Striche: Hier siehst du die Entwicklung der Rangliste über die Zeit.",
-        "image": "3-turniere/verlauf_striche.png"
+        "image": "3-turniere/verlauf_striche.webp"
       }
     ],
     "images": [
-      "3-turniere/turnier_uebersicht.png",
-      "3-turniere/turnier_punkte.png",
-      "3-turniere/turnier_striche.png",
-      "3-turniere/verlauf_striche.png"
+      "3-turniere/turnier_uebersicht.webp",
+      "3-turniere/turnier_punkte.webp",
+      "3-turniere/turnier_striche.webp",
+      "3-turniere/verlauf_striche.webp"
     ],
-    "primaryImage": "3-turniere/turnier_uebersicht.png",
+    "primaryImage": "3-turniere/turnier_uebersicht.webp",
     "keywords": [
       "turnier",
       "statistiken",
@@ -2628,7 +2628,7 @@
       {
         "number": 2,
         "text": "Scrolle hinunter zur Danger Zone.",
-        "image": "3-turniere/turnier_abschliessen_unterbrechen.png"
+        "image": "3-turniere/turnier_abschliessen_unterbrechen.webp"
       },
       {
         "number": 3,
@@ -2647,9 +2647,9 @@
       }
     ],
     "images": [
-      "3-turniere/turnier_abschliessen_unterbrechen.png"
+      "3-turniere/turnier_abschliessen_unterbrechen.webp"
     ],
-    "primaryImage": "3-turniere/turnier_abschliessen_unterbrechen.png",
+    "primaryImage": "3-turniere/turnier_abschliessen_unterbrechen.webp",
     "keywords": [
       "turnier abschliessen",
       "turnier unterbrechen",
@@ -2736,7 +2736,7 @@
       {
         "number": 1,
         "text": "Öffne das Turnier in der Turnier-Übersicht.",
-        "image": "3-turniere/turnier_uebersicht.png"
+        "image": "3-turniere/turnier_uebersicht.webp"
       },
       {
         "number": 2,
@@ -2745,7 +2745,7 @@
       {
         "number": 3,
         "text": "Ändere den Turniernamen, die Beschreibung, das Startdatum oder andere Einstellungen.",
-        "image": "3-turniere/turnier_einstellungen.png",
+        "image": "3-turniere/turnier_einstellungen.webp",
         "tip": "Du kannst alle Grundinformationen und Turnier-Regeln anpassen."
       },
       {
@@ -2754,9 +2754,9 @@
       }
     ],
     "images": [
-      "3-turniere/turnier_einstellungen.png"
+      "3-turniere/turnier_einstellungen.webp"
     ],
-    "primaryImage": "3-turniere/turnier_einstellungen.png",
+    "primaryImage": "3-turniere/turnier_einstellungen.webp",
     "keywords": [
       "turnier bearbeiten",
       "turniername ändern",
@@ -2833,26 +2833,26 @@
       {
         "number": 1,
         "text": "Auf der Turnierübersicht oben rechts den Teilen-Knopf klicken.",
-        "image": "3-turniere/turnier_teilen_01.png"
+        "image": "3-turniere/turnier_teilen_01.webp"
       },
       {
         "number": 2,
         "text": "Wähle aus, an wen und über welchen Kanal du teilen möchtest (z.B. WhatsApp, E-Mail, etc.).",
-        "image": "3-turniere/turnier_teilen_02.png"
+        "image": "3-turniere/turnier_teilen_02.webp"
       },
       {
         "number": 3,
         "text": "Die Nachricht mit dem Link zum Turnier wird automatisch erstellt und kann nun versendet werden.",
-        "image": "3-turniere/turnier_teilen_03.png",
+        "image": "3-turniere/turnier_teilen_03.webp",
         "tip": "Der Link führt direkt zur Turnierübersicht - andere können dann die Rangliste und Statistiken sehen."
       }
     ],
     "images": [
-      "3-turniere/turnier_teilen_01.png",
-      "3-turniere/turnier_teilen_02.png",
-      "3-turniere/turnier_teilen_03.png"
+      "3-turniere/turnier_teilen_01.webp",
+      "3-turniere/turnier_teilen_02.webp",
+      "3-turniere/turnier_teilen_03.webp"
     ],
-    "primaryImage": "3-turniere/turnier_teilen_01.png",
+    "primaryImage": "3-turniere/turnier_teilen_01.webp",
     "keywords": [
       "turnierergebnis teilen",
       "turnier resultat teilen",
@@ -2935,7 +2935,7 @@
       {
         "number": 1,
         "text": "Tippe auf 'Gruppe erstellen' auf der Startseite oder im Menü.",
-        "image": "4-gruppen/gruppe_erstellen_01.png",
+        "image": "4-gruppen/gruppe_erstellen_01.webp",
         "tip": "Du musst angemeldet sein, um eine Gruppe zu erstellen."
       },
       {
@@ -2954,9 +2954,9 @@
       }
     ],
     "images": [
-      "4-gruppen/gruppe_erstellen_01.png"
+      "4-gruppen/gruppe_erstellen_01.webp"
     ],
-    "primaryImage": "4-gruppen/gruppe_erstellen_01.png",
+    "primaryImage": "4-gruppen/gruppe_erstellen_01.webp",
     "keywords": [
       "gruppe erstellen",
       "gruppe",
@@ -3034,17 +3034,17 @@
       {
         "number": 2,
         "text": "Tippe auf 'Gruppen'.",
-        "image": "4-gruppen/neue_gruppe_erstellen_01.png"
+        "image": "4-gruppen/neue_gruppe_erstellen_01.webp"
       },
       {
         "number": 3,
         "text": "Dann kannst du eine neue Gruppe erstellen.",
-        "image": "4-gruppen/neue_gruppe_erstellen_02.png",
+        "image": "4-gruppen/neue_gruppe_erstellen_02.webp",
         "tip": "Du kannst mehrere Gruppen erstellen und verwalten."
       }
     ],
     "images": [],
-    "primaryImage": "4-gruppen/neue_gruppe_erstellen_01.png",
+    "primaryImage": "4-gruppen/neue_gruppe_erstellen_01.webp",
     "keywords": [
       "neue gruppe erstellen",
       "gruppe über profil erstellen",
@@ -3131,12 +3131,12 @@
       {
         "number": 2,
         "text": "Tippe auf 'Einladen'.",
-        "image": "4-gruppen/jassrunde_einladen_01.png"
+        "image": "4-gruppen/jassrunde_einladen_01.webp"
       },
       {
         "number": 3,
         "text": "Kopiere den Einladungs-Link oder teile ihn direkt per WhatsApp, SMS, etc.",
-        "image": "4-gruppen/gruppe_einladung_nachricht.png"
+        "image": "4-gruppen/gruppe_einladung_nachricht.webp"
       },
       {
         "number": 4,
@@ -3144,9 +3144,9 @@
       }
     ],
     "images": [
-      "4-gruppen/jassrunde_einladen_01.png"
+      "4-gruppen/jassrunde_einladen_01.webp"
     ],
-    "primaryImage": "4-gruppen/jassrunde_einladen_01.png",
+    "primaryImage": "4-gruppen/jassrunde_einladen_01.webp",
     "keywords": [
       "gruppe",
       "einladen",
@@ -3290,7 +3290,7 @@
       {
         "number": 2,
         "text": "Hier siehst du deine Gruppenmitglieder.",
-        "image": "4-gruppen/gruppe_mitglieder.png"
+        "image": "4-gruppen/gruppe_mitglieder.webp"
       },
       {
         "number": 3,
@@ -3298,9 +3298,9 @@
       }
     ],
     "images": [
-      "4-gruppen/gruppe_mitglieder.png"
+      "4-gruppen/gruppe_mitglieder.webp"
     ],
-    "primaryImage": "4-gruppen/gruppe_mitglieder.png",
+    "primaryImage": "4-gruppen/gruppe_mitglieder.webp",
     "keywords": [
       "gruppe",
       "verwalten",
@@ -3428,7 +3428,7 @@
       {
         "number": 1,
         "text": "Öffne dein Profil (unten in der Navigation) und tippe auf \"Einstellungen\" unterhalb des Profilbildes.",
-        "image": "5-statistiken/profil_bearbeiten_01.png"
+        "image": "5-statistiken/profil_bearbeiten_01.webp"
       },
       {
         "number": 2,
@@ -3444,9 +3444,9 @@
       }
     ],
     "images": [
-      "5-statistiken/profil_bearbeiten_01.png"
+      "5-statistiken/profil_bearbeiten_01.webp"
     ],
-    "primaryImage": "5-statistiken/profil_bearbeiten_01.png",
+    "primaryImage": "5-statistiken/profil_bearbeiten_01.webp",
     "keywords": [
       "profil",
       "bearbeiten",
@@ -3511,7 +3511,7 @@
       {
         "number": 2,
         "text": "Tippe auf das Profilbild oder 'Bild hochladen'.",
-        "image": "5-statistiken/profilbild_hochladen_01.png"
+        "image": "5-statistiken/profilbild_hochladen_01.webp"
       },
       {
         "number": 3,
@@ -3527,9 +3527,9 @@
       }
     ],
     "images": [
-      "5-statistiken/profilbild_hochladen_01.png"
+      "5-statistiken/profilbild_hochladen_01.webp"
     ],
-    "primaryImage": "5-statistiken/profilbild_hochladen_01.png",
+    "primaryImage": "5-statistiken/profilbild_hochladen_01.webp",
     "keywords": [
       "profilbild",
       "hochladen",
@@ -3802,7 +3802,7 @@
       {
         "number": 2,
         "text": "Tippe einmal auf das Jassguru-Icon.",
-        "image": "1-pwa/pwa_ios_icon.png"
+        "image": "1-pwa/pwa_ios_icon.webp"
       },
       {
         "number": 3,
@@ -3811,7 +3811,7 @@
       }
     ],
     "images": [],
-    "primaryImage": "1-pwa/pwa_ios_icon.png",
+    "primaryImage": "1-pwa/pwa_ios_icon.webp",
     "keywords": [
       "pwa",
       "öffnen",
@@ -3886,7 +3886,7 @@
       {
         "number": 2,
         "text": "Auf iOS (iPhone/iPad): Tippe lange auf das Icon, wähle 'App entfernen' → 'Vom Home-Bildschirm entfernen'.",
-        "image": "1-pwa/pwa_ios_icon.png",
+        "image": "1-pwa/pwa_ios_icon.webp",
         "tip": "Die App wird nur vom Startbildschirm entfernt, nicht komplett gelöscht."
       },
       {
@@ -3960,7 +3960,7 @@
       {
         "number": 1,
         "text": "Jeder eingeloggte Spieler, der an einem Jass teilnimmt, kann dem Spiel beitreten.",
-        "image": "2-spiele/teilen button oben rechts.png"
+        "image": "2-spiele/teilen button oben rechts.webp"
       },
       {
         "number": 2,
@@ -4050,12 +4050,12 @@
       {
         "number": 1,
         "text": "Tippe im Hauptmenü auf 'Archiv' oder 'Spielhistorie'.",
-        "image": "2-spiele/archiv_button.png"
+        "image": "2-spiele/archiv_button.webp"
       },
       {
         "number": 2,
         "text": "Du siehst jetzt eine Liste aller deiner Spiele (neueste zuerst).",
-        "image": "2-spiele/spielarchiv_01.png",
+        "image": "2-spiele/spielarchiv_01.webp",
         "tip": "Du kannst nach Datum, Spieler oder Gruppe filtern."
       },
       {
@@ -4070,9 +4070,9 @@
       }
     ],
     "images": [
-      "2-spiele/spiel_archiv.png"
+      "2-spiele/spiel_archiv.webp"
     ],
-    "primaryImage": "2-spiele/spiel_archiv.png",
+    "primaryImage": "2-spiele/spiel_archiv.webp",
     "keywords": [
       "archiv",
       "historie",
@@ -4138,26 +4138,26 @@
       {
         "number": 1,
         "text": "Öffne das Menü durch Swipe nach unten.",
-        "image": "2-spiele/menu_oeffnen_1.png"
+        "image": "2-spiele/menu_oeffnen_1.webp"
       },
       {
         "number": 2,
         "text": "Tippe auf das Trash-Icon (Mülleimer-Symbol) ganz links im Menü.",
-        "image": "2-spiele/menu_offen.png",
+        "image": "2-spiele/menu_offen.webp",
         "warning": "⚠️ WICHTIG: Der Trashcan LÖSCHT das Spiel unwiderruflich! Wenn du das Spiel nur beenden willst, verwende stattdessen den grünen Button (siehe 'Spiel beenden')."
       },
       {
         "number": 3,
         "text": "Es erscheint eine Warnmeldung: 'Möchtest du diesen Jass wirklich abbrechen? Die Partie geht verloren und wird nicht gespeichert.'",
-        "image": "2-spiele/spiellöschenwarnung.png",
+        "image": "2-spiele/spiellöschenwarnung.webp",
         "warning": "⚠️ Wenn du bestätigst, wird das Spiel/die Passe unwiderruflich gelöscht und kann nicht wiederhergestellt werden!"
       }
     ],
     "images": [
-      "2-spiele/menu_offen.png",
-      "2-spiele/spiellöschenwarnung.png"
+      "2-spiele/menu_offen.webp",
+      "2-spiele/spiellöschenwarnung.webp"
     ],
-    "primaryImage": "2-spiele/spiellöschenwarnung.png",
+    "primaryImage": "2-spiele/spiellöschenwarnung.webp",
     "keywords": [
       "abbrechen",
       "löschen",
@@ -4240,12 +4240,12 @@
       {
         "number": 1,
         "text": "Öffne das Menü durch Swipe nach unten.",
-        "image": "2-spiele/menu_oeffnen_1.png"
+        "image": "2-spiele/menu_oeffnen_1.webp"
       },
       {
         "number": 2,
         "text": "Tippe auf den Info-Button (i-Symbol).",
-        "image": "2-spiele/infoknopf.png"
+        "image": "2-spiele/infoknopf.webp"
       },
       {
         "number": 3,
@@ -4253,11 +4253,11 @@
       }
     ],
     "images": [
-      "2-spiele/menu_oeffnen.png",
-      "2-spiele/menu_offen.png",
-      "2-spiele/infoknopf.png"
+      "2-spiele/menu_oeffnen.webp",
+      "2-spiele/menu_offen.webp",
+      "2-spiele/infoknopf.webp"
     ],
-    "primaryImage": "2-spiele/infoknopf.png",
+    "primaryImage": "2-spiele/infoknopf.webp",
     "keywords": [
       "hilfe",
       "info",
@@ -4320,17 +4320,17 @@
       {
         "number": 1,
         "text": "Öffne das Menü durch Swipe nach unten.",
-        "image": "2-spiele/menu_oeffnen_1.png"
+        "image": "2-spiele/menu_oeffnen_1.webp"
       },
       {
         "number": 2,
         "text": "Tippe auf den Home-Button (blauer Button).",
-        "image": "2-spiele/menu_offen.png"
+        "image": "2-spiele/menu_offen.webp"
       },
       {
         "number": 3,
         "text": "Du bist jetzt in deiner Gruppenübersicht. Das Spiel läuft weiter im Hintergrund!",
-        "image": "2-spiele/homescreen.png"
+        "image": "2-spiele/homescreen.webp"
       },
       {
         "number": 4,
@@ -4338,9 +4338,9 @@
       }
     ],
     "images": [
-      "2-spiele/menu_offen.png"
+      "2-spiele/menu_offen.webp"
     ],
-    "primaryImage": "2-spiele/menu_offen.png",
+    "primaryImage": "2-spiele/menu_offen.webp",
     "keywords": [
       "home",
       "gruppe",
@@ -4429,12 +4429,12 @@
       {
         "number": 1,
         "text": "Öffne das Menü durch Swipe nach unten.",
-        "image": "2-spiele/menu_oeffnen_1.png"
+        "image": "2-spiele/menu_oeffnen_1.webp"
       },
       {
         "number": 2,
         "text": "Tippe auf den grünen Button ganz rechts.",
-        "image": "2-spiele/menu_offen.png"
+        "image": "2-spiele/menu_offen.webp"
       },
       {
         "number": 3,
@@ -4446,9 +4446,9 @@
       }
     ],
     "images": [
-      "2-spiele/zwischenstand_anzeigen.png"
+      "2-spiele/zwischenstand_anzeigen.webp"
     ],
-    "primaryImage": "2-spiele/zwischenstand_anzeigen.png",
+    "primaryImage": "2-spiele/zwischenstand_anzeigen.webp",
     "keywords": [
       "zwischenstand",
       "punkte",
@@ -4616,23 +4616,23 @@
       {
         "number": 2,
         "text": "Kartenfarben:",
-        "image": "pictograms/eichel.png",
+        "image": "pictograms/eichel.webp",
         "tip": "Eichel (Eicheln)"
       },
       {
         "number": 3,
         "text": "Rosen:",
-        "image": "pictograms/rosen.png"
+        "image": "pictograms/rosen.webp"
       },
       {
         "number": 4,
         "text": "Schellen:",
-        "image": "pictograms/schellen.png"
+        "image": "pictograms/schellen.webp"
       },
       {
         "number": 5,
         "text": "Schilten:",
-        "image": "pictograms/schilten.png"
+        "image": "pictograms/schilten.webp"
       },
       {
         "number": 6,

@@ -12,7 +12,7 @@ const FeaturesSection: React.FC = () => {
       {/* Holztisch-Hintergrund */}
       <div className="absolute inset-0 z-0">
         <Image
-          src="/images/backgrounds/holztisch.jpg"
+          src="/images/backgrounds/holztisch.webp"
           alt=""
           fill
           className="object-cover"
@@ -68,7 +68,7 @@ const FeaturesSection: React.FC = () => {
           >
             <LandingPhoneFrame>
               <Image
-                src="/assets/screenshots/3_Jasstafel.PNG"
+                src="/assets/screenshots/3_Jasstafel.webp"
                 alt="Digitale Kreidetafel mit Z-Linie"
                 fill
                 className="object-cover object-center"
@@ -93,7 +93,7 @@ const FeaturesSection: React.FC = () => {
           >
             <LandingPhoneFrame>
               <Image
-                src="/assets/screenshots/0a_Jassstarten.PNG"
+                src="/assets/screenshots/0a_Jassstarten.webp"
                 alt="Gruppen-Rangliste"
                 fill
                 className="object-cover object-top"
