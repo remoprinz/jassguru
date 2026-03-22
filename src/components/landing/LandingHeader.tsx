@@ -9,23 +9,20 @@ interface LandingHeaderProps {
   onRegister: () => void;
 }
 
-/** jassguru.ch: JassGuru-Wordmark (PNG). Filz/transparent → weiss; nach Scroll → dunkel. */
 function Logo({ variant = 'color', shrunk = false }: { variant?: 'color' | 'white'; shrunk?: boolean }) {
-  const src =
-    variant === 'white'
-      ? '/images/logos/jassguru-logo-weiss.png'
-      : '/images/logos/jassguru-logo.png';
+  const src = variant === 'white'
+    ? '/images/logos/JVS Logo farbig weiss kurz.svg'
+    : '/images/logos/JVS Logo farbig kurz.svg';
 
   return (
     <Image
       src={src}
-      alt="JassGuru"
-      width={1152}
-      height={252}
+      alt="Jassverband Schweiz"
+      width={180}
+      height={48}
       className={`transition-all duration-500 w-auto ${
         shrunk ? 'h-8 md:h-9' : 'h-9 md:h-11'
       }`}
-      priority
     />
   );
 }

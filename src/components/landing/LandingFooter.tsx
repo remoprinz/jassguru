@@ -38,10 +38,10 @@ const LandingFooter: React.FC<LandingFooterProps> = ({ onInstall, onLogin }) => 
         <div className="flex flex-col items-start gap-10">
           {/* Logo */}
           <Image
-            src="/images/logos/jassguru-logo-weiss.png"
-            alt="JassGuru"
-            width={1152}
-            height={252}
+            src="/images/logos/JVS Logo farbig weiss.svg"
+            alt="Jassverband Schweiz"
+            width={189}
+            height={51}
             className="h-10 w-auto"
           />
 
@@ -123,11 +123,10 @@ const LandingFooter: React.FC<LandingFooterProps> = ({ onInstall, onLogin }) => 
           {/* Logo — oben links */}
           <div className="absolute" style={{ top: '64px', left: '80px' }}>
             <Image
-              src="/images/logos/jassguru-logo-weiss.png"
-              alt="JassGuru"
-              width={1152}
-              height={252}
-              className="h-11 w-auto"
+              src="/images/logos/JVS Logo farbig weiss.svg"
+              alt="Jassverband Schweiz"
+              width={189}
+              height={51}
             />
           </div>
 
