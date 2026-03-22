@@ -9,6 +9,7 @@ interface LandingHeaderProps {
   onRegister: () => void;
 }
 
+/** Filz/transparent: weiss; weisse Leiste nach Scroll: dunkle Variante */
 function Logo({ variant = 'color', shrunk = false }: { variant?: 'color' | 'white'; shrunk?: boolean }) {
   const src =
     variant === 'white'
@@ -21,9 +22,10 @@ function Logo({ variant = 'color', shrunk = false }: { variant?: 'color' | 'whit
       alt="JassGuru"
       width={1152}
       height={252}
-      className={`transition-all duration-500 w-auto max-w-[min(100%,200px)] sm:max-w-[min(100%,240px)] md:max-w-none ${
+      className={`transition-all duration-500 w-auto ${
         shrunk ? 'h-8 md:h-9' : 'h-9 md:h-11'
       }`}
+      priority
     />
   );
 }
