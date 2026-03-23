@@ -314,7 +314,7 @@ body.landing-page * {
   --hero-felt-top: -14%;
   --hero-felt-radius: 3.097vw;
   --hero-felt-border: 16px;
-  --hero-logo-top: 6.5%;
+  --hero-logo-top: calc(6.5% - 10px);
   --hero-logo-size: 168px;
   --hero-title-top: 34%;
   --hero-title-size: clamp(24px, 5.208vw, 75px);
@@ -335,7 +335,7 @@ body.landing-page * {
     --hero-felt-top: 0%;
     --hero-felt-radius: 2.5vw;
     --hero-felt-border: 12px;
-    --hero-logo-top: 8.5%;
+    --hero-logo-top: calc(8.5% - 10px);
     --hero-logo-size: 86px;
     --hero-title-top: 19.5%;
     --hero-title-size: clamp(36px, 5vw, 52px);
@@ -357,7 +357,7 @@ body.landing-page * {
     --hero-felt-top: 12%;
     --hero-felt-radius: 16px;
     --hero-felt-border: 6px;
-    --hero-logo-top: 13.5%;
+    --hero-logo-top: calc(13.5% - 10px);
     --hero-logo-size: 70px;
     --hero-title-top: 28.5%;
     --hero-title-size: 44px;
