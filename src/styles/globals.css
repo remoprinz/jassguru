@@ -314,17 +314,15 @@ body.landing-page * {
   --hero-felt-top: -14%;
   --hero-felt-radius: 3.097vw;
   --hero-felt-border: 16px;
-  --hero-logo-top: calc(5.5% - 12px);
-  --hero-logo-size: 152px;
-  --hero-title-top: 36.5%;
+  /* Eine Spalte: Figur → H1 → Sub → CTA (kein Überlappen mehr) */
+  --hero-stack-top: 5.5%;
+  --hero-logo-max-width: 148px;
   --hero-title-size: clamp(24px, 5.208vw, 75px);
   --hero-title-line-height: 1.12;
   --hero-title-max-width: 771px;
-  --hero-subtitle-top: 57%;
   --hero-subtitle-max-width: 571px;
   --hero-subtitle-width: 80%;
   --hero-subtitle-size: clamp(15px, 1.944vw, 28px);
-  --hero-cta-top: 71%;
 }
 
 @media (max-width: 1024px) {
@@ -335,17 +333,14 @@ body.landing-page * {
     --hero-felt-top: 0%;
     --hero-felt-radius: 2.5vw;
     --hero-felt-border: 12px;
-    --hero-logo-top: calc(7% - 12px);
-    --hero-logo-size: 72px;
-    --hero-title-top: 24%;
+    --hero-stack-top: 7%;
+    --hero-logo-max-width: 76px;
     --hero-title-size: clamp(36px, 5vw, 52px);
     --hero-title-line-height: 1.18;
     --hero-title-max-width: 500px;
-    --hero-subtitle-top: 47%;
     --hero-subtitle-max-width: 380px;
     --hero-subtitle-width: 50%;
     --hero-subtitle-size: clamp(16px, 2vw, 22px);
-    --hero-cta-top: 67%;
   }
 }
 
@@ -357,16 +352,13 @@ body.landing-page * {
     --hero-felt-top: 12%;
     --hero-felt-radius: 16px;
     --hero-felt-border: 6px;
-    --hero-logo-top: calc(12% - 12px);
-    --hero-logo-size: 62px;
-    --hero-title-top: 31%;
+    --hero-stack-top: 11%;
+    --hero-logo-max-width: 64px;
     --hero-title-size: 44px;
     --hero-title-line-height: 1.16;
-    --hero-subtitle-top: 49%;
     --hero-subtitle-max-width: 260px;
     --hero-subtitle-width: 70%;
     --hero-subtitle-size: 20px;
-    --hero-cta-top: 83%;
   }
 }
 

@@ -183,11 +183,11 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onInstall, onLogin }) => {
 
       {/* ── Figur → H1 → Sub → CTA (eine Spalte, kein Überlappen) ─ */}
       <div
-        className="absolute z-20 left-0 right-0 flex flex-col items-center gap-0 px-4 pointer-events-none [&_.hero-cta-stack]:pointer-events-auto"
+        className="absolute z-20 left-0 right-0 flex flex-col items-center gap-4 sm:gap-5 md:gap-6 lg:gap-7 px-4 pointer-events-none [&_.hero-cta-stack]:pointer-events-auto"
         style={{ top: 'var(--hero-stack-top)' }}
       >
         <motion.div
-          className="flex shrink-0 justify-center relative z-10"
+          className="flex shrink-0 justify-center"
           initial={{ opacity: 0, scale: 0.85 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, delay: 0.05 }}
@@ -220,7 +220,6 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onInstall, onLogin }) => {
               letterSpacing: '-0.96px',
               color: '#ffffff',
               textShadow: '0 2px 20px rgba(0,0,0,0.3)',
-              marginTop: '-1.5rem',
             }}
           >
             Die offizielle Jass-App{'\n'}der Schweiz
