@@ -319,11 +319,14 @@ const LandingHeader: React.FC<LandingHeaderProps> = ({ onLogin, onRegister }) =>
                           setMobileMenuOpen(false);
                           onLogin();
                         }}
-                        className="block w-full text-left py-3 transition-colors text-gray-600 hover:text-black"
+                        className="block w-full text-center rounded-full transition-all"
                         style={{
                           fontFamily: "'Capita', Georgia, serif",
                           fontWeight: 700,
-                          fontSize: '16px',
+                          fontSize: '18px',
+                          backgroundColor: '#ca8a04',
+                          color: '#ffffff',
+                          padding: '14px 24px',
                         }}
                       >
                         Anmelden

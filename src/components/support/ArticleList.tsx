@@ -26,7 +26,7 @@ export const ArticleList: React.FC<ArticleListProps> = ({ articles, onSelectArti
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
       {articles.map((article) => {
         const Icon = getCategoryIcon(article.category.mainId);
         const colorClass = getCategoryColor(article.category.mainId);
@@ -37,9 +37,9 @@ export const ArticleList: React.FC<ArticleListProps> = ({ articles, onSelectArti
             onClick={() => onSelectArticle(article)}
             className="w-full text-left group bg-white/[0.04] backdrop-blur-sm hover:bg-white/[0.07] border border-white/[0.06] hover:border-white/[0.1] rounded-xl p-4 transition-all duration-200"
           >
-            <div className="flex items-start gap-3.5">
-              <div className={cn("p-2 rounded-lg shrink-0 mt-0.5", colorClass)}>
-                <Icon size={20} />
+            <div className="flex items-start gap-4">
+              <div className={cn("p-2.5 rounded-lg shrink-0 mt-0.5", colorClass)}>
+                <Icon size={22} />
               </div>
 
               <div className="flex-1 min-w-0">
