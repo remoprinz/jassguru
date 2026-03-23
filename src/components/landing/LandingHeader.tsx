@@ -21,7 +21,7 @@ function Logo({ variant = 'color', shrunk = false }: { variant?: 'color' | 'whit
       width={300}
       height={52}
       className={`transition-all duration-500 w-auto ${
-        shrunk ? 'h-9 md:h-10' : 'h-10 md:h-[52px]'
+        shrunk ? 'h-7 md:h-8' : 'h-8 md:h-9'
       }`}
     />
   );

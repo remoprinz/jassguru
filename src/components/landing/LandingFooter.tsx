@@ -42,7 +42,7 @@ const LandingFooter: React.FC<LandingFooterProps> = ({ onInstall, onLogin }) => 
             alt="JassGuru"
             width={300}
             height={52}
-            className="h-10 w-auto"
+            className="h-8 w-auto"
           />
 
           {/* Grid */}
@@ -127,7 +127,7 @@ const LandingFooter: React.FC<LandingFooterProps> = ({ onInstall, onLogin }) => 
               alt="JassGuru"
               width={300}
               height={52}
-              className="h-[51px] w-auto"
+              className="h-8 w-auto"
             />
           </div>
 

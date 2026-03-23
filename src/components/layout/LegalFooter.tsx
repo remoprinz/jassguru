@@ -11,7 +11,7 @@ export const LegalFooter = () => {
             alt="JassGuru"
             width={300}
             height={52}
-            className="h-9 w-auto opacity-60 hover:opacity-100 transition-opacity"
+            className="h-8 w-auto opacity-60 hover:opacity-100 transition-opacity"
           />
         </Link>
       </div>

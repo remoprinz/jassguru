@@ -94,7 +94,7 @@ const Header: React.FC<HeaderProps> = () => {
                 alt="JassGuru"
                 width={300}
                 height={52}
-                className="h-9 w-auto"
+                className="h-8 w-auto"
               />
             </Link>
           )}
