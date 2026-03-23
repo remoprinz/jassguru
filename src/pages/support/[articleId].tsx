@@ -102,15 +102,15 @@ export default function ArticlePage() {
       </Head>
 
       {/* Breadcrumb */}
-      <nav className="pt-6 pb-2 flex items-center gap-2 text-sm">
+      <nav className="pt-6 pb-2 flex items-center gap-2.5 text-base">
         <Link
           href="/support"
-          className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors"
+          className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
         >
-          <ArrowLeft size={14} />
+          <ArrowLeft size={18} />
           Support
         </Link>
-        <ChevronRight size={14} className="text-gray-600" />
+        <ChevronRight size={16} className="text-gray-600" />
         <span className="text-gray-500">{article.category.main}</span>
       </nav>
 
@@ -119,9 +119,9 @@ export default function ArticlePage() {
 
         {/* Article Header */}
         <header className="pt-4 pb-8 border-b border-white/[0.06] mb-8">
-          <div className="flex items-center gap-2.5 mb-4">
-            <div className={cn("p-1.5 rounded-lg", categoryColor)}>
-              <Icon size={16} />
+          <div className="flex items-center gap-3 mb-4">
+            <div className={cn("p-2.5 rounded-xl", categoryColor)}>
+              <Icon size={22} />
             </div>
             <span className="text-sm font-medium text-gray-500 uppercase tracking-wider">
               {article.category.main}
@@ -142,11 +142,11 @@ export default function ArticlePage() {
               <div key={step.number} className="relative pl-12">
                 {/* Connector line */}
                 {index < article.steps.length - 1 && (
-                  <div className="absolute left-[15px] top-10 bottom-[-40px] w-px bg-white/[0.06]" />
+                  <div className="absolute left-[17px] top-11 bottom-[-40px] w-px bg-white/[0.06]" />
                 )}
 
                 {/* Step badge */}
-                <div className="absolute left-0 top-0 w-8 h-8 rounded-full bg-white/[0.06] border border-white/[0.1] flex items-center justify-center text-sm font-bold text-gray-300">
+                <div className="absolute left-0 top-0 w-9 h-9 rounded-full bg-white/[0.08] border border-white/[0.12] flex items-center justify-center text-base font-bold text-gray-200">
                   {step.number}
                 </div>
 
@@ -227,15 +227,15 @@ export default function ArticlePage() {
         {/* Next Suggested */}
         {nextArticle && (
           <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 sm:p-6 mb-10">
-            <p className="text-base text-gray-500 mb-3">
+            <p className="text-base text-gray-300 mb-3">
               {article.nextSuggestedText || 'Nächster empfohlener Schritt:'}
             </p>
             <Link
               href={`/support/${nextArticle.id}`}
-              className="flex items-center gap-3 group"
+              className="flex items-center gap-3.5 group"
             >
-              <div className={cn("p-2 rounded-lg shrink-0", getCategoryColor(nextArticle.category.mainId))}>
-                {React.createElement(getCategoryIcon(nextArticle.category.mainId), { size: 20 })}
+              <div className={cn("p-2.5 rounded-xl shrink-0", getCategoryColor(nextArticle.category.mainId))}>
+                {React.createElement(getCategoryIcon(nextArticle.category.mainId), { size: 24 })}
               </div>
               <span className="text-base font-medium text-white group-hover:text-blue-400 transition-colors">
                 {nextArticle.title}
@@ -300,8 +300,8 @@ export default function ArticlePage() {
                   href={`/support/${related.id}`}
                   className="group flex items-center gap-3 p-3 rounded-xl hover:bg-white/[0.04] transition-colors"
                 >
-                  <div className={cn("p-1.5 rounded-lg shrink-0", getCategoryColor(related.category.mainId))}>
-                    {React.createElement(getCategoryIcon(related.category.mainId), { size: 14 })}
+                  <div className={cn("p-2 rounded-lg shrink-0", getCategoryColor(related.category.mainId))}>
+                    {React.createElement(getCategoryIcon(related.category.mainId), { size: 18 })}
                   </div>
                   <span className="text-base text-gray-300 group-hover:text-white transition-colors">
                     {related.title}
