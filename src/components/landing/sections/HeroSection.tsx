@@ -241,7 +241,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onInstall, onLogin }) => {
             fontFamily: "'Inter', system-ui, sans-serif",
             fontWeight: 400,
             fontSize: 'var(--hero-subtitle-size)',
-            lineHeight: 1.35,
+            lineHeight: 1.45,
             color: 'rgba(255,255,255,0.92)',
             textShadow: '0 1px 8px rgba(0,0,0,0.2)',
           }}
@@ -253,7 +253,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onInstall, onLogin }) => {
 
       {/* ── CTA ────────────────────────────────────────────────── */}
       <motion.div
-        className="absolute z-20 left-0 right-0 flex flex-col items-center gap-4"
+        className="absolute z-20 left-0 right-0 flex flex-col items-center gap-5"
         style={{ top: 'var(--hero-cta-top)' }}
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
