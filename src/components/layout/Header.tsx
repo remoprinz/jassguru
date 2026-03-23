@@ -90,11 +90,11 @@ const Header: React.FC<HeaderProps> = () => {
           {!showEffectiveBackButton && (
             <Link href="/start">
               <Image
-                src="/images/logos/jassguru-logo-weiss.webp"
+                src="/images/logos/jassguru-logo-weiss.svg"
                 alt="JassGuru"
-                width={360}
-                height={78}
-                className="h-7 w-auto"
+                width={300}
+                height={52}
+                className="h-9 w-auto"
               />
             </Link>
           )}

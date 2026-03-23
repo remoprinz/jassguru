@@ -4,14 +4,14 @@ import Image from "next/image";
 export const LegalFooter = () => {
   return (
     <footer className="mt-6 pb-4 text-center pt-6 px-4">
-      <div className="mb-4 flex justify-center">
+      <div className="mb-4 flex justify-start">
         <Link href="/start">
           <Image
-            src="/images/logos/jassguru-logo-weiss.webp"
+            src="/images/logos/jassguru-logo-weiss.svg"
             alt="JassGuru"
-            width={360}
-            height={78}
-            className="h-6 w-auto opacity-60 hover:opacity-100 transition-opacity"
+            width={300}
+            height={52}
+            className="h-9 w-auto opacity-60 hover:opacity-100 transition-opacity"
           />
         </Link>
       </div>

@@ -11,17 +11,17 @@ interface LandingHeaderProps {
 
 function Logo({ variant = 'color', shrunk = false }: { variant?: 'color' | 'white'; shrunk?: boolean }) {
   const src = variant === 'white'
-    ? '/images/logos/jassguru-logo-weiss.webp'
-    : '/images/logos/jassguru-logo.webp';
+    ? '/images/logos/jassguru-logo-weiss.svg'
+    : '/images/logos/jassguru-logo.svg';
 
   return (
     <Image
       src={src}
       alt="JassGuru"
-      width={360}
-      height={78}
+      width={300}
+      height={52}
       className={`transition-all duration-500 w-auto ${
-        shrunk ? 'h-7 md:h-8' : 'h-8 md:h-10'
+        shrunk ? 'h-9 md:h-10' : 'h-10 md:h-[52px]'
       }`}
     />
   );
