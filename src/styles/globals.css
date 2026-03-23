@@ -333,8 +333,8 @@ body.landing-page * {
     --hero-felt-top: 0%;
     --hero-felt-radius: 2.5vw;
     --hero-felt-border: 12px;
-    --hero-stack-top: 7%;
-    --hero-logo-max-width: 76px;
+    --hero-stack-top: 10%;
+    --hero-logo-max-width: 100px;
     --hero-title-size: clamp(36px, 5vw, 52px);
     --hero-title-line-height: 1.18;
     --hero-title-max-width: 500px;
@@ -352,8 +352,8 @@ body.landing-page * {
     --hero-felt-top: 12%;
     --hero-felt-radius: 16px;
     --hero-felt-border: 6px;
-    --hero-stack-top: 11%;
-    --hero-logo-max-width: 64px;
+    --hero-stack-top: 15%;
+    --hero-logo-max-width: 80px;
     --hero-title-size: 44px;
     --hero-title-line-height: 1.16;
     --hero-subtitle-max-width: 260px;

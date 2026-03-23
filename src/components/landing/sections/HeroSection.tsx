@@ -183,7 +183,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onInstall, onLogin }) => {
 
       {/* ── Figur → H1 → Sub → CTA (eine Spalte, kein Überlappen) ─ */}
       <div
-        className="absolute z-20 left-0 right-0 flex flex-col items-center gap-4 sm:gap-5 md:gap-5 lg:gap-6 px-4 pointer-events-none [&_.hero-cta-stack]:pointer-events-auto"
+        className="absolute z-20 left-0 right-0 flex flex-col items-center gap-4 sm:gap-5 md:gap-6 lg:gap-5 px-4 pointer-events-none [&_.hero-cta-stack]:pointer-events-auto"
         style={{ top: 'var(--hero-stack-top)' }}
       >
         <motion.div
