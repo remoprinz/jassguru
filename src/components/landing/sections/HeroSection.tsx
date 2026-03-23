@@ -181,9 +181,9 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onInstall, onLogin }) => {
         </motion.div>
       ))}
 
-      {/* ── JASSGURU LOGO ──────────────────────────────────────── */}
+      {/* ── JASSGURU FIGUR (hinter Typo, z-10) ───────────────────── */}
       <motion.div
-        className="absolute z-20 left-0 right-0 flex justify-center"
+        className="absolute z-10 left-0 right-0 flex justify-center pointer-events-none"
         style={{ top: 'var(--hero-logo-top)' }}
         initial={{ opacity: 0, scale: 0.85 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -201,7 +201,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onInstall, onLogin }) => {
 
       {/* ── HEADLINE ───────────────────────────────────────────── */}
       <motion.div
-        className="absolute z-20 left-0 right-0 flex justify-center"
+        className="absolute z-30 left-0 right-0 flex justify-center"
         style={{ top: 'var(--hero-title-top)' }}
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -227,7 +227,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onInstall, onLogin }) => {
 
       {/* ── SUBTITLE ───────────────────────────────────────────── */}
       <motion.div
-        className="absolute z-20 left-0 right-0 flex justify-center"
+        className="absolute z-30 left-0 right-0 flex justify-center"
         style={{ top: 'var(--hero-subtitle-top)' }}
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -253,7 +253,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onInstall, onLogin }) => {
 
       {/* ── CTA ────────────────────────────────────────────────── */}
       <motion.div
-        className="absolute z-20 left-0 right-0 flex flex-col items-center gap-5"
+        className="absolute z-30 left-0 right-0 flex flex-col items-center gap-5"
         style={{ top: 'var(--hero-cta-top)' }}
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
