@@ -123,7 +123,7 @@ export default function ArticlePage() {
             <div className={cn("p-1.5 rounded-lg", categoryColor)}>
               <Icon size={16} />
             </div>
-            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <span className="text-sm font-medium text-gray-500 uppercase tracking-wider">
               {article.category.main}
             </span>
           </div>
@@ -139,20 +139,20 @@ export default function ArticlePage() {
         {article.steps && article.steps.length > 0 ? (
           <div className="space-y-10 mb-12">
             {article.steps.map((step, index) => (
-              <div key={step.number} className="relative pl-10">
+              <div key={step.number} className="relative pl-12">
                 {/* Connector line */}
                 {index < article.steps.length - 1 && (
-                  <div className="absolute left-[11px] top-8 bottom-[-40px] w-px bg-white/[0.06]" />
+                  <div className="absolute left-[15px] top-10 bottom-[-40px] w-px bg-white/[0.06]" />
                 )}
 
                 {/* Step badge */}
-                <div className="absolute left-0 top-0 w-6 h-6 rounded-full bg-white/[0.06] border border-white/[0.1] flex items-center justify-center text-xs font-bold text-gray-400">
+                <div className="absolute left-0 top-0 w-8 h-8 rounded-full bg-white/[0.06] border border-white/[0.1] flex items-center justify-center text-sm font-bold text-gray-300">
                   {step.number}
                 </div>
 
                 {/* Step content */}
                 <div>
-                  <p className="text-gray-200 text-base font-medium mb-3 leading-relaxed">
+                  <p className="text-gray-200 text-base sm:text-lg font-medium mb-3 leading-relaxed">
                     {step.text}
                   </p>
 
@@ -171,8 +171,8 @@ export default function ArticlePage() {
                   )}
 
                   {step.tip && (
-                    <div className="mt-3 flex gap-3 p-3.5 rounded-xl bg-blue-500/[0.08] border border-blue-500/[0.12] text-blue-200 text-sm">
-                      <Lightbulb size={16} className="shrink-0 mt-0.5 text-blue-400" />
+                    <div className="mt-3 flex gap-3 p-4 rounded-xl bg-blue-500/[0.08] border border-blue-500/[0.12] text-blue-200 text-base">
+                      <Lightbulb size={18} className="shrink-0 mt-0.5 text-blue-400" />
                       <span>{step.tip}</span>
                     </div>
                   )}
@@ -191,14 +191,14 @@ export default function ArticlePage() {
         {/* Tips */}
         {article.tips && article.tips.length > 0 && (
           <div className="bg-yellow-500/[0.04] border border-yellow-500/[0.08] rounded-2xl p-5 sm:p-6 mb-10">
-            <h3 className="text-sm font-bold text-yellow-500 uppercase tracking-wide mb-3 flex items-center gap-2">
-              <Lightbulb size={16} />
+            <h3 className="text-base font-bold text-yellow-500 uppercase tracking-wide mb-3 flex items-center gap-2">
+              <Lightbulb size={18} />
               Gut zu wissen
             </h3>
-            <ul className="space-y-2.5">
+            <ul className="space-y-3">
               {article.tips.map((tip, i) => (
-                <li key={i} className="text-gray-300 text-sm flex gap-2.5">
-                  <span className="text-yellow-500/60 mt-1.5 text-[8px]">●</span>
+                <li key={i} className="text-gray-300 text-base flex gap-2.5">
+                  <span className="text-yellow-500/60 mt-2 text-[8px]">●</span>
                   <span>{tip}</span>
                 </li>
               ))}
@@ -216,8 +216,8 @@ export default function ArticlePage() {
             <div className="grid gap-2.5">
               {article.faq.map((faq, i) => (
                 <div key={i} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 sm:p-5">
-                  <h4 className="font-medium text-gray-200 mb-2">{faq.question}</h4>
-                  <p className="text-sm text-gray-400 leading-relaxed">{faq.answer}</p>
+                  <h4 className="font-medium text-gray-200 mb-2 text-base">{faq.question}</h4>
+                  <p className="text-base text-gray-400 leading-relaxed">{faq.answer}</p>
                 </div>
               ))}
             </div>
@@ -227,7 +227,7 @@ export default function ArticlePage() {
         {/* Next Suggested */}
         {nextArticle && (
           <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 sm:p-6 mb-10">
-            <p className="text-sm text-gray-500 mb-3">
+            <p className="text-base text-gray-500 mb-3">
               {article.nextSuggestedText || 'Nächster empfohlener Schritt:'}
             </p>
             <Link
@@ -247,7 +247,7 @@ export default function ArticlePage() {
 
         {/* Feedback */}
         <div className="py-8 border-t border-white/[0.06]">
-          <h4 className="text-center text-sm font-medium text-gray-400 mb-4">
+          <h4 className="text-center text-base font-medium text-gray-400 mb-4">
             War dieser Artikel hilfreich?
           </h4>
           <div className="flex justify-center gap-3">
@@ -290,7 +290,7 @@ export default function ArticlePage() {
         {/* Related Articles */}
         {relatedArticles.length > 0 && (
           <div className="pb-8 border-t border-white/[0.06] pt-6">
-            <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
+            <h4 className="text-base font-semibold text-gray-500 uppercase tracking-wider mb-4">
               Auch interessant
             </h4>
             <div className="grid gap-2">
@@ -303,7 +303,7 @@ export default function ArticlePage() {
                   <div className={cn("p-1.5 rounded-lg shrink-0", getCategoryColor(related.category.mainId))}>
                     {React.createElement(getCategoryIcon(related.category.mainId), { size: 14 })}
                   </div>
-                  <span className="text-sm text-gray-300 group-hover:text-white transition-colors">
+                  <span className="text-base text-gray-300 group-hover:text-white transition-colors">
                     {related.title}
                   </span>
                   <ChevronRight size={14} className="ml-auto text-gray-600 group-hover:text-gray-400" />
