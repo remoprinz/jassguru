@@ -128,12 +128,13 @@ const LandingHeader: React.FC<LandingHeaderProps> = ({ onLogin, onRegister }) =>
               }
             : scrolled
             ? {
-                top: '12px',
-                right: '12px',
-                width: 'calc(100% - 24px)',
+                top: 0,
+                left: 0,
+                right: 0,
+                width: '100%',
                 background: 'rgba(255,255,255,0.98)',
-                borderRadius: '12px',
-                boxShadow: '0 4px 24px rgba(0,0,0,0.10)',
+                borderRadius: 0,
+                boxShadow: '0 1px 0 rgba(0,0,0,0.06)',
                 backdropFilter: 'blur(12px)',
               }
             : {
@@ -147,8 +148,11 @@ const LandingHeader: React.FC<LandingHeaderProps> = ({ onLogin, onRegister }) =>
       }
     >
       <div
-        className={isMobileCompactMode ? 'px-0' : isMobileViewport && scrolled ? 'px-6' : 'px-5 md:px-7'}
-        style={isMobileCompactMode || (isMobileViewport && scrolled) ? undefined : { maxWidth: '1240px', margin: '0 auto' }}
+        className={
+          isMobileCompactMode
+            ? 'px-0'
+            : 'w-full max-w-[1152px] mx-auto px-6 lg:px-20'
+        }
       >
         <nav
           className={`flex items-center transition-all duration-500 ${
@@ -162,7 +166,7 @@ const LandingHeader: React.FC<LandingHeaderProps> = ({ onLogin, onRegister }) =>
           {!isMobileCompactMode && (
             <a
               href="/"
-              className="flex items-center lg:-ml-2"
+              className="flex items-center shrink-0 min-w-0"
               style={
                 isDesktopViewport
                   ? {
@@ -179,7 +183,7 @@ const LandingHeader: React.FC<LandingHeaderProps> = ({ onLogin, onRegister }) =>
           )}
 
           {/* Desktop Nav */}
-          <div className="hidden lg:flex items-center justify-end relative min-w-[360px] h-[56px] lg:pr-3 xl:pr-6">
+          <div className="hidden lg:flex items-center justify-end relative min-w-0 flex-1 h-[56px]">
             <div
               className="absolute inset-0 flex items-center justify-end gap-6 xl:gap-8 transition-[opacity,transform] duration-350"
               style={{
