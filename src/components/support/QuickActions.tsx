@@ -12,13 +12,13 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ articles, onSelectAr
   if (articles.length === 0) return null;
 
   return (
-    <div className="mb-8">
+    <div className="mb-10">
       <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
         <Star className="text-yellow-500 fill-yellow-500" size={20} />
         Häufige Fragen
       </h2>
-      
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         {articles.map((article) => {
           const Icon = getCategoryIcon(article.category.mainId);
           const colorClass = getCategoryColor(article.category.mainId);
@@ -27,7 +27,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ articles, onSelectAr
             <button
               key={article.id}
               onClick={() => onSelectArticle(article)}
-              className="group flex items-center p-3 bg-gray-800 border border-gray-700 hover:border-gray-600 rounded-xl transition-all hover:shadow-md text-left"
+              className="group flex items-center p-3.5 bg-white/[0.04] backdrop-blur-sm border border-white/[0.06] hover:bg-white/[0.07] hover:border-white/[0.1] rounded-xl transition-all text-left"
             >
               <div className={`p-2 rounded-lg mr-3 shrink-0 ${colorClass}`}>
                 <Icon size={18} />
@@ -43,4 +43,3 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ articles, onSelectAr
     </div>
   );
 };
-

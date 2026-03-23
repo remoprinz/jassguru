@@ -1,27 +1,22 @@
-import { 
-  Smartphone, 
-  Gamepad2, 
-  Trophy, 
-  Users, 
-  BarChart3, 
-  Settings, 
-  AlertCircle, 
-  Shield,
-  HelpCircle,
-  LucideIcon
-} from 'lucide-react';
+import { IconType } from 'react-icons';
+import { IoMdPhonePortrait } from 'react-icons/io';
+import { GiPokerHand } from 'react-icons/gi';
+import { FaTrophy, FaUser } from 'react-icons/fa6';
+import { RiGroupFill } from 'react-icons/ri';
+import { IoSettingsSharp } from 'react-icons/io5';
+import { PiShieldCheckBold, PiQuestionBold } from 'react-icons/pi';
 import type { SupportArticle, SupportCategory } from '@/types/support';
 
-export const CATEGORY_ICONS: Record<string, LucideIcon> = {
-  'pwa': Smartphone,
-  'spiele': Gamepad2,
-  'turniere': Trophy,
-  'gruppen': Users,
-  'statistiken': BarChart3,
-  'einstellungen': Settings,
-  'troubleshooting': AlertCircle,
-  'datenschutz': Shield,
-  'default': HelpCircle
+export const CATEGORY_ICONS: Record<string, IconType> = {
+  'pwa': IoMdPhonePortrait,
+  'spiele': GiPokerHand,
+  'turniere': FaTrophy,
+  'gruppen': RiGroupFill,
+  'statistiken': FaUser,
+  'einstellungen': IoSettingsSharp,
+  'troubleshooting': IoSettingsSharp,
+  'datenschutz': PiShieldCheckBold,
+  'default': PiQuestionBold
 };
 
 export const CATEGORY_COLORS: Record<string, string> = {
@@ -36,7 +31,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
   'default': 'text-gray-400 bg-gray-400/10'
 };
 
-export const getCategoryIcon = (categoryId: string): LucideIcon => {
+export const getCategoryIcon = (categoryId: string): IconType => {
   return CATEGORY_ICONS[categoryId] || CATEGORY_ICONS['default'];
 };
 
@@ -47,21 +42,20 @@ export const getCategoryColor = (categoryId: string): string => {
 export const getImageUrl = (path: string) => {
   if (!path) return '';
   if (path.startsWith('http')) return path;
-  // Verwende lokale Bilder für bessere Performance (PWA)
-  // Next.js Image Component hat automatischen Fallback bei 404
-  // Falls lokal nicht verfügbar, wird Firebase-Version verwendet
-  return `/support-images/${path}`;
+  // Bilder wurden von .webp auf .png migriert
+  const pngPath = path.replace(/\.webp$/, '.png');
+  return `/support-images/${pngPath}`;
 };
 
 export const getUniqueCategories = (articles: SupportArticle[]): SupportCategory[] => {
   const categoriesMap = new Map<string, SupportCategory>();
-  
+
   articles.forEach(article => {
     if (!categoriesMap.has(article.category.mainId)) {
       categoriesMap.set(article.category.mainId, article.category);
     }
   });
-  
+
   return Array.from(categoriesMap.values()).sort((a, b) => a.number - b.number);
 };
 

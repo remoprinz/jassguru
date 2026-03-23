@@ -9,13 +9,13 @@ interface CategoryGridProps {
   onSelectCategory: (categoryId: string | null) => void;
 }
 
-export const CategoryGrid: React.FC<CategoryGridProps> = ({ 
-  categories, 
-  selectedCategory, 
-  onSelectCategory 
+export const CategoryGrid: React.FC<CategoryGridProps> = ({
+  categories,
+  selectedCategory,
+  onSelectCategory
 }) => {
   return (
-    <div className="grid grid-cols-3 gap-2 mb-8 w-full">
+    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3 mb-10">
       {categories.map((category) => {
         const Icon = getCategoryIcon(category.mainId);
         const colorClass = getCategoryColor(category.mainId);
@@ -26,21 +26,21 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
             key={category.mainId}
             onClick={() => onSelectCategory(isSelected ? null : category.mainId)}
             className={cn(
-              "w-full flex flex-col items-center justify-start p-2 rounded-lg border transition-all duration-200 min-h-[80px]",
-              "hover:scale-105 active:scale-95",
-              isSelected 
-                ? "bg-gray-800 border-blue-500 ring-1 ring-blue-500/20" 
-                : "bg-gray-800/30 border-gray-700/50 hover:bg-gray-800 hover:border-gray-600"
+              "flex flex-col items-center justify-center p-3 sm:p-4 rounded-2xl border transition-all duration-200",
+              "active:scale-95",
+              isSelected
+                ? "bg-white/[0.08] border-blue-500/40 ring-1 ring-blue-500/20"
+                : "bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.06] hover:border-white/[0.1]"
             )}
           >
-            <div className={cn("p-2 md:p-3 rounded-full mb-1.5", colorClass)}>
-              <Icon size={18} className="md:w-6 md:h-6" />
+            <div className={cn("p-2.5 sm:p-3 rounded-xl mb-2", colorClass)}>
+              <Icon size={24} />
             </div>
             <span className={cn(
-              "text-[10px] md:text-sm leading-tight font-medium text-center line-clamp-2 w-full",
-              isSelected ? "text-white" : "text-gray-400"
+              "text-xs sm:text-sm leading-tight font-medium text-center",
+              isSelected ? "text-white" : "text-gray-300"
             )}>
-              {category.main.replace(' & ', ' &\n')}
+              {category.main}
             </span>
           </button>
         );

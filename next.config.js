@@ -18,6 +18,7 @@ const nextConfig = {
       delete defaultPathMap['/view/session/[sessionId]'];
       delete defaultPathMap['/view/tournament/[tournamentId]'];
       delete defaultPathMap['/view/session/public/[sessionId]'];
+      delete defaultPathMap['/support/[articleId]'];
     }
     return {
       ...defaultPathMap,

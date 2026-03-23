@@ -18,7 +18,7 @@
       "safari",
       "app"
     ],
-    "description": "Wie installiere ich die App? So installierst du die Jassguru-App auf deinem iPhone oder iPad. App installieren auf iPhone.",
+    "description": "So installierst du die JassGuru-App auf deinem iPhone oder iPad.",
     "steps": [
       {
         "number": 1,
@@ -100,10 +100,9 @@
       "Kann ich App installieren?",
       "Wie schreibe ich App installieren?"
     ],
-    "nextSuggested": "pwa_ios",
+    "nextSuggested": "pwa_android",
     "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du die App auf einem iPhone installierst?",
     "seeAlso": [
-      "pwa_ios",
       "pwa_oeffnen"
     ],
     "faq": [
@@ -142,7 +141,7 @@
       "android",
       "smartphone"
     ],
-    "description": "Wie installiere ich die App? So installierst du die Jassguru-App auf deinem Android-Smartphone. App installieren auf Android.",
+    "description": "So installierst du die JassGuru-App auf deinem Android-Smartphone.",
     "steps": [
       {
         "number": 1,
@@ -230,7 +229,7 @@
     "nextSuggested": "spiel_starten",
     "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du dein erstes Spiel startest?",
     "seeAlso": [
-      "pwa_android",
+      "pwa_ios",
       "pwa_desktop"
     ],
     "faq": [
@@ -267,7 +266,7 @@
       "chrome",
       "app"
     ],
-    "description": "So nutzt du die Jassguru-App auf deinem Computer (Windows, Mac, Linux). Im Browser kannst du alles machen - nur zum Spielen musst du die App installieren. Desktop Version, Computer Version, PC Version.",
+    "description": "So nutzt du JassGuru auf deinem Computer. Im Browser geht alles ausser Spielen — dafür musst du die App installieren.",
     "steps": [
       {
         "number": 1,
@@ -381,7 +380,7 @@
       "beginnen",
       "partie"
     ],
-    "description": "So startest du ein neues Jass-Spiel in der Jassguru-App.",
+    "description": "So startest du ein neues Spiel.",
     "steps": [
       {
         "number": 1,
@@ -752,7 +751,7 @@
     "steps": [
       {
         "number": 1,
-        "text": "Mache einen Doppelklick, um den Info-Screen zu öffnen."
+        "text": "Mache einen Doppelklick (zwei schnelle Taps) auf die Kreidetafel, um den Info-Screen zu öffnen."
       },
       {
         "number": 2,
@@ -834,7 +833,7 @@
       "berechnen",
       "eintragen"
     ],
-    "description": "So schreibst du Punkte in die Kreidetafel ein. Dies ist die wichtigste Funktion - ohne Punkte kein Spiel!",
+    "description": "So schreibst du Punkte auf die Kreidetafel.",
     "steps": [
       {
         "number": 1,
@@ -844,7 +843,7 @@
       {
         "number": 2,
         "text": "Der Kalkulator öffnet sich automatisch.",
-        "image": "2-spiele/kalkulator_01.webp"
+        "image": "2-spiele/kalkulator_neu.png"
       },
       {
         "number": 3,
@@ -957,26 +956,27 @@
       "fertig",
       "gewonnen"
     ],
-    "description": "So beendest du ein Spiel durch Bedanken, wenn dein Team gewonnen hat. Bedanken bedeutet, dass dein Team den Sieg erreicht hat und das Spiel beendet wird.",
+    "description": "So bedankst du dich, wenn dein Team gewonnen hat.",
     "steps": [
       {
         "number": 1,
-        "text": "Wenn dein Team genug Punkte hat (z.B. 2500 bei einem Spiel auf 2500), tippe auf den 'Bedanken'-Button.",
-        "image": "2-spiele/sieg_schreiben.webp",
+        "text": "Wenn dein Team genug Punkte hat (z.B. 2500 bei einem Spiel auf 2500), mache einen Doppelklick (zwei schnelle Taps) auf die Kreidetafel auf deiner Team-Seite, um den Info-Screen zu öffnen.",
+        "image": "2-spiele/infotafel_vor_berg.png",
         "tip": "Der Button erscheint automatisch, wenn du in Führung bist."
       },
       {
         "number": 2,
-        "text": "Optional: Du kannst noch die restlichen Punkte aufschreiben, musst aber nicht.",
+        "text": "Tippe im Info-Screen auf den gelben 'Bedanken'-Button.",
+        "image": "2-spiele/bedanken.png",
         "warning": "Sobald du bedankst, ist das Spiel vorbei! Stelle sicher, dass dein Team wirklich gewonnen hat."
       },
       {
         "number": 3,
-        "text": "Das Spiel ist jetzt beendet. Um die Statistiken zu speichern, musst du auf 'Jass beenden' klicken (siehe 'Spiel beenden')."
+        "text": "Optional: Du kannst noch die restlichen Punkte aufschreiben, musst aber nicht."
       },
       {
         "number": 4,
-        "text": "Fertig! Du kannst jetzt ein neues Spiel starten oder das Resultat teilen."
+        "text": "Das Spiel ist jetzt beendet. Um die Statistiken zu speichern, musst du auf 'Jass beenden' klicken (siehe 'Spiel beenden')."
       }
     ],
     "images": [],
@@ -1258,17 +1258,18 @@
       "hälfte",
       "info-screen"
     ],
-    "description": "So schreibst du einen Berg, wenn ein Team die Hälfte der Punkte erreicht hat.",
+    "description": "So schreibst du einen Berg.",
     "steps": [
       {
         "number": 1,
-        "text": "Öffne den Info-Screen durch Doppelklick auf die Kreidetafel auf der Seite vom Team, das den Berg schreiben kann.",
-        "image": "2-spiele/berg_markierung.webp",
+        "text": "Mache einen Doppelklick (zwei schnelle Taps) auf die Kreidetafel auf der Seite des Teams, das den Berg schreiben möchte. Der Info-Screen öffnet sich.",
+        "image": "2-spiele/infotafel_vor_berg.png",
         "tip": "Im Info-Screen siehst du oben, wie viele Punkte deinem Team noch bis zum Berg fehlen."
       },
       {
         "number": 2,
         "text": "Wenn dein Team die Hälfte der Zielpunkte erreicht hat (z.B. 1250 bei einem Spiel auf 2500), tippe auf den gelben 'Berg'-Button im Info-Screen auf der Seite deines Teams.",
+        "image": "2-spiele/berg.png",
         "tip": "Wichtig: Du musst den Berg MANUELL schreiben - die App zeigt dir nur an, wie viele Punkte noch fehlen!"
       },
       {
@@ -1368,12 +1369,12 @@
       "bedanken",
       "info-screen"
     ],
-    "description": "So schreibst du einen Sieg, wenn dein Team gewonnen hat.",
+    "description": "So schreibst du einen Sieg.",
     "steps": [
       {
         "number": 1,
-        "text": "Öffne den Info-Screen durch Doppelklick auf die Kreidetafel auf der Seite des Teams, das sich bedankt hat.",
-        "image": "2-spiele/sieg_schreiben.webp"
+        "text": "Mache einen Doppelklick (zwei schnelle Taps) auf die Kreidetafel auf der Seite des Teams, das gewonnen hat. Der Info-Screen öffnet sich.",
+        "image": "2-spiele/bedanken.png"
       },
       {
         "number": 2,
@@ -1544,7 +1545,7 @@
       {
         "number": 1,
         "text": "Nach einem beendeten Spiel (z.B. nach dem Bedanken) öffnet sich automatisch die Resultattafel.",
-        "image": "2-spiele/spiel_oder_jass_beenden.webp",
+        "image": "2-spiele/spielstand_nach_bedanken.png",
         "tip": "Auf der Resultattafel siehst du das Ergebnis des aktuellen Spiels."
       },
       {
@@ -3363,7 +3364,7 @@
       {
         "number": 3,
         "text": "Wenn du wirklich aus einer Gruppe willst, melde dich beim Support.",
-        "tip": "E-Mail: remo@jassguru.ch"
+        "tip": "E-Mail: info@jassverband.ch"
       }
     ],
     "images": [],
@@ -3411,7 +3412,7 @@
     "number": "5.3",
     "title": "Profil bearbeiten",
     "category": {
-      "main": "Statistiken & Profil",
+      "main": "Profil",
       "mainId": "statistiken",
       "number": 5
     },
@@ -3490,7 +3491,7 @@
     "number": "5.4",
     "title": "Profilbild hochladen",
     "category": {
-      "main": "Statistiken & Profil",
+      "main": "Profil",
       "mainId": "statistiken",
       "number": 5
     },
@@ -3573,12 +3574,78 @@
     ],
     "tips": []
   },
+  "elo_system": {
+    "id": "elo_system",
+    "number": "5.1",
+    "title": "Jass-Elo: Das Bewertungssystem",
+    "category": {
+      "main": "Profil",
+      "mainId": "statistiken",
+      "number": 5
+    },
+    "difficulty": "mittel",
+    "priority": 1,
+    "tags": ["elo", "rating", "bewertung", "spielstärke", "rangliste", "tier"],
+    "description": "So funktioniert das Jass-Elo-Bewertungssystem — deine individuelle Spielstärke, fair und unabhängig vom Partner.",
+    "steps": [
+      {
+        "number": 1,
+        "text": "Jedes Mal wenn du einen Jass beendest, wird dein Elo-Rating automatisch aktualisiert. Du startest bei 100 Elo-Punkten."
+      },
+      {
+        "number": 2,
+        "text": "Vor jedem Spiel berechnet das System eine Erwartung basierend auf dem Elo deines Teams (Durchschnitt beider Partner) vs. dem Elo des Gegnerteams."
+      },
+      {
+        "number": 3,
+        "text": "Nach dem Spiel wird deine tatsächliche Leistung gemessen — nicht nur Sieg oder Niederlage, sondern die Strichdifferenz (Berg, Sieg, Matsch, Schneider)."
+      },
+      {
+        "number": 4,
+        "text": "Übertriffst du die Erwartung, steigt dein Elo. Bleibst du unter der Erwartung, sinkt es. Je grösser die Überraschung, desto stärker die Änderung."
+      },
+      {
+        "number": 5,
+        "text": "Dein Elo-Rating ist gruppenübergreifend — es misst deine individuelle Spielstärke unabhängig davon, mit wem oder gegen wen du spielst."
+      }
+    ],
+    "images": [],
+    "keywords": ["elo", "rating", "bewertung", "spielstärke", "rangliste", "punkte", "tier", "level", "rang", "score", "jass-elo"],
+    "synonyms": ["elo punkte", "elo system", "ranking", "bewertungssystem", "spielstärke", "rating system"],
+    "userProblems": ["was ist elo", "wie funktioniert elo", "wie funktioniert das rating", "was bedeutet mein elo", "wie bekomme ich mehr elo", "elo punkte erklärt", "was sind die tiers"],
+    "nextSuggested": "profil_bearbeiten",
+    "nextSuggestedText": "Möchtest du als nächstes erfahren, wie du dein Profil bearbeitest?",
+    "seeAlso": ["profil_bearbeiten"],
+    "faq": [
+      {
+        "question": "Was ist ein gutes Elo-Rating?",
+        "answer": "Du startest bei 100 (Jassstudent). Ab 105 bist du Bronzejasser, ab 115 Goldjasser, ab 130 Jasser mit Auszeichnung, und ab 150 erreichst du den höchsten Rang: Göpf Egg."
+      },
+      {
+        "question": "Warum habe ich Elo verloren, obwohl wir gewonnen haben?",
+        "answer": "Wenn dein Team als klarer Favorit nur knapp gewinnt (z.B. wenige Striche Vorsprung), kann das unter der Erwartung liegen. Das System belohnt nicht nur den Sieg, sondern die Leistung relativ zur Erwartung."
+      },
+      {
+        "question": "Zählen Gastmodus-Spiele für Elo?",
+        "answer": "Nein. Nur Spiele von angemeldeten Spielern werden für das Elo-Rating berücksichtigt."
+      },
+      {
+        "question": "Kann mein Elo unter 0 fallen?",
+        "answer": "Theoretisch ja, aber in der Praxis ist das extrem unwahrscheinlich. Das System ist so kalibriert, dass die Änderungen pro Spiel moderat bleiben (K-Faktor = 15)."
+      }
+    ],
+    "tips": [
+      "Dein Elo-Rating findest du in deinem Profil und in der Gruppenrangliste.",
+      "Die Rating-Tiers (von 'Just Egg' bis 'Göpf Egg') geben dir eine schnelle Einordnung deiner Spielstärke.",
+      "Das Elo-System berücksichtigt die Partnerkonstellation — du wirst nicht bestraft, wenn du mit einem schwächeren Partner spielst."
+    ]
+  },
   "service_worker_neu_laden": {
     "id": "service_worker_neu_laden",
     "number": "6.5",
     "title": "Service Worker neu laden (Kill SW)",
     "category": {
-      "main": "Einstellungen & Troubleshooting",
+      "main": "Troubleshooting",
       "mainId": "einstellungen",
       "number": 6
     },
@@ -3673,7 +3740,7 @@
     "number": "6.6",
     "title": "App hängt / Blackscreen",
     "category": {
-      "main": "Einstellungen & Troubleshooting",
+      "main": "Troubleshooting",
       "mainId": "einstellungen",
       "number": 6
     },
@@ -3709,7 +3776,7 @@
       },
       {
         "number": 5,
-        "text": "Wenn nichts hilft: Support kontaktieren (support@jassguru.ch).",
+        "text": "Wenn nichts hilft: Support kontaktieren (info@jassverband.ch).",
         "tip": "Beschreibe genau, was passiert ist und auf welchem Gerät."
       }
     ],
@@ -4496,7 +4563,7 @@
     "number": "6.10",
     "title": "Offline-Modus nutzen",
     "category": {
-      "main": "Einstellungen & Troubleshooting",
+      "main": "Troubleshooting",
       "mainId": "einstellungen",
       "number": 6
     },
@@ -4589,7 +4656,7 @@
   },
   "symbole_erklaeren": {
     "id": "symbole_erklaeren",
-    "number": "2.21",
+    "number": "2.25",
     "title": "Symbole in der App erklären",
     "category": {
       "main": "Spiele & Partien",
