@@ -314,9 +314,9 @@ body.landing-page * {
   --hero-felt-top: -14%;
   --hero-felt-radius: 3.097vw;
   --hero-felt-border: 16px;
-  --hero-logo-top: 5%;
-  --hero-logo-size: 160px;
-  --hero-title-top: 31%;
+  --hero-logo-top: 8%;
+  --hero-logo-size: 200px;
+  --hero-title-top: 33%;
   --hero-title-size: clamp(24px, 5.208vw, 75px);
   --hero-title-line-height: 1.0;
   --hero-title-max-width: 771px;
