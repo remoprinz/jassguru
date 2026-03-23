@@ -315,8 +315,8 @@ body.landing-page * {
   --hero-felt-radius: 3.097vw;
   --hero-felt-border: 16px;
   /* Eine Spalte: Figur → H1 → Sub → CTA (kein Überlappen mehr) */
-  --hero-stack-top: 5.5%;
-  --hero-logo-max-width: 148px;
+  --hero-stack-top: 4%;
+  --hero-logo-max-width: 180px;
   --hero-title-size: clamp(24px, 5.208vw, 75px);
   --hero-title-line-height: 1.12;
   --hero-title-max-width: 771px;
