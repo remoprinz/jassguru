@@ -181,107 +181,106 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onInstall, onLogin }) => {
         </motion.div>
       ))}
 
-      {/* ── JASSGURU FIGUR (hinter Typo, z-10) ───────────────────── */}
-      <motion.div
-        className="absolute z-10 left-0 right-0 flex justify-center pointer-events-none"
-        style={{ top: 'var(--hero-logo-top)' }}
-        initial={{ opacity: 0, scale: 0.85 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.6, delay: 0.05 }}
+      {/* ── Figur → H1 → Sub → CTA (eine Spalte, kein Überlappen) ─ */}
+      <div
+        className="absolute z-20 left-0 right-0 flex flex-col items-center gap-0 px-4 pointer-events-none [&_.hero-cta-stack]:pointer-events-auto"
+        style={{ top: 'var(--hero-stack-top)' }}
       >
-        <Image
-          src="/welcome-guru.png"
-          alt="JassGuru"
-          width={160}
-          height={160}
-          className="object-contain drop-shadow-lg"
-          style={{ width: 'var(--hero-logo-size)', height: 'auto' }}
-        />
-      </motion.div>
+        <motion.div
+          className="flex shrink-0 justify-center relative z-10"
+          initial={{ opacity: 0, scale: 0.85 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.6, delay: 0.05 }}
+        >
+          <Image
+            src="/welcome-guru.png"
+            alt="JassGuru"
+            width={160}
+            height={160}
+            className="object-contain drop-shadow-lg h-auto w-auto max-h-[20vh] sm:max-h-[22vh] md:max-h-[24vh] lg:max-h-[26vh]"
+            style={{ maxWidth: 'var(--hero-logo-max-width)' }}
+          />
+        </motion.div>
 
-      {/* ── HEADLINE ───────────────────────────────────────────── */}
-      <motion.div
-        className="absolute z-30 left-0 right-0 flex justify-center"
-        style={{ top: 'var(--hero-title-top)' }}
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, delay: 0.1 }}
-      >
-        <h1
-          style={{
-            textAlign: 'center',
-            maxWidth: 'var(--hero-title-max-width)',
-            width: '90%',
-            fontFamily: "'Capita', Georgia, serif",
-            fontWeight: 700,
-            fontSize: 'var(--hero-title-size)',
-            lineHeight: 'var(--hero-title-line-height)',
-            letterSpacing: '-0.96px',
-            color: '#ffffff',
-            textShadow: '0 2px 20px rgba(0,0,0,0.3)',
-          }}
+        <motion.div
+          className="flex w-full justify-center"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.1 }}
         >
-          Die offizielle Jass-App{'\n'}der Schweiz
-        </h1>
-      </motion.div>
+          <h1
+            style={{
+              textAlign: 'center',
+              maxWidth: 'var(--hero-title-max-width)',
+              width: '90%',
+              fontFamily: "'Capita', Georgia, serif",
+              fontWeight: 700,
+              fontSize: 'var(--hero-title-size)',
+              lineHeight: 'var(--hero-title-line-height)',
+              letterSpacing: '-0.96px',
+              color: '#ffffff',
+              textShadow: '0 2px 20px rgba(0,0,0,0.3)',
+              marginTop: '-1.5rem',
+            }}
+          >
+            Die offizielle Jass-App{'\n'}der Schweiz
+          </h1>
+        </motion.div>
 
-      {/* ── SUBTITLE ───────────────────────────────────────────── */}
-      <motion.div
-        className="absolute z-30 left-0 right-0 flex justify-center"
-        style={{ top: 'var(--hero-subtitle-top)' }}
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, delay: 0.2 }}
-      >
-        <p
-          style={{
-            textAlign: 'center',
-            maxWidth: 'var(--hero-subtitle-max-width)',
-            width: 'var(--hero-subtitle-width)',
-            fontFamily: "'Inter', system-ui, sans-serif",
-            fontWeight: 400,
-            fontSize: 'var(--hero-subtitle-size)',
-            lineHeight: 1.45,
-            color: 'rgba(255,255,255,0.92)',
-            textShadow: '0 1px 8px rgba(0,0,0,0.2)',
-          }}
+        <motion.div
+          className="flex w-full justify-center"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.2 }}
         >
-          Jasstafel, Rangliste, Profil und Turniere — alles was deine
-          Jassgruppe braucht.
-        </p>
-      </motion.div>
+          <p
+            style={{
+              textAlign: 'center',
+              maxWidth: 'var(--hero-subtitle-max-width)',
+              width: 'var(--hero-subtitle-width)',
+              fontFamily: "'Inter', system-ui, sans-serif",
+              fontWeight: 400,
+              fontSize: 'var(--hero-subtitle-size)',
+              lineHeight: 1.45,
+              color: 'rgba(255,255,255,0.92)',
+              textShadow: '0 1px 8px rgba(0,0,0,0.2)',
+            }}
+          >
+            Jasstafel, Rangliste, Profil und Turniere — alles was deine
+            Jassgruppe braucht.
+          </p>
+        </motion.div>
 
-      {/* ── CTA ────────────────────────────────────────────────── */}
-      <motion.div
-        className="absolute z-30 left-0 right-0 flex flex-col items-center gap-5"
-        style={{ top: 'var(--hero-cta-top)' }}
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, delay: 0.35 }}
-      >
-        <button
-          onClick={onInstall}
-          className="landing-cta-btn px-8 py-4 text-white font-bold rounded-full whitespace-nowrap"
-          style={{
-            fontSize: '17px',
-            ['--landing-cta-bg' as string]: '#16a34a',
-            ['--landing-cta-bg-hover' as string]: '#15803d',
-            ['--landing-cta-shadow' as string]: '0 2px 8px rgba(22, 163, 74, 0.3)',
-            ['--landing-cta-shadow-hover' as string]: '0 6px 18px rgba(22, 163, 74, 0.42)',
-          }}
+        <motion.div
+          className="hero-cta-stack flex w-full flex-col items-center gap-5"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.35 }}
         >
-          App installieren
-          <svg className="w-5 h-5 ml-2 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-          </svg>
-        </button>
-        <button
-          onClick={onLogin}
-          className="text-white/60 hover:text-white text-sm transition-colors underline underline-offset-2"
-        >
-          Bereits ein Konto? Anmelden
-        </button>
-      </motion.div>
+          <button
+            onClick={onInstall}
+            className="landing-cta-btn px-8 py-4 text-white font-bold rounded-full whitespace-nowrap"
+            style={{
+              fontSize: '17px',
+              ['--landing-cta-bg' as string]: '#16a34a',
+              ['--landing-cta-bg-hover' as string]: '#15803d',
+              ['--landing-cta-shadow' as string]: '0 2px 8px rgba(22, 163, 74, 0.3)',
+              ['--landing-cta-shadow-hover' as string]: '0 6px 18px rgba(22, 163, 74, 0.42)',
+            }}
+          >
+            App installieren
+            <svg className="w-5 h-5 ml-2 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+            </svg>
+          </button>
+          <button
+            onClick={onLogin}
+            className="text-white/60 hover:text-white text-sm transition-colors underline underline-offset-2"
+          >
+            Bereits ein Konto? Anmelden
+          </button>
+        </motion.div>
+      </div>
 
       {/* ── SCROLL INDICATOR ───────────────────────────────────── */}
       <motion.div
