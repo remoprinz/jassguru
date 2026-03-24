@@ -26,6 +26,7 @@ import GlobalLoader from '@/components/layout/GlobalLoader';
 import FullscreenLoader from '@/components/ui/FullscreenLoader';
 import { SeoHead } from "@/components/layout/SeoHead";
 import { fixChromeScaling, detectBrowserScaling } from '../utils/browserFix';
+import { useJvsMembershipRefresh } from '../hooks/useJvsMembershipRefresh';
 import { CanonicalLink } from '@/components/seo/CanonicalLink';
 
 // App-Watchdog in index.html verschoben für frühere Ausführung
@@ -87,6 +88,8 @@ const MyApp = ({Component, pageProps}: AppProps) => {
   useViewportHeight();
   // 🚀 NEU: Background Image Optimization für bessere Performance
   useBackgroundOptimization();
+  // JVS Membership: Refresh bei App-Fokus (nach Zahlung sofort sichtbar)
+  useJvsMembershipRefresh();
   
   // Client-seitige Initialisierung: Watchdog aus index.html entfernen
   useEffect(() => {
