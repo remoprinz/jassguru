@@ -59,6 +59,8 @@ import {
 } from '@/services/chartDataService';
 // ✅ NEU: Hilfsfunktion für Ranglisten aus Backfill-Daten
 import { getRankingFromChartData, getTeamRankingFromChartData } from '@/utils/chartRankingUtils';
+// JVS Membership
+import { useAuthStore } from '@/store/authStore';
 
 // Props für Schritt 4: Komplette Statistik-Inhalte
 interface GroupViewProps {
@@ -214,6 +216,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
 }) => {
   // 🎨 RESPONSIVE LAYOUT HOOK - Desktop/Tablet/Mobile Optimierung
   const layout = useResponsiveLayout();
+
+  // JVS Membership — für Gruppen-Badge (prüft ob aktueller User Mitglied ist)
+  const jvsMembership = useAuthStore((s) => s.jvsMembership);
   
   // ✅ NEU: Notification für neue Nutzer, die über Einladungslink beigetreten sind
   useEffect(() => {
@@ -1763,6 +1768,17 @@ export const GroupView: React.FC<GroupViewProps> = ({
           >
             {currentGroup?.name ?? (groupStatus === 'loading' ? <Skeleton className={`${layout.skeletonTitleHeight} w-48 mx-auto`} /> : 'Keine Gruppe ausgewählt')}
           </h1>
+
+          {/* JVS-verifiziert Badge — wenn ein Admin der Gruppe JVS-Mitglied ist */}
+          {jvsMembership?.isMember && isAdmin && currentGroup && (
+            <div className="flex items-center justify-center gap-1.5 mb-1">
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-600/20 border border-blue-500/30 px-3 py-0.5 text-xs font-medium text-blue-400">
+                <FaAward className="w-3 h-3" />
+                JVS-verifiziert
+              </span>
+            </div>
+          )}
+
           <div className={`${layout.subtitleSize} text-gray-300 mx-auto max-w-xl break-words mt-3`}>
             {currentGroup ? (
               <FormattedDescription 
@@ -3830,8 +3846,8 @@ export const GroupView: React.FC<GroupViewProps> = ({
         onCropComplete={handleCropComplete}
       />
 
-      {/* LEGAL FOOTER */}
-      <LegalFooter />
+      {/* LEGAL FOOTER: erst nach Stats-Laden, damit die Public View nicht mit Footer oben startet */}
+      {(!statsLoading || statsError) && <LegalFooter />}
 
     </MainLayout>
     </>
