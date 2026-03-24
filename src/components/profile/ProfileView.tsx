@@ -2033,7 +2033,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             <div className="flex items-center justify-center gap-1.5 mb-1">
               <span className="inline-flex items-center gap-1 rounded-full bg-blue-600/20 border border-blue-500/30 px-3 py-0.5 text-xs font-medium text-blue-400">
                 <FaAward className="w-3 h-3" />
-                JVS-Mitglied
+                {jvsMembership.memberNumber
+                  ? `JVS #${String(jvsMembership.memberNumber).padStart(3, '0')}`
+                  : 'JVS-Mitglied'}
+                {jvsMembership.season && ` · Saison ${jvsMembership.season}`}
               </span>
             </div>
           )}

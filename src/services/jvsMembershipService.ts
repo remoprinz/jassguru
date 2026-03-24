@@ -12,6 +12,8 @@ export interface JvsMembershipResult {
   isMember: boolean;
   memberId?: string;
   membershipType?: string; // 'single' | 'partner' | 'patron' | 'jugend' | 'goenner'
+  memberNumber?: number | null;
+  season?: number | null;
   validUntil?: string; // ISO date
   memberSince?: string; // ISO date
   expired?: boolean;

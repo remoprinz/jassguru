@@ -44,6 +44,8 @@ export interface JvsMember {
   
   // Mitgliedschaft
   membershipType: MembershipType;
+  memberNumber?: number;
+  season?: number;
   memberSince: admin.firestore.Timestamp;
   validUntil: admin.firestore.Timestamp;
   status: MembershipStatus;
@@ -304,6 +306,8 @@ export const checkJvsMembership = onCall<CheckJvsMembershipData>({
       isMember: true,
       memberId: member.id,
       membershipType: member.membershipType,
+      memberNumber: member.memberNumber || null,
+      season: member.season || null,
       validUntil: member.validUntil.toDate().toISOString(),
       memberSince: member.memberSince.toDate().toISOString()
     };
