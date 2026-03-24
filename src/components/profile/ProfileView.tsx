@@ -40,6 +40,8 @@ import type { ThemeColor } from '@/config/theme';
 import { generateBlurPlaceholder } from '@/utils/imageOptimization';
 // NEU: Jass-Elo Service
 import { loadPlayerRatings, type PlayerRatingWithTier } from '@/services/jassElo';
+// JVS Membership
+import { useAuthStore } from '@/store/authStore';
 import { db } from '@/services/firebaseInit';
 import { doc, getDoc } from 'firebase/firestore';
 // NEU: Responsive Layout Hook
@@ -195,6 +197,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   
   // NEU: Responsive Layout Hook
   const layout = useResponsiveLayout();
+
+  // JVS Membership Status (nur für eigenes Profil)
+  const jvsMembership = useAuthStore((s) => s.jvsMembership);
 
   // Neu: State für Bildladung
   const [isImageLoading, setIsImageLoading] = useState(true);
@@ -2017,11 +2022,36 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         </div>
 
         <div className="w-full text-center mb-6 px-4">
-          <h1 
+          <h1
             className={`${layout.titleSize} font-bold font-headline mb-1 text-white break-words transition-colors duration-300`}
           >
             {displayName || <Skeleton className={`${layout.skeletonTitleHeight} w-48 mx-auto`} />}
           </h1>
+
+          {/* JVS-Mitglied Badge */}
+          {!isPublicView && jvsMembership?.isMember && (
+            <div className="flex items-center justify-center gap-1.5 mb-1">
+              <span className="inline-flex items-center gap-1 rounded-full bg-red-600/20 border border-red-500/30 px-3 py-0.5 text-xs font-medium text-red-400">
+                <FaAward className="w-3 h-3" />
+                JVS-Mitglied
+              </span>
+            </div>
+          )}
+
+          {/* Mitgliedschaft-Hinweis für Nicht-Mitglieder */}
+          {!isPublicView && jvsMembership !== null && !jvsMembership.isMember && (
+            <div className="flex items-center justify-center gap-1.5 mb-1">
+              <a
+                href="https://jassverband.ch/mitmachen"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded-full bg-gray-700/50 border border-gray-600/30 px-3 py-0.5 text-xs text-gray-400 hover:text-gray-300 hover:border-gray-500/50 transition-colors"
+              >
+                <FaAward className="w-3 h-3" />
+                Mitglied werden
+              </a>
+            </div>
+          )}
           
           {/* NEU: Jass-Elo Rating unterhalb des Namens */}
           {playerRating && (
@@ -4402,8 +4432,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </TabsContent>
         </Tabs>
         
-        {/* LEGAL FOOTER */}
-        <LegalFooter />
+        {/* LEGAL FOOTER: erst nach Stats-Laden, damit die Public View nicht mit Footer oben startet */}
+        {(!statsLoading || statsError) && <LegalFooter />}
         </div> {/* End Responsive Container Wrapper */}
       </div>
     </MainLayout>

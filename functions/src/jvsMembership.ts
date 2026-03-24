@@ -468,3 +468,4 @@ export const getJvsMemberDetails = onCall({
     throw new HttpsError('internal', 'Details konnten nicht geladen werden.');
   }
 });
+

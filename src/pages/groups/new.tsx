@@ -40,7 +40,7 @@ const createGroupSchema = z.object({
 type CreateGroupFormValues = z.infer<typeof createGroupSchema>;
 
 const CreateGroupPage: React.FC = () => {
-  const {user, status, isAuthenticated} = useAuthStore();
+  const {user, status, isAuthenticated, jvsMembership} = useAuthStore();
   const showNotification = useUIStore((state) => state.showNotification);
   const setPageCta = useUIStore((state) => state.setPageCta);
   const resetPageCta = useUIStore((state) => state.resetPageCta);
@@ -67,6 +67,9 @@ const CreateGroupPage: React.FC = () => {
       router.push("/auth/login");
     }
   }, [status, isAuthenticated, router]);
+
+  // Membership-Gate: Nur JVS-Mitglieder können Gruppen erstellen
+  const isMember = jvsMembership?.isMember === true;
 
   // Header Konfiguration
   useEffect(() => {
@@ -311,6 +314,37 @@ const CreateGroupPage: React.FC = () => {
   const handleGoBack = () => {
     router.back();
   };
+
+  // Membership-Gate: Nur JVS-Mitglieder können Gruppen erstellen
+  if (!isMember) {
+    return (
+      <MainLayout>
+        <SeoHead noIndex={true} />
+        <div className="flex flex-1 flex-col items-center justify-center p-6 text-white text-center">
+          <div className="max-w-md space-y-6">
+            <h1 className="text-2xl font-bold">Mitgliedschaft erforderlich</h1>
+            <p className="text-gray-300 leading-relaxed">
+              Um eine eigene Jassgruppe zu erstellen, brauchst du eine Lizenz beim Jassverband Schweiz.
+              Keine Vereinsbürokratie — einfach Lizenz lösen und loslegen.
+            </p>
+            <div className="flex flex-col gap-3">
+              <a
+                href="https://jassverband.ch/mitmachen"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center rounded-full bg-red-600 px-6 py-3 font-bold text-white hover:bg-red-700 transition-colors"
+              >
+                Lizenz lösen auf jassverband.ch
+              </a>
+              <Button variant="ghost" onClick={handleGoBack} className="text-gray-400">
+                Zurück
+              </Button>
+            </div>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>

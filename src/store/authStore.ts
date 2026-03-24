@@ -23,6 +23,7 @@ import {useGroupStore} from "./groupStore";
 import {doc, onSnapshot, Unsubscribe, FirestoreError, getDoc, serverTimestamp, setDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { PLAYERS_COLLECTION, USERS_COLLECTION } from "@/constants/firestore";
 import { getPlayerIdForUser, syncDisplayNameAcrossCollections } from "../services/playerService";
+import { checkJvsMembership, type JvsMembershipResult } from "../services/jvsMembershipService";
 import Router from 'next/router';
 import { THEME_COLORS } from '@/config/theme';
 
@@ -35,6 +36,7 @@ interface AuthState {
   isGuest: boolean;
   isLoggingOut: boolean;
   uploadStatus?: "idle" | "loading" | "success" | "error";
+  jvsMembership: JvsMembershipResult | null;
 }
 
 interface AuthActions {
@@ -53,6 +55,7 @@ interface AuthActions {
   resendVerificationEmail: () => Promise<void>;
   uploadProfilePicture: (file: File) => Promise<void>;
   updateProfile: (updates: { displayName?: string; statusMessage?: string; profileTheme?: string; profileCardStyle?: "DE" | "FR" }) => Promise<void>;
+  refreshJvsMembership: () => Promise<void>;
 }
 
 type AuthStore = AuthState & AuthActions;
@@ -79,6 +82,7 @@ export const useAuthStore = create<AuthStore>()(
       isGuest: false,
       isLoggingOut: false,
       uploadStatus: "idle",
+      jvsMembership: null,
 
       // Aktionen
       setAuthUser: async (firebaseUser: User) => {
@@ -141,6 +145,40 @@ export const useAuthStore = create<AuthStore>()(
             await useGroupStore.getState().loadUserGroupsByPlayerId(playerId);
           }
 
+          // JVS Membership-Status laden (nicht-blockierend)
+          checkJvsMembership().then(result => {
+            set({ jvsMembership: result });
+
+            // Ablauf-Warnung prüfen
+            if (result.isMember && result.validUntil) {
+              const validUntil = new Date(result.validUntil);
+              const now = new Date();
+              const daysLeft = Math.ceil((validUntil.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+              if (daysLeft <= 0) {
+                useUIStore.getState().showNotification({
+                  type: 'warning',
+                  message: 'Deine JVS-Lizenz ist abgelaufen. Erneuere sie auf jassverband.ch/mitmachen',
+                  duration: 10000,
+                });
+              } else if (daysLeft <= 7) {
+                useUIStore.getState().showNotification({
+                  type: 'warning',
+                  message: `Deine JVS-Lizenz läuft in ${daysLeft} Tagen ab.`,
+                  duration: 8000,
+                });
+              } else if (daysLeft <= 30) {
+                useUIStore.getState().showNotification({
+                  type: 'info',
+                  message: `Deine JVS-Lizenz läuft in ${daysLeft} Tagen ab.`,
+                  duration: 6000,
+                });
+              }
+            }
+          }).catch(() => {
+            set({ jvsMembership: { isMember: false } });
+          });
+
         } catch (error) {
            console.error("AUTH_STORE: Fehler bei der Anreicherung des Benutzers in setAuthUser:", error);
            set({ status: "error", error: "Fehler beim Laden der Profildaten." });
@@ -157,7 +195,7 @@ export const useAuthStore = create<AuthStore>()(
         if (process.env.NODE_ENV === 'development') {
           console.log('AUTH_STORE: setUnauthenticated called.');
         }
-        set({ user: null, firebaseUser: null, status: "unauthenticated", isGuest: wasGuest });
+        set({ user: null, firebaseUser: null, status: "unauthenticated", isGuest: wasGuest, jvsMembership: null });
         useGroupStore.getState().resetGroupStore();
       },
 
@@ -881,6 +919,16 @@ export const useAuthStore = create<AuthStore>()(
       },
       clearError: () => {
         set({error: null});
+      },
+
+      refreshJvsMembership: async () => {
+        try {
+          const result = await checkJvsMembership();
+          set({ jvsMembership: result });
+        } catch (error) {
+          console.error('AUTH_STORE: JVS membership check failed:', error);
+          set({ jvsMembership: { isMember: false } });
+        }
       },
     }),
     {

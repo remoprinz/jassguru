@@ -60,7 +60,7 @@ const TOURNAMENT_DEFAULT_FARBE_SETTINGS: FarbeSettings = {
 
 const NewTournamentPage: React.FC = () => {
   const router = useRouter();
-  const { user, status: authStatus, isAuthenticated } = useAuthStore();
+  const { user, status: authStatus, isAuthenticated, jvsMembership } = useAuthStore();
   const { currentGroup, status: groupStatus } = useGroupStore();
   const {
     createTournament,
@@ -252,6 +252,36 @@ const NewTournamentPage: React.FC = () => {
         <div className="flex flex-1 flex-col items-center justify-center min-h-[calc(100vh-112px)]">
           <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
           <span className="ml-3 text-white">Prüfe Berechtigungen...</span>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Membership-Gate: Nur JVS-Mitglieder können Turniere erstellen
+  if (jvsMembership?.isMember !== true) {
+    return (
+      <MainLayout>
+        <div className="flex flex-1 flex-col items-center justify-center p-6 text-white text-center">
+          <div className="max-w-md space-y-6">
+            <h1 className="text-2xl font-bold">Mitgliedschaft erforderlich</h1>
+            <p className="text-gray-300 leading-relaxed">
+              Um ein Turnier zu erstellen, brauchst du eine Lizenz beim Jassverband Schweiz.
+              Keine Vereinsbürokratie — einfach Lizenz lösen und loslegen.
+            </p>
+            <div className="flex flex-col gap-3">
+              <a
+                href="https://jassverband.ch/mitmachen"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center rounded-full bg-red-600 px-6 py-3 font-bold text-white hover:bg-red-700 transition-colors"
+              >
+                Lizenz lösen auf jassverband.ch
+              </a>
+              <Button variant="ghost" onClick={handleGoBack} className="text-gray-400">
+                Zurück
+              </Button>
+            </div>
+          </div>
         </div>
       </MainLayout>
     );
