@@ -1368,16 +1368,22 @@ export const fetchTournamentsForUser = async (
       queries.push(query(tournamentsCol, where("participantUids", "array-contains", userId)));
     }
     
-    const results = await Promise.all(queries.map(q => getDocs(q)));
+    // Jede Query einzeln ausführen — wenn eine fehlschlägt (z.B. fehlender Index), andere trotzdem nutzen
+    const results = await Promise.all(
+      queries.map(q => getDocs(q).catch(err => {
+        console.warn(`[tournamentService] Query failed (non-critical):`, err?.code || err?.message);
+        return { forEach: () => {} } as any; // Leeres Ergebnis bei Fehler
+      }))
+    );
     const instances: TournamentInstance[] = [];
     const seenIds = new Set<string>();
-    
+
     results.forEach(querySnapshot => {
-      querySnapshot.forEach((doc) => {
+      querySnapshot.forEach((doc: any) => {
         if (!seenIds.has(doc.id)) {
           seenIds.add(doc.id);
           const tournamentData = { id: doc.id, ...doc.data() } as TournamentInstance;
-          
+
           // ✅ ELEGANTE VERIFIZIERUNG: Nutze zentrale Funktion
           if (isUserTournamentParticipant(tournamentData, userId, playerId)) {
             instances.push(tournamentData);
